@@ -1,0 +1,85 @@
+/*
+func ref_test( r : ref mod Int ) {
+    r .= 32;
+} 
+*/
+
+func assert(expected : Boolean, actual : Boolean) {
+    if expected == actual {
+        return
+    }
+    if expected {
+        tx.c.puts(c"Expected TRUE but was FALSE")
+    }
+    else {
+        tx.c.puts(c"Expected FALSE but was TRUE")
+    }
+}
+
+func assert(expected : Int, actual : Int) {
+    if expected == actual {
+        return
+    }
+    tx.c.puts(c"Expected M but was N")
+}
+
+func print(b : Boolean) {
+    if b {
+        tx.c.puts(c"TRUE")
+    }
+    else {
+        tx.c.puts(c"FALSE")
+    }
+}
+
+func basic_ref_syntax() Int {
+    otherO : ~Int = 2
+    __o : ~ Int
+    _ro : ~ & ~ Int
+    rro : ~ & ~ & ~ Int
+    
+    __o   = otherO
+    _ro   = &__o
+    rro   = &_ro
+    
+    assert(2, __o)
+    _ro^  = 3         ; assert(3, __o)
+    rro^^ = 4         ; assert(4, __o)
+    
+    rro^  = &otherO   ; assert(2, otherO)
+    _ro^  = 3         ; assert(3, otherO)
+    rro^^ = 4         ; assert(4, otherO)
+
+    /*
+    b : ~Boolean
+    b =   __o   == otherO  ; assert(TRUE, b)
+    b =   _ro^  == otherO
+    b =   rro^^ == otherO
+    
+    b =   &__o  == &otherO
+    b =    _ro  == &otherO
+    b =    rro^ == &otherO
+
+    b =   __o   < otherO
+    b =   _ro^  < otherO
+    b =   rro^^ < otherO
+    */
+
+    /*
+    __o   += otherO
+    _ro^  += otherO
+    rro^^ += otherO
+    
+    __o.normalize()
+    _ro.normalize()  // syntactic sugar
+    _ro^.normalize()
+    rro^.normalize()  // syntactic sugar
+    rro^^.normalize()
+    */
+
+    return __o + _ro^ + rro^^
+}
+
+func main() Int {
+    return basic_ref_syntax()
+}

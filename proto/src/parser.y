@@ -1,0 +1,591 @@
+%require "3.0"  // initially authored with Bison 3.0.2
+%language "C++"
+%skeleton "lalr1.cc"
+
+%defines
+%define parser_class_name {TxParser}
+//%define api.token.constructor
+%define api.value.type variant
+//%define parse.assert
+
+// Pass the parsing context to yylex() and yyparse()
+%param { TxDriver& driver }
+%locations  // populates YYLTYPE
+
+
+// what YYSTYPE and YYLTYPE require:
+%code requires
+{
+#include <string>
+#include "ast.hpp"
+class TxDriver;
+}
+
+// Tell Flex the lexer's prototype:
+%code provides
+{
+# define YY_DECL                    \
+  yy::TxParser::token_type                         \
+  yylex (yy::TxParser::semantic_type* yylval,      \
+         yy::TxParser::location_type* yylloc,      \
+         TxDriver& driver)
+//# define YY_DECL \
+//        yy::TxParser::symbol_type yylex(TxDriver& driver)
+// declare yylex for the parser's sake
+YY_DECL;
+}
+
+%{
+#include "tx_lang_defs.hpp"
+#include "tx_operations.hpp"
+%}
+
+
+%initial-action
+{
+    // Initialize the initial location.
+    // Afterward new locations are computed relatively to the previous locations: the file name will be propagated.
+    @$.begin.filename = @$.end.filename = &driver.current_input_filepath();
+};
+
+
+// include parser instrumentation for tracing; displayed if variable yydebug / parser.set_debug_level() is set to non-zero value
+%define parse.trace true  // (previously %debug)
+%define parse.error verbose
+
+// no longer used in C++ parser:
+//%define parse.lac full  // look-ahead correction upon error ("experimental" feature of bison)
+//%define api.pure full // define as pure, reentrant parser (also requires modification to lexer invocation)
+
+// enable debug printout of symbol content
+%printer { yyoutput << $$; } <std::string>;
+%printer { yyoutput << "declflag " << $$; } <TxDeclarationFlags>;
+%printer { yyoutput << $$; } <bool>;
+//%printer { yyoutput << $$; } <*>;
+
+
+/* Define our terminal symbols (tokens). This should match our .l lex file.
+ We also define the node type they represent.
+ */
+
+/* operators: */
+%token END 0  // end of scan
+%token NL SEMICOLON // statement separator
+%token DOT COLON COMMA ASTERISK PLUS MINUS FSLASH BSLASH AAND
+%token PIPE CARET TILDE AT PERCENT DOLLAR EURO LPAREN RPAREN LBRACE
+%token RBRACE LBRACKET RBRACKET QMARK EMARK
+%token EQUAL EEQUAL NEQUAL EEEQUAL NEEQUAL LT GT LEQUAL GEQUAL
+%token COLEQUAL PLUSEQUAL MINUSEQUAL ASTERISKEQUAL FSLASHEQUAL
+
+/* keywords: */
+%token KW_MODULE KW_IMPORT KW_PUBLIC KW_PROTECTED KW_STATIC KW_TYPE KW_CLASS KW_INTERFACE KW_ABSTRACT
+%token KW_FINAL KW_OVERRIDE KW_MODIFIABLE KW_REFERENCE KW_EXTENDS KW_IMPLEMENTS KW_SUBTYPE
+%token KW_FUNC KW_TUPLE KW_UNION KW_ENUM
+%token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_OR
+%token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
+%token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_FROM
+
+/* keywords reserved but not currently used */
+%token KW_AND KW_XOR KW_NOT KW_BUILTIN
+
+ /* literals: */
+%token <std::string> NAME LIT_INTEGER LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
+
+/* Define the type of node our nonterminal symbols represent.
+   The types refer to the %union declaration above.
+ */
+%type <TxDeclarationFlags> declaration_flags
+%type <bool> opt_modifiable
+%type <std::string> new_field_name function_name
+%type <TxIdentifier*> identifier
+
+%type <TxParsingUnitNode*> parsing_unit
+%type <TxModuleNode*> sub_module
+%type <std::vector<TxImportNode*> *> import_statements opt_import_stmts
+%type <TxImportNode *> import_statement
+%type <std::vector<TxDeclarationNode*> *> module_members opt_module_members type_members opt_type_members
+%type <TxDeclarationNode *> module_member member_declaration
+%type <TxTypeNameDeclNode *> new_type_name
+%type <std::vector<TxTypeNameDeclNode*> *> type_param_list
+%type <std::vector<TxIdentifiedTypeNode*> *> opt_base_types predef_type_list
+%type <TxTypeArgumentNode *> type_arg
+%type <std::vector<TxTypeArgumentNode*> *> type_arg_list
+%type <TxFieldDefNode*> field_def field_type_def field_assignment_def direct_function_def
+%type <std::vector<TxFieldDefNode*> *> params_def field_type_list
+%type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression return_type_def
+%type <TxTypeExpressionNode*> reference_type array_type data_tuple_type
+%type <TxIdentifiedTypeNode*> predef_type
+%type <TxFunctionTypeNode*> function_type function_header
+%type <TxExpressionNode*> expr lambda_expr value_literal array_dimensions
+%type <TxFunctionCallNode*> call_expr
+%type <std::vector<TxExpressionNode*> *> expression_list call_params
+// %type <TxIdentifierNode*> import_identifier type_identifier field_identifier module_identifier dataspace_identifier
+%type <TxIdentifierNode*> gen_identifier
+%type <TxIdentifierNode*> module_declaration opt_module_decl opt_dataspace
+%type <TxSuiteNode*> suite
+%type <std::vector<TxStatementNode*> *> statement_list
+%type <TxStatementNode*> statement assignment_stmt return_stmt break_stmt continue_stmt
+%type <TxStatementNode*> non_cond_stmt cond_stmt cond_else_stmt else_clause
+%type <TxAssigneeNode*> assignee_expr
+
+
+/* Operator precedence for expression operators (higher line no = higher precedence) */
+%precedence STMT /* used to specify statement / member rule precedence, to be lower than e.g. separator  */
+%precedence EXPR
+%left COMMA COLON
+%right EQUAL
+%left EEQUAL NEQUAL LT GT LEQUAL GEQUAL
+%left PLUS MINUS
+%left ASTERISK FSLASH
+%precedence NEG   /* negation--unary minus */
+%precedence LPAREN RPAREN  LBRACE RBRACE
+%precedence CARET /* unary de-reference */
+%precedence ADDR  /* unary address-of */
+%precedence LBRACKET RBRACKET
+%precedence DOT
+%right KW_MODULE KW_IMPORT  /* high token shift precedence */
+%right KW_ELSE
+%right NL SEMICOLON     /* semantic statement separator, always/greedily shift */
+
+%start parsing_unit
+
+%%
+
+sep_token : NL | SEMICOLON ;
+sep       : sep_token %prec STMT
+          | sep sep_token %prec NL ;     // one or more successive separator tokens
+opt_sep   : sep     %prec NL     // zero or more successive separator tokens
+          | %empty  %prec STMT;  // (lower prio to reduce than shift another separator token)
+
+// tokens that may be adjacent to any number of successive separators:
+sCOMMA  : COMMA opt_sep   %prec COMMA;
+sCOLON  : COLON opt_sep   %prec COLON;
+sEQUAL  : EQUAL opt_sep   %prec EQUAL;
+sLPAREN : LPAREN opt_sep  %prec LPAREN;
+sRPAREN : opt_sep RPAREN  %prec RPAREN;
+sLBRACE : LBRACE opt_sep  %prec LBRACE;
+sRBRACE : opt_sep RBRACE  %prec RBRACE;
+// Note: Difficult to enable free sprinkling of statement separators around tokens, since these tend
+// to be shifted instead of being reduced with statement-terminating separator.
+
+
+
+parsing_unit : opt_sep  opt_module_decl
+               opt_sep  opt_import_stmts
+               opt_sep  opt_module_members
+                   { if (!driver.parsingUnit)  driver.parsingUnit = new TxParsingUnitNode(@2);
+                     $$ = driver.parsingUnit;
+                     driver.validate_module_name($2->ident);
+                     driver.parsingUnit->add_module(new TxModuleNode(@2, $2, $4, $6, NULL));
+                   }
+    ;
+
+sub_module : KW_MODULE gen_identifier opt_sep
+               sLBRACE  opt_import_stmts  opt_sep  opt_module_members  sRBRACE
+                 { if (!driver.parsingUnit)  driver.parsingUnit = new TxParsingUnitNode(@1);
+                   $$ = new TxModuleNode(@1, $2, $5, $7, NULL);
+                   driver.validate_module_name($2->ident);
+                   driver.parsingUnit->add_module($$);
+                 }
+    ;
+
+
+opt_module_decl    : %empty %prec STMT { $$ = new TxIdentifierNode(@$, new TxIdentifier(LOCAL_NS)); }
+                   | module_declaration { $$ = $1; } ;
+
+module_declaration : KW_MODULE gen_identifier sep { $$ = $2; } ;
+
+opt_import_stmts   : %empty { $$ = new std::vector<TxImportNode*>(); }
+                   | import_statements { $$ = $1; } ;
+
+import_statements  : import_statement
+                     { $$ = new std::vector<TxImportNode*>(); if ($1) $$->push_back($1); }
+                   | import_statements import_statement
+                     { $$ = $1; if ($2) $$->push_back($2); }
+                   ;
+
+import_statement   : KW_IMPORT gen_identifier sep  %prec STMT
+                        { $$ = new TxImportNode(@1, $2);
+                          if ($2->ident.is_qualified())
+                              if (! driver.add_import($2->ident.parent()))
+                                  driver.error(@1, "Failed to import module (source not found): " + $2->ident.parent().to_string()); }
+                   | KW_IMPORT error sep              %prec STMT { $$ = NULL; }
+                   ;
+
+
+opt_module_members : %empty { $$ = new std::vector<TxDeclarationNode*>(); }
+                   | module_members { $$ = $1; } ;
+
+module_members : module_member
+                     { $$ = new std::vector<TxDeclarationNode*>();
+                       if ($1 != NULL)
+                           $$->push_back($1); }
+               | module_members module_member
+                     { $$ = $1;
+                       if ($2 != NULL)
+                           $$->push_back($2); }
+;
+
+module_member : member_declaration { $$ = $1; }
+              | sub_module opt_sep { $$ = NULL; }
+;
+
+member_declaration
+    : declaration_flags field_def sep  %prec STMT  { $$ = new TxFieldDeclNode(@1, $1, $2); }
+    | declaration_flags KW_TYPE new_type_name type_spec sep  %prec STMT
+            { $$ = new TxTypeDeclNode(@1, $1, $3, $4); }
+
+    // syntactic sugar for a direct function (method) definition:
+    |   declaration_flags direct_function_def sep  %prec STMT  { $$ = new TxFieldDeclNode(@1, $1, $2); }
+    |   error sep  %prec STMT  { $$ = NULL; }
+    ;
+
+// TODO: add KW_ABSTRACT, and KW_OVERRIDE (valid for static member fields)
+declaration_flags
+    : %empty                                { $$ = TXD_NONE; }
+    | KW_PUBLIC                             { $$ = TXD_PUBLIC; }
+    | KW_PUBLIC KW_STATIC                   { $$ = TXD_PUBLIC | TXD_STATIC; }
+    | KW_PUBLIC KW_FINAL                    { $$ = TXD_PUBLIC | TXD_FINAL; }
+    | KW_PUBLIC KW_STATIC KW_FINAL          { $$ = TXD_PUBLIC | TXD_STATIC | TXD_FINAL; }
+    | KW_PROTECTED                          { $$ = TXD_PROTECTED; }
+    | KW_PROTECTED KW_STATIC                { $$ = TXD_PROTECTED | TXD_STATIC; }
+    | KW_PROTECTED KW_FINAL                 { $$ = TXD_PROTECTED | TXD_FINAL; }
+    | KW_PROTECTED KW_STATIC KW_FINAL       { $$ = TXD_PROTECTED | TXD_STATIC | TXD_FINAL; }
+    | KW_STATIC                             { $$ = TXD_STATIC; }
+    | KW_FINAL                              { $$ = TXD_FINAL; }
+    | KW_STATIC KW_FINAL                    { $$ = TXD_STATIC | TXD_FINAL; }
+    ;
+
+
+// semantically, composite identifiers are of the period-separated form
+// MODULE_NAME* ( STATIC_ENTITY_NAME ( STATIC_MEMBER_NAME | SCOPE_NAME )* )? ENTITY_NAME ( MEMBER_NAME )*
+// 'Static' includes both constant globals and static members of entities.
+// 'Scopes' are static entities, but serve as namespace for local (stack/register) entities.
+// 'Member' can be either static or dynamic.
+// (Note that (parameterized) type instances may be 'local'.)
+// Example of fully qualified static name: my.mod.MyClass.staticField.myMethod.$.InnerClass.staticField2
+// Example of fully qualified local name: my.mod.MyClass.staticField.myMethod.$.self
+
+identifier : NAME                       { $$ = new TxIdentifier($1); }
+           | identifier DOT NAME        { $$ = $1; $$->append($3); }
+           | identifier DOT ASTERISK    { $$ = $1; $$->append("*"); }
+           ;
+
+gen_identifier : identifier  { $$ = new TxIdentifierNode(@1, $1); } ;
+
+
+/*
+identifier : NAME                { $$ = new TxIdentifier($1); }
+           | identifier DOT NAME { $$ = $1; $$->append($3); }
+           ;
+
+module_identifier    : identifier
+                     { $$ = new TxIdentifierNode(@1, TxIdentifierNode::MODULE_ID, $1); } ;
+
+dataspace_identifier : identifier // AAND // (special character may be needed to distinguish from field identifier)
+                     { $$ = new TxIdentifierNode(@1, TxIdentifierNode::DATASPACE_ID, $1); } ;
+
+import_identifier : identifier
+                    { $$ = new TxIdentifierNode(@1, TxIdentifierNode::IMPORT_ID, $1); }
+                  | identifier DOT ASTERISK
+                    { $1->append("*");
+                      $$ = new TxIdentifierNode(@1, TxIdentifierNode::IMPORT_ID, $1); }
+                  ;
+
+type_identifier : identifier { $$ = new TxIdentifierNode(@1, TxIdentifierNode::TYPE_ID, $1); };
+
+field_identifier : identifier { $$ = new TxIdentifierNode(@1, TxIdentifierNode::FIELD_ID, $1); };
+*/
+
+
+
+
+// declares a new type name (must be unqualified)
+new_type_name   : NAME                        { $$ = new TxTypeNameDeclNode(@1, $1); }
+                | NAME LT type_param_list GT  { $$ = new TxTypeNameDeclNode(@1, $1, $3); }
+                ;
+type_param_list : new_type_name  { $$ = new std::vector<TxTypeNameDeclNode*>(); $$->push_back($1); }
+                | type_param_list sCOMMA new_type_name  { $$ = $1; $$->push_back($3); }
+                ;
+
+new_field_name : NAME { $$ = $1; } ; // declares a new field name (must be unqualified)
+function_name  : NAME { $$ = $1; } ; // declares a new field name (must be unqualified)
+
+
+field_def : field_type_def { $$ = $1; } | field_assignment_def { $$ = $1; } ;
+
+field_type_def : new_field_name sCOLON type_expression
+                     { $$ = new TxFieldDefNode(@1, $1, $3, NULL); }
+;
+
+field_assignment_def : new_field_name sCOLON type_expression sEQUAL expr
+                           { $$ = new TxFieldDefNode(@1, $1, $3, $5); }
+                     | new_field_name COLEQUAL expr
+                           { $$ = new TxFieldDefNode(@1, $1, $3); }
+                     | TILDE new_field_name COLEQUAL expr
+                           { $$ = new TxFieldDefNode(@1, $2, $4, true); }
+                     // TODO |   assignee_pattern COLEQUAL expr
+;
+
+
+//// types:
+
+type_spec : type_expression { $$ = $1; }
+          | type_extension { $$ = $1; }
+//          | type_interface { $$ = $1; }
+          ;
+
+type_extension : opt_modifiable opt_base_types opt_sep sLBRACE  opt_type_members  sRBRACE
+                        { $$ = new TxTupleTypeNode(@1, $1, $2, $5); }
+               ;
+
+opt_type_members : %empty { $$ = new std::vector<TxDeclarationNode*>(); }
+                 | type_members { $$ = $1; } ;
+
+type_members : member_declaration
+                     { $$ = new std::vector<TxDeclarationNode*>();
+                       if ($1 != NULL)
+                           $$->push_back($1); }
+             | type_members member_declaration
+                     { $$ = $1;
+                       if ($2 != NULL)
+                           $$->push_back($2); }
+;
+
+opt_base_types  : %empty    { $$ = new std::vector<TxIdentifiedTypeNode*>(); }
+                | KW_SUBTYPE predef_type_list  { $$ = $2; }
+                // (all but the first must be interface types)
+                ;
+
+predef_type_list: predef_type  { $$ = new std::vector<TxIdentifiedTypeNode*>();  $$->push_back($1); }
+                | predef_type_list sCOMMA predef_type  { $$ = $1;  $$->push_back($3); }
+                ;
+
+predef_type     : gen_identifier                      { $$ = new TxIdentifiedTypeNode(@1, $1); }
+                | gen_identifier LT type_arg_list GT  { $$ = new TxIdentifiedTypeNode(@1, $1, $3); }
+                ;
+
+type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->push_back($1); }
+                | type_arg_list sCOMMA type_arg  { $$ = $1;  $$->push_back($3); }
+                ;
+
+type_arg        : predef_type         { $$ = new TxTypeArgumentNode(@1, $1); }
+                | value_literal       { $$ = new TxTypeArgumentNode(@1, $1); }  // unambiguous value expr
+                | LPAREN expr RPAREN  { $$ = new TxTypeArgumentNode(@1, $2); }  // parens prevent conflation with type expr
+                ;
+
+
+type_expression  // can construct new "literal" type but can't extend (subclass / add members to) one
+    :   opt_modifiable base_type_expression  { $$ = ($1 ? new TxModifiableTypeNode(@1, $2) : $2); }
+    ;
+
+opt_modifiable : %empty { $$ = false; } | TILDE { $$ = true; } | KW_MODIFIABLE { $$ = true; } ;
+
+base_type_expression
+    // the tuple base type is extendable; the others are not (though non-references may be virtually inherited)
+    :  predef_type      { $$ = $1; }
+    |  reference_type   { $$ = $1; }
+    |  array_type       { $$ = $1; }
+    |  function_type    { $$ = $1; }
+    |  data_tuple_type  { $$ = $1; }
+//    |  union_type
+//    |  enum_type
+//    |  range_type
+//    |  shared_obj_type
+    ;
+
+reference_type : opt_dataspace ref_token type_expression
+                     { $$ = new TxReferenceTypeNode(@1, $1, $3); } ;
+opt_dataspace : %empty { $$ = NULL; } | QMARK { $$ = NULL; } | gen_identifier { $$ = $1; } ;
+ref_token : KW_REFERENCE | AAND ;
+
+array_type : array_dimensions type_expression  { $$ = new TxArrayTypeNode(@1, $2, $1); } ;
+array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
+                 //| LBRACKET predef_type RBRACKET  // predef_type must be an enum
+                 | LBRACKET RBRACKET  { $$ = NULL; }
+                 ;
+
+data_tuple_type  // simple tuple type with no static fields; fields implicitly public
+    : KW_TUPLE opt_sep opt_modifiable opt_sep LBRACE opt_sep field_type_list opt_sep RBRACE
+            { $$ = new TxTupleTypeNode(@1, $3, $7); }
+    ;
+
+//union_type     : KW_UNION sLBRACE type_expr_list sRBRACE ;
+//type_expr_list : type_expression
+//               | type_expr_list sCOMMA type_expression
+//               ;
+//
+//enum_type       : KW_ENUM sLBRACE enum_value_list sRBRACE ;
+//enum_value_list : NAME
+//                | enum_value_list sCOMMA NAME
+//                ;
+//
+//range_type : expr ':' ( expr ':' )? expr ;  // Enum and Scalar types are legal
+
+
+
+/// function type and function declarations:
+
+function_type : KW_FUNC opt_modifiable params_def return_type_def
+                  { $$ = new TxFunctionTypeNode(@1, $2, $3, $4); }
+              ;
+
+params_def : sLPAREN field_type_list sRPAREN  { $$ = $2; }
+           | sLPAREN sRPAREN  { $$ = new std::vector<TxFieldDefNode*>(); }
+           ;
+
+field_type_list : field_type_def
+                      { $$ = new std::vector<TxFieldDefNode*>();
+                        $$->push_back($1); }
+                | field_type_list sCOMMA field_type_def
+                      { $$ = $1;
+                        $$->push_back($3); }
+                | error  { $$ = new std::vector<TxFieldDefNode*>(); }
+                ;
+
+return_type_def : %empty { $$ = NULL; } | type_expression { $$ = $1; } ;
+
+
+
+function_header : KW_FUNC opt_modifiable params_def return_type_def
+                  { $$ = new TxFunctionTypeNode(@1, $2, $3, $4); }
+                ;
+
+direct_function_def  // syntactic sugar, creates a field of function type
+    :   KW_FUNC opt_modifiable function_name params_def return_type_def sep suite
+            { TxFunctionTypeNode* funcTypeNode = new TxFunctionTypeNode(@1, $2, $4, $5);
+              $$ = new TxFieldDefNode(@1, $3, NULL, new TxLambdaExprNode(@1, funcTypeNode, $7)); }
+    ;
+
+lambda_expr : function_header sep suite  { $$ = new TxLambdaExprNode(@1, $1, $3); } ;
+
+
+
+//// (value) expressions:
+
+expr
+    :   LPAREN expr RPAREN { $$ = $2; }
+    |   lambda_expr { $$ = $1; }
+    |   call_expr  { $$ = $1; }  // safe up-cast
+    |   gen_identifier           %prec DOT   { $$ = new TxFieldValueNode(@1, NULL, $1); }
+    |   expr DOT gen_identifier  %prec EXPR  { $$ = new TxFieldValueNode(@1, $1, $3); }
+    |   expr LBRACKET expr RBRACKET { $$ = new TxElemDerefNode(@1, $1, $3); }
+    |   AAND gen_identifier   %prec ADDR  { $$ = new TxReferenceToNode(@1, new TxFieldValueNode(@1, NULL, $2)); }
+    |   expr CARET                          { $$ = new TxReferenceDerefNode(@1, $1); }
+    |   MINUS expr  %prec NEG      { $$ = new TxUnaryMinusNode(@1, $2); }  // unary minus
+    |   expr PLUS opt_sep expr     { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_PLUS, $4); }
+    |   expr MINUS opt_sep expr    { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_MINUS, $4); }
+    |   expr ASTERISK opt_sep expr { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_MUL, $4); }
+    |   expr FSLASH opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_DIV, $4); }
+    |   expr EEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_EQ, $4); }
+    |   expr NEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_NE, $4); }
+    |   expr LT opt_sep expr       { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_LT, $4); }
+    |   expr GT opt_sep expr       { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_GT, $4); }
+    |   expr LEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_LE, $4); }
+    |   expr GEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_GE, $4); }
+    |   value_literal              { $$ = $1; }
+    ;
+
+value_literal
+        :       LIT_INTEGER   { $$ = new TxIntegerLitNode(@1, $1); }
+        |       LIT_FLOATING  { $$ = new TxFloatingLitNode(@1, $1); }
+        |       LIT_CHARACTER { $$ = new TxCharacterLitNode(@1, $1); }
+        |       LIT_CSTRING   { $$ = new TxCStringLitNode(@1, $1); }
+        // |       LIT_STRING    { $$ = new TxStringLitNode(@1, $1); }
+    ;
+
+call_expr : expr call_params  { $$ = new TxFunctionCallNode(@1, $1, $2); }
+;  //  FUTURE: Interface(adaptedObj)
+
+call_params : LPAREN expression_list RPAREN  { $$ = $2; }
+            | LPAREN RPAREN  { $$ = new std::vector<TxExpressionNode*>(); }
+;
+
+expression_list : expr
+                      { $$ = new std::vector<TxExpressionNode*>();
+                        $$->push_back($1); }
+                | expression_list sCOMMA expr
+                      { $$ = $1;
+                        $$->push_back($3); }
+;
+
+
+//// statements
+
+suite
+    :   LBRACE opt_sep statement_list opt_sep RBRACE          { $$ = new TxSuiteNode(@1, $3); }
+    |   LBRACE opt_sep RBRACE           { $$ = new TxSuiteNode(@1); }
+    ;
+
+statement_list : statement  { $$ = new std::vector<TxStatementNode*>();
+                              if ($1) $$->push_back($1); }
+               | statement_list statement  { $$ = $1;  if ($2) $$->push_back($2); }
+               ;
+
+// statement is a syntactically terminated program statement, either with a separator token,
+// or in the case of a suite with a }.
+// Conditional statements can be seen as statements prefixed with a condition clause
+// (which in itself is not "terminated").
+statement
+    :   suite opt_sep      %prec STMT { $$ = $1; }  // (casts from suite to statement)
+    |   non_cond_stmt sep  %prec STMT { $$ = $1; }
+    |   cond_else_stmt     %prec KW_ELSE { $$ = $1; }
+    |   cond_stmt          %prec STMT { $$ = $1; }
+    |   error sep          %prec STMT { $$ = NULL; }
+    ;
+
+non_cond_stmt
+    :   field_def { $$ = new TxFieldStmtNode(@1, $1); }
+    |   call_expr { $$ = new TxCallStmtNode(@1, $1); } // function call without return value assignment
+    |   assignment_stmt { $$ = $1; }
+    |   return_stmt     { $$ = $1; }
+    |   break_stmt      { $$ = $1; }
+    |   continue_stmt   { $$ = $1; }
+    ;
+
+else_clause     : KW_ELSE opt_sep statement     { $$ = new TxElseClauseNode(@1, $3); } ;
+
+cond_stmt       : KW_IF    expr opt_sep statement  { $$ = new TxIfStmtNode(@1, $2, $4); }
+                | KW_WHILE expr opt_sep statement  { $$ = new TxWhileStmtNode(@1, $2, $4); }
+                ;
+
+cond_else_stmt  : KW_IF    expr opt_sep non_cond_stmt sep else_clause  { $$ = new TxIfStmtNode(@1, $2, $4, (TxElseClauseNode*)$6); }
+                | KW_IF    expr opt_sep cond_else_stmt    else_clause  { $$ = new TxIfStmtNode(@1, $2, $4, (TxElseClauseNode*)$5); }
+                | KW_IF    expr opt_sep suite     opt_sep else_clause  { $$ = new TxIfStmtNode(@1, $2, $4, (TxElseClauseNode*)$6); }
+                | KW_WHILE expr opt_sep non_cond_stmt sep else_clause  { $$ = new TxWhileStmtNode(@1, $2, $4, (TxElseClauseNode*)$6); }
+                | KW_WHILE expr opt_sep cond_else_stmt    else_clause  { $$ = new TxWhileStmtNode(@1, $2, $4, (TxElseClauseNode*)$5); }
+                | KW_WHILE expr opt_sep suite     opt_sep else_clause  { $$ = new TxWhileStmtNode(@1, $2, $4, (TxElseClauseNode*)$6); }
+                ;
+
+
+return_stmt : KW_RETURN expr  { $$ = new TxReturnStmtNode(@1, $2); }
+            | KW_RETURN       { $$ = new TxReturnStmtNode(@1, NULL); }
+            ;
+
+break_stmt     : KW_BREAK     { $$ = new TxBreakStmtNode(@1); }  ;
+continue_stmt  : KW_CONTINUE  { $$ = new TxContinueStmtNode(@1); }  ;
+
+
+assignment_stmt //:    assignee_pattern EQUAL expr
+                :    assignee_expr EQUAL expr  { $$ = new TxAssignStmtNode(@1, $1, $3); }
+//                |    assignee_expr PLUSEQUAL expr
+//                |    assignee_expr MINUSEQUAL expr
+//                |    assignee_expr ASTERISKEQUAL expr
+//                |    assignee_expr FSLASHEQUAL expr
+                ;
+
+//assignee_pattern : nested_assignee (',' nested_assignee)* ;
+//nested_assignee  : assignee_expr | '{' assignee_pattern '}' ;
+
+assignee_expr  // expressions capable of (but not guaranteed) to produce an lvalue
+    :   gen_identifier           { $$ = new TxFieldAssigneeNode(@1, NULL, $1); }
+    |   expr DOT gen_identifier  { $$ = new TxFieldAssigneeNode(@1, $1, $3); }
+    |   expr CARET       { $$ = new TxDerefAssigneeNode(@1, $1); }  // unary value-of suffix
+    |   expr LBRACKET expr RBRACKET { $$ = new TxElemAssigneeNode(@1, $1, $3); }
+    ;
+
+%%
+
+void yy::TxParser::error (const location_type& l, const std::string& m) {
+    driver.error (l, m);
+}

@@ -1,0 +1,55 @@
+
+module my.namesp
+
+import tx.*
+import tx.c.puts
+
+myfield : tx.Int = 17
+
+sndField : tx.Int = -3+4
+
+trdField : tx.Int = 3
+## trdField : tx.Int = 5
+
+module my.namesp.submod {
+    subField : Int = 42
+}
+
+## myfuncptr : mod func(a : tx.Int, b : tx.Int) tx.Int
+
+func myfunc(a : tx.Int,
+            b : tx.Int) tx.Int {
+        r : tx.Int = a - -b
+        return r
+}
+
+
+helloWorld := c"hello world!"
+helloWorld2 := helloWorld
+
+func str_test() {
+    tx.c.puts(helloWorld)
+    str := c"local string"
+    str2 := str
+    tx.c.puts(str)
+    tx.c.puts(str2)
+    tx.c.puts(helloWorld2)
+}
+
+
+func main() Int {
+    flag : mod tx.Boolean = FALSE
+    ##flag = 42 < 40+3
+    if Int(42.) == 40+2 {
+        tx.c.puts(c"it was TRUE!")
+    }
+    else {
+        tx.c.puts(c"it was FALSE!")
+    }
+    ## myfunc = myfunc2
+    str_test()
+    result : ~Int = my.namesp.myfunc( myfield, sndField )
+    result2 := myfunc( result, trdField )
+    result = result + 1
+    return result + result2 + my.namesp.submod.subField
+}

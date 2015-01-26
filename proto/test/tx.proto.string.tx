@@ -1,0 +1,10 @@
+module tx.proto.string
+
+
+public final type TestString subtype Array<Array<UByte,10>,10> {
+}
+
+public final type CString<L> subtype Array<UByte,L> {
+    
+    
+}

@@ -1,0 +1,61 @@
+import tx.*
+import tx.c.*
+
+##func print(cstr : &[]UByte) {
+##    tx.c.puts( cstr^ )
+##}
+
+func print_digit(d : Int) {
+    digits := c"0123456789"
+    str : [2]~UByte = c" "
+    if d >= 10 {
+        puts(c"d greater than 9")
+        return
+    }
+    if d < 0 {
+        puts(c"d less than 0")
+        return
+    }
+    str[0] = digits[d]
+    puts(str)
+}
+
+func while_loop(startVal : Int) {
+    i : ~Int = startVal
+    while i < 9 {
+        if i == 5 { break }
+        i = i + 1
+        if i == 2 { continue }
+        print_digit(i)
+    } else {
+        puts(c"doing while-else")
+        print_digit(i)
+    }
+    puts(c"after while-statement")
+}
+
+func test_while() {
+    puts(c"first while, skipping while-else")
+    while_loop(-1)
+
+    puts(c"second while, doing while-else")
+    while_loop(6)
+}
+
+func printfoo(cstr : &[]UByte) {
+    tmp : [2]~UByte = c" "
+    i : ~Int = 0
+    while cstr^[i] != 0 {
+        tmp[0] = cstr^[i]
+        puts(tmp)
+        i = i + 1
+    }
+}
+
+func main() Int {
+    f := c"foo"
+    printfoo(&f)
+    test_while()
+    return 0
+    ##puts(c"this should be unreachable")
+}

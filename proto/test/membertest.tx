@@ -1,0 +1,97 @@
+import tx.proto.print.*
+
+type MyType Int
+
+type CompoundType mod subtype Tuple {
+    static SFIELD := -1
+    field1 : ~Float
+    field2 : ~Long
+    protected field3 : [20]Int
+    public field4 := c"abra"
+    field5 : ~InnerCompType
+    field6 : ~&~InnerCompType
+    type InnerCompType mod subtype Tuple {
+        static PI := 3.14
+        ~blaha := 0.1
+    }
+}
+
+func testfunc() {
+    obj : ~CompoundType
+    obj.field1 = 133.2
+    obj.field2 = CompoundType.SFIELD*10
+    print(Long(obj.field1))
+    print(obj.field2)
+    var := obj.field2
+    print(var)
+    
+    robj : ~&~CompoundType
+    robj = &obj
+    print(Long(robj^.field1))
+    print(robj^.field2)
+    
+    robj^.field5.blaha = 273.
+    print(Long(obj.field5.blaha))
+    
+    subobj1 : CompoundType.InnerCompType
+    subobj2 : obj.InnerCompType
+    obj.field6 = &subobj1
+    obj.field6 = &subobj2
+    obj.field6^.blaha = 514.
+    print(Long(subobj2.blaha))
+
+    ##bad1 := CompoundType.field1
+    ##bad2 := obj.InnerCompType
+    ok1 : ~CompoundType.field3
+    ok2 : CompoundType.field4
+}
+
+func main() Int {
+    ##foo : MyType = -1
+    testfunc()
+    ~foo := CompoundType.SFIELD
+    axe := CompoundType.InnerCompType.PI
+    bar := Int.typeid
+    return bar * foo
+}
+
+
+
+/*
+## Implicit type declaration:
+
+func somefunc() tuple { a : Int, b : Ref<Foo> }
+
+myref : ~Ref<tuple { a : Int, b : Ref<Foo> }>
+
+func otherfunc() myref.T
+
+myref = somefunc()
+
+## implicit:
+myref$type$T$b : Ref<Foo>
+myref$type$T   : Tuple{ a : Int, b : myref$T$b$type }
+myref$type     : Ref<myref$T$type>
+
+## valid members:
+myref.T is myref$type$T
+myref.a
+myref.b
+
+
+## Type resolution is static
+Type . Type
+SFIELD . Type  ## shall not be a polymorphic lookup
+field . Type   ## shall not be a polymorphic lookup
+
+## The types of all the following are determined statically:
+Type . SFIELD  ## of course non-polymorphic
+Type . field   ## invalid; produces field's declared type
+
+SFIELD . SFIELD  ## polymorphic
+SFIELD . field   ## non-polymorphic
+
+field . SFIELD  ## polymorphic
+field . field   ## non-polymorphic
+
+*/

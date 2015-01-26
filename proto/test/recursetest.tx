@@ -1,0 +1,17 @@
+
+func main() Int {
+    recurse(10)
+    recurse(10.)
+    return 0
+}
+
+func recurse(x : Int) {
+    tx.c.puts(c"recurse")
+    if (x > 0) {
+        recurse(x - 1)
+    }
+}
+
+func recurse(x : Float) {
+    tx.c.puts(c"float version")
+}

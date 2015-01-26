@@ -1,0 +1,36 @@
+module my.namesp
+
+func overloaded_func(a : Long, b : Int) Int {
+    r : Long = a + b
+    return Int(r)
+}
+
+func overloaded_func(a : Float, b : Int) Int {
+    r : Int = Int(a + Float(b))
+    return r
+}
+
+type FooFuncType func (a : Double, b : Double) Double
+
+func other_func(a : Double, b : Double) Double {
+    r := a * b / 2.0
+    return r
+}
+
+func_alias := other_func
+func_alias2 : FooFuncType = other_func
+
+func main() Long {
+    /* TODO: support modifiable function pointers
+    local_func : func(a : Int, b : Int) Int =
+        func(a : Int, b : Int) Int {
+            return a * b
+        }
+    */
+    local_func := func(a : Int, b : Int) Int {
+        return a * b
+    }
+
+    result := overloaded_func( 41.1, 1 ) + local_func(5, 6)
+    return result + Long(other_func(1., 2.) + func_alias( 2., 3. ))
+}

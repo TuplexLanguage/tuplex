@@ -1,0 +1,43 @@
+#/bin/bash
+
+color_black='\e[0;30m'        # Black
+color_red='\e[0;31m'          # Red
+color_green='\e[0;32m'        # Green
+color_yellow='\e[0;33m'       # Yellow
+color_blue='\e[0;34m'         # Blue
+color_purple='\e[0;35m'       # Purple
+color_cyan='\e[0;36m'         # Cyan
+color_white='\e[0;37m'        # White
+color_off='\e[0m'             # Text Reset
+
+function checked {
+    "$@"
+    local status=$?
+    if [ $status -ne 0 ]; then
+        echo -e $color_red "Error return code from $1: $status" >&2 $color_off
+        exit $status
+    fi
+    return $status
+}
+
+echo -e $color_cyan "Compiling " $1 $color_off
+checked bin/txc $1
+
+# strip extension if it is .tx
+basepath=${1%%.tx}
+
+bctarget="${basepath}.bc"
+objtarget="${basepath}.o"
+echo -e $color_cyan "LL-compiling " $bctarget $color_off
+checked llc -filetype=obj $bctarget
+
+bintarget="${basepath}.out"
+echo -e $color_cyan "Linking " $bintarget $color_off
+checked gcc -o $bintarget $objtarget
+
+echo -e $color_cyan "Running " $bintarget $color_off
+$bintarget
+# $? has the return code of the last statement in bash
+retval=$?
+echo -e $color_cyan "Return value: " $retval $color_off
+exit $retval

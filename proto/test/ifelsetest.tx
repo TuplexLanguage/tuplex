@@ -1,0 +1,74 @@
+func first() Int {
+    ~v := 0
+
+    if TRUE {
+        v = v + 1
+    }
+    if FALSE
+    {
+        v = v + 2
+    }
+
+    if TRUE {
+        v = v + 4
+    }
+    else {
+        v = v + 8
+    }
+    if FALSE {
+        v = v + 16
+    } else {
+        v = v + 32
+    }
+
+    if TRUE { v = v + 64 }
+    if FALSE { v = v + 128 } else { v = v + 256 }
+
+    if TRUE
+    {
+        if TRUE { v = v + 512 }
+        else { v = v + 1024 }
+    }
+
+    else
+    {
+        if TRUE { v = v + 2048 }
+        else { v = v + 4096 }
+    }
+
+    expected := 1+4+32+64+256+512
+    return v-expected
+}
+
+func second() Int {
+    ~v := 0
+
+    if TRUE
+        v = v + 1
+    if TRUE  v = v + 2
+    
+    if FALSE  v = v + 4
+    else      v = v + 8
+
+    if TRUE
+        if FALSE  v = v + 16
+        else      v = v + 32
+    else  v = v + 64
+
+    if FALSE
+        v = v + 128
+    else if TRUE
+        v = v + 256
+    else if TRUE
+        v = v + 512
+    else
+        v = v + 1024
+
+    expected := 1+2+8+32+256
+    return v-expected
+}
+
+func main() Int {
+    return first()
+    ##return second()
+}

@@ -1,0 +1,3 @@
+// the configured options and settings for Tuplex
+#define Tuplex_VERSION_MAJOR @Tuplex_VERSION_MAJOR@
+#define Tuplex_VERSION_MINOR @Tuplex_VERSION_MINOR@
