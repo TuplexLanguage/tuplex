@@ -214,39 +214,36 @@ class TxTypeExpressionNode : public TxNode, public TxTypeProxy {
     TxTypeEntity* declaredEntity;  // null until initialized in symbol table pass
 
 protected:
-    bool symbolTablePassed = false;
-    virtual void set_entity(TxTypeEntity* entity) { this->declaredEntity = entity; }
-    virtual void symbol_table_pass(LexicalContext& lexContext) = 0;
+    virtual const TxTypeEntity* declare_type(LexicalContext& lexContext, const std::string& implicitTypeName, TxDeclarationFlags declFlags) {
+        this->declaredEntity = lexContext.scope()->declare_type(implicitTypeName, this, declFlags);
+        return this->declaredEntity;
+    }
+
+    virtual void symbol_table_pass_descendants(LexicalContext& lexContext) = 0;
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const = 0;
 
 public:
     TxTypeExpressionNode(const yy::location& parseLocation) : TxNode(parseLocation), declaredEntity() { }
 
     virtual void symbol_table_pass(LexicalContext& lexContext, const std::string& implicitTypeName, TxDeclarationFlags declFlags) {
-        // TODO: This scheme with the purpose of naming every type construct within a type expression with an entity
-        // should maybe be removed. It may prevent things like value assignment (unnamed types mismatching the
+        // Note: This scheme with the purpose of naming every type construct within a type expression with an entity
+        // might be removed in future. It may prevent things like value assignment (unnamed types mismatching the
         // auto-generated implicit types).
-        // Type entity is needed for:
+        // Type entities are however needed for:
         //  - adding members (since members are namespace symbols)
         //  - using fields in type expressions (which refers to the field's type)
-        // TODO: implicitly declared types should have the same visibility as the type/field they are for
-        if (auto ent = lexContext.scope()->declare_type(implicitTypeName, this, declFlags))
-            this->symbol_table_pass(lexContext, ent);
-    }
-    virtual void symbol_table_pass(LexicalContext& lexContext, TxTypeEntity* entity) {
-        ASSERT(entity, "NULL entity in " << this);
+        // Implicitly declared types should have the same visibility as the type/field they are for.
         this->set_context(lexContext);
-        this->set_entity(entity);
-        this->symbol_table_pass(lexContext);
-        this->symbolTablePassed = true;
+        this->declare_type(lexContext, implicitTypeName, declFlags);
+        this->symbol_table_pass_descendants(lexContext);
     }
 
+    /** Gets the type entity (implicitly or explicitly) declared for this type expression. May return NULL. */
     virtual TxTypeEntity* get_entity() const { return this->declaredEntity; }
 
     inline virtual const TxType* get_type() const final {
-        ASSERT(symbolTablePassed, "Can't call get_type() before symbol table pass has completed: "  << this);
+        ASSERT(this->is_context_set(), "Can't call get_type() before symbol table pass has completed: "  << this);
         if (! cachedType) {
-            //std::cout << "INVOKING define_type() on " << this << std::endl;
             std::string errorMsg;
             this->cachedType = this->define_type(&errorMsg);
             if (! cachedType) {
@@ -254,13 +251,11 @@ public:
                     parser_error(this->parseLocation, "%s", errorMsg.c_str());
                 return nullptr;
             }
-            // if this type expression node has declared a new entity, connect it with the defined type instance:
-            if (! this->cachedType->entity()) {
-                if (this->declaredEntity)
-                    this->cachedType->set_entity(this->declaredEntity);
-            }
-            else
-                ASSERT(this->cachedType->entity()==get_entity(), "Type (" << this->cachedType << ") does not belong to entity " << get_entity());
+            if (this->declaredEntity)
+                ASSERT(this->cachedType->entity()==this->declaredEntity,
+                        "entity " << this->cachedType->entity() << " (of type " << this->cachedType
+                        << ") is not same as declared entity " << this->declaredEntity
+                        << " (of node " << *this << ")");
         }
         return cachedType;
     }
@@ -341,7 +336,7 @@ protected:
             if (fieldType) {
                 if (this->modifiable) {
                     if (! fieldType->is_modifiable())
-                        fieldType = this->types().get_type_specialization(TxTypeSpecialization(fieldType, true));
+                        fieldType = this->types().get_type_specialization(nullptr, TxTypeSpecialization(fieldType, true));
                 }
                 else if (fieldType->is_modifiable())
                     // if initialization expression is modifiable type, and modifiable not explicitly specified,
@@ -349,18 +344,7 @@ protected:
                     fieldType = fieldType->get_base_type_spec().type;
             }
         }
-
-        if (fieldType) {
-            // create implicit type declaration for field's type if it is not an explicit type (with same visibility as the field)
-            auto dataType = fieldType->is_pure_modifiable() ? fieldType->get_base_type_spec().type : fieldType;
-            if (! dataType->entity()) {
-                // note: for overloaded fields the distinct entity name may differ from source code name
-                std::string typeName = this->get_entity()->get_name() + "$type";
-                auto typeDeclFlags = this->declFlags & (TXD_PUBLIC | TXD_PROTECTED);
-                auto typeEntity = this->context().scope()->declare_type(typeName, this, typeDeclFlags);
-                dataType->set_entity(typeEntity);
-            }
-        }
+        // note: does not ensure implicit type declaration for field's type if it is not an explicit type
         return fieldType;
     }
 
@@ -486,56 +470,30 @@ public:
 };
 
 
-class TxTypeNameDeclNode : public TxTypeExpressionNode {
-protected:
-    virtual void symbol_table_pass(LexicalContext& lexContext) override {
-        if (this->typeParams)
-            for (auto param : *this->typeParams) {
-                // FIXME: declare as field if it is value param
-                //lexContext.scope()->declare_type(param->typeName, param, TXD_NONE);
-                param->TxTypeExpressionNode::symbol_table_pass(lexContext, this->get_entity()->get_name() + "$arg" + param->typeName, TXD_NONE);
-            }
-    }
-
-public:
-    const std::string typeName;
-    const std::vector<TxTypeNameDeclNode*>* const typeParams;
-
-    TxTypeNameDeclNode(const yy::location& parseLocation, const std::string& typeName,
-                       const std::vector<TxTypeNameDeclNode*>* typeParams = nullptr)
-        : TxTypeExpressionNode(parseLocation), typeName(typeName), typeParams(typeParams) {
-    }
-
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const {
-        return this->types().get_builtin_type(ANY);  // FIXME
-    }
-    virtual void semantic_pass() { }
-};
-
 /** Non-local type declaration */
 class TxTypeDeclNode : public TxDeclarationNode {
-    TxTypeEntity* declaredEntity;  // null until initialized in symbol table pass
+    //TxTypeEntity* declaredEntity;  // null until initialized in symbol table pass
 public:
-    TxTypeNameDeclNode* typeNameDecl;
+    const std::string typeName;
+    const std::vector<TxTypeParam>* const typeParams;
     TxTypeExpressionNode* typeExpression;
 
     TxTypeDeclNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags,
-                   TxTypeNameDeclNode* typeNameDecl, TxTypeExpressionNode* typeExpression)
-        : TxDeclarationNode(parseLocation, declFlags), declaredEntity(), typeNameDecl(typeNameDecl), typeExpression(typeExpression) {
+                   const std::string typeName, const std::vector<TxTypeParam>* const typeParams,
+                   TxTypeExpressionNode* typeExpression)
+        : TxDeclarationNode(parseLocation, declFlags), //declaredEntity(),
+          typeName(typeName), typeParams(typeParams), typeExpression(typeExpression) {
     }
 
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        this->declaredEntity = lexContext.scope()->declare_type(this->typeNameDecl->typeName, this->typeExpression, this->declFlags);
-        if (! this->declaredEntity)
-            return;
-        this->typeNameDecl->TxTypeExpressionNode::symbol_table_pass(lexContext, this->declaredEntity);
-        this->typeExpression->symbol_table_pass(lexContext, this->declaredEntity);
+        // (delegates type declaration to type expression node)
+        this->typeExpression->symbol_table_pass(lexContext, this->typeName, this->declFlags);
     }
 
     TxTypeEntity* get_entity() const {
-        ASSERT(this->declaredEntity, "Declared type entity not initialized");
-        return this->declaredEntity;
+        ASSERT(this->typeExpression->get_entity(), "Declared type entity not initialized");
+        return this->typeExpression->get_entity();
     }
 
     virtual void semantic_pass() {

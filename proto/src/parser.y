@@ -101,20 +101,28 @@ YY_DECL;
 
 %type <TxParsingUnitNode*> parsing_unit
 %type <TxModuleNode*> sub_module
+
 %type <std::vector<TxImportNode*> *> import_statements opt_import_stmts
 %type <TxImportNode *> import_statement
+
 %type <std::vector<TxDeclarationNode*> *> module_members opt_module_members type_members opt_type_members
 %type <TxDeclarationNode *> module_member member_declaration
-%type <TxTypeNameDeclNode *> new_type_name
-%type <std::vector<TxTypeNameDeclNode*> *> type_param_list
-%type <std::vector<TxIdentifiedTypeNode*> *> opt_base_types predef_type_list
+
+%type <std::vector<TxPredefinedTypeNode*> *> opt_base_types predef_type_list
+%type <TxPredefinedTypeNode*> predef_type
+
+%type <TxTypeParam> type_param
+%type <std::vector<TxTypeParam> *> type_param_list
+
 %type <TxTypeArgumentNode *> type_arg
 %type <std::vector<TxTypeArgumentNode*> *> type_arg_list
+
 %type <TxFieldDefNode*> field_def field_type_def field_assignment_def direct_function_def
 %type <std::vector<TxFieldDefNode*> *> params_def field_type_list
+
 %type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression return_type_def
 %type <TxTypeExpressionNode*> reference_type array_type data_tuple_type
-%type <TxIdentifiedTypeNode*> predef_type
+
 %type <TxFunctionTypeNode*> function_type function_header
 %type <TxExpressionNode*> expr lambda_expr value_literal array_dimensions
 %type <TxFunctionCallNode*> call_expr
@@ -231,12 +239,19 @@ module_member : member_declaration { $$ = $1; }
 ;
 
 member_declaration
+    // field
     : declaration_flags field_def sep  %prec STMT  { $$ = new TxFieldDeclNode(@1, $1, $2); }
-    | declaration_flags KW_TYPE new_type_name type_spec sep  %prec STMT
-            { $$ = new TxTypeDeclNode(@1, $1, $3, $4); }
 
-    // syntactic sugar for a direct function (method) definition:
+    // type
+    | declaration_flags KW_TYPE NAME type_spec sep  %prec STMT
+            { $$ = new TxTypeDeclNode(@1, $1, $3, NULL, $4); }
+    | declaration_flags KW_TYPE NAME LT type_param_list GT type_spec sep  %prec STMT
+            { $$ = new TxTypeDeclNode(@1, $1, $3, $5, $7); }
+
+    // method
     |   declaration_flags direct_function_def sep  %prec STMT  { $$ = new TxFieldDeclNode(@1, $1, $2); }
+
+    // error recovery
     |   error sep  %prec STMT  { $$ = NULL; }
     ;
 
@@ -298,14 +313,11 @@ field_identifier : identifier { $$ = new TxIdentifierNode(@1, TxIdentifierNode::
 */
 
 
-
-
-// declares a new type name (must be unqualified)
-new_type_name   : NAME                        { $$ = new TxTypeNameDeclNode(@1, $1); }
-                | NAME LT type_param_list GT  { $$ = new TxTypeNameDeclNode(@1, $1, $3); }
+type_param      : NAME  { $$ = TxTypeParam(TxTypeParam::TXB_TYPE, $1); }
+                //| NAME  { $$ = TxTypeParam(TxTypeParam::TXB_VALUE, $1); }  FIXME
                 ;
-type_param_list : new_type_name  { $$ = new std::vector<TxTypeNameDeclNode*>(); $$->push_back($1); }
-                | type_param_list sCOMMA new_type_name  { $$ = $1; $$->push_back($3); }
+type_param_list : type_param  { $$ = new std::vector<TxTypeParam>(); $$->push_back($1); }
+                | type_param_list sCOMMA type_param  { $$ = $1; $$->push_back($3); }
                 ;
 
 new_field_name : NAME { $$ = $1; } ; // declares a new field name (must be unqualified)
@@ -352,17 +364,17 @@ type_members : member_declaration
                            $$->push_back($2); }
 ;
 
-opt_base_types  : %empty    { $$ = new std::vector<TxIdentifiedTypeNode*>(); }
+opt_base_types  : %empty    { $$ = new std::vector<TxPredefinedTypeNode*>(); }
                 | KW_SUBTYPE predef_type_list  { $$ = $2; }
                 // (all but the first must be interface types)
                 ;
 
-predef_type_list: predef_type  { $$ = new std::vector<TxIdentifiedTypeNode*>();  $$->push_back($1); }
+predef_type_list: predef_type  { $$ = new std::vector<TxPredefinedTypeNode*>();  $$->push_back($1); }
                 | predef_type_list sCOMMA predef_type  { $$ = $1;  $$->push_back($3); }
                 ;
 
 predef_type     : gen_identifier                      { $$ = new TxIdentifiedTypeNode(@1, $1); }
-                | gen_identifier LT type_arg_list GT  { $$ = new TxIdentifiedTypeNode(@1, $1, $3); }
+                | gen_identifier LT type_arg_list GT  { $$ = new TxSpecializedTypeNode(@1, $1, $3); }
                 ;
 
 type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->push_back($1); }

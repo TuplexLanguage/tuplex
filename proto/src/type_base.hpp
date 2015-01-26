@@ -91,7 +91,13 @@ class TxTypeParam : public Printable {  // FUTURE: add constraints
 public:
     enum MetaType { TXB_TYPE, TXB_VALUE };
 
+private:
+    MetaType metaType;
+    std::string typeParamName;
+
+public:
     TxTypeParam() : metaType(), typeParamName()  { }
+
     TxTypeParam(MetaType metaType, const std::string& typeParamName)
         : metaType(metaType), typeParamName(typeParamName)  { }
 
@@ -114,10 +120,6 @@ public:
         case TXB_VALUE: return "VALUE " + this->param_name();
         }
     }
-
-private:
-    MetaType metaType;
-    std::string typeParamName;
 };
 
 
@@ -230,25 +232,25 @@ public:
 class TxType : public TxTypeProxy, public Printable {
     //std::string _name;
     /** The entity declaration that defined this type. */
-    mutable TxTypeEntity const * _entity = nullptr;
+    TxTypeEntity const * const _entity;
 
 protected:
     const TxTypeSpecialization baseTypeSpec;  // including bindings for all type parameters of base type
     const std::vector<TxTypeSpecialization> interfaces;  // TODO
 
     /** Only to be used for Any type. */
-    TxType() : baseTypeSpec(), typeParams()  { }
+    TxType(const TxTypeEntity* entity) : _entity(entity), baseTypeSpec(), typeParams()  { }
 
-    TxType(const TxTypeSpecialization& baseTypeSpec,
+    TxType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
            const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
-            : baseTypeSpec(baseTypeSpec), typeParams(typeParams) {
+            : _entity(entity), baseTypeSpec(baseTypeSpec), typeParams(typeParams) {
         auto res = baseTypeSpec.validate();
         if (! res.empty())
             throw std::logic_error("Invalid specialization for base type " + baseTypeSpec.type->to_string() + ": " + res);
     }
 
     /** Creates a pure specialization of this type. To be used by the type registry. */
-    virtual TxType* make_specialized_type(const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
+    virtual TxType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
                                           const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>(),
                                           std::string* errorMsg=nullptr) const = 0;
 
@@ -300,11 +302,11 @@ public:
 //    }
     inline const TxTypeEntity* entity() const { return this->_entity; }
 
-    void set_entity(const TxTypeEntity* entity) const {
-        ASSERT(!this->_entity, "Entity of " << this << " already set");
-        ASSERT(!this->is_pure_modifiable(), "Can't set entity " << entity << " of pure modifiable type " << this);
-        this->_entity = entity;
-    }
+//    void set_entity(const TxTypeEntity* entity) const {
+//        ASSERT(!this->_entity, "Entity of " << this << " already set");
+//        ASSERT(!this->is_pure_modifiable(), "Can't set entity " << entity << " of pure modifiable type " << this);
+//        this->_entity = entity;
+//    }
 
 
     /** Returns the size, in bytes, of a direct instance of this type.

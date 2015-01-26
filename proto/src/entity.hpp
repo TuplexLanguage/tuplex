@@ -164,11 +164,12 @@ public:
                 if (fieldMember->get_storage() == TXS_INSTANCE) {
                     auto fieldType = fieldMember->get_type();
                     if (fieldType->is_pure_modifiable())
-                         member = fieldType->get_base_type_spec().type->entity();
-                    else
-                         member = fieldType->entity();
-                    if (! member)
+                        fieldType = fieldType->get_base_type_spec().type;
+                    member = fieldType->entity();
+                    if (! member) {
+                        this->LOGGER().debug("No TxTypeEntity for type '%s' of field '%s'", fieldType->to_string().c_str(), fieldMember->get_full_name().to_string().c_str());
                         return nullptr;
+                    }
                 }
 
             path.push_back(member);
@@ -278,15 +279,17 @@ public:
     inline size_t count() const { return this->fieldEntities.size() + (this->typeEntity ? 1 : 0); }
 
     virtual const TxType* get_type() const {
-        auto groupType = new TxFunctionGroupType();
-        for (auto decl : this->fieldEntities) {
-            auto entType = decl->get_type();
-            if (auto funcType = dynamic_cast<const TxFunctionType*>(entType))
-                groupType->add(funcType);
-            else
-                throw std::logic_error("Illegal overloaded entity type: " + entType->to_string());
-        }
-        return groupType;
+        return this->typeEntity ? this->typeEntity->get_type() : nullptr;
+// previous code for returning an "overloaded function name" type:
+//        auto groupType = new TxFunctionGroupType(nullptr);
+//        for (auto decl : this->fieldEntities) {
+//            auto entType = decl->get_type();
+//            if (auto funcType = dynamic_cast<const TxFunctionType*>(entType))
+//                groupType->add(funcType);
+//            else
+//                throw std::logic_error("Illegal overloaded entity type: " + entType->to_string());
+//        }
+//        return groupType;
     }
 
 

@@ -128,7 +128,7 @@ public:
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
         const TxType* charType = this->types().get_builtin_type(UBYTE);
-        return this->types().get_array_type(charType, &this->arrayLength);
+        return this->types().get_array_type(nullptr, charType, &this->arrayLength);
     }
 
     virtual bool is_statically_constant() const { return true; }
@@ -154,7 +154,7 @@ public:
     }
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        return this->types().get_reference_type(this->get_target_entity()->get_type());
+        return this->types().get_reference_type(nullptr, this->get_target_entity()->get_type());
     }
 
     virtual bool is_statically_constant() const {

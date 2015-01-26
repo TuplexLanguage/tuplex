@@ -4,6 +4,7 @@ type MyType Int
 
 type CompoundType mod subtype Tuple {
     static SFIELD := -1
+    static SFIELD2 := c"abra"
     field1 : ~Float
     field2 : ~Long
     protected field3 : [20]Int
@@ -42,8 +43,9 @@ func testfunc() {
 
     ##bad1 := CompoundType.field1
     ##bad2 := obj.InnerCompType
+    ##bad3 : CompoundType.SFIELD2 ## implicit type entity may not be available
+    ##bad4 : CompoundType.field4 ## implicit type entity may not be available
     ok1 : ~CompoundType.field3
-    ok2 : CompoundType.field4
 }
 
 func main() Int {
