@@ -78,13 +78,13 @@ public:
     const TxFunctionType* get_function_type(const TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, const TxType* returnType, bool mod=false, std::string* errorMsg=nullptr);
     const TxFunctionType* get_function_type(const TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, bool mod=false, std::string* errorMsg=nullptr);
 
-    /** Creates a new tuple type that does not extend another data type or interface.
-     * "mut" of tuple means it is not immutable, i.e. its instances may be declared modifiable. */
-    const TxTupleType* get_tuple_type(const TxTypeEntity* newEntity, bool mut=false, std::string* errorMsg=nullptr);
-
-    /** Creates a new tuple type that is an extension to other types.
-     * "mut" of tuple means it is not immutable, i.e. its instances may be declared modifiable. */
-    const TxTupleType* get_tuple_type(const TxTypeEntity* newEntity, const TxTypeSpecialization& baseType,
-                                      bool mut=false, std::string* errorMsg=nullptr);
+//    /** Creates a new tuple type that does not extend another data type or interface.
+//     * "mut" of tuple means it is not immutable, i.e. its instances may be declared modifiable. */
+//    const TxTupleType* get_tuple_type(const TxTypeEntity* newEntity, bool mut=false, std::string* errorMsg=nullptr);
+//
+//    /** Creates a new tuple type that is an extension to other types.
+//     * "mut" of tuple means it is not immutable, i.e. its instances may be declared modifiable. */
+//    const TxTupleType* get_tuple_type(const TxTypeEntity* newEntity, const TxTypeSpecialization& baseType,
+//                                      bool mut=false, std::string* errorMsg=nullptr);
 
 };

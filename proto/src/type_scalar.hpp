@@ -35,7 +35,6 @@ protected:
                                                  const std::vector<TxTypeParam>& typeParams,
                                                  std::string* errorMsg=nullptr) const override {
         ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
-        ASSERT(baseTypeSpec.modifiable, "should only be used to create a modifiable type usage");
         if (const TxIntegerType* intType = dynamic_cast<const TxIntegerType*>(baseTypeSpec.type))
             return new TxIntegerType(entity, baseTypeSpec, intType->size(), intType->sign);
         throw std::logic_error("Specified a base type for TxIntegerType that was not a TxIntegerType: " + baseTypeSpec.type->to_string());
@@ -74,7 +73,6 @@ protected:
                                                   const std::vector<TxTypeParam>& typeParams,
                                                   std::string* errorMsg=nullptr) const override {
         ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
-        ASSERT(baseTypeSpec.modifiable, "should only be used to create a modifiable type usage");
         if (const TxFloatingType* floatType = dynamic_cast<const TxFloatingType*>(baseTypeSpec.type))
             return new TxFloatingType(entity, baseTypeSpec, floatType->size());
         throw std::logic_error("Specified a base type for TxFloatingType that was not a TxFloatingType: " + baseTypeSpec.type->to_string());

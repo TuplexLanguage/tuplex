@@ -58,14 +58,16 @@ public:
     }
 
     virtual bool is_statically_constant() const {
-        return this->get_entity()->is_statically_constant();
+        if (auto ent = this->get_entity())
+            return ent->is_statically_constant();
+        return false;
     }
 
     virtual void semantic_pass() {
         if (base)
             base->semantic_pass();
         if (! this->get_entity())
-            parser_error(this->parseLocation, "No such field: %s", this->member->ident.to_string().c_str());
+            parser_error(this->parseLocation, "No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
     }
 
 //    virtual bool has_address() const {
@@ -124,7 +126,7 @@ public:
             base->semantic_pass();
         auto entity = this->get_entity();
         if (! entity)
-            parser_error(this->parseLocation, "No such field: %s", this->member->ident.to_string().c_str());
+            parser_error(this->parseLocation, "No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
         else if (entity->get_storage() == TXS_NOSTORAGE)
             parser_error(this->parseLocation, "Assignee %s is not an L-value / has no storage.", member->to_string().c_str());
     }

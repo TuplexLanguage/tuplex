@@ -213,19 +213,20 @@ class TxTypeExpressionNode : public TxNode, public TxTypeProxy {
     mutable TxType const * cachedType = nullptr;
     TxTypeEntity* declaredEntity;  // null until initialized in symbol table pass
 
-protected:
-    virtual const TxTypeEntity* declare_type(LexicalContext& lexContext, const std::string& implicitTypeName, TxDeclarationFlags declFlags) {
+    TxTypeEntity* declare_type(LexicalContext& lexContext, const std::string& implicitTypeName, TxDeclarationFlags declFlags) {
         this->declaredEntity = lexContext.scope()->declare_type(implicitTypeName, this, declFlags);
         return this->declaredEntity;
     }
 
+protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const = 0;
 
 public:
     TxTypeExpressionNode(const yy::location& parseLocation) : TxNode(parseLocation), declaredEntity() { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags) {
+    /** Returns the type entity declared by this type expression node, or NULL if it did not declare a new type entity. */
+    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags) {
         // Note: This scheme with the purpose of naming every type construct within a type expression with an entity
         // might be removed in future. It may prevent things like value assignment (unnamed types mismatching the
         // auto-generated implicit types).
@@ -234,11 +235,13 @@ public:
         //  - using fields in type expressions (which refers to the field's type)
         // Implicitly declared types should have the same visibility as the type/field they are for.
         this->set_context(lexContext);
-        this->declare_type(lexContext, typeName, declFlags);
-        this->symbol_table_pass_descendants(lexContext, declFlags);
+        auto newTypeEnt = this->declare_type(lexContext, typeName, declFlags);
+        LexicalContext typeExtensionCtx(newTypeEnt);
+        this->symbol_table_pass_descendants(typeExtensionCtx, declFlags);
+        return newTypeEnt;
     }
 
-    /** Gets the type entity (implicitly or explicitly) declared for this type expression. May return NULL. */
+    /** Gets the type entity representing the declaration of this type expression. */
     virtual TxTypeEntity* get_entity() const { return this->declaredEntity; }
 
     inline virtual const TxType* get_type() const final {
@@ -438,8 +441,8 @@ class TxFieldDeclNode : public TxDeclarationNode {
 public:
     TxFieldDefNode* field;
 
-    TxFieldDeclNode(const yy::location& parseLocation, const TxDeclarationFlags modifiers, TxFieldDefNode* field)
-        : TxDeclarationNode(parseLocation, modifiers), field(field) { }
+    TxFieldDeclNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags, TxFieldDefNode* field)
+        : TxDeclarationNode(parseLocation, declFlags), field(field) { }
 
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         TxFieldStorage storage;
@@ -472,22 +475,50 @@ public:
 
 /** Non-local type declaration */
 class TxTypeDeclNode : public TxDeclarationNode {
+    /** If the type expression is a simple type identifier, wraps the type expression in a type alias declaration node. */
+    void wrap_alias();
+
 public:
     const std::string typeName;
-    const std::vector<TxTypeParam>* const typeParams;
+    const std::vector<TxDeclarationNode*>* typeParamDecls;
     TxTypeExpressionNode* typeExpression;
 
     TxTypeDeclNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags,
-                   const std::string typeName, const std::vector<TxTypeParam>* const typeParams,
+                   const std::string typeName, const std::vector<TxDeclarationNode*>* typeParamDecls,
                    TxTypeExpressionNode* typeExpression)
         : TxDeclarationNode(parseLocation, declFlags), //declaredEntity(),
-          typeName(typeName), typeParams(typeParams), typeExpression(typeExpression) {
+          typeName(typeName), typeParamDecls(typeParamDecls), typeExpression(typeExpression) {
     }
 
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        // (delegates type declaration to type expression node)
-        this->typeExpression->symbol_table_pass(lexContext, this->typeName, this->declFlags);
+        // type declaration is performed by the type expression node, unless this is a decl of an alias for a predef type:
+        // FIXME: pass type parameters to type expression so that the created TxType instance has them
+        this->wrap_alias();
+        auto newTypeEntity = this->typeExpression->symbol_table_pass(lexContext, this->typeName, this->declFlags);
+        if (newTypeEntity) {
+            // declare type parameters, if any, within type definition's scope:
+            LexicalContext typeCtx(newTypeEntity);
+            if (this->typeParamDecls) {
+                for (auto paramDecl : *this->typeParamDecls) {
+                    paramDecl->symbol_table_pass(typeCtx);
+                }
+            }
+        }
+//        if (this->typeParams) {
+//            for (auto & param : *this->typeParams) {
+//                if (param.meta_type() == TxTypeParam::TXB_VALUE) {
+//                    newTypeEntity->declare_field(param.param_name(), param.get_base_type_definer(), TXD_PUBLIC, TXS_STATIC, TxIdentifier());
+//                }
+//                else {  // TXB_TYPE
+//                    const TxTypeProxy* baseTypeDefiner = param.has_base_type_definer()
+//                                                         ? param.get_base_type_definer()
+//                                                         : this->types().get_builtin_type(ANY);
+//                    newTypeEntity->declare_type(param.param_name(), baseTypeDefiner, TXD_PUBLIC);
+//                }
+//            }
+//        }
+        //parser_error(this->parseLocation, "Declared type parameters but type definition does not describe a generic type.");
     }
 
     TxTypeEntity* get_entity() const {

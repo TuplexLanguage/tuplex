@@ -36,17 +36,13 @@ public:
 
 /** Used solely for the Any root type object. */
 class TxAnyType : public TxType {
-    // (can only be specialized once: Any -> mod Any)
     TxAnyType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec) : TxType(entity, baseTypeSpec)  { }
 
-    // (can only be specialized once: Any -> mod Any)
     TxType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
             const std::vector<TxTypeParam>& typeParams,
             std::string* errorMsg=nullptr) const override {
         if (! dynamic_cast<const TxAnyType*>(baseTypeSpec.type))
             throw std::logic_error("Specified a base type for TxAnyType that was not a TxAnyType: " + baseTypeSpec.type->to_string());
-        ASSERT(typeParams.empty(), "typeParams not empty");
-        ASSERT(baseTypeSpec.modifiable, "not a modifiable specialization");
         return new TxAnyType(entity, baseTypeSpec);
     }
 
@@ -58,14 +54,11 @@ public:
 
 /** Used for the built-in types' abstract base types. */
 class TxBuiltinBaseType : public TxType {
-    // (can only be specialized once -> mod)
     TxType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                   const std::vector<TxTypeParam>& typeParams,
                                   std::string* errorMsg=nullptr) const override {
         if (! dynamic_cast<const TxBuiltinBaseType*>(baseTypeSpec.type))
             throw std::logic_error("Specified a base type for TxBuiltinBaseType that was not a TxBuiltinBaseType: " + baseTypeSpec.type->to_string());
-        ASSERT(typeParams.empty(), "typeParams not empty");
-        ASSERT(baseTypeSpec.modifiable, "not a modifiable specialization");
         return new TxBuiltinBaseType(entity, baseTypeSpec);
     }
 
@@ -349,11 +342,11 @@ const TxFunctionType* TypeRegistry::get_function_type(const TxTypeEntity* newEnt
     return new TxFunctionType(newEntity, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, nullptr, mod);
 }
 
-const TxTupleType* TypeRegistry::get_tuple_type(const TxTypeEntity* newEntity, bool mut, std::string* errorMsg) {
-    return new TxTupleType(newEntity, this->builtinTypes[TUPLE]->get_type(), mut);
-}
-
-const TxTupleType* TypeRegistry::get_tuple_type(const TxTypeEntity* newEntity, const TxTypeSpecialization& baseType,
-                                                bool mut, std::string* errorMsg) {
-    return static_cast<const TxTupleType*>(this->get_type_specialization(newEntity, baseType, errorMsg));
-}
+//const TxTupleType* TypeRegistry::get_tuple_type(const TxTypeEntity* newEntity, bool mut, std::string* errorMsg) {
+//    return new TxTupleType(newEntity, this->builtinTypes[TUPLE]->get_type(), mut);
+//}
+//
+//const TxTupleType* TypeRegistry::get_tuple_type(const TxTypeEntity* newEntity, const TxTypeSpecialization& baseType,
+//                                                bool mut, std::string* errorMsg) {
+//    return static_cast<const TxTupleType*>(this->get_type_specialization(newEntity, baseType, errorMsg));
+//}

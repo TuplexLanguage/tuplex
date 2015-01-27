@@ -2,7 +2,7 @@
 #include "llvm_generator.hpp"
 
 
-llvm::Value* TxTupleTypeNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+llvm::Value* TxDerivedTypeNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     for (auto type : *this->baseTypes)
         type->codeGen(context, scope);

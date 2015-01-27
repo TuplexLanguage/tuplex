@@ -96,7 +96,6 @@ YY_DECL;
  */
 %type <TxDeclarationFlags> declaration_flags
 %type <bool> opt_modifiable
-%type <std::string> new_field_name function_name
 %type <TxIdentifier*> identifier
 
 %type <TxParsingUnitNode*> parsing_unit
@@ -105,14 +104,13 @@ YY_DECL;
 %type <std::vector<TxImportNode*> *> import_statements opt_import_stmts
 %type <TxImportNode *> import_statement
 
-%type <std::vector<TxDeclarationNode*> *> module_members opt_module_members type_members opt_type_members
-%type <TxDeclarationNode *> module_member member_declaration
+%type <std::vector<TxDeclarationNode*> *> module_members opt_module_members type_members opt_type_members type_param_list
+%type <TxDeclarationNode *> module_member member_declaration type_param
+//%type <std::vector<TxDeclarationNode*> *> type_param_list
+//%type <TxDeclarationNode*> type_param
 
 %type <std::vector<TxPredefinedTypeNode*> *> opt_base_types predef_type_list
 %type <TxPredefinedTypeNode*> predef_type
-
-%type <TxTypeParam> type_param
-%type <std::vector<TxTypeParam> *> type_param_list
 
 %type <TxTypeArgumentNode *> type_arg
 %type <std::vector<TxTypeArgumentNode*> *> type_arg_list
@@ -121,13 +119,12 @@ YY_DECL;
 %type <std::vector<TxFieldDefNode*> *> params_def field_type_list
 
 %type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression return_type_def
-%type <TxTypeExpressionNode*> reference_type array_type data_tuple_type
+%type <TxTypeExpressionNode*> reference_type array_type //data_tuple_type
 
 %type <TxFunctionTypeNode*> function_type function_header
 %type <TxExpressionNode*> expr lambda_expr value_literal array_dimensions
 %type <TxFunctionCallNode*> call_expr
 %type <std::vector<TxExpressionNode*> *> expression_list call_params
-// %type <TxIdentifierNode*> import_identifier type_identifier field_identifier module_identifier dataspace_identifier
 %type <TxIdentifierNode*> gen_identifier
 %type <TxIdentifierNode*> module_declaration opt_module_decl opt_dataspace
 %type <TxSuiteNode*> suite
@@ -196,6 +193,27 @@ sub_module : KW_MODULE gen_identifier opt_sep
                    driver.parsingUnit->add_module($$);
                  }
     ;
+
+
+
+// An 'identifier' refers to an entity declared elsewhere, and contains one or more
+// period-separated 'segments'.
+// Semantically, identifiers are of the period-separated form
+// MODULE_NAME* ( STATIC_ENTITY_NAME ( STATIC_MEMBER_NAME | SCOPE_NAME )* )? ENTITY_NAME ( MEMBER_NAME )*
+// 'Static' includes both constant globals and static members of entities.
+// 'Scopes' are static entities, but serve as namespace for local (stack/register) entities.
+// 'Member' can be either static or dynamic.
+// (Note that (parameterized) type instances may be 'local'.)
+// Example of fully qualified static name: my.mod.MyClass.staticField.myMethod.$.InnerClass.staticField2
+// Example of fully qualified local name: my.mod.MyClass.staticField.myMethod.$.self
+
+identifier : NAME                       { $$ = new TxIdentifier($1); }
+           | identifier DOT NAME        { $$ = $1; $$->append($3); }
+           | identifier DOT ASTERISK    { $$ = $1; $$->append("*"); }
+           ;
+
+gen_identifier : identifier  { $$ = new TxIdentifierNode(@1, $1); } ;
+
 
 
 opt_module_decl    : %empty %prec STMT { $$ = new TxIdentifierNode(@$, new TxIdentifier(LOCAL_NS)); }
@@ -272,70 +290,17 @@ declaration_flags
     ;
 
 
-// semantically, composite identifiers are of the period-separated form
-// MODULE_NAME* ( STATIC_ENTITY_NAME ( STATIC_MEMBER_NAME | SCOPE_NAME )* )? ENTITY_NAME ( MEMBER_NAME )*
-// 'Static' includes both constant globals and static members of entities.
-// 'Scopes' are static entities, but serve as namespace for local (stack/register) entities.
-// 'Member' can be either static or dynamic.
-// (Note that (parameterized) type instances may be 'local'.)
-// Example of fully qualified static name: my.mod.MyClass.staticField.myMethod.$.InnerClass.staticField2
-// Example of fully qualified local name: my.mod.MyClass.staticField.myMethod.$.self
-
-identifier : NAME                       { $$ = new TxIdentifier($1); }
-           | identifier DOT NAME        { $$ = $1; $$->append($3); }
-           | identifier DOT ASTERISK    { $$ = $1; $$->append("*"); }
-           ;
-
-gen_identifier : identifier  { $$ = new TxIdentifierNode(@1, $1); } ;
-
-
-/*
-identifier : NAME                { $$ = new TxIdentifier($1); }
-           | identifier DOT NAME { $$ = $1; $$->append($3); }
-           ;
-
-module_identifier    : identifier
-                     { $$ = new TxIdentifierNode(@1, TxIdentifierNode::MODULE_ID, $1); } ;
-
-dataspace_identifier : identifier // AAND // (special character may be needed to distinguish from field identifier)
-                     { $$ = new TxIdentifierNode(@1, TxIdentifierNode::DATASPACE_ID, $1); } ;
-
-import_identifier : identifier
-                    { $$ = new TxIdentifierNode(@1, TxIdentifierNode::IMPORT_ID, $1); }
-                  | identifier DOT ASTERISK
-                    { $1->append("*");
-                      $$ = new TxIdentifierNode(@1, TxIdentifierNode::IMPORT_ID, $1); }
-                  ;
-
-type_identifier : identifier { $$ = new TxIdentifierNode(@1, TxIdentifierNode::TYPE_ID, $1); };
-
-field_identifier : identifier { $$ = new TxIdentifierNode(@1, TxIdentifierNode::FIELD_ID, $1); };
-*/
-
-
-type_param      : NAME  { $$ = TxTypeParam(TxTypeParam::TXB_TYPE, $1, nullptr); }
-                | NAME KW_DERIVES predef_type { $$ = TxTypeParam(TxTypeParam::TXB_TYPE, $1, $3); }
-                | field_type_def  { $$ = TxTypeParam(TxTypeParam::TXB_VALUE, $1->ident, $1); }
-                ;
-type_param_list : type_param  { $$ = new std::vector<TxTypeParam>(); $$->push_back($1); }
-                | type_param_list sCOMMA type_param  { $$ = $1; $$->push_back($3); }
-                ;
-
-new_field_name : NAME { $$ = $1; } ; // declares a new field name (must be unqualified)
-function_name  : NAME { $$ = $1; } ; // declares a new field name (must be unqualified)
-
-
 field_def : field_type_def { $$ = $1; } | field_assignment_def { $$ = $1; } ;
 
-field_type_def : new_field_name sCOLON type_expression
+field_type_def : NAME sCOLON type_expression
                      { $$ = new TxFieldDefNode(@1, $1, $3, NULL); }
 ;
 
-field_assignment_def : new_field_name sCOLON type_expression sEQUAL expr
+field_assignment_def : NAME sCOLON type_expression sEQUAL expr
                            { $$ = new TxFieldDefNode(@1, $1, $3, $5); }
-                     | new_field_name COLEQUAL expr
+                     | NAME COLEQUAL expr
                            { $$ = new TxFieldDefNode(@1, $1, $3); }
-                     | TILDE new_field_name COLEQUAL expr
+                     | TILDE NAME COLEQUAL expr
                            { $$ = new TxFieldDefNode(@1, $2, $4, true); }
                      // TODO |   assignee_pattern COLEQUAL expr
 ;
@@ -343,13 +308,22 @@ field_assignment_def : new_field_name sCOLON type_expression sEQUAL expr
 
 //// types:
 
+type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->push_back($1); }
+                | type_param_list sCOMMA type_param  { $$ = $1; $$->push_back($3); }
+                ;
+type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC, $1, NULL, new TxIdentifiedTypeNode(@1, new TxIdentifierNode(@1, new TxIdentifier("tx.Any")))); }
+                | NAME KW_DERIVES predef_type { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC, $1, NULL, $3); }
+                | field_type_def  { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_STATIC, $1); }
+                ;
+
+
 type_spec : type_expression { $$ = $1; }
           | type_extension { $$ = $1; }
 //          | type_interface { $$ = $1; }
           ;
 
 type_extension : opt_modifiable opt_base_types opt_sep sLBRACE  opt_type_members  sRBRACE
-                        { $$ = new TxTupleTypeNode(@1, $1, $2, $5); }
+                        { $$ = new TxDerivedTypeNode(@1, $1, $2, $5); }
                ;
 
 opt_type_members : %empty { $$ = new std::vector<TxDeclarationNode*>(); }
@@ -400,7 +374,7 @@ base_type_expression
     |  reference_type   { $$ = $1; }
     |  array_type       { $$ = $1; }
     |  function_type    { $$ = $1; }
-    |  data_tuple_type  { $$ = $1; }
+//    |  data_tuple_type  { $$ = $1; }
 //    |  union_type
 //    |  enum_type
 //    |  range_type
@@ -418,10 +392,10 @@ array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
                  | LBRACKET RBRACKET  { $$ = NULL; }
                  ;
 
-data_tuple_type  // simple tuple type with no static fields; fields implicitly public
-    : KW_TUPLE opt_sep opt_modifiable opt_sep LBRACE opt_sep field_type_list opt_sep RBRACE
-            { $$ = new TxTupleTypeNode(@1, $3, $7); }
-    ;
+//data_tuple_type  // simple tuple type with no static fields; fields implicitly public
+//    : KW_TUPLE opt_sep opt_modifiable opt_sep LBRACE opt_sep field_type_list opt_sep RBRACE
+//            { $$ = new TxTupleTypeNode(@1, $3, $7); }
+//    ;
 
 //union_type     : KW_UNION sLBRACE type_expr_list sRBRACE ;
 //type_expr_list : type_expression
@@ -465,7 +439,7 @@ function_header : KW_FUNC opt_modifiable params_def return_type_def
                 ;
 
 direct_function_def  // syntactic sugar, creates a field of function type
-    :   KW_FUNC opt_modifiable function_name params_def return_type_def sep suite
+    :   KW_FUNC opt_modifiable NAME params_def return_type_def sep suite
             { TxFunctionTypeNode* funcTypeNode = new TxFunctionTypeNode(@1, $2, $4, $5);
               $$ = new TxFieldDefNode(@1, $3, NULL, new TxLambdaExprNode(@1, funcTypeNode, $7)); }
     ;

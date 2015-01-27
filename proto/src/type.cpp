@@ -43,6 +43,7 @@ std::string TxTypeSpecialization::validate() const {
     for (auto & b : this->bindings) {
         if (this->type->has_type_param(b.param_name())) {
             // TODO: validate metatype and constraints
+            // VALUE parameters can not be of modifiable type
         }
         else
             return std::string("All parameters must have binding (which may in turn be an unbound parameter of derived type)");

@@ -51,9 +51,11 @@ public:
 class TxSpecializedTypeNode : public TxPredefinedTypeNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
+        //LexicalContext parentContext(lexContext.scope()->get_parent());
+        std::string basename = "$arg"; //this->get_entity()->get_name() + "$arg";
         int pno = 0;
         for (TxTypeArgumentNode* tp : *this->typeParams) {
-            tp->symbol_table_pass(lexContext, this->get_entity()->get_name() + "$arg" + std::to_string(pno++), declFlags);
+            tp->symbol_table_pass(lexContext, basename + std::to_string(pno++), declFlags);
         }
     }
 
@@ -71,7 +73,7 @@ public:
         auto baseTypeEntity = this->context().scope()->lookup_type(this->identNode->ident);
         if (! baseTypeEntity) {
             if (errorMsg)
-                errorMsg->append("Unknown type: " + this->identNode->ident.to_string());
+                errorMsg->append("Unknown type: " + this->identNode->ident.to_string() + " (from " + this->context().scope()->to_string() + ")");
             return nullptr;
         }
         auto baseType = baseTypeEntity->get_type();
@@ -105,8 +107,9 @@ public:
         : TxPredefinedTypeNode(parseLocation), identNode(identifier) { }
 
     // identified type does not declare a new entity - override and do nothing
-    virtual void symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags) override {
+    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags) override {
         this->set_context(lexContext);
+        return nullptr;
     }
 
     virtual TxTypeEntity* get_entity() const override {
@@ -117,13 +120,13 @@ public:
         if (auto entity = this->context().scope()->lookup_type(this->identNode->ident))
             return entity->get_type();
         if (errorMsg)
-            errorMsg->append("Unknown type: " + this->identNode->ident.to_string());
+            errorMsg->append("Unknown type: " + this->identNode->ident.to_string() + " (from " + this->context().scope()->to_string() + ")");
         return nullptr;
     }
 
     virtual void semantic_pass() {
         if (! this->get_entity())
-            parser_error(this->parseLocation, "Unknown type: %s", this->identNode->ident.to_string().c_str());
+            parser_error(this->parseLocation, "Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
     }
 };
 
@@ -138,9 +141,9 @@ public:
         : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
 
     // modifiable type specialization is not an actual data type - "pass through" entity declaration to the underlying type
-    virtual void symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags) override {
+    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags) override {
         this->set_context(lexContext);
-        this->baseType->symbol_table_pass(lexContext, typeName, declFlags);
+        return this->baseType->symbol_table_pass(lexContext, typeName, declFlags);
     }
 
     virtual TxTypeEntity* get_entity() const override {
@@ -155,11 +158,33 @@ public:
 };
 
 
+/** Produces a new, "empty" specialization of the underlying type for use by a type alias declaration. */
+class TxAliasedTypeNode : public TxTypeExpressionNode {
+protected:
+    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
+        std::string basename = "$aliased"; //this->get_entity()->get_name() + "$aliased";
+        this->baseType->symbol_table_pass(lexContext, basename, declFlags);
+    }
+
+public:
+    TxTypeExpressionNode* baseType;
+    TxAliasedTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
+        : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
+
+    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
+        return this->types().get_type_specialization(this->get_entity(), TxTypeSpecialization(this->baseType->get_type()), errorMsg);
+    }
+
+    virtual void semantic_pass() { baseType->semantic_pass(); }
+};
+
+
 
 class TxReferenceTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-        this->targetType->symbol_table_pass(lexContext, this->get_entity()->get_name() + "$T", declFlags);
+        std::string basename = "$T"; //this->get_entity()->get_name() + "$T";
+        this->targetType->symbol_table_pass(lexContext, basename, declFlags);
     }
 
 public:
@@ -179,7 +204,8 @@ public:
 class TxArrayTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-        this->elementType->symbol_table_pass(lexContext, this->get_entity()->get_name() + "$E", declFlags);
+        std::string basename = "$E"; //this->get_entity()->get_name() + "$E";
+        this->elementType->symbol_table_pass(lexContext, "$E", declFlags);
         if (this->lengthExpr)
             this->lengthExpr->symbol_table_pass(lexContext);
     }
@@ -209,24 +235,24 @@ public:
     }
 };
 
-class TxTupleTypeNode : public TxTypeExpressionNode {
+class TxDerivedTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
         {
-            std::string basename = this->get_entity()->get_name() + "$base";
+            //LexicalContext parentContext(lexContext.scope()->get_parent());
+            std::string basename = "$base"; //this->get_entity()->get_name() + "$base";
             int b = 0;
             for (auto baseType : *this->baseTypes)
                 baseType->symbol_table_pass(lexContext, basename + std::to_string(b++), declFlags);
         }
 
-        LexicalContext typeExtensionCtx(this->get_entity());
         for (auto member : *this->instanceMembers) {
-            member->symbol_table_pass(typeExtensionCtx);
+            member->symbol_table_pass(lexContext);
         }
         auto memIter = this->staticMembers->begin();
         while (memIter != this->staticMembers->end()) {
             auto member = *memIter;
-            member->symbol_table_pass(typeExtensionCtx);
+            member->symbol_table_pass(lexContext);
             if (auto fieldDecl = dynamic_cast<TxFieldDeclNode*>(member))
                 if (auto entity = fieldDecl->field->get_entity()) {
                     if (entity->get_storage() == TXS_INSTANCE) {
@@ -245,7 +271,7 @@ protected:
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
         auto entity = this->get_entity();
-        ASSERT(entity, "No entity declared for tuple type " << *this);
+        ASSERT(entity, "No entity declared for derived type " << *this);
         // FUTURE: support interfaces
         //std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", length) } );
         std::vector<TxTypeBinding> bindings;
@@ -253,34 +279,22 @@ protected:
                                                              : this->baseTypes->at(0)->get_type();
         if (! baseObjType)
             return nullptr;
-        TxTypeSpecialization specialization(baseObjType, bindings);
-        return this->types().get_tuple_type(entity, specialization, this->modifiable, errorMsg);
+        TxTypeSpecialization specialization(baseObjType, bindings, this->_mutable);
+        return this->types().get_type_specialization(entity, specialization, errorMsg);
     }
 
 public:
-    const bool modifiable;
+    const bool _mutable;
     std::vector<TxPredefinedTypeNode*>* baseTypes;
     std::vector<TxDeclarationNode*>* staticMembers;
     std::vector<TxFieldDeclNode*>* instanceMembers;
 
-    /** Full Tuple type creation. */
-    TxTupleTypeNode(const yy::location& parseLocation, const bool modifiable,
-                    std::vector<TxPredefinedTypeNode*>* baseTypes,
-                    std::vector<TxDeclarationNode*>* members)
-            : TxTypeExpressionNode(parseLocation), modifiable(modifiable),
+    TxDerivedTypeNode(const yy::location& parseLocation, const bool _mutable,
+                      std::vector<TxPredefinedTypeNode*>* baseTypes,
+                      std::vector<TxDeclarationNode*>* members)
+            : TxTypeExpressionNode(parseLocation), _mutable(_mutable),
               baseTypes(baseTypes), staticMembers(members)  {
         instanceMembers = new std::vector<TxFieldDeclNode*>();
-    }
-
-    /** Simple Tuple type creation. */
-    TxTupleTypeNode(const yy::location& parseLocation, const bool modifiable,
-                    std::vector<TxFieldDefNode*>* fieldDefs)
-            : TxTypeExpressionNode(parseLocation), modifiable(modifiable),
-              baseTypes(new std::vector<TxPredefinedTypeNode*>()),
-              staticMembers(new std::vector<TxDeclarationNode*>()),
-              instanceMembers(new std::vector<TxFieldDeclNode*>()) {
-        for (auto fieldDef : *fieldDefs)
-            instanceMembers->push_back(new TxFieldDeclNode(fieldDef->parseLocation, TXD_PUBLIC, fieldDef));
     }
 
     virtual void semantic_pass() {

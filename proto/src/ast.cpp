@@ -53,3 +53,9 @@ TxSuiteNode::TxSuiteNode(const yy::location& parseLocation, std::vector<TxStatem
     }
     *this->suite = tmpSuite;
 }
+
+
+void TxTypeDeclNode::wrap_alias() {
+    if (dynamic_cast<TxIdentifiedTypeNode*>(this->typeExpression))
+        this->typeExpression = new TxAliasedTypeNode(this->typeExpression->parseLocation, this->typeExpression);
+}

@@ -1,16 +1,35 @@
 module tx.proto.string
 
 
-public type ATestString derives Array<Array<UByte,10>,10> {
+public type MARef<S> &S
+
+public type MBRef<S> Ref<S>
+
+public type MCRef<S> derives Ref<S> {
+    static SFIELD := 3
 }
 
-public type BArray<R> []UByte
+public type MDRef<S derives Any> Ref<S>
 
-public type BString<L> derives BArray {
+public type MERef<S derives Any> derives Ref<S> {
+    static SFIELD := 3
 }
 
 
-public final type CString<L> derives Array<UByte,L> {
-    
+## doesn't work since doesn't recognize S as constant
+##public type NAArray<S:UInt> [S]UByte
+
+public type NBArray<S:UInt> Array<UByte,(S)>
+
+public type NCArray<S:UInt> derives Array<UByte,(S)> {
+}
+
+
+public type OTestString derives Array<Array<UByte,10>,10> {
+}
+
+public final type CString<L:UInt> derives Array<UByte,(L)> {
+    ##type E UByte
+    ##L := 3
     
 }
