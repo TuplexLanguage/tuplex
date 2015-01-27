@@ -79,7 +79,7 @@ YY_DECL;
 
 /* keywords: */
 %token KW_MODULE KW_IMPORT KW_PUBLIC KW_PROTECTED KW_STATIC KW_TYPE KW_CLASS KW_INTERFACE KW_ABSTRACT
-%token KW_FINAL KW_OVERRIDE KW_MODIFIABLE KW_REFERENCE KW_EXTENDS KW_IMPLEMENTS KW_SUBTYPE
+%token KW_FINAL KW_OVERRIDE KW_MODIFIABLE KW_REFERENCE KW_EXTENDS KW_IMPLEMENTS KW_DERIVES
 %token KW_FUNC KW_TUPLE KW_UNION KW_ENUM
 %token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_OR
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
@@ -313,8 +313,9 @@ field_identifier : identifier { $$ = new TxIdentifierNode(@1, TxIdentifierNode::
 */
 
 
-type_param      : NAME  { $$ = TxTypeParam(TxTypeParam::TXB_TYPE, $1); }
-                //| NAME  { $$ = TxTypeParam(TxTypeParam::TXB_VALUE, $1); }  FIXME
+type_param      : NAME  { $$ = TxTypeParam(TxTypeParam::TXB_TYPE, $1, nullptr); }
+                | NAME KW_DERIVES predef_type { $$ = TxTypeParam(TxTypeParam::TXB_TYPE, $1, $3); }
+                | field_type_def  { $$ = TxTypeParam(TxTypeParam::TXB_VALUE, $1->ident, $1); }
                 ;
 type_param_list : type_param  { $$ = new std::vector<TxTypeParam>(); $$->push_back($1); }
                 | type_param_list sCOMMA type_param  { $$ = $1; $$->push_back($3); }
@@ -365,7 +366,7 @@ type_members : member_declaration
 ;
 
 opt_base_types  : %empty    { $$ = new std::vector<TxPredefinedTypeNode*>(); }
-                | KW_SUBTYPE predef_type_list  { $$ = $2; }
+                | KW_DERIVES predef_type_list  { $$ = $2; }
                 // (all but the first must be interface types)
                 ;
 

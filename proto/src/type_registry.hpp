@@ -68,20 +68,23 @@ public:
     const TxType* get_type_specialization(const TxTypeEntity* newEntity, const TxTypeSpecialization& specialization, std::string* errorMsg=nullptr);
 
 
-    const TxReferenceType* get_reference_type(const TxTypeEntity* newEntity, const TxTypeProxy* targetType, bool mod=false, std::string* errorMsg=nullptr);
+    const TxReferenceType* get_reference_type(const TxTypeEntity* newEntity, const TxTypeProxy* targetType, std::string* errorMsg=nullptr);
 
-    const TxArrayType* get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType, const TxConstantProxy* length, bool mod=false, std::string* errorMsg=nullptr);
-    const TxArrayType* get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType, bool mod=false, std::string* errorMsg=nullptr);
+    const TxArrayType* get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType, const TxConstantProxy* length, std::string* errorMsg=nullptr);
+    const TxArrayType* get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType, std::string* errorMsg=nullptr);
 
     // "mod" of function refers to whether functions of this type may modify its closure when run.
     // Note: "mod" of args not part of the function type (though concrete function may mod-ify its stack arg copies).
     const TxFunctionType* get_function_type(const TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, const TxType* returnType, bool mod=false, std::string* errorMsg=nullptr);
     const TxFunctionType* get_function_type(const TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, bool mod=false, std::string* errorMsg=nullptr);
 
-    // "mod" of tuple means it is not immutable, i.e. its instances may be declared modifiable.
-    const TxTupleType* get_tuple_type(const TxTypeEntity* newEntity, bool mod=false, std::string* errorMsg=nullptr);
-//    const TxTupleType* get_tuple(const TxTypeEntity* newEntity, const TxTypeSpecialization* baseType,
-//                                 const std::vector<const TxTypeSpecialization*>& interfaces,
-//                                 static members, instance members, bool mod=false);
+    /** Creates a new tuple type that does not extend another data type or interface.
+     * "mut" of tuple means it is not immutable, i.e. its instances may be declared modifiable. */
+    const TxTupleType* get_tuple_type(const TxTypeEntity* newEntity, bool mut=false, std::string* errorMsg=nullptr);
+
+    /** Creates a new tuple type that is an extension to other types.
+     * "mut" of tuple means it is not immutable, i.e. its instances may be declared modifiable. */
+    const TxTupleType* get_tuple_type(const TxTypeEntity* newEntity, const TxTypeSpecialization& baseType,
+                                      bool mut=false, std::string* errorMsg=nullptr);
 
 };

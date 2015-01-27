@@ -122,7 +122,7 @@ void TxType::self_string(std::stringstream& str, bool brief) const {
         }
         if (! fold)
             str << " : ";
-        this->baseTypeSpec.type->self_string(str, true);
+        this->baseTypeSpec.type->self_string(str, false);
     }
     else {
         str << typeid(*this).name();

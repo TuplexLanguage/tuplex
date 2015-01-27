@@ -472,7 +472,6 @@ public:
 
 /** Non-local type declaration */
 class TxTypeDeclNode : public TxDeclarationNode {
-    //TxTypeEntity* declaredEntity;  // null until initialized in symbol table pass
 public:
     const std::string typeName;
     const std::vector<TxTypeParam>* const typeParams;

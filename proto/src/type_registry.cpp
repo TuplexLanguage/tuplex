@@ -56,12 +56,12 @@ public:
     long size() const { throw std::logic_error("Can't get size of abstract type " + this->to_string()); }
 };
 
-/** Used for the built-in types' base type objects. */
+/** Used for the built-in types' abstract base types. */
 class TxBuiltinBaseType : public TxType {
     // (can only be specialized once -> mod)
     TxType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
-            const std::vector<TxTypeParam>& typeParams,
-            std::string* errorMsg=nullptr) const override {
+                                  const std::vector<TxTypeParam>& typeParams,
+                                  std::string* errorMsg=nullptr) const override {
         if (! dynamic_cast<const TxBuiltinBaseType*>(baseTypeSpec.type))
             throw std::logic_error("Specified a base type for TxBuiltinBaseType that was not a TxBuiltinBaseType: " + baseTypeSpec.type->to_string());
         ASSERT(typeParams.empty(), "typeParams not empty");
@@ -154,8 +154,6 @@ void TypeRegistry::initializeBuiltinSymbols() {
     this->add_builtin_abstract( module, SIGNED,        "Signed",         INTEGER );
     this->add_builtin_abstract( module, UNSIGNED,      "Unsigned",       INTEGER );
     this->add_builtin_abstract( module, FLOATINGPOINT, "FloatingPoint",  SCALAR );
-    this->add_builtin_abstract( module, FUNCTION,      "Function",       ANY );
-    this->add_builtin_abstract( module, TUPLE,         "Tuple",          ANY );
 
     // create the built-in concrete scalar types:
     this->add_builtin_integer ( module, BYTE,          "Byte",     SIGNED,   1, true );
@@ -171,6 +169,19 @@ void TypeRegistry::initializeBuiltinSymbols() {
     this->add_builtin_floating( module, FLOAT,         "Float",    FLOATINGPOINT, 4 );
     this->add_builtin_floating( module, DOUBLE,        "Double",   FLOATINGPOINT, 8 );
 
+    //this->add_builtin_abstract( module, FUNCTION,      "Function",       ANY );
+    //this->add_builtin_abstract( module, TUPLE,         "Tuple",          ANY );
+    //this->add_builtin_integer( module, CHAR,          "Char",    UNSIGNED, 1, false );
+    //this->add_builtin( module, STRING,        "String",  new TxArrayType(this->builtinTypes[ARRAY );
+
+    // create the function base type:
+    {
+        auto record = new BuiltinTypeRecord( FUNCTION, "Function" );
+        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC ) );
+        record->set_type( new TxBuiltinBaseType(record->get_entity(), this->builtinTypes[ANY]->get_type() ) );
+        this->builtinTypes[record->id] = record;
+    }
+
     // create the reference base type:
     {
         auto record = new BuiltinTypeRecord( REFERENCE, "Ref" );
@@ -183,12 +194,17 @@ void TypeRegistry::initializeBuiltinSymbols() {
     {
         auto record = new BuiltinTypeRecord( ARRAY, "Array" );
         record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC ) );
-        record->set_type( new TxArrayType(record->get_entity(), this->builtinTypes[ANY]->get_type() ) );
+        record->set_type( new TxArrayType(record->get_entity(), this->builtinTypes[ANY]->get_type(), this->builtinTypes[UINT]->get_type() ) );
         this->builtinTypes[record->id] = record;
     }
 
-    //this->add_builtin_integer( module, CHAR,          "Char",    UNSIGNED, 1, false );
-    //this->add_builtin( module, STRING,        "String",  new TxArrayType(this->builtinTypes[ARRAY );
+    // create the tuple base type:
+    {
+        auto record = new BuiltinTypeRecord( TUPLE, "Tuple" );
+        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC ) );
+        record->set_type( new TxTupleType(record->get_entity(), this->builtinTypes[ANY]->get_type(), true ) );
+        this->builtinTypes[record->id] = record;
+    }
 
 
     // create modifiable specializations of the concrete built-in types:
@@ -303,23 +319,23 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeEntity* newEntit
 
 
 const TxReferenceType* TypeRegistry::get_reference_type(const TxTypeEntity* newEntity, const TxTypeProxy* targetType,
-        bool mod, std::string* errorMsg) {
+                                                        std::string* errorMsg) {
     std::vector<TxTypeBinding> bindings( { TxTypeBinding("T", targetType) } );
-    TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type(), bindings, mod);
+    TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type(), bindings);
     return static_cast<const TxReferenceType*>(this->get_type_specialization(newEntity, specialization, errorMsg));
 }
 
 const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType, const TxConstantProxy* length,
-                                                bool mod, std::string* errorMsg) {
+                                                std::string* errorMsg) {
     std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", length) } );
-    TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings, mod);
+    TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
     return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, errorMsg));
 }
 
 const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType,
-        bool mod, std::string* errorMsg) {
+                                                std::string* errorMsg) {
     std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType) } );
-    TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings, mod);
+    TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
     return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, errorMsg));
 }
 
@@ -333,6 +349,11 @@ const TxFunctionType* TypeRegistry::get_function_type(const TxTypeEntity* newEnt
     return new TxFunctionType(newEntity, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, nullptr, mod);
 }
 
-const TxTupleType* TypeRegistry::get_tuple_type(const TxTypeEntity* newEntity, bool mod, std::string* errorMsg) {
-    return new TxTupleType(newEntity, this->builtinTypes[TUPLE]->get_type(), mod);
+const TxTupleType* TypeRegistry::get_tuple_type(const TxTypeEntity* newEntity, bool mut, std::string* errorMsg) {
+    return new TxTupleType(newEntity, this->builtinTypes[TUPLE]->get_type(), mut);
+}
+
+const TxTupleType* TypeRegistry::get_tuple_type(const TxTypeEntity* newEntity, const TxTypeSpecialization& baseType,
+                                                bool mut, std::string* errorMsg) {
+    return static_cast<const TxTupleType*>(this->get_type_specialization(newEntity, baseType, errorMsg));
 }

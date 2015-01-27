@@ -1,16 +1,16 @@
 module tx.proto.string
 
 
-public type TestString subtype Array<Array<UByte,10>,10> {
+public type ATestString derives Array<Array<UByte,10>,10> {
 }
 
-public type UBArray<R> []UByte
+public type BArray<R> []UByte
 
-public type TString<L> subtype UBArray {
+public type BString<L> derives BArray {
 }
 
 
-public final type CString<L> subtype Array<UByte,L> {
+public final type CString<L> derives Array<UByte,L> {
     
     
 }

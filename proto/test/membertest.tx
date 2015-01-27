@@ -2,7 +2,7 @@ import tx.proto.print.*
 
 type MyType Int
 
-type CompoundType mod subtype Tuple {
+type CompoundType mod derives Tuple {
     static SFIELD := -1
     static SFIELD2 := c"abra"
     field1 : ~Float
@@ -11,7 +11,7 @@ type CompoundType mod subtype Tuple {
     public field4 := c"abra"
     field5 : ~InnerCompType
     field6 : ~&~InnerCompType
-    type InnerCompType mod subtype Tuple {
+    type InnerCompType mod derives Tuple {
         static PI := 3.14
         ~blaha := 0.1
     }

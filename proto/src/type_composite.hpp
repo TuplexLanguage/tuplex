@@ -33,10 +33,10 @@ protected:
 
 public:
     /** Creates the Array base type (no element type nor length specified). Only one such instance should exist. */
-    TxArrayType(const TxTypeEntity* entity, const TxType* any)
-            : TxType(entity, TxTypeSpecialization(any),
-                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE,  "E"),
-                                                 TxTypeParam(TxTypeParam::TXB_VALUE, "L") } ) ) { }
+    TxArrayType(const TxTypeEntity* entity, const TxType* anyType, const TxType* uintType)
+            : TxType(entity, TxTypeSpecialization(anyType),
+                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE,  "E", anyType),
+                                                 TxTypeParam(TxTypeParam::TXB_VALUE, "L", uintType) } ) ) { }
 
 
     const TxTypeProxy& element_type() const {
@@ -101,9 +101,9 @@ protected:
 
 public:
     /** Creates the Reference base type (no target type specified). Only one such instance should exist. */
-    TxReferenceType(const TxTypeEntity* entity, const TxType* any)
-            : TxType(entity, TxTypeSpecialization(any),
-                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE, "T") } ) ) { }
+    TxReferenceType(const TxTypeEntity* entity, const TxType* anyType)
+            : TxType(entity, TxTypeSpecialization(anyType),
+                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE, "T", anyType) } ) ) { }
 
 
     const TxTypeProxy& target_type() const {
@@ -172,8 +172,8 @@ class TxFunctionType : public TxType {
 
 protected:
     virtual TxFunctionType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
-            const std::vector<TxTypeParam>& typeParams,
-            std::string* errorMsg=nullptr) const override {
+                                                  const std::vector<TxTypeParam>& typeParams,
+                                                  std::string* errorMsg=nullptr) const override {
         if (auto funcBaseType = dynamic_cast<const TxFunctionType*>(baseTypeSpec.type))
             return new TxFunctionType(entity, baseTypeSpec, typeParams, funcBaseType->argumentTypes,
                                       funcBaseType->returnType, funcBaseType->modifiableClosure);

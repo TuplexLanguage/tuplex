@@ -135,7 +135,7 @@ extern "C" int yywrap() { return 0; }
 "ref"		{ return token::KW_REFERENCE; }
 "extends"	{ return token::KW_EXTENDS; }
 "implements"	{ return token::KW_IMPLEMENTS; }
-"subtype"   { return token::KW_SUBTYPE; }
+"derives"   { return token::KW_DERIVES; }
 "tuple"     { return token::KW_TUPLE; }
 "union"		{ return token::KW_UNION; }
 "enum"		{ return token::KW_ENUM; }

@@ -69,8 +69,11 @@ public:
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
         auto baseTypeEntity = this->context().scope()->lookup_type(this->identNode->ident);
-        if (! baseTypeEntity)
+        if (! baseTypeEntity) {
+            if (errorMsg)
+                errorMsg->append("Unknown type: " + this->identNode->ident.to_string());
             return nullptr;
+        }
         auto baseType = baseTypeEntity->get_type();
         if (baseType->typeParams.size() != this->typeParams->size()) {
             parser_error(this->parseLocation, "Incorrect number of type parameters specified for type %s", identNode->ident.to_string().c_str());
@@ -113,6 +116,8 @@ public:
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
         if (auto entity = this->context().scope()->lookup_type(this->identNode->ident))
             return entity->get_type();
+        if (errorMsg)
+            errorMsg->append("Unknown type: " + this->identNode->ident.to_string());
         return nullptr;
     }
 
@@ -241,7 +246,15 @@ protected:
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
         auto entity = this->get_entity();
         ASSERT(entity, "No entity declared for tuple type " << *this);
-        return this->types().get_tuple_type(entity, this->modifiable);
+        // FUTURE: support interfaces
+        //std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", length) } );
+        std::vector<TxTypeBinding> bindings;
+        const TxType* baseObjType = this->baseTypes->empty() ? this->types().get_builtin_type(TUPLE)
+                                                             : this->baseTypes->at(0)->get_type();
+        if (! baseObjType)
+            return nullptr;
+        TxTypeSpecialization specialization(baseObjType, bindings);
+        return this->types().get_tuple_type(entity, specialization, this->modifiable, errorMsg);
     }
 
 public:

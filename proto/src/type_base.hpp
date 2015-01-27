@@ -94,15 +94,23 @@ public:
 private:
     MetaType metaType;
     std::string typeParamName;
+    TxTypeProxy const * baseTypeDefiner;
 
 public:
-    TxTypeParam() : metaType(), typeParamName()  { }
+    TxTypeParam() : metaType(), typeParamName(), baseTypeDefiner()  { }
 
-    TxTypeParam(MetaType metaType, const std::string& typeParamName)
-        : metaType(metaType), typeParamName(typeParamName)  { }
+    TxTypeParam(MetaType metaType, const std::string& typeParamName, const TxTypeProxy* baseTypeDefiner)
+        : metaType(metaType), typeParamName(typeParamName), baseTypeDefiner(baseTypeDefiner)  { }
 
     inline MetaType meta_type() const { return metaType; }
     inline const std::string& param_name() const { return typeParamName; }
+
+    inline bool has_base_type() const { return this->baseTypeDefiner; }
+    /** Gets the TxType instance that represents the base type constraint (if TYPE) or data type (if VALUE) of this parameter. */
+    inline const TxType* get_base_type() const {
+        ASSERT(this->has_base_type(), "This type parameter '" << this->typeParamName << "' has no base type definer set");
+        return this->baseTypeDefiner->get_type();
+    }
 
     inline virtual bool operator==(const TxTypeParam& other) const {
         return (this->typeParamName == other.typeParamName && this->metaType == other.metaType);
