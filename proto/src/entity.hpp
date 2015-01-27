@@ -178,7 +178,7 @@ public:
             else
                 return member->lookup_member(path, TxIdentifier(ident, 1));
         }
-        // TODO: this causes infinite recursion when run before symbol table pass has completed:
+        // FIXME: this causes infinite recursion when run before symbol table pass has completed:
         //std::cout << "LOOKING UP " << ident << " in " << this->get_full_name() << "; trying inherited members" << std::endl;
         return nullptr; // this->get_type()->lookup_inherited_member(path, ident);
     }

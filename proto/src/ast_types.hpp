@@ -50,11 +50,10 @@ public:
 /** Represents a specialization of a generic type - binding one or more type parameters of a predefined, generic type. */
 class TxSpecializedTypeNode : public TxPredefinedTypeNode {
 protected:
-    virtual void symbol_table_pass_descendants(LexicalContext& lexContext) override {
+    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
         int pno = 0;
         for (TxTypeArgumentNode* tp : *this->typeParams) {
-            tp->symbol_table_pass(lexContext, this->get_entity()->get_name() + "$arg" + std::to_string(pno++),
-                                  this->get_entity()->get_decl_flags() & (TXD_PUBLIC | TXD_PROTECTED));
+            tp->symbol_table_pass(lexContext, this->get_entity()->get_name() + "$arg" + std::to_string(pno++), declFlags);
         }
     }
 
@@ -94,7 +93,7 @@ public:
 
 class TxIdentifiedTypeNode : public TxPredefinedTypeNode {
 protected:
-    virtual void symbol_table_pass_descendants(LexicalContext& lexContext) override { ASSERT(false, "should not be invoked"); }
+    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override { ASSERT(false, "should not be invoked"); }
 
 public:
     const TxIdentifierNode* identNode;
@@ -103,7 +102,7 @@ public:
         : TxPredefinedTypeNode(parseLocation), identNode(identifier) { }
 
     // identified type does not declare a new entity - override and do nothing
-    virtual void symbol_table_pass(LexicalContext& lexContext, const std::string& implicitTypeName, TxDeclarationFlags declFlags) override {
+    virtual void symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags) override {
         this->set_context(lexContext);
     }
 
@@ -126,7 +125,7 @@ public:
 
 class TxModifiableTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual void symbol_table_pass_descendants(LexicalContext& lexContext) override { ASSERT(false, "should not be invoked"); }
+    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override { ASSERT(false, "should not be invoked"); }
 
 public:
     TxTypeExpressionNode* baseType;
@@ -134,9 +133,9 @@ public:
         : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
 
     // modifiable type specialization is not an actual data type - "pass through" entity declaration to the underlying type
-    virtual void symbol_table_pass(LexicalContext& lexContext, const std::string& implicitTypeName, TxDeclarationFlags declFlags) override {
+    virtual void symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags) override {
         this->set_context(lexContext);
-        this->baseType->symbol_table_pass(lexContext, implicitTypeName, declFlags);
+        this->baseType->symbol_table_pass(lexContext, typeName, declFlags);
     }
 
     virtual TxTypeEntity* get_entity() const override {
@@ -154,9 +153,8 @@ public:
 
 class TxReferenceTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual void symbol_table_pass_descendants(LexicalContext& lexContext) override {
-        this->targetType->symbol_table_pass(lexContext, this->get_entity()->get_name() + "$T",
-                                           this->get_entity()->get_decl_flags() & (TXD_PUBLIC | TXD_PROTECTED));
+    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
+        this->targetType->symbol_table_pass(lexContext, this->get_entity()->get_name() + "$T", declFlags);
     }
 
 public:
@@ -175,9 +173,8 @@ public:
 
 class TxArrayTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual void symbol_table_pass_descendants(LexicalContext& lexContext) override {
-        this->elementType->symbol_table_pass(lexContext, this->get_entity()->get_name() + "$E",
-                                             this->get_entity()->get_decl_flags() & (TXD_PUBLIC | TXD_PROTECTED));
+    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
+        this->elementType->symbol_table_pass(lexContext, this->get_entity()->get_name() + "$E", declFlags);
         if (this->lengthExpr)
             this->lengthExpr->symbol_table_pass(lexContext);
     }
@@ -209,10 +206,9 @@ public:
 
 class TxTupleTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual void symbol_table_pass_descendants(LexicalContext& lexContext) override {
+    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
         {
             std::string basename = this->get_entity()->get_name() + "$base";
-            TxDeclarationFlags declFlags = this->get_entity()->get_decl_flags() & (TXD_PUBLIC | TXD_PROTECTED);
             int b = 0;
             for (auto baseType : *this->baseTypes)
                 baseType->symbol_table_pass(lexContext, basename + std::to_string(b++), declFlags);
@@ -299,7 +295,7 @@ class TxFunctionTypeNode : public TxTypeExpressionNode {
     }
 
 protected:
-    virtual void symbol_table_pass_descendants(LexicalContext& lexContext) override {
+    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
         // (processed as a function type and therefore doesn't declare (create entities for) the function args)
         for (auto argDef : *this->arguments)
             argDef->symbol_table_pass(lexContext);

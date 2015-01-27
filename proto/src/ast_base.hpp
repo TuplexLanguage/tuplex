@@ -219,13 +219,13 @@ protected:
         return this->declaredEntity;
     }
 
-    virtual void symbol_table_pass_descendants(LexicalContext& lexContext) = 0;
+    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const = 0;
 
 public:
     TxTypeExpressionNode(const yy::location& parseLocation) : TxNode(parseLocation), declaredEntity() { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext, const std::string& implicitTypeName, TxDeclarationFlags declFlags) {
+    virtual void symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags) {
         // Note: This scheme with the purpose of naming every type construct within a type expression with an entity
         // might be removed in future. It may prevent things like value assignment (unnamed types mismatching the
         // auto-generated implicit types).
@@ -234,8 +234,8 @@ public:
         //  - using fields in type expressions (which refers to the field's type)
         // Implicitly declared types should have the same visibility as the type/field they are for.
         this->set_context(lexContext);
-        this->declare_type(lexContext, implicitTypeName, declFlags);
-        this->symbol_table_pass_descendants(lexContext);
+        this->declare_type(lexContext, typeName, declFlags);
+        this->symbol_table_pass_descendants(lexContext, declFlags);
     }
 
     /** Gets the type entity (implicitly or explicitly) declared for this type expression. May return NULL. */

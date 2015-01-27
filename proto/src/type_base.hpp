@@ -244,6 +244,7 @@ protected:
     TxType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
            const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
             : _entity(entity), baseTypeSpec(baseTypeSpec), typeParams(typeParams) {
+        ASSERT(!entity || !this->is_pure_modifiable(), "Can't set entity " << entity << " of pure modifiable type " << this);
         auto res = baseTypeSpec.validate();
         if (! res.empty())
             throw std::logic_error("Invalid specialization for base type " + baseTypeSpec.type->to_string() + ": " + res);
@@ -294,19 +295,7 @@ public:
 
     /*--- characteristics ---*/
 
-//    bool has_name() const { return !this->_name.empty(); }
-//    const std::string& name() const { return this->_name; }
-//    void set_name(const std::string& name) {
-//        ASSERT(this->_name.empty(), "Name of " << this->_name << " already set");
-//        this->_name = name;
-//    }
     inline const TxTypeEntity* entity() const { return this->_entity; }
-
-//    void set_entity(const TxTypeEntity* entity) const {
-//        ASSERT(!this->_entity, "Entity of " << this << " already set");
-//        ASSERT(!this->is_pure_modifiable(), "Can't set entity " << entity << " of pure modifiable type " << this);
-//        this->_entity = entity;
-//    }
 
 
     /** Returns the size, in bytes, of a direct instance of this type.
