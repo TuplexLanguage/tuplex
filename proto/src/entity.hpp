@@ -163,7 +163,7 @@ public:
             if (auto fieldMember = dynamic_cast<const TxFieldEntity*>(member))
                 if (fieldMember->get_storage() == TXS_INSTANCE) {
                     auto fieldType = fieldMember->get_type();
-                    if (fieldType->is_pure_modifiable())
+                    if (fieldType->is_modifiable())
                         fieldType = fieldType->get_base_type_spec().type;
                     member = fieldType->entity();
                     if (! member) {
@@ -189,6 +189,14 @@ public:
             return member;
         else
             return this->get_type()->lookup_inherited_instance_member(path, ident);
+    }
+
+
+    /** Returns true if this type declares any instance fields. (Does not consider base types' members.) */
+    bool has_instance_fields() const {
+        if (! this->dataLaidOut)
+            this->define_data_layout();
+        return ! this->instanceFieldTypes.empty();
     }
 
 

@@ -1,4 +1,6 @@
-module mytestmod
+
+public type MFRef Ref
+public type MGRef<T> MFRef<T>
 
 /*
 func main() {

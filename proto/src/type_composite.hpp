@@ -24,8 +24,8 @@ class TxArrayType : public TxType {
 
 protected:
     virtual TxArrayType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
-            const std::vector<TxTypeParam>& typeParams,
-            std::string* errorMsg=nullptr) const override {
+                                               const std::vector<TxTypeParam>& typeParams,
+                                               std::string* errorMsg=nullptr) const override {
         if (! dynamic_cast<const TxArrayType*>(baseTypeSpec.type))
             throw std::logic_error("Specified a base type for TxArrayType that was not a TxArrayType: " + baseTypeSpec.type->to_string());
         return new TxArrayType(entity, baseTypeSpec, typeParams);
@@ -92,8 +92,8 @@ class TxReferenceType : public TxType {
 
 protected:
     virtual TxReferenceType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
-            const std::vector<TxTypeParam>& typeParams,
-            std::string* errorMsg=nullptr) const override {
+                                                   const std::vector<TxTypeParam>& typeParams,
+                                                   std::string* errorMsg=nullptr) const override {
         if (! dynamic_cast<const TxReferenceType*>(baseTypeSpec.type))
             throw std::logic_error("Specified a base type for TxReferenceType that was not a TxReferenceType: " + baseTypeSpec.type->to_string());
         return new TxReferenceType(entity, baseTypeSpec, typeParams);
@@ -127,8 +127,11 @@ public:
     virtual bool innerAutoConvertsFrom(const TxType& otherType) const {
         if (const TxReferenceType* otherRef = dynamic_cast<const TxReferenceType*>(&otherType)) {
             // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
+            //std::cout << "ATTEMPTING COVERSION FROM \n" << otherType << "\nTO\n" << *this << std::endl;
             if (auto t = this->resolve_param_type("T")) {
+                //std::cout << "RESOLVED THIS T: " << *t->get_type() << std::endl;
                 if (auto otherT = otherRef->resolve_param_type("T")) {
+                    //std::cout << "RESOLVED OTHER T: " << *otherT->get_type() << std::endl;
                     // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
                     if (! otherT->get_type()->is_a(*t->get_type()))
                         return false;
@@ -231,8 +234,8 @@ class TxFunctionGroupType : public TxType {
     std::vector<const TxFunctionType*> functionTypes;
 
     TxFunctionGroupType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
-            const std::vector<TxTypeParam>& typeParams,
-            std::string* errorMsg=nullptr) const override {
+                                               const std::vector<TxTypeParam>& typeParams,
+                                               std::string* errorMsg=nullptr) const override {
         throw std::logic_error("Can't specialize type " + this->to_string());
     };
 

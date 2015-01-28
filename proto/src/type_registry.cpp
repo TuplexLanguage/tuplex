@@ -39,8 +39,9 @@ class TxAnyType : public TxType {
     TxAnyType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec) : TxType(entity, baseTypeSpec)  { }
 
     TxType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
-            const std::vector<TxTypeParam>& typeParams,
-            std::string* errorMsg=nullptr) const override {
+                                  const std::vector<TxTypeParam>& typeParams,
+                                  std::string* errorMsg=nullptr) const override {
+        ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
         if (! dynamic_cast<const TxAnyType*>(baseTypeSpec.type))
             throw std::logic_error("Specified a base type for TxAnyType that was not a TxAnyType: " + baseTypeSpec.type->to_string());
         return new TxAnyType(entity, baseTypeSpec);
@@ -57,6 +58,7 @@ class TxBuiltinBaseType : public TxType {
     TxType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                   const std::vector<TxTypeParam>& typeParams,
                                   std::string* errorMsg=nullptr) const override {
+        ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
         if (! dynamic_cast<const TxBuiltinBaseType*>(baseTypeSpec.type))
             throw std::logic_error("Specified a base type for TxBuiltinBaseType that was not a TxBuiltinBaseType: " + baseTypeSpec.type->to_string());
         return new TxBuiltinBaseType(entity, baseTypeSpec);
@@ -205,7 +207,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
         // verify that all built-in types are initialized:
         ASSERT(this->builtinTypes[id], "Uninitialized built-in type! id=" << id);
 
-        this->builtinModTypes[id] = this->get_type_specialization(nullptr, TxTypeSpecialization(this->builtinTypes[id]->get_type(), true));
+        this->builtinModTypes[id] = this->get_modifiable_type(this->builtinTypes[id]->get_type());
     }
 
     // test adding static field to types:
@@ -256,58 +258,81 @@ const TxType* TypeRegistry::get_builtin_type(const BuiltinTypeId id, bool mod) c
 }
 
 
-const TxType* TypeRegistry::get_type_specialization(const TxTypeEntity* newEntity, const TxTypeSpecialization& specialization,
-                                                    std::string* errorMsg) {
-    // TODO: ensure sequences of pure type specializations are collapsed into single pure specializations
-    // (except for individual type specializations that are named (have an entity))
-    // TODO: ensure type specialization is never applied to a modifiable-specialization (legal only on generic base type)
-    // TODO: ensure modifiable specialization is always a distinct specialization (no parameter bindings (or type extensions))
+const TxType* TypeRegistry::get_modifiable_type(const TxType* type, std::string* errorMsg) {
+    // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
+    TxTypeSpecialization tmpSpec(type, true);
     std::vector<TxTypeParam> unbound;
-    for (auto & p : specialization.type->typeParams) {
-        const TxTypeBinding* match = nullptr;
-        for (auto & b : specialization.bindings)
-            if (p.param_name() == b.param_name()) {
-                match = &b;
-                break;
-            }
-        if (! match)
-            unbound.push_back(p);
-    }
-    if (specialization.type->typeParams.size() - unbound.size() != specialization.bindings.size()) {
-        for (auto & b : specialization.bindings)  // attempt to give specific error message
-            if (! specialization.type->has_type_param(b.param_name()))
-                throw std::logic_error("'" + b.param_name() + "' is not an unbound type parameter name of " + specialization.type->to_string());
-        if (errorMsg)  errorMsg->append("Invalid type parameter bindings for " + specialization.type->to_string());
-        return nullptr;
-        //throw std::logic_error("Invalid type parameter bindings for " + specialization.type->to_string());
-    }
-
-    // redeclare unbound type parameters:
-    std::vector<TxTypeBinding> tmpBindings = specialization.bindings;
-    for (auto & p : unbound) {
-        tmpBindings.push_back(TxTypeBinding(p.param_name(), p));
-//        if (p.meta_type() == TxTypeParam::TXB_TYPE) {
-//            TxTypeProxy* typeProxy = make_identified_type_proxy(p.param_name());
-//            tmpBindings.push_back(TxTypeBinding(p.param_name(), typeProxy));
-//        }
-//        else {
-//            TxConstantProxy* valueProxy = make_identified_field_proxy(p.param_name());
-//            tmpBindings.push_back(TxTypeBinding(p.param_name(), valueProxy));
-//        }
-    }
-    TxTypeSpecialization tmpSpec(specialization.type, tmpBindings, specialization.modifiable);
-
-    try {
-        return specialization.type->make_specialized_type(newEntity, tmpSpec, unbound, errorMsg);
-    }
-    catch (const std::logic_error& e) {
-        if (errorMsg) {
+    if (errorMsg) {
+        try {
+            return type->make_specialized_type(nullptr, tmpSpec, unbound, errorMsg);
+        }
+        catch (const std::logic_error& e) {
             errorMsg->append(e.what());
             return nullptr;
         }
-        else
-            throw e;
     }
+    else
+        return type->make_specialized_type(nullptr, tmpSpec, unbound, errorMsg);
+}
+
+const TxType* TypeRegistry::get_type_specialization(const TxTypeEntity* newEntity, const TxTypeSpecialization& specialization,
+                                                    bool _mutable, const std::vector<TxTypeParam>* typeParams,
+                                                    std::string* errorMsg) {
+    // FUTURE: Should sequences of pure type specializations be collapsed into single pure specializations
+    // (except for individual type specializations that are named (have an entity))?
+    // Note: type specialization is never applied to a modifiable-specialization (legal only on generic base type)
+    ASSERT(!specialization.type->is_modifiable(), "Can't specialize a 'modifiable' base type: " << specialization);
+    ASSERT(!specialization.modifiable, "Can't specify 'modifiable' in a type parameter specialization: " << specialization);
+    std::vector<TxTypeParam> unboundParams;
+    if (typeParams)
+        unboundParams = *typeParams;
+    std::vector<TxTypeBinding> newBindings = specialization.bindings;
+    for (auto & baseTypeParam : specialization.type->type_params()) {
+        const TxTypeBinding* matchedBinding = nullptr;
+        for (auto & paramBinding : specialization.bindings)
+            if (baseTypeParam.param_name() == paramBinding.param_name() && baseTypeParam.meta_type() == paramBinding.meta_type()) {
+                matchedBinding = &paramBinding;
+                break;
+            }
+        if (! matchedBinding) {
+            if (typeParams) {
+                const TxTypeParam* matchedNewParam = nullptr;
+                for (auto & newParam : *typeParams)
+                    if (baseTypeParam.param_name() == newParam.param_name() && baseTypeParam.meta_type() == newParam.meta_type()) {
+                        matchedNewParam = &newParam;
+                        break;
+                    }
+                if (matchedNewParam) {
+                    // effectively redeclared
+                    newBindings.push_back(TxTypeBinding(baseTypeParam.param_name(), *matchedNewParam));
+                }
+                else {
+                    if (errorMsg)
+                        errorMsg->append("Type parameter " + baseTypeParam.to_string()
+                                         + " neither bound or redeclared in specialization of " + specialization.type->to_string());
+                    return nullptr;
+                }
+            }
+            else {
+                // automatically redeclare unbound type parameters:
+                unboundParams.push_back(baseTypeParam);
+                newBindings.push_back(TxTypeBinding(baseTypeParam.param_name(), baseTypeParam));
+            }
+        }
+    }
+
+    TxTypeSpecialization newSpec(specialization.type, newBindings);
+    if (errorMsg) {
+        try {
+            return specialization.type->make_specialized_type(newEntity, newSpec, unboundParams, errorMsg);
+        }
+        catch (const std::logic_error& e) {
+            errorMsg->append(e.what());
+            return nullptr;
+        }
+    }
+    else
+        return specialization.type->make_specialized_type(newEntity, newSpec, unboundParams, errorMsg);
 }
 
 
@@ -315,21 +340,21 @@ const TxReferenceType* TypeRegistry::get_reference_type(const TxTypeEntity* newE
                                                         std::string* errorMsg) {
     std::vector<TxTypeBinding> bindings( { TxTypeBinding("T", targetType) } );
     TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type(), bindings);
-    return static_cast<const TxReferenceType*>(this->get_type_specialization(newEntity, specialization, errorMsg));
+    return static_cast<const TxReferenceType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
 }
 
 const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType, const TxConstantProxy* length,
                                                 std::string* errorMsg) {
     std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", length) } );
     TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
-    return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, errorMsg));
+    return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
 }
 
 const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType,
                                                 std::string* errorMsg) {
     std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType) } );
     TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
-    return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, errorMsg));
+    return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
 }
 
 const TxFunctionType* TypeRegistry::get_function_type(const TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, const TxType* returnType,

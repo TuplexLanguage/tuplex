@@ -32,26 +32,39 @@ TxSuiteNode::TxSuiteNode(const yy::location& parseLocation)
 
 TxSuiteNode::TxSuiteNode(const yy::location& parseLocation, std::vector<TxStatementNode*>* suite)
         : TxStatementNode(parseLocation), suite(suite)  {
-    // attach else-clauses to preceding conditional statements:
-    std::vector<TxStatementNode*> tmpSuite;
-    for (TxStatementNode* stmt : *suite) {
-        //if (auto elseClause = dynamic_cast<TxElseClauseNode*>(stmt)) {
-            /*  now handled by grammar instead
-            if (!tmpSuite.empty())
-                if (auto compStmt = dynamic_cast<TxCondCompoundStmtNode*>(tmpSuite.back())) {
-                    if (compStmt->has_else_clause())
-                        parser_error(elseClause->parseLocation, "preceding if-statement already has an else-clause");
-                    else
-                        compStmt->set_else_clause(elseClause);
-                    continue;
-                }
-            */
-        //    parser_error(elseClause->parseLocation, "else-clause does not match a preceding conditional clause");
-        //}
-        //else
-            tmpSuite.push_back(stmt);
+//    // attach else-clauses to preceding conditional statements:
+//    std::vector<TxStatementNode*> tmpSuite;
+//    for (TxStatementNode* stmt : *suite) {
+//        //if (auto elseClause = dynamic_cast<TxElseClauseNode*>(stmt)) {
+//            /*  now handled by grammar instead
+//            if (!tmpSuite.empty())
+//                if (auto compStmt = dynamic_cast<TxCondCompoundStmtNode*>(tmpSuite.back())) {
+//                    if (compStmt->has_else_clause())
+//                        parser_error(elseClause->parseLocation, "preceding if-statement already has an else-clause");
+//                    else
+//                        compStmt->set_else_clause(elseClause);
+//                    continue;
+//                }
+//            */
+//        //    parser_error(elseClause->parseLocation, "else-clause does not match a preceding conditional clause");
+//        //}
+//        //else
+//            tmpSuite.push_back(stmt);
+//    }
+//    *this->suite = tmpSuite;
+}
+
+
+
+const std::vector<TxTypeParam>* TxTypeExpressionNode::makeTypeParams(const std::vector<TxDeclarationNode*>* typeParamDecls) {
+    auto paramsVec = new std::vector<TxTypeParam>();
+    for (auto decl : *typeParamDecls) {
+        if (auto typeDecl = dynamic_cast<TxTypeDeclNode*>(decl))
+            paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_TYPE, typeDecl->typeName, typeDecl->typeExpression));
+        else if (auto valueDecl = dynamic_cast<TxFieldDeclNode*>(decl))
+            paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_VALUE, valueDecl->field->ident, valueDecl->field));
     }
-    *this->suite = tmpSuite;
+    return paramsVec;
 }
 
 

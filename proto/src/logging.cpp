@@ -14,7 +14,7 @@ static struct ThresholdLevel THRESHOLD_LEVELS[] {
         { "DRIVER",         ALL },
         { "PARSER",         ALL },
         { "SYMBOLTABLE",    ALL },
-        { "LLVMGEN",        CONFIG },
+        { "LLVMGEN",        ALL },
 };
 
 static Level globalThreshold = INFO;

@@ -31,13 +31,20 @@ public:
             this->valueNode->symbol_table_pass(lexContext);
     }
 
-    virtual TxTypeEntity* get_entity() const {
-        return (this->typeNode ? this->typeNode->get_entity() : nullptr);
+    inline TxTypeBinding make_binding(const std::string& param_name) {
+        if (this->typeNode)
+            return TxTypeBinding(param_name, this->typeNode);
+        else
+            return TxTypeBinding(param_name, static_cast<TxConstantProxy*>(this->valueNode));
     }
 
-    virtual const TxType* get_type() const {
-        return (this->typeNode ? this->typeNode->get_type() : this->valueNode->get_type());
-    }
+//    virtual TxTypeEntity* get_entity() const {
+//        return (this->typeNode ? this->typeNode->get_entity() : nullptr);
+//    }
+//
+//    virtual const TxType* get_type() const {
+//        return (this->typeNode ? this->typeNode->get_type() : this->valueNode->get_type());
+//    }
 
     virtual void semantic_pass() {
         if (this->typeNode)
@@ -54,19 +61,19 @@ protected:
         //LexicalContext parentContext(lexContext.scope()->get_parent());
         std::string basename = "$arg"; //this->get_entity()->get_name() + "$arg";
         int pno = 0;
-        for (TxTypeArgumentNode* tp : *this->typeParams) {
+        for (TxTypeArgumentNode* tp : *this->typeArgs) {
             tp->symbol_table_pass(lexContext, basename + std::to_string(pno++), declFlags);
         }
     }
 
 public:
     const TxIdentifierNode* identNode;
-    const std::vector<TxTypeArgumentNode*>* const typeParams;
+    const std::vector<TxTypeArgumentNode*>* const typeArgs;
 
     TxSpecializedTypeNode(const yy::location& parseLocation, const TxIdentifierNode* identifier,
                           const std::vector<TxTypeArgumentNode*>* typeParams)
-            : TxPredefinedTypeNode(parseLocation), identNode(identifier), typeParams(typeParams)  {
-        ASSERT(! this->typeParams->empty(), "No type parameters specified");
+            : TxPredefinedTypeNode(parseLocation), identNode(identifier), typeArgs(typeParams)  {
+        ASSERT(! this->typeArgs->empty(), "No type parameters specified");
     }
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
@@ -77,20 +84,20 @@ public:
             return nullptr;
         }
         auto baseType = baseTypeEntity->get_type();
-        if (baseType->typeParams.size() != this->typeParams->size()) {
+        if (baseType->type_params().size() != this->typeArgs->size()) {
             parser_error(this->parseLocation, "Incorrect number of type parameters specified for type %s", identNode->ident.to_string().c_str());
             return nullptr;
         }
         std::vector<TxTypeBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
-        for (TxTypeParam tp : baseType->typeParams) {
-            bindings.push_back(TxTypeBinding(tp.param_name(), this->typeParams->at(bindings.size())->get_type()));
+        for (TxTypeParam tp : baseType->type_params()) {
+            bindings.push_back(this->typeArgs->at(bindings.size())->make_binding(tp.param_name()));
         }
         TxTypeSpecialization specialization(baseType, bindings);
-        return this->types().get_type_specialization(this->get_entity(), specialization, errorMsg);
+        return this->types().get_type_specialization(this->get_entity(), specialization, false, this->declTypeParams, errorMsg);
     }
 
     virtual void semantic_pass() override {
-        for (TxTypeArgumentNode* tp : *this->typeParams)
+        for (TxTypeArgumentNode* tp : *this->typeArgs)
             tp->semantic_pass();
     }
 };
@@ -107,8 +114,11 @@ public:
         : TxPredefinedTypeNode(parseLocation), identNode(identifier) { }
 
     // identified type does not declare a new entity - override and do nothing
-    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags) override {
+    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags,
+                                            const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override {
         this->set_context(lexContext);
+        if (typeParamDecls && !typeParamDecls->empty())
+            parser_error(this->parseLocation, "Unexpected type parameters declaration.");
         return nullptr;
     }
 
@@ -141,9 +151,10 @@ public:
         : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
 
     // modifiable type specialization is not an actual data type - "pass through" entity declaration to the underlying type
-    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags) override {
+    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags,
+                                            const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override {
         this->set_context(lexContext);
-        return this->baseType->symbol_table_pass(lexContext, typeName, declFlags);
+        return this->baseType->symbol_table_pass(lexContext, typeName, declFlags, typeParamDecls);
     }
 
     virtual TxTypeEntity* get_entity() const override {
@@ -151,7 +162,7 @@ public:
     }
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        return this->types().get_type_specialization(nullptr, TxTypeSpecialization(this->baseType->get_type(), true), errorMsg);
+        return this->types().get_modifiable_type(this->baseType->get_type(), errorMsg);
     }
 
     virtual void semantic_pass() { baseType->semantic_pass(); }
@@ -172,7 +183,8 @@ public:
         : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        return this->types().get_type_specialization(this->get_entity(), TxTypeSpecialization(this->baseType->get_type()), errorMsg);
+        return this->types().get_type_specialization(this->get_entity(), TxTypeSpecialization(this->baseType->get_type()),
+                                                     false, this->declTypeParams, errorMsg);
     }
 
     virtual void semantic_pass() { baseType->semantic_pass(); }
@@ -273,14 +285,15 @@ protected:
         auto entity = this->get_entity();
         ASSERT(entity, "No entity declared for derived type " << *this);
         // FUTURE: support interfaces
-        //std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", length) } );
-        std::vector<TxTypeBinding> bindings;
         const TxType* baseObjType = this->baseTypes->empty() ? this->types().get_builtin_type(TUPLE)
                                                              : this->baseTypes->at(0)->get_type();
         if (! baseObjType)
             return nullptr;
-        TxTypeSpecialization specialization(baseObjType, bindings, this->_mutable);
-        return this->types().get_type_specialization(entity, specialization, errorMsg);
+        TxTypeSpecialization specialization(baseObjType, std::vector<TxTypeBinding>());
+        // Note: does not specify explicit type parameter bindings; any unbound type parameters
+        // of the base types are rebound automatically (and are expected to match the declared type params).
+        auto type = this->types().get_type_specialization(entity, specialization, this->_mutable, this->declTypeParams, errorMsg);
+        return type;
     }
 
 public:

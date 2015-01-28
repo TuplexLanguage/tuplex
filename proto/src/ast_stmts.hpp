@@ -25,6 +25,29 @@ public:
     virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
+/** Local type declaration */
+class TxTypeStmtNode : public TxStatementNode {
+public:
+    TxTypeDeclNode* const typeDecl;
+
+    TxTypeStmtNode(const yy::location& parseLocation, const std::string typeName,
+                   const std::vector<TxDeclarationNode*>* typeParamDecls, TxTypeExpressionNode* typeExpression)
+        : TxStatementNode(parseLocation),
+          typeDecl(new TxTypeDeclNode(parseLocation, TXD_NONE, typeName, typeParamDecls, typeExpression))
+    { }
+
+    virtual void symbol_table_pass(LexicalContext& lexContext) {
+        this->typeDecl->symbol_table_pass(lexContext);
+        this->set_context(this->typeDecl);
+    }
+
+    virtual void semantic_pass() {
+        this->typeDecl->semantic_pass();
+    }
+
+    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+};
+
 class TxCallStmtNode : public TxStatementNode {  // function call without assigning return value (if any)
 public:
     TxFunctionCallNode* call;
@@ -63,7 +86,7 @@ public:
     }
 
     virtual void semantic_pass() {
-        // TODO: Fix so that this won't find false positive using outer function's $return field
+        // TODO: Fix so that this won't find false positive using outer function's $return typeDecl
         auto returnValue = this->context().scope()->resolve_field(TxIdentifier("$return"));
         if (this->expr) {
             this->expr->semantic_pass();

@@ -129,7 +129,7 @@ YY_DECL;
 %type <TxIdentifierNode*> module_declaration opt_module_decl opt_dataspace
 %type <TxSuiteNode*> suite
 %type <std::vector<TxStatementNode*> *> statement_list
-%type <TxStatementNode*> statement assignment_stmt return_stmt break_stmt continue_stmt
+%type <TxStatementNode*> statement assignment_stmt return_stmt break_stmt continue_stmt type_decl_stmt
 %type <TxStatementNode*> non_cond_stmt cond_stmt cond_else_stmt else_clause
 %type <TxAssigneeNode*> assignee_expr
 
@@ -524,11 +524,19 @@ statement
 non_cond_stmt
     :   field_def { $$ = new TxFieldStmtNode(@1, $1); }
     |   call_expr { $$ = new TxCallStmtNode(@1, $1); } // function call without return value assignment
+    |   type_decl_stmt  { $$ = $1; }
     |   assignment_stmt { $$ = $1; }
     |   return_stmt     { $$ = $1; }
     |   break_stmt      { $$ = $1; }
     |   continue_stmt   { $$ = $1; }
     ;
+
+// TODO: support declaration flags abstract, final, and maybe static
+type_decl_stmt  : KW_TYPE NAME type_spec
+                    { $$ = new TxTypeStmtNode(@1, $2, NULL, $3); }
+                | KW_TYPE NAME LT type_param_list GT type_spec
+                    { $$ = new TxTypeStmtNode(@1, $2, $4, $6); }
+                ;
 
 else_clause     : KW_ELSE opt_sep statement     { $$ = new TxElseClauseNode(@1, $3); } ;
 

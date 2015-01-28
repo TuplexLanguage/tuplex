@@ -3,6 +3,7 @@
 #include <memory>
 #include <map>
 #include <vector>
+#include <algorithm>
 #include <cstdlib>
 
 #include "txassert.hpp"
@@ -157,17 +158,19 @@ public:
         : typeParamName(typeParamName), metaType(TxTypeParam::MetaType::TXB_VALUE),
           typeProxy(), valueProxy(valueProxy), redeclParam()  { }
     TxTypeBinding(const std::string& typeParamName, const TxTypeParam& redeclParam)
-        : typeParamName(typeParamName), metaType(TxTypeParam::MetaType::TXB_VALUE),
+        : typeParamName(typeParamName), metaType(redeclParam.meta_type()),
           typeProxy(), valueProxy(), redeclParam(redeclParam)  { }
 
     inline const std::string& param_name()    const { return typeParamName; }
 
+    inline TxTypeParam::MetaType meta_type()    const { return metaType; }
+
     inline bool is_redeclared() const { return !this->typeProxy && !this->valueProxy; }
 
-    inline const TxTypeParam& rebound_param() const {
-        ASSERT(is_redeclared(), "Type parameter binding is not rebound: " << this->to_string());
-        return this->redeclParam;
-    }
+//    inline const TxTypeParam& rebound_param() const {
+//        ASSERT(is_redeclared(), "Type parameter binding is not rebound: " << this->to_string());
+//        return this->redeclParam;
+//    }
 
     inline const TxTypeProxy& type_proxy()  const {
         ASSERT(metaType==TxTypeParam::MetaType::TXB_TYPE, "Type parameter binding metatype is VALUE, not TYPE: " << this->to_string());
@@ -193,7 +196,16 @@ public:
 };
 
 
-class TxTypeSpecialization {
+/**
+ * Use cases:
+ * 1. Modifiable - modifiable is true, pass-through bindings
+ * 2. Empty extension - modifiable is false, pass-through bindings
+ * 3. Type parameter specialization - modifiable is false, one or more bindings are set
+ *
+ * 2 is used for type aliases, and for derived types that don't bind type parameters.
+ * 3 is used for specializing generic types, including derived types (that extend with additional members).
+ */
+class TxTypeSpecialization : public Printable {
 public:
     TxType const * const type;
     const bool modifiable;
@@ -209,8 +221,8 @@ public:
         //ASSERT(!validate(), "Invalid specialization of " << baseType);
     }
 
-    TxTypeSpecialization(const TxType* baseType, const std::vector<TxTypeBinding>& baseBindings, bool modifiable=false)
-            : type(baseType), modifiable(modifiable), bindings(baseBindings)  {
+    TxTypeSpecialization(const TxType* baseType, const std::vector<TxTypeBinding>& baseBindings)
+            : type(baseType), modifiable(false), bindings(baseBindings)  {
         ASSERT(baseType, "NULL baseType");
         //ASSERT(!validate(), "Invalid specialization of " << baseType);
     }
@@ -233,6 +245,8 @@ public:
     std::string validate() const;
 
     bool operator==(const TxTypeSpecialization& other) const;
+
+    std::string to_string() const;
 };
 
 
@@ -240,27 +254,37 @@ public:
 /** An instance of this class represents a type definition.
  */
 class TxType : public TxTypeProxy, public Printable {
-    //std::string _name;
     /** The entity declaration that defined this type. */
     TxTypeEntity const * const _entity;
+
+    /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
+    const std::vector<TxTypeParam> typeParams;
 
 protected:
     const TxTypeSpecialization baseTypeSpec;  // including bindings for all type parameters of base type
     const std::vector<TxTypeSpecialization> interfaces;  // TODO
 
     /** Only to be used for Any type. */
-    TxType(const TxTypeEntity* entity) : _entity(entity), baseTypeSpec(), typeParams()  { }
+    TxType(const TxTypeEntity* entity) : _entity(entity), typeParams(), baseTypeSpec()  { }
 
     TxType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
            const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
-            : _entity(entity), baseTypeSpec(baseTypeSpec), typeParams(typeParams) {
-        ASSERT(!entity || !this->is_pure_modifiable(), "Can't set entity " << entity << " of pure modifiable type " << this);
+            : _entity(entity), typeParams(typeParams), baseTypeSpec(baseTypeSpec) {
         auto res = baseTypeSpec.validate();
         if (! res.empty())
-            throw std::logic_error("Invalid specialization for base type " + baseTypeSpec.type->to_string() + ": " + res);
+            throw std::logic_error("Invalid specialization of base type " + baseTypeSpec.type->to_string() + ": " + res);
+        if (baseTypeSpec.modifiable) {
+            // verify that this 'modifiable' type usage is a pure specialization
+            //if (typeid(*this) != typeid(*baseTypeSpec.type))  // doesn't work, this is always TxType* here
+            //    throw std::logic_error("'modifiable' specialization must have same TxType class as the base type: " + baseTypeSpec.type->to_string());
+            if (! this->interfaces.empty())
+                throw std::logic_error("'modifiable' specialization cannot add any interface base types");
+            if (entity)
+                throw std::logic_error("Can't set entity of a modifiable type: " + this->to_string());
+        }
     }
 
-    /** Creates a pure specialization of this type. To be used by the type registry. */
+    /** Creates a specialization of this type. To be used by the type registry. */
     virtual TxType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
                                           const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>(),
                                           std::string* errorMsg=nullptr) const = 0;
@@ -272,9 +296,6 @@ protected:
     friend class TypeRegistry;  // allows access for registry's type construction
 
 public:
-    /** Type parameters of this type (this type is a generic type if this is non-empty). */
-    const std::vector<TxTypeParam> typeParams;
-
 
     virtual ~TxType() = default;
 
@@ -288,15 +309,25 @@ public:
 
     /*--- type parameter handling ---*/
 
+    /** Gets the type parameters of this type (this type is a generic type if this is non-empty). */
+    const std::vector<TxTypeParam>& type_params() const {
+        if (this->typeParams.empty()) {
+            // if this is an 'empty' or 'modifiable' type usage, pass-through the parameters of the base type
+            if (this->baseTypeSpec.type && this->baseTypeSpec.bindings.empty())
+                return this->baseTypeSpec.type->type_params();
+        }
+        return this->typeParams;
+    }
+
     bool has_type_param(const std::string& typeParamName) const {
-        for (auto & p : this->typeParams)
+        for (auto & p : this->type_params())
             if (p.param_name() == typeParamName)
                 return true;
         return false;
     }
 
     const TxTypeParam& get_type_param(const std::string& typeParamName) const {
-        for (auto & p : this->typeParams)
+        for (auto & p : this->type_params())
             if (p.param_name() == typeParamName)
                 return p;
         throw std::out_of_range("No such unbound type parameter in " + this->to_string() + ": " + typeParamName);
@@ -324,7 +355,7 @@ public:
      * it must first be specialized as such.
      */
     bool is_modifiable() const {
-        return (this->is_pure_specialization() && this->baseTypeSpec.modifiable);
+        return this->baseTypeSpec.modifiable;
     }
 
     /** Returns true if this type cannot be extended. */
@@ -338,7 +369,7 @@ public:
     bool is_concrete() const { return !this->is_abstract() && !this->is_generic(); }
 
     /** Returns true if this type is generic (i.e. has unbound type parameters). */
-    bool is_generic() const { return !this->typeParams.empty(); }
+    bool is_generic() const { return !this->type_params().empty(); }
 
     /** Returns true if this type is a pure specialization of a base type,
      * i.e. does not extend the base type with any definitions, or interfaces,
@@ -350,19 +381,23 @@ public:
      * Technically, pure specialization types are created when only specializing a base type
      * with type parameter bindings and/or the modifiable attribute.
      */
-    bool is_pure_specialization() const {
-        return (this->baseTypeSpec.type && this->interfaces.empty()
-                && typeid(*this) == typeid(*this->baseTypeSpec.type));
-        // FUTURE: check if this extends base with new members
-    }
+    bool is_pure_specialization() const;
 
-    /** Returns true if this type is a pure specialization of a base type that *only*
-     * specifies the modifiable attribute. If true, this type is by implication modifiable.
+    /** Returns true if this type is an empty specialization of a base type,
+     * i.e. does not specialize any type parameters of the base type, nor modifiable,
+     * not extends the base type with any definitions, or interfaces.
+     * This implies that this type is equivalent to its base type.
+     * (An empty specialization is by implication a pure specialization.)
      */
-    bool is_pure_modifiable() const {
-        return (this->is_pure_specialization() && this->baseTypeSpec.modifiable);
-        // FIXME: add check that this specialization does not bind/narrow any base type parameters
-    }
+    bool is_empty_specialization() const;
+
+    /** Returns true if this type is a virtual specialization of a base type,
+     * i.e. is effectively the same data type as the base type.
+     * Modifiability, added interfaces and added static members do not affect the data type;
+     * added instance members and bound type parameters do.
+     */
+    bool is_virtual_specialization() const;
+
 
 
     /*--- inherited namespace lookup ---*/
@@ -417,7 +452,7 @@ public:
     inline virtual bool operator==(const TxType& other) const {
         return typeid(*this) == typeid(other)
                && this->baseTypeSpec == other.baseTypeSpec
-               && this->typeParams == other.typeParams;
+               && this->type_params() == other.type_params();
             // TODO: same interfaces; same members
     }
     inline bool operator!=(const TxType& other) const  { return ! this->operator==(other); }
@@ -425,9 +460,9 @@ public:
     /** Returns true if this type can implicitly convert from the provided type. */
     bool autoConvertsFrom(const TxType& other) const {
         // general logic:
-        if (this->is_pure_modifiable())
+        if (this->is_modifiable())
             return this->baseTypeSpec.type->autoConvertsFrom(other);
-        if (other.is_pure_modifiable())
+        if (other.is_modifiable())
             return this->autoConvertsFrom(*other.baseTypeSpec.type);
 
         // base-type-specific logic:
@@ -439,9 +474,9 @@ public:
      */
     virtual bool is_a(const TxType& other) const {
         //std::cout << *this << "  IS-A\n" << other << std::endl;
-        if (this->is_pure_modifiable())
+        if (this->is_modifiable())
             return this->baseTypeSpec.type->is_a(other);
-        if (other.is_pure_modifiable())
+        if (other.is_modifiable())
             return this->is_a(*other.baseTypeSpec.type);
 
         if (*this == other)
@@ -501,7 +536,7 @@ protected:
 
     std::string type_params_string() const {
         std::string str = "<";
-        for (auto p : this->typeParams) {
+        for (auto p : this->type_params()) {
             if (str.length() > 1)  str += ",";
             str += p.to_string();
         }

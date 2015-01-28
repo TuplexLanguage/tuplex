@@ -158,7 +158,8 @@ public:
     }
 
     virtual bool is_statically_constant() const {
-        return get_target_entity()->is_statically_constant();  // stat. const field will also have stat. const address, right??
+        // apparently static const field will not be recognized to have statically const address by llvm
+        return false; //get_target_entity()->is_statically_constant();
     }
 
     virtual void semantic_pass() {

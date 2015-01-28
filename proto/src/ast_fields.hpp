@@ -50,10 +50,11 @@ public:
 
     /** returns int value, if this is a statically constant integer expression */
     virtual long get_int_value() const {
-        if (! this->is_context_set())
-            return 0; // FIXME
-        if (! this->is_statically_constant())
-            parser_error(this->parseLocation, "Non-constant field used in constant expression: %s", this->member->to_string().c_str());
+        ASSERT(this->is_context_set(), "Context not set before get_int_value() of " << *this);
+        //if (! this->is_context_set())
+        //    return 0; // FIX ME
+        //if (! this->is_statically_constant())
+        //    parser_error(this->parseLocation, "Non-constant field used in constant expression: %s", this->member->to_string().c_str());
         return 0;  // FIXME
     }
 

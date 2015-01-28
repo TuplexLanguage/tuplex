@@ -102,7 +102,8 @@ void LlvmGenerationContext::writeBitcode(const std::string& filepath) {
 
 
 void LlvmGenerationContext::register_llvm_value(const std::string& identifier, llvm::Value* val) {
-    this->LOG.debug("Registering LLVM value %s", identifier.c_str());
+    //this->LOG.debug("Registering LLVM value %s: %s : %s", identifier.c_str(), to_string(val).c_str(), to_string(val->getType()).c_str());
+    this->LOG.debug("Registering LLVM value %s : %s", identifier.c_str(), to_string(val->getType()).c_str());
     this->llvmSymbolTable.emplace(identifier, val);
 }
 
@@ -266,6 +267,7 @@ class LLVMTypeMapper : public TxTypeVisitor {
             context.LOG.error("No entity for tx type %s - can't perform LLVM type mapping", txType.to_string().c_str());
             return;
         }
+        context.LOG.debug("Mapping tuple type %s... (entity %s)", txType.to_string().c_str(), entity->to_string().c_str());
         std::vector<llvm::Type*> llvmMemberTypes;
         for (auto memberTxType : entity->get_instance_field_types()) {
             llvmMemberTypes.push_back(this->context.getLlvmType(memberTxType));
@@ -287,8 +289,8 @@ class LLVMTypeMapper : public TxTypeVisitor {
 
 llvm::Type* LlvmGenerationContext::getLlvmType(const TxType* txType) {
     ASSERT(txType, "NULL txType provided to getLlvmType()");
-    if (txType->is_modifiable())
-        // for now, we don't map to different LLVM types depending on the Tuplex type's modifiability
+    if (txType->is_virtual_specialization())
+        // same data type as base type
         return getLlvmType(txType->get_base_type_spec().type);
 
     auto iter = this->llvmTypeMapping.find(txType);

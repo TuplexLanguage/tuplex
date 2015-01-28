@@ -1,7 +1,5 @@
 import tx.proto.print.*
 
-type MyType Int
-
 type CompoundType mod derives Tuple {
     static SFIELD := -1
     static SFIELD2 := c"abra"
@@ -49,7 +47,6 @@ func testfunc() {
 }
 
 func main() Int {
-    ##foo : MyType = -1
     testfunc()
     ~foo := CompoundType.SFIELD
     axe := CompoundType.InnerCompType.PI

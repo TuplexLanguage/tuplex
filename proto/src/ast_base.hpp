@@ -211,22 +211,26 @@ public:
 
 class TxTypeExpressionNode : public TxNode, public TxTypeProxy {
     mutable TxType const * cachedType = nullptr;
-    TxTypeEntity* declaredEntity;  // null until initialized in symbol table pass
+    TxTypeEntity* declaredEntity = nullptr;  // null until initialized in symbol table pass
 
     TxTypeEntity* declare_type(LexicalContext& lexContext, const std::string& implicitTypeName, TxDeclarationFlags declFlags) {
         this->declaredEntity = lexContext.scope()->declare_type(implicitTypeName, this, declFlags);
         return this->declaredEntity;
     }
 
+    const std::vector<TxTypeParam>* makeTypeParams(const std::vector<TxDeclarationNode*>* typeParamDecls);
+
 protected:
+    const std::vector<TxTypeParam>* declTypeParams = nullptr;    // null unless set in symbol table pass
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const = 0;
 
 public:
-    TxTypeExpressionNode(const yy::location& parseLocation) : TxNode(parseLocation), declaredEntity() { }
+    TxTypeExpressionNode(const yy::location& parseLocation) : TxNode(parseLocation)  { }
 
     /** Returns the type entity declared by this type expression node, or NULL if it did not declare a new type entity. */
-    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags) {
+    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags,
+                                            const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) {
         // Note: This scheme with the purpose of naming every type construct within a type expression with an entity
         // might be removed in future. It may prevent things like value assignment (unnamed types mismatching the
         // auto-generated implicit types).
@@ -235,6 +239,8 @@ public:
         //  - using fields in type expressions (which refers to the field's type)
         // Implicitly declared types should have the same visibility as the type/field they are for.
         this->set_context(lexContext);
+        if (typeParamDecls)
+            this->declTypeParams = this->makeTypeParams(typeParamDecls);
         auto newTypeEnt = this->declare_type(lexContext, typeName, declFlags);
         LexicalContext typeExtensionCtx(newTypeEnt);
         this->symbol_table_pass_descendants(typeExtensionCtx, declFlags);
@@ -339,7 +345,7 @@ protected:
             if (fieldType) {
                 if (this->modifiable) {
                     if (! fieldType->is_modifiable())
-                        fieldType = this->types().get_type_specialization(nullptr, TxTypeSpecialization(fieldType, true));
+                        fieldType = this->types().get_modifiable_type(fieldType, errorMsg);
                 }
                 else if (fieldType->is_modifiable())
                     // if initialization expression is modifiable type, and modifiable not explicitly specified,
@@ -425,6 +431,9 @@ public:
         if (auto type = this->get_type())
             if (! type->is_concrete())
                 parser_error(this->parseLocation, "Field type %s is not concrete (size potentially unknown).", type->to_string().c_str());
+        if (this->get_entity()->is_statically_constant())
+            if (! this->initExpression->is_statically_constant())
+                parser_error(this->parseLocation, "Non-constant initializer for constant global/static field.");
     }
 
     virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -493,9 +502,8 @@ public:
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
         // type declaration is performed by the type expression node, unless this is a decl of an alias for a predef type:
-        // FIXME: pass type parameters to type expression so that the created TxType instance has them
         this->wrap_alias();
-        auto newTypeEntity = this->typeExpression->symbol_table_pass(lexContext, this->typeName, this->declFlags);
+        auto newTypeEntity = this->typeExpression->symbol_table_pass(lexContext, this->typeName, this->declFlags, this->typeParamDecls);
         if (newTypeEntity) {
             // declare type parameters, if any, within type definition's scope:
             LexicalContext typeCtx(newTypeEntity);

@@ -15,6 +15,13 @@ public type MERef<S derives Any> derives Ref<S> {
     static SFIELD := 3
 }
 
+public type MFRef Ref
+public type MGRef<T> MFRef<T>
+
+GLOB : Float = 13.2
+GLOBR := &GLOB
+GLOBR2 : MGRef<Float> = GLOBR
+
 
 ## doesn't work since doesn't recognize S as constant
 ##public type NAArray<S:UInt> [S]UByte
@@ -28,8 +35,20 @@ public type NCArray<S:UInt> derives Array<UByte,(S)> {
 public type OTestString derives Array<Array<UByte,10>,10> {
 }
 
-public final type CString<L:UInt> derives Array<UByte,(L)> {
+public final type CString<L:UInt,F> derives Array<UByte,(L)> {
     ##type E UByte
     ##L := 3
     
+}
+
+    
+func main() Int {
+    var : Float = 13.2
+    varr := &var
+    varr2 : MGRef<Int> = varr
+
+    type TestType Int
+    foo : TestType = 10
+    str : CString<10,TestType>
+    return foo
 }

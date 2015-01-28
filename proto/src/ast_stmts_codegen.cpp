@@ -38,6 +38,11 @@ llvm::Value* TxFieldStmtNode::codeGen(LlvmGenerationContext& context, GenScope* 
     return fieldVal;
 }
 
+llvm::Value* TxTypeStmtNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s", this->to_string().c_str());
+    return this->typeDecl->codeGen(context, scope);
+}
+
 
 llvm::Value* TxAssignStmtNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
