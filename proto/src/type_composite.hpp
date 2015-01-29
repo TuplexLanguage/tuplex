@@ -284,8 +284,6 @@ public:
 
     virtual bool is_immutable() const { return !this->_mutable; }
 
-    virtual bool operator==(const TxType& other) const;
-
     virtual bool innerAutoConvertsFrom(const TxType& someType) const {
         return (*this) == someType;
     }

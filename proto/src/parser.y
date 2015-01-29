@@ -115,7 +115,7 @@ YY_DECL;
 %type <TxTypeArgumentNode *> type_arg
 %type <std::vector<TxTypeArgumentNode*> *> type_arg_list
 
-%type <TxFieldDefNode*> field_def field_type_def field_assignment_def direct_function_def
+%type <TxFieldDefNode*> field_def field_type_def field_assignment_def method_def
 %type <std::vector<TxFieldDefNode*> *> params_def field_type_list
 
 %type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression return_type_def
@@ -266,8 +266,9 @@ member_declaration
     | declaration_flags KW_TYPE NAME LT type_param_list GT type_spec sep  %prec STMT
             { $$ = new TxTypeDeclNode(@1, $1, $3, $5, $7); }
 
-    // method
-    |   declaration_flags direct_function_def sep  %prec STMT  { $$ = new TxFieldDeclNode(@1, $1, $2); }
+    // method  (static has special meaning; technically a method is always a static function pointer field)
+    |   declaration_flags method_def sep  %prec STMT
+            { $$ = new TxFieldDeclNode(@1, $1, $2, true); }
 
     // error recovery
     |   error sep  %prec STMT  { $$ = NULL; }
@@ -417,6 +418,12 @@ function_type : KW_FUNC opt_modifiable params_def return_type_def
                   { $$ = new TxFunctionTypeNode(@1, $2, $3, $4); }
               ;
 
+lambda_expr : function_header sep suite  { $$ = new TxLambdaExprNode(@1, $1, $3); } ;
+
+function_header : KW_FUNC opt_modifiable params_def return_type_def
+                  { $$ = new TxFunctionTypeNode(@1, $2, $3, $4); }
+                ;
+
 params_def : sLPAREN field_type_list sRPAREN  { $$ = $2; }
            | sLPAREN sRPAREN  { $$ = new std::vector<TxFieldDefNode*>(); }
            ;
@@ -434,17 +441,10 @@ return_type_def : %empty { $$ = NULL; } | type_expression { $$ = $1; } ;
 
 
 
-function_header : KW_FUNC opt_modifiable params_def return_type_def
-                  { $$ = new TxFunctionTypeNode(@1, $2, $3, $4); }
-                ;
-
-direct_function_def  // syntactic sugar, creates a field of function type
-    :   KW_FUNC opt_modifiable NAME params_def return_type_def sep suite
-            { TxFunctionTypeNode* funcTypeNode = new TxFunctionTypeNode(@1, $2, $4, $5);
-              $$ = new TxFieldDefNode(@1, $3, NULL, new TxLambdaExprNode(@1, funcTypeNode, $7)); }
-    ;
-
-lambda_expr : function_header sep suite  { $$ = new TxLambdaExprNode(@1, $1, $3); } ;
+method_def  :   KW_FUNC opt_modifiable NAME params_def return_type_def sep suite
+                { TxFunctionTypeNode* funcTypeNode = new TxFunctionTypeNode(@1, $2, $4, $5);
+                  $$ = new TxFieldDefNode(@1, $3, NULL, new TxLambdaExprNode(@1, funcTypeNode, $7)); }
+            ;
 
 
 

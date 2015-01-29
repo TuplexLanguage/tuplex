@@ -114,6 +114,7 @@ public:
 class TxTypeEntity : public TxDistinctEntity {
     // FUTURE: overhaul initialization order so mutable no longer needed
     mutable bool dataLaidOut = false;
+    mutable bool startedLayout = false;
     mutable std::map<const std::string*, int> staticFields;
     mutable std::map<const std::string*, int> instanceFields;
     mutable std::vector<const TxType*> staticFieldTypes;
@@ -121,6 +122,8 @@ class TxTypeEntity : public TxDistinctEntity {
 
     void define_data_layout() const {
         ASSERT(!this->dataLaidOut, "Data of " << *this << " already laid out");
+        ASSERT(!this->startedLayout, "Recursive call to define_data_layout() of " << *this);
+        this->startedLayout = true;
         for (auto siter = this->symbols_cbegin(); siter != this->symbols_cend(); siter++) {
             if (auto field = dynamic_cast<const TxFieldEntity*>(siter->second)) {
                 auto fieldType = field->get_type();
@@ -191,11 +194,17 @@ public:
             return this->get_type()->lookup_inherited_instance_member(path, ident);
     }
 
-
+    typedef std::map<const std::string, TxSymbolScope*>::value_type SymPair;
     /** Returns true if this type declares any instance fields. (Does not consider base types' members.) */
     bool has_instance_fields() const {
-        if (! this->dataLaidOut)
-            this->define_data_layout();
+        // note: this check needs to be shallow - not traverse all type defs - to prevent risk of infinite recursion
+        if (! this->dataLaidOut) {
+            return std::any_of( this->symbols_cbegin(), this->symbols_cend(),
+                                [](const SymPair & p) { if (auto field = dynamic_cast<TxFieldEntity*>(p.second))
+                                                            return (field->get_storage() == TXS_INSTANCE);
+                                                        return false; } );
+            //this->define_data_layout();
+        }
         return ! this->instanceFieldTypes.empty();
     }
 
@@ -228,6 +237,29 @@ public:
         return this->staticFields.at(&name);
     }
 
+
+    bool prepare_symbol() override {
+        bool valid = TxEntity::prepare_symbol();
+        if (auto type = this->get_type()) {
+            if (this->has_instance_fields()) {
+                if (auto tupleType = dynamic_cast<const TxTupleType*>(type)) {
+                    for (auto basetype = tupleType->get_base_type_spec().type; basetype; basetype = basetype->get_base_type_spec().type) {
+                        if (basetype->entity() && basetype->entity()->has_instance_fields()) {
+                            this->LOGGER().error("Not yet supported to extend base types with additional instance members: %s", type->to_string().c_str());
+                            valid = false;
+                        }
+                    }
+                }
+                else {
+                    this->LOGGER().error("Can't declare instance members in a non-tuple type: %s", type->to_string().c_str());
+                    valid = false;
+                }
+            }
+        }
+        else
+            valid = false;
+        return valid;
+    }
 
     virtual std::string to_string() const {
         return std::string("<type>  ") + ::toString(this->declFlags) + " " + this->get_full_name().to_string();

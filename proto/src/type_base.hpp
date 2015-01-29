@@ -52,36 +52,6 @@ public:
 };
 
 
-///** Represents a "usage variant" of a type.
-// * The same type can be used as modifiable or not (unless it is immutable).
-// * This is light-weight and intended to be passed by value.
-// * It can simply be wrapped around types:
-// * typeRegistry->get_array(TxTypeUsage(charType))
-// *
-// */
-//class TxTypeUsage : public TxTypeProxy, public Printable {
-//public:
-//    const TxTypeProxy* type_proxy;
-//    const bool modifiable;
-//
-//    TxTypeUsage() : type_proxy(), modifiable() { }
-//    TxTypeUsage(const TxTypeProxy* type, bool modifiable=false) : type_proxy(type), modifiable(modifiable)  { }
-//    //TxTypeUsage(const TxTypeUsage& other) : type(other.type), modifiable(other.modifiable)  { }
-//
-//    const TxType* get_type() const { return this->type_proxy->get_type(); }
-//
-//    inline virtual bool operator==(const TxTypeUsage& other) const {
-//        return ( this->modifiable == other.modifiable
-//                 && this->type_proxy->get_type() == other.type_proxy->get_type() );
-//    }
-//    inline virtual bool operator!=(const TxTypeUsage& other) const {
-//        return ! this->operator==(other);
-//    }
-//
-//    std::string to_string() const;
-//};
-
-
 
 /** Represents a type parameter of a generic type.
  * Specializations of the generic type provide a binding to this parameter.
@@ -185,10 +155,12 @@ public:
     }
 
     bool operator==(const TxTypeBinding& other) const;
-    inline virtual bool operator!=(const TxTypeBinding& other) const {
+
+    inline bool operator!=(const TxTypeBinding& other) const {
         return ! this->operator==(other);
     }
-    inline virtual bool operator<(const TxTypeBinding& other) const {
+
+    inline bool operator<(const TxTypeBinding& other) const {
         return this->typeParamName < other.typeParamName;
     }
 
@@ -262,7 +234,7 @@ class TxType : public TxTypeProxy, public Printable {
 
 protected:
     const TxTypeSpecialization baseTypeSpec;  // including bindings for all type parameters of base type
-    const std::vector<TxTypeSpecialization> interfaces;  // TODO
+    const std::vector<TxTypeSpecialization> interfaces;  // FUTURE
 
     /** Only to be used for Any type. */
     TxType(const TxTypeEntity* entity) : _entity(entity), typeParams(), baseTypeSpec()  { }
@@ -337,6 +309,8 @@ public:
     /*--- characteristics ---*/
 
     inline const TxTypeEntity* entity() const { return this->_entity; }
+
+    const TxTypeEntity* explicit_entity() const;
 
 
     /** Returns the size, in bytes, of a direct instance of this type.
@@ -417,45 +391,59 @@ public:
 
     // TODO: rework this; merge with namespace lookup
 
-    const TxTypeProxy* resolve_param_type(// const TxType* specializationType,  // parent entity context
-                                          const std::string& paramName) const {
-        if (this->has_type_param(paramName))
-            return nullptr;  // type parameter is unbound
-        else if (this->baseTypeSpec.type) {
-            if (this->baseTypeSpec.has_binding(paramName))
-                return &this->baseTypeSpec.get_binding(paramName).type_proxy();
-            return this->baseTypeSpec.type->resolve_param_type(paramName);
-        }
-        else
-            return nullptr;  // no such type parameter name in type specialization hierarchy
-    }
-
-    const TxConstantProxy* resolve_param_value(// const TxType* specializationType,  // parent entity context
+    const TxTypeBinding* resolve_param_binding(// const TxType* specializationType,  // parent entity context
                                                const std::string& paramName) const {
         if (this->has_type_param(paramName))
             return nullptr;  // type parameter is unbound
         else if (this->baseTypeSpec.type) {
             if (this->baseTypeSpec.has_binding(paramName))
-                return &this->baseTypeSpec.get_binding(paramName).value_proxy();
-            return this->baseTypeSpec.type->resolve_param_value(paramName);
+                return &this->baseTypeSpec.get_binding(paramName);
+            return this->baseTypeSpec.type->resolve_param_binding(paramName);
         }
         else
             return nullptr;  // no such type parameter name in type specialization hierarchy
+    }
+
+    const TxTypeProxy* resolve_param_type(// const TxType* specializationType,  // parent entity context
+                                          const std::string& paramName) const {
+        if (auto binding = this->resolve_param_binding(paramName)) {
+            if (binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE)
+                return &binding->type_proxy();
+        }
+        return nullptr;  // no such type parameter name in type specialization hierarchy
+    }
+
+    const TxConstantProxy* resolve_param_value(// const TxType* specializationType,  // parent entity context
+                                               const std::string& paramName) const {
+        if (auto binding = this->resolve_param_binding(paramName)) {
+            if (binding->meta_type() == TxTypeParam::MetaType::TXB_VALUE)
+                return &binding->value_proxy();
+        }
+        return nullptr;  // no such type parameter name in type specialization hierarchy
     }
 
 
 
     // FUTURE: checksum?
 
-    // FUTURE: Should we remove the == != operator overloads in favor of more specific comparison methods?
-    // Note that named types are non-equal if not same name.
+    // FUTURE: Should we remove the == != operator overloads in favor of more specificly named comparison methods?
+
+    /** Returns true iff the two types are equal in the Tuplex language definition sense.
+     * Note that named types are non-equal if not same name. */
     inline virtual bool operator==(const TxType& other) const {
-        return typeid(*this) == typeid(other)
-               && this->baseTypeSpec == other.baseTypeSpec
-               && this->type_params() == other.type_params();
-            // TODO: same interfaces; same members
+        auto explEnt = this->explicit_entity();
+        return explEnt == other.explicit_entity()  // same entity or both null
+               && ( explEnt
+                    // if unnamed but identical, pure specialization:
+                    || ( typeid(*this) == typeid(other)
+                         && this->baseTypeSpec == other.baseTypeSpec
+                         && this->type_params() == other.type_params() ) );
+        // (interfaces and members can only apply to a type with an entity, and an entity can have only one type instance)
     }
+
+    /** Returns true iff the two types are unequal in the Tuplex language definition sense. */
     inline bool operator!=(const TxType& other) const  { return ! this->operator==(other); }
+
 
     /** Returns true if this type can implicitly convert from the provided type. */
     bool autoConvertsFrom(const TxType& other) const {
@@ -482,14 +470,19 @@ public:
         if (*this == other)
             return true;
         // check whether other is a more generic version of the same type:
-        if (this->is_same_generic_base_type(other)) {
-            // FiXME: check: are mod and params collapsed into single specialization step???
-            for (auto & b : this->baseTypeSpec.bindings) {
+        if (auto genBaseType = this->common_generic_base_type(other)) {
+            for (auto & param : genBaseType->type_params()) {
                 // other's param shall either be redeclared (generic) or *equal* to this (is-a is not sufficient in general case)
-                auto other_b = other.get_base_type_spec().get_binding(b.param_name());
-                if (! other_b.is_redeclared())
-                    if (b != other_b)  // checks whether both bindings resolve to same type/value  // TODO: review
-                        return false;
+                // TODO: more thorough analysis of which additional cases may be compatible
+                if (auto otherBinding = other.resolve_param_binding(param.param_name()))
+                    if (! otherBinding->is_redeclared()) {
+                        if (auto thisBinding = this->resolve_param_binding(param.param_name())) {
+                            if (*thisBinding != *otherBinding)  // checks whether both bindings resolve to same type/value
+                                return false;
+                        }
+                        else
+                            return false;
+                    }
             }
             return true;
         }
@@ -501,12 +494,14 @@ public:
         return false;
     }
 
-    bool is_same_generic_base_type(const TxType& other) const {
+    const TxType* common_generic_base_type(const TxType& other) const {
         if (this->is_pure_specialization())
-            return this->baseTypeSpec.type->is_same_generic_base_type(other);
+            return this->baseTypeSpec.type->common_generic_base_type(other);
         if (other.is_pure_specialization())
-            return this->is_same_generic_base_type(*other.baseTypeSpec.type);
-        return *this == other;
+            return this->common_generic_base_type(*other.baseTypeSpec.type);
+        if (*this == other)
+            return this;
+        return nullptr;
     }
 
     /** Returns true if an instance of this type can be assigned from an instance of the provided type

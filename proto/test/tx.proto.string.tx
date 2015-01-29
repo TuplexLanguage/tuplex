@@ -1,54 +1,15 @@
 module tx.proto.string
 
+public final type CString<L:UInt> derives Array<UByte,(L)> {
+    public static EMPTY_STRING : CString<1> = c""
 
-public type MARef<S> &S
-
-public type MBRef<S> Ref<S>
-
-public type MCRef<S> derives Ref<S> {
-    static SFIELD := 3
-}
-
-public type MDRef<S derives Any> Ref<S>
-
-public type MERef<S derives Any> derives Ref<S> {
-    static SFIELD := 3
-}
-
-public type MFRef Ref
-public type MGRef<T> MFRef<T>
-
-GLOB : Float = 13.2
-GLOBR := &GLOB
-GLOBR2 : MGRef<Float> = GLOBR
-
-
-## doesn't work since doesn't recognize S as constant
-##public type NAArray<S:UInt> [S]UByte
-
-public type NBArray<S:UInt> Array<UByte,(S)>
-
-public type NCArray<S:UInt> derives Array<UByte,(S)> {
+    public func toInt() Int { return 1 }
+    ##public func toUInt() UInt { return L }
 }
 
 
-public type OTestString derives Array<Array<UByte,10>,10> {
-}
-
-public final type CString<L:UInt,F> derives Array<UByte,(L)> {
-    ##type E UByte
-    ##L := 3
-    
-}
-
-    
 func main() Int {
-    var : Float = 13.2
-    varr := &var
-    varr2 : MGRef<Int> = varr
-
-    type TestType Int
-    foo : TestType = 10
-    str : CString<10,TestType>
-    return foo
+    str : CString<10>
+    return str.toInt(&str)
+    ##return Int(str.toUInt(&str))
 }

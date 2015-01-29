@@ -82,6 +82,12 @@ std::string TxTypeSpecialization::validate() const {
 
 
 
+const TxTypeEntity* TxType::explicit_entity() const {
+    if (this->_entity && this->_entity->get_name().find('$') == std::string::npos)
+        return this->_entity;
+    return nullptr;
+}
+
 bool TxType::is_pure_specialization() const {
     return (this->baseTypeSpec.type && this->interfaces.empty()
             && typeid(*this) == typeid(*this->baseTypeSpec.type)
@@ -153,7 +159,7 @@ void TxType::self_string(std::stringstream& str, bool brief) const {
         str << "MOD ";
         //fold = false;
     }
-    auto entity = this->entity();
+    auto entity = this->explicit_entity();
     if (brief && entity) {
         str << entity->get_full_name();
         if (this->is_generic())
@@ -164,12 +170,12 @@ void TxType::self_string(std::stringstream& str, bool brief) const {
 //            }
     }
     else if (this->baseTypeSpec.type) {
-        //if (!this->is_pure_specialization() || this->is_generic() || typeid(*this) != typeid(*baseTypeSpec.type)) {
+        if (!this->is_pure_specialization() || this->is_generic() || typeid(*this) != typeid(*baseTypeSpec.type)) {
             str << typeid(*this).name();
             if (this->is_generic())
                 str << this->type_params_string();
             fold = false;
-        //}
+        }
         if (! this->baseTypeSpec.bindings.empty()) {
             type_bindings_string(str, this->baseTypeSpec);
             fold = false;
@@ -185,11 +191,11 @@ void TxType::self_string(std::stringstream& str, bool brief) const {
 
 
 
-bool TxTupleType::operator==(const TxType& other) const {
-    // FUTURE: allow polymorphic compatibility
-    return (typeid(*this) == typeid(other) &&
-            *this->entity() == *((TxTupleType&)other).entity());
-}
+//bool TxTupleType::operator==(const TxType& other) const {
+//    // FUTURE: allow polymorphic compatibility
+//    return (typeid(*this) == typeid(other) &&
+//            *this->entity() == *((TxTupleType&)other).entity());
+//}
 
 
 

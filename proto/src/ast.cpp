@@ -1,6 +1,33 @@
 #include "ast.hpp"
 
 
+void TxFieldDeclNode::symbol_table_pass(LexicalContext& lexContext) {
+    TxFieldStorage storage;
+    if (dynamic_cast<TxModule*>(lexContext.scope())) {  // if in global scope
+        if (this->declFlags & TXD_STATIC)
+            parser_error(this->parseLocation, "'static' is invalid modifier for module scope field %s", this->field->ident.c_str());
+        if (this->declFlags & TXD_FINAL)
+            parser_error(this->parseLocation, "'final' is invalid modifier for module scope field %s", this->field->ident.c_str());
+        if (this->declFlags & TXD_OVERRIDE)
+            parser_error(this->parseLocation, "'override' is invalid modifier for module scope field %s", this->field->ident.c_str());
+        storage = TXS_GLOBAL;
+    }
+    else if (this->isMethod) {
+        // static has special meaning for methods, technically a method is always a static function pointer field
+        storage = TXS_STATIC;
+        if (! (this->declFlags & TXD_STATIC)) {
+            // instance method (add implicit self argument)
+            static_cast<TxLambdaExprNode*>(field->initExpression)->make_instance_method();
+        }
+    }
+    else {
+        storage = (this->declFlags & TXD_STATIC) ? TXS_STATIC : TXS_INSTANCE;
+    }
+    this->field->symbol_table_pass_decl_field(lexContext, this->declFlags, storage, TxIdentifier(""));
+    this->set_context(this->field);
+}
+
+
 TxExpressionNode* wrapConversion(TxSymbolScope* scope, TxExpressionNode* originalExpr, const TxType* requiredType,
                                  bool _explicit) {
     auto originalType = originalExpr->get_type();

@@ -235,8 +235,8 @@ public:
         // might be removed in future. It may prevent things like value assignment (unnamed types mismatching the
         // auto-generated implicit types).
         // Type entities are however needed for:
-        //  - adding members (since members are namespace symbols)
-        //  - using fields in type expressions (which refers to the field's type)
+        //  - adding members (since members are namespace symbols) - only done in explicit type extensions
+        //  - using fields in type expressions (which refers to the field's type) - not terribly important
         // Implicitly declared types should have the same visibility as the type/field they are for.
         this->set_context(lexContext);
         if (typeParamDecls)
@@ -427,13 +427,13 @@ public:
             if (this->typeExpression) {
                 this->initExpression = wrapConversion(this->context().scope(), this->initExpression, this->typeExpression->get_type());
             }
+            if (this->get_entity()->is_statically_constant())
+                if (! this->initExpression->is_statically_constant())
+                    parser_error(this->parseLocation, "Non-constant initializer for constant global/static field.");
         }
         if (auto type = this->get_type())
             if (! type->is_concrete())
                 parser_error(this->parseLocation, "Field type %s is not concrete (size potentially unknown).", type->to_string().c_str());
-        if (this->get_entity()->is_statically_constant())
-            if (! this->initExpression->is_statically_constant())
-                parser_error(this->parseLocation, "Non-constant initializer for constant global/static field.");
     }
 
     virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -447,29 +447,15 @@ public:
 
 /** Non-local field declaration */
 class TxFieldDeclNode : public TxDeclarationNode {
+    const bool isMethod = false;
 public:
     TxFieldDefNode* field;
 
-    TxFieldDeclNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags, TxFieldDefNode* field)
-        : TxDeclarationNode(parseLocation, declFlags), field(field) { }
+    TxFieldDeclNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags, TxFieldDefNode* field,
+                    bool isMethod=false)
+            : TxDeclarationNode(parseLocation, declFlags), isMethod(isMethod), field(field) { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
-        TxFieldStorage storage;
-        if (dynamic_cast<TxModule*>(lexContext.scope())) {  // if in global scope
-            if (this->declFlags & TXD_STATIC)
-                parser_error(this->parseLocation, "'static' is invalid modifier for module scope field %s", this->field->ident.c_str());
-            if (this->declFlags & TXD_FINAL)
-                parser_error(this->parseLocation, "'final' is invalid modifier for module scope field %s", this->field->ident.c_str());
-            if (this->declFlags & TXD_OVERRIDE)
-                parser_error(this->parseLocation, "'override' is invalid modifier for module scope field %s", this->field->ident.c_str());
-            storage = TXS_GLOBAL;
-        }
-        else {
-            storage = (this->declFlags & TXD_STATIC) ? TXS_STATIC : TXS_INSTANCE;
-        }
-        this->field->symbol_table_pass_decl_field(lexContext, this->declFlags, storage, TxIdentifier(""));
-        this->set_context(this->field);
-    }
+    virtual void symbol_table_pass(LexicalContext& lexContext);
 
     virtual void semantic_pass() {
         this->field->semantic_pass();
