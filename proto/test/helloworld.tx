@@ -1,0 +1,3 @@
+func main() {
+    tx.c.puts(c"Hello, world!")
+}

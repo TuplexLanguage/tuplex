@@ -279,7 +279,7 @@ const TxFieldEntity* TxSymbolScope::resolve_field(const TxSymbolScope* symbol, c
                     if (candidateFuncType->argumentTypes.size() == typeParameters->size()) {
                         auto typeParamI = typeParameters->cbegin();
                         for (auto argDef : candidateFuncType->argumentTypes) {
-                            if (! argDef->autoConvertsFrom(**typeParamI)) {
+                            if (! argDef->auto_converts_from(**typeParamI)) {
                                 goto NEXT_CANDIDATE;
                             }
                             typeParamI++;

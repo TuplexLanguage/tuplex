@@ -79,7 +79,7 @@ llvm::Value* TxFieldDeclNode::codeGen(LlvmGenerationContext& context, GenScope* 
     context.LOG.trace("%-48s", this->to_string().c_str());
     auto entity = this->field->get_entity();
     auto txType = entity->get_type();
-    llvm::Type* llvmType = context.getLlvmType(txType);
+    llvm::Type* llvmType = context.get_llvm_type(txType);
 
     llvm::Value* fieldVal = nullptr;
     switch (entity->get_storage()) {

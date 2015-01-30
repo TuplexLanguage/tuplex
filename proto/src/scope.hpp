@@ -172,6 +172,7 @@ public:
         std::vector<const TxSymbolScope*> tmp;  return this->resolve_field(tmp, ident, typeParameters);
     }
 
+    /** Attempts to resolve an identified symbol, that is potentially overloaded, as a field using the provided type parameters. */
     virtual const TxFieldEntity* resolve_field(const TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters) const;
 
 

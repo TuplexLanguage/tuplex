@@ -313,6 +313,9 @@ public:
     const TxTypeEntity* explicit_entity() const;
 
 
+    /** Returns true iff this type is a built-in type. */
+    virtual bool is_builtin() const { return false; }
+
     /** Returns the size, in bytes, of a direct instance of this type.
      * Illegal to call for abstract types. */
     virtual long size() const = 0;
@@ -350,17 +353,21 @@ public:
      * besides type parameter bindings and the modifiable attribute.
      * Such a type is a *direct usage form* of the base type.
      *
-     * Note that a pure specialization may still be non-concrete (generic and/or abstract).
+     * Note that a pure specialization may still be non-concrete (generic and/or abstract),
+     * and that it isn't necessarily the same data type as the base type.
      *
      * Technically, pure specialization types are created when only specializing a base type
      * with type parameter bindings and/or the modifiable attribute.
+     *
+     * We currently don't regard adding static members, or defining previously abstract methods,
+     * as making a specialization impure.
      */
     bool is_pure_specialization() const;
 
     /** Returns true if this type is an empty specialization of a base type,
      * i.e. does not specialize any type parameters of the base type, nor modifiable,
      * not extends the base type with any definitions, or interfaces.
-     * This implies that this type is equivalent to its base type.
+     * This implies that this type is equivalent to its base type - is the same data type.
      * (An empty specialization is by implication a pure specialization.)
      */
     bool is_empty_specialization() const;
@@ -446,12 +453,12 @@ public:
 
 
     /** Returns true if this type can implicitly convert from the provided type. */
-    bool autoConvertsFrom(const TxType& other) const {
+    bool auto_converts_from(const TxType& other) const {
         // general logic:
         if (this->is_modifiable())
-            return this->baseTypeSpec.type->autoConvertsFrom(other);
+            return this->baseTypeSpec.type->auto_converts_from(other);
         if (other.is_modifiable())
-            return this->autoConvertsFrom(*other.baseTypeSpec.type);
+            return this->auto_converts_from(*other.baseTypeSpec.type);
 
         // base-type-specific logic:
         return this->innerAutoConvertsFrom(other);
@@ -460,40 +467,9 @@ public:
     /** Returns true if the provided type is the same as this, or a specialization of this.
      * Note that true does not guarantee assignability, for example modifiability is not taken into account.
      */
-    virtual bool is_a(const TxType& other) const {
-        //std::cout << *this << "  IS-A\n" << other << std::endl;
-        if (this->is_modifiable())
-            return this->baseTypeSpec.type->is_a(other);
-        if (other.is_modifiable())
-            return this->is_a(*other.baseTypeSpec.type);
+    virtual bool is_a(const TxType& other) const;
 
-        if (*this == other)
-            return true;
-        // check whether other is a more generic version of the same type:
-        if (auto genBaseType = this->common_generic_base_type(other)) {
-            for (auto & param : genBaseType->type_params()) {
-                // other's param shall either be redeclared (generic) or *equal* to this (is-a is not sufficient in general case)
-                // TODO: more thorough analysis of which additional cases may be compatible
-                if (auto otherBinding = other.resolve_param_binding(param.param_name()))
-                    if (! otherBinding->is_redeclared()) {
-                        if (auto thisBinding = this->resolve_param_binding(param.param_name())) {
-                            if (*thisBinding != *otherBinding)  // checks whether both bindings resolve to same type/value
-                                return false;
-                        }
-                        else
-                            return false;
-                    }
-            }
-            return true;
-        }
-        // check whether any parent type that this type specializes is-a of the other type:
-        if (this->baseTypeSpec.type)
-            if (this->baseTypeSpec.type->is_a(other))
-                return true;
-        // FUTURE: also check interfaces
-        return false;
-    }
-
+    /** Returns the common base type of this and other, if both are pure specializations of it. */
     const TxType* common_generic_base_type(const TxType& other) const {
         if (this->is_pure_specialization())
             return this->baseTypeSpec.type->common_generic_base_type(other);

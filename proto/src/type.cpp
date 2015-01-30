@@ -89,26 +89,32 @@ const TxTypeEntity* TxType::explicit_entity() const {
 }
 
 bool TxType::is_pure_specialization() const {
-    return (this->baseTypeSpec.type && this->interfaces.empty()
-            && typeid(*this) == typeid(*this->baseTypeSpec.type)
-            && !(this->_entity && this->_entity->has_instance_fields()));
+    return ( this->is_modifiable()
+             || ( this->baseTypeSpec.type && this->interfaces.empty()
+                  && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
+                  // && typeid(*this) == typeid(*this->baseTypeSpec.type)  covered by built-in check
+                  && !( this->_entity && this->_entity->has_instance_fields() ) ) );
 }
 
 bool TxType::is_empty_specialization() const {
-    return (this->baseTypeSpec.type && this->interfaces.empty()
-            && typeid(*this) == typeid(*this->baseTypeSpec.type)
-            && this->baseTypeSpec.bindings.empty()
-            && !this->baseTypeSpec.modifiable
-            && !(this->_entity && this->_entity->has_instance_fields()));
+    return ( this->is_modifiable()
+             || ( this->baseTypeSpec.type && this->interfaces.empty()
+                  && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
+                  // && typeid(*this) == typeid(*this->baseTypeSpec.type)  covered by built-in check
+                  && this->baseTypeSpec.bindings.empty()
+                  && !this->baseTypeSpec.modifiable
+                  && !( this->_entity && this->_entity->has_instance_fields() ) ) );
 }
 
 bool TxType::is_virtual_specialization() const {
-    return ( this->baseTypeSpec.type
-             && typeid(*this) == typeid(*this->baseTypeSpec.type)
-             && ( this->baseTypeSpec.bindings.empty()
-                  || std::all_of( this->baseTypeSpec.bindings.cbegin(), this->baseTypeSpec.bindings.cend(),
-                                  [](const TxTypeBinding& b) { return b.is_redeclared(); } ) )
-             && !( this->_entity && this->_entity->has_instance_fields() ) );
+    return ( this->is_modifiable()
+             || ( this->baseTypeSpec.type
+                  && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
+                  // && typeid(*this) == typeid(*this->baseTypeSpec.type)  covered by built-in check
+                  && ( this->baseTypeSpec.bindings.empty()
+                       || std::all_of( this->baseTypeSpec.bindings.cbegin(), this->baseTypeSpec.bindings.cend(),
+                                       [](const TxTypeBinding& b) { return b.is_redeclared(); } ) )
+                  && !( this->_entity && this->_entity->has_instance_fields() ) ) );
 }
 
 
@@ -143,6 +149,41 @@ const TxSymbolScope* TxType::lookup_inherited_member(std::vector<const TxSymbolS
 }
 
 
+bool TxType::is_a(const TxType& other) const {
+    //std::cout << *this << "  IS-A\n" << other << std::endl;
+    if (this->is_modifiable())
+        return this->baseTypeSpec.type->is_a(other);
+    if (other.is_modifiable())
+        return this->is_a(*other.baseTypeSpec.type);
+
+    if (*this == other)
+        return true;
+    // check whether other is a more generic version of the same type:
+    if (auto genBaseType = this->common_generic_base_type(other)) {
+        for (auto & param : genBaseType->type_params()) {
+            // other's param shall either be redeclared (generic) or *equal* to this (is-a is not sufficient in general case)
+            // TODO: more thorough analysis of which additional cases may be compatible
+            if (auto otherBinding = other.resolve_param_binding(param.param_name()))
+                if (! otherBinding->is_redeclared()) {
+                    if (auto thisBinding = this->resolve_param_binding(param.param_name())) {
+                        if (*thisBinding != *otherBinding)  // checks whether both bindings resolve to same type/value
+                            return false;
+                    }
+                    else
+                        return false;
+                }
+        }
+        return true;
+    }
+    // check whether any parent type that this type specializes is-a of the other type:
+    if (this->baseTypeSpec.type)
+        if (this->baseTypeSpec.type->is_a(other))
+            return true;
+    // FUTURE: also check interfaces
+    return false;
+}
+
+
 static void type_bindings_string(std::stringstream& str, const TxTypeSpecialization& specialization) {
     str << "<";
     int ix = 0;
@@ -154,39 +195,41 @@ static void type_bindings_string(std::stringstream& str, const TxTypeSpecializat
 }
 
 void TxType::self_string(std::stringstream& str, bool brief) const {
-    bool fold = true;
     if (this->is_modifiable()) {
         str << "MOD ";
-        //fold = false;
     }
     auto entity = this->explicit_entity();
     if (brief && entity) {
         str << entity->get_full_name();
         if (this->is_generic())
             str << this->type_params_string();
-//            if (this->baseTypeSpec.type) {
-//                str << " : ";
-//                this->baseTypeSpec.type->self_string(str);
-//            }
     }
     else if (this->baseTypeSpec.type) {
-        if (!this->is_pure_specialization() || this->is_generic() || typeid(*this) != typeid(*baseTypeSpec.type)) {
+        bool separator = false;
+        if (entity) {
+            str << entity->get_full_name();
+            if (this->is_generic())
+                str << this->type_params_string();
+            separator = true;
+        }
+        else if (!this->is_pure_specialization() || this->is_generic() || typeid(*this) != typeid(*baseTypeSpec.type)) {
             str << typeid(*this).name();
             if (this->is_generic())
                 str << this->type_params_string();
-            fold = false;
+            separator = true;
         }
         if (! this->baseTypeSpec.bindings.empty()) {
             type_bindings_string(str, this->baseTypeSpec);
-            fold = false;
+            separator = true;
         }
-        if (! fold)
+        if (separator)
             str << " : ";
-        this->baseTypeSpec.type->self_string(str, true);
+        this->baseTypeSpec.type->self_string(str, true);  // set to false to print entire type chain
     }
-    else {
+    else if (entity)
+        str << entity->get_full_name();
+    else
         str << typeid(*this).name();
-    }
 }
 
 

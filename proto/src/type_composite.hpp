@@ -47,6 +47,8 @@ public:
     }
 
 
+    bool is_builtin() const { return typeid(*this) != typeid(*this->baseTypeSpec.type); }
+
     long size() const {
         if (! this->is_concrete())
             throw std::logic_error("Can't get size of abstract or generic type: " + this->to_string());
@@ -113,6 +115,8 @@ public:
         throw std::out_of_range("no such type parameter name in type specialization hierarchy: T: " + this->to_string());
         //return this->baseTypeSpec.get_binding("T").type_proxy();  // TODO: theoretically, a recursive resolve is necessary
     }
+
+    bool is_builtin() const { return typeid(*this) != typeid(*this->baseTypeSpec.type); }
 
     long size() const { return 8; }
 
@@ -193,6 +197,8 @@ public:
           modifiableClosure(modifiableClosure), argumentTypes(argumentTypes), returnType(returnType)  { }
 
     bool hasReturnValue() const  { return this->returnType != nullptr; }
+
+    bool is_builtin() const { return typeid(*this) != typeid(*this->baseTypeSpec.type); }
 
     long size() const { return 8; }
 
@@ -277,6 +283,8 @@ public:
             : TxType(entity, TxTypeSpecialization(baseType)), _mutable(_mutable)  {
         ASSERT(entity, "NULL entity");
     }
+
+    bool is_builtin() const { return typeid(*this) != typeid(*this->baseTypeSpec.type); }
 
     long size() const { return 8; }  // FIXME
 

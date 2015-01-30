@@ -35,7 +35,7 @@ TxExpressionNode* wrapConversion(TxSymbolScope* scope, TxExpressionNode* origina
         return originalExpr;
     if (originalType == requiredType)
         return originalExpr;
-    if (_explicit || requiredType->autoConvertsFrom(*originalType)) {
+    if (_explicit || requiredType->auto_converts_from(*originalType)) {
         // wrap originalExpr with cast instruction node
         if (auto scalar_type = dynamic_cast<const TxScalarType*>(requiredType))
             return new TxScalarCastNode(originalExpr->parseLocation, originalExpr, scalar_type);

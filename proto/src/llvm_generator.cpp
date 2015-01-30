@@ -21,7 +21,7 @@
 /** Add main function so can be fully compiled
  * define i32 @main(i32 %argc, i8 **%argv)
  */
-llvm::Function* LlvmGenerationContext::addMainFunction(llvm::Module *mod, const std::string userMain) {
+llvm::Function* LlvmGenerationContext::add_main_function(llvm::Module *mod, const std::string userMain, bool hasIntReturnValue) {
     //define i32 @main(i32 %argc, i8 **%argv)
     llvm::Function *main_func = llvm::cast<llvm::Function>(mod->getOrInsertFunction("main",
             llvm::IntegerType::getInt32Ty(mod->getContext()),
@@ -37,22 +37,26 @@ llvm::Function* LlvmGenerationContext::addMainFunction(llvm::Module *mod, const 
     //main.0:
     llvm::BasicBlock *bb = llvm::BasicBlock::Create(mod->getContext(), "main.0", main_func);
 
-    // TODO: initialize statics
+    // TODO: initialize statics / runtime environment
 
     //call i64 @userMain()
     auto func = mod->getFunction(userMain);
-    //ASSERT(func, "LLVM function not found for name: " << userMain);
     if (func) {
         llvm::CallInst *user_main_call = llvm::CallInst::Create(func, "", bb);
         user_main_call->setTailCall(false);
-        // truncate return value to i32
-        llvm::CastInst* trunc = llvm::CastInst::CreateIntegerCast(user_main_call, llvm::Type::getInt32Ty(mod->getContext()), true, "", bb);
-        //ret i32 0
-        llvm::ReturnInst::Create(mod->getContext(), trunc, bb);
+        auto i32Type = llvm::Type::getInt32Ty(mod->getContext());
+        if (hasIntReturnValue) {
+            // truncate return value to i32
+            llvm::CastInst* truncVal = llvm::CastInst::CreateIntegerCast(user_main_call, i32Type, true, "", bb);
+            llvm::ReturnInst::Create(mod->getContext(), truncVal, bb);
+        }
+        else {
+            llvm::ReturnInst::Create(mod->getContext(), llvm::ConstantInt::get(i32Type, 0, true), bb);
+        }
     }
     else {
         this->LOG.error("LLVM function not found for name: %s", userMain.c_str());
-        llvm::ReturnInst::Create(mod->getContext(), llvm::ConstantInt::get(mod->getContext(), llvm::APInt(32, 0)), bb);
+        llvm::ReturnInst::Create(mod->getContext(), llvm::ConstantInt::get(mod->getContext(), llvm::APInt(32, 0, true)), bb);
     }
 
     return main_func;
@@ -60,18 +64,18 @@ llvm::Function* LlvmGenerationContext::addMainFunction(llvm::Module *mod, const 
 
 
 /* Compile the AST into a module */
-void LlvmGenerationContext::generateCode(const TxParsingUnitNode& topParseNode)
+void LlvmGenerationContext::generate_code(const TxParsingUnitNode& topParseNode)
 {
     // emit bytecode for the program
     topParseNode.codeGen(*this, nullptr);  // (global scope has no block)
 }
 
-bool LlvmGenerationContext::generateMain(const std::string& userMainIdent) {
-    this->entryFunction = addMainFunction(&this->llvmModule, userMainIdent);
+bool LlvmGenerationContext::generate_main(const std::string& userMainIdent, const TxFunctionType* mainFuncType) {
+    this->entryFunction = add_main_function(&this->llvmModule, userMainIdent, mainFuncType->returnType);
     return this->entryFunction;
 }
 
-bool LlvmGenerationContext::verifyCode() {
+bool LlvmGenerationContext::verify_code() {
     //this->LOG.info("Verifying LLVM code...");;
     std::string errMsg;
     bool ret = llvm::verifyModule(this->llvmModule, llvm::PrintMessageAction, &errMsg);
@@ -80,7 +84,7 @@ bool LlvmGenerationContext::verifyCode() {
     return ret;
 }
 
-void LlvmGenerationContext::printIR() {
+void LlvmGenerationContext::print_IR() {
     // TODO: support writing to a .ll file
     // Print the LLVM IR in a human-readable format to stdout
     this->LOG.info("Printing LLVM bytecode...");
@@ -90,7 +94,7 @@ void LlvmGenerationContext::printIR() {
     std::cout << std::endl;
 }
 
-void LlvmGenerationContext::writeBitcode(const std::string& filepath) {
+void LlvmGenerationContext::write_bitcode(const std::string& filepath) {
     this->LOG.info("Writing LLVM bitcode file '%s'", filepath.c_str());
     llvm::PassManager pm;
     std::string errcode;
@@ -120,27 +124,27 @@ llvm::Value* LlvmGenerationContext::lookup_llvm_value(const std::string& identif
 }
 
 
-const TxType* LlvmGenerationContext::lookupBuiltin(const std::string& name) {
+const TxType* LlvmGenerationContext::lookup_builtin(const std::string& name) {
     static TxIdentifier nsIdent(BUILTIN_NS);
     return this->tuplexContext.lookup_type(TxIdentifier(nsIdent, name))->get_type();
 }
 
-void LlvmGenerationContext::initializeBuiltinTypes() {
+void LlvmGenerationContext::initialize_builtin_types() {
     TxIdentifier nsIdent(BUILTIN_NS);
     TxIdentifier nullRefScope("");
-	this->llvmTypeMapping.emplace(lookupBuiltin("Any"),    llvm::Type::getVoidTy(this->llvmContext));
-	this->llvmTypeMapping.emplace(lookupBuiltin("Byte"),   llvm::Type::getInt8Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookupBuiltin("Short"),  llvm::Type::getInt16Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookupBuiltin("Int"),    llvm::Type::getInt32Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookupBuiltin("Long"),   llvm::Type::getInt64Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookupBuiltin("UByte"),  llvm::Type::getInt8Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookupBuiltin("UShort"), llvm::Type::getInt16Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookupBuiltin("UInt"),   llvm::Type::getInt32Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookupBuiltin("ULong"),  llvm::Type::getInt64Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookupBuiltin("Half"),   llvm::Type::getHalfTy(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookupBuiltin("Float"),  llvm::Type::getFloatTy(this->llvmContext));
-	this->llvmTypeMapping.emplace(lookupBuiltin("Double"), llvm::Type::getDoubleTy(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookupBuiltin("Boolean"), llvm::Type::getInt1Ty(this->llvmContext));
+	this->llvmTypeMapping.emplace(lookup_builtin("Any"),    llvm::Type::getVoidTy(this->llvmContext));
+	this->llvmTypeMapping.emplace(lookup_builtin("Byte"),   llvm::Type::getInt8Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin("Short"),  llvm::Type::getInt16Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin("Int"),    llvm::Type::getInt32Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin("Long"),   llvm::Type::getInt64Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin("UByte"),  llvm::Type::getInt8Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin("UShort"), llvm::Type::getInt16Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin("UInt"),   llvm::Type::getInt32Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin("ULong"),  llvm::Type::getInt64Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin("Half"),   llvm::Type::getHalfTy(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin("Float"),  llvm::Type::getFloatTy(this->llvmContext));
+	this->llvmTypeMapping.emplace(lookup_builtin("Double"), llvm::Type::getDoubleTy(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin("Boolean"), llvm::Type::getInt1Ty(this->llvmContext));
     //this->llvmTypeMapping.emplace(lookupBuiltin("Char"),   llvm::Type::getInt8Ty(this->llvmContext));
     //this->llvmTypeMapping.emplace(lookupBuiltin("String"), llvm::Type::getInt8PtrTy(this->llvmContext));
 //	for (auto pair : this->llvmTypeMapping)
@@ -216,7 +220,7 @@ class LLVMTypeMapper : public TxTypeVisitor {
     virtual void visit(const TxReferenceType& txType)  {
         if (txType.is_generic())
             throw std::logic_error("Generic references currently not supported: " + txType.to_string());
-        llvm::Type* targetType = this->context.getLlvmType(txType.target_type().get_type());
+        llvm::Type* targetType = this->context.get_llvm_type(txType.target_type().get_type());
         if (targetType) {
             this->result = llvm::PointerType::get(targetType, 0);
             context.LOG.debug("Mapping reference type %s", txType.to_string().c_str());
@@ -227,7 +231,7 @@ class LLVMTypeMapper : public TxTypeVisitor {
 
     virtual void visit(const TxArrayType& txType)  {
         if (auto e = txType.resolve_param_type("E")) {
-            if (llvm::Type* elemType = this->context.getLlvmType(e->get_type())) {
+            if (llvm::Type* elemType = this->context.get_llvm_type(e->get_type())) {
                 if (auto len = txType.resolve_param_value("L")) {
                     // concrete array (specific length)
                     this->result = llvm::ArrayType::get(elemType, len->get_int_value());
@@ -251,11 +255,11 @@ class LLVMTypeMapper : public TxTypeVisitor {
 	virtual void visit(const TxFunctionType& txType)  {
 		std::vector<llvm::Type*> llvmArgTypes;
 	    for (auto argTxType : txType.argumentTypes) {
-			llvmArgTypes.push_back(this->context.getLlvmType(argTxType));
+			llvmArgTypes.push_back(this->context.get_llvm_type(argTxType));
 			context.LOG.debug("Mapping arg type %s to %s", argTxType->to_string().c_str(), to_string(llvmArgTypes.back()).c_str());
 		}
 	    llvm::Type* llvmRetType = txType.returnType
-	                              ? this->context.getLlvmType(txType.returnType)
+	                              ? this->context.get_llvm_type(txType.returnType)
 	                              : llvm::Type::getVoidTy(this->context.llvmContext);
 		llvm::FunctionType *ftype = llvm::FunctionType::get(llvmRetType, llvmArgTypes, false);
 	    this->result = ftype;
@@ -270,7 +274,7 @@ class LLVMTypeMapper : public TxTypeVisitor {
         context.LOG.debug("Mapping tuple type %s... (entity %s)", txType.to_string().c_str(), entity->to_string().c_str());
         std::vector<llvm::Type*> llvmMemberTypes;
         for (auto memberTxType : entity->get_instance_field_types()) {
-            llvmMemberTypes.push_back(this->context.getLlvmType(memberTxType));
+            llvmMemberTypes.push_back(this->context.get_llvm_type(memberTxType));
             context.LOG.debug("Mapping member type %s to %s", memberTxType->to_string().c_str(), to_string(llvmMemberTypes.back()).c_str());
         }
         // note: create() might be better for "named" struct types?
@@ -287,11 +291,11 @@ class LLVMTypeMapper : public TxTypeVisitor {
 };
 
 
-llvm::Type* LlvmGenerationContext::getLlvmType(const TxType* txType) {
+llvm::Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
     ASSERT(txType, "NULL txType provided to getLlvmType()");
     if (txType->is_virtual_specialization())
         // same data type as base type
-        return getLlvmType(txType->get_base_type_spec().type);
+        return get_llvm_type(txType->get_base_type_spec().type);
 
     auto iter = this->llvmTypeMapping.find(txType);
     if (iter != this->llvmTypeMapping.end()) {

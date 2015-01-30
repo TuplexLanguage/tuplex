@@ -2,14 +2,17 @@ module tx.proto.string
 
 public final type CString<L:UInt> derives Array<UByte,(L)> {
     public static EMPTY_STRING : CString<1> = c""
+    
+    public static func length() UInt { return L }
 
-    public func toInt() Int { return 1 }
+    public func toInt() Int { return self^[0] }
     ##public func toUInt() UInt { return L }
 }
 
 
 func main() Int {
-    str : CString<10>
-    return str.toInt(&str)
+    str : CString<10> ##= { 1, 2, 3 }
+    ##return str.toInt(&str)
     ##return Int(str.toUInt(&str))
+    return Int(str.length())
 }

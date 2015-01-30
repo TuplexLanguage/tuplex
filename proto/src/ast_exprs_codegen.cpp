@@ -207,8 +207,8 @@ llvm::Value* TxCharacterLitNode::codeGen(LlvmGenerationContext& context, GenScop
 }
 llvm::Value* TxIntegerLitNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s\t%d", this->to_string().c_str(), this->value);
-    llvm::IntegerType* type = static_cast<llvm::IntegerType*>(context.getLlvmType(this->get_type()));
-    ASSERT (type, "Could not get llvm::IntegerType for TxIntegerLitNode " << context.getLlvmType(this->get_type()));
+    llvm::IntegerType* type = static_cast<llvm::IntegerType*>(context.get_llvm_type(this->get_type()));
+    ASSERT (type, "Could not get llvm::IntegerType for TxIntegerLitNode " << context.get_llvm_type(this->get_type()));
     auto value = llvm::ConstantInt::get(type, this->literal, 10);
     ASSERT (value->getSExtValue()==this->value, "LLVM's s-ext-int value " << value->getSExtValue() << "!=" << this->value);
     //auto value = llvm::ConstantInt::get(context.llvmContext, llvm::APInt(64, this->value, true));
@@ -216,8 +216,8 @@ llvm::Value* TxIntegerLitNode::codeGen(LlvmGenerationContext& context, GenScope*
 }
 llvm::Value* TxFloatingLitNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s\t%f", this->to_string().c_str(), this->value);
-    llvm::Type* type = context.getLlvmType(this->get_type());
-    ASSERT (type, "Could not get llvm::Type for TxFloatingLitNode " << context.getLlvmType(this->get_type()));
+    llvm::Type* type = context.get_llvm_type(this->get_type());
+    ASSERT (type, "Could not get llvm::Type for TxFloatingLitNode " << context.get_llvm_type(this->get_type()));
     auto value = llvm::ConstantFP::get(type, this->literal);
     //auto value = llvm::ConstantFP::get(type, this->value);
     return value;
@@ -228,7 +228,7 @@ llvm::Value* TxScalarCastNode::codeGen(LlvmGenerationContext& context, GenScope*
     auto origValue = this->expr->codeGen(context, scope);
     if (! origValue)
         return NULL;
-    auto targetLlvmType = context.getLlvmType(this->targetType);
+    auto targetLlvmType = context.get_llvm_type(this->targetType);
     if (! targetLlvmType) {
         context.LOG.error("In scalar cast, no target LLVM type found for %s", this->targetType->to_string().c_str());
         return origValue;  // should we return null instead?
@@ -277,7 +277,7 @@ llvm::Value* TxToPointerCastNode::codeGen(LlvmGenerationContext& context, GenSco
     // from reference:
     if (dynamic_cast<const TxReferenceType*>(this->expr->get_type())) {
         // bitcast from one pointer type to another
-        auto targetLlvmType = context.getLlvmType(this->targetType);
+        auto targetLlvmType = context.get_llvm_type(this->targetType);
         if (! targetLlvmType) {
             context.LOG.error("In reference-to-pointer cast, no target LLVM type found for %s", this->targetType->to_string().c_str());
             return origValue;  // should we return null instead?
@@ -315,7 +315,7 @@ llvm::Value* TxObjSpecCastNode::codeGen(LlvmGenerationContext& context, GenScope
 
 llvm::Value* TxLambdaExprNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    llvm::FunctionType *ftype = llvm::cast<llvm::FunctionType>(context.getLlvmType(this->funcTypeNode->get_type()));
+    llvm::FunctionType *ftype = llvm::cast<llvm::FunctionType>(context.get_llvm_type(this->funcTypeNode->get_type()));
     ASSERT(ftype, "Couldn't get LLVM type for function type " << this->funcTypeNode->get_type());
     std::string funcName = ""; // anonymous function
     if (this->fieldDefNode) {

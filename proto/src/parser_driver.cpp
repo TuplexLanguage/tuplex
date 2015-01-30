@@ -228,29 +228,35 @@ void TxDriver::add_source_file(const TxIdentifier& moduleName, const std::string
 int TxDriver::llvm_compile() {
     auto genContext = LlvmGenerationContext(*this->package);
     for (auto & parsedFile : this->parsedSourceFiles) {
-        genContext.generateCode(*parsedFile.second);
+        genContext.generate_code(*parsedFile.second);
     }
+    bool mainGenerated = false;
     if (! this->package->getMainFuncIdent().is_empty()) {
-        if (genContext.generateMain(this->package->getMainFuncIdent().to_string()))
-            this->LOG.debug("Created program entry for user method %s", this->package->getMainFuncIdent().to_string().c_str());
+        if (auto funcField = this->package->resolve_field(this->package->getMainFuncIdent()))
+            if (auto funcType = dynamic_cast<const TxFunctionType*>(funcField->get_type())) {
+                if ( funcType->returnType && ! funcType->returnType->is_a( *this->package->types().get_builtin_type(INTEGER) ) )
+                    this->LOG.error("main() method had invalid return type: %s", funcType->returnType->to_string().c_str());
+                else if ((mainGenerated = genContext.generate_main(this->package->getMainFuncIdent().to_string(), funcType)))
+                    this->LOG.debug("Created program entry for user method %s", this->package->getMainFuncIdent().to_string().c_str());
+            }
     }
-    else
+    if (! mainGenerated)
         this->LOG.warning("No main() method found.");
     LOG.info("+ LLVM code generated");
 
-    bool verError = genContext.verifyCode();
+    bool verError = genContext.verify_code();
     if (! verError)
         LOG.info("+ LLVM code verification OK");
     if (this->options.dump_ir)
-        genContext.printIR();
+        genContext.print_IR();
     if (verError)
         return 1;
 
-    if (! genContext.tuplexContext.getMainFuncIdent().is_empty()) {
-        genContext.runCode();
+    if (mainGenerated) {
+        genContext.run_code();
     }
 
-    genContext.writeBitcode(options.outputFileName);
+    genContext.write_bitcode(options.outputFileName);
     LOG.info("+ Wrote bitcode file '%s'", options.outputFileName.c_str());
 
     return 0;

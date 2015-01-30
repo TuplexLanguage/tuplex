@@ -293,12 +293,12 @@ public:
         if (auto scalar_ltype = dynamic_cast<const TxScalarType*>(ltype)) {
             if (auto scalar_rtype = dynamic_cast<const TxScalarType*>(rtype)) {
                 if (scalar_ltype != scalar_rtype) {
-                    if (scalar_ltype->autoConvertsFrom(*scalar_rtype)) {
+                    if (scalar_ltype->auto_converts_from(*scalar_rtype)) {
                         // wrap rhs with cast instruction node
                         this->rhs = new TxScalarCastNode(this->rhs->parseLocation, this->rhs, scalar_ltype);
                         return;
                     }
-                    else if (scalar_rtype->autoConvertsFrom(*scalar_ltype)) {
+                    else if (scalar_rtype->auto_converts_from(*scalar_ltype)) {
                         // wrap lhs with cast instruction node
                         this->lhs = new TxScalarCastNode(this->lhs->parseLocation, this->lhs, scalar_rtype);
                         return;

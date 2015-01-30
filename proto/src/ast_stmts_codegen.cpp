@@ -7,7 +7,7 @@ llvm::Value* TxFieldStmtNode::codeGen(LlvmGenerationContext& context, GenScope* 
     auto entity = this->field->get_entity();
     ASSERT (entity->get_storage() == TXS_STACK, "TxFieldStmtNode can only apply to TX_STACK storage fields: " << entity->get_full_name());
     auto txType = entity->get_type();
-    llvm::Type* llvmType = context.getLlvmType(txType);
+    llvm::Type* llvmType = context.get_llvm_type(txType);
     if (! llvmType) {
         return nullptr;
     }

@@ -38,9 +38,9 @@ class LlvmGenerationContext {
     std::map<const std::string, llvm::Value*> llvmSymbolTable;
     std::map<const TxType*, llvm::Type* const> llvmTypeMapping;
 
-    const TxType* lookupBuiltin(const std::string& name);
-    void initializeBuiltinTypes();
-    llvm::Function* addMainFunction(llvm::Module *mod, const std::string userMain);
+    const TxType* lookup_builtin(const std::string& name);
+    void initialize_builtin_types();
+    llvm::Function* add_main_function(llvm::Module *mod, const std::string userMain, bool hasIntReturnValue);
 
 public:
     Logger& LOG = Logger::get("LLVMGEN");
@@ -55,7 +55,7 @@ public:
           llvmContext( llvm::getGlobalContext() ),
           llvmModule( * new llvm::Module("top", this->llvmContext) )
         {
-    		this->initializeBuiltinTypes();
+    		this->initialize_builtin_types();
         }
 
     void dump() const {
@@ -63,7 +63,7 @@ public:
     }
 
 
-    llvm::Type* getLlvmType(const TxType* txType);
+    llvm::Type* get_llvm_type(const TxType* txType);
 
 
     // simple symbol table for llvm values:
@@ -72,23 +72,23 @@ public:
 
 
     /** Generate the LLVM code for the provided parsing unit. */
-    void generateCode(const TxParsingUnitNode& topParseNode);
+    void generate_code(const TxParsingUnitNode& topParseNode);
 
     /** Create the top level function to call as program entry.
      * (This is the built-in main, which calls the user main function.)  */
-    bool generateMain(const std::string& userMainIdent);
+    bool generate_main(const std::string& userMainIdent, const TxFunctionType* mainFuncType);
 
     /** Verfies the generated LLVM code.
      * Should only be used for debugging, may mess with LLVM's state.
      * @return false if ok, true if error
      */
-    bool verifyCode();
+    bool verify_code();
 
-    void printIR();
+    void print_IR();
 
-    void writeBitcode(const std::string& filepath);
+    void write_bitcode(const std::string& filepath);
 
-    void runCode();
+    void run_code();
 
     /*
     std::map<std::string, Value*>& locals() { return blocks.top()->locals; }

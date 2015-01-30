@@ -7,7 +7,7 @@
 
 
 /* Executes the AST by running the main function */
-void LlvmGenerationContext::runCode() {
+void LlvmGenerationContext::run_code() {
     this->LOG.info("Running code...");
     llvm::InitializeNativeTarget();
     bool forceInterpreter = false;  // true - run interpreter; false - JIT

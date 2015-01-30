@@ -35,7 +35,7 @@ public:
 
 
 /** Used solely for the Any root type object. */
-class TxAnyType : public TxType {
+class TxAnyType final : public TxType {
     TxAnyType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec) : TxType(entity, baseTypeSpec)  { }
 
     TxType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
@@ -50,11 +50,13 @@ class TxAnyType : public TxType {
 public:
     TxAnyType(const TxTypeEntity* entity) : TxType(entity) { }
 
+    bool is_builtin() const { return true; }
+
     long size() const { throw std::logic_error("Can't get size of abstract type " + this->to_string()); }
 };
 
 /** Used for the built-in types' abstract base types. */
-class TxBuiltinBaseType : public TxType {
+class TxBuiltinBaseType final : public TxType {
     TxType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                   const std::vector<TxTypeParam>& typeParams,
                                   std::string* errorMsg=nullptr) const override {
@@ -67,6 +69,8 @@ class TxBuiltinBaseType : public TxType {
 public:
     TxBuiltinBaseType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec) : TxType(entity, baseTypeSpec)  { }
     TxBuiltinBaseType(const TxTypeEntity* entity, const TxType* baseType) : TxType(entity, TxTypeSpecialization(baseType))  { }
+
+    bool is_builtin() const { return true; }
 
     long size() const { throw std::logic_error("Can't get size of abstract type " + this->to_string()); }
 };

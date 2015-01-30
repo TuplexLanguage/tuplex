@@ -17,6 +17,7 @@ protected:
         : TxType(entity, baseTypeSpec), _size(size) { }
 
 public:
+    virtual bool is_builtin() const { return true; }
     virtual long size() const { return this->_size; }
     virtual bool is_immutable() const { return false; }
     virtual bool is_final() const { return true; }
@@ -29,7 +30,7 @@ public:
 //    }
 };
 
-class TxIntegerType : public TxScalarType {
+class TxIntegerType final : public TxScalarType {
 protected:
     virtual TxIntegerType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                                  const std::vector<TxTypeParam>& typeParams,
@@ -67,7 +68,7 @@ public:
     }
 };
 
-class TxFloatingType : public TxScalarType {
+class TxFloatingType final : public TxScalarType {
 protected:
     virtual TxFloatingType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                                   const std::vector<TxTypeParam>& typeParams,
