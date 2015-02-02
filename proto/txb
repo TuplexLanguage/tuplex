@@ -20,11 +20,21 @@ function checked {
     return $status
 }
 
-echo -e $color_cyan "Compiling " $1 $color_off
-checked bin/txc $1
+echo -e $color_cyan "Compiling: " "$@" $color_off
+checked bin/txc "$@"
 
-# strip extension if it is .tx
-basepath=${1%%.tx}
+# determine output file basepath
+while [[ $# -gt 0 ]]; do
+    if [ ${1: -3} == ".tx" ]
+    then
+        # strip extension if it is .tx
+        basepath=${1%%.tx}
+        break
+    else
+        shift
+    fi
+done
+echo "basepath: " $basepath
 
 bctarget="${basepath}.bc"
 objtarget="${basepath}.o"
