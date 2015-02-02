@@ -27,24 +27,30 @@ func myfunc(a : tx.Int,
 helloWorld := c"hello world!"
 helloWorld2 := helloWorld
 
+func puts(str : &[]UByte) {
+    tx.c.puts(&str^[0])
+}
+
 func str_test() {
-    tx.c.puts(helloWorld)
+    puts(&helloWorld)
     str := c"local string"
     str2 := str
-    tx.c.puts(str)
-    tx.c.puts(str2)
-    tx.c.puts(helloWorld2)
+    puts(&str)
+    puts(&str2)
+    puts(&helloWorld2)
 }
 
 
 func main() Int {
     flag : mod tx.Boolean = FALSE
     ##flag = 42 < 40+3
-    if Int(42.) == 40+2 {
-        tx.c.puts(c"it was TRUE!")
+    if Int(42.) != 40+2 {
+        str := c"it was TRUE!"
+        puts(&str)
     }
     else {
-        tx.c.puts(c"it was FALSE!")
+        strRef := &c"it was FALSE!"
+        puts(strRef)
     }
     ## myfunc = myfunc2
     str_test()

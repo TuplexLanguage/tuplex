@@ -144,8 +144,8 @@ YY_DECL;
 %left ASTERISK FSLASH
 %precedence NEG   /* negation--unary minus */
 %precedence LPAREN RPAREN  LBRACE RBRACE
-%precedence CARET /* unary de-reference */
 %precedence ADDR  /* unary address-of */
+%precedence CARET /* unary de-reference */
 %precedence LBRACKET RBRACKET
 %precedence DOT
 %right KW_MODULE KW_IMPORT  /* high token shift precedence */
@@ -207,12 +207,12 @@ sub_module : KW_MODULE gen_identifier opt_sep
 // Example of fully qualified static name: my.mod.MyClass.staticField.myMethod.$.InnerClass.staticField2
 // Example of fully qualified local name: my.mod.MyClass.staticField.myMethod.$.self
 
-identifier : NAME                       { $$ = new TxIdentifier($1); }
-           | identifier DOT NAME        { $$ = $1; $$->append($3); }
-           | identifier DOT ASTERISK    { $$ = $1; $$->append("*"); }
+identifier : NAME                     { $$ = new TxIdentifier($1); }
+           | identifier DOT NAME      { $$ = $1; $$->append($3); }
+           | identifier DOT ASTERISK  { $$ = $1; $$->append("*"); }
            ;
 
-gen_identifier : identifier  { $$ = new TxIdentifierNode(@1, $1); } ;
+gen_identifier : identifier  %prec EXPR  { $$ = new TxIdentifierNode(@1, $1); } ;
 
 
 
@@ -451,14 +451,19 @@ method_def  :   KW_FUNC opt_modifiable NAME params_def return_type_def sep suite
 //// (value) expressions:
 
 expr
-    :   LPAREN expr RPAREN { $$ = $2; }
-    |   lambda_expr { $$ = $1; }
-    |   call_expr  { $$ = $1; }  // safe up-cast
+    :   LPAREN expr RPAREN  { $$ = $2; }
+    |   value_literal       { $$ = $1; }
+    |   lambda_expr         { $$ = $1; }
+    |   call_expr           { $$ = $1; }
+
     |   gen_identifier           %prec DOT   { $$ = new TxFieldValueNode(@1, NULL, $1); }
     |   expr DOT gen_identifier  %prec EXPR  { $$ = new TxFieldValueNode(@1, $1, $3); }
-    |   expr LBRACKET expr RBRACKET { $$ = new TxElemDerefNode(@1, $1, $3); }
-    |   AAND gen_identifier   %prec ADDR  { $$ = new TxReferenceToNode(@1, new TxFieldValueNode(@1, NULL, $2)); }
-    |   expr CARET                          { $$ = new TxReferenceDerefNode(@1, $1); }
+    |   expr LBRACKET expr RBRACKET          { $$ = new TxElemDerefNode(@1, $1, $3); }
+    |   expr CARET                           { $$ = new TxReferenceDerefNode(@1, $1); }
+    |   AAND expr                %prec ADDR  { $$ = new TxReferenceToNode(@1, $2); }
+    //|   AAND gen_identifier               { $$ = new TxReferenceToNode(@1, new TxFieldValueNode(@1, NULL, $2)); }
+    //|   AAND expr LBRACKET expr RBRACKET  { $$ = new TxReferenceToNode(@1, new TxElemDerefNode(@2, $2, $4)); }
+
     |   MINUS expr  %prec NEG      { $$ = new TxUnaryMinusNode(@1, $2); }  // unary minus
     |   expr PLUS opt_sep expr     { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_PLUS, $4); }
     |   expr MINUS opt_sep expr    { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_MINUS, $4); }
@@ -470,7 +475,6 @@ expr
     |   expr GT opt_sep expr       { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_GT, $4); }
     |   expr LEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_LE, $4); }
     |   expr GEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_GE, $4); }
-    |   value_literal              { $$ = $1; }
     ;
 
 value_literal

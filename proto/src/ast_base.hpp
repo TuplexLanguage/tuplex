@@ -68,7 +68,7 @@ public:
         return const_cast<LexicalContext&>(static_cast<const TxNode *>(this)->context());
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 
     virtual std::string to_string() const {
         char buf[256];
@@ -171,7 +171,7 @@ public:
             }
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 
@@ -196,7 +196,7 @@ public:
             mod->semantic_pass();
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 
@@ -270,7 +270,7 @@ public:
     }
 
     virtual void semantic_pass() = 0;
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxFieldDefNode;
@@ -316,7 +316,7 @@ public:
     }
 
     virtual bool hasAppliedFuncArgTypes()  { return this->appliedFuncArgTypes; }
-    virtual void setAppliedFuncArgTypes(std::vector<const TxType*>* appliedFuncArgTypes) {
+    virtual void set_applied_func_arg_types(std::vector<const TxType*>* appliedFuncArgTypes) {
         this->appliedFuncArgTypes = appliedFuncArgTypes;
     }
 
@@ -436,7 +436,7 @@ public:
                 parser_error(this->parseLocation, "Field type %s is not concrete (size potentially unknown).", type->to_string().c_str());
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 
     virtual std::string to_string() const {
         char buf[256];
@@ -464,7 +464,7 @@ public:
                 parser_error(this->parseLocation, "Global fields may not be modifiable: %s", field->ident.c_str());
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 
@@ -524,7 +524,7 @@ public:
         this->typeExpression->semantic_pass();
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 

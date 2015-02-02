@@ -2,64 +2,125 @@
 #include "llvm_generator.hpp"
 
 
-llvm::Value* TxFieldStmtNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+using namespace llvm;
+
+
+///** Create an alloca instruction in the entry block of the current function.
+// * This is used for variables encountered throughout the function that shall be viable for mem2reg.
+// */
+//static AllocaInst *create_entry_block_alloca(GenScope* scope, Type* varType, const std::string &varName) {
+//    auto parentFunc = scope->builder->GetInsertBlock()->getParent();
+//    IRBuilder<> tmpB(&parentFunc->getEntryBlock(), parentFunc->getEntryBlock().begin());
+//    return tmpB.CreateAlloca(varType, 0, varName);
+//}
+
+/** Create an alloca instruction in the entry block of the current function.
+ * This is used for variables encountered throughout the function that shall be viable for mem2reg.
+ */
+static AllocaInst *create_alloca(GenScope* scope, Type* varType, const std::string &varName) {
+    return scope->builder->CreateAlloca(varType, 0, varName);
+}
+
+/** @param lval must be of pointer type */
+static Value* do_store(LlvmGenerationContext& context, GenScope* scope, Value* lval, Value* rval) {
+    if (rval->getType()->isPointerTy() && lval->getType()->getPointerElementType() == rval->getType()->getPointerElementType()) {
+        rval = scope->builder->CreateLoad(rval);
+    }
+    return scope->builder->CreateStore(rval, lval);
+}
+
+
+Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s", this->to_string().c_str());
+    FunctionType *ftype = cast<FunctionType>(context.get_llvm_type(this->funcTypeNode->get_type()));
+    ASSERT(ftype, "Couldn't get LLVM type for function type " << this->funcTypeNode->get_type());
+    std::string funcName = ""; // anonymous function
+    if (this->fieldDefNode) {
+        funcName = this->fieldDefNode->get_entity()->get_full_name().to_string();
+    }
+    context.LOG.debug("Creating function: %s", funcName.c_str());
+    Function *function = cast<Function>(context.llvmModule.getOrInsertFunction(funcName, ftype));
+    // function->setLinkage(GlobalValue::InternalLinkage);  FIXME (can cause LLVM to rename function)
+    //Function *function = Function::Create(ftype, GlobalValue::InternalLinkage,
+    //                                                  funcName.c_str(), &context.llvmModule);
+    // note: function is of LLVM function pointer type (since it is an LLVM global value)
+
+    BasicBlock *entryBlock = BasicBlock::Create(context.llvmContext, "entry", function);
+    IRBuilder<> builder( entryBlock );
+    GenScope fscope(&builder);
+
+    // name the concrete args and allocate them on the stack:
+    auto argDefI = this->funcTypeNode->arguments->begin();
+    for (Function::arg_iterator fArgI = function->arg_begin();
+         fArgI != function->arg_end();  fArgI++, argDefI++)
+    {
+        auto entity = (*argDefI)->get_entity();
+        fArgI->setName(entity->get_name());
+        //context.register_llvm_value(entity->get_full_name().to_string(), fArgI);
+
+        auto txType = entity->get_type();
+        Type* llvmType = context.get_llvm_type(txType);
+        if (! llvmType)
+            return nullptr;
+        auto argField = create_alloca(&fscope, llvmType, entity->get_name() + "_");
+        do_store(context, &fscope, argField, fArgI);
+        context.register_llvm_value(entity->get_full_name().to_string(), argField);
+    }
+
+    this->suite->code_gen(context, &fscope);
+
+    if (! fscope.builder->GetInsertBlock()->getTerminator()) {
+        context.LOG.debug("inserting default void return instruction for last block of function %s", funcName.c_str());
+        fscope.builder->CreateRetVoid();
+        //ReturnInst::Create(context.llvmContext, entryBlock);
+    }
+    ASSERT (entryBlock->getTerminator(), "Function entry block has no terminator");
+
+    return function;
+}
+
+
+Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     auto entity = this->field->get_entity();
     ASSERT (entity->get_storage() == TXS_STACK, "TxFieldStmtNode can only apply to TX_STACK storage fields: " << entity->get_full_name());
     auto txType = entity->get_type();
-    llvm::Type* llvmType = context.get_llvm_type(txType);
+    Type* llvmType = context.get_llvm_type(txType);
     if (! llvmType) {
         return nullptr;
     }
-    //scope->builder->CreateAlloca();
-    llvm::Value* fieldVal;
+    Value* fieldVal = create_alloca(scope, llvmType, entity->get_name());
     if (this->field->initExpression) {
-        if (entity->is_modifiable()) {
-            // allocate variable on stack
-            fieldVal = new llvm::AllocaInst(llvmType, entity->get_full_name().to_string().c_str(), scope->builder->GetInsertBlock());
-            // create implicit assignment statement
-            llvm::Value* initializer = this->field->initExpression->codeGen(context, scope);
-            scope->builder->CreateStore(initializer, fieldVal);
-        }
-        else {
-            // keep value in register
-            fieldVal = this->field->initExpression->codeGen(context, scope);
-        }
+        // create implicit assignment statement
+        Value* initializer = this->field->initExpression->code_gen(context, scope);
+        do_store(context, scope, fieldVal, initializer);
     }
-    else {
-        // allocate variable on stack
-        fieldVal = new llvm::AllocaInst(llvmType, entity->get_full_name().to_string().c_str(), scope->builder->GetInsertBlock());
-    }
-    // Note: Emit the initializer before adding the variable to scope, this prevents
-    // the initializer from referencing the variable itself, and permits stuff like this:
-    //  var a = 1 in
-    //    var a = a in ...   # refers to outer 'a'.
     context.register_llvm_value(entity->get_full_name().to_string(), fieldVal);
     return fieldVal;
 }
 
-llvm::Value* TxTypeStmtNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxTypeStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    return this->typeDecl->codeGen(context, scope);
+    return this->typeDecl->code_gen(context, scope);
 }
 
 
-llvm::Value* TxAssignStmtNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxAssignStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    auto rval = this->rvalue->codeGen(context, scope);
-    auto lval = this->lvalue->codeGen(context, scope);
+    auto rval = this->rvalue->code_gen(context, scope);
+    auto lval = this->lvalue->code_gen(context, scope);
     if ((! lval) || (! rval))
         return NULL;
     if (! lval->getType()->isPointerTy()) {
         context.LOG.error("L-value is not of pointer type: %s; %s", ::to_string(lval).c_str(), ::to_string(lval->getType()).c_str());
         return rval;
     }
-    return scope->builder->CreateStore(rval, lval);
+    return do_store(context, scope, lval, rval);
 }
 
-llvm::Value* TxDerefAssigneeNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxDerefAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    auto refval = this->operand->codeGen(context, scope);
+    auto refval = this->operand->code_gen(context, scope);
     if (! refval)
         return NULL;
     return refval;
@@ -67,40 +128,40 @@ llvm::Value* TxDerefAssigneeNode::codeGen(LlvmGenerationContext& context, GenSco
 
 
 
-llvm::Value* TxSuiteNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxSuiteNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
 
 //    auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-//    llvm::BasicBlock* suiteBlock = llvm::BasicBlock::Create(context.llvmContext,  "suite", parentFunc);
+//    BasicBlock* suiteBlock = BasicBlock::Create(context.llvmContext,  "suite", parentFunc);
 //    scope->builder->SetInsertPoint(suiteBlock);
     for (auto stmt : *this->suite)
-        stmt->codeGen(context, scope);
+        stmt->code_gen(context, scope);
 //    scope->builder->SetInsertPoint(continuationBlock);
 
     return NULL;
 }
 
-llvm::Value* TxElseClauseNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxElseClauseNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    return this->suite->codeGen(context, scope);
+    return this->suite->code_gen(context, scope);
 }
 
-llvm::Value* TxIfStmtNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxIfStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
 
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-    llvm::BasicBlock*  trueBlock = llvm::BasicBlock::Create(context.llvmContext, "if_true", parentFunc);
-    llvm::BasicBlock* falseBlock = llvm::BasicBlock::Create(context.llvmContext, "if_false", parentFunc);
-    llvm::BasicBlock* postBlock;
+    BasicBlock*  trueBlock = BasicBlock::Create(context.llvmContext, "if_true", parentFunc);
+    BasicBlock* falseBlock = BasicBlock::Create(context.llvmContext, "if_false", parentFunc);
+    BasicBlock* postBlock;
 
-    auto condVal = this->cond->codeGen(context, scope);
+    auto condVal = this->cond->code_gen(context, scope);
     auto condInstr = scope->builder->CreateCondBr(condVal, trueBlock, falseBlock);
 
     if (this->elseClause) {
-        postBlock = llvm::BasicBlock::Create(context.llvmContext, "if_post", parentFunc);
+        postBlock = BasicBlock::Create(context.llvmContext, "if_post", parentFunc);
 
         scope->builder->SetInsertPoint(falseBlock);
-        this->elseClause->codeGen(context, scope);
+        this->elseClause->code_gen(context, scope);
         if (! scope->builder->GetInsertBlock()->getTerminator())
             scope->builder->CreateBr(postBlock);  // branch from end of else suite to post-block
     }
@@ -108,7 +169,7 @@ llvm::Value* TxIfStmtNode::codeGen(LlvmGenerationContext& context, GenScope* sco
         postBlock = falseBlock;
 
     scope->builder->SetInsertPoint(trueBlock);
-    this->suite->codeGen(context, scope);
+    this->suite->code_gen(context, scope);
     // note: trueBlock is may not be the "current" block anymore when reaching end of true body
     if (! scope->builder->GetInsertBlock()->getTerminator())
         scope->builder->CreateBr(postBlock);  // branch from end of true suite to post-block
@@ -118,25 +179,25 @@ llvm::Value* TxIfStmtNode::codeGen(LlvmGenerationContext& context, GenScope* sco
     return condInstr;
 }
 
-llvm::Value* TxWhileStmtNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxWhileStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
 
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-    llvm::BasicBlock* condBlock = llvm::BasicBlock::Create(context.llvmContext, "while_cond", parentFunc);
-    llvm::BasicBlock* loopBlock = llvm::BasicBlock::Create(context.llvmContext, "while_loop", parentFunc);
-    llvm::BasicBlock* elseBlock = llvm::BasicBlock::Create(context.llvmContext, "while_else", parentFunc);
-    llvm::BasicBlock* postBlock;
+    BasicBlock* condBlock = BasicBlock::Create(context.llvmContext, "while_cond", parentFunc);
+    BasicBlock* loopBlock = BasicBlock::Create(context.llvmContext, "while_loop", parentFunc);
+    BasicBlock* elseBlock = BasicBlock::Create(context.llvmContext, "while_else", parentFunc);
+    BasicBlock* postBlock;
 
     scope->builder->CreateBr(condBlock);  // branch from end of preceding block to condition-block
     scope->builder->SetInsertPoint(condBlock);
-    auto condVal = this->cond->codeGen(context, scope);
+    auto condVal = this->cond->code_gen(context, scope);
     auto condInstr = scope->builder->CreateCondBr(condVal, loopBlock, elseBlock);
 
     if (this->elseClause) {
-        postBlock = llvm::BasicBlock::Create(context.llvmContext, "while_post", parentFunc);
+        postBlock = BasicBlock::Create(context.llvmContext, "while_post", parentFunc);
 
         scope->builder->SetInsertPoint(elseBlock);
-        this->elseClause->codeGen(context, scope);
+        this->elseClause->code_gen(context, scope);
         if (! scope->builder->GetInsertBlock()->getTerminator())
             scope->builder->CreateBr(postBlock);  // branch from end of else body to post-block
     }
@@ -146,7 +207,7 @@ llvm::Value* TxWhileStmtNode::codeGen(LlvmGenerationContext& context, GenScope* 
     CompoundStatementScope css(condBlock, postBlock);
     scope->compStmtStack.push(&css);
     scope->builder->SetInsertPoint(loopBlock);
-    this->suite->codeGen(context, scope);
+    this->suite->code_gen(context, scope);
     scope->compStmtStack.pop();
     // note: loopBlock is may not be the "current" block anymore when reaching end of loop body
     if (! scope->builder->GetInsertBlock()->getTerminator())
@@ -157,25 +218,25 @@ llvm::Value* TxWhileStmtNode::codeGen(LlvmGenerationContext& context, GenScope* 
     return condInstr;
 }
 
-llvm::Value* TxCallStmtNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxCallStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    return this->call->codeGen(context, scope);
+    return this->call->code_gen(context, scope);
 }
 
-llvm::Value* TxReturnStmtNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxReturnStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     if (this->expr)
-        return scope->builder->CreateRet(this->expr->codeGen(context, scope));
+        return scope->builder->CreateRet(this->expr->code_gen(context, scope));
     else
         return scope->builder->CreateRetVoid();
 }
 
-llvm::Value* TxBreakStmtNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxBreakStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     return scope->builder->CreateBr(scope->compStmtStack.top()->breakBlock);
 }
 
-llvm::Value* TxContinueStmtNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxContinueStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     return scope->builder->CreateBr(scope->compStmtStack.top()->continueBlock);
 }

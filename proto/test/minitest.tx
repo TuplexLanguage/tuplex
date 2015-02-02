@@ -1,9 +1,8 @@
 
-public type MFRef Ref
-public type MGRef<T> MFRef<T>
-
-/*
 func main() {
-    return 1
+    string := c"foobar"
+    strRef : &[]UByte = &string
+    ##strRef = &string
+    ##strRef2 := &c"asfd"
+    tx.c.puts(&(strRef^[0]))
 }
-*/

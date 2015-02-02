@@ -62,5 +62,5 @@ public:
         this->suite->semantic_pass();
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };

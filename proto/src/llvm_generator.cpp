@@ -67,7 +67,7 @@ llvm::Function* LlvmGenerationContext::add_main_function(llvm::Module *mod, cons
 void LlvmGenerationContext::generate_code(const TxParsingUnitNode& topParseNode)
 {
     // emit bytecode for the program
-    topParseNode.codeGen(*this, nullptr);  // (global scope has no block)
+    topParseNode.code_gen(*this, nullptr);  // (global scope has no block)
 }
 
 bool LlvmGenerationContext::generate_main(const std::string& userMainIdent, const TxFunctionType* mainFuncType) {
@@ -201,9 +201,20 @@ void LlvmGenerationContext::initialize_builtin_types() {
 //     func_foo->setCallingConv(llvm::CallingConv::C);
 }
 
+
+
+//static llvm::Type* make_box(llvm::Type* type) {
+//    ASSERT(type, "NULL type");
+//    //context.LOG.debug("Boxing type %s", to_string(type).c_str());
+//    std::vector<llvm::Type*> llvmMemberTypes { llvm::Type::getInt32Ty(type->getContext()), type };
+//    return llvm::StructType::get(type->getContext(), llvmMemberTypes);
+//}
+
+
 class LLVMTypeMapper : public TxTypeVisitor {
 	LlvmGenerationContext& context;
- public:
+
+public:
 	llvm::Type* result = nullptr;
 
 	LLVMTypeMapper(LlvmGenerationContext& context) : context(context) { }
@@ -232,17 +243,22 @@ class LLVMTypeMapper : public TxTypeVisitor {
     virtual void visit(const TxArrayType& txType)  {
         if (auto e = txType.resolve_param_type("E")) {
             if (llvm::Type* elemType = this->context.get_llvm_type(e->get_type())) {
+                long arrayLen;
                 if (auto len = txType.resolve_param_value("L")) {
                     // concrete array (specific length)
-                    this->result = llvm::ArrayType::get(elemType, len->get_int_value());
+                    arrayLen = len->get_int_value();
                 }
                 else {
                     //throw std::logic_error("Generic arrays with unspecified length can't be directly mapped: " + txType.to_string());
                     // Generic arrays with unspecified length are currently mapped as zero length,
                     // so they can be referenced from e.g. references.
-                    this->result = llvm::ArrayType::get(elemType, 0);
-                    //this->result = llvm::PointerType::get(elemType, 0);
+                    arrayLen = 0;
                 }
+                std::vector<llvm::Type*> llvmMemberTypes {
+                    llvm::Type::getInt32Ty(this->context.llvmContext),
+                    llvm::ArrayType::get(elemType, arrayLen)
+                };
+                this->result = llvm::StructType::get(this->context.llvmContext, llvmMemberTypes);
                 context.LOG.debug("Mapping array type %s", txType.to_string().c_str());
                 return;
             }

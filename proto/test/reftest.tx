@@ -4,15 +4,19 @@ func ref_test( r : ref mod Int ) {
 } 
 */
 
+func puts(str : &[]UByte) {
+    tx.c.puts(&str^[0])
+}
+
 func assert(expected : Boolean, actual : Boolean) {
     if expected == actual {
         return
     }
     if expected {
-        tx.c.puts(c"Expected TRUE but was FALSE")
+        puts(&c"Expected TRUE but was FALSE")
     }
     else {
-        tx.c.puts(c"Expected FALSE but was TRUE")
+        puts(&c"Expected FALSE but was TRUE")
     }
 }
 
@@ -20,15 +24,15 @@ func assert(expected : Int, actual : Int) {
     if expected == actual {
         return
     }
-    tx.c.puts(c"Expected M but was N")
+    puts(&c"Expected M but was N")
 }
 
 func print(b : Boolean) {
     if b {
-        tx.c.puts(c"TRUE")
+        puts(&c"TRUE")
     }
     else {
-        tx.c.puts(c"FALSE")
+        puts(&c"FALSE")
     }
 }
 

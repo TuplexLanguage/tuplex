@@ -1,4 +1,8 @@
 
+func puts(cstr : &[]UByte) {
+    tx.c.puts(&cstr^[0])
+}
+
 func main() Int {
     recurse(10)
     recurse(10.)
@@ -6,12 +10,12 @@ func main() Int {
 }
 
 func recurse(x : Int) {
-    tx.c.puts(c"recurse")
+    puts(&c"recurse")
     if (x > 0) {
         recurse(x - 1)
     }
 }
 
 func recurse(x : Float) {
-    tx.c.puts(c"float version")
+    puts(&c"float version")
 }

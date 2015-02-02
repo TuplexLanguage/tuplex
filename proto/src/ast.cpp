@@ -45,7 +45,6 @@ TxExpressionNode* wrapConversion(TxSymbolScope* scope, TxExpressionNode* origina
             return new TxObjSpecCastNode(originalExpr->parseLocation, originalExpr, array_type);
         if (dynamic_cast<const TxFunctionType*>(requiredType))
             return originalExpr;  // or do we actually need to do something here?
-        // FUTURE: fill in non-scalar auto-conversions
     }
     parser_error(originalExpr->parseLocation, "Can't auto-convert %s -> %s",
                  originalType->to_string().c_str(), requiredType->to_string().c_str());

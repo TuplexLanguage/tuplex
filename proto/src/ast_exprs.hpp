@@ -26,14 +26,14 @@ class TxScalarCastNode : public TxConversionNode {
 public:
     TxScalarCastNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* targetType)
         : TxConversionNode(parseLocation, expr, targetType) { }
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxToPointerCastNode : public TxConversionNode {  // internal conversions for references
 public:
     TxToPointerCastNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* targetType)
         : TxConversionNode(parseLocation, expr, targetType) { }
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 /** Converts between object specializations (across type parameters and inheritance). */
@@ -41,7 +41,7 @@ class TxObjSpecCastNode : public TxConversionNode {
 public:
     TxObjSpecCastNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* targetType)
         : TxConversionNode(parseLocation, expr, targetType) { }
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 
@@ -67,7 +67,7 @@ public:
     virtual long get_int_value() const { return value; }
     virtual bool is_statically_constant() const { return true; }
     virtual void semantic_pass() { }
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxFloatingLitNode : public TxExpressionNode {
@@ -88,7 +88,7 @@ public:
 
     virtual bool is_statically_constant() const { return true; }
     virtual void semantic_pass() { }
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxCharacterLitNode : public TxExpressionNode {
@@ -109,7 +109,7 @@ public:
 
     virtual bool is_statically_constant() const { return true; }
     virtual void semantic_pass() { }
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxCStringLitNode : public TxExpressionNode {
@@ -133,47 +133,9 @@ public:
 
     virtual bool is_statically_constant() const { return true; }
     virtual void semantic_pass() { }
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
-
-
-class TxReferenceToNode : public TxExpressionNode {
-public:
-    TxFieldValueNode* target;
-    TxReferenceToNode(const yy::location& parseLocation, TxFieldValueNode* target)
-        : TxExpressionNode(parseLocation), target(target) { }
-
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
-        this->set_context(lexContext);
-        target->symbol_table_pass(lexContext);
-    }
-
-    const TxFieldEntity* get_target_entity() const {
-        return this->target->get_entity();
-    }
-
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        return this->types().get_reference_type(nullptr, this->get_target_entity()->get_type());
-    }
-
-    virtual bool is_statically_constant() const {
-        // apparently static const field will not be recognized to have statically const address by llvm
-        return false; //get_target_entity()->is_statically_constant();
-    }
-
-    virtual void semantic_pass() {
-        target->semantic_pass();
-        if (this->get_target_entity()->get_storage() == TXS_NOSTORAGE)
-            parser_error(this->parseLocation, "Can't construct reference to non-addressable expression.");
-    }
-
-    virtual void setAppliedFuncArgTypes(std::vector<const TxType*>* appliedTypeParameters) {
-        this->target->setAppliedFuncArgTypes(appliedTypeParameters);
-    }
-
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
-};
 
 
 class TxReferenceDerefNode : public TxExpressionNode {
@@ -209,7 +171,7 @@ public:
             parser_error(this->parseLocation, "Can't de-reference non-reference expression.");
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 
@@ -251,7 +213,56 @@ public:
         subscript = wrapConversion(this->context().scope(), subscript, this->types().get_builtin_type(LONG));
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+};
+
+
+class TxReferenceToNode : public TxExpressionNode {
+public:
+    TxExpressionNode* target;
+
+    TxReferenceToNode(const yy::location& parseLocation, TxExpressionNode* target)
+        : TxExpressionNode(parseLocation), target(target) { }
+
+    virtual void symbol_table_pass(LexicalContext& lexContext) {
+        this->set_context(lexContext);
+        target->symbol_table_pass(lexContext);
+    }
+
+//    const TxFieldEntity* get_target_entity() const {
+//        return this->target->get_entity();
+//    }
+
+    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
+        return this->types().get_reference_type(nullptr, this->target->get_type());
+    }
+
+    virtual bool is_statically_constant() const {
+        // apparently static const field will not be recognized to have statically const address by llvm
+        //return false;
+        return this->target->is_statically_constant();  // trying again
+    }
+
+    virtual void semantic_pass() {
+        this->target->semantic_pass();
+        if (dynamic_cast<TxFieldValueNode*>(this->target)) {
+        }
+        else if (dynamic_cast<TxElemDerefNode*>(this->target)) {
+        }
+        else if (this->target->is_statically_constant()) {
+        }
+        else
+            parser_error(this->parseLocation, "Can't construct reference to non-addressable expression / rvalue.");
+        //if (this->get_target_entity()->get_storage() == TXS_NOSTORAGE)
+        //    parser_error(this->parseLocation, "Can't construct reference to non-addressable expression.");
+    }
+
+    virtual void set_applied_func_arg_types(std::vector<const TxType*>* appliedTypeParameters) {
+        this->target->set_applied_func_arg_types(appliedTypeParameters);
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 
@@ -319,7 +330,7 @@ public:
             parser_error(this->parseLocation, "Mismatching operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxUnaryMinusNode : public TxExpressionNode {
@@ -353,7 +364,7 @@ public:
             parser_error(this->parseLocation, "Operand of unary '-' is not of scalar type: %s", type->to_string().c_str());
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 
@@ -374,7 +385,7 @@ class TxFunctionCallNode : public TxExpressionNode {
             }
         }
         if (appliedArgTypes)
-            callee->setAppliedFuncArgTypes(appliedArgTypes);
+            callee->set_applied_func_arg_types(appliedArgTypes);
     }
 
 public:
@@ -441,5 +452,5 @@ public:
         return this->inlinedExpression && this->inlinedExpression->is_statically_constant();
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };

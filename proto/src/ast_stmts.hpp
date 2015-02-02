@@ -22,7 +22,7 @@ public:
         this->field->semantic_pass();
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 /** Local type declaration */
@@ -45,7 +45,7 @@ public:
         this->typeDecl->semantic_pass();
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxCallStmtNode : public TxStatementNode {  // function call without assigning return value (if any)
@@ -64,7 +64,7 @@ public:
         ((TxExpressionNode*)this->call)->semantic_pass();
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxTerminalStmtNode : public TxStatementNode {
@@ -101,7 +101,7 @@ public:
                          returnValue->get_type()->to_string().c_str());
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxBreakStmtNode : public TxTerminalStmtNode {
@@ -110,7 +110,7 @@ public:
 
     virtual void symbol_table_pass(LexicalContext& lexContext) { this->set_context(lexContext); }
     virtual void semantic_pass() { }
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxContinueStmtNode : public TxTerminalStmtNode {
@@ -119,7 +119,7 @@ public:
 
     virtual void symbol_table_pass(LexicalContext& lexContext) { this->set_context(lexContext); }
     virtual void semantic_pass() { }
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 
@@ -150,7 +150,7 @@ public:
         }
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 
@@ -170,7 +170,7 @@ public:
         this->suite->semantic_pass();
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxCondCompoundStmtNode : public TxStatementNode {
@@ -213,7 +213,7 @@ public:
                  TxElseClauseNode* elseClause=nullptr)
         : TxCondCompoundStmtNode(parseLocation, cond, suite, elseClause)  { }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxWhileStmtNode : public TxCondCompoundStmtNode {
@@ -222,7 +222,7 @@ public:
                     TxElseClauseNode* elseClause=nullptr)
         : TxCondCompoundStmtNode(parseLocation, cond, suite, elseClause)  { }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 
@@ -258,7 +258,7 @@ public:
             parser_error(this->parseLocation, "Can't de-reference non-reference expression.");
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxElemAssigneeNode : public TxAssigneeNode {
@@ -295,7 +295,7 @@ public:
         subscript = wrapConversion(this->context().scope(), subscript, this->types().get_builtin_type(LONG));
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxAssignStmtNode : public TxStatementNode {
@@ -329,5 +329,5 @@ public:
         this->rvalue = wrapConversion(this->context().scope(), this->rvalue, ltype);
     }
 
-    virtual llvm::Value* codeGen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };

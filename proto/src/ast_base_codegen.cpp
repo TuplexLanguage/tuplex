@@ -22,32 +22,32 @@ inline bool is_complex_pointer(const llvm::Type* type) {
 }
 
 
-llvm::Value* TxNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+llvm::Value* TxNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.error("Invoked empty codeGen() on %s", this->to_string().c_str());
     return nullptr;
 }
 
-llvm::Value* TxParsingUnitNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+llvm::Value* TxParsingUnitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     for (auto mod : this->modules) {
-        mod->codeGen(context, scope);
+        mod->code_gen(context, scope);
     }
     return NULL;
 }
-llvm::Value* TxModuleNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+llvm::Value* TxModuleNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     if (this->members)
         for (TxDeclarationNode* elem : *this->members) {
-            elem->codeGen(context, scope);
+            elem->code_gen(context, scope);
         }
     return nullptr;
 }
 
-llvm::Value* TxTypeDeclNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+llvm::Value* TxTypeDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    return this->typeExpression->codeGen(context, scope);
+    return this->typeExpression->code_gen(context, scope);
 }
-llvm::Value* TxTypeExpressionNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+llvm::Value* TxTypeExpressionNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     return nullptr;  // default does nothing
 }
 
@@ -58,10 +58,11 @@ static llvm::Value* make_constant_nonlocal_field(LlvmGenerationContext& context,
     llvm::Constant* constantInitializer = nullptr;
     if (field->initExpression) {
         if (field->initExpression->is_statically_constant()) {
-            auto initValue = field->initExpression->codeGen(context, scope);
-            constantInitializer = llvm::cast<llvm::Constant>(initValue);
+            auto initValue = field->initExpression->code_gen(context, scope);
+            constantInitializer = llvm::dyn_cast<llvm::Constant>(initValue);
             if (! constantInitializer)
-                context.LOG.error("Global field %s constant initializer is NULL", entity->get_full_name().to_string().c_str());
+                context.LOG.error("Global field %s initializer is not constant: %s",
+                                  entity->get_full_name().to_string().c_str(), to_string(initValue).c_str());
             else if (is_complex_pointer(constantInitializer->getType())) {
                 return constantInitializer;
             }
@@ -75,7 +76,7 @@ static llvm::Value* make_constant_nonlocal_field(LlvmGenerationContext& context,
                                     constantInitializer, entity->get_full_name().to_string());
 }
 
-llvm::Value* TxFieldDeclNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+llvm::Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     auto entity = this->field->get_entity();
     auto txType = entity->get_type();
@@ -115,7 +116,7 @@ llvm::Value* TxFieldDeclNode::codeGen(LlvmGenerationContext& context, GenScope* 
     return fieldVal;
 }
 
-llvm::Value* TxFieldDefNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+llvm::Value* TxFieldDefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     // (note that this is doesn't *declare* the field since that operation is context-sensitive;
     // the parent node does that)
     return nullptr;  // passive node

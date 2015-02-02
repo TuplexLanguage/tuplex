@@ -8,6 +8,7 @@ using namespace llvm;
  * directly loaded / stored when accessed. */
 static bool access_via_load_store(const llvm::Type* type) {
     bool ret = (type->isPointerTy() && type->getPointerElementType()->isSingleValueType());
+    //bool ret = (type->isPointerTy() && type->getPointerElementType()->isFirstClassType());
     //std::cout << "access_via_load_store(): " << ret << ": type: " << type << std::endl;
     return ret;
 }
@@ -59,21 +60,22 @@ static llvm::Value* field_value_code_gen(LlvmGenerationContext& context, GenScop
 }
 
 
-llvm::Value* TxFieldValueNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+llvm::Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
+    //return context.lookup_llvm_value(this->get_entity()->get_full_name().to_string());
     llvm::Value* value = NULL;
     if (this->base)
-        value = this->base->codeGen(context, scope);
+        value = this->base->code_gen(context, scope);
     for (auto sym : this->memberPath) {
         if (auto field = dynamic_cast<const TxFieldEntity*>(sym)) {
             value = field_value_code_gen(context, scope, value, field);
-            // Only function/complex pointers and non-modifiable temporaries don't require a load instruction:
-            if ( value && access_via_load_store(value->getType())
-                 && !( entity->get_storage() == TXS_STACK && !entity->is_modifiable() ) ) {
-                if (scope)
-                    value = scope->builder->CreateLoad(value);
-                else
-                    value = new llvm::LoadInst(value);
+            if (sym != this->memberPath.back()) {  // skips the load for the last segment
+                if ( value && access_via_load_store(value->getType()) ) {
+                     //&& !( entity->get_storage() == TXS_STACK && !entity->is_modifiable() ) ) {
+                    if (scope)
+                        value = scope->builder->CreateLoad(value);
+                    else
+                        value = new llvm::LoadInst(value);
+                }
             }
         }
         else {
@@ -84,12 +86,29 @@ llvm::Value* TxFieldValueNode::codeGen(LlvmGenerationContext& context, GenScope*
     return value;
 }
 
+llvm::Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s", this->to_string().c_str());
+    llvm::Value* value = this->code_gen_address(context, scope);
 
-llvm::Value* TxFieldAssigneeNode::codeGen(LlvmGenerationContext& context, GenScope* scope) const {
+    // Only function/complex pointers and non-modifiable temporaries don't require a load instruction:
+    if ( value && access_via_load_store(value->getType()) ) {
+         //&& !( entity->get_storage() == TXS_STACK && !entity->is_modifiable() ) ) {
+        if (scope)
+            value = scope->builder->CreateLoad(value);
+        else {
+           // in global scope we apparently don't want to load
+           //value = new llvm::LoadInst(value);
+        }
+    }
+    return value;
+}
+
+
+llvm::Value* TxFieldAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     llvm::Value* value = NULL;
     if (this->base)
-        value = this->base->codeGen(context, scope);
+        value = this->base->code_gen(context, scope);
     for (auto sym : this->memberPath) {
         if (auto field = dynamic_cast<const TxFieldEntity*>(sym))
             value = field_value_code_gen(context, scope, value, field);

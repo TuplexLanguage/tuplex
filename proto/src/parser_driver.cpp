@@ -244,11 +244,12 @@ int TxDriver::llvm_compile() {
         this->LOG.warning("No main() method found.");
     LOG.info("+ LLVM code generated");
 
+    if (this->options.dump_ir)
+        genContext.print_IR();
+
     bool verError = genContext.verify_code();
     if (! verError)
         LOG.info("+ LLVM code verification OK");
-    if (this->options.dump_ir)
-        genContext.print_IR();
     if (verError)
         return 1;
 

@@ -145,19 +145,19 @@ public:
             }
             return true;
         }
-
-        else if (const TxArrayType* otherArray = dynamic_cast<const TxArrayType*>(&otherType)) {
-            // for now, we allow conversion of array to reference to first element (needed for C functions)
-            if (auto e = this->resolve_param_type("T")) {
-                if (auto otherE = otherArray->resolve_param_type("E")) {
-                    if (*e->get_type() != *otherE->get_type())
-                        return false;
-                }
-                else
-                    return false;  // other has not bound E
-            }
-            return true;
-        }
+//
+//        else if (const TxArrayType* otherArray = dynamic_cast<const TxArrayType*>(&otherType)) {
+//            // for now, we allow conversion of array to reference to first element (needed for C functions)
+//            if (auto e = this->resolve_param_type("T")) {
+//                if (auto otherE = otherArray->resolve_param_type("E")) {
+//                    if (*e->get_type() != *otherE->get_type())
+//                        return false;
+//                }
+//                else
+//                    return false;  // other has not bound E
+//            }
+//            return true;
+//        }
 
         return false;
     }
