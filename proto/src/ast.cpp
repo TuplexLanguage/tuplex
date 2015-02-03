@@ -28,23 +28,33 @@ void TxFieldDeclNode::symbol_table_pass(LexicalContext& lexContext) {
 }
 
 
-TxExpressionNode* wrapConversion(TxSymbolScope* scope, TxExpressionNode* originalExpr, const TxType* requiredType,
-                                 bool _explicit) {
+// FUTURE: factor out the 'explicit' code path into separate function
+TxExpressionNode* wrapConversion(TxExpressionNode* originalExpr, const TxType* requiredType, bool _explicit) {
+    // Note: Symbol table pass and semantic pass are not run on the created wrapper nodes.
     auto originalType = originalExpr->get_type();
     if (! originalType)
         return originalExpr;
     if (originalType == requiredType)
         return originalExpr;
     if (_explicit || requiredType->auto_converts_from(*originalType)) {
-        // wrap originalExpr with cast instruction node
-        if (auto scalar_type = dynamic_cast<const TxScalarType*>(requiredType))
-            return new TxScalarCastNode(originalExpr->parseLocation, originalExpr, scalar_type);
-        if (auto ref_type = dynamic_cast<const TxReferenceType*>(requiredType))
-            return new TxToPointerCastNode(originalExpr->parseLocation, originalExpr, ref_type);
-        if (auto array_type = dynamic_cast<const TxArrayType*>(requiredType))
-            return new TxObjSpecCastNode(originalExpr->parseLocation, originalExpr, array_type);
+        // wrap originalExpr with conversion node
+        if (auto scalarType = dynamic_cast<const TxScalarType*>(requiredType))
+            return new TxScalarConvNode(originalExpr->parseLocation, originalExpr, scalarType);
+        if (auto refType = dynamic_cast<const TxReferenceType*>(requiredType))
+            return new TxReferenceConvNode(originalExpr->parseLocation, originalExpr, refType);
+        if (auto arrayType = dynamic_cast<const TxArrayType*>(requiredType))
+            return new TxObjSpecCastNode(originalExpr->parseLocation, originalExpr, arrayType);
         if (dynamic_cast<const TxFunctionType*>(requiredType))
             return originalExpr;  // or do we actually need to do something here?
+    }
+    else if (auto refType = dynamic_cast<const TxReferenceType*>(requiredType)) {
+        auto refTargetType = refType->target_type();
+        if (refTargetType && originalType->is_a(*refTargetType->get_type())) {
+            // wrap originalExpr with a reference-to node
+            auto refToNode = new TxReferenceToNode(originalExpr->parseLocation, originalExpr);
+            refToNode->set_context(originalExpr);
+            return new TxReferenceConvNode(originalExpr->parseLocation, refToNode, refType);
+        }
     }
     parser_error(originalExpr->parseLocation, "Can't auto-convert %s -> %s",
                  originalType->to_string().c_str(), requiredType->to_string().c_str());

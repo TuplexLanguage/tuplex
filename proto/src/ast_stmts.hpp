@@ -87,11 +87,12 @@ public:
 
     virtual void semantic_pass() {
         // TODO: Fix so that this won't find false positive using outer function's $return typeDecl
+        // TODO: Illegal to return reference to STACK dataspace
         auto returnValue = this->context().scope()->resolve_field(TxIdentifier("$return"));
         if (this->expr) {
             this->expr->semantic_pass();
             if (returnValue)
-                this->expr = wrapConversion(this->context().scope(), this->expr, returnValue->get_type());
+                this->expr = wrapConversion(this->expr, returnValue->get_type());
             else
                 parser_error(this->parseLocation, "Return statement has value expression although function has no return type: %s",
                              this->expr->get_type()->to_string().c_str());
@@ -200,7 +201,7 @@ public:
 
     virtual void semantic_pass() {
         this->cond->semantic_pass();
-        this->cond = wrapConversion(this->context().scope(), this->cond, this->types().get_builtin_type(BOOLEAN));
+        this->cond = wrapConversion(this->cond, this->types().get_builtin_type(BOOLEAN));
         this->suite->semantic_pass();
         if (this->elseClause)
             this->elseClause->semantic_pass();
@@ -246,7 +247,7 @@ public:
             if (refType->is_generic())
                 // FUTURE: return constraint type if present
                 return this->types().get_builtin_type(ANY);
-            return refType->target_type().get_type();
+            return refType->target_type()->get_type();
         }
         parser_error(this->parseLocation, "Operand is not a reference and can't be dereferenced: %s", opType->to_string().c_str());
         return nullptr;
@@ -292,7 +293,7 @@ public:
         subscript->semantic_pass();
         if (! dynamic_cast<const TxArrayType*>(this->array->get_type()))
             parser_error(this->parseLocation, "Can't subscript non-array expression.");
-        subscript = wrapConversion(this->context().scope(), subscript, this->types().get_builtin_type(LONG));
+        subscript = wrapConversion(subscript, this->types().get_builtin_type(LONG));
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -326,7 +327,7 @@ public:
         // if assignee is a reference:
         // TODO: check that no modifiable attribute is lost
         // TODO: check dataspace rules
-        this->rvalue = wrapConversion(this->context().scope(), this->rvalue, ltype);
+        this->rvalue = wrapConversion(this->rvalue, ltype);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;

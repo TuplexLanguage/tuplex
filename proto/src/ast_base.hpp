@@ -34,10 +34,6 @@ protected:
         ASSERT(!this->is_context_set(), "lexicalContext already initialized in " << this->to_string());
         this->lexContext = context;
     }
-    /** Sets the lexical context of this node to be equal to that of the provided node. */
-    void set_context(const TxNode* node) {
-        this->set_context(node->context());
-    }
     /** Sets the lexical context of this node to the current context of the module. */
     void set_context(TxSymbolScope* lexContext) {
         this->set_context(LexicalContext(lexContext));
@@ -58,6 +54,11 @@ public:
     //virtual ~TxNode() = default;
     virtual ~TxNode() {
         std::cout << "Running destructor of " << *this << std::endl;
+    }
+
+    /** Sets the lexical context of this node to be equal to that of the provided node. */
+    void set_context(const TxNode* node) {
+        this->set_context(node->context());
     }
 
     inline const LexicalContext& context() const {
@@ -325,8 +326,10 @@ public:
 };
 
 
-TxExpressionNode* wrapConversion(TxSymbolScope* scope, TxExpressionNode* originalExpr, const TxType* requiredType,
-                                 bool _explicit=false);
+/**
+ * Note: Symbol table pass and semantic pass are not run on the inserted wrapper nodes.
+ */
+TxExpressionNode* wrapConversion(TxExpressionNode* originalExpr, const TxType* requiredType, bool _explicit=false);
 
 
 class TxFieldDefNode : public TxNode, public TxTypeProxy {
@@ -425,7 +428,7 @@ public:
         if (this->initExpression) {
             this->initExpression->semantic_pass();
             if (this->typeExpression) {
-                this->initExpression = wrapConversion(this->context().scope(), this->initExpression, this->typeExpression->get_type());
+                this->initExpression = wrapConversion(this->initExpression, this->typeExpression->get_type());
             }
             if (this->get_entity()->is_statically_constant())
                 if (! this->initExpression->is_statically_constant())

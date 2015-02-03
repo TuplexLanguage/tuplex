@@ -4,7 +4,7 @@ import tx.c.puts
 
 
 func print(cstr : &[]UByte) {
-    puts( &cstr^[0] )
+    puts( cstr^[0] )
 }
 
 /*

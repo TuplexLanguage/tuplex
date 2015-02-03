@@ -22,21 +22,21 @@ public:
     virtual void semantic_pass() { }
 };
 
-class TxScalarCastNode : public TxConversionNode {
+class TxScalarConvNode : public TxConversionNode {
 public:
-    TxScalarCastNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* targetType)
+    TxScalarConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxScalarType* targetType)
         : TxConversionNode(parseLocation, expr, targetType) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
-class TxToPointerCastNode : public TxConversionNode {  // internal conversions for references
+class TxReferenceConvNode : public TxConversionNode {
 public:
-    TxToPointerCastNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* targetType)
+    TxReferenceConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxReferenceType* targetType)
         : TxConversionNode(parseLocation, expr, targetType) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
-/** Converts between object specializations (across type parameters and inheritance). */
+/** Casts (not converts) between object specializations (across type parameters and inheritance). */
 class TxObjSpecCastNode : public TxConversionNode {
 public:
     TxObjSpecCastNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* targetType)
@@ -155,7 +155,7 @@ public:
             if (refType->is_generic())
                 // FUTURE: return constraint type if present
                 return this->types().get_builtin_type(ANY);
-            return refType->target_type().get_type();
+            return refType->target_type()->get_type();
         }
         parser_error(this->parseLocation, "Operand is not a reference and can't be dereferenced: %s", opType->to_string().c_str());
         return nullptr;
@@ -210,7 +210,7 @@ public:
         subscript->semantic_pass();
         if (! dynamic_cast<const TxArrayType*>(this->array->get_type()))
             parser_error(this->parseLocation, "Can't subscript non-array expression.");
-        subscript = wrapConversion(this->context().scope(), subscript, this->types().get_builtin_type(LONG));
+        subscript = wrapConversion(subscript, this->types().get_builtin_type(LONG));
     }
 
     virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const;
@@ -306,12 +306,12 @@ public:
                 if (scalar_ltype != scalar_rtype) {
                     if (scalar_ltype->auto_converts_from(*scalar_rtype)) {
                         // wrap rhs with cast instruction node
-                        this->rhs = new TxScalarCastNode(this->rhs->parseLocation, this->rhs, scalar_ltype);
+                        this->rhs = new TxScalarConvNode(this->rhs->parseLocation, this->rhs, scalar_ltype);
                         return;
                     }
                     else if (scalar_rtype->auto_converts_from(*scalar_ltype)) {
                         // wrap lhs with cast instruction node
-                        this->lhs = new TxScalarCastNode(this->lhs->parseLocation, this->lhs, scalar_rtype);
+                        this->lhs = new TxScalarConvNode(this->lhs->parseLocation, this->lhs, scalar_rtype);
                         return;
                     }
                 }
@@ -432,7 +432,7 @@ public:
         }
         if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {
             // "inline" function call by replacing with conversion expression
-            this->inlinedExpression = wrapConversion(this->context().scope(), this->argsExprList->front(), inlineFunc->returnType, true);
+            this->inlinedExpression = wrapConversion(this->argsExprList->front(), inlineFunc->returnType, true);
         }
         else {
             // regular function call
@@ -442,7 +442,7 @@ public:
                 // if arg is a reference:
                 // TODO: check that no modifiable attribute is lost
                 // TODO: check dataspace rules
-                *argExprI = wrapConversion(this->context().scope(), *argExprI, argDef);
+                *argExprI = wrapConversion(*argExprI, argDef);
                 argExprI++;
             }
         }

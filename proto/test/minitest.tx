@@ -1,8 +1,4 @@
 
-func main() {
-    string := c"foobar"
-    strRef : &[]UByte = &string
-    ##strRef = &string
-    ##strRef2 := &c"asfd"
-    tx.c.puts(&(strRef^[0]))
+func main() Int {
+    return -1
 }

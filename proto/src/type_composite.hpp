@@ -39,11 +39,11 @@ public:
                                                  TxTypeParam(TxTypeParam::TXB_VALUE, "L", uintType) } ) ) { }
 
 
-    const TxTypeProxy& element_type() const {
-        return this->baseTypeSpec.get_binding("E").type_proxy();  // TODO: theoretically, a recursive resolve is necessary
+    const TxTypeProxy* element_type() const {
+        return this->resolve_param_type("E");
     }
-    const TxConstantProxy& length() const {
-        return this->baseTypeSpec.get_binding("L").value_proxy();  // TODO: theoretically, a recursive resolve is necessary
+    const TxConstantProxy* length() const {
+        return this->resolve_param_value("L");
     }
 
 
@@ -52,7 +52,7 @@ public:
     long size() const {
         if (! this->is_concrete())
             throw std::logic_error("Can't get size of abstract or generic type: " + this->to_string());
-        return this->element_type().get_type()->size() * this->length().get_int_value();
+        return this->element_type()->get_type()->size() * this->length()->get_int_value();
     }
 
     virtual bool is_abstract() const { return false; }
@@ -108,12 +108,9 @@ public:
                      std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE, "T", anyType) } ) ) { }
 
 
-    const TxTypeProxy& target_type() const {
-        if (auto t = this->resolve_param_type("T")) {
-            return *t;
-        }
-        throw std::out_of_range("no such type parameter name in type specialization hierarchy: T: " + this->to_string());
-        //return this->baseTypeSpec.get_binding("T").type_proxy();  // TODO: theoretically, a recursive resolve is necessary
+    /** Returns proxy representing the target type of this reference type, or nullptr if this reference type is generic. */
+    const TxTypeProxy* target_type() const {
+        return this->resolve_param_type("T");
     }
 
     bool is_builtin() const { return typeid(*this) != typeid(*this->baseTypeSpec.type); }
@@ -131,11 +128,8 @@ public:
     virtual bool innerAutoConvertsFrom(const TxType& otherType) const {
         if (const TxReferenceType* otherRef = dynamic_cast<const TxReferenceType*>(&otherType)) {
             // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
-            //std::cout << "ATTEMPTING COVERSION FROM \n" << otherType << "\nTO\n" << *this << std::endl;
             if (auto t = this->resolve_param_type("T")) {
-                //std::cout << "RESOLVED THIS T: " << *t->get_type() << std::endl;
                 if (auto otherT = otherRef->resolve_param_type("T")) {
-                    //std::cout << "RESOLVED OTHER T: " << *otherT->get_type() << std::endl;
                     // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
                     if (! otherT->get_type()->is_a(*t->get_type()))
                         return false;
@@ -145,20 +139,6 @@ public:
             }
             return true;
         }
-//
-//        else if (const TxArrayType* otherArray = dynamic_cast<const TxArrayType*>(&otherType)) {
-//            // for now, we allow conversion of array to reference to first element (needed for C functions)
-//            if (auto e = this->resolve_param_type("T")) {
-//                if (auto otherE = otherArray->resolve_param_type("E")) {
-//                    if (*e->get_type() != *otherE->get_type())
-//                        return false;
-//                }
-//                else
-//                    return false;  // other has not bound E
-//            }
-//            return true;
-//        }
-
         return false;
     }
 

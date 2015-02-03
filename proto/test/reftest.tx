@@ -5,7 +5,7 @@ func ref_test( r : ref mod Int ) {
 */
 
 func puts(str : &[]UByte) {
-    tx.c.puts(&str^[0])
+    tx.c.puts(str^[0])
 }
 
 func assert(expected : Boolean, actual : Boolean) {
@@ -13,10 +13,10 @@ func assert(expected : Boolean, actual : Boolean) {
         return
     }
     if expected {
-        puts(&c"Expected TRUE but was FALSE")
+        puts(c"Expected TRUE but was FALSE")
     }
     else {
-        puts(&c"Expected FALSE but was TRUE")
+        puts(c"Expected FALSE but was TRUE")
     }
 }
 
@@ -24,16 +24,14 @@ func assert(expected : Int, actual : Int) {
     if expected == actual {
         return
     }
-    puts(&c"Expected M but was N")
+    puts(c"Expected M but was N")
 }
 
 func print(b : Boolean) {
-    if b {
-        puts(&c"TRUE")
-    }
-    else {
-        puts(&c"FALSE")
-    }
+    if b
+        puts(c"TRUE")
+    else
+        puts(c"FALSE")
 }
 
 func basic_ref_syntax() Int {

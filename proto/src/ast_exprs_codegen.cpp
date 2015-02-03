@@ -244,7 +244,7 @@ Value* TxFloatingLitNode::code_gen(LlvmGenerationContext& context, GenScope* sco
     return value;
 }
 
-Value* TxScalarCastNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxScalarConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->targetType->to_string().c_str());
     auto origValue = this->expr->code_gen(context, scope);
     if (! origValue)
@@ -290,18 +290,20 @@ HANDLE_CAST_INST(44, BitCast , BitCastInst )  // Type cast
 HANDLE_CAST_INST(45, AddrSpaceCast, AddrSpaceCastInst)  // addrspace cast
 */
 }
-Value* TxToPointerCastNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+
+
+Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->targetType->to_string().c_str());
     auto origValue = this->expr->code_gen(context, scope);
     if (! origValue)
         return NULL;
 
-    // from reference:
+    // from another reference:
     if (dynamic_cast<const TxReferenceType*>(this->expr->get_type())) {
         // bitcast from one pointer type to another
         auto targetLlvmType = context.get_llvm_type(this->targetType);
         if (! targetLlvmType) {
-            context.LOG.error("In reference-to-pointer cast, no target LLVM type found for %s", this->targetType->to_string().c_str());
+            context.LOG.error("In reference conversion, no target LLVM type found for %s", this->targetType->to_string().c_str());
             return origValue;  // should we return null instead?
         }
         if (this->is_statically_constant() && !scope)
@@ -309,23 +311,26 @@ Value* TxToPointerCastNode::code_gen(LlvmGenerationContext& context, GenScope* s
         else
             return scope->builder->CreateBitCast(origValue, targetLlvmType);
     }
-    // from array:
-    else if (dynamic_cast<const TxArrayType*>(this->expr->get_type())) {
-        Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
-                               ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0) };
-        if (this->is_statically_constant() && !scope) {  // seems we can only do this in global scope?
-            context.LOG.debug("constant cast -> %s", this->targetType->to_string().c_str());
-            return GetElementPtrInst::CreateInBounds(origValue, ixs);
-        }
-        else {
-            ASSERT(scope, "scope is NULL, although expression is not constant and thus should be within runtime block");
-            context.LOG.debug("non-constant cast -> %s", this->targetType->to_string().c_str());
-            return scope->builder->CreateInBoundsGEP(origValue, ixs);
-        }
-    }
-    context.LOG.error("%s to pointer casts not yet implemented", this->expr->get_type()->to_string().c_str());
+//    // from array:
+//    else if (dynamic_cast<const TxArrayType*>(this->expr->get_type())) {
+//        Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
+//                         ConstantInt::get(Type::getInt32Ty(context.llvmContext), 1),
+//                         ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0) };
+//        if (this->is_statically_constant() && !scope) {  // seems we can only do this in global scope?
+//            context.LOG.debug("constant cast -> %s", this->targetType->to_string().c_str());
+//            return GetElementPtrInst::CreateInBounds(origValue, ixs);
+//        }
+//        else {
+//            ASSERT(scope, "scope is NULL, although expression is not constant and thus should be within runtime block");
+//            context.LOG.debug("non-constant cast -> %s", this->targetType->to_string().c_str());
+//            return scope->builder->CreateInBoundsGEP(origValue, ixs);
+//        }
+//    }
+
+    context.LOG.error("%s to-reference conversion not supported", this->expr->get_type()->to_string().c_str());
     return origValue;
 }
+
 
 Value* TxObjSpecCastNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->targetType->to_string().c_str());

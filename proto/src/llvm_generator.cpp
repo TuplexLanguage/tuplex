@@ -231,13 +231,13 @@ public:
     virtual void visit(const TxReferenceType& txType)  {
         if (txType.is_generic())
             throw std::logic_error("Generic references currently not supported: " + txType.to_string());
-        llvm::Type* targetType = this->context.get_llvm_type(txType.target_type().get_type());
+        llvm::Type* targetType = this->context.get_llvm_type(txType.target_type()->get_type());
         if (targetType) {
             this->result = llvm::PointerType::get(targetType, 0);
             context.LOG.debug("Mapping reference type %s", txType.to_string().c_str());
         }
         else
-            context.LOG.error("No LLVM type mapping for reference target type: %s", txType.target_type().get_type()->to_string().c_str());
+            context.LOG.error("No LLVM type mapping for reference target type: %s", txType.target_type()->get_type()->to_string().c_str());
     }
 
     virtual void visit(const TxArrayType& txType)  {

@@ -4,15 +4,15 @@ FOO_STR := c"foo"
 
 func ret_array() &[]UByte {
     s : [4]UByte = FOO_STR
-    t : &[]UByte = &FOO_STR
+    t : &[]UByte = FOO_STR
     ## u : [4]UByte = t  ## ERROR
-    puts(&s)
+    puts(s)
     return t
     ##return c"foo"
 }
 
 func puts(cstr : &[]UByte) {
-    tx.c.puts(&cstr^[0])
+    tx.c.puts(cstr^[0])
 }
 
 func basic_array_syntax() Int {
@@ -24,7 +24,7 @@ func basic_array_syntax() Int {
     b[0] = c[1]
     b[1] = c[0]
     b[2] = UByte(0)
-    puts(&b)
+    puts(b)
     return c[1]-48
 }
 
