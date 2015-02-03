@@ -319,8 +319,13 @@ public:
         auto ltype = this->lvalue->get_type();
         if (! ltype)
             return;  // (error message should have been emitted by lvalue node)
-        if (! ltype->is_modifiable())
+        if (! ltype->is_modifiable()) {
             parser_error(this->parseLocation, "Assignee is not modifiable: %s", ltype->to_string().c_str());
+            // Note: If the object as a whole is modifiable, it can be assigned to.
+            // If it has any "non-modifiable" members, those will still get overwritten.
+            // We could add custom check to prevent that scenario for Arrays, but then
+            // it would in this regard behave differently than other aggregate objects.
+        }
         // note: similar rules to passing function arg
         this->rvalue = validate_wrap_assignment(this->rvalue, ltype);
     }

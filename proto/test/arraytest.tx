@@ -18,18 +18,20 @@ func puts(cstr : &[]UByte) {
 func basic_array_syntax() Int {
     puts( ret_array() )
 
-    ##a : Array<Int,3>
+    a : ~Array<~UByte,10>
     b : ~[10]~UByte;
     c := c"1234567890"
     b[0] = c[1]
     b[1] = c[0]
     b[2] = UByte(0)
-    puts(b)
+    puts(b)  ## expect "21"
+    a = b
+    puts(a)  ## expect "21"
     return c[1]-48  ## 48 is ASCII '0'
 }
 
 
-func setelem(cstr : &~[]~UByte, i : Int, chr : UByte) {
+func setelem(cstr : &~[]UByte, i : Int, chr : UByte) {
     cstr^[i] = chr
 }
 
@@ -48,8 +50,8 @@ func array_modifiability() {
     puts(mrcs)  ## expect "cst"
 
     ms : ~[4]~UByte = c"mod"
-    crms : &~[]~UByte = &ms   ## explicit reference required
-    mrms : ~&~[]~UByte = &ms  ## explicit reference required
+    crms : &~[]UByte = &ms   ## explicit reference required
+    mrms : ~&~[]UByte = &ms  ## explicit reference required
     mrms = crms
     ms[0] = 'A'
     crms^[0] = 'A'
@@ -69,7 +71,7 @@ func array_modifiability() {
     puts(mrms)  ## expect "qqq"
 
     ##crms^ = mrcs^  ## FIXME: dynamic concrete type resolution
-    crms_ : &~[4]~UByte = &ms
+    crms_ : &~[4]UByte = &ms
     mrcs_ : ~&[4]UByte = cs
     crms_^ = mrcs_^
     puts(ms)  ## expect "cst"

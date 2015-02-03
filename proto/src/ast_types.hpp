@@ -141,34 +141,6 @@ public:
 };
 
 
-class TxModifiableTypeNode : public TxTypeExpressionNode {
-protected:
-    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override { ASSERT(false, "should not be invoked"); }
-
-public:
-    TxTypeExpressionNode* baseType;
-    TxModifiableTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
-        : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
-
-    // modifiable type specialization is not an actual data type - "pass through" entity declaration to the underlying type
-    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags,
-                                            const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override {
-        this->set_context(lexContext);
-        return this->baseType->symbol_table_pass(lexContext, typeName, declFlags, typeParamDecls);
-    }
-
-    virtual TxTypeEntity* get_entity() const override {
-        return this->baseType->get_entity();
-    }
-
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        return this->types().get_modifiable_type(this->baseType->get_type(), errorMsg);
-    }
-
-    virtual void semantic_pass() { baseType->semantic_pass(); }
-};
-
-
 /** Produces a new, "empty" specialization of the underlying type for use by a type alias declaration. */
 class TxAliasedTypeNode : public TxTypeExpressionNode {
 protected:
@@ -183,7 +155,9 @@ public:
         : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        return this->types().get_type_specialization(this->get_entity(), TxTypeSpecialization(this->baseType->get_type()),
+        ASSERT(!declTypeParams || declTypeParams->empty(), "declTypeParams can't be set for 'empty' specialization: " << *this);
+        auto bType = this->baseType->get_type();
+        return this->types().get_type_specialization(this->get_entity(), TxTypeSpecialization(bType),
                                                      false, this->declTypeParams, errorMsg);
     }
 
@@ -311,12 +285,20 @@ public:
     }
 
     virtual void semantic_pass() {
-        for (auto type : *this->baseTypes)
+        for (auto type : *this->baseTypes) {
             type->semantic_pass();
-        for (auto member : *this->staticMembers)
+            // TODO: validity checks
+        }
+        for (auto member : *this->staticMembers) {
             member->semantic_pass();
-        for (auto member : *this->instanceMembers)
+            // TODO: validity checks
+        }
+        for (auto member : *this->instanceMembers) {
             member->semantic_pass();
+            // validity checks:
+            // TODO: can't put immutable member in non-immutable type (except via reference)
+            //       (OR: disable whole-object-assignment)
+        }
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -380,5 +362,60 @@ public:
             argDef->semantic_pass();
         if (this->returnField)
             this->returnField->semantic_pass();
+    }
+};
+
+
+class TxModifiableTypeNode : public TxTypeExpressionNode {
+protected:
+    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override { ASSERT(false, "should not be invoked"); }
+
+public:
+    TxTypeExpressionNode* baseType;
+    TxModifiableTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
+        : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
+
+    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags,
+                                            const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;
+
+    virtual TxTypeEntity* get_entity() const override {
+        return this->baseType->get_entity();
+    }
+
+    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
+        if (auto bType = this->baseType->get_type()) {
+            if (bType->is_modifiable())
+                return bType;
+            else if (! bType->is_immutable())
+                return this->types().get_modifiable_type(bType, errorMsg);
+            else if (errorMsg)
+                errorMsg->append("Can't declare immutable type as modifiable: " + bType->to_string());
+            else
+                parser_error(this->parseLocation, "Can't declare immutable type as modifiable: %s", bType->to_string().c_str());
+        }
+        return nullptr;
+    }
+
+    virtual void semantic_pass() { baseType->semantic_pass(); }
+};
+
+/** A potentially modifiable type expression, depending on syntactic sugar rules.
+ * This node should not have TxModifiableTypeNode as parent, and vice versa. */
+class TxMaybeModTypeNode : public TxModifiableTypeNode {
+public:
+    bool isModifiable = false;
+
+    TxMaybeModTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
+        : TxModifiableTypeNode(parseLocation, baseType) { }
+
+    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags,
+                                            const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;
+
+    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
+        // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
+        if (this->isModifiable)
+            return TxModifiableTypeNode::define_type(errorMsg);
+        else
+            return this->baseType->get_type();
     }
 };

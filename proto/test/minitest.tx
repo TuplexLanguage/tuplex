@@ -1,8 +1,9 @@
+type Foo UByte
+type Bar []~Foo
+
 func main() {
-    s : [4]UByte = c"bar"
-    ct : &[]UByte = s     ## implicit reference
-    
-    mt : ~&[]UByte = &s  ## explicit reference required
-    mt = ct
-    ##mt^[0] = 'z'
+    k : Foo
+    s : [4]Foo = c"bar"
+    s[0] = 'A'
+    tx.c.puts(&s[0])
 }

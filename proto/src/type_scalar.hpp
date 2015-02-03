@@ -17,7 +17,7 @@ protected:
         : TxType(entity, baseTypeSpec), _size(size) { }
 
 public:
-    virtual bool is_builtin() const { return true; }
+    virtual bool is_builtin() const { return typeid(*this) != typeid(*this->baseTypeSpec.type); }
     virtual long size() const { return this->_size; }
     virtual bool is_immutable() const { return false; }
     virtual bool is_final() const { return true; }

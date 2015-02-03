@@ -357,14 +357,17 @@ type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->
                 | type_arg_list sCOMMA type_arg  { $$ = $1;  $$->push_back($3); }
                 ;
 
-type_arg        : predef_type         { $$ = new TxTypeArgumentNode(@1, $1); }
-                | value_literal       { $$ = new TxTypeArgumentNode(@1, $1); }  // unambiguous value expr
+type_arg        : value_literal       { $$ = new TxTypeArgumentNode(@1, $1); }  // unambiguous value expr
                 | LPAREN expr RPAREN  { $$ = new TxTypeArgumentNode(@1, $2); }  // parens prevent conflation with type expr
+                | opt_modifiable predef_type   { auto typeNode = ( $1 ? new TxModifiableTypeNode(@1, $2)
+                                                                      : new TxMaybeModTypeNode(@2, $2) );
+                                                 $$  = new TxTypeArgumentNode(@2, typeNode); }
                 ;
 
 
 type_expression  // can construct new "literal" type but can't extend (subclass / add members to) one
-    :   opt_modifiable base_type_expression  { $$ = ($1 ? new TxModifiableTypeNode(@1, $2) : $2); }
+    :   opt_modifiable base_type_expression  { $$ = ( $1 ? new TxModifiableTypeNode(@1, $2)
+                                                         : new TxMaybeModTypeNode(@2, $2) ); }
     ;
 
 opt_modifiable : %empty { $$ = false; } | TILDE { $$ = true; } | KW_MODIFIABLE { $$ = true; } ;

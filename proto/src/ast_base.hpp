@@ -51,9 +51,10 @@ public:
     const yy::location parseLocation;
 
     TxNode(const yy::location& parseLocation) : lexContext(), parseLocation(parseLocation) { }
-    //virtual ~TxNode() = default;
+
     virtual ~TxNode() {
-        std::cout << "Running destructor of " << *this << std::endl;
+        if (this->is_context_set())
+            this->context().scope()->LOGGER().debug("Running destructor of %s", this->to_string().c_str());
     }
 
     /** Sets the lexical context of this node to be equal to that of the provided node. */
@@ -481,9 +482,6 @@ public:
 
 /** Non-local type declaration */
 class TxTypeDeclNode : public TxDeclarationNode {
-    /** If the type expression is a simple type identifier, wraps the type expression in a type alias declaration node. */
-    void wrap_alias();
-
 public:
     const std::string typeName;
     const std::vector<TxDeclarationNode*>* typeParamDecls;
@@ -496,35 +494,7 @@ public:
           typeName(typeName), typeParamDecls(typeParamDecls), typeExpression(typeExpression) {
     }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
-        this->set_context(lexContext);
-        // type declaration is performed by the type expression node, unless this is a decl of an alias for a predef type:
-        this->wrap_alias();
-        auto newTypeEntity = this->typeExpression->symbol_table_pass(lexContext, this->typeName, this->declFlags, this->typeParamDecls);
-        if (newTypeEntity) {
-            // declare type parameters, if any, within type definition's scope:
-            LexicalContext typeCtx(newTypeEntity);
-            if (this->typeParamDecls) {
-                for (auto paramDecl : *this->typeParamDecls) {
-                    paramDecl->symbol_table_pass(typeCtx);
-                }
-            }
-        }
-//        if (this->typeParams) {
-//            for (auto & param : *this->typeParams) {
-//                if (param.meta_type() == TxTypeParam::TXB_VALUE) {
-//                    newTypeEntity->declare_field(param.param_name(), param.get_base_type_definer(), TXD_PUBLIC, TXS_STATIC, TxIdentifier());
-//                }
-//                else {  // TXB_TYPE
-//                    const TxTypeProxy* baseTypeDefiner = param.has_base_type_definer()
-//                                                         ? param.get_base_type_definer()
-//                                                         : this->types().get_builtin_type(ANY);
-//                    newTypeEntity->declare_type(param.param_name(), baseTypeDefiner, TXD_PUBLIC);
-//                }
-//            }
-//        }
-        //parser_error(this->parseLocation, "Declared type parameters but type definition does not describe a generic type.");
-    }
+    virtual void symbol_table_pass(LexicalContext& lexContext);
 
     TxTypeEntity* get_entity() const {
         ASSERT(this->typeExpression->get_entity(), "Declared type entity not initialized");

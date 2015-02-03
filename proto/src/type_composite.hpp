@@ -210,6 +210,8 @@ class TxBuiltinFunctionType : public TxFunctionType {
 public:
     TxBuiltinFunctionType(const TxTypeEntity* entity, const TxType* baseType, const std::vector<const TxType*> argumentTypes, const TxType* returnType)
         : TxFunctionType(entity, baseType, argumentTypes, returnType) { }
+
+    bool is_builtin() const { return true; }
 };
 
 class TxBuiltinConversionFunctionType : public TxBuiltinFunctionType {

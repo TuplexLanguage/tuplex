@@ -325,7 +325,7 @@ public:
 
 
     /** Returns true iff this type is a built-in type. */
-    virtual bool is_builtin() const { return false; }
+    virtual bool is_builtin() const { return false; }  // TODO: overhaul this method impl in subclasses
 
     /** Returns the size, in bytes, of a direct instance of this type.
      * Illegal to call for abstract types. */

@@ -299,14 +299,15 @@ void parser_error(const yy::location& parseLocation, char const *fmt, ...) {
     vsnprintf(buf, 256, fmt, ap);
     va_end(ap);
 
+    auto filename = parseLocation.begin.filename ? parseLocation.begin.filename->c_str() : "";
     // (if the error is unexpected token and it is SEP, lineno may be 1 too high)
     if (parseLocation.begin.line == parseLocation.end.line) {
         int lcol = (parseLocation.end.column > parseLocation.begin.column) ? parseLocation.end.column-1 : parseLocation.end.column;
-        LOG->error("%s %d.%d-%d: %s", parseLocation.begin.filename->c_str(),
+        LOG->error("%s %d.%d-%d: %s", filename,
                    parseLocation.begin.line, parseLocation.begin.column, lcol, buf);
     }
     else
-        LOG->error("%s %d.%d-%d.%d: %s", parseLocation.begin.filename->c_str(),
+        LOG->error("%s %d.%d-%d.%d: %s", filename,
                    parseLocation.begin.line, parseLocation.begin.column,
                    parseLocation.end.line, parseLocation.end.column-1, buf);
 }

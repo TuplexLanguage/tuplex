@@ -106,7 +106,72 @@ const std::vector<TxTypeParam>* TxTypeExpressionNode::makeTypeParams(const std::
 }
 
 
-void TxTypeDeclNode::wrap_alias() {
+void TxTypeDeclNode::symbol_table_pass(LexicalContext& lexContext) {
+    this->set_context(lexContext);
+
+    // type declaration is performed by the type expression node, unless this is a decl of an alias for a predef type:
+    if (typeid(*this->typeExpression) == typeid(TxModifiableTypeNode))
+        parser_error(this->typeExpression->parseLocation, "A type definition (type name) can't be 'modifiable', only the type usage can.");
+    if (auto maybeModNode = dynamic_cast<TxMaybeModTypeNode*>(this->typeExpression)) {
+        // skip implicit modifiability in type declaration
+        this->typeExpression = maybeModNode->baseType;
+        maybeModNode->baseType = nullptr;  delete maybeModNode;
+    }
     if (dynamic_cast<TxIdentifiedTypeNode*>(this->typeExpression))
         this->typeExpression = new TxAliasedTypeNode(this->typeExpression->parseLocation, this->typeExpression);
+
+    auto newTypeEntity = this->typeExpression->symbol_table_pass(lexContext, this->typeName, this->declFlags, this->typeParamDecls);
+    if (newTypeEntity) {
+        // declare type parameters, if any, within type definition's scope:
+        LexicalContext typeCtx(newTypeEntity);
+        if (this->typeParamDecls) {
+            for (auto paramDecl : *this->typeParamDecls) {
+                paramDecl->symbol_table_pass(typeCtx);
+            }
+        }
+    }
+    //parser_error(this->parseLocation, "Declared type parameters but type definition does not describe a generic type.");
 }
+
+
+TxTypeEntity* TxModifiableTypeNode::symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags,
+                                                      const std::vector<TxDeclarationNode*>* typeParamDecls) {
+    this->set_context(lexContext);
+
+    // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
+    if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType)) {
+        if (auto maybeModElem = dynamic_cast<TxMaybeModTypeNode*>(arrayBaseType->elementType)) {
+            // (can this spuriously add Modifiable node to predeclared modifiable type, generating error?)
+            this->context().scope()->LOGGER().debug("Implicitly declaring Array Element modifiable: %s", maybeModElem->to_string().c_str());
+            maybeModElem->isModifiable = true;
+        }
+    }
+
+    // (modifiable type specialization is not an actual data type - "pass through" entity declaration to the underlying type)
+    return this->baseType->symbol_table_pass(lexContext, typeName, declFlags, typeParamDecls);
+}
+
+TxTypeEntity* TxMaybeModTypeNode::symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags,
+                                                    const std::vector<TxDeclarationNode*>* typeParamDecls) {
+    this->set_context(lexContext);
+
+    // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
+    if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType)) {
+        if (typeid(*arrayBaseType->elementType) == typeid(TxModifiableTypeNode)) {
+            this->context().scope()->LOGGER().debug("Implicitly declaring Array modifiable: %s", baseType->to_string().c_str());
+            this->isModifiable = true;
+        }
+    }
+
+    // (modifiable type specialization is not an actual data type - "pass through" entity declaration to the underlying type)
+    return this->baseType->symbol_table_pass(lexContext, typeName, declFlags, typeParamDecls);
+}
+
+
+///** If the type expression is a simple type identifier, wraps the type expression in a type alias declaration node. */
+//void TxTypeDeclNode::wrap_alias() {
+//    if (dynamic_cast<TxIdentifiedTypeNode*>(this->typeExpression))
+//        this->typeExpression = new TxAliasedTypeNode(this->typeExpression->parseLocation, this->typeExpression);
+//    //else if (dynamic_cast<TxModifiableTypeNode*>(this->typeExpression))
+//    //    this->typeExpression = new TxAliasedTypeNode(this->typeExpression->parseLocation, this->typeExpression);
+//}

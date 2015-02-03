@@ -78,8 +78,6 @@ class TxSymbolScope : public Printable {
     TxSymbolScope* add_symbol(TxSymbolScope* symbol);
 
 protected:
-    virtual Logger& LOGGER() const { return this->LOG; }
-
     virtual bool has_symbol(const std::string& name) const;
 
     virtual const TxSymbolScope* get_symbol(const std::string& name) const;
@@ -110,6 +108,9 @@ public:
     TxSymbolScope(TxSymbolScope* parent, const std::string& name);
 
     virtual ~TxSymbolScope() = default;
+
+
+    inline Logger& LOGGER() const { return this->LOG; }
 
 
     /** Returns true if this symbol has a parent scope in which it is defined, or false if it is a top level name. */
