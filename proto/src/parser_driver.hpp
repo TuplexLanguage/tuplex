@@ -44,6 +44,9 @@ class TxDriver {
     const TxOptions options;
     TxPackage * const package;
 
+    /** used for parse error messages */
+    std::string currentInputFilename;
+
     /** The queue of source files to parse in this compilation. */
     std::deque< std::pair<TxIdentifier,std::string> > sourceFileQueue;
     /** The source files already parsed.
@@ -94,7 +97,7 @@ public:
 
     /** The path of the file currently being parsed.
      * Used later to pass the file path to the location tracker. */
-    std::string& current_input_filepath() { return this->sourceFileQueue.front().second; }
+    std::string& current_input_filepath();
 
 
     // Error handling.

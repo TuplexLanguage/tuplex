@@ -1,13 +1,12 @@
 import tx.*
-import tx.c.*
 
-##func print(cstr : &[]UByte) {
-##    tx.c.puts( cstr^ )
-##}
+func puts(cstr : &[]UByte) {
+    tx.c.puts( cstr^[0] )
+}
 
 func print_digit(d : Int) {
     digits := c"0123456789"
-    str : [2]~UByte = c" "
+    str : ~[2]~UByte = c" "
     if d >= 10 {
         puts(c"d greater than 9")
         return
@@ -43,7 +42,7 @@ func test_while() {
 }
 
 func printfoo(cstr : &[]UByte) {
-    tmp : [2]~UByte = c" "
+    tmp : ~[2]~UByte = c" "
     i : ~Int = 0
     while cstr^[i] != 0 {
         tmp[0] = cstr^[i]

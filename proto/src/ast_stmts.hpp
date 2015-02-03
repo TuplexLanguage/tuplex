@@ -92,7 +92,7 @@ public:
         if (this->expr) {
             this->expr->semantic_pass();
             if (returnValue)
-                this->expr = wrapConversion(this->expr, returnValue->get_type());
+                this->expr = validate_wrap_convert(this->expr, returnValue->get_type());
             else
                 parser_error(this->parseLocation, "Return statement has value expression although function has no return type: %s",
                              this->expr->get_type()->to_string().c_str());
@@ -201,7 +201,7 @@ public:
 
     virtual void semantic_pass() {
         this->cond->semantic_pass();
-        this->cond = wrapConversion(this->cond, this->types().get_builtin_type(BOOLEAN));
+        this->cond = validate_wrap_convert(this->cond, this->types().get_builtin_type(BOOLEAN));
         this->suite->semantic_pass();
         if (this->elseClause)
             this->elseClause->semantic_pass();
@@ -278,11 +278,11 @@ public:
     virtual const TxType* get_type() const {
         auto opType = this->array->get_type();
         if (auto arrayType = dynamic_cast<const TxArrayType*>(opType)) {
-            if (auto e = arrayType->resolve_param_type("E"))
+            if (auto e = arrayType->element_type())
                 return e->get_type();
             else
                 // FUTURE: return constraint type if present
-                return this->types().get_builtin_type(ANY);
+                return this->types().get_builtin_type(ANY);  // (not modifiable)
         }
         // operand type is unknown / not an array and can't be subscripted
         return nullptr;
@@ -293,7 +293,7 @@ public:
         subscript->semantic_pass();
         if (! dynamic_cast<const TxArrayType*>(this->array->get_type()))
             parser_error(this->parseLocation, "Can't subscript non-array expression.");
-        subscript = wrapConversion(subscript, this->types().get_builtin_type(LONG));
+        subscript = validate_wrap_convert(subscript, this->types().get_builtin_type(LONG));
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -320,14 +320,9 @@ public:
         if (! ltype)
             return;  // (error message should have been emitted by lvalue node)
         if (! ltype->is_modifiable())
-            parser_error(this->parseLocation, "Assignee type %s is not modifiable.", ltype->to_string().c_str());
+            parser_error(this->parseLocation, "Assignee is not modifiable: %s", ltype->to_string().c_str());
         // note: similar rules to passing function arg
-        if (! ltype->is_concrete())
-            parser_error(this->parseLocation, "Assignee type %s is not concrete (size potentially unknown).", ltype->to_string().c_str());
-        // if assignee is a reference:
-        // TODO: check that no modifiable attribute is lost
-        // TODO: check dataspace rules
-        this->rvalue = wrapConversion(this->rvalue, ltype);
+        this->rvalue = validate_wrap_assignment(this->rvalue, ltype);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;

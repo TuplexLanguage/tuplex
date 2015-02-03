@@ -29,7 +29,7 @@ void TxFieldDeclNode::symbol_table_pass(LexicalContext& lexContext) {
 
 
 // FUTURE: factor out the 'explicit' code path into separate function
-TxExpressionNode* wrapConversion(TxExpressionNode* originalExpr, const TxType* requiredType, bool _explicit) {
+TxExpressionNode* validate_wrap_convert(TxExpressionNode* originalExpr, const TxType* requiredType, bool _explicit) {
     // Note: Symbol table pass and semantic pass are not run on the created wrapper nodes.
     auto originalType = originalExpr->get_type();
     if (! originalType)
@@ -50,10 +50,21 @@ TxExpressionNode* wrapConversion(TxExpressionNode* originalExpr, const TxType* r
     else if (auto refType = dynamic_cast<const TxReferenceType*>(requiredType)) {
         auto refTargetType = refType->target_type();
         if (refTargetType && originalType->is_a(*refTargetType->get_type())) {
-            // wrap originalExpr with a reference-to node
-            auto refToNode = new TxReferenceToNode(originalExpr->parseLocation, originalExpr);
-            refToNode->set_context(originalExpr);
-            return new TxReferenceConvNode(originalExpr->parseLocation, refToNode, refType);
+            if (refTargetType->get_type()->is_modifiable()) {
+                if (!originalType->is_modifiable())
+                    parser_error(originalExpr->parseLocation, "Cannot convert reference with non-mod-target to one with mod target: %s -> %s",
+                                 originalType->to_string().c_str(), requiredType->to_string().c_str());
+                else
+                    parser_error(originalExpr->parseLocation, "Cannot implicitly convert to reference with modifiable target: %s -> %s",
+                                 originalType->to_string().c_str(), requiredType->to_string().c_str());
+                return originalExpr;
+            }
+            else {
+                // wrap originalExpr with a reference-to node
+                auto refToNode = new TxReferenceToNode(originalExpr->parseLocation, originalExpr);
+                refToNode->set_context(originalExpr);
+                return new TxReferenceConvNode(originalExpr->parseLocation, refToNode, refType);
+            }
         }
     }
     parser_error(originalExpr->parseLocation, "Can't auto-convert %s -> %s",
@@ -62,32 +73,23 @@ TxExpressionNode* wrapConversion(TxExpressionNode* originalExpr, const TxType* r
 }
 
 
+TxExpressionNode* validate_wrap_assignment(TxExpressionNode* rValueExpr, const TxType* requiredType) {
+    if (! requiredType->is_concrete())
+        // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
+        parser_error(rValueExpr->parseLocation, "Assignee is not a concrete type (size potentially unknown): %s", requiredType->to_string().c_str());
+    // if assignee is a reference:
+    // TODO: check dataspace rules
+    return validate_wrap_convert(rValueExpr, requiredType);
+}
+
+
+
 TxSuiteNode::TxSuiteNode(const yy::location& parseLocation)
         : TxStatementNode(parseLocation), suite(new std::vector<TxStatementNode*>())  {
 }
 
 TxSuiteNode::TxSuiteNode(const yy::location& parseLocation, std::vector<TxStatementNode*>* suite)
         : TxStatementNode(parseLocation), suite(suite)  {
-//    // attach else-clauses to preceding conditional statements:
-//    std::vector<TxStatementNode*> tmpSuite;
-//    for (TxStatementNode* stmt : *suite) {
-//        //if (auto elseClause = dynamic_cast<TxElseClauseNode*>(stmt)) {
-//            /*  now handled by grammar instead
-//            if (!tmpSuite.empty())
-//                if (auto compStmt = dynamic_cast<TxCondCompoundStmtNode*>(tmpSuite.back())) {
-//                    if (compStmt->has_else_clause())
-//                        parser_error(elseClause->parseLocation, "preceding if-statement already has an else-clause");
-//                    else
-//                        compStmt->set_else_clause(elseClause);
-//                    continue;
-//                }
-//            */
-//        //    parser_error(elseClause->parseLocation, "else-clause does not match a preceding conditional clause");
-//        //}
-//        //else
-//            tmpSuite.push_back(stmt);
-//    }
-//    *this->suite = tmpSuite;
 }
 
 

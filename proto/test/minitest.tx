@@ -1,4 +1,8 @@
-
-func main() Int {
-    return -1
+func main() {
+    s : [4]UByte = c"bar"
+    ct : &[]UByte = s     ## implicit reference
+    
+    mt : ~&[]UByte = &s  ## explicit reference required
+    mt = ct
+    ##mt^[0] = 'z'
 }

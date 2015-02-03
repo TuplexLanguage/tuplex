@@ -110,7 +110,7 @@ public:
 
     /** Returns proxy representing the target type of this reference type, or nullptr if this reference type is generic. */
     const TxTypeProxy* target_type() const {
-        return this->resolve_param_type("T");
+        return this->resolve_param_type("T", true);
     }
 
     bool is_builtin() const { return typeid(*this) != typeid(*this->baseTypeSpec.type); }
@@ -128,18 +128,25 @@ public:
     virtual bool innerAutoConvertsFrom(const TxType& otherType) const {
         if (const TxReferenceType* otherRef = dynamic_cast<const TxReferenceType*>(&otherType)) {
             // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
-            if (auto t = this->resolve_param_type("T")) {
-                if (auto otherT = otherRef->resolve_param_type("T")) {
+            if (auto target = this->target_type()) {
+                if (auto otherTarget = otherRef->target_type()) {
                     // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
-                    if (! otherT->get_type()->is_a(*t->get_type()))
+                    //std::cout << "CHECKING AUTOCONV FROM\n" << *otherTarget->get_type() << "\nTO\n" << *target->get_type() << std::endl;
+                    if (! otherTarget->get_type()->is_a(*target->get_type()))
                         return false;
+                    else if (target->get_type()->is_modifiable() && !otherTarget->get_type()->is_modifiable())
+                        return false;  // can't lose modifiable attribute of target
+                    else
+                        return true;
                 }
                 else
                     return false;  // other has not bound T
             }
-            return true;
+            else
+                return true;
         }
-        return false;
+        else
+            return false;
     }
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }

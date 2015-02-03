@@ -31,9 +31,9 @@ func testfunc() {
     
     robj^.field5.blaha = 273.
     print(Long(obj.field5.blaha))
-    
-    subobj1 : CompoundType.InnerCompType
-    subobj2 : obj.InnerCompType
+
+    subobj1 : ~CompoundType.InnerCompType
+    subobj2 : ~obj.InnerCompType
     obj.field6 = &subobj1
     obj.field6 = &subobj2
     obj.field6^.blaha = 514.

@@ -24,11 +24,11 @@ func print_digit(d : Long) {
 }
 */
 
-func itoa(val : Long, cstr : &[]~UByte) {
+func itoa(val : Long, cstr : &~[]~UByte) {
     itoa(val, cstr, UByte(10))
 }
 
-func itoa(val : Long, cstr : &[]~UByte, radix : UByte) {
+func itoa(val : Long, cstr : &~[]~UByte, radix : UByte) {
     ##cstr^[0] = UByte(0)
     ##str := cstr^
     v : ~Long
@@ -69,7 +69,7 @@ func itoa(val : Long, cstr : &[]~UByte, radix : UByte) {
 }
 
 func print(val : Long) {
-    cstr : [100]~UByte
+    cstr : ~[100]~UByte
     itoa(val, &cstr)
     print(&cstr)
 }

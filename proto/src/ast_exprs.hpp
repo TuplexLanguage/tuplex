@@ -210,7 +210,7 @@ public:
         subscript->semantic_pass();
         if (! dynamic_cast<const TxArrayType*>(this->array->get_type()))
             parser_error(this->parseLocation, "Can't subscript non-array expression.");
-        subscript = wrapConversion(subscript, this->types().get_builtin_type(LONG));
+        subscript = validate_wrap_convert(subscript, this->types().get_builtin_type(LONG));
     }
 
     virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const;
@@ -432,17 +432,14 @@ public:
         }
         if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {
             // "inline" function call by replacing with conversion expression
-            this->inlinedExpression = wrapConversion(this->argsExprList->front(), inlineFunc->returnType, true);
+            this->inlinedExpression = validate_wrap_convert(this->argsExprList->front(), inlineFunc->returnType, true);
         }
         else {
             // regular function call
             auto argExprI = this->argsExprList->begin();
             for (auto argDef : funcType->argumentTypes) {
                 // note: similar rules to assignment
-                // if arg is a reference:
-                // TODO: check that no modifiable attribute is lost
-                // TODO: check dataspace rules
-                *argExprI = wrapConversion(*argExprI, argDef);
+                *argExprI = validate_wrap_assignment(*argExprI, argDef);
                 argExprI++;
             }
         }

@@ -326,10 +326,18 @@ public:
 };
 
 
-/**
+/** Checks that an expression has a type that matches the required type, and wraps
+ * a value & type conversion node around it if permitted and necessary.
  * Note: Symbol table pass and semantic pass are not run on the inserted wrapper nodes.
  */
-TxExpressionNode* wrapConversion(TxExpressionNode* originalExpr, const TxType* requiredType, bool _explicit=false);
+TxExpressionNode* validate_wrap_convert(TxExpressionNode* originalExpr, const TxType* requiredType, bool _explicit=false);
+
+/** Checks that an rvalue expression of an assignment or argument to a funciton call
+ * has a type that matches the required type,
+ * and wraps a value & type conversion node around it if permitted and necessary.
+ * Note: Symbol table pass and semantic pass are not run on the inserted wrapper nodes.
+ */
+TxExpressionNode* validate_wrap_assignment(TxExpressionNode* rValueExpr, const TxType* requiredType);
 
 
 class TxFieldDefNode : public TxNode, public TxTypeProxy {
@@ -428,7 +436,7 @@ public:
         if (this->initExpression) {
             this->initExpression->semantic_pass();
             if (this->typeExpression) {
-                this->initExpression = wrapConversion(this->initExpression, this->typeExpression->get_type());
+                this->initExpression = validate_wrap_convert(this->initExpression, this->typeExpression->get_type());
             }
             if (this->get_entity()->is_statically_constant())
                 if (! this->initExpression->is_statically_constant())

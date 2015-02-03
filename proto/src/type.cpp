@@ -3,9 +3,10 @@
 #include "entity.hpp"
 
 
-//std::string TxTypeUsage::to_string() const {
-//    return modifiable ? ("~" + type_proxy->get_type()->to_string()) : type_proxy->get_type()->to_string();
-//}
+const TxType* TxNonModTypeProxy::get_type() const {
+    auto type = wrappedProxy->get_type();
+    return type->is_modifiable() ? type->get_base_type_spec().type : type;
+}
 
 
 bool TxTypeBinding::operator==(const TxTypeBinding& other) const {

@@ -52,6 +52,17 @@ public:
 };
 
 
+/** Type proxy wrapper that provides a non-modifiable 'view' of the underlying type
+ * (which may be either modifiable or not).
+ */
+class TxNonModTypeProxy : public TxTypeProxy {
+    TxTypeProxy const * const wrappedProxy;
+public:
+    TxNonModTypeProxy(TxTypeProxy const * wrappedProxy) : wrappedProxy(wrappedProxy)  { }
+
+    virtual const TxType* get_type() const;
+};
+
 
 /** Represents a type parameter of a generic type.
  * Specializations of the generic type provide a binding to this parameter.
@@ -396,10 +407,11 @@ public:
     virtual const TxSymbolScope* lookup_inherited_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
 
 
-    // TODO: rework this; merge with namespace lookup
-
+    // TODO: rework this; merge with namespace lookup?
+private:
     const TxTypeBinding* resolve_param_binding(// const TxType* specializationType,  // parent entity context
                                                const std::string& paramName) const {
+        // note: does not check for transitive modifiability
         if (this->has_type_param(paramName))
             return nullptr;  // type parameter is unbound
         else if (this->baseTypeSpec.type) {
@@ -411,11 +423,17 @@ public:
             return nullptr;  // no such type parameter name in type specialization hierarchy
     }
 
+public:
     const TxTypeProxy* resolve_param_type(// const TxType* specializationType,  // parent entity context
-                                          const std::string& paramName) const {
+                                          const std::string& paramName, bool nontransitiveModifiability=false) const {
         if (auto binding = this->resolve_param_binding(paramName)) {
-            if (binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE)
-                return &binding->type_proxy();
+            if (binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
+                if (! this->is_modifiable() && ! nontransitiveModifiability)
+                    // non-modifiability transitively applies to TYPE type parameters (NOTE: except for references)
+                    return new TxNonModTypeProxy(&binding->type_proxy());  // FUTURE: memoize this (also prevents mem leak)
+                else
+                    return &binding->type_proxy();
+            }
         }
         return nullptr;  // no such type parameter name in type specialization hierarchy
     }
@@ -454,11 +472,11 @@ public:
 
     /** Returns true if this type can implicitly convert from the provided type. */
     bool auto_converts_from(const TxType& other) const {
-        // general logic:
-        if (this->is_modifiable())
-            return this->baseTypeSpec.type->auto_converts_from(other);
-        if (other.is_modifiable())
-            return this->auto_converts_from(*other.baseTypeSpec.type);
+//        // general logic:
+//        if (this->is_modifiable())
+//            return this->baseTypeSpec.type->auto_converts_from(other);
+//        if (other.is_modifiable())
+//            return this->auto_converts_from(*other.baseTypeSpec.type);
 
         // base-type-specific logic:
         return this->innerAutoConvertsFrom(other);
