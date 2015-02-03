@@ -30,7 +30,8 @@ TxDriver::~TxDriver() {
 
 
 int TxDriver::scan_begin(const std::string &filePath) {
-    this->currentInputFilename = filePath;
+    // FUTURE: make parser not save *pointer* to filename, necessitating this leaky snippet:
+    this->currentInputFilename = new std::string(filePath);
     yy_flex_debug = this->options.debug_lexer;
     if (filePath.empty() || filePath == "-")
         yyin = stdin;
@@ -226,7 +227,7 @@ void TxDriver::add_source_file(const TxIdentifier& moduleName, const std::string
 }
 
 
-std::string& TxDriver::current_input_filepath() {
+std::string* TxDriver::current_input_filepath() {
     return this->currentInputFilename;
 }
 
@@ -301,9 +302,11 @@ void parser_error(const yy::location& parseLocation, char const *fmt, ...) {
     // (if the error is unexpected token and it is SEP, lineno may be 1 too high)
     if (parseLocation.begin.line == parseLocation.end.line) {
         int lcol = (parseLocation.end.column > parseLocation.begin.column) ? parseLocation.end.column-1 : parseLocation.end.column;
-        LOG->error("%s %d.%d-%d: %s", parseLocation.begin.filename->c_str(), parseLocation.begin.line, parseLocation.begin.column, lcol, buf);
+        LOG->error("%s %d.%d-%d: %s", parseLocation.begin.filename->c_str(),
+                   parseLocation.begin.line, parseLocation.begin.column, lcol, buf);
     }
     else
-        LOG->error("%s %d.%d-%d.%d: %s",
-                   parseLocation.begin.line, parseLocation.begin.filename->c_str(), parseLocation.begin.column, parseLocation.end.line, parseLocation.end.column-1, buf);
+        LOG->error("%s %d.%d-%d.%d: %s", parseLocation.begin.filename->c_str(),
+                   parseLocation.begin.line, parseLocation.begin.column,
+                   parseLocation.end.line, parseLocation.end.column-1, buf);
 }

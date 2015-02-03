@@ -45,7 +45,7 @@ YY_DECL;
 {
     // Initialize the initial location.
     // Afterward new locations are computed relatively to the previous locations: the file name will be propagated.
-    @$.begin.filename = @$.end.filename = &driver.current_input_filepath();
+    @$.begin.filename = @$.end.filename = driver.current_input_filepath();
 };
 
 
