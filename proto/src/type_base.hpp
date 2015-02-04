@@ -262,8 +262,6 @@ protected:
             //    throw std::logic_error("'modifiable' specialization must have same TxType class as the base type: " + baseTypeSpec.type->to_string());
             if (! this->interfaces.empty())
                 throw std::logic_error("'modifiable' specialization cannot add any interface base types");
-            if (entity)
-                throw std::logic_error("Can't set entity of a modifiable type: " + this->to_string());
         }
     }
 

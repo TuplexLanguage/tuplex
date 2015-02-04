@@ -17,5 +17,8 @@ operator<< (std::basic_ostream<charT, traits> &lhs, Printable const &printable_r
 template<typename charT, typename traits>
 std::basic_ostream<charT, traits> &
 operator<< (std::basic_ostream<charT, traits> &lhs, Printable const *printable_rhs) {
-    return lhs << printable_rhs->to_string();
+    if (printable_rhs)
+        return lhs << printable_rhs->to_string();
+    else
+        return lhs << "NULL";
 }

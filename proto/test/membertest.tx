@@ -43,7 +43,7 @@ func testfunc() {
     ##bad2 := obj.InnerCompType
     ##bad3 : CompoundType.SFIELD2 ## implicit type entity may not be available
     ##bad4 : CompoundType.field4 ## implicit type entity may not be available
-    ok1 : ~CompoundType.field3
+    ##bad5 : ~CompoundType.field3 ## implicit type entity may not be available
 }
 
 func main() Int {

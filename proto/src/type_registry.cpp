@@ -211,7 +211,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
         // verify that all built-in types are initialized:
         ASSERT(this->builtinTypes[id], "Uninitialized built-in type! id=" << id);
 
-        this->builtinModTypes[id] = this->get_modifiable_type(this->builtinTypes[id]->get_type());
+        this->builtinModTypes[id] = this->get_modifiable_type(nullptr, this->builtinTypes[id]->get_type());
     }
 
     // test adding static field to types:
@@ -262,13 +262,13 @@ const TxType* TypeRegistry::get_builtin_type(const BuiltinTypeId id, bool mod) c
 }
 
 
-const TxType* TypeRegistry::get_modifiable_type(const TxType* type, std::string* errorMsg) {
+const TxType* TypeRegistry::get_modifiable_type(const TxTypeEntity* newEntity, const TxType* type, std::string* errorMsg) {
     // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
     TxTypeSpecialization tmpSpec(type, true);
     std::vector<TxTypeParam> unbound;
     if (errorMsg) {
         try {
-            return type->make_specialized_type(nullptr, tmpSpec, unbound, errorMsg);
+            return type->make_specialized_type(newEntity, tmpSpec, unbound, errorMsg);
         }
         catch (const std::logic_error& e) {
             errorMsg->append(e.what());
@@ -276,7 +276,7 @@ const TxType* TypeRegistry::get_modifiable_type(const TxType* type, std::string*
         }
     }
     else
-        return type->make_specialized_type(nullptr, tmpSpec, unbound, errorMsg);
+        return type->make_specialized_type(newEntity, tmpSpec, unbound, errorMsg);
 }
 
 const TxType* TypeRegistry::get_type_specialization(const TxTypeEntity* newEntity, const TxTypeSpecialization& specialization,

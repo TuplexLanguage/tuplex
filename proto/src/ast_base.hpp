@@ -216,10 +216,10 @@ class TxTypeExpressionNode : public TxNode, public TxTypeProxy {
     mutable TxType const * cachedType = nullptr;
     TxTypeEntity* declaredEntity = nullptr;  // null until initialized in symbol table pass
 
-    TxTypeEntity* declare_type(LexicalContext& lexContext, const std::string& implicitTypeName, TxDeclarationFlags declFlags) {
-        this->declaredEntity = lexContext.scope()->declare_type(implicitTypeName, this, declFlags);
-        return this->declaredEntity;
-    }
+//    TxTypeEntity* declare_type(LexicalContext& lexContext, const std::string& implicitTypeName, TxDeclarationFlags declFlags) {
+//        this->declaredEntity = lexContext.scope()->declare_type(implicitTypeName, this, declFlags);
+//        return this->declaredEntity;
+//    }
 
     const std::vector<TxTypeParam>* makeTypeParams(const std::vector<TxDeclarationNode*>* typeParamDecls);
 
@@ -232,22 +232,28 @@ public:
     TxTypeExpressionNode(const yy::location& parseLocation) : TxNode(parseLocation)  { }
 
     /** Returns the type entity declared by this type expression node, or NULL if it did not declare a new type entity. */
-    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags,
-                                            const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) {
-        // Note: This scheme with the purpose of naming every type construct within a type expression with an entity
-        // might be removed in future. It may prevent things like value assignment (unnamed types mismatching the
-        // auto-generated implicit types).
-        // Type entities are however needed for:
+    virtual void symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
+                                   TxTypeEntity* declaredEntity = nullptr,
+                                   const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) {
+        // Each node in a type expression has the option of declaring an entity (i.e. creating a name for)
+        // any of its constituent type expressions.
+        // Not known yet: If such naming may prevent things like value assignment
+        // (unnamed types mismatching the auto-generated implicit types).
+        // Type entities are at minimum needed for:
+        //  - explicit type declarations/extensions
         //  - adding members (since members are namespace symbols) - only done in explicit type extensions
-        //  - using fields in type expressions (which refers to the field's type) - not terribly important
-        // Implicitly declared types should have the same visibility as the type/field they are for.
+        //  - using fields in type expressions (resolving to the field's type) - not terribly important
+        // Note: Implicitly declared types should have the same visibility as the type/field they are for.
         this->set_context(lexContext);
+        this->declaredEntity = declaredEntity;
         if (typeParamDecls)
             this->declTypeParams = this->makeTypeParams(typeParamDecls);
-        auto newTypeEnt = this->declare_type(lexContext, typeName, declFlags);
-        LexicalContext typeExtensionCtx(newTypeEnt);
-        this->symbol_table_pass_descendants(typeExtensionCtx, declFlags);
-        return newTypeEnt;
+        if (this->declaredEntity) {
+            LexicalContext typeExtensionCtx(this->declaredEntity);
+            this->symbol_table_pass_descendants(typeExtensionCtx, declFlags);
+        }
+        else
+            this->symbol_table_pass_descendants(lexContext, declFlags);
     }
 
     /** Gets the type entity representing the declaration of this type expression. */
@@ -358,7 +364,7 @@ protected:
             if (fieldType) {
                 if (this->modifiable) {
                     if (! fieldType->is_modifiable())
-                        fieldType = this->types().get_modifiable_type(fieldType, errorMsg);
+                        fieldType = this->types().get_modifiable_type(nullptr, fieldType, errorMsg);
                 }
                 else if (fieldType->is_modifiable())
                     // if initialization expression is modifiable type, and modifiable not explicitly specified,
@@ -406,8 +412,11 @@ public:
 
     void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        if (this->typeExpression)
-            this->typeExpression->symbol_table_pass(lexContext, this->ident + "$type", this->declFlags & (TXD_PUBLIC | TXD_PROTECTED));
+        if (this->typeExpression) {
+            //this->typeExpression->symbol_table_pass(lexContext, this->ident + "$type", this->declFlags & (TXD_PUBLIC | TXD_PROTECTED));
+            // or should we create implicit type declaration here?
+            this->typeExpression->symbol_table_pass(lexContext, this->declFlags & (TXD_PUBLIC | TXD_PROTECTED));
+        }
         if (this->initExpression) {
             this->initExpression->fieldDefNode = this;
             this->initExpression->symbol_table_pass(lexContext);

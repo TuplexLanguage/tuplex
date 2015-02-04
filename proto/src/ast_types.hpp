@@ -65,6 +65,7 @@ public:
 //    }
 
     virtual void semantic_pass() {
+        ASSERT(this->typeDeclNode || this->fieldDeclNode, "make_binding() has not been invoked on type argument " << this);
         if (this->typeDeclNode)
             this->typeDeclNode->semantic_pass();
         else
@@ -115,6 +116,8 @@ public:
     }
 
     virtual void semantic_pass() override {
+        if (! this->get_type())
+            parser_error(this->parseLocation, "Unknown type or incorrect type parameters: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
         for (TxTypeArgumentNode* ta : *this->typeArgs)
             ta->semantic_pass();
     }
@@ -125,7 +128,8 @@ public:
 
 class TxIdentifiedTypeNode : public TxPredefinedTypeNode {
 protected:
-    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override { ASSERT(false, "should not be invoked"); }
+    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
+    }
 
 public:
     const TxIdentifierNode* identNode;
@@ -133,22 +137,23 @@ public:
     TxIdentifiedTypeNode(const yy::location& parseLocation, const TxIdentifierNode* identifier)
         : TxPredefinedTypeNode(parseLocation), identNode(identifier) { }
 
-    // identified type does not declare a new entity - override and do nothing
-    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags,
-                                            const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override {
-        this->set_context(lexContext);
-        if (typeParamDecls && !typeParamDecls->empty())
-            parser_error(this->parseLocation, "Unexpected type parameters declaration.");
-        return nullptr;
-    }
-
     virtual TxTypeEntity* get_entity() const override {
+        if (auto declEnt = TxPredefinedTypeNode::get_entity())
+            return declEnt;
         return const_cast<TxTypeEntity*>(this->context().scope()->lookup_type(this->identNode->ident));
     }
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        if (auto entity = this->context().scope()->lookup_type(this->identNode->ident))
-            return entity->get_type();
+        if (auto identifiedEntity = this->context().scope()->lookup_type(this->identNode->ident)) {
+            auto identifiedType = identifiedEntity->get_type();
+            if (auto declEnt = TxPredefinedTypeNode::get_entity()) {
+                ASSERT(!declTypeParams || declTypeParams->empty(), "declTypeParams can't be set for 'empty' specialization: " << *this);
+                return this->types().get_type_specialization(declEnt, TxTypeSpecialization(identifiedType),
+                                                             false, this->declTypeParams, errorMsg);
+            }
+            else
+                return identifiedType;
+        }
         if (errorMsg)
             errorMsg->append("Unknown type: " + this->identNode->ident.to_string() + " (from " + this->context().scope()->to_string() + ")");
         return nullptr;
@@ -165,8 +170,9 @@ public:
 class TxAliasedTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-        std::string basename = "$aliased"; //this->get_entity()->get_name() + "$aliased";
-        this->baseType->symbol_table_pass(lexContext, basename, declFlags);
+        std::string declName = "$aliased"; //this->get_entity()->get_name() + "$aliased";
+        auto declaredEntity = lexContext.scope()->declare_type(declName, this, declFlags);
+        this->baseType->symbol_table_pass(lexContext, declFlags, declaredEntity);
     }
 
 public:
@@ -189,8 +195,8 @@ public:
 class TxReferenceTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-        std::string basename = "$T"; //this->get_entity()->get_name() + "$T";
-        this->targetType->symbol_table_pass(lexContext, basename, declFlags);
+        //std::string basename = "$T"; //this->get_entity()->get_name() + "$T";
+        this->targetType->symbol_table_pass(lexContext, declFlags);
     }
 
 public:
@@ -210,8 +216,8 @@ public:
 class TxArrayTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-        std::string basename = "$E"; //this->get_entity()->get_name() + "$E";
-        this->elementType->symbol_table_pass(lexContext, "$E", declFlags);
+        //std::string basename = "$E"; //this->get_entity()->get_name() + "$E";
+        this->elementType->symbol_table_pass(lexContext, declFlags);
         if (this->lengthExpr)
             this->lengthExpr->symbol_table_pass(lexContext);
     }
@@ -246,10 +252,10 @@ protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
         {
             //LexicalContext parentContext(lexContext.scope()->get_parent());
-            std::string basename = "$base"; //this->get_entity()->get_name() + "$base";
-            int b = 0;
+            //std::string basename = "$base"; //this->get_entity()->get_name() + "$base";
+            //int b = 0;
             for (auto baseType : *this->baseTypes)
-                baseType->symbol_table_pass(lexContext, basename + std::to_string(b++), declFlags);
+                baseType->symbol_table_pass(lexContext, declFlags);
         }
 
         for (auto member : *this->instanceMembers) {
@@ -388,26 +394,30 @@ public:
 
 class TxModifiableTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override { ASSERT(false, "should not be invoked"); }
+    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
+        this->baseType->symbol_table_pass(lexContext, declFlags);
+    }
 
 public:
     TxTypeExpressionNode* baseType;
     TxModifiableTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
         : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
 
-    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags,
-                                            const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;
-
-    virtual TxTypeEntity* get_entity() const override {
-        return this->baseType->get_entity();
-    }
+    virtual void symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
+                                   TxTypeEntity* declaredEntity = nullptr,
+                                   const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
         if (auto bType = this->baseType->get_type()) {
-            if (bType->is_modifiable())
+            if (bType->is_modifiable()) {
+                if (errorMsg)
+                    errorMsg->append("'modifiable' specified more than once for type: " + bType->to_string());
+                else
+                    parser_error(this->parseLocation, "'modifiable' specified more than once for type: %s", bType->to_string().c_str());
                 return bType;
+            }
             else if (! bType->is_immutable())
-                return this->types().get_modifiable_type(bType, errorMsg);
+                return this->types().get_modifiable_type(this->get_entity(), bType, errorMsg);
             else if (errorMsg)
                 errorMsg->append("Can't declare immutable type as modifiable: " + bType->to_string());
             else
@@ -428,8 +438,9 @@ public:
     TxMaybeModTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
         : TxModifiableTypeNode(parseLocation, baseType) { }
 
-    virtual TxTypeEntity* symbol_table_pass(LexicalContext& lexContext, const std::string& typeName, TxDeclarationFlags declFlags,
-                                            const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;
+    virtual void symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
+                                   TxTypeEntity* declaredEntity = nullptr,
+                                   const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
         // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT

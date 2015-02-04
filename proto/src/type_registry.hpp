@@ -65,7 +65,7 @@ public:
     /** Gets a modifiable 'usage' of a base type.
      * The type parameters of the base type will pass-through (appear redeclared) in the modifiable type.
      */
-    const TxType* get_modifiable_type(const TxType* type, std::string* errorMsg=nullptr);
+    const TxType* get_modifiable_type(const TxTypeEntity* newEntity, const TxType* type, std::string* errorMsg=nullptr);
 
     /** Gets a specialization of a base type.
      * Any type parameters of the base type that aren't bound in the provided specialization
