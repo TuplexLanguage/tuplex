@@ -50,4 +50,7 @@ public:
 
     static Level get_global_threshold();
     static void set_global_threshold(Level threshold);
+
+    static bool get_colors_enabled();
+    static void set_colors_enabled(bool enabled);
 };

@@ -31,6 +31,7 @@ int main(int argc, char **argv)
                 printf("  %-22s %s\n", "-version", "Print version and exit");
                 printf("  %-22s %s\n", "-v  | -verbose", "Verbose logging");
                 printf("  %-22s %s\n", "-vv | -veryverbose", "Very verbose logging");
+                printf("  %-22s %s\n", "-nocol", "Disable color encoding in console output");
                 printf("  %-22s %s\n", "-ds", "Dump symbol table");
                 printf("  %-22s %s\n", "-di", "Dump intermediate representation (LLVM IR)");
                 printf("  %-22s %s\n", "-dl", "Print debugging output from lexer (token scanner)");
@@ -45,6 +46,8 @@ int main(int argc, char **argv)
                 Logger::set_global_threshold(DEBUG);
             else if (! strcmp(argv[a], "-vv") || ! strcmp(argv[a], "-veryverbose"))
                 Logger::set_global_threshold(ALL);
+            else if (! strcmp(argv[a], "-nocol"))
+                Logger::set_colors_enabled(false);
             else if (! strcmp(argv[a], "-ds"))
                 options.dump_symbol_table = true;
             else if (! strcmp(argv[a], "-di"))

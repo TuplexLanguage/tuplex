@@ -1,9 +1,19 @@
-type Foo UByte
-type Bar []~Foo
 
-func main() {
-    k : Foo
-    s : [4]Foo = c"bar"
-    s[0] = 'A'
-    tx.c.puts(&s[0])
+public type PType<E derives Any,L:Int> {
+    static MEMBER : Int = 1
+}
+
+##public type PTypeMid<L:Int> PType<Int,(L)>
+
+public type PTypeSub PType<Int,4>
+
+    
+func main() Int {
+    ##tst : PType.E
+
+    mem := PTypeSub.MEMBER
+    foo := PTypeSub.L
+    bar : PTypeSub.E = 10
+
+    return foo
 }

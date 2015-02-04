@@ -18,7 +18,7 @@ static struct ThresholdLevel THRESHOLD_LEVELS[] {
 };
 
 static Level globalThreshold = INFO;
-
+static bool colorsEnabled = true;
 
 const char* LEVEL_NAMES[] {
     "NONE",
@@ -98,6 +98,8 @@ Logger& Logger::get(const std::string& name) {
 Level Logger::get_global_threshold()               { return globalThreshold; }
 void Logger::set_global_threshold(Level threshold) { globalThreshold = threshold; }
 
+bool Logger::get_colors_enabled() { return colorsEnabled; }
+void Logger::set_colors_enabled(bool enabled) { colorsEnabled = enabled; }
 
 Logger::Logger(const std::string& name, Level initialThreshold) : name(name), threshold(initialThreshold) {
 }
@@ -106,7 +108,10 @@ Logger::Logger(const std::string& name, Level initialThreshold) : name(name), th
 void Logger::emit(Level level, const char* str) {
     if (level <= globalThreshold) {
         char buf[768];
-        snprintf(buf, 768, "%s%-5s %-15s %s%s", LEVEL_COLORS[level], LEVEL_NAMES[level], this->name.c_str(), str, txtrst);
+        if (colorsEnabled)
+            snprintf(buf, 768, "%s%-5s %-15s %s%s", LEVEL_COLORS[level], LEVEL_NAMES[level], this->name.c_str(), str, txtrst);
+        else
+            snprintf(buf, 768, "%-5s %-15s %s", LEVEL_NAMES[level], this->name.c_str(), str);
         puts(buf);
     }
 }

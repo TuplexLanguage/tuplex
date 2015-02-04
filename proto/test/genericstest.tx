@@ -1,3 +1,4 @@
+##import tx.proto.print.*
 
 public type MARef<T> &T
 
@@ -29,6 +30,11 @@ public type NCArray<L:UInt> derives Array<UByte,(L)> {
 public type OTestString derives Array<Array<UByte,10>,10> {
 }
 
+public type PType<E derives Any,L:Int> {
+}
+
+public type PTypeSub PType<Int,4>
+
     
 func main() Int {
     var : Float = 13.2
@@ -37,6 +43,10 @@ func main() Int {
 
     type TestType Int
     foo : TestType = 10
-    str : OTestString
-    return foo
+    bar : PTypeSub.E = foo
+
+    ##str : OTestString
+    ##return Int(NCArray.L)
+    
+    return 0
 }

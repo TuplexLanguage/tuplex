@@ -92,8 +92,8 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     Value* fieldVal = create_alloca(scope, llvmType, entity->get_name());
     if (this->field->initExpression) {
         // create implicit assignment statement
-        Value* initializer = this->field->initExpression->code_gen(context, scope);
-        do_store(context, scope, fieldVal, initializer);
+        if (Value* initializer = this->field->initExpression->code_gen(context, scope))
+            do_store(context, scope, fieldVal, initializer);
     }
     context.register_llvm_value(entity->get_full_name().to_string(), fieldVal);
     return fieldVal;

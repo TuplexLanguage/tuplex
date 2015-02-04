@@ -38,7 +38,6 @@ protected:
     void set_context(TxSymbolScope* lexContext) {
         this->set_context(LexicalContext(lexContext));
     }
-    inline bool is_context_set() const { return this->lexContext.scope(); }
 
 //    inline const TypeRegistry& types() const {
 //        return this->context().get_package()->types();
@@ -56,6 +55,8 @@ public:
         if (this->is_context_set())
             this->context().scope()->LOGGER().debug("Running destructor of %s", this->to_string().c_str());
     }
+
+    inline bool is_context_set() const { return this->lexContext.scope(); }
 
     /** Sets the lexical context of this node to be equal to that of the provided node. */
     void set_context(const TxNode* node) {

@@ -12,13 +12,14 @@
 
 /** Specifies the storage type for a field entity.
  * GLOBAL is compile-time-allocated.
- * Unmodifiable STATIC is?
- * Modifiable STATIC, and INSTANCE are heap-allocated.
- * Modifiable STATIC is thread-local (what is referenced to might not be, within dataspace constraints)
+ * Unmodifiable STATIC is compile-time-allocated.
+ * Modifiable STATIC is (effectively) thread-local (what is referenced to might not be, within dataspace constraints)
+ * INSTANCE is an object instance member (storage o/c the same as the object instance).
  * STACK is stack-allocated (unless promoted to register).
  */
 enum TxFieldStorage : int { TXS_NOSTORAGE, TXS_GLOBAL, TXS_STATIC, TXS_INSTANCE, TXS_STACK };
 
+// types are implicitly static
 static const TxDeclarationFlags LEGAL_TYPE_DECL_FLAGS = TXD_ABSTRACT | TXD_FINAL | TXD_PUBLIC | TXD_PROTECTED;
 static const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS = TXD_STATIC | TXD_FINAL | TXD_OVERRIDE | TXD_PUBLIC | TXD_PROTECTED;
 
@@ -112,7 +113,8 @@ public:
 
 /** Represents a single declared type. */
 class TxTypeEntity : public TxDistinctEntity {
-    // FUTURE: overhaul initialization order so mutable no longer needed
+    mutable bool gettingType = false;  // guard against recursive calls to get_type()
+    // FUTURE: overhaul initialization order so mutable no longer needed for data layout
     mutable bool dataLaidOut = false;
     mutable bool startedLayout = false;
     mutable std::map<const std::string*, int> staticFields;
@@ -144,6 +146,7 @@ class TxTypeEntity : public TxDistinctEntity {
 public:
     TxTypeEntity(TxSymbolScope* parent, const std::string& name, const TxTypeProxy* typeDefiner, TxDeclarationFlags declFlags)
             : TxDistinctEntity(parent, name, typeDefiner, declFlags) {
+        // types are implicitly static; it's not legal to specify them in source
         ASSERT ((declFlags | LEGAL_TYPE_DECL_FLAGS) == LEGAL_TYPE_DECL_FLAGS, "Illegal type declFlags: " << declFlags);
     }
 
@@ -152,39 +155,17 @@ public:
     }
 
     virtual const TxType* get_type() const override {
+        ASSERT(!this->gettingType, "Recursive call to get_type() of " << this->get_full_name());
+        this->gettingType = true;
         auto type = this->typeDefiner->get_type();
         ASSERT(type, "Type of entity " << this << " is NULL");
         ASSERT(type->entity()==this, "Type (" << type << ") does not belong to this entity " << this->get_full_name());
+        this->gettingType = false;
         return type;
     }
 
     /** match against this entity's static members (from statically known type, up through its base types) */
-    virtual const TxSymbolScope* lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const override {
-        // static lookup, so if instance-member, return its type instead
-        auto memberName = ident.segment(0);
-        if (auto member = this->get_symbol(memberName)) {
-            if (auto fieldMember = dynamic_cast<const TxFieldEntity*>(member))
-                if (fieldMember->get_storage() == TXS_INSTANCE) {
-                    auto fieldType = fieldMember->get_type();
-                    if (fieldType->is_modifiable())
-                        fieldType = fieldType->get_base_type_spec().type;
-                    member = fieldType->entity();
-                    if (! member) {
-                        this->LOGGER().debug("No TxTypeEntity for type '%s' of field '%s'", fieldType->to_string().c_str(), fieldMember->get_full_name().to_string().c_str());
-                        return nullptr;
-                    }
-                }
-
-            path.push_back(member);
-            if (ident.is_plain())
-                return member;
-            else
-                return member->lookup_member(path, TxIdentifier(ident, 1));
-        }
-        // FIXME: this causes infinite recursion when run before symbol table pass has completed:
-        //std::cout << "LOOKING UP " << ident << " in " << this->get_full_name() << "; trying inherited members" << std::endl;
-        return nullptr; // this->get_type()->lookup_inherited_member(path, ident);
-    }
+    virtual const TxSymbolScope* lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const override;
 
     /** match against this entity's instance/static members (from statically known type, up through its base types) */
     virtual const TxSymbolScope* lookup_instance_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {

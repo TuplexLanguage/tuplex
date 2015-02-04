@@ -33,6 +33,8 @@ static llvm::Value* field_value_code_gen(LlvmGenerationContext& context, GenScop
                     val = context.llvmModule.getOrInsertFunction(entity->get_full_name().to_string(), ftype);
                     //llvm::cast<llvm::Function>(val)->setLinkage(llvm::GlobalValue::InternalLinkage);  FIXME (can cause LLVM to rename function)
                 }
+                else
+                    context.LOG.error("No LLVM value defined for %s", entity->to_string().c_str());
             }
         }
         break;

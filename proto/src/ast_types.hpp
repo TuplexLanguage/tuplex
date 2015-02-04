@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #include "ast_base.hpp"
 
 
@@ -12,30 +14,46 @@ protected:
 
 /** Represents a binding for a type parameter. Can be either a Type or a Value parameter binding. */
 class TxTypeArgumentNode : public TxNode {
+    TxTypeDeclNode* typeDeclNode;
+    TxFieldDeclNode* fieldDeclNode;
 public:
-    TxTypeExpressionNode* typeNode;
-    TxExpressionNode* valueNode;
+    TxTypeExpressionNode* typeExprNode;
+    TxExpressionNode* valueExprNode;
 
-    TxTypeArgumentNode(const yy::location& parseLocation, TxTypeExpressionNode* typeNode)
-        : TxNode(parseLocation), typeNode(typeNode), valueNode() { }
+    TxTypeArgumentNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExprNode)
+        : TxNode(parseLocation), typeDeclNode(), fieldDeclNode(),
+          typeExprNode(typeExprNode), valueExprNode() { }
 
-    TxTypeArgumentNode(const yy::location& parseLocation, TxExpressionNode* valueNode)
-        : TxNode(parseLocation), typeNode(), valueNode(valueNode) { }
+    TxTypeArgumentNode(const yy::location& parseLocation, TxExpressionNode* valueExprNode)
+        : TxNode(parseLocation), typeDeclNode(), fieldDeclNode(),
+          typeExprNode(), valueExprNode(valueExprNode) { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext, const std::string& implicitTypeName, TxDeclarationFlags declFlags) {
-        // "pass through" to the underlying type
+    virtual void symbol_table_pass(LexicalContext& lexContext, int argNo) {
         this->set_context(lexContext);
-        if (this->typeNode)
-            this->typeNode->symbol_table_pass(lexContext, implicitTypeName, declFlags);
-        else
-            this->valueNode->symbol_table_pass(lexContext);
     }
 
-    inline TxTypeBinding make_binding(const std::string& param_name) {
-        if (this->typeNode)
-            return TxTypeBinding(param_name, this->typeNode);
-        else
-            return TxTypeBinding(param_name, static_cast<TxConstantProxy*>(this->valueNode));
+    inline TxTypeBinding make_binding(const TxTypeEntity* baseTypeEntity, const TxTypeParam& param) {
+        // FIXME: properly qualified name & lookup of base type parameter bindings
+//        std::string pname = baseTypeEntity->get_full_name().to_string();
+//        std::replace(pname.begin(), pname.end(), '.', '$');
+//        pname += '$';
+//        pname += param.param_name();
+        std::string pname = param.param_name();
+        if (this->typeExprNode) {
+            if (param.meta_type() != param.TXB_TYPE)
+                parser_error(this->parseLocation, "Provided a TYPE argument to VALUE parameter %s", pname.c_str());
+            this->typeDeclNode = new TxTypeDeclNode(this->typeExprNode->parseLocation, TXD_PUBLIC, pname, nullptr, this->typeExprNode);
+            this->typeDeclNode->symbol_table_pass(this->context());
+            return TxTypeBinding(param.param_name(), this->typeExprNode);
+        }
+        else {
+            if (param.meta_type() != param.TXB_VALUE)
+                parser_error(this->parseLocation, "Provided a TYPE argument to VALUE parameter %s", pname.c_str());
+            auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, pname, this->valueExprNode);
+            this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_STATIC, fieldDef);
+            this->fieldDeclNode->symbol_table_pass(this->context());
+            return TxTypeBinding(param.param_name(), static_cast<TxConstantProxy*>(this->valueExprNode));
+        }
     }
 
 //    virtual TxTypeEntity* get_entity() const {
@@ -47,22 +65,22 @@ public:
 //    }
 
     virtual void semantic_pass() {
-        if (this->typeNode)
-            this->typeNode->semantic_pass();
+        if (this->typeDeclNode)
+            this->typeDeclNode->semantic_pass();
         else
-            this->valueNode->semantic_pass();
+            this->fieldDeclNode->semantic_pass();
     }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 /** Represents a specialization of a generic type - binding one or more type parameters of a predefined, generic type. */
 class TxSpecializedTypeNode : public TxPredefinedTypeNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-        //LexicalContext parentContext(lexContext.scope()->get_parent());
-        std::string basename = "$arg"; //this->get_entity()->get_name() + "$arg";
-        int pno = 0;
+        int argNo = 0;
         for (TxTypeArgumentNode* tp : *this->typeArgs) {
-            tp->symbol_table_pass(lexContext, basename + std::to_string(pno++), declFlags);
+            tp->symbol_table_pass(lexContext, argNo++);
         }
     }
 
@@ -90,16 +108,18 @@ public:
         }
         std::vector<TxTypeBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
         for (TxTypeParam tp : baseType->type_params()) {
-            bindings.push_back(this->typeArgs->at(bindings.size())->make_binding(tp.param_name()));
+            bindings.push_back(this->typeArgs->at(bindings.size())->make_binding(baseTypeEntity, tp));
         }
         TxTypeSpecialization specialization(baseType, bindings);
         return this->types().get_type_specialization(this->get_entity(), specialization, false, this->declTypeParams, errorMsg);
     }
 
     virtual void semantic_pass() override {
-        for (TxTypeArgumentNode* tp : *this->typeArgs)
-            tp->semantic_pass();
+        for (TxTypeArgumentNode* ta : *this->typeArgs)
+            ta->semantic_pass();
     }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 

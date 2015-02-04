@@ -159,15 +159,17 @@ TxDistinctEntity* TxSymbolScope::overload_entity(TxDistinctEntity* entity, TxSym
 TxDistinctEntity* TxSymbolScope::declare_entity(TxDistinctEntity* entity) {
     // TODO: guard against using reserved keywords (including "tx")
 
-    {   // shadowing a name from outer scope or parent type shall produce a warning:
-        std::vector<const TxSymbolScope*> path;
-        auto shadowed = this->lookup_symbol(path, entity->get_name());
-        if (shadowed && shadowed->get_full_name() != entity->get_full_name()) {
-                //&& !(is_stack_field(entity) && is_stack_field(shadowed))) {  // (skip warn when stack var shadows another stack var)
-            if (! this->get_full_name().begins_with(TxIdentifier(BUILTIN_NS)))
-                this->LOGGER().warning("%-40s (in %-40s) shadows %s", entity->to_string().c_str(), this->to_string().c_str(), shadowed->to_string().c_str());
-        }
-    }
+// TODO: disabled to prevent error conditions when symbol pass is only partially completed;
+//        move this check to symbol table verification pass
+//    {   // shadowing a name from outer scope or parent type shall produce a warning:
+//        std::vector<const TxSymbolScope*> path;
+//        auto shadowed = this->lookup_symbol(path, entity->get_name());
+//        if (shadowed && shadowed->get_full_name() != entity->get_full_name()) {
+//                //&& !(is_stack_field(entity) && is_stack_field(shadowed))) {  // (skip warn when stack var shadows another stack var)
+//            if (! this->get_full_name().begins_with(TxIdentifier(BUILTIN_NS)))
+//                this->LOGGER().warning("%-40s (in %-40s) shadows %s", entity->to_string().c_str(), this->to_string().c_str(), shadowed->to_string().c_str());
+//        }
+//    }
 
     if (auto prevSymbol = this->get_symbol(entity->get_name())) {
         // symbol has previously been declared, handle overloading
@@ -215,7 +217,7 @@ const TxSymbolScope* TxSymbolScope::lookup_symbol(std::vector<const TxSymbolScop
 //        std::cout << ident << " => ";
 //        for (auto s : path)  std::cout << s->get_full_name() << " . ";
 //        std::cout << std::endl;
-        ASSERT(ident.segment_count()==path.size(), "Erroneouse lookup path length: ident " << ident << " length != " << path.size());
+        ASSERT(ident.segment_count()==path.size(), "Erroneous lookup path length: ident " << ident << " length != " << path.size());
         ASSERT(symbol == path.back(), "Returned entity != last entity in path: " << *symbol << " != " << *path.back());
         return symbol;
     }
@@ -255,6 +257,7 @@ const TxTypeEntity* TxSymbolScope::lookup_type(std::vector<const TxSymbolScope*>
 
 const TxFieldEntity* TxSymbolScope::resolve_field(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident,
                                                   const std::vector<const TxType*>* typeParameters) const {
+    // TODO: check visibility
     const TxSymbolScope* symbol = this->lookup_symbol(path, ident);
     if (! symbol)
         return nullptr;

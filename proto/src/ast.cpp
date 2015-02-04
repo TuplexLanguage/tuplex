@@ -126,6 +126,7 @@ void TxTypeDeclNode::symbol_table_pass(LexicalContext& lexContext) {
         LexicalContext typeCtx(newTypeEntity);
         if (this->typeParamDecls) {
             for (auto paramDecl : *this->typeParamDecls) {
+                // FIXME: declare "placeholder" entities (they are unbound)
                 paramDecl->symbol_table_pass(typeCtx);
             }
         }
