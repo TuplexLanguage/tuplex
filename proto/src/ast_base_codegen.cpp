@@ -22,10 +22,10 @@ inline bool is_complex_pointer(const llvm::Type* type) {
 }
 
 
-llvm::Value* TxNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.error("Invoked empty codeGen() on %s", this->to_string().c_str());
-    return nullptr;
-}
+//llvm::Value* TxNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+//    context.LOG.error("Invoked empty codeGen() on %s", this->to_string().c_str());
+//    return nullptr;
+//}
 
 llvm::Value* TxParsingUnitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
@@ -47,9 +47,9 @@ llvm::Value* TxTypeDeclNode::code_gen(LlvmGenerationContext& context, GenScope* 
     context.LOG.trace("%-48s", this->to_string().c_str());
     return this->typeExpression->code_gen(context, scope);
 }
-llvm::Value* TxTypeExpressionNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    return nullptr;  // default does nothing
-}
+//llvm::Value* TxTypeExpressionNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+//    return nullptr;  // default does nothing
+//}
 
 
 static llvm::Value* make_constant_nonlocal_field(LlvmGenerationContext& context, GenScope* scope,

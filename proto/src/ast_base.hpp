@@ -71,7 +71,7 @@ public:
         return const_cast<LexicalContext&>(static_cast<const TxNode *>(this)->context());
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
 
     virtual std::string to_string() const {
         char buf[256];
@@ -99,6 +99,8 @@ public:
     TxIdentifierNode(const yy::location& parseLocation, const TxIdentifier* ident, IdentifierClass identifierClass=UNSPECIFIED)
         : TxNode(parseLocation), idClass(identifierClass), ident(*ident)  { }
 
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const { return nullptr; }
+
     virtual std::string to_string() const {
         return "'" + this->ident.to_string() + "'";
     }
@@ -119,6 +121,8 @@ public:
             parser_error(this->parseLocation, "can't import unqualified identifier '%s'", identNode->ident.to_string().c_str());
         module->register_import(identNode->ident);
     }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const { return nullptr; }
 };
 
 
@@ -279,7 +283,7 @@ public:
     }
 
     virtual void semantic_pass() = 0;
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    //virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxFieldDefNode;

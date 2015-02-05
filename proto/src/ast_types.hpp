@@ -164,32 +164,34 @@ public:
         if (! this->get_entity())
             parser_error(this->parseLocation, "Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
     }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const { return nullptr; }
 };
 
 
-/** Produces a new, "empty" specialization of the underlying type for use by a type alias declaration. */
-class TxAliasedTypeNode : public TxTypeExpressionNode {
-protected:
-    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-        std::string declName = "$aliased"; //this->get_entity()->get_name() + "$aliased";
-        auto declaredEntity = lexContext.scope()->declare_type(declName, this, declFlags);
-        this->baseType->symbol_table_pass(lexContext, declFlags, declaredEntity);
-    }
-
-public:
-    TxTypeExpressionNode* baseType;
-    TxAliasedTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
-        : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
-
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        ASSERT(!declTypeParams || declTypeParams->empty(), "declTypeParams can't be set for 'empty' specialization: " << *this);
-        auto bType = this->baseType->get_type();
-        return this->types().get_type_specialization(this->get_entity(), TxTypeSpecialization(bType),
-                                                     false, this->declTypeParams, errorMsg);
-    }
-
-    virtual void semantic_pass() { baseType->semantic_pass(); }
-};
+///** Produces a new, "empty" specialization of the underlying type for use by a type alias declaration. */
+//class TxAliasedTypeNode : public TxTypeExpressionNode {
+//protected:
+//    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
+//        std::string declName = "$aliased"; //this->get_entity()->get_name() + "$aliased";
+//        auto declaredEntity = lexContext.scope()->declare_type(declName, this, declFlags);
+//        this->baseType->symbol_table_pass(lexContext, declFlags, declaredEntity);
+//    }
+//
+//public:
+//    TxTypeExpressionNode* baseType;
+//    TxAliasedTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
+//        : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
+//
+//    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
+//        ASSERT(!declTypeParams || declTypeParams->empty(), "declTypeParams can't be set for 'empty' specialization: " << *this);
+//        auto bType = this->baseType->get_type();
+//        return this->types().get_type_specialization(this->get_entity(), TxTypeSpecialization(bType),
+//                                                     false, this->declTypeParams, errorMsg);
+//    }
+//
+//    virtual void semantic_pass() { baseType->semantic_pass(); }
+//};
 
 
 
@@ -212,6 +214,8 @@ public:
     }
 
     virtual void semantic_pass() { targetType->semantic_pass(); }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxArrayTypeNode : public TxTypeExpressionNode {
@@ -246,6 +250,8 @@ public:
                 parser_error(this->parseLocation, "Non-constant array length specifier not yet supported.");
         }
     }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 class TxDerivedTypeNode : public TxTypeExpressionNode {
@@ -390,6 +396,8 @@ public:
         if (this->returnField)
             this->returnField->semantic_pass();
     }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 
@@ -428,6 +436,8 @@ public:
     }
 
     virtual void semantic_pass() { baseType->semantic_pass(); }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 /** A potentially modifiable type expression, depending on syntactic sugar rules.
