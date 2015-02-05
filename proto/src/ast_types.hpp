@@ -33,6 +33,7 @@ public:
     }
 
     inline TxTypeBinding make_binding(const TxTypeEntity* baseTypeEntity, const TxTypeParam& param) {
+        ASSERT(!this->typeDeclNode && !this->fieldDeclNode, "make_binding() called more than once for " << this);
         // FIXME: properly qualified name & lookup of base type parameter bindings
 //        std::string pname = baseTypeEntity->get_full_name().to_string();
 //        std::replace(pname.begin(), pname.end(), '.', '$');

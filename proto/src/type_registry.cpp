@@ -50,8 +50,6 @@ class TxAnyType final : public TxType {
 public:
     TxAnyType(const TxTypeEntity* entity) : TxType(entity) { }
 
-    bool is_builtin() const { return true; }
-
     long size() const { throw std::logic_error("Can't get size of abstract type " + this->to_string()); }
 };
 
@@ -69,8 +67,6 @@ class TxBuiltinBaseType final : public TxType {
 public:
     TxBuiltinBaseType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec) : TxType(entity, baseTypeSpec)  { }
     TxBuiltinBaseType(const TxTypeEntity* entity, const TxType* baseType) : TxType(entity, TxTypeSpecialization(baseType))  { }
-
-    bool is_builtin() const { return true; }
 
     long size() const { throw std::logic_error("Can't get size of abstract type " + this->to_string()); }
 };
@@ -114,7 +110,7 @@ public:
 
 void TypeRegistry::add_builtin_abstract(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId) {
     auto record = new BuiltinTypeRecord( id, plainName );
-    record->set_entity( module->declare_type(plainName, record, TXD_PUBLIC ) );
+    record->set_entity( module->declare_type(plainName, record, TXD_PUBLIC | TXD_BUILTIN) );
     record->set_type( new TxBuiltinBaseType( record->get_entity(), this->builtinTypes[parentId]->get_type() ) );
     this->builtinTypes[record->id] = record;
 }
@@ -122,14 +118,14 @@ void TypeRegistry::add_builtin_abstract(TxModule* module, BuiltinTypeId id, std:
 void TypeRegistry::add_builtin_integer(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId,
                                        int size, bool sign) {
     auto record = new BuiltinTypeRecord( id, plainName );
-    record->set_entity( module->declare_type(plainName, record, TXD_PUBLIC ) );
+    record->set_entity( module->declare_type(plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
     record->set_type( new TxIntegerType( record->get_entity(), this->builtinTypes[parentId]->get_type(), size, sign) );
     this->builtinTypes[record->id] = record;
 }
 
 void TypeRegistry::add_builtin_floating(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size) {
     auto record = new BuiltinTypeRecord( id, plainName );
-    record->set_entity( module->declare_type(plainName, record, TXD_PUBLIC ) );
+    record->set_entity( module->declare_type(plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
     record->set_type( new TxFloatingType( record->get_entity(), this->builtinTypes[parentId]->get_type(), size ) );
     this->builtinTypes[record->id] = record;
 }
@@ -141,7 +137,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
     // create the Any root type:
     {
         auto record = new BuiltinTypeRecord( ANY, "Any" );
-        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC ) );
+        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
         record->set_type( new TxAnyType(record->get_entity()) );
         this->builtinTypes[record->id] = record;
     }
@@ -176,7 +172,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
     // create the function base type:
     {
         auto record = new BuiltinTypeRecord( FUNCTION, "Function" );
-        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC ) );
+        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
         record->set_type( new TxBuiltinBaseType(record->get_entity(), this->builtinTypes[ANY]->get_type() ) );
         this->builtinTypes[record->id] = record;
     }
@@ -184,7 +180,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
     // create the reference base type:
     {
         auto record = new BuiltinTypeRecord( REFERENCE, "Ref" );
-        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC ) );
+        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
         record->set_type( new TxReferenceType(record->get_entity(), this->builtinTypes[ANY]->get_type() ) );
         this->builtinTypes[record->id] = record;
     }
@@ -192,7 +188,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
     // create the array base type:
     {
         auto record = new BuiltinTypeRecord( ARRAY, "Array" );
-        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC ) );
+        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
         record->set_type( new TxArrayType(record->get_entity(), this->builtinTypes[ANY]->get_type(), this->builtinTypes[UINT]->get_type() ) );
         this->builtinTypes[record->id] = record;
     }
@@ -200,7 +196,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
     // create the tuple base type:
     {
         auto record = new BuiltinTypeRecord( TUPLE, "Tuple" );
-        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC ) );
+        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
         record->set_type( new TxTupleType(record->get_entity(), this->builtinTypes[ANY]->get_type(), true ) );
         this->builtinTypes[record->id] = record;
     }
@@ -217,14 +213,14 @@ void TypeRegistry::initializeBuiltinSymbols() {
     // test adding static field to types:
     for (int id = 0; id < BuiltinTypeId_COUNT; id++) {
         const_cast<TxTypeEntity*>(this->builtinTypes[id]->get_entity())->declare_field("typeid", this->builtinTypes[USHORT],
-                (TxDeclarationFlags)(TXD_PUBLIC | TXD_STATIC), TXS_STATIC, TxIdentifier());
+                (TxDeclarationFlags)(TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN), TXS_STATIC, TxIdentifier());
     }
 
     // scalar conversion constructor function types:
     for (auto fromTypeId : SCALAR_TYPE_IDS) {
         for (auto toTypeId : SCALAR_TYPE_IDS) {
             TxBuiltinTypeProxy* prod = new TxBuiltinTypeProxy(this->builtinTypes[toTypeId]->plainName);
-            module->declare_field(prod->name, prod, TXD_PUBLIC, TXS_STATIC, TxIdentifier(""));
+            module->declare_field(prod->name, prod, TXD_PUBLIC | TXD_BUILTIN, TXS_STATIC, TxIdentifier(""));
             prod->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
                                                              this->builtinTypes[fromTypeId]->get_type(),
                                                              this->builtinTypes[toTypeId]->get_type());
@@ -233,8 +229,8 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // built-in global constants:
     // FUTURE: implement TRUE and FALSE as enumeration values and/or parser tokens
-    module->declare_field("FALSE", this->builtinTypes[BOOLEAN]->get_type(), TXD_PUBLIC, TXS_GLOBAL, TxIdentifier(""));
-    module->declare_field("TRUE",  this->builtinTypes[BOOLEAN]->get_type(), TXD_PUBLIC, TXS_GLOBAL, TxIdentifier(""));
+    module->declare_field("FALSE", this->builtinTypes[BOOLEAN]->get_type(), TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
+    module->declare_field("TRUE",  this->builtinTypes[BOOLEAN]->get_type(), TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
 
 //    auto charsType = new TxArrayType("tx.Char"); // BUILTIN_TYPES[CHAR].type);
 //    TxBuiltinTypeDefiner* charsProd = new TxBuiltinTypeDefiner("CharArray", charsType);
@@ -251,7 +247,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
         std::vector<const TxType*> argumentTypes( { cStringType } );
         auto c_puts_func_type_def = new TxBuiltinTypeProxy("puts");
-        txCfuncModule->declare_field("puts", c_puts_func_type_def, TXD_PUBLIC, TXS_GLOBAL, TxIdentifier(""));
+        txCfuncModule->declare_field("puts", c_puts_func_type_def, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
         const TxType* returnType = this->builtinTypes[INT]->get_type();
         c_puts_func_type_def->type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, returnType);
     }
@@ -266,17 +262,7 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeEntity* newEntity, c
     // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
     TxTypeSpecialization tmpSpec(type, true);
     std::vector<TxTypeParam> unbound;
-    if (errorMsg) {
-        try {
-            return type->make_specialized_type(newEntity, tmpSpec, unbound, errorMsg);
-        }
-        catch (const std::logic_error& e) {
-            errorMsg->append(e.what());
-            return nullptr;
-        }
-    }
-    else
-        return type->make_specialized_type(newEntity, tmpSpec, unbound, errorMsg);
+    return type->make_specialized_type(newEntity, tmpSpec, unbound, errorMsg);
 }
 
 const TxType* TypeRegistry::get_type_specialization(const TxTypeEntity* newEntity, const TxTypeSpecialization& specialization,
@@ -326,17 +312,7 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeEntity* newEntit
     }
 
     TxTypeSpecialization newSpec(specialization.type, newBindings);
-    if (errorMsg) {
-        try {
-            return specialization.type->make_specialized_type(newEntity, newSpec, unboundParams, errorMsg);
-        }
-        catch (const std::logic_error& e) {
-            errorMsg->append(e.what());
-            return nullptr;
-        }
-    }
-    else
-        return specialization.type->make_specialized_type(newEntity, newSpec, unboundParams, errorMsg);
+    return specialization.type->make_specialized_type(newEntity, newSpec, unboundParams, errorMsg);
 }
 
 

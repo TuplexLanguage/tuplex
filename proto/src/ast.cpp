@@ -124,14 +124,13 @@ void TxTypeDeclNode::symbol_table_pass(LexicalContext& lexContext) {
     this->typeExpression->symbol_table_pass(lexContext, this->declFlags, declaredEntity, this->typeParamDecls);
 
     // declare type parameters, if any, within type definition's scope:
-    LexicalContext typeCtx(declaredEntity);
+    LexicalContext typeCtx(declaredEntity ? declaredEntity : lexContext.scope());
     if (this->typeParamDecls) {
         for (auto paramDecl : *this->typeParamDecls) {
             // FIXME: declare "placeholder" entities (they are unbound)
             paramDecl->symbol_table_pass(typeCtx);
         }
     }
-    //parser_error(this->parseLocation, "Declared type parameters but type definition does not describe a generic type.");
 }
 
 

@@ -20,8 +20,8 @@
 enum TxFieldStorage : int { TXS_NOSTORAGE, TXS_GLOBAL, TXS_STATIC, TXS_INSTANCE, TXS_STACK };
 
 // types are implicitly static
-static const TxDeclarationFlags LEGAL_TYPE_DECL_FLAGS = TXD_ABSTRACT | TXD_FINAL | TXD_PUBLIC | TXD_PROTECTED;
-static const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS = TXD_STATIC | TXD_FINAL | TXD_OVERRIDE | TXD_PUBLIC | TXD_PROTECTED;
+static const TxDeclarationFlags LEGAL_TYPE_DECL_FLAGS = TXD_ABSTRACT | TXD_FINAL | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN;
+static const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS = TXD_STATIC | TXD_FINAL | TXD_OVERRIDE | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN;
 
 
 /** A symbol that represents a declared source code entity (type or field), or several overloaded ones. */
@@ -107,7 +107,7 @@ public:
     }
 
     virtual std::string to_string() const {
-        return std::string("<field> ") + ::toString(this->declFlags) + " " + this->get_full_name().to_string();
+        return std::string("FIELD ") + ::toString(this->declFlags) + " " + this->get_full_name().to_string();
     }
 };
 
@@ -222,6 +222,11 @@ public:
     bool prepare_symbol() override {
         bool valid = TxEntity::prepare_symbol();
         if (auto type = this->get_type()) {
+            std::string errorMsg = type->validate();
+            if (! errorMsg.empty()) {
+                this->LOGGER().error("%s", errorMsg.c_str());
+                valid = false;
+            }
             if (this->has_instance_fields()) {
                 if (auto tupleType = dynamic_cast<const TxTupleType*>(type)) {
                     for (auto basetype = tupleType->get_base_type_spec().type; basetype; basetype = basetype->get_base_type_spec().type) {
@@ -243,7 +248,7 @@ public:
     }
 
     virtual std::string to_string() const {
-        return std::string("<type>  ") + ::toString(this->declFlags) + " " + this->get_full_name().to_string();
+        return std::string("TYPE  ") + ::toString(this->declFlags) + " " + this->get_full_name().to_string();
     }
 };
 
@@ -336,7 +341,8 @@ public:
                 functionTypes.push_back(funcType);
             }
             else {
-                this->LOGGER().error("Illegal overload of symbol %s with type %s", (*fieldDeclI)->to_string().c_str(), type->to_string().c_str());
+                this->LOGGER().error("Illegal overload of symbol %s with type %s", (*fieldDeclI)->to_string().c_str(),
+                                     (type ? type->to_string().c_str() : "NULL"));
                 valid = false;
             }
         }

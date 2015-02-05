@@ -253,16 +253,6 @@ protected:
     TxType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
            const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
             : _entity(entity), typeParams(typeParams), baseTypeSpec(baseTypeSpec) {
-        auto res = baseTypeSpec.validate();
-        if (! res.empty())
-            throw std::logic_error("Invalid specialization of base type " + baseTypeSpec.type->to_string() + ": " + res);
-        if (baseTypeSpec.modifiable) {
-            // verify that this 'modifiable' type usage is a pure specialization
-            //if (typeid(*this) != typeid(*baseTypeSpec.type))  // doesn't work, this is always TxType* here
-            //    throw std::logic_error("'modifiable' specialization must have same TxType class as the base type: " + baseTypeSpec.type->to_string());
-            if (! this->interfaces.empty())
-                throw std::logic_error("'modifiable' specialization cannot add any interface base types");
-        }
     }
 
     /** Creates a specialization of this type. To be used by the type registry. */
@@ -277,8 +267,11 @@ protected:
     friend class TypeRegistry;  // allows access for registry's type construction
 
 public:
-
     virtual ~TxType() = default;
+
+
+    /** Returns empty string if this type definition is not valid. */
+    virtual std::string validate() const;
 
 
     /** Returns self. */
@@ -323,7 +316,7 @@ public:
 
 
     /** Returns true iff this type is a built-in type. */
-    virtual bool is_builtin() const { return false; }  // TODO: overhaul this method impl in subclasses
+    bool is_builtin() const;
 
     /** Returns the size, in bytes, of a direct instance of this type.
      * Illegal to call for abstract types. */
@@ -480,10 +473,14 @@ public:
         return this->innerAutoConvertsFrom(other);
     }
 
+private:
+    bool inner_is_a(const TxType& other) const;
+
+public:
     /** Returns true if the provided type is the same as this, or a specialization of this.
      * Note that true does not guarantee assignability, for example modifiability is not taken into account.
      */
-    virtual bool is_a(const TxType& other) const;
+    bool is_a(const TxType& other) const;
 
     /** Returns the common base type of this and other, if both are pure specializations of it. */
     const TxType* common_generic_base_type(const TxType& other) const {

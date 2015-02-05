@@ -47,8 +47,6 @@ public:
     }
 
 
-    bool is_builtin() const { return typeid(*this) != typeid(*this->baseTypeSpec.type); }
-
     long size() const {
         if (! this->is_concrete())
             throw std::logic_error("Can't get size of abstract or generic type: " + this->to_string());
@@ -112,8 +110,6 @@ public:
     const TxTypeProxy* target_type() const {
         return this->resolve_param_type("T", true);
     }
-
-    bool is_builtin() const { return typeid(*this) != typeid(*this->baseTypeSpec.type); }
 
     long size() const { return 8; }
 
@@ -185,8 +181,6 @@ public:
 
     bool hasReturnValue() const  { return this->returnType != nullptr; }
 
-    bool is_builtin() const { return typeid(*this) != typeid(*this->baseTypeSpec.type); }
-
     long size() const { return 8; }
 
     virtual bool is_abstract() const { return false; }
@@ -210,8 +204,6 @@ class TxBuiltinFunctionType : public TxFunctionType {
 public:
     TxBuiltinFunctionType(const TxTypeEntity* entity, const TxType* baseType, const std::vector<const TxType*> argumentTypes, const TxType* returnType)
         : TxFunctionType(entity, baseType, argumentTypes, returnType) { }
-
-    bool is_builtin() const { return true; }
 };
 
 class TxBuiltinConversionFunctionType : public TxBuiltinFunctionType {
@@ -272,8 +264,6 @@ public:
             : TxType(entity, TxTypeSpecialization(baseType)), _mutable(_mutable)  {
         ASSERT(entity, "NULL entity");
     }
-
-    bool is_builtin() const { return typeid(*this) != typeid(*this->baseTypeSpec.type); }
 
     long size() const { return 8; }  // FIXME
 

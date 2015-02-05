@@ -4,6 +4,11 @@
 #include <sstream>
 #include <stdexcept>
 
+class assertion_error : public std::logic_error {
+public:
+    assertion_error(const std::string& errMessage) : std::logic_error(errMessage) { }
+};
+
 #ifndef NDEBUG
 #   define ASSERT(condition, message) \
     do { \
@@ -11,7 +16,7 @@
             std::stringstream msg;  msg << message; \
             std::cerr << "Assertion `" #condition "` failed in " << __FILE__ \
                       << " line " << __LINE__ << ": " << msg.str() << std::endl; \
-            throw std::logic_error(msg.str()); \
+            throw assertion_error(msg.str()); \
             /*std::exit(EXIT_FAILURE);*/ \
         } \
     } while (false)
