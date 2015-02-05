@@ -413,9 +413,12 @@ public:
     void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
         if (this->typeExpression) {
-            //this->typeExpression->symbol_table_pass(lexContext, this->ident + "$type", this->declFlags & (TXD_PUBLIC | TXD_PROTECTED));
-            // or should we create implicit type declaration here?
-            this->typeExpression->symbol_table_pass(lexContext, this->declFlags & (TXD_PUBLIC | TXD_PROTECTED));
+            auto typeDeclFlags = this->declFlags & (TXD_PUBLIC | TXD_PROTECTED);
+            TxTypeEntity* typeEntity = nullptr;
+//            // unless the type expression is a directly named type, declare a type entity for this field's type:
+//            if (! dynamic_cast<TxIdentifiedTypeNode*>(this->typeExpression))
+//                typeEntity = lexContext.scope()->declare_type(this->ident + "$type", this->typeExpression, this->declFlags);
+            this->typeExpression->symbol_table_pass(lexContext, typeDeclFlags, typeEntity);
         }
         if (this->initExpression) {
             this->initExpression->fieldDefNode = this;
