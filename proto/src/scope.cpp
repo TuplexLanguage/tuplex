@@ -354,9 +354,9 @@ void TxSymbolScope::dump_symbols() const {
                 printf("%-64s %s\n", symbol->to_string().c_str(), typestr.c_str());
             }
             else if (dynamic_cast<const TxOverloadedEntity*>(symbol))
-                printf("<overloaded>  %s\n", symbol->get_full_name().to_string().c_str());
+                printf("<overloaded>   %s\n", symbol->get_full_name().to_string().c_str());
             else
-                printf("<scope>       %s\n", symbol->to_string().c_str());
+                printf("<scope>        %s\n", symbol->to_string().c_str());
             symbol->dump_symbols();
         }
     }

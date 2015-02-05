@@ -7,6 +7,9 @@ public type PType<E derives Any,L:Int> {
 
 public type PTypeSub PType<Int,4>
 
+public type PTypeSubE derives PType<Int,4> {
+}
+
     
 func main() Int {
     ##tst : PType.E

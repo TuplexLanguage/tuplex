@@ -109,17 +109,6 @@ const std::vector<TxTypeParam>* TxTypeExpressionNode::makeTypeParams(const std::
 void TxTypeDeclNode::symbol_table_pass(LexicalContext& lexContext) {
     this->set_context(lexContext);
 
-    // type declaration is performed by the type expression node, unless this is a decl of an alias for a predef type:
-//    if (typeid(*this->typeExpression) == typeid(TxModifiableTypeNode))
-//        parser_error(this->typeExpression->parseLocation, "A type definition (type name) can't be 'modifiable', only the type usage can.");
-//    if (auto maybeModNode = dynamic_cast<TxMaybeModTypeNode*>(this->typeExpression)) {
-//        // skip implicit modifiability in type declaration
-//        this->typeExpression = maybeModNode->baseType;
-//        maybeModNode->baseType = nullptr;  delete maybeModNode;
-//    }
-//    if (dynamic_cast<TxIdentifiedTypeNode*>(this->typeExpression))
-//        this->typeExpression = new TxAliasedTypeNode(this->typeExpression->parseLocation, this->typeExpression);
-
     auto declaredEntity = lexContext.scope()->declare_type(this->typeName, this->typeExpression, this->declFlags);
     this->typeExpression->symbol_table_pass(lexContext, this->declFlags, declaredEntity, this->typeParamDecls);
 
@@ -146,6 +135,16 @@ void TxModifiableTypeNode::symbol_table_pass(LexicalContext& lexContext, TxDecla
     }
 
     TxTypeExpressionNode::symbol_table_pass(lexContext, declFlags, declaredEntity, typeParamDecls);
+}
+
+
+bool TxMaybeModTypeNode::directIdentifiedType() const {
+    if (this->isModifiable)
+        return false;
+    if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType))
+        if (typeid(*arrayBaseType->elementType) == typeid(TxModifiableTypeNode))
+            return false;
+    return true;
 }
 
 void TxMaybeModTypeNode::symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,

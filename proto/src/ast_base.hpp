@@ -220,11 +220,6 @@ class TxTypeExpressionNode : public TxNode, public TxTypeProxy {
     mutable TxType const * cachedType = nullptr;
     TxTypeEntity* declaredEntity = nullptr;  // null until initialized in symbol table pass
 
-//    TxTypeEntity* declare_type(LexicalContext& lexContext, const std::string& implicitTypeName, TxDeclarationFlags declFlags) {
-//        this->declaredEntity = lexContext.scope()->declare_type(implicitTypeName, this, declFlags);
-//        return this->declaredEntity;
-//    }
-
     const std::vector<TxTypeParam>* makeTypeParams(const std::vector<TxDeclarationNode*>* typeParamDecls);
 
 protected:
@@ -234,6 +229,10 @@ protected:
 
 public:
     TxTypeExpressionNode(const yy::location& parseLocation) : TxNode(parseLocation)  { }
+
+    /** Returns true if this type expression is a directly identified type (i.e. merely a named, previously declared type). */
+    virtual bool directIdentifiedType() const { return false; }
+
 
     /** Returns the type entity declared by this type expression node, or NULL if it did not declare a new type entity. */
     virtual void symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
@@ -417,12 +416,14 @@ public:
     void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
         if (this->typeExpression) {
-            auto typeDeclFlags = this->declFlags & (TXD_PUBLIC | TXD_PROTECTED);
-            TxTypeEntity* typeEntity = nullptr;
-//            // unless the type expression is a directly named type, declare a type entity for this field's type:
-//            if (! dynamic_cast<TxIdentifiedTypeNode*>(this->typeExpression))
-//                typeEntity = lexContext.scope()->declare_type(this->ident + "$type", this->typeExpression, this->declFlags);
-            this->typeExpression->symbol_table_pass(lexContext, typeDeclFlags, typeEntity);
+            auto typeDeclFlags = (this->declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
+            // unless the type expression is a directly named type, declare a type entity for this field's type:
+            if (this->typeExpression->directIdentifiedType())
+                this->typeExpression->symbol_table_pass(lexContext, typeDeclFlags);
+            else {
+                TxTypeEntity* typeEntity = lexContext.scope()->declare_type(this->ident + "$type", this->typeExpression, typeDeclFlags);
+                this->typeExpression->symbol_table_pass(lexContext, typeDeclFlags, typeEntity);
+            }
         }
         if (this->initExpression) {
             this->initExpression->fieldDefNode = this;

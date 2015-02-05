@@ -40,6 +40,7 @@ public:
 //        pname += '$';
 //        pname += param.param_name();
         std::string pname = param.param_name();
+        // should declaration be TXD_IMPLICIT?
         if (this->typeExprNode) {
             if (param.meta_type() != param.TXB_TYPE)
                 parser_error(this->parseLocation, "Provided a TYPE argument to VALUE parameter %s", pname.c_str());
@@ -138,6 +139,8 @@ public:
     TxIdentifiedTypeNode(const yy::location& parseLocation, const TxIdentifierNode* identifier)
         : TxPredefinedTypeNode(parseLocation), identNode(identifier) { }
 
+    virtual bool directIdentifiedType() const override { return true; }
+
     virtual TxTypeEntity* get_entity() const override {
         if (auto declEnt = TxPredefinedTypeNode::get_entity())
             return declEnt;
@@ -167,31 +170,6 @@ public:
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const { return nullptr; }
 };
-
-
-///** Produces a new, "empty" specialization of the underlying type for use by a type alias declaration. */
-//class TxAliasedTypeNode : public TxTypeExpressionNode {
-//protected:
-//    virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-//        std::string declName = "$aliased"; //this->get_entity()->get_name() + "$aliased";
-//        auto declaredEntity = lexContext.scope()->declare_type(declName, this, declFlags);
-//        this->baseType->symbol_table_pass(lexContext, declFlags, declaredEntity);
-//    }
-//
-//public:
-//    TxTypeExpressionNode* baseType;
-//    TxAliasedTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
-//        : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
-//
-//    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-//        ASSERT(!declTypeParams || declTypeParams->empty(), "declTypeParams can't be set for 'empty' specialization: " << *this);
-//        auto bType = this->baseType->get_type();
-//        return this->types().get_type_specialization(this->get_entity(), TxTypeSpecialization(bType),
-//                                                     false, this->declTypeParams, errorMsg);
-//    }
-//
-//    virtual void semantic_pass() { baseType->semantic_pass(); }
-//};
 
 
 
@@ -448,6 +426,8 @@ public:
 
     TxMaybeModTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
         : TxModifiableTypeNode(parseLocation, baseType) { }
+
+    virtual bool directIdentifiedType() const override;
 
     virtual void symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                    TxTypeEntity* declaredEntity = nullptr,
