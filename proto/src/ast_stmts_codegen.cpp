@@ -90,11 +90,7 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
         return nullptr;
     }
     Value* fieldVal;
-    if (llvmType->isFunctionTy()) {
-        // FUTURE: make local function capture
-        fieldVal = this->field->initExpression->code_gen(context, scope);
-    }
-    else {
+    if (llvmType->isFirstClassType()) {
         fieldVal = create_alloca(scope, llvmType, entity->get_name());
         if (this->field->initExpression) {
             // create implicit assignment statement
@@ -102,6 +98,12 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
                 do_store(context, scope, fieldVal, initializer);
         }
     }
+    else if (llvmType->isFunctionTy()) {
+        // FUTURE: make local function capture
+        fieldVal = this->field->initExpression->code_gen(context, scope);
+    }
+    else  // void
+        return nullptr;
     context.register_llvm_value(entity->get_full_name().to_string(), fieldVal);
     return fieldVal;
 }
