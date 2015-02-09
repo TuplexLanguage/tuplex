@@ -20,15 +20,15 @@ public:
     TxTypeExpressionNode* typeExprNode;
     TxExpressionNode* valueExprNode;
 
-    TxTypeArgumentNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExprNode)
-        : TxNode(parseLocation), fieldDeclNode(),
+    TxTypeArgumentNode(TxTypeExpressionNode* typeExprNode)
+        : TxNode(typeExprNode->parseLocation), fieldDeclNode(),
           typeExprNode(typeExprNode), valueExprNode() { }
 
-    TxTypeArgumentNode(const yy::location& parseLocation, TxExpressionNode* valueExprNode)
-        : TxNode(parseLocation), fieldDeclNode(),
+    TxTypeArgumentNode(TxExpressionNode* valueExprNode)
+        : TxNode(valueExprNode->parseLocation), fieldDeclNode(),
           typeExprNode(), valueExprNode(valueExprNode) { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext, int argNo) {
+    virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
     }
 
@@ -44,6 +44,8 @@ public:
             if (param.meta_type() != param.TXB_TYPE)
                 cerror("Provided a TYPE argument to VALUE parameter %s", pname.c_str());
             auto declaredEntity = this->context().scope()->declare_type(pname, this->typeExprNode, TXD_PUBLIC);
+            if (!declaredEntity)
+                cerror("Failed to declare type argument %s", pname.c_str());
             // NOTE: Difference between this and "proper" type declaration is that the type expression hierarchy
             // is not processed under the lexical context of its type declaration.
             this->typeExprNode->symbol_table_pass(this->context(), TXD_PUBLIC, declaredEntity);
@@ -102,9 +104,8 @@ type Field<E,C,L> derives Array<Ref<Abstr<E,C>>,L> {
 class TxSpecializedTypeNode : public TxPredefinedTypeNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-        int argNo = 0;
         for (TxTypeArgumentNode* tp : *this->typeArgs) {
-            tp->symbol_table_pass(lexContext, argNo++);
+            tp->symbol_table_pass(lexContext);
         }
     }
 
@@ -116,6 +117,22 @@ public:
                           const std::vector<TxTypeArgumentNode*>* typeArgs)
             : TxPredefinedTypeNode(parseLocation), identNode(identifier), typeArgs(typeArgs)  {
         ASSERT(! this->typeArgs->empty(), "No generic type arguments specified");
+    }
+
+    virtual void symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags, TxTypeEntity* declaredEntity = nullptr,
+                                   const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override {
+        if (! declaredEntity) {
+            // ensure generic type specializations always have a declared type (handles e.g. Ref<Ref<Int>>)
+            std::string typeName = "$type";
+            //printf("%s: Declaring '%s' in '%s' as implicit specialized type\n", this->parse_loc_string().c_str(), typeName.c_str(), lexContext.scope()->get_full_name().to_string().c_str());
+            auto declaredEntity = lexContext.scope()->declare_type(typeName, this, TXD_PUBLIC);
+            if (!declaredEntity)
+                cerror("Failed to declare implicit type %s", typeName.c_str());
+            LexicalContext typeCtx(declaredEntity ? declaredEntity : lexContext.scope());  // (in case declare_type() yields NULL)
+            TxPredefinedTypeNode::symbol_table_pass(typeCtx, declFlags, declaredEntity, typeParamDecls);
+        }
+        else
+            TxPredefinedTypeNode::symbol_table_pass(lexContext, declFlags, declaredEntity, typeParamDecls);
     }
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
@@ -203,57 +220,71 @@ public:
 };
 
 
-
+/**
+ * Custom AST node needed to handle dataspaces. */
 class TxReferenceTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-        this->targetType->symbol_table_pass(lexContext, declFlags);
+        this->targetTypeNode->symbol_table_pass(lexContext);
     }
 
 public:
     const TxIdentifierNode* dataspace;
-    TxTypeExpressionNode* targetType;
+    TxTypeArgumentNode* targetTypeNode;
+
     TxReferenceTypeNode(const yy::location& parseLocation, const TxIdentifierNode* dataspace,
                         TxTypeExpressionNode* targetType)
-        : TxTypeExpressionNode(parseLocation), dataspace(dataspace), targetType(targetType)  { }
+        : TxTypeExpressionNode(parseLocation), dataspace(dataspace),
+          targetTypeNode(new TxTypeArgumentNode(targetType))  { }
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        return this->types().get_reference_type(this->get_entity(), this->targetType->get_type());
+        auto baseType = this->types().get_builtin_type(REFERENCE);
+        auto baseTypeEntity = baseType->entity();
+        TxTypeBinding binding = this->targetTypeNode->make_binding(baseTypeEntity, baseType->get_type_param("T"));
+        return this->types().get_reference_type(this->get_entity(), binding);
     }
 
-    virtual void semantic_pass() { targetType->semantic_pass(); }
+    virtual void semantic_pass() { targetTypeNode->semantic_pass(); }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
+/**
+ * Custom AST node needed to provide syntactic sugar for modifiable declaration. */
 class TxArrayTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-        this->elementType->symbol_table_pass(lexContext, declFlags);
-        if (this->lengthExpr)
-            this->lengthExpr->symbol_table_pass(lexContext);
+        this->elementTypeNode->symbol_table_pass(lexContext);
+        if (this->lengthNode)
+            this->lengthNode->symbol_table_pass(lexContext);
     }
 
 public:
-    TxTypeExpressionNode* elementType;
-    TxExpressionNode* lengthExpr;
-    TxArrayTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* elementType)
-        : TxTypeExpressionNode(parseLocation), elementType(elementType), lengthExpr(nullptr)  { }
-    TxArrayTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* lengthExpr)
-        : TxTypeExpressionNode(parseLocation), elementType(elementType), lengthExpr(lengthExpr)  { }
+    TxTypeArgumentNode* elementTypeNode;
+    TxTypeArgumentNode* lengthNode;
+
+    TxArrayTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* lengthExpr=nullptr)
+        : TxTypeExpressionNode(parseLocation),
+          elementTypeNode(new TxTypeArgumentNode(elementType)),
+          lengthNode(lengthExpr ? new TxTypeArgumentNode(lengthExpr) : nullptr)  { }
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        if (this->lengthExpr)
-            return this->types().get_array_type(this->get_entity(), this->elementType->get_type(), this->lengthExpr);
+        auto baseType = this->types().get_builtin_type(ARRAY);
+        auto baseTypeEntity = baseType->entity();
+        TxTypeBinding elementBinding = this->elementTypeNode->make_binding(baseTypeEntity, baseType->get_type_param("E"));
+        if (this->lengthNode) {
+            TxTypeBinding lengthBinding = this->lengthNode->make_binding(baseTypeEntity, baseType->get_type_param("L"));
+            return this->types().get_array_type(this->get_entity(), elementBinding, lengthBinding);
+        }
         else
-            return this->types().get_array_type(this->get_entity(), this->elementType->get_type());
+            return this->types().get_array_type(this->get_entity(), elementBinding);
     }
 
     virtual void semantic_pass() {
-        this->elementType->semantic_pass();
-        if (this->lengthExpr) {
-            this->lengthExpr->semantic_pass();
-            if (! this->lengthExpr->is_statically_constant())
+        this->elementTypeNode->semantic_pass();
+        if (this->lengthNode) {
+            this->lengthNode->semantic_pass();
+            if (! this->lengthNode->valueExprNode->is_statically_constant())
                 cerror("Non-constant array length specifier not yet supported.");
         }
     }

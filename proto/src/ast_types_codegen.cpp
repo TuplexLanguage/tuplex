@@ -20,16 +20,16 @@ llvm::Value* TxSpecializedTypeNode::code_gen(LlvmGenerationContext& context, Gen
 
 llvm::Value* TxReferenceTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    this->targetType->code_gen(context, scope);
+    this->targetTypeNode->code_gen(context, scope);
     return nullptr;
 }
 
 
 llvm::Value* TxArrayTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    if (this->lengthExpr)
-        this->lengthExpr->code_gen(context, scope);
-    this->elementType->code_gen(context, scope);
+    if (this->lengthNode)
+        this->lengthNode->code_gen(context, scope);
+    this->elementTypeNode->code_gen(context, scope);
     return nullptr;
 }
 

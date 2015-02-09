@@ -327,23 +327,37 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeEntity* newEntit
 }
 
 
-const TxReferenceType* TypeRegistry::get_reference_type(const TxTypeEntity* newEntity, const TxTypeProxy* targetType,
+const TxReferenceType* TypeRegistry::get_reference_type(const TxTypeEntity* newEntity, TxTypeBinding targetTypeBinding,
                                                         std::string* errorMsg) {
-    std::vector<TxTypeBinding> bindings( { TxTypeBinding("T", targetType) } );
+    std::vector<TxTypeBinding> bindings( { targetTypeBinding } );
     TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type(), bindings);
     return static_cast<const TxReferenceType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
+}
+const TxReferenceType* TypeRegistry::get_reference_type(const TxTypeEntity* newEntity, const TxTypeProxy* targetType,
+                                                        std::string* errorMsg) {
+    return this->get_reference_type(newEntity, TxTypeBinding("T", targetType) );
 }
 
 const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType, const TxConstantProxy* length,
                                                 std::string* errorMsg) {
+    // TODO: remove, or rewrite so that proper parameter binding names are declared
     std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", length) } );
     TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
     return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
 }
-
-const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType,
+const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity,
+                                                TxTypeBinding elemTypeBinding, TxTypeBinding lengthBinding,
                                                 std::string* errorMsg) {
-    std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType) } );
+    //std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", length) } );
+    std::vector<TxTypeBinding> bindings( { elemTypeBinding, lengthBinding } );
+    TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
+    return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
+}
+
+const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity, TxTypeBinding elemTypeBinding,
+                                                std::string* errorMsg) {
+    //std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType) } );
+    std::vector<TxTypeBinding> bindings( { elemTypeBinding } );
     TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
     return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
 }

@@ -357,11 +357,11 @@ type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->
                 | type_arg_list sCOMMA type_arg  { $$ = $1;  $$->push_back($3); }
                 ;
 
-type_arg        : value_literal       { $$ = new TxTypeArgumentNode(@1, $1); }  // unambiguous value expr
-                | LPAREN expr RPAREN  { $$ = new TxTypeArgumentNode(@1, $2); }  // parens prevent conflation with type expr
+type_arg        : value_literal       { $$ = new TxTypeArgumentNode($1); }  // unambiguous value expr
+                | LPAREN expr RPAREN  { $$ = new TxTypeArgumentNode($2); }  // parens prevent conflation with type expr
                 | opt_modifiable predef_type   { auto typeNode = ( $1 ? new TxModifiableTypeNode(@1, $2)
                                                                       : new TxMaybeModTypeNode(@2, $2) );
-                                                 $$  = new TxTypeArgumentNode(@2, typeNode); }
+                                                 $$  = new TxTypeArgumentNode(typeNode); }
                 ;
 
 
@@ -390,7 +390,7 @@ reference_type : opt_dataspace ref_token type_expression
                       $$ = new TxReferenceTypeNode(@2, $1, $3);
                       /*
                       auto baseIdent = new TxIdentifierNode( @2, new TxIdentifier("tx.Ref") );
-                      TxTypeArgumentNode* typeArg = new TxTypeArgumentNode(@3, $3);
+                      TxTypeArgumentNode* typeArg = new TxTypeArgumentNode($3);
                       $$ = new TxSpecializedTypeNode( @2, baseIdent, new std::vector<TxTypeArgumentNode*>( { typeArg } ) );
                       */
                     } ;
@@ -402,9 +402,9 @@ array_type : array_dimensions type_expression
                       $$ = new TxArrayTypeNode(@1, $2, $1);
                       /*
                       auto baseIdent = new TxIdentifierNode( @1, new TxIdentifier("tx.Array") );
-                      TxTypeArgumentNode* elemType = new TxTypeArgumentNode(@2, $2);
+                      TxTypeArgumentNode* elemType = new TxTypeArgumentNode($2);
                       if ($1) {
-                          TxTypeArgumentNode* arrayDim = new TxTypeArgumentNode(@1, $1);
+                          TxTypeArgumentNode* arrayDim = new TxTypeArgumentNode($1);
                           $$ = new TxSpecializedTypeNode( @1, baseIdent, new std::vector<TxTypeArgumentNode*>( { elemType, arrayDim } ) );
                       } else {
                           $$ = new TxSpecializedTypeNode( @2, baseIdent, new std::vector<TxTypeArgumentNode*>( { elemType } ) );

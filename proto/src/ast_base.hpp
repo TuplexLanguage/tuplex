@@ -237,7 +237,6 @@ public:
     virtual bool directIdentifiedType() const { return false; }
 
 
-    /** Returns the type entity declared by this type expression node, or NULL if it did not declare a new type entity. */
     virtual void symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags, TxTypeEntity* declaredEntity = nullptr,
                                    const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) {
         // Each node in a type expression has the option of declaring an entity (i.e. creating a name for)
@@ -247,7 +246,8 @@ public:
         // Type entities are at minimum needed for:
         //  - explicit type declarations/extensions
         //  - adding members (since members are namespace symbols) - only done in explicit type extensions
-        //  - using fields in type expressions (resolving to the field's type) - not terribly important
+        //  - specializations that bind generic type parameters (e.g. Ref<Ref<Int>>)
+        //  - using fields in type expressions (resolving to the field's type) (not terribly important)
         // Note: Implicitly declared types should have the same visibility as the type/field they are for.
         this->set_context(lexContext);
         this->declaredEntity = declaredEntity;
@@ -428,6 +428,8 @@ public:
                 this->typeExpression->symbol_table_pass(lexContext, typeDeclFlags);
             else {
                 TxTypeEntity* typeEntity = lexContext.scope()->declare_type(this->fieldName + "$type", this->typeExpression, typeDeclFlags);
+                if (!typeEntity)
+                    cerror("Failed to declare implicit type %s for field %s", (this->fieldName + "$type").c_str(), this->fieldName.c_str());
                 LexicalContext typeCtx(typeEntity ? typeEntity : lexContext.scope());  // (in case declare_type() yields NULL)
                 this->typeExpression->symbol_table_pass(typeCtx, typeDeclFlags, typeEntity);
             }

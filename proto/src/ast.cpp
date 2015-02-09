@@ -51,7 +51,11 @@ void TxNode::cerror(char const *fmt, ...) const {
     char buf[512];
     vsnprintf(buf, 512, fmt, ap);
     va_end(ap);
-    this->driver().cerror(this->parseLocation, std::string(buf));
+    if (this->is_context_set())
+        this->driver().cerror(this->parseLocation, std::string(buf));
+    else {
+        TxDriver::emit_comp_error(this->parseLocation, std::string(buf));
+    }
 }
 void TxNode::cwarning(char const *fmt, ...) const {
     va_list ap;
@@ -59,7 +63,11 @@ void TxNode::cwarning(char const *fmt, ...) const {
     char buf[512];
     vsnprintf(buf, 512, fmt, ap);
     va_end(ap);
-    this->driver().cwarning(this->parseLocation, std::string(buf));
+    if (this->is_context_set())
+        this->driver().cwarning(this->parseLocation, std::string(buf));
+    else {
+        TxDriver::emit_comp_warning(this->parseLocation, std::string(buf));
+    }
 }
 
 
@@ -176,6 +184,8 @@ void TxTypeDeclNode::symbol_table_pass(LexicalContext& lexContext) {
     auto declaredEntity = lexContext.scope()->declare_type(this->typeName, this->typeExpression, this->declFlags);
     //this->LOGGER().debug("Defining type %-16s under <lexctx> %-24s <decl scope> %s", this->typeName.c_str(),
     //                     lexContext.scope()->get_full_name().to_string().c_str(), declaredEntity->get_full_name().to_string().c_str());
+    if (!declaredEntity)
+        cerror("Failed to declare type %s", this->typeName.c_str());
     LexicalContext typeCtx(declaredEntity ? declaredEntity : lexContext.scope());  // (in case declare_type() yields NULL)
     this->typeExpression->symbol_table_pass(typeCtx, this->declFlags, declaredEntity, this->typeParamDecls);
 
@@ -192,7 +202,7 @@ void TxModifiableTypeNode::symbol_table_pass(LexicalContext& lexContext, TxDecla
                                              TxTypeEntity* declaredEntity, const std::vector<TxDeclarationNode*>* typeParamDecls) {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType)) {
-        if (auto maybeModElem = dynamic_cast<TxMaybeModTypeNode*>(arrayBaseType->elementType)) {
+        if (auto maybeModElem = dynamic_cast<TxMaybeModTypeNode*>(arrayBaseType->elementTypeNode->typeExprNode)) {
             // (can this spuriously add Modifiable node to predeclared modifiable type, generating error?)
             lexContext.scope()->LOGGER().debug("Implicitly declaring Array Element modifiable at %s", this->to_string().c_str());
             maybeModElem->isModifiable = true;
@@ -207,7 +217,7 @@ bool TxMaybeModTypeNode::directIdentifiedType() const {
     if (this->isModifiable)
         return false;
     if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType))
-        if (typeid(*arrayBaseType->elementType) == typeid(TxModifiableTypeNode))
+        if (typeid(*arrayBaseType->elementTypeNode->typeExprNode) == typeid(TxModifiableTypeNode))
             return false;
     return this->baseType->directIdentifiedType();
 }
@@ -217,7 +227,7 @@ void TxMaybeModTypeNode::symbol_table_pass(LexicalContext& lexContext, TxDeclara
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if (! this->isModifiable) {
         if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType))
-            if (typeid(*arrayBaseType->elementType) == typeid(TxModifiableTypeNode)) {
+            if (typeid(*arrayBaseType->elementTypeNode->typeExprNode) == typeid(TxModifiableTypeNode)) {
                 lexContext.scope()->LOGGER().debug("Implicitly declaring Array modifiable at %s", this->to_string().c_str());
                 this->isModifiable = true;
             }

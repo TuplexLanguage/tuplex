@@ -71,7 +71,6 @@ class TxDriver {
      */
     void add_source_file(const TxIdentifier& moduleName, const std::string &filePath);
 
-    void emit_comp_message(char const *msg);
     void emit_comp_error(char const *msg);
     void emit_comp_warning(char const *msg);
 
@@ -109,6 +108,10 @@ public:
     void cwarning(const yy::location& loc, char const *fmt, ...);
     void cwarning(const yy::location& loc, const std::string& msg);
     void cwarning(const std::string& msg);
+
+    // fall-back for when driver instance is not reachable */
+    static void emit_comp_error(const yy::location& loc, const std::string& msg);
+    static void emit_comp_warning(const yy::location& loc, const std::string& msg);
 };
 
 
