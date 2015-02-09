@@ -32,7 +32,7 @@ public:
             if (base) {
                 // (lookup is similar to that of TxFieldEntity)
                 if (auto symbol = this->base->get_type()->lookup_instance_member(memberPath, this->member->ident)) {
-                    this->entity = this->context().scope()->resolve_field(symbol, this->appliedFuncArgTypes);
+                    this->entity = this->context().scope()->resolve_symbol_as_field(symbol, this->appliedFuncArgTypes);
                     if (this->entity && memberPath.back() != this->entity)
                         memberPath[memberPath.size()-1] = this->entity;
                 }
@@ -68,7 +68,7 @@ public:
         if (base)
             base->semantic_pass();
         if (! this->get_entity())
-            parser_error(this->parseLocation, "No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
+            cerror("No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
     }
 
 //    virtual bool has_address() const {
@@ -128,9 +128,9 @@ public:
             base->semantic_pass();
         auto entity = this->get_entity();
         if (! entity)
-            parser_error(this->parseLocation, "No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
+            cerror("No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
         else if (entity->get_storage() == TXS_NOSTORAGE)
-            parser_error(this->parseLocation, "Assignee %s is not an L-value / has no storage.", member->to_string().c_str());
+            cerror("Assignee %s is not an L-value / has no storage.", member->to_string().c_str());
     }
 
 //    virtual bool hasAddress() const {

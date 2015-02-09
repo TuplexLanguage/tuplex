@@ -107,12 +107,10 @@ Logger::Logger(const std::string& name, Level initialThreshold) : name(name), th
 
 void Logger::emit(Level level, const char* str) {
     if (level <= globalThreshold) {
-        char buf[768];
         if (colorsEnabled)
-            snprintf(buf, 768, "%s%-5s %-15s %s%s", LEVEL_COLORS[level], LEVEL_NAMES[level], this->name.c_str(), str, txtrst);
+            fprintf(stderr, "%s%-5s %-15s %s%s\n", LEVEL_COLORS[level], LEVEL_NAMES[level], this->name.c_str(), str, txtrst);
         else
-            snprintf(buf, 768, "%-5s %-15s %s", LEVEL_NAMES[level], this->name.c_str(), str);
-        puts(buf);
+            fprintf(stderr, "%-5s %-15s %s\n", LEVEL_NAMES[level], this->name.c_str(), str);
     }
 }
 

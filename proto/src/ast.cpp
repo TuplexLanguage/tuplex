@@ -1,15 +1,79 @@
 #include "ast.hpp"
 
 
+static bool commonNameValidityChecks(TxNode* node, TxDeclarationFlags declFlags, const std::string& name) {
+    if (name.empty()) {
+        node->cerror("Name string is empty.");
+        return false;
+    }
+    bool valid = true;
+// TODO: distinguish between source origin (illegal) and implicitly generated names
+//    auto pos = name.find_first_of(".#");
+//    if (pos != std::string::npos) {
+//        parser_error(node->parseLocation, "Illegal character within a name segment: '%c'", name.at(pos));
+//        valid = false;
+//    }
+    return valid;
+}
+
+bool validateTypeName(TxNode* node, TxDeclarationFlags declFlags, const std::string& name) {
+    // TODO: warning if first character is not upper case
+    return commonNameValidityChecks(node, declFlags, name);
+}
+
+bool validateFieldName(TxNode* node, TxDeclarationFlags declFlags, const std::string& name) {
+    // TODO: either all chars upper case or first character lower case, else warning
+    return commonNameValidityChecks(node, declFlags, name);
+}
+
+
+
+std::string TxNode::to_string() const {
+    char buf[256];
+    snprintf(buf, 256, "%-24s : %-11s", typeid(*this).name(), this->parse_loc_string().c_str());
+    return std::string(buf);
+}
+
+std::string TxNode::parse_loc_string() const {
+    char buf[128];
+    if (parseLocation.begin.line == parseLocation.end.line) {
+        int lcol = (parseLocation.end.column > parseLocation.begin.column) ? parseLocation.end.column-1 : parseLocation.end.column;
+        snprintf(buf, 128, "%2d.%2d-%2d", parseLocation.begin.line, parseLocation.begin.column, lcol);
+    }
+    else
+        snprintf(buf, 128, "%2d.%2d-%2d.%2d", parseLocation.begin.line, parseLocation.begin.column, parseLocation.end.line, parseLocation.end.column-1);
+    return std::string(buf);
+}
+
+void TxNode::cerror(char const *fmt, ...) const {
+    va_list ap;
+    va_start(ap, fmt);
+    char buf[512];
+    vsnprintf(buf, 512, fmt, ap);
+    va_end(ap);
+    this->driver().cerror(this->parseLocation, std::string(buf));
+}
+void TxNode::cwarning(char const *fmt, ...) const {
+    va_list ap;
+    va_start(ap, fmt);
+    char buf[512];
+    vsnprintf(buf, 512, fmt, ap);
+    va_end(ap);
+    this->driver().cwarning(this->parseLocation, std::string(buf));
+}
+
+
+
 void TxFieldDeclNode::symbol_table_pass(LexicalContext& lexContext) {
+    this->set_context(lexContext);
     TxFieldStorage storage;
     if (dynamic_cast<TxModule*>(lexContext.scope())) {  // if in global scope
         if (this->declFlags & TXD_STATIC)
-            parser_error(this->parseLocation, "'static' is invalid modifier for module scope field %s", this->field->ident.c_str());
+            cerror("'static' is invalid modifier for module scope field %s", this->field->fieldName.c_str());
         if (this->declFlags & TXD_FINAL)
-            parser_error(this->parseLocation, "'final' is invalid modifier for module scope field %s", this->field->ident.c_str());
+            cerror("'final' is invalid modifier for module scope field %s", this->field->fieldName.c_str());
         if (this->declFlags & TXD_OVERRIDE)
-            parser_error(this->parseLocation, "'override' is invalid modifier for module scope field %s", this->field->ident.c_str());
+            cerror("'override' is invalid modifier for module scope field %s", this->field->fieldName.c_str());
         storage = TXS_GLOBAL;
     }
     else if (this->isMethod) {
@@ -24,7 +88,7 @@ void TxFieldDeclNode::symbol_table_pass(LexicalContext& lexContext) {
         storage = (this->declFlags & TXD_STATIC) ? TXS_STATIC : TXS_INSTANCE;
     }
     this->field->symbol_table_pass_decl_field(lexContext, this->declFlags, storage, TxIdentifier(""));
-    this->set_context(this->field);
+    //this->set_context(this->field);
 }
 
 
@@ -52,10 +116,10 @@ TxExpressionNode* validate_wrap_convert(TxExpressionNode* originalExpr, const Tx
         if (refTargetType && originalType->is_a(*refTargetType->get_type())) {
             if (refTargetType->get_type()->is_modifiable()) {
                 if (!originalType->is_modifiable())
-                    parser_error(originalExpr->parseLocation, "Cannot convert reference with non-mod-target to one with mod target: %s -> %s",
+                    originalExpr->cerror("Cannot convert reference with non-mod-target to one with mod target: %s -> %s",
                                  originalType->to_string().c_str(), requiredType->to_string().c_str());
                 else
-                    parser_error(originalExpr->parseLocation, "Cannot implicitly convert to reference with modifiable target: %s -> %s",
+                    originalExpr->cerror("Cannot implicitly convert to reference with modifiable target: %s -> %s",
                                  originalType->to_string().c_str(), requiredType->to_string().c_str());
                 return originalExpr;
             }
@@ -67,7 +131,7 @@ TxExpressionNode* validate_wrap_convert(TxExpressionNode* originalExpr, const Tx
             }
         }
     }
-    parser_error(originalExpr->parseLocation, "Can't auto-convert %s -> %s",
+    originalExpr->cerror("Can't auto-convert value %s -> %s",
                  originalType->to_string().c_str(), requiredType->to_string().c_str());
     return originalExpr;
 }
@@ -76,7 +140,7 @@ TxExpressionNode* validate_wrap_convert(TxExpressionNode* originalExpr, const Tx
 TxExpressionNode* validate_wrap_assignment(TxExpressionNode* rValueExpr, const TxType* requiredType) {
     if (! requiredType->is_concrete())
         // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
-        parser_error(rValueExpr->parseLocation, "Assignee is not a concrete type (size potentially unknown): %s", requiredType->to_string().c_str());
+        rValueExpr->cerror("Assignee is not a concrete type (size potentially unknown): %s", requiredType->to_string().c_str());
     // if assignee is a reference:
     // TODO: check dataspace rules
     return validate_wrap_convert(rValueExpr, requiredType);
@@ -100,7 +164,7 @@ const std::vector<TxTypeParam>* TxTypeExpressionNode::makeTypeParams(const std::
         if (auto typeDecl = dynamic_cast<TxTypeDeclNode*>(decl))
             paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_TYPE, typeDecl->typeName, typeDecl->typeExpression));
         else if (auto valueDecl = dynamic_cast<TxFieldDeclNode*>(decl))
-            paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_VALUE, valueDecl->field->ident, valueDecl->field));
+            paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_VALUE, valueDecl->field->fieldName, valueDecl->field));
     }
     return paramsVec;
 }
@@ -110,13 +174,14 @@ void TxTypeDeclNode::symbol_table_pass(LexicalContext& lexContext) {
     this->set_context(lexContext);
 
     auto declaredEntity = lexContext.scope()->declare_type(this->typeName, this->typeExpression, this->declFlags);
-    this->typeExpression->symbol_table_pass(lexContext, this->declFlags, declaredEntity, this->typeParamDecls);
+    //this->LOGGER().debug("Defining type %-16s under <lexctx> %-24s <decl scope> %s", this->typeName.c_str(),
+    //                     lexContext.scope()->get_full_name().to_string().c_str(), declaredEntity->get_full_name().to_string().c_str());
+    LexicalContext typeCtx(declaredEntity ? declaredEntity : lexContext.scope());  // (in case declare_type() yields NULL)
+    this->typeExpression->symbol_table_pass(typeCtx, this->declFlags, declaredEntity, this->typeParamDecls);
 
     // declare type parameters, if any, within type definition's scope:
-    LexicalContext typeCtx(declaredEntity ? declaredEntity : lexContext.scope());
     if (this->typeParamDecls) {
         for (auto paramDecl : *this->typeParamDecls) {
-            // FIXME: declare "placeholder" entities (they are unbound)
             paramDecl->symbol_table_pass(typeCtx);
         }
     }
@@ -144,7 +209,7 @@ bool TxMaybeModTypeNode::directIdentifiedType() const {
     if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType))
         if (typeid(*arrayBaseType->elementType) == typeid(TxModifiableTypeNode))
             return false;
-    return true;
+    return this->baseType->directIdentifiedType();
 }
 
 void TxMaybeModTypeNode::symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,

@@ -26,7 +26,7 @@ public:
     }
 
 
-    inline TxDriver& driver() {
+    inline TxDriver& driver() const {
         return this->_driver;
     }
 

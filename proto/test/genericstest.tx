@@ -18,17 +18,25 @@ public type MFRef Ref
 public type MGRef<T> MFRef<T>
 
 
-## doesn't work since doesn't recognize S as constant
-##public type NAArray<L:UInt> [L]UByte
+public type NAArray<E> [10]E
 
-public type NBArray<L:UInt> Array<UByte,(L)>
+public type NBArray<E> Array<E,10>
 
-public type NCArray<L:UInt> derives Array<UByte,(L)> {
+public type NCArray<E> derives Array<E,10> {
 }
 
+/* doesn't work since doesn't recognize L as constant
+public type OAArray<L:UInt> [L]UByte
 
-public type OTestString derives Array<Array<UByte,10>,10> {
+public type OBArray<L:UInt> Array<UByte,(L)>
+
+public type OCArray<L:UInt> derives Array<UByte,(L)> {
 }
+*/
+
+
+##public type OTestString derives Array<Array<UByte,10>,10> {
+##}
 
 public type PType<E derives Any,L:Int> {
 }

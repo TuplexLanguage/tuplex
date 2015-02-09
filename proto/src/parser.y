@@ -234,7 +234,7 @@ import_statement   : KW_IMPORT gen_identifier sep  %prec STMT
                         { $$ = new TxImportNode(@1, $2);
                           if ($2->ident.is_qualified())
                               if (! driver.add_import($2->ident.parent()))
-                                  driver.error(@1, "Failed to import module (source not found): " + $2->ident.parent().to_string()); }
+                                  driver.cerror(@1, "Failed to import module (source not found): " + $2->ident.parent().to_string()); }
                    | KW_IMPORT error sep              %prec STMT { $$ = NULL; }
                    ;
 
@@ -312,9 +312,9 @@ field_assignment_def : NAME sCOLON type_expression sEQUAL expr
 type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->push_back($1); }
                 | type_param_list sCOMMA type_param  { $$ = $1; $$->push_back($3); }
                 ;
-type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC, $1, NULL, new TxIdentifiedTypeNode(@1, new TxIdentifierNode(@1, new TxIdentifier("tx.Any")))); }
-                | NAME KW_DERIVES predef_type { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC, $1, NULL, $3); }
-                | field_type_def  { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_STATIC, $1); }
+type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, new TxIdentifiedTypeNode(@1, new TxIdentifierNode(@1, new TxIdentifier("tx.Any")))); }
+                | NAME KW_DERIVES predef_type { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
+                | field_type_def  { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_STATIC | TXD_GENPARAM, $1); }
                 ;
 
 
@@ -386,11 +386,31 @@ base_type_expression
     ;
 
 reference_type : opt_dataspace ref_token type_expression
-                     { $$ = new TxReferenceTypeNode(@1, $1, $3); } ;
+                    { /* custom ast node needed to handle dataspaces */
+                      $$ = new TxReferenceTypeNode(@2, $1, $3);
+                      /*
+                      auto baseIdent = new TxIdentifierNode( @2, new TxIdentifier("tx.Ref") );
+                      TxTypeArgumentNode* typeArg = new TxTypeArgumentNode(@3, $3);
+                      $$ = new TxSpecializedTypeNode( @2, baseIdent, new std::vector<TxTypeArgumentNode*>( { typeArg } ) );
+                      */
+                    } ;
 opt_dataspace : %empty { $$ = NULL; } | QMARK { $$ = NULL; } | gen_identifier { $$ = $1; } ;
 ref_token : KW_REFERENCE | AAND ;
 
-array_type : array_dimensions type_expression  { $$ = new TxArrayTypeNode(@1, $2, $1); } ;
+array_type : array_dimensions type_expression
+                    { /* custom ast node needed to provide syntactic sugar for modifiable decl */
+                      $$ = new TxArrayTypeNode(@1, $2, $1);
+                      /*
+                      auto baseIdent = new TxIdentifierNode( @1, new TxIdentifier("tx.Array") );
+                      TxTypeArgumentNode* elemType = new TxTypeArgumentNode(@2, $2);
+                      if ($1) {
+                          TxTypeArgumentNode* arrayDim = new TxTypeArgumentNode(@1, $1);
+                          $$ = new TxSpecializedTypeNode( @1, baseIdent, new std::vector<TxTypeArgumentNode*>( { elemType, arrayDim } ) );
+                      } else {
+                          $$ = new TxSpecializedTypeNode( @2, baseIdent, new std::vector<TxTypeArgumentNode*>( { elemType } ) );
+                      }
+                      */
+                    } ;
 array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
                  //| LBRACKET predef_type RBRACKET  // predef_type must be an enum
                  | LBRACKET RBRACKET  { $$ = NULL; }
@@ -589,5 +609,5 @@ assignee_expr  // expressions capable of (but not guaranteed) to produce an lval
 %%
 
 void yy::TxParser::error (const location_type& l, const std::string& m) {
-    driver.error (l, m);
+    driver.cerror (l, m);
 }

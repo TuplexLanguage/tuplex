@@ -1,22 +1,22 @@
+module my
 
-public type PType<E derives Any,L:Int> {
+public type PType<O derives Any, P derives Any> {
     static MEMBER : Int = 1
 }
 
-##public type PTypeMid<L:Int> PType<Int,(L)>
+public type PTypeMid<P> PType<P,Int>
 
-public type PTypeSub PType<Int,4>
+public type PTypeSub PTypeMid<Float>
 
-public type PTypeSubE derives PType<Int,4> {
-}
-
-    
 func main() Int {
     ##tst : PType.E
 
     mem := PTypeSub.MEMBER
-    foo := PTypeSub.L
-    bar : PTypeSub.E = 10
+    fop : PTypeSub.my#PType#P = 5
+    foo1 : PTypeSub.P = 11.
+    foo2 : PTypeSub.my#PType#O = 12.
 
-    return foo
+    ##return fop
+    ##return Int(foo1)
+    return Int( foo1 + foo2 )
 }

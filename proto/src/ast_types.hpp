@@ -14,18 +14,18 @@ protected:
 
 /** Represents a binding for a type parameter. Can be either a Type or a Value parameter binding. */
 class TxTypeArgumentNode : public TxNode {
-    TxTypeDeclNode* typeDeclNode;
-    TxFieldDeclNode* fieldDeclNode;
+    TxFieldDeclNode* fieldDeclNode;  // TODO: remove?
+    bool bound = false;
 public:
     TxTypeExpressionNode* typeExprNode;
     TxExpressionNode* valueExprNode;
 
     TxTypeArgumentNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExprNode)
-        : TxNode(parseLocation), typeDeclNode(), fieldDeclNode(),
+        : TxNode(parseLocation), fieldDeclNode(),
           typeExprNode(typeExprNode), valueExprNode() { }
 
     TxTypeArgumentNode(const yy::location& parseLocation, TxExpressionNode* valueExprNode)
-        : TxNode(parseLocation), typeDeclNode(), fieldDeclNode(),
+        : TxNode(parseLocation), fieldDeclNode(),
           typeExprNode(), valueExprNode(valueExprNode) { }
 
     virtual void symbol_table_pass(LexicalContext& lexContext, int argNo) {
@@ -33,24 +33,26 @@ public:
     }
 
     inline TxTypeBinding make_binding(const TxTypeEntity* baseTypeEntity, const TxTypeParam& param) {
-        ASSERT(!this->typeDeclNode && !this->fieldDeclNode, "make_binding() called more than once for " << this);
-        // FIXME: properly qualified name & lookup of base type parameter bindings
-//        std::string pname = baseTypeEntity->get_full_name().to_string();
-//        std::replace(pname.begin(), pname.end(), '.', '$');
-//        pname += '$';
-//        pname += param.param_name();
-        std::string pname = param.param_name();
-        // should declaration be TXD_IMPLICIT?
+        std::string pname = baseTypeEntity->get_full_name().to_string();
+        std::replace(pname.begin(), pname.end(), '.', '#');
+        pname += '#';
+        pname += param.param_name();
+        LOGGER().debug("%s: Binding %s in ctx %s", this->parse_loc_string().c_str(), pname.c_str(), this->context().scope()->get_full_name().to_string().c_str());
+        ASSERT(!this->bound, "make_binding() called more than once for " << this);
+        this->bound = true;
         if (this->typeExprNode) {
             if (param.meta_type() != param.TXB_TYPE)
-                parser_error(this->parseLocation, "Provided a TYPE argument to VALUE parameter %s", pname.c_str());
-            this->typeDeclNode = new TxTypeDeclNode(this->typeExprNode->parseLocation, TXD_PUBLIC, pname, nullptr, this->typeExprNode);
-            this->typeDeclNode->symbol_table_pass(this->context());
+                cerror("Provided a TYPE argument to VALUE parameter %s", pname.c_str());
+            auto declaredEntity = this->context().scope()->declare_type(pname, this->typeExprNode, TXD_PUBLIC);
+            // NOTE: Difference between this and "proper" type declaration is that the type expression hierarchy
+            // is not processed under the lexical context of its type declaration.
+            this->typeExprNode->symbol_table_pass(this->context(), TXD_PUBLIC, declaredEntity);
             return TxTypeBinding(param.param_name(), this->typeExprNode);
         }
         else {
+            ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
             if (param.meta_type() != param.TXB_VALUE)
-                parser_error(this->parseLocation, "Provided a TYPE argument to VALUE parameter %s", pname.c_str());
+                cerror("Provided a TYPE argument to VALUE parameter %s", pname.c_str());
             auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, pname, this->valueExprNode);
             this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_STATIC, fieldDef);
             this->fieldDeclNode->symbol_table_pass(this->context());
@@ -67,9 +69,9 @@ public:
 //    }
 
     virtual void semantic_pass() {
-        ASSERT(this->typeDeclNode || this->fieldDeclNode, "make_binding() has not been invoked on type argument " << this);
-        if (this->typeDeclNode)
-            this->typeDeclNode->semantic_pass();
+        ASSERT(this->bound, "make_binding() has not been invoked on type argument " << this);
+        if (this->typeExprNode)
+            this->typeExprNode->semantic_pass();
         else
             this->fieldDeclNode->semantic_pass();
     }
@@ -77,7 +79,26 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
-/** Represents a specialization of a generic type - binding one or more type parameters of a predefined, generic type. */
+/** Represents a specialization of a generic type - binding one or more type parameters of a predefined, generic type.
+ *
+ * Note on generic capability:
+
+type Abstr<E,C> { ... }
+
+## we shall propably not allow *extension* of generic parameters:
+type Field<E,C,V derives Abstr,L> derives Array<V<E,C>,L> {
+    ## array elements are Abstr derivations stored by value
+}
+
+## Allowing this would probably require major redesign
+## of the TxType specialization hierarchy.
+
+## the closest we can support is:
+type Field<E,C,L> derives Array<Ref<Abstr<E,C>>,L> {
+    ## array elements are Abstr derivations stored by reference
+}
+
+ */
 class TxSpecializedTypeNode : public TxPredefinedTypeNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
@@ -92,26 +113,27 @@ public:
     const std::vector<TxTypeArgumentNode*>* const typeArgs;
 
     TxSpecializedTypeNode(const yy::location& parseLocation, const TxIdentifierNode* identifier,
-                          const std::vector<TxTypeArgumentNode*>* typeParams)
-            : TxPredefinedTypeNode(parseLocation), identNode(identifier), typeArgs(typeParams)  {
-        ASSERT(! this->typeArgs->empty(), "No type parameters specified");
+                          const std::vector<TxTypeArgumentNode*>* typeArgs)
+            : TxPredefinedTypeNode(parseLocation), identNode(identifier), typeArgs(typeArgs)  {
+        ASSERT(! this->typeArgs->empty(), "No generic type arguments specified");
     }
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        auto baseTypeEntity = this->context().scope()->lookup_type(this->identNode->ident);
+        auto baseTypeEntity = this->context().scope()->resolve_type(this->identNode->ident);
         if (! baseTypeEntity) {
             if (errorMsg)
                 errorMsg->append("Unknown type: " + this->identNode->ident.to_string() + " (from " + this->context().scope()->to_string() + ")");
             return nullptr;
         }
         auto baseType = baseTypeEntity->get_type();
-        if (baseType->type_params().size() != this->typeArgs->size()) {
-            parser_error(this->parseLocation, "Incorrect number of type parameters specified for type %s", identNode->ident.to_string().c_str());
+        if (baseType->type_params().size() < this->typeArgs->size()) {
+            cerror("Too many generic type arguments specified for type %s", identNode->ident.to_string().c_str());
             return nullptr;
         }
         std::vector<TxTypeBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
-        for (TxTypeParam tp : baseType->type_params()) {
-            bindings.push_back(this->typeArgs->at(bindings.size())->make_binding(baseTypeEntity, tp));
+        for (int i = 0; i < this->typeArgs->size(); i++) {
+            //for (TxTypeParam tp : baseType->type_params()) {
+            bindings.push_back(this->typeArgs->at(i)->make_binding(baseTypeEntity, baseType->type_params().at(i)));
         }
         TxTypeSpecialization specialization(baseType, bindings);
         return this->types().get_type_specialization(this->get_entity(), specialization, false, this->declTypeParams, errorMsg);
@@ -119,7 +141,7 @@ public:
 
     virtual void semantic_pass() override {
         if (! this->get_type())
-            parser_error(this->parseLocation, "Unknown type or incorrect type parameters: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
+            cerror("Unknown type or incorrect generic type arguments: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
         for (TxTypeArgumentNode* ta : *this->typeArgs)
             ta->semantic_pass();
     }
@@ -144,16 +166,25 @@ public:
     virtual TxTypeEntity* get_entity() const override {
         if (auto declEnt = TxPredefinedTypeNode::get_entity())
             return declEnt;
-        return const_cast<TxTypeEntity*>(this->context().scope()->lookup_type(this->identNode->ident));
+        return const_cast<TxTypeEntity*>(this->context().scope()->resolve_type(this->identNode->ident));
     }
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        if (auto identifiedEntity = this->context().scope()->lookup_type(this->identNode->ident)) {
+        if (auto identifiedEntity = this->context().scope()->resolve_type(this->identNode->ident)) {
             auto identifiedType = identifiedEntity->get_type();
             if (auto declEnt = TxPredefinedTypeNode::get_entity()) {
                 ASSERT(!declTypeParams || declTypeParams->empty(), "declTypeParams can't be set for 'empty' specialization: " << *this);
-                return this->types().get_type_specialization(declEnt, TxTypeSpecialization(identifiedType),
-                                                             false, this->declTypeParams, errorMsg);
+                if (identifiedEntity->get_decl_flags() & TXD_GENPARAM) {
+                    // let this entity be an alias for the generic type parameter (no unique type is created)
+                    LOGGER().debug("%s: Declaring '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(), this->identNode->ident.to_string().c_str(), identifiedEntity->to_string().c_str());
+                    declEnt->set_alias();
+                    return identifiedType;
+                }
+                else {
+                    // create empty specialization (uniquely named but identical type)
+                    return this->types().get_type_specialization(declEnt, TxTypeSpecialization(identifiedType),
+                                                                 false, this->declTypeParams, errorMsg);
+                }
             }
             else
                 return identifiedType;
@@ -165,7 +196,7 @@ public:
 
     virtual void semantic_pass() {
         if (! this->get_entity())
-            parser_error(this->parseLocation, "Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
+            cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const { return nullptr; }
@@ -176,7 +207,6 @@ public:
 class TxReferenceTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-        //std::string basename = "$T"; //this->get_entity()->get_name() + "$T";
         this->targetType->symbol_table_pass(lexContext, declFlags);
     }
 
@@ -199,7 +229,6 @@ public:
 class TxArrayTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-        //std::string basename = "$E"; //this->get_entity()->get_name() + "$E";
         this->elementType->symbol_table_pass(lexContext, declFlags);
         if (this->lengthExpr)
             this->lengthExpr->symbol_table_pass(lexContext);
@@ -225,7 +254,7 @@ public:
         if (this->lengthExpr) {
             this->lengthExpr->semantic_pass();
             if (! this->lengthExpr->is_statically_constant())
-                parser_error(this->parseLocation, "Non-constant array length specifier not yet supported.");
+                cerror("Non-constant array length specifier not yet supported.");
         }
     }
 
@@ -235,6 +264,7 @@ public:
 class TxDerivedTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
+        //LexicalContext derivedTypeContext(declScope);
         {
             //LexicalContext parentContext(lexContext.scope()->get_parent());
             //std::string basename = "$base"; //this->get_entity()->get_name() + "$base";
@@ -400,7 +430,7 @@ public:
                 if (errorMsg)
                     errorMsg->append("'modifiable' specified more than once for type: " + bType->to_string());
                 else
-                    parser_error(this->parseLocation, "'modifiable' specified more than once for type: %s", bType->to_string().c_str());
+                    cerror("'modifiable' specified more than once for type: %s", bType->to_string().c_str());
                 return bType;
             }
             else if (! bType->is_immutable())
@@ -408,7 +438,7 @@ public:
             else if (errorMsg)
                 errorMsg->append("Can't declare immutable type as modifiable: " + bType->to_string());
             else
-                parser_error(this->parseLocation, "Can't declare immutable type as modifiable: %s", bType->to_string().c_str());
+                cerror("Can't declare immutable type as modifiable: %s", bType->to_string().c_str());
         }
         return nullptr;
     }

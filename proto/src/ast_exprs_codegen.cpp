@@ -34,7 +34,7 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
         return NULL;
 
     // pick field's plain name, if available, for the expression value:
-    const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->ident : "";
+    const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->fieldName : "";
 
     unsigned llvm_op;
     bool int_operands;
@@ -362,7 +362,7 @@ Value* TxFunctionCallNode::code_gen(LlvmGenerationContext& context, GenScope* sc
 
     context.LOG.debug("Creating function call %s", function->getName().str().c_str());
     // pick field's plain name, if available, for the expression value:
-    const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->ident : "";
+    const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->fieldName : "";
     // FIXME: if not in function body, scope may be NULL
     return scope->builder->CreateCall(function, args, fieldName);
 }

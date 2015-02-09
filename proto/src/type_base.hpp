@@ -243,10 +243,10 @@ class TxType : public TxTypeProxy, public Printable {
     /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
     const std::vector<TxTypeParam> typeParams;
 
-protected:
     const TxTypeSpecialization baseTypeSpec;  // including bindings for all type parameters of base type
     const std::vector<TxTypeSpecialization> interfaces;  // FUTURE
 
+protected:
     /** Only to be used for Any type. */
     TxType(const TxTypeEntity* entity) : _entity(entity), typeParams(), baseTypeSpec()  { }
 
@@ -274,11 +274,9 @@ public:
     virtual std::string validate() const;
 
 
-    /** Returns self. */
-    const TxType* get_type() const { return this; }
+    /** Returns self. Implements the TxTypeProxy interface. */
+    virtual const TxType* get_type() const override { return this; }
 
-
-    const TxTypeSpecialization& get_base_type_spec() const { return this->baseTypeSpec; }
 
 
     /*--- type parameter handling ---*/
@@ -287,6 +285,7 @@ public:
     const std::vector<TxTypeParam>& type_params() const {
         if (this->typeParams.empty()) {
             // if this is an 'empty' or 'modifiable' type usage, pass-through the parameters of the base type
+            // (shouldn't need generic base type resolution here)
             if (this->baseTypeSpec.type && this->baseTypeSpec.bindings.empty())
                 return this->baseTypeSpec.type->type_params();
         }
@@ -314,6 +313,9 @@ public:
 
     const TxTypeEntity* explicit_entity() const;
 
+
+    /** Returns true if this type has a base type (parent). (Any is the only type that has no base type.) */
+    inline bool has_base_type() const { return this->baseTypeSpec.type; }
 
     /** Returns true iff this type is a built-in type. */
     bool is_builtin() const;
@@ -400,23 +402,26 @@ public:
 
     // TODO: rework this; merge with namespace lookup?
 private:
-    const TxTypeBinding* resolve_param_binding(// const TxType* specializationType,  // parent entity context
-                                               const std::string& paramName) const {
+    const TxTypeBinding* resolve_param_binding(const std::string& paramName) const {
+        // FIXME: handle fully qualified parameter names (or remove these methods in favor of namespace lookup)
         // note: does not check for transitive modifiability
         if (this->has_type_param(paramName))
             return nullptr;  // type parameter is unbound
-        else if (this->baseTypeSpec.type) {
+        else if (auto baseType = this->get_base_type()) {
             if (this->baseTypeSpec.has_binding(paramName))
                 return &this->baseTypeSpec.get_binding(paramName);
-            return this->baseTypeSpec.type->resolve_param_binding(paramName);
+            return baseType->resolve_param_binding(paramName);
         }
         else
             return nullptr;  // no such type parameter name in type specialization hierarchy
     }
 
 public:
-    const TxTypeProxy* resolve_param_type(// const TxType* specializationType,  // parent entity context
-                                          const std::string& paramName, bool nontransitiveModifiability=false) const {
+    //const TxTypeSpecialization& get_base_type_spec() const { return this->baseTypeSpec; }
+
+    const TxType* get_base_type() const;  // TODO: move to TxTypeSpecialization
+
+    const TxTypeProxy* resolve_param_type(const std::string& paramName, bool nontransitiveModifiability=false) const {
         if (auto binding = this->resolve_param_binding(paramName)) {
             if (binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
                 if (! this->is_modifiable() && ! nontransitiveModifiability)
@@ -429,8 +434,7 @@ public:
         return nullptr;  // no such type parameter name in type specialization hierarchy
     }
 
-    const TxConstantProxy* resolve_param_value(// const TxType* specializationType,  // parent entity context
-                                               const std::string& paramName) const {
+    const TxConstantProxy* resolve_param_value(const std::string& paramName) const {
         if (auto binding = this->resolve_param_binding(paramName)) {
             if (binding->meta_type() == TxTypeParam::MetaType::TXB_VALUE)
                 return &binding->value_proxy();
@@ -442,7 +446,7 @@ public:
 
     // FUTURE: checksum?
 
-    // FUTURE: Should we remove the == != operator overloads in favor of more specificly named comparison methods?
+    // FUTURE: Should we remove the == != operator overloads in favor of more specifically named comparison methods?
 
     /** Returns true iff the two types are equal in the Tuplex language definition sense.
      * Note that named types are non-equal if not same name. */
@@ -485,9 +489,9 @@ public:
     /** Returns the common base type of this and other, if both are pure specializations of it. */
     const TxType* common_generic_base_type(const TxType& other) const {
         if (this->is_pure_specialization())
-            return this->baseTypeSpec.type->common_generic_base_type(other);
+            return this->get_base_type()->common_generic_base_type(other);
         if (other.is_pure_specialization())
-            return this->common_generic_base_type(*other.baseTypeSpec.type);
+            return this->common_generic_base_type(*other.get_base_type());
         if (*this == other)
             return this;
         return nullptr;

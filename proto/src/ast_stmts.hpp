@@ -94,11 +94,11 @@ public:
             if (returnValue)
                 this->expr = validate_wrap_convert(this->expr, returnValue->get_type());
             else
-                parser_error(this->parseLocation, "Return statement has value expression although function has no return type: %s",
+                cerror("Return statement has value expression although function has no return type: %s",
                              this->expr->get_type()->to_string().c_str());
         }
         else if (returnValue)
-            parser_error(this->parseLocation, "Return statement has no value expression although function returns %s",
+            cerror("Return statement has no value expression although function returns %s",
                          returnValue->get_type()->to_string().c_str());
     }
 
@@ -145,7 +145,7 @@ public:
         TxStatementNode* prev_stmt = nullptr;
         for (auto stmt : *this->suite) {
             if (prev_stmt && dynamic_cast<TxTerminalStmtNode*>(prev_stmt))
-                parser_error(stmt->parseLocation, "This statement is unreachable.");
+                stmt->cerror("This statement is unreachable.");
             stmt->semantic_pass();
             prev_stmt = stmt;
         }
@@ -249,14 +249,14 @@ public:
                 return this->types().get_builtin_type(ANY);
             return refType->target_type()->get_type();
         }
-        parser_error(this->parseLocation, "Operand is not a reference and can't be dereferenced: %s", opType->to_string().c_str());
+        cerror("Operand is not a reference and can't be dereferenced: %s", opType->to_string().c_str());
         return nullptr;
     }
 
     virtual void semantic_pass() {
         operand->semantic_pass();
         if (! dynamic_cast<const TxReferenceType*>(this->operand->get_type()))
-            parser_error(this->parseLocation, "Can't de-reference non-reference expression.");
+            cerror("Can't de-reference non-reference expression.");
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -292,7 +292,7 @@ public:
         array->semantic_pass();
         subscript->semantic_pass();
         if (! dynamic_cast<const TxArrayType*>(this->array->get_type()))
-            parser_error(this->parseLocation, "Can't subscript non-array expression.");
+            cerror("Can't subscript non-array expression.");
         subscript = validate_wrap_convert(subscript, this->types().get_builtin_type(LONG));
     }
 
@@ -320,7 +320,7 @@ public:
         if (! ltype)
             return;  // (error message should have been emitted by lvalue node)
         if (! ltype->is_modifiable()) {
-            parser_error(this->parseLocation, "Assignee is not modifiable: %s", ltype->to_string().c_str());
+            cerror("Assignee is not modifiable: %s", ltype->to_string().c_str());
             // Note: If the object as a whole is modifiable, it can be assigned to.
             // If it has any "non-modifiable" members, those will still get overwritten.
             // We could add custom check to prevent that scenario for Arrays, but then

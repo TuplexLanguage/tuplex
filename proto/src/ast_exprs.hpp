@@ -157,7 +157,7 @@ public:
                 return this->types().get_builtin_type(ANY);
             return refType->target_type()->get_type();
         }
-        parser_error(this->parseLocation, "Operand is not a reference and can't be dereferenced: %s", opType->to_string().c_str());
+        cerror("Operand is not a reference and can't be dereferenced: %s", opType->to_string().c_str());
         return nullptr;
     }
 
@@ -168,7 +168,7 @@ public:
     virtual void semantic_pass() {
         reference->semantic_pass();
         if (! dynamic_cast<const TxReferenceType*>(this->reference->get_type()))
-            parser_error(this->parseLocation, "Can't de-reference non-reference expression.");
+            cerror("Can't de-reference non-reference expression.");
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -197,7 +197,7 @@ public:
                 // FUTURE: return constraint type if present
                 return this->types().get_builtin_type(ANY);
         }
-        parser_error(this->parseLocation, "Operand is not an array and can't be subscripted: %s", opType->to_string().c_str());
+        cerror("Operand is not an array and can't be subscripted: %s", opType->to_string().c_str());
         return nullptr;
     }
 
@@ -209,7 +209,7 @@ public:
         array->semantic_pass();
         subscript->semantic_pass();
         if (! dynamic_cast<const TxArrayType*>(this->array->get_type()))
-            parser_error(this->parseLocation, "Can't subscript non-array expression.");
+            cerror("Can't subscript non-array expression.");
         subscript = validate_wrap_convert(subscript, this->types().get_builtin_type(LONG));
     }
 
@@ -253,7 +253,7 @@ public:
         else if (this->target->is_statically_constant()) {
         }
         else
-            parser_error(this->parseLocation, "Can't construct reference to non-addressable expression / rvalue.");
+            cerror("Can't construct reference to non-addressable expression / rvalue.");
         //if (this->get_target_entity()->get_storage() == TXS_NOSTORAGE)
         //    parser_error(this->parseLocation, "Can't construct reference to non-addressable expression.");
     }
@@ -322,12 +322,12 @@ public:
         else if (dynamic_cast<const TxReferenceType*>(ltype)) {
             if (dynamic_cast<const TxReferenceType*>(rtype)) {
                 if (! (this->op == TXOP_EQ || this->op == TXOP_NE))
-                    parser_error(this->parseLocation, "Invalid operator for reference operands: %s", to_cstring(this->op));
+                    cerror("Invalid operator for reference operands: %s", to_cstring(this->op));
                 return;
             }
         }
         if (ltype && rtype)
-            parser_error(this->parseLocation, "Mismatching operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
+            cerror("Mismatching operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -361,7 +361,7 @@ public:
             // TODO: handle unsigned integers
         }
         else
-            parser_error(this->parseLocation, "Operand of unary '-' is not of scalar type: %s", type->to_string().c_str());
+            cerror("Operand of unary '-' is not of scalar type: %s", type->to_string().c_str());
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -416,18 +416,18 @@ public:
         callee->semantic_pass();
         auto calleeType = callee->get_type();
         if (! calleeType) {
-            parser_error(this->parseLocation, "Failed to resolve type of callee in function call expression");
+            cerror("Failed to resolve type of callee in function call expression");
             return;
         }
 
         // verify matching function signature:
         auto funcType = dynamic_cast<const TxFunctionType*>(calleeType);
         if (! funcType) {
-            parser_error(this->parseLocation, "Callee of function call expression is not of function type: %s", calleeType->to_string().c_str());
+            cerror("Callee of function call expression is not of function type: %s", calleeType->to_string().c_str());
             return;
         }
         if (funcType->argumentTypes.size() != this->argsExprList->size()) {
-            parser_error(this->parseLocation, "Callee of function call expression has mismatching argument count: %s", calleeType->to_string().c_str());
+            cerror("Callee of function call expression has mismatching argument count: %s", calleeType->to_string().c_str());
             return;
         }
         if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {

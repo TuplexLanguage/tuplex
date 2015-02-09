@@ -23,14 +23,16 @@ static const BuiltinTypeId SCALAR_TYPE_IDS[] = {
 
 /*--- private classes providing indirection for fetching the built-in type objects ---*/
 
-class TxBuiltinTypeProxy : public TxTypeProxy {
+class TxBuiltinTypeProxy final : public TxTypeDefiner {
 public:
     const std::string name;
     const TxType* type;
 
     TxBuiltinTypeProxy(const std::string name) : name(name), type() { }
+    TxBuiltinTypeProxy(const std::string name, const TxType* type) : name(name), type(type) { }
 
-    const TxType* get_type() const { return this->type; }
+    virtual bool is_type_defined() const override { return this->type; }
+    virtual const TxType* get_type() const override { return this->type; }
 };
 
 
@@ -73,7 +75,7 @@ public:
 
 
 
-class BuiltinTypeRecord : public TxTypeProxy {
+class BuiltinTypeRecord : public TxTypeDefiner {
     const TxType * type;
     const TxTypeEntity * entity;
 public:
@@ -90,7 +92,8 @@ public:
         this->entity = entity;
     }
 
-    const TxType* get_type() const { return this->type; }
+    virtual bool is_type_defined() const override { return this->type; }
+    virtual const TxType* get_type() const override { return this->type; }
     void set_type(const TxType* type) {
         ASSERT(!this->type, "type already set");
         this->type = type;
@@ -229,8 +232,9 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // built-in global constants:
     // FUTURE: implement TRUE and FALSE as enumeration values and/or parser tokens
-    module->declare_field("FALSE", this->builtinTypes[BOOLEAN]->get_type(), TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
-    module->declare_field("TRUE",  this->builtinTypes[BOOLEAN]->get_type(), TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
+    //TxTypeDefiner* BoolTypeDef = new TxBuiltinTypeProxy(this->builtinTypes[BOOLEAN]->get_type());
+    module->declare_field("FALSE", this->builtinTypes[BOOLEAN], TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
+    module->declare_field("TRUE",  this->builtinTypes[BOOLEAN], TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
 
 //    auto charsType = new TxArrayType("tx.Char"); // BUILTIN_TYPES[CHAR].type);
 //    TxBuiltinTypeDefiner* charsProd = new TxBuiltinTypeDefiner("CharArray", charsType);
@@ -273,6 +277,13 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeEntity* newEntit
     // Note: type specialization is never applied to a modifiable-specialization (legal only on generic base type)
     ASSERT(!specialization.type->is_modifiable(), "Can't specialize a 'modifiable' base type: " << specialization);
     ASSERT(!specialization.modifiable, "Can't specify 'modifiable' in a type parameter specialization: " << specialization);
+
+    if (specialization.type->entity() && (specialization.type->entity()->get_decl_flags() & TXD_GENPARAM)) {
+        if (errorMsg)
+            errorMsg->append("Can't derive from generic type parameter " + specialization.type->to_string());
+        return nullptr;
+    }
+
     std::vector<TxTypeParam> unboundParams;
     if (typeParams)
         unboundParams = *typeParams;

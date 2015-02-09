@@ -16,11 +16,6 @@ class TxPackage;
 class TxParsingUnitNode;
 
 
-// until we have injected error tracking into the driver instance:
-extern int error_count;
-extern void parser_error(const yy::location& parseLocation, char const *fmt, ...);
-
-
 /** Represents Tuplex compilation run-time options. */
 class TxOptions {
 public:
@@ -43,6 +38,9 @@ class TxDriver {
 
     const TxOptions options;
     TxPackage * const package;
+
+    int error_count = 0;
+    int warning_count = 0;
 
     /** used for parse error messages */
     std::string* currentInputFilename = nullptr;
@@ -73,6 +71,10 @@ class TxDriver {
      */
     void add_source_file(const TxIdentifier& moduleName, const std::string &filePath);
 
+    void emit_comp_message(char const *msg);
+    void emit_comp_error(char const *msg);
+    void emit_comp_warning(char const *msg);
+
 public:
     /** currently set directly by parser */
     TxParsingUnitNode* parsingUnit = nullptr;
@@ -100,9 +102,13 @@ public:
     std::string* current_input_filepath();
 
 
-    // Error handling.
-    void error(const yy::location& l, const std::string& m);
-    void error(const std::string& m);
+    // Compilation message handling.
+    void cerror(const yy::location& loc, char const *fmt, ...);
+    void cerror(const yy::location& loc, const std::string& msg);
+    void cerror(const std::string& msg);
+    void cwarning(const yy::location& loc, char const *fmt, ...);
+    void cwarning(const yy::location& loc, const std::string& msg);
+    void cwarning(const std::string& msg);
 };
 
 

@@ -194,13 +194,13 @@ TxDistinctEntity* TxSymbolScope::declare_entity(TxDistinctEntity* entity) {
     return nullptr;
 }
 
-TxTypeEntity* TxSymbolScope::declare_type(const std::string& plainName, const TxTypeProxy* typeDefiner,
+TxTypeEntity* TxSymbolScope::declare_type(const std::string& plainName, const TxTypeDefiner* typeDefiner,
                                           TxDeclarationFlags modifiers) {
     auto entity = new TxTypeEntity(this, plainName, typeDefiner, modifiers);
     return dynamic_cast<TxTypeEntity*>(this->declare_entity(entity));
 }
 
-TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, const TxTypeProxy* typeDefiner,
+TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, const TxTypeDefiner* typeDefiner,
                                             TxDeclarationFlags modifiers, TxFieldStorage storage,
                                             const TxIdentifier& dataspace) {
     //const TxScope* parentScope = (storage == TXS_STACK && !suppressSubscope) ? this->enterScope() : this;
@@ -211,6 +211,13 @@ TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, const 
 
 
 /*--- symbol table lookup ---*/
+
+const TxSymbolScope* TxSymbolScope::resolve_symbol(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
+    auto symbol = this->lookup_symbol(path, ident);
+    // TODO: implement visibility check
+    return symbol;
+}
+
 
 const TxSymbolScope* TxSymbolScope::lookup_symbol(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
     if (auto symbol = this->lookup_member(path, ident)) {
@@ -228,7 +235,7 @@ const TxSymbolScope* TxSymbolScope::lookup_symbol(std::vector<const TxSymbolScop
 
 const TxSymbolScope* TxSymbolScope::lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
     auto memberName = ident.segment(0);
-    //std::cout << "Looking up member " << head << " in " << this << std::endl;
+    //std::cout << "Looking up member " << memberName << " in " << this << std::endl;
     if (auto member = this->get_symbol(memberName)) {
         path.push_back(member);
         if (ident.is_plain())
@@ -240,9 +247,9 @@ const TxSymbolScope* TxSymbolScope::lookup_member(std::vector<const TxSymbolScop
 }
 
 
-const TxTypeEntity* TxSymbolScope::lookup_type(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
-    // TODO: check visibility
-    auto symbol = this->lookup_symbol(path, ident);
+
+const TxTypeEntity* TxSymbolScope::resolve_type(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
+    auto symbol = this->resolve_symbol(path, ident);
     if (! symbol)
         return nullptr;
     else if (auto typeEnt = dynamic_cast<const TxTypeEntity*>(symbol))
@@ -257,17 +264,16 @@ const TxTypeEntity* TxSymbolScope::lookup_type(std::vector<const TxSymbolScope*>
 
 const TxFieldEntity* TxSymbolScope::resolve_field(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident,
                                                   const std::vector<const TxType*>* typeParameters) const {
-    // TODO: check visibility
-    const TxSymbolScope* symbol = this->lookup_symbol(path, ident);
+    const TxSymbolScope* symbol = this->resolve_symbol(path, ident);
     if (! symbol)
         return nullptr;
-    const TxFieldEntity* field = this->resolve_field(symbol, typeParameters);
+    const TxFieldEntity* field = this->resolve_symbol_as_field(symbol, typeParameters);
     if (field && path.back() != field)
         path[path.size()-1] = field;
     return field;
 }
 
-const TxFieldEntity* TxSymbolScope::resolve_field(const TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters) const {
+const TxFieldEntity* TxSymbolScope::resolve_symbol_as_field(const TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters) const {
     if (auto fieldEnt = dynamic_cast<const TxFieldEntity*>(symbol)) {
         // if (typeParameters)  TODO: if type parameters specified, verify that they match
         return fieldEnt;
@@ -317,6 +323,8 @@ const TxFieldEntity* TxSymbolScope::resolve_field(const TxSymbolScope* symbol, c
 
 
 bool TxSymbolScope::prepare_symbol_table() {
+    if (!this->fullName.begins_with(BUILTIN_NS))
+        this->LOGGER().debug("Preparing symbol %s", this->fullName.to_string().c_str());
     bool valid = this->prepare_symbol();
     for (auto entry : this->symbols) {
         valid &= entry.second->prepare_symbol_table();
@@ -354,9 +362,9 @@ void TxSymbolScope::dump_symbols() const {
                 printf("%-64s %s\n", symbol->to_string().c_str(), typestr.c_str());
             }
             else if (dynamic_cast<const TxOverloadedEntity*>(symbol))
-                printf("<overloaded>   %s\n", symbol->get_full_name().to_string().c_str());
+                printf("<overloaded>    %s\n", symbol->get_full_name().to_string().c_str());
             else
-                printf("<scope>        %s\n", symbol->to_string().c_str());
+                printf("<scope>         %s\n", symbol->to_string().c_str());
             symbol->dump_symbols();
         }
     }

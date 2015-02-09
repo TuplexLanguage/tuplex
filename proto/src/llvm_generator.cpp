@@ -126,7 +126,7 @@ llvm::Value* LlvmGenerationContext::lookup_llvm_value(const std::string& identif
 
 const TxType* LlvmGenerationContext::lookup_builtin(const std::string& name) {
     static TxIdentifier nsIdent(BUILTIN_NS);
-    return this->tuplexContext.lookup_type(TxIdentifier(nsIdent, name))->get_type();
+    return this->tuplexPackage.resolve_type(TxIdentifier(nsIdent, name))->get_type();
 }
 
 void LlvmGenerationContext::initialize_builtin_types() {
@@ -162,7 +162,7 @@ void LlvmGenerationContext::initialize_builtin_types() {
 
     // test adding static field to types:
     for (int id = 0; id < BuiltinTypeId_COUNT; id++) {
-        auto txType = this->tuplexContext.types().get_builtin_type((BuiltinTypeId)id);
+        auto txType = this->tuplexPackage.types().get_builtin_type((BuiltinTypeId)id);
         auto name = txType->entity()->get_full_name().to_string() + ".typeid";
         auto value = llvm::ConstantInt::get(llvm::Type::getInt16Ty(this->llvmContext), id, false);
         llvm::Value* member = new llvm::GlobalVariable(this->llvmModule, value->getType(), true,
@@ -311,7 +311,7 @@ llvm::Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
     ASSERT(txType, "NULL txType provided to getLlvmType()");
     if (txType->is_virtual_specialization())
         // same data type as base type
-        return get_llvm_type(txType->get_base_type_spec().type);
+        return get_llvm_type(txType->get_base_type());
 
     auto iter = this->llvmTypeMapping.find(txType);
     if (iter != this->llvmTypeMapping.end()) {

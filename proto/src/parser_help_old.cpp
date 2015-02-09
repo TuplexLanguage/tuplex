@@ -17,7 +17,7 @@ void yyerror(char const *msg) {
 }
 */
 
-void parser_error(const yy::location& parseLocation, char const *fmt, ...) {
+void cerror(const yy::location& parseLocation, char const *fmt, ...) {
     error_count++;
     if (! LOG)
         LOG = &Logger::get("PARSER");

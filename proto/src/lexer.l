@@ -168,23 +168,23 @@ extern "C" int yywrap() { return 0; }
 "builtin"	{ return token::KW_BUILTIN; }  // reserved but not currently used
 
  /* literals */
-{L}({L}|{D})*           { yylval->build(std::string (yytext)); return token::NAME; }
+{L}({L}|{D}|"#")*       { yylval->build(std::string (yytext)); return token::NAME; }
                         /* return yy::TxParser::make_NAME(std::string(yytext), loc); */
 
-{B}{H}+{IS}?		{ yylval->build(std::string (yytext)); return token::LIT_INTEGER; }  // bases 2-16
-{D}({D}|"_")*{IS}?	{ yylval->build(std::string (yytext)); return token::LIT_INTEGER; }
+{B}{H}+{IS}?		    { yylval->build(std::string (yytext)); return token::LIT_INTEGER; }  // bases 2-16
+{D}({D}|"_")*{IS}?	    { yylval->build(std::string (yytext)); return token::LIT_INTEGER; }
 
-{D}+{E}{FS}?		{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
+{D}+{E}{FS}?		    { yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
 {D}*"."{D}+({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
 {D}+"."{D}*({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
 
 '(\\.|[^\\'])'	        { yylval->build(std::string (yytext)); return token::LIT_CHARACTER; }
 
-\"(\\.|[^\\"])*\"	 { yylval->build(std::string (yytext)); return token::LIT_STRING; }
-c\"(\\.|[^\\"])*\"   { yylval->build(std::string (yytext)); return token::LIT_CSTRING; }
+\"(\\.|[^\\"])*\"	    { yylval->build(std::string (yytext)); return token::LIT_STRING; }
+c\"(\\.|[^\\"])*\"      { yylval->build(std::string (yytext)); return token::LIT_CSTRING; }
 
 
-.                       { driver.error (*yylloc, "invalid character");
+.                       { driver.cerror (*yylloc, "invalid character");
                           yyterminate(); }
 
 %%

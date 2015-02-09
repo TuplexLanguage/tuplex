@@ -147,7 +147,7 @@ int TxDriver::compile() {
 bool TxDriver::validate_module_name(const TxIdentifier& moduleName) {
     if (moduleName.to_string() == LOCAL_NS) {
         if (! this->parsedSourceFiles.empty()) {
-            this->error("Only the first source file may have unspecified module name (implicit module " + std::string(LOCAL_NS) + ")");
+            this->cerror("Only the first source file may have unspecified module name (implicit module " + std::string(LOCAL_NS) + ")");
             return false;
         }
     }
@@ -155,7 +155,7 @@ bool TxDriver::validate_module_name(const TxIdentifier& moduleName) {
         ASSERT(moduleName.to_string().find_first_of('$') == std::string::npos, "Explicit module name can't contain '$': " << moduleName);
     auto res = moduleName.begins_with(this->sourceFileQueue.front().first);
     if (! res)
-        this->error("Source contains module '" + moduleName.to_string() + "', not '"
+        this->cerror("Source contains module '" + moduleName.to_string() + "', not '"
                     + this->sourceFileQueue.front().first.to_string() + "' as expected.");
     return res;
 }
@@ -272,43 +272,76 @@ int TxDriver::llvm_compile() {
 }
 
 
-void TxDriver::error(const yy::location& l, const std::string& m) {
-    //std::cerr << l << ": " << m << std::endl;
-    parser_error(l, "%s", m.c_str());
+
+static Logger* PLOG; // = Logger::get("PARSER");
+
+void TxDriver::emit_comp_message(char const *msg) {
+    if (! PLOG)
+        PLOG = &Logger::get("PARSER");
+    PLOG->error("%s", msg);
 }
 
-void TxDriver::error(const std::string& m)
-{
-    //std::cerr << m << std::endl;
-    parser_error(yy::location(NULL, 0, 0), "%s", m.c_str());
-}
-
-
-
-static Logger* LOG; // = Logger::get("PARSER");
-
-int error_count = 0;
-
-void parser_error(const yy::location& parseLocation, char const *fmt, ...) {
+void TxDriver::emit_comp_error(char const *msg) {
     error_count++;
-    if (! LOG)
-        LOG = &Logger::get("PARSER");
+    emit_comp_message(msg);
+}
 
-    va_list ap;
-    va_start(ap, fmt);
-    char buf[256];
-    vsnprintf(buf, 256, fmt, ap);
-    va_end(ap);
+void TxDriver::emit_comp_warning(char const *msg) {
+    warning_count++;
+    emit_comp_message(msg);
+}
 
+
+static void format_location_message(char *buf, size_t bufSize, const yy::location& parseLocation, char const *msg) {
     auto filename = parseLocation.begin.filename ? parseLocation.begin.filename->c_str() : "";
-    // (if the error is unexpected token and it is SEP, lineno may be 1 too high)
     if (parseLocation.begin.line == parseLocation.end.line) {
         int lcol = (parseLocation.end.column > parseLocation.begin.column) ? parseLocation.end.column-1 : parseLocation.end.column;
-        LOG->error("%s %d.%d-%d: %s", filename,
-                   parseLocation.begin.line, parseLocation.begin.column, lcol, buf);
+        snprintf(buf, bufSize, "%s %d.%d-%d: %s", filename,
+                 parseLocation.begin.line, parseLocation.begin.column, lcol, msg);
     }
     else
-        LOG->error("%s %d.%d-%d.%d: %s", filename,
-                   parseLocation.begin.line, parseLocation.begin.column,
-                   parseLocation.end.line, parseLocation.end.column-1, buf);
+        snprintf(buf, bufSize, "%s %d.%d-%d.%d: %s", filename,
+                 parseLocation.begin.line, parseLocation.begin.column,
+                 parseLocation.end.line, parseLocation.end.column-1, msg);
+}
+
+
+void TxDriver::cerror(const yy::location& loc, char const *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    char buf[512];
+    vsnprintf(buf, 512, fmt, ap);
+    va_end(ap);
+    cerror(loc, std::string(buf));
+}
+
+void TxDriver::cerror(const yy::location& loc, const std::string& msg) {
+    char buf[512];
+    format_location_message(buf, 512, loc, msg.c_str());
+    emit_comp_error(buf);
+}
+
+void TxDriver::cerror(const std::string& msg)
+{
+    cerror(yy::location(NULL, 0, 0), "%s", msg.c_str());
+}
+
+void TxDriver::cwarning(const yy::location& loc, char const *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    char buf[512];
+    vsnprintf(buf, 512, fmt, ap);
+    va_end(ap);
+    cwarning(loc, std::string(buf));
+}
+
+void TxDriver::cwarning(const yy::location& loc, const std::string& msg) {
+    char buf[512];
+    format_location_message(buf, 512, loc, msg.c_str());
+    emit_comp_warning(buf);
+}
+
+void TxDriver::cwarning(const std::string& msg)
+{
+    cwarning(yy::location(NULL, 0, 0), "%s", msg.c_str());
 }

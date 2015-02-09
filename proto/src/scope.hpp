@@ -16,6 +16,15 @@ class TxTypeEntity;
 enum TxFieldStorage : int;
 
 
+class TxTypeDefiner : public TxTypeProxy {
+public:
+    /** Returns true if this type definer "is ready" - has a defined type.
+     * If this method returns false, calls to TxTypeProxy::get_type() have undefined results.
+     */
+    virtual bool is_type_defined() const = 0;
+};
+
+
 /** Represents a Tuplex symbol and namespace/scope.
  * For example package (global namespace), modules, entities, code blocks.
  * A symbol has a unique qualified name, a parent scope (unless root),
@@ -133,17 +142,26 @@ public:
 
     /*--- symbol table handling  ---*/
 
-    virtual TxTypeEntity*  declare_type( const std::string& plainName, const TxTypeProxy* typeDefiner,
+    virtual TxTypeEntity*  declare_type( const std::string& plainName, const TxTypeDefiner* typeDefiner,
                                          TxDeclarationFlags modifiers);
-    virtual TxFieldEntity* declare_field(const std::string& plainName, const TxTypeProxy* typeDefiner,
+    virtual TxFieldEntity* declare_field(const std::string& plainName, const TxTypeDefiner* typeDefiner,
                                          TxDeclarationFlags modifiers, TxFieldStorage storage,
                                          const TxIdentifier& dataspace);
 
 
-    /** Looks up a symbol via this scope.
+    /** experimental */
+    virtual const TxSymbolScope* resolve_generic(const TxSymbolScope* vantageScope) const { return this; }
+    virtual bool is_alias() const { return false; }
+    virtual const TxIdentifier* get_alias() const { return nullptr; }
+
+
+    /** Resolves a symbol from the vantage point of this scope.
      * This is the main symbol lookup entry point and implements the language's
      * namespace lookup and visibility rules.
      */
+    virtual const TxSymbolScope* resolve_symbol(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
+
+    /** Looks up a symbol via this scope. */
     virtual const TxSymbolScope* lookup_symbol(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
 
     /** Performs a downward lookup of the a member, member's member, and so on, within this symbol scope.
@@ -153,28 +171,29 @@ public:
      */
     virtual const TxSymbolScope* lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
 
+
     /** Wrapper around lookup_symbol that only matches against type symbols.
      * (This implicitly handles overloaded symbols since no more than a single type can be assigned
      * to a given symbol.)
      */
-    virtual const TxTypeEntity*  lookup_type  (std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
-    inline const TxTypeEntity* lookup_type(const TxIdentifier& ident) const {
-        std::vector<const TxSymbolScope*> tmp;  return this->lookup_type(tmp, ident);
+    const TxTypeEntity* resolve_type(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
+    inline const TxTypeEntity* resolve_type(const TxIdentifier& ident) const {
+        std::vector<const TxSymbolScope*> tmp;  return this->resolve_type(tmp, ident);
     }
 
     /** Wrapper around lookup_symbol that only matches against field symbols.
      * It also implements the language's field symbol overloading capability;
      * type parameters must be provided in order to resolve an overloaded symbol.
      */
-    virtual const TxFieldEntity* resolve_field(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident,
-                                               const std::vector<const TxType*>* typeParameters = nullptr) const;
+    const TxFieldEntity* resolve_field(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident,
+                                       const std::vector<const TxType*>* typeParameters = nullptr) const;
     inline const TxFieldEntity* resolve_field(const TxIdentifier& ident,
                                               const std::vector<const TxType*>* typeParameters = nullptr) const {
         std::vector<const TxSymbolScope*> tmp;  return this->resolve_field(tmp, ident, typeParameters);
     }
 
     /** Attempts to resolve an identified symbol, that is potentially overloaded, as a field using the provided type parameters. */
-    virtual const TxFieldEntity* resolve_field(const TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters) const;
+    const TxFieldEntity* resolve_symbol_as_field(const TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters) const;
 
 
     inline std::map<const std::string, TxSymbolScope*>::const_iterator symbols_cbegin() const { return this->symbols.cbegin(); }

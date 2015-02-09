@@ -4,8 +4,8 @@
 
 llvm::Value* TxTypeArgumentNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    if (this->typeDeclNode)
-        return this->typeDeclNode->code_gen(context, scope);
+    if (this->typeExprNode)
+        return this->typeExprNode->code_gen(context, scope);
     else
         return this->fieldDeclNode->code_gen(context, scope);
 }
@@ -27,7 +27,8 @@ llvm::Value* TxReferenceTypeNode::code_gen(LlvmGenerationContext& context, GenSc
 
 llvm::Value* TxArrayTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    this->lengthExpr->code_gen(context, scope);
+    if (this->lengthExpr)
+        this->lengthExpr->code_gen(context, scope);
     this->elementType->code_gen(context, scope);
     return nullptr;
 }

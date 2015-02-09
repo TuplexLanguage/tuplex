@@ -35,7 +35,7 @@ public:
                 this->funcTypeNode->arguments->insert(this->funcTypeNode->arguments->begin(), selfArg);
             }
             else
-                parser_error(this->parseLocation, "Method declared outside a type scope: %s", lexContext.scope()->to_string().c_str());
+                cerror("Method declared outside a type scope: %s", lexContext.scope()->to_string().c_str());
         }
 
         std::string funcName = this->fieldDefNode ? this->fieldDefNode->get_entity()->get_name() : "";

@@ -5,7 +5,7 @@
 
 const TxType* TxNonModTypeProxy::get_type() const {
     auto type = wrappedProxy->get_type();
-    return type->is_modifiable() ? type->get_base_type_spec().type : type;
+    return type->is_modifiable() ? type->get_base_type() : type;
 }
 
 
@@ -83,14 +83,15 @@ std::string TxTypeSpecialization::validate() const {
 
 
 std::string TxType::validate() const {
-    if (this->baseTypeSpec.type) {
+    //std::cout << "validating type " << typeid(*this).name() << std::endl;
+    if (auto baseType = this->get_base_type()) {
         auto res = this->baseTypeSpec.validate();
         if (! res.empty())
-            return std::string("Invalid specialization of base type " + baseTypeSpec.type->to_string() + ": " + res);
-        if (baseTypeSpec.modifiable) {
+            return std::string("Invalid specialization of base type " + baseType->to_string() + ": " + res);
+        if (this->baseTypeSpec.modifiable) {
             // verify that this 'modifiable' type usage is a pure specialization
-            if (typeid(*this) != typeid(*baseTypeSpec.type))  // doesn't work? this is always TxType* here
-                return std::string("'modifiable' specialization must have same TxType class as the base type: " + baseTypeSpec.type->to_string());
+            if (typeid(*this) != typeid(*this->baseTypeSpec.type))  // doesn't work? this is always TxType* here
+                return std::string("'modifiable' specialization must have same TxType class as the base type: " + baseType->to_string());
             if (! this->interfaces.empty())
                 return std::string("'modifiable' specialization cannot add any interface base types");
         }
@@ -98,12 +99,15 @@ std::string TxType::validate() const {
             // also validate any anonymous base types (otherwise their validate() won't be called)
             return this->baseTypeSpec.type->validate();
     }
+    // FUTURE: validate interfaces
+    // check that generic interfaces can't be implemented multiple times throughout a type hierarchy,
+    // unless their type arguments are exactly the same
     return std::string();
 }
 
 
 const TxTypeEntity* TxType::explicit_entity() const {
-    if (this->_entity && this->_entity->get_name().find('$') == std::string::npos)
+    if (this->_entity && !(this->_entity->get_decl_flags() & TXD_IMPLICIT))
         return this->_entity;
     return nullptr;
 }
@@ -114,14 +118,14 @@ bool TxType::is_builtin() const {
 
 bool TxType::is_pure_specialization() const {
     return ( this->is_modifiable()
-             || ( this->baseTypeSpec.type && this->interfaces.empty()
+             || ( this->has_base_type() && this->interfaces.empty()
                   && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
                   && typeid(*this) == typeid(*this->baseTypeSpec.type)
                   && !( this->_entity && this->_entity->has_instance_fields() ) ) );
 }
 
 bool TxType::is_empty_specialization() const {
-    return ( this->baseTypeSpec.type && this->interfaces.empty()
+    return ( this->has_base_type() && this->interfaces.empty()
              && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
              && typeid(*this) == typeid(*this->baseTypeSpec.type)
              && this->baseTypeSpec.bindings.empty()
@@ -131,13 +135,20 @@ bool TxType::is_empty_specialization() const {
 
 bool TxType::is_virtual_specialization() const {
     return ( this->is_modifiable()
-             || ( this->baseTypeSpec.type
+             || ( this->has_base_type()
                   && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
                   && typeid(*this) == typeid(*this->baseTypeSpec.type)
                   && ( this->baseTypeSpec.bindings.empty()
                        || std::all_of( this->baseTypeSpec.bindings.cbegin(), this->baseTypeSpec.bindings.cend(),
                                        [](const TxTypeBinding& b) { return b.is_redeclared(); } ) )
                   && !( this->_entity && this->_entity->has_instance_fields() ) ) );
+}
+
+
+const TxType* TxType::get_base_type() const {
+    if (! has_base_type())
+        return nullptr;
+    return this->baseTypeSpec.type;
 }
 
 
@@ -150,8 +161,8 @@ const TxSymbolScope* TxType::lookup_instance_member(std::vector<const TxSymbolSc
 }
 
 const TxSymbolScope* TxType::lookup_inherited_instance_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
-    if (this->baseTypeSpec.type)
-        return this->baseTypeSpec.type->lookup_instance_member(path, ident);
+    if (this->has_base_type())
+        return this->get_base_type()->lookup_instance_member(path, ident);
     // FUTURE: implemented interfaces
     return nullptr;
 }
@@ -165,8 +176,8 @@ const TxSymbolScope* TxType::lookup_member(std::vector<const TxSymbolScope*>& pa
 }
 
 const TxSymbolScope* TxType::lookup_inherited_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
-    if (this->baseTypeSpec.type)
-        return this->baseTypeSpec.type->lookup_member(path, ident);
+    if (this->has_base_type())
+        return this->get_base_type()->lookup_member(path, ident);
     // FUTURE: implemented interfaces
     return nullptr;
 }
@@ -175,13 +186,13 @@ const TxSymbolScope* TxType::lookup_inherited_member(std::vector<const TxSymbolS
 bool TxType::is_a(const TxType& other) const {
     //std::cout << *this << "  IS-A\n" << other << std::endl;
     if (this->is_modifiable())
-        return this->baseTypeSpec.type->is_a(other);
+        return this->get_base_type()->is_a(other);
     if (other.is_modifiable())
-        return this->is_a(*other.baseTypeSpec.type);
+        return this->is_a(*other.get_base_type());
     if (*this == other)
         return true;
     if (other.is_empty_specialization())
-        return this->is_a(*other.baseTypeSpec.type);
+        return this->is_a(*other.get_base_type());
     // check whether other is a more generic version of the same type:
     if (auto genBaseType = this->common_generic_base_type(other)) {
         for (auto & param : genBaseType->type_params()) {
@@ -199,15 +210,15 @@ bool TxType::is_a(const TxType& other) const {
         }
         return true;
     }
-    return (this->baseTypeSpec.type && this->baseTypeSpec.type->inner_is_a(other));
+    return (this->has_base_type() && this->get_base_type()->inner_is_a(other));
 }
 
 bool TxType::inner_is_a(const TxType& other) const {
     // check whether any parent type that this type specializes is-a of the other type:
     if (*this == other)
         return true;
-    if (this->baseTypeSpec.type)
-        if (this->baseTypeSpec.type->inner_is_a(other))
+    if (this->has_base_type())
+        if (this->get_base_type()->inner_is_a(other))
             return true;
     // FUTURE: also check interfaces
     return false;
@@ -234,7 +245,7 @@ void TxType::self_string(std::stringstream& str, bool brief) const {
         if (this->is_generic())
             str << this->type_params_string();
     }
-    else if (this->baseTypeSpec.type) {
+    else if (this->has_base_type()) {
         bool separator = false;
         if (entity) {
             str << entity->get_full_name();

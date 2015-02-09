@@ -45,6 +45,12 @@ protected:
     inline TypeRegistry& types() const {
         return const_cast<TxPackage*>(this->context().package())->types();  // hackish... review type creation approach
     }
+    inline TxDriver& driver() const {
+        return this->context().package()->driver();
+    }
+    inline Logger& LOGGER() const {
+        return this->context().scope()->LOGGER();
+    }
 
 public:
     const yy::location parseLocation;
@@ -53,7 +59,7 @@ public:
 
     virtual ~TxNode() {
         if (this->is_context_set())
-            this->context().scope()->LOGGER().debug("Running destructor of %s", this->to_string().c_str());
+            LOGGER().debug("Running destructor of %s", this->to_string().c_str());
     }
 
     inline bool is_context_set() const { return this->lexContext.scope(); }
@@ -73,21 +79,17 @@ public:
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
 
-    virtual std::string to_string() const {
-        char buf[256];
-        snprintf(buf, 256, "%-28s at %s", typeid(*this).name(), this->parse_loc_string().c_str());
-        return std::string(buf);
-    }
+    virtual std::string to_string() const;
 
-    std::string parse_loc_string() const {
-        char buf[128];
-        if (parseLocation.begin.line == parseLocation.end.line)
-            snprintf(buf, 128, "line %d (columns %d-%d)", parseLocation.begin.line, parseLocation.begin.column, parseLocation.end.column);
-        else
-            snprintf(buf, 128, "lines:columns %d:%d-%d:%d", parseLocation.begin.line, parseLocation.begin.column, parseLocation.end.line, parseLocation.end.column);
-        return std::string(buf);
-    }
+    std::string parse_loc_string() const;
+
+    virtual void cerror(char const *fmt, ...) const;
+    virtual void cwarning(char const *fmt, ...) const;
 };
+
+
+bool validateTypeName(TxNode* node, TxDeclarationFlags declFlags, const std::string& name);
+bool validateFieldName(TxNode* node, TxDeclarationFlags declFlags, const std::string& name);
 
 
 class TxIdentifierNode : public TxNode {
@@ -118,7 +120,7 @@ public:
     virtual void symbol_table_pass(TxModule* module) {
         this->set_context(module);
         if (! identNode->ident.is_qualified())
-            parser_error(this->parseLocation, "can't import unqualified identifier '%s'", identNode->ident.to_string().c_str());
+            cerror("can't import unqualified identifier '%s'", identNode->ident.to_string().c_str());
         module->register_import(identNode->ident);
     }
 
@@ -216,7 +218,8 @@ public:
 };
 
 
-class TxTypeExpressionNode : public TxNode, public TxTypeProxy {
+class TxTypeExpressionNode : public TxNode, public TxTypeDefiner {
+    mutable bool gettingType = false;
     mutable TxType const * cachedType = nullptr;
     TxTypeEntity* declaredEntity = nullptr;  // null until initialized in symbol table pass
 
@@ -235,13 +238,12 @@ public:
 
 
     /** Returns the type entity declared by this type expression node, or NULL if it did not declare a new type entity. */
-    virtual void symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
-                                   TxTypeEntity* declaredEntity = nullptr,
+    virtual void symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags, TxTypeEntity* declaredEntity = nullptr,
                                    const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) {
         // Each node in a type expression has the option of declaring an entity (i.e. creating a name for)
         // any of its constituent type expressions.
-        // Not known yet: If such naming may prevent things like value assignment
-        // (unnamed types mismatching the auto-generated implicit types).
+        //   Not known yet: If such naming may prevent things like value assignment
+        //   (unnamed types mismatching the auto-generated implicit types).
         // Type entities are at minimum needed for:
         //  - explicit type declarations/extensions
         //  - adding members (since members are namespace symbols) - only done in explicit type extensions
@@ -251,29 +253,33 @@ public:
         this->declaredEntity = declaredEntity;
         if (typeParamDecls)
             this->declTypeParams = this->makeTypeParams(typeParamDecls);
-        if (this->declaredEntity) {
-            LexicalContext typeExtensionCtx(this->declaredEntity);
-            this->symbol_table_pass_descendants(typeExtensionCtx, declFlags);
-        }
-        else
-            this->symbol_table_pass_descendants(lexContext, declFlags);
+        this->symbol_table_pass_descendants(lexContext, declFlags);
     }
 
     /** Gets the type entity representing the declaration of this type expression. */
     virtual TxTypeEntity* get_entity() const { return this->declaredEntity; }
 
-    inline virtual const TxType* get_type() const final {
+    virtual bool is_type_defined() const override final {
+        return cachedType;
+    }
+    inline virtual const TxType* get_type() const override final {
         ASSERT(this->is_context_set(), "Can't call get_type() before symbol table pass has completed: "  << this);
         if (! cachedType) {
+            LOGGER().trace("invoking define_type() on %s", this->to_string().c_str());
+            //if (gettingType)
+            //    return this->types().get_builtin_type(ANY);
+            ASSERT(!gettingType, "Recursive invocation of get_type() of " << this);
+            this->gettingType = true;
             std::string errorMsg;
             this->cachedType = this->define_type(&errorMsg);
             if (! cachedType) {
+                this->gettingType = false;
                 if (! errorMsg.empty())
-                    parser_error(this->parseLocation, "%s", errorMsg.c_str());
+                    cerror("%s", errorMsg.c_str());
                 return nullptr;
             }
             if (this->declaredEntity)
-                ASSERT(this->cachedType->entity()==this->declaredEntity,
+                ASSERT(this->cachedType->entity()==this->declaredEntity || this->declaredEntity->is_alias(),
                         "entity " << this->cachedType->entity() << " (of type " << this->cachedType
                         << ") is not same as declared entity " << this->declaredEntity
                         << " (of node " << *this << ")");
@@ -310,7 +316,7 @@ public:
             this->cachedType = this->define_type(&errorMsg);
             if (! cachedType) {
                 if (! errorMsg.empty())
-                    parser_error(this->parseLocation, "%s", errorMsg.c_str());
+                    cerror("%s", errorMsg.c_str());
                 return nullptr;
             }
         }
@@ -351,7 +357,7 @@ TxExpressionNode* validate_wrap_convert(TxExpressionNode* originalExpr, const Tx
 TxExpressionNode* validate_wrap_assignment(TxExpressionNode* rValueExpr, const TxType* requiredType);
 
 
-class TxFieldDefNode : public TxNode, public TxTypeProxy {
+class TxFieldDefNode : public TxNode, public TxTypeDefiner {
     mutable TxType const * cachedType = nullptr;
 
     bool modifiable;  // true if field name explicitly declared modifiable
@@ -372,7 +378,7 @@ protected:
                 else if (fieldType->is_modifiable())
                     // if initialization expression is modifiable type, and modifiable not explicitly specified,
                     // lose modifiable attribute (modifiability must be explicit)
-                    fieldType = fieldType->get_base_type_spec().type;
+                    fieldType = fieldType->get_base_type();
             }
         }
         // note: does not ensure implicit type declaration for field's type if it is not an explicit type
@@ -380,22 +386,22 @@ protected:
     }
 
 public:
-    const std::string ident;
+    const std::string fieldName;
     TxTypeExpressionNode* typeExpression;
     TxExpressionNode* initExpression;
     TxFieldEntity* declaredEntity;  // null until initialized in symbol table pass
 
-    TxFieldDefNode(const yy::location& parseLocation, const std::string& identifier,
+    TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
                    TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression)
-            : TxNode(parseLocation), modifiable(false), ident(identifier), declaredEntity() {
-        ASSERT(!identifier.empty(), "Empty identifier string");
+            : TxNode(parseLocation), modifiable(false), fieldName(fieldName), declaredEntity() {
+        validateFieldName(this, declFlags, fieldName);
         this->typeExpression = typeExpression;
         this->initExpression = initExpression;
     }
-    TxFieldDefNode(const yy::location& parseLocation, const std::string& identifier,
+    TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
                    TxExpressionNode* initExpression, bool modifiable=false)
-            : TxNode(parseLocation), modifiable(modifiable), ident(identifier), declaredEntity() {
-        ASSERT(!identifier.empty(), "Empty identifier string");
+            : TxNode(parseLocation), modifiable(modifiable), fieldName(fieldName), declaredEntity() {
+        validateFieldName(this, declFlags, fieldName);
         this->typeExpression = nullptr;
         this->initExpression = initExpression;
     }
@@ -409,7 +415,7 @@ public:
     void symbol_table_pass_decl_field(LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                       TxFieldStorage storage, const TxIdentifier& dataspace) {
         this->declFlags = declFlags;
-        this->declaredEntity = lexContext.scope()->declare_field(this->ident, this, declFlags, storage, dataspace);
+        this->declaredEntity = lexContext.scope()->declare_field(this->fieldName, this, declFlags, storage, dataspace);
         this->symbol_table_pass(lexContext);
     }
 
@@ -421,8 +427,9 @@ public:
             if (this->typeExpression->directIdentifiedType())
                 this->typeExpression->symbol_table_pass(lexContext, typeDeclFlags);
             else {
-                TxTypeEntity* typeEntity = lexContext.scope()->declare_type(this->ident + "$type", this->typeExpression, typeDeclFlags);
-                this->typeExpression->symbol_table_pass(lexContext, typeDeclFlags, typeEntity);
+                TxTypeEntity* typeEntity = lexContext.scope()->declare_type(this->fieldName + "$type", this->typeExpression, typeDeclFlags);
+                LexicalContext typeCtx(typeEntity ? typeEntity : lexContext.scope());  // (in case declare_type() yields NULL)
+                this->typeExpression->symbol_table_pass(typeCtx, typeDeclFlags, typeEntity);
             }
         }
         if (this->initExpression) {
@@ -436,13 +443,16 @@ public:
         return this->declaredEntity;
     }
 
+    virtual bool is_type_defined() const override final {
+        return cachedType;
+    }
     virtual const TxType* get_type() const override final {
         if (! cachedType) {
             std::string errorMsg;
             this->cachedType = this->define_type(&errorMsg);
             if (! cachedType) {
                 if (! errorMsg.empty())
-                    parser_error(this->parseLocation, "%s", errorMsg.c_str());
+                    cerror("%s", errorMsg.c_str());
                 return nullptr;
             }
         }
@@ -459,18 +469,18 @@ public:
             }
             if (this->get_entity()->is_statically_constant())
                 if (! this->initExpression->is_statically_constant())
-                    parser_error(this->parseLocation, "Non-constant initializer for constant global/static field.");
+                    cerror("Non-constant initializer for constant global/static field.");
         }
         if (auto type = this->get_type())
             if (! type->is_concrete())
-                parser_error(this->parseLocation, "Field type %s is not concrete (size potentially unknown).", type->to_string().c_str());
+                cerror("Field type %s is not concrete (size potentially unknown).", type->to_string().c_str());
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 
     virtual std::string to_string() const {
         char buf[256];
-        snprintf(buf, 256, "%-28s '%s' at %s", typeid(*this).name(), this->ident.c_str(), this->parse_loc_string().c_str());
+        snprintf(buf, 256, "%-28s '%s' at %s", typeid(*this).name(), this->fieldName.c_str(), this->parse_loc_string().c_str());
         return std::string(buf);
     }
 };
@@ -491,7 +501,7 @@ public:
         this->field->semantic_pass();
         if (auto type = this->field->get_type())
             if ((this->field->get_entity()->get_storage() == TXS_GLOBAL) && type->is_modifiable())
-                parser_error(this->parseLocation, "Global fields may not be modifiable: %s", field->ident.c_str());
+                cerror("Global fields may not be modifiable: %s", field->fieldName.c_str());
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -510,6 +520,7 @@ public:
                    TxTypeExpressionNode* typeExpression)
         : TxDeclarationNode(parseLocation, declFlags), //declaredEntity(),
           typeName(typeName), typeParamDecls(typeParamDecls), typeExpression(typeExpression) {
+        validateTypeName(this, declFlags, typeName);
     }
 
     virtual void symbol_table_pass(LexicalContext& lexContext);

@@ -168,7 +168,7 @@ bool TxModule::prepare_symbol() {
     bool valid = TxSymbolScope::prepare_symbol();
     for (auto import : this->registeredImports) {
         if (! this->import_symbol(import)) {
-            this->get_package()->driver().error("Failed to import " + import.to_string());
+            this->get_package()->driver().cerror("Failed to import " + import.to_string());
             valid = false;
         }
     }
