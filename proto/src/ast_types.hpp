@@ -220,9 +220,31 @@ public:
 };
 
 
+/** Common superclass for specializations of the built-in types Ref and Array. */
+class TxBuiltinTypeSpecNode : public TxTypeExpressionNode {
+public:
+    TxBuiltinTypeSpecNode(const yy::location& parseLocation) : TxTypeExpressionNode(parseLocation)  { }
+
+    virtual void symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags, TxTypeEntity* declaredEntity = nullptr,
+                                   const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override {
+        if (! declaredEntity) {
+            // ensure generic type specializations always have a declared type (handles e.g. Ref<Ref<Int>>)
+            std::string typeName = "$type";
+            //printf("%s: Declaring '%s' in '%s' as implicit specialized type\n", this->parse_loc_string().c_str(), typeName.c_str(), lexContext.scope()->get_full_name().to_string().c_str());
+            auto declaredEntity = lexContext.scope()->declare_type(typeName, this, TXD_PUBLIC);
+            if (!declaredEntity)
+                cerror("Failed to declare implicit type %s", typeName.c_str());
+            LexicalContext typeCtx(declaredEntity ? declaredEntity : lexContext.scope());  // (in case declare_type() yields NULL)
+            TxTypeExpressionNode::symbol_table_pass(typeCtx, declFlags, declaredEntity, typeParamDecls);
+        }
+        else
+            TxTypeExpressionNode::symbol_table_pass(lexContext, declFlags, declaredEntity, typeParamDecls);
+    }
+};
+
 /**
  * Custom AST node needed to handle dataspaces. */
-class TxReferenceTypeNode : public TxTypeExpressionNode {
+class TxReferenceTypeNode : public TxBuiltinTypeSpecNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
         this->targetTypeNode->symbol_table_pass(lexContext);
@@ -234,7 +256,7 @@ public:
 
     TxReferenceTypeNode(const yy::location& parseLocation, const TxIdentifierNode* dataspace,
                         TxTypeExpressionNode* targetType)
-        : TxTypeExpressionNode(parseLocation), dataspace(dataspace),
+        : TxBuiltinTypeSpecNode(parseLocation), dataspace(dataspace),
           targetTypeNode(new TxTypeArgumentNode(targetType))  { }
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
@@ -251,7 +273,7 @@ public:
 
 /**
  * Custom AST node needed to provide syntactic sugar for modifiable declaration. */
-class TxArrayTypeNode : public TxTypeExpressionNode {
+class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
 protected:
     virtual void symbol_table_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
         this->elementTypeNode->symbol_table_pass(lexContext);
@@ -264,7 +286,7 @@ public:
     TxTypeArgumentNode* lengthNode;
 
     TxArrayTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* lengthExpr=nullptr)
-        : TxTypeExpressionNode(parseLocation),
+        : TxBuiltinTypeSpecNode(parseLocation),
           elementTypeNode(new TxTypeArgumentNode(elementType)),
           lengthNode(lengthExpr ? new TxTypeArgumentNode(lengthExpr) : nullptr)  { }
 
@@ -291,6 +313,8 @@ public:
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
+
+
 
 class TxDerivedTypeNode : public TxTypeExpressionNode {
 protected:

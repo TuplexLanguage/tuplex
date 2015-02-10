@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "txassert.hpp"
+#include "logging.hpp"
 
 #include "tx_operations.hpp"
 #include "identifier.hpp"
@@ -47,7 +48,11 @@ protected:
         return this->context().package()->driver();
     }
     inline Logger& LOGGER() const {
-        return this->context().scope()->LOGGER();
+        // FUTURE: improve
+        if (this->is_context_set())
+            return this->context().scope()->LOGGER();
+        else
+            return Logger::get("PARSER");
     }
 
 public:
@@ -102,7 +107,7 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const { return nullptr; }
 
     virtual std::string to_string() const {
-        return "'" + this->ident.to_string() + "'";
+        return TxNode::to_string() + " '" + this->ident.to_string() + "'";
     }
 };
 
@@ -217,11 +222,11 @@ public:
 
 
 class TxTypeExpressionNode : public TxNode, public TxTypeDefiner {
-    mutable bool gettingType = false;
+    mutable bool gettingType = false;  // during development - guard against recursive calls to get_type()
     mutable TxType const * cachedType = nullptr;
     TxTypeEntity* declaredEntity = nullptr;  // null until initialized in symbol table pass
 
-    const std::vector<TxTypeParam>* makeTypeParams(const std::vector<TxDeclarationNode*>* typeParamDecls);
+    static const std::vector<TxTypeParam>* makeTypeParams(const std::vector<TxDeclarationNode*>* typeParamDecls);
 
 protected:
     const std::vector<TxTypeParam>* declTypeParams = nullptr;    // null unless set in symbol table pass
@@ -257,21 +262,19 @@ public:
     /** Gets the type entity representing the declaration of this type expression. */
     virtual TxTypeEntity* get_entity() const { return this->declaredEntity; }
 
-    virtual bool is_type_defined() const override final {
-        return cachedType;
+    virtual const TxType* attempt_get_type() const override final {
+        return (gettingType ? nullptr : this->get_type());
     }
     inline virtual const TxType* get_type() const override final {
         ASSERT(this->is_context_set(), "Can't call get_type() before symbol table pass has completed: "  << this);
         if (! cachedType) {
             LOGGER().trace("invoking define_type() on %s", this->to_string().c_str());
-            //if (gettingType)
-            //    return this->types().get_builtin_type(ANY);
             ASSERT(!gettingType, "Recursive invocation of get_type() of " << this);
-            this->gettingType = true;
             std::string errorMsg;
+            this->gettingType = true;
             this->cachedType = this->define_type(&errorMsg);
+            this->gettingType = false;
             if (! cachedType) {
-                this->gettingType = false;
                 if (! errorMsg.empty())
                     cerror("%s", errorMsg.c_str());
                 return nullptr;
@@ -292,6 +295,7 @@ public:
 class TxFieldDefNode;
 
 class TxExpressionNode : public TxNode, public TxTypeProxy, public TxConstantProxy {
+    mutable bool gettingType = false;  // during development - guard against recursive calls to get_type()
     mutable TxType const * cachedType = nullptr;
 protected:
     const std::vector<const TxType*>* appliedFuncArgTypes = nullptr; // injected by expression context if applicable
@@ -309,9 +313,15 @@ public:
 
     /** Returns the type (as specific as can be known) of the value this expression produces. */
     virtual const TxType* get_type() const override final {
+        // (for now) not a strict requirement, these nodes are sometimes added dynamically (e.g. conversions):
+        //ASSERT(this->is_context_set(), "Can't call get_type() before symbol table pass has completed: "  << this);
         if (! cachedType) {
+            //LOGGER().trace("invoking define_type() on %s", this->to_string().c_str());
+            ASSERT(!gettingType, "Recursive invocation of get_type() of " << this);
             std::string errorMsg;
+            this->gettingType = true;
             this->cachedType = this->define_type(&errorMsg);
+            this->gettingType = false;
             if (! cachedType) {
                 if (! errorMsg.empty())
                     cerror("%s", errorMsg.c_str());
@@ -356,6 +366,7 @@ TxExpressionNode* validate_wrap_assignment(TxExpressionNode* rValueExpr, const T
 
 
 class TxFieldDefNode : public TxNode, public TxTypeDefiner {
+    mutable bool gettingType = false;  // during development - guard against recursive calls to get_type()
     mutable TxType const * cachedType = nullptr;
 
     bool modifiable;  // true if field name explicitly declared modifiable
@@ -443,13 +454,18 @@ public:
         return this->declaredEntity;
     }
 
-    virtual bool is_type_defined() const override final {
-        return cachedType;
+    virtual const TxType* attempt_get_type() const override final {
+        return (gettingType ? nullptr : this->get_type());
     }
     virtual const TxType* get_type() const override final {
+        ASSERT(this->is_context_set(), "Can't call get_type() before symbol table pass has completed: "  << this);
         if (! cachedType) {
+            LOGGER().trace("invoking define_type() on %s", this->to_string().c_str());
+            ASSERT(!gettingType, "Recursive invocation of get_type() of " << this);
             std::string errorMsg;
+            this->gettingType = true;
             this->cachedType = this->define_type(&errorMsg);
+            this->gettingType = false;
             if (! cachedType) {
                 if (! errorMsg.empty())
                     cerror("%s", errorMsg.c_str());
@@ -479,9 +495,7 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 
     virtual std::string to_string() const {
-        char buf[256];
-        snprintf(buf, 256, "%-28s '%s' at %s", typeid(*this).name(), this->fieldName.c_str(), this->parse_loc_string().c_str());
-        return std::string(buf);
+        return TxNode::to_string() + " '" + this->fieldName + "'";
     }
 };
 
@@ -518,7 +532,7 @@ public:
     TxTypeDeclNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags,
                    const std::string typeName, const std::vector<TxDeclarationNode*>* typeParamDecls,
                    TxTypeExpressionNode* typeExpression)
-        : TxDeclarationNode(parseLocation, declFlags), //declaredEntity(),
+        : TxDeclarationNode(parseLocation, declFlags),
           typeName(typeName), typeParamDecls(typeParamDecls), typeExpression(typeExpression) {
         validateTypeName(this, declFlags, typeName);
     }

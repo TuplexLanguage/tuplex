@@ -106,8 +106,9 @@ void LlvmGenerationContext::write_bitcode(const std::string& filepath) {
 
 
 void LlvmGenerationContext::register_llvm_value(const std::string& identifier, llvm::Value* val) {
+    if (identifier.compare(0, strlen(BUILTIN_NS), BUILTIN_NS) != 0)
+        this->LOG.debug("Registering LLVM value %s : %s", identifier.c_str(), to_string(val->getType()).c_str());
     //this->LOG.debug("Registering LLVM value %s: %s : %s", identifier.c_str(), to_string(val).c_str(), to_string(val->getType()).c_str());
-    this->LOG.debug("Registering LLVM value %s : %s", identifier.c_str(), to_string(val->getType()).c_str());
     this->llvmSymbolTable.emplace(identifier, val);
 }
 
@@ -241,16 +242,15 @@ public:
     }
 
     virtual void visit(const TxArrayType& txType)  {
-        if (auto e = txType.resolve_param_type("E")) {
+        if (auto e = txType.element_type()) {
             if (llvm::Type* elemType = this->context.get_llvm_type(e->get_type())) {
                 long arrayLen;
-                if (auto len = txType.resolve_param_value("L")) {
+                if (auto len = txType.length()) {
                     // concrete array (specific length)
                     arrayLen = len->get_int_value();
                 }
                 else {
-                    //throw std::logic_error("Generic arrays with unspecified length can't be directly mapped: " + txType.to_string());
-                    // Generic arrays with unspecified length are currently mapped as zero length,
+                    // Generic arrays with unspecified length are mapped as zero length,
                     // so they can be referenced from e.g. references.
                     arrayLen = 0;
                 }
@@ -259,7 +259,7 @@ public:
                     llvm::ArrayType::get(elemType, arrayLen)
                 };
                 this->result = llvm::StructType::get(this->context.llvmContext, llvmMemberTypes);
-                context.LOG.debug("Mapping array type %s", txType.to_string().c_str());
+                context.LOG.debug("Mapping array type %s -> %s", txType.to_string().c_str(), to_string(this->result).c_str());
                 return;
             }
             else
@@ -312,6 +312,12 @@ llvm::Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
     if (txType->is_virtual_specialization())
         // same data type as base type
         return get_llvm_type(txType->get_base_type());
+
+// we currently do map abstract types (e.g. reference targets)
+//    if (! txType->is_concrete()) {
+//        this->LOG.error("Can't map a non-concrete type to an LLVM type: %s", txType->to_string().c_str());
+//        return nullptr;
+//    }
 
     auto iter = this->llvmTypeMapping.find(txType);
     if (iter != this->llvmTypeMapping.end()) {

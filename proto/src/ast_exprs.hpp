@@ -114,25 +114,28 @@ public:
 
 class TxCStringLitNode : public TxExpressionNode {
     const TxIntConstant arrayLength;  // note: array length includes the null terminator
+    TxTypeDeclNode* cstringTypeNode;  // implicit type definer
 public:
     const std::string literal;
     const std::string value;
+
     TxCStringLitNode(const yy::location& parseLocation, const std::string& literal)
-        : TxExpressionNode(parseLocation), arrayLength(literal.length()-2),
+        : TxExpressionNode(parseLocation), arrayLength(literal.length()-2), cstringTypeNode(),
           literal(literal), value(literal, 2, literal.length()-3) { }
     // TODO: properly parse string literal
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
-        this->set_context(lexContext);
-    }
+    virtual void symbol_table_pass(LexicalContext& lexContext);
 
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        const TxType* charType = this->types().get_builtin_type(UBYTE);
-        return this->types().get_array_type(nullptr, charType, &this->arrayLength);
+//        const TxType* charType = this->types().get_builtin_type(UBYTE);
+//        return this->types().get_array_type(nullptr, charType, &this->arrayLength);
+        return this->cstringTypeNode->get_entity()->get_type();
     }
 
     virtual bool is_statically_constant() const { return true; }
-    virtual void semantic_pass() { }
+    virtual void semantic_pass() {
+        this->cstringTypeNode->semantic_pass();
+    }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
@@ -191,7 +194,7 @@ public:
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
         auto opType = this->array->get_type();
         if (auto arrayType = dynamic_cast<const TxArrayType*>(opType)) {
-            if (auto e = arrayType->resolve_param_type("E"))
+            if (auto e = arrayType->element_type())
                 return e->get_type();
             else
                 // FUTURE: return constraint type if present

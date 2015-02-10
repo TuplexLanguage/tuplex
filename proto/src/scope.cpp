@@ -34,30 +34,27 @@ const TxSymbolScope* TxSymbolScope::get_root_scope() const {
 
 
 
-TxSymbolScope* TxSymbolScope::inner_enter_scope(const std::string& baseName, int counter) {
+std::string TxSymbolScope::get_unique_name(const std::string& baseName) const {
     // ensures name is unique under parent scope
     // (don't append numeral if plain name provided and first occurrence)
-    std::string uniqueName = (baseName.length() > 1 && counter == 0) ? baseName : baseName + std::to_string(counter);
-    if (this->has_symbol(uniqueName)) {
-        auto prevField = dynamic_cast<const TxSymbolScope*>(this->get_symbol(uniqueName));
-        if (! prevField)
-            throw std::logic_error("Scope name collision for '" + baseName + "." + uniqueName
-                                   + "' with " + this->get_symbol(uniqueName)->to_string());
-        return inner_enter_scope(baseName, counter+1);
-    }
-    else {
-        TxSymbolScope* scope = new TxSymbolScope(this, uniqueName);
-        bool success = this->declare_symbol(scope);
-        ASSERT(success, "failed to insert duplicate subscope name '" << baseName << "." << uniqueName << "'");
-        return scope;
+    int counter = 0;
+    while (true) {
+        std::string uniqueName = (baseName.length() > 1 && counter == 0) ? baseName : baseName + std::to_string(counter);
+        if (! this->has_symbol(uniqueName))
+            return uniqueName;
+        counter++;
     }
 }
 
+
 TxSymbolScope* TxSymbolScope::create_code_block_scope(const std::string& plainName) {
     std::string baseName = plainName + '$';
-    auto newScope = inner_enter_scope(baseName, 0);
-    this->LOGGER().trace("-->            %s", newScope->get_full_name().to_string().c_str());
-    return newScope;
+    std::string uniqueName = this->get_unique_name(baseName);
+    TxSymbolScope* scope = new TxSymbolScope(this, uniqueName);
+    bool success = this->declare_symbol(scope);
+    ASSERT(success, "failed to insert duplicate subscope name '" << baseName << "." << uniqueName << "'");
+    this->LOGGER().trace("-->            %s", scope->get_full_name().to_string().c_str());
+    return scope;
 }
 
 

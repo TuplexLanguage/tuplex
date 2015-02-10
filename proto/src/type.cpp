@@ -1,6 +1,16 @@
+#include "logging.hpp"
+
 #include "type.hpp"
 #include "ast.hpp"
 #include "entity.hpp"
+
+
+static Logger* LOGGER() {
+    static Logger* LOG; // = Logger::get("PARSER");
+    if (! LOG)
+        LOG = &Logger::get("PARSER");
+    return LOG;
+}
 
 
 const TxType* TxNonModTypeProxy::get_type() const {
@@ -181,6 +191,40 @@ const TxSymbolScope* TxType::lookup_inherited_member(std::vector<const TxSymbolS
     // FUTURE: implemented interfaces
     return nullptr;
 }
+
+
+const TxTypeProxy* TxType::resolve_param_type(const std::string& paramName, bool nontransitiveModifiability) const {
+    if (this->entity()) {
+        std::vector<const TxSymbolScope*> path( { this->entity() } );
+        if (auto typeEntity = dynamic_cast<const TxTypeEntity*>(this->lookup_member(path, paramName))) {
+            if (! this->is_modifiable() && ! nontransitiveModifiability)
+                // non-modifiability transitively applies to TYPE type parameters (NOTE: except for references)
+                return new TxNonModTypeProxy(typeEntity);  // FUTURE: memoize this (also prevents mem leak)
+            else
+                return typeEntity;
+        }
+    }
+    else if (auto binding = this->resolve_param_binding(paramName)) {
+        LOGGER()->debug("Attempting to resolve type parameter '%s' of type that has no entity: %s", paramName.c_str(), this->to_string().c_str());
+        if (binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
+            if (! this->is_modifiable() && ! nontransitiveModifiability)
+                // non-modifiability transitively applies to TYPE type parameters (NOTE: except for references)
+                return new TxNonModTypeProxy(&binding->type_proxy());  // FUTURE: memoize this (also prevents mem leak)
+            else
+                return &binding->type_proxy();
+        }
+    }
+    return nullptr;  // no such type parameter name in type specialization hierarchy
+}
+
+const TxConstantProxy* TxType::resolve_param_value(const std::string& paramName) const {
+    if (auto binding = this->resolve_param_binding(paramName)) {
+        if (binding->meta_type() == TxTypeParam::MetaType::TXB_VALUE)
+            return &binding->value_proxy();
+    }
+    return nullptr;  // no such type parameter name in type specialization hierarchy
+}
+
 
 
 bool TxType::is_a(const TxType& other) const {

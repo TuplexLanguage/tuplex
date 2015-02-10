@@ -39,11 +39,17 @@ public:
                                                  TxTypeParam(TxTypeParam::TXB_VALUE, "L", uintType) } ) ) { }
 
 
-    const TxTypeProxy* element_type() const {
-        return this->resolve_param_type("E");
+    inline const TxTypeProxy* element_type() const {
+        //const TxTypeProxy* etype = this->resolve_param_type("tx#Array#E", true);
+        const TxTypeProxy* etype = this->resolve_param_type("E", true);
+        ASSERT(etype, "NULL element type for array " << this);
+        return etype;
     }
-    const TxConstantProxy* length() const {
-        return this->resolve_param_value("L");
+    inline const TxConstantProxy* length() const {
+        //const TxConstantProxy* len = this->resolve_param_value("tx#Array#L");
+        const TxConstantProxy* len = this->resolve_param_value("L");
+        // FIXME ASSERT(len, "NULL length proxy for array " << this);
+        return len;
     }
 
 
@@ -58,8 +64,8 @@ public:
     virtual bool innerAutoConvertsFrom(const TxType& otherType) const {
         if (const TxArrayType* otherArray = dynamic_cast<const TxArrayType*>(&otherType)) {
             // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
-            if (auto e = this->resolve_param_type("E")) {
-                if (auto otherE = otherArray->resolve_param_type("E")) {
+            if (auto e = this->element_type()) {
+                if (auto otherE = otherArray->element_type()) {
                     // note: is-a test insufficient for array elements, since same concrete type (same size) required
                     if (*e->get_type() != *otherE->get_type())
                         return false;
@@ -67,8 +73,8 @@ public:
                 else
                     return false;  // other has not bound E
             }
-            if (auto len = this->resolve_param_value("L")) {
-                if (auto otherLen = otherArray->resolve_param_value("L")) {
+            if (auto len = this->length()) {
+                if (auto otherLen = otherArray->length()) {
                     if (len->get_int_value() != otherLen->get_int_value())
                         return false;
                 }
@@ -107,8 +113,11 @@ public:
 
 
     /** Returns proxy representing the target type of this reference type, or nullptr if this reference type is generic. */
-    const TxTypeProxy* target_type() const {
-        return this->resolve_param_type("T", true);
+    inline const TxTypeProxy* target_type() const {
+        //const TxTypeProxy* ttype = this->resolve_param_type("tx#Array#T", true);
+        const TxTypeProxy* ttype = this->resolve_param_type("T", true);
+        ASSERT(ttype, "NULL target type for reference " << this);
+        return ttype;
     }
 
     long size() const { return 8; }

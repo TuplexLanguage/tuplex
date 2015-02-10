@@ -1,7 +1,6 @@
 #pragma once
 
 #include <typeinfo>
-//#include <memory>
 #include <vector>
 #include <algorithm>
 #include <cstdlib>
@@ -400,6 +399,9 @@ public:
     virtual const TxSymbolScope* lookup_inherited_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
 
 
+    const TxType* get_base_type() const;  // TODO: move to TxTypeSpecialization
+
+
     // TODO: rework this; merge with namespace lookup?
 private:
     const TxTypeBinding* resolve_param_binding(const std::string& paramName) const {
@@ -416,34 +418,13 @@ private:
             return nullptr;  // no such type parameter name in type specialization hierarchy
     }
 
+protected:
+    const TxTypeProxy* resolve_param_type(const std::string& paramName, bool nontransitiveModifiability=false) const;
+
+    const TxConstantProxy* resolve_param_value(const std::string& paramName) const;
+
+
 public:
-    //const TxTypeSpecialization& get_base_type_spec() const { return this->baseTypeSpec; }
-
-    const TxType* get_base_type() const;  // TODO: move to TxTypeSpecialization
-
-    const TxTypeProxy* resolve_param_type(const std::string& paramName, bool nontransitiveModifiability=false) const {
-        if (auto binding = this->resolve_param_binding(paramName)) {
-            if (binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
-                if (! this->is_modifiable() && ! nontransitiveModifiability)
-                    // non-modifiability transitively applies to TYPE type parameters (NOTE: except for references)
-                    return new TxNonModTypeProxy(&binding->type_proxy());  // FUTURE: memoize this (also prevents mem leak)
-                else
-                    return &binding->type_proxy();
-            }
-        }
-        return nullptr;  // no such type parameter name in type specialization hierarchy
-    }
-
-    const TxConstantProxy* resolve_param_value(const std::string& paramName) const {
-        if (auto binding = this->resolve_param_binding(paramName)) {
-            if (binding->meta_type() == TxTypeParam::MetaType::TXB_VALUE)
-                return &binding->value_proxy();
-        }
-        return nullptr;  // no such type parameter name in type specialization hierarchy
-    }
-
-
-
     // FUTURE: checksum?
 
     // FUTURE: Should we remove the == != operator overloads in favor of more specifically named comparison methods?
@@ -477,10 +458,7 @@ public:
         return this->innerAutoConvertsFrom(other);
     }
 
-private:
-    bool inner_is_a(const TxType& other) const;
 
-public:
     /** Returns true if the provided type is the same as this, or a specialization of this.
      * Note that true does not guarantee assignability, for example modifiability is not taken into account.
      */
@@ -497,11 +475,15 @@ public:
         return nullptr;
     }
 
-    /** Returns true if an instance of this type can be assigned from an instance of the provided type
-     * (without performing any kind of conversion). */
-    virtual bool is_assignable_from(const TxType& someType) const { return (*this) == someType; }
+//    /** Returns true if an instance of this type can be assigned from an instance of the provided type
+//     * (without performing any kind of conversion). */
+//    virtual bool is_assignable_from(const TxType& someType) const { return (*this) == someType; }
+
+private:
+    bool inner_is_a(const TxType& other) const;
 
 
+public:
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 
 

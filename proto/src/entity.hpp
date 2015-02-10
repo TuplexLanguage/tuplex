@@ -69,9 +69,9 @@ public:
 
 /** Represents a single declared source code entity - a field or a type. */
 class TxDistinctEntity : public TxEntity {
-    mutable bool gettingType = false;  // during development - guard against recursive calls to get_type()
     bool alias = false;
 protected:
+    mutable bool gettingType = false;  // during development - guard against recursive calls to get_type()
     TxTypeDefiner const * const typeDefiner;
     const TxDeclarationFlags declFlags;
 
@@ -84,6 +84,17 @@ public:
 
     virtual const TxType* get_type() const override {
         ASSERT(!this->gettingType, "Recursive call to get_type() of " << this->get_full_name());
+//        // ensure parent types are initialized before this one:
+//        for (TxSymbolScope* parent = this->get_parent(); parent; parent = parent->get_parent()) {
+//            if (auto parentEntity = dynamic_cast<TxEntity*>(parent)) {
+//                parentEntity->get_type();
+//                this->LOGGER().debug("Initialized type of parent entity %s", parent->get_full_name().to_string().c_str());
+//                break;
+//            }
+//            //else if (dynamic_cast<TxModule*>(parent))
+//            //    break;
+//        }
+
         this->gettingType = true;
         auto type = this->typeDefiner->get_type();
         this->gettingType = false;
@@ -100,15 +111,17 @@ public:
 
     virtual bool prepare_symbol() override {
         bool valid = TxEntity::prepare_symbol();
-        if (auto type = this->get_type()) {
-            std::string errorMsg = type->validate();
-            if (! errorMsg.empty()) {
-                this->LOGGER().error("%s", errorMsg.c_str());
-                valid = false;
+        if (valid) {
+            if (auto type = this->get_type()) {
+                std::string errorMsg = type->validate();
+                if (! errorMsg.empty()) {
+                    this->LOGGER().error("%s", errorMsg.c_str());
+                    valid = false;
+                }
             }
+            else
+                valid = false;
         }
-        else
-            valid = false;
         return valid;
     }
 };
@@ -390,6 +403,8 @@ public:
     }
 
     virtual bool prepare_symbol() override {
+        // Note: The 'specific' entity instances overloaded here are prepared via their unique'd symbol names,
+        // so we don't prepare them here.
         bool valid = TxEntity::prepare_symbol();
         std::vector<const TxFunctionType*> functionTypes;
         for (auto fieldDeclI = this->fields_cbegin(); fieldDeclI != this->fields_cend(); fieldDeclI++) {

@@ -36,17 +36,17 @@ const TxSymbolScope* TxDistinctEntity::resolve_generic(const TxSymbolScope* vant
     if (this->get_decl_flags() & TXD_GENPARAM) {
         std::string bindingName = this->get_full_name().to_string();
         std::replace(bindingName.begin(), bindingName.end(), '.', '#');
-        //this->LOGGER().trace("Trying to resolve type parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), vantageScope->get_full_name().to_string().c_str());
+        this->LOGGER().trace("Trying to resolve type parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), vantageScope->get_full_name().to_string().c_str());
         if (auto boundSym = vantageScope->resolve_symbol(tmpPath, bindingName)) {
             this->LOGGER().trace("Substituting type parameter %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
             return boundSym->resolve_generic(vantageScope);
         }
-//        else {
-//            this->LOGGER().debug("symbol is unbound type parameter: %s", this->to_string().c_str());
-//        }
+        else {
+            this->LOGGER().trace("symbol is unbound type parameter: %s", this->to_string().c_str());
+        }
     }
     else if (auto alias = this->get_alias()) {
-        //this->LOGGER().trace("Trying to resolve alias %s = %s from %s", this->get_full_name().to_string().c_str(), alias->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
+        this->LOGGER().trace("Trying to resolve alias %s = %s from %s", this->get_full_name().to_string().c_str(), alias->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
         if (auto boundSym = vantageScope->resolve_symbol(tmpPath, *alias)) {
             this->LOGGER().trace("Substituting alias %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
             return boundSym->resolve_generic(vantageScope);
@@ -59,10 +59,14 @@ const TxSymbolScope* TxDistinctEntity::resolve_generic(const TxSymbolScope* vant
 }
 
 const TxSymbolScope* TxTypeEntity::lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
-    // static lookup, so if instance-member, return its type instead
+//    // ensure parent types are initialized before members:
+//    if (!this->gettingType)
+//        this->get_type();
+
     auto memberName = ident.segment(0);
     if (auto member = this->get_symbol(memberName)) {
         if (auto fieldMember = dynamic_cast<const TxFieldEntity*>(member)) {
+            // static lookup, so if instance-member, return its type instead
             if (fieldMember->get_storage() == TXS_INSTANCE) {
                 auto fieldType = fieldMember->get_type();
                 if (fieldType->is_modifiable())
@@ -86,7 +90,7 @@ const TxSymbolScope* TxTypeEntity::lookup_member(std::vector<const TxSymbolScope
             return member->lookup_member(path, TxIdentifier(ident, 1));
     }
 
-    if (this->typeDefiner->is_type_defined()) {
+    if (auto type = this->typeDefiner->attempt_get_type()) {
         // Without the guard this lookup can cause infinite recursion or runtime/assertion errors
         // when run before symbol table pass has completed.
         // The root cause is predef type name lookup is done *from within the scope of the new type being declared*.
@@ -95,7 +99,7 @@ const TxSymbolScope* TxTypeEntity::lookup_member(std::vector<const TxSymbolScope
         // The second T needs to resolve T in the namespace of Sub, but of course the supertypes of Sub
         // aren't defined at that point yet.
         this->LOGGER().trace("Looking up '%s' among inherited members of %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());
-        return this->get_type()->lookup_inherited_member(path, ident);
+        return type->lookup_inherited_member(path, ident);
     }
     else {
         this->LOGGER().trace("Skipping looking up '%s' among inherited members of %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());

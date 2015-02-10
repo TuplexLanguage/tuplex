@@ -31,7 +31,7 @@ public:
     TxBuiltinTypeProxy(const std::string name) : name(name), type() { }
     TxBuiltinTypeProxy(const std::string name, const TxType* type) : name(name), type(type) { }
 
-    virtual bool is_type_defined() const override { return this->type; }
+    virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
 };
 
@@ -92,7 +92,7 @@ public:
         this->entity = entity;
     }
 
-    virtual bool is_type_defined() const override { return this->type; }
+    virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
     void set_type(const TxType* type) {
         ASSERT(!this->type, "type already set");
@@ -183,17 +183,33 @@ void TypeRegistry::initializeBuiltinSymbols() {
     // create the reference base type:
     {
         auto record = new BuiltinTypeRecord( REFERENCE, "Ref" );
-        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        auto typeEntity = module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN );
+        record->set_entity( typeEntity );
         record->set_type( new TxReferenceType(record->get_entity(), this->builtinTypes[ANY]->get_type() ) );
         this->builtinTypes[record->id] = record;
+
+        // create empty specialization for the constraint type (uniquely named but identical type)
+        auto constraintType = this->builtinTypes[ANY]->get_type();
+        TxBuiltinTypeProxy* elemTypeDefiner = new TxBuiltinTypeProxy(this->builtinTypes[ANY]->plainName);
+        auto elemTypeEnt = typeEntity->declare_type( "T", elemTypeDefiner, TXD_PUBLIC | TXD_GENPARAM );
+        elemTypeDefiner->type = constraintType->make_specialized_type(elemTypeEnt, TxTypeSpecialization(constraintType));
     }
 
     // create the array base type:
     {
         auto record = new BuiltinTypeRecord( ARRAY, "Array" );
-        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        auto typeEntity = module->declare_type( record->plainName, record, TXD_PUBLIC | TXD_BUILTIN );
+        record->set_entity( typeEntity );
         record->set_type( new TxArrayType(record->get_entity(), this->builtinTypes[ANY]->get_type(), this->builtinTypes[UINT]->get_type() ) );
         this->builtinTypes[record->id] = record;
+
+        // create empty specialization for the constraint type (uniquely named but identical type)
+        auto constraintType = this->builtinTypes[ANY]->get_type();
+        TxBuiltinTypeProxy* elemTypeDefiner = new TxBuiltinTypeProxy(this->builtinTypes[ANY]->plainName);
+        auto elemTypeEnt = typeEntity->declare_type( "E", elemTypeDefiner, TXD_PUBLIC | TXD_GENPARAM );
+        elemTypeDefiner->type = constraintType->make_specialized_type(elemTypeEnt, TxTypeSpecialization(constraintType));
+
+        typeEntity->declare_field( "L", this->builtinTypes[UINT], TXD_PUBLIC | TXD_STATIC | TXD_GENPARAM, TXS_STATIC, TxIdentifier() );
     }
 
     // create the tuple base type:
@@ -222,11 +238,11 @@ void TypeRegistry::initializeBuiltinSymbols() {
     // scalar conversion constructor function types:
     for (auto fromTypeId : SCALAR_TYPE_IDS) {
         for (auto toTypeId : SCALAR_TYPE_IDS) {
-            TxBuiltinTypeProxy* prod = new TxBuiltinTypeProxy(this->builtinTypes[toTypeId]->plainName);
-            module->declare_field(prod->name, prod, TXD_PUBLIC | TXD_BUILTIN, TXS_STATIC, TxIdentifier(""));
-            prod->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
-                                                             this->builtinTypes[fromTypeId]->get_type(),
-                                                             this->builtinTypes[toTypeId]->get_type());
+            TxBuiltinTypeProxy* typeDefiner = new TxBuiltinTypeProxy(this->builtinTypes[toTypeId]->plainName);
+            module->declare_field(typeDefiner->name, typeDefiner, TXD_PUBLIC | TXD_BUILTIN, TXS_STATIC, TxIdentifier(""));
+            typeDefiner->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
+                                                                    this->builtinTypes[fromTypeId]->get_type(),
+                                                                    this->builtinTypes[toTypeId]->get_type());
         }
     }
 

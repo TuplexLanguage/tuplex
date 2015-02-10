@@ -21,7 +21,7 @@ public:
     /** Returns true if this type definer "is ready" - has a defined type.
      * If this method returns false, calls to TxTypeProxy::get_type() have undefined results.
      */
-    virtual bool is_type_defined() const = 0;
+    virtual const TxType* attempt_get_type() const = 0;
 };
 
 
@@ -83,9 +83,6 @@ private:
     /** Internal vector containing this module's symbol names in insertion order. */
     std::vector<std::string> symbolNames;
 
-
-    TxSymbolScope* inner_enter_scope(const std::string& baseName, int counter);
-
     /** Adds a symbol to this scope's symbol table.
      *  If there was already a symbol with that name, it is replaced with the new one
      *  and the previous one is returned.
@@ -143,6 +140,10 @@ public:
 
     /*--- lexical scope tracking ---*/
 
+    /** Gets a name that is unique in this scope, starting with the provided base-name.
+     * Note, this method does not declare or reserve the returned name. */
+    std::string get_unique_name(const std::string& baseName) const;
+
     TxSymbolScope* create_code_block_scope(const std::string& plainName = "");
 
 
@@ -155,7 +156,6 @@ public:
                                          const TxIdentifier& dataspace);
 
 
-    /** experimental */
     virtual const TxSymbolScope* resolve_generic(const TxSymbolScope* vantageScope) const { return this; }
     virtual bool is_alias() const { return false; }
     virtual const TxIdentifier* get_alias() const { return nullptr; }
