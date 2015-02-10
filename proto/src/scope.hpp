@@ -1,6 +1,6 @@
 #pragma once
 
-#include <map>
+#include <unordered_map>
 
 #include "logging.hpp"
 #include "identifier.hpp"
@@ -63,6 +63,10 @@ public:
  * There is also a purely global and public resolution method, e.g. cross-package / API usage.
  */
 class TxSymbolScope : public Printable {
+public:
+    typedef std::unordered_map<std::string, TxSymbolScope*> SymbolMap;
+
+private:
     // (So far) non-represented symbol categories: DATASPACE
 
     Logger& LOG;
@@ -75,7 +79,9 @@ class TxSymbolScope : public Printable {
     TxIdentifier fullName;
 
     /** This module's symbols. The identifier keys are the fully qualified names of the entities. */
-    std::map<const std::string, TxSymbolScope*> symbols;
+    SymbolMap symbols;
+    /** Internal vector containing this module's symbol names in insertion order. */
+    std::vector<std::string> symbolNames;
 
 
     TxSymbolScope* inner_enter_scope(const std::string& baseName, int counter);
@@ -196,8 +202,8 @@ public:
     const TxFieldEntity* resolve_symbol_as_field(const TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters) const;
 
 
-    inline std::map<const std::string, TxSymbolScope*>::const_iterator symbols_cbegin() const { return this->symbols.cbegin(); }
-    inline std::map<const std::string, TxSymbolScope*>::const_iterator symbols_cend()   const { return this->symbols.cend(); }
+    inline SymbolMap::const_iterator symbols_cbegin() const { return this->symbols.cbegin(); }
+    inline SymbolMap::const_iterator symbols_cend()   const { return this->symbols.cend(); }
 
 
     /*--- validation and debugging ---*/

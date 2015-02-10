@@ -1,7 +1,5 @@
 #pragma once
 
-#include <map>
-
 #include "logging.hpp"
 #include "type_registry.hpp"
 #include "module.hpp"

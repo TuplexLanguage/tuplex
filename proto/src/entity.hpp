@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_map>
+
 #include "txassert.hpp"
 
 #include "tx_lang_defs.hpp"
@@ -172,8 +174,8 @@ class TxTypeEntity : public TxDistinctEntity {
     // FUTURE: overhaul initialization order so mutable no longer needed for data layout
     mutable bool dataLaidOut = false;
     mutable bool startedLayout = false;
-    mutable std::map<const std::string*, int> staticFields;
-    mutable std::map<const std::string*, int> instanceFields;
+    mutable std::unordered_map<const std::string*, int> staticFields;
+    mutable std::unordered_map<const std::string*, int> instanceFields;
     mutable std::vector<const TxType*> staticFieldTypes;
     mutable std::vector<const TxType*> instanceFieldTypes;
 
@@ -230,16 +232,15 @@ public:
             return this->get_type()->lookup_inherited_instance_member(path, ident);
     }
 
-    typedef std::map<const std::string, TxSymbolScope*>::value_type SymPair;
     /** Returns true if this type declares any instance fields. (Does not consider base types' members.) */
     bool has_instance_fields() const {
         // note: this check needs to be shallow - not traverse all type defs - to prevent risk of infinite recursion
         if (! this->dataLaidOut) {
             return std::any_of( this->symbols_cbegin(), this->symbols_cend(),
-                                [](const SymPair & p) { if (auto field = dynamic_cast<TxFieldEntity*>(p.second))
-                                                            return (field->get_storage() == TXS_INSTANCE);
-                                                        return false; } );
-            //this->define_data_layout();
+                                [](const SymbolMap::value_type & p) {
+                                    if (auto field = dynamic_cast<TxFieldEntity*>(p.second))
+                                        return (field->get_storage() == TXS_INSTANCE);
+                                    return false; } );
         }
         return ! this->instanceFieldTypes.empty();
     }

@@ -1,5 +1,5 @@
 #include <cstdio>
-#include <map>
+#include <unordered_map>
 
 #include "logging.hpp"
 
@@ -77,7 +77,7 @@ static const char* LEVEL_COLORS[] = {
 //static const char* bakwht="\e[47m";   // White
 static const char* txtrst="\e[0m";    // Text Reset
 
-static std::map<const std::string, Logger*> loggers;
+static std::unordered_map<std::string, Logger*> loggers;
 
 Logger& Logger::get(const std::string& name) {
     if (loggers.count(name))

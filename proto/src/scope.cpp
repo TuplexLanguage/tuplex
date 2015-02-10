@@ -74,7 +74,10 @@ TxSymbolScope* TxSymbolScope::add_symbol(TxSymbolScope* symbol) {
         result.first->second = symbol;
         return prev;
     }
-    return nullptr;
+    else {
+        this->symbolNames.push_back(symbol->get_name());
+        return nullptr;
+    }
 }
 
 bool TxSymbolScope::has_symbol(const std::string& name) const {
@@ -339,8 +342,8 @@ bool TxSymbolScope::prepare_symbol() {
 void TxSymbolScope::dump_symbols() const {
     const TxIdentifier builtinNamespace(BUILTIN_NS);
     std::vector<const TxModule*> subModules;
-    for (auto entry : this->symbols) {
-        auto symbol = entry.second;
+    for (auto & symName : this->symbolNames) {
+        auto symbol = this->symbols.at(symName);
         if (auto submod = dynamic_cast<const TxModule*>(symbol))
             subModules.push_back(submod);
         else if (this->get_full_name() != builtinNamespace) {

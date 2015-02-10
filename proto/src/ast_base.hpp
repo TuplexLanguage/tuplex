@@ -2,8 +2,6 @@
 
 #include <typeinfo>
 #include <vector>
-#include <stack>
-#include <map>
 
 #include "txassert.hpp"
 

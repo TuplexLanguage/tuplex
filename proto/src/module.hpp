@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include <map>
+#include <unordered_map>
 
 #include "txassert.hpp"
 #include "logging.hpp"
@@ -23,7 +23,7 @@ class TxModule : public TxSymbolScope {
     /** This module's registered imports. */
     std::vector<TxIdentifier> registeredImports;
 	/** This module's imported names. It maps plain names to fully qualified names. */
-    std::map<const std::string, const TxIdentifier> usedNames;
+    std::unordered_map<std::string, const TxIdentifier> usedNames;
 
     void set_declared() {
         ASSERT(!this->declared, "module " << this << " has already been declared");

@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include <deque>
-#include <map>
+#include <unordered_map>
 
 #include "logging.hpp"
 
@@ -49,7 +49,7 @@ class TxDriver {
     std::deque< std::pair<TxIdentifier,std::string> > sourceFileQueue;
     /** The source files already parsed.
      * The value is the top level root node of the AST. */
-    std::map<std::string, TxParsingUnitNode*> parsedSourceFiles;
+    std::unordered_map<std::string, TxParsingUnitNode*> parsedSourceFiles;
 
     // Handling the scanner.
     int scan_begin(const std::string &filePath);

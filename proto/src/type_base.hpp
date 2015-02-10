@@ -1,7 +1,7 @@
 #pragma once
 
-#include <memory>
-#include <map>
+#include <typeinfo>
+//#include <memory>
 #include <vector>
 #include <algorithm>
 #include <cstdlib>
