@@ -1,5 +1,7 @@
 #pragma once
 
+#include "logging.hpp"
+
 #include "type_base.hpp"
 
 
@@ -40,15 +42,18 @@ public:
 
 
     inline const TxTypeProxy* element_type() const {
-        //const TxTypeProxy* etype = this->resolve_param_type("tx#Array#E", true);
-        const TxTypeProxy* etype = this->resolve_param_type("E", true);
-        ASSERT(etype, "NULL element type for array " << this);
+        const TxTypeProxy* etype = this->resolve_param_type("tx#Array#E", true);
+        if (! etype)
+            Logger::get("PARSER").warning("NULL element type for array %s", this->to_string().c_str());
+        //ASSERT(etype, "NULL element type for array " << this);
         return etype;
     }
     inline const TxConstantProxy* length() const {
         //const TxConstantProxy* len = this->resolve_param_value("tx#Array#L");
         const TxConstantProxy* len = this->resolve_param_value("L");
-        // FIXME ASSERT(len, "NULL length proxy for array " << this);
+        if (! len)
+            Logger::get("PARSER").warning("NULL length proxy for array %s", this->to_string().c_str());
+        // ASSERT(len, "NULL length proxy for array " << this);
         return len;
     }
 
@@ -114,9 +119,10 @@ public:
 
     /** Returns proxy representing the target type of this reference type, or nullptr if this reference type is generic. */
     inline const TxTypeProxy* target_type() const {
-        //const TxTypeProxy* ttype = this->resolve_param_type("tx#Array#T", true);
-        const TxTypeProxy* ttype = this->resolve_param_type("T", true);
-        ASSERT(ttype, "NULL target type for reference " << this);
+        const TxTypeProxy* ttype = this->resolve_param_type("tx#Ref#T", true);
+        if (! ttype)
+            Logger::get("PARSER").warning("NULL target type for reference %s", this->to_string().c_str());
+        //ASSERT(ttype, "NULL target type for reference " << this);
         return ttype;
     }
 

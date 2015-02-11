@@ -204,9 +204,18 @@ const TxTypeProxy* TxType::resolve_param_type(const std::string& paramName, bool
                 return typeEntity;
         }
     }
-    else if (auto binding = this->resolve_param_binding(paramName)) {
-        LOGGER()->debug("Attempting to resolve type parameter '%s' of type that has no entity: %s", paramName.c_str(), this->to_string().c_str());
-        if (binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
+    else {
+        LOGGER()->warning("Attempting to resolve type parameter '%s' of type that has no entity: %s", paramName.c_str(), this->to_string().c_str());
+        auto binding = this->resolve_param_binding(paramName);
+        if (! binding) {
+            size_t pos = paramName.find_last_of('#');
+            if (pos != std::string::npos) {
+                auto unqualName = paramName.substr(pos+1);
+                //LOGGER()->warning("Attempting to resolve type parameter '%s' of type that has no entity: %s", unqualName.c_str(), this->to_string().c_str());
+                binding = this->resolve_param_binding(unqualName);
+            }
+        }
+        if (binding && binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
             if (! this->is_modifiable() && ! nontransitiveModifiability)
                 // non-modifiability transitively applies to TYPE type parameters (NOTE: except for references)
                 return new TxNonModTypeProxy(&binding->type_proxy());  // FUTURE: memoize this (also prevents mem leak)

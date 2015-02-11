@@ -18,6 +18,8 @@ public:
 //            std::cout << "Created TxFieldValueNode(base, " << *member << ")" << std::endl;
     }
 
+    virtual bool has_predefined_type() const override { return true; }
+
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
         if (base)

@@ -23,7 +23,7 @@ enum TxFieldStorage : int { TXS_NOSTORAGE, TXS_GLOBAL, TXS_STATIC, TXS_INSTANCE,
 
 // types are implicitly static
 static const TxDeclarationFlags LEGAL_TYPE_DECL_FLAGS = TXD_ABSTRACT | TXD_FINAL | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM;
-static const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS = TXD_STATIC | TXD_FINAL | TXD_OVERRIDE | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_GENPARAM;
+static const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS = TXD_STATIC | TXD_FINAL | TXD_OVERRIDE | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM;
 
 
 /** A symbol that represents a declared source code entity (type or field), or several overloaded ones. */
@@ -230,7 +230,8 @@ public:
             this->LOGGER().warning("In get_type() of entity %s: type is NULL", this->to_string().c_str());
             //ASSERT(type, "Type of entity " << this << " is NULL");
         else
-            ASSERT(type->entity()==this || this->is_alias(), "Type (" << type << ") does not belong to this entity " << this->get_full_name());
+            ASSERT(type->entity()==this || this->is_alias(), "Type (" << type << ") does not belong to this entity "
+                    << this->get_full_name() << ", it belongs to " << type->entity());
         return type;
     }
 

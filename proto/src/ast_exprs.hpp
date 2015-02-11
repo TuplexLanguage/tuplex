@@ -13,6 +13,8 @@ public:
     TxConversionNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* targetType)
         : TxExpressionNode(parseLocation), expr(expr), targetType(targetType) { }
 
+    virtual bool has_predefined_type() const override { return this->targetType->entity(); }
+
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
     }
@@ -48,12 +50,20 @@ public:
 
 /*=== expressions ===*/
 
-class TxIntegerLitNode : public TxExpressionNode {
+class TxLiteralValueNode : public TxExpressionNode {
+public:
+    TxLiteralValueNode(const yy::location& parseLocation)
+        : TxExpressionNode(parseLocation) { }
+
+    virtual bool has_predefined_type() const override { return true; }
+};
+
+class TxIntegerLitNode : public TxLiteralValueNode {
 public:
     const std::string literal;
     const long long value;
     TxIntegerLitNode(const yy::location& parseLocation, const std::string& literal)
-        : TxExpressionNode(parseLocation), literal(literal), value(atol(literal.c_str())) { }
+        : TxLiteralValueNode(parseLocation), literal(literal), value(atol(literal.c_str())) { }
 
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
@@ -70,12 +80,12 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
-class TxFloatingLitNode : public TxExpressionNode {
+class TxFloatingLitNode : public TxLiteralValueNode {
 public:
     const std::string literal;
     const double value;
     TxFloatingLitNode(const yy::location& parseLocation, const std::string& literal)
-        : TxExpressionNode(parseLocation), literal(literal), value(atof(literal.c_str())) { }
+        : TxLiteralValueNode(parseLocation), literal(literal), value(atof(literal.c_str())) { }
 
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
@@ -91,12 +101,12 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
-class TxCharacterLitNode : public TxExpressionNode {
+class TxCharacterLitNode : public TxLiteralValueNode {
 public:
     const std::string literal;
     const char value;  // TODO: unicode support
     TxCharacterLitNode(const yy::location& parseLocation, const std::string& literal)
-        : TxExpressionNode(parseLocation), literal(literal), value(literal.at(1)) { }
+        : TxLiteralValueNode(parseLocation), literal(literal), value(literal.at(1)) { }
     // TODO: properly parse char literal
 
     virtual void symbol_table_pass(LexicalContext& lexContext) {
@@ -112,7 +122,7 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
-class TxCStringLitNode : public TxExpressionNode {
+class TxCStringLitNode : public TxLiteralValueNode {
     const TxIntConstant arrayLength;  // note: array length includes the null terminator
     TxTypeDeclNode* cstringTypeNode;  // implicit type definer
 public:
@@ -120,7 +130,7 @@ public:
     const std::string value;
 
     TxCStringLitNode(const yy::location& parseLocation, const std::string& literal)
-        : TxExpressionNode(parseLocation), arrayLength(literal.length()-2), cstringTypeNode(),
+        : TxLiteralValueNode(parseLocation), arrayLength(literal.length()-2), cstringTypeNode(),
           literal(literal), value(literal, 2, literal.length()-3) { }
     // TODO: properly parse string literal
 
@@ -146,6 +156,8 @@ public:
     TxExpressionNode* reference;
     TxReferenceDerefNode(const yy::location& parseLocation, TxExpressionNode* operand)
         : TxExpressionNode(parseLocation), reference(operand) { }
+
+    virtual bool has_predefined_type() const override { return this->reference->has_predefined_type(); }
 
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
@@ -184,6 +196,8 @@ public:
     TxExpressionNode* subscript;
     TxElemDerefNode(const yy::location& parseLocation, TxExpressionNode* operand, TxExpressionNode* subscript)
         : TxExpressionNode(parseLocation), array(operand), subscript(subscript)  { }
+
+    virtual bool has_predefined_type() const override { return this->array->has_predefined_type(); }
 
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
@@ -228,6 +242,8 @@ public:
     TxReferenceToNode(const yy::location& parseLocation, TxExpressionNode* target)
         : TxExpressionNode(parseLocation), target(target) { }
 
+    virtual bool has_predefined_type() const override { return false; }  // (this expr constructs new type)
+
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
         target->symbol_table_pass(lexContext);
@@ -269,13 +285,22 @@ public:
 };
 
 
-class TxBinaryOperatorNode : public TxExpressionNode {
+
+class TxOperatorValueNode : public TxExpressionNode {
+public:
+    TxOperatorValueNode(const yy::location& parseLocation)
+        : TxExpressionNode(parseLocation) { }
+
+    virtual bool has_predefined_type() const override { return true; }
+};
+
+class TxBinaryOperatorNode : public TxOperatorValueNode {
 public:
     const TxOperation op;
     TxExpressionNode* lhs;
     TxExpressionNode* rhs;
     TxBinaryOperatorNode(const yy::location& parseLocation, TxExpressionNode* lhs, const TxOperation op, TxExpressionNode* rhs)
-        : TxExpressionNode(parseLocation), op(op), lhs(lhs), rhs(rhs) {
+        : TxOperatorValueNode(parseLocation), op(op), lhs(lhs), rhs(rhs) {
         ASSERT(is_valid(op), "Invalid operator value: " << (int)op);
     }
 
@@ -336,11 +361,11 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
-class TxUnaryMinusNode : public TxExpressionNode {
+class TxUnaryMinusNode : public TxOperatorValueNode {
 public:
     TxExpressionNode* operand;
     TxUnaryMinusNode(const yy::location& parseLocation, TxExpressionNode* operand)
-        : TxExpressionNode(parseLocation), operand(operand) { }
+        : TxOperatorValueNode(parseLocation), operand(operand) { }
 
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
@@ -398,6 +423,8 @@ public:
 
     TxFunctionCallNode(const yy::location& parseLocation, TxExpressionNode* callee, std::vector<TxExpressionNode*>* argsExprList)
         : TxExpressionNode(parseLocation), callee(callee), argsExprList(argsExprList) { }
+
+    virtual bool has_predefined_type() const override { return true; }
 
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);

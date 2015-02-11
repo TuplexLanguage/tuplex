@@ -14,18 +14,19 @@ protected:
 
 /** Represents a binding for a type parameter. Can be either a Type or a Value parameter binding. */
 class TxTypeArgumentNode : public TxNode {
-    TxFieldDeclNode* fieldDeclNode;  // TODO: remove?
+    TxTypeDeclNode* typeDeclNode;
+    TxFieldDeclNode* fieldDeclNode;
     bool bound = false;
 public:
     TxTypeExpressionNode* typeExprNode;
     TxExpressionNode* valueExprNode;
 
     TxTypeArgumentNode(TxTypeExpressionNode* typeExprNode)
-        : TxNode(typeExprNode->parseLocation), fieldDeclNode(),
+        : TxNode(typeExprNode->parseLocation), typeDeclNode(), fieldDeclNode(),
           typeExprNode(typeExprNode), valueExprNode() { }
 
     TxTypeArgumentNode(TxExpressionNode* valueExprNode)
-        : TxNode(valueExprNode->parseLocation), fieldDeclNode(),
+        : TxNode(valueExprNode->parseLocation), typeDeclNode(), fieldDeclNode(),
           typeExprNode(), valueExprNode(valueExprNode) { }
 
     virtual void symbol_table_pass(LexicalContext& lexContext) {
@@ -43,12 +44,20 @@ public:
         if (this->typeExprNode) {
             if (param.meta_type() != param.TXB_TYPE)
                 cerror("Provided a TYPE argument to VALUE parameter %s", pname.c_str());
-            auto declaredEntity = this->context().scope()->declare_type(pname, this->typeExprNode, TXD_PUBLIC);
-            if (!declaredEntity)
-                cerror("Failed to declare type argument %s", pname.c_str());
-            // NOTE: Difference between this and "proper" type declaration is that the type expression hierarchy
-            // is not processed under the lexical context of its type declaration.
-            this->typeExprNode->symbol_table_pass(this->context(), TXD_PUBLIC, declaredEntity);
+            // Shall be below the parent, like so:
+            // $local.main$.$0.d$type.tx#Ref#T.tx#Array#E
+            this->typeDeclNode = new TxTypeDeclNode(this->typeExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT,
+                                                    pname, nullptr, this->typeExprNode);
+            this->typeDeclNode->symbol_table_pass(this->context());
+
+//            // Difference between below and "proper" type declaration is that the type expression hierarchy
+//            // is not processed under the lexical context of its type declaration.
+//            auto declaredEntity = this->context().scope()->declare_type(pname, this->typeExprNode, TXD_PUBLIC | TXD_IMPLICIT);
+//            if (!declaredEntity)
+//                cerror("Failed to declare type argument %s", pname.c_str());
+//            LexicalContext typeCtx(declaredEntity ? declaredEntity : this->context().scope());  // (in case declare_type() yields NULL)
+//            this->typeExprNode->symbol_table_pass(typeCtx, TXD_PUBLIC, declaredEntity);
+
             return TxTypeBinding(param.param_name(), this->typeExprNode);
         }
         else {
@@ -56,7 +65,7 @@ public:
             if (param.meta_type() != param.TXB_VALUE)
                 cerror("Provided a TYPE argument to VALUE parameter %s", pname.c_str());
             auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, pname, this->valueExprNode);
-            this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_STATIC, fieldDef);
+            this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_STATIC | TXD_IMPLICIT, fieldDef);
             this->fieldDeclNode->symbol_table_pass(this->context());
             return TxTypeBinding(param.param_name(), static_cast<TxConstantProxy*>(this->valueExprNode));
         }
@@ -72,8 +81,8 @@ public:
 
     virtual void semantic_pass() {
         ASSERT(this->bound, "make_binding() has not been invoked on type argument " << this);
-        if (this->typeExprNode)
-            this->typeExprNode->semantic_pass();
+        if (this->typeDeclNode)
+            this->typeDeclNode->semantic_pass();
         else
             this->fieldDeclNode->semantic_pass();
     }
@@ -178,7 +187,7 @@ public:
     TxIdentifiedTypeNode(const yy::location& parseLocation, const TxIdentifierNode* identifier)
         : TxPredefinedTypeNode(parseLocation), identNode(identifier) { }
 
-    virtual bool directIdentifiedType() const override { return true; }
+    virtual bool has_predefined_type() const override { return true; }
 
     virtual TxTypeEntity* get_entity() const override {
         if (auto declEnt = TxPredefinedTypeNode::get_entity())
@@ -512,7 +521,7 @@ public:
     TxMaybeModTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
         : TxModifiableTypeNode(parseLocation, baseType) { }
 
-    virtual bool directIdentifiedType() const override;
+    virtual bool has_predefined_type() const override;
 
     virtual void symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                    TxTypeEntity* declaredEntity = nullptr,

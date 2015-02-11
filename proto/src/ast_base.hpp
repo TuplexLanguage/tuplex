@@ -236,8 +236,9 @@ protected:
 public:
     TxTypeExpressionNode(const yy::location& parseLocation) : TxNode(parseLocation)  { }
 
-    /** Returns true if this type expression is a directly identified type (i.e. merely a named, previously declared type). */
-    virtual bool directIdentifiedType() const { return false; }
+    /** Returns true if this type expression is a directly identified type
+     * (i.e. a previously declared type, does not construct a new type). */
+    virtual bool has_predefined_type() const { return false; }
 
 
     virtual void symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags, TxTypeEntity* declaredEntity = nullptr,
@@ -307,6 +308,10 @@ public:
     const TxFieldDefNode* fieldDefNode = nullptr; // injected by field definition if known and applicable
 
     TxExpressionNode(const yy::location& parseLocation) : TxNode(parseLocation) { }
+
+    /** Returns true if this value expression is of a directly identified type
+     * (i.e. does not construct a new type), e.g. value literals and directly identified fields. */
+    virtual bool has_predefined_type() const = 0;
 
     virtual void symbol_table_pass(LexicalContext& lexContext) = 0;
     virtual void semantic_pass() = 0;
@@ -390,7 +395,6 @@ protected:
                     fieldType = fieldType->get_base_type();
             }
         }
-        // note: does not ensure implicit type declaration for field's type if it is not an explicit type
         return fieldType;
     }
 
@@ -430,20 +434,28 @@ public:
 
     void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
+        auto typeDeclFlags = (this->declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
+        auto implTypeName = this->fieldName + "$type";
         if (this->typeExpression) {
-            auto typeDeclFlags = (this->declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
-            // unless the type expression is a directly named type, declare a type entity for this field's type:
-            if (this->typeExpression->directIdentifiedType())
+            // unless the type expression is a directly named type, declare implicit type entity for this field's type:
+            if (this->typeExpression->has_predefined_type())
                 this->typeExpression->symbol_table_pass(lexContext, typeDeclFlags);
             else {
-                TxTypeEntity* typeEntity = lexContext.scope()->declare_type(this->fieldName + "$type", this->typeExpression, typeDeclFlags);
+                TxTypeEntity* typeEntity = lexContext.scope()->declare_type(implTypeName, this, typeDeclFlags);
                 if (!typeEntity)
-                    cerror("Failed to declare implicit type %s for field %s", (this->fieldName + "$type").c_str(), this->fieldName.c_str());
+                    cerror("Failed to declare implicit type %s for field %s", implTypeName.c_str(), this->fieldName.c_str());
                 LexicalContext typeCtx(typeEntity ? typeEntity : lexContext.scope());  // (in case declare_type() yields NULL)
                 this->typeExpression->symbol_table_pass(typeCtx, typeDeclFlags, typeEntity);
             }
         }
         if (this->initExpression) {
+// TODO: delegate this to the expression nodes
+//            if (!this->typeExpression && !this->initExpression->has_predefined_type()) {
+//                // declare implicit type entity for this field's type:
+//                TxTypeEntity* typeEntity = lexContext.scope()->declare_type(implTypeName, this, typeDeclFlags);
+//                if (!typeEntity)
+//                    cerror("Failed to declare implicit type %s for field %s", implTypeName.c_str(), this->fieldName.c_str());
+//            }
             this->initExpression->fieldDefNode = this;
             this->initExpression->symbol_table_pass(lexContext);
         }
@@ -489,7 +501,7 @@ public:
         }
         if (auto type = this->get_type())
             if (! type->is_concrete())
-                cerror("Field type %s is not concrete (size potentially unknown).", type->to_string().c_str());
+                cerror("Field type is not concrete (size potentially unknown): %s", type->to_string().c_str());
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;

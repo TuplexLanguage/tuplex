@@ -4,8 +4,8 @@
 
 llvm::Value* TxTypeArgumentNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    if (this->typeExprNode)
-        return this->typeExprNode->code_gen(context, scope);
+    if (this->typeDeclNode)
+        return this->typeDeclNode->code_gen(context, scope);
     else
         return this->fieldDeclNode->code_gen(context, scope);
 }

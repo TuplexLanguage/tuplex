@@ -24,6 +24,8 @@ public:
         this->instanceMethod = true;
     }
 
+    virtual bool has_predefined_type() const override { return false; }
+
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         if (this->instanceMethod) {
             if (auto typeEntity = dynamic_cast<TxTypeEntity*>(lexContext.scope())) {  // if in type scope

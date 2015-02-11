@@ -228,13 +228,13 @@ void TxModifiableTypeNode::symbol_table_pass(LexicalContext& lexContext, TxDecla
 }
 
 
-bool TxMaybeModTypeNode::directIdentifiedType() const {
+bool TxMaybeModTypeNode::has_predefined_type() const {
     if (this->isModifiable)
         return false;
     if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType))
         if (typeid(*arrayBaseType->elementTypeNode->typeExprNode) == typeid(TxModifiableTypeNode))
             return false;
-    return this->baseType->directIdentifiedType();
+    return this->baseType->has_predefined_type();
 }
 
 void TxMaybeModTypeNode::symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
