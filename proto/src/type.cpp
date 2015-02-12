@@ -13,6 +13,13 @@ static Logger* LOGGER() {
 }
 
 
+bool TxConstantProxy::operator==(const TxConstantProxy& other) const {
+    // simple since we so far only support UInt values
+    return *this->get_type() == *other.get_type()
+           && this->get_value_UInt() == other.get_value_UInt();
+}
+
+
 const TxType* TxNonModTypeProxy::get_type() const {
     auto type = wrappedProxy->get_type();
     return type->is_modifiable() ? type->get_base_type() : type;
@@ -27,7 +34,8 @@ bool TxTypeBinding::operator==(const TxTypeBinding& other) const {
                   : ( !other.is_redeclared()
                       && ( this->metaType == TxTypeParam::MetaType::TXB_TYPE
                            ? ( *(this->typeProxy->get_type()) == *(other.typeProxy->get_type()) )
-                           : ( this->valueProxy->get_int_value() == other.valueProxy->get_int_value() ) ) ) ) );
+                           : ( this->valueExpr->get_static_constant_proxy() && other.valueExpr->get_static_constant_proxy()
+                               && *this->valueExpr->get_static_constant_proxy() == *other.valueExpr->get_static_constant_proxy() ) ) ) ) );
 }
 
 std::string TxTypeBinding::to_string() const {
@@ -36,8 +44,7 @@ std::string TxTypeBinding::to_string() const {
                                             : ( this->metaType==TxTypeParam::MetaType::TXB_TYPE
                                                 ? (type = this->typeProxy->get_type(),
                                                    type ? type->to_string(true) : "")
-                                                : std::to_string(this->valueProxy->get_int_value()) ) );
-                                                //: "valueproxy" ) );
+                                                : this->valueExpr->to_string() ) );
 }
 
 
@@ -226,10 +233,10 @@ const TxTypeProxy* TxType::resolve_param_type(const std::string& paramName, bool
     return nullptr;  // no such type parameter name in type specialization hierarchy
 }
 
-const TxConstantProxy* TxType::resolve_param_value(const std::string& paramName) const {
+const TxExpressionNode* TxType::resolve_param_value(const std::string& paramName) const {
     if (auto binding = this->resolve_param_binding(paramName)) {
         if (binding->meta_type() == TxTypeParam::MetaType::TXB_VALUE)
-            return &binding->value_proxy();
+            return &binding->value_expr();
     }
     return nullptr;  // no such type parameter name in type specialization hierarchy
 }
@@ -328,22 +335,52 @@ void TxType::self_string(std::stringstream& str, bool brief) const {
 
 
 
-//bool TxTupleType::operator==(const TxType& other) const {
-//    // FUTURE: allow polymorphic compatibility
-//    return (typeid(*this) == typeid(other) &&
-//            *this->entity() == *((TxTupleType&)other).entity());
-//}
+bool TxArrayType::innerAutoConvertsFrom(const TxType& otherType) const {
+    if (const TxArrayType* otherArray = dynamic_cast<const TxArrayType*>(&otherType)) {
+        // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
+        if (auto e = this->element_type()) {
+            if (auto otherE = otherArray->element_type()) {
+                // note: is-a test insufficient for array elements, since same concrete type (same size) required
+                if (*e->get_type() != *otherE->get_type())
+                    return false;
+            }
+            else
+                return false;  // other has not bound E
+        }
+        if (auto len = this->length()) {
+            if (auto otherLen = otherArray->length()) {
+                return (len->get_static_constant_proxy() && otherLen->get_static_constant_proxy()
+                        && *len->get_static_constant_proxy() == *otherLen->get_static_constant_proxy());
+            }
+            else
+                return false;  // other has not bound L
+        }
+        return true;
+    }
+    return false;
+}
 
 
-
-//TxTypeProxy* make_identified_type_proxy(const std::string& name) {
-//    auto identNode = new TxEntityIdentNode(YYLTYPE(), TxIdentifierNode::TYPE_ID, new TxIdentifier(name));
-//    auto typeNode = new TxIdentifiedTypeNode(YYLTYPE(), *identNode);
-//    return typeNode;
-//}
-//
-//TxConstantProxy* make_identified_field_proxy(const std::string& name) {
-//    auto identNode = new TxEntityIdentNode(YYLTYPE(), TxIdentifierNode::FIELD_ID, new TxIdentifier(name));
-//    auto fieldNode = new TxIdentifiedFieldNode(YYLTYPE(), *identNode);
-//    return fieldNode;
-//}
+bool TxReferenceType::innerAutoConvertsFrom(const TxType& otherType) const {
+    if (const TxReferenceType* otherRef = dynamic_cast<const TxReferenceType*>(&otherType)) {
+        // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
+        if (auto target = this->target_type()) {
+            if (auto otherTarget = otherRef->target_type()) {
+                // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
+                //std::cout << "CHECKING AUTOCONV FROM\n" << *otherTarget->get_type() << "\nTO\n" << *target->get_type() << std::endl;
+                if (! otherTarget->get_type()->is_a(*target->get_type()))
+                    return false;
+                else if (target->get_type()->is_modifiable() && !otherTarget->get_type()->is_modifiable())
+                    return false;  // can't lose modifiable attribute of target
+                else
+                    return true;
+            }
+            else
+                return false;  // other has not bound T
+        }
+        else
+            return true;
+    }
+    else
+        return false;
+}

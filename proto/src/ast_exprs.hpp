@@ -28,6 +28,13 @@ class TxScalarConvNode : public TxConversionNode {
 public:
     TxScalarConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxScalarType* targetType)
         : TxConversionNode(parseLocation, expr, targetType) { }
+
+    virtual const TxConstantProxy* get_static_constant_proxy() const override {
+        // TODO: proper implementation
+        //if (*targetType == this->types().get_builtin_type(UINT))
+        return expr->get_static_constant_proxy();
+    }
+
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
@@ -59,11 +66,23 @@ public:
 };
 
 class TxIntegerLitNode : public TxLiteralValueNode {
+    class IntConstantProxy : public TxConstantProxy {
+        TxIntegerLitNode* intNode;
+    public:
+        IntConstantProxy(TxIntegerLitNode* intNode) : intNode(intNode) { }
+        virtual const TxType* get_type() const override { return intNode->get_type(); }
+        virtual long get_value_UInt() const override { return intNode->value; }
+        virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    } intConstProxy;
+
 public:
     const std::string literal;
     const long long value;
+
     TxIntegerLitNode(const yy::location& parseLocation, const std::string& literal)
-        : TxLiteralValueNode(parseLocation), literal(literal), value(atol(literal.c_str())) { }
+        : TxLiteralValueNode(parseLocation), intConstProxy(this), literal(literal), value(atol(literal.c_str())) { }
+
+    TxIntegerLitNode(long long value) : TxIntegerLitNode(yy::location(), std::to_string(value)) { }
 
     virtual void symbol_table_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
@@ -74,10 +93,11 @@ public:
         return this->types().get_builtin_type(INT);
     }
 
-    virtual long get_int_value() const { return value; }
-    virtual bool is_statically_constant() const { return true; }
-    virtual void semantic_pass() { }
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual bool is_statically_constant() const override { return true; }
+    virtual const TxConstantProxy* get_static_constant_proxy() const override { return &this->intConstProxy; }
+
+    virtual void semantic_pass() override { }
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxFloatingLitNode : public TxLiteralValueNode {
@@ -123,7 +143,7 @@ public:
 };
 
 class TxCStringLitNode : public TxLiteralValueNode {
-    const TxIntConstant arrayLength;  // note: array length includes the null terminator
+    const size_t arrayLength;  // note: array length includes the null terminator
     TxTypeDeclNode* cstringTypeNode;  // implicit type definer
 public:
     const std::string literal;
@@ -397,6 +417,8 @@ public:
 
 
 class TxFunctionCallNode : public TxExpressionNode {
+    mutable TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function call if non-null
+
     /** resolve possible function overloading by registering actual function signature with callee node */
     void register_callee_signature() const {
         if (callee->hasAppliedFuncArgTypes())
@@ -419,7 +441,6 @@ class TxFunctionCallNode : public TxExpressionNode {
 public:
     TxExpressionNode* callee;
     std::vector<TxExpressionNode*>* argsExprList;
-    TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function call if non-null
 
     TxFunctionCallNode(const yy::location& parseLocation, TxExpressionNode* callee, std::vector<TxExpressionNode*>* argsExprList)
         : TxExpressionNode(parseLocation), callee(callee), argsExprList(argsExprList) { }
@@ -436,9 +457,20 @@ public:
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
         this->register_callee_signature();
         auto calleeType = this->callee->get_type();
+        if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {
+            // "inline" function call by replacing with conversion expression
+            this->inlinedExpression = validate_wrap_convert(this->argsExprList->front(), inlineFunc->returnType, true);
+            return inlineFunc->returnType;
+        }
         if (auto funcType = dynamic_cast<const TxFunctionType*>(calleeType))
             return funcType->returnType;
         return nullptr;
+    }
+
+    const TxExpressionNode* get_inlined_expression() const {
+        if (!this->inlinedExpression)
+            this->get_type();  // initializes inlined expression, if any
+        return this->inlinedExpression;
     }
 
     virtual void semantic_pass() {
@@ -460,11 +492,7 @@ public:
             cerror("Callee of function call expression has mismatching argument count: %s", calleeType->to_string().c_str());
             return;
         }
-        if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {
-            // "inline" function call by replacing with conversion expression
-            this->inlinedExpression = validate_wrap_convert(this->argsExprList->front(), inlineFunc->returnType, true);
-        }
-        else {
+        if (! this->inlinedExpression) {
             // regular function call
             auto argExprI = this->argsExprList->begin();
             for (auto argDef : funcType->argumentTypes) {
@@ -476,7 +504,15 @@ public:
     }
 
     virtual bool is_statically_constant() const {
-        return this->inlinedExpression && this->inlinedExpression->is_statically_constant();
+        if (auto inlExpr = this->get_inlined_expression())
+            return inlExpr->is_statically_constant();
+        return false;
+    }
+
+    virtual const TxConstantProxy* get_static_constant_proxy() const override {
+        if (auto inlExpr = this->get_inlined_expression())
+            return inlExpr->get_static_constant_proxy();
+        return nullptr;
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;

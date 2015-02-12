@@ -68,10 +68,10 @@ static llvm::Value* make_constant_nonlocal_field(LlvmGenerationContext& context,
             }
         }
         else
-            context.LOG.error("Global field %s initializer is not a constant expression", entity->get_full_name().to_string().c_str());
+            context.LOG.error("Global/static constant field %s initializer is not a constant expression", entity->get_full_name().to_string().c_str());
     }
     else
-        context.LOG.error("Global field %s does not have an initializer", entity->get_full_name().to_string().c_str());
+        context.LOG.error("Global/static constant field %s does not have an initializer", entity->get_full_name().to_string().c_str());
     return new llvm::GlobalVariable(context.llvmModule, llvmType, true, llvm::GlobalValue::InternalLinkage,
                                     constantInitializer, entity->get_full_name().to_string());
 }
@@ -94,8 +94,12 @@ llvm::Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope*
 
     case TXS_STATIC:
         // TODO: static fields have polymorphic lookup
-        if (! txType->is_modifiable())
-            fieldVal = make_constant_nonlocal_field(context, scope, this->field, llvmType);
+        if (! txType->is_modifiable()) {
+            if (this->field->initExpression && !this->field->initExpression->is_statically_constant())
+                context.LOG.warning("Skipping codegen for global/static constant field %s whose initializer is not a constant expression", entity->get_full_name().to_string().c_str());
+            else
+                fieldVal = make_constant_nonlocal_field(context, scope, this->field, llvmType);
+        }
         else {
             context.LOG.error("modifiable TXS_STATIC fields not yet implemented: %s", entity->get_full_name().to_string().c_str());
         }

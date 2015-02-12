@@ -69,14 +69,14 @@ public:
 
 /** Represents a single declared source code entity - a field or a type. */
 class TxDistinctEntity : public TxEntity {
-    bool alias = false;
+    //TxDeclarationFlags alias = TXD_NONE;
+    TxDeclarationFlags declFlags;
 protected:
     mutable bool gettingType = false;  // during development - guard against recursive calls to get_type()
     TxTypeDefiner const * const typeDefiner;
-    const TxDeclarationFlags declFlags;
 
     TxDistinctEntity(TxSymbolScope* parent, const std::string& name, const TxTypeDefiner* typeDefiner, TxDeclarationFlags declFlags)
-            : TxEntity(parent, name), typeDefiner(typeDefiner), declFlags(declFlags) {
+            : TxEntity(parent, name), declFlags(declFlags), typeDefiner(typeDefiner) {
     }
 
 public:
@@ -84,17 +84,6 @@ public:
 
     virtual const TxType* get_type() const override {
         ASSERT(!this->gettingType, "Recursive call to get_type() of " << this->get_full_name());
-//        // ensure parent types are initialized before this one:
-//        for (TxSymbolScope* parent = this->get_parent(); parent; parent = parent->get_parent()) {
-//            if (auto parentEntity = dynamic_cast<TxEntity*>(parent)) {
-//                parentEntity->get_type();
-//                this->LOGGER().debug("Initialized type of parent entity %s", parent->get_full_name().to_string().c_str());
-//                break;
-//            }
-//            //else if (dynamic_cast<TxModule*>(parent))
-//            //    break;
-//        }
-
         this->gettingType = true;
         auto type = this->typeDefiner->get_type();
         this->gettingType = false;
@@ -105,8 +94,8 @@ public:
 
     virtual const TxSymbolScope* resolve_generic(const TxSymbolScope* vantageScope) const override;
 
-    void set_alias() { this->alias = true; }
-    virtual bool is_alias() const override { return this->alias; }
+    void set_alias() { this->declFlags = (this->declFlags | TXD_ALIAS); }
+    virtual bool is_alias() const override { return (this->declFlags & TXD_ALIAS); }
     virtual const TxIdentifier* get_alias() const override;
 
     virtual bool prepare_symbol() override {
@@ -131,6 +120,7 @@ public:
 class TxFieldEntity : public TxDistinctEntity {
     const TxFieldStorage storage;
     const TxIdentifier dataspace;
+    const TxExpressionNode* initializerExpr;
 
 protected:
     virtual bool declare_symbol(TxSymbolScope* symbol) override {
@@ -141,13 +131,13 @@ protected:
 
 public:
     TxFieldEntity(TxSymbolScope* parent, const std::string& name, const TxTypeDefiner* typeDefiner, TxDeclarationFlags declFlags,
-                  TxFieldStorage storage, const TxIdentifier& dataspace)
-            : TxDistinctEntity(parent, name, typeDefiner, declFlags), storage(storage), dataspace(dataspace) {
+                  TxFieldStorage storage, const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr)
+            : TxDistinctEntity(parent, name, typeDefiner, declFlags), storage(storage), dataspace(dataspace), initializerExpr(initializerExpr) {
         ASSERT ((declFlags | LEGAL_FIELD_DECL_FLAGS) == LEGAL_FIELD_DECL_FLAGS, "Illegal field declFlags: " << declFlags);
     }
 
     virtual TxFieldEntity* make_copy(const std::string& newName) const {
-        return new TxFieldEntity(this->get_parent(), newName, this->typeDefiner, this->declFlags, this->storage, this->dataspace);
+        return new TxFieldEntity(this->get_parent(), newName, this->typeDefiner, this->get_decl_flags(), this->storage, this->dataspace, this->initializerExpr);
     }
 
     inline TxFieldStorage get_storage() const { return this->storage; }
@@ -162,11 +152,14 @@ public:
      */
     int get_static_field_index() const;
 
-    bool is_statically_constant() const {
-        return ( this->get_storage() == TXS_GLOBAL
-                 || (this->get_storage() == TXS_STATIC && this->get_type()->is_immutable()));
-                // TODO: also return true if storage is static and expression.is_statically_constant()
-    }
+    /** Returns true if this field is statically constant. */
+    bool is_statically_constant() const;
+
+    /** If this field's initializer can be statically evaluated,
+     * a TxConstantProxy representing its value is returned, otherwise nullptr.
+     * In future, this should return non-null for all expressions for which is_statically_constant() returns true.
+     */
+    virtual const TxConstantProxy* get_static_constant_proxy() const;
 
     bool is_modifiable() const {
         return this->get_type()->is_modifiable();
@@ -178,7 +171,7 @@ public:
     }
 
     virtual std::string to_string() const {
-        return std::string("FIELD ") + ::toString(this->declFlags) + " " + this->get_full_name().to_string();
+        return std::string("FIELD ") + ::toString(this->get_decl_flags()) + " " + this->get_full_name().to_string();
     }
 };
 
@@ -221,7 +214,7 @@ public:
     }
 
     virtual TxTypeEntity* make_copy(const std::string& newName) const {
-        return new TxTypeEntity(this->get_parent(), newName, this->typeDefiner, this->declFlags);
+        return new TxTypeEntity(this->get_parent(), newName, this->typeDefiner, this->get_decl_flags());
     }
 
     virtual const TxType* get_type() const override {
@@ -240,7 +233,8 @@ public:
 
     /** match against this entity's instance/static members (from statically known type, up through its base types) */
     virtual const TxSymbolScope* lookup_instance_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
-        if (auto member = TxDistinctEntity::lookup_member(path, ident))
+        //if (auto member = TxDistinctEntity::lookup_member(path, ident)) bloody h*ll
+        if (auto member = lookup_member(path, ident))
             return member;
         else
             return this->get_type()->lookup_inherited_instance_member(path, ident);
@@ -320,7 +314,7 @@ public:
     }
 
     virtual std::string to_string() const {
-        return std::string("TYPE  ") + ::toString(this->declFlags) + " " + this->get_full_name().to_string();
+        return std::string("TYPE  ") + ::toString(this->get_decl_flags()) + " " + this->get_full_name().to_string();
     }
 };
 

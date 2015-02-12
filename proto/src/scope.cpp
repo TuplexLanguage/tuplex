@@ -202,9 +202,9 @@ TxTypeEntity* TxSymbolScope::declare_type(const std::string& plainName, const Tx
 
 TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, const TxTypeDefiner* typeDefiner,
                                             TxDeclarationFlags modifiers, TxFieldStorage storage,
-                                            const TxIdentifier& dataspace) {
+                                            const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr) {
     //const TxScope* parentScope = (storage == TXS_STACK && !suppressSubscope) ? this->enterScope() : this;
-    auto entity = new TxFieldEntity(this, plainName, typeDefiner, modifiers, storage, dataspace);
+    auto entity = new TxFieldEntity(this, plainName, typeDefiner, modifiers, storage, dataspace, initializerExpr);
     return dynamic_cast<TxFieldEntity*>(this->declare_entity(entity));
 }
 
@@ -362,9 +362,9 @@ void TxSymbolScope::dump_symbols() const {
                 printf("%-64s %s\n", symbol->to_string().c_str(), typestr.c_str());
             }
             else if (dynamic_cast<const TxOverloadedEntity*>(symbol))
-                printf("<overloaded>    %s\n", symbol->get_full_name().to_string().c_str());
+                printf("<overloaded>     %s\n", symbol->get_full_name().to_string().c_str());
             else
-                printf("<scope>         %s\n", symbol->to_string().c_str());
+                printf("<scope>          %s\n", symbol->to_string().c_str());
             symbol->dump_symbols();
         }
     }

@@ -295,7 +295,7 @@ public:
 
 class TxFieldDefNode;
 
-class TxExpressionNode : public TxNode, public TxTypeProxy, public TxConstantProxy {
+class TxExpressionNode : public TxNode, public TxTypeProxy {
     mutable bool gettingType = false;  // during development - guard against recursive calls to get_type()
     mutable TxType const * cachedType = nullptr;
 protected:
@@ -342,8 +342,13 @@ public:
     /** Returns true if this expression is a constant expression that can be evaluated at compile time. */
     virtual bool is_statically_constant() const { return false; }
 
-    virtual long get_int_value() const {
-        throw std::logic_error("Getting constant int value not supported for expression node " + this->to_string());
+    /** If this expression can currently be statically evaluated,
+     * a TxConstantProxy representing its value is returned, otherwise nullptr.
+     * In future, this should return non-null for all expressions for which is_statically_constant() returns true.
+     */
+    virtual const TxConstantProxy* get_static_constant_proxy() const {
+        //throw std::logic_error("Getting constant proxy not supported for expression node " + this->to_string());
+        return nullptr;
     }
 
     virtual bool hasAppliedFuncArgTypes()  { return this->appliedFuncArgTypes; }
@@ -428,7 +433,7 @@ public:
     void symbol_table_pass_decl_field(LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                       TxFieldStorage storage, const TxIdentifier& dataspace) {
         this->declFlags = declFlags;
-        this->declaredEntity = lexContext.scope()->declare_field(this->fieldName, this, declFlags, storage, dataspace);
+        this->declaredEntity = lexContext.scope()->declare_field(this->fieldName, this, declFlags, storage, dataspace, this->initExpression);
         this->symbol_table_pass(lexContext);
     }
 

@@ -153,7 +153,7 @@ public:
                                          TxDeclarationFlags modifiers);
     virtual TxFieldEntity* declare_field(const std::string& plainName, const TxTypeDefiner* typeDefiner,
                                          TxDeclarationFlags modifiers, TxFieldStorage storage,
-                                         const TxIdentifier& dataspace);
+                                         const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr=nullptr);
 
 
     virtual const TxSymbolScope* resolve_generic(const TxSymbolScope* vantageScope) const { return this; }

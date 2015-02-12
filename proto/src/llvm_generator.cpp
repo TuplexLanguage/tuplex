@@ -245,9 +245,16 @@ public:
         if (auto e = txType.element_type()) {
             if (llvm::Type* elemType = this->context.get_llvm_type(e->get_type())) {
                 long arrayLen;
-                if (auto len = txType.length()) {
+                if (auto lenExpr = txType.length()) {
                     // concrete array (specific length)
-                    arrayLen = len->get_int_value();
+                    if (auto lenProxy = lenExpr->get_static_constant_proxy()) {
+                        // length is statically specified
+                        arrayLen = lenProxy->get_value_UInt();
+                    }
+                    else {
+                        // TODO: support dynamically specialized generic types
+                        arrayLen = 0;
+                    }
                 }
                 else {
                     // Generic arrays with unspecified length are mapped as zero length,

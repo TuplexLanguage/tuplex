@@ -23,6 +23,13 @@ static llvm::Value* field_value_code_gen(LlvmGenerationContext& context, GenScop
         // TODO: polymorphic lookup
     case TXS_GLOBAL:
     case TXS_STACK:
+        if (entity->get_full_name().to_string() == "my.Midtype.my#Type#L")
+            printf("foo\n");
+        if (auto constProxy = entity->get_static_constant_proxy()) {
+            val = constProxy->code_gen(context, scope);
+            context.LOG.debug("Generating field value code for statically constant entity %s: %s", entity->to_string().c_str(), ::to_string(val).c_str());
+            break;
+        }
         val = context.lookup_llvm_value(entity->get_full_name().to_string());
         if (! val) {
             if (auto txType = entity->get_type()) {
@@ -100,6 +107,8 @@ llvm::Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope
         else {
            // in global scope we apparently don't want to load
            //value = new llvm::LoadInst(value);
+//            if (auto constant = llvm::dyn_cast<llvm::Constant>(value)) {
+//            }
         }
     }
     return value;

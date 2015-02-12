@@ -80,7 +80,7 @@ public:
     const TxReferenceType* get_reference_type(const TxTypeEntity* newEntity, const TxTypeProxy* targetType, std::string* errorMsg=nullptr);
 
     /** @deprecated */
-    const TxArrayType* get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType, const TxConstantProxy* length, std::string* errorMsg=nullptr);
+    const TxArrayType* get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType, const TxExpressionNode* lengthExpr, std::string* errorMsg=nullptr);
     const TxArrayType* get_array_type(const TxTypeEntity* newEntity, TxTypeBinding elemTypeBinding, TxTypeBinding lengthBinding, std::string* errorMsg=nullptr);
     const TxArrayType* get_array_type(const TxTypeEntity* newEntity, TxTypeBinding elemTypeBinding, std::string* errorMsg=nullptr);
 

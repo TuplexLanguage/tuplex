@@ -48,9 +48,9 @@ public:
         //ASSERT(etype, "NULL element type for array " << this);
         return etype;
     }
-    inline const TxConstantProxy* length() const {
+    inline const TxExpressionNode* length() const {
         //const TxConstantProxy* len = this->resolve_param_value("tx#Array#L");
-        const TxConstantProxy* len = this->resolve_param_value("L");
+        const TxExpressionNode* len = this->resolve_param_value("L");
         if (! len)
             Logger::get("PARSER").warning("NULL length proxy for array %s", this->to_string().c_str());
         // ASSERT(len, "NULL length proxy for array " << this);
@@ -58,38 +58,9 @@ public:
     }
 
 
-    long size() const {
-        if (! this->is_concrete())
-            throw std::logic_error("Can't get size of abstract or generic type: " + this->to_string());
-        return this->element_type()->get_type()->size() * this->length()->get_int_value();
-    }
-
     virtual bool is_abstract() const { return false; }
 
-    virtual bool innerAutoConvertsFrom(const TxType& otherType) const {
-        if (const TxArrayType* otherArray = dynamic_cast<const TxArrayType*>(&otherType)) {
-            // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
-            if (auto e = this->element_type()) {
-                if (auto otherE = otherArray->element_type()) {
-                    // note: is-a test insufficient for array elements, since same concrete type (same size) required
-                    if (*e->get_type() != *otherE->get_type())
-                        return false;
-                }
-                else
-                    return false;  // other has not bound E
-            }
-            if (auto len = this->length()) {
-                if (auto otherLen = otherArray->length()) {
-                    if (len->get_int_value() != otherLen->get_int_value())
-                        return false;
-                }
-                else
-                    return false;  // other has not bound L
-            }
-            return true;
-        }
-        return false;
-    }
+    virtual bool innerAutoConvertsFrom(const TxType& otherType) const override;
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
@@ -126,8 +97,6 @@ public:
         return ttype;
     }
 
-    long size() const { return 8; }
-
     virtual bool is_final() const { return true; }
     virtual bool is_abstract() const { return false; }
 
@@ -136,29 +105,7 @@ public:
     virtual bool is_concrete() const { return true; }
     // FUTURE: might be abstract when unknown whether independent object or member ref?
 
-    virtual bool innerAutoConvertsFrom(const TxType& otherType) const {
-        if (const TxReferenceType* otherRef = dynamic_cast<const TxReferenceType*>(&otherType)) {
-            // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
-            if (auto target = this->target_type()) {
-                if (auto otherTarget = otherRef->target_type()) {
-                    // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
-                    //std::cout << "CHECKING AUTOCONV FROM\n" << *otherTarget->get_type() << "\nTO\n" << *target->get_type() << std::endl;
-                    if (! otherTarget->get_type()->is_a(*target->get_type()))
-                        return false;
-                    else if (target->get_type()->is_modifiable() && !otherTarget->get_type()->is_modifiable())
-                        return false;  // can't lose modifiable attribute of target
-                    else
-                        return true;
-                }
-                else
-                    return false;  // other has not bound T
-            }
-            else
-                return true;
-        }
-        else
-            return false;
-    }
+    virtual bool innerAutoConvertsFrom(const TxType& otherType) const override;
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
@@ -195,8 +142,6 @@ public:
           modifiableClosure(modifiableClosure), argumentTypes(argumentTypes), returnType(returnType)  { }
 
     bool hasReturnValue() const  { return this->returnType != nullptr; }
-
-    long size() const { return 8; }
 
     virtual bool is_abstract() const { return false; }
 
@@ -247,8 +192,6 @@ public:
         this->functionTypes.push_back(funcType);
     }
 
-    long size() const { throw std::logic_error("Can't get size of abstract type " + this->to_string()); }
-
     inline void add(const TxFunctionType* funcType) { this->functionTypes.push_back(funcType); }
 
     inline std::vector<const TxFunctionType*>::const_iterator cbegin() const noexcept { return this->functionTypes.cbegin(); }
@@ -279,8 +222,6 @@ public:
             : TxType(entity, TxTypeSpecialization(baseType)), _mutable(_mutable)  {
         ASSERT(entity, "NULL entity");
     }
-
-    long size() const { return 8; }  // FIXME
 
     virtual bool is_abstract() const { return this->abstract; }
 

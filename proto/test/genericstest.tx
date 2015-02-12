@@ -1,3 +1,5 @@
+module my
+
 ##import tx.proto.print.*
 
 public type MARef<T> &T
@@ -25,23 +27,46 @@ public type NBArray<E> Array<E,10>
 public type NCArray<E> derives Array<E,10> {
 }
 
-/* doesn't work since doesn't recognize L as constant
-public type OAArray<L:UInt> [L]UByte
 
-public type OBArray<L:UInt> Array<UByte,(L)>
 
-public type OCArray<L:UInt> derives Array<UByte,(L)> {
+type Type<E,L:UInt> derives Tuple {
+}
+
+type Midtype<F,L:UInt> Type<F,(L)>
+
+LEN : UInt = UInt(5)
+type GlobalType Midtype<Float,(LEN)>
+
+func generics_test() Int {
+    len : UInt = UInt(10)
+    type LocalTypeX Midtype<Float,(len)>
+    type LocalTypeY Midtype<Int,(UInt(12+1))>
+    x : LocalTypeX
+    y : LocalTypeY
+    xe1 : x.E
+    xe2 : x.my#Type#E
+    xf1 : x.F
+    xf2 : x.my#Midtype#F
+    ye1 : y.E
+    ye2 : y.my#Type#E
+    yf1 : y.F
+    yf2 : y.my#Midtype#F
+    xl1 := x.L
+    xl2 := x.my#Midtype#L
+    ## xl3 := x.my#Type#L  NOT SUPPORTED YET
+    yl1 := y.L
+    yl2 := y.my#Midtype#L
+    ## yl3 := y.my#Type#L  NOT SUPPORTED YET
+    return Int(xl1-xl2 + yl1-yl2)
+}
+
+/*
+func dynamic_generics_test(len : UInt) Int {
+    type DynamicType Midtype<Float,(len)>
+    a : DynamicType
+    return Int(a.K)
 }
 */
-
-
-##public type OTestString derives Array<Array<UByte,10>,10> {
-##}
-
-public type PType<E derives Any,L:Int> {
-}
-
-public type PTypeSub PType<Int,4>
 
     
 func main() Int {
@@ -49,12 +74,33 @@ func main() Int {
     varr := &var
     varr2 : MGRef<Float> = varr
 
-    type TestType Int
-    foo : TestType = 10
-    bar : PTypeSub.E = foo
-
-    ##str : OTestString
-    ##return Int(NCArray.L)
-    
-    return 0
+    result := generics_test()
+    return result
 }
+
+
+/*
+
+Array<E,L> {
+    generic type E
+    generic L Int
+}
+
+Subtype<F,K> derives Array<Ref<F>,(K+1)> {
+    generic type F
+    generic K Int
+
+    ## reinterpretation in usage scope via alias:
+    type tx#Array#E is Ref<Subtype.F>
+
+    ## reinterpretation in usage scope via reentrant expr?
+    ## that still only supports static values though
+    tx#Array#L is Subtype.K+1
+}
+
+ConcreteType derives Subtype<Int, 2> {
+    type Subtype#F Int
+    Subtype#K := 2
+}
+
+*/

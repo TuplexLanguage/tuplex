@@ -30,6 +30,19 @@ int TxFieldEntity::get_static_field_index() const {
     return parentType->get_static_field_index(this->get_name());
 }
 
+bool TxFieldEntity::is_statically_constant() const {
+    if ( this->get_decl_flags() & TXD_GENPARAM )
+        return false;
+    return ( this->get_storage() == TXS_GLOBAL
+             || ( this->get_storage() == TXS_STATIC
+                  && ( this->get_type()->is_immutable()
+                       || ( this->initializerExpr && this->initializerExpr->is_statically_constant() ) ) ) );
+}
+
+const TxConstantProxy* TxFieldEntity::get_static_constant_proxy() const {
+    return ( this->initializerExpr ? this->initializerExpr->get_static_constant_proxy() : nullptr );
+}
+
 
 const TxSymbolScope* TxDistinctEntity::resolve_generic(const TxSymbolScope* vantageScope) const {
     std::vector<const TxSymbolScope*> tmpPath;
@@ -59,10 +72,6 @@ const TxSymbolScope* TxDistinctEntity::resolve_generic(const TxSymbolScope* vant
 }
 
 const TxSymbolScope* TxTypeEntity::lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
-//    // ensure parent types are initialized before members:
-//    if (!this->gettingType)
-//        this->get_type();
-
     auto memberName = ident.segment(0);
     if (auto member = this->get_symbol(memberName)) {
         if (auto fieldMember = dynamic_cast<const TxFieldEntity*>(member)) {

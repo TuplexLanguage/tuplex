@@ -49,15 +49,6 @@ public:
             this->typeDeclNode = new TxTypeDeclNode(this->typeExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT,
                                                     pname, nullptr, this->typeExprNode);
             this->typeDeclNode->symbol_table_pass(this->context());
-
-//            // Difference between below and "proper" type declaration is that the type expression hierarchy
-//            // is not processed under the lexical context of its type declaration.
-//            auto declaredEntity = this->context().scope()->declare_type(pname, this->typeExprNode, TXD_PUBLIC | TXD_IMPLICIT);
-//            if (!declaredEntity)
-//                cerror("Failed to declare type argument %s", pname.c_str());
-//            LexicalContext typeCtx(declaredEntity ? declaredEntity : this->context().scope());  // (in case declare_type() yields NULL)
-//            this->typeExprNode->symbol_table_pass(typeCtx, TXD_PUBLIC, declaredEntity);
-
             return TxTypeBinding(param.param_name(), this->typeExprNode);
         }
         else {
@@ -67,7 +58,7 @@ public:
             auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, pname, this->valueExprNode);
             this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_STATIC | TXD_IMPLICIT, fieldDef);
             this->fieldDeclNode->symbol_table_pass(this->context());
-            return TxTypeBinding(param.param_name(), static_cast<TxConstantProxy*>(this->valueExprNode));
+            return TxTypeBinding(param.param_name(), this->valueExprNode);
         }
     }
 
@@ -125,7 +116,6 @@ public:
     TxSpecializedTypeNode(const yy::location& parseLocation, const TxIdentifierNode* identifier,
                           const std::vector<TxTypeArgumentNode*>* typeArgs)
             : TxPredefinedTypeNode(parseLocation), identNode(identifier), typeArgs(typeArgs)  {
-        ASSERT(! this->typeArgs->empty(), "No generic type arguments specified");
     }
 
     virtual void symbol_table_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags, TxTypeEntity* declaredEntity = nullptr,
@@ -198,12 +188,16 @@ public:
     virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
         if (auto identifiedEntity = this->context().scope()->resolve_type(this->identNode->ident)) {
             auto identifiedType = identifiedEntity->get_type();
-            if (auto declEnt = TxPredefinedTypeNode::get_entity()) {
+            if (identifiedType->is_generic()) {
+                cerror("Referenced generic type without type argument expression <>: %s", identifiedType->to_string().c_str());
+            }
+            else if (auto declEnt = TxPredefinedTypeNode::get_entity()) {
                 ASSERT(!declTypeParams || declTypeParams->empty(), "declTypeParams can't be set for 'empty' specialization: " << *this);
                 if (identifiedEntity->get_decl_flags() & TXD_GENPARAM) {
                     // let this entity be an alias for the generic type parameter (no unique type is created)
-                    LOGGER().debug("%s: Declaring '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(), this->identNode->ident.to_string().c_str(), identifiedEntity->to_string().c_str());
                     declEnt->set_alias();
+                    LOGGER().debug("%s: Declared type '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
+                                   declEnt->get_full_name().to_string().c_str(), identifiedEntity->to_string().c_str());
                     return identifiedType;
                 }
                 else {
@@ -212,8 +206,16 @@ public:
                                                                  false, this->declTypeParams, errorMsg);
                 }
             }
-            else
+            else {
+                if (identifiedEntity->get_decl_flags() & TXD_GENPARAM) {
+                    // Should not happen unless source refers directly to unbound type parameter
+                    cwarning("'%s' references unbound generic type parameter %s", this->identNode->ident.to_string().c_str(), identifiedEntity->to_string().c_str());
+                    // (But if legal use case exists, how let this be an alias entity for the generic type parameter?)
+                    //LOGGER().error("%s: Can't declare type '%s' as alias for GENPARAM %s since no entity declared for this type node",
+                    //               this->parse_loc_string().c_str(), this->identNode->ident.to_string().c_str(), identifiedEntity->to_string().c_str());
+                }
                 return identifiedType;
+            }
         }
         if (errorMsg)
             errorMsg->append("Unknown type: " + this->identNode->ident.to_string() + " (from " + this->context().scope()->to_string() + ")");
@@ -223,6 +225,7 @@ public:
     virtual void semantic_pass() {
         if (! this->get_entity())
             cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
+        this->get_type();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const { return nullptr; }

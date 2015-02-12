@@ -51,8 +51,6 @@ class TxAnyType final : public TxType {
 
 public:
     TxAnyType(const TxTypeEntity* entity) : TxType(entity) { }
-
-    long size() const { throw std::logic_error("Can't get size of abstract type " + this->to_string()); }
 };
 
 /** Used for the built-in types' abstract base types. */
@@ -69,8 +67,6 @@ class TxBuiltinBaseType final : public TxType {
 public:
     TxBuiltinBaseType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec) : TxType(entity, baseTypeSpec)  { }
     TxBuiltinBaseType(const TxTypeEntity* entity, const TxType* baseType) : TxType(entity, TxTypeSpecialization(baseType))  { }
-
-    long size() const { throw std::logic_error("Can't get size of abstract type " + this->to_string()); }
 };
 
 
@@ -354,10 +350,10 @@ const TxReferenceType* TypeRegistry::get_reference_type(const TxTypeEntity* newE
     return this->get_reference_type(newEntity, TxTypeBinding("T", targetType) );
 }
 
-const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType, const TxConstantProxy* length,
+const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType, const TxExpressionNode* lengthExpr,
                                                 std::string* errorMsg) {
     // TODO: remove, or rewrite so that proper parameter binding names are declared
-    std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", length) } );
+    std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", lengthExpr) } );
     TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
     return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
 }

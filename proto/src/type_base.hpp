@@ -16,6 +16,15 @@
 class TxType;
 class TxSymbolScope;
 class TxTypeEntity;
+class TxExpressionNode;
+
+/* forward declarations pertaining to LLVM code generation */
+class LlvmGenerationContext;
+class GenScope;
+namespace llvm {
+    class Constant;
+}
+
 
 /** Proxy interface that provides a layer of indirection to a type reference.
  * This is needed for two reasons:
@@ -33,22 +42,34 @@ public:
     virtual const TxType* get_type() const = 0;
 };
 
-class TxConstantProxy {
+/** Represents a value that can be statically computed (in compile time). */
+class TxConstantProxy : public TxTypeProxy {
 public:
     virtual ~TxConstantProxy() = default;
 
-    virtual long get_int_value() const = 0;
+    /** Gets the TxType instance representing the type of the constant. */
+    virtual const TxType* get_type() const override = 0;
+
+    virtual long get_value_UInt() const = 0;
+
+    virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
+
+    bool operator==(const TxConstantProxy& other) const;
+
+    inline bool operator!=(const TxConstantProxy& other) const {
+        return ! this->operator==(other);
+    }
 };
 
 
-/** Convenience TxConstantProxy implementation for integers. */
-class TxIntConstant : public TxConstantProxy, public Printable {
-    const long intValue;
-public:
-    TxIntConstant(long intValue) : intValue(intValue)  { }
-    virtual long get_int_value() const { return intValue; }
-    std::string to_string() const { return std::to_string(intValue); }
-};
+///** Convenience TxConstantProxy implementation for integers. */
+//class TxIntConstant : public TxConstantProxy, public Printable {
+//    const long intValue;
+//public:
+//    TxIntConstant(long intValue) : intValue(intValue)  { }
+//    virtual long get_int_value() const { return intValue; }
+//    std::string to_string() const { return std::to_string(intValue); }
+//};
 
 
 /** Type proxy wrapper that provides a non-modifiable 'view' of the underlying type
@@ -101,9 +122,6 @@ public:
     inline virtual bool operator!=(const TxTypeParam& other) const {
         return ! this->operator==(other);
     }
-    inline virtual bool operator<(const TxTypeParam& other) const {
-        return this->typeParamName < other.typeParamName;
-    }
 
     std::string to_string() const {
         switch (this->meta_type()) {
@@ -127,25 +145,25 @@ class TxTypeBinding : public Printable {
     const std::string typeParamName;
     const TxTypeParam::MetaType metaType;
     const TxTypeProxy* typeProxy;
-    const TxConstantProxy* valueProxy;
+    const TxExpressionNode* valueExpr;
     const TxTypeParam redeclParam;  // if this type parameter is redeclared as a type parameter of the specialized type
 
 public:
     TxTypeBinding(const std::string& typeParamName, const TxTypeProxy* typeProxy)
         : typeParamName(typeParamName), metaType(TxTypeParam::MetaType::TXB_TYPE),
-          typeProxy(typeProxy), valueProxy(), redeclParam()  { }
-    TxTypeBinding(const std::string& typeParamName, const TxConstantProxy* valueProxy)
+          typeProxy(typeProxy), valueExpr(), redeclParam()  { }
+    TxTypeBinding(const std::string& typeParamName, const TxExpressionNode* valueExpr)
         : typeParamName(typeParamName), metaType(TxTypeParam::MetaType::TXB_VALUE),
-          typeProxy(), valueProxy(valueProxy), redeclParam()  { }
+          typeProxy(), valueExpr(valueExpr), redeclParam()  { }
     TxTypeBinding(const std::string& typeParamName, const TxTypeParam& redeclParam)
         : typeParamName(typeParamName), metaType(redeclParam.meta_type()),
-          typeProxy(), valueProxy(), redeclParam(redeclParam)  { }
+          typeProxy(), valueExpr(), redeclParam(redeclParam)  { }
 
     inline const std::string& param_name()    const { return typeParamName; }
 
     inline TxTypeParam::MetaType meta_type()    const { return metaType; }
 
-    inline bool is_redeclared() const { return !this->typeProxy && !this->valueProxy; }
+    inline bool is_redeclared() const { return !this->typeProxy && !this->valueExpr; }
 
 //    inline const TxTypeParam& rebound_param() const {
 //        ASSERT(is_redeclared(), "Type parameter binding is not rebound: " << this->to_string());
@@ -158,20 +176,16 @@ public:
         return *this->typeProxy;
     }
 
-    inline const TxConstantProxy& value_proxy() const {
+    inline const TxExpressionNode& value_expr() const {
         ASSERT(metaType==TxTypeParam::MetaType::TXB_VALUE, "Type parameter binding metatype is TYPE, not VALUE: " << this->to_string());
         ASSERT(!is_redeclared(), "Type parameter binding is rebound: " << this->to_string());
-        return *this->valueProxy;
+        return *this->valueExpr;
     }
 
     bool operator==(const TxTypeBinding& other) const;
 
     inline bool operator!=(const TxTypeBinding& other) const {
         return ! this->operator==(other);
-    }
-
-    inline bool operator<(const TxTypeBinding& other) const {
-        return this->typeParamName < other.typeParamName;
     }
 
     std::string to_string() const;
@@ -227,6 +241,10 @@ public:
     std::string validate() const;
 
     bool operator==(const TxTypeSpecialization& other) const;
+
+    inline bool operator!=(const TxTypeSpecialization& other) const {
+        return ! this->operator==(other);
+    }
 
     std::string to_string() const;
 };
@@ -319,10 +337,6 @@ public:
     /** Returns true iff this type is a built-in type. */
     bool is_builtin() const;
 
-    /** Returns the size, in bytes, of a direct instance of this type.
-     * Illegal to call for abstract types. */
-    virtual long size() const = 0;
-
     /** Returns true if this type is immutable (its instances' contents can never be modified after initialization). */
     virtual bool is_immutable() const { return false; }
 
@@ -408,7 +422,7 @@ private:
         // FIXME: handle fully qualified parameter names (or remove these methods in favor of namespace lookup)
         // note: does not check for transitive modifiability
         if (this->has_type_param(paramName))
-            return nullptr;  // type parameter is unbound
+            return nullptr;  // type parameter is unbound  // FIXME: return constraint base type instead
         else if (auto baseType = this->get_base_type()) {
             if (this->baseTypeSpec.has_binding(paramName))
                 return &this->baseTypeSpec.get_binding(paramName);
@@ -421,7 +435,7 @@ private:
 protected:
     const TxTypeProxy* resolve_param_type(const std::string& paramName, bool nontransitiveModifiability=false) const;
 
-    const TxConstantProxy* resolve_param_value(const std::string& paramName) const;
+    const TxExpressionNode* resolve_param_value(const std::string& paramName) const;
 
 
 public:

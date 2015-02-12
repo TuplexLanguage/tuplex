@@ -213,7 +213,7 @@ Value* TxCStringLitNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     context.LOG.trace("%-48s\t\"%s\"", this->to_string().c_str(), this->value.c_str());
     //auto type = context.get_llvm_type(this->get_type());
     std::vector<Constant*> members {
-        ConstantInt::get(context.llvmContext, APInt(32, this->arrayLength.get_int_value())),
+        ConstantInt::get(context.llvmContext, APInt(32, this->arrayLength)),
         ConstantDataArray::getString(context.llvmContext, this->value)
     };
     auto str = ConstantStruct::getAnon(members);
@@ -226,6 +226,7 @@ Value* TxCharacterLitNode::code_gen(LlvmGenerationContext& context, GenScope* sc
     auto value = ConstantInt::get(context.llvmContext, APInt(8, this->value, false));
     return value;
 }
+
 Value* TxIntegerLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s\t%d", this->to_string().c_str(), this->value);
     IntegerType* type = static_cast<IntegerType*>(context.get_llvm_type(this->get_type()));
@@ -235,6 +236,10 @@ Value* TxIntegerLitNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     //auto value = ConstantInt::get(context.llvmContext, APInt(64, this->value, true));
     return value;
 }
+Constant* TxIntegerLitNode::IntConstantProxy::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    return cast<Constant>(this->intNode->code_gen(context, scope));
+}
+
 Value* TxFloatingLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s\t%f", this->to_string().c_str(), this->value);
     Type* type = context.get_llvm_type(this->get_type());
