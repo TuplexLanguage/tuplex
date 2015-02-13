@@ -107,7 +107,11 @@ int TxDriver::compile() {
     /*--- perform symbol table pass ---*/
 
     for (auto & parsedFile : this->parsedSourceFiles) {
-        parsedFile.second->symbol_table_pass(this->package);
+        parsedFile.second->symbol_registration_pass(this->package);
+    }
+    ResolutionContext resCtx;
+    for (auto & parsedFile : this->parsedSourceFiles) {
+        parsedFile.second->symbol_resolution_pass(resCtx);
     }
     bool symValid = this->package->prepare_symbol_table();
     if (symValid && error_count == prev_error_count)
@@ -121,6 +125,8 @@ int TxDriver::compile() {
 
     if (! (symValid && error_count == prev_error_count)) {
         LOG.error("- Symbol table pass completed, %d errors", error_count-prev_error_count);
+        if (! symValid)
+            LOG.error("- Symbol table pass validation failed");
         return 1;
     }
 

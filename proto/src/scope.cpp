@@ -11,10 +11,10 @@
 /*--- lexical scope tracking ---*/
 
 TxSymbolScope::TxSymbolScope(TxSymbolScope* parent, const std::string& name)
-        : LOG(Logger::get("SYMBOLTABLE")), name(name), parent(parent)  {
+        : LOG(Logger::get("SYMBOLTABLE")), name(name), outer(parent)  {
     if (parent) {
         ASSERT(!name.empty() && name.find_first_of('.') == std::string::npos, "Non-plain name specified for non-root scope: '" << name << "'");
-        this->fullName = TxIdentifier(this->parent->get_full_name(), this->name);
+        this->fullName = TxIdentifier(this->outer->get_full_name(), this->name);
     }
     else {
         ASSERT(name.empty(), "Non-empty name specified for parent-less root scope: " << name);
@@ -61,8 +61,8 @@ TxSymbolScope* TxSymbolScope::create_code_block_scope(const std::string& plainNa
 /*--- symbol map implementation ---*/
 
 TxSymbolScope* TxSymbolScope::add_symbol(TxSymbolScope* symbol) {
-    ASSERT(symbol->parent==this, "Mismatching symbol parent reference! " << symbol);
-    ASSERT((this->parent==NULL && symbol->get_full_name().is_plain()) || symbol->get_full_name().parent()==this->get_full_name(),
+    ASSERT(symbol->outer==this, "Mismatching symbol parent reference! " << symbol);
+    ASSERT((this->outer==NULL && symbol->get_full_name().is_plain()) || symbol->get_full_name().parent()==this->get_full_name(),
             "Symbol qualifier doesn't match parent scope! " << symbol);
     auto result = this->symbols.emplace(symbol->get_name(), symbol);
     if (! result.second) {
@@ -194,17 +194,17 @@ TxDistinctEntity* TxSymbolScope::declare_entity(TxDistinctEntity* entity) {
     return nullptr;
 }
 
-TxTypeEntity* TxSymbolScope::declare_type(const std::string& plainName, const TxTypeDefiner* typeDefiner,
+TxTypeEntity* TxSymbolScope::declare_type(const std::string& plainName, TxEntityDefiner* entityDefiner,
                                           TxDeclarationFlags modifiers) {
-    auto entity = new TxTypeEntity(this, plainName, typeDefiner, modifiers);
+    auto entity = new TxTypeEntity(this, plainName, entityDefiner, modifiers);
     return dynamic_cast<TxTypeEntity*>(this->declare_entity(entity));
 }
 
-TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, const TxTypeDefiner* typeDefiner,
+TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, TxEntityDefiner* entityDefiner,
                                             TxDeclarationFlags modifiers, TxFieldStorage storage,
                                             const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr) {
     //const TxScope* parentScope = (storage == TXS_STACK && !suppressSubscope) ? this->enterScope() : this;
-    auto entity = new TxFieldEntity(this, plainName, typeDefiner, modifiers, storage, dataspace, initializerExpr);
+    auto entity = new TxFieldEntity(this, plainName, entityDefiner, modifiers, storage, dataspace, initializerExpr);
     return dynamic_cast<TxFieldEntity*>(this->declare_entity(entity));
 }
 
@@ -212,19 +212,21 @@ TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, const 
 
 /*--- symbol table lookup ---*/
 
-const TxSymbolScope* TxSymbolScope::resolve_symbol(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
+TxSymbolScope* TxSymbolScope::resolve_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
+    ASSERT(path.empty(), "Non-empty symbol path vector provided to resolve_symbol() of " << this);
+    path.push_back(this);  // starting point of search - the first segment's so-called vantage scope
     auto symbol = this->lookup_symbol(path, ident);
     // TODO: implement visibility check
     return symbol;
 }
 
 
-const TxSymbolScope* TxSymbolScope::lookup_symbol(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
+TxSymbolScope* TxSymbolScope::lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
     if (auto symbol = this->lookup_member(path, ident)) {
 //        std::cout << ident << " => ";
 //        for (auto s : path)  std::cout << s->get_full_name() << " . ";
 //        std::cout << std::endl;
-        ASSERT(ident.segment_count()==path.size(), "Erroneous lookup path length: ident " << ident << " length != " << path.size());
+        ASSERT(ident.segment_count()==path.size()-1, "Erroneous lookup path length: ident " << ident << " length != " << path.size());
         ASSERT(symbol == path.back(), "Returned entity != last entity in path: " << *symbol << " != " << *path.back());
         return symbol;
     }
@@ -233,7 +235,7 @@ const TxSymbolScope* TxSymbolScope::lookup_symbol(std::vector<const TxSymbolScop
     return nullptr;
 }
 
-const TxSymbolScope* TxSymbolScope::lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
+TxSymbolScope* TxSymbolScope::lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
     auto memberName = ident.segment(0);
     //std::cout << "Looking up member " << memberName << " in " << this << std::endl;
     if (auto member = this->get_symbol(memberName)) {
@@ -248,13 +250,13 @@ const TxSymbolScope* TxSymbolScope::lookup_member(std::vector<const TxSymbolScop
 
 
 
-const TxTypeEntity* TxSymbolScope::resolve_type(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
+TxTypeEntity* TxSymbolScope::resolve_type(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
     auto symbol = this->resolve_symbol(path, ident);
     if (! symbol)
         return nullptr;
-    else if (auto typeEnt = dynamic_cast<const TxTypeEntity*>(symbol))
+    else if (auto typeEnt = dynamic_cast<TxTypeEntity*>(symbol))
         return typeEnt;
-    else if (auto overloaded = dynamic_cast<const TxOverloadedEntity*>(symbol))
+    else if (auto overloaded = dynamic_cast<TxOverloadedEntity*>(symbol))
         if (auto typeEnt = overloaded->get_type_declaration())
             return typeEnt;
     std::string msg = "Symbol " + ident.to_string() + " referenced from " + this->to_string() + " is not a Type: " + symbol->to_string();
@@ -262,19 +264,19 @@ const TxTypeEntity* TxSymbolScope::resolve_type(std::vector<const TxSymbolScope*
     return nullptr;
 }
 
-const TxFieldEntity* TxSymbolScope::resolve_field(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident,
-                                                  const std::vector<const TxType*>* typeParameters) const {
-    const TxSymbolScope* symbol = this->resolve_symbol(path, ident);
+TxFieldEntity* TxSymbolScope::resolve_field(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident,
+                                                  const std::vector<const TxType*>* typeParameters) {
+    TxSymbolScope* symbol = this->resolve_symbol(path, ident);
     if (! symbol)
         return nullptr;
-    const TxFieldEntity* field = this->resolve_symbol_as_field(symbol, typeParameters);
+    TxFieldEntity* field = this->resolve_symbol_as_field(symbol, typeParameters);
     if (field && path.back() != field)
         path[path.size()-1] = field;
     return field;
 }
 
-const TxFieldEntity* TxSymbolScope::resolve_symbol_as_field(const TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters) const {
-    if (auto fieldEnt = dynamic_cast<const TxFieldEntity*>(symbol)) {
+TxFieldEntity* TxSymbolScope::resolve_symbol_as_field(TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters) {
+    if (auto fieldEnt = dynamic_cast<TxFieldEntity*>(symbol)) {
         // if (typeParameters)  TODO: if type parameters specified, verify that they match
         return fieldEnt;
     }
@@ -325,10 +327,13 @@ const TxFieldEntity* TxSymbolScope::resolve_symbol_as_field(const TxSymbolScope*
 bool TxSymbolScope::prepare_symbol_table() {
     if (!this->fullName.begins_with(BUILTIN_NS))
         this->LOGGER().debug("Preparing symbol %s", this->fullName.to_string().c_str());
+//    if (this->fullName.to_string() == "my.main$.Tst1.tx#Array#L")
+//        std::cout << "HERE V" << std::endl;
     bool valid = this->prepare_symbol();
-    for (auto entry : this->symbols) {
+    if (! valid)
+        this->LOGGER().debug("Failed symbol validity test: %s", this->fullName.to_string().c_str());
+    for (auto entry : this->symbols)
         valid &= entry.second->prepare_symbol_table();
-    }
     return valid;
 }
 

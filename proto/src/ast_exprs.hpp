@@ -7,6 +7,14 @@
 /*=== conversion/casting ===*/
 
 class TxConversionNode : public TxExpressionNode {
+protected:
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
+        expr->symbol_resolution_pass(resCtx);
+        // FIXME: type equality logic
+        //auto type = expr->symbol_resolution_pass(resCtx);
+        //ASSERT(type && (*type) == (*this->targetType), "Mismatching types in " << this << ": \n" << type << " != \n" << this->targetType);
+        return this->targetType;
+    }
 public:
     TxExpressionNode* expr;
     TxType const * const targetType;
@@ -15,13 +23,13 @@ public:
 
     virtual bool has_predefined_type() const override { return this->targetType->entity(); }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
     }
 
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override { return this->targetType; }
-    virtual bool is_statically_constant() const { return this->expr->is_statically_constant(); }
-    virtual void semantic_pass() { }
+    virtual bool is_statically_constant() const override { return this->expr->is_statically_constant(); }
+
+    virtual void semantic_pass() override { ASSERT(this->get_type(), "symbol resolution pass not run for " << this); }
 };
 
 class TxScalarConvNode : public TxConversionNode {
@@ -84,11 +92,11 @@ public:
 
     TxIntegerLitNode(long long value) : TxIntegerLitNode(yy::location(), std::to_string(value)) { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
     }
 
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
         // TODO: produce different Integer types
         return this->types().get_builtin_type(INT);
     }
@@ -107,11 +115,11 @@ public:
     TxFloatingLitNode(const yy::location& parseLocation, const std::string& literal)
         : TxLiteralValueNode(parseLocation), literal(literal), value(atof(literal.c_str())) { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
     }
 
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
         // TODO: produce different Floating types
         return this->types().get_builtin_type(FLOAT);
     }
@@ -129,11 +137,11 @@ public:
         : TxLiteralValueNode(parseLocation), literal(literal), value(literal.at(1)) { }
     // TODO: properly parse char literal
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
     }
 
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
         return this->types().get_builtin_type(UBYTE);
     }
 
@@ -154,12 +162,12 @@ public:
           literal(literal), value(literal, 2, literal.length()-3) { }
     // TODO: properly parse string literal
 
-    virtual void symbol_table_pass(LexicalContext& lexContext);
+    virtual void symbol_registration_pass(LexicalContext& lexContext);
 
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
 //        const TxType* charType = this->types().get_builtin_type(UBYTE);
 //        return this->types().get_array_type(nullptr, charType, &this->arrayLength);
-        return this->cstringTypeNode->get_entity()->get_type();
+        return this->cstringTypeNode->typeExpression->symbol_resolution_pass(resCtx);
     }
 
     virtual bool is_statically_constant() const { return true; }
@@ -179,13 +187,13 @@ public:
 
     virtual bool has_predefined_type() const override { return this->reference->has_predefined_type(); }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        reference->symbol_table_pass(lexContext);
+        reference->symbol_registration_pass(lexContext);
     }
 
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        auto opType = this->reference->get_type();
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
+        auto opType = this->reference->symbol_resolution_pass(resCtx);
         if (auto refType = dynamic_cast<const TxReferenceType*>(opType)) {
             if (refType->is_generic())
                 // FUTURE: return constraint type if present
@@ -219,14 +227,16 @@ public:
 
     virtual bool has_predefined_type() const override { return this->array->has_predefined_type(); }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        array->symbol_table_pass(lexContext);
-        subscript->symbol_table_pass(lexContext);
+        this->array->symbol_registration_pass(lexContext);
+        this->subscript->symbol_registration_pass(lexContext);
     }
 
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        auto opType = this->array->get_type();
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
+        auto opType = this->array->symbol_resolution_pass(resCtx);
+        this->subscript->symbol_resolution_pass(resCtx);
+        this->subscript = validate_wrap_convert(resCtx, this->subscript, this->types().get_builtin_type(LONG));
         if (auto arrayType = dynamic_cast<const TxArrayType*>(opType)) {
             if (auto e = arrayType->element_type())
                 return e->get_type();
@@ -245,9 +255,6 @@ public:
     virtual void semantic_pass() {
         array->semantic_pass();
         subscript->semantic_pass();
-        if (! dynamic_cast<const TxArrayType*>(this->array->get_type()))
-            cerror("Can't subscript non-array expression.");
-        subscript = validate_wrap_convert(subscript, this->types().get_builtin_type(LONG));
     }
 
     virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const;
@@ -264,17 +271,17 @@ public:
 
     virtual bool has_predefined_type() const override { return false; }  // (this expr constructs new type)
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        target->symbol_table_pass(lexContext);
+        target->symbol_registration_pass(lexContext);
     }
 
 //    const TxFieldEntity* get_target_entity() const {
 //        return this->target->get_entity();
 //    }
 
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        return this->types().get_reference_type(nullptr, this->target->get_type());
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
+        return this->types().get_reference_type(nullptr, this->target->symbol_resolution_pass(resCtx));
     }
 
     virtual bool is_statically_constant() const {
@@ -324,18 +331,50 @@ public:
         ASSERT(is_valid(op), "Invalid operator value: " << (int)op);
     }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        lhs->symbol_table_pass(lexContext);
-        rhs->symbol_table_pass(lexContext);
+        lhs->symbol_registration_pass(lexContext);
+        rhs->symbol_registration_pass(lexContext);
     }
 
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
+        auto ltype = lhs->symbol_resolution_pass(resCtx);
+        auto rtype = rhs->symbol_resolution_pass(resCtx);
+
+        const TxType* arithResultType = nullptr;
+        if (auto scalar_ltype = dynamic_cast<const TxScalarType*>(ltype)) {
+            if (auto scalar_rtype = dynamic_cast<const TxScalarType*>(rtype)) {
+                if (scalar_ltype != scalar_rtype) {
+                    if (scalar_ltype->auto_converts_from(*scalar_rtype)) {
+                        // wrap rhs with cast instruction node
+                        this->rhs = new TxScalarConvNode(this->rhs->parseLocation, this->rhs, scalar_ltype);
+                        arithResultType = scalar_ltype;
+                    }
+                    else if (scalar_rtype->auto_converts_from(*scalar_ltype)) {
+                        // wrap lhs with cast instruction node
+                        this->lhs = new TxScalarConvNode(this->lhs->parseLocation, this->lhs, scalar_rtype);
+                        arithResultType = scalar_rtype;
+                    }
+                }
+                else
+                    // same type, no additional action necessary
+                    arithResultType = scalar_ltype;
+            }
+            if (! arithResultType)
+                cerror("Mismatching operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
+        }
+        else if (dynamic_cast<const TxReferenceType*>(ltype)) {
+            if (dynamic_cast<const TxReferenceType*>(rtype)) {
+                if (! (this->op == TXOP_EQ || this->op == TXOP_NE))
+                    cerror("Invalid operator for reference operands: %s", to_cstring(this->op));
+            }
+        }
+
         if (get_op_class(this->op) == TXOC_COMPARISON)
             return this->types().get_builtin_type(BOOLEAN);
         else {  // TXOC_ARITHMETIC
-            // Note: After semantic pass the lhs will hold the proper resulting type.
-            return this->lhs->get_type();
+            // Note: After analyzing conversions, the lhs will hold the proper resulting type.
+            return arithResultType;
         }
     }
 
@@ -346,36 +385,6 @@ public:
     virtual void semantic_pass() {
         lhs->semantic_pass();
         rhs->semantic_pass();
-        auto ltype = lhs->get_type();
-        auto rtype = rhs->get_type();
-
-        if (auto scalar_ltype = dynamic_cast<const TxScalarType*>(ltype)) {
-            if (auto scalar_rtype = dynamic_cast<const TxScalarType*>(rtype)) {
-                if (scalar_ltype != scalar_rtype) {
-                    if (scalar_ltype->auto_converts_from(*scalar_rtype)) {
-                        // wrap rhs with cast instruction node
-                        this->rhs = new TxScalarConvNode(this->rhs->parseLocation, this->rhs, scalar_ltype);
-                        return;
-                    }
-                    else if (scalar_rtype->auto_converts_from(*scalar_ltype)) {
-                        // wrap lhs with cast instruction node
-                        this->lhs = new TxScalarConvNode(this->lhs->parseLocation, this->lhs, scalar_rtype);
-                        return;
-                    }
-                }
-                else
-                    return;  // same type, no additional action necessary
-            }
-        }
-        else if (dynamic_cast<const TxReferenceType*>(ltype)) {
-            if (dynamic_cast<const TxReferenceType*>(rtype)) {
-                if (! (this->op == TXOP_EQ || this->op == TXOP_NE))
-                    cerror("Invalid operator for reference operands: %s", to_cstring(this->op));
-                return;
-            }
-        }
-        if (ltype && rtype)
-            cerror("Mismatching operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -387,14 +396,14 @@ public:
     TxUnaryMinusNode(const yy::location& parseLocation, TxExpressionNode* operand)
         : TxOperatorValueNode(parseLocation), operand(operand) { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        operand->symbol_table_pass(lexContext);
+        operand->symbol_registration_pass(lexContext);
     }
 
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
         // TODO: promote unsigned integers upon negation
-        return this->operand->get_type();
+        return this->operand->symbol_resolution_pass(resCtx);
     }
 
     virtual bool is_statically_constant() const {
@@ -417,16 +426,15 @@ public:
 
 
 class TxFunctionCallNode : public TxExpressionNode {
-    mutable TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function call if non-null
+    TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function call if non-null
 
     /** resolve possible function overloading by registering actual function signature with callee node */
-    void register_callee_signature() const {
-        if (callee->hasAppliedFuncArgTypes())
-            return;
+    void register_callee_signature(ResolutionContext& resCtx) const {
+        ASSERT (!callee->hasAppliedFuncArgTypes(), "callee already has applied func arg types: " << callee);
         std::vector<const TxType*>* appliedArgTypes = new std::vector<const TxType*>();
         for (auto argExpr : *this->argsExprList) {
             argExpr->semantic_pass();
-            if (auto argType = argExpr->get_type())
+            if (auto argType = argExpr->symbol_resolution_pass(resCtx))
                 appliedArgTypes->push_back(argType);
             else {
                 delete appliedArgTypes;
@@ -447,60 +455,48 @@ public:
 
     virtual bool has_predefined_type() const override { return true; }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        this->callee->symbol_table_pass(lexContext);
+        this->callee->symbol_registration_pass(lexContext);
         for (auto argExpr : *this->argsExprList)
-            argExpr->symbol_table_pass(lexContext);
+            argExpr->symbol_registration_pass(lexContext);
     }
 
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        this->register_callee_signature();
-        auto calleeType = this->callee->get_type();
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
+        this->register_callee_signature(resCtx);
+        auto calleeType = this->callee->symbol_resolution_pass(resCtx);
         if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {
             // "inline" function call by replacing with conversion expression
-            this->inlinedExpression = validate_wrap_convert(this->argsExprList->front(), inlineFunc->returnType, true);
+            this->inlinedExpression = validate_wrap_convert(resCtx, this->argsExprList->front(), inlineFunc->returnType, true);
             return inlineFunc->returnType;
         }
-        if (auto funcType = dynamic_cast<const TxFunctionType*>(calleeType))
+        if (auto funcType = dynamic_cast<const TxFunctionType*>(calleeType)) {
+            // verify matching function signature:
+            if (funcType->argumentTypes.size() != this->argsExprList->size()) {
+                cerror("Callee of function call expression has mismatching argument count: %s", calleeType->to_string().c_str());
+                return nullptr;
+            }
+            // (regular function call, not inlined expression)
+            auto argExprI = this->argsExprList->begin();
+            for (auto argDef : funcType->argumentTypes) {
+                // note: similar rules to assignment
+                *argExprI = validate_wrap_assignment(resCtx, *argExprI, argDef);
+                argExprI++;
+            }
             return funcType->returnType;
+        }
+        cerror("Callee of function call expression is not of function type: %s", calleeType->to_string().c_str());
         return nullptr;
     }
 
     const TxExpressionNode* get_inlined_expression() const {
-        if (!this->inlinedExpression)
-            this->get_type();  // initializes inlined expression, if any
         return this->inlinedExpression;
     }
 
     virtual void semantic_pass() {
-        this->register_callee_signature();
         callee->semantic_pass();
-        auto calleeType = callee->get_type();
-        if (! calleeType) {
-            cerror("Failed to resolve type of callee in function call expression");
-            return;
-        }
-
-        // verify matching function signature:
-        auto funcType = dynamic_cast<const TxFunctionType*>(calleeType);
-        if (! funcType) {
-            cerror("Callee of function call expression is not of function type: %s", calleeType->to_string().c_str());
-            return;
-        }
-        if (funcType->argumentTypes.size() != this->argsExprList->size()) {
-            cerror("Callee of function call expression has mismatching argument count: %s", calleeType->to_string().c_str());
-            return;
-        }
-        if (! this->inlinedExpression) {
-            // regular function call
-            auto argExprI = this->argsExprList->begin();
-            for (auto argDef : funcType->argumentTypes) {
-                // note: similar rules to assignment
-                *argExprI = validate_wrap_assignment(*argExprI, argDef);
-                argExprI++;
-            }
-        }
+        for (auto argExpr : *this->argsExprList)
+            argExpr->semantic_pass();
     }
 
     virtual bool is_statically_constant() const {
@@ -513,6 +509,81 @@ public:
         if (auto inlExpr = this->get_inlined_expression())
             return inlExpr->get_static_constant_proxy();
         return nullptr;
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+};
+
+
+
+/*=== assignee expressions ===*/
+
+class TxDerefAssigneeNode : public TxAssigneeNode {
+protected:
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
+        auto opType = this->operand->symbol_resolution_pass(resCtx);
+        if (auto refType = dynamic_cast<const TxReferenceType*>(opType)) {
+            if (refType->is_generic())
+                // FUTURE: return constraint type if present
+                return this->types().get_builtin_type(ANY);
+            return refType->target_type()->get_type();
+        }
+        cerror("Operand is not a reference and can't be dereferenced: %s", opType->to_string().c_str());
+        return nullptr;
+    }
+
+public:
+    TxExpressionNode* operand;
+    TxDerefAssigneeNode(const yy::location& parseLocation, TxExpressionNode* operand)
+        : TxAssigneeNode(parseLocation), operand(operand) { }
+
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+        this->set_context(lexContext);
+        operand->symbol_registration_pass(lexContext);
+    }
+
+    virtual void semantic_pass() override {
+        operand->semantic_pass();
+        if (! dynamic_cast<const TxReferenceType*>(this->operand->get_type()))
+            cerror("Can't de-reference non-reference expression.");
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+};
+
+class TxElemAssigneeNode : public TxAssigneeNode {
+protected:
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
+        auto opType = this->array->symbol_resolution_pass(resCtx);
+        subscript->symbol_resolution_pass(resCtx);
+        subscript = validate_wrap_convert(resCtx, subscript, this->types().get_builtin_type(LONG));
+        if (auto arrayType = dynamic_cast<const TxArrayType*>(opType)) {
+            if (auto e = arrayType->element_type())
+                return e->get_type();
+            else
+                // FUTURE: return constraint type if present
+                return this->types().get_builtin_type(ANY);  // (not modifiable)
+        }
+        // operand type is unknown / not an array and can't be subscripted
+        cerror("Can't subscript non-array expression.");
+        return nullptr;
+    }
+
+public:
+    TxExpressionNode* array;
+    TxExpressionNode* subscript;
+    TxElemAssigneeNode(const yy::location& parseLocation, TxExpressionNode* array, TxExpressionNode* subscript)
+        : TxAssigneeNode(parseLocation), array(array), subscript(subscript)  { }
+
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+        this->set_context(lexContext);
+        array->symbol_registration_pass(lexContext);
+        subscript->symbol_registration_pass(lexContext);
+    }
+
+    virtual void semantic_pass() override {
+        array->semantic_pass();
+        subscript->semantic_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;

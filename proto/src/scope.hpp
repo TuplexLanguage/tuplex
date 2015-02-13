@@ -8,6 +8,8 @@
 #include "type.hpp"
 
 
+class ResolutionContext;
+
 class TxSymbolScope;
 class TxEntity;
 class TxDistinctEntity;
@@ -16,8 +18,10 @@ class TxTypeEntity;
 enum TxFieldStorage : int;
 
 
-class TxTypeDefiner : public TxTypeProxy {
+class TxEntityDefiner : public TxTypeProxy {
 public:
+    virtual const TxType* symbol_resolution_pass(ResolutionContext& resCtx) = 0;
+
     /** Returns true if this type definer "is ready" - has a defined type.
      * If this method returns false, calls to TxTypeProxy::get_type() have undefined results.
      */
@@ -27,11 +31,11 @@ public:
 
 /** Represents a Tuplex symbol and namespace/scope.
  * For example package (global namespace), modules, entities, code blocks.
- * A symbol has a unique qualified name, a parent scope (unless root),
+ * A symbol has a unique qualified name, an outer (parent) scope (unless root),
  * and a table of named members (i.e. it is a namespace).
  *
  * A symbol has a "plain" name (single segment, no '.') which is unique within
- * its parent's scope.
+ * its outer scope.
  * A symbol's globally unique, qualified name corresponds to the concatenation of all the
  * plain names of the symbol scopes along its path from the root scope, separated by '.'.
  * For example: tx.c.puts
@@ -73,8 +77,8 @@ private:
 
     /** plain name of this symbol */
     const std::string name;
-    /** The parent scope within which this symbol is defined. (NULL if this is a root scope) */
-    TxSymbolScope* const parent;
+    /** The outer scope within which this symbol is defined. (NULL if this is a root scope) */
+    TxSymbolScope* const outer;
     /** The fully qualified name of this scope. The last segment is this scope's member name under the parent. */
     TxIdentifier fullName;
 
@@ -125,10 +129,11 @@ public:
     inline Logger& LOGGER() const { return this->LOG; }
 
 
+    // TODO: rename parent to outer
     /** Returns true if this symbol has a parent scope in which it is defined, or false if it is a top level name. */
-    inline bool has_parent() const { return this->parent; }
+    inline bool has_parent() const { return this->outer; }
 
-    inline TxSymbolScope* get_parent() const { return this->parent; }
+    inline TxSymbolScope* get_parent() const { return this->outer; }
 
     inline const std::string& get_name() const { return this->name; }
 
@@ -149,14 +154,14 @@ public:
 
     /*--- symbol table handling  ---*/
 
-    virtual TxTypeEntity*  declare_type( const std::string& plainName, const TxTypeDefiner* typeDefiner,
+    virtual TxTypeEntity*  declare_type( const std::string& plainName, TxEntityDefiner* entityDefiner,
                                          TxDeclarationFlags modifiers);
-    virtual TxFieldEntity* declare_field(const std::string& plainName, const TxTypeDefiner* typeDefiner,
+    virtual TxFieldEntity* declare_field(const std::string& plainName, TxEntityDefiner* entityDefiner,
                                          TxDeclarationFlags modifiers, TxFieldStorage storage,
                                          const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr=nullptr);
 
 
-    virtual const TxSymbolScope* resolve_generic(const TxSymbolScope* vantageScope) const { return this; }
+    virtual TxSymbolScope* resolve_generic(TxSymbolScope* vantageScope) { return this; }
     virtual bool is_alias() const { return false; }
     virtual const TxIdentifier* get_alias() const { return nullptr; }
 
@@ -165,41 +170,41 @@ public:
      * This is the main symbol lookup entry point and implements the language's
      * namespace lookup and visibility rules.
      */
-    virtual const TxSymbolScope* resolve_symbol(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
+    virtual TxSymbolScope* resolve_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
 
     /** Looks up a symbol via this scope. */
-    virtual const TxSymbolScope* lookup_symbol(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
+    virtual TxSymbolScope* lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
 
     /** Performs a downward lookup of the a member, member's member, and so on, within this symbol scope.
      * (The head segment of the identifier is matched against the direct members of this symbol scope.)
      * Performs an exact match - aliases are not considered and if a symbol along the path is overloaded
      * it is not resolved.
      */
-    virtual const TxSymbolScope* lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
+    virtual TxSymbolScope* lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
 
 
     /** Wrapper around lookup_symbol that only matches against type symbols.
      * (This implicitly handles overloaded symbols since no more than a single type can be assigned
      * to a given symbol.)
      */
-    const TxTypeEntity* resolve_type(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
-    inline const TxTypeEntity* resolve_type(const TxIdentifier& ident) const {
-        std::vector<const TxSymbolScope*> tmp;  return this->resolve_type(tmp, ident);
+    TxTypeEntity* resolve_type(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
+    inline TxTypeEntity* resolve_type(const TxIdentifier& ident) {
+        std::vector<TxSymbolScope*> tmp;  return this->resolve_type(tmp, ident);
     }
 
     /** Wrapper around lookup_symbol that only matches against field symbols.
      * It also implements the language's field symbol overloading capability;
      * type parameters must be provided in order to resolve an overloaded symbol.
      */
-    const TxFieldEntity* resolve_field(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident,
-                                       const std::vector<const TxType*>* typeParameters = nullptr) const;
-    inline const TxFieldEntity* resolve_field(const TxIdentifier& ident,
-                                              const std::vector<const TxType*>* typeParameters = nullptr) const {
-        std::vector<const TxSymbolScope*> tmp;  return this->resolve_field(tmp, ident, typeParameters);
+    TxFieldEntity* resolve_field(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident,
+                                 const std::vector<const TxType*>* typeParameters = nullptr);
+    inline TxFieldEntity* resolve_field(const TxIdentifier& ident,
+                                        const std::vector<const TxType*>* typeParameters = nullptr) {
+        std::vector<TxSymbolScope*> tmp;  return this->resolve_field(tmp, ident, typeParameters);
     }
 
     /** Attempts to resolve an identified symbol, that is potentially overloaded, as a field using the provided type parameters. */
-    const TxFieldEntity* resolve_symbol_as_field(const TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters) const;
+    TxFieldEntity* resolve_symbol_as_field(TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters);
 
 
     inline SymbolMap::const_iterator symbols_cbegin() const { return this->symbols.cbegin(); }
@@ -212,7 +217,7 @@ public:
      * Checks that all this scope's symbols are valid and consistent.
      * This includes name collision and overloading checks.
      */
-    virtual bool prepare_symbol_table();
+    virtual bool prepare_symbol_table() final;
 
     /** Performs the symbol table pass on this scope symbol.
      * Checks that this symbol is valid and consistent.

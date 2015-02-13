@@ -3,14 +3,14 @@
 #include "ast_base.hpp"
 
 
-const TxIdentifier* TxDistinctEntity::get_alias() const {
-    auto type = this->get_type();
-    if (! type)
-        this->LOGGER().warning("In get_alias() of entity %s: type is NULL", this->to_string().c_str());
-    else if (type->entity() && (static_cast<const TxDistinctEntity*>(type->entity()) != this) && (type->entity()->get_decl_flags() & TXD_GENPARAM))
-        return &type->entity()->get_full_name();
-    return nullptr;
-}
+//const TxIdentifier& TxDistinctEntity::get_alias() const {
+//    auto type = this->get_type();
+//    if (! type)
+//        this->LOGGER().warning("In get_alias() of entity %s: type is NULL", this->to_string().c_str());
+//    else if (type->entity() && (static_cast<const TxDistinctEntity*>(type->entity()) != this) && (type->entity()->get_decl_flags() & TXD_GENPARAM))
+//        return &type->entity()->get_full_name();
+//    return nullptr;
+//}
 
 
 int TxFieldEntity::get_instance_field_index() const {
@@ -44,24 +44,29 @@ const TxConstantProxy* TxFieldEntity::get_static_constant_proxy() const {
 }
 
 
-const TxSymbolScope* TxDistinctEntity::resolve_generic(const TxSymbolScope* vantageScope) const {
-    std::vector<const TxSymbolScope*> tmpPath;
+TxSymbolScope* TxDistinctEntity::resolve_generic(TxSymbolScope* vantageScope) {
+    std::vector<TxSymbolScope*> tmpPath;
     if (this->get_decl_flags() & TXD_GENPARAM) {
         std::string bindingName = this->get_full_name().to_string();
         std::replace(bindingName.begin(), bindingName.end(), '.', '#');
         this->LOGGER().trace("Trying to resolve type parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), vantageScope->get_full_name().to_string().c_str());
         if (auto boundSym = vantageScope->resolve_symbol(tmpPath, bindingName)) {
-            this->LOGGER().trace("Substituting type parameter %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
+            this->LOGGER().warning("Substituting type parameter %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
             return boundSym->resolve_generic(vantageScope);
         }
         else {
-            this->LOGGER().trace("symbol is unbound type parameter: %s", this->to_string().c_str());
+            // unbound symbols are not resolved against, unless they're defined by an outer scope -
+            // meaning they're type parameters pertaining to the current lexical context
+            if (vantageScope->get_full_name().begins_with(this->get_parent()->get_full_name()))
+                this->LOGGER().warning("symbol is being-defined type parameter %s from vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
+            else
+                this->LOGGER().warning("symbol is unbound type parameter %s in vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
         }
     }
-    else if (auto alias = this->get_alias()) {
-        this->LOGGER().trace("Trying to resolve alias %s = %s from %s", this->get_full_name().to_string().c_str(), alias->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
-        if (auto boundSym = vantageScope->resolve_symbol(tmpPath, *alias)) {
-            this->LOGGER().trace("Substituting alias %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
+    else if (this->is_alias()) {
+        this->LOGGER().trace("Trying to resolve alias %s = %s from %s", this->get_full_name().to_string().c_str(), this->get_alias()->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
+        if (auto boundSym = vantageScope->resolve_symbol(tmpPath, *this->get_alias())) {
+            this->LOGGER().warning("Substituting alias %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
             return boundSym->resolve_generic(vantageScope);
         }
         else {
@@ -71,7 +76,7 @@ const TxSymbolScope* TxDistinctEntity::resolve_generic(const TxSymbolScope* vant
     return this;
 }
 
-const TxSymbolScope* TxTypeEntity::lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
+TxSymbolScope* TxTypeEntity::lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
     auto memberName = ident.segment(0);
     if (auto member = this->get_symbol(memberName)) {
         if (auto fieldMember = dynamic_cast<const TxFieldEntity*>(member)) {
@@ -89,7 +94,7 @@ const TxSymbolScope* TxTypeEntity::lookup_member(std::vector<const TxSymbolScope
         }
 
         // if the identified member is a type parameter, attempt to resolve it by substituting it for its binding:
-        const TxSymbolScope* vantageScope = (path.empty() ? this : path.back());
+        TxSymbolScope* vantageScope = path.back();
         member = member->resolve_generic(vantageScope);
 
         path.push_back(member);
@@ -99,7 +104,7 @@ const TxSymbolScope* TxTypeEntity::lookup_member(std::vector<const TxSymbolScope
             return member->lookup_member(path, TxIdentifier(ident, 1));
     }
 
-    if (auto type = this->typeDefiner->attempt_get_type()) {
+    if (auto type = this->entityDefiner->attempt_get_type()) {
         // Without the guard this lookup can cause infinite recursion or runtime/assertion errors
         // when run before symbol table pass has completed.
         // The root cause is predef type name lookup is done *from within the scope of the new type being declared*.

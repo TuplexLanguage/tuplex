@@ -69,34 +69,48 @@ public:
 
 /** Represents a single declared source code entity - a field or a type. */
 class TxDistinctEntity : public TxEntity {
-    //TxDeclarationFlags alias = TXD_NONE;
+    TxIdentifier aliasIdent;
     TxDeclarationFlags declFlags;
+    bool resolved = false;  // during development
 protected:
     mutable bool gettingType = false;  // during development - guard against recursive calls to get_type()
-    TxTypeDefiner const * const typeDefiner;
+    TxEntityDefiner * const entityDefiner;
 
-    TxDistinctEntity(TxSymbolScope* parent, const std::string& name, const TxTypeDefiner* typeDefiner, TxDeclarationFlags declFlags)
-            : TxEntity(parent, name), declFlags(declFlags), typeDefiner(typeDefiner) {
+    TxDistinctEntity(TxSymbolScope* parent, const std::string& name, TxEntityDefiner* entityDefiner, TxDeclarationFlags declFlags)
+            : TxEntity(parent, name), declFlags(declFlags), entityDefiner(entityDefiner) {
     }
 
 public:
     virtual TxDistinctEntity* make_copy(const std::string& newName) const = 0;
 
+    virtual const TxType* symbol_resolution_pass(ResolutionContext& resCtx) {
+        auto type = this->entityDefiner->symbol_resolution_pass(resCtx);
+        resolved = true;
+        return type;
+    }
+
     virtual const TxType* get_type() const override {
         ASSERT(!this->gettingType, "Recursive call to get_type() of " << this->get_full_name());
+        //ASSERT(resolved, "Called get_type() before symbols resolved of entity " << this);
         this->gettingType = true;
-        auto type = this->typeDefiner->get_type();
+        auto type = this->entityDefiner->get_type();
         this->gettingType = false;
         return type;
     }
 
     TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
 
-    virtual const TxSymbolScope* resolve_generic(const TxSymbolScope* vantageScope) const override;
+    virtual TxSymbolScope* resolve_generic(TxSymbolScope* vantageScope) override;
 
-    void set_alias() { this->declFlags = (this->declFlags | TXD_ALIAS); }
+    void set_alias(const TxIdentifier& aliasIdent) {
+        this->declFlags = (this->declFlags | TXD_ALIAS);
+        this->aliasIdent = aliasIdent;
+    }
     virtual bool is_alias() const override { return (this->declFlags & TXD_ALIAS); }
-    virtual const TxIdentifier* get_alias() const override;
+    virtual const TxIdentifier* get_alias() const override {
+        ASSERT(this->is_alias(), "Not an alias entity: " << this);
+        return &this->aliasIdent;
+    }
 
     virtual bool prepare_symbol() override {
         bool valid = TxEntity::prepare_symbol();
@@ -104,12 +118,14 @@ public:
             if (auto type = this->get_type()) {
                 std::string errorMsg = type->validate();
                 if (! errorMsg.empty()) {
-                    this->LOGGER().error("%s", errorMsg.c_str());
+                    this->LOGGER().error("Invalid type definition for %s: %s", this->get_full_name().to_string().c_str(), errorMsg.c_str());
                     valid = false;
                 }
             }
-            else
+            else {
+                this->LOGGER().error("NULL type for entity: %s", this->to_string().c_str());
                 valid = false;
+            }
         }
         return valid;
     }
@@ -130,14 +146,14 @@ protected:
     }
 
 public:
-    TxFieldEntity(TxSymbolScope* parent, const std::string& name, const TxTypeDefiner* typeDefiner, TxDeclarationFlags declFlags,
+    TxFieldEntity(TxSymbolScope* parent, const std::string& name, TxEntityDefiner* entityDefiner, TxDeclarationFlags declFlags,
                   TxFieldStorage storage, const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr)
-            : TxDistinctEntity(parent, name, typeDefiner, declFlags), storage(storage), dataspace(dataspace), initializerExpr(initializerExpr) {
+            : TxDistinctEntity(parent, name, entityDefiner, declFlags), storage(storage), dataspace(dataspace), initializerExpr(initializerExpr) {
         ASSERT ((declFlags | LEGAL_FIELD_DECL_FLAGS) == LEGAL_FIELD_DECL_FLAGS, "Illegal field declFlags: " << declFlags);
     }
 
     virtual TxFieldEntity* make_copy(const std::string& newName) const {
-        return new TxFieldEntity(this->get_parent(), newName, this->typeDefiner, this->get_decl_flags(), this->storage, this->dataspace, this->initializerExpr);
+        return new TxFieldEntity(this->get_parent(), newName, this->entityDefiner, this->get_decl_flags(), this->storage, this->dataspace, this->initializerExpr);
     }
 
     inline TxFieldStorage get_storage() const { return this->storage; }
@@ -165,7 +181,7 @@ public:
         return this->get_type()->is_modifiable();
     }
 
-    virtual const TxSymbolScope* lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const override {
+    virtual TxSymbolScope* lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) override {
         // field symbols don't have member symbols - lookup is via type instead
         return this->get_type()->lookup_instance_member(path, ident);
     }
@@ -207,14 +223,14 @@ class TxTypeEntity : public TxDistinctEntity {
     }
 
 public:
-    TxTypeEntity(TxSymbolScope* parent, const std::string& name, const TxTypeDefiner* typeDefiner, TxDeclarationFlags declFlags)
-            : TxDistinctEntity(parent, name, typeDefiner, declFlags) {
+    TxTypeEntity(TxSymbolScope* parent, const std::string& name, TxEntityDefiner* entityDefiner, TxDeclarationFlags declFlags)
+            : TxDistinctEntity(parent, name, entityDefiner, declFlags) {
         // types are implicitly static; it's not legal to specify them in source
         ASSERT ((declFlags | LEGAL_TYPE_DECL_FLAGS) == LEGAL_TYPE_DECL_FLAGS, "Illegal type declFlags: " << declFlags);
     }
 
     virtual TxTypeEntity* make_copy(const std::string& newName) const {
-        return new TxTypeEntity(this->get_parent(), newName, this->typeDefiner, this->get_decl_flags());
+        return new TxTypeEntity(this->get_parent(), newName, this->entityDefiner, this->get_decl_flags());
     }
 
     virtual const TxType* get_type() const override {
@@ -229,10 +245,10 @@ public:
     }
 
     /** match against this entity's static members (from statically known type, up through its base types) */
-    virtual const TxSymbolScope* lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const override;
+    virtual TxSymbolScope* lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) override;
 
     /** match against this entity's instance/static members (from statically known type, up through its base types) */
-    virtual const TxSymbolScope* lookup_instance_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
+    virtual TxSymbolScope* lookup_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
         //if (auto member = TxDistinctEntity::lookup_member(path, ident)) bloody h*ll
         if (auto member = lookup_member(path, ident))
             return member;
@@ -287,7 +303,7 @@ public:
         bool valid = TxDistinctEntity::prepare_symbol();
         if (! valid)
             return valid;
-        else if (this->get_alias()) {
+        else if (this->is_alias()) {
             // do something?
             //this->LOGGER().debug("Alias: %s", alias->to_string().c_str());
         }
@@ -385,7 +401,7 @@ public:
     }
 
 
-    virtual const TxSymbolScope* lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const override {
+    virtual TxSymbolScope* lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) override {
         // for now: match against this overloaded symbol's type entity, if present, otherwise fail
         // (if/when functions can have "members", or non-function fields can be overloaded, this would need to change)
         if (this->typeEntity) {

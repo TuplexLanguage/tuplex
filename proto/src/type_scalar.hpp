@@ -7,13 +7,13 @@ class TxScalarType : public TxType {
 protected:
     const int _size;
 
-    virtual TxScalarType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxScalarType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                                 const std::vector<TxTypeParam>& typeParams,
                                                 std::string* errorMsg=nullptr) const override {
         throw std::logic_error("Can't specialize type " + this->to_string());
     };
 
-    TxScalarType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec, int size)
+    TxScalarType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec, int size)
         : TxType(entity, baseTypeSpec), _size(size) { }
 
 public:
@@ -31,7 +31,7 @@ public:
 
 class TxIntegerType final : public TxScalarType {
 protected:
-    virtual TxIntegerType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxIntegerType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                                  const std::vector<TxTypeParam>& typeParams,
                                                  std::string* errorMsg=nullptr) const override {
         ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
@@ -40,13 +40,13 @@ protected:
         throw std::logic_error("Specified a base type for TxIntegerType that was not a TxIntegerType: " + baseTypeSpec.type->to_string());
     };
 
-    TxIntegerType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec, int size, bool sign)
+    TxIntegerType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec, int size, bool sign)
         : TxScalarType(entity, baseTypeSpec, size), sign(sign) { }
 
 public:
     const bool sign;
 
-    TxIntegerType(const TxTypeEntity* entity, const TxType* baseType, int size, bool sign)
+    TxIntegerType(TxTypeEntity* entity, const TxType* baseType, int size, bool sign)
         : TxScalarType(entity, TxTypeSpecialization(baseType), size), sign(sign) { }
 
 
@@ -69,7 +69,7 @@ public:
 
 class TxFloatingType final : public TxScalarType {
 protected:
-    virtual TxFloatingType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxFloatingType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                                   const std::vector<TxTypeParam>& typeParams,
                                                   std::string* errorMsg=nullptr) const override {
         ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
@@ -78,11 +78,11 @@ protected:
         throw std::logic_error("Specified a base type for TxFloatingType that was not a TxFloatingType: " + baseTypeSpec.type->to_string());
     };
 
-    TxFloatingType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec, int size)
+    TxFloatingType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec, int size)
         : TxScalarType(entity, baseTypeSpec, size) { }
 
 public:
-    TxFloatingType(const TxTypeEntity* entity, const TxType* baseType, int size)
+    TxFloatingType(TxTypeEntity* entity, const TxType* baseType, int size)
         : TxScalarType(entity, TxTypeSpecialization(baseType), size) { }
 
     virtual bool operator==(const TxType& other) const {

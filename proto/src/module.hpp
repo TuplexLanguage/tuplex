@@ -40,9 +40,9 @@ class TxModule : public TxSymbolScope {
     bool use_symbol(const TxModule* imported, const std::string& plainName);
 
 protected:
-    virtual bool declare_symbol(TxSymbolScope* symbol);
+    virtual bool declare_symbol(TxSymbolScope* symbol) override;
 
-    virtual const TxSymbolScope* lookup_symbol(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
+    virtual TxSymbolScope* lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) override;
 
 public:
     TxModule(TxModule* parent, const std::string& name, bool declared);
@@ -60,7 +60,7 @@ public:
 
     TxModule* declare_module(const TxIdentifier& name);
 
-    const TxModule* lookup_module(const TxIdentifier& name) const;
+    TxModule* lookup_module(const TxIdentifier& name);
 
 
     /*--- registering imports & aliases ---*/
@@ -76,7 +76,7 @@ public:
     virtual void dump_symbols() const override;
 
 
-    virtual std::string to_string() const {
+    virtual std::string to_string() const override {
 	    return "<module> " + this->get_full_name().to_string();
 	}
 };

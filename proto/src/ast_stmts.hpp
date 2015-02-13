@@ -13,12 +13,16 @@ public:
     TxFieldStmtNode(const yy::location& parseLocation, TxFieldDefNode* field)
         : TxStatementNode(parseLocation), field(field) { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
-        this->field->symbol_table_pass_local_field(lexContext, true);
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+        this->field->symbol_registration_pass_local_field(lexContext, true);
         this->set_context(this->field);
     }
 
-    virtual void semantic_pass() {
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        this->field->symbol_resolution_pass(resCtx);
+    }
+
+    virtual void semantic_pass() override {
         this->field->semantic_pass();
     }
 
@@ -36,12 +40,16 @@ public:
           typeDecl(new TxTypeDeclNode(parseLocation, TXD_NONE, typeName, typeParamDecls, typeExpression))
     { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
-        this->typeDecl->symbol_table_pass(lexContext);
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+        this->typeDecl->symbol_registration_pass(lexContext);
         this->set_context(this->typeDecl);
     }
 
-    virtual void semantic_pass() {
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        this->typeDecl->symbol_resolution_pass(resCtx);
+    }
+
+    virtual void semantic_pass() override {
         this->typeDecl->semantic_pass();
     }
 
@@ -55,12 +63,16 @@ public:
     TxCallStmtNode(const yy::location& parseLocation, TxFunctionCallNode* call)
         : TxStatementNode(parseLocation), call(call) { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
-        ((TxExpressionNode*)this->call)->symbol_table_pass(lexContext);
+        ((TxExpressionNode*)this->call)->symbol_registration_pass(lexContext);
     }
 
-    virtual void semantic_pass() {
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        ((TxExpressionNode*)this->call)->symbol_resolution_pass(resCtx);
+    }
+
+    virtual void semantic_pass() override {
         ((TxExpressionNode*)this->call)->semantic_pass();
     }
 
@@ -79,20 +91,20 @@ public:
     TxReturnStmtNode(const yy::location& parseLocation, TxExpressionNode* expr)
         : TxTerminalStmtNode(parseLocation), expr(expr) { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
         if (this->expr)
-            this->expr->symbol_table_pass(lexContext);
+            this->expr->symbol_registration_pass(lexContext);
     }
 
-    virtual void semantic_pass() {
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         // TODO: Fix so that this won't find false positive using outer function's $return typeDecl
         // TODO: Illegal to return reference to STACK dataspace
         auto returnValue = this->context().scope()->resolve_field(TxIdentifier("$return"));
         if (this->expr) {
-            this->expr->semantic_pass();
+            this->expr->symbol_resolution_pass(resCtx);
             if (returnValue)
-                this->expr = validate_wrap_convert(this->expr, returnValue->get_type());
+                this->expr = validate_wrap_convert(resCtx, this->expr, returnValue->get_type());
             else
                 cerror("Return statement has value expression although function has no return type: %s",
                              this->expr->get_type()->to_string().c_str());
@@ -102,6 +114,11 @@ public:
                          returnValue->get_type()->to_string().c_str());
     }
 
+    virtual void semantic_pass() override {
+        if (this->expr)
+            this->expr->semantic_pass();
+    }
+
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
@@ -109,8 +126,9 @@ class TxBreakStmtNode : public TxTerminalStmtNode {
 public:
     TxBreakStmtNode(const yy::location& parseLocation) : TxTerminalStmtNode(parseLocation)  { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) { this->set_context(lexContext); }
-    virtual void semantic_pass() { }
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override { this->set_context(lexContext); }
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { }
+    virtual void semantic_pass() override { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
@@ -118,8 +136,9 @@ class TxContinueStmtNode : public TxTerminalStmtNode {
 public:
     TxContinueStmtNode(const yy::location& parseLocation) : TxTerminalStmtNode(parseLocation)  { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) { this->set_context(lexContext); }
-    virtual void semantic_pass() { }
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override { this->set_context(lexContext); }
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { }
+    virtual void semantic_pass() override { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
@@ -131,17 +150,22 @@ public:
     TxSuiteNode(const yy::location& parseLocation);
     TxSuiteNode(const yy::location& parseLocation, std::vector<TxStatementNode*>* suite);
 
-    virtual void symbol_table_pass_no_subscope(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass_no_subscope(LexicalContext& lexContext) {
         this->set_context(lexContext);
         for (auto stmt : *this->suite)
-            stmt->symbol_table_pass(lexContext);
+            stmt->symbol_registration_pass(lexContext);
     }
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
         LexicalContext suiteContext(lexContext.scope()->create_code_block_scope());
-        this->symbol_table_pass_no_subscope(suiteContext);
+        this->symbol_registration_pass_no_subscope(suiteContext);
     }
 
-    virtual void semantic_pass() {
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        for (auto stmt : *this->suite)
+            stmt->symbol_resolution_pass(resCtx);
+    }
+
+    virtual void semantic_pass() override {
         TxStatementNode* prev_stmt = nullptr;
         for (auto stmt : *this->suite) {
             if (prev_stmt && dynamic_cast<TxTerminalStmtNode*>(prev_stmt))
@@ -162,12 +186,16 @@ public:
     TxElseClauseNode(const yy::location& parseLocation, TxStatementNode* suite)
         : TxStatementNode(parseLocation), suite(suite)  { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
-        this->suite->symbol_table_pass(lexContext);
+        this->suite->symbol_registration_pass(lexContext);
     }
 
-    virtual void semantic_pass() {
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        this->suite->symbol_resolution_pass(resCtx);
+    }
+
+    virtual void semantic_pass() override {
         this->suite->semantic_pass();
     }
 
@@ -185,23 +213,24 @@ public:
                            TxElseClauseNode* elseClause=nullptr)
         : TxStatementNode(parseLocation), cond(cond), suite(suite), elseClause(elseClause)  { }
 
-//    bool has_else_clause() { return this->elseClause; }
-//    void set_else_clause(TxElseClauseNode* elseClause) {
-//        ASSERT(!this->elseClause, "else-clause already set");
-//        this->elseClause = elseClause;
-//    }
-
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
-        this->cond->symbol_table_pass(lexContext);
-        this->suite->symbol_table_pass(lexContext);
+        this->cond->symbol_registration_pass(lexContext);
+        this->suite->symbol_registration_pass(lexContext);
         if (this->elseClause)
-            this->elseClause->symbol_table_pass(lexContext);
+            this->elseClause->symbol_registration_pass(lexContext);
     }
 
-    virtual void semantic_pass() {
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        this->cond->symbol_resolution_pass(resCtx);
+        this->cond = validate_wrap_convert(resCtx, this->cond, this->types().get_builtin_type(BOOLEAN));
+        this->suite->symbol_resolution_pass(resCtx);
+        if (this->elseClause)
+            this->elseClause->symbol_resolution_pass(resCtx);
+    }
+
+    virtual void semantic_pass() override {
         this->cond->semantic_pass();
-        this->cond = validate_wrap_convert(this->cond, this->types().get_builtin_type(BOOLEAN));
         this->suite->semantic_pass();
         if (this->elseClause)
             this->elseClause->semantic_pass();
@@ -228,77 +257,6 @@ public:
 
 
 
-/*=== assignment ===*/
-
-class TxDerefAssigneeNode : public TxAssigneeNode {
-public:
-    TxExpressionNode* operand;
-    TxDerefAssigneeNode(const yy::location& parseLocation, TxExpressionNode* operand)
-        : TxAssigneeNode(parseLocation), operand(operand) { }
-
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
-        this->set_context(lexContext);
-        operand->symbol_table_pass(lexContext);
-    }
-
-    virtual const TxType* get_type() const {
-        auto opType = this->operand->get_type();
-        if (auto refType = dynamic_cast<const TxReferenceType*>(opType)) {
-            if (refType->is_generic())
-                // FUTURE: return constraint type if present
-                return this->types().get_builtin_type(ANY);
-            return refType->target_type()->get_type();
-        }
-        cerror("Operand is not a reference and can't be dereferenced: %s", opType->to_string().c_str());
-        return nullptr;
-    }
-
-    virtual void semantic_pass() {
-        operand->semantic_pass();
-        if (! dynamic_cast<const TxReferenceType*>(this->operand->get_type()))
-            cerror("Can't de-reference non-reference expression.");
-    }
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
-};
-
-class TxElemAssigneeNode : public TxAssigneeNode {
-public:
-    TxExpressionNode* array;
-    TxExpressionNode* subscript;
-    TxElemAssigneeNode(const yy::location& parseLocation, TxExpressionNode* array, TxExpressionNode* subscript)
-        : TxAssigneeNode(parseLocation), array(array), subscript(subscript)  { }
-
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
-        this->set_context(lexContext);
-        array->symbol_table_pass(lexContext);
-        subscript->symbol_table_pass(lexContext);
-    }
-
-    virtual const TxType* get_type() const {
-        auto opType = this->array->get_type();
-        if (auto arrayType = dynamic_cast<const TxArrayType*>(opType)) {
-            if (auto e = arrayType->element_type())
-                return e->get_type();
-            else
-                // FUTURE: return constraint type if present
-                return this->types().get_builtin_type(ANY);  // (not modifiable)
-        }
-        // operand type is unknown / not an array and can't be subscripted
-        return nullptr;
-    }
-
-    virtual void semantic_pass() {
-        array->semantic_pass();
-        subscript->semantic_pass();
-        if (! dynamic_cast<const TxArrayType*>(this->array->get_type()))
-            cerror("Can't subscript non-array expression.");
-        subscript = validate_wrap_convert(subscript, this->types().get_builtin_type(LONG));
-    }
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
-};
-
 class TxAssignStmtNode : public TxStatementNode {
 public:
     TxAssigneeNode* lvalue;
@@ -307,16 +265,15 @@ public:
     TxAssignStmtNode(const yy::location& parseLocation, TxAssigneeNode* lvalue, TxExpressionNode* rvalue)
         : TxStatementNode(parseLocation), lvalue(lvalue), rvalue(rvalue)  { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
-        this->lvalue->symbol_table_pass(lexContext);
-        this->rvalue->symbol_table_pass(lexContext);
+        this->lvalue->symbol_registration_pass(lexContext);
+        this->rvalue->symbol_registration_pass(lexContext);
     }
 
-    virtual void semantic_pass() {
-        this->lvalue->semantic_pass();
-        this->rvalue->semantic_pass();
-        auto ltype = this->lvalue->get_type();
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        auto ltype = this->lvalue->symbol_resolution_pass(resCtx);
+        this->rvalue->symbol_resolution_pass(resCtx);
         if (! ltype)
             return;  // (error message should have been emitted by lvalue node)
         if (! ltype->is_modifiable()) {
@@ -327,7 +284,12 @@ public:
             // it would in this regard behave differently than other aggregate objects.
         }
         // note: similar rules to passing function arg
-        this->rvalue = validate_wrap_assignment(this->rvalue, ltype);
+        this->rvalue = validate_wrap_assignment(resCtx, this->rvalue, ltype);
+    }
+
+    virtual void semantic_pass() override {
+        this->lvalue->semantic_pass();
+        this->rvalue->semantic_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;

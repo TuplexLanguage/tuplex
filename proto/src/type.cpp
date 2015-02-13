@@ -29,22 +29,18 @@ const TxType* TxNonModTypeProxy::get_type() const {
 bool TxTypeBinding::operator==(const TxTypeBinding& other) const {
     return ( this->typeParamName == other.typeParamName
              && this->metaType == other.metaType
-             && ( this->is_redeclared()
-                  ? ( other.is_redeclared() && this->redeclParam == other.redeclParam )
-                  : ( !other.is_redeclared()
-                      && ( this->metaType == TxTypeParam::MetaType::TXB_TYPE
-                           ? ( *(this->typeProxy->get_type()) == *(other.typeProxy->get_type()) )
-                           : ( this->valueExpr->get_static_constant_proxy() && other.valueExpr->get_static_constant_proxy()
-                               && *this->valueExpr->get_static_constant_proxy() == *other.valueExpr->get_static_constant_proxy() ) ) ) ) );
+             && ( this->metaType == TxTypeParam::MetaType::TXB_TYPE
+                      ? ( *(this->typeProxy->get_type()) == *(other.typeProxy->get_type()) )
+                      : ( this->valueExpr->get_static_constant_proxy() && other.valueExpr->get_static_constant_proxy()
+                          && *this->valueExpr->get_static_constant_proxy() == *other.valueExpr->get_static_constant_proxy() ) ) );
 }
 
 std::string TxTypeBinding::to_string() const {
     const TxType* type;
-    return this->typeParamName + "=" + ( this->is_redeclared() ? this->redeclParam.param_name()
-                                            : ( this->metaType==TxTypeParam::MetaType::TXB_TYPE
+    return this->typeParamName + "=" + ( this->metaType==TxTypeParam::MetaType::TXB_TYPE
                                                 ? (type = this->typeProxy->get_type(),
                                                    type ? type->to_string(true) : "")
-                                                : this->valueExpr->to_string() ) );
+                                                : this->valueExpr->to_string() );
 }
 
 
@@ -67,19 +63,16 @@ std::string TxTypeSpecialization::validate() const {
             return std::string("Can't bind type parameters on top of a 'modifiable' type.");
     }
     else if (! this->bindings.empty()) {
-        // if at least one param is bound, all need to be bound/redeclared
-        if (this->type->type_params().size() != this->bindings.size())
-            return std::string("All parameters must have binding (which may in turn be an unbound parameter of derived type)");
+//        // if at least one param is bound, all need to be bound/redeclared
+//        if (this->type->type_params().size() != this->bindings.size())
+//            return std::string("Specified " + std::to_string(this->bindings.size()) + " bindings but base type has " + std::to_string(this->type->type_params().size()) + " parameters");
         for (auto & b : this->bindings) {
             if (this->type->has_type_param(b.param_name())) {
                 // validate metatype and constraints
                 auto p = this->type->get_type_param(b.param_name());
                 if (b.meta_type() != p.meta_type())
                     return std::string("Binding for type parameter ") + p.to_string() + " of wrong meta-type (TYPE vs VALUE)";
-                if (b.is_redeclared()) {
-                    // TODO: check that redeclaration fulfills original parameter's constraints
-                }
-                else if (b.meta_type() == TxTypeParam::MetaType::TXB_VALUE) {
+                if (b.meta_type() == TxTypeParam::MetaType::TXB_VALUE) {
                     // TODO: check: VALUE parameters can not be of modifiable type
                 }
                 else {
@@ -107,10 +100,18 @@ std::string TxType::validate() const {
             return std::string("Invalid specialization of base type " + baseType->to_string() + ": " + res);
         if (this->baseTypeSpec.modifiable) {
             // verify that this 'modifiable' type usage is a pure specialization
-            if (typeid(*this) != typeid(*this->baseTypeSpec.type))  // doesn't work? this is always TxType* here
+            if (typeid(*this) != typeid(*this->baseTypeSpec.type))
                 return std::string("'modifiable' specialization must have same TxType class as the base type: " + baseType->to_string());
             if (! this->interfaces.empty())
                 return std::string("'modifiable' specialization cannot add any interface base types");
+        }
+        else {
+            // verify that all parameters of base type are either bound, or redeclared in subtype
+            for (auto & p : baseType->type_params()) {
+                if (! this->baseTypeSpec.has_binding(p.param_name()))
+                    if (! this->has_type_param(p.param_name()))
+                        return std::string("No binding or redeclaration of base type's type parameter " + p.to_string());
+            }
         }
         if (! this->baseTypeSpec.type->entity())
             // also validate any anonymous base types (otherwise their validate() won't be called)
@@ -123,7 +124,7 @@ std::string TxType::validate() const {
 }
 
 
-const TxTypeEntity* TxType::explicit_entity() const {
+TxTypeEntity* TxType::explicit_entity() const {
     if (this->_entity && !(this->_entity->get_decl_flags() & TXD_IMPLICIT))
         return this->_entity;
     return nullptr;
@@ -155,9 +156,7 @@ bool TxType::is_virtual_specialization() const {
              || ( this->has_base_type()
                   && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
                   && typeid(*this) == typeid(*this->baseTypeSpec.type)
-                  && ( this->baseTypeSpec.bindings.empty()
-                       || std::all_of( this->baseTypeSpec.bindings.cbegin(), this->baseTypeSpec.bindings.cend(),
-                                       [](const TxTypeBinding& b) { return b.is_redeclared(); } ) )
+                  && this->baseTypeSpec.bindings.empty()
                   && !( this->_entity && this->_entity->has_instance_fields() ) ) );
 }
 
@@ -169,7 +168,7 @@ const TxType* TxType::get_base_type() const {
 }
 
 
-const TxSymbolScope* TxType::lookup_instance_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
+TxSymbolScope* TxType::lookup_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const {
     if (this->_entity)
         return this->_entity->lookup_instance_member(path, ident);
         // (the entity will in turn call this type's lookup_inherited_member() if it needs to, so don't call it from here)
@@ -177,14 +176,14 @@ const TxSymbolScope* TxType::lookup_instance_member(std::vector<const TxSymbolSc
         return this->lookup_inherited_instance_member(path, ident);
 }
 
-const TxSymbolScope* TxType::lookup_inherited_instance_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
+TxSymbolScope* TxType::lookup_inherited_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const {
     if (this->has_base_type())
         return this->get_base_type()->lookup_instance_member(path, ident);
     // FUTURE: implemented interfaces
     return nullptr;
 }
 
-const TxSymbolScope* TxType::lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
+TxSymbolScope* TxType::lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const {
     if (this->_entity)
         return this->_entity->lookup_member(path, ident);
         // (the entity will in turn call this type's lookup_inherited_member() if it needs to, so don't call it from here)
@@ -192,7 +191,7 @@ const TxSymbolScope* TxType::lookup_member(std::vector<const TxSymbolScope*>& pa
         return this->lookup_inherited_member(path, ident);
 }
 
-const TxSymbolScope* TxType::lookup_inherited_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
+TxSymbolScope* TxType::lookup_inherited_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const {
     if (this->has_base_type())
         return this->get_base_type()->lookup_member(path, ident);
     // FUTURE: implemented interfaces
@@ -202,8 +201,8 @@ const TxSymbolScope* TxType::lookup_inherited_member(std::vector<const TxSymbolS
 
 const TxTypeProxy* TxType::resolve_param_type(const std::string& paramName, bool nontransitiveModifiability) const {
     if (this->entity()) {
-        std::vector<const TxSymbolScope*> path( { this->entity() } );
-        if (auto typeEntity = dynamic_cast<const TxTypeEntity*>(this->lookup_member(path, paramName))) {
+        std::vector<TxSymbolScope*> path( { this->entity() } );
+        if (auto typeEntity = dynamic_cast<TxTypeEntity*>(this->lookup_member(path, paramName))) {
             if (! this->is_modifiable() && ! nontransitiveModifiability)
                 // non-modifiability transitively applies to TYPE type parameters (NOTE: except for references)
                 return new TxNonModTypeProxy(typeEntity);  // FUTURE: memoize this (also prevents mem leak)
@@ -258,15 +257,14 @@ bool TxType::is_a(const TxType& other) const {
         for (auto & param : genBaseType->type_params()) {
             // other's param shall either be redeclared (generic) or *equal* to this (is-a is not sufficient in general case)
             // TODO: more thorough analysis of which additional cases may be compatible
-            if (auto otherBinding = other.resolve_param_binding(param.param_name()))
-                if (! otherBinding->is_redeclared()) {
-                    if (auto thisBinding = this->resolve_param_binding(param.param_name())) {
-                        if (*thisBinding != *otherBinding)  // checks whether both bindings resolve to same type/value
-                            return false;
-                    }
-                    else
+            if (auto otherBinding = other.resolve_param_binding(param.param_name())) {
+                if (auto thisBinding = this->resolve_param_binding(param.param_name())) {
+                    if (*thisBinding != *otherBinding)  // checks whether both bindings resolve to same type/value
                         return false;
                 }
+                else
+                    return false;
+            }
         }
         return true;
     }

@@ -146,39 +146,26 @@ class TxTypeBinding : public Printable {
     const TxTypeParam::MetaType metaType;
     const TxTypeProxy* typeProxy;
     const TxExpressionNode* valueExpr;
-    const TxTypeParam redeclParam;  // if this type parameter is redeclared as a type parameter of the specialized type
 
 public:
     TxTypeBinding(const std::string& typeParamName, const TxTypeProxy* typeProxy)
         : typeParamName(typeParamName), metaType(TxTypeParam::MetaType::TXB_TYPE),
-          typeProxy(typeProxy), valueExpr(), redeclParam()  { }
+          typeProxy(typeProxy), valueExpr()  { }
     TxTypeBinding(const std::string& typeParamName, const TxExpressionNode* valueExpr)
         : typeParamName(typeParamName), metaType(TxTypeParam::MetaType::TXB_VALUE),
-          typeProxy(), valueExpr(valueExpr), redeclParam()  { }
-    TxTypeBinding(const std::string& typeParamName, const TxTypeParam& redeclParam)
-        : typeParamName(typeParamName), metaType(redeclParam.meta_type()),
-          typeProxy(), valueExpr(), redeclParam(redeclParam)  { }
+          typeProxy(), valueExpr(valueExpr)  { }
 
     inline const std::string& param_name()    const { return typeParamName; }
 
     inline TxTypeParam::MetaType meta_type()    const { return metaType; }
 
-    inline bool is_redeclared() const { return !this->typeProxy && !this->valueExpr; }
-
-//    inline const TxTypeParam& rebound_param() const {
-//        ASSERT(is_redeclared(), "Type parameter binding is not rebound: " << this->to_string());
-//        return this->redeclParam;
-//    }
-
     inline const TxTypeProxy& type_proxy()  const {
         ASSERT(metaType==TxTypeParam::MetaType::TXB_TYPE, "Type parameter binding metatype is VALUE, not TYPE: " << this->to_string());
-        ASSERT(!is_redeclared(), "Type parameter binding is rebound: " << this->to_string());
         return *this->typeProxy;
     }
 
     inline const TxExpressionNode& value_expr() const {
         ASSERT(metaType==TxTypeParam::MetaType::TXB_VALUE, "Type parameter binding metatype is TYPE, not VALUE: " << this->to_string());
-        ASSERT(!is_redeclared(), "Type parameter binding is rebound: " << this->to_string());
         return *this->valueExpr;
     }
 
@@ -255,7 +242,7 @@ public:
  */
 class TxType : public TxTypeProxy, public Printable {
     /** The entity declaration that defined this type. */
-    TxTypeEntity const * const _entity;
+    TxTypeEntity * const _entity;
 
     /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
     const std::vector<TxTypeParam> typeParams;
@@ -265,15 +252,15 @@ class TxType : public TxTypeProxy, public Printable {
 
 protected:
     /** Only to be used for Any type. */
-    TxType(const TxTypeEntity* entity) : _entity(entity), typeParams(), baseTypeSpec()  { }
+    TxType(TxTypeEntity* entity) : _entity(entity), typeParams(), baseTypeSpec()  { }
 
-    TxType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    TxType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
            const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
             : _entity(entity), typeParams(typeParams), baseTypeSpec(baseTypeSpec) {
     }
 
     /** Creates a specialization of this type. To be used by the type registry. */
-    virtual TxType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
+    virtual TxType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
                                           const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>(),
                                           std::string* errorMsg=nullptr) const = 0;
 
@@ -326,9 +313,9 @@ public:
 
     /*--- characteristics ---*/
 
-    inline const TxTypeEntity* entity() const { return this->_entity; }
+    inline TxTypeEntity* entity() const { return this->_entity; }
 
-    const TxTypeEntity* explicit_entity() const;
+    TxTypeEntity* explicit_entity() const;
 
 
     /** Returns true if this type has a base type (parent). (Any is the only type that has no base type.) */
@@ -401,16 +388,16 @@ public:
     /*--- inherited namespace lookup ---*/
 
     /** match against this entity's direct instance/static members, and then its inherited members, returning the first found */
-    virtual const TxSymbolScope* lookup_instance_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
+    virtual TxSymbolScope* lookup_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const;
 
     /** match against this entity's inherited instance/static members (i.e. skipping this type's direct members) */
-    virtual const TxSymbolScope* lookup_inherited_instance_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
+    virtual TxSymbolScope* lookup_inherited_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const;
 
     /** match against this entity's direct (and static) members, and then its inherited members, returning the first found */
-    virtual const TxSymbolScope* lookup_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
+    virtual TxSymbolScope* lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const;
 
     /** match against this entity's inherited (and static) members (i.e. skipping this type's direct members) */
-    virtual const TxSymbolScope* lookup_inherited_member(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const;
+    virtual TxSymbolScope* lookup_inherited_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const;
 
 
     const TxType* get_base_type() const;  // TODO: move to TxTypeSpecialization

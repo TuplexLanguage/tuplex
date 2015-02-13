@@ -45,12 +45,12 @@ class LlvmGenerationContext {
 public:
     Logger& LOG = Logger::get("LLVMGEN");
 
-    const TxPackage& tuplexPackage;
+    TxPackage& tuplexPackage;
 
 	llvm::LLVMContext& llvmContext;
     llvm::Module& llvmModule;
 
-    LlvmGenerationContext(const TxPackage& tuplexPackage)
+    LlvmGenerationContext(TxPackage& tuplexPackage)
         : tuplexPackage(tuplexPackage),
           llvmContext( llvm::getGlobalContext() ),
           llvmModule( * new llvm::Module("top", this->llvmContext) )

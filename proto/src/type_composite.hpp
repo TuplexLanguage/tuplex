@@ -20,12 +20,12 @@
 
 
 class TxArrayType : public TxType {
-    TxArrayType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    TxArrayType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                 const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
             : TxType(entity, baseTypeSpec, typeParams)  { }
 
 protected:
-    virtual TxArrayType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxArrayType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                                const std::vector<TxTypeParam>& typeParams,
                                                std::string* errorMsg=nullptr) const override {
         if (! dynamic_cast<const TxArrayType*>(baseTypeSpec.type))
@@ -35,7 +35,7 @@ protected:
 
 public:
     /** Creates the Array base type (no element type nor length specified). Only one such instance should exist. */
-    TxArrayType(const TxTypeEntity* entity, const TxType* anyType, const TxType* uintType)
+    TxArrayType(TxTypeEntity* entity, const TxType* anyType, const TxType* uintType)
             : TxType(entity, TxTypeSpecialization(anyType),
                      std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE,  "E", anyType),
                                                  TxTypeParam(TxTypeParam::TXB_VALUE, "L", uintType) } ) ) { }
@@ -68,12 +68,12 @@ public:
 
 
 class TxReferenceType : public TxType {
-    TxReferenceType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    TxReferenceType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                     const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
             : TxType(entity, baseTypeSpec, typeParams)  { }
 
 protected:
-    virtual TxReferenceType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxReferenceType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                                    const std::vector<TxTypeParam>& typeParams,
                                                    std::string* errorMsg=nullptr) const override {
         if (! dynamic_cast<const TxReferenceType*>(baseTypeSpec.type))
@@ -83,7 +83,7 @@ protected:
 
 public:
     /** Creates the Reference base type (no target type specified). Only one such instance should exist. */
-    TxReferenceType(const TxTypeEntity* entity, const TxType* anyType)
+    TxReferenceType(TxTypeEntity* entity, const TxType* anyType)
             : TxType(entity, TxTypeSpecialization(anyType),
                      std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE, "T", anyType) } ) ) { }
 
@@ -116,14 +116,14 @@ class TxFunctionType : public TxType {
     /** Indicates whether functions of this type may modify its closure when run. */
     const bool modifiableClosure;
 
-    TxFunctionType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec, const std::vector<TxTypeParam>& typeParams,
+    TxFunctionType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec, const std::vector<TxTypeParam>& typeParams,
                    const std::vector<const TxType*>& argumentTypes, const TxType* returnType=nullptr,
                    bool modifiableClosure=false)
             : TxType(entity, baseTypeSpec, typeParams), modifiableClosure(modifiableClosure),
               argumentTypes(argumentTypes), returnType(returnType)  { }
 
 protected:
-    virtual TxFunctionType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxFunctionType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                                   const std::vector<TxTypeParam>& typeParams,
                                                   std::string* errorMsg=nullptr) const override {
         if (auto funcBaseType = dynamic_cast<const TxFunctionType*>(baseTypeSpec.type))
@@ -136,7 +136,7 @@ public:
     const std::vector<const TxType*> argumentTypes;
     TxType const * const returnType;
 
-    TxFunctionType(const TxTypeEntity* entity, const TxType* baseType, const std::vector<const TxType*>& argumentTypes,
+    TxFunctionType(TxTypeEntity* entity, const TxType* baseType, const std::vector<const TxType*>& argumentTypes,
                    const TxType* returnType=nullptr, bool modifiableClosure=false)
         : TxType(entity, TxTypeSpecialization(baseType)),
           modifiableClosure(modifiableClosure), argumentTypes(argumentTypes), returnType(returnType)  { }
@@ -162,13 +162,13 @@ public:
 
 class TxBuiltinFunctionType : public TxFunctionType {
 public:
-    TxBuiltinFunctionType(const TxTypeEntity* entity, const TxType* baseType, const std::vector<const TxType*> argumentTypes, const TxType* returnType)
+    TxBuiltinFunctionType(TxTypeEntity* entity, const TxType* baseType, const std::vector<const TxType*> argumentTypes, const TxType* returnType)
         : TxFunctionType(entity, baseType, argumentTypes, returnType) { }
 };
 
 class TxBuiltinConversionFunctionType : public TxBuiltinFunctionType {
 public:
-    TxBuiltinConversionFunctionType(const TxTypeEntity* entity, const TxType* baseType, const TxType* argumentType, const TxType* returnType)
+    TxBuiltinConversionFunctionType(TxTypeEntity* entity, const TxType* baseType, const TxType* argumentType, const TxType* returnType)
         : TxBuiltinFunctionType(entity, baseType, std::vector<const TxType*>{ argumentType }, returnType) { }
 };
 
@@ -180,15 +180,15 @@ public:
 class TxFunctionGroupType : public TxType {
     std::vector<const TxFunctionType*> functionTypes;
 
-    TxFunctionGroupType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    TxFunctionGroupType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                                const std::vector<TxTypeParam>& typeParams,
                                                std::string* errorMsg=nullptr) const override {
         throw std::logic_error("Can't specialize type " + this->to_string());
     };
 
 public:
-    TxFunctionGroupType(const TxTypeEntity* entity) : TxType(entity) { }
-    TxFunctionGroupType(const TxTypeEntity* entity, const TxFunctionType* funcType) : TxType(entity) {
+    TxFunctionGroupType(TxTypeEntity* entity) : TxType(entity) { }
+    TxFunctionGroupType(TxTypeEntity* entity, const TxFunctionType* funcType) : TxType(entity) {
         this->functionTypes.push_back(funcType);
     }
 
@@ -205,11 +205,11 @@ class TxTupleType : public TxType {
     const bool _mutable;
     const bool abstract = false;
 
-    TxTupleType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec, const std::vector<TxTypeParam>& typeParams, bool _mutable=false)
+    TxTupleType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec, const std::vector<TxTypeParam>& typeParams, bool _mutable=false)
             : TxType(entity, baseTypeSpec, typeParams), _mutable(_mutable)  { }
 
 protected:
-    virtual TxTupleType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxTupleType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                                const std::vector<TxTypeParam>& typeParams,
                                                std::string* errorMsg=nullptr) const override {
         if (auto tupleBaseType = dynamic_cast<const TxTupleType*>(baseTypeSpec.type))
@@ -218,7 +218,7 @@ protected:
     };
 
 public:
-    TxTupleType(const TxTypeEntity* entity, const TxType* baseType, bool _mutable=false)
+    TxTupleType(TxTypeEntity* entity, const TxType* baseType, bool _mutable=false)
             : TxType(entity, TxTypeSpecialization(baseType)), _mutable(_mutable)  {
         ASSERT(entity, "NULL entity");
     }

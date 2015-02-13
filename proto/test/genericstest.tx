@@ -16,7 +16,7 @@ public type MERef<T derives Any> derives Ref<T> {
     static SFIELD := 3
 }
 
-public type MFRef Ref
+public type MFRef<Q> Ref<Q>
 public type MGRef<T> MFRef<T>
 
 

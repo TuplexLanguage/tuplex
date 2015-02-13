@@ -23,7 +23,7 @@ static const BuiltinTypeId SCALAR_TYPE_IDS[] = {
 
 /*--- private classes providing indirection for fetching the built-in type objects ---*/
 
-class TxBuiltinTypeProxy final : public TxTypeDefiner {
+class TxBuiltinTypeProxy final : public TxEntityDefiner {
 public:
     const std::string name;
     const TxType* type;
@@ -31,6 +31,7 @@ public:
     TxBuiltinTypeProxy(const std::string name) : name(name), type() { }
     TxBuiltinTypeProxy(const std::string name, const TxType* type) : name(name), type(type) { }
 
+    virtual const TxType* symbol_resolution_pass(ResolutionContext& resCtx) override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
 };
@@ -38,9 +39,9 @@ public:
 
 /** Used solely for the Any root type object. */
 class TxAnyType final : public TxType {
-    TxAnyType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec) : TxType(entity, baseTypeSpec)  { }
+    TxAnyType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec) : TxType(entity, baseTypeSpec)  { }
 
-    TxType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    TxType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                   const std::vector<TxTypeParam>& typeParams,
                                   std::string* errorMsg=nullptr) const override {
         ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
@@ -50,12 +51,12 @@ class TxAnyType final : public TxType {
     }
 
 public:
-    TxAnyType(const TxTypeEntity* entity) : TxType(entity) { }
+    TxAnyType(TxTypeEntity* entity) : TxType(entity) { }
 };
 
 /** Used for the built-in types' abstract base types. */
 class TxBuiltinBaseType final : public TxType {
-    TxType* make_specialized_type(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    TxType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                   const std::vector<TxTypeParam>& typeParams,
                                   std::string* errorMsg=nullptr) const override {
         ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
@@ -65,15 +66,15 @@ class TxBuiltinBaseType final : public TxType {
     }
 
 public:
-    TxBuiltinBaseType(const TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec) : TxType(entity, baseTypeSpec)  { }
-    TxBuiltinBaseType(const TxTypeEntity* entity, const TxType* baseType) : TxType(entity, TxTypeSpecialization(baseType))  { }
+    TxBuiltinBaseType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec) : TxType(entity, baseTypeSpec)  { }
+    TxBuiltinBaseType(TxTypeEntity* entity, const TxType* baseType) : TxType(entity, TxTypeSpecialization(baseType))  { }
 };
 
 
 
-class BuiltinTypeRecord : public TxTypeDefiner {
+class BuiltinTypeRecord : public TxEntityDefiner {
     const TxType * type;
-    const TxTypeEntity * entity;
+    TxTypeEntity * entity;
 public:
     const BuiltinTypeId id;
     const std::string plainName;
@@ -82,12 +83,13 @@ public:
         : type(), entity(), id(id), plainName(plainName)  {
     }
 
-    const TxTypeEntity* get_entity() const { return this->entity; }
-    void set_entity(const TxTypeEntity* entity) {
+    TxTypeEntity* get_entity() const { return this->entity; }
+    void set_entity(TxTypeEntity* entity) {
         ASSERT(!this->entity, "entity already set");
         this->entity = entity;
     }
 
+    virtual const TxType* symbol_resolution_pass(ResolutionContext& resCtx) override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
     void set_type(const TxType* type) {
@@ -274,14 +276,14 @@ const TxType* TypeRegistry::get_builtin_type(const BuiltinTypeId id, bool mod) c
 }
 
 
-const TxType* TypeRegistry::get_modifiable_type(const TxTypeEntity* newEntity, const TxType* type, std::string* errorMsg) {
+const TxType* TypeRegistry::get_modifiable_type(TxTypeEntity* newEntity, const TxType* type, std::string* errorMsg) {
     // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
     TxTypeSpecialization tmpSpec(type, true);
     std::vector<TxTypeParam> unbound;
     return type->make_specialized_type(newEntity, tmpSpec, unbound, errorMsg);
 }
 
-const TxType* TypeRegistry::get_type_specialization(const TxTypeEntity* newEntity, const TxTypeSpecialization& specialization,
+const TxType* TypeRegistry::get_type_specialization(TxTypeEntity* newEntity, const TxTypeSpecialization& specialization,
                                                     bool _mutable, const std::vector<TxTypeParam>* typeParams,
                                                     std::string* errorMsg) {
     // FUTURE: Should sequences of pure type specializations be collapsed into single pure specializations
@@ -317,7 +319,7 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeEntity* newEntit
                     }
                 if (matchedNewParam) {
                     // effectively redeclared
-                    newBindings.push_back(TxTypeBinding(baseTypeParam.param_name(), *matchedNewParam));
+                    //newBindings.push_back(TxTypeBinding(baseTypeParam.param_name(), *matchedNewParam));
                 }
                 else {
                     if (errorMsg)
@@ -329,7 +331,7 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeEntity* newEntit
             else {
                 // automatically redeclare unbound type parameters:
                 unboundParams.push_back(baseTypeParam);
-                newBindings.push_back(TxTypeBinding(baseTypeParam.param_name(), baseTypeParam));
+                //newBindings.push_back(TxTypeBinding(baseTypeParam.param_name(), baseTypeParam));
             }
         }
     }
@@ -339,25 +341,20 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeEntity* newEntit
 }
 
 
-const TxReferenceType* TypeRegistry::get_reference_type(const TxTypeEntity* newEntity, TxTypeBinding targetTypeBinding,
+const TxReferenceType* TypeRegistry::get_reference_type(TxTypeEntity* newEntity, TxTypeBinding targetTypeBinding,
                                                         std::string* errorMsg) {
     std::vector<TxTypeBinding> bindings( { targetTypeBinding } );
     TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type(), bindings);
     return static_cast<const TxReferenceType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
 }
-const TxReferenceType* TypeRegistry::get_reference_type(const TxTypeEntity* newEntity, const TxTypeProxy* targetType,
+
+const TxReferenceType* TypeRegistry::get_reference_type(TxTypeEntity* newEntity, const TxTypeProxy* targetType,
                                                         std::string* errorMsg) {
     return this->get_reference_type(newEntity, TxTypeBinding("T", targetType) );
 }
 
-const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType, const TxExpressionNode* lengthExpr,
-                                                std::string* errorMsg) {
-    // TODO: remove, or rewrite so that proper parameter binding names are declared
-    std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", lengthExpr) } );
-    TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
-    return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
-}
-const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity,
+
+const TxArrayType* TypeRegistry::get_array_type(TxTypeEntity* newEntity,
                                                 TxTypeBinding elemTypeBinding, TxTypeBinding lengthBinding,
                                                 std::string* errorMsg) {
     //std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", length) } );
@@ -366,7 +363,7 @@ const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity,
     return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
 }
 
-const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity, TxTypeBinding elemTypeBinding,
+const TxArrayType* TypeRegistry::get_array_type(TxTypeEntity* newEntity, TxTypeBinding elemTypeBinding,
                                                 std::string* errorMsg) {
     //std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType) } );
     std::vector<TxTypeBinding> bindings( { elemTypeBinding } );
@@ -374,21 +371,22 @@ const TxArrayType* TypeRegistry::get_array_type(const TxTypeEntity* newEntity, T
     return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
 }
 
-const TxFunctionType* TypeRegistry::get_function_type(const TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, const TxType* returnType,
+
+const TxFunctionType* TypeRegistry::get_function_type(TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, const TxType* returnType,
                                                       bool mod, std::string* errorMsg) {
     return new TxFunctionType(newEntity, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, returnType, mod);
 }
 
-const TxFunctionType* TypeRegistry::get_function_type(const TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes,
+const TxFunctionType* TypeRegistry::get_function_type(TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes,
                                                       bool mod, std::string* errorMsg) {
     return new TxFunctionType(newEntity, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, nullptr, mod);
 }
 
-//const TxTupleType* TypeRegistry::get_tuple_type(const TxTypeEntity* newEntity, bool mut, std::string* errorMsg) {
+//const TxTupleType* TypeRegistry::get_tuple_type(TxTypeEntity* newEntity, bool mut, std::string* errorMsg) {
 //    return new TxTupleType(newEntity, this->builtinTypes[TUPLE]->get_type(), mut);
 //}
 //
-//const TxTupleType* TypeRegistry::get_tuple_type(const TxTypeEntity* newEntity, const TxTypeSpecialization& baseType,
+//const TxTupleType* TypeRegistry::get_tuple_type(TxTypeEntity* newEntity, const TxTypeSpecialization& baseType,
 //                                                bool mut, std::string* errorMsg) {
 //    return static_cast<const TxTupleType*>(this->get_type_specialization(newEntity, baseType, errorMsg));
 //}

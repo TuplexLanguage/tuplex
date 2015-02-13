@@ -89,7 +89,6 @@ llvm::Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, 
         }
         else {
             value = NULL;
-            ASSERT(dynamic_cast<const TxTypeEntity*>(sym) || dynamic_cast<const TxModule*>(sym), "Invalid symbol type in a field identifier segment: " << *sym);
         }
     }
     return value;

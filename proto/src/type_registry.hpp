@@ -39,7 +39,7 @@ class BuiltinTypeRecord;
 
 class TypeRegistry {
     TxPackage& package;
-    const BuiltinTypeRecord* builtinTypes[BuiltinTypeId_COUNT];
+    BuiltinTypeRecord* builtinTypes[BuiltinTypeId_COUNT];
     const TxType* builtinModTypes[BuiltinTypeId_COUNT];
 
     void initializeBuiltinSymbols();
@@ -65,37 +65,35 @@ public:
     /** Gets a modifiable 'usage' of a base type.
      * The type parameters of the base type will pass-through (appear redeclared) in the modifiable type.
      */
-    const TxType* get_modifiable_type(const TxTypeEntity* newEntity, const TxType* type, std::string* errorMsg=nullptr);
+    const TxType* get_modifiable_type(TxTypeEntity* newEntity, const TxType* type, std::string* errorMsg=nullptr);
 
     /** Gets a specialization of a base type.
      * Any type parameters of the base type that aren't bound in the provided specialization
      * will automatically be redeclared in the specialized type.
      */
-    const TxType* get_type_specialization(const TxTypeEntity* newEntity, const TxTypeSpecialization& specialization,
+    const TxType* get_type_specialization(TxTypeEntity* newEntity, const TxTypeSpecialization& specialization,
                                           bool _mutable, const std::vector<TxTypeParam>* typeParams=nullptr,
                                           std::string* errorMsg=nullptr);
 
 
-    const TxReferenceType* get_reference_type(const TxTypeEntity* newEntity, TxTypeBinding targetTypeBinding, std::string* errorMsg=nullptr);
-    const TxReferenceType* get_reference_type(const TxTypeEntity* newEntity, const TxTypeProxy* targetType, std::string* errorMsg=nullptr);
+    const TxReferenceType* get_reference_type(TxTypeEntity* newEntity, TxTypeBinding targetTypeBinding, std::string* errorMsg=nullptr);
+    const TxReferenceType* get_reference_type(TxTypeEntity* newEntity, const TxTypeProxy* targetType, std::string* errorMsg=nullptr);
 
-    /** @deprecated */
-    const TxArrayType* get_array_type(const TxTypeEntity* newEntity, const TxTypeProxy* elemType, const TxExpressionNode* lengthExpr, std::string* errorMsg=nullptr);
-    const TxArrayType* get_array_type(const TxTypeEntity* newEntity, TxTypeBinding elemTypeBinding, TxTypeBinding lengthBinding, std::string* errorMsg=nullptr);
-    const TxArrayType* get_array_type(const TxTypeEntity* newEntity, TxTypeBinding elemTypeBinding, std::string* errorMsg=nullptr);
+    const TxArrayType* get_array_type(TxTypeEntity* newEntity, TxTypeBinding elemTypeBinding, TxTypeBinding lengthBinding, std::string* errorMsg=nullptr);
+    const TxArrayType* get_array_type(TxTypeEntity* newEntity, TxTypeBinding elemTypeBinding, std::string* errorMsg=nullptr);
 
     // "mod" of function refers to whether functions of this type may modify its closure when run.
     // Note: "mod" of args not part of the function type (though concrete function may mod-ify its stack arg copies).
-    const TxFunctionType* get_function_type(const TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, const TxType* returnType, bool mod=false, std::string* errorMsg=nullptr);
-    const TxFunctionType* get_function_type(const TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, bool mod=false, std::string* errorMsg=nullptr);
+    const TxFunctionType* get_function_type(TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, const TxType* returnType, bool mod=false, std::string* errorMsg=nullptr);
+    const TxFunctionType* get_function_type(TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, bool mod=false, std::string* errorMsg=nullptr);
 
 //    /** Creates a new tuple type that does not extend another data type or interface.
 //     * "mut" of tuple means it is not immutable, i.e. its instances may be declared modifiable. */
-//    const TxTupleType* get_tuple_type(const TxTypeEntity* newEntity, bool mut=false, std::string* errorMsg=nullptr);
+//    const TxTupleType* get_tuple_type(TxTypeEntity* newEntity, bool mut=false, std::string* errorMsg=nullptr);
 //
 //    /** Creates a new tuple type that is an extension to other types.
 //     * "mut" of tuple means it is not immutable, i.e. its instances may be declared modifiable. */
-//    const TxTupleType* get_tuple_type(const TxTypeEntity* newEntity, const TxTypeSpecialization& baseType,
+//    const TxTupleType* get_tuple_type(TxTypeEntity* newEntity, const TxTypeSpecialization& baseType,
 //                                      bool mut=false, std::string* errorMsg=nullptr);
 
 };

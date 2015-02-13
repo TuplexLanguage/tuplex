@@ -4,38 +4,24 @@
 
 
 class TxFieldValueNode : public TxExpressionNode {
-    mutable std::vector<const TxSymbolScope*> memberPath;
-    mutable TxFieldEntity const * cachedEntity = nullptr;
+    std::vector<TxSymbolScope*> memberPath;
+    TxFieldEntity * cachedEntity = nullptr;
 
-    class FieldTypeDefiner : public TxTypeDefiner {
+    class FieldTypeDefiner : public TxEntityDefiner {
         TxFieldValueNode* fieldNode;
     public:
         FieldTypeDefiner(TxFieldValueNode* fieldNode) : fieldNode(fieldNode) { }
+        virtual const TxType* symbol_resolution_pass(ResolutionContext& resCtx) override {
+            return fieldNode->symbol_resolution_pass(resCtx);
+        }
         virtual const TxType* attempt_get_type() const override { return fieldNode->get_type(); }
         virtual const TxType* get_type() const override { return fieldNode->get_type(); }
     } fieldTypeDefiner;
 
-public:
-    TxExpressionNode* base;
-    const TxIdentifierNode* member;
+    inline const TxFieldEntity* get_entity() const { return this->cachedEntity; }
 
-    TxFieldValueNode(const yy::location& parseLocation, TxExpressionNode* base, const TxIdentifierNode* member)
-        : TxExpressionNode(parseLocation), fieldTypeDefiner(this), base(base), member(member) {
-//        if (base)
-//            std::cout << "Created TxFieldValueNode(NULL, " << *member << ")" << std::endl;
-//        else
-//            std::cout << "Created TxFieldValueNode(base, " << *member << ")" << std::endl;
-    }
-
-    virtual bool has_predefined_type() const override { return true; }
-
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
-        this->set_context(lexContext);
-        if (base)
-            base->symbol_table_pass(lexContext);
-    }
-
-    virtual const TxFieldEntity* get_entity() const {
+protected:
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
         // FUTURE: support overloaded field resolution in non-call expressions (e.g. overloadedFunc(Int,Float).typeid )
         if (! this->cachedEntity) {
             if (! this->memberPath.empty())
@@ -53,47 +39,66 @@ public:
 
             if (this->cachedEntity) {
                 if (this->cachedEntity->get_decl_flags() & TXD_GENPARAM) {
-                    // alias for a generic type parameter
-                    LOGGER().debug("%s: Resolving '%s' as GENPARAM %s", this->parse_loc_string().c_str(), this->member->ident.to_string().c_str(), this->cachedEntity->to_string().c_str());
-//                    auto typeName = this->context().scope()->get_unique_name("$alias");
-//                    auto typeAliasEnt = this->context().scope()->declare_type(typeName, &this->fieldTypeDefiner, TXD_PUBLIC | TXD_IMPLICIT);
-//                    if (!typeAliasEnt)
-//                        cerror("Failed to declare implicit type %s", typeName.c_str());
-//                    typeAliasEnt->set_alias();
-//                    LOGGER().debug("%s: Declared '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(), this->member->ident.to_string().c_str(), this->cachedEntity->to_string().c_str());
+                    LOGGER().warning("%s: Resolving '%s' as GENPARAM %s from scope %s", this->parse_loc_string().c_str(),
+                            this->member->ident.to_string().c_str(), this->cachedEntity->to_string().c_str(), this->context().scope()->get_full_name().to_string().c_str());
+//                    if (declEnt->get_name() == make_generic_binding_name(cachedEntity->get_full_name().to_string())) {
+//                        // if type-arg resolves to ancestor type's type parameter, it is unspecified in current scope
+//                        // (need to catch this, lest we get an infinite alias lookup loop or spurious name resolution)
+//                        if (auto outerType = dynamic_cast<const TxTypeEntity*>(scope->get_parent())) {
+//                            // since we declare base types under the subtype's scope,
+//                            // we may have to lookup via outer (the subtype's) scope
+//                            return inner_define_type(outerType, errorMsg);
+//                        }
+//    //                    else
+//    //                        LOGGER().warning("%s: type '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
+//    //                                         declEnt->get_full_name().to_string().c_str(), identifiedEntity->to_string().c_str());
+//                    }
                 }
-                else if (this->cachedEntity->get_static_constant_proxy())
-                    LOGGER().debug("%s: Resolving '%s' as statically constant %s", this->parse_loc_string().c_str(), this->member->ident.to_string().c_str(), this->cachedEntity->to_string().c_str());
+//                else if (this->cachedEntity->get_static_constant_proxy())
+//                    LOGGER().debug("%s: Resolving '%s' as statically constant %s", this->parse_loc_string().c_str(), this->member->ident.to_string().c_str(), this->cachedEntity->to_string().c_str());
             }
+            else
+                cerror("No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
         }
-        return this->cachedEntity;
+        return this->cachedEntity ? this->cachedEntity->symbol_resolution_pass(resCtx) : nullptr;
     }
 
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        auto ent = this->get_entity();
-        return ent ? ent->get_type() : nullptr;
+public:
+    TxExpressionNode* base;
+    const TxIdentifierNode* member;
+
+    TxFieldValueNode(const yy::location& parseLocation, TxExpressionNode* base, const TxIdentifierNode* member)
+        : TxExpressionNode(parseLocation), fieldTypeDefiner(this), base(base), member(member) {
+    }
+
+    virtual bool has_predefined_type() const override { return true; }
+
+    virtual void symbol_registration_pass(LexicalContext& lexContext) {
+        this->set_context(lexContext);
+        if (base)
+            base->symbol_registration_pass(lexContext);
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
+        this->LOGGER().trace("Getting static constant proxy for field %s", this->member->ident.to_string().c_str());
         if (auto ent = this->get_entity())
             if (auto constProxy = ent->get_static_constant_proxy()) {
-                std::cout << "Returning static constant proxy for field " << ent->get_full_name() << std::endl;
+                this->LOGGER().debug("Returning static constant proxy for field %s", ent->get_full_name().to_string().c_str());
                 return constProxy;
             }
         return nullptr;
     }
 
-    virtual bool is_statically_constant() const {
+    virtual bool is_statically_constant() const override {
         if (auto ent = this->get_entity())
             return ent->is_statically_constant();
         return false;
     }
 
-    virtual void semantic_pass() {
+    virtual void semantic_pass() override {
         if (base)
             base->semantic_pass();
-        if (! this->get_entity())
-            cerror("No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
+        this->get_entity();
     }
 
 //    virtual bool has_address() const {
@@ -107,54 +112,53 @@ public:
 
 
 class TxFieldAssigneeNode : public TxAssigneeNode {
-    mutable std::vector<const TxSymbolScope*> memberPath;
-    mutable TxFieldEntity const * entity = nullptr;
+    std::vector<TxSymbolScope*> memberPath;
+    TxFieldEntity * entity = nullptr;
+
+    const TxFieldEntity* get_entity() {
+        //return this->context().scope()->resolve_field(this->member->ident);
+        // FUTURE: support overloaded field resolution in assignment (e.g. overloadedFuncPointer(Int,Float) = func )
+        return this->entity;
+    }
+
+protected:
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
+        if (! this->entity) {
+            if (! this->memberPath.empty())
+                return nullptr;  // has already been attempted and failed
+            if (base)
+                // (lookup is similar to that of TxFieldEntity)
+                this->entity = dynamic_cast<TxFieldEntity*>(this->base->get_type()->lookup_instance_member(memberPath, this->member->ident));
+            else
+                this->entity = this->context().scope()->resolve_field(memberPath, this->member->ident);
+            if (! this->entity) {
+                cerror("No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
+                return nullptr;
+            }
+            return this->entity->symbol_resolution_pass(resCtx);
+        }
+        else
+            return this->entity->symbol_resolution_pass(resCtx);
+    }
+
 public:
     TxExpressionNode* base;
     const TxIdentifierNode* member;
 
     TxFieldAssigneeNode(const yy::location& parseLocation, TxExpressionNode* base, const TxIdentifierNode* member)
-        : TxAssigneeNode(parseLocation), base(base), member(member) {
-//        if (base)
-//            std::cout << "Created TxFieldAssigneeNode(NULL, " << *member << ")" << std::endl;
-//        else
-//            std::cout << "Created TxFieldAssigneeNode(base, " << *member << ")" << std::endl;
-    }
+        : TxAssigneeNode(parseLocation), base(base), member(member) { }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
         if (base)
-            base->symbol_table_pass(lexContext);
-    }
-
-    virtual const TxFieldEntity* get_entity() const {
-        //return this->context().scope()->resolve_field(this->member->ident);
-        // FUTURE: support overloaded field resolution in assignment (e.g. overloadedFuncPointer(Int,Float) = func )
-        if (! this->entity) {
-            if (! this->memberPath.empty())
-                return nullptr;  // has already been attempted and failed
-            if (base) {
-                // (lookup is similar to that of TxFieldEntity)
-                this->entity = dynamic_cast<const TxFieldEntity*>(this->base->get_type()->lookup_instance_member(memberPath, this->member->ident));
-            }
-            else
-                this->entity = this->context().scope()->resolve_field(memberPath, this->member->ident);
-        }
-        return this->entity;
-    }
-
-    virtual const TxType* get_type() const {
-        auto entity = this->get_entity();
-        return entity ? entity->get_type() : nullptr;
+            base->symbol_registration_pass(lexContext);
     }
 
     virtual void semantic_pass() {
         if (base)
             base->semantic_pass();
         auto entity = this->get_entity();
-        if (! entity)
-            cerror("No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
-        else if (entity->get_storage() == TXS_NOSTORAGE)
+        if (entity && entity->get_storage() == TXS_NOSTORAGE)
             cerror("Assignee %s is not an L-value / has no storage.", member->to_string().c_str());
     }
 

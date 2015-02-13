@@ -11,6 +11,14 @@
 
 class TxLambdaExprNode : public TxExpressionNode {
     bool instanceMethod = false;
+
+protected:
+    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
+        auto funcType = this->funcTypeNode->symbol_resolution_pass(resCtx);  // function header
+        this->suite->symbol_resolution_pass(resCtx);  // function body
+        return funcType;
+    }
+
 public:
     TxFunctionTypeNode* funcTypeNode;
     TxSuiteNode* suite;
@@ -26,7 +34,7 @@ public:
 
     virtual bool has_predefined_type() const override { return false; }
 
-    virtual void symbol_table_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) {
         if (this->instanceMethod) {
             if (auto typeEntity = dynamic_cast<TxTypeEntity*>(lexContext.scope())) {  // if in type scope
                 // insert a first parameter named 'self', that is a reference to the current type
@@ -45,12 +53,8 @@ public:
         this->set_context(funcLexContext);
 
         // generate function instance:
-        this->funcTypeNode->symbol_table_pass_func_header(funcLexContext);  // function header
-        this->suite->symbol_table_pass_no_subscope(funcLexContext);  // function body
-    }
-
-    virtual const TxType* define_type(std::string* errorMsg=nullptr) const override {
-        return this->funcTypeNode->get_type();
+        this->funcTypeNode->symbol_registration_pass_func_header(funcLexContext);  // function header
+        this->suite->symbol_registration_pass_no_subscope(funcLexContext);  // function body
     }
 
     /** Returns false if this function may modify its closure when run, i.e. have side effects.

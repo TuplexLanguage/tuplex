@@ -87,12 +87,12 @@ TxModule* TxModule::declare_module(const TxIdentifier& ident) {
 }
 
 
-const TxModule* TxModule::lookup_module(const TxIdentifier& name) const {
-    std::vector<const TxSymbolScope*> tmp;
-    auto sym = static_cast<const TxSymbolScope*>(this)->lookup_symbol(tmp, name);
+TxModule* TxModule::lookup_module(const TxIdentifier& name) {
+    std::vector<TxSymbolScope*> tmp;
+    auto sym = static_cast<TxSymbolScope*>(this)->lookup_symbol(tmp, name);
     if (! sym)
         return nullptr;
-    if (auto module = dynamic_cast<const TxModule*>(sym))
+    if (auto module = dynamic_cast<TxModule*>(sym))
         return module;
     this->LOGGER().error("Symbol %s is not a Module: %s", sym->get_full_name().to_string().c_str(), sym->to_string().c_str());
     return nullptr;
@@ -100,7 +100,7 @@ const TxModule* TxModule::lookup_module(const TxIdentifier& name) const {
 
 
 
-const TxSymbolScope* TxModule::lookup_symbol(std::vector<const TxSymbolScope*>& path, const TxIdentifier& ident) const {
+TxSymbolScope* TxModule::lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
     // overrides in order to inject alias lookup, and if alias and member lookup fails,
     // proceed directly to global lookup via package
     if (auto symbol = this->lookup_member(path, ident))

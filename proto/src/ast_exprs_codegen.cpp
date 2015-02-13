@@ -331,7 +331,7 @@ Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* s
 //            return scope->builder->CreateInBoundsGEP(origValue, ixs);
 //        }
 //    }
-
+    ASSERT(this->expr->get_type(), "NULL type in " << this);
     context.LOG.error("%s to-reference conversion not supported", this->expr->get_type()->to_string().c_str());
     return origValue;
 }
