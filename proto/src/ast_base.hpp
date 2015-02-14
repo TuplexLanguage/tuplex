@@ -52,13 +52,6 @@ protected:
     inline TxDriver& driver() const {
         return this->context().package()->driver();
     }
-    inline Logger& LOGGER() const {
-        // FUTURE: improve
-        if (this->is_context_set())
-            return this->context().scope()->LOGGER();
-        else
-            return Logger::get("PARSER");
-    }
 
 public:
     const yy::location parseLocation;
@@ -93,6 +86,14 @@ public:
 
     virtual void cerror(char const *fmt, ...) const;
     virtual void cwarning(char const *fmt, ...) const;
+
+    inline Logger& LOGGER() const {
+        // FUTURE: improve
+        if (this->is_context_set())
+            return this->context().scope()->LOGGER();
+        else
+            return Logger::get("PARSER");
+    }
 };
 
 

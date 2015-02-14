@@ -377,11 +377,11 @@ public:
     virtual void semantic_pass() {
         for (auto type : *this->baseTypes) {
             type->semantic_pass();
-            // TODO: validity checks
+            // TO DO: validity checks
         }
         for (auto member : *this->staticMembers) {
             member->semantic_pass();
-            // TODO: validity checks
+            // TO DO: validity checks
         }
         for (auto member : *this->instanceMembers) {
             member->semantic_pass();

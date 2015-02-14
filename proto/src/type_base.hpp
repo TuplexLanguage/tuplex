@@ -88,6 +88,10 @@ public:
  * Specializations of the generic type provide a binding to this parameter.
  * The parameter may hold constraints on what definitions are permitted to bind to it.
  * The type parameter of a reference base type's target may specify dataspace constraints.
+ *
+ * The type parameter object belongs to the type object, which may be named (declared)
+ * or anonymous. Type declarations must ensure they have named members in their namespace
+ * matching the type parameters.
  */
 class TxTypeParam : public Printable {  // FUTURE: add constraints
 public:
@@ -132,14 +136,10 @@ public:
 };
 
 
-/** Represents the binding of a base type's type parameter to the definition used in a type specialization.
- * All type parameters of a base type must have a binding in a specialization of the base type.
- * A binding may however be redeclared - bound to a type parameter of the specialized type -
- * in effect keeping the parameter open for further specialization
- * (with identical or narrowed type parameter constraints).
+/** Describes the binding of a base type's type parameter to the definition used in a type specialization.
  *
- * The type parameter of a reference base type's target may specifiy dataspace constraints.
- * The binding of a reference base type's target can specify the dataspace of the target..
+ * The type parameter of a reference base type's target may specify dataspace constraints.
+ * The binding of a reference base type's target can specify the dataspace of the target.
  */
 class TxTypeBinding : public Printable {
     const std::string typeParamName;
@@ -179,10 +179,15 @@ public:
 };
 
 
-/**
+/** Describes a specialization of a base type.
+ * In a specialization of a generic base type, the base type's type parameters must either have a binding,
+ * or be redeclared with the same name and matching constraints in the specialized type
+ * (keeping the parameter open for further specialization, with identical or narrowed type parameter
+ * constraints).
+ *
  * Use cases:
  * 1. Modifiable - modifiable is true, pass-through bindings
- * 2. Empty extension - modifiable is false, pass-through bindings
+ * 2. Empty extension - modifiable is false, pass-through type parameters
  * 3. Type parameter specialization - modifiable is false, one or more bindings are set
  *
  * 2 is used for type aliases, and for derived types that don't bind type parameters.
@@ -201,13 +206,11 @@ public:
     TxTypeSpecialization(const TxType* baseType, bool modifiable=false)
             : type(baseType), modifiable(modifiable), bindings()  {
         ASSERT(baseType, "NULL baseType");
-        //ASSERT(!validate(), "Invalid specialization of " << baseType);
     }
 
     TxTypeSpecialization(const TxType* baseType, const std::vector<TxTypeBinding>& baseBindings)
             : type(baseType), modifiable(false), bindings(baseBindings)  {
         ASSERT(baseType, "NULL baseType");
-        //ASSERT(!validate(), "Invalid specialization of " << baseType);
     }
 
     bool has_binding(const std::string& typeParamName) const {
@@ -281,34 +284,6 @@ public:
     /** Returns self. Implements the TxTypeProxy interface. */
     virtual const TxType* get_type() const override { return this; }
 
-
-
-    /*--- type parameter handling ---*/
-
-    /** Gets the type parameters of this type (this type is a generic type if this is non-empty). */
-    const std::vector<TxTypeParam>& type_params() const {
-        if (this->typeParams.empty()) {
-            // if this is an 'empty' or 'modifiable' type usage, pass-through the parameters of the base type
-            // (shouldn't need generic base type resolution here)
-            if (this->baseTypeSpec.type && this->baseTypeSpec.bindings.empty())
-                return this->baseTypeSpec.type->type_params();
-        }
-        return this->typeParams;
-    }
-
-    bool has_type_param(const std::string& typeParamName) const {
-        for (auto & p : this->type_params())
-            if (p.param_name() == typeParamName)
-                return true;
-        return false;
-    }
-
-    const TxTypeParam& get_type_param(const std::string& typeParamName) const {
-        for (auto & p : this->type_params())
-            if (p.param_name() == typeParamName)
-                return p;
-        throw std::out_of_range("No such unbound type parameter in " + this->to_string() + ": " + typeParamName);
-    }
 
 
     /*--- characteristics ---*/
@@ -401,6 +376,34 @@ public:
 
 
     const TxType* get_base_type() const;  // TODO: move to TxTypeSpecialization
+
+
+    /*--- type parameter handling ---*/
+
+    /** Gets the type parameters of this type (this type is a generic type if this is non-empty). */
+    const std::vector<TxTypeParam>& type_params() const {
+        if (this->typeParams.empty()) {
+            // if this is an 'empty' or 'modifiable' type usage, pass-through the parameters of the base type
+            // (shouldn't need generic base type resolution here)
+            if (this->baseTypeSpec.type && this->baseTypeSpec.bindings.empty())
+                return this->baseTypeSpec.type->type_params();
+        }
+        return this->typeParams;
+    }
+
+    bool has_type_param(const std::string& typeParamName) const {
+        for (auto & p : this->type_params())
+            if (p.param_name() == typeParamName)
+                return true;
+        return false;
+    }
+
+    const TxTypeParam& get_type_param(const std::string& typeParamName) const {
+        for (auto & p : this->type_params())
+            if (p.param_name() == typeParamName)
+                return p;
+        throw std::out_of_range("No such unbound type parameter in " + this->to_string() + ": " + typeParamName);
+    }
 
 
     // TODO: rework this; merge with namespace lookup?

@@ -97,7 +97,7 @@ std::string TxType::validate() const {
     if (auto baseType = this->get_base_type()) {
         auto res = this->baseTypeSpec.validate();
         if (! res.empty())
-            return std::string("Invalid specialization of base type " + baseType->to_string() + ": " + res);
+            return std::string("Invalid specialization of " + baseType->to_string() + ": " + res);
         if (this->baseTypeSpec.modifiable) {
             // verify that this 'modifiable' type usage is a pure specialization
             if (typeid(*this) != typeid(*this->baseTypeSpec.type))
@@ -106,7 +106,7 @@ std::string TxType::validate() const {
                 return std::string("'modifiable' specialization cannot add any interface base types");
         }
         else {
-            // verify that all parameters of base type are either bound, or redeclared in subtype
+            // verify that all parameters of base type are either bound, or redeclared
             for (auto & p : baseType->type_params()) {
                 if (! this->baseTypeSpec.has_binding(p.param_name()))
                     if (! this->has_type_param(p.param_name()))

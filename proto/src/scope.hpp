@@ -75,19 +75,19 @@ private:
 
     Logger& LOG;
 
-    /** plain name of this symbol */
+    /** Plain name of this symbol, which is unique within its outer (parent) scope. Does not contain any '.' characters. */
     const std::string name;
-    /** The outer scope within which this symbol is defined. (NULL if this is a root scope) */
+    /** The outer (parent) scope within which this symbol is defined (NULL if this is a root scope). */
     TxSymbolScope* const outer;
-    /** The fully qualified name of this scope. The last segment is this scope's member name under the parent. */
+    /** The fully qualified name of this symbol. The last segment equals this scope's plain name. */
     TxIdentifier fullName;
 
-    /** This module's symbols. The identifier keys are the fully qualified names of the entities. */
+    /** This scope's member symbols. The identifier keys are the symbols' plain names within this namespace. */
     SymbolMap symbols;
     /** Internal vector containing this module's symbol names in insertion order. */
     std::vector<std::string> symbolNames;
 
-    /** Adds a symbol to this scope's symbol table.
+    /** Adds a symbol to this scope's namespace.
      *  If there was already a symbol with that name, it is replaced with the new one
      *  and the previous one is returned.
      */
@@ -115,13 +115,8 @@ protected:
 
     virtual TxDistinctEntity* overload_entity(TxDistinctEntity* entity, TxSymbolScope* prevSymbol);
 
-
-//    /** Gets the full names of the symbols defined directly in this scope (excluding subscopes). */
-//    std::vector<const TxIdentifier*> get_symbol_full_names() const;  // FIXME: refactor
-//    friend TxFieldEntity;
-
 public:
-    TxSymbolScope(TxSymbolScope* parent, const std::string& name);
+    TxSymbolScope(TxSymbolScope* parentScope, const std::string& name);
 
     virtual ~TxSymbolScope() = default;
 
@@ -129,17 +124,19 @@ public:
     inline Logger& LOGGER() const { return this->LOG; }
 
 
-    // TODO: rename parent to outer
-    /** Returns true if this symbol has a parent scope in which it is defined, or false if it is a top level name. */
-    inline bool has_parent() const { return this->outer; }
+    /** Returns true if this symbol has an outer (parent) scope, or false if it is a root scope. */
+    inline bool has_outer() const { return this->outer; }
 
-    inline TxSymbolScope* get_parent() const { return this->outer; }
+    /** Gets the outer (parent) scope of this symbol, or NULL if it is a root scope. */
+    inline TxSymbolScope* get_outer() const { return this->outer; }
 
     inline const std::string& get_name() const { return this->name; }
 
     inline const TxIdentifier& get_full_name() const { return this->fullName; }
 
+    /** Gets the top-most outer scope of this symbol, which is a root scope. */
     const TxSymbolScope* get_root_scope() const;
+    /** Gets the top-most outer scope of this symbol, which is a root scope. */
     TxSymbolScope* get_root_scope();
 
 

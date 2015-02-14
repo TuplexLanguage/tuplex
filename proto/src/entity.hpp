@@ -153,7 +153,7 @@ public:
     }
 
     virtual TxFieldEntity* make_copy(const std::string& newName) const {
-        return new TxFieldEntity(this->get_parent(), newName, this->entityDefiner, this->get_decl_flags(), this->storage, this->dataspace, this->initializerExpr);
+        return new TxFieldEntity(this->get_outer(), newName, this->entityDefiner, this->get_decl_flags(), this->storage, this->dataspace, this->initializerExpr);
     }
 
     inline TxFieldStorage get_storage() const { return this->storage; }
@@ -230,7 +230,7 @@ public:
     }
 
     virtual TxTypeEntity* make_copy(const std::string& newName) const {
-        return new TxTypeEntity(this->get_parent(), newName, this->entityDefiner, this->get_decl_flags());
+        return new TxTypeEntity(this->get_outer(), newName, this->entityDefiner, this->get_decl_flags());
     }
 
     virtual const TxType* get_type() const override {
@@ -348,7 +348,7 @@ protected:
     }
 
 public:
-    TxOverloadedEntity(TxDistinctEntity* entity) : TxEntity(entity->get_parent(), entity->get_name()), typeEntity() {
+    TxOverloadedEntity(TxDistinctEntity* entity) : TxEntity(entity->get_outer(), entity->get_name()), typeEntity() {
         this->add(entity);
     }
 

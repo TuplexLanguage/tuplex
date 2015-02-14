@@ -27,9 +27,9 @@ TxSymbolScope* TxSymbolScope::get_root_scope() {
     return const_cast<TxSymbolScope*>(static_cast<const TxSymbolScope *>(this)->get_root_scope());
 }
 const TxSymbolScope* TxSymbolScope::get_root_scope() const {
-    if (! this->has_parent())
+    if (! this->has_outer())
         return dynamic_cast<const TxSymbolScope*>(this);
-    return this->get_parent()->get_root_scope();
+    return this->get_outer()->get_root_scope();
 }
 
 
@@ -230,8 +230,8 @@ TxSymbolScope* TxSymbolScope::lookup_symbol(std::vector<TxSymbolScope*>& path, c
         ASSERT(symbol == path.back(), "Returned entity != last entity in path: " << *symbol << " != " << *path.back());
         return symbol;
     }
-    else if (this->has_parent())
-        return this->get_parent()->lookup_symbol(path, ident);
+    else if (this->has_outer())
+        return this->get_outer()->lookup_symbol(path, ident);
     return nullptr;
 }
 

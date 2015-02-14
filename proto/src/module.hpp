@@ -93,7 +93,7 @@ class LexicalContext : public Printable {
         if (TxModule* module = dynamic_cast<TxModule*>(scope))
             return module;
         else
-            return get_module(scope->get_parent());
+            return get_module(scope->get_outer());
     }
 
 public:

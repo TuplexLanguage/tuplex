@@ -15,8 +15,8 @@
 
 int TxFieldEntity::get_instance_field_index() const {
     ASSERT(this->storage == TXS_INSTANCE, "Only fields of instance storage class have an instance field index: " << *this);
-    auto parentType = dynamic_cast<const TxTypeEntity*>(this->get_parent());
-    ASSERT(parentType, "Field's parent is not a type: " << *this->get_parent());
+    auto parentType = dynamic_cast<const TxTypeEntity*>(this->get_outer());
+    ASSERT(parentType, "Field's parent is not a type: " << *this->get_outer());
     return parentType->get_instance_field_index(this->get_name());
 }
 
@@ -25,8 +25,8 @@ int TxFieldEntity::get_instance_field_index() const {
  */
 int TxFieldEntity::get_static_field_index() const {
     ASSERT(this->storage == TXS_STATIC, "Only fields of instance storage class have an instance field index: " << *this);
-    auto parentType = dynamic_cast<const TxTypeEntity*>(this->get_parent());
-    ASSERT(parentType, "Field's parent is not a type: " << *this->get_parent());
+    auto parentType = dynamic_cast<const TxTypeEntity*>(this->get_outer());
+    ASSERT(parentType, "Field's parent is not a type: " << *this->get_outer());
     return parentType->get_static_field_index(this->get_name());
 }
 
@@ -57,7 +57,7 @@ TxSymbolScope* TxDistinctEntity::resolve_generic(TxSymbolScope* vantageScope) {
         else {
             // unbound symbols are not resolved against, unless they're defined by an outer scope -
             // meaning they're type parameters pertaining to the current lexical context
-            if (vantageScope->get_full_name().begins_with(this->get_parent()->get_full_name()))
+            if (vantageScope->get_full_name().begins_with(this->get_outer()->get_full_name()))
                 this->LOGGER().warning("symbol is being-defined type parameter %s from vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
             else
                 this->LOGGER().warning("symbol is unbound type parameter %s in vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());

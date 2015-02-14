@@ -106,7 +106,8 @@ void TxFieldDeclNode::symbol_registration_pass(LexicalContext& lexContext) {
 
 
 // FUTURE: factor out the 'explicit' code path into separate function
-TxExpressionNode* inner_validate_wrap_convert(ResolutionContext& resCtx, TxExpressionNode* originalExpr, const TxType* requiredType, bool _explicit) {
+static TxExpressionNode* inner_validate_wrap_convert(ResolutionContext& resCtx, TxExpressionNode* originalExpr,
+                                                     const TxType* requiredType, bool _explicit) {
     // Note: Symbol table pass and semantic pass are not run on the created wrapper nodes.
     auto originalType = originalExpr->symbol_resolution_pass(resCtx);
     if (! originalType)
@@ -152,6 +153,7 @@ TxExpressionNode* inner_validate_wrap_convert(ResolutionContext& resCtx, TxExpre
 TxExpressionNode* validate_wrap_convert(ResolutionContext& resCtx, TxExpressionNode* originalExpr, const TxType* requiredType, bool _explicit) {
     auto exprNode = inner_validate_wrap_convert(resCtx, originalExpr, requiredType, _explicit);
     if (exprNode != originalExpr) {
+        originalExpr->LOGGER().trace("Wrapping conversion to type %s around %s", requiredType->to_string(true).c_str(), originalExpr->to_string().c_str());
         exprNode->symbol_registration_pass(originalExpr->context());
         exprNode->symbol_resolution_pass(resCtx);
     }
@@ -240,7 +242,7 @@ const TxType* TxIdentifiedTypeNode::inner_define_type(ResolutionContext& resCtx,
                 if (declEnt->get_name() == make_generic_binding_name(identifiedEntity->get_full_name().to_string())) {
                     // if type-arg resolves to ancestor type's type parameter, it is unspecified in current scope
                     // (need to catch this, lest we get an infinite alias lookup loop or spurious name resolution)
-                    if (auto outerType = dynamic_cast<TxTypeEntity*>(scope->get_parent())) {
+                    if (auto outerType = dynamic_cast<TxTypeEntity*>(scope->get_outer())) {
                         // since we declare base types under the subtype's scope,
                         // we may have to lookup via outer (the subtype's) scope
                         LOGGER().warning("%s: skipping alias match for type '%s' to GENPARAM %s", this->parse_loc_string().c_str(),
@@ -282,13 +284,16 @@ const TxType* TxIdentifiedTypeNode::inner_define_type(ResolutionContext& resCtx,
 
 void TxArrayTypeNode::symbol_registration_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) {
     this->elementTypeNode->symbol_registration_pass(lexContext);
-    if (! this->lengthNode) {
-        // implicit redeclaration of array length parameter L:
-        TxIdentifierNode* redeclIdent = new TxIdentifierNode(this->parseLocation, new TxIdentifier("L"));
-        TxExpressionNode* lengthExpr = new TxFieldValueNode(this->parseLocation, nullptr, redeclIdent);
-        lengthNode = new TxTypeArgumentNode(lengthExpr);
-    }
-    this->lengthNode->symbol_registration_pass(lexContext);
+// If we're to implicitly define a binding the Array.L parameter, we must also fix so that such implicit bindings
+// get a corresponding type parameter declaration in the outer type entity.
+//    if (! this->lengthNode) {
+//        // implicit redeclaration of array length parameter L:
+//        TxIdentifierNode* redeclIdent = new TxIdentifierNode(this->parseLocation, new TxIdentifier("L"));
+//        TxExpressionNode* lengthExpr = new TxFieldValueNode(this->parseLocation, nullptr, redeclIdent);
+//        lengthNode = new TxTypeArgumentNode(lengthExpr);
+//    }
+    if (this->lengthNode)
+        this->lengthNode->symbol_registration_pass(lexContext);
 }
 
 
