@@ -100,18 +100,17 @@ public:
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         // TODO: Fix so that this won't find false positive using outer function's $return typeDecl
         // TODO: Illegal to return reference to STACK dataspace
-        auto returnValue = this->context().scope()->resolve_field(TxIdentifier("$return"));
+        auto returnValue = this->context().scope()->resolve_field(resCtx, TxIdentifier("$return"));
         if (this->expr) {
             this->expr->symbol_resolution_pass(resCtx);
             if (returnValue)
-                this->expr = validate_wrap_convert(resCtx, this->expr, returnValue->get_type());
+                this->expr = validate_wrap_convert(resCtx, this->expr, returnValue->resolve_symbol_type(resCtx));
             else
-                cerror("Return statement has value expression although function has no return type: %s",
-                             this->expr->get_type()->to_string().c_str());
+                cerror("Return statement has value expression although function has no return type");
         }
         else if (returnValue)
             cerror("Return statement has no value expression although function returns %s",
-                         returnValue->get_type()->to_string().c_str());
+                   returnValue->to_string().c_str());
     }
 
     virtual void semantic_pass() override {
@@ -272,8 +271,9 @@ public:
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        auto ltype = this->lvalue->symbol_resolution_pass(resCtx);
+        this->lvalue->symbol_resolution_pass(resCtx);
         this->rvalue->symbol_resolution_pass(resCtx);
+        auto ltype = this->lvalue->resolve_type(resCtx);
         if (! ltype)
             return;  // (error message should have been emitted by lvalue node)
         if (! ltype->is_modifiable()) {

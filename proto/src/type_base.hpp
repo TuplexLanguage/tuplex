@@ -17,6 +17,7 @@ class TxType;
 class TxSymbolScope;
 class TxTypeEntity;
 class TxExpressionNode;
+class ResolutionContext;
 
 /* forward declarations pertaining to LLVM code generation */
 class LlvmGenerationContext;
@@ -423,9 +424,10 @@ private:
     }
 
 protected:
-    const TxTypeProxy* resolve_param_type(const std::string& paramName, bool nontransitiveModifiability=false) const;
+    const TxType* resolve_param_type(ResolutionContext& resCtx, const std::string& paramName,
+                                     bool nontransitiveModifiability=false) const;
 
-    const TxExpressionNode* resolve_param_value(const std::string& paramName) const;
+    const TxExpressionNode* resolve_param_value(ResolutionContext& resCtx, const std::string& paramName) const;
 
 
 public:

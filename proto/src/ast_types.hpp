@@ -36,6 +36,9 @@ public:
         this->set_context(lexContext);
     }
 
+    /** Performs symbol registration, symbol resolution and type resolution, and returns a newly created TxTypeBinding.
+     * May only be called once.
+     */
     virtual TxTypeBinding symbol_resolution_pass(ResolutionContext& resCtx,
                                                  const TxTypeEntity* baseTypeEntity, const TxTypeParam& param) {
         std::string qualPName = baseTypeEntity->get_full_name().to_string() + "." + param.param_name();
@@ -65,14 +68,6 @@ public:
             return TxTypeBinding(param.param_name(), this->valueExprNode);
         }
     }
-
-//    virtual TxTypeEntity* get_entity() const {
-//        return (this->typeNode ? this->typeNode->get_entity() : nullptr);
-//    }
-//
-//    virtual const TxType* get_type() const {
-//        return (this->typeNode ? this->typeNode->get_type() : this->valueNode->get_type());
-//    }
 
     virtual void semantic_pass() {
         ASSERT(this->bound, "make_binding() has not been invoked on type argument " << this);
@@ -113,6 +108,29 @@ protected:
         }
     }
 
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        auto baseTypeEntity = this->context().scope()->resolve_type(resCtx, this->identNode->ident);
+        const TxType* baseType = baseTypeEntity ? baseTypeEntity->resolve_symbol_type(resCtx) : nullptr;
+        if (! baseType) {
+            cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
+            return nullptr;
+        }
+        if (baseType->type_params().size() < this->typeArgs->size()) {
+            cerror("Too many generic type arguments specified for type %s", identNode->ident.to_string().c_str());
+            return nullptr;
+        }
+        std::vector<TxTypeBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
+        for (int i = 0; i < this->typeArgs->size(); i++) {
+            bindings.push_back(this->typeArgs->at(i)->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->type_params().at(i)));
+        }
+        TxTypeSpecialization specialization(baseType, bindings);
+        std::string errorMsg;
+        auto type = this->types().get_type_specialization(this->get_entity(), specialization, false, this->declTypeParams, &errorMsg);
+        if (! type)
+            cerror("Failed to specialize type: %s", errorMsg.c_str());
+        return type;
+    }
+
 public:
     const TxIdentifierNode* identNode;
     const std::vector<TxTypeArgumentNode*>* const typeArgs;
@@ -140,29 +158,6 @@ public:
             TxPredefinedTypeNode::symbol_registration_pass(lexContext, declFlags, declaredEntity, typeParamDecls);
     }
 
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override {
-        auto baseTypeEntity = this->context().scope()->resolve_type(this->identNode->ident);
-        const TxType* baseType = baseTypeEntity ? baseTypeEntity->symbol_resolution_pass(resCtx) : nullptr;
-        if (! baseType) {
-            cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
-            return nullptr;
-        }
-        if (baseType->type_params().size() < this->typeArgs->size()) {
-            cerror("Too many generic type arguments specified for type %s", identNode->ident.to_string().c_str());
-            return nullptr;
-        }
-        std::vector<TxTypeBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
-        for (int i = 0; i < this->typeArgs->size(); i++) {
-            bindings.push_back(this->typeArgs->at(i)->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->type_params().at(i)));
-        }
-        TxTypeSpecialization specialization(baseType, bindings);
-        std::string errorMsg;
-        auto type = this->types().get_type_specialization(this->get_entity(), specialization, false, this->declTypeParams, &errorMsg);
-        if (! type)
-            cerror("Failed to specialize type: %s", errorMsg.c_str());
-        return type;
-    }
-
     virtual void semantic_pass() override {
         if (! this->get_type())
             cerror("Unknown type or incorrect generic type arguments: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
@@ -181,6 +176,13 @@ protected:
     virtual void symbol_registration_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
     }
 
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        if (auto type = inner_define_type(resCtx, this->context().scope()))
+            return type;
+        cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
+        return nullptr;
+    }
+
 public:
     const TxIdentifierNode* identNode;
 
@@ -190,22 +192,15 @@ public:
     virtual bool has_predefined_type() const override { return true; }
 
     virtual TxTypeEntity* get_entity() const override {
-        if (auto declEnt = TxPredefinedTypeNode::get_entity())
-            return declEnt;
-        return const_cast<TxTypeEntity*>(this->context().scope()->resolve_type(this->identNode->ident));
-    }
-
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override {
-        if (auto type = inner_define_type(resCtx, this->context().scope()))
-            return type;
-        cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
-        return nullptr;
+//        if (auto declEnt = TxPredefinedTypeNode::get_entity())
+//            return declEnt;
+//        return const_cast<TxTypeEntity*>(this->context().scope()->resolve_type(this->identNode->ident));
+        return (this->get_type() ? this->get_type()->entity() : nullptr);
     }
 
     virtual void semantic_pass() {
-        if (! this->get_entity())
-            cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
-        this->get_type();
+//        if (! this->get_entity())
+//            cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const { return nullptr; }
@@ -244,6 +239,13 @@ protected:
         this->targetTypeNode->symbol_registration_pass(lexContext);
     }
 
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        auto baseType = this->types().get_builtin_type(REFERENCE);
+        auto baseTypeEntity = baseType->entity();
+        TxTypeBinding binding = this->targetTypeNode->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->get_type_param("T"));
+        return this->types().get_reference_type(this->get_entity(), binding);
+    }
+
 public:
     const TxIdentifierNode* dataspace;
     TxTypeArgumentNode* targetTypeNode;
@@ -253,12 +255,9 @@ public:
         : TxBuiltinTypeSpecNode(parseLocation), dataspace(dataspace),
           targetTypeNode(new TxTypeArgumentNode(targetType))  { }
 
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override {
-        auto baseType = this->types().get_builtin_type(REFERENCE);
-        auto baseTypeEntity = baseType->entity();
-        TxTypeBinding binding = this->targetTypeNode->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->get_type_param("T"));
-        return this->types().get_reference_type(this->get_entity(), binding);
-    }
+//    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+//        this->targetTypeNode->symbol_resolution_pass(resCtx);
+//    }
 
     virtual void semantic_pass() { targetTypeNode->semantic_pass(); }
 
@@ -271,16 +270,7 @@ class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
 protected:
     virtual void symbol_registration_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override;
 
-public:
-    TxTypeArgumentNode* elementTypeNode;
-    TxTypeArgumentNode* lengthNode;
-
-    TxArrayTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* lengthExpr=nullptr)
-        : TxBuiltinTypeSpecNode(parseLocation),
-          elementTypeNode(new TxTypeArgumentNode(elementType)),
-          lengthNode(lengthExpr ? new TxTypeArgumentNode(lengthExpr) : nullptr)  { }
-
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto baseType = this->types().get_builtin_type(ARRAY);
         auto baseTypeEntity = baseType->entity();
         TxTypeBinding elementBinding = this->elementTypeNode->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->get_type_param("E"));
@@ -292,13 +282,28 @@ public:
             return this->types().get_array_type(this->get_entity(), elementBinding);
     }
 
+public:
+    TxTypeArgumentNode* elementTypeNode;
+    TxTypeArgumentNode* lengthNode;
+
+    TxArrayTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* lengthExpr=nullptr)
+        : TxBuiltinTypeSpecNode(parseLocation),
+          elementTypeNode(new TxTypeArgumentNode(elementType)),
+          lengthNode(lengthExpr ? new TxTypeArgumentNode(lengthExpr) : nullptr)  { }
+
+//    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+//        this->elementTypeNode->symbol_resolution_pass(resCtx);
+//        if (this->lengthNode) {
+//            this->lengthNode->symbol_resolution_pass(resCtx);
+//            //if (! this->lengthNode->valueExprNode->is_statically_constant())
+//            //    cerror("Non-constant array length specifier not yet supported.");
+//        }
+//    }
+
     virtual void semantic_pass() {
         this->elementTypeNode->semantic_pass();
-        if (this->lengthNode) {
+        if (this->lengthNode)
             this->lengthNode->semantic_pass();
-            //if (! this->lengthNode->valueExprNode->is_statically_constant())
-            //    cerror("Non-constant array length specifier not yet supported.");
-        }
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -340,23 +345,20 @@ protected:
         }
     }
 
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto entity = this->get_entity();
         ASSERT(entity, "No entity declared for derived type " << *this);
         // FUTURE: support interfaces
         const TxType* baseObjType = this->baseTypes->empty() ? this->types().get_builtin_type(TUPLE)
-                                                             : this->baseTypes->at(0)->symbol_resolution_pass(resCtx);
-        for (auto member : *this->staticMembers)
-            member->symbol_resolution_pass(resCtx);
-        for (auto member : *this->instanceMembers)
-            member->symbol_resolution_pass(resCtx);
-
+                                                             : this->baseTypes->at(0)->resolve_type(resCtx);
         if (! baseObjType)
             return nullptr;
         TxTypeSpecialization specialization(baseObjType, std::vector<TxTypeBinding>());
         // Note: does not specify explicit type parameter bindings; any unbound type parameters
-        // of the base types are rebound automatically (and are expected to match the declared type params).
+        // of the base types are expected to match the declared type params.  FIXME: review
         auto type = this->types().get_type_specialization(entity, specialization, this->_mutable, this->declTypeParams);
+        // Note: Members of the type are defined via the type entity's members.
+        // FIXME: review: Should we resolve the type members here?
         return type;
     }
 
@@ -372,6 +374,16 @@ public:
             : TxTypeExpressionNode(parseLocation), _mutable(_mutable),
               baseTypes(baseTypes), staticMembers(members)  {
         instanceMembers = new std::vector<TxFieldDeclNode*>();
+    }
+
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxTypeExpressionNode::symbol_resolution_pass(resCtx);
+        for (auto type : *this->baseTypes)
+            type->symbol_resolution_pass(resCtx);
+        for (auto member : *this->staticMembers)
+            member->symbol_resolution_pass(resCtx);
+        for (auto member : *this->instanceMembers)
+            member->symbol_resolution_pass(resCtx);
     }
 
     virtual void semantic_pass() {
@@ -415,12 +427,12 @@ protected:
             this->returnField->symbol_registration_pass_functype_arg(lexContext);
     }
 
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
         std::vector<const TxType*> argumentTypes;
         for (auto argDefNode : *this->arguments)
-            argumentTypes.push_back(argDefNode->symbol_resolution_pass(resCtx));
+            argumentTypes.push_back(argDefNode->resolve_type(resCtx));
         if (this->returnField)
-            return this->types().get_function_type(this->get_entity(), argumentTypes, this->returnField->symbol_resolution_pass(resCtx), modifiable);
+            return this->types().get_function_type(this->get_entity(), argumentTypes, this->returnField->resolve_type(resCtx), modifiable);
         else
             return this->types().get_function_type(this->get_entity(), argumentTypes, modifiable);
     }
@@ -447,6 +459,14 @@ public:
             this->returnField->symbol_registration_pass_local_field(lexContext, false);
     }
 
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxTypeExpressionNode::symbol_resolution_pass(resCtx);
+        for (auto argDef : *this->arguments)
+            argDef->symbol_resolution_pass(resCtx);
+        if (this->returnField)
+            this->returnField->symbol_resolution_pass(resCtx);
+    }
+
     virtual void semantic_pass() {
         for (auto argDef : *this->arguments)
             argDef->semantic_pass();
@@ -464,17 +484,8 @@ protected:
         this->baseType->symbol_registration_pass(lexContext, declFlags);
     }
 
-public:
-    TxTypeExpressionNode* baseType;
-    TxModifiableTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
-        : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
-
-    virtual void symbol_registration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
-                                   TxTypeEntity* declaredEntity = nullptr,
-                                   const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;
-
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override {
-        if (auto bType = this->baseType->symbol_resolution_pass(resCtx)) {
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        if (auto bType = this->baseType->resolve_type(resCtx)) {
             if (bType->is_modifiable()) {
                 cerror("'modifiable' specified more than once for type: %s", bType->to_string().c_str());
                 return bType;
@@ -487,7 +498,21 @@ public:
         return nullptr;
     }
 
-    virtual void semantic_pass() { baseType->semantic_pass(); }
+public:
+    TxTypeExpressionNode* baseType;
+    TxModifiableTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
+        : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
+
+    virtual void symbol_registration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
+                                   TxTypeEntity* declaredEntity = nullptr,
+                                   const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;
+
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxTypeExpressionNode::symbol_resolution_pass(resCtx);
+        this->baseType->symbol_resolution_pass(resCtx);
+    }
+
+    virtual void semantic_pass() { this->baseType->semantic_pass(); }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
@@ -495,6 +520,15 @@ public:
 /** A potentially modifiable type expression, depending on syntactic sugar rules.
  * This node should not have TxModifiableTypeNode as parent, and vice versa. */
 class TxMaybeModTypeNode : public TxModifiableTypeNode {
+protected:
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
+        if (this->isModifiable)
+            return TxModifiableTypeNode::define_type(resCtx);
+        else
+            return this->baseType->resolve_type(resCtx);
+    }
+
 public:
     bool isModifiable = false;
 
@@ -506,12 +540,4 @@ public:
     virtual void symbol_registration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                           TxTypeEntity* declaredEntity = nullptr,
                                           const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;
-
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override {
-        // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
-        if (this->isModifiable)
-            return TxModifiableTypeNode::resolve_type(resCtx);
-        else
-            return this->baseType->symbol_resolution_pass(resCtx);
-    }
 };

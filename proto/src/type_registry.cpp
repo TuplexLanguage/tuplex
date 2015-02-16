@@ -31,7 +31,7 @@ public:
     TxBuiltinTypeProxy(const std::string name) : name(name), type() { }
     TxBuiltinTypeProxy(const std::string name, const TxType* type) : name(name), type(type) { }
 
-    virtual const TxType* symbol_resolution_pass(ResolutionContext& resCtx) override { return this->type; }
+    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
 };
@@ -89,7 +89,7 @@ public:
         this->entity = entity;
     }
 
-    virtual const TxType* symbol_resolution_pass(ResolutionContext& resCtx) override { return this->type; }
+    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
     void set_type(const TxType* type) {

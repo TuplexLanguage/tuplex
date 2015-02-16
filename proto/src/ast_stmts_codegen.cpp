@@ -121,7 +121,7 @@ Value* TxAssignStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     if ((! lval) || (! rval))
         return NULL;
     if (! lval->getType()->isPointerTy()) {
-        context.LOG.error("L-value is not of pointer type: %s; %s", ::to_string(lval).c_str(), ::to_string(lval->getType()).c_str());
+        context.LOG.error("At %s: L-value is not of pointer type: %s; %s", this->parse_loc_string().c_str(), ::to_string(lval).c_str(), ::to_string(lval->getType()).c_str());
         return rval;
     }
     return do_store(context, scope, lval, rval);

@@ -68,10 +68,12 @@ public:
     /** Registers an import. Can be invoked before the symbol table pass. */
     void register_import(const TxIdentifier& identifier);
 
+    /** Prepares this module and its submodules, resolving imports and aliases. */
+    virtual void prepare_modules();
+
+
 
     /*--- validation and debugging ---*/
-
-    virtual bool prepare_symbol() override;
 
     virtual void dump_symbols() const override;
 

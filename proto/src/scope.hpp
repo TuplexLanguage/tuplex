@@ -8,8 +8,6 @@
 #include "type.hpp"
 
 
-class ResolutionContext;
-
 class TxSymbolScope;
 class TxEntity;
 class TxDistinctEntity;
@@ -18,9 +16,14 @@ class TxTypeEntity;
 enum TxFieldStorage : int;
 
 
+class ResolutionContext {
+
+};
+
+
 class TxEntityDefiner : public TxTypeProxy {
 public:
-    virtual const TxType* symbol_resolution_pass(ResolutionContext& resCtx) = 0;
+    virtual const TxType* resolve_type(ResolutionContext& resCtx) = 0;
 
     /** Returns true if this type definer "is ready" - has a defined type.
      * If this method returns false, calls to TxTypeProxy::get_type() have undefined results.
@@ -184,44 +187,42 @@ public:
      * (This implicitly handles overloaded symbols since no more than a single type can be assigned
      * to a given symbol.)
      */
-    TxTypeEntity* resolve_type(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
-    inline TxTypeEntity* resolve_type(const TxIdentifier& ident) {
-        std::vector<TxSymbolScope*> tmp;  return this->resolve_type(tmp, ident);
+    TxTypeEntity* resolve_type(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
+    inline TxTypeEntity* resolve_type(ResolutionContext& resCtx, const TxIdentifier& ident) {
+        std::vector<TxSymbolScope*> tmpPath;  return this->resolve_type(resCtx, tmpPath, ident);
     }
 
     /** Wrapper around lookup_symbol that only matches against field symbols.
      * It also implements the language's field symbol overloading capability;
      * type parameters must be provided in order to resolve an overloaded symbol.
      */
-    TxFieldEntity* resolve_field(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident,
+    TxFieldEntity* resolve_field(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident,
                                  const std::vector<const TxType*>* typeParameters = nullptr);
-    inline TxFieldEntity* resolve_field(const TxIdentifier& ident,
+    inline TxFieldEntity* resolve_field(ResolutionContext& resCtx, const TxIdentifier& ident,
                                         const std::vector<const TxType*>* typeParameters = nullptr) {
-        std::vector<TxSymbolScope*> tmp;  return this->resolve_field(tmp, ident, typeParameters);
+        std::vector<TxSymbolScope*> tmpPath;  return this->resolve_field(resCtx, tmpPath, ident, typeParameters);
     }
 
     /** Attempts to resolve an identified symbol, that is potentially overloaded, as a field using the provided type parameters. */
-    TxFieldEntity* resolve_symbol_as_field(TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters);
+    TxFieldEntity* resolve_symbol_as_field(ResolutionContext& resCtx, TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters);
 
 
+    inline SymbolMap::iterator symbols_begin() { return this->symbols.begin(); }
+    inline SymbolMap::iterator symbols_end()   { return this->symbols.end(); }
     inline SymbolMap::const_iterator symbols_cbegin() const { return this->symbols.cbegin(); }
     inline SymbolMap::const_iterator symbols_cend()   const { return this->symbols.cend(); }
 
 
-    /*--- validation and debugging ---*/
+    /*--- symbol resolution, validation and debugging ---*/
 
-    /** Performs the symbol table pass on this scope and its descendants.
-     * Checks that all this scope's symbols are valid and consistent.
-     * This includes name collision and overloading checks.
-     */
-    virtual bool prepare_symbol_table() final;
+    virtual bool symbol_validation_pass(ResolutionContext& resCtx) final;
 
-    /** Performs the symbol table pass on this scope symbol.
+    /** Validates this scope symbol.
      * Checks that this symbol is valid and consistent.
      * This includes name collision and overloading checks.
      * To be overridden by subclasses for specific checks (they must also invoke super implementation).
      */
-    virtual bool prepare_symbol();
+    virtual bool validate_symbol(ResolutionContext& resCtx);
 
     /** Prints all the symbols of this scope and its descendants to stdout. */
     virtual void dump_symbols() const;

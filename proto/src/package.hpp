@@ -15,11 +15,11 @@
 class TxPackage : public TxModule {
     TxDriver& _driver;
     TypeRegistry* typeRegistry;
-    TxIdentifier mainFuncQualIdent;
+    const TxFieldEntity* mainFunc;
 
 public:
     TxPackage(TxDriver& driver)
-            : TxModule(nullptr, "", false), _driver(driver) {
+            : TxModule(nullptr, "", false), _driver(driver), mainFunc() {
         this->typeRegistry = new TypeRegistry(*this);
     }
 
@@ -34,16 +34,10 @@ public:
         return const_cast<TypeRegistry&>(static_cast<const TxPackage *>(this)->types());
     }
 
-    void registerMain(const TxIdentifier& mainFuncQualIdent) {
-        if (this->mainFuncQualIdent.is_empty()) {
-            this->mainFuncQualIdent = mainFuncQualIdent;
-            this->LOGGER().debug("Set user main function: %s", mainFuncQualIdent.to_string().c_str());
-        }
-        else
-            this->LOGGER().debug("User main function already set, skipping %s", mainFuncQualIdent.to_string().c_str());
-    }
-    const TxIdentifier& getMainFuncIdent() const {
-        return this->mainFuncQualIdent;
+    void registerMainFunc(const TxFieldEntity* mainFunc);
+
+    const TxFieldEntity* getMainFunc() const {
+        return this->mainFunc;
     }
 
 

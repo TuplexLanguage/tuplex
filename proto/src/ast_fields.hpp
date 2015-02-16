@@ -7,35 +7,35 @@ class TxFieldValueNode : public TxExpressionNode {
     std::vector<TxSymbolScope*> memberPath;
     TxFieldEntity * cachedEntity = nullptr;
 
-    class FieldTypeDefiner : public TxEntityDefiner {
-        TxFieldValueNode* fieldNode;
-    public:
-        FieldTypeDefiner(TxFieldValueNode* fieldNode) : fieldNode(fieldNode) { }
-        virtual const TxType* symbol_resolution_pass(ResolutionContext& resCtx) override {
-            return fieldNode->symbol_resolution_pass(resCtx);
-        }
-        virtual const TxType* attempt_get_type() const override { return fieldNode->get_type(); }
-        virtual const TxType* get_type() const override { return fieldNode->get_type(); }
-    } fieldTypeDefiner;
+//    class FieldTypeDefiner : public TxEntityDefiner {
+//        TxFieldValueNode* fieldNode;
+//    public:
+//        FieldTypeDefiner(TxFieldValueNode* fieldNode) : fieldNode(fieldNode) { }
+//        virtual const TxType* symbol_resolution_pass(ResolutionContext& resCtx) override {
+//            return fieldNode->symbol_resolution_pass(resCtx);
+//        }
+//        virtual const TxType* attempt_get_type() const override { return fieldNode->get_type(); }
+//        virtual const TxType* get_type() const override { return fieldNode->get_type(); }
+//    } fieldTypeDefiner;
 
     inline const TxFieldEntity* get_entity() const { return this->cachedEntity; }
 
 protected:
-    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
         // FUTURE: support overloaded field resolution in non-call expressions (e.g. overloadedFunc(Int,Float).typeid )
         if (! this->cachedEntity) {
             if (! this->memberPath.empty())
                 return nullptr;  // has already been attempted and failed
             if (base) {
                 // (lookup is similar to that of TxFieldEntity)
-                if (auto symbol = this->base->get_type()->lookup_instance_member(memberPath, this->member->ident)) {
-                    this->cachedEntity = this->context().scope()->resolve_symbol_as_field(symbol, this->appliedFuncArgTypes);
+                if (auto symbol = this->base->resolve_type(resCtx)->lookup_instance_member(memberPath, this->member->ident)) {
+                    this->cachedEntity = this->context().scope()->resolve_symbol_as_field(resCtx, symbol, this->appliedFuncArgTypes);
                     if (this->cachedEntity && memberPath.back() != this->cachedEntity)
                         memberPath[memberPath.size()-1] = this->cachedEntity;
                 }
             }
             else
-                this->cachedEntity = this->context().scope()->resolve_field(memberPath, this->member->ident, this->appliedFuncArgTypes);
+                this->cachedEntity = this->context().scope()->resolve_field(resCtx, memberPath, this->member->ident, this->appliedFuncArgTypes);
 
             if (this->cachedEntity) {
                 if (this->cachedEntity->get_decl_flags() & TXD_GENPARAM) {
@@ -60,7 +60,7 @@ protected:
             else
                 cerror("No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
         }
-        return this->cachedEntity ? this->cachedEntity->symbol_resolution_pass(resCtx) : nullptr;
+        return this->cachedEntity ? this->cachedEntity->resolve_symbol_type(resCtx) : nullptr;
     }
 
 public:
@@ -68,7 +68,7 @@ public:
     const TxIdentifierNode* member;
 
     TxFieldValueNode(const yy::location& parseLocation, TxExpressionNode* base, const TxIdentifierNode* member)
-        : TxExpressionNode(parseLocation), fieldTypeDefiner(this), base(base), member(member) {
+        : TxExpressionNode(parseLocation), base(base), member(member) {
     }
 
     virtual bool has_predefined_type() const override { return true; }
@@ -122,23 +122,23 @@ class TxFieldAssigneeNode : public TxAssigneeNode {
     }
 
 protected:
-    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
         if (! this->entity) {
             if (! this->memberPath.empty())
                 return nullptr;  // has already been attempted and failed
             if (base)
                 // (lookup is similar to that of TxFieldEntity)
-                this->entity = dynamic_cast<TxFieldEntity*>(this->base->get_type()->lookup_instance_member(memberPath, this->member->ident));
+                this->entity = dynamic_cast<TxFieldEntity*>(this->base->resolve_type(resCtx)->lookup_instance_member(memberPath, this->member->ident));
             else
-                this->entity = this->context().scope()->resolve_field(memberPath, this->member->ident);
+                this->entity = this->context().scope()->resolve_field(resCtx, memberPath, this->member->ident);
             if (! this->entity) {
                 cerror("No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
                 return nullptr;
             }
-            return this->entity->symbol_resolution_pass(resCtx);
+            return this->entity->resolve_symbol_type(resCtx);
         }
         else
-            return this->entity->symbol_resolution_pass(resCtx);
+            return this->entity->resolve_symbol_type(resCtx);
     }
 
 public:
@@ -148,18 +148,24 @@ public:
     TxFieldAssigneeNode(const yy::location& parseLocation, TxExpressionNode* base, const TxIdentifierNode* member)
         : TxAssigneeNode(parseLocation), base(base), member(member) { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) {
+    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
         if (base)
             base->symbol_registration_pass(lexContext);
     }
 
-    virtual void semantic_pass() {
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxAssigneeNode::symbol_resolution_pass(resCtx);
         if (base)
-            base->semantic_pass();
+            base->symbol_resolution_pass(resCtx);
         auto entity = this->get_entity();
         if (entity && entity->get_storage() == TXS_NOSTORAGE)
             cerror("Assignee %s is not an L-value / has no storage.", member->to_string().c_str());
+    }
+
+    virtual void semantic_pass() override {
+        if (base)
+            base->semantic_pass();
     }
 
 //    virtual bool hasAddress() const {

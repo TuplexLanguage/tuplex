@@ -40,7 +40,9 @@ bool TxFieldEntity::is_statically_constant() const {
 }
 
 const TxConstantProxy* TxFieldEntity::get_static_constant_proxy() const {
-    return ( this->initializerExpr ? this->initializerExpr->get_static_constant_proxy() : nullptr );
+    if (this->is_statically_constant() && this->initializerExpr)
+        return this->initializerExpr->get_static_constant_proxy();
+    return nullptr;
 }
 
 
@@ -93,7 +95,7 @@ TxSymbolScope* TxTypeEntity::lookup_member(std::vector<TxSymbolScope*>& path, co
             }
         }
 
-        // if the identified member is a type parameter, attempt to resolve it by substituting it for its binding:
+        // if the identified member is a type parameter/alias, attempt to resolve it by substituting it for its binding:
         TxSymbolScope* vantageScope = path.back();
         member = member->resolve_generic(vantageScope);
 
@@ -114,6 +116,28 @@ TxSymbolScope* TxTypeEntity::lookup_member(std::vector<TxSymbolScope*>& path, co
         // aren't defined at that point yet.
         this->LOGGER().trace("Looking up '%s' among inherited members of %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());
         return type->lookup_inherited_member(path, ident);
+    }
+    else {
+        this->LOGGER().trace("Skipping looking up '%s' among inherited members of %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());
+        return nullptr;
+    }
+}
+
+TxSymbolScope* TxTypeEntity::lookup_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
+    // invoke parent's lookup_member() (since TxTypeEntity's lookup_member() only resolves static members):
+    if (auto member = TxDistinctEntity::lookup_member(path, ident))
+        return member;
+
+    if (auto type = this->entityDefiner->attempt_get_type()) {
+        // Without the guard this lookup can cause infinite recursion or runtime/assertion errors
+        // when run before symbol table pass has completed.
+        // The root cause is predef type name lookup is done *from within the scope of the new type being declared*.
+        // This is necessary since in this kind of expression:
+        // type Sub<T> derives Super<T>
+        // The second T needs to resolve T in the namespace of Sub, but of course the supertypes of Sub
+        // aren't defined at that point yet.
+        this->LOGGER().trace("Looking up '%s' among inherited members of %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());
+        return type->lookup_inherited_instance_member(path, ident);
     }
     else {
         this->LOGGER().trace("Skipping looking up '%s' among inherited members of %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());

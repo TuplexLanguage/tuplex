@@ -23,8 +23,6 @@ static llvm::Value* field_value_code_gen(LlvmGenerationContext& context, GenScop
         // TODO: polymorphic lookup
     case TXS_GLOBAL:
     case TXS_STACK:
-        if (entity->get_full_name().to_string() == "my.Midtype.my#Type#L")
-            printf("foo\n");
         if (auto constProxy = entity->get_static_constant_proxy()) {
             val = constProxy->code_gen(context, scope);
             context.LOG.debug("Generating field value code for statically constant entity %s: %s", entity->to_string().c_str(), ::to_string(val).c_str());
@@ -122,10 +120,8 @@ llvm::Value* TxFieldAssigneeNode::code_gen(LlvmGenerationContext& context, GenSc
     for (auto sym : this->memberPath) {
         if (auto field = dynamic_cast<const TxFieldEntity*>(sym))
             value = field_value_code_gen(context, scope, value, field);
-        else {
+        else
             value = NULL;
-            ASSERT(dynamic_cast<const TxTypeEntity*>(sym) || dynamic_cast<const TxModule*>(sym), "Invalid symbol type in a field identifier segment: " << *sym);
-        }
     }
     return value;
 }

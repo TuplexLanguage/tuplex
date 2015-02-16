@@ -161,19 +161,20 @@ void TxModule::register_import(const TxIdentifier& identifier) {
     this->registeredImports.push_back(identifier);
 }
 
+void TxModule::prepare_modules() {
+    this->LOGGER().debug("Preparing module %s", this->get_full_name().to_string().c_str());
+    for (auto import : this->registeredImports) {
+        if (! this->import_symbol(import))
+            this->get_package()->driver().cerror("Failed to import " + import.to_string());
+    }
+    for (auto entry = this->symbols_begin(); entry != this->symbols_end(); entry++) {
+        if (auto submod = dynamic_cast<TxModule*>(entry->second))
+            submod->prepare_modules();
+    }
+}
+
 
 /*--- validation and debugging ---*/
-
-bool TxModule::prepare_symbol() {
-    bool valid = TxSymbolScope::prepare_symbol();
-    for (auto import : this->registeredImports) {
-        if (! this->import_symbol(import)) {
-            this->get_package()->driver().cerror("Failed to import " + import.to_string());
-            valid = false;
-        }
-    }
-    return valid;
-}
 
 /** Prints all the symbols of this scope and its descendants to stdout. */
 void TxModule::dump_symbols() const {

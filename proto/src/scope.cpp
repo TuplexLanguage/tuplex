@@ -179,11 +179,13 @@ TxDistinctEntity* TxSymbolScope::declare_entity(TxDistinctEntity* entity) {
         auto success = this->declare_symbol(entity);
         if (success) {
             // register possible main() function:
-            if (entity->get_name() == "main") {
-                // FIXME: check that public function of correct signature: static mod main(args) Int
-                auto package = dynamic_cast<TxPackage*>(this->get_root_scope());
-                ASSERT(package, "root scope is not a TxPackage");
-                package->registerMain(entity->get_full_name());
+            if (auto field = dynamic_cast<TxFieldEntity*>(entity)) {
+                if (entity->get_name() == "main") {
+                    // TODO: check that public and static function of correct signature: static mod main(args) Int
+                    auto package = dynamic_cast<TxPackage*>(this->get_root_scope());
+                    ASSERT(package, "root scope is not a TxPackage");
+                    package->registerMainFunc(field);
+                }
             }
             this->LOGGER().trace("    Defined    %-32s %s", entity->get_full_name().to_string().c_str(), entity->to_string().c_str());
             return entity;
@@ -250,7 +252,7 @@ TxSymbolScope* TxSymbolScope::lookup_member(std::vector<TxSymbolScope*>& path, c
 
 
 
-TxTypeEntity* TxSymbolScope::resolve_type(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
+TxTypeEntity* TxSymbolScope::resolve_type(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
     auto symbol = this->resolve_symbol(path, ident);
     if (! symbol)
         return nullptr;
@@ -264,18 +266,19 @@ TxTypeEntity* TxSymbolScope::resolve_type(std::vector<TxSymbolScope*>& path, con
     return nullptr;
 }
 
-TxFieldEntity* TxSymbolScope::resolve_field(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident,
-                                                  const std::vector<const TxType*>* typeParameters) {
+TxFieldEntity* TxSymbolScope::resolve_field(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident,
+                                            const std::vector<const TxType*>* typeParameters) {
     TxSymbolScope* symbol = this->resolve_symbol(path, ident);
     if (! symbol)
         return nullptr;
-    TxFieldEntity* field = this->resolve_symbol_as_field(symbol, typeParameters);
+    TxFieldEntity* field = this->resolve_symbol_as_field(resCtx, symbol, typeParameters);
     if (field && path.back() != field)
         path[path.size()-1] = field;
     return field;
 }
 
-TxFieldEntity* TxSymbolScope::resolve_symbol_as_field(TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters) {
+TxFieldEntity* TxSymbolScope::resolve_symbol_as_field(ResolutionContext& resCtx, TxSymbolScope* symbol,
+                                                      const std::vector<const TxType*>* typeParameters) {
     if (auto fieldEnt = dynamic_cast<TxFieldEntity*>(symbol)) {
         // if (typeParameters)  TODO: if type parameters specified, verify that they match
         return fieldEnt;
@@ -285,12 +288,13 @@ TxFieldEntity* TxSymbolScope::resolve_symbol_as_field(TxSymbolScope* symbol, con
             std::vector<TxFieldEntity*> matches;
             for (auto fieldCandidateI = overloadedEnt->fields_cbegin();
                       fieldCandidateI != overloadedEnt->fields_cend(); fieldCandidateI++) {
-                auto fieldCandidateType = (*fieldCandidateI)->get_type();
+                auto fieldCandidateType = (*fieldCandidateI)->resolve_symbol_type(resCtx);
                 if (auto candidateFuncType = dynamic_cast<const TxFunctionType*>(fieldCandidateType)) {
                     if (candidateFuncType->argumentTypes.size() == typeParameters->size()) {
                         auto typeParamI = typeParameters->cbegin();
                         for (auto argDef : candidateFuncType->argumentTypes) {
                             if (! argDef->auto_converts_from(**typeParamI)) {
+                                //this->LOGGER().trace("Argument mismatch: %s  can't convert to  %s", (*typeParamI)->to_string(true).c_str(), argDef->to_string(true).c_str());
                                 goto NEXT_CANDIDATE;
                             }
                             typeParamI++;
@@ -324,20 +328,20 @@ TxFieldEntity* TxSymbolScope::resolve_symbol_as_field(TxSymbolScope* symbol, con
 }
 
 
-bool TxSymbolScope::prepare_symbol_table() {
-    if (!this->fullName.begins_with(BUILTIN_NS))
-        this->LOGGER().debug("Preparing symbol %s", this->fullName.to_string().c_str());
-//    if (this->fullName.to_string() == "my.main$.Tst1.tx#Array#L")
-//        std::cout << "HERE V" << std::endl;
-    bool valid = this->prepare_symbol();
+bool TxSymbolScope::symbol_validation_pass(ResolutionContext& resCtx) {
+//    if (this->fullName.begins_with(BUILTIN_NS))
+//        return true;
+//    if (!this->fullName.begins_with(BUILTIN_NS))
+//        this->LOGGER().debug("Validating symbol %s", this->fullName.to_string().c_str());
+    bool valid = this->validate_symbol(resCtx);
     if (! valid)
         this->LOGGER().debug("Failed symbol validity test: %s", this->fullName.to_string().c_str());
     for (auto entry : this->symbols)
-        valid &= entry.second->prepare_symbol_table();
+        valid &= entry.second->symbol_validation_pass(resCtx);
     return valid;
 }
 
-bool TxSymbolScope::prepare_symbol() {
+bool TxSymbolScope::validate_symbol(ResolutionContext& resCtx) {
     return true;
 }
 
@@ -350,9 +354,8 @@ void TxSymbolScope::dump_symbols() const {
             subModules.push_back(submod);
         else if (this->get_full_name() != builtinNamespace) {
             if (auto ent = dynamic_cast<const TxFieldEntity*>(symbol)) {
-                const TxType* type = ent->get_type();
                 std::string typestr; // = (type && type->entity()) ? type->entity()->get_full_name().to_string() : "nulltype/Void";
-                if (type)
+                if (const TxType* type = ent->get_type())
                     if (type->entity())
                         typestr = type->entity()->get_full_name().to_string();
                     else

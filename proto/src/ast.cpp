@@ -109,7 +109,7 @@ void TxFieldDeclNode::symbol_registration_pass(LexicalContext& lexContext) {
 static TxExpressionNode* inner_validate_wrap_convert(ResolutionContext& resCtx, TxExpressionNode* originalExpr,
                                                      const TxType* requiredType, bool _explicit) {
     // Note: Symbol table pass and semantic pass are not run on the created wrapper nodes.
-    auto originalType = originalExpr->symbol_resolution_pass(resCtx);
+    auto originalType = originalExpr->resolve_type(resCtx);
     if (! originalType)
         return originalExpr;
     if (originalType == requiredType)
@@ -126,9 +126,9 @@ static TxExpressionNode* inner_validate_wrap_convert(ResolutionContext& resCtx, 
             return originalExpr;  // or do we actually need to do something here?
     }
     else if (auto refType = dynamic_cast<const TxReferenceType*>(requiredType)) {
-        auto refTargetType = refType->target_type();
-        if (refTargetType && originalType->is_a(*refTargetType->get_type())) {
-            if (refTargetType->get_type()->is_modifiable()) {
+        auto refTargetType = refType->target_type(resCtx);
+        if (refTargetType && originalType->is_a(*refTargetType)) {
+            if (refTargetType->is_modifiable()) {
                 if (!originalType->is_modifiable())
                     originalExpr->cerror("Cannot convert reference with non-mod-target to one with mod target: %s -> %s",
                                  originalType->to_string().c_str(), requiredType->to_string().c_str());
@@ -229,8 +229,8 @@ void TxTypeDeclNode::symbol_registration_pass(LexicalContext& lexContext) {
 
 
 const TxType* TxIdentifiedTypeNode::inner_define_type(ResolutionContext& resCtx, TxSymbolScope* scope, std::string* errorMsg) {
-    if (auto identifiedEntity = scope->resolve_type(this->identNode->ident)) {
-        auto identifiedType = identifiedEntity->symbol_resolution_pass(resCtx);
+    if (auto identifiedEntity = scope->resolve_type(resCtx, this->identNode->ident)) {
+        auto identifiedType = identifiedEntity->resolve_symbol_type(resCtx);
         if (!identifiedType)
             return nullptr;
         else if (identifiedType->is_generic()) {

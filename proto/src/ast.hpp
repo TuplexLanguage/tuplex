@@ -13,10 +13,8 @@ class TxLambdaExprNode : public TxExpressionNode {
     bool instanceMethod = false;
 
 protected:
-    virtual const TxType* resolve_expression(ResolutionContext& resCtx) override {
-        auto funcType = this->funcTypeNode->symbol_resolution_pass(resCtx);  // function header
-        this->suite->symbol_resolution_pass(resCtx);  // function body
-        return funcType;
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        return this->funcTypeNode->resolve_type(resCtx);  // function header
     }
 
 public:
@@ -55,6 +53,12 @@ public:
         // generate function instance:
         this->funcTypeNode->symbol_registration_pass_func_header(funcLexContext);  // function header
         this->suite->symbol_registration_pass_no_subscope(funcLexContext);  // function body
+    }
+
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(resCtx);
+        this->funcTypeNode->symbol_resolution_pass(resCtx);  // function header
+        this->suite->symbol_resolution_pass(resCtx);  // function body
     }
 
     /** Returns false if this function may modify its closure when run, i.e. have side effects.

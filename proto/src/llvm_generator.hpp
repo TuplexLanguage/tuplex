@@ -38,7 +38,7 @@ class LlvmGenerationContext {
     std::map<const std::string, llvm::Value*> llvmSymbolTable;
     std::map<const TxType*, llvm::Type* const> llvmTypeMapping;
 
-    const TxType* lookup_builtin(const std::string& name);
+    const TxType* lookup_builtin(BuiltinTypeId id);
     void initialize_builtin_types();
     llvm::Function* add_main_function(llvm::Module *mod, const std::string userMain, bool hasIntReturnValue);
 

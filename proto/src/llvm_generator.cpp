@@ -125,29 +125,26 @@ llvm::Value* LlvmGenerationContext::lookup_llvm_value(const std::string& identif
 }
 
 
-const TxType* LlvmGenerationContext::lookup_builtin(const std::string& name) {
-    static TxIdentifier nsIdent(BUILTIN_NS);
-    return this->tuplexPackage.resolve_type(TxIdentifier(nsIdent, name))->get_type();
+const TxType* LlvmGenerationContext::lookup_builtin(BuiltinTypeId id) {
+    return this->tuplexPackage.types().get_builtin_type(id);
 }
 
 void LlvmGenerationContext::initialize_builtin_types() {
-    TxIdentifier nsIdent(BUILTIN_NS);
-    TxIdentifier nullRefScope("");
-	this->llvmTypeMapping.emplace(lookup_builtin("Any"),    llvm::Type::getVoidTy(this->llvmContext));
-	this->llvmTypeMapping.emplace(lookup_builtin("Byte"),   llvm::Type::getInt8Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin("Short"),  llvm::Type::getInt16Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin("Int"),    llvm::Type::getInt32Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin("Long"),   llvm::Type::getInt64Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin("UByte"),  llvm::Type::getInt8Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin("UShort"), llvm::Type::getInt16Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin("UInt"),   llvm::Type::getInt32Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin("ULong"),  llvm::Type::getInt64Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin("Half"),   llvm::Type::getHalfTy(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin("Float"),  llvm::Type::getFloatTy(this->llvmContext));
-	this->llvmTypeMapping.emplace(lookup_builtin("Double"), llvm::Type::getDoubleTy(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin("Boolean"), llvm::Type::getInt1Ty(this->llvmContext));
-    //this->llvmTypeMapping.emplace(lookupBuiltin("Char"),   llvm::Type::getInt8Ty(this->llvmContext));
-    //this->llvmTypeMapping.emplace(lookupBuiltin("String"), llvm::Type::getInt8PtrTy(this->llvmContext));
+	this->llvmTypeMapping.emplace(lookup_builtin(ANY),    llvm::Type::getVoidTy(this->llvmContext));
+	this->llvmTypeMapping.emplace(lookup_builtin(BYTE),   llvm::Type::getInt8Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin(SHORT),  llvm::Type::getInt16Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin(INT),    llvm::Type::getInt32Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin(LONG),   llvm::Type::getInt64Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin(UBYTE),  llvm::Type::getInt8Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin(USHORT), llvm::Type::getInt16Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin(UINT),   llvm::Type::getInt32Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin(ULONG),  llvm::Type::getInt64Ty(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin(HALF),   llvm::Type::getHalfTy(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin(FLOAT),  llvm::Type::getFloatTy(this->llvmContext));
+	this->llvmTypeMapping.emplace(lookup_builtin(DOUBLE), llvm::Type::getDoubleTy(this->llvmContext));
+    this->llvmTypeMapping.emplace(lookup_builtin(BOOLEAN), llvm::Type::getInt1Ty(this->llvmContext));
+    //this->llvmTypeMapping.emplace(lookupBuiltin(CHAR),   llvm::Type::getInt8Ty(this->llvmContext));
+    //this->llvmTypeMapping.emplace(lookupBuiltin(STRING), llvm::Type::getInt8PtrTy(this->llvmContext));
 //	for (auto pair : this->llvmTypeMapping)
 //	    std::cout << "LLVM type mapping: " << pair.first << " -> " << pair.second << std::endl;
 
@@ -232,20 +229,22 @@ public:
     virtual void visit(const TxReferenceType& txType)  {
         if (txType.is_generic())
             throw std::logic_error("Generic references currently not supported: " + txType.to_string());
-        llvm::Type* targetType = this->context.get_llvm_type(txType.target_type()->get_type());
+        ResolutionContext resCtx;  // FIXME
+        llvm::Type* targetType = this->context.get_llvm_type(txType.target_type(resCtx));
         if (targetType) {
             this->result = llvm::PointerType::get(targetType, 0);
             context.LOG.debug("Mapping reference type %s", txType.to_string().c_str());
         }
         else
-            context.LOG.error("No LLVM type mapping for reference target type: %s", txType.target_type()->get_type()->to_string().c_str());
+            context.LOG.error("No LLVM type mapping for reference target type: %s", txType.target_type(resCtx)->to_string().c_str());
     }
 
     virtual void visit(const TxArrayType& txType)  {
-        if (auto e = txType.element_type()) {
-            if (llvm::Type* elemType = this->context.get_llvm_type(e->get_type())) {
+        ResolutionContext resCtx;  // FIXME
+        if (auto e = txType.element_type(resCtx)) {
+            if (llvm::Type* elemType = this->context.get_llvm_type(e)) {
                 long arrayLen;
-                if (auto lenExpr = txType.length()) {
+                if (auto lenExpr = txType.length(resCtx)) {
                     // concrete array (specific length)
                     if (auto lenProxy = lenExpr->get_static_constant_proxy()) {
                         // length is statically specified

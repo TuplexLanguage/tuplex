@@ -104,16 +104,18 @@ int TxDriver::compile() {
         return error_count;
     int prev_error_count = error_count;
 
+
     /*--- perform symbol table pass ---*/
 
-    for (auto & parsedFile : this->parsedSourceFiles) {
+    for (auto & parsedFile : this->parsedSourceFiles)
         parsedFile.second->symbol_registration_pass(this->package);
-    }
+
+    this->package->prepare_modules();
+
     ResolutionContext resCtx;
-    for (auto & parsedFile : this->parsedSourceFiles) {
+    bool symValid = this->package->symbol_validation_pass(resCtx);
+    for (auto & parsedFile : this->parsedSourceFiles)
         parsedFile.second->symbol_resolution_pass(resCtx);
-    }
-    bool symValid = this->package->prepare_symbol_table();
     if (symValid && error_count == prev_error_count)
         LOG.info("+ Symbol table pass OK");
 
@@ -130,6 +132,7 @@ int TxDriver::compile() {
         return 1;
     }
 
+
     /*--- perform semantic pass ---*/
 
     for (auto & parsedFile : this->parsedSourceFiles) {
@@ -141,6 +144,7 @@ int TxDriver::compile() {
         LOG.info("+ Semantic pass OK");
     if (error_count)
         return error_count;
+
 
     /*--- generate LLVM code ---*/
 
@@ -245,14 +249,13 @@ int TxDriver::llvm_compile() {
         genContext.generate_code(*parsedFile.second);
     }
     bool mainGenerated = false;
-    if (! this->package->getMainFuncIdent().is_empty()) {
-        if (auto funcField = this->package->resolve_field(this->package->getMainFuncIdent()))
-            if (auto funcType = dynamic_cast<const TxFunctionType*>(funcField->get_type())) {
-                if ( funcType->returnType && ! funcType->returnType->is_a( *this->package->types().get_builtin_type(INTEGER) ) )
-                    this->LOG.error("main() method had invalid return type: %s", funcType->returnType->to_string().c_str());
-                else if ((mainGenerated = genContext.generate_main(this->package->getMainFuncIdent().to_string(), funcType)))
-                    this->LOG.debug("Created program entry for user method %s", this->package->getMainFuncIdent().to_string().c_str());
-            }
+    if (auto funcField = this->package->getMainFunc()) {
+        if (auto funcType = dynamic_cast<const TxFunctionType*>(funcField->get_type())) {
+            if ( funcType->returnType && ! funcType->returnType->is_a( *this->package->types().get_builtin_type(INTEGER) ) )
+                this->LOG.error("main() method had invalid return type: %s", funcType->returnType->to_string().c_str());
+            else if ((mainGenerated = genContext.generate_main(funcField->get_full_name().to_string(), funcType)))
+                this->LOG.debug("Created program entry for user method %s", funcField->get_full_name().to_string().c_str());
+        }
     }
     if (! mainGenerated)
         this->LOG.warning("No main() method found.");

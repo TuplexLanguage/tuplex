@@ -199,40 +199,40 @@ TxSymbolScope* TxType::lookup_inherited_member(std::vector<TxSymbolScope*>& path
 }
 
 
-const TxTypeProxy* TxType::resolve_param_type(const std::string& paramName, bool nontransitiveModifiability) const {
+const TxType* TxType::resolve_param_type(ResolutionContext& resCtx, const std::string& paramName, bool nontransitiveModifiability) const {
+    const TxType* type = nullptr;
     if (this->entity()) {
         std::vector<TxSymbolScope*> path( { this->entity() } );
-        if (auto typeEntity = dynamic_cast<TxTypeEntity*>(this->lookup_member(path, paramName))) {
-            if (! this->is_modifiable() && ! nontransitiveModifiability)
-                // non-modifiability transitively applies to TYPE type parameters (NOTE: except for references)
-                return new TxNonModTypeProxy(typeEntity);  // FUTURE: memoize this (also prevents mem leak)
-            else
-                return typeEntity;
-        }
+        if (auto typeEntity = dynamic_cast<TxTypeEntity*>(this->lookup_member(path, paramName)))
+            type = typeEntity->resolve_symbol_type(resCtx);
     }
     else {
-        LOGGER()->warning("Attempting to resolve type parameter '%s' of type that has no entity: %s", paramName.c_str(), this->to_string().c_str());
+        LOGGER()->warning("Resolving type parameter '%s' of type that has no entity: %s", paramName.c_str(), this->to_string().c_str());
         auto binding = this->resolve_param_binding(paramName);
         if (! binding) {
             size_t pos = paramName.find_last_of('#');
             if (pos != std::string::npos) {
                 auto unqualName = paramName.substr(pos+1);
-                //LOGGER()->warning("Attempting to resolve type parameter '%s' of type that has no entity: %s", unqualName.c_str(), this->to_string().c_str());
+                //LOGGER()->warning("Resolving type parameter '%s' of type that has no entity: %s", unqualName.c_str(), this->to_string().c_str());
                 binding = this->resolve_param_binding(unqualName);
             }
         }
-        if (binding && binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
-            if (! this->is_modifiable() && ! nontransitiveModifiability)
-                // non-modifiability transitively applies to TYPE type parameters (NOTE: except for references)
-                return new TxNonModTypeProxy(&binding->type_proxy());  // FUTURE: memoize this (also prevents mem leak)
-            else
-                return &binding->type_proxy();
-        }
+        if (binding && binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE)
+            type = binding->type_proxy().get_type();
+    }
+
+    if (type) {
+        if (! this->is_modifiable() && ! nontransitiveModifiability)
+            // non-modifiability transitively applies to TYPE type parameters (NOTE: except for references)
+            return type->is_modifiable() ? type->get_base_type() : type;
+        else
+            return type;
     }
     return nullptr;  // no such type parameter name in type specialization hierarchy
 }
 
-const TxExpressionNode* TxType::resolve_param_value(const std::string& paramName) const {
+const TxExpressionNode* TxType::resolve_param_value(ResolutionContext& resCtx, const std::string& paramName) const {
+    // TODO: resolve via symbol table
     if (auto binding = this->resolve_param_binding(paramName)) {
         if (binding->meta_type() == TxTypeParam::MetaType::TXB_VALUE)
             return &binding->value_expr();
@@ -334,19 +334,20 @@ void TxType::self_string(std::stringstream& str, bool brief) const {
 
 
 bool TxArrayType::innerAutoConvertsFrom(const TxType& otherType) const {
+    ResolutionContext resCtx;  // FIXME
     if (const TxArrayType* otherArray = dynamic_cast<const TxArrayType*>(&otherType)) {
         // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
-        if (auto e = this->element_type()) {
-            if (auto otherE = otherArray->element_type()) {
+        if (auto e = this->element_type(resCtx)) {
+            if (auto otherE = otherArray->element_type(resCtx)) {
                 // note: is-a test insufficient for array elements, since same concrete type (same size) required
-                if (*e->get_type() != *otherE->get_type())
+                if (*e != *otherE)
                     return false;
             }
             else
                 return false;  // other has not bound E
         }
-        if (auto len = this->length()) {
-            if (auto otherLen = otherArray->length()) {
+        if (auto len = this->length(resCtx)) {
+            if (auto otherLen = otherArray->length(resCtx)) {
                 return (len->get_static_constant_proxy() && otherLen->get_static_constant_proxy()
                         && *len->get_static_constant_proxy() == *otherLen->get_static_constant_proxy());
             }
@@ -360,15 +361,16 @@ bool TxArrayType::innerAutoConvertsFrom(const TxType& otherType) const {
 
 
 bool TxReferenceType::innerAutoConvertsFrom(const TxType& otherType) const {
+    ResolutionContext resCtx;  // FIXME
     if (const TxReferenceType* otherRef = dynamic_cast<const TxReferenceType*>(&otherType)) {
         // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
-        if (auto target = this->target_type()) {
-            if (auto otherTarget = otherRef->target_type()) {
+        if (auto target = this->target_type(resCtx)) {
+            if (auto otherTarget = otherRef->target_type(resCtx)) {
                 // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
                 //std::cout << "CHECKING AUTOCONV FROM\n" << *otherTarget->get_type() << "\nTO\n" << *target->get_type() << std::endl;
-                if (! otherTarget->get_type()->is_a(*target->get_type()))
+                if (! otherTarget->is_a(*target))
                     return false;
-                else if (target->get_type()->is_modifiable() && !otherTarget->get_type()->is_modifiable())
+                else if (target->is_modifiable() && !otherTarget->is_modifiable())
                     return false;  // can't lose modifiable attribute of target
                 else
                     return true;
