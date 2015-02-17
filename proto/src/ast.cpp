@@ -187,7 +187,7 @@ void TxCStringLitNode::symbol_registration_pass(LexicalContext& lexContext) {
     // (for now) Create AST to declare the implicit type of this c-string literal:
     std::string typeName = this->context().scope()->get_unique_name("$type");
     auto elemType = new TxIdentifierNode(this->parseLocation, new TxIdentifier("tx.UByte"));
-    TxTypeExpressionNode* elemTypeExpr = new TxIdentifiedTypeNode(this->parseLocation, elemType);
+    TxTypeExpressionNode* elemTypeExpr = new TxPredefinedTypeNode(this->parseLocation, elemType);
     TxExpressionNode* lengthExpr = new TxIntegerLitNode(this->parseLocation, std::to_string(literal.length()-2));
     TxTypeExpressionNode* typeExpr = new TxArrayTypeNode(this->parseLocation, elemTypeExpr, lengthExpr);
     this->cstringTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_PUBLIC | TXD_IMPLICIT, typeName, nullptr, typeExpr);
@@ -228,15 +228,12 @@ void TxTypeDeclNode::symbol_registration_pass(LexicalContext& lexContext) {
 }
 
 
-const TxType* TxIdentifiedTypeNode::inner_define_type(ResolutionContext& resCtx, TxSymbolScope* scope, std::string* errorMsg) {
+const TxType* TxPredefinedTypeNode::define_identified_type(ResolutionContext& resCtx, TxSymbolScope* scope) {
     if (auto identifiedEntity = scope->resolve_type(resCtx, this->identNode->ident)) {
         auto identifiedType = identifiedEntity->resolve_symbol_type(resCtx);
         if (!identifiedType)
             return nullptr;
-        else if (identifiedType->is_generic()) {
-            cerror("Referring to generic type without specifying type arguments <...>: %s", identifiedType->to_string().c_str());
-        }
-        else if (auto declEnt = TxPredefinedTypeNode::get_entity()) {
+        else if (auto declEnt = this->get_entity()) {
             ASSERT(!declTypeParams || declTypeParams->empty(), "declTypeParams can't be set for 'empty' specialization: " << *this);
             if (identifiedEntity->get_decl_flags() & TXD_GENPARAM) {
                 if (declEnt->get_name() == make_generic_binding_name(identifiedEntity->get_full_name().to_string())) {
@@ -247,7 +244,7 @@ const TxType* TxIdentifiedTypeNode::inner_define_type(ResolutionContext& resCtx,
                         // we may have to lookup via outer (the subtype's) scope
                         LOGGER().warning("%s: skipping alias match for type '%s' to GENPARAM %s", this->parse_loc_string().c_str(),
                                          declEnt->get_full_name().to_string().c_str(), identifiedEntity->to_string().c_str());
-                        return inner_define_type(resCtx, outerType, errorMsg);
+                        return define_identified_type(resCtx, outerType);
                     }
 //                    else
 //                        LOGGER().warning("%s: type '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
@@ -263,8 +260,12 @@ const TxType* TxIdentifiedTypeNode::inner_define_type(ResolutionContext& resCtx,
             }
             else {
                 // create empty specialization (uniquely named but identical type)
-                return this->types().get_type_specialization(declEnt, TxTypeSpecialization(identifiedType),
-                                                             false, this->declTypeParams, errorMsg);
+                std::string errorMsg;
+                auto type = this->types().get_type_specialization(declEnt, TxTypeSpecialization(identifiedType),
+                                                                  false, this->declTypeParams, &errorMsg);
+                if (! type)
+                    cerror("Failed to create 'empty' type specialization: %s", errorMsg.c_str());
+                return type;
             }
         }
         else {
@@ -280,6 +281,30 @@ const TxType* TxIdentifiedTypeNode::inner_define_type(ResolutionContext& resCtx,
     }
     return nullptr;
 }
+
+const TxType* TxPredefinedTypeNode::define_generic_specialization_type(ResolutionContext& resCtx) {
+    auto baseTypeEntity = this->context().scope()->resolve_type(resCtx, this->identNode->ident);
+    const TxType* baseType = baseTypeEntity ? baseTypeEntity->resolve_symbol_type(resCtx) : nullptr;
+    if (! baseType) {
+        cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
+        return nullptr;
+    }
+    if (baseType->type_params().size() < this->typeArgs->size()) {
+        cerror("Too many generic type arguments specified for type %s", identNode->ident.to_string().c_str());
+        return nullptr;
+    }
+    std::vector<TxGenericBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
+    for (int i = 0; i < this->typeArgs->size(); i++) {
+        bindings.push_back(this->typeArgs->at(i)->make_binding(resCtx, baseTypeEntity, baseType->type_params().at(i)));
+    }
+    TxTypeSpecialization specialization(baseType, bindings);
+    std::string errorMsg;
+    auto type = this->types().get_type_specialization(this->get_entity(), specialization, false, this->declTypeParams, &errorMsg);
+    if (! type)
+        cerror("Failed to specialize type: %s", errorMsg.c_str());
+    return type;
+}
+
 
 
 void TxArrayTypeNode::symbol_registration_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) {

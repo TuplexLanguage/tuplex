@@ -5,13 +5,6 @@
 #include "ast_base.hpp"
 
 
-/** Common superclass for TxSpecializedTypeNode and TxIdentifiedTypeNode */
-class TxPredefinedTypeNode : public TxTypeExpressionNode {
-protected:
-    TxPredefinedTypeNode(const yy::location& parseLocation) : TxTypeExpressionNode(parseLocation)  { }
-};
-
-
 std::string make_generic_binding_name(const std::string& originalName);
 
 
@@ -106,7 +99,13 @@ type Field<E,C,L> derives Array<Ref<Abstr<E,C>>,L> {
 }
 
  */
-class TxSpecializedTypeNode : public TxPredefinedTypeNode {
+/** Common superclass for TxSpecializedTypeNode and TxIdentifiedTypeNode */
+class TxPredefinedTypeNode : public TxTypeExpressionNode {
+
+    const TxType* define_identified_type(ResolutionContext& resCtx, TxSymbolScope* scope);
+
+    const TxType* define_generic_specialization_type(ResolutionContext& resCtx);
+
 protected:
     virtual void symbol_registration_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
         for (TxTypeArgumentNode* tp : *this->typeArgs) {
@@ -115,25 +114,13 @@ protected:
     }
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        auto baseTypeEntity = this->context().scope()->resolve_type(resCtx, this->identNode->ident);
-        const TxType* baseType = baseTypeEntity ? baseTypeEntity->resolve_symbol_type(resCtx) : nullptr;
-        if (! baseType) {
-            cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
-            return nullptr;
-        }
-        if (baseType->type_params().size() < this->typeArgs->size()) {
-            cerror("Too many generic type arguments specified for type %s", identNode->ident.to_string().c_str());
-            return nullptr;
-        }
-        std::vector<TxGenericBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
-        for (int i = 0; i < this->typeArgs->size(); i++) {
-            bindings.push_back(this->typeArgs->at(i)->make_binding(resCtx, baseTypeEntity, baseType->type_params().at(i)));
-        }
-        TxTypeSpecialization specialization(baseType, bindings);
-        std::string errorMsg;
-        auto type = this->types().get_type_specialization(this->get_entity(), specialization, false, this->declTypeParams, &errorMsg);
+        const TxType* type;
+        if (!this->typeArgs->empty())
+            type = this->define_generic_specialization_type(resCtx);
+        else
+            type = this->define_identified_type(resCtx, this->context().scope());
         if (! type)
-            cerror("Failed to specialize type: %s", errorMsg.c_str());
+            cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
         return type;
     }
 
@@ -141,15 +128,20 @@ public:
     const TxIdentifierNode* identNode;
     const std::vector<TxTypeArgumentNode*>* const typeArgs;
 
-    TxSpecializedTypeNode(const yy::location& parseLocation, const TxIdentifierNode* identifier,
-                          const std::vector<TxTypeArgumentNode*>* typeArgs)
-            : TxPredefinedTypeNode(parseLocation), identNode(identifier), typeArgs(typeArgs)  {
+    TxPredefinedTypeNode(const yy::location& parseLocation, const TxIdentifierNode* identifier,
+                         const std::vector<TxTypeArgumentNode*>* typeArgs)
+            : TxTypeExpressionNode(parseLocation), identNode(identifier), typeArgs(typeArgs)  {
+        ASSERT(typeArgs, "NULL typeargs");
     }
+
+    TxPredefinedTypeNode(const yy::location& parseLocation, const TxIdentifierNode* identifier)
+        : TxTypeExpressionNode(parseLocation), identNode(identifier),
+          typeArgs(new std::vector<TxTypeArgumentNode*>())  { }
 
     virtual void symbol_registration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                           TxTypeEntity* declaredEntity = nullptr,
                                           const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override {
-        if (! declaredEntity) {
+        if (! declaredEntity && !this->typeArgs->empty()) {
             // ensure generic type specializations always have a declared type (handles e.g. Ref<Ref<Int>>)
             std::string typeName = "$type";
             //printf("%s: Declaring '%s' in '%s' as implicit specialized type\n", this->parse_loc_string().c_str(), typeName.c_str(), lexContext.scope()->get_full_name().to_string().c_str());
@@ -158,14 +150,14 @@ public:
             if (!declaredEntity)
                 cerror("Failed to declare implicit type %s", typeName.c_str());
             LexicalContext typeCtx(declaredEntity ? declaredEntity : lexContext.scope());  // (in case declare_type() yields NULL)
-            TxPredefinedTypeNode::symbol_registration_pass(typeCtx, declFlags, declaredEntity, typeParamDecls);
+            TxTypeExpressionNode::symbol_registration_pass(typeCtx, declFlags, declaredEntity, typeParamDecls);
         }
         else
-            TxPredefinedTypeNode::symbol_registration_pass(lexContext, declFlags, declaredEntity, typeParamDecls);
+            TxTypeExpressionNode::symbol_registration_pass(lexContext, declFlags, declaredEntity, typeParamDecls);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxPredefinedTypeNode::symbol_resolution_pass(resCtx);
+        TxTypeExpressionNode::symbol_resolution_pass(resCtx);
         for (TxTypeArgumentNode* ta : *this->typeArgs)
             ta->symbol_resolution_pass(resCtx);
     }
@@ -178,45 +170,6 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
-
-class TxIdentifiedTypeNode : public TxPredefinedTypeNode {
-    const TxType* inner_define_type(ResolutionContext& resCtx, TxSymbolScope* scope, std::string* errorMsg=nullptr);
-
-protected:
-    virtual void symbol_registration_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-    }
-
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
-//        if (this->parseLocation.begin.line == 9)
-//            std::cout << "HERE" << std::endl;
-        if (auto type = inner_define_type(resCtx, this->context().scope()))
-            return type;
-        cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
-        return nullptr;
-    }
-
-public:
-    const TxIdentifierNode* identNode;
-
-    TxIdentifiedTypeNode(const yy::location& parseLocation, const TxIdentifierNode* identifier)
-        : TxPredefinedTypeNode(parseLocation), identNode(identifier) { }
-
-    virtual bool has_predefined_type() const override { return true; }
-
-    virtual TxTypeEntity* get_entity() const override {
-//        if (auto declEnt = TxPredefinedTypeNode::get_entity())
-//            return declEnt;
-//        return const_cast<TxTypeEntity*>(this->context().scope()->resolve_type(this->identNode->ident));
-        return (this->get_type() ? this->get_type()->entity() : nullptr);
-    }
-
-    virtual void semantic_pass() {
-//        if (! this->get_entity())
-//            cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
-    }
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const { return nullptr; }
-};
 
 
 /** Common superclass for specializations of the built-in types Ref and Array. */

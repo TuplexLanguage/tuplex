@@ -324,7 +324,7 @@ public:
     }
     inline virtual const TxType* get_type() const override final {
         ASSERT(this->is_context_set(), "Can't call get_type() before symbol table pass has completed: "  << this);
-        //ASSERT(cachedType, "Type not set in " << this);
+        ASSERT(cachedType, "Type not set in " << this);
         return cachedType;
     }
 

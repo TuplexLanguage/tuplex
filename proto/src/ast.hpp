@@ -37,8 +37,7 @@ public:
             if (auto typeEntity = dynamic_cast<TxTypeEntity*>(lexContext.scope())) {  // if in type scope
                 // insert a first parameter named 'self', that is a reference to the current type
                 auto identNode = new TxIdentifierNode(this->parseLocation, new TxIdentifier(typeEntity->get_full_name()));
-                // FIXME: handle both generic and non-generic outer types
-                auto identTypeNode = new TxIdentifiedTypeNode(this->parseLocation, identNode);
+                auto identTypeNode = new TxPredefinedTypeNode(this->parseLocation, identNode);
                 TxTypeExpressionNode* selfTypeExpr = new TxReferenceTypeNode(this->parseLocation, nullptr, identTypeNode);
                 auto selfArg = new TxFieldDefNode(this->parseLocation, "self", selfTypeExpr, nullptr);
                 this->funcTypeNode->arguments->insert(this->funcTypeNode->arguments->begin(), selfArg);

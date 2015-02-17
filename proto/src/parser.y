@@ -312,7 +312,7 @@ field_assignment_def : NAME sCOLON type_expression sEQUAL expr
 type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->push_back($1); }
                 | type_param_list sCOMMA type_param  { $$ = $1; $$->push_back($3); }
                 ;
-type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, new TxIdentifiedTypeNode(@1, new TxIdentifierNode(@1, new TxIdentifier("tx.Any")))); }
+type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, new TxPredefinedTypeNode(@1, new TxIdentifierNode(@1, new TxIdentifier("tx.Any")))); }
                 | NAME KW_DERIVES predef_type { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
                 | field_type_def  { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_STATIC | TXD_GENPARAM, $1); }
                 ;
@@ -349,9 +349,9 @@ predef_type_list: predef_type  { $$ = new std::vector<TxPredefinedTypeNode*>(); 
                 | predef_type_list sCOMMA predef_type  { $$ = $1;  $$->push_back($3); }
                 ;
 
-predef_type     : gen_identifier                      { $$ = new TxIdentifiedTypeNode(@1, $1); }
-                | gen_identifier LT GT  { $$ = new TxSpecializedTypeNode(@1, $1, new std::vector<TxTypeArgumentNode*>()); }
-                | gen_identifier LT type_arg_list GT  { $$ = new TxSpecializedTypeNode(@1, $1, $3); }
+predef_type     : gen_identifier                      { $$ = new TxPredefinedTypeNode(@1, $1); }
+                | gen_identifier LT GT  { $$ = new TxPredefinedTypeNode(@1, $1, new std::vector<TxTypeArgumentNode*>()); }
+                | gen_identifier LT type_arg_list GT  { $$ = new TxPredefinedTypeNode(@1, $1, $3); }
                 ;
 
 type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->push_back($1); }
