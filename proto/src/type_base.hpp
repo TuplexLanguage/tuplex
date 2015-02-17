@@ -157,15 +157,15 @@ class TxGenericBinding : public Printable {
     const std::string typeParamName;
     const TxTypeParam::MetaType metaType;
     TxTypeDefiner* typeDefiner;
-    const TxExpressionNode* valueExpr;
+    TxExpressionNode* valueExpr;
 
     TxGenericBinding(const std::string& typeParamName, TxTypeParam::MetaType metaType,
-                     TxTypeDefiner* typeDefiner, const TxExpressionNode* valueExpr)
+                     TxTypeDefiner* typeDefiner, TxExpressionNode* valueExpr)
         : typeParamName(typeParamName), metaType(metaType), typeDefiner(typeDefiner), valueExpr(valueExpr)  { }
 
 public:
     static TxGenericBinding make_type_binding(const std::string& typeParamName, TxTypeDefiner* typeDefiner);
-    static TxGenericBinding make_value_binding(const std::string& typeParamName, const TxExpressionNode* valueExpr);
+    static TxGenericBinding make_value_binding(const std::string& typeParamName, TxExpressionNode* valueExpr);
 
 //    /** copy constructor */
 //    TxGenericBinding(const TxGenericBinding& binding)
@@ -180,7 +180,7 @@ public:
         return *this->typeDefiner;
     }
 
-    inline const TxExpressionNode& value_expr() const {
+    inline TxExpressionNode& value_expr() const {
         ASSERT(metaType==TxTypeParam::MetaType::TXB_VALUE, "Type parameter binding metatype is TYPE, not VALUE: " << this->to_string());
         return *this->valueExpr;
     }

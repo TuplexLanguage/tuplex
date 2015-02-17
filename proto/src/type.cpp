@@ -30,7 +30,7 @@ TxGenericBinding TxGenericBinding::make_type_binding(const std::string& paramNam
     return TxGenericBinding(paramName, TxTypeParam::MetaType::TXB_TYPE, typeDefiner, nullptr);
 }
 
-TxGenericBinding TxGenericBinding::make_value_binding(const std::string& paramName, const TxExpressionNode* valueExpr) {
+TxGenericBinding TxGenericBinding::make_value_binding(const std::string& paramName, TxExpressionNode* valueExpr) {
     return TxGenericBinding(paramName, TxTypeParam::MetaType::TXB_VALUE, nullptr, valueExpr);
 }
 

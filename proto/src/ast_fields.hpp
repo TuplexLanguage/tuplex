@@ -30,13 +30,13 @@ protected:
                 // (lookup is similar to that of TxFieldEntity)
                 if (auto baseType = this->base->resolve_type(resCtx))
                     if (auto symbol = baseType->lookup_instance_member(memberPath, this->member->ident)) {
-                        this->cachedEntity = this->context().scope()->resolve_symbol_as_field(resCtx, symbol, this->appliedFuncArgTypes);
+                        this->cachedEntity = this->context().scope()->resolve_field_lookup(resCtx, symbol, this->appliedFuncArgTypes);
                         if (this->cachedEntity && memberPath.back() != this->cachedEntity)
                             memberPath[memberPath.size()-1] = this->cachedEntity;
                     }
             }
             else
-                this->cachedEntity = this->context().scope()->resolve_field(resCtx, memberPath, this->member->ident, this->appliedFuncArgTypes);
+                this->cachedEntity = this->context().scope()->lookup_field(resCtx, memberPath, this->member->ident, this->appliedFuncArgTypes);
 
             if (this->cachedEntity) {
                 if (this->cachedEntity->get_decl_flags() & TXD_GENPARAM) {
@@ -133,7 +133,7 @@ protected:
                     this->entity = dynamic_cast<TxFieldEntity*>(baseType->lookup_instance_member(memberPath, this->member->ident));
             }
             else
-                this->entity = this->context().scope()->resolve_field(resCtx, memberPath, this->member->ident);
+                this->entity = this->context().scope()->lookup_field(resCtx, memberPath, this->member->ident);
             if (! this->entity) {
                 cerror("No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
                 return nullptr;

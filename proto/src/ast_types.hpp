@@ -46,6 +46,8 @@ public:
                                                     pname, nullptr, this->typeExprNode);
             this->typeDeclNode->symbol_registration_pass(this->context());
             //this->typeDeclNode->symbol_resolution_pass(resCtx);
+            // FIXME: how avoid over-resolving target type of Ref?
+            this->typeExprNode->resolve_type(resCtx);
             return TxGenericBinding::make_type_binding(param.param_name(), this->typeExprNode);
         }
         else {
@@ -56,6 +58,7 @@ public:
             this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_STATIC | TXD_IMPLICIT, fieldDef);
             this->fieldDeclNode->symbol_registration_pass(this->context());
             //this->fieldDeclNode->symbol_resolution_pass(resCtx);
+            this->valueExprNode->resolve_type(resCtx);
             return TxGenericBinding::make_value_binding(param.param_name(), this->valueExprNode);
         }
     }
@@ -207,6 +210,7 @@ protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto baseType = this->types().get_builtin_type(REFERENCE);
         auto baseTypeEntity = baseType->entity();
+        // FIXME: figure out how to avoid resolving Ref target (also when not using & syntactic sugar)
         TxGenericBinding binding = this->targetTypeNode->make_binding(resCtx, baseTypeEntity, baseType->get_type_param("T"));
         return this->types().get_reference_type(this->get_entity(), binding);
     }

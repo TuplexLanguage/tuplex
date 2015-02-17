@@ -253,8 +253,8 @@ const TxType* TxPredefinedTypeNode::define_identified_type(ResolutionContext& re
                 else {
                     // let this entity be an alias for the generic type parameter (no unique type is created)
                     declEnt->set_alias(identifiedEntity->get_full_name());
-                    LOGGER().debug("%s: Declared type '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
-                                   declEnt->get_full_name().to_string().c_str(), identifiedEntity->to_string().c_str());
+                    LOGGER().info("%s: Declared type '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
+                                  declEnt->get_full_name().to_string().c_str(), identifiedEntity->to_string().c_str());
                     return identifiedType;
                 }
             }

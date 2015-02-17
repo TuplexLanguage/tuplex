@@ -310,11 +310,11 @@ public:
             this->cachedType = this->define_type(resCtx);
             this->gottenType = true;
             this->gettingType = false;
-            if (this->cachedType && this->declaredEntity)
-                ASSERT(this->cachedType->entity()==this->declaredEntity || this->declaredEntity->is_alias(),
-                        "entity " << this->cachedType->entity() << " (of type " << this->cachedType
-                        << ") is not same as declared entity " << this->declaredEntity
-                        << " (of node " << *this << ")");
+//            if (this->cachedType && this->declaredEntity)
+//                ASSERT(this->cachedType->entity()==this->declaredEntity || this->declaredEntity->get_alias(),
+//                        "entity " << this->cachedType->entity() << " (of type " << this->cachedType
+//                        << ") is not same as declared entity " << this->declaredEntity
+//                        << " (of node " << *this << ")");
         }
         return cachedType;
     }

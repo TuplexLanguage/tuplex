@@ -71,7 +71,6 @@ public:
 
 /** Represents a single declared source code entity - a field or a type. */
 class TxDistinctEntity : public TxEntity {
-    TxIdentifier aliasIdent;
     TxDeclarationFlags declFlags;
     const TxType* resolvedType = nullptr;
     bool resolved = false;  // during development
@@ -129,16 +128,6 @@ public:
     TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
 
     virtual TxSymbolScope* resolve_generic(TxSymbolScope* vantageScope) override;
-
-    void set_alias(const TxIdentifier& aliasIdent) {
-        this->declFlags = (this->declFlags | TXD_ALIAS);
-        this->aliasIdent = aliasIdent;
-    }
-    virtual bool is_alias() const override { return (this->declFlags & TXD_ALIAS); }
-    virtual const TxIdentifier* get_alias() const override {
-        ASSERT(this->is_alias(), "Not an alias entity: " << this);
-        return &this->aliasIdent;
-    }
 };
 
 
@@ -209,6 +198,8 @@ public:
 
 /** Represents a single declared type. */
 class TxTypeEntity : public TxDistinctEntity, public TxTypeProxy {
+    TxIdentifier aliasIdent;
+
     bool dataLaidOut = false;
     bool startedLayout = false;
     std::unordered_map<const std::string*, int> staticFields;
@@ -256,7 +247,7 @@ public:
         bool valid = TxDistinctEntity::validate_symbol(resCtx);
         if (! valid)
             return valid;
-        else if (this->is_alias()) {
+        else if (this->get_alias()) {
             // do something?
             //this->LOGGER().debug("Alias: %s", alias->to_string().c_str());
         }
@@ -285,6 +276,19 @@ public:
             valid = false;
         return valid;
     }
+
+
+    void set_alias(const TxIdentifier& aliasIdent) {
+        this->aliasIdent = aliasIdent;
+    }
+
+    virtual const TxIdentifier* get_alias() override {
+        // Note: with current design we don't know if it's an alias until the type definer has been resolved
+        ResolutionContext resCtx;  // FIXME
+        TxDistinctEntity::resolve_symbol_type(resCtx);
+        return (this->aliasIdent.is_empty() ? nullptr : &this->aliasIdent);
+    }
+
 
     virtual const TxType* resolve_symbol_type(ResolutionContext& resCtx) {
         auto type = TxDistinctEntity::resolve_symbol_type(resCtx);

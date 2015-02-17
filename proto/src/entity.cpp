@@ -57,7 +57,7 @@ TxSymbolScope* TxDistinctEntity::resolve_generic(TxSymbolScope* vantageScope) {
         std::string bindingName = this->get_full_name().to_string();
         std::replace(bindingName.begin(), bindingName.end(), '.', '#');
         this->LOGGER().trace("Trying to resolve generic parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), vantageScope->get_full_name().to_string().c_str());
-        if (auto boundSym = vantageScope->resolve_symbol(tmpPath, bindingName)) {
+        if (auto boundSym = vantageScope->start_lookup_symbol(tmpPath, bindingName)) {
             this->LOGGER().debug("Substituting generic parameter %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
             return boundSym->resolve_generic(vantageScope);
         }
@@ -70,9 +70,9 @@ TxSymbolScope* TxDistinctEntity::resolve_generic(TxSymbolScope* vantageScope) {
                 this->LOGGER().debug("Generic parameter %s unbound within vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
         }
     }
-    else if (this->is_alias()) {
+    else if (auto alias = this->get_alias()) {
         this->LOGGER().trace("Trying to resolve alias %s = %s from %s", this->get_full_name().to_string().c_str(), this->get_alias()->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
-        if (auto boundSym = vantageScope->resolve_symbol(tmpPath, *this->get_alias())) {
+        if (auto boundSym = vantageScope->start_lookup_symbol(tmpPath, *alias)) {
             this->LOGGER().debug("Substituting alias %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
             return boundSym->resolve_generic(vantageScope);
         }

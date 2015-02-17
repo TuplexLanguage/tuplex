@@ -214,7 +214,7 @@ TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, TxType
 
 /*--- symbol table lookup ---*/
 
-TxSymbolScope* TxSymbolScope::resolve_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
+TxSymbolScope* TxSymbolScope::start_lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
     ASSERT(path.empty(), "Non-empty symbol path vector provided to resolve_symbol() of " << this);
     path.push_back(this);  // starting point of search - the first segment's so-called vantage scope
     auto symbol = this->lookup_symbol(path, ident);
@@ -252,8 +252,8 @@ TxSymbolScope* TxSymbolScope::lookup_member(std::vector<TxSymbolScope*>& path, c
 
 
 
-TxTypeEntity* TxSymbolScope::resolve_type(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
-    auto symbol = this->resolve_symbol(path, ident);
+TxTypeEntity* TxSymbolScope::lookup_type(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
+    auto symbol = this->start_lookup_symbol(path, ident);
     if (! symbol)
         return nullptr;
     else if (auto typeEnt = dynamic_cast<TxTypeEntity*>(symbol))
@@ -266,19 +266,19 @@ TxTypeEntity* TxSymbolScope::resolve_type(ResolutionContext& resCtx, std::vector
     return nullptr;
 }
 
-TxFieldEntity* TxSymbolScope::resolve_field(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident,
-                                            const std::vector<const TxType*>* typeParameters) {
-    TxSymbolScope* symbol = this->resolve_symbol(path, ident);
+TxFieldEntity* TxSymbolScope::lookup_field(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident,
+                                           const std::vector<const TxType*>* typeParameters) {
+    TxSymbolScope* symbol = this->start_lookup_symbol(path, ident);
     if (! symbol)
         return nullptr;
-    TxFieldEntity* field = this->resolve_symbol_as_field(resCtx, symbol, typeParameters);
+    TxFieldEntity* field = this->resolve_field_lookup(resCtx, symbol, typeParameters);
     if (field && path.back() != field)
         path[path.size()-1] = field;
     return field;
 }
 
-TxFieldEntity* TxSymbolScope::resolve_symbol_as_field(ResolutionContext& resCtx, TxSymbolScope* symbol,
-                                                      const std::vector<const TxType*>* typeParameters) {
+TxFieldEntity* TxSymbolScope::resolve_field_lookup(ResolutionContext& resCtx, TxSymbolScope* symbol,
+                                                   const std::vector<const TxType*>* typeParameters) {
     if (auto fieldEnt = dynamic_cast<TxFieldEntity*>(symbol)) {
         // if (typeParameters)  TODO: if type parameters specified, verify that they match
         return fieldEnt;
@@ -354,26 +354,31 @@ void TxSymbolScope::dump_symbols() const {
         if (auto submod = dynamic_cast<const TxModule*>(symbol))
             subModules.push_back(submod);
         else if (this->get_full_name() != builtinNamespace) {
-            if (auto ent = dynamic_cast<const TxFieldEntity*>(symbol)) {
-                std::string typestr; // = (type && type->entity()) ? type->entity()->get_full_name().to_string() : "nulltype/Void";
-                if (const TxType* type = ent->get_type())
-                    if (type->entity())
-                        typestr = type->entity()->get_full_name().to_string();
+            try {
+                if (auto ent = dynamic_cast<const TxFieldEntity*>(symbol)) {
+                    std::string typestr; // = (type && type->entity()) ? type->entity()->get_full_name().to_string() : "nulltype/Void";
+                    if (const TxType* type = ent->get_type())
+                        if (type->entity())
+                            typestr = type->entity()->get_full_name().to_string();
+                        else
+                            typestr = type->to_string();
                     else
-                        typestr = type->to_string();
+                        typestr = "nulltype/Void";
+                    printf("%-64s %s\n", symbol->to_string().c_str(), typestr.c_str());
+                }
+                else if (auto ent = dynamic_cast<const TxTypeEntity*>(symbol)) {
+                    const TxType* type = ent->get_type();
+                    std::string typestr = type ? type->to_string() : "nulltype/Void";
+                    printf("%-64s %s\n", symbol->to_string().c_str(), typestr.c_str());
+                }
+                else if (dynamic_cast<const TxOverloadedEntity*>(symbol))
+                    printf("<overloaded>     %s\n", symbol->get_full_name().to_string().c_str());
                 else
-                    typestr = "nulltype/Void";
-                printf("%-64s %s\n", symbol->to_string().c_str(), typestr.c_str());
+                    printf("<scope>          %s\n", symbol->to_string().c_str());
             }
-            else if (auto ent = dynamic_cast<const TxTypeEntity*>(symbol)) {
-                const TxType* type = ent->get_type();
-                std::string typestr = type ? type->to_string() : "nulltype/Void";
-                printf("%-64s %s\n", symbol->to_string().c_str(), typestr.c_str());
+            catch (std::logic_error& e) {
+                printf(">>> Caught logic_error while printing symbol '%s': %s\n", this->get_full_name().to_string().c_str(), e.what());
             }
-            else if (dynamic_cast<const TxOverloadedEntity*>(symbol))
-                printf("<overloaded>     %s\n", symbol->get_full_name().to_string().c_str());
-            else
-                printf("<scope>          %s\n", symbol->to_string().c_str());
             symbol->dump_symbols();
         }
     }
