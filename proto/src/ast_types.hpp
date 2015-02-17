@@ -19,7 +19,7 @@ std::string make_generic_binding_name(const std::string& originalName);
 class TxTypeArgumentNode : public TxNode {
     TxTypeDeclNode* typeDeclNode;
     TxFieldDeclNode* fieldDeclNode;
-    bool bound = false;
+    bool bound = false;  // during development: checks invocation order
 public:
     TxTypeExpressionNode* typeExprNode;
     TxExpressionNode* valueExprNode;
@@ -36,11 +36,9 @@ public:
         this->set_context(lexContext);
     }
 
-    /** Performs symbol registration, symbol resolution and type resolution, and returns a newly created TxTypeBinding.
-     * May only be called once.
-     */
-    virtual TxGenericBinding symbol_resolution_pass(ResolutionContext& resCtx,
-                                                 const TxTypeEntity* baseTypeEntity, const TxTypeParam& param) {
+    /** Creates, registers and returns a newly created TxTypeBinding. May only be called once. */
+    virtual TxGenericBinding make_binding(ResolutionContext& resCtx,
+                                          const TxTypeEntity* baseTypeEntity, const TxTypeParam& param) {
         std::string qualPName = baseTypeEntity->get_full_name().to_string() + "." + param.param_name();
         std::string pname = make_generic_binding_name(qualPName);
         LOGGER().debug("%s: Binding %s in ctx %s", this->parse_loc_string().c_str(), pname.c_str(), this->context().scope()->get_full_name().to_string().c_str());
@@ -54,7 +52,7 @@ public:
             this->typeDeclNode = new TxTypeDeclNode(this->typeExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT,
                                                     pname, nullptr, this->typeExprNode);
             this->typeDeclNode->symbol_registration_pass(this->context());
-            this->typeDeclNode->symbol_resolution_pass(resCtx);
+            //this->typeDeclNode->symbol_resolution_pass(resCtx);
             return TxGenericBinding::make_type_binding(param.param_name(), this->typeExprNode);
         }
         else {
@@ -64,9 +62,17 @@ public:
             auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, pname, this->valueExprNode);
             this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_STATIC | TXD_IMPLICIT, fieldDef);
             this->fieldDeclNode->symbol_registration_pass(this->context());
-            this->fieldDeclNode->symbol_resolution_pass(resCtx);
+            //this->fieldDeclNode->symbol_resolution_pass(resCtx);
             return TxGenericBinding::make_value_binding(param.param_name(), this->valueExprNode);
         }
+    }
+
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
+        ASSERT(this->bound, "make_binding() has not been invoked on type argument " << this);
+        if (this->typeDeclNode)
+            this->typeDeclNode->symbol_resolution_pass(resCtx);
+        else
+            this->fieldDeclNode->symbol_resolution_pass(resCtx);
     }
 
     virtual void semantic_pass() {
@@ -121,7 +127,7 @@ protected:
         }
         std::vector<TxGenericBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
         for (int i = 0; i < this->typeArgs->size(); i++) {
-            bindings.push_back(this->typeArgs->at(i)->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->type_params().at(i)));
+            bindings.push_back(this->typeArgs->at(i)->make_binding(resCtx, baseTypeEntity, baseType->type_params().at(i)));
         }
         TxTypeSpecialization specialization(baseType, bindings);
         std::string errorMsg;
@@ -158,9 +164,13 @@ public:
             TxPredefinedTypeNode::symbol_registration_pass(lexContext, declFlags, declaredEntity, typeParamDecls);
     }
 
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxPredefinedTypeNode::symbol_resolution_pass(resCtx);
+        for (TxTypeArgumentNode* ta : *this->typeArgs)
+            ta->symbol_resolution_pass(resCtx);
+    }
+
     virtual void semantic_pass() override {
-        if (! this->get_type())
-            cerror("Unknown type or incorrect generic type arguments: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
         for (TxTypeArgumentNode* ta : *this->typeArgs)
             ta->semantic_pass();
     }
@@ -177,6 +187,8 @@ protected:
     }
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
+//        if (this->parseLocation.begin.line == 9)
+//            std::cout << "HERE" << std::endl;
         if (auto type = inner_define_type(resCtx, this->context().scope()))
             return type;
         cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
@@ -242,7 +254,7 @@ protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto baseType = this->types().get_builtin_type(REFERENCE);
         auto baseTypeEntity = baseType->entity();
-        TxGenericBinding binding = this->targetTypeNode->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->get_type_param("T"));
+        TxGenericBinding binding = this->targetTypeNode->make_binding(resCtx, baseTypeEntity, baseType->get_type_param("T"));
         return this->types().get_reference_type(this->get_entity(), binding);
     }
 
@@ -255,9 +267,10 @@ public:
         : TxBuiltinTypeSpecNode(parseLocation), dataspace(dataspace),
           targetTypeNode(new TxTypeArgumentNode(targetType))  { }
 
-//    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-//        this->targetTypeNode->symbol_resolution_pass(resCtx);
-//    }
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxBuiltinTypeSpecNode::symbol_resolution_pass(resCtx);
+        this->targetTypeNode->symbol_resolution_pass(resCtx);
+    }
 
     virtual void semantic_pass() { targetTypeNode->semantic_pass(); }
 
@@ -273,9 +286,9 @@ protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto baseType = this->types().get_builtin_type(ARRAY);
         auto baseTypeEntity = baseType->entity();
-        TxGenericBinding elementBinding = this->elementTypeNode->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->get_type_param("E"));
+        TxGenericBinding elementBinding = this->elementTypeNode->make_binding(resCtx, baseTypeEntity, baseType->get_type_param("E"));
         if (this->lengthNode) {
-            TxGenericBinding lengthBinding = this->lengthNode->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->get_type_param("L"));
+            TxGenericBinding lengthBinding = this->lengthNode->make_binding(resCtx, baseTypeEntity, baseType->get_type_param("L"));
             return this->types().get_array_type(this->get_entity(), elementBinding, lengthBinding);
         }
         else
@@ -291,14 +304,15 @@ public:
           elementTypeNode(new TxTypeArgumentNode(elementType)),
           lengthNode(lengthExpr ? new TxTypeArgumentNode(lengthExpr) : nullptr)  { }
 
-//    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-//        this->elementTypeNode->symbol_resolution_pass(resCtx);
-//        if (this->lengthNode) {
-//            this->lengthNode->symbol_resolution_pass(resCtx);
-//            //if (! this->lengthNode->valueExprNode->is_statically_constant())
-//            //    cerror("Non-constant array length specifier not yet supported.");
-//        }
-//    }
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxBuiltinTypeSpecNode::symbol_resolution_pass(resCtx);
+        this->elementTypeNode->symbol_resolution_pass(resCtx);
+        if (this->lengthNode) {
+            this->lengthNode->symbol_resolution_pass(resCtx);
+            //if (! this->lengthNode->valueExprNode->is_statically_constant())
+            //    cerror("Non-constant array length specifier not yet supported.");
+        }
+    }
 
     virtual void semantic_pass() {
         this->elementTypeNode->semantic_pass();

@@ -1,7 +1,7 @@
 module tx.proto.string
 
 public final type CString<L:UInt> derives Array<UByte,(L)> {
-    public static EMPTY_STRING : CString<1> = c""
+    ##public static EMPTY_STRING : CString<1> = c""
     
     public static func length() UInt { return L }
 

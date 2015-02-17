@@ -89,7 +89,7 @@ std::string TxTypeSpecialization::validate(ResolutionContext& resCtx) const {
                 else {
                     if (p.has_base_type_definer()) {
                         auto constraintType = p.get_base_type_definer()->resolve_type(resCtx);
-                        auto boundType = b.type_definer().get_type();
+                        auto boundType = b.type_definer().resolve_type(resCtx);
                         if (boundType && ! boundType->is_a(*constraintType))
                             return std::string("Bound type ") + boundType->to_string() + " for type parameter " + p.to_string() + " is not a derivation of type " + constraintType->to_string();
                     }

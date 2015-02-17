@@ -304,11 +304,11 @@ public:
 
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override final {
         if (!cachedType && !gottenType) {
-            gottenType = true;
             LOGGER().trace("resolving symbols of %s", this->to_string().c_str());
             ASSERT(!gettingType, "Recursive invocation of resolve_type() of " << this);
             this->gettingType = true;
             this->cachedType = this->define_type(resCtx);
+            this->gottenType = true;
             this->gettingType = false;
             if (this->cachedType && this->declaredEntity)
                 ASSERT(this->cachedType->entity()==this->declaredEntity || this->declaredEntity->is_alias(),
@@ -324,7 +324,7 @@ public:
     }
     inline virtual const TxType* get_type() const override final {
         ASSERT(this->is_context_set(), "Can't call get_type() before symbol table pass has completed: "  << this);
-        ASSERT(cachedType, "Type not set in " << this);
+        //ASSERT(cachedType, "Type not set in " << this);
         return cachedType;
     }
 
@@ -367,11 +367,11 @@ public:
     /** Returns the type (as specific as can be known) of the value this expression produces. */
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override final {
         if (!cachedType && !gottenType) {
-            gottenType = true;
             LOGGER().trace("resolving symbols of %s", this->to_string().c_str());
             ASSERT(!gettingType, "Recursive invocation of resolve_type() of " << this);
             this->gettingType = true;
             this->cachedType = this->define_type(resCtx);
+            this->gottenType = true;
             this->gettingType = false;
         }
         return cachedType;
