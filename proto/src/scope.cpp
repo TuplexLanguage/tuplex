@@ -196,13 +196,13 @@ TxDistinctEntity* TxSymbolScope::declare_entity(TxDistinctEntity* entity) {
     return nullptr;
 }
 
-TxTypeEntity* TxSymbolScope::declare_type(const std::string& plainName, TxEntityDefiner* entityDefiner,
+TxTypeEntity* TxSymbolScope::declare_type(const std::string& plainName, TxTypeDefiner* entityDefiner,
                                           TxDeclarationFlags modifiers) {
     auto entity = new TxTypeEntity(this, plainName, entityDefiner, modifiers);
     return dynamic_cast<TxTypeEntity*>(this->declare_entity(entity));
 }
 
-TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, TxEntityDefiner* entityDefiner,
+TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, TxTypeDefiner* entityDefiner,
                                             TxDeclarationFlags modifiers, TxFieldStorage storage,
                                             const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr) {
     //const TxScope* parentScope = (storage == TXS_STACK && !suppressSubscope) ? this->enterScope() : this;
@@ -290,11 +290,12 @@ TxFieldEntity* TxSymbolScope::resolve_symbol_as_field(ResolutionContext& resCtx,
                       fieldCandidateI != overloadedEnt->fields_cend(); fieldCandidateI++) {
                 auto fieldCandidateType = (*fieldCandidateI)->resolve_symbol_type(resCtx);
                 if (auto candidateFuncType = dynamic_cast<const TxFunctionType*>(fieldCandidateType)) {
+                    this->LOGGER().trace("Candidate function: %s", candidateFuncType->to_string().c_str());
                     if (candidateFuncType->argumentTypes.size() == typeParameters->size()) {
                         auto typeParamI = typeParameters->cbegin();
                         for (auto argDef : candidateFuncType->argumentTypes) {
                             if (! argDef->auto_converts_from(**typeParamI)) {
-                                //this->LOGGER().trace("Argument mismatch: %s  can't convert to  %s", (*typeParamI)->to_string(true).c_str(), argDef->to_string(true).c_str());
+                                this->LOGGER().trace("Argument mismatch: %s  can't convert to  %s", (*typeParamI)->to_string(true).c_str(), argDef->to_string(true).c_str());
                                 goto NEXT_CANDIDATE;
                             }
                             typeParamI++;

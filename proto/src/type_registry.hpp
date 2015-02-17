@@ -76,11 +76,11 @@ public:
                                           std::string* errorMsg=nullptr);
 
 
-    const TxReferenceType* get_reference_type(TxTypeEntity* newEntity, TxTypeBinding targetTypeBinding, std::string* errorMsg=nullptr);
-    const TxReferenceType* get_reference_type(TxTypeEntity* newEntity, const TxTypeProxy* targetType, std::string* errorMsg=nullptr);
+    const TxReferenceType* get_reference_type(TxTypeEntity* newEntity, TxGenericBinding targetTypeBinding, std::string* errorMsg=nullptr);
+    //const TxReferenceType* get_reference_type(TxTypeEntity* newEntity, TxEntityDefiner* targetType, std::string* errorMsg=nullptr);
 
-    const TxArrayType* get_array_type(TxTypeEntity* newEntity, TxTypeBinding elemTypeBinding, TxTypeBinding lengthBinding, std::string* errorMsg=nullptr);
-    const TxArrayType* get_array_type(TxTypeEntity* newEntity, TxTypeBinding elemTypeBinding, std::string* errorMsg=nullptr);
+    const TxArrayType* get_array_type(TxTypeEntity* newEntity, TxGenericBinding elemTypeBinding, TxGenericBinding lengthBinding, std::string* errorMsg=nullptr);
+    const TxArrayType* get_array_type(TxTypeEntity* newEntity, TxGenericBinding elemTypeBinding, std::string* errorMsg=nullptr);
 
     // "mod" of function refers to whether functions of this type may modify its closure when run.
     // Note: "mod" of args not part of the function type (though concrete function may mod-ify its stack arg copies).

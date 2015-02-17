@@ -47,6 +47,9 @@ class TxDriver {
 
     /** The queue of source files to parse in this compilation. */
     std::deque< std::pair<TxIdentifier,std::string> > sourceFileQueue;
+    /** The ASTs of the source files already parsed, in parse order.
+     * The value is the top level root node of the AST. */
+    std::vector<TxParsingUnitNode*> parsedASTs;
     /** The source files already parsed.
      * The value is the top level root node of the AST. */
     std::unordered_map<std::string, TxParsingUnitNode*> parsedSourceFiles;

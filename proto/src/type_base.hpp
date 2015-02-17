@@ -18,6 +18,7 @@ class TxSymbolScope;
 class TxTypeEntity;
 class TxExpressionNode;
 class ResolutionContext;
+class TxTypeDefiner;
 
 /* forward declarations pertaining to LLVM code generation */
 class LlvmGenerationContext;
@@ -41,6 +42,16 @@ public:
      * The contract is that it shall return the same instance every invocation.
      */
     virtual const TxType* get_type() const = 0;
+};
+
+class TxTypeDefiner : public TxTypeProxy {
+public:
+    virtual const TxType* resolve_type(ResolutionContext& resCtx) = 0;
+
+    /** Returns true if this type definer "is ready" - has a defined type.
+     * If this method returns false, calls to TxTypeProxy::get_type() have undefined results.
+     */
+    virtual const TxType* attempt_get_type() const = 0;
 };
 
 /** Represents a value that can be statically computed (in compile time). */
@@ -101,12 +112,12 @@ public:
 private:
     MetaType metaType;
     std::string typeParamName;
-    TxTypeProxy const * baseTypeDefiner;
+    TxTypeDefiner* baseTypeDefiner;
 
 public:
     TxTypeParam() : metaType(), typeParamName(), baseTypeDefiner()  { }
 
-    TxTypeParam(MetaType metaType, const std::string& typeParamName, const TxTypeProxy* baseTypeDefiner)
+    TxTypeParam(MetaType metaType, const std::string& typeParamName, TxTypeDefiner* baseTypeDefiner)
             : metaType(metaType), typeParamName(typeParamName), baseTypeDefiner(baseTypeDefiner)  {
         ASSERT(metaType==TXB_TYPE || baseTypeDefiner, "VALUE type parameter's type is NULL");
     }
@@ -116,7 +127,7 @@ public:
 
     inline bool has_base_type_definer() const { return this->baseTypeDefiner; }
     /** Gets the TxType instance that represents the base type constraint (if TYPE) or data type (if VALUE) of this parameter. */
-    inline const TxTypeProxy* get_base_type_definer() const {
+    inline TxTypeDefiner* get_base_type_definer() const {
         ASSERT(this->has_base_type_definer(), "This type parameter '" << this->typeParamName << "' has no base type definer set");
         return this->baseTypeDefiner;
     }
@@ -142,27 +153,31 @@ public:
  * The type parameter of a reference base type's target may specify dataspace constraints.
  * The binding of a reference base type's target can specify the dataspace of the target.
  */
-class TxTypeBinding : public Printable {
+class TxGenericBinding : public Printable {
     const std::string typeParamName;
     const TxTypeParam::MetaType metaType;
-    const TxTypeProxy* typeProxy;
+    TxTypeDefiner* typeDefiner;
     const TxExpressionNode* valueExpr;
 
+    TxGenericBinding(const std::string& typeParamName, TxTypeParam::MetaType metaType,
+                     TxTypeDefiner* typeDefiner, const TxExpressionNode* valueExpr)
+        : typeParamName(typeParamName), metaType(metaType), typeDefiner(typeDefiner), valueExpr(valueExpr)  { }
+
 public:
-    TxTypeBinding(const std::string& typeParamName, const TxTypeProxy* typeProxy)
-        : typeParamName(typeParamName), metaType(TxTypeParam::MetaType::TXB_TYPE),
-          typeProxy(typeProxy), valueExpr()  { }
-    TxTypeBinding(const std::string& typeParamName, const TxExpressionNode* valueExpr)
-        : typeParamName(typeParamName), metaType(TxTypeParam::MetaType::TXB_VALUE),
-          typeProxy(), valueExpr(valueExpr)  { }
+    static TxGenericBinding make_type_binding(const std::string& typeParamName, TxTypeDefiner* typeDefiner);
+    static TxGenericBinding make_value_binding(const std::string& typeParamName, const TxExpressionNode* valueExpr);
+
+//    /** copy constructor */
+//    TxGenericBinding(const TxGenericBinding& binding)
+//        : TxGenericBinding(typeParamName, metaType, typeDefiner, valueExpr)  { }
 
     inline const std::string& param_name()    const { return typeParamName; }
 
     inline TxTypeParam::MetaType meta_type()    const { return metaType; }
 
-    inline const TxTypeProxy& type_proxy()  const {
+    inline TxTypeDefiner& type_definer()  const {
         ASSERT(metaType==TxTypeParam::MetaType::TXB_TYPE, "Type parameter binding metatype is VALUE, not TYPE: " << this->to_string());
-        return *this->typeProxy;
+        return *this->typeDefiner;
     }
 
     inline const TxExpressionNode& value_expr() const {
@@ -170,14 +185,12 @@ public:
         return *this->valueExpr;
     }
 
-    bool operator==(const TxTypeBinding& other) const;
-
-    inline bool operator!=(const TxTypeBinding& other) const {
-        return ! this->operator==(other);
-    }
-
     std::string to_string() const;
 };
+
+bool operator==(const TxGenericBinding& b1, const TxGenericBinding& b2);
+inline bool operator!=(const TxGenericBinding& b1, const TxGenericBinding& b2) { return !(b1 == b2); }
+
 
 
 /** Describes a specialization of a base type.
@@ -198,7 +211,7 @@ class TxTypeSpecialization : public Printable {
 public:
     TxType const * const type;
     const bool modifiable;
-    const std::vector<TxTypeBinding> bindings;  // each type parameter of type must have binding
+    const std::vector<TxGenericBinding> bindings;  // each type parameter of type must have binding
 
     /** Only legal to use by the Any type. */
     TxTypeSpecialization()
@@ -209,7 +222,7 @@ public:
         ASSERT(baseType, "NULL baseType");
     }
 
-    TxTypeSpecialization(const TxType* baseType, const std::vector<TxTypeBinding>& baseBindings)
+    TxTypeSpecialization(const TxType* baseType, const std::vector<TxGenericBinding>& baseBindings)
             : type(baseType), modifiable(false), bindings(baseBindings)  {
         ASSERT(baseType, "NULL baseType");
     }
@@ -221,7 +234,7 @@ public:
         return false;
     }
 
-    const TxTypeBinding& get_binding(const std::string& typeParamName) const {
+    const TxGenericBinding& get_binding(const std::string& typeParamName) const {
         for (auto & b : this->bindings)
             if (b.param_name() == typeParamName)
                 return b;
@@ -229,7 +242,7 @@ public:
     }
 
     /** Returns empty string if this specialization is valid for the base type. */
-    std::string validate() const;
+    std::string validate(ResolutionContext& resCtx) const;
 
     bool operator==(const TxTypeSpecialization& other) const;
 
@@ -244,7 +257,7 @@ public:
 
 /** An instance of this class represents a type definition.
  */
-class TxType : public TxTypeProxy, public Printable {
+class TxType : public TxTypeDefiner, public Printable {
     /** The entity declaration that defined this type. */
     TxTypeEntity * const _entity;
 
@@ -279,10 +292,12 @@ public:
 
 
     /** Returns empty string if this type definition is not valid. */
-    virtual std::string validate() const;
+    virtual std::string validate(ResolutionContext& resCtx) const;
 
 
-    /** Returns self. Implements the TxTypeProxy interface. */
+    // For now. Implements the TxEntityDefiner interface.
+    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this; }
+    virtual const TxType* attempt_get_type() const override { return this; }
     virtual const TxType* get_type() const override { return this; }
 
 
@@ -409,7 +424,7 @@ public:
 
     // TODO: rework this; merge with namespace lookup?
 private:
-    const TxTypeBinding* resolve_param_binding(const std::string& paramName) const {
+    const TxGenericBinding* resolve_param_binding(const std::string& paramName) const {
         // FIXME: handle fully qualified parameter names (or remove these methods in favor of namespace lookup)
         // note: does not check for transitive modifiability
         if (this->has_type_param(paramName))

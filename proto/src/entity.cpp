@@ -31,12 +31,17 @@ int TxFieldEntity::get_static_field_index() const {
 }
 
 bool TxFieldEntity::is_statically_constant() const {
-    if ( this->get_decl_flags() & TXD_GENPARAM )
+    if ( (this->get_decl_flags() & TXD_GENPARAM) || this->is_generic_param_binding() )
+        // (The second condition might be removable in future, but now needed to avoid expecting e.g.
+        // tx#Array#L to be statically constant)
         return false;
     return ( this->get_storage() == TXS_GLOBAL
              || ( this->get_storage() == TXS_STATIC
-                  && ( this->get_type()->is_immutable()
-                       || ( this->initializerExpr && this->initializerExpr->is_statically_constant() ) ) ) );
+                  && ( (! this->get_type()->is_modifiable() )
+                       || ( this->initializerExpr && this->initializerExpr->is_statically_constant() ) ) )
+             || ( // STACK or INSTANCE
+                  (! this->get_type()->is_modifiable() )
+                  && this->initializerExpr && this->initializerExpr->is_statically_constant() ) );
 }
 
 const TxConstantProxy* TxFieldEntity::get_static_constant_proxy() const {
@@ -51,24 +56,24 @@ TxSymbolScope* TxDistinctEntity::resolve_generic(TxSymbolScope* vantageScope) {
     if (this->get_decl_flags() & TXD_GENPARAM) {
         std::string bindingName = this->get_full_name().to_string();
         std::replace(bindingName.begin(), bindingName.end(), '.', '#');
-        this->LOGGER().trace("Trying to resolve type parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), vantageScope->get_full_name().to_string().c_str());
+        this->LOGGER().trace("Trying to resolve generic parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), vantageScope->get_full_name().to_string().c_str());
         if (auto boundSym = vantageScope->resolve_symbol(tmpPath, bindingName)) {
-            this->LOGGER().warning("Substituting type parameter %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
+            this->LOGGER().debug("Substituting generic parameter %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
             return boundSym->resolve_generic(vantageScope);
         }
         else {
             // unbound symbols are not resolved against, unless they're defined by an outer scope -
             // meaning they're type parameters pertaining to the current lexical context
             if (vantageScope->get_full_name().begins_with(this->get_outer()->get_full_name()))
-                this->LOGGER().warning("symbol is being-defined type parameter %s from vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
+                this->LOGGER().debug("Scope of generic parameter %s encompasses current vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
             else
-                this->LOGGER().warning("symbol is unbound type parameter %s in vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
+                this->LOGGER().debug("Generic parameter %s unbound within vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
         }
     }
     else if (this->is_alias()) {
         this->LOGGER().trace("Trying to resolve alias %s = %s from %s", this->get_full_name().to_string().c_str(), this->get_alias()->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
         if (auto boundSym = vantageScope->resolve_symbol(tmpPath, *this->get_alias())) {
-            this->LOGGER().warning("Substituting alias %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
+            this->LOGGER().debug("Substituting alias %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
             return boundSym->resolve_generic(vantageScope);
         }
         else {
@@ -78,12 +83,12 @@ TxSymbolScope* TxDistinctEntity::resolve_generic(TxSymbolScope* vantageScope) {
     return this;
 }
 
-TxSymbolScope* TxTypeEntity::lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
+TxSymbolScope* TxTypeEntity::inner_lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident, bool static_lookup) {
     auto memberName = ident.segment(0);
     if (auto member = this->get_symbol(memberName)) {
         if (auto fieldMember = dynamic_cast<const TxFieldEntity*>(member)) {
-            // static lookup, so if instance-member, return its type instead
-            if (fieldMember->get_storage() == TXS_INSTANCE) {
+            // if static lookup and instance member, return its type instead
+            if (static_lookup && fieldMember->get_storage() == TXS_INSTANCE) {
                 auto fieldType = fieldMember->get_type();
                 if (fieldType->is_modifiable())
                     fieldType = fieldType->get_base_type();
@@ -96,8 +101,10 @@ TxSymbolScope* TxTypeEntity::lookup_member(std::vector<TxSymbolScope*>& path, co
         }
 
         // if the identified member is a type parameter/alias, attempt to resolve it by substituting it for its binding:
-        TxSymbolScope* vantageScope = path.back();
-        member = member->resolve_generic(vantageScope);
+        if (! path.empty()) {  // (can be empty upon expression-based member access: <expr>.member)
+            TxSymbolScope* vantageScope = path.back();
+            member = member->resolve_generic(vantageScope);
+        }
 
         path.push_back(member);
         if (ident.is_plain())
@@ -115,7 +122,10 @@ TxSymbolScope* TxTypeEntity::lookup_member(std::vector<TxSymbolScope*>& path, co
         // The second T needs to resolve T in the namespace of Sub, but of course the supertypes of Sub
         // aren't defined at that point yet.
         this->LOGGER().trace("Looking up '%s' among inherited members of %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());
-        return type->lookup_inherited_member(path, ident);
+        if (static_lookup)
+            return type->lookup_inherited_member(path, ident);
+        else
+            return type->lookup_inherited_instance_member(path, ident);
     }
     else {
         this->LOGGER().trace("Skipping looking up '%s' among inherited members of %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());
@@ -123,24 +133,10 @@ TxSymbolScope* TxTypeEntity::lookup_member(std::vector<TxSymbolScope*>& path, co
     }
 }
 
-TxSymbolScope* TxTypeEntity::lookup_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
-    // invoke parent's lookup_member() (since TxTypeEntity's lookup_member() only resolves static members):
-    if (auto member = TxDistinctEntity::lookup_member(path, ident))
-        return member;
+TxSymbolScope* TxTypeEntity::lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
+    return this->inner_lookup_member(path, ident, true);
+}
 
-    if (auto type = this->entityDefiner->attempt_get_type()) {
-        // Without the guard this lookup can cause infinite recursion or runtime/assertion errors
-        // when run before symbol table pass has completed.
-        // The root cause is predef type name lookup is done *from within the scope of the new type being declared*.
-        // This is necessary since in this kind of expression:
-        // type Sub<T> derives Super<T>
-        // The second T needs to resolve T in the namespace of Sub, but of course the supertypes of Sub
-        // aren't defined at that point yet.
-        this->LOGGER().trace("Looking up '%s' among inherited members of %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());
-        return type->lookup_inherited_instance_member(path, ident);
-    }
-    else {
-        this->LOGGER().trace("Skipping looking up '%s' among inherited members of %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());
-        return nullptr;
-    }
+TxSymbolScope* TxTypeEntity::lookup_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
+    return this->inner_lookup_member(path, ident, false);
 }

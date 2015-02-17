@@ -1,11 +1,11 @@
 #include <cstdlib>
 #include <string>
 
+#include "driver.hpp"
 #include "txassert.hpp"
 #include "files_env.hpp"
 #include "tinydir/tinydir.h"
 
-#include "parser_driver.hpp"
 #include "llvm_generator.hpp"
 
 #include "parser.hpp"
@@ -90,6 +90,7 @@ int TxDriver::compile() {
                 return ret;
             }
             ASSERT(this->parsingUnit, "parsingUnit not set by parser");
+            this->parsedASTs.push_back(this->parsingUnit);
             this->parsedSourceFiles.emplace(nextFilePath, this->parsingUnit);
             this->parsingUnit = nullptr;
         }
@@ -107,15 +108,15 @@ int TxDriver::compile() {
 
     /*--- perform symbol table pass ---*/
 
-    for (auto & parsedFile : this->parsedSourceFiles)
-        parsedFile.second->symbol_registration_pass(this->package);
+    for (auto parsedAST : this->parsedASTs)
+        parsedAST->symbol_registration_pass(this->package);
 
     this->package->prepare_modules();
 
     ResolutionContext resCtx;
     bool symValid = this->package->symbol_validation_pass(resCtx);
-    for (auto & parsedFile : this->parsedSourceFiles)
-        parsedFile.second->symbol_resolution_pass(resCtx);
+    for (auto parsedAST : this->parsedASTs)
+        parsedAST->symbol_resolution_pass(resCtx);
     if (symValid && error_count == prev_error_count)
         LOG.info("+ Symbol table pass OK");
 
@@ -135,8 +136,8 @@ int TxDriver::compile() {
 
     /*--- perform semantic pass ---*/
 
-    for (auto & parsedFile : this->parsedSourceFiles) {
-        parsedFile.second->semantic_pass();
+    for (auto parsedAST : this->parsedASTs) {
+        parsedAST->semantic_pass();
     }
     if (error_count > prev_error_count)
         LOG.error("- Semantic pass completed, %d errors", error_count-prev_error_count);
@@ -245,8 +246,8 @@ std::string* TxDriver::current_input_filepath() {
 
 int TxDriver::llvm_compile() {
     auto genContext = LlvmGenerationContext(*this->package);
-    for (auto & parsedFile : this->parsedSourceFiles) {
-        genContext.generate_code(*parsedFile.second);
+    for (auto parsedAST : this->parsedASTs) {
+        genContext.generate_code(*parsedAST);
     }
     bool mainGenerated = false;
     if (auto funcField = this->package->getMainFunc()) {

@@ -77,9 +77,9 @@ class TxDistinctEntity : public TxEntity {
     bool resolved = false;  // during development
 protected:
     mutable bool gettingType = false;  // during development - guard against recursive calls to get_type()
-    TxEntityDefiner * const entityDefiner;
+    TxTypeDefiner * const entityDefiner;
 
-    TxDistinctEntity(TxSymbolScope* parent, const std::string& name, TxEntityDefiner* entityDefiner, TxDeclarationFlags declFlags)
+    TxDistinctEntity(TxSymbolScope* parent, const std::string& name, TxTypeDefiner* entityDefiner, TxDeclarationFlags declFlags)
             : TxEntity(parent, name), declFlags(declFlags), entityDefiner(entityDefiner) {
     }
 
@@ -92,7 +92,7 @@ public:
         valid &= (this->resolve_symbol_type(resCtx) != nullptr);
         if (valid) {
             if (auto type = this->get_type()) {
-                std::string errorMsg = type->validate();
+                std::string errorMsg = type->validate(resCtx);
                 if (! errorMsg.empty()) {
                     this->LOGGER().error("Invalid type definition for %s: %s", this->get_full_name().to_string().c_str(), errorMsg.c_str());
                     valid = false;
@@ -139,7 +139,6 @@ public:
         ASSERT(this->is_alias(), "Not an alias entity: " << this);
         return &this->aliasIdent;
     }
-
 };
 
 
@@ -157,7 +156,7 @@ protected:
     }
 
 public:
-    TxFieldEntity(TxSymbolScope* parent, const std::string& name, TxEntityDefiner* entityDefiner, TxDeclarationFlags declFlags,
+    TxFieldEntity(TxSymbolScope* parent, const std::string& name, TxTypeDefiner* entityDefiner, TxDeclarationFlags declFlags,
                   TxFieldStorage storage, const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr)
             : TxDistinctEntity(parent, name, entityDefiner, declFlags), storage(storage), dataspace(dataspace), initializerExpr(initializerExpr) {
         ASSERT ((declFlags | LEGAL_FIELD_DECL_FLAGS) == LEGAL_FIELD_DECL_FLAGS, "Illegal field declFlags: " << declFlags);
@@ -187,6 +186,11 @@ public:
      * In future, this should return non-null for all expressions for which is_statically_constant() returns true.
      */
     virtual const TxConstantProxy* get_static_constant_proxy() const;
+
+    /** Returns true if this field is a binding for a generic base type's type parameter. */
+    bool is_generic_param_binding() const {
+        return (this->get_name().find_last_of('#') != std::string::npos);
+    }
 
     bool is_modifiable() const {
         return this->get_type()->is_modifiable();
@@ -234,8 +238,10 @@ class TxTypeEntity : public TxDistinctEntity, public TxTypeProxy {
         this->dataLaidOut = true;
     }
 
+    TxSymbolScope* inner_lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident, bool static_lookup);
+
 public:
-    TxTypeEntity(TxSymbolScope* parent, const std::string& name, TxEntityDefiner* entityDefiner, TxDeclarationFlags declFlags)
+    TxTypeEntity(TxSymbolScope* parent, const std::string& name, TxTypeDefiner* entityDefiner, TxDeclarationFlags declFlags)
             : TxDistinctEntity(parent, name, entityDefiner, declFlags) {
         // types are implicitly static; it's not legal to specify them in source
         ASSERT ((declFlags | LEGAL_TYPE_DECL_FLAGS) == LEGAL_TYPE_DECL_FLAGS, "Illegal type declFlags: " << declFlags);

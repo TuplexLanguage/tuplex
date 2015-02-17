@@ -39,7 +39,7 @@ public:
     /** Performs symbol registration, symbol resolution and type resolution, and returns a newly created TxTypeBinding.
      * May only be called once.
      */
-    virtual TxTypeBinding symbol_resolution_pass(ResolutionContext& resCtx,
+    virtual TxGenericBinding symbol_resolution_pass(ResolutionContext& resCtx,
                                                  const TxTypeEntity* baseTypeEntity, const TxTypeParam& param) {
         std::string qualPName = baseTypeEntity->get_full_name().to_string() + "." + param.param_name();
         std::string pname = make_generic_binding_name(qualPName);
@@ -55,7 +55,7 @@ public:
                                                     pname, nullptr, this->typeExprNode);
             this->typeDeclNode->symbol_registration_pass(this->context());
             this->typeDeclNode->symbol_resolution_pass(resCtx);
-            return TxTypeBinding(param.param_name(), this->typeExprNode);
+            return TxGenericBinding::make_type_binding(param.param_name(), this->typeExprNode);
         }
         else {
             ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
@@ -65,7 +65,7 @@ public:
             this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_STATIC | TXD_IMPLICIT, fieldDef);
             this->fieldDeclNode->symbol_registration_pass(this->context());
             this->fieldDeclNode->symbol_resolution_pass(resCtx);
-            return TxTypeBinding(param.param_name(), this->valueExprNode);
+            return TxGenericBinding::make_value_binding(param.param_name(), this->valueExprNode);
         }
     }
 
@@ -119,7 +119,7 @@ protected:
             cerror("Too many generic type arguments specified for type %s", identNode->ident.to_string().c_str());
             return nullptr;
         }
-        std::vector<TxTypeBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
+        std::vector<TxGenericBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
         for (int i = 0; i < this->typeArgs->size(); i++) {
             bindings.push_back(this->typeArgs->at(i)->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->type_params().at(i)));
         }
@@ -242,7 +242,7 @@ protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto baseType = this->types().get_builtin_type(REFERENCE);
         auto baseTypeEntity = baseType->entity();
-        TxTypeBinding binding = this->targetTypeNode->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->get_type_param("T"));
+        TxGenericBinding binding = this->targetTypeNode->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->get_type_param("T"));
         return this->types().get_reference_type(this->get_entity(), binding);
     }
 
@@ -273,9 +273,9 @@ protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto baseType = this->types().get_builtin_type(ARRAY);
         auto baseTypeEntity = baseType->entity();
-        TxTypeBinding elementBinding = this->elementTypeNode->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->get_type_param("E"));
+        TxGenericBinding elementBinding = this->elementTypeNode->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->get_type_param("E"));
         if (this->lengthNode) {
-            TxTypeBinding lengthBinding = this->lengthNode->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->get_type_param("L"));
+            TxGenericBinding lengthBinding = this->lengthNode->symbol_resolution_pass(resCtx, baseTypeEntity, baseType->get_type_param("L"));
             return this->types().get_array_type(this->get_entity(), elementBinding, lengthBinding);
         }
         else
@@ -353,7 +353,7 @@ protected:
                                                              : this->baseTypes->at(0)->resolve_type(resCtx);
         if (! baseObjType)
             return nullptr;
-        TxTypeSpecialization specialization(baseObjType, std::vector<TxTypeBinding>());
+        TxTypeSpecialization specialization(baseObjType, std::vector<TxGenericBinding>());
         // Note: does not specify explicit type parameter bindings; any unbound type parameters
         // of the base types are expected to match the declared type params.  FIXME: review
         auto type = this->types().get_type_specialization(entity, specialization, this->_mutable, this->declTypeParams);

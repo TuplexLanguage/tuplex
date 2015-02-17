@@ -23,7 +23,7 @@ static const BuiltinTypeId SCALAR_TYPE_IDS[] = {
 
 /*--- private classes providing indirection for fetching the built-in type objects ---*/
 
-class TxBuiltinTypeProxy final : public TxEntityDefiner {
+class TxBuiltinTypeProxy final : public TxTypeDefiner {
 public:
     const std::string name;
     const TxType* type;
@@ -72,7 +72,7 @@ public:
 
 
 
-class BuiltinTypeRecord : public TxEntityDefiner {
+class BuiltinTypeRecord : public TxTypeDefiner {
     const TxType * type;
     TxTypeEntity * entity;
 public:
@@ -183,7 +183,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
         auto record = new BuiltinTypeRecord( REFERENCE, "Ref" );
         auto typeEntity = module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN );
         record->set_entity( typeEntity );
-        record->set_type( new TxReferenceType(record->get_entity(), this->builtinTypes[ANY]->get_type() ) );
+        record->set_type( new TxReferenceType(record->get_entity(), this->builtinTypes[ANY]->get_type(), this->builtinTypes[ANY] ) );
         this->builtinTypes[record->id] = record;
 
         // create empty specialization for the constraint type (uniquely named but identical type)
@@ -198,7 +198,8 @@ void TypeRegistry::initializeBuiltinSymbols() {
         auto record = new BuiltinTypeRecord( ARRAY, "Array" );
         auto typeEntity = module->declare_type( record->plainName, record, TXD_PUBLIC | TXD_BUILTIN );
         record->set_entity( typeEntity );
-        record->set_type( new TxArrayType(record->get_entity(), this->builtinTypes[ANY]->get_type(), this->builtinTypes[UINT]->get_type() ) );
+        record->set_type( new TxArrayType(record->get_entity(), this->builtinTypes[ANY]->get_type(),
+                                          this->builtinTypes[ANY], this->builtinTypes[UINT] ) );
         this->builtinTypes[record->id] = record;
 
         // create empty specialization for the constraint type (uniquely named but identical type)
@@ -259,8 +260,8 @@ void TypeRegistry::initializeBuiltinSymbols() {
     {
         auto txCfuncModule = this->package.declare_module(TxIdentifier(BUILTIN_NS ".c"));
 
-        const TxType* charType = this->get_builtin_type(UBYTE);
-        const TxType* cStringType = this->get_reference_type(nullptr, charType);
+        auto charBinding = TxGenericBinding::make_type_binding("T", this->builtinTypes[UBYTE]);
+        const TxType* cStringType = this->get_reference_type(nullptr, charBinding);
         //const TxTypeProxy* cStringTypeDef = new TxBuiltinTypeDefiner("", cStringType);
 
         std::vector<const TxType*> argumentTypes( { cStringType } );
@@ -301,9 +302,9 @@ const TxType* TypeRegistry::get_type_specialization(TxTypeEntity* newEntity, con
     std::vector<TxTypeParam> unboundParams;
     if (typeParams)
         unboundParams = *typeParams;
-    std::vector<TxTypeBinding> newBindings = specialization.bindings;
+    std::vector<TxGenericBinding> newBindings = specialization.bindings;
     for (auto & baseTypeParam : specialization.type->type_params()) {
-        const TxTypeBinding* matchedBinding = nullptr;
+        const TxGenericBinding* matchedBinding = nullptr;
         for (auto & paramBinding : specialization.bindings)
             if (baseTypeParam.param_name() == paramBinding.param_name() && baseTypeParam.meta_type() == paramBinding.meta_type()) {
                 matchedBinding = &paramBinding;
@@ -341,32 +342,32 @@ const TxType* TypeRegistry::get_type_specialization(TxTypeEntity* newEntity, con
 }
 
 
-const TxReferenceType* TypeRegistry::get_reference_type(TxTypeEntity* newEntity, TxTypeBinding targetTypeBinding,
+const TxReferenceType* TypeRegistry::get_reference_type(TxTypeEntity* newEntity, TxGenericBinding targetTypeBinding,
                                                         std::string* errorMsg) {
-    std::vector<TxTypeBinding> bindings( { targetTypeBinding } );
+    std::vector<TxGenericBinding> bindings( { targetTypeBinding } );
     TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type(), bindings);
     return static_cast<const TxReferenceType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
 }
 
-const TxReferenceType* TypeRegistry::get_reference_type(TxTypeEntity* newEntity, const TxTypeProxy* targetType,
-                                                        std::string* errorMsg) {
-    return this->get_reference_type(newEntity, TxTypeBinding("T", targetType) );
-}
+//const TxReferenceType* TypeRegistry::get_reference_type(TxTypeEntity* newEntity, TxEntityDefiner* targetType,
+//                                                        std::string* errorMsg) {
+//    return this->get_reference_type(newEntity, TxTypeBinding("T", targetType) );
+//}
 
 
 const TxArrayType* TypeRegistry::get_array_type(TxTypeEntity* newEntity,
-                                                TxTypeBinding elemTypeBinding, TxTypeBinding lengthBinding,
+                                                TxGenericBinding elemTypeBinding, TxGenericBinding lengthBinding,
                                                 std::string* errorMsg) {
     //std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", length) } );
-    std::vector<TxTypeBinding> bindings( { elemTypeBinding, lengthBinding } );
+    std::vector<TxGenericBinding> bindings( { elemTypeBinding, lengthBinding } );
     TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
     return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
 }
 
-const TxArrayType* TypeRegistry::get_array_type(TxTypeEntity* newEntity, TxTypeBinding elemTypeBinding,
+const TxArrayType* TypeRegistry::get_array_type(TxTypeEntity* newEntity, TxGenericBinding elemTypeBinding,
                                                 std::string* errorMsg) {
     //std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType) } );
-    std::vector<TxTypeBinding> bindings( { elemTypeBinding } );
+    std::vector<TxGenericBinding> bindings( { elemTypeBinding } );
     TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
     return static_cast<const TxArrayType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
 }

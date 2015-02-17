@@ -12,7 +12,7 @@
 #include "module.hpp"
 #include "entity.hpp"
 
-#include "parser_driver.hpp"
+#include "driver.hpp"
 #include "location.hh"
 
 
@@ -249,7 +249,7 @@ public:
 
 
 
-class TxTypeExpressionNode : public TxNode, public TxEntityDefiner {
+class TxTypeExpressionNode : public TxNode, public TxTypeDefiner {
     bool gettingType = false;  // during development - guard against recursive calls to get_type()
     bool gottenType = false;  // to prevent multiple identical error messages
     TxType const * cachedType = nullptr;
@@ -334,7 +334,7 @@ public:
 
 class TxFieldDefNode;
 
-class TxExpressionNode : public TxNode, public TxEntityDefiner {
+class TxExpressionNode : public TxNode, public TxTypeDefiner {
     bool gettingType = false;  // during development - guard against recursive calls to get_type()
     bool gottenType = false;  // to prevent multiple identical error messages
     TxType const * cachedType = nullptr;
@@ -432,7 +432,7 @@ TxExpressionNode* validate_wrap_convert(ResolutionContext& resCtx, TxExpressionN
 TxExpressionNode* validate_wrap_assignment(ResolutionContext& resCtx, TxExpressionNode* rValueExpr, const TxType* requiredType);
 
 
-class TxFieldDefNode : public TxNode, public TxEntityDefiner {
+class TxFieldDefNode : public TxNode, public TxTypeDefiner {
     TxType const * cachedType = nullptr;
 
     bool modifiable;  // true if field name explicitly declared modifiable

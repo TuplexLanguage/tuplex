@@ -26,21 +26,32 @@ const TxType* TxNonModTypeProxy::get_type() const {
 }
 
 
-bool TxTypeBinding::operator==(const TxTypeBinding& other) const {
-    return ( this->typeParamName == other.typeParamName
-             && this->metaType == other.metaType
-             && ( this->metaType == TxTypeParam::MetaType::TXB_TYPE
-                      ? ( *(this->typeProxy->get_type()) == *(other.typeProxy->get_type()) )
-                      : ( this->valueExpr->get_static_constant_proxy() && other.valueExpr->get_static_constant_proxy()
-                          && *this->valueExpr->get_static_constant_proxy() == *other.valueExpr->get_static_constant_proxy() ) ) );
+TxGenericBinding TxGenericBinding::make_type_binding(const std::string& paramName, TxTypeDefiner* typeDefiner) {
+    return TxGenericBinding(paramName, TxTypeParam::MetaType::TXB_TYPE, typeDefiner, nullptr);
 }
 
-std::string TxTypeBinding::to_string() const {
+TxGenericBinding TxGenericBinding::make_value_binding(const std::string& paramName, const TxExpressionNode* valueExpr) {
+    return TxGenericBinding(paramName, TxTypeParam::MetaType::TXB_VALUE, nullptr, valueExpr);
+}
+
+std::string TxGenericBinding::to_string() const {
     const TxType* type;
     return this->typeParamName + "=" + ( this->metaType==TxTypeParam::MetaType::TXB_TYPE
-                                                ? (type = this->typeProxy->get_type(),
+                                                ? (type = this->type_definer().get_type(),
                                                    type ? type->to_string(true) : "")
-                                                : this->valueExpr->to_string() );
+                                                : this->value_expr().to_string() );
+}
+
+bool operator==(const TxGenericBinding& b1, const TxGenericBinding& b2) {
+    if (! (b1.param_name() == b2.param_name() && b1.meta_type() == b2.meta_type()))
+        return false;
+    if (b1.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
+        return ( *b1.type_definer().get_type() == *b2.type_definer().get_type() );
+    }
+    else {
+        return ( b1.value_expr().get_static_constant_proxy() && b2.value_expr().get_static_constant_proxy()
+            && *b1.value_expr().get_static_constant_proxy() == *b2.value_expr().get_static_constant_proxy() );
+    }
 }
 
 
@@ -53,7 +64,7 @@ bool TxTypeSpecialization::operator==(const TxTypeSpecialization& other) const {
 
 std::string TxTypeSpecialization::to_string() const { return "specialization of " + this->type->to_string(); }
 
-std::string TxTypeSpecialization::validate() const {
+std::string TxTypeSpecialization::validate(ResolutionContext& resCtx) const {
     if (this->type->is_modifiable())
         return std::string("Can't specialize a 'modifiable' type (specialize its base type instead).");
     if (this->modifiable) {
@@ -77,8 +88,8 @@ std::string TxTypeSpecialization::validate() const {
                 }
                 else {
                     if (p.has_base_type_definer()) {
-                        auto constraintType = p.get_base_type_definer()->get_type();
-                        auto boundType = b.type_proxy().get_type();
+                        auto constraintType = p.get_base_type_definer()->resolve_type(resCtx);
+                        auto boundType = b.type_definer().get_type();
                         if (boundType && ! boundType->is_a(*constraintType))
                             return std::string("Bound type ") + boundType->to_string() + " for type parameter " + p.to_string() + " is not a derivation of type " + constraintType->to_string();
                     }
@@ -92,10 +103,10 @@ std::string TxTypeSpecialization::validate() const {
 }
 
 
-std::string TxType::validate() const {
+std::string TxType::validate(ResolutionContext& resCtx) const {
     //std::cout << "validating type " << typeid(*this).name() << std::endl;
     if (auto baseType = this->get_base_type()) {
-        auto res = this->baseTypeSpec.validate();
+        auto res = this->baseTypeSpec.validate(resCtx);
         if (! res.empty())
             return std::string("Invalid specialization of " + baseType->to_string() + ": " + res);
         if (this->baseTypeSpec.modifiable) {
@@ -115,7 +126,7 @@ std::string TxType::validate() const {
         }
         if (! this->baseTypeSpec.type->entity())
             // also validate any anonymous base types (otherwise their validate() won't be called)
-            return this->baseTypeSpec.type->validate();
+            return this->baseTypeSpec.type->validate(resCtx);
     }
     // FUTURE: validate interfaces
     // check that generic interfaces can't be implemented multiple times throughout a type hierarchy,
@@ -207,18 +218,18 @@ const TxType* TxType::resolve_param_type(ResolutionContext& resCtx, const std::s
             type = typeEntity->resolve_symbol_type(resCtx);
     }
     else {
-        LOGGER()->warning("Resolving type parameter '%s' of type that has no entity: %s", paramName.c_str(), this->to_string().c_str());
-        auto binding = this->resolve_param_binding(paramName);
-        if (! binding) {
-            size_t pos = paramName.find_last_of('#');
-            if (pos != std::string::npos) {
-                auto unqualName = paramName.substr(pos+1);
-                //LOGGER()->warning("Resolving type parameter '%s' of type that has no entity: %s", unqualName.c_str(), this->to_string().c_str());
-                binding = this->resolve_param_binding(unqualName);
-            }
+        const TxGenericBinding* binding;
+        size_t pos = paramName.find_last_of('#');
+        if (pos != std::string::npos)
+            binding = this->resolve_param_binding(paramName.substr(pos+1));
+        else
+            binding = this->resolve_param_binding(paramName);
+        if (binding && binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
+            type = binding->type_definer().resolve_type(resCtx);
+            LOGGER()->debug("Resolved type parameter '%s' of type that has no entity, to %s", paramName.c_str(), type->to_string().c_str());
         }
-        if (binding && binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE)
-            type = binding->type_proxy().get_type();
+        else
+            LOGGER()->warning("Failed to resolve type parameter '%s' of type that has no entity: %s", paramName.c_str(), this->to_string().c_str());
     }
 
     if (type) {

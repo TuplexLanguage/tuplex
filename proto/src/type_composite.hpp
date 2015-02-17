@@ -35,12 +35,13 @@ protected:
 
 public:
     /** Creates the Array base type (no element type nor length specified). Only one such instance should exist. */
-    TxArrayType(TxTypeEntity* entity, const TxType* anyType, const TxType* uintType)
+    TxArrayType(TxTypeEntity* entity, const TxType* anyType, TxTypeDefiner* anyTypeDefiner, TxTypeDefiner* uintTypeDefiner)
             : TxType(entity, TxTypeSpecialization(anyType),
-                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE,  "E", anyType),
-                                                 TxTypeParam(TxTypeParam::TXB_VALUE, "L", uintType) } ) ) { }
+                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE,  "E", anyTypeDefiner),
+                                                 TxTypeParam(TxTypeParam::TXB_VALUE, "L", uintTypeDefiner) } ) ) { }
 
 
+    /** Returns nullptr if unbound. */
     inline const TxType* element_type(ResolutionContext& resCtx) const {
         const TxType* etype = this->resolve_param_type(resCtx, "tx#Array#E", true);
         if (! etype)
@@ -48,12 +49,11 @@ public:
         //ASSERT(etype, "NULL element type for array " << this);
         return etype;
     }
+
+    /** Returns nullptr if unbound. */
     inline const TxExpressionNode* length(ResolutionContext& resCtx) const {
         //const TxConstantProxy* len = this->resolve_param_value("tx#Array#L");
         const TxExpressionNode* len = this->resolve_param_value(resCtx, "L");
-        if (! len)
-            Logger::get("PARSER").warning("NULL length proxy for array %s", this->to_string().c_str());
-        // ASSERT(len, "NULL length proxy for array " << this);
         return len;
     }
 
@@ -83,9 +83,9 @@ protected:
 
 public:
     /** Creates the Reference base type (no target type specified). Only one such instance should exist. */
-    TxReferenceType(TxTypeEntity* entity, const TxType* anyType)
+    TxReferenceType(TxTypeEntity* entity, const TxType* anyType, TxTypeDefiner* anyTypeDefiner)
             : TxType(entity, TxTypeSpecialization(anyType),
-                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE, "T", anyType) } ) ) { }
+                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE, "T", anyTypeDefiner) } ) ) { }
 
 
     /** Returns proxy representing the target type of this reference type, or nullptr if this reference type is generic. */

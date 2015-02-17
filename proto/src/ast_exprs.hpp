@@ -289,7 +289,7 @@ public:
 class TxReferenceToNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        return this->types().get_reference_type(nullptr, this->target->resolve_type(resCtx));
+        return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", this->target));
     }
 
 public:

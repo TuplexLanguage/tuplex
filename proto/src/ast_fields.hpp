@@ -28,18 +28,19 @@ protected:
                 return nullptr;  // has already been attempted and failed
             if (base) {
                 // (lookup is similar to that of TxFieldEntity)
-                if (auto symbol = this->base->resolve_type(resCtx)->lookup_instance_member(memberPath, this->member->ident)) {
-                    this->cachedEntity = this->context().scope()->resolve_symbol_as_field(resCtx, symbol, this->appliedFuncArgTypes);
-                    if (this->cachedEntity && memberPath.back() != this->cachedEntity)
-                        memberPath[memberPath.size()-1] = this->cachedEntity;
-                }
+                if (auto baseType = this->base->resolve_type(resCtx))
+                    if (auto symbol = baseType->lookup_instance_member(memberPath, this->member->ident)) {
+                        this->cachedEntity = this->context().scope()->resolve_symbol_as_field(resCtx, symbol, this->appliedFuncArgTypes);
+                        if (this->cachedEntity && memberPath.back() != this->cachedEntity)
+                            memberPath[memberPath.size()-1] = this->cachedEntity;
+                    }
             }
             else
                 this->cachedEntity = this->context().scope()->resolve_field(resCtx, memberPath, this->member->ident, this->appliedFuncArgTypes);
 
             if (this->cachedEntity) {
                 if (this->cachedEntity->get_decl_flags() & TXD_GENPARAM) {
-                    LOGGER().warning("%s: Resolving '%s' as GENPARAM %s from scope %s", this->parse_loc_string().c_str(),
+                    LOGGER().debug("%s: Resolving field value '%s' as GENPARAM %s from scope %s", this->parse_loc_string().c_str(),
                             this->member->ident.to_string().c_str(), this->cachedEntity->to_string().c_str(), this->context().scope()->get_full_name().to_string().c_str());
 //                    if (declEnt->get_name() == make_generic_binding_name(cachedEntity->get_full_name().to_string())) {
 //                        // if type-arg resolves to ancestor type's type parameter, it is unspecified in current scope
@@ -126,9 +127,11 @@ protected:
         if (! this->entity) {
             if (! this->memberPath.empty())
                 return nullptr;  // has already been attempted and failed
-            if (base)
+            if (base) {
                 // (lookup is similar to that of TxFieldEntity)
-                this->entity = dynamic_cast<TxFieldEntity*>(this->base->resolve_type(resCtx)->lookup_instance_member(memberPath, this->member->ident));
+                if (auto baseType = this->base->resolve_type(resCtx))
+                    this->entity = dynamic_cast<TxFieldEntity*>(baseType->lookup_instance_member(memberPath, this->member->ident));
+            }
             else
                 this->entity = this->context().scope()->resolve_field(resCtx, memberPath, this->member->ident);
             if (! this->entity) {

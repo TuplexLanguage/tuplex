@@ -21,17 +21,6 @@ class ResolutionContext {
 };
 
 
-class TxEntityDefiner : public TxTypeProxy {
-public:
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) = 0;
-
-    /** Returns true if this type definer "is ready" - has a defined type.
-     * If this method returns false, calls to TxTypeProxy::get_type() have undefined results.
-     */
-    virtual const TxType* attempt_get_type() const = 0;
-};
-
-
 /** Represents a Tuplex symbol and namespace/scope.
  * For example package (global namespace), modules, entities, code blocks.
  * A symbol has a unique qualified name, an outer (parent) scope (unless root),
@@ -154,9 +143,9 @@ public:
 
     /*--- symbol table handling  ---*/
 
-    virtual TxTypeEntity*  declare_type( const std::string& plainName, TxEntityDefiner* entityDefiner,
+    virtual TxTypeEntity*  declare_type( const std::string& plainName, TxTypeDefiner* entityDefiner,
                                          TxDeclarationFlags modifiers);
-    virtual TxFieldEntity* declare_field(const std::string& plainName, TxEntityDefiner* entityDefiner,
+    virtual TxFieldEntity* declare_field(const std::string& plainName, TxTypeDefiner* entityDefiner,
                                          TxDeclarationFlags modifiers, TxFieldStorage storage,
                                          const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr=nullptr);
 

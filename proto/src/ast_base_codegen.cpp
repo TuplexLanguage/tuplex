@@ -95,8 +95,10 @@ llvm::Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope*
     case TXS_STATIC:
         // TODO: static fields have polymorphic lookup
         if (! txType->is_modifiable()) {
-            if (this->field->initExpression && !this->field->initExpression->is_statically_constant())
-                context.LOG.warning("Skipping codegen for global/static constant field %s whose initializer is not a constant expression", entity->get_full_name().to_string().c_str());
+            if (this->field->initExpression && !this->field->initExpression->is_statically_constant()) {
+                auto lvl = ( entity->is_generic_param_binding() ? Level::DEBUG : Level::WARN );
+                context.LOG.log(lvl, "Skipping codegen for global/static constant field %s whose initializer is not a constant expression", entity->get_full_name().to_string().c_str());
+            }
             else
                 fieldVal = make_constant_nonlocal_field(context, scope, this->field, llvmType);
         }
