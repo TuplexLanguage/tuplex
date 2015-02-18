@@ -109,7 +109,7 @@ int TxDriver::compile() {
     /*--- perform symbol table pass ---*/
 
     for (auto parsedAST : this->parsedASTs)
-        parsedAST->symbol_registration_pass(this->package);
+        parsedAST->symbol_declaration_pass(this->package);
 
     this->package->prepare_modules();
 

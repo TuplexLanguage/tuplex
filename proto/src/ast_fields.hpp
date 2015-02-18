@@ -74,10 +74,10 @@ public:
 
     virtual bool has_predefined_type() const override { return true; }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
         if (base)
-            base->symbol_registration_pass(lexContext);
+            base->symbol_declaration_pass(lexContext);
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
@@ -151,10 +151,10 @@ public:
     TxFieldAssigneeNode(const yy::location& parseLocation, TxExpressionNode* base, const TxIdentifierNode* member)
         : TxAssigneeNode(parseLocation), base(base), member(member) { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
         if (base)
-            base->symbol_registration_pass(lexContext);
+            base->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {

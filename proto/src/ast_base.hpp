@@ -121,7 +121,7 @@ public:
     TxImportNode(const yy::location& parseLocation, const TxIdentifierNode* identifier)
         : TxNode(parseLocation), identNode(identifier)  { }
 
-    virtual void symbol_registration_pass(TxModule* module) {
+    virtual void symbol_declaration_pass(TxModule* module) {
         this->set_context(module);
         if (! identNode->ident.is_qualified())
             cerror("can't import unqualified identifier '%s'", identNode->ident.to_string().c_str());
@@ -142,7 +142,7 @@ public:
     TxDeclarationNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags)
         : TxNode(parseLocation), declFlags(declFlags) { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) = 0;
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) = 0;
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) = 0;
 
@@ -164,21 +164,21 @@ public:
         ASSERT(identifier, "NULL identifier");  // (sanity check on parser)
     }
 
-    virtual void symbol_registration_pass(TxModule* parent) {
+    virtual void symbol_declaration_pass(TxModule* parent) {
         this->set_context(parent);
         this->module = parent->declare_module(identNode->ident);
         if (this->imports) {
             for (auto elem : *this->imports)
-                elem->symbol_registration_pass(this->module);
+                elem->symbol_declaration_pass(this->module);
         }
         if (this->members) {
             LexicalContext lexContext(this->module);
             for (auto elem : *this->members)
-                elem->symbol_registration_pass(lexContext);
+                elem->symbol_declaration_pass(lexContext);
         }
         if (this->subModules) {
             for (auto mod : *this->subModules)
-                mod->symbol_registration_pass(this->module);
+                mod->symbol_declaration_pass(this->module);
         }
     }
 
@@ -219,9 +219,9 @@ public:
         this->modules.push_back(module);
     }
 
-    virtual void symbol_registration_pass(TxPackage* package) {
+    virtual void symbol_declaration_pass(TxPackage* package) {
         for (auto mod : this->modules)
-            mod->symbol_registration_pass(package);
+            mod->symbol_declaration_pass(package);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
@@ -242,7 +242,7 @@ public:
 class TxStatementNode : public TxNode {
 public:
     TxStatementNode(const yy::location& parseLocation) : TxNode(parseLocation) { }
-    virtual void symbol_registration_pass(LexicalContext& lexContext) = 0;
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) = 0;
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) = 0;
     virtual void semantic_pass() = 0;
 };
@@ -259,7 +259,7 @@ class TxTypeExpressionNode : public TxNode, public TxTypeDefiner {
 
 protected:
     const std::vector<TxTypeParam>* declTypeParams = nullptr;    // null unless set in symbol table pass
-    virtual void symbol_registration_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
+    virtual void symbol_declaration_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
 
     /** Defines the type of this type expression, constructing/obtaining the TxType instance.
      * The implementation should only traverse the minimum nodes needed to define the type
@@ -275,7 +275,7 @@ public:
     virtual bool has_predefined_type() const { return false; }
 
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
+    virtual void symbol_declaration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                           TxTypeEntity* declaredEntity = nullptr,
                                           const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) {
         // Each node in a type expression has the option of declaring an entity (i.e. creating a name for)
@@ -292,7 +292,7 @@ public:
         this->declaredEntity = declaredEntity;
         if (typeParamDecls)
             this->declTypeParams = this->makeTypeParams(typeParamDecls);
-        this->symbol_registration_pass_descendants(lexContext, declFlags);
+        this->symbol_declaration_pass_descendants(lexContext, declFlags);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
@@ -356,7 +356,7 @@ public:
      * (i.e. does not construct a new type), e.g. value literals and directly identified fields. */
     virtual bool has_predefined_type() const = 0;
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) = 0;
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) = 0;
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
         this->resolve_type(resCtx);
@@ -439,20 +439,20 @@ class TxFieldDefNode : public TxNode, public TxTypeDefiner {
     TxDeclarationFlags declFlags = TXD_NONE;
     TxFieldEntity* declaredEntity;  // null until initialized in symbol registration pass
 
-    void symbol_registration_pass(LexicalContext& outerContext) {
+    void symbol_declaration_pass(LexicalContext& outerContext) {
         this->set_context(outerContext);
         auto typeDeclFlags = (this->declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
         auto implTypeName = this->fieldName + "$type";
         if (this->typeExpression) {
             // unless the type expression is a directly named type, declare implicit type entity for this field's type:
             if (this->typeExpression->has_predefined_type())
-                this->typeExpression->symbol_registration_pass(outerContext, typeDeclFlags);
+                this->typeExpression->symbol_declaration_pass(outerContext, typeDeclFlags);
             else {
                 TxTypeEntity* typeEntity = outerContext.scope()->declare_type(implTypeName, this->typeExpression, typeDeclFlags);
                 if (!typeEntity)
                     cerror("Failed to declare implicit type %s for field %s", implTypeName.c_str(), this->fieldName.c_str());
                 LexicalContext typeCtx(typeEntity ? typeEntity : outerContext.scope());  // (in case declare_type() yields NULL)
-                this->typeExpression->symbol_registration_pass(typeCtx, typeDeclFlags, typeEntity);
+                this->typeExpression->symbol_declaration_pass(typeCtx, typeDeclFlags, typeEntity);
             }
         }
         if (this->initExpression) {
@@ -464,7 +464,7 @@ class TxFieldDefNode : public TxNode, public TxTypeDefiner {
 //                    cerror("Failed to declare implicit type %s for field %s", implTypeName.c_str(), this->fieldName.c_str());
 //            }
             this->initExpression->fieldDefNode = this;
-            this->initExpression->symbol_registration_pass(outerContext);
+            this->initExpression->symbol_declaration_pass(outerContext);
         }
     };
 
@@ -488,24 +488,24 @@ public:
         this->initExpression = initExpression;
     }
 
-    void symbol_registration_pass_local_field(LexicalContext& lexContext, bool create_local_scope) {
+    void symbol_declaration_pass_local_field(LexicalContext& lexContext, bool create_local_scope) {
         auto outerCtx = lexContext;  // prevents type expr or init expr from referring to this field
         if (create_local_scope)
             lexContext.scope(lexContext.scope()->create_code_block_scope());
         this->declFlags = TXD_NONE;
         this->declaredEntity = lexContext.scope()->declare_field(this->fieldName, this, declFlags, TXS_STACK, TxIdentifier(""), this->initExpression);
-        this->symbol_registration_pass(outerCtx);
+        this->symbol_declaration_pass(outerCtx);
     }
 
-    void symbol_registration_pass_nonlocal_field(LexicalContext& lexContext, TxDeclarationFlags declFlags,
+    void symbol_declaration_pass_nonlocal_field(LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                                  TxFieldStorage storage, const TxIdentifier& dataspace) {
         this->declFlags = declFlags;
         this->declaredEntity = lexContext.scope()->declare_field(this->fieldName, this, declFlags, storage, dataspace, this->initExpression);
-        this->symbol_registration_pass(lexContext);
+        this->symbol_declaration_pass(lexContext);
     }
 
-    void symbol_registration_pass_functype_arg(LexicalContext& lexContext) {
-        this->symbol_registration_pass(lexContext);
+    void symbol_declaration_pass_functype_arg(LexicalContext& lexContext) {
+        this->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
@@ -586,7 +586,7 @@ public:
                     bool isMethod=false)
             : TxDeclarationNode(parseLocation, declFlags), isMethod(isMethod), field(field) { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override;
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override;
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         this->field->symbol_resolution_pass(resCtx);
@@ -618,7 +618,7 @@ public:
         validateTypeName(this, declFlags, typeName);
     }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext);
+    virtual void symbol_declaration_pass(LexicalContext& lexContext);
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
         this->typeExpression->symbol_resolution_pass(resCtx);
@@ -647,7 +647,7 @@ class TxAssigneeNode : public TxNode {
 
 public:
     TxAssigneeNode(const yy::location& parseLocation) : TxNode(parseLocation) { }
-    virtual void symbol_registration_pass(LexicalContext& lexContext) = 0;
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) = 0;
 
     virtual const TxType* resolve_type(ResolutionContext& resCtx) final {
         if (! cachedType) {

@@ -32,7 +32,7 @@ public:
 
     virtual bool has_predefined_type() const override { return false; }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         if (this->instanceMethod) {
             if (auto typeEntity = dynamic_cast<TxTypeEntity*>(lexContext.scope())) {  // if in type scope
                 // insert a first parameter named 'self', that is a reference to the current type
@@ -51,8 +51,8 @@ public:
         this->set_context(funcLexContext);
 
         // generate function instance:
-        this->funcTypeNode->symbol_registration_pass_func_header(funcLexContext);  // function header
-        this->suite->symbol_registration_pass_no_subscope(funcLexContext);  // function body
+        this->funcTypeNode->symbol_declaration_pass_func_header(funcLexContext);  // function header
+        this->suite->symbol_declaration_pass_no_subscope(funcLexContext);  // function body
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {

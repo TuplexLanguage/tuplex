@@ -177,7 +177,7 @@ public:
      * to a given symbol.)
      */
     TxTypeEntity* lookup_type(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
-    inline TxTypeEntity* resolve_type(ResolutionContext& resCtx, const TxIdentifier& ident) {
+    inline TxTypeEntity* lookup_type(ResolutionContext& resCtx, const TxIdentifier& ident) {
         std::vector<TxSymbolScope*> tmpPath;  return this->lookup_type(resCtx, tmpPath, ident);
     }
 
@@ -187,8 +187,8 @@ public:
      */
     TxFieldEntity* lookup_field(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident,
                                  const std::vector<const TxType*>* typeParameters = nullptr);
-    inline TxFieldEntity* resolve_field(ResolutionContext& resCtx, const TxIdentifier& ident,
-                                        const std::vector<const TxType*>* typeParameters = nullptr) {
+    inline TxFieldEntity* lookup_field(ResolutionContext& resCtx, const TxIdentifier& ident,
+                                       const std::vector<const TxType*>* typeParameters = nullptr) {
         std::vector<TxSymbolScope*> tmpPath;  return this->lookup_field(resCtx, tmpPath, ident, typeParameters);
     }
 

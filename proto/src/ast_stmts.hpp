@@ -13,8 +13,8 @@ public:
     TxFieldStmtNode(const yy::location& parseLocation, TxFieldDefNode* field)
         : TxStatementNode(parseLocation), field(field) { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
-        this->field->symbol_registration_pass_local_field(lexContext, true);
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
+        this->field->symbol_declaration_pass_local_field(lexContext, true);
         this->set_context(this->field);
     }
 
@@ -40,8 +40,8 @@ public:
           typeDecl(new TxTypeDeclNode(parseLocation, TXD_NONE, typeName, typeParamDecls, typeExpression))
     { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
-        this->typeDecl->symbol_registration_pass(lexContext);
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
+        this->typeDecl->symbol_declaration_pass(lexContext);
         this->set_context(this->typeDecl);
     }
 
@@ -63,9 +63,9 @@ public:
     TxCallStmtNode(const yy::location& parseLocation, TxFunctionCallNode* call)
         : TxStatementNode(parseLocation), call(call) { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
-        ((TxExpressionNode*)this->call)->symbol_registration_pass(lexContext);
+        ((TxExpressionNode*)this->call)->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
@@ -91,16 +91,16 @@ public:
     TxReturnStmtNode(const yy::location& parseLocation, TxExpressionNode* expr)
         : TxTerminalStmtNode(parseLocation), expr(expr) { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
         if (this->expr)
-            this->expr->symbol_registration_pass(lexContext);
+            this->expr->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         // TODO: Fix so that this won't find false positive using outer function's $return typeDecl
         // TODO: Illegal to return reference to STACK dataspace
-        auto returnValue = this->context().scope()->resolve_field(resCtx, TxIdentifier("$return"));
+        auto returnValue = this->context().scope()->lookup_field(resCtx, TxIdentifier("$return"));
         if (this->expr) {
             this->expr->symbol_resolution_pass(resCtx);
             if (returnValue)
@@ -125,7 +125,7 @@ class TxBreakStmtNode : public TxTerminalStmtNode {
 public:
     TxBreakStmtNode(const yy::location& parseLocation) : TxTerminalStmtNode(parseLocation)  { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override { this->set_context(lexContext); }
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override { this->set_context(lexContext); }
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { }
     virtual void semantic_pass() override { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -135,7 +135,7 @@ class TxContinueStmtNode : public TxTerminalStmtNode {
 public:
     TxContinueStmtNode(const yy::location& parseLocation) : TxTerminalStmtNode(parseLocation)  { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override { this->set_context(lexContext); }
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override { this->set_context(lexContext); }
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { }
     virtual void semantic_pass() override { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
@@ -149,14 +149,14 @@ public:
     TxSuiteNode(const yy::location& parseLocation);
     TxSuiteNode(const yy::location& parseLocation, std::vector<TxStatementNode*>* suite);
 
-    virtual void symbol_registration_pass_no_subscope(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass_no_subscope(LexicalContext& lexContext) {
         this->set_context(lexContext);
         for (auto stmt : *this->suite)
-            stmt->symbol_registration_pass(lexContext);
+            stmt->symbol_declaration_pass(lexContext);
     }
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         LexicalContext suiteContext(lexContext.scope()->create_code_block_scope());
-        this->symbol_registration_pass_no_subscope(suiteContext);
+        this->symbol_declaration_pass_no_subscope(suiteContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
@@ -185,9 +185,9 @@ public:
     TxElseClauseNode(const yy::location& parseLocation, TxStatementNode* suite)
         : TxStatementNode(parseLocation), suite(suite)  { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
-        this->suite->symbol_registration_pass(lexContext);
+        this->suite->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
@@ -212,12 +212,12 @@ public:
                            TxElseClauseNode* elseClause=nullptr)
         : TxStatementNode(parseLocation), cond(cond), suite(suite), elseClause(elseClause)  { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
-        this->cond->symbol_registration_pass(lexContext);
-        this->suite->symbol_registration_pass(lexContext);
+        this->cond->symbol_declaration_pass(lexContext);
+        this->suite->symbol_declaration_pass(lexContext);
         if (this->elseClause)
-            this->elseClause->symbol_registration_pass(lexContext);
+            this->elseClause->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
@@ -264,10 +264,10 @@ public:
     TxAssignStmtNode(const yy::location& parseLocation, TxAssigneeNode* lvalue, TxExpressionNode* rvalue)
         : TxStatementNode(parseLocation), lvalue(lvalue), rvalue(rvalue)  { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
-        this->lvalue->symbol_registration_pass(lexContext);
-        this->rvalue->symbol_registration_pass(lexContext);
+        this->lvalue->symbol_declaration_pass(lexContext);
+        this->rvalue->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {

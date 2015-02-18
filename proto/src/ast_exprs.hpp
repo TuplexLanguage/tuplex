@@ -25,7 +25,7 @@ public:
 
     virtual bool has_predefined_type() const override { return this->targetType->entity(); }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
     }
 
@@ -105,7 +105,7 @@ public:
 
     TxIntegerLitNode(long long value) : TxIntegerLitNode(yy::location(), std::to_string(value)) { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
     }
 
@@ -129,7 +129,7 @@ public:
     TxFloatingLitNode(const yy::location& parseLocation, const std::string& literal)
         : TxLiteralValueNode(parseLocation), literal(literal), value(atof(literal.c_str())) { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
     }
 
@@ -151,7 +151,7 @@ public:
         : TxLiteralValueNode(parseLocation), literal(literal), value(literal.at(1)) { }
     // TODO: properly parse char literal
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
     }
 
@@ -180,7 +180,7 @@ public:
           literal(literal), value(literal, 2, literal.length()-3) { }
     // TODO: properly parse string literal
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext);
+    virtual void symbol_declaration_pass(LexicalContext& lexContext);
 
     virtual bool is_statically_constant() const { return true; }
     virtual void semantic_pass() {
@@ -212,9 +212,9 @@ public:
 
     virtual bool has_predefined_type() const override { return this->reference->has_predefined_type(); }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        reference->symbol_registration_pass(lexContext);
+        reference->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
@@ -259,10 +259,10 @@ public:
 
     virtual bool has_predefined_type() const override { return this->array->has_predefined_type(); }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        this->array->symbol_registration_pass(lexContext);
-        this->subscript->symbol_registration_pass(lexContext);
+        this->array->symbol_declaration_pass(lexContext);
+        this->subscript->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
@@ -300,9 +300,9 @@ public:
 
     virtual bool has_predefined_type() const override { return false; }  // (this expr constructs new type)
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        target->symbol_registration_pass(lexContext);
+        target->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
@@ -360,14 +360,14 @@ protected:
                     if (scalar_ltype->auto_converts_from(*scalar_rtype)) {
                         // wrap rhs with cast instruction node
                         this->rhs = new TxScalarConvNode(this->rhs->parseLocation, this->rhs, scalar_ltype);
-                        this->rhs->symbol_registration_pass(this->context());
+                        this->rhs->symbol_declaration_pass(this->context());
                         this->rhs->symbol_resolution_pass(resCtx);
                         arithResultType = scalar_ltype;
                     }
                     else if (scalar_rtype->auto_converts_from(*scalar_ltype)) {
                         // wrap lhs with cast instruction node
                         this->lhs = new TxScalarConvNode(this->lhs->parseLocation, this->lhs, scalar_rtype);
-                        this->lhs->symbol_registration_pass(this->context());
+                        this->lhs->symbol_declaration_pass(this->context());
                         this->lhs->symbol_resolution_pass(resCtx);
                         arithResultType = scalar_rtype;
                     }
@@ -403,10 +403,10 @@ public:
         ASSERT(is_valid(op), "Invalid operator value: " << (int)op);
     }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        lhs->symbol_registration_pass(lexContext);
-        rhs->symbol_registration_pass(lexContext);
+        lhs->symbol_declaration_pass(lexContext);
+        rhs->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
@@ -439,9 +439,9 @@ public:
     TxUnaryMinusNode(const yy::location& parseLocation, TxExpressionNode* operand)
         : TxOperatorValueNode(parseLocation), operand(operand) { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        operand->symbol_registration_pass(lexContext);
+        operand->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
@@ -527,11 +527,11 @@ public:
 
     virtual bool has_predefined_type() const override { return true; }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        this->callee->symbol_registration_pass(lexContext);
+        this->callee->symbol_declaration_pass(lexContext);
         for (auto argExpr : *this->argsExprList)
-            argExpr->symbol_registration_pass(lexContext);
+            argExpr->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
@@ -589,9 +589,9 @@ public:
     TxDerefAssigneeNode(const yy::location& parseLocation, TxExpressionNode* operand)
         : TxAssigneeNode(parseLocation), operand(operand) { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
-        operand->symbol_registration_pass(lexContext);
+        operand->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
@@ -631,10 +631,10 @@ public:
     TxElemAssigneeNode(const yy::location& parseLocation, TxExpressionNode* array, TxExpressionNode* subscript)
         : TxAssigneeNode(parseLocation), array(array), subscript(subscript)  { }
 
-    virtual void symbol_registration_pass(LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
-        array->symbol_registration_pass(lexContext);
-        subscript->symbol_registration_pass(lexContext);
+        array->symbol_declaration_pass(lexContext);
+        subscript->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
