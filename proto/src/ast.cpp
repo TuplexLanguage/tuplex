@@ -392,7 +392,7 @@ const TxType* TxPredefinedTypeNode::define_generic_specialization_type(Resolutio
     }
     std::vector<TxGenericBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
     for (int i = 0; i < this->typeArgs->size(); i++) {
-        bindings.push_back(this->typeArgs->at(i)->make_binding(resCtx, baseTypeEntity, baseType->type_params().at(i)));
+        bindings.push_back(this->typeArgs->at(i)->make_binding(resCtx, baseType, baseType->type_params().at(i)));
     }
     TxTypeSpecialization specialization(baseType, bindings);
     std::string errorMsg;

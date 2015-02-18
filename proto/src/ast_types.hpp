@@ -31,7 +31,9 @@ public:
 
     /** Creates, registers and returns a newly created TxTypeBinding. May only be called once. */
     virtual TxGenericBinding make_binding(ResolutionContext& resCtx,
-                                          const TxTypeEntity* baseTypeEntity, const TxTypeParam& param) {
+                                          const TxType* baseType, const TxTypeParam& param) {
+        auto baseTypeEntity = baseType->entity();
+        ASSERT(baseTypeEntity, "baseType has no entity: " << baseType);
         std::string qualPName = baseTypeEntity->get_full_name().to_string() + "." + param.param_name();
         std::string pname = make_generic_binding_name(qualPName);
         LOGGER().debug("%s: Binding %s in ctx %s", this->parse_loc_string().c_str(), pname.c_str(), this->context().scope()->get_full_name().to_string().c_str());
@@ -45,9 +47,11 @@ public:
             this->typeDeclNode = new TxTypeDeclNode(this->typeExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT,
                                                     pname, nullptr, this->typeExprNode);
             this->typeDeclNode->symbol_declaration_pass(this->context());
-            //this->typeDeclNode->symbol_resolution_pass(resCtx);
-            // FIXME: how avoid over-resolving target type of Ref?
-            this->typeExprNode->resolve_type(resCtx);
+            // best way to avoid over-resolving target type of Ref?
+            if (! dynamic_cast<const TxReferenceType*>(baseType))
+                this->typeExprNode->resolve_type(resCtx);
+            else
+                this->LOGGER().alert("%s: Skipping resolve_type() of reference", this->parse_loc_string().c_str());
             return TxGenericBinding::make_type_binding(param.param_name(), this->typeExprNode);
         }
         else {
@@ -57,7 +61,6 @@ public:
             auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, pname, this->valueExprNode);
             this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_STATIC | TXD_IMPLICIT, fieldDef);
             this->fieldDeclNode->symbol_declaration_pass(this->context());
-            //this->fieldDeclNode->symbol_resolution_pass(resCtx);
             this->valueExprNode->resolve_type(resCtx);
             return TxGenericBinding::make_value_binding(param.param_name(), this->valueExprNode);
         }
@@ -189,9 +192,8 @@ protected:
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto baseType = this->types().get_builtin_type(REFERENCE);
-        auto baseTypeEntity = baseType->entity();
         // FIXME: figure out how to avoid resolving Ref target (also when not using & syntactic sugar)
-        TxGenericBinding binding = this->targetTypeNode->make_binding(resCtx, baseTypeEntity, baseType->get_type_param("T"));
+        TxGenericBinding binding = this->targetTypeNode->make_binding(resCtx, baseType, baseType->get_type_param("T"));
         return this->types().get_reference_type(this->get_entity(), binding);
     }
 
@@ -222,10 +224,9 @@ protected:
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto baseType = this->types().get_builtin_type(ARRAY);
-        auto baseTypeEntity = baseType->entity();
-        TxGenericBinding elementBinding = this->elementTypeNode->make_binding(resCtx, baseTypeEntity, baseType->get_type_param("E"));
+        TxGenericBinding elementBinding = this->elementTypeNode->make_binding(resCtx, baseType, baseType->get_type_param("E"));
         if (this->lengthNode) {
-            TxGenericBinding lengthBinding = this->lengthNode->make_binding(resCtx, baseTypeEntity, baseType->get_type_param("L"));
+            TxGenericBinding lengthBinding = this->lengthNode->make_binding(resCtx, baseType, baseType->get_type_param("L"));
             return this->types().get_array_type(this->get_entity(), elementBinding, lengthBinding);
         }
         else
