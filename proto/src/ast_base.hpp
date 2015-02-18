@@ -249,16 +249,19 @@ public:
 
 
 
+/**
+ * The context of this node refers to its outer scope. This node's entity, if any, refers to its inner scope.
+ */
 class TxTypeExpressionNode : public TxNode, public TxTypeDefiner {
     bool gettingType = false;  // during development - guard against recursive calls to get_type()
     bool gottenType = false;  // to prevent multiple identical error messages
     TxType const * cachedType = nullptr;
-    TxTypeEntity* declaredEntity = nullptr;  // null until initialized in symbol table pass
+    TxTypeEntity* declaredEntity = nullptr;  // null unless initialized in symbol declaration pass
 
     static const std::vector<TxTypeParam>* makeTypeParams(const std::vector<TxDeclarationNode*>* typeParamDecls);
 
 protected:
-    const std::vector<TxTypeParam>* declTypeParams = nullptr;    // null unless set in symbol table pass
+    const std::vector<TxTypeParam>* declTypeParams = nullptr;    // null unless set in symbol declaration pass
     virtual void symbol_declaration_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
 
     /** Defines the type of this type expression, constructing/obtaining the TxType instance.
@@ -276,24 +279,8 @@ public:
 
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
-                                          TxTypeEntity* declaredEntity = nullptr,
-                                          const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) {
-        // Each node in a type expression has the option of declaring an entity (i.e. creating a name for)
-        // any of its constituent type expressions.
-        //   Not known yet: If such naming may prevent things like value assignment
-        //   (unnamed types mismatching the auto-generated implicit types).
-        // Type entities are at minimum needed for:
-        //  - explicit type declarations/extensions
-        //  - adding members (since members are namespace symbols) - only done in explicit type extensions
-        //  - specializations that bind generic type parameters (e.g. Ref<Ref<Int>>)
-        //  - using fields in type expressions (resolving to the field's type) (not terribly important)
-        // Note: Implicitly declared types should have the same visibility as the type/field they are for.
-        this->set_context(lexContext);
-        this->declaredEntity = declaredEntity;
-        if (typeParamDecls)
-            this->declTypeParams = this->makeTypeParams(typeParamDecls);
-        this->symbol_declaration_pass_descendants(lexContext, declFlags);
-    }
+                                         const std::string designatedTypeName = std::string(),
+                                         const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr);
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
         this->resolve_type(resCtx);
@@ -442,17 +429,18 @@ class TxFieldDefNode : public TxNode, public TxTypeDefiner {
     void symbol_declaration_pass(LexicalContext& outerContext) {
         this->set_context(outerContext);
         auto typeDeclFlags = (this->declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
-        auto implTypeName = this->fieldName + "$type";
         if (this->typeExpression) {
             // unless the type expression is a directly named type, declare implicit type entity for this field's type:
             if (this->typeExpression->has_predefined_type())
                 this->typeExpression->symbol_declaration_pass(outerContext, typeDeclFlags);
             else {
-                TxTypeEntity* typeEntity = outerContext.scope()->declare_type(implTypeName, this->typeExpression, typeDeclFlags);
-                if (!typeEntity)
-                    cerror("Failed to declare implicit type %s for field %s", implTypeName.c_str(), this->fieldName.c_str());
-                LexicalContext typeCtx(typeEntity ? typeEntity : outerContext.scope());  // (in case declare_type() yields NULL)
-                this->typeExpression->symbol_declaration_pass(typeCtx, typeDeclFlags, typeEntity);
+                auto implTypeName = this->fieldName + "$type";
+//                TxTypeEntity* typeEntity = outerContext.scope()->declare_type(implTypeName, this->typeExpression, typeDeclFlags);
+//                if (!typeEntity)
+//                    cerror("Failed to declare implicit type %s for field %s", implTypeName.c_str(), this->fieldName.c_str());
+//                LexicalContext typeCtx(typeEntity ? typeEntity : outerContext.scope());  // (in case declare_type() yields NULL)
+//                this->typeExpression->symbol_declaration_pass(typeCtx, typeDeclFlags, typeEntity);
+                this->typeExpression->symbol_declaration_pass(outerContext, typeDeclFlags, implTypeName);
             }
         }
         if (this->initExpression) {

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #include "logging.hpp"
 
 #include "type_base.hpp"
@@ -148,9 +150,15 @@ public:
     virtual bool is_immutable() const { return !this->modifiableClosure; }
 
     inline virtual bool operator==(const TxType& other) const {
-        return (typeid(*this) == typeid(other) &&
-                *this->returnType == *((TxFunctionType&)other).returnType &&
-                this->argumentTypes == ((TxFunctionType&)other).argumentTypes);
+        if (auto otherF = dynamic_cast<const TxFunctionType*>(&other))
+            return ( ( this->returnType == otherF->returnType
+                       || ( this->returnType != nullptr && otherF->returnType != nullptr
+                            && *this->returnType == *otherF->returnType ) )
+                     && this->argumentTypes.size() == otherF->argumentTypes.size()
+                     && std::equal(this->argumentTypes.cbegin(), this->argumentTypes.cend(),
+                                   otherF->argumentTypes.cbegin(),
+                                   [](const TxType* t1, const TxType* t2) { return *t1 == *t2; } ) );
+        return false;
     }
 
     virtual bool innerAutoConvertsFrom(const TxType& someType) const {
@@ -158,6 +166,21 @@ public:
     }
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
+
+    virtual std::string to_string() const override {
+        std::stringstream str;
+        str << "func(";
+        if (! this->argumentTypes.empty()) {
+            auto ai = this->argumentTypes.cbegin();
+            str << (*ai)->to_string(true);
+            for (ai++; ai != this->argumentTypes.cend(); ai++)
+                str << ", " << (*ai)->to_string(true);
+        }
+        str << ")";
+        if (this->returnType)
+            str << " -> " << this->returnType->to_string(true);
+        return str.str();
+    }
 };
 
 class TxBuiltinFunctionType : public TxFunctionType {

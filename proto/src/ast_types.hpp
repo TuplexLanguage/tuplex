@@ -142,21 +142,21 @@ public:
           typeArgs(new std::vector<TxTypeArgumentNode*>())  { }
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
-                                          TxTypeEntity* declaredEntity = nullptr,
-                                          const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override {
-        if (! declaredEntity && !this->typeArgs->empty()) {
+                                         const std::string designatedTypeName = std::string(),
+                                         const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override {
+        if (designatedTypeName.empty() && !this->typeArgs->empty()) {
             // ensure generic type specializations always have a declared type (handles e.g. Ref<Ref<Int>>)
             std::string typeName = "$type";
-            //printf("%s: Declaring '%s' in '%s' as implicit specialized type\n", this->parse_loc_string().c_str(), typeName.c_str(), lexContext.scope()->get_full_name().to_string().c_str());
-            auto typeDeclFlags = (declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
-            auto declaredEntity = lexContext.scope()->declare_type(typeName, this, typeDeclFlags);
-            if (!declaredEntity)
-                cerror("Failed to declare implicit type %s", typeName.c_str());
-            LexicalContext typeCtx(declaredEntity ? declaredEntity : lexContext.scope());  // (in case declare_type() yields NULL)
-            TxTypeExpressionNode::symbol_declaration_pass(typeCtx, declFlags, declaredEntity, typeParamDecls);
+//            //printf("%s: Declaring '%s' in '%s' as implicit specialized type\n", this->parse_loc_string().c_str(), typeName.c_str(), lexContext.scope()->get_full_name().to_string().c_str());
+//            auto typeDeclFlags = (declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
+//            auto declaredEntity = lexContext.scope()->declare_type(typeName, this, typeDeclFlags);
+//            if (!declaredEntity)
+//                cerror("Failed to declare implicit type %s", typeName.c_str());
+//            LexicalContext typeCtx(declaredEntity ? declaredEntity : lexContext.scope());  // (in case declare_type() yields NULL)
+            TxTypeExpressionNode::symbol_declaration_pass(lexContext, declFlags | TXD_IMPLICIT, typeName, typeParamDecls);
         }
         else
-            TxTypeExpressionNode::symbol_declaration_pass(lexContext, declFlags, declaredEntity, typeParamDecls);
+            TxTypeExpressionNode::symbol_declaration_pass(lexContext, declFlags, designatedTypeName, typeParamDecls);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
@@ -181,21 +181,21 @@ public:
     TxBuiltinTypeSpecNode(const yy::location& parseLocation) : TxTypeExpressionNode(parseLocation)  { }
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
-                                          TxTypeEntity* declaredEntity = nullptr,
-                                          const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override {
-        if (! declaredEntity) {
+                                         const std::string designatedTypeName = std::string(),
+                                         const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override {
+        if (designatedTypeName.empty()) {
             // ensure generic type specializations always have a declared type (handles e.g. Ref<Ref<Int>>)
             std::string typeName = "$type";
-            //printf("%s: Declaring '%s' in '%s' as implicit specialized type\n", this->parse_loc_string().c_str(), typeName.c_str(), lexContext.scope()->get_full_name().to_string().c_str());
-            auto typeDeclFlags = (declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
-            auto declaredEntity = lexContext.scope()->declare_type(typeName, this, typeDeclFlags);
-            if (!declaredEntity)
-                cerror("Failed to declare implicit type %s", typeName.c_str());
-            LexicalContext typeCtx(declaredEntity ? declaredEntity : lexContext.scope());  // (in case declare_type() yields NULL)
-            TxTypeExpressionNode::symbol_declaration_pass(typeCtx, declFlags, declaredEntity, typeParamDecls);
+//            //printf("%s: Declaring '%s' in '%s' as implicit specialized type\n", this->parse_loc_string().c_str(), typeName.c_str(), lexContext.scope()->get_full_name().to_string().c_str());
+//            auto typeDeclFlags = (declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
+//            auto declaredEntity = lexContext.scope()->declare_type(typeName, this, typeDeclFlags);
+//            if (!declaredEntity)
+//                cerror("Failed to declare implicit type %s", typeName.c_str());
+//            LexicalContext typeCtx(declaredEntity ? declaredEntity : lexContext.scope());  // (in case declare_type() yields NULL)
+            TxTypeExpressionNode::symbol_declaration_pass(lexContext, declFlags | TXD_IMPLICIT, typeName, typeParamDecls);
         }
         else
-            TxTypeExpressionNode::symbol_declaration_pass(lexContext, declFlags, declaredEntity, typeParamDecls);
+            TxTypeExpressionNode::symbol_declaration_pass(lexContext, declFlags, designatedTypeName, typeParamDecls);
     }
 };
 
@@ -475,8 +475,8 @@ public:
         : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
-                                   TxTypeEntity* declaredEntity = nullptr,
-                                   const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;
+                                         const std::string designatedTypeName = std::string(),
+                                         const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         TxTypeExpressionNode::symbol_resolution_pass(resCtx);
@@ -509,6 +509,6 @@ public:
     virtual bool has_predefined_type() const override;
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
-                                          TxTypeEntity* declaredEntity = nullptr,
-                                          const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;
+                                         const std::string designatedTypeName = std::string(),
+                                         const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;
 };
