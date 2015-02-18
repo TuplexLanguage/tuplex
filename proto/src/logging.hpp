@@ -10,6 +10,7 @@ enum Level {
     FATAL,
     ERROR,
     WARN,
+    ALERT,
     INFO,
     CONFIG,
     DEBUG,
@@ -40,8 +41,9 @@ public:
     inline void fatal(const char *fmt, ...)   { va_list a; va_start(a,fmt); this->log(FATAL, fmt, a); va_end(a); }
     inline void error(const char *fmt, ...)   { va_list a; va_start(a,fmt); this->log(ERROR, fmt, a); va_end(a); }
     inline void warning(const char *fmt, ...) { va_list a; va_start(a,fmt); this->log(WARN,  fmt, a); va_end(a); }
+    inline void alert(const char *fmt, ...)   { va_list a; va_start(a,fmt); this->log(ALERT, fmt, a); va_end(a); }
     inline void info(const char *fmt, ...)    { va_list a; va_start(a,fmt); this->log(INFO,  fmt, a); va_end(a); }
-    inline void config(const char *fmt, ...)  { va_list a; va_start(a,fmt); this->log(CONFIG, fmt, a); va_end(a); }
+    inline void config(const char *fmt, ...)  { va_list a; va_start(a,fmt); this->log(CONFIG,fmt, a); va_end(a); }
     inline void debug(const char *fmt, ...)   { va_list a; va_start(a,fmt); this->log(DEBUG, fmt, a); va_end(a); }
     inline void trace(const char *fmt, ...)   { va_list a; va_start(a,fmt); this->log(TRACE, fmt, a); va_end(a); }
 

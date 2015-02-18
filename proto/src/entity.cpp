@@ -70,8 +70,9 @@ TxSymbolScope* TxDistinctEntity::resolve_generic(TxSymbolScope* vantageScope) {
                 this->LOGGER().debug("Generic parameter %s unbound within vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
         }
     }
+    /*
     else if (auto alias = this->get_alias()) {
-        this->LOGGER().trace("Trying to resolve alias %s = %s from %s", this->get_full_name().to_string().c_str(), this->get_alias()->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
+        this->LOGGER().warning("Trying to resolve alias %s = %s from %s", this->get_full_name().to_string().c_str(), this->get_alias()->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
         if (auto boundSym = vantageScope->start_lookup_symbol(tmpPath, *alias)) {
             this->LOGGER().debug("Substituting alias %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
             return boundSym->resolve_generic(vantageScope);
@@ -80,7 +81,14 @@ TxSymbolScope* TxDistinctEntity::resolve_generic(TxSymbolScope* vantageScope) {
             this->LOGGER().warning("Symbol is unknown alias: %s", this->to_string().c_str());
         }
     }
+    */
     return this;
+}
+
+TxSymbolScope* TxAliasEntity::resolve_generic(TxSymbolScope* vantageScope) {
+    this->LOGGER().alert("Substituting alias %s with %s (vantage %s)", this->get_full_name().to_string().c_str(),
+                         this->get_aliased_name().to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
+    return this->get_aliased_entity()->resolve_generic(vantageScope);
 }
 
 TxSymbolScope* TxTypeEntity::inner_lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident, bool static_lookup) {

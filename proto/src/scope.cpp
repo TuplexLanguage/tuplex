@@ -193,21 +193,34 @@ TxDistinctEntity* TxSymbolScope::declare_entity(TxDistinctEntity* entity) {
         else
             this->LOGGER().error("Failed to define symbol %s", entity->to_string().c_str());
     }
+    delete entity;
     return nullptr;
 }
 
 TxTypeEntity* TxSymbolScope::declare_type(const std::string& plainName, TxTypeDefiner* entityDefiner,
-                                          TxDeclarationFlags modifiers) {
-    auto entity = new TxTypeEntity(this, plainName, entityDefiner, modifiers);
+                                          TxDeclarationFlags declFlags) {
+    auto entity = new TxTypeEntity(this, plainName, entityDefiner, declFlags);
     return dynamic_cast<TxTypeEntity*>(this->declare_entity(entity));
 }
 
 TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, TxTypeDefiner* entityDefiner,
-                                            TxDeclarationFlags modifiers, TxFieldStorage storage,
+                                            TxDeclarationFlags declFlags, TxFieldStorage storage,
                                             const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr) {
-    //const TxScope* parentScope = (storage == TXS_STACK && !suppressSubscope) ? this->enterScope() : this;
-    auto entity = new TxFieldEntity(this, plainName, entityDefiner, modifiers, storage, dataspace, initializerExpr);
+    auto entity = new TxFieldEntity(this, plainName, entityDefiner, declFlags, storage, dataspace, initializerExpr);
     return dynamic_cast<TxFieldEntity*>(this->declare_entity(entity));
+}
+
+TxAliasEntity* TxSymbolScope::declare_alias(const std::string& plainName, TxDeclarationFlags declFlags, TxDistinctEntity* aliasedEntity) {
+    auto entity = new TxAliasEntity(this, plainName, declFlags, aliasedEntity);
+    // TODO: guard against using reserved keywords (including "tx")
+    auto success = this->declare_symbol(entity);
+    if (success) {
+        this->LOGGER().trace("    Defined    %-32s %s", entity->get_full_name().to_string().c_str(), entity->to_string().c_str());
+        return entity;
+    }
+    this->LOGGER().error("Failed to define symbol %s", entity->to_string().c_str());
+    delete entity;
+    return nullptr;
 }
 
 

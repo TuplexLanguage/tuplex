@@ -25,6 +25,7 @@ const char* LEVEL_NAMES[] {
     "FATAL",
     "ERROR",
     "WARN",
+    "ALERT",
     "INFO",
     "CONFG",
     "DEBUG",
@@ -37,6 +38,7 @@ static const char* LEVEL_COLORS[] = {
         "\e[41m",
         "\e[0;91m",
         "\e[0;93m",
+        "\e[0;92m",
         "\e[0;32m",
         "\e[0;94m",
         "\e[0;95m",
@@ -67,6 +69,14 @@ static const char* LEVEL_COLORS[] = {
 //static const char* undpur="\e[4;35m"; // Purple
 //static const char* undcyn="\e[4;36m"; // Cyan
 //static const char* undwht="\e[4;37m"; // White
+//static const char* hglblk="\e[0;90m"; // Black (Gray) - Highlight
+//static const char* hglred="\e[0;91m"; // Red
+//static const char* hglgrn="\e[0;92m"; // Green
+//static const char* hglylw="\e[0;93m"; // Yellow
+//static const char* hglblu="\e[0;94m"; // Blue
+//static const char* hglpur="\e[0;95m"; // Purple
+//static const char* hglcyn="\e[0;96m"; // Cyan
+//static const char* hglwht="\e[0;97m"; // White
 //static const char* bakblk="\e[40m";   // Black - Background
 //static const char* bakred="\e[41m";   // Red
 //static const char* bakgrn="\e[42m";   // Green

@@ -262,6 +262,15 @@ class TxTypeExpressionNode : public TxNode, public TxTypeDefiner {
 
 protected:
     const std::vector<TxTypeParam>* declTypeParams = nullptr;    // null unless set in symbol declaration pass
+
+    virtual void set_entity(TxTypeEntity* entity) {
+        ASSERT(!this->declaredEntity, "declaredEntity already set in " << this);
+        this->declaredEntity = entity;
+    }
+
+    /** Gets the type entity declared with this type expression, if any. */
+    virtual TxTypeEntity* get_entity() const { return this->declaredEntity; }
+
     virtual void symbol_declaration_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
 
     /** Defines the type of this type expression, constructing/obtaining the TxType instance.
@@ -285,9 +294,6 @@ public:
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
         this->resolve_type(resCtx);
     }
-
-    /** Gets the type entity representing the declaration of this type expression. */
-    virtual TxTypeEntity* get_entity() const { return this->declaredEntity; }
 
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override final {
         if (!cachedType && !gottenType) {

@@ -13,6 +13,7 @@ class TxEntity;
 class TxDistinctEntity;
 class TxFieldEntity;
 class TxTypeEntity;
+class TxAliasEntity;
 enum TxFieldStorage : int;
 
 
@@ -144,15 +145,19 @@ public:
     /*--- symbol table handling  ---*/
 
     virtual TxTypeEntity*  declare_type( const std::string& plainName, TxTypeDefiner* entityDefiner,
-                                         TxDeclarationFlags modifiers);
+                                         TxDeclarationFlags declFlags);
+
     virtual TxFieldEntity* declare_field(const std::string& plainName, TxTypeDefiner* entityDefiner,
-                                         TxDeclarationFlags modifiers, TxFieldStorage storage,
+                                         TxDeclarationFlags declFlags, TxFieldStorage storage,
                                          const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr=nullptr);
+
+    virtual TxAliasEntity* declare_alias(const std::string& plainName, TxDeclarationFlags declFlags, TxDistinctEntity* aliasedEntity);
+
 
 
     virtual TxSymbolScope* resolve_generic(TxSymbolScope* vantageScope) { return this; }
 
-    virtual const TxIdentifier* get_alias() { return nullptr; }
+    //virtual const TxIdentifier* get_alias() { return nullptr; }
 
 
     /** Resolves a symbol from the vantage point of this scope.

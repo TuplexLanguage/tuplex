@@ -245,16 +245,19 @@ void TxTypeExpressionNode::symbol_declaration_pass(LexicalContext& lexContext, T
     // The context of this node represents its outer scope. This node's entity, if any, represents its inner scope.
     this->set_context(lexContext);
 
+    TxTypeEntity* entity = nullptr;
     if (! designatedTypeName.empty()) {
-        this->declaredEntity = lexContext.scope()->declare_type(designatedTypeName, this, declFlags);
+        entity = lexContext.scope()->declare_type(designatedTypeName, this, declFlags);
         //this->LOGGER().debug("Defining type %-16s under <lexctx> %-24s <decl scope> %s", this->typeName.c_str(),
         //                     lexContext.scope()->get_full_name().to_string().c_str(), declaredEntity->get_full_name().to_string().c_str());
-        if (!this->declaredEntity)
+        if (! entity)
             cerror("Failed to declare type %s", designatedTypeName.c_str());
+        else
+            this->set_entity(entity);
     }
-    LexicalContext typeCtx(this->declaredEntity ? this->declaredEntity : lexContext.scope());
+    LexicalContext typeCtx(entity ? entity : lexContext.scope());
 
-    // declare type parameters, if any, within type declaration's scope:
+    // declare type parameters within type declaration's scope, and before rest of type expression is processed:
     if (typeParamDecls) {
         for (auto paramDecl : *typeParamDecls) {
             paramDecl->symbol_declaration_pass(typeCtx);
@@ -266,6 +269,56 @@ void TxTypeExpressionNode::symbol_declaration_pass(LexicalContext& lexContext, T
 }
 
 
+void TxPredefinedTypeNode::symbol_declaration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
+                                                   const std::string designatedTypeName,
+                                                   const std::vector<TxDeclarationNode*>* typeParamDecls) {
+    std::string typeName;
+    if (designatedTypeName.empty() && !this->typeArgs->empty()) {
+        // ensure generic type specializations always have a declared type (handles e.g. Ref<Ref<Int>>)
+        std::string typeName = "$type";
+        declFlags = declFlags | TXD_IMPLICIT;
+    }
+    else
+        typeName = designatedTypeName;
+
+    if (! typeName.empty()) {
+        // If this node declares a new type entity, perform early type name lookup
+        // to capture generic type parameter referral, in which case the new entity will be an alias for it.
+        // Note: Early lookup does not match the type parameters declared in this node, only prior ones:
+        // Legal:   type Subtype<A> Type<A>
+        // Illegal: type Subtype<A> A
+        ResolutionContext resCtx;
+        if (auto identifiedEntity = lexContext.scope()->lookup_type(resCtx, this->identNode->ident)) {
+            if (identifiedEntity->get_decl_flags() & TXD_GENPARAM) {
+                if (typeParamDecls && !typeParamDecls->empty()) {
+                    cerror("Type parameters can't be declared on top of generic type parameter %s", this->identNode->ident.to_string().c_str());
+                    /* This might be desirable in future (or maybe not). E.g:
+                       type Subtype<A derives Array> {
+                          A<Int,5> field
+                       }  */
+                }
+
+                this->set_context(lexContext);
+                auto declaredAlias = lexContext.scope()->declare_alias(typeName, TXD_PUBLIC | TXD_IMPLICIT, identifiedEntity);
+                if (declaredAlias) {
+                    this->LOGGER().alert("%s: Declared '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
+                                         declaredAlias->get_full_name().to_string().c_str(),
+                                         identifiedEntity->to_string().c_str());
+                    this->set_entity(identifiedEntity);  // Or should this be the alias entity?
+                }
+                else
+                    cerror("Failed to declare alias %s", typeName.c_str());
+                LexicalContext typeCtx(declaredAlias ? declaredAlias : lexContext.scope());
+                this->symbol_declaration_pass_descendants(typeCtx, declFlags);
+                return;
+            }
+        }
+    }
+
+    TxTypeExpressionNode::symbol_declaration_pass(lexContext, declFlags, typeName, typeParamDecls);
+}
+
+
 const TxType* TxPredefinedTypeNode::define_identified_type(ResolutionContext& resCtx, TxSymbolScope* scope) {
     if (auto identifiedEntity = scope->lookup_type(resCtx, this->identNode->ident)) {
         auto identifiedType = identifiedEntity->resolve_symbol_type(resCtx);
@@ -274,27 +327,33 @@ const TxType* TxPredefinedTypeNode::define_identified_type(ResolutionContext& re
         else if (auto declEnt = this->get_entity()) {
             ASSERT(!declTypeParams || declTypeParams->empty(), "declTypeParams can't be set for 'empty' specialization: " << *this);
             if (identifiedEntity->get_decl_flags() & TXD_GENPARAM) {
+                LOGGER().alert("%s: '%s' refers to unbound generic type parameter %s", this->parse_loc_string().c_str(),
+                               this->identNode->ident.to_string().c_str(), identifiedEntity->to_string().c_str());
+                return identifiedType;
+                /*
                 if (declEnt->get_name() == make_generic_binding_name(identifiedEntity->get_full_name().to_string())) {
                     // if type-arg resolves to ancestor type's type parameter, it is unspecified in current scope
                     // (need to catch this, lest we get an infinite alias lookup loop or spurious name resolution)
+                    LOGGER().warning("%s: skipping alias match for type '%s' to GENPARAM %s", this->parse_loc_string().c_str(),
+                                     declEnt->get_full_name().to_string().c_str(), identifiedEntity->to_string().c_str());
                     if (auto outerType = dynamic_cast<TxTypeEntity*>(scope->get_outer())) {
                         // since we declare base types under the subtype's scope,
                         // we may have to lookup via outer (the subtype's) scope
-                        LOGGER().warning("%s: skipping alias match for type '%s' to GENPARAM %s", this->parse_loc_string().c_str(),
-                                         declEnt->get_full_name().to_string().c_str(), identifiedEntity->to_string().c_str());
                         return define_identified_type(resCtx, outerType);
                     }
-//                    else
-//                        LOGGER().warning("%s: type '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
-//                                         declEnt->get_full_name().to_string().c_str(), identifiedEntity->to_string().c_str());
+                    else {
+                        cerror("'%s' refers to unbound generic type parameter: %s", this->identNode->ident.to_string().c_str(), identifiedEntity->get_full_name().to_string().c_str());
+                        return nullptr;
+                    }
                 }
                 else {
                     // let this entity be an alias for the generic type parameter (no unique type is created)
                     declEnt->set_alias(identifiedEntity->get_full_name());
-                    LOGGER().info("%s: Declared type '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
-                                  declEnt->get_full_name().to_string().c_str(), identifiedEntity->to_string().c_str());
+                    LOGGER().warning("%s: Changed TxTypeEntity '%s' into alias for GENPARAM %s", this->parse_loc_string().c_str(),
+                                     declEnt->get_full_name().to_string().c_str(), identifiedEntity->to_string().c_str());
                     return identifiedType;
                 }
+                */
             }
             else {
                 // create empty specialization (uniquely named but identical type)
@@ -308,8 +367,8 @@ const TxType* TxPredefinedTypeNode::define_identified_type(ResolutionContext& re
         }
         else {
             if (identifiedEntity->get_decl_flags() & TXD_GENPARAM) {
-                // Should not happen unless source refers directly to unbound type parameter
-                cwarning("'%s' references unbound generic type parameter %s", this->identNode->ident.to_string().c_str(), identifiedEntity->to_string().c_str());
+                // Should not happen unless source refers specifically to an unbound type parameter
+                cwarning("'%s' refers to unbound generic type parameter %s", this->identNode->ident.to_string().c_str(), identifiedEntity->to_string().c_str());
                 // (But if legal use case exists, how let this be an alias entity for the generic type parameter?)
                 //LOGGER().error("%s: Can't declare type '%s' as alias for GENPARAM %s since no entity declared for this type node",
                 //               this->parse_loc_string().c_str(), this->identNode->ident.to_string().c_str(), identifiedEntity->to_string().c_str());

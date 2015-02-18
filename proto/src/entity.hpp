@@ -42,33 +42,6 @@ public:
 };
 
 
-///** Represents a declared entity that is an alias for another entity. */
-//class TxAliasEntity : public TxEntity {
-//protected:
-//    const TxDeclarationFlags declFlags;
-//    const TxIdentifier aliasedName;
-//
-//    virtual bool declare_symbol(TxSymbolScope* symbol) override {
-//        this->LOGGER().error("Can't add member symbol (%s) directly to an alias symbol: %s",
-//                             symbol->to_string().c_str(), this->get_full_name().to_string().c_str());
-//        return false;
-//    }
-//
-//public:
-//    TxAliasEntity(TxSymbolScope* parent, const std::string& name, TxDeclarationFlags declFlags, const TxIdentifier& aliasedName)
-//            : TxEntity(parent, name), declFlags(declFlags), aliasedName(aliasedName) {
-//    }
-//
-//    TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
-//
-//    const TxIdentifier& get_aliased_name() const { return this->aliasedName; }
-//
-//    virtual std::string to_string() const {
-//        return "<alias>         " + this->get_full_name().to_string() + " = " + this->aliasedName.to_string();
-//    }
-//};
-
-
 /** Represents a single declared source code entity - a field or a type. */
 class TxDistinctEntity : public TxEntity {
     TxDeclarationFlags declFlags;
@@ -247,10 +220,10 @@ public:
         bool valid = TxDistinctEntity::validate_symbol(resCtx);
         if (! valid)
             return valid;
-        else if (this->get_alias()) {
-            // do something?
-            //this->LOGGER().debug("Alias: %s", alias->to_string().c_str());
-        }
+//        else if (this->get_alias()) {
+//            // do something?
+//            //this->LOGGER().debug("Alias: %s", alias->to_string().c_str());
+//        }
         else if (auto type = this->get_type()) {
             if (! this->dataLaidOut) {
                 this->LOGGER().error("Data not laid out for type: %s", type->to_string().c_str());
@@ -282,12 +255,12 @@ public:
         this->aliasIdent = aliasIdent;
     }
 
-    virtual const TxIdentifier* get_alias() override {
-        // Note: with current design we don't know if it's an alias until the type definer has been resolved
-        ResolutionContext resCtx;  // FIXME
-        TxDistinctEntity::resolve_symbol_type(resCtx);
-        return (this->aliasIdent.is_empty() ? nullptr : &this->aliasIdent);
-    }
+//    virtual const TxIdentifier* get_alias() override {
+//        // Note: with current design we don't know if it's an alias until the type definer has been resolved
+//        ResolutionContext resCtx;  // FIX ME
+//        TxDistinctEntity::resolve_symbol_type(resCtx);
+//        return (this->aliasIdent.is_empty() ? nullptr : &this->aliasIdent);
+//    }
 
 
     virtual const TxType* resolve_symbol_type(ResolutionContext& resCtx) {
@@ -358,6 +331,47 @@ public:
 
     virtual std::string to_string() const {
         return std::string("TYPE  ") + ::toString(this->get_decl_flags()) + " " + this->get_full_name().to_string();
+    }
+};
+
+
+
+/** Represents a declared entity that is an alias for another entity. */
+class TxAliasEntity : public TxEntity {
+    const TxDeclarationFlags declFlags;
+    TxDistinctEntity* aliasedEntity;
+    //const TxIdentifier aliasedName;
+protected:
+    virtual bool declare_symbol(TxSymbolScope* symbol) override {
+        this->LOGGER().error("Can't add member symbol (%s) directly to an alias symbol: %s",
+                             symbol->to_string().c_str(), this->get_full_name().to_string().c_str());
+        return false;
+    }
+
+public:
+//    TxAliasEntity(TxSymbolScope* parent, const std::string& name, TxDeclarationFlags declFlags, const TxIdentifier& aliasedName)
+//            : TxEntity(parent, name), declFlags(declFlags), aliasedName(aliasedName) { }
+    TxAliasEntity(TxSymbolScope* parent, const std::string& name, TxDeclarationFlags declFlags, TxDistinctEntity* aliasedEntity)
+            : TxEntity(parent, name), declFlags(declFlags), aliasedEntity(aliasedEntity) { }
+
+    TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
+
+    const TxIdentifier& get_aliased_name() const { return this->aliasedEntity->get_full_name(); }
+
+    TxDistinctEntity* get_aliased_entity() const { return this->aliasedEntity; }
+
+    TxSymbolScope* resolve_generic(TxSymbolScope* vantageScope) override;
+
+    virtual const TxType* resolve_symbol_type(ResolutionContext& resCtx) override {
+        return this->aliasedEntity->resolve_symbol_type(resCtx);
+    }
+
+    virtual const TxType* get_type() const override {
+        return this->aliasedEntity->get_type();
+    }
+
+    virtual std::string to_string() const {
+        return "<alias>         " + this->get_full_name().to_string() + " = " + this->get_aliased_name().to_string();
     }
 };
 
