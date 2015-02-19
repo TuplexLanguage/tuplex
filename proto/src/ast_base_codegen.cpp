@@ -78,6 +78,8 @@ static llvm::Value* make_constant_nonlocal_field(LlvmGenerationContext& context,
 
 llvm::Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
+    if (this->field->typeExpression)
+        this->field->typeExpression->code_gen(context, scope);
     auto entity = this->field->get_entity();
     auto txType = entity->get_type();
     llvm::Type* llvmType = context.get_llvm_type(txType);

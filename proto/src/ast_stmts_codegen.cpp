@@ -54,10 +54,9 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     for (Function::arg_iterator fArgI = function->arg_begin();
          fArgI != function->arg_end();  fArgI++, argDefI++)
     {
+        (*argDefI)->typeExpression->code_gen(context, scope);
         auto entity = (*argDefI)->get_entity();
         fArgI->setName(entity->get_name());
-        //context.register_llvm_value(entity->get_full_name().to_string(), fArgI);
-
         auto txType = entity->get_type();
         Type* llvmType = context.get_llvm_type(txType);
         if (! llvmType)
@@ -82,6 +81,8 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 
 Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
+    if (this->field->typeExpression)
+        this->field->typeExpression->code_gen(context, scope);
     auto entity = this->field->get_entity();
     ASSERT (entity->get_storage() == TXS_STACK, "TxFieldStmtNode can only apply to TX_STACK storage fields: " << entity->get_full_name());
     auto txType = entity->get_type();
@@ -100,7 +101,13 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     }
     else if (llvmType->isFunctionTy()) {
         // FUTURE: make local function capture
-        fieldVal = this->field->initExpression->code_gen(context, scope);
+        if (this->field->initExpression)
+            fieldVal = this->field->initExpression->code_gen(context, scope);
+        else {
+            // TODO: Local function pointers without immediate initializer
+            context.LOG.error("%s: Local function pointers without immediate initializer not yet supported", this->parse_loc_string().c_str());
+            return nullptr;
+        }
     }
     else  // void
         return nullptr;
