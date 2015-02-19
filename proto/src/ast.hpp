@@ -5,6 +5,7 @@
 #include "ast_fields.hpp"
 #include "ast_types.hpp"
 #include "ast_exprs.hpp"
+#include "ast_lit.hpp"
 
 
 // (in this file since uses both types, expressions, and statements)

@@ -181,21 +181,6 @@ TxSuiteNode::TxSuiteNode(const yy::location& parseLocation, std::vector<TxStatem
 
 
 
-void TxCStringLitNode::symbol_declaration_pass(LexicalContext& lexContext) {
-    this->set_context(lexContext);
-
-    // (for now) Create AST to declare the implicit type of this c-string literal:
-    std::string typeName = this->context().scope()->get_unique_name("$type");
-    auto elemType = new TxIdentifierNode(this->parseLocation, new TxIdentifier("tx.UByte"));
-    TxTypeExpressionNode* elemTypeExpr = new TxPredefinedTypeNode(this->parseLocation, elemType);
-    TxExpressionNode* lengthExpr = new TxIntegerLitNode(this->parseLocation, std::to_string(literal.length()-2));
-    TxTypeExpressionNode* typeExpr = new TxArrayTypeNode(this->parseLocation, elemTypeExpr, lengthExpr);
-    this->cstringTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_PUBLIC | TXD_IMPLICIT, typeName, nullptr, typeExpr);
-    this->cstringTypeNode->symbol_declaration_pass(lexContext);
-}
-
-
-
 const std::vector<TxTypeParam>* TxTypeExpressionNode::makeTypeParams(const std::vector<TxDeclarationNode*>* typeParamDecls) {
     auto paramsVec = new std::vector<TxTypeParam>();
     for (auto decl : *typeParamDecls) {

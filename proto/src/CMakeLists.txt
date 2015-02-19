@@ -105,6 +105,7 @@ add_executable(txc
         driver.cpp
         main.cpp
         ast.cpp
+        ast_lit.cpp
         type.cpp
         package.cpp
         module.cpp
@@ -113,6 +114,7 @@ add_executable(txc
         type_registry.cpp
         ast_base_codegen.cpp
         ast_exprs_codegen.cpp
+        ast_lit_codegen.cpp
         ast_stmts_codegen.cpp
         ast_fields_codegen.cpp
         ast_types_codegen.cpp

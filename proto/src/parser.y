@@ -89,7 +89,7 @@ YY_DECL;
 %token KW_AND KW_XOR KW_NOT KW_BUILTIN
 
  /* literals: */
-%token <std::string> NAME LIT_INTEGER LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
+%token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
 
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above.
@@ -502,7 +502,8 @@ expr
     ;
 
 value_literal
-        :       LIT_INTEGER   { $$ = new TxIntegerLitNode(@1, $1); }
+        :       LIT_DEC_INT   { $$ = new TxIntegerLitNode(@1, $1, false); }
+        |       LIT_RADIX_INT { $$ = new TxIntegerLitNode(@1, $1, true); }
         |       LIT_FLOATING  { $$ = new TxFloatingLitNode(@1, $1); }
         |       LIT_CHARACTER { $$ = new TxCharacterLitNode(@1, $1); }
         |       LIT_CSTRING   { $$ = new TxCStringLitNode(@1, $1); }

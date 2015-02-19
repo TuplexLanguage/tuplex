@@ -62,13 +62,13 @@ public:
     /** Gets the TxType instance representing the type of the constant. */
     virtual const TxType* get_type() const override = 0;
 
-    virtual long get_value_UInt() const = 0;
+    virtual uint32_t get_value_UInt() const = 0;
 
     virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
 
-    bool operator==(const TxConstantProxy& other) const;
+    virtual bool operator==(const TxConstantProxy& other) const = 0;
 
-    inline bool operator!=(const TxConstantProxy& other) const {
+    inline virtual bool operator!=(const TxConstantProxy& other) const final {
         return ! this->operator==(other);
     }
 };

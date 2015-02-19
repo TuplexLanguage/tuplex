@@ -1,0 +1,32 @@
+module my
+
+import tx.proto.print.*
+
+func main() Int {
+    b := 0B
+    s := 0S
+    i := 0I
+    l := 0L
+    ub := 0UB
+    us := 0US
+    ui := 0UI
+    ul := 0UL
+
+    rb := 2#1111_1111#UB
+    rs := 8#177777#US
+    ri := 16#FFFF_FFFF#UI
+    rl := 16#FFFF_FFFF_FFFF_FFFF#UL
+
+    print(rb)
+    print(rs)
+    print(ri)
+
+    ub1 := 255
+    us1 := 256
+    us2 := 65535
+    ui1 := 65536
+    ui2 := 4294967295
+    ul1 := 4294967296
+
+    return rb
+}

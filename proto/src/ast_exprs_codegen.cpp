@@ -209,46 +209,6 @@ Value* TxElemAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* sc
 
 
 
-Value* TxCStringLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s\t\"%s\"", this->to_string().c_str(), this->value.c_str());
-    //auto type = context.get_llvm_type(this->get_type());
-    std::vector<Constant*> members {
-        ConstantInt::get(context.llvmContext, APInt(32, this->arrayLength)),
-        ConstantDataArray::getString(context.llvmContext, this->value)
-    };
-    auto str = ConstantStruct::getAnon(members);
-    return str;
-    //return new GlobalVariable(context.llvmModule, str->getType(), true, GlobalValue::InternalLinkage, str, "");
-}
-
-Value* TxCharacterLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s\t'%c' == %d", this->to_string().c_str(), this->value, this->value);
-    auto value = ConstantInt::get(context.llvmContext, APInt(8, this->value, false));
-    return value;
-}
-
-Value* TxIntegerLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s\t%d", this->to_string().c_str(), this->value);
-    IntegerType* type = static_cast<IntegerType*>(context.get_llvm_type(this->get_type()));
-    ASSERT (type, "Could not get IntegerType for TxIntegerLitNode " << context.get_llvm_type(this->get_type()));
-    auto value = ConstantInt::get(type, this->literal, 10);
-    ASSERT (value->getSExtValue()==this->value, "LLVM's s-ext-int value " << value->getSExtValue() << "!=" << this->value);
-    //auto value = ConstantInt::get(context.llvmContext, APInt(64, this->value, true));
-    return value;
-}
-Constant* TxIntegerLitNode::IntConstantProxy::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    return cast<Constant>(this->intNode->code_gen(context, scope));
-}
-
-Value* TxFloatingLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s\t%f", this->to_string().c_str(), this->value);
-    Type* type = context.get_llvm_type(this->get_type());
-    ASSERT (type, "Could not get Type for TxFloatingLitNode " << context.get_llvm_type(this->get_type()));
-    auto value = ConstantFP::get(type, this->literal);
-    //auto value = ConstantFP::get(type, this->value);
-    return value;
-}
-
 Value* TxScalarConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->targetType->to_string().c_str());
     auto origValue = this->expr->code_gen(context, scope);

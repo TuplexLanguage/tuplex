@@ -1,10 +1,9 @@
 D			[0-9]
 L			[a-zA-Z_]
 H			[a-fA-F0-9]
-B			[1]?{D}[#]
 E			[Ee][+-]?{D}+
-FS			[U]?[HFDQ]?
-IS			[U]?[BSIL]?
+FS			[U]?[HFDQ]
+IS			[U]?[BSIL]
 
 %{ /* -*- C++ -*- */
 #include <cerrno>
@@ -171,8 +170,8 @@ extern "C" int yywrap() { return 0; }
 {L}({L}|{D}|"#")*       { yylval->build(std::string (yytext)); return token::NAME; }
                         /* return yy::TxParser::make_NAME(std::string(yytext), loc); */
 
-{B}{H}+{IS}?		    { yylval->build(std::string (yytext)); return token::LIT_INTEGER; }  // bases 2-16
-{D}({D}|"_")*{IS}?	    { yylval->build(std::string (yytext)); return token::LIT_INTEGER; }
+[1-9]{D}*"#""-"?({L}|{D})+("#"{IS})?  { yylval->build(std::string (yytext)); return token::LIT_RADIX_INT; }
+{D}({D}|"_")*{IS}?	                { yylval->build(std::string (yytext)); return token::LIT_DEC_INT; }
 
 {D}+{E}{FS}?		    { yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
 {D}*"."{D}+({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
