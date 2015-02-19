@@ -432,21 +432,16 @@ class TxFieldDefNode : public TxNode, public TxTypeDefiner {
     TxDeclarationFlags declFlags = TXD_NONE;
     TxFieldEntity* declaredEntity;  // null until initialized in symbol registration pass
 
-    void symbol_declaration_pass(LexicalContext& outerContext) {
+    void symbol_declaration_pass(LexicalContext& outerContext, LexicalContext& innerContext) {
         this->set_context(outerContext);
         auto typeDeclFlags = (this->declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
         if (this->typeExpression) {
             // unless the type expression is a directly named type, declare implicit type entity for this field's type:
             if (this->typeExpression->has_predefined_type())
-                this->typeExpression->symbol_declaration_pass(outerContext, typeDeclFlags);
+                this->typeExpression->symbol_declaration_pass(innerContext, typeDeclFlags);
             else {
                 auto implTypeName = this->fieldName + "$type";
-//                TxTypeEntity* typeEntity = outerContext.scope()->declare_type(implTypeName, this->typeExpression, typeDeclFlags);
-//                if (!typeEntity)
-//                    cerror("Failed to declare implicit type %s for field %s", implTypeName.c_str(), this->fieldName.c_str());
-//                LexicalContext typeCtx(typeEntity ? typeEntity : outerContext.scope());  // (in case declare_type() yields NULL)
-//                this->typeExpression->symbol_declaration_pass(typeCtx, typeDeclFlags, typeEntity);
-                this->typeExpression->symbol_declaration_pass(outerContext, typeDeclFlags, implTypeName);
+                this->typeExpression->symbol_declaration_pass(innerContext, typeDeclFlags, implTypeName);
             }
         }
         if (this->initExpression) {
@@ -488,18 +483,18 @@ public:
             lexContext.scope(lexContext.scope()->create_code_block_scope());
         this->declFlags = TXD_NONE;
         this->declaredEntity = lexContext.scope()->declare_field(this->fieldName, this, declFlags, TXS_STACK, TxIdentifier(""), this->initExpression);
-        this->symbol_declaration_pass(outerCtx);
+        this->symbol_declaration_pass(outerCtx, lexContext);
     }
 
     void symbol_declaration_pass_nonlocal_field(LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                                  TxFieldStorage storage, const TxIdentifier& dataspace) {
         this->declFlags = declFlags;
         this->declaredEntity = lexContext.scope()->declare_field(this->fieldName, this, declFlags, storage, dataspace, this->initExpression);
-        this->symbol_declaration_pass(lexContext);
+        this->symbol_declaration_pass(lexContext, lexContext);
     }
 
     void symbol_declaration_pass_functype_arg(LexicalContext& lexContext) {
-        this->symbol_declaration_pass(lexContext);
+        this->symbol_declaration_pass(lexContext, lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
