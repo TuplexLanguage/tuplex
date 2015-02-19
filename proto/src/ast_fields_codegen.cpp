@@ -33,7 +33,7 @@ static llvm::Value* field_value_code_gen(LlvmGenerationContext& context, GenScop
             if (auto txType = entity->get_type()) {
                 // forward declaration situation
                 if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
-                    context.LOG.warning("Forward-declaring function %s", entity->get_full_name().to_string().c_str());
+                    context.LOG.alert("Forward-declaring function %s", entity->get_full_name().to_string().c_str());
                     llvm::FunctionType *ftype = llvm::cast<llvm::FunctionType>(context.get_llvm_type(txFuncType));
                     val = context.llvmModule.getOrInsertFunction(entity->get_full_name().to_string(), ftype);
                     //llvm::cast<llvm::Function>(val)->setLinkage(llvm::GlobalValue::InternalLinkage);  FIXME (can cause LLVM to rename function)

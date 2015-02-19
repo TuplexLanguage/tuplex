@@ -486,15 +486,7 @@ public:
     bool is_a(const TxType& other) const;
 
     /** Returns the common base type of this and other, if both are pure specializations of it. */
-    const TxType* common_generic_base_type(const TxType& other) const {
-        if (this->is_pure_specialization())
-            return this->get_base_type()->common_generic_base_type(other);
-        if (other.is_pure_specialization())
-            return this->common_generic_base_type(*other.get_base_type());
-        if (*this == other)
-            return this;
-        return nullptr;
-    }
+    const TxType* common_generic_base_type(const TxType& other) const;
 
 //    /** Returns true if an instance of this type can be assigned from an instance of the provided type
 //     * (without performing any kind of conversion). */

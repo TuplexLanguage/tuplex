@@ -192,7 +192,6 @@ protected:
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto baseType = this->types().get_builtin_type(REFERENCE);
-        // FIXME: figure out how to avoid resolving Ref target (also when not using & syntactic sugar)
         TxGenericBinding binding = this->targetTypeNode->make_binding(resCtx, baseType, baseType->get_type_param("T"));
         return this->types().get_reference_type(this->get_entity(), binding);
     }

@@ -255,14 +255,19 @@ const TxExpressionNode* TxType::resolve_param_value(ResolutionContext& resCtx, c
 
 bool TxType::is_a(const TxType& other) const {
     //std::cout << *this << "  IS-A\n" << other << std::endl;
-    if (this->is_modifiable())
-        return this->get_base_type()->is_a(other);
-    if (other.is_modifiable())
-        return this->is_a(*other.get_base_type());
     if (*this == other)
         return true;
-    if (other.is_empty_specialization())
-        return this->is_a(*other.get_base_type());
+
+    // by-pass anonymous, virtual specializations:
+    if (! this->explicit_entity()) {
+        if (this->is_virtual_specialization())
+            return this->get_base_type()->is_a(other);
+    }
+    if (! other.explicit_entity()) {
+        if (other.is_virtual_specialization())
+            return this->is_a(*other.get_base_type());
+    }
+
     // check whether other is a more generic version of the same type:
     if (auto genBaseType = this->common_generic_base_type(other)) {
         for (auto & param : genBaseType->type_params()) {
@@ -279,7 +284,18 @@ bool TxType::is_a(const TxType& other) const {
         }
         return true;
     }
+
     return (this->has_base_type() && this->get_base_type()->inner_is_a(other));
+}
+
+const TxType* TxType::common_generic_base_type(const TxType& other) const {
+    if (! this->explicit_entity() && this->is_pure_specialization())
+        return this->get_base_type()->common_generic_base_type(other);
+    if (! other.explicit_entity() && other.is_pure_specialization())
+        return this->common_generic_base_type(*other.get_base_type());
+    if (*this == other)
+        return this;
+    return nullptr;
 }
 
 bool TxType::inner_is_a(const TxType& other) const {

@@ -285,8 +285,8 @@ void TxPredefinedTypeNode::symbol_declaration_pass(LexicalContext& lexContext, T
         // If this node declares a new type entity, perform early type name lookup
         // to capture generic type parameter referral, in which case the new entity will be an alias for it.
         // Note: Early lookup does not match the type parameters declared in this node, only prior ones:
-        // Legal:   type Subtype<A> Type<A>
-        // Illegal: type Subtype<A> A
+        //     type Subtype<A> Type<A>  ## Legal since A is subnode of decl's type expression
+        //     type Subtype<A> A        ## Illegal since A is top node of decl's type expression
         ResolutionContext resCtx;
         if (auto identifiedEntity = lexContext.scope()->lookup_type(resCtx, this->identNode->ident)) {
             if (identifiedEntity->get_decl_flags() & TXD_GENPARAM) {
