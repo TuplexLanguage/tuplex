@@ -68,7 +68,7 @@ public:
             }
         }
         else {
-            this->LOGGER().error("NULL type for entity: %s", this->to_string().c_str());
+            this->LOGGER().debug("NULL type for entity: %s", this->to_string().c_str());
             valid = false;
         }
         return valid;
