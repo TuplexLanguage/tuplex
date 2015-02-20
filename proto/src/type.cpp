@@ -37,7 +37,7 @@ TxGenericBinding TxGenericBinding::make_value_binding(const std::string& paramNa
 std::string TxGenericBinding::to_string() const {
     const TxType* type;
     return this->typeParamName + "=" + ( this->metaType==TxTypeParam::MetaType::TXB_TYPE
-                                                ? (type = this->type_definer().get_type(),
+                                                ? (type = this->type_definer().attempt_get_type(),
                                                    type ? type->to_string(true) : "")
                                                 : this->value_expr().to_string() );
 }
@@ -136,7 +136,7 @@ std::string TxType::validate(ResolutionContext& resCtx) const {
 
 
 TxTypeEntity* TxType::explicit_entity() const {
-    if (this->_entity && !(this->_entity->get_decl_flags() & TXD_IMPLICIT))
+    if (this->_entity && !(this->_entity->get_decl_flags() & (TXD_IMPLICIT | TXD_GENPARAM)))
         return this->_entity;
     return nullptr;
 }

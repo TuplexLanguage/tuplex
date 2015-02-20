@@ -274,8 +274,8 @@ TxTypeEntity* TxSymbolScope::lookup_type(ResolutionContext& resCtx, std::vector<
     else if (auto overloaded = dynamic_cast<TxOverloadedEntity*>(symbol))
         if (auto typeEnt = overloaded->get_type_declaration())
             return typeEnt;
-    std::string msg = "Symbol " + ident.to_string() + " referenced from " + this->to_string() + " is not a Type: " + symbol->to_string();
-    this->LOGGER().error("%s", msg.c_str());
+    //std::string msg = "Symbol " + ident.to_string() + " referenced from " + this->to_string() + " is not a Type: " + symbol->to_string();
+    //this->LOGGER().error("%s", msg.c_str());
     return nullptr;
 }
 

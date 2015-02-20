@@ -51,13 +51,14 @@ public:
             if (! dynamic_cast<const TxReferenceType*>(baseType))
                 this->typeExprNode->resolve_type(resCtx);
             else
-                this->LOGGER().alert("%s: Skipping resolve_type() of reference", this->parse_loc_string().c_str());
+                this->LOGGER().debug("%s: Skipping resolve_type() of reference", this->parse_loc_string().c_str());
             return TxGenericBinding::make_type_binding(param.param_name(), this->typeExprNode);
         }
         else {
             ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
             if (param.meta_type() != param.TXB_VALUE)
                 cerror("Provided a TYPE argument to VALUE parameter %s", pname.c_str());
+            // TODO: pass the param's type-definer to the field def, so that proper type checking is done
             auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, pname, this->valueExprNode);
             this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_STATIC | TXD_IMPLICIT, fieldDef);
             this->fieldDeclNode->symbol_declaration_pass(this->context());

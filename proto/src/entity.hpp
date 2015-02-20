@@ -45,7 +45,6 @@ public:
 /** Represents a single declared source code entity - a field or a type. */
 class TxDistinctEntity : public TxEntity {
     TxDeclarationFlags declFlags;
-    const TxType* resolvedType = nullptr;
     bool resolved = false;  // during development
 protected:
     mutable bool gettingType = false;  // during development - guard against recursive calls to get_type()
@@ -61,27 +60,27 @@ public:
 
     virtual bool validate_symbol(ResolutionContext& resCtx) override {
         bool valid = TxEntity::validate_symbol(resCtx);
-        valid &= (this->resolve_symbol_type(resCtx) != nullptr);
-        if (valid) {
-            if (auto type = this->get_type()) {
-                std::string errorMsg = type->validate(resCtx);
-                if (! errorMsg.empty()) {
-                    this->LOGGER().error("Invalid type definition for %s: %s", this->get_full_name().to_string().c_str(), errorMsg.c_str());
-                    valid = false;
-                }
-            }
-            else {
-                this->LOGGER().error("NULL type for entity: %s", this->to_string().c_str());
+        if (auto type = this->resolve_symbol_type(resCtx)) {
+            std::string errorMsg = type->validate(resCtx);
+            if (! errorMsg.empty()) {
+                this->LOGGER().error("Invalid type definition for %s: %s", this->get_full_name().to_string().c_str(), errorMsg.c_str());
                 valid = false;
             }
+        }
+        else {
+            this->LOGGER().error("NULL type for entity: %s", this->to_string().c_str());
+            valid = false;
         }
         return valid;
     }
 
     virtual const TxType* resolve_symbol_type(ResolutionContext& resCtx) override {
-        this->resolvedType = this->entityDefiner->resolve_type(resCtx);
         resolved = true;
-        return resolvedType;
+        return this->entityDefiner->resolve_type(resCtx);
+    }
+
+    virtual const TxType* attempt_get_type() const {
+        return this->entityDefiner->attempt_get_type();
     }
 
     virtual const TxType* get_type() const {

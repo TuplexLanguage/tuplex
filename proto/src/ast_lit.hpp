@@ -23,7 +23,7 @@ class IntValue {
 
 public:
     BuiltinTypeId typeId = (BuiltinTypeId)0;
-    unsigned long radix = 0;
+    unsigned long radix = 10;
     bool _signed = false;
     bool outOfRange = false;
     union {

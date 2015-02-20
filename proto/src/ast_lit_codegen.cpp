@@ -50,9 +50,9 @@ Value* TxIntegerLitNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     }
 //    IntegerType* type = static_cast<IntegerType*>(context.get_llvm_type(this->get_type()));
 //    ASSERT (type, "Could not get IntegerType for TxIntegerLitNode " << context.get_llvm_type(this->get_type()));
-//    auto value = ConstantInt::get(type, this->literal, 10);
-//    ASSERT (value->getSExtValue()==this->value, "LLVM's s-ext-int value " << value->getSExtValue() << "!=" << this->value);
-//    //auto value = ConstantInt::get(context.llvmContext, APInt(64, this->value, true));
+//    auto value = ConstantInt::get(type, this->intValue.value.u64, this->intValue._signed);
+////    ASSERT (value->getSExtValue()==this->value, "LLVM's s-ext-int value " << value->getSExtValue() << "!=" << this->value);
+////    //auto value = ConstantInt::get(context.llvmContext, APInt(64, this->value, true));
 //    return value;
 }
 

@@ -35,13 +35,16 @@ bool TxFieldEntity::is_statically_constant() const {
         // (The second condition might be removable in future, but now needed to avoid expecting e.g.
         // tx#Array#L to be statically constant)
         return false;
+    ResolutionContext resCtx;  // FIXME
+    const TxType* type;
     return ( this->get_storage() == TXS_GLOBAL
              || ( this->get_storage() == TXS_STATIC
                   && ( (! this->get_type()->is_modifiable() )
                        || ( this->initializerExpr && this->initializerExpr->is_statically_constant() ) ) )
              || ( // STACK or INSTANCE
-                  (! this->get_type()->is_modifiable() )
-                  && this->initializerExpr && this->initializerExpr->is_statically_constant() ) );
+                  type = const_cast<TxFieldEntity*>(this)->resolve_symbol_type(resCtx),
+                  ( type && ! type->is_modifiable()
+                    && this->initializerExpr && this->initializerExpr->is_statically_constant() ) ) );
 }
 
 const TxConstantProxy* TxFieldEntity::get_static_constant_proxy() const {
@@ -97,12 +100,14 @@ TxSymbolScope* TxTypeEntity::inner_lookup_member(std::vector<TxSymbolScope*>& pa
         if (auto fieldMember = dynamic_cast<const TxFieldEntity*>(member)) {
             // if static lookup and instance member, return its type instead
             if (static_lookup && fieldMember->get_storage() == TXS_INSTANCE) {
-                auto fieldType = fieldMember->get_type();
-                if (fieldType->is_modifiable())
-                    fieldType = fieldType->get_base_type();
-                member = fieldType->entity();
+                member = nullptr;
+                if (auto fieldType = fieldMember->attempt_get_type()) {
+                    if (fieldType->is_modifiable())
+                        fieldType = fieldType->get_base_type();
+                    member = fieldType->entity();
+                }
                 if (! member) {
-                    this->LOGGER().debug("No TxTypeEntity for type '%s' of field '%s'", fieldType->to_string().c_str(), fieldMember->get_full_name().to_string().c_str());
+                    this->LOGGER().debug("No type obtained for instance field '%s'", fieldMember->get_full_name().to_string().c_str());
                     return nullptr;
                 }
             }

@@ -1,5 +1,5 @@
-func first() Int {
-    ~v := 0
+func first() ULong {
+    ~v := 0UL
 
     if TRUE {
         v = v + 1
@@ -36,12 +36,12 @@ func first() Int {
         else { v = v + 4096 }
     }
 
-    expected := 1+4+32+64+256+512
+    expected : ULong = 1+4+32+64+256+512
     return v-expected
 }
 
-func second() Int {
-    ~v := 0
+func second() ULong {
+    ~v := 0UL
 
     if TRUE
         v = v + 1
@@ -64,11 +64,11 @@ func second() Int {
     else
         v = v + 1024
 
-    expected := 1+2+8+32+256
+    expected : ULong = 1+2+8+32+256
     return v-expected
 }
 
 func main() Int {
-    return first()
-    ##return second()
+    return Int(first())
+    ##return Int(second())
 }
