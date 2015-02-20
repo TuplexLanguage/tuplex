@@ -35,21 +35,19 @@ bool TxFieldEntity::is_statically_constant() const {
         // (The second condition might be removable in future, but now needed to avoid expecting e.g.
         // tx#Array#L to be statically constant)
         return false;
-    ResolutionContext resCtx;  // FIXME
-    const TxType* type;
-    return ( this->get_storage() == TXS_GLOBAL
-             || ( this->get_storage() == TXS_STATIC
-                  && ( (! this->get_type()->is_modifiable() )
-                       || ( this->initializerExpr && this->initializerExpr->is_statically_constant() ) ) )
-             || ( // STACK or INSTANCE
-                  type = const_cast<TxFieldEntity*>(this)->resolve_symbol_type(resCtx),
-                  ( type && ! type->is_modifiable()
-                    && this->initializerExpr && this->initializerExpr->is_statically_constant() ) ) );
+    if ( this->get_storage() == TXS_GLOBAL )
+        return true;
+    ResolutionContext resCtx;
+    if ( auto type = const_cast<TxFieldEntity*>(this)->resolve_symbol_type(resCtx) )
+        if (auto initExpr = this->get_init_expression() )
+            return ( ! type->is_modifiable() && initExpr->is_statically_constant() );
+    return false;
 }
 
 const TxConstantProxy* TxFieldEntity::get_static_constant_proxy() const {
-    if (this->is_statically_constant() && this->initializerExpr)
-        return this->initializerExpr->get_static_constant_proxy();
+    if (this->is_statically_constant())
+        if (auto initExpr = this->get_init_expression())
+            return initExpr->get_static_constant_proxy();
     return nullptr;
 }
 

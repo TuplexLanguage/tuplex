@@ -107,7 +107,10 @@ public:
 class TxFieldEntity : public TxDistinctEntity {
     const TxFieldStorage storage;
     const TxIdentifier dataspace;
-    const TxExpressionNode* initializerExpr;
+
+    inline const TxExpressionNode* get_init_expression() const {
+        return static_cast<const TxFieldDefiner*>(this->entityDefiner)->get_init_expression();
+    }
 
 protected:
     virtual bool declare_symbol(TxSymbolScope* symbol) override {
@@ -117,14 +120,15 @@ protected:
     }
 
 public:
-    TxFieldEntity(TxSymbolScope* parent, const std::string& name, TxTypeDefiner* entityDefiner, TxDeclarationFlags declFlags,
-                  TxFieldStorage storage, const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr)
-            : TxDistinctEntity(parent, name, entityDefiner, declFlags), storage(storage), dataspace(dataspace), initializerExpr(initializerExpr) {
+    TxFieldEntity(TxSymbolScope* parent, const std::string& name, TxFieldDefiner* entityDefiner, TxDeclarationFlags declFlags,
+                  TxFieldStorage storage, const TxIdentifier& dataspace)
+            : TxDistinctEntity(parent, name, entityDefiner, declFlags), storage(storage), dataspace(dataspace) {
         ASSERT ((declFlags | LEGAL_FIELD_DECL_FLAGS) == LEGAL_FIELD_DECL_FLAGS, "Illegal field declFlags: " << declFlags);
     }
 
     virtual TxFieldEntity* make_copy(const std::string& newName) const {
-        return new TxFieldEntity(this->get_outer(), newName, this->entityDefiner, this->get_decl_flags(), this->storage, this->dataspace, this->initializerExpr);
+        return new TxFieldEntity(this->get_outer(), newName, static_cast<TxFieldDefiner*>(this->entityDefiner),
+                                 this->get_decl_flags(), this->storage, this->dataspace);
     }
 
     inline TxFieldStorage get_storage() const { return this->storage; }

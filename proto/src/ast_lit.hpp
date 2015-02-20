@@ -50,13 +50,13 @@ class TxIntegerLitNode : public TxLiteralValueNode {
         IntConstantProxy(TxIntegerLitNode* intNode) : intNode(intNode) { }
         virtual const TxType* get_type() const override { return intNode->get_type(); }
         virtual uint32_t get_value_UInt() const override { return intNode->intValue.get_value_UInt(); }
-        virtual bool operator==(const TxConstantProxy& other) const override {
-            if (auto otherInt = dynamic_cast<const IntConstantProxy*>(&other)) {
-                return ( intNode->intValue._signed == otherInt->intNode->intValue._signed
-                         && intNode->intValue.value.u64 == otherInt->intNode->intValue.value.u64 );
-            }
-            else return false;
-        }
+//        virtual bool operator==(const TxConstantProxy& other) const override {
+//            if (auto otherInt = dynamic_cast<const IntConstantProxy*>(&other)) {
+//                return ( intNode->intValue._signed == otherInt->intNode->intValue._signed
+//                         && intNode->intValue.value.u64 == otherInt->intNode->intValue.value.u64 );
+//            }
+//            else return false;
+//        }
         virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
     } intConstProxy;
 

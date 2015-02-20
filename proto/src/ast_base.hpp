@@ -425,7 +425,7 @@ TxExpressionNode* validate_wrap_convert(ResolutionContext& resCtx, TxExpressionN
 TxExpressionNode* validate_wrap_assignment(ResolutionContext& resCtx, TxExpressionNode* rValueExpr, const TxType* requiredType);
 
 
-class TxFieldDefNode : public TxNode, public TxTypeDefiner {
+class TxFieldDefNode : public TxNode, public TxFieldDefiner {
     TxType const * cachedType = nullptr;
 
     bool modifiable;  // true if field name explicitly declared modifiable
@@ -478,18 +478,18 @@ public:
     }
 
     void symbol_declaration_pass_local_field(LexicalContext& lexContext, bool create_local_scope) {
-        auto outerCtx = lexContext;  // prevents type expr or init expr from referring to this field
+        auto outerCtx = lexContext;  // prevents init expr from referring to this field
         if (create_local_scope)
             lexContext.scope(lexContext.scope()->create_code_block_scope());
         this->declFlags = TXD_NONE;
-        this->declaredEntity = lexContext.scope()->declare_field(this->fieldName, this, declFlags, TXS_STACK, TxIdentifier(""), this->initExpression);
+        this->declaredEntity = lexContext.scope()->declare_field(this->fieldName, this, declFlags, TXS_STACK, TxIdentifier(""));
         this->symbol_declaration_pass(outerCtx, lexContext);
     }
 
     void symbol_declaration_pass_nonlocal_field(LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                                  TxFieldStorage storage, const TxIdentifier& dataspace) {
         this->declFlags = declFlags;
-        this->declaredEntity = lexContext.scope()->declare_field(this->fieldName, this, declFlags, storage, dataspace, this->initExpression);
+        this->declaredEntity = lexContext.scope()->declare_field(this->fieldName, this, declFlags, storage, dataspace);
         this->symbol_declaration_pass(lexContext, lexContext);
     }
 
@@ -538,17 +538,21 @@ public:
         return this->cachedType;
     }
 
-    TxFieldEntity* get_entity() const {
-        ASSERT(this->declaredEntity, "Declared field entity not initialized");
-        return this->declaredEntity;
-    }
-
     virtual const TxType* attempt_get_type() const override final {
         return cachedType;
     }
     virtual const TxType* get_type() const override final {
         ASSERT(this->is_context_set(), "Can't call get_type() before symbol table pass has completed: "  << this);
         return cachedType;
+    }
+
+    virtual const TxExpressionNode* get_init_expression() const override {
+        return this->initExpression;
+    }
+
+    TxFieldEntity* get_entity() const {
+        ASSERT(this->declaredEntity, "Declared field entity not initialized");
+        return this->declaredEntity;
     }
 
     void semantic_pass() {

@@ -34,7 +34,7 @@ type Type<E,L:UInt> derives Tuple {
 
 type Midtype<F,L:UInt> Type<F,(L)>
 
-LEN := 5UI
+LEN : UInt = 5
 type GlobalType Midtype<Float,(LEN)>
 
 func generics_test() Int {

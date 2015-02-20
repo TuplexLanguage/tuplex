@@ -23,7 +23,7 @@ static const BuiltinTypeId SCALAR_TYPE_IDS[] = {
 
 /*--- private classes providing indirection for fetching the built-in type objects ---*/
 
-class TxBuiltinTypeProxy final : public TxTypeDefiner {
+class TxBuiltinTypeProxy final : public TxFieldDefiner {
 public:
     const std::string name;
     const TxType* type;
@@ -31,6 +31,7 @@ public:
     TxBuiltinTypeProxy(const std::string name) : name(name), type() { }
     TxBuiltinTypeProxy(const std::string name, const TxType* type) : name(name), type(type) { }
 
+    virtual const TxExpressionNode* get_init_expression() const override { return nullptr; }
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
@@ -72,7 +73,7 @@ public:
 
 
 
-class BuiltinTypeRecord : public TxTypeDefiner {
+class BuiltinTypeRecord : public TxFieldDefiner {
     const TxType * type;
     TxTypeEntity * entity;
 public:
@@ -89,6 +90,7 @@ public:
         this->entity = entity;
     }
 
+    virtual const TxExpressionNode* get_init_expression() const override { return nullptr; }
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }

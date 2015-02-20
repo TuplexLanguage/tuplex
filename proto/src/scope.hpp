@@ -22,6 +22,15 @@ class ResolutionContext {
 };
 
 
+class TxFieldDefiner : public TxTypeDefiner {
+public:
+    /** Gets the TxExpressionNode that defines the initialization value for this field.
+     * Returns nullptr if there is no initializer.
+     */
+    virtual const TxExpressionNode* get_init_expression() const = 0;
+};
+
+
 /** Represents a Tuplex symbol and namespace/scope.
  * For example package (global namespace), modules, entities, code blocks.
  * A symbol has a unique qualified name, an outer (parent) scope (unless root),
@@ -147,9 +156,9 @@ public:
     virtual TxTypeEntity*  declare_type( const std::string& plainName, TxTypeDefiner* entityDefiner,
                                          TxDeclarationFlags declFlags);
 
-    virtual TxFieldEntity* declare_field(const std::string& plainName, TxTypeDefiner* entityDefiner,
+    virtual TxFieldEntity* declare_field(const std::string& plainName, TxFieldDefiner* entityDefiner,
                                          TxDeclarationFlags declFlags, TxFieldStorage storage,
-                                         const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr=nullptr);
+                                         const TxIdentifier& dataspace);
 
     virtual TxAliasEntity* declare_alias(const std::string& plainName, TxDeclarationFlags declFlags, TxDistinctEntity* aliasedEntity);
 

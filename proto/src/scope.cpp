@@ -203,10 +203,10 @@ TxTypeEntity* TxSymbolScope::declare_type(const std::string& plainName, TxTypeDe
     return dynamic_cast<TxTypeEntity*>(this->declare_entity(entity));
 }
 
-TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, TxTypeDefiner* entityDefiner,
+TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, TxFieldDefiner* entityDefiner,
                                             TxDeclarationFlags declFlags, TxFieldStorage storage,
-                                            const TxIdentifier& dataspace, const TxExpressionNode* initializerExpr) {
-    auto entity = new TxFieldEntity(this, plainName, entityDefiner, declFlags, storage, dataspace, initializerExpr);
+                                            const TxIdentifier& dataspace) {
+    auto entity = new TxFieldEntity(this, plainName, entityDefiner, declFlags, storage, dataspace);
     return dynamic_cast<TxFieldEntity*>(this->declare_entity(entity));
 }
 

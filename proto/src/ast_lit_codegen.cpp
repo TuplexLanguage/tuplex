@@ -26,7 +26,7 @@ Value* TxCharacterLitNode::code_gen(LlvmGenerationContext& context, GenScope* sc
 
 
 Value* TxIntegerLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s\t%d", this->to_string().c_str(), this->intValue.value.i64);
+    context.LOG.trace("%-48s\t%ld", this->to_string().c_str(), this->intValue.value.i64);
     switch (this->intValue.typeId) {
     case BYTE:
         return ConstantInt::get(IntegerType::getInt8Ty(context.llvmContext), this->intValue.value.i64, true);

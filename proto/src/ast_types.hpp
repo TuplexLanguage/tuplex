@@ -145,6 +145,10 @@ public:
         : TxTypeExpressionNode(parseLocation), identNode(identifier),
           typeArgs(new std::vector<TxTypeArgumentNode*>())  { }
 
+    virtual bool has_predefined_type() const override {
+        return this->typeArgs->empty();
+    }
+
     virtual void symbol_declaration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                          const std::string designatedTypeName = std::string(),
                                          const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr) override;

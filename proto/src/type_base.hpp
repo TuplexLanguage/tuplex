@@ -66,7 +66,7 @@ public:
 
     virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
 
-    virtual bool operator==(const TxConstantProxy& other) const = 0;
+    virtual bool operator==(const TxConstantProxy& other) const;
 
     inline virtual bool operator!=(const TxConstantProxy& other) const final {
         return ! this->operator==(other);

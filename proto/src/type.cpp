@@ -15,6 +15,7 @@ static Logger* LOGGER() {
 
 bool TxConstantProxy::operator==(const TxConstantProxy& other) const {
     // simple since we so far only support UInt values
+    // FUTURE: improve as more value getters added
     return *this->get_type() == *other.get_type()
            && this->get_value_UInt() == other.get_value_UInt();
 }

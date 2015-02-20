@@ -228,15 +228,14 @@ Value* TxScalarConvNode::code_gen(LlvmGenerationContext& context, GenScope* scop
         if (intType->sign)
             dstSigned = true;
     Instruction::CastOps cop = CastInst::getCastOpcode(origValue, srcSigned, targetLlvmType, dstSigned);
-    ASSERT(cop, "No CastOps code found for cast from " << this->expr->get_type() << " to "    //return new GlobalVariable(context.llvmModule, str->getType(), true, GlobalValue::InternalLinkage, str, "");
- << this->targetType);
-    if (this->is_statically_constant() && !scope) {  // seems we can only do this in global scope?
-        context.LOG.debug("constant cast -> %s", this->targetType->to_string().c_str());
-        return ConstantExpr::getCast(cop, (Constant*)origValue, targetLlvmType);
+    ASSERT(cop, "No CastOps code found for cast from " << this->expr->get_type() << " to " << this->targetType);
+    if (!scope) {
+        ASSERT(this->is_statically_constant(), "Non-statically-constant expression in global scope: " << this);
+        context.LOG.debug("non-local scope cast -> %s", this->targetType->to_string().c_str());
+        return ConstantExpr::getCast(cop, cast<Constant>(origValue), targetLlvmType);
     }
     else {
-        ASSERT(scope, "scope is NULL, although expression is not constant and thus should be within runtime block");
-        context.LOG.debug("non-constant cast -> %s", this->targetType->to_string().c_str());
+        context.LOG.debug("local scope cast -> %s", this->targetType->to_string().c_str());
         return scope->builder->CreateCast(cop, origValue, targetLlvmType, "");
     }
 /* for reference, copied from Instruction.def:
@@ -254,6 +253,16 @@ HANDLE_CAST_INST(43, IntToPtr, IntToPtrInst)  // Integer -> Pointer
 HANDLE_CAST_INST(44, BitCast , BitCastInst )  // Type cast
 HANDLE_CAST_INST(45, AddrSpaceCast, AddrSpaceCastInst)  // addrspace cast
 */
+}
+
+
+Constant* TxScalarConvNode::ScalarConvConstantProxy::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s -> %s", typeid(*this).name(), this->convNode->targetType->to_string().c_str());
+    auto value = this->convNode->code_gen(context, scope);
+    if (auto constant = dyn_cast<Constant>(value))
+        return constant;
+    context.LOG.error("%s: 'constant' scalar conversion did not generate a constant value: %s", this->convNode->parse_loc_string().c_str(), ::to_string(value).c_str());
+    return nullptr;
 }
 
 

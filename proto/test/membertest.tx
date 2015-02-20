@@ -16,6 +16,7 @@ type CompoundType mod derives Tuple {
 }
 
 type Subtype mod derives CompoundType {
+    ##subfield1 : ~Long
 }
 
 func testfunc() {

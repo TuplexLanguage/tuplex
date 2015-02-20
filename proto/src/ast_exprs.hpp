@@ -40,14 +40,39 @@ public:
 };
 
 class TxScalarConvNode : public TxConversionNode {
+    class ScalarConvConstantProxy : public TxConstantProxy {
+        const TxScalarConvNode* convNode;
+        const TxConstantProxy* originalConstant;
+
+    public:
+        ScalarConvConstantProxy() : convNode(), originalConstant()  { }
+        ScalarConvConstantProxy(const TxScalarConvNode* convNode, const TxConstantProxy* originalConstant)
+            : convNode(convNode), originalConstant(originalConstant)  { }
+
+        void init(const TxScalarConvNode* convNode, const TxConstantProxy* originalConstant) {
+            this->convNode = convNode;
+            this->originalConstant = originalConstant;
+        }
+
+        inline const TxConstantProxy* original_constant() const { return this->originalConstant; }
+        virtual const TxType* get_type() const override { return this->convNode->targetType; }
+        virtual uint32_t get_value_UInt() const override { return this->originalConstant->get_value_UInt(); }
+        virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    };
+
+    ScalarConvConstantProxy constProxy;
 public:
     TxScalarConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxScalarType* targetType)
-        : TxConversionNode(parseLocation, expr, targetType) { }
+        : TxConversionNode(parseLocation, expr, targetType), constProxy()  { }
+
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxConversionNode::symbol_resolution_pass(resCtx);
+        if (auto originalConstant = this->expr->get_static_constant_proxy())
+            this->constProxy.init(this, originalConstant);
+    }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        // TODO: proper implementation
-        //if (*targetType == this->types().get_builtin_type(UINT))
-        return expr->get_static_constant_proxy();
+        return (this->constProxy.original_constant() ? &this->constProxy : nullptr);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;

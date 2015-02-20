@@ -1,22 +1,10 @@
 module my
 
-public type PType<O derives Any, P derives Any> {
-    static MEMBER : Int = 1
+public type Vector<E,L:UInt> {
 }
 
-public type PTypeMid<P> PType<P,Int>
-
-public type PTypeSub PTypeMid<Float>
-
 func main() Int {
-    ##tst : PType.E
-
-    mem := PTypeSub.MEMBER
-    fop : PTypeSub.my#PType#P = 5
-    foo1 : PTypeSub.P = 11.
-    foo2 : PTypeSub.my#PType#O = 12.
-
-    ##return fop
-    ##return Int(foo1)
-    return Int( foo1 + foo2 )
+    a : Array<Int,10>
+    v : Vector<Int,10>
+    return Int(a.L)
 }
