@@ -429,6 +429,7 @@ class TxFieldDefNode : public TxNode, public TxFieldDefiner {
     TxType const * cachedType = nullptr;
 
     bool modifiable;  // true if field name explicitly declared modifiable
+    TxTypeDefiner* typeDefiner;  // optional, non-code-generating type definer (can't be specified at same time as typeExpression)
     TxDeclarationFlags declFlags = TXD_NONE;
     TxFieldEntity* declaredEntity;  // null until initialized in symbol registration pass
 
@@ -464,14 +465,14 @@ public:
 
     TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
                    TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression)
-            : TxNode(parseLocation), modifiable(false), declaredEntity(), fieldName(fieldName) {
+            : TxNode(parseLocation), modifiable(false), typeDefiner(), declaredEntity(), fieldName(fieldName) {
         validateFieldName(this, declFlags, fieldName);
         this->typeExpression = typeExpression;
         this->initExpression = initExpression;
     }
     TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
-                   TxExpressionNode* initExpression, bool modifiable=false)
-            : TxNode(parseLocation), modifiable(modifiable), declaredEntity(), fieldName(fieldName) {
+                   TxExpressionNode* initExpression, bool modifiable=false, TxTypeDefiner* typeDefiner=nullptr)
+            : TxNode(parseLocation), modifiable(modifiable), typeDefiner(typeDefiner), declaredEntity(), fieldName(fieldName) {
         validateFieldName(this, declFlags, fieldName);
         this->typeExpression = nullptr;
         this->initExpression = initExpression;
@@ -504,7 +505,7 @@ public:
         }
         if (this->initExpression) {
             this->initExpression->symbol_resolution_pass(resCtx);
-            if (this->typeExpression)
+            if ((this->typeExpression || this->typeDefiner) && this->cachedType)
                 this->initExpression = validate_wrap_convert(resCtx, this->initExpression, this->cachedType);
             if (this->get_entity()->is_statically_constant())
                 if (! this->initExpression->is_statically_constant())
@@ -520,6 +521,9 @@ public:
             LOGGER().trace("resolving symbols of %s", this->to_string().c_str());
             if (this->typeExpression) {
                 this->cachedType = this->typeExpression->resolve_type(resCtx);
+            }
+            else if (this->typeDefiner) {
+                this->cachedType = this->typeDefiner->resolve_type(resCtx);
             }
             else {
                 this->cachedType = this->initExpression->resolve_type(resCtx);

@@ -22,8 +22,6 @@ public:
     virtual bool is_final() const { return true; }
     virtual bool is_abstract() const { return false; }
 
-    virtual llvm::Value* code_gen_size(LlvmGenerationContext& context, GenScope* scope) const override;
-
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
 

@@ -58,9 +58,9 @@ public:
             ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
             if (param.meta_type() != param.TXB_VALUE)
                 cerror("Provided a TYPE argument to VALUE parameter %s", pname.c_str());
-            // TODO: pass the param's type-definer to the field def, so that proper type checking is done
-            auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, pname, this->valueExprNode);
-            this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_STATIC | TXD_IMPLICIT, fieldDef);
+            auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, pname, this->valueExprNode, false, param.get_base_type_definer());
+            // (passes the param's type-definer to the field def, so that proper type checking is done)
+            this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
             this->fieldDeclNode->symbol_declaration_pass(this->context());
             this->valueExprNode->resolve_type(resCtx);
             return TxGenericBinding::make_value_binding(param.param_name(), this->valueExprNode);

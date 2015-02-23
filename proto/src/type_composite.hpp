@@ -69,6 +69,9 @@ public:
     virtual llvm::Value* code_gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName="") const override;
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
+
+private:
+    llvm::Value* inner_code_gen_size(LlvmGenerationContext& context, GenScope* scope, llvm::Value* elemSize, llvm::Value* arrayLen) const;
 };
 
 

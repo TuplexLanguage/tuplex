@@ -14,8 +14,8 @@
 #include <llvm/Support/raw_ostream.h>
 
 #include "txassert.hpp"
+#include "tx_lang_defs.hpp"
 #include "llvm_generator.hpp"
-//#include "type_registry.hpp"
 
 
 /** Add main function so can be fully compiled

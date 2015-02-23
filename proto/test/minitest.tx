@@ -1,13 +1,14 @@
 module my
 
-public type Vector<E,L:UInt> {
+public type Vector<E,L:UInt> derives Tuple {
+    array : [L]Float
 }
 
 func main() Int {
     a : Array<UByte,10> = c"123456789"
-    v : Vector<Int,10>
+    v : Vector<Int,10UI>
     tx.c.puts(a[0])
     ~len := 10
     d : Array<Int,(len)>
-    return Int(a.L)
+    return Int(d.L)
 }
