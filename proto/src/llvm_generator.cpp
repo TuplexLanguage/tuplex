@@ -243,7 +243,7 @@ public:
         ResolutionContext resCtx;  // FIXME
         if (auto e = txType.element_type(resCtx)) {
             if (llvm::Type* elemType = this->context.get_llvm_type(e)) {
-                long arrayLen;
+                uint32_t arrayLen;
                 if (auto lenExpr = txType.length(resCtx)) {
                     // concrete array (specific length)
                     if (auto lenProxy = lenExpr->get_static_constant_proxy()) {

@@ -24,6 +24,8 @@ class TxTypeDefiner;
 class LlvmGenerationContext;
 class GenScope;
 namespace llvm {
+    class Type;
+    class Value;
     class Constant;
 }
 
@@ -374,6 +376,11 @@ public:
      */
     bool is_virtual_specialization() const;
 
+    /** Returns true if this type extends its base type with additional instance members.
+     * (Generic type specialization is regarded as specialization, not extension, and does thus
+     * not cause this method to return true.)
+     */
+    virtual bool is_datatype_extension() const;
 
 
     /*--- inherited namespace lookup ---*/
@@ -452,16 +459,7 @@ public:
 
     /** Returns true iff the two types are equal in the Tuplex language definition sense.
      * Note that named types are non-equal if not same name. */
-    inline virtual bool operator==(const TxType& other) const {
-        auto explEnt = this->explicit_entity();
-        return explEnt == other.explicit_entity()  // same entity or both null
-               && ( explEnt
-                    // if unnamed but identical, pure specialization:
-                    || ( typeid(*this) == typeid(other)
-                         && this->baseTypeSpec == other.baseTypeSpec
-                         && this->type_params() == other.type_params() ) );
-        // (interfaces and members can only apply to a type with an entity, and an entity can have only one type instance)
-    }
+    virtual bool operator==(const TxType& other) const;
 
     /** Returns true iff the two types are unequal in the Tuplex language definition sense. */
     inline bool operator!=(const TxType& other) const  { return ! this->operator==(other); }
@@ -497,6 +495,10 @@ private:
 
 
 public:
+    virtual llvm::Type* get_llvm_type(LlvmGenerationContext& context) const;
+    virtual llvm::Value* code_gen_size(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName="") const;
+
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 
 

@@ -48,19 +48,17 @@ public:
     TxPackage& tuplexPackage;
 
 	llvm::LLVMContext& llvmContext;
-    llvm::Module& llvmModule;
+    llvm::Module llvmModule;
+    llvm::DataLayout dataLayout;
 
     LlvmGenerationContext(TxPackage& tuplexPackage)
         : tuplexPackage(tuplexPackage),
-          llvmContext( llvm::getGlobalContext() ),
-          llvmModule( * new llvm::Module("top", this->llvmContext) )
+          llvmContext(llvm::getGlobalContext()),
+          llvmModule("top", this->llvmContext),
+          dataLayout(&llvmModule)
         {
     		this->initialize_builtin_types();
         }
-
-    void dump() const {
-        this->llvmModule.dump();
-    }
 
 
     llvm::Type* get_llvm_type(const TxType* txType);
@@ -89,13 +87,6 @@ public:
     void write_bitcode(const std::string& filepath);
 
     void run_code();
-
-    /*
-    std::map<std::string, Value*>& locals() { return blocks.top()->locals; }
-    BasicBlock *currentBlock() { return blocks.top()->block; }
-    void pushBlock(BasicBlock *block) { blocks.push(new CodeGenBlock()); blocks.top()->block = block; }
-    void popBlock() { CodeGenBlock *top = blocks.top(); blocks.pop(); delete top; }
-  */
 };
 
 

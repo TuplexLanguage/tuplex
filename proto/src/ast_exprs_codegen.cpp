@@ -53,7 +53,7 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
         ASSERT(Instruction::isBinaryOp(llvm_op), "Not a valid LLVM binary op: " << llvm_op);
         Instruction::BinaryOps binop_instr = (Instruction::BinaryOps) llvm_op;
         if (this->is_statically_constant() && !scope)  // seems we can only do this in global scope?
-            return ConstantExpr::get(binop_instr, (Constant*)lval, (Constant*)rval);
+            return ConstantExpr::get(binop_instr, cast<Constant>(lval), cast<Constant>(rval));
         else {
             ASSERT(scope, "scope is NULL, although expression is not constant and thus should be within runtime block");
             return scope->builder->CreateBinOp(binop_instr, lval, rval, fieldName);
@@ -63,7 +63,7 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
     else { // if (op_class == TXOC_EQUALITY || op_class == TXOC_COMPARISON) {
         CmpInst::Predicate cmp_pred = (CmpInst::Predicate) llvm_op;
         if (this->is_statically_constant() && !scope)  // seems we can only do this in global scope?
-            return ConstantExpr::getCompare(cmp_pred, (Constant*)lval, (Constant*)rval);
+            return ConstantExpr::getCompare(cmp_pred, cast<Constant>(lval), cast<Constant>(rval));
         else {
             ASSERT(scope, "scope is NULL, although expression is not constant and thus should be within runtime block");
             if (int_operands) {

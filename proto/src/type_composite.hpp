@@ -64,6 +64,10 @@ public:
 
     virtual bool innerAutoConvertsFrom(const TxType& otherType) const override;
 
+    //virtual llvm::Type* get_llvm_type(LlvmGenerationContext& context) const override;
+    virtual llvm::Value* code_gen_size(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName="") const override;
+
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
 
@@ -246,11 +250,13 @@ public:
         ASSERT(entity, "NULL entity");
     }
 
-    virtual bool is_abstract() const { return this->abstract; }
+    virtual bool is_abstract() const override { return this->abstract; }
 
-    virtual bool is_immutable() const { return !this->_mutable; }
+    virtual bool is_immutable() const override { return !this->_mutable; }
 
-    virtual bool innerAutoConvertsFrom(const TxType& someType) const {
+    virtual bool is_datatype_extension() const override;
+
+    virtual bool innerAutoConvertsFrom(const TxType& someType) const override {
         return (*this) == someType;
     }
 

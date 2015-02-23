@@ -243,8 +243,8 @@ public:
                     }
                 }
                 else {
-                    this->LOGGER().error("Can't declare instance members in a non-tuple type: %s", type->to_string().c_str());
-                    valid = false;
+                    //this->LOGGER().error("Can't declare instance members in a non-tuple type: %s", type->to_string().c_str());
+                    //valid = false;
                 }
             }
         }

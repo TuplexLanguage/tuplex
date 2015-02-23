@@ -6,6 +6,7 @@
 #include "files_env.hpp"
 #include "tinydir/tinydir.h"
 
+#include "tx_lang_defs.hpp"
 #include "llvm_generator.hpp"
 
 #include "parser.hpp"
@@ -245,7 +246,7 @@ std::string* TxDriver::current_input_filepath() {
 
 
 int TxDriver::llvm_compile() {
-    auto genContext = LlvmGenerationContext(*this->package);
+    LlvmGenerationContext genContext(*this->package);
     for (auto parsedAST : this->parsedASTs) {
         genContext.generate_code(*parsedAST);
     }

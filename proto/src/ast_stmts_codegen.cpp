@@ -14,12 +14,12 @@ using namespace llvm;
 //    return tmpB.CreateAlloca(varType, 0, varName);
 //}
 
-/** Create an alloca instruction in the entry block of the current function.
- * This is used for variables encountered throughout the function that shall be viable for mem2reg.
- */
-static AllocaInst *create_alloca(GenScope* scope, Type* varType, const std::string &varName) {
-    return scope->builder->CreateAlloca(varType, 0, varName);
-}
+///** Create an alloca instruction in the appropriate block of the current function.
+// * This is used for variables encountered throughout the function.
+// */
+//static AllocaInst *create_alloca(GenScope* scope, Type* varType, const std::string &varName) {
+//    return scope->builder->CreateAlloca(varType, 0, varName);
+//}
 
 /** @param lval must be of pointer type */
 static Value* do_store(LlvmGenerationContext& context, GenScope* scope, Value* lval, Value* rval) {
@@ -58,10 +58,10 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
         auto entity = (*argDefI)->get_entity();
         fArgI->setName(entity->get_name());
         auto txType = entity->get_type();
-        Type* llvmType = context.get_llvm_type(txType);
-        if (! llvmType)
-            return nullptr;
-        auto argField = create_alloca(&fscope, llvmType, entity->get_name() + "_");
+//        Type* llvmType = context.get_llvm_type(txType);
+//        if (! llvmType)
+//            return nullptr;
+        auto argField = txType->code_gen_alloca(context, &fscope, entity->get_name() + "_");
         do_store(context, &fscope, argField, fArgI);
         context.register_llvm_value(entity->get_full_name().to_string(), argField);
     }
@@ -86,20 +86,8 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     auto entity = this->field->get_entity();
     ASSERT (entity->get_storage() == TXS_STACK, "TxFieldStmtNode can only apply to TX_STACK storage fields: " << entity->get_full_name());
     auto txType = entity->get_type();
-    Type* llvmType = context.get_llvm_type(txType);
-    if (! llvmType) {
-        return nullptr;
-    }
     Value* fieldVal;
-    if (llvmType->isFirstClassType()) {
-        fieldVal = create_alloca(scope, llvmType, entity->get_name());
-        if (this->field->initExpression) {
-            // create implicit assignment statement
-            if (Value* initializer = this->field->initExpression->code_gen(context, scope))
-                do_store(context, scope, fieldVal, initializer);
-        }
-    }
-    else if (llvmType->isFunctionTy()) {
+    if (dynamic_cast<const TxFunctionType*>(txType)) {
         // FUTURE: make local function capture
         if (this->field->initExpression)
             fieldVal = this->field->initExpression->code_gen(context, scope);
@@ -109,8 +97,14 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
             return nullptr;
         }
     }
-    else  // void
-        return nullptr;
+    else {  // LLVM "FirstClassType"
+        fieldVal = txType->code_gen_alloca(context, scope, entity->get_name());
+        if (this->field->initExpression) {
+            // create implicit assignment statement
+            if (Value* initializer = this->field->initExpression->code_gen(context, scope))
+                do_store(context, scope, fieldVal, initializer);
+        }
+    }
     context.register_llvm_value(entity->get_full_name().to_string(), fieldVal);
     return fieldVal;
 }

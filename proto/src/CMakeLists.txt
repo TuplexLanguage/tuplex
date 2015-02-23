@@ -112,6 +112,7 @@ add_executable(txc
         scope.cpp
         entity.cpp
         type_registry.cpp
+        type_codegen.cpp
         ast_base_codegen.cpp
         ast_exprs_codegen.cpp
         ast_lit_codegen.cpp

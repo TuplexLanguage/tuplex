@@ -4,7 +4,10 @@ public type Vector<E,L:UInt> {
 }
 
 func main() Int {
-    a : Array<Int,10>
+    a : Array<UByte,10> = c"123456789"
     v : Vector<Int,10>
+    tx.c.puts(a[0])
+    ~len := 10
+    d : Array<Int,(len)>
     return Int(a.L)
 }

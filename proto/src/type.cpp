@@ -151,7 +151,7 @@ bool TxType::is_pure_specialization() const {
              || ( this->has_base_type() && this->interfaces.empty()
                   && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
                   && typeid(*this) == typeid(*this->baseTypeSpec.type)
-                  && !( this->_entity && this->_entity->has_instance_fields() ) ) );
+                  && !this->is_datatype_extension() ) );
 }
 
 bool TxType::is_empty_specialization() const {
@@ -160,7 +160,7 @@ bool TxType::is_empty_specialization() const {
              && typeid(*this) == typeid(*this->baseTypeSpec.type)
              && this->baseTypeSpec.bindings.empty()
              && !this->baseTypeSpec.modifiable
-             && !( this->_entity && this->_entity->has_instance_fields() ) );
+             && !this->is_datatype_extension() );
 }
 
 bool TxType::is_virtual_specialization() const {
@@ -169,7 +169,11 @@ bool TxType::is_virtual_specialization() const {
                   && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
                   && typeid(*this) == typeid(*this->baseTypeSpec.type)
                   && this->baseTypeSpec.bindings.empty()
-                  && !( this->_entity && this->_entity->has_instance_fields() ) ) );
+                  && !this->is_datatype_extension() ) );
+}
+
+bool TxType::is_datatype_extension() const {
+    return false;
 }
 
 
@@ -252,6 +256,18 @@ const TxExpressionNode* TxType::resolve_param_value(ResolutionContext& resCtx, c
     return nullptr;  // no such type parameter name in type specialization hierarchy
 }
 
+
+
+bool TxType::operator==(const TxType& other) const {
+    auto explEnt = this->explicit_entity();
+    return explEnt == other.explicit_entity()  // same entity or both null
+           && ( explEnt
+                // if unnamed but identical, pure specialization:
+                || ( typeid(*this) == typeid(other)
+                     && this->baseTypeSpec == other.baseTypeSpec
+                     && this->type_params() == other.type_params() ) );
+    // (interfaces and members can only apply to a type with an entity, and an entity can have only one type instance)
+}
 
 
 bool TxType::is_a(const TxType& other) const {
@@ -411,4 +427,10 @@ bool TxReferenceType::innerAutoConvertsFrom(const TxType& otherType) const {
     }
     else
         return false;
+}
+
+
+
+bool TxTupleType::is_datatype_extension() const {
+    return this->entity() && this->entity()->has_instance_fields();
 }

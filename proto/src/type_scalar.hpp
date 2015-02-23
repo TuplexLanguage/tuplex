@@ -5,7 +5,7 @@
 
 class TxScalarType : public TxType {
 protected:
-    const int _size;
+    const uint64_t _size;
 
     virtual TxScalarType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                                 const std::vector<TxTypeParam>& typeParams,
@@ -13,20 +13,18 @@ protected:
         throw std::logic_error("Can't specialize type " + this->to_string());
     };
 
-    TxScalarType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec, int size)
+    TxScalarType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec, uint64_t size)
         : TxType(entity, baseTypeSpec), _size(size) { }
 
 public:
-    virtual long size() const { return this->_size; }
+    virtual uint64_t size() const { return this->_size; }
     virtual bool is_immutable() const { return false; }
     virtual bool is_final() const { return true; }
     virtual bool is_abstract() const { return false; }
 
-    virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
+    virtual llvm::Value* code_gen_size(LlvmGenerationContext& context, GenScope* scope) const override;
 
-//    virtual std::string to_string() const {
-//        return std::string(this->is_modifiable() ? "MOD " : "") + typeid(*this).name() + "_" + std::to_string(this->_size*8) + "b";
-//    }
+    virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
 
 class TxIntegerType final : public TxScalarType {
