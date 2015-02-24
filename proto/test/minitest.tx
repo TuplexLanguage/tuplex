@@ -1,14 +1,21 @@
 module my
 
-public type Vector<E,L:UInt> derives Tuple {
-    array : [L]Float
+public type Pair {
+    d : Double
+    l : Long
+}
+
+public type Vector<E> derives Tuple {
+    array1 : [5]Float
+    array2 : Array<E,(10)>
+    array3 : Array<Float,5>
+    pair : Pair
 }
 
 func main() Int {
-    a : Array<UByte,10> = c"123456789"
-    v : Vector<Int,10UI>
-    tx.c.puts(a[0])
-    ~len := 10
-    d : Array<Int,(len)>
-    return Int(d.L)
+    ##a : Array<UByte,10> = c"123456789"
+    ##tx.c.puts(a[0])
+    len := 10
+    v : Vector<Int>
+    return len
 }

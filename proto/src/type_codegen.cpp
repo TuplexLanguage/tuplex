@@ -19,20 +19,17 @@ static Value* code_gen_4_multiple(LlvmGenerationContext& context, GenScope* scop
 
 
 
-Type* TxType::get_llvm_type(LlvmGenerationContext& context) const {
-    return context.get_llvm_type(this);
-}
-
 Value* TxType::code_gen_size(LlvmGenerationContext& context, GenScope* scope) const {
-    Type* llvmType = this->get_llvm_type(context);
+    ASSERT(this->is_concrete(), "Attempted to codegen size of non-concrete type " << this);
+    Type* llvmType = context.get_llvm_type(this);  // (gets the cached LLVM type if previously accessed)
     if (! llvmType)
         return nullptr;
     return ConstantExpr::getSizeOf(llvmType);
 }
 
 Value* TxType::code_gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName) const {
-    ASSERT(this->is_concrete(), "Attempted to codegen size of non-concrete type " << this);
-    Type* llvmType = this->get_llvm_type(context);
+    ASSERT(this->is_concrete(), "Attempted to codegen alloca of non-concrete type " << this);
+    Type* llvmType = context.get_llvm_type(this);  // (gets the cached LLVM type if previously accessed)
     if (! llvmType)
         return nullptr;
     return scope->builder->CreateAlloca(llvmType, 0, varName);
@@ -40,7 +37,76 @@ Value* TxType::code_gen_alloca(LlvmGenerationContext& context, GenScope* scope, 
 
 
 
+Type* TxIntegerType::make_llvm_type(LlvmGenerationContext& context) const {
+    switch (this->_size) {
+    case 1:
+        return llvm::Type::getInt8Ty(context.llvmContext);
+    case 2:
+        return llvm::Type::getInt16Ty(context.llvmContext);
+    case 4:
+        return llvm::Type::getInt32Ty(context.llvmContext);
+    case 8:
+        return llvm::Type::getInt64Ty(context.llvmContext);
+    default:
+        context.LOG.error("Unsupported integer size %ld in type %s", this->_size, this->to_string().c_str());
+        return nullptr;
+    }
+}
+
+Type* TxFloatingType::make_llvm_type(LlvmGenerationContext& context) const {
+    switch (this->_size) {
+    case 2:
+        return llvm::Type::getHalfTy(context.llvmContext);
+    case 4:
+        return llvm::Type::getFloatTy(context.llvmContext);
+    case 8:
+        return llvm::Type::getDoubleTy(context.llvmContext);
+    default:
+        context.LOG.error("Unsupported floating-point size %ld in type %s", this->_size, this->to_string().c_str());
+        return nullptr;
+    }
+}
+
+
+
+Type* TxArrayType::make_llvm_type(LlvmGenerationContext& context) const {
+    //std::cout << "ArrayType make_llvm_type() " << ((void*)this) << std::endl;
+    ResolutionContext resCtx;
+    auto txElemType = this->element_type(resCtx);
+    if (! txElemType) {
+        context.LOG.error("Generic arrays with unspecified element type can't be directly mapped: %s", this->to_string().c_str());
+        return nullptr;
+    }
+    llvm::Type* elemType = context.get_llvm_type(txElemType);
+    if (! elemType) {
+        context.LOG.error("No LLVM type mapping for array element type: %s", txElemType->get_type()->to_string().c_str());
+        return nullptr;
+    }
+
+    uint32_t arrayLen;
+    if (auto lenExpr = this->length(resCtx)) {
+        // concrete array (specific length)
+        if (auto lenProxy = lenExpr->get_static_constant_proxy())
+            arrayLen = lenProxy->get_value_UInt();  // length is statically specified
+        else
+            arrayLen = 0;  // length is dynamically specified
+    }
+    else {
+        // Generic arrays with unspecified length are mapped as zero length,
+        // so they can be referenced from e.g. references.
+        arrayLen = 0;
+    }
+    std::vector<llvm::Type*> llvmMemberTypes {
+        llvm::Type::getInt32Ty(context.llvmContext),
+        llvm::ArrayType::get(elemType, arrayLen)
+    };
+    auto llvmType = llvm::StructType::get(context.llvmContext, llvmMemberTypes);
+    context.LOG.debug("Mapping array type %s -> %s", this->to_string().c_str(), to_string(llvmType).c_str());
+    return llvmType;
+}
+
 Value* TxArrayType::code_gen_size(LlvmGenerationContext& context, GenScope* scope) const {
+    ASSERT(this->is_concrete(), "Attempted to codegen size of non-concrete type " << this);
     ResolutionContext resCtx;
     Value* elemSize = this->element_type(resCtx)->code_gen_size(context, scope);
     Value* arrayLen = this->length(resCtx)->code_gen(context, scope);
@@ -71,7 +137,7 @@ Value* TxArrayType::inner_code_gen_size(LlvmGenerationContext& context, GenScope
 Value* TxArrayType::code_gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName) const {
     //std::cout << "ArrayType code_gen_alloca('" << varName << "')" << std::endl;
     Type* headerType = Type::getInt32Ty(context.llvmContext);
-    ASSERT(this->is_concrete(), "Attempted to codegen size of non-concrete type " << this);
+    ASSERT(this->is_concrete(), "Attempted to codegen alloca of non-concrete type " << this);
 
     // construct LLVM array type:
     ResolutionContext resCtx;
@@ -113,4 +179,67 @@ Value* TxArrayType::code_gen_alloca(LlvmGenerationContext& context, GenScope* sc
     scope->builder->CreateStore(arrayLen, lenField);
 
     return arrayObj;
+}
+
+
+
+Type* TxReferenceType::make_llvm_type(LlvmGenerationContext& context) const {
+    // Note: a reference is always 'concrete'
+    ResolutionContext resCtx;
+    if (auto txTargetType = this->target_type(resCtx)) {
+        if (llvm::Type* targetType = context.get_llvm_type(txTargetType)) {
+            context.LOG.debug("Mapping reference type %s", this->to_string().c_str());
+            return llvm::PointerType::getUnqual(targetType);
+        }
+        else
+            context.LOG.error("No LLVM type mapping for reference target type: %s", txTargetType->to_string().c_str());
+    }
+    else
+        context.LOG.error("Unknown target type of reference type %s", this->to_string().c_str());
+    return nullptr;
+}
+
+
+
+Type* TxFunctionType::make_llvm_type(LlvmGenerationContext& context) const {
+    std::vector<llvm::Type*> llvmArgTypes;
+    for (auto argTxType : this->argumentTypes) {
+        llvmArgTypes.push_back(context.get_llvm_type(argTxType));
+        context.LOG.debug("Mapping arg type %s to %s", argTxType->to_string().c_str(), ::to_string(llvmArgTypes.back()).c_str());
+    }
+    llvm::Type* llvmRetType = this->returnType
+                              ? context.get_llvm_type(this->returnType)
+                              : llvm::Type::getVoidTy(context.llvmContext);
+    llvm::FunctionType *ftype = llvm::FunctionType::get(llvmRetType, llvmArgTypes, false);
+    return ftype;
+}
+
+
+
+Type* TxTupleType::make_llvm_type(LlvmGenerationContext& context) const {
+    if (! this->is_concrete()) {
+        context.LOG.warning("making LLVM type of non-concrete type %s", this->to_string().c_str());
+        return llvm::StructType::create(context.llvmContext);  // creates opaque (empty placeholder) structure
+    }
+    auto entity = this->entity();
+    if (! entity) {
+        context.LOG.error("No entity for Tuple type %s - can't perform LLVM type mapping", this->to_string().c_str());
+        return nullptr;
+    }
+    context.LOG.debug("Mapping tuple type %s: %s", entity->get_full_name().to_string().c_str(), this->to_string(true).c_str());
+    std::vector<llvm::Type*> llvmMemberTypes;
+    for (const TxType* t = this; dynamic_cast<const TxTupleType*>(t); t = t->get_base_type()) {
+        if (auto e = t->entity()) {
+            std::vector<llvm::Type*> members;
+            for (auto memberTxType : e->get_instance_field_types()) {
+                auto lMemberType = context.get_llvm_type(memberTxType);
+                members.push_back(lMemberType);
+                context.LOG.debug("Mapping member type %s to %s", memberTxType->to_string().c_str(), ::to_string(lMemberType).c_str());
+            }
+            llvmMemberTypes.insert(llvmMemberTypes.begin(), members.begin(), members.end());
+        }
+    }
+    // note: create() might be better for "named" struct types?
+    llvm::StructType* stype = llvm::StructType::get(context.llvmContext, llvmMemberTypes);
+    return stype;
 }

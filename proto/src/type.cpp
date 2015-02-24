@@ -175,6 +175,10 @@ bool TxType::is_datatype_extension() const {
     return false;
 }
 
+bool TxType::is_statically_sized() const {
+    return this->is_concrete();
+}
+
 
 const TxType* TxType::get_base_type() const {
     if (! has_base_type())
@@ -375,6 +379,12 @@ void TxType::self_string(std::stringstream& str, bool brief) const {
 }
 
 
+
+bool TxArrayType::is_statically_sized() const {
+    ResolutionContext resCtx;
+    return this->is_concrete() && this->element_type(resCtx)->is_statically_sized()
+           && this->length(resCtx)->is_statically_constant();
+}
 
 bool TxArrayType::innerAutoConvertsFrom(const TxType& otherType) const {
     ResolutionContext resCtx;  // FIXME

@@ -62,9 +62,11 @@ public:
 
     virtual bool is_abstract() const { return false; }
 
+    virtual bool is_statically_sized() const override;
+
     virtual bool innerAutoConvertsFrom(const TxType& otherType) const override;
 
-    //virtual llvm::Type* get_llvm_type(LlvmGenerationContext& context) const override;
+    virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
     virtual llvm::Value* code_gen_size(LlvmGenerationContext& context, GenScope* scope) const override;
     virtual llvm::Value* code_gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName="") const override;
 
@@ -115,6 +117,8 @@ public:
     // FUTURE: might be abstract when unknown whether independent object or member ref?
 
     virtual bool innerAutoConvertsFrom(const TxType& otherType) const override;
+
+    virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
@@ -171,6 +175,8 @@ public:
     virtual bool innerAutoConvertsFrom(const TxType& someType) const {
         return (*this) == someType;  // FUTURE: allow polymorphic compatibility
     }
+
+    virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 
@@ -259,9 +265,15 @@ public:
 
     virtual bool is_datatype_extension() const override;
 
+    // FUTURE: override is_statically_sized() and return false if any instance member is not statically sized
+    // (currently such members are not supported so this can't be false for valid tuple types)
+    //bool TxArrayType::is_statically_sized() const override;
+
     virtual bool innerAutoConvertsFrom(const TxType& someType) const override {
         return (*this) == someType;
     }
+
+    virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };

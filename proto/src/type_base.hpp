@@ -382,6 +382,11 @@ public:
      */
     virtual bool is_datatype_extension() const;
 
+    /** Returns true if the size of this type is statically known.
+     * May be true for arrays with non-static length initializer or compound types containing such arrays.
+     */
+    virtual bool is_statically_sized() const;
+
 
     /*--- inherited namespace lookup ---*/
 
@@ -495,7 +500,7 @@ private:
 
 
 public:
-    virtual llvm::Type* get_llvm_type(LlvmGenerationContext& context) const;
+    virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const = 0;
     virtual llvm::Value* code_gen_size(LlvmGenerationContext& context, GenScope* scope) const;
     virtual llvm::Value* code_gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName="") const;
 

@@ -53,6 +53,11 @@ class TxAnyType final : public TxType {
 
 public:
     TxAnyType(TxTypeEntity* entity) : TxType(entity) { }
+
+    virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
+        ASSERT(false, "Can't get LLVM type of abstract type: " << this->to_string());
+        return nullptr;
+    }
 };
 
 /** Used for the built-in types' abstract base types. */
@@ -69,6 +74,11 @@ class TxBuiltinBaseType final : public TxType {
 public:
     TxBuiltinBaseType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec) : TxType(entity, baseTypeSpec)  { }
     TxBuiltinBaseType(TxTypeEntity* entity, const TxType* baseType) : TxType(entity, TxTypeSpecialization(baseType))  { }
+
+    virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
+        ASSERT(false, "Can't get LLVM type of abstract type: " << this->to_string());
+        return nullptr;
+    }
 };
 
 
@@ -230,11 +240,11 @@ void TypeRegistry::initializeBuiltinSymbols() {
         this->builtinModTypes[id] = this->get_modifiable_type(nullptr, this->builtinTypes[id]->get_type());
     }
 
-    // test adding static field to types:
-    for (int id = 0; id < BuiltinTypeId_COUNT; id++) {
-        const_cast<TxTypeEntity*>(this->builtinTypes[id]->get_entity())->declare_field("typeid", this->builtinTypes[USHORT],
-                (TxDeclarationFlags)(TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN), TXS_STATIC, TxIdentifier());
-    }
+//    // test adding static field to types:
+//    for (int id = 0; id < BuiltinTypeId_COUNT; id++) {
+//        const_cast<TxTypeEntity*>(this->builtinTypes[id]->get_entity())->declare_field("typeid", this->builtinTypes[USHORT],
+//                (TxDeclarationFlags)(TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN), TXS_STATIC, TxIdentifier());
+//    }
 
     // scalar conversion constructor function types:
     for (auto fromTypeId : SCALAR_TYPE_IDS) {

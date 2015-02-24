@@ -130,6 +130,7 @@ const TxType* LlvmGenerationContext::lookup_builtin(BuiltinTypeId id) {
 }
 
 void LlvmGenerationContext::initialize_builtin_types() {
+    /*
 	this->llvmTypeMapping.emplace(lookup_builtin(ANY),    llvm::Type::getVoidTy(this->llvmContext));
 	this->llvmTypeMapping.emplace(lookup_builtin(BYTE),   llvm::Type::getInt8Ty(this->llvmContext));
     this->llvmTypeMapping.emplace(lookup_builtin(SHORT),  llvm::Type::getInt16Ty(this->llvmContext));
@@ -142,6 +143,7 @@ void LlvmGenerationContext::initialize_builtin_types() {
     this->llvmTypeMapping.emplace(lookup_builtin(HALF),   llvm::Type::getHalfTy(this->llvmContext));
     this->llvmTypeMapping.emplace(lookup_builtin(FLOAT),  llvm::Type::getFloatTy(this->llvmContext));
 	this->llvmTypeMapping.emplace(lookup_builtin(DOUBLE), llvm::Type::getDoubleTy(this->llvmContext));
+    */
     this->llvmTypeMapping.emplace(lookup_builtin(BOOLEAN), llvm::Type::getInt1Ty(this->llvmContext));
     //this->llvmTypeMapping.emplace(lookupBuiltin(CHAR),   llvm::Type::getInt8Ty(this->llvmContext));
     //this->llvmTypeMapping.emplace(lookupBuiltin(STRING), llvm::Type::getInt8PtrTy(this->llvmContext));
@@ -149,6 +151,7 @@ void LlvmGenerationContext::initialize_builtin_types() {
 //	    std::cout << "LLVM type mapping: " << pair.first << " -> " << pair.second << std::endl;
 
     // initialize global constants:
+    // TODO: make proper boolean type
     auto falseValue = llvm::ConstantInt::getFalse(this->llvmContext);
     auto  trueValue = llvm::ConstantInt::getTrue(this->llvmContext);
     llvm::Value* falseField = new llvm::GlobalVariable(this->llvmModule, falseValue->getType(), true,
@@ -158,15 +161,15 @@ void LlvmGenerationContext::initialize_builtin_types() {
     this->register_llvm_value("tx.FALSE", falseField);
     this->register_llvm_value("tx.TRUE", trueField);
 
-    // test adding static field to types:
-    for (int id = 0; id < BuiltinTypeId_COUNT; id++) {
-        auto txType = this->tuplexPackage.types().get_builtin_type((BuiltinTypeId)id);
-        auto name = txType->entity()->get_full_name().to_string() + ".typeid";
-        auto value = llvm::ConstantInt::get(llvm::Type::getInt16Ty(this->llvmContext), id, false);
-        llvm::Value* member = new llvm::GlobalVariable(this->llvmModule, value->getType(), true,
-                                                       llvm::GlobalValue::ExternalLinkage, value, name);
-        this->register_llvm_value(name, member);
-    }
+//    // test adding static field to types:
+//    for (int id = 0; id < BuiltinTypeId_COUNT; id++) {
+//        auto txType = this->tuplexPackage.types().get_builtin_type((BuiltinTypeId)id);
+//        auto name = txType->entity()->get_full_name().to_string() + ".typeid";
+//        auto value = llvm::ConstantInt::get(llvm::Type::getInt16Ty(this->llvmContext), id, false);
+//        llvm::Value* member = new llvm::GlobalVariable(this->llvmModule, value->getType(), true,
+//                                                       llvm::GlobalValue::ExternalLinkage, value, name);
+//        this->register_llvm_value(name, member);
+//    }
 
     // initialize external functions:
     std::vector<llvm::Type*> c_puts_args( { llvm::Type::getInt8PtrTy(this->llvmContext) } );
@@ -201,123 +204,11 @@ void LlvmGenerationContext::initialize_builtin_types() {
 
 
 
-//static llvm::Type* make_box(llvm::Type* type) {
-//    ASSERT(type, "NULL type");
-//    //context.LOG.debug("Boxing type %s", to_string(type).c_str());
-//    std::vector<llvm::Type*> llvmMemberTypes { llvm::Type::getInt32Ty(type->getContext()), type };
-//    return llvm::StructType::get(type->getContext(), llvmMemberTypes);
-//}
-
-
-class LLVMTypeMapper : public TxTypeVisitor {
-	LlvmGenerationContext& context;
-
-public:
-	llvm::Type* result = nullptr;
-
-	LLVMTypeMapper(LlvmGenerationContext& context) : context(context) { }
-
-    virtual void visit(const TxType& txType) {
-    	this->result = nullptr;
-    }
-
-	virtual void visit(const TxScalarType& txType)  {
-        context.LOG.error("Internal error, missing LLVM type mapping for scalar type '%s'", txType.to_string().c_str());
-        this->result = nullptr;
-	}
-
-    virtual void visit(const TxReferenceType& txType)  {
-        if (txType.is_generic())
-            throw std::logic_error("Generic references currently not supported: " + txType.to_string());
-        ResolutionContext resCtx;  // FIXME
-        llvm::Type* targetType = this->context.get_llvm_type(txType.target_type(resCtx));
-        if (targetType) {
-            this->result = llvm::PointerType::get(targetType, 0);
-            context.LOG.debug("Mapping reference type %s", txType.to_string().c_str());
-        }
-        else
-            context.LOG.error("No LLVM type mapping for reference target type: %s", txType.target_type(resCtx)->to_string().c_str());
-    }
-
-    virtual void visit(const TxArrayType& txType)  {
-        ResolutionContext resCtx;  // FIXME
-        if (auto e = txType.element_type(resCtx)) {
-            if (llvm::Type* elemType = this->context.get_llvm_type(e)) {
-                uint32_t arrayLen;
-                if (auto lenExpr = txType.length(resCtx)) {
-                    // concrete array (specific length)
-                    if (auto lenProxy = lenExpr->get_static_constant_proxy()) {
-                        // length is statically specified
-                        arrayLen = lenProxy->get_value_UInt();
-                    }
-                    else {
-                        // TODO: support dynamically specialized generic types
-                        arrayLen = 0;
-                    }
-                }
-                else {
-                    // Generic arrays with unspecified length are mapped as zero length,
-                    // so they can be referenced from e.g. references.
-                    arrayLen = 0;
-                }
-                std::vector<llvm::Type*> llvmMemberTypes {
-                    llvm::Type::getInt32Ty(this->context.llvmContext),
-                    llvm::ArrayType::get(elemType, arrayLen)
-                };
-                this->result = llvm::StructType::get(this->context.llvmContext, llvmMemberTypes);
-                context.LOG.debug("Mapping array type %s -> %s", txType.to_string().c_str(), to_string(this->result).c_str());
-                return;
-            }
-            else
-                context.LOG.error("No LLVM type mapping for array element type: %s", e->get_type()->to_string().c_str());
-        }
-        throw std::logic_error("Generic arrays with unspecified element type can't be directly mapped: " + txType.to_string());
-    }
-
-	virtual void visit(const TxFunctionType& txType)  {
-		std::vector<llvm::Type*> llvmArgTypes;
-	    for (auto argTxType : txType.argumentTypes) {
-			llvmArgTypes.push_back(this->context.get_llvm_type(argTxType));
-			context.LOG.debug("Mapping arg type %s to %s", argTxType->to_string().c_str(), to_string(llvmArgTypes.back()).c_str());
-		}
-	    llvm::Type* llvmRetType = txType.returnType
-	                              ? this->context.get_llvm_type(txType.returnType)
-	                              : llvm::Type::getVoidTy(this->context.llvmContext);
-		llvm::FunctionType *ftype = llvm::FunctionType::get(llvmRetType, llvmArgTypes, false);
-	    this->result = ftype;
-	}
-
-    virtual void visit(const TxTupleType& txType)  {
-        auto entity = txType.entity();
-        if (! entity) {
-            context.LOG.error("No entity for tx type %s - can't perform LLVM type mapping", txType.to_string().c_str());
-            return;
-        }
-        context.LOG.debug("Mapping tuple type %s... (entity %s)", txType.to_string().c_str(), entity->to_string().c_str());
-        std::vector<llvm::Type*> llvmMemberTypes;
-        for (auto memberTxType : entity->get_instance_field_types()) {
-            llvmMemberTypes.push_back(this->context.get_llvm_type(memberTxType));
-            context.LOG.debug("Mapping member type %s to %s", memberTxType->to_string().c_str(), to_string(llvmMemberTypes.back()).c_str());
-        }
-        // note: create() might be better for "named" struct types?
-        llvm::StructType* stype = llvm::StructType::get(this->context.llvmContext, llvmMemberTypes);
-        this->result = stype;
-    }
-
-
-	static llvm::Type* mapLlvmType(LlvmGenerationContext& context, const TxType* txType) {
-		LLVMTypeMapper mapper(context);
-		txType->accept(mapper);
-		return mapper.result;
-	}
-};
-
-
 llvm::Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
     ASSERT(txType, "NULL txType provided to getLlvmType()");
     if (txType->is_virtual_specialization())
         // same data type as base type
-        return get_llvm_type(txType->get_base_type());
+        return this->get_llvm_type(txType->get_base_type());
 
 // we currently do map abstract types (e.g. reference targets)
 //    if (! txType->is_concrete()) {
@@ -329,38 +220,10 @@ llvm::Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
     if (iter != this->llvmTypeMapping.end()) {
         return iter->second;
     }
-	llvm::Type* result = LLVMTypeMapper::mapLlvmType(*this, txType);
-	if (! result)
+	llvm::Type* llvmType = txType->make_llvm_type(*this);
+	if (llvmType)
+	    this->llvmTypeMapping.emplace(txType, llvmType);
+	else
 		this->LOG.error("No LLVM type mapping for type: %s", txType->to_string().c_str());
-	return result;
+	return llvmType;
 }
-
-//const llvm::IntegerType& getLlvmIntegerType(const TuplexParsingContext& context) const {
-//	switch(size) {
-//	case 1:
-//		return llvm::Type::getInt8Ty(context.llvmContext);
-//	case 2:
-//		return llvm::Type::getInt16Ty(context.llvmContext);
-//	case 4:
-//		return llvm::Type::getInt32Ty(context.llvmContext);
-//	case 8:
-//		return llvm::Type::getInt64Ty(context.llvmContext);
-//	default:
-//		fprintf(stderr, "Unsupported Integer type width: %d\n", this->size);
-//		return llvm::Type::getVoidTy(context.llvmContext);
-//	}
-//}
-//
-//virtual const llvm::Type& getLlvmFloatingType(const TuplexParsingContext& context) const {
-//	switch(size) {
-//	case 2:
-//		return llvm::Type::getHalfTy(context.llvmContext);
-//	case 4:
-//		return llvm::Type::getFloatTy(context.llvmContext);
-//	case 8:
-//		return llvm::Type::getDoubleTy(context.llvmContext);
-//	default:
-//		fprintf(stderr, "Unsupported Floating type width: %d\n", this->size);
-//		return llvm::Type::getVoidTy(context.llvmContext);
-//	}
-//}

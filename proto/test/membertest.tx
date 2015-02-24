@@ -54,7 +54,7 @@ func main() Int {
     testfunc()
     ~foo := CompoundType.SFIELD
     axe := CompoundType.InnerCompType.PI
-    bar := Int.typeid
+    bar := 14
     return bar * foo
 }
 

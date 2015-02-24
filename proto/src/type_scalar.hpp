@@ -46,6 +46,8 @@ public:
         : TxScalarType(entity, TxTypeSpecialization(baseType), size), sign(sign) { }
 
 
+    virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
+
     inline virtual bool operator==(const TxType& other) const {
         return (typeid(*this) == typeid(other)
                 && this->sign == ((TxIntegerType&)other).sign
@@ -80,6 +82,8 @@ protected:
 public:
     TxFloatingType(TxTypeEntity* entity, const TxType* baseType, int size)
         : TxScalarType(entity, TxTypeSpecialization(baseType), size) { }
+
+    virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
     virtual bool operator==(const TxType& other) const {
         return (typeid(*this) == typeid(other)

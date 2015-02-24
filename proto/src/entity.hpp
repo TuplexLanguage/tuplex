@@ -174,8 +174,6 @@ public:
 
 /** Represents a single declared type. */
 class TxTypeEntity : public TxDistinctEntity, public TxTypeProxy {
-    TxIdentifier aliasIdent;
-
     bool dataLaidOut = false;
     bool startedLayout = false;
     std::unordered_map<const std::string*, int> staticFields;
@@ -188,10 +186,12 @@ class TxTypeEntity : public TxDistinctEntity, public TxTypeProxy {
             return;
         ASSERT(!this->startedLayout, "Recursive call to define_data_layout() of " << *this);
         this->startedLayout = true;
-        for (auto siter = this->symbols_cbegin(); siter != this->symbols_cend(); siter++) {
-            if (auto field = dynamic_cast<TxFieldEntity*>(siter->second)) {
+        for (auto symname = this->symbol_names_cbegin(); symname != this->symbol_names_cend(); symname++) {
+            if (auto field = dynamic_cast<TxFieldEntity*>(this->get_symbol(*symname))) {
                 auto fieldType = field->resolve_symbol_type(resCtx);
                 if (field->get_storage() == TXS_INSTANCE) {
+                    this->LOGGER().debug("Laying out instance field %-40s  %s  %s", field->get_full_name().to_string().c_str(),
+                            ::toString(this->get_decl_flags()).c_str(), fieldType->to_string(true).c_str());
                     this->instanceFields.emplace(&field->get_name(), this->instanceFields.size());
                     instanceFieldTypes.push_back(fieldType);
                 }
@@ -219,51 +219,7 @@ public:
     }
 
 
-    virtual bool validate_symbol(ResolutionContext& resCtx) override {
-        bool valid = TxDistinctEntity::validate_symbol(resCtx);
-        if (! valid)
-            return valid;
-//        else if (this->get_alias()) {
-//            // do something?
-//            //this->LOGGER().debug("Alias: %s", alias->to_string().c_str());
-//        }
-        else if (auto type = this->get_type()) {
-            if (! this->dataLaidOut) {
-                this->LOGGER().error("Data not laid out for type: %s", type->to_string().c_str());
-                valid = false;
-            }
-            else if (this->has_instance_fields()) {
-                if (auto tupleType = dynamic_cast<const TxTupleType*>(type)) {
-                    for (auto basetype = tupleType->get_base_type(); basetype;
-                              basetype = basetype->get_base_type()) {
-                        if (basetype->entity() && basetype->entity()->has_instance_fields()) {
-                            this->LOGGER().error("Not yet supported to extend base types with additional instance members: %s", type->to_string().c_str());
-                            valid = false;
-                        }
-                    }
-                }
-                else {
-                    //this->LOGGER().error("Can't declare instance members in a non-tuple type: %s", type->to_string().c_str());
-                    //valid = false;
-                }
-            }
-        }
-        else
-            valid = false;
-        return valid;
-    }
-
-
-    void set_alias(const TxIdentifier& aliasIdent) {
-        this->aliasIdent = aliasIdent;
-    }
-
-//    virtual const TxIdentifier* get_alias() override {
-//        // Note: with current design we don't know if it's an alias until the type definer has been resolved
-//        ResolutionContext resCtx;  // FIX ME
-//        TxDistinctEntity::resolve_symbol_type(resCtx);
-//        return (this->aliasIdent.is_empty() ? nullptr : &this->aliasIdent);
-//    }
+    virtual bool validate_symbol(ResolutionContext& resCtx) override;
 
 
     virtual const TxType* resolve_symbol_type(ResolutionContext& resCtx) {
@@ -281,7 +237,7 @@ public:
 //            this->LOGGER().warning("In get_type() of entity %s: type is NULL", this->to_string().c_str());
 //            //ASSERT(type, "Type of entity " << this << " is NULL");
 //        else
-//            ASSERT(type->entity()==this || this->is_alias(), "Type (" << type << ") does not belong to this entity "
+//            ASSERT(type->entity()==this, "Type (" << type << ") does not belong to this entity "
 //                    << this->get_full_name() << ", it belongs to " << type->entity());
 //        return type;
 //    }

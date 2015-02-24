@@ -210,9 +210,19 @@ public:
     TxFieldEntity* resolve_field_lookup(ResolutionContext& resCtx, TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters);
 
 
+    /** Returns a read-only, order-of-declaration iterator that points to the first declared symbol name. */
+    inline std::vector<std::string>::const_iterator symbol_names_cbegin() const { return this->symbolNames.cbegin(); }
+    /** Returns a read-only, order-of-declaration iterator that points to one past the last declared symbol name. */
+    inline std::vector<std::string>::const_iterator symbol_names_cend()   const { return this->symbolNames.cend(); }
+
+    /** Returns a read/write, unordered iterator that points to the first symbol mapping. */
     inline SymbolMap::iterator symbols_begin() { return this->symbols.begin(); }
+    /** Returns a read/write, unordered iterator that points one past the last symbol mapping. */
     inline SymbolMap::iterator symbols_end()   { return this->symbols.end(); }
+
+    /** Returns a read-only, unordered iterator that points to the first symbol mapping. */
     inline SymbolMap::const_iterator symbols_cbegin() const { return this->symbols.cbegin(); }
+    /** Returns a read-only, unordered iterator that points one past the last symbol mapping. */
     inline SymbolMap::const_iterator symbols_cend()   const { return this->symbols.cend(); }
 
 

@@ -151,3 +151,46 @@ TxSymbolScope* TxTypeEntity::lookup_member(std::vector<TxSymbolScope*>& path, co
 TxSymbolScope* TxTypeEntity::lookup_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
     return this->inner_lookup_member(path, ident, false);
 }
+
+
+bool TxTypeEntity::validate_symbol(ResolutionContext& resCtx) {
+    bool valid = TxDistinctEntity::validate_symbol(resCtx);
+    if (! valid)
+        return valid;
+    else if (auto type = this->get_type()) {
+        if (! this->dataLaidOut) {
+            this->LOGGER().error("Data not laid out for type: %s", type->to_string().c_str());
+            valid = false;
+        }
+        else {
+            auto tupleType = dynamic_cast<const TxTupleType*>(type);
+            for (auto symname = this->symbol_names_cbegin(); symname != this->symbol_names_cend(); symname++) {
+                if (auto field = dynamic_cast<TxFieldEntity*>(this->get_symbol(*symname))) {
+                    if (auto fieldType = field->resolve_symbol_type(resCtx)) {
+                        if (! fieldType->is_concrete()) {
+                            this->LOGGER().error("Can't declare a field of non-concrete type: %s", field->to_string().c_str());
+                            valid = false;
+                        }
+                        else if (! fieldType->is_statically_sized()) {
+                            this->LOGGER().error("Field members that don't have statically determined size not yet supported: %s", field->to_string().c_str());
+                            valid = false;
+                        }
+                        else if (field->get_storage() == TXS_INSTANCE) {
+                            //std::cout << "Concrete INSTANCE field " << field << std::endl;
+                            if (! (tupleType || (field->get_decl_flags() & (TXD_GENPARAM | TXD_IMPLICIT)))) {
+                                this->LOGGER().error("Can't declare instance member in non-tuple type: %s", field->to_string().c_str());
+                                valid = false;
+                            }
+                        }
+                        else {  // TXS_STATIC
+                            //std::cout << "Concrete STATIC field " << field << std::endl;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else
+        valid = false;
+    return valid;
+}
