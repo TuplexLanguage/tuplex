@@ -171,19 +171,24 @@ bool TxTypeEntity::validate_symbol(ResolutionContext& resCtx) {
                             this->LOGGER().error("Can't declare a field of non-concrete type: %s", field->to_string().c_str());
                             valid = false;
                         }
-                        else if (! fieldType->is_statically_sized()) {
-                            this->LOGGER().error("Field members that don't have statically determined size not yet supported: %s", field->to_string().c_str());
-                            valid = false;
-                        }
                         else if (field->get_storage() == TXS_INSTANCE) {
                             //std::cout << "Concrete INSTANCE field " << field << std::endl;
-                            if (! (tupleType || (field->get_decl_flags() & (TXD_GENPARAM | TXD_IMPLICIT)))) {
+                            if (! fieldType->is_statically_sized()) {
+                                this->LOGGER().error("Instance fields that don't have statically determined size not yet supported: %s", field->to_string().c_str());
+                                valid = false;
+                            }
+                            else if (! (tupleType || (field->get_decl_flags() & (TXD_GENPARAM | TXD_IMPLICIT)))) {
                                 this->LOGGER().error("Can't declare instance member in non-tuple type: %s", field->to_string().c_str());
                                 valid = false;
                             }
                         }
                         else {  // TXS_STATIC
                             //std::cout << "Concrete STATIC field " << field << std::endl;
+                            if (! fieldType->is_statically_sized()) {
+                                // since static fields are per generic base type, and not per specialization:
+                                this->LOGGER().error("Static fields must have statically determined size: %s", field->to_string().c_str());
+                                valid = false;
+                            }
                         }
                     }
                 }

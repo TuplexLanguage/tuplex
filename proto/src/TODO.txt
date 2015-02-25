@@ -1,0 +1,20 @@
+
+
+Bool type
+
+Arithmetic operations
+
+Inheritance: Static fields, V-table, and polymorphism 
+
+Interfaces
+
+Make TxType be fully defined upon construction (during type resolution pass)
+ - Means base types are fully resolved by subtype construction
+ - Static (vtable) and instance field layouts can be done upon construction
+ - Target (LLVM) type construction could also be done right away
+
+Heap allocation
+
+Dynamic generics support
+ - To support declaring instance fields of dynamically resolved type by value (not just reference)
+ - Requires making the AST for a generic type definition re-entrant, and reprocessed for each specialization

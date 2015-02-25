@@ -636,6 +636,7 @@ public:
 
 
 class TxAssigneeNode : public TxNode {
+    bool resolved = false;
     TxType const * cachedType = nullptr;
 
     /** Defines/obtains the type (as specific as can be known) of the value of this assignee.
@@ -647,8 +648,8 @@ public:
     virtual void symbol_declaration_pass(LexicalContext& lexContext) = 0;
 
     virtual const TxType* resolve_type(ResolutionContext& resCtx) final {
-        if (! cachedType) {
-            //LOGGER().trace("invoking resolve_type() on %s", this->to_string().c_str());
+        if (! resolved) {
+            resolved = true;
             this->cachedType = this->define_type(resCtx);
         }
         return cachedType;

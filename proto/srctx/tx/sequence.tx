@@ -1,0 +1,123 @@
+module tx
+
+
+public type Opt<E derives Ref> Union { E, Null }
+
+
+public interface Sequenceable<E derives Ref> {
+    public func sequencer() ~Sequencer<E>  ## returns by value - constructs new sequencer
+}
+
+
+public interface Indexable<E derives Ref> derives Sequenceable<E> {
+    public func size() ULong
+    public func at(index : ULong) Opt<E>  ## valid indices in interval [0,size()-1]
+}
+
+
+
+public interface Sequencer<E derives Ref> mod derives Sequenceable<E> {
+    public func sequencer() ~Sequencer<E> { return self }  ## returns by value, i.e. a copy
+
+    public func hasNext() Bool
+    public func ~next() Opt<E>  ## note: sequences may contain NULL
+}
+
+public interface RepeatableSequencer<E derives Ref> mod derives Sequencer<E> {
+    public func sequencer() ~RepeatableSequencer<E> { return self }
+
+    public func ~reset()
+}
+
+
+
+
+/** A type whose values are enumerable. (E.g. integers, enums) */
+public interface Enumerable<T> {
+    public func ordinal() ULong
+    public func successor(step : ULong) Opt<T>
+}
+
+
+
+/** An ERange is a virtual, indexable sequence of an enumerable type. */
+public type ERange<E derives Enumerable> derives Indexable<E> {
+  ## This type requires dynamic type parameter support.
+    public first : E
+    public last : E
+    public step : ULong
+
+    public func self( f : E, l : E, s : ULong ) { first = f; last = l; step = s }
+
+    public func sequencer() ~Sequencer<E>  { return ERangeSequencer(first, last, step) }
+    public func size() ULong               { return (last - first + 1) / step }
+    public func at(index : ULong) Opt<E>   { r := first + index * step; return ( r<=last ? r : NULL ) }
+}
+
+type ERangeSequencer<E derives Enumerable> mod derives ERange<E>, Sequencer<E> {
+    next : ~E
+
+    public func self( f : E, l : E, s : ULong ) { super.init(f, l, s); next = f }
+
+    public func hasNext() Bool {
+        return next >= range.last
+    }
+    public func ~next() Opt<E> {
+        if next >= range.last
+            return NULL
+        r := next;
+        next = next.successor(range.step);
+        return r
+    }
+}
+
+
+/** Used in expressions like this:
+    for i in nonIndexableSequence[3:5]
+ */
+public type SubSequencer<E derives Ref> mod derives Sequencer<E> {
+    seq : ~Sequencer<E>
+    sub : &ERange<ULong>
+
+    public func self( s : &Sequenceable<E>, sub : &ERange<ULong> ) {
+        self.seq = s.sequencer()
+        self.sub = sub
+        for i in 0:sub.start {
+            if (! self.seq.hasNext())
+                break
+            self.seq.next()
+        }
+    }
+
+    public func hasNext() Bool {
+        return self.seq.hasNext()
+    }
+    public func ~next() Opt<E> {
+        r := self.seq.next()
+        for i in 1:sub.step {
+            if (! self.seq.hasNext())
+                break
+            self.seq.next()
+        }
+        return r
+    }
+}
+
+
+/** Used in expressions like this:
+    for i in indexableSequence[3:5]
+ */
+public type SubIndexable<E derives Ref> mod derives Indexable<E> {
+    ixa : &Indexable<E>
+    sub : &Indexable<ULong>
+
+    public func self( ixa : &Indexable<E>, sub : &Indexable<ULong> ) {
+        self.ixa = ixa
+        self.sub = sub
+    }
+
+    public func size() ULong               { return sub.size() }
+    public func at(index : ULong) Opt<E>   { if sub.at(index) is (ULong i) return ixa.at(i) else return NULL }
+
+    public func sequencer() ~Sequencer<E> { TODO }
+}
