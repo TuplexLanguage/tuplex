@@ -42,6 +42,6 @@ public:
 
 
     virtual std::string to_string() const {
-        return "<package>";
+        return "<package> (namespace root)";
     }
 };

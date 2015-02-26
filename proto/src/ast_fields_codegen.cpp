@@ -16,17 +16,19 @@ static bool access_via_load_store(const llvm::Type* type) {
 
 /** Generate code to obtain field value, potentially based on a base value (pointer). */
 static llvm::Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
-                                         llvm::Value* baseValue, const TxFieldEntity* entity) {
+                                         llvm::Value* baseValue, const TxFieldEntity* entity, bool foldStatics=false) {
     llvm::Value* val = NULL;
     switch (entity->get_storage()) {
     case TXS_STATIC:
         // TODO: polymorphic lookup
     case TXS_GLOBAL:
     case TXS_STACK:
-        if (auto constProxy = entity->get_static_constant_proxy()) {
-            val = constProxy->code_gen(context, scope);
-            context.LOG.debug("Generating field value code for statically constant entity %s: %s", entity->to_string().c_str(), ::to_string(val).c_str());
-            break;
+        if (foldStatics) {
+            if (auto constProxy = entity->get_static_constant_proxy()) {
+                val = constProxy->code_gen(context, scope);
+                context.LOG.debug("Generating field value code for statically constant entity %s: %s", entity->to_string().c_str(), ::to_string(val).c_str());
+                break;
+            }
         }
         val = context.lookup_llvm_value(entity->get_full_name().to_string());
         if (! val) {
@@ -67,14 +69,14 @@ static llvm::Value* field_value_code_gen(LlvmGenerationContext& context, GenScop
 }
 
 
-llvm::Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
+llvm::Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics) const {
     //return context.lookup_llvm_value(this->get_entity()->get_full_name().to_string());
     llvm::Value* value = NULL;
     if (this->base)
         value = this->base->code_gen(context, scope);
     for (auto sym : this->memberPath) {
         if (auto field = dynamic_cast<const TxFieldEntity*>(sym)) {
-            value = field_value_code_gen(context, scope, value, field);
+            value = field_value_code_gen(context, scope, value, field, foldStatics);
             if (sym != this->memberPath.back()) {  // skips the load for the last segment
                 if ( value && access_via_load_store(value->getType()) ) {
                      //&& !( entity->get_storage() == TXS_STACK && !entity->is_modifiable() ) ) {
@@ -94,7 +96,7 @@ llvm::Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, 
 
 llvm::Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    llvm::Value* value = this->code_gen_address(context, scope);
+    llvm::Value* value = this->code_gen_address(context, scope, true);
 
     // Only function/complex pointers and non-modifiable temporaries don't require a load instruction:
     if ( value && access_via_load_store(value->getType()) ) {

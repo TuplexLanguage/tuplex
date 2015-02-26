@@ -3,6 +3,7 @@
 #include "type_registry.hpp"
 #include "package.hpp"
 #include "entity.hpp"
+#include "llvm_generator.hpp"
 
 
 /*--- statically allocated built-in type objects ---*/
@@ -55,8 +56,7 @@ public:
     TxAnyType(TxTypeEntity* entity) : TxType(entity) { }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
-        ASSERT(false, "Can't get LLVM type of abstract type: " << this->to_string());
-        return nullptr;
+        return llvm::Type::getVoidTy(context.llvmContext);
     }
 };
 
@@ -76,8 +76,7 @@ public:
     TxBuiltinBaseType(TxTypeEntity* entity, const TxType* baseType) : TxType(entity, TxTypeSpecialization(baseType))  { }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
-        ASSERT(false, "Can't get LLVM type of abstract type: " << this->to_string());
-        return nullptr;
+        return llvm::Type::getVoidTy(context.llvmContext);  // can we support a more specific LLVM type here?
     }
 };
 

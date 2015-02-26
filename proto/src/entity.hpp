@@ -35,10 +35,6 @@ public:
     virtual const TxType* resolve_symbol_type(ResolutionContext& resCtx) = 0;
 
     virtual const TxType* get_type() const = 0;
-
-    virtual std::string to_string() const {
-        return "<entity>        " + this->get_full_name().to_string();
-    }
 };
 
 
@@ -164,7 +160,9 @@ public:
     virtual TxSymbolScope* lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) override {
         // field symbols don't have member symbols - lookup is via type instead
         ResolutionContext resCtx;  // FIXME
-        return this->resolve_symbol_type(resCtx)->lookup_instance_member(path, ident);
+        auto type = this->resolve_symbol_type(resCtx);
+        //std::cout << "field '" << this->get_full_name() << "' resolves to type " << type << std::endl;
+        return type->lookup_instance_member(path, ident);
     }
 
     virtual std::string to_string() const {
@@ -330,7 +328,7 @@ public:
     }
 
     virtual std::string to_string() const {
-        return "<alias>         " + this->get_full_name().to_string() + " = " + this->get_aliased_name().to_string();
+        return "<alias>          " + this->get_full_name().to_string() + " = " + this->get_aliased_name().to_string();
     }
 };
 
@@ -439,7 +437,7 @@ public:
         return valid;
     }
 
-    virtual std::string to_string() const {
-        return std::string("overloaded ") + this->get_full_name().to_string();
+    virtual std::string to_string() const override {
+        return "<overloaded>     " + this->get_full_name().to_string();
     }
 };

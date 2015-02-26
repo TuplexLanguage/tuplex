@@ -1,19 +1,38 @@
 
+Dataspace syntax support
 
 Bool type
 
 Arithmetic operations
 
-Inheritance: Static fields, V-table, and polymorphism 
+Polymorphic inheritance: Static fields, V-table
+
+Generic type instance fields support
+ - To support declaring instance fields of parameterized type by reference
+ - Requires creating 'concrete' member entity copies in specialized subtype
+
+Methods (implicit self parameter)
 
 Interfaces
+
+Constructors/initializers, destructors
+
+Boxed references
+
+Heap allocation
+
+Union typeclass
+
+Full dataspaces support
+
+Range typeclass
+
+for-loops
 
 Make TxType be fully defined upon construction (during type resolution pass)
  - Means base types are fully resolved by subtype construction
  - Static (vtable) and instance field layouts can be done upon construction
  - Target (LLVM) type construction could also be done right away
-
-Heap allocation
 
 Dynamic generics support
  - To support declaring instance fields of dynamically resolved type by value (not just reference)

@@ -237,7 +237,7 @@ TxSymbolScope* TxSymbolScope::start_lookup_symbol(std::vector<TxSymbolScope*>& p
 
 
 TxSymbolScope* TxSymbolScope::lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
-    if (auto symbol = this->lookup_member(path, ident)) {
+    if (auto symbol = this->lookup_member(path, ident)) {  // FIXME: use a path copy, in case null is returned
 //        std::cout << ident << " => ";
 //        for (auto s : path)  std::cout << s->get_full_name() << " . ";
 //        std::cout << std::endl;
@@ -384,10 +384,12 @@ void TxSymbolScope::dump_symbols() const {
                     std::string typestr = type ? type->to_string() : "nulltype/Void";
                     printf("%-64s %s\n", symbol->to_string().c_str(), typestr.c_str());
                 }
-                else if (dynamic_cast<const TxOverloadedEntity*>(symbol))
-                    printf("<overloaded>     %s\n", symbol->get_full_name().to_string().c_str());
                 else
-                    printf("<scope>          %s\n", symbol->to_string().c_str());
+                    printf("%s\n", symbol->to_string().c_str());
+//                else if (dynamic_cast<const TxOverloadedEntity*>(symbol))
+//                    printf("<overloaded>     %s\n", symbol->get_full_name().to_string().c_str());
+//                else
+//                    printf("<scope>          %s\n", symbol->to_string().c_str());
             }
             catch (std::logic_error& e) {
                 printf(">>> Caught logic_error while printing symbol '%s': %s\n", this->get_full_name().to_string().c_str(), e.what());

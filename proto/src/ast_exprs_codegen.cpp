@@ -47,6 +47,10 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
         llvm_op = OP_MAPPING[this->op].l_f_op;
         int_operands = false;
     }
+    else {
+        context.LOG.error("Unsupported binary operand type: %s", (operandsType?operandsType->to_string().c_str():"NULL"));
+        return NULL;
+    }
 
     auto op_class = get_op_class(this->op);
     if (op_class == TXOC_ARITHMETIC) {
