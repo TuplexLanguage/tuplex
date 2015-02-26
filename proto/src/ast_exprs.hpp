@@ -78,6 +78,13 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
+class TxBoolConvNode : public TxConversionNode {
+public:
+    TxBoolConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxBoolType* targetType)
+        : TxConversionNode(parseLocation, expr, targetType) { }
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+};
+
 class TxReferenceConvNode : public TxConversionNode {
 public:
     TxReferenceConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxReferenceType* targetType)
@@ -293,7 +300,7 @@ protected:
         }
 
         if (get_op_class(this->op) == TXOC_COMPARISON)
-            return this->types().get_builtin_type(BOOLEAN);
+            return this->types().get_builtin_type(BOOL);
         else {  // TXOC_ARITHMETIC
             // Note: After analyzing conversions, the lhs will hold the proper resulting type.
             return arithResultType;
@@ -304,8 +311,10 @@ public:
     const TxOperation op;
     TxExpressionNode* lhs;
     TxExpressionNode* rhs;
+    const int op_class;
+
     TxBinaryOperatorNode(const yy::location& parseLocation, TxExpressionNode* lhs, const TxOperation op, TxExpressionNode* rhs)
-        : TxOperatorValueNode(parseLocation), op(op), lhs(lhs), rhs(rhs) {
+            : TxOperatorValueNode(parseLocation), op(op), lhs(lhs), rhs(rhs), op_class(get_op_class(op))  {
         ASSERT(is_valid(op), "Invalid operator value: " << (int)op);
     }
 
@@ -319,6 +328,18 @@ public:
         TxExpressionNode::symbol_resolution_pass(resCtx);
         lhs->symbol_resolution_pass(resCtx);
         rhs->symbol_resolution_pass(resCtx);
+
+        auto operandsType = this->get_type();
+        if (dynamic_cast<const TxScalarType*>(operandsType)) {
+            if (op_class == TXOC_BOOLEAN)
+                this->cerror("Can't perform BOOLEAN operation on operands of scalar type: %s", operandsType->to_string().c_str());
+        }
+        else if (dynamic_cast<const TxBoolType*>(operandsType)) {
+            if (op_class == TXOC_ARITHMETIC)
+                this->cerror("Can't perform ARITHMETIC operation on operands of boolean type: %s", operandsType->to_string().c_str());
+        }
+        else if (operandsType)
+            this->cerror("Unsupported binary operands type: %s", operandsType->to_string().c_str());
     }
 
     virtual bool is_statically_constant() const {

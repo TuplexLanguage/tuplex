@@ -23,6 +23,9 @@ static const OpMapping OP_MAPPING[] = {
     { TXOP_GE,    CmpInst::Predicate::ICMP_SGE, CmpInst::Predicate::ICMP_UGE, CmpInst::Predicate::FCMP_OGE },
     { TXOP_LT,    CmpInst::Predicate::ICMP_SLT, CmpInst::Predicate::ICMP_ULT, CmpInst::Predicate::FCMP_OLT },
     { TXOP_LE,    CmpInst::Predicate::ICMP_SLE, CmpInst::Predicate::ICMP_ULE, CmpInst::Predicate::FCMP_OLE },
+    { TXOP_AND,   Instruction::And,  Instruction::And,  0 },
+    { TXOP_OR,    Instruction::Or,   Instruction::Or,   0 },
+    { TXOP_XOR,   Instruction::Xor,  Instruction::Xor,  0 },
 };
 
 Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
@@ -36,24 +39,32 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
     // pick field's plain name, if available, for the expression value:
     const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->fieldName : "";
 
+    auto op_class = get_op_class(this->op);
+
     unsigned llvm_op;
     bool int_operands;
-    auto operandsType = this->lhs->get_type();
+    auto operandsType = this->get_type();
     if (auto intType = dynamic_cast<const TxIntegerType*>(operandsType)) {
+        ASSERT(op_class != TXOC_BOOLEAN, "Can't perform BOOLEAN operation on integer operands: " << this);
         llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
         int_operands = true;
     }
     else if (dynamic_cast<const TxFloatingType*>(operandsType)) {
+        ASSERT(op_class != TXOC_BOOLEAN, "Can't perform BOOLEAN operation on floatingpoint operands: " << this);
         llvm_op = OP_MAPPING[this->op].l_f_op;
         int_operands = false;
     }
+    else if (dynamic_cast<const TxBoolType*>(operandsType)) {
+        ASSERT(op_class != TXOC_ARITHMETIC, "Can't perform ARITHMETIC operation on boolean operands: " << this);
+        llvm_op = OP_MAPPING[this->op].l_ui_op;  // as unsigned integers
+        int_operands = true;
+    }
     else {
-        context.LOG.error("Unsupported binary operand type: %s", (operandsType?operandsType->to_string().c_str():"NULL"));
+        context.LOG.error("%s: Unsupported binary operand type: %s", this->parse_loc_string().c_str(), (operandsType?operandsType->to_string().c_str():"NULL"));
         return NULL;
     }
 
-    auto op_class = get_op_class(this->op);
-    if (op_class == TXOC_ARITHMETIC) {
+    if (op_class == TXOC_ARITHMETIC || op_class == TXOC_BOOLEAN) {
         ASSERT(Instruction::isBinaryOp(llvm_op), "Not a valid LLVM binary op: " << llvm_op);
         Instruction::BinaryOps binop_instr = (Instruction::BinaryOps) llvm_op;
         if (this->is_statically_constant() && !scope)  // seems we can only do this in global scope?
@@ -212,6 +223,26 @@ Value* TxElemAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* sc
 }
 
 
+
+Value* TxBoolConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->targetType->to_string().c_str());
+    auto origValue = this->expr->code_gen(context, scope);
+    if (! origValue)
+        return NULL;
+    auto targetLlvmType = Type::getInt1Ty(context.llvmContext);
+    // current implementation accepts most (all?) scalar types and converts to bool: 0 => FALSE, otherwise => TRUE
+    Instruction::CastOps cop = CastInst::getCastOpcode(origValue, false, targetLlvmType, false);
+    ASSERT(cop, "No CastOps code found for cast from " << this->expr->get_type() << " to " << this->targetType);
+    if (!scope) {
+        ASSERT(this->is_statically_constant(), "Non-statically-constant expression in global scope: " << this);
+        context.LOG.debug("non-local scope cast -> %s", this->targetType->to_string().c_str());
+        return ConstantExpr::getCast(cop, cast<Constant>(origValue), targetLlvmType);
+    }
+    else {
+        context.LOG.debug("local scope cast -> %s", this->targetType->to_string().c_str());
+        return scope->builder->CreateCast(cop, origValue, targetLlvmType, "");
+    }
+}
 
 Value* TxScalarConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->targetType->to_string().c_str());

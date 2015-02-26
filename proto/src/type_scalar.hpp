@@ -3,6 +3,42 @@
 #include "type_base.hpp"
 
 
+class TxBoolType : public TxType {
+protected:
+    virtual TxBoolType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+                                                 const std::vector<TxTypeParam>& typeParams,
+                                                 std::string* errorMsg=nullptr) const override {
+        ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
+        if (dynamic_cast<const TxBoolType*>(baseTypeSpec.type))
+            return new TxBoolType(entity, baseTypeSpec);
+        throw std::logic_error("Specified a base type for TxBoolType that was not a TxBoolType: " + baseTypeSpec.type->to_string());
+    };
+
+public:
+    TxBoolType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec)
+        : TxType(entity, baseTypeSpec) { }
+
+    virtual bool is_immutable() const { return false; }
+    virtual bool is_final() const { return true; }
+    virtual bool is_abstract() const { return false; }
+
+    inline virtual bool operator==(const TxType& other) const {
+        return ( typeid(*this) == typeid(other) );
+    }
+
+    virtual bool innerAutoConvertsFrom(const TxType& other) const {
+        // should we auto-convert from Null (false)?
+        // should we auto-convert from integers (0 => false)?
+        return ( typeid(*this) == typeid(other) );
+    }
+
+    virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
+
+    virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
+};
+
+
+
 class TxScalarType : public TxType {
 protected:
     const uint64_t _size;

@@ -14,7 +14,11 @@ public:
     TxLiteralValueNode(const yy::location& parseLocation)
         : TxExpressionNode(parseLocation) { }
 
-    virtual bool has_predefined_type() const override { return true; }
+    virtual bool has_predefined_type() const override final { return true; }
+
+    virtual bool is_statically_constant() const override final { return true; }
+
+    virtual void semantic_pass() override { }
 };
 
 
@@ -89,10 +93,8 @@ public:
             cerror("Integer literal badly formatted or outside value range of type %s", this->types().get_builtin_type(this->intValue.typeId)->to_string().c_str());
     }
 
-    virtual bool is_statically_constant() const override { return true; }
     virtual const TxConstantProxy* get_static_constant_proxy() const override { return &this->intConstProxy; }
 
-    virtual void semantic_pass() override { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -114,8 +116,6 @@ public:
         this->set_context(lexContext);
     }
 
-    virtual bool is_statically_constant() const { return true; }
-    virtual void semantic_pass() { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
@@ -137,8 +137,6 @@ public:
         this->set_context(lexContext);
     }
 
-    virtual bool is_statically_constant() const { return true; }
-    virtual void semantic_pass() { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
@@ -165,9 +163,29 @@ public:
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext);
 
-    virtual bool is_statically_constant() const { return true; }
-    virtual void semantic_pass() {
+    virtual void semantic_pass() override {
         this->cstringTypeNode->semantic_pass();
     }
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+};
+
+
+
+class TxBoolLitNode : public TxLiteralValueNode {
+protected:
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        return this->types().get_builtin_type(BOOL);
+    }
+
+public:
+    const bool value;
+
+    TxBoolLitNode(const yy::location& parseLocation, bool value)
+        : TxLiteralValueNode(parseLocation), value(value)  { }
+
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
+        this->set_context(lexContext);
+    }
+
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };

@@ -143,23 +143,12 @@ void LlvmGenerationContext::initialize_builtin_types() {
     this->llvmTypeMapping.emplace(lookup_builtin(HALF),   llvm::Type::getHalfTy(this->llvmContext));
     this->llvmTypeMapping.emplace(lookup_builtin(FLOAT),  llvm::Type::getFloatTy(this->llvmContext));
 	this->llvmTypeMapping.emplace(lookup_builtin(DOUBLE), llvm::Type::getDoubleTy(this->llvmContext));
-    */
     this->llvmTypeMapping.emplace(lookup_builtin(BOOLEAN), llvm::Type::getInt1Ty(this->llvmContext));
+    */
     //this->llvmTypeMapping.emplace(lookupBuiltin(CHAR),   llvm::Type::getInt8Ty(this->llvmContext));
     //this->llvmTypeMapping.emplace(lookupBuiltin(STRING), llvm::Type::getInt8PtrTy(this->llvmContext));
 //	for (auto pair : this->llvmTypeMapping)
 //	    std::cout << "LLVM type mapping: " << pair.first << " -> " << pair.second << std::endl;
-
-    // initialize global constants:
-    // TODO: make proper boolean type
-    auto falseValue = llvm::ConstantInt::getFalse(this->llvmContext);
-    auto  trueValue = llvm::ConstantInt::getTrue(this->llvmContext);
-    llvm::Value* falseField = new llvm::GlobalVariable(this->llvmModule, falseValue->getType(), true,
-                                                       llvm::GlobalValue::ExternalLinkage, falseValue, "tx.FALSE");
-    llvm::Value*  trueField = new llvm::GlobalVariable(this->llvmModule, trueValue->getType(), true,
-                                                       llvm::GlobalValue::ExternalLinkage, trueValue, "tx.TRUE");
-    this->register_llvm_value("tx.FALSE", falseField);
-    this->register_llvm_value("tx.TRUE", trueField);
 
 //    // test adding static field to types:
 //    for (int id = 0; id < BuiltinTypeId_COUNT; id++) {

@@ -167,6 +167,10 @@ extern "C" int yywrap() { return 0; }
 "builtin"	{ return token::KW_BUILTIN; }  // reserved but not currently used
 
  /* literals */
+"NULL"                  { return token::KW_NULL; }
+"TRUE"                  { return token::KW_TRUE; }
+"FALSE"                 { return token::KW_FALSE; }
+
 {L}({L}|{D}|"#")*       { yylval->build(std::string (yytext)); return token::NAME; }
                         /* return yy::TxParser::make_NAME(std::string(yytext), loc); */
 

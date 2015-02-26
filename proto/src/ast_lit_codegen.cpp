@@ -5,6 +5,12 @@
 using namespace llvm;
 
 
+Value* TxBoolLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s\t%s", this->to_string().c_str(), std::to_string(this->value).c_str());
+    return ( this->value ? ConstantInt::getTrue(context.llvmContext) : ConstantInt::getFalse(context.llvmContext) );
+}
+
+
 Value* TxCStringLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s\t\"%s\"", this->to_string().c_str(), this->value.c_str());
     //auto type = context.get_llvm_type(this->get_type());

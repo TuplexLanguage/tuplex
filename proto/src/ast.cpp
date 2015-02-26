@@ -116,6 +116,8 @@ static TxExpressionNode* inner_validate_wrap_convert(ResolutionContext& resCtx, 
         return originalExpr;
     if (_explicit || requiredType->auto_converts_from(*originalType)) {
         // wrap originalExpr with conversion node
+        if (auto boolType = dynamic_cast<const TxBoolType*>(requiredType))
+            return new TxBoolConvNode(originalExpr->parseLocation, originalExpr, boolType);
         if (auto scalarType = dynamic_cast<const TxScalarType*>(requiredType))
             return new TxScalarConvNode(originalExpr->parseLocation, originalExpr, scalarType);
         if (auto refType = dynamic_cast<const TxReferenceType*>(requiredType))
@@ -124,6 +126,9 @@ static TxExpressionNode* inner_validate_wrap_convert(ResolutionContext& resCtx, 
             return new TxObjSpecCastNode(originalExpr->parseLocation, originalExpr, arrayType);
         if (dynamic_cast<const TxFunctionType*>(requiredType))
             return originalExpr;  // or do we actually need to do something here?
+        originalExpr->LOGGER().error("Type supposedly auto-converts but no conversion logic available:  %s => %s",
+                                     originalType->to_string().c_str(), requiredType->to_string().c_str());
+        return originalExpr;
     }
     else if (auto refType = dynamic_cast<const TxReferenceType*>(requiredType)) {
         auto refTargetType = refType->target_type(resCtx);
@@ -146,7 +151,7 @@ static TxExpressionNode* inner_validate_wrap_convert(ResolutionContext& resCtx, 
         }
     }
     originalExpr->cerror("Can't auto-convert value %s => %s",
-                 originalType->to_string().c_str(), requiredType->to_string().c_str());
+                         originalType->to_string().c_str(), requiredType->to_string().c_str());
     return originalExpr;
 }
 

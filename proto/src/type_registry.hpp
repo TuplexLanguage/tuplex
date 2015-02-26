@@ -23,7 +23,7 @@ enum BuiltinTypeId : int {
     HALF,
     FLOAT,
     DOUBLE,
-    BOOLEAN,
+    BOOL,
     REFERENCE,
     ARRAY,
     FUNCTION,

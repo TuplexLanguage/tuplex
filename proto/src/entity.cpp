@@ -3,16 +3,6 @@
 #include "ast_base.hpp"
 
 
-//const TxIdentifier& TxDistinctEntity::get_alias() const {
-//    auto type = this->get_type();
-//    if (! type)
-//        this->LOGGER().warning("In get_alias() of entity %s: type is NULL", this->to_string().c_str());
-//    else if (type->entity() && (static_cast<const TxDistinctEntity*>(type->entity()) != this) && (type->entity()->get_decl_flags() & TXD_GENPARAM))
-//        return &type->entity()->get_full_name();
-//    return nullptr;
-//}
-
-
 int TxFieldEntity::get_instance_field_index() const {
     ASSERT(this->storage == TXS_INSTANCE, "Only fields of instance storage class have an instance field index: " << *this);
     auto parentType = dynamic_cast<const TxTypeEntity*>(this->get_outer());

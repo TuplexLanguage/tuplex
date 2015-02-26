@@ -37,6 +37,10 @@ Value* TxType::code_gen_alloca(LlvmGenerationContext& context, GenScope* scope, 
 
 
 
+Type* TxBoolType::make_llvm_type(LlvmGenerationContext& context) const {
+    return llvm::Type::getInt1Ty(context.llvmContext);
+}
+
 Type* TxIntegerType::make_llvm_type(LlvmGenerationContext& context) const {
     switch (this->_size) {
     case 1:

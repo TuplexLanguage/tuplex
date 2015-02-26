@@ -171,15 +171,20 @@ void TypeRegistry::initializeBuiltinSymbols() {
     this->add_builtin_integer ( module, USHORT,        "UShort",   UNSIGNED, 2, false );
     this->add_builtin_integer ( module, UINT,          "UInt",     UNSIGNED, 4, false );
     this->add_builtin_integer ( module, ULONG,         "ULong",    UNSIGNED, 8, false );
-    this->add_builtin_integer ( module, BOOLEAN,       "Boolean",  UNSIGNED, 1, false );
     this->add_builtin_floating( module, HALF,          "Half",     FLOATINGPOINT, 2 );
     this->add_builtin_floating( module, FLOAT,         "Float",    FLOATINGPOINT, 4 );
     this->add_builtin_floating( module, DOUBLE,        "Double",   FLOATINGPOINT, 8 );
 
-    //this->add_builtin_abstract( module, FUNCTION,      "Function",       ANY );
-    //this->add_builtin_abstract( module, TUPLE,         "Tuple",          ANY );
     //this->add_builtin_integer( module, CHAR,          "Char",    UNSIGNED, 1, false );
     //this->add_builtin( module, STRING,        "String",  new TxArrayType(this->builtinTypes[ARRAY );
+
+    // create the boolean type:
+    {
+        auto record = new BuiltinTypeRecord( BOOL, "Bool" );
+        record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        record->set_type( new TxBoolType(record->get_entity(), this->builtinTypes[ANY]->get_type() ) );
+        this->builtinTypes[record->id] = record;
+    }
 
     // create the function base type:
     {
@@ -236,7 +241,10 @@ void TypeRegistry::initializeBuiltinSymbols() {
         // verify that all built-in types are initialized:
         ASSERT(this->builtinTypes[id], "Uninitialized built-in type! id=" << id);
 
-        this->builtinModTypes[id] = this->get_modifiable_type(nullptr, this->builtinTypes[id]->get_type());
+        auto biType = this->builtinTypes[id]->get_type();
+        TxTypeSpecialization tmpSpec(biType, true);
+        std::vector<TxTypeParam> unbound;
+        this->builtinModTypes[id] = biType->make_specialized_type(nullptr, tmpSpec, unbound, nullptr);
     }
 
 //    // test adding static field to types:
@@ -256,11 +264,11 @@ void TypeRegistry::initializeBuiltinSymbols() {
         }
     }
 
-    // built-in global constants:
-    // FUTURE: implement TRUE and FALSE as enumeration values and/or parser tokens
-    //TxTypeDefiner* BoolTypeDef = new TxBuiltinTypeProxy(this->builtinTypes[BOOLEAN]->get_type());
-    module->declare_field("FALSE", this->builtinTypes[BOOLEAN], TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
-    module->declare_field("TRUE",  this->builtinTypes[BOOLEAN], TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
+//    // built-in global constants:
+//    // FUTURE: implement TRUE and FALSE as enumeration values and/or parser tokens
+//    //TxTypeDefiner* BoolTypeDef = new TxBuiltinTypeProxy(this->builtinTypes[BOOLEAN]->get_type());
+//    module->declare_field("FALSE", this->builtinTypes[BOOLEAN], TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
+//    module->declare_field("TRUE",  this->builtinTypes[BOOLEAN], TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
 
 //    auto charsType = new TxArrayType("tx.Char"); // BUILTIN_TYPES[CHAR].type);
 //    TxBuiltinTypeDefiner* charsProd = new TxBuiltinTypeDefiner("CharArray", charsType);
@@ -290,6 +298,14 @@ const TxType* TypeRegistry::get_builtin_type(const BuiltinTypeId id, bool mod) c
 
 const TxType* TypeRegistry::get_modifiable_type(TxTypeEntity* newEntity, const TxType* type, std::string* errorMsg) {
     // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
+    ASSERT(!type->is_modifiable(), "Can't make a modifiable specialization of a modifiable type: " << type);
+    if (type->is_builtin()) {
+        // FUTURE: rewrite when we have the built-in type id in the type object
+        for (int id = 0; id < BuiltinTypeId_COUNT; id++)
+            if (this->builtinTypes[id]->get_type() == type)
+                return this->builtinModTypes[id];
+        ASSERT(false, "could not find built-in base type: " << type);
+    }
     TxTypeSpecialization tmpSpec(type, true);
     std::vector<TxTypeParam> unbound;
     return type->make_specialized_type(newEntity, tmpSpec, unbound, errorMsg);

@@ -222,7 +222,7 @@ public:
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         this->cond->symbol_resolution_pass(resCtx);
-        this->cond = validate_wrap_convert(resCtx, this->cond, this->types().get_builtin_type(BOOLEAN));
+        this->cond = validate_wrap_convert(resCtx, this->cond, this->types().get_builtin_type(BOOL));
         this->suite->symbol_resolution_pass(resCtx);
         if (this->elseClause)
             this->elseClause->symbol_resolution_pass(resCtx);

@@ -84,6 +84,7 @@ YY_DECL;
 %token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_OR
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_FROM
+%token KW_NULL KW_TRUE KW_FALSE
 
 /* keywords reserved but not currently used */
 %token KW_AND KW_XOR KW_NOT KW_BUILTIN
@@ -507,6 +508,9 @@ value_literal
         |       LIT_FLOATING  { $$ = new TxFloatingLitNode(@1, $1); }
         |       LIT_CHARACTER { $$ = new TxCharacterLitNode(@1, $1); }
         |       LIT_CSTRING   { $$ = new TxCStringLitNode(@1, $1); }
+        |       KW_NULL       { $$ = new TxBoolLitNode(@1, false); }  // TODO: proper Null type
+        |       KW_FALSE      { $$ = new TxBoolLitNode(@1, false); }
+        |       KW_TRUE       { $$ = new TxBoolLitNode(@1, true); }
         // |       LIT_STRING    { $$ = new TxStringLitNode(@1, $1); }
     ;
 

@@ -8,7 +8,7 @@ func puts(str : &[]UByte) {
     tx.c.puts(str^[0])
 }
 
-func assert(expected : Boolean, actual : Boolean) {
+func assert(expected : Bool, actual : Bool) {
     if expected == actual {
         return
     }
@@ -27,7 +27,7 @@ func assert(expected : Int, actual : Int) {
     puts(c"Expected M but was N")
 }
 
-func print(b : Boolean) {
+func print(b : Bool) {
     if b
         puts(c"TRUE")
     else
@@ -43,6 +43,19 @@ func basic_ref_syntax() Int {
     __o   = otherO
     _ro   = &__o
     rro   = &_ro
+
+    b : ~Bool
+    b =   __o   == otherO  ; assert(TRUE, b)
+    b =   _ro^  == otherO  ; assert(TRUE, b)
+    b =   rro^^ == otherO  ; assert(TRUE, b)
+    
+    b =   &__o  == &otherO  ; assert(FALSE, b)
+    b =    _ro  == &otherO  ; assert(FALSE, b)
+    b =    rro^ == &otherO  ; assert(FALSE, b)
+
+    b =   __o   < otherO  ; assert(FALSE, b)
+    b =   _ro^  < otherO  ; assert(FALSE, b)
+    b =   rro^^ < otherO  ; assert(FALSE, b)
     
     assert(2, __o)
     _ro^  = 3         ; assert(3, __o)
@@ -51,21 +64,6 @@ func basic_ref_syntax() Int {
     rro^  = &otherO   ; assert(2, otherO)
     _ro^  = 3         ; assert(3, otherO)
     rro^^ = 4         ; assert(4, otherO)
-
-    /*
-    b : ~Boolean
-    b =   __o   == otherO  ; assert(TRUE, b)
-    b =   _ro^  == otherO
-    b =   rro^^ == otherO
-    
-    b =   &__o  == &otherO
-    b =    _ro  == &otherO
-    b =    rro^ == &otherO
-
-    b =   __o   < otherO
-    b =   _ro^  < otherO
-    b =   rro^^ < otherO
-    */
 
     /*
     __o   += otherO

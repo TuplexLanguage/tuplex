@@ -19,6 +19,9 @@ static const OpName OP_NAMES[] = {
     { TXOP_GE,    TXOC_COMPARISON, "GE" },
     { TXOP_LT,    TXOC_COMPARISON, "LT" },
     { TXOP_LE,    TXOC_COMPARISON, "LE" },
+    { TXOP_AND,   TXOC_BOOLEAN,    "AND" },
+    { TXOP_OR,    TXOC_BOOLEAN,    "OR" },
+    { TXOP_XOR,   TXOC_BOOLEAN,    "XOR" },
 };
 
 TxOperationClass get_op_class(TxOperation op) {
