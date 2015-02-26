@@ -25,7 +25,6 @@ enum TxOperation {
     TXOP_LE,
     TXOP_AND,
     TXOP_OR,
-    TXOP_XOR,
     TXOP_END
 };
 

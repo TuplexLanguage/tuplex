@@ -289,21 +289,39 @@ protected:
                     // same type, no additional action necessary
                     arithResultType = scalar_ltype;
             }
-            if (! arithResultType)
+            if (arithResultType) {
+                if (op_class == TXOC_BOOLEAN)
+                    this->cerror("Can't perform boolean operation on operands of scalar type: %s", ltype->to_string().c_str());
+            }
+            else
+                cerror("Mismatching scalar operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
+        }
+        else if (dynamic_cast<const TxBoolType*>(ltype)) {
+            if (dynamic_cast<const TxBoolType*>(rtype)) {
+                if (op_class == TXOC_ARITHMETIC)
+                    this->cerror("Can't perform arithmetic operation on operands of boolean type: %s", to_cstring(this->op));
+            }
+            else
                 cerror("Mismatching operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
         }
         else if (dynamic_cast<const TxReferenceType*>(ltype)) {
             if (dynamic_cast<const TxReferenceType*>(rtype)) {
-                if (! (this->op == TXOP_EQ || this->op == TXOP_NE))
+                if (op_class != TXOC_EQUALITY)
                     cerror("Invalid operator for reference operands: %s", to_cstring(this->op));
             }
+            else
+                cerror("Mismatching operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
+        }
+        else {
+            cerror("Unsupported operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
         }
 
-        if (get_op_class(this->op) == TXOC_COMPARISON)
-            return this->types().get_builtin_type(BOOL);
-        else {  // TXOC_ARITHMETIC
+        if (this->op_class == TXOC_ARITHMETIC) {
             // Note: After analyzing conversions, the lhs will hold the proper resulting type.
             return arithResultType;
+        }
+        else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
+            return this->types().get_builtin_type(BOOL);
         }
     }
 
@@ -328,18 +346,6 @@ public:
         TxExpressionNode::symbol_resolution_pass(resCtx);
         lhs->symbol_resolution_pass(resCtx);
         rhs->symbol_resolution_pass(resCtx);
-
-        auto operandsType = this->get_type();
-        if (dynamic_cast<const TxScalarType*>(operandsType)) {
-            if (op_class == TXOC_BOOLEAN)
-                this->cerror("Can't perform BOOLEAN operation on operands of scalar type: %s", operandsType->to_string().c_str());
-        }
-        else if (dynamic_cast<const TxBoolType*>(operandsType)) {
-            if (op_class == TXOC_ARITHMETIC)
-                this->cerror("Can't perform ARITHMETIC operation on operands of boolean type: %s", operandsType->to_string().c_str());
-        }
-        else if (operandsType)
-            this->cerror("Unsupported binary operands type: %s", operandsType->to_string().c_str());
     }
 
     virtual bool is_statically_constant() const {
@@ -358,7 +364,10 @@ class TxUnaryMinusNode : public TxOperatorValueNode {
 protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         // TODO: promote unsigned integers upon negation
-        return this->operand->resolve_type(resCtx);
+        auto type = this->operand->resolve_type(resCtx);
+        if (! dynamic_cast<const TxScalarType*>(type))
+            cerror("Operand of unary '-' is not of scalar type: %s", (type ? type->to_string().c_str() : "NULL"));
+        return type;
     }
 
 public:
@@ -382,17 +391,48 @@ public:
 
     virtual void semantic_pass() {
         operand->semantic_pass();
-        auto type = operand->get_type();
-        // assume arithmetic, scalar negation:
-        if (dynamic_cast<const TxScalarType*>(type)) {
-            // TODO: handle unsigned integers
-        }
-        else
-            cerror("Operand of unary '-' is not of scalar type: %s", type->to_string().c_str());
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
+
+class TxUnaryLogicalNotNode : public TxOperatorValueNode {
+protected:
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        return this->types().get_builtin_type(BOOL);
+    }
+
+public:
+    TxExpressionNode* operand;
+    TxUnaryLogicalNotNode(const yy::location& parseLocation, TxExpressionNode* operand)
+        : TxOperatorValueNode(parseLocation), operand(operand) { }
+
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
+        this->set_context(lexContext);
+        operand->symbol_declaration_pass(lexContext);
+    }
+
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(resCtx);
+        operand->symbol_resolution_pass(resCtx);
+        auto type = operand->get_type();
+        // assume arithmetic, scalar negation:
+        if (! dynamic_cast<const TxBoolType*>(type))
+            // should we support any auto-conversion to Bool?
+            cerror("Operand of unary '!' is not of Bool type: %s", (type ? type->to_string().c_str() : "NULL"));
+    }
+
+    virtual bool is_statically_constant() const {
+        return this->operand->is_statically_constant();
+    }
+
+    virtual void semantic_pass() {
+        operand->semantic_pass();
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+};
+
 
 
 class TxFunctionCallNode : public TxExpressionNode {

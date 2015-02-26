@@ -1,3 +1,53 @@
+func puts(str : &[]UByte) {
+    tx.c.puts(str^[0])
+}
+
+func assert(expected : Bool, actual : Bool) {
+    if expected == actual {
+        return
+    }
+    if expected {
+        puts(c"Expected TRUE but was FALSE")
+    }
+    else {
+        puts(c"Expected FALSE but was TRUE")
+    }
+}
+
+func assert(expected : Int, actual : Int) {
+    if expected == actual {
+        return
+    }
+    puts(c"Expected M but was N")
+}
+
+func bool_ops() {
+    t := TRUE
+    f := FALSE
+    b : ~Bool
+
+    b = t & t  ; assert(TRUE,  b)
+    b = t & f  ; assert(FALSE, b)
+    b = f & t  ; assert(FALSE, b)
+    b = f & f  ; assert(FALSE, b)
+
+    b = t | t  ; assert(TRUE,  b)
+    b = t | f  ; assert(TRUE,  b)
+    b = f | t  ; assert(TRUE,  b)
+    b = f | f  ; assert(FALSE, b)
+
+    b = t != t  ; assert(FALSE, b)
+    b = t != f  ; assert(TRUE,  b)
+    b = f != t  ; assert(TRUE,  b)
+    b = f != f  ; assert(FALSE, b)
+
+    assert(TRUE,  !FALSE)
+    assert(FALSE, !TRUE)
+    assert(FALSE, !!FALSE)
+}
+
+
 func main() Int {
+    bool_ops()
     return 0
 }

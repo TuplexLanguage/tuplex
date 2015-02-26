@@ -140,13 +140,16 @@ YY_DECL;
 %precedence EXPR
 %left COMMA COLON
 %right EQUAL
-%left EEQUAL NEQUAL LT GT LEQUAL GEQUAL
+%left AAND PIPE  // boolean (logical, not bitwise) operators
+%precedence NOT   /* unary logical not */
+%left EEQUAL NEQUAL
+%left LT GT LEQUAL GEQUAL
 %left PLUS MINUS
 %left ASTERISK FSLASH
 %precedence NEG   /* negation--unary minus */
 %precedence LPAREN RPAREN  LBRACE RBRACE
-%precedence ADDR  /* unary address-of */
-%precedence CARET /* unary de-reference */
+%precedence ADDR  /* unary prefix address-of */
+%precedence CARET /* unary postfix de-reference */
 %precedence LBRACKET RBRACKET
 %precedence DOT
 %right KW_MODULE KW_IMPORT  /* high token shift precedence */
@@ -478,7 +481,7 @@ method_def  :   KW_FUNC opt_modifiable NAME params_def return_type_def sep suite
 expr
     :   LPAREN expr RPAREN  { $$ = $2; }
     |   value_literal       { $$ = $1; }
-    |   lambda_expr         { $$ = $1; }
+    |   lambda_expr         { $$ = $1; }  // is this really combinable within another expression?
     |   call_expr           { $$ = $1; }
 
     |   gen_identifier           %prec DOT   { $$ = new TxFieldValueNode(@1, NULL, $1); }
@@ -486,8 +489,6 @@ expr
     |   expr LBRACKET expr RBRACKET          { $$ = new TxElemDerefNode(@1, $1, $3); }
     |   expr CARET                           { $$ = new TxReferenceDerefNode(@1, $1); }
     |   AAND expr                %prec ADDR  { $$ = new TxReferenceToNode(@1, $2); }
-    //|   AAND gen_identifier               { $$ = new TxReferenceToNode(@1, new TxFieldValueNode(@1, NULL, $2)); }
-    //|   AAND expr LBRACKET expr RBRACKET  { $$ = new TxReferenceToNode(@1, new TxElemDerefNode(@2, $2, $4)); }
 
     |   MINUS expr  %prec NEG      { $$ = new TxUnaryMinusNode(@1, $2); }  // unary minus
     |   expr PLUS opt_sep expr     { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_PLUS, $4); }
@@ -500,6 +501,10 @@ expr
     |   expr GT opt_sep expr       { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_GT, $4); }
     |   expr LEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_LE, $4); }
     |   expr GEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_GE, $4); }
+
+    |   EMARK expr  %prec NOT      { $$ = new TxUnaryLogicalNotNode(@1, $2); }  // unary not
+    |   expr AAND opt_sep expr     { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_AND, $4); }
+    |   expr PIPE opt_sep expr     { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_OR,  $4); }
     ;
 
 value_literal

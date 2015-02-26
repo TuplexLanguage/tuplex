@@ -25,7 +25,6 @@ static const OpMapping OP_MAPPING[] = {
     { TXOP_LE,    CmpInst::Predicate::ICMP_SLE, CmpInst::Predicate::ICMP_ULE, CmpInst::Predicate::FCMP_OLE },
     { TXOP_AND,   Instruction::And,  Instruction::And,  0 },
     { TXOP_OR,    Instruction::Or,   Instruction::Or,   0 },
-    { TXOP_XOR,   Instruction::Xor,  Instruction::Xor,  0 },
 };
 
 Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
@@ -94,7 +93,6 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
 }
 
 
-
 Value* TxUnaryMinusNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     auto operand = this->operand->code_gen(context, scope);
@@ -103,13 +101,13 @@ Value* TxUnaryMinusNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     auto opType = this->get_type();
     if (dynamic_cast<const TxIntegerType*>(opType)) {
         if (this->is_statically_constant() && !scope)
-            return ConstantExpr::getNeg((Constant*)operand);
+            return ConstantExpr::getNeg(cast<Constant>(operand));
         else
             return scope->builder->CreateNeg(operand);
     }
     else if (dynamic_cast<const TxFloatingType*>(opType)) {
         if (this->is_statically_constant() && !scope)
-            return ConstantExpr::getFNeg((Constant*)operand);
+            return ConstantExpr::getFNeg(cast<Constant>(operand));
         else
             return scope->builder->CreateFNeg(operand);
     }
@@ -118,6 +116,18 @@ Value* TxUnaryMinusNode::code_gen(LlvmGenerationContext& context, GenScope* scop
         return NULL;
     }
 }
+
+Value* TxUnaryLogicalNotNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s", this->to_string().c_str());
+    auto operand = this->operand->code_gen(context, scope);
+    if (! operand)
+        return NULL;
+    if (this->is_statically_constant() && !scope)
+        return ConstantExpr::getNot(cast<Constant>(operand));
+    else
+        return scope->builder->CreateNot(operand);
+}
+
 
 Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());

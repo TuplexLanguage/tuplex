@@ -366,6 +366,8 @@ public:
             this->cachedType = this->define_type(resCtx);
             this->gottenType = true;
             this->gettingType = false;
+            //if (! this->cachedType)
+            //    LOGGER().warning("%s: resolve_type() yielded NULL", this->parse_loc_string().c_str());
         }
         return cachedType;
     }

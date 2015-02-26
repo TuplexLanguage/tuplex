@@ -13,15 +13,14 @@ static const OpName OP_NAMES[] = {
     { TXOP_MINUS, TXOC_ARITHMETIC, "MINUS" },
     { TXOP_MUL,   TXOC_ARITHMETIC, "MUL" },
     { TXOP_DIV,   TXOC_ARITHMETIC, "DIV" },
-    { TXOP_EQ,    TXOC_COMPARISON, "EQ" },
-    { TXOP_NE,    TXOC_COMPARISON, "NE" },
+    { TXOP_EQ,    TXOC_EQUALITY,   "EQ" },
+    { TXOP_NE,    TXOC_EQUALITY,   "NE" },
     { TXOP_GT,    TXOC_COMPARISON, "GT" },
     { TXOP_GE,    TXOC_COMPARISON, "GE" },
     { TXOP_LT,    TXOC_COMPARISON, "LT" },
     { TXOP_LE,    TXOC_COMPARISON, "LE" },
     { TXOP_AND,   TXOC_BOOLEAN,    "AND" },
     { TXOP_OR,    TXOC_BOOLEAN,    "OR" },
-    { TXOP_XOR,   TXOC_BOOLEAN,    "XOR" },
 };
 
 TxOperationClass get_op_class(TxOperation op) {
