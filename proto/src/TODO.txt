@@ -1,10 +1,6 @@
 
 Dataspace syntax support
 
-Bool type
-
-Arithmetic operations
-
 Polymorphic inheritance: Static fields, V-table
 
 Generic type instance fields support
@@ -15,6 +11,10 @@ Methods (implicit self parameter)
 
 Interfaces
 
+Range typeclass
+
+for-loops
+
 Constructors/initializers, destructors
 
 Boxed references
@@ -24,10 +24,6 @@ Heap allocation
 Union typeclass
 
 Full dataspaces support
-
-Range typeclass
-
-for-loops
 
 Make TxType be fully defined upon construction (during type resolution pass)
  - Means base types are fully resolved by subtype construction

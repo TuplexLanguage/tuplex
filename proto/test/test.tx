@@ -40,11 +40,12 @@ func str_test() {
     puts(helloWorld2)
 }
 
+func empty_func() { }
 
 func main() Int {
     i : mod tx.Int = 2
     flag : mod tx.Bool = FALSE
-    ##flag = 42 < 40+3
+    flag = 42 < 40+3
     if Int(42.) != 40+2 {
         str := c"it was TRUE!"
         puts(str)

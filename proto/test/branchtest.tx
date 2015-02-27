@@ -55,6 +55,7 @@ func main() Int {
     f := c"foo"
     printfoo(&f)
     test_while()
+    while FALSE {}  ## should do nothing
     return 0
     ##puts(c"this should be unreachable")
 }

@@ -36,6 +36,8 @@ func first() ULong {
         else { v = v + 4096 }
     }
 
+    if TRUE {} else {}
+
     expected : ULong = 1+4+32+64+256+512
     return v-expected
 }
