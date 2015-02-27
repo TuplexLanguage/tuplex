@@ -391,30 +391,15 @@ base_type_expression
     ;
 
 reference_type : opt_dataspace ref_token type_expression
-                    { /* custom ast node needed to handle dataspaces */
+                    { /* (custom ast node needed to handle dataspaces) */
                       $$ = new TxReferenceTypeNode(@2, $1, $3);
-                      /*
-                      auto baseIdent = new TxIdentifierNode( @2, new TxIdentifier("tx.Ref") );
-                      TxTypeArgumentNode* typeArg = new TxTypeArgumentNode($3);
-                      $$ = new TxSpecializedTypeNode( @2, baseIdent, new std::vector<TxTypeArgumentNode*>( { typeArg } ) );
-                      */
                     } ;
 opt_dataspace : %empty { $$ = NULL; } | QMARK { $$ = NULL; } | gen_identifier { $$ = $1; } ;
 ref_token : KW_REFERENCE | AAND ;
 
 array_type : array_dimensions type_expression
-                    { /* custom ast node needed to provide syntactic sugar for modifiable decl */
+                    { /* (custom ast node needed to provide syntactic sugar for modifiable decl) */
                       $$ = new TxArrayTypeNode(@1, $2, $1);
-                      /*
-                      auto baseIdent = new TxIdentifierNode( @1, new TxIdentifier("tx.Array") );
-                      TxTypeArgumentNode* elemType = new TxTypeArgumentNode($2);
-                      if ($1) {
-                          TxTypeArgumentNode* arrayDim = new TxTypeArgumentNode($1);
-                          $$ = new TxSpecializedTypeNode( @1, baseIdent, new std::vector<TxTypeArgumentNode*>( { elemType, arrayDim } ) );
-                      } else {
-                          $$ = new TxSpecializedTypeNode( @2, baseIdent, new std::vector<TxTypeArgumentNode*>( { elemType } ) );
-                      }
-                      */
                     } ;
 array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
                  //| LBRACKET predef_type RBRACKET  // predef_type must be an enum

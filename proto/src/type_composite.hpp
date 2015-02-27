@@ -60,6 +60,8 @@ public:
     }
 
 
+    virtual TxTypeClass get_type_class() const override { return TXTC_ARRAY; }
+
     virtual bool is_abstract() const { return false; }
 
     virtual bool is_statically_sized() const override;
@@ -108,6 +110,8 @@ public:
         return ttype;
     }
 
+    virtual TxTypeClass get_type_class() const override { return TXTC_REFERENCE; }
+
     virtual bool is_final() const { return true; }
     virtual bool is_abstract() const { return false; }
 
@@ -155,6 +159,8 @@ public:
           modifiableClosure(modifiableClosure), argumentTypes(argumentTypes), returnType(returnType)  { }
 
     bool hasReturnValue() const  { return this->returnType != nullptr; }
+
+    virtual TxTypeClass get_type_class() const override { return TXTC_FUNCTION; }
 
     virtual bool is_abstract() const { return false; }
 
@@ -258,6 +264,8 @@ public:
             : TxType(entity, TxTypeSpecialization(baseType)), _mutable(_mutable)  {
         ASSERT(entity, "NULL entity");
     }
+
+    virtual TxTypeClass get_type_class() const override { return TXTC_TUPLE; }
 
     virtual bool is_abstract() const override { return this->abstract; }
 

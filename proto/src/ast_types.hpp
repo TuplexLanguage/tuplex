@@ -198,7 +198,9 @@ protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto baseType = this->types().get_builtin_type(REFERENCE);
         TxGenericBinding binding = this->targetTypeNode->make_binding(resCtx, baseType, baseType->get_type_param("T"));
-        return this->types().get_reference_type(this->get_entity(), binding);
+        const TxIdentifier* dataspace = (this->dataspace ? &this->dataspace->ident : nullptr);
+        cwarning("Dataspace: %s", (this->dataspace ? this->dataspace->ident.to_string().c_str() : "NULL"));
+        return this->types().get_reference_type(this->get_entity(), binding, dataspace);
     }
 
 public:

@@ -30,6 +30,32 @@ namespace llvm {
 }
 
 
+/** The type classes of Tuplex. Each type class is handled specially by the compiler. */
+enum TxTypeClass {
+    /** Represents the Any root type. */
+    TXTC_ANY,
+    /** The built-in, non-aggregate types (e.g. Bool, Scalar). */
+    TXTC_ELEMENTARY,
+    /** The Ref types. */
+    TXTC_REFERENCE,
+    /** The Array types. */
+    TXTC_ARRAY,
+    /** The Tuple types. */
+    TXTC_TUPLE,
+    /** The Union types. */
+    TXTC_UNION,
+    /** The function types, including methods and lambdas. */
+    TXTC_FUNCTION,
+    /** The interface types. */
+    TXTC_INTERFACE,
+    /** The Range types. */
+    TXTC_RANGE,
+    /** The Enum types. */
+    TXTC_ENUM,
+};
+
+
+
 /** Proxy interface that provides a layer of indirection to a type reference.
  * This is needed for two reasons:
  * - Before the symbol table pass has completed, resolving the actual type may not be possible
@@ -213,19 +239,21 @@ class TxTypeSpecialization : public Printable {
 public:
     TxType const * const type;
     const bool modifiable;
-    const std::vector<TxGenericBinding> bindings;  // each type parameter of type must have binding
+    TxIdentifier const * const dataspace;  // only set for reference specializations
+    const std::vector<TxGenericBinding> bindings;
 
     /** Only legal to use by the Any type. */
     TxTypeSpecialization()
-            : type(), modifiable(), bindings()  { }
+            : type(), modifiable(), dataspace(), bindings()  { }
 
     TxTypeSpecialization(const TxType* baseType, bool modifiable=false)
-            : type(baseType), modifiable(modifiable), bindings()  {
+            : type(baseType), modifiable(modifiable), dataspace(), bindings()  {
         ASSERT(baseType, "NULL baseType");
     }
 
-    TxTypeSpecialization(const TxType* baseType, const std::vector<TxGenericBinding>& baseBindings)
-            : type(baseType), modifiable(false), bindings(baseBindings)  {
+    TxTypeSpecialization(const TxType* baseType, const std::vector<TxGenericBinding>& baseBindings,
+                         const TxIdentifier* dataspace=nullptr)
+            : type(baseType), modifiable(false), dataspace(dataspace), bindings(baseBindings)  {
         ASSERT(baseType, "NULL baseType");
     }
 
@@ -313,6 +341,9 @@ public:
 
     /** Returns true if this type has a base type (parent). (Any is the only type that has no base type.) */
     inline bool has_base_type() const { return this->baseTypeSpec.type; }
+
+    /** Returns the type class this type belongs to. */
+    virtual TxTypeClass get_type_class() const = 0;
 
     /** Returns true iff this type is a built-in type. */
     bool is_builtin() const;

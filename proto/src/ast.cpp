@@ -223,8 +223,6 @@ void TxTypeExpressionNode::symbol_declaration_pass(LexicalContext& lexContext, T
                                                    const std::vector<TxDeclarationNode*>* typeParamDecls) {
     // Each node in a type expression has the option of declaring an entity (i.e. creating a name for)
     // any of its constituent type expressions.
-    //   Not known yet: If such naming may prevent things like value assignment
-    //   (unnamed types mismatching the auto-generated implicit types).
     // Type entities are at minimum needed for:
     //  - explicit type declarations/extensions
     //  - adding members (since members are namespace symbols) - only done in explicit type extensions

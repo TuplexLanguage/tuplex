@@ -15,6 +15,9 @@ Range typeclass
 
 for-loops
 
+Tuple literals
+Array literals
+
 Constructors/initializers, destructors
 
 Boxed references
@@ -25,6 +28,8 @@ Union typeclass
 
 Full dataspaces support
 
+Shared objects
+
 Make TxType be fully defined upon construction (during type resolution pass)
  - Means base types are fully resolved by subtype construction
  - Static (vtable) and instance field layouts can be done upon construction
@@ -33,3 +38,5 @@ Make TxType be fully defined upon construction (during type resolution pass)
 Dynamic generics support
  - To support declaring instance fields of dynamically resolved type by value (not just reference)
  - Requires making the AST for a generic type definition re-entrant, and reprocessed for each specialization
+
+Enum typeclass

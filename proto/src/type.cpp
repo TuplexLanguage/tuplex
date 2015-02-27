@@ -72,11 +72,13 @@ std::string TxTypeSpecialization::validate(ResolutionContext& resCtx) const {
             return std::string("Can't make an immutable type modifiable.");
         if (! this->bindings.empty())
             return std::string("Can't bind type parameters on top of a 'modifiable' type.");
+        if (this->dataspace)
+            return std::string("Can't specify dataspace for a 'modifiable' specialization");
+        return std::string();
     }
-    else if (! this->bindings.empty()) {
-//        // if at least one param is bound, all need to be bound/redeclared
-//        if (this->type->type_params().size() != this->bindings.size())
-//            return std::string("Specified " + std::to_string(this->bindings.size()) + " bindings but base type has " + std::to_string(this->type->type_params().size()) + " parameters");
+    if (this->dataspace && this->type->get_type_class() != TXTC_REFERENCE)
+        return std::string("Specified dataspace for non-referernce type ") + this->type->to_string();
+    if (! this->bindings.empty()) {
         for (auto & b : this->bindings) {
             if (this->type->has_type_param(b.param_name())) {
                 // validate metatype and constraints
@@ -331,6 +333,8 @@ bool TxType::inner_is_a(const TxType& other) const {
 
 
 static void type_bindings_string(std::stringstream& str, const TxTypeSpecialization& specialization) {
+    if (specialization.dataspace)
+        str << specialization.dataspace << "& ";
     str << "<";
     int ix = 0;
     for (auto & b : specialization.bindings) {

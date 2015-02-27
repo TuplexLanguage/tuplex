@@ -18,15 +18,16 @@ public:
     TxBoolType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec)
         : TxType(entity, baseTypeSpec) { }
 
-    virtual bool is_immutable() const { return false; }
-    virtual bool is_final() const { return true; }
-    virtual bool is_abstract() const { return false; }
+    virtual TxTypeClass get_type_class() const override { return TXTC_ELEMENTARY; }
+    virtual bool is_immutable() const override { return false; }
+    virtual bool is_final() const override { return true; }
+    virtual bool is_abstract() const override { return false; }
 
-    inline virtual bool operator==(const TxType& other) const {
+    inline virtual bool operator==(const TxType& other) const override {
         return ( typeid(*this) == typeid(other) );
     }
 
-    virtual bool innerAutoConvertsFrom(const TxType& other) const {
+    virtual bool innerAutoConvertsFrom(const TxType& other) const override {
         // should we auto-convert from Null (false)?
         // should we auto-convert from integers (0 => false)?
         return ( typeid(*this) == typeid(other) );
@@ -54,9 +55,10 @@ protected:
 
 public:
     virtual uint64_t size() const { return this->_size; }
-    virtual bool is_immutable() const { return false; }
-    virtual bool is_final() const { return true; }
-    virtual bool is_abstract() const { return false; }
+    virtual TxTypeClass get_type_class() const override { return TXTC_ELEMENTARY; }
+    virtual bool is_immutable() const override { return false; }
+    virtual bool is_final() const override { return true; }
+    virtual bool is_abstract() const override { return false; }
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
@@ -84,13 +86,13 @@ public:
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
-    inline virtual bool operator==(const TxType& other) const {
+    inline virtual bool operator==(const TxType& other) const override {
         return (typeid(*this) == typeid(other)
                 && this->sign == ((TxIntegerType&)other).sign
                 && this->_size == ((TxIntegerType&)other)._size);
     }
 
-    virtual bool innerAutoConvertsFrom(const TxType& otherType) const {
+    virtual bool innerAutoConvertsFrom(const TxType& otherType) const override {
         if (const TxIntegerType* intType = dynamic_cast<const TxIntegerType*>(&otherType)) {
             if (this->sign == intType->sign)
                 return this->_size >= intType->_size;
@@ -121,12 +123,12 @@ public:
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
-    virtual bool operator==(const TxType& other) const {
+    virtual bool operator==(const TxType& other) const override {
         return (typeid(*this) == typeid(other)
                 && this->_size == ((TxFloatingType&)other)._size);
     }
 
-    virtual bool innerAutoConvertsFrom(const TxType& otherType) const {
+    virtual bool innerAutoConvertsFrom(const TxType& otherType) const override {
         if (const TxFloatingType* floatType = dynamic_cast<const TxFloatingType*>(&otherType))
             return this->_size >= floatType->_size;
         return false;

@@ -44,7 +44,7 @@ class TypeRegistry {
 
     void initializeBuiltinSymbols();
     //void add_builtin(TxModule* module, BuiltinTypeRecord* record);
-    void add_builtin_abstract(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId);
+    void add_builtin_abstract(TxModule* module, TxTypeClass typeClass, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId);
     void add_builtin_integer(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size, bool sign);
     void add_builtin_floating(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size);
 
@@ -76,7 +76,8 @@ public:
                                           std::string* errorMsg=nullptr);
 
 
-    const TxReferenceType* get_reference_type(TxTypeEntity* newEntity, TxGenericBinding targetTypeBinding, std::string* errorMsg=nullptr);
+    const TxReferenceType* get_reference_type(TxTypeEntity* newEntity, TxGenericBinding targetTypeBinding,
+                                              const TxIdentifier* dataspace=nullptr, std::string* errorMsg=nullptr);
     //const TxReferenceType* get_reference_type(TxTypeEntity* newEntity, TxEntityDefiner* targetType, std::string* errorMsg=nullptr);
 
     const TxArrayType* get_array_type(TxTypeEntity* newEntity, TxGenericBinding elemTypeBinding, TxGenericBinding lengthBinding, std::string* errorMsg=nullptr);

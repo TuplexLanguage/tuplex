@@ -1,0 +1,15 @@
+
+type Container {
+    r : ~ A & Int
+}
+
+func main() Int {
+    i1 : Int = 1
+    c1 : Container
+    c1.r = &i1
+    i2 : Int = 2
+    c2 : Container
+    c2.r = &i2
+
+    return c1.r^ + c2.r^
+}

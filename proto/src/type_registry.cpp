@@ -55,6 +55,8 @@ class TxAnyType final : public TxType {
 public:
     TxAnyType(TxTypeEntity* entity) : TxType(entity) { }
 
+    virtual TxTypeClass get_type_class() const override { return TXTC_ANY; }
+
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
         return llvm::Type::getVoidTy(context.llvmContext);
     }
@@ -62,18 +64,24 @@ public:
 
 /** Used for the built-in types' abstract base types. */
 class TxBuiltinBaseType final : public TxType {
+    const TxTypeClass typeClass;
+
     TxType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
                                   const std::vector<TxTypeParam>& typeParams,
                                   std::string* errorMsg=nullptr) const override {
         ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
         if (! dynamic_cast<const TxBuiltinBaseType*>(baseTypeSpec.type))
             throw std::logic_error("Specified a base type for TxBuiltinBaseType that was not a TxBuiltinBaseType: " + baseTypeSpec.type->to_string());
-        return new TxBuiltinBaseType(entity, baseTypeSpec);
+        return new TxBuiltinBaseType(entity, baseTypeSpec.type->get_type_class(), baseTypeSpec);
     }
 
 public:
-    TxBuiltinBaseType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec) : TxType(entity, baseTypeSpec)  { }
-    TxBuiltinBaseType(TxTypeEntity* entity, const TxType* baseType) : TxType(entity, TxTypeSpecialization(baseType))  { }
+    TxBuiltinBaseType(TxTypeEntity* entity, TxTypeClass typeClass, const TxTypeSpecialization& baseTypeSpec)
+        : TxType(entity, baseTypeSpec), typeClass(typeClass)  { }
+    TxBuiltinBaseType(TxTypeEntity* entity, TxTypeClass typeClass, const TxType* baseType)
+        : TxType(entity, TxTypeSpecialization(baseType)), typeClass(typeClass)  { }
+
+    virtual TxTypeClass get_type_class() const override { return this->typeClass; }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
         return llvm::Type::getVoidTy(context.llvmContext);  // can we support a more specific LLVM type here?
@@ -120,10 +128,10 @@ public:
 //};
 
 
-void TypeRegistry::add_builtin_abstract(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId) {
+void TypeRegistry::add_builtin_abstract(TxModule* module, TxTypeClass typeClass, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId) {
     auto record = new BuiltinTypeRecord( id, plainName );
     record->set_entity( module->declare_type(plainName, record, TXD_PUBLIC | TXD_BUILTIN) );
-    record->set_type( new TxBuiltinBaseType( record->get_entity(), this->builtinTypes[parentId]->get_type() ) );
+    record->set_type( new TxBuiltinBaseType( record->get_entity(), typeClass, this->builtinTypes[parentId]->get_type() ) );
     this->builtinTypes[record->id] = record;
 }
 
@@ -155,12 +163,12 @@ void TypeRegistry::initializeBuiltinSymbols() {
     }
 
     // create the built-in abstract base types:
-    this->add_builtin_abstract( module, ELEMENTARY,    "Elementary",     ANY );
-    this->add_builtin_abstract( module, SCALAR,        "Scalar",         ELEMENTARY );
-    this->add_builtin_abstract( module, INTEGER,       "Integer",        SCALAR );
-    this->add_builtin_abstract( module, SIGNED,        "Signed",         INTEGER );
-    this->add_builtin_abstract( module, UNSIGNED,      "Unsigned",       INTEGER );
-    this->add_builtin_abstract( module, FLOATINGPOINT, "FloatingPoint",  SCALAR );
+    this->add_builtin_abstract( module, TXTC_ELEMENTARY, ELEMENTARY,    "Elementary",     ANY );
+    this->add_builtin_abstract( module, TXTC_ELEMENTARY, SCALAR,        "Scalar",         ELEMENTARY );
+    this->add_builtin_abstract( module, TXTC_ELEMENTARY, INTEGER,       "Integer",        SCALAR );
+    this->add_builtin_abstract( module, TXTC_ELEMENTARY, SIGNED,        "Signed",         INTEGER );
+    this->add_builtin_abstract( module, TXTC_ELEMENTARY, UNSIGNED,      "Unsigned",       INTEGER );
+    this->add_builtin_abstract( module, TXTC_ELEMENTARY, FLOATINGPOINT, "FloatingPoint",  SCALAR );
 
     // create the built-in concrete scalar types:
     this->add_builtin_integer ( module, BYTE,          "Byte",     SIGNED,   1, true );
@@ -190,7 +198,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
     {
         auto record = new BuiltinTypeRecord( FUNCTION, "Function" );
         record->set_entity( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
-        record->set_type( new TxBuiltinBaseType(record->get_entity(), this->builtinTypes[ANY]->get_type() ) );
+        record->set_type( new TxBuiltinBaseType(record->get_entity(), TXTC_FUNCTION, this->builtinTypes[ANY]->get_type() ) );
         this->builtinTypes[record->id] = record;
     }
 
@@ -364,15 +372,15 @@ const TxType* TypeRegistry::get_type_specialization(TxTypeEntity* newEntity, con
         }
     }
 
-    TxTypeSpecialization newSpec(specialization.type, newBindings);
+    TxTypeSpecialization newSpec(specialization.type, newBindings, specialization.dataspace);
     return specialization.type->make_specialized_type(newEntity, newSpec, unboundParams, errorMsg);
 }
 
 
 const TxReferenceType* TypeRegistry::get_reference_type(TxTypeEntity* newEntity, TxGenericBinding targetTypeBinding,
-                                                        std::string* errorMsg) {
+                                                        const TxIdentifier* dataspace, std::string* errorMsg) {
     std::vector<TxGenericBinding> bindings( { targetTypeBinding } );
-    TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type(), bindings);
+    TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type(), bindings, dataspace);
     return static_cast<const TxReferenceType*>(this->get_type_specialization(newEntity, specialization, false, nullptr, errorMsg));
 }
 
