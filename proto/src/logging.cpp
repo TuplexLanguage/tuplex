@@ -94,7 +94,7 @@ Logger& Logger::get(const std::string& name) {
         return *loggers.at(name);
     else {
         Level initialThreshold = INFO;
-        for (int i = 0; i < sizeof(THRESHOLD_LEVELS)/sizeof(*THRESHOLD_LEVELS); i++)
+        for (unsigned i = 0; i < sizeof(THRESHOLD_LEVELS)/sizeof(*THRESHOLD_LEVELS); i++)
             if (name == THRESHOLD_LEVELS[i].name) {
                 initialThreshold = THRESHOLD_LEVELS[i].level;
                 break;

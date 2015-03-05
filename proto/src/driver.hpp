@@ -116,10 +116,3 @@ public:
     static void emit_comp_error(const yy::location& loc, const std::string& msg);
     static void emit_comp_warning(const yy::location& loc, const std::string& msg);
 };
-
-
-// Tell Flex the lexer's prototype ...
-//# define YY_DECL \
-//        yy::TxParser::symbol_type yylex(TxDriver& driver)
-// declare yylex for the parser's sake
-//YY_DECL;

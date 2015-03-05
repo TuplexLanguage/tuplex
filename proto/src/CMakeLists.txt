@@ -128,14 +128,16 @@ add_executable(txc
 # -std=c++11
 # -std=c++1y
 # -fexceptions -fcxx-exceptions 
-SET (CMAKE_C_COMPILER             "/usr/bin/clang")
+#SET (CMAKE_C_COMPILER             "/usr/bin/clang")
+SET (CMAKE_C_COMPILER             "/usr/bin/gcc")
 SET (CMAKE_C_FLAGS                "-Wall -std=c99")
 SET (CMAKE_C_FLAGS_DEBUG          "-g")
 SET (CMAKE_C_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
 SET (CMAKE_C_FLAGS_RELEASE        "-O4 -DNDEBUG")
 SET (CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 
-SET (CMAKE_CXX_COMPILER             "/usr/bin/clang++")
+#SET (CMAKE_CXX_COMPILER             "/usr/bin/clang++")
+SET (CMAKE_CXX_COMPILER             "/usr/bin/gcc")
 SET (CMAKE_CXX_FLAGS                "-Wall -Wno-deprecated-register -std=c++11 -pthread")
 SET (CMAKE_CXX_FLAGS_DEBUG          "-g")
 SET (CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
@@ -145,4 +147,5 @@ SET (CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 set_target_properties(txc PROPERTIES COMPILE_FLAGS "${LLVM_CXX_FLAGS}")
 set_target_properties(txc PROPERTIES LINK_FLAGS "${LLVM_LD_FLAGS}")
 
-target_link_libraries(txc ${REQ_LLVM_LIBRARIES} ${REQ_LLVM_SYS_LIBS})
+# when linking with gcc, appending -lstdc++ is required:
+target_link_libraries(txc ${REQ_LLVM_LIBRARIES} ${REQ_LLVM_SYS_LIBS} -lstdc++)

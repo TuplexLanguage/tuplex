@@ -26,8 +26,8 @@ inline TxDeclarationFlags operator^(TxDeclarationFlags a, TxDeclarationFlags b) 
     return static_cast<TxDeclarationFlags>(static_cast<int>(a) ^ static_cast<int>(b));
 }
 
-inline std::string toString(TxDeclarationFlags flags) {
-    char buf[8];
+inline std::string to_string(TxDeclarationFlags flags) {
+    char buf[16];
     sprintf(buf, "%c%c%c%c%c%c%c%c%c%c",
             (flags & TXD_STATIC)    ? 'S' : '-',
             (flags & TXD_ABSTRACT)  ? 'A' : '-',
@@ -45,5 +45,5 @@ inline std::string toString(TxDeclarationFlags flags) {
 template<typename charT, typename traits>
 std::basic_ostream<charT, traits> &
 operator<< (std::basic_ostream<charT, traits> &lhs, TxDeclarationFlags const rhs) {
-    return lhs << toString(rhs);
+    return lhs << to_string(rhs);
 }

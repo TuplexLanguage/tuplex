@@ -166,7 +166,7 @@ public:
     }
 
     virtual std::string to_string() const {
-        return std::string("FIELD ") + ::toString(this->get_decl_flags()) + " " + this->get_full_name().to_string();
+        return std::string("FIELD ") + ::to_string(this->get_decl_flags()) + " " + this->get_full_name().to_string();
     }
 };
 
@@ -189,7 +189,7 @@ class TxTypeEntity : public TxDistinctEntity, public TxTypeProxy {
                 auto fieldType = field->resolve_symbol_type(resCtx);
                 if (field->get_storage() == TXS_INSTANCE) {
                     this->LOGGER().debug("Laying out instance field %-40s  %s  %s", field->get_full_name().to_string().c_str(),
-                            ::toString(this->get_decl_flags()).c_str(), fieldType->to_string(true).c_str());
+                            ::to_string(this->get_decl_flags()).c_str(), fieldType->to_string(true).c_str());
                     this->instanceFields.emplace(&field->get_name(), this->instanceFields.size());
                     instanceFieldTypes.push_back(fieldType);
                 }
@@ -287,7 +287,7 @@ public:
 
 
     virtual std::string to_string() const {
-        return std::string("TYPE  ") + ::toString(this->get_decl_flags()) + " " + this->get_full_name().to_string();
+        return std::string("TYPE  ") + ::to_string(this->get_decl_flags()) + " " + this->get_full_name().to_string();
     }
 };
 

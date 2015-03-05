@@ -182,7 +182,7 @@ public:
         return this->segments.size() == 0;
     }
 
-    inline int segment_count() const {
+    inline size_t segment_count() const {
         return this->segments.size();
     }
 
@@ -199,7 +199,7 @@ public:
     inline bool begins_with(const TxIdentifier& other) const {
         if (other.segments.size() > this->segments.size())
             return false;
-        for (int i = 0; i < other.segments.size(); i++)
+        for (size_t i = 0; i < other.segments.size(); i++)
             if (other.segments.at(i) != this->segments.at(i))
                 return false;
         return true;

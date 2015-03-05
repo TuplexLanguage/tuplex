@@ -171,6 +171,7 @@ public:
         switch (this->meta_type()) {
         case TXB_TYPE: return "TYPE " + this->param_name();
         case TXB_VALUE: return "VALUE " + this->param_name();
+        default: return std::string();
         }
     }
 };

@@ -29,8 +29,6 @@ class TxDriver;
   yylex (yy::TxParser::semantic_type* yylval,      \
          yy::TxParser::location_type* yylloc,      \
          TxDriver& driver)
-//# define YY_DECL \
-//        yy::TxParser::symbol_type yylex(TxDriver& driver)
 // declare yylex for the parser's sake
 YY_DECL;
 }
