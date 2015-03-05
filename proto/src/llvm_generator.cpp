@@ -7,11 +7,12 @@
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Function.h>
-#include <llvm/Analysis/Verifier.h>
-#include <llvm/PassManager.h>
-#include <llvm/Assembly/PrintModulePass.h>
+#include <llvm/IR/Verifier.h>
+#include <llvm/IR/PassManager.h>
+#include <llvm/IR/IRPrintingPasses.h>
 #include <llvm/Bitcode/ReaderWriter.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/FileSystem.h>
 
 #include "txassert.hpp"
 #include "tx_lang_defs.hpp"
@@ -77,31 +78,32 @@ bool LlvmGenerationContext::generate_main(const std::string& userMainIdent, cons
 
 bool LlvmGenerationContext::verify_code() {
     //this->LOG.info("Verifying LLVM code...");;
-    std::string errMsg;
-    bool ret = llvm::verifyModule(this->llvmModule, llvm::PrintMessageAction, &errMsg);
+    std::string errInfo;
+    llvm::raw_string_ostream ostr(errInfo);
+    bool ret = llvm::verifyModule(this->llvmModule, &ostr);
     if (ret)
-        this->LOG.error("LLVM code verification failed: %s", errMsg.c_str());
+        this->LOG.error("LLVM code verification failed: %s", errInfo.c_str());
     return ret;
 }
 
 void LlvmGenerationContext::print_IR() {
     // TODO: support writing to a .ll file
-    // Print the LLVM IR in a human-readable format to stdout
     this->LOG.info("Printing LLVM bytecode...");
-    llvm::PassManager pm;
-    pm.add(llvm::createPrintModulePass(&llvm::outs()));
-    pm.run(this->llvmModule);
+    llvm::PrintModulePass printPass(llvm::outs());
+    llvm::ModulePassManager pm;
+    pm.addPass(printPass);
+    pm.run(&this->llvmModule);
     std::cout << std::endl;
 }
 
 void LlvmGenerationContext::write_bitcode(const std::string& filepath) {
     this->LOG.info("Writing LLVM bitcode file '%s'", filepath.c_str());
-    llvm::PassManager pm;
-    std::string errcode;
-    llvm::raw_fd_ostream ostream(filepath.c_str(), errcode, llvm::sys::fs::F_Binary);
-    pm.add(llvm::createBitcodeWriterPass(ostream));
-    pm.run(this->llvmModule);
-
+    std::string errInfo;
+    llvm::raw_fd_ostream ostream(filepath.c_str(), errInfo, llvm::sys::fs::F_RW);
+    if (errInfo.empty())
+        llvm::WriteBitcodeToFile(&this->llvmModule, ostream);
+    else
+        this->LOG.error("Failed to open bitcode output file for writing: %s", errInfo.c_str());
 }
 
 

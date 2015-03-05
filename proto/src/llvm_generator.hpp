@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stack>
+
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
@@ -82,8 +84,10 @@ public:
      */
     bool verify_code();
 
+    /** Print the LLVM IR in a human-readable format to stdout */
     void print_IR();
 
+    /** Print the LLVM IR as binary bitcode to a file. */
     void write_bitcode(const std::string& filepath);
 
     void run_code();

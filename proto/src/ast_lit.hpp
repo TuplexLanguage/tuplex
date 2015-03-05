@@ -32,7 +32,7 @@ public:
     bool outOfRange = false;
     union {
         int64_t  i64 = 0;
-        uint64_t u64 = 0;
+        uint64_t u64;
     } value;
 
     IntValue(const std::string& valueLiteral, bool hasRadix, BuiltinTypeId typeId = (BuiltinTypeId)0);

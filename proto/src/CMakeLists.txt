@@ -58,6 +58,7 @@ set(LLVM_COMPONENTS core engine interpreter bitwriter)
 execute_process(COMMAND llvm-config --includedir OUTPUT_VARIABLE LLVM_INCLUDE_DIRS OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(COMMAND llvm-config --libdir OUTPUT_VARIABLE LLVM_LIBRARY_DIRS OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(COMMAND llvm-config --libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE REQ_LLVM_LIBRARIES OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND llvm-config --system-libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE REQ_LLVM_SYS_LIBS OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 include_directories( ${LLVM_INCLUDE_DIRS} )
 link_directories( ${LLVM_LIBRARY_DIRS} )
@@ -70,15 +71,15 @@ execute_process(COMMAND llvm-config --ldflags OUTPUT_VARIABLE LLVM_LD_FLAGS OUTP
 
 
 
-#set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "/usr/share/llvm-3.4/cmake")
+#set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "/usr/share/llvm-3.5/cmake")
 #execute_process(COMMAND llvm-config --prefix OUTPUT_VARIABLE CMAKE_PREFIX_PATH)
 #message( "Using prefix path: " '${CMAKE_PREFIX_PATH}' )
 
 # needs link from
-# /usr/share/llvm-3.4/cmake/LLVMConfig.cmake
+# /usr/share/llvm-3.5/cmake/LLVMConfig.cmake
 # to
-# /usr/share/llvm-3.4/cmake/LLVM-Config.cmake
-# find_package(LLVM) # PATHS "/usr/share/llvm-3.4/cmake/LLVM-Config.cmake")
+# /usr/share/llvm-3.5/cmake/LLVM-Config.cmake
+# find_package(LLVM) # PATHS "/usr/share/llvm-3.5/cmake/LLVM-Config.cmake")
 
 # if( NOT LLVM_FOUND )
 #   message(FATAL_ERROR "LLVM package can't be found. Set CMAKE_PREFIX_PATH variable to LLVM's installation prefix.")
@@ -135,7 +136,7 @@ SET (CMAKE_C_FLAGS_RELEASE        "-O4 -DNDEBUG")
 SET (CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 
 SET (CMAKE_CXX_COMPILER             "/usr/bin/clang++")
-SET (CMAKE_CXX_FLAGS                "-Wall -Wno-deprecated-register -std=c++11")
+SET (CMAKE_CXX_FLAGS                "-Wall -Wno-deprecated-register -std=c++11 -pthread")
 SET (CMAKE_CXX_FLAGS_DEBUG          "-g")
 SET (CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
 SET (CMAKE_CXX_FLAGS_RELEASE        "-O4 -DNDEBUG")
@@ -144,4 +145,4 @@ SET (CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
 set_target_properties(txc PROPERTIES COMPILE_FLAGS "${LLVM_CXX_FLAGS}")
 set_target_properties(txc PROPERTIES LINK_FLAGS "${LLVM_LD_FLAGS}")
 
-target_link_libraries(txc ${REQ_LLVM_LIBRARIES})
+target_link_libraries(txc ${REQ_LLVM_LIBRARIES} ${REQ_LLVM_SYS_LIBS})
