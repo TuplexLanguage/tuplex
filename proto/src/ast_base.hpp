@@ -593,9 +593,20 @@ public:
 
     virtual void semantic_pass() override {
         this->field->semantic_pass();
-        if (auto type = this->field->get_type())
-            if ((this->field->get_entity()->get_storage() == TXS_GLOBAL) && type->is_modifiable())
-                cerror("Global fields may not be modifiable: %s", field->fieldName.c_str());
+        if (auto type = this->field->get_type()) {
+            auto storage = this->field->get_entity()->get_storage();
+            if (type->is_modifiable()) {
+                if (storage == TXS_GLOBAL)
+                    cerror("Global fields may not be modifiable: %s", field->fieldName.c_str());
+            }
+            else if (! this->field->initExpression) {
+                if (storage == TXS_GLOBAL || storage == TXS_STATIC)
+                    if (! (this->field->get_entity()->get_decl_flags() & TXD_GENPARAM))
+                        cerror("Non-modifiable field must have an initializer");
+                // FUTURE: ensure TXS_INSTANCE fields are initialized either here or in every constructor
+                // FUTURE: check that TXS_STACK fields are initialized before first use
+            }
+        }
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;

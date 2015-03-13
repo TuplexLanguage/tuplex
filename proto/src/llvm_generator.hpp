@@ -41,8 +41,10 @@ class LlvmGenerationContext {
     std::map<const TxType*, llvm::Type* const> llvmTypeMapping;
 
     const TxType* lookup_builtin(BuiltinTypeId id);
+    void initialize_meta_type_data();
     void initialize_builtin_types();
-    llvm::Function* add_main_function(llvm::Module *mod, const std::string userMain, bool hasIntReturnValue);
+    llvm::Function* gen_static_init_function();
+    llvm::Function* gen_main_function(const std::string userMain, bool hasIntReturnValue);
 
 public:
     Logger& LOG = Logger::get("LLVMGEN");

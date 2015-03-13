@@ -35,6 +35,7 @@ int main(int argc, char **argv)
                 printf("  %-22s %s\n", "-di", "Dump intermediate representation (LLVM IR)");
                 printf("  %-22s %s\n", "-dl", "Print debugging output from lexer (token scanner)");
                 printf("  %-22s %s\n", "-dy", "Print debugging output from grammar parser");
+                printf("  %-22s %s\n", "-rj", "Toggle running program after successful compilation (in JIT mode)");
                 printf("  %-22s %s\n", "-onlyparse", "Stop after grammar parse");
                 printf("  %-22s %s\n", "-o  | -output <file>", "Explicitly specify LLVM bitcode output file name");
                 printf("  %-22s %s\n", "-sp <pathlist>", "Set source files search paths (overrides TUPLEX_PATH environment variable)");
@@ -52,9 +53,11 @@ int main(int argc, char **argv)
             else if (! strcmp(argv[a], "-di"))
                 options.dump_ir = true;
             else if (! strcmp(argv[a], "-dl"))
-                options.debug_lexer = 1;
+                options.debug_lexer = true;
             else if (! strcmp(argv[a], "-dy"))
-                options.debug_parser = 1;
+                options.debug_parser = true;
+            else if (! strcmp(argv[a], "-rj"))
+                options.run_jit = !options.run_jit;
             else if (! strcmp(argv[a], "-onlyparse"))
                 options.only_parse = true;
             else if (! strcmp(argv[a], "-sp") || ! strcmp(argv[a], "-sourcepath")) {

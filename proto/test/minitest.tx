@@ -1,26 +1,5 @@
 module my
 
-public type Pair {
-    d : ~Double
-    l : ~Long
-}
-
-public type Object derives Tuple {
-    a1 : ~[5]Float
-    a2 : ~&~[]Float
-    p : Pair
-}
-
 func main() Int {
-    ##a : Array<UByte,10> = c"123456789"
-    ##tx.c.puts(a[0])
-    ##len := 10
-    o : ~Object
-    o.a1[0] = 33.3
-    v : ~[5]Float
-    o.a2 = &v
-    o.a2[0] = 66.7
-    o.p.d = 14.4
-    o.p.l = 144
-    return Int(o.a1[0] + o.a2^[0])
+    return 42
 }

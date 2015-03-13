@@ -19,7 +19,67 @@ static Value* code_gen_4_multiple(LlvmGenerationContext& context, GenScope* scop
 
 
 
-Value* TxType::code_gen_size(LlvmGenerationContext& context, GenScope* scope) const {
+Constant* TxType::gen_vtable(LlvmGenerationContext& context) const {
+    // (similar to tuple type creation)
+    auto entity = this->entity();
+    if (! entity) {
+        context.LOG.error("No entity for type %s - can't perform vtable LLVM type mapping", this->to_string().c_str());
+        return nullptr;
+    }
+    context.LOG.debug("Mapping vtable of type %s: %s", entity->get_full_name().to_string().c_str(), this->to_string(true).c_str());
+    std::vector<llvm::Type*> llvmMemberTypes;
+    for (const TxType* t = this; dynamic_cast<const TxTupleType*>(t); t = t->get_base_type()) {
+        if (auto e = t->entity()) {
+            std::vector<llvm::Type*> members;
+            for (auto memberTxType : e->get_static_field_types()) {
+                auto lMemberType = context.get_llvm_type(memberTxType);
+                auto membPtrType = PointerType::getUnqual(lMemberType);
+                members.push_back(membPtrType);
+                context.LOG.debug("Mapping static member pointer type %s to %s", memberTxType->to_string().c_str(), ::to_string(lMemberType).c_str());
+            }
+            llvmMemberTypes.insert(llvmMemberTypes.begin(), members.begin(), members.end());
+        }
+    }
+    // note: create() might be better for "named" struct types?
+    llvm::StructType* vtableT = llvm::StructType::get(context.llvmContext, llvmMemberTypes);
+    std::string vtableName(entity->get_full_name().to_string() + "$vtable");
+    GlobalVariable* vtable = new GlobalVariable(context.llvmModule, vtableT, true, GlobalValue::ExternalLinkage,
+                                                nullptr, vtableName);
+    // FIXME: initializer
+    Constant* initializer = nullptr;
+    vtable->setInitializer(initializer);
+    return vtable;
+}
+
+//Constant* TxType::code_gen_vtable_size(LlvmGenerationContext& context) const {
+//    Type* llvmType = this->make_vtable_llvm_type(context);
+//    if (! llvmType)
+//        return nullptr;
+//    return ConstantExpr::getSizeOf(llvmType);
+//}
+
+Function* TxType::get_type_user_init_func(LlvmGenerationContext& context) const {
+    auto entity = this->entity();
+    if (! entity) {
+        context.LOG.error("No entity for type %s - can't create type init func", this->to_string().c_str());
+        return nullptr;
+    }
+    std::string funcName(entity->get_full_name().to_string() + ".$tuinit");
+
+    auto voidType = Type::getVoidTy(context.llvmContext);
+    std::vector<Type*> typeInitFuncArgTypes {
+        Type::getInt8PtrTy(context.llvmContext)  // void* to type's data
+    };
+    FunctionType *typeInitFuncType = FunctionType::get(voidType, typeInitFuncArgTypes, false);
+
+    Function *initFunc = cast<Function>(context.llvmModule.getOrInsertFunction(funcName, typeInitFuncType));
+    BasicBlock::Create(context.llvmModule.getContext(), "entry", initFunc);
+    return initFunc;
+}
+
+
+
+Value* TxType::gen_size(LlvmGenerationContext& context, GenScope* scope) const {
     ASSERT(this->is_concrete(), "Attempted to codegen size of non-concrete type " << this);
     Type* llvmType = context.get_llvm_type(this);  // (gets the cached LLVM type if previously accessed)
     if (! llvmType)
@@ -27,7 +87,7 @@ Value* TxType::code_gen_size(LlvmGenerationContext& context, GenScope* scope) co
     return ConstantExpr::getSizeOf(llvmType);
 }
 
-Value* TxType::code_gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName) const {
+Value* TxType::gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName) const {
     ASSERT(this->is_concrete(), "Attempted to codegen alloca of non-concrete type " << this);
     Type* llvmType = context.get_llvm_type(this);  // (gets the cached LLVM type if previously accessed)
     if (! llvmType)
@@ -109,10 +169,10 @@ Type* TxArrayType::make_llvm_type(LlvmGenerationContext& context) const {
     return llvmType;
 }
 
-Value* TxArrayType::code_gen_size(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxArrayType::gen_size(LlvmGenerationContext& context, GenScope* scope) const {
     ASSERT(this->is_concrete(), "Attempted to codegen size of non-concrete type " << this);
     ResolutionContext resCtx;
-    Value* elemSize = this->element_type(resCtx)->code_gen_size(context, scope);
+    Value* elemSize = this->element_type(resCtx)->gen_size(context, scope);
     Value* arrayLen = this->length(resCtx)->code_gen(context, scope);
     return this->inner_code_gen_size(context, scope, elemSize, arrayLen);
 }
@@ -138,7 +198,7 @@ Value* TxArrayType::inner_code_gen_size(LlvmGenerationContext& context, GenScope
     }
 }
 
-Value* TxArrayType::code_gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName) const {
+Value* TxArrayType::gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName) const {
     //std::cout << "ArrayType code_gen_alloca('" << varName << "')" << std::endl;
     Type* headerType = Type::getInt32Ty(context.llvmContext);
     ASSERT(this->is_concrete(), "Attempted to codegen alloca of non-concrete type " << this);
@@ -167,7 +227,7 @@ Value* TxArrayType::code_gen_alloca(LlvmGenerationContext& context, GenScope* sc
         arrayLen = scope->builder->CreateZExtOrBitCast(this->length(resCtx)->code_gen(context, scope),
                                                        Type::getInt32Ty(context.llvmContext));
         auto arrayLen64 = scope->builder->CreateZExtOrBitCast(arrayLen, Type::getInt64Ty(context.llvmContext));
-        Value* elemSize = this->element_type(resCtx)->code_gen_size(context, scope);
+        Value* elemSize = this->element_type(resCtx)->gen_size(context, scope);
         Value* objectSize = this->inner_code_gen_size(context, scope, elemSize, arrayLen64);
 
         Value* allocElems = code_gen_4_multiple(context, scope, objectSize);

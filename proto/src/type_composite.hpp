@@ -69,8 +69,8 @@ public:
     virtual bool innerAutoConvertsFrom(const TxType& otherType) const override;
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
-    virtual llvm::Value* code_gen_size(LlvmGenerationContext& context, GenScope* scope) const override;
-    virtual llvm::Value* code_gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName="") const override;
+    virtual llvm::Value* gen_size(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName="") const override;
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 

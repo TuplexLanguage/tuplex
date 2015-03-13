@@ -160,7 +160,8 @@ protected:
                 // FUTURE: return constraint type if present
                 return this->types().get_builtin_type(ANY);
         }
-        cerror("Operand is not an array and can't be subscripted: %s", opType->to_string().c_str());
+        if (opType)
+            cerror("Operand is not an array and can't be subscripted: %s", opType->to_string().c_str());
         return nullptr;
     }
 
@@ -312,9 +313,11 @@ protected:
             else
                 cerror("Mismatching operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
         }
-        else {
+        else if (ltype && rtype) {
             cerror("Unsupported operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
         }
+        else
+            return nullptr;
 
         if (this->op_class == TXOC_ARITHMETIC) {
             // Note: After analyzing conversions, the lhs will hold the proper resulting type.

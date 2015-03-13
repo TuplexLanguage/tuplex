@@ -41,6 +41,8 @@ class TypeRegistry {
     TxPackage& package;
     BuiltinTypeRecord* builtinTypes[BuiltinTypeId_COUNT];
     const TxType* builtinModTypes[BuiltinTypeId_COUNT];
+    /** all the static types, i.e. all types with distinct static data type */
+    std::vector<const TxType*> allStaticTypes;
 
     void initializeBuiltinSymbols();
     //void add_builtin(TxModule* module, BuiltinTypeRecord* record);
@@ -97,4 +99,9 @@ public:
 //    const TxTupleType* get_tuple_type(TxTypeEntity* newEntity, const TxTypeSpecialization& baseType,
 //                                      bool mut=false, std::string* errorMsg=nullptr);
 
+
+    /** Returns a read-only iterator that points to the first type. */
+    inline std::vector<const TxType*>::const_iterator types_cbegin() const { return this->allStaticTypes.cbegin(); }
+    /** Returns a read-only iterator that points to one past the last type. */
+    inline std::vector<const TxType*>::const_iterator types_cend()   const { return this->allStaticTypes.cend(); }
 };

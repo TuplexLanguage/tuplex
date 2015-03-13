@@ -61,7 +61,7 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 //        Type* llvmType = context.get_llvm_type(txType);
 //        if (! llvmType)
 //            return nullptr;
-        auto argField = txType->code_gen_alloca(context, &fscope, entity->get_name() + "_");
+        auto argField = txType->gen_alloca(context, &fscope, entity->get_name() + "_");
         do_store(context, &fscope, argField, fArgI);
         context.register_llvm_value(entity->get_full_name().to_string(), argField);
     }
@@ -98,7 +98,7 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
         }
     }
     else {  // LLVM "FirstClassType"
-        fieldVal = txType->code_gen_alloca(context, scope, entity->get_name());
+        fieldVal = txType->gen_alloca(context, scope, entity->get_name());
         if (this->field->initExpression) {
             // create implicit assignment statement
             if (Value* initializer = this->field->initExpression->code_gen(context, scope))

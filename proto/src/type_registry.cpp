@@ -253,6 +253,8 @@ void TypeRegistry::initializeBuiltinSymbols() {
         TxTypeSpecialization tmpSpec(biType, true);
         std::vector<TxTypeParam> unbound;
         this->builtinModTypes[id] = biType->make_specialized_type(nullptr, tmpSpec, unbound, nullptr);
+
+        this->allStaticTypes.push_back(biType);
     }
 
 //    // test adding static field to types:
@@ -373,7 +375,9 @@ const TxType* TypeRegistry::get_type_specialization(TxTypeEntity* newEntity, con
     }
 
     TxTypeSpecialization newSpec(specialization.type, newBindings, specialization.dataspace);
-    return specialization.type->make_specialized_type(newEntity, newSpec, unboundParams, errorMsg);
+    auto newType = specialization.type->make_specialized_type(newEntity, newSpec, unboundParams, errorMsg);
+    this->allStaticTypes.push_back(newType);
+    return newType;
 }
 
 

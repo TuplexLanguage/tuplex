@@ -27,6 +27,7 @@ namespace llvm {
     class Type;
     class Value;
     class Constant;
+    class Function;
 }
 
 
@@ -532,12 +533,21 @@ private:
 
 
 public:
+    /*--- LLVM code generation methods ---*/
+
+    virtual llvm::Constant* gen_vtable(LlvmGenerationContext& context) const;
+    //virtual llvm::Constant* gen_vtable_size(LlvmGenerationContext& context) const;
+    virtual llvm::Function* get_type_user_init_func(LlvmGenerationContext& context) const;
+
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const = 0;
-    virtual llvm::Value* code_gen_size(LlvmGenerationContext& context, GenScope* scope) const;
-    virtual llvm::Value* code_gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName="") const;
+    virtual llvm::Value* gen_size(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName="") const;
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 
+
+
+    /*--- to string methods ---*/
 
     virtual std::string to_string() const {
         return this->to_string(false);

@@ -272,7 +272,7 @@ int TxDriver::llvm_compile() {
     if (verError)
         return 1;
 
-    if (mainGenerated) {
+    if (mainGenerated && this->options.run_jit) {
         genContext.run_code();
     }
 

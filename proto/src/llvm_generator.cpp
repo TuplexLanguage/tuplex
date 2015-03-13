@@ -19,45 +19,135 @@
 #include "llvm_generator.hpp"
 
 
+using namespace llvm;
+
+
+// currently not used, but has working runtime initialization logic, including malloc:
+Function* LlvmGenerationContext::gen_static_init_function() {
+    auto typeCountA = this->lookup_llvm_value("tx.runtime.TYPE_COUNT");
+    ASSERT(typeCountA, "tx.runtime.TYPE_COUNT not found");
+    auto metaTypesA = this->lookup_llvm_value("tx.runtime.META_TYPES");
+    ASSERT(metaTypesA, "tx.runtime.META_TYPES not found");
+
+    auto int8T     = Type::getInt8Ty(this->llvmContext);
+    auto int32T    = Type::getInt32Ty(this->llvmContext);
+    auto int8PtrT  = Type::getInt8PtrTy(this->llvmContext);
+    //auto int32PtrT = Type::getInt32PtrTy(this->llvmContext);
+    auto int8PtrArrPtrT  = PointerType::getUnqual(ArrayType::get(int8PtrT, 0));
+    auto constZeroV = ConstantInt::get(int32T, 0);
+    auto constOneV  = ConstantInt::get(int32T, 1);
+    auto mallocParameterType = int32T;
+
+    Function *init_func = cast<Function>(this->llvmModule.getOrInsertFunction("tx.runtime.thread_init",
+                                                                              int32T,
+                                                                              NULL));
+    BasicBlock *entryBlock = BasicBlock::Create(this->llvmModule.getContext(), "entry", init_func);
+    IRBuilder<> builder( entryBlock );
+    auto typeCountV = builder.CreateLoad(typeCountA, "TYPE_COUNT");
+
+    Value* vtablePtrArr;
+    {
+        GlobalVariable* vtablePtrArrPtr = new GlobalVariable(this->llvmModule, int8PtrArrPtrT, false, GlobalValue::ExternalLinkage,
+                                                             llvm::ConstantPointerNull::get(int8PtrArrPtrT),
+                                                             "tx.runtime.VTABLES");
+        this->register_llvm_value(vtablePtrArrPtr->getName(), vtablePtrArrPtr);
+        auto int8PtrSizeV = ConstantExpr::getTruncOrBitCast(ConstantExpr::getSizeOf(int8PtrT), int32T);
+        auto vtablePtrAllocI = CallInst::CreateMalloc(builder.GetInsertBlock(), mallocParameterType,
+                                                      int8PtrT, int8PtrSizeV, typeCountV, nullptr, "");
+        builder.GetInsertBlock()->getInstList().push_back(vtablePtrAllocI);
+        vtablePtrArr = builder.CreatePointerCast(vtablePtrAllocI, int8PtrArrPtrT, "vtPtrArr");
+        builder.CreateStore(vtablePtrArr, vtablePtrArrPtr);
+    }
+
+    // loop through meta type array and initialize every type's thread-local static data:
+    BasicBlock* condBlock = BasicBlock::Create(this->llvmContext, "while_cond", init_func);
+    BasicBlock* loopBlock = BasicBlock::Create(this->llvmContext, "while_loop", init_func);
+    BasicBlock* postBlock = BasicBlock::Create(this->llvmContext, "while_post", init_func);
+
+    auto indexA = builder.CreateAlloca(int32T, nullptr, "index");
+    builder.CreateStore(constZeroV, indexA);
+    builder.CreateBr(condBlock);  // branch from end of preceding block to condition-block
+
+    builder.SetInsertPoint(condBlock);
+    auto indexV = builder.CreateLoad(indexA);
+    {
+        auto condV = builder.CreateICmpNE(indexV, typeCountV);
+        builder.CreateCondBr(condV, loopBlock, postBlock);
+    }
+
+    builder.SetInsertPoint(loopBlock);
+    {
+        Value* mtSizeIxs[] = { constZeroV, indexV, ConstantInt::get(int32T, 1) };
+        auto allocSizeA = builder.CreateInBoundsGEP(metaTypesA, mtSizeIxs);
+        auto allocSizeV = builder.CreateLoad(allocSizeA, "size");
+        auto vtableI = CallInst::CreateMalloc(builder.GetInsertBlock(), mallocParameterType,
+                                              int8T, constOneV, allocSizeV, nullptr, "vtable");
+        builder.GetInsertBlock()->getInstList().push_back(vtableI);
+        builder.CreateMemSet(vtableI, ConstantInt::get(int8T, 0), allocSizeV, 0);  // FIXME: init the vtable
+
+        {   // store the vtable pointer:
+            Value* vtIxs[] = { constZeroV, indexV };
+            auto vtPtrA = builder.CreateInBoundsGEP(vtablePtrArr, vtIxs);
+            builder.CreateStore(vtableI, vtPtrA);
+        }
+
+        // bump the index:
+        auto newIndexV = builder.CreateAdd(indexV, constOneV, "newindex");
+        builder.CreateStore(newIndexV, indexA);
+        builder.CreateBr(condBlock);  // branch from end of loop body to condition-block
+    }
+
+    builder.SetInsertPoint(postBlock);
+    {
+        //Value* retVal = builder.CreatePtrToInt(vtablePtrArr, int32T);
+        builder.CreateRet(typeCountV);
+    }
+
+    return init_func;
+}
+
+
 /** Add main function so can be fully compiled
  * define i32 @main(i32 %argc, i8 **%argv)
  */
-llvm::Function* LlvmGenerationContext::add_main_function(llvm::Module *mod, const std::string userMain, bool hasIntReturnValue) {
+Function* LlvmGenerationContext::gen_main_function(const std::string userMain, bool hasIntReturnValue) {
     //define i32 @main(i32 %argc, i8 **%argv)
-    llvm::Function *main_func = llvm::cast<llvm::Function>(mod->getOrInsertFunction("main",
-            llvm::IntegerType::getInt32Ty(mod->getContext()),
-            llvm::IntegerType::getInt32Ty(mod->getContext()),
-            llvm::PointerType::getUnqual(llvm::PointerType::getUnqual(llvm::IntegerType::getInt8Ty(mod->getContext()))), NULL));
+    Function *main_func = cast<Function>(this->llvmModule.getOrInsertFunction("main",
+            IntegerType::getInt32Ty(this->llvmModule.getContext()),
+            IntegerType::getInt32Ty(this->llvmModule.getContext()),
+            PointerType::getUnqual(PointerType::getUnqual(IntegerType::getInt8Ty(this->llvmModule.getContext()))), NULL));
     {
-        llvm::Function::arg_iterator args = main_func->arg_begin();
-        llvm::Value *arg_0 = args++;
+        Function::arg_iterator args = main_func->arg_begin();
+        Value *arg_0 = args++;
         arg_0->setName("argc");
-        llvm::Value *arg_1 = args++;
+        Value *arg_1 = args++;
         arg_1->setName("argv");
     }
-    //main.0:
-    llvm::BasicBlock *bb = llvm::BasicBlock::Create(mod->getContext(), "main.0", main_func);
+    BasicBlock *bb = BasicBlock::Create(this->llvmModule.getContext(), "entry", main_func);
 
-    // TODO: initialize statics / runtime environment
+//    // initialize statics / runtime environment
+//    Function *initFunc = this->gen_static_init_function();
+//    CallInst *initCall = CallInst::Create(initFunc, "", bb);
+//    initCall->setTailCall(false);
 
-    //call i64 @userMain()
-    auto func = mod->getFunction(userMain);
+    //call i32 user main()
+    auto func = this->llvmModule.getFunction(userMain);
     if (func) {
-        llvm::CallInst *user_main_call = llvm::CallInst::Create(func, "", bb);
+        CallInst *user_main_call = CallInst::Create(func, "", bb);
         user_main_call->setTailCall(false);
-        auto i32Type = llvm::Type::getInt32Ty(mod->getContext());
+        auto int32T = Type::getInt32Ty(this->llvmModule.getContext());
         if (hasIntReturnValue) {
             // truncate return value to i32
-            llvm::CastInst* truncVal = llvm::CastInst::CreateIntegerCast(user_main_call, i32Type, true, "", bb);
-            llvm::ReturnInst::Create(mod->getContext(), truncVal, bb);
+            CastInst* truncVal = CastInst::CreateIntegerCast(user_main_call, int32T, true, "", bb);
+            ReturnInst::Create(this->llvmModule.getContext(), truncVal, bb);
         }
         else {
-            llvm::ReturnInst::Create(mod->getContext(), llvm::ConstantInt::get(i32Type, 0, true), bb);
+            ReturnInst::Create(this->llvmModule.getContext(), ConstantInt::get(int32T, 0, true), bb);
         }
     }
     else {
         this->LOG.error("LLVM function not found for name: %s", userMain.c_str());
-        llvm::ReturnInst::Create(mod->getContext(), llvm::ConstantInt::get(mod->getContext(), llvm::APInt(32, 0, true)), bb);
+        ReturnInst::Create(this->llvmModule.getContext(), ConstantInt::get(this->llvmModule.getContext(), APInt(32, 0, true)), bb);
     }
 
     return main_func;
@@ -72,15 +162,15 @@ void LlvmGenerationContext::generate_code(const TxParsingUnitNode& topParseNode)
 }
 
 bool LlvmGenerationContext::generate_main(const std::string& userMainIdent, const TxFunctionType* mainFuncType) {
-    this->entryFunction = add_main_function(&this->llvmModule, userMainIdent, mainFuncType->returnType);
+    this->entryFunction = this->gen_main_function(userMainIdent, mainFuncType->returnType);
     return this->entryFunction;
 }
 
 bool LlvmGenerationContext::verify_code() {
     //this->LOG.info("Verifying LLVM code...");;
     std::string errInfo;
-    llvm::raw_string_ostream ostr(errInfo);
-    bool ret = llvm::verifyModule(this->llvmModule, &ostr);
+    raw_string_ostream ostr(errInfo);
+    bool ret = verifyModule(this->llvmModule, &ostr);
     if (ret)
         this->LOG.error("LLVM code verification failed: %s", errInfo.c_str());
     return ret;
@@ -89,8 +179,8 @@ bool LlvmGenerationContext::verify_code() {
 void LlvmGenerationContext::print_IR() {
     // TODO: support writing to a .ll file
     this->LOG.info("Printing LLVM bytecode...");
-    llvm::PrintModulePass printPass(llvm::outs());
-    llvm::ModulePassManager pm;
+    PrintModulePass printPass(outs());
+    ModulePassManager pm;
     pm.addPass(printPass);
     pm.run(&this->llvmModule);
     std::cout << std::endl;
@@ -99,24 +189,24 @@ void LlvmGenerationContext::print_IR() {
 void LlvmGenerationContext::write_bitcode(const std::string& filepath) {
     this->LOG.info("Writing LLVM bitcode file '%s'", filepath.c_str());
     std::string errInfo;
-    llvm::raw_fd_ostream ostream(filepath.c_str(), errInfo, llvm::sys::fs::F_RW);
+    raw_fd_ostream ostream(filepath.c_str(), errInfo, sys::fs::F_RW);
     if (errInfo.empty())
-        llvm::WriteBitcodeToFile(&this->llvmModule, ostream);
+        WriteBitcodeToFile(&this->llvmModule, ostream);
     else
         this->LOG.error("Failed to open bitcode output file for writing: %s", errInfo.c_str());
 }
 
 
-void LlvmGenerationContext::register_llvm_value(const std::string& identifier, llvm::Value* val) {
+void LlvmGenerationContext::register_llvm_value(const std::string& identifier, Value* val) {
     if (identifier.compare(0, strlen(BUILTIN_NS), BUILTIN_NS) != 0)
         this->LOG.debug("Registering LLVM value %s : %s", identifier.c_str(), to_string(val->getType()).c_str());
     //this->LOG.debug("Registering LLVM value %s: %s : %s", identifier.c_str(), to_string(val).c_str(), to_string(val->getType()).c_str());
     this->llvmSymbolTable.emplace(identifier, val);
 }
 
-llvm::Value* LlvmGenerationContext::lookup_llvm_value(const std::string& identifier) const {
+Value* LlvmGenerationContext::lookup_llvm_value(const std::string& identifier) const {
     try {
-        llvm::Value* val = this->llvmSymbolTable.at(identifier);
+        Value* val = this->llvmSymbolTable.at(identifier);
         this->LOG.debug("Looked up LLVM value %s", identifier.c_str());
         return val;
     }
@@ -131,71 +221,126 @@ const TxType* LlvmGenerationContext::lookup_builtin(BuiltinTypeId id) {
     return this->tuplexPackage.types().get_builtin_type(id);
 }
 
-void LlvmGenerationContext::initialize_builtin_types() {
-    /*
-	this->llvmTypeMapping.emplace(lookup_builtin(ANY),    llvm::Type::getVoidTy(this->llvmContext));
-	this->llvmTypeMapping.emplace(lookup_builtin(BYTE),   llvm::Type::getInt8Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin(SHORT),  llvm::Type::getInt16Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin(INT),    llvm::Type::getInt32Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin(LONG),   llvm::Type::getInt64Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin(UBYTE),  llvm::Type::getInt8Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin(USHORT), llvm::Type::getInt16Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin(UINT),   llvm::Type::getInt32Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin(ULONG),  llvm::Type::getInt64Ty(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin(HALF),   llvm::Type::getHalfTy(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin(FLOAT),  llvm::Type::getFloatTy(this->llvmContext));
-	this->llvmTypeMapping.emplace(lookup_builtin(DOUBLE), llvm::Type::getDoubleTy(this->llvmContext));
-    this->llvmTypeMapping.emplace(lookup_builtin(BOOLEAN), llvm::Type::getInt1Ty(this->llvmContext));
-    */
-    //this->llvmTypeMapping.emplace(lookupBuiltin(CHAR),   llvm::Type::getInt8Ty(this->llvmContext));
-    //this->llvmTypeMapping.emplace(lookupBuiltin(STRING), llvm::Type::getInt8PtrTy(this->llvmContext));
-//	for (auto pair : this->llvmTypeMapping)
-//	    std::cout << "LLVM type mapping: " << pair.first << " -> " << pair.second << std::endl;
 
-//    // test adding static field to types:
-//    for (int id = 0; id < BuiltinTypeId_COUNT; id++) {
-//        auto txType = this->tuplexPackage.types().get_builtin_type((BuiltinTypeId)id);
-//        auto name = txType->entity()->get_full_name().to_string() + ".typeid";
-//        auto value = llvm::ConstantInt::get(llvm::Type::getInt16Ty(this->llvmContext), id, false);
-//        llvm::Value* member = new llvm::GlobalVariable(this->llvmModule, value->getType(), true,
-//                                                       llvm::GlobalValue::ExternalLinkage, value, name);
-//        this->register_llvm_value(name, member);
-//    }
+//static Function* gen_dummy_type_user_init_func(LlvmGenerationContext& context) {
+//    std::string funcName("$dummy.$tuinit");
+//    auto voidType = Type::getVoidTy(context.llvmContext);
+//    std::vector<Type*> typeInitFuncArgTypes {
+//        Type::getInt8PtrTy(context.llvmContext)  // void* to type's data
+//    };
+//    FunctionType *typeInitFuncType = FunctionType::get(voidType, typeInitFuncArgTypes, false);
+//    Function *initFunc = cast<Function>(context.llvmModule.getOrInsertFunction(funcName, typeInitFuncType));
+//    auto eb = BasicBlock::Create(context.llvmContext, "entry", initFunc);
+//    ReturnInst::Create(context.llvmContext, eb);
+//    return initFunc;
+//}
+
+void LlvmGenerationContext::initialize_meta_type_data() {
+    /* This is a C declaration equivalent of the constructed runtime type data:
+
+    typedef void (*TypeInitializerF)(void* memory);
+
+    typedef struct {
+        uint32_t typeId;
+        uint32_t size;
+        TypeInitializerF initializer;
+    } MetaType;
+
+    extern uint32_t TYPE_COUNT;
+    extern MetaType META_TYPES[];
+    */
+
+    // define the MetaType LLVM data type:
+    auto int32T = Type::getInt32Ty(this->llvmContext);
+//    auto voidT = Type::getVoidTy(this->llvmContext);
+//    std::vector<Type*> typeInitFuncArgTypes {
+//        Type::getInt8PtrTy(this->llvmContext)  // void* to type's data
+//    };
+//    FunctionType *typeInitFuncT = FunctionType::get(voidT, typeInitFuncArgTypes, false);
+//    auto dummyUserInitF = gen_dummy_type_user_init_func(*this);
+
+    auto opaqueStructPtrT = PointerType::getUnqual(StructType::create(this->llvmContext));
+    std::vector<Type*> memberTypes {
+        int32T,  // type id
+        opaqueStructPtrT,  // vtable pointer
+        //int32T,  // data structure size
+        //typeInitFuncT,  // initialization function
+    };
+    StructType* metaType = StructType::get(this->llvmContext, memberTypes);
+
+    // create static meta type data:
+    uint32_t typeCount = 0;
+    std::vector<Constant*> metaTypes;
+    for (auto txType = this->tuplexPackage.types().types_cbegin(); txType != this->tuplexPackage.types().types_cend(); txType++) {
+        if ((*txType)->is_pure_specialization())
+            continue;
+//        auto utinitF = (*txType)->get_type_user_init_func(*this);
+//        if (! utinitF->getEntryBlock().getTerminator()) {
+//            // inserting default void return instruction for entry block of function
+//            ReturnInst::Create(this->llvmContext, &utinitF->getEntryBlock());
+//        }
+        auto vtableV = (*txType)->gen_vtable(*this);
+        if (!vtableV)
+            continue;
+
+        auto typeId = typeCount;
+        std::vector<Constant*> members {
+            ConstantInt::get(int32T, typeId),
+            vtableV,
+            // dummyUserInitF  // utinitF
+        };
+        metaTypes.push_back(ConstantStruct::get(metaType, members));
+        typeCount++;
+    }
+    auto mtArrayType = ArrayType::get(metaType, typeCount);
+    auto mtArrayInit = ConstantArray::get(mtArrayType, metaTypes);
+
+    Value* genTypeCount = new GlobalVariable(this->llvmModule, int32T, true, GlobalValue::ExternalLinkage,
+                                             ConstantInt::get(int32T, typeCount), "tx.runtime.TYPE_COUNT");
+    Value* genMetaTypes = new GlobalVariable(this->llvmModule, mtArrayType, true, GlobalValue::ExternalLinkage,
+                                             mtArrayInit, "tx.runtime.META_TYPES");
+    this->register_llvm_value(genTypeCount->getName(), genTypeCount);
+    this->register_llvm_value(genMetaTypes->getName(), genMetaTypes);
+}
+
+void LlvmGenerationContext::initialize_builtin_types() {
+    // initialize meta type data:
+    this->initialize_meta_type_data();
 
     // initialize external functions:
-    std::vector<llvm::Type*> c_puts_args( { llvm::Type::getInt8PtrTy(this->llvmContext) } );
-    llvm::FunctionType* c_puts_func_type = llvm::FunctionType::get(
-      /*Result=*/llvm::Type::getInt32Ty(this->llvmContext),
+    std::vector<Type*> c_puts_args( { Type::getInt8PtrTy(this->llvmContext) } );
+    FunctionType* c_puts_func_type = FunctionType::get(
+      /*Result=*/Type::getInt32Ty(this->llvmContext),
       /*Params=*/c_puts_args,
       /*isVarArg=*/false);
 
-    llvm::Function* c_puts_func = llvm::Function::Create(
+    Function* c_puts_func = Function::Create(
       /*Type=*/c_puts_func_type,
-      /*Linkage=*/llvm::GlobalValue::ExternalLinkage, // (external, no body)
+      /*Linkage=*/GlobalValue::ExternalLinkage, // (external, no body)
       /*Name=*/"puts",
       &this->llvmModule);
-    c_puts_func->setCallingConv(llvm::CallingConv::C);
+    c_puts_func->setCallingConv(CallingConv::C);
 
     this->register_llvm_value("tx.c.puts", c_puts_func);
 
 // varargs example:
-//    llvm::ArrayRef<llvm::Type*> FuncTy_7_args;
-//    llvm::FunctionType* FuncTy_7 = llvm::FunctionType::get(
-//      /*Result=*/llvm::Type::getInt32Ty(this->llvmContext),
+//    ArrayRef<Type*> FuncTy_7_args;
+//    FunctionType* FuncTy_7 = FunctionType::get(
+//      /*Result=*/Type::getInt32Ty(this->llvmContext),
 //      /*Params=*/FuncTy_7_args,
 //      /*isVarArg=*/true);
 //
-//    llvm::Function* func_foo = llvm::Function::Create(
+//    Function* func_foo = Function::Create(
 //      /*Type=*/FuncTy_7,
-//      /*Linkage=*/llvm::GlobalValue::ExternalLinkage, // (external, no body)
+//      /*Linkage=*/GlobalValue::ExternalLinkage, // (external, no body)
 //      /*Name=*/"foo",
 //      &this->llvmModule);
-//     func_foo->setCallingConv(llvm::CallingConv::C);
+//     func_foo->setCallingConv(CallingConv::C);
 }
 
 
 
-llvm::Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
+Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
     ASSERT(txType, "NULL txType provided to getLlvmType()");
     if (txType->is_virtual_specialization())
         // same data type as base type
@@ -211,7 +356,7 @@ llvm::Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
     if (iter != this->llvmTypeMapping.end()) {
         return iter->second;
     }
-	llvm::Type* llvmType = txType->make_llvm_type(*this);
+	Type* llvmType = txType->make_llvm_type(*this);
 	if (llvmType)
 	    this->llvmTypeMapping.emplace(txType, llvmType);
 	else

@@ -24,6 +24,7 @@ public:
     bool debug_parser = false;
     bool dump_symbol_table = false;
     bool dump_ir = false;
+    bool run_jit = true;
     std::vector<std::string> sourceSearchPaths;
     std::vector<std::string> startSourceFiles;
     std::string outputFileName;
