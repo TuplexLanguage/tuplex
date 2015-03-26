@@ -76,6 +76,8 @@ public:
     /** Generate the LLVM code for the provided parsing unit. */
     void generate_code(const TxParsingUnitNode& topParseNode);
 
+    void generate_runtime_data();
+
     /** Create the top level function to call as program entry.
      * (This is the built-in main, which calls the user main function.)  */
     bool generate_main(const std::string& userMainIdent, const TxFunctionType* mainFuncType);

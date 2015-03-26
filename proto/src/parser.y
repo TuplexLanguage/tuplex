@@ -316,7 +316,7 @@ type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->
                 ;
 type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, new TxPredefinedTypeNode(@1, new TxIdentifierNode(@1, new TxIdentifier("tx.Any")))); }
                 | NAME KW_DERIVES predef_type { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
-                | field_type_def  { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_STATIC | TXD_GENPARAM, $1); }
+                | field_type_def  { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1); }
                 ;
 
 

@@ -232,7 +232,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
         auto elemTypeEnt = typeEntity->declare_type( "E", elemTypeDefiner, TXD_PUBLIC | TXD_GENPARAM );
         elemTypeDefiner->type = constraintType->make_specialized_type(elemTypeEnt, TxTypeSpecialization(constraintType));
 
-        typeEntity->declare_field( "L", this->builtinTypes[UINT], TXD_PUBLIC | TXD_STATIC | TXD_GENPARAM, TXS_STATIC, TxIdentifier() );
+        typeEntity->declare_field( "L", this->builtinTypes[UINT], TXD_PUBLIC | TXD_GENPARAM, TXS_INSTANCE, TxIdentifier() );
     }
 
     // create the tuple base type:
@@ -267,7 +267,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
     for (auto fromTypeId : SCALAR_TYPE_IDS) {
         for (auto toTypeId : SCALAR_TYPE_IDS) {
             TxBuiltinTypeProxy* typeDefiner = new TxBuiltinTypeProxy(this->builtinTypes[toTypeId]->plainName);
-            module->declare_field(typeDefiner->name, typeDefiner, TXD_PUBLIC | TXD_BUILTIN, TXS_STATIC, TxIdentifier(""));
+            module->declare_field(typeDefiner->name, typeDefiner, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
             typeDefiner->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
                                                                     this->builtinTypes[fromTypeId]->get_type(),
                                                                     this->builtinTypes[toTypeId]->get_type());

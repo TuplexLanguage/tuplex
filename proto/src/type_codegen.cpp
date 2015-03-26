@@ -18,6 +18,17 @@ static Value* code_gen_4_multiple(LlvmGenerationContext& context, GenScope* scop
 }
 
 
+//static Value* get_static_type(const TxType* type) {
+//    if (auto baseType = type->get_base_type()) {
+//        get_static_type(baseType);
+//    }
+//
+//    if (auto entity = type.entity()) {
+//    }
+//
+//}
+
+
 
 Constant* TxType::gen_vtable(LlvmGenerationContext& context) const {
     // (similar to tuple type creation)
@@ -27,27 +38,18 @@ Constant* TxType::gen_vtable(LlvmGenerationContext& context) const {
         return nullptr;
     }
     context.LOG.debug("Mapping vtable of type %s: %s", entity->get_full_name().to_string().c_str(), this->to_string(true).c_str());
-    std::vector<llvm::Type*> llvmMemberTypes;
-    for (const TxType* t = this; dynamic_cast<const TxTupleType*>(t); t = t->get_base_type()) {
-        if (auto e = t->entity()) {
-            std::vector<llvm::Type*> members;
-            for (auto memberTxType : e->get_static_field_types()) {
-                auto lMemberType = context.get_llvm_type(memberTxType);
-                auto membPtrType = PointerType::getUnqual(lMemberType);
-                members.push_back(membPtrType);
-                context.LOG.debug("Mapping static member pointer type %s to %s", memberTxType->to_string().c_str(), ::to_string(lMemberType).c_str());
-            }
-            llvmMemberTypes.insert(llvmMemberTypes.begin(), members.begin(), members.end());
-        }
+    std::vector<llvm::Type*> members;
+    for (auto memberTxType : entity->get_virtual_fields().fieldTypes) {
+        auto lMemberType = context.get_llvm_type(memberTxType);
+        auto membPtrType = PointerType::getUnqual(lMemberType);
+        members.push_back(membPtrType);
+        context.LOG.debug("Mapping static member pointer type %s to %s", memberTxType->to_string().c_str(), ::to_string(lMemberType).c_str());
     }
     // note: create() might be better for "named" struct types?
-    llvm::StructType* vtableT = llvm::StructType::get(context.llvmContext, llvmMemberTypes);
+    llvm::StructType* vtableT = llvm::StructType::get(context.llvmContext, members);
     std::string vtableName(entity->get_full_name().to_string() + "$vtable");
     GlobalVariable* vtable = new GlobalVariable(context.llvmModule, vtableT, true, GlobalValue::ExternalLinkage,
                                                 nullptr, vtableName);
-    // FIXME: initializer
-    Constant* initializer = nullptr;
-    vtable->setInitializer(initializer);
     return vtable;
 }
 
@@ -291,19 +293,13 @@ Type* TxTupleType::make_llvm_type(LlvmGenerationContext& context) const {
         return nullptr;
     }
     context.LOG.debug("Mapping tuple type %s: %s", entity->get_full_name().to_string().c_str(), this->to_string(true).c_str());
-    std::vector<llvm::Type*> llvmMemberTypes;
-    for (const TxType* t = this; dynamic_cast<const TxTupleType*>(t); t = t->get_base_type()) {
-        if (auto e = t->entity()) {
-            std::vector<llvm::Type*> members;
-            for (auto memberTxType : e->get_instance_field_types()) {
-                auto lMemberType = context.get_llvm_type(memberTxType);
-                members.push_back(lMemberType);
-                context.LOG.debug("Mapping member type %s to %s", memberTxType->to_string().c_str(), ::to_string(lMemberType).c_str());
-            }
-            llvmMemberTypes.insert(llvmMemberTypes.begin(), members.begin(), members.end());
-        }
+    std::vector<llvm::Type*> llvmTypes;
+    for (auto memberTxType : entity->get_instance_fields().fieldTypes) {
+        auto memberLlvmType = context.get_llvm_type(memberTxType);
+        llvmTypes.push_back(memberLlvmType);
+        context.LOG.debug("Mapping member type %s to %s", memberTxType->to_string().c_str(), ::to_string(memberLlvmType).c_str());
     }
     // note: create() might be better for "named" struct types?
-    llvm::StructType* stype = llvm::StructType::get(context.llvmContext, llvmMemberTypes);
+    llvm::StructType* stype = llvm::StructType::get(context.llvmContext, llvmTypes);
     return stype;
 }

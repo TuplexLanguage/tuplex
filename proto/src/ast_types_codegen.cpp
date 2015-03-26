@@ -2,7 +2,10 @@
 #include "llvm_generator.hpp"
 
 
-llvm::Value* TxTypeArgumentNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+using namespace llvm;
+
+
+Value* TxTypeArgumentNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     if (this->typeDeclNode)
         return this->typeDeclNode->code_gen(context, scope);
@@ -10,7 +13,7 @@ llvm::Value* TxTypeArgumentNode::code_gen(LlvmGenerationContext& context, GenSco
         return this->fieldDeclNode->code_gen(context, scope);
 }
 
-llvm::Value* TxPredefinedTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxPredefinedTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     for (TxTypeArgumentNode* ta : *this->typeArgs)
         ta->code_gen(context, scope);
@@ -18,14 +21,14 @@ llvm::Value* TxPredefinedTypeNode::code_gen(LlvmGenerationContext& context, GenS
 }
 
 
-llvm::Value* TxReferenceTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxReferenceTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     this->targetTypeNode->code_gen(context, scope);
     return nullptr;
 }
 
 
-llvm::Value* TxArrayTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxArrayTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     if (this->lengthNode)
         this->lengthNode->code_gen(context, scope);
@@ -34,7 +37,7 @@ llvm::Value* TxArrayTypeNode::code_gen(LlvmGenerationContext& context, GenScope*
 }
 
 
-llvm::Value* TxDerivedTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxDerivedTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     for (auto type : *this->baseTypes)
         type->code_gen(context, scope);
@@ -46,7 +49,7 @@ llvm::Value* TxDerivedTypeNode::code_gen(LlvmGenerationContext& context, GenScop
 }
 
 
-llvm::Value* TxFunctionTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxFunctionTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     for (auto argDef : *this->arguments)
         argDef->code_gen(context, scope);
@@ -56,7 +59,7 @@ llvm::Value* TxFunctionTypeNode::code_gen(LlvmGenerationContext& context, GenSco
 }
 
 
-llvm::Value* TxModifiableTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxModifiableTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     this->baseType->code_gen(context, scope);
     return nullptr;

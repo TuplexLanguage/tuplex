@@ -445,5 +445,5 @@ bool TxReferenceType::innerAutoConvertsFrom(const TxType& otherType) const {
 
 
 bool TxTupleType::is_datatype_extension() const {
-    return this->entity() && this->entity()->has_instance_fields();
+    return this->entity() && this->entity()->declares_instance_fields();
 }

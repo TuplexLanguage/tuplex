@@ -242,6 +242,7 @@ void LlvmGenerationContext::initialize_meta_type_data() {
 
     typedef struct {
         uint32_t typeId;
+        void* vtable;
         uint32_t size;
         TypeInitializerF initializer;
     } MetaType;
@@ -282,6 +283,7 @@ void LlvmGenerationContext::initialize_meta_type_data() {
         auto vtableV = (*txType)->gen_vtable(*this);
         if (!vtableV)
             continue;
+        this->register_llvm_value(vtableV->getName(), vtableV);
 
         auto typeId = typeCount;
         std::vector<Constant*> members {
@@ -336,6 +338,33 @@ void LlvmGenerationContext::initialize_builtin_types() {
 //      /*Name=*/"foo",
 //      &this->llvmModule);
 //     func_foo->setCallingConv(CallingConv::C);
+}
+
+
+void LlvmGenerationContext::generate_runtime_data() {
+    for (auto txType = this->tuplexPackage.types().types_cbegin(); txType != this->tuplexPackage.types().types_cend(); txType++) {
+        if ((*txType)->is_pure_specialization())
+            continue;
+
+        if (auto entity = (*txType)->entity()) {
+            std::string vtableName(entity->get_full_name().to_string() + "$vtable");
+            if (auto vtableV = dyn_cast<GlobalVariable>(this->lookup_llvm_value(vtableName))) {
+                ResolutionContext resCtx;
+                std::vector<Constant*> initMembers;
+                initMembers.resize(entity->get_virtual_fields().fields.size());
+                for (auto & field : entity->get_virtual_fields().fields) {
+                    auto actualFieldEnt = entity->lookup_field(resCtx, field.first);  // FIXME: handle overloaded field names
+                    auto llvmField = cast<Constant>(this->lookup_llvm_value(actualFieldEnt->get_full_name().to_string()));
+                    std::cout << "inserting " << field.first << " at ix " << field.second << std::endl;
+                    initMembers[field.second] = llvmField;
+                }
+                Constant* initializer = ConstantStruct::getAnon(this->llvmContext, initMembers);
+                vtableV->setInitializer(initializer);
+            }
+            else
+                this->LOG.error("No vtable found for %s", vtableName.c_str());
+        }
+    }
 }
 
 

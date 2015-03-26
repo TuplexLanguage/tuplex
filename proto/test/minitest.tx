@@ -1,5 +1,55 @@
 module my
 
+func puts(str : &[]UByte) {
+    tx.c.puts(str^[0])
+}
+
+func assert(expected : Bool, actual : Bool) {
+    if expected == actual {
+        return
+    }
+    if expected {
+        puts(c"Expected TRUE but was FALSE")
+    }
+    else {
+        puts(c"Expected FALSE but was TRUE")
+    }
+}
+
+type AType mod derives Tuple {
+    public static SFIELD := 41
+    public static SFIELD2 := 2.72
+    field1 : ~Long
+    field2 : ~Float
+}
+
+type BType mod derives AType {
+    public static SFIELD := 42
+    public static SFIELD2 := 3.14
+    field1 : ~Long
+    field2 : ~Float
+}
+
 func main() Int {
-    return 42
+    b : BType
+    ar : &AType = &b
+    br : &BType = &b
+
+    ar^.field1 = 1
+    br^.field1 = 2
+    assert( TRUE, ar^.field1 == 1 )
+    assert( TRUE, br^.field1 == 2 )
+    assert( TRUE, b.field1 == 2 )
+
+    ar^.field1 = 4
+    br^.field1 = 8
+    assert( TRUE, ar^.field1 == 4 )
+    assert( TRUE, br^.field1 == 8 )
+    assert( TRUE, b.field1 == 8 )
+
+    assert( TRUE, ar^.SFIELD == 42 )
+    assert( TRUE, br^.SFIELD == 42 )
+    assert( TRUE, b.SFIELD == 42 )
+
+    return Int( ar^.SFIELD )
 }

@@ -13,17 +13,38 @@
 
 
 /** Specifies the storage type for a field entity.
- * GLOBAL is compile-time-allocated.
- * Unmodifiable STATIC is compile-time-allocated.
- * Modifiable STATIC is (effectively) thread-local (what is referenced to might not be, within dataspace constraints)
- * INSTANCE is an object instance member (storage o/c the same as the object instance).
- * STACK is stack-allocated (unless promoted to register).
+ * GLOBAL are globally declared fields, i.e. outside of any type definition.
+ * STATIC and VIRTUAL are statically allocated fields within a type definition.
+ * VIRTUAL fields are like STATIC but subject to polymorphic lookup.
+ * INSTANCE fields are members of type instances (i.e. object members).
+ * STACK fields are regular "auto" variables, including function arguments.
+ * GLOBAL, STATIC, VIRTUAL are compile-time-allocated.
  */
-enum TxFieldStorage : int { TXS_NOSTORAGE, TXS_GLOBAL, TXS_STATIC, TXS_INSTANCE, TXS_STACK };
+enum TxFieldStorage : int { TXS_NOSTORAGE, TXS_GLOBAL, TXS_STATIC, TXS_VIRTUAL, TXS_INSTANCE, TXS_STACK };
 
 // types are implicitly static
 static const TxDeclarationFlags LEGAL_TYPE_DECL_FLAGS = TXD_ABSTRACT | TXD_FINAL | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM;
 static const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS = TXD_STATIC | TXD_FINAL | TXD_OVERRIDE | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM;
+
+
+class DataTupleDefinition {
+public:
+    // we need to be able to look up fields both via index and plain name:
+    /** map from plain name to field index (note, contains fewer entries than fieldTypes when parent field name is hidden) */
+    std::unordered_map<std::string, uint32_t> fields;
+    /** the field types */
+    std::vector<const TxType*> fieldTypes;
+
+    void add_field(const std::string& name, const TxType* type) {
+        this->fields[name] = this->fieldTypes.size();  // (inserts new or overwrites existing entry)
+        this->fieldTypes.push_back(type);
+    }
+
+    inline bool has_field(const std::string& name) const { return this->fields.count(name); }
+
+    inline uint32_t get_field_index(const std::string& name) const { return this->fields.at(name); }
+};
+
 
 
 /** A symbol that represents a declared source code entity (type or field), or several overloaded ones. */
@@ -104,6 +125,16 @@ class TxFieldEntity : public TxDistinctEntity {
     const TxFieldStorage storage;
     const TxIdentifier dataspace;
 
+    static inline TxFieldStorage determine_storage(TxFieldStorage storage, TxDeclarationFlags declFlags) {
+        if ( storage == TXS_STATIC
+             && ( declFlags & (TXD_PUBLIC | TXD_PROTECTED) )  // private fields are non-virtual
+             // if final but doesn't override, its effectively non-virtual:
+             && ( ( declFlags & (TXD_OVERRIDE | TXD_FINAL)) != TXD_FINAL ) )
+            return TXS_VIRTUAL;
+        else
+            return storage;
+    }
+
     inline const TxExpressionNode* get_init_expression() const {
         return static_cast<const TxFieldDefiner*>(this->entityDefiner)->get_init_expression();
     }
@@ -118,7 +149,8 @@ protected:
 public:
     TxFieldEntity(TxSymbolScope* parent, const std::string& name, TxFieldDefiner* entityDefiner, TxDeclarationFlags declFlags,
                   TxFieldStorage storage, const TxIdentifier& dataspace)
-            : TxDistinctEntity(parent, name, entityDefiner, declFlags), storage(storage), dataspace(dataspace) {
+            : TxDistinctEntity(parent, name, entityDefiner, declFlags),
+              storage(determine_storage(storage, declFlags)), dataspace(dataspace) {
         ASSERT ((declFlags | LEGAL_FIELD_DECL_FLAGS) == LEGAL_FIELD_DECL_FLAGS, "Illegal field declFlags: " << declFlags);
     }
 
@@ -129,12 +161,20 @@ public:
 
     inline TxFieldStorage get_storage() const { return this->storage; }
 
-    /** Gets the "index" of this field under its parent. This field must have instance storage class.
+    /** Gets the storage "index" of this field within its data tuple.
+     * This field must have instance storage class.
      * (This should maybe be moved elsewhere as it is specific to low-level code generation.)
      */
     int get_instance_field_index() const;
 
-    /** Gets the "index" of this field under its parent. This field must have instance storage class.
+    /** Gets the storage "index" of this field within its data tuple.
+     * This field must have static virtual storage class.
+     * (This should maybe be moved elsewhere as it is specific to low-level code generation.)
+     */
+    int get_virtual_field_index() const;
+
+    /** Gets the storage "index" of this field within its data tuple.
+     *  This field must have static non-virtual storage class.
      * (This should maybe be moved elsewhere as it is specific to low-level code generation.)
      */
     int get_static_field_index() const;
@@ -174,34 +214,12 @@ public:
 class TxTypeEntity : public TxDistinctEntity, public TxTypeProxy {
     bool dataLaidOut = false;
     bool startedLayout = false;
-    std::unordered_map<const std::string*, int> staticFields;
-    std::unordered_map<const std::string*, int> instanceFields;
-    std::vector<const TxType*> staticFieldTypes;
-    std::vector<const TxType*> instanceFieldTypes;
+    bool declaresInstanceFields = false;
+    DataTupleDefinition staticFields;
+    DataTupleDefinition virtualFields;
+    DataTupleDefinition instanceFields;
 
-    void define_data_layout(ResolutionContext& resCtx) {
-        if (this->dataLaidOut)
-            return;
-        ASSERT(!this->startedLayout, "Recursive call to define_data_layout() of " << *this);
-        this->startedLayout = true;
-        for (auto symname = this->symbol_names_cbegin(); symname != this->symbol_names_cend(); symname++) {
-            if (auto field = dynamic_cast<TxFieldEntity*>(this->get_symbol(*symname))) {
-                auto fieldType = field->resolve_symbol_type(resCtx);
-                if (field->get_storage() == TXS_INSTANCE) {
-                    this->LOGGER().debug("Laying out instance field %-40s  %s  %s", field->get_full_name().to_string().c_str(),
-                            ::to_string(this->get_decl_flags()).c_str(), fieldType->to_string(true).c_str());
-                    this->instanceFields.emplace(&field->get_name(), this->instanceFields.size());
-                    instanceFieldTypes.push_back(fieldType);
-                }
-                else {
-                    ASSERT(field->get_storage() == TXS_STATIC, "Invalid storage class " << field->get_storage() << " for field member " << *field);
-                    this->staticFields.emplace(&field->get_name(), this->staticFields.size());
-                    staticFieldTypes.push_back(fieldType);
-                }
-            }
-        }
-        this->dataLaidOut = true;
-    }
+    void define_data_layout(ResolutionContext& resCtx, const TxType* type);
 
     TxSymbolScope* inner_lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident, bool static_lookup);
 
@@ -220,9 +238,9 @@ public:
     virtual bool validate_symbol(ResolutionContext& resCtx) override;
 
 
-    virtual const TxType* resolve_symbol_type(ResolutionContext& resCtx) {
+    virtual const TxType* resolve_symbol_type(ResolutionContext& resCtx) override {
         auto type = TxDistinctEntity::resolve_symbol_type(resCtx);
-        this->define_data_layout(resCtx);
+        this->define_data_layout(resCtx, type);
         return type;
     }
 
@@ -247,8 +265,8 @@ public:
     virtual TxSymbolScope* lookup_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
 
 
-    /** Returns true if this type declares any instance fields. (Does not consider base types' members.) */
-    bool has_instance_fields() const {
+    /** Returns true if this type declares any instance fields (i.e. in addition to base types' members.) */
+    bool declares_instance_fields() const {
         // note: this check needs to be shallow - not traverse all type defs - to prevent risk of infinite recursion
         if (! this->dataLaidOut) {
             return std::any_of( this->symbols_cbegin(), this->symbols_cend(),
@@ -257,33 +275,27 @@ public:
                                         return (field->get_storage() == TXS_INSTANCE);
                                     return false; } );
         }
-        return ! this->instanceFieldTypes.empty();
+        return this->declaresInstanceFields;
     }
 
 
     /*--- data layout ---*/
 
-    const std::vector<const TxType*> get_instance_field_types() const {
+    const DataTupleDefinition& get_instance_fields() const {
         ASSERT(this->dataLaidOut, "Data not laid out in " << this);
-        return this->instanceFieldTypes;
+        return this->instanceFields;
     }
 
-    const std::vector<const TxType*> get_static_field_types() const {
+    const DataTupleDefinition& get_virtual_fields() const {
         ASSERT(this->dataLaidOut, "Data not laid out in " << this);
-        return this->staticFieldTypes;
+        return this->virtualFields;
     }
 
-    /** Gets the data layout index of the named instance field in this type. */
-    int get_instance_field_index(const std::string& name) const {
+    const DataTupleDefinition& get_static_fields() const {
         ASSERT(this->dataLaidOut, "Data not laid out in " << this);
-        return this->instanceFields.at(&name);
+        return this->staticFields;
     }
 
-    /** Gets the data layout index of the named static field in this type. */
-    int get_static_field_index(const std::string& name) const {
-        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
-        return this->staticFields.at(&name);
-    }
 
 
     virtual std::string to_string() const {
@@ -418,9 +430,14 @@ public:
     }
 
     virtual bool validate_symbol(ResolutionContext& resCtx) override {
-        // Note: The 'specific' entity instances overloaded here are prepared via their unique'd symbol names,
-        // so we don't prepare them here. Here we just check overloading rules.
         bool valid = TxEntity::validate_symbol(resCtx);
+
+        if (this->typeEntity) {
+            valid &= this->typeEntity->validate_symbol(resCtx);
+        }
+
+        // Note: The 'specific' field entity instances overloaded here are prepared via their unique'd symbol names,
+        // so we don't prepare them here. Here we just check overloading rules.
         std::vector<const TxFunctionType*> functionTypes;
         for (auto fieldDeclI = this->fields_cbegin(); fieldDeclI != this->fields_cend(); fieldDeclI++) {
             auto type = (*fieldDeclI)->resolve_symbol_type(resCtx);

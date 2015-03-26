@@ -247,9 +247,13 @@ std::string* TxDriver::current_input_filepath() {
 
 int TxDriver::llvm_compile() {
     LlvmGenerationContext genContext(*this->package);
+
     for (auto parsedAST : this->parsedASTs) {
         genContext.generate_code(*parsedAST);
     }
+
+    genContext.generate_runtime_data();
+
     bool mainGenerated = false;
     if (auto funcField = this->package->getMainFunc()) {
         if (auto funcType = dynamic_cast<const TxFunctionType*>(funcField->get_type())) {

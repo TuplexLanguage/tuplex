@@ -297,7 +297,7 @@ public:
 
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override final {
         if (!cachedType && !gottenType) {
-            LOGGER().trace("resolving symbols of %s", this->to_string().c_str());
+            LOGGER().trace("resolving type of %s", this->to_string().c_str());
             ASSERT(!gettingType, "Recursive invocation of resolve_type() of " << this);
             this->gettingType = true;
             this->cachedType = this->define_type(resCtx);
@@ -360,7 +360,7 @@ public:
     /** Returns the type (as specific as can be known) of the value this expression produces. */
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override final {
         if (!cachedType && !gottenType) {
-            LOGGER().trace("resolving symbols of %s", this->to_string().c_str());
+            LOGGER().trace("resolving type of %s", this->to_string().c_str());
             ASSERT(!gettingType, "Recursive invocation of resolve_type() of " << this);
             this->gettingType = true;
             this->cachedType = this->define_type(resCtx);
@@ -520,7 +520,7 @@ public:
 
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override {
         if (! cachedType) {
-            LOGGER().trace("resolving symbols of %s", this->to_string().c_str());
+            LOGGER().trace("resolving type of %s", this->to_string().c_str());
             if (this->typeExpression) {
                 this->cachedType = this->typeExpression->resolve_type(resCtx);
             }

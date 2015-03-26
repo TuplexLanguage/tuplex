@@ -5,20 +5,75 @@
 
 int TxFieldEntity::get_instance_field_index() const {
     ASSERT(this->storage == TXS_INSTANCE, "Only fields of instance storage class have an instance field index: " << *this);
-    auto parentType = dynamic_cast<const TxTypeEntity*>(this->get_outer());
-    ASSERT(parentType, "Field's parent is not a type: " << *this->get_outer());
-    return parentType->get_instance_field_index(this->get_name());
+    auto scope = dynamic_cast<const TxTypeEntity*>(this->get_outer());
+    ASSERT(scope, "Field's scope is not a type: " << *this->get_outer());
+    return scope->get_instance_fields().get_field_index(this->get_name());
 }
 
-/** Gets the "index" of this field under its parent. This field must have instance storage class.
- * (This should maybe be moved elsewhere as it is specific to low-level code generation.)
- */
-int TxFieldEntity::get_static_field_index() const {
-    ASSERT(this->storage == TXS_STATIC, "Only fields of instance storage class have an instance field index: " << *this);
-    auto parentType = dynamic_cast<const TxTypeEntity*>(this->get_outer());
-    ASSERT(parentType, "Field's parent is not a type: " << *this->get_outer());
-    return parentType->get_static_field_index(this->get_name());
+int TxFieldEntity::get_virtual_field_index() const {
+    ASSERT(this->storage == TXS_VIRTUAL, "Only fields of static virtual storage class have an virtual field index: " << *this);
+    auto scope = dynamic_cast<const TxTypeEntity*>(this->get_outer());
+    ASSERT(scope, "Field's scope is not a type: " << *this->get_outer());
+    return scope->get_virtual_fields().get_field_index(this->get_name());
 }
+
+int TxFieldEntity::get_static_field_index() const {
+    ASSERT(this->storage == TXS_STATIC, "Only fields of static non-virtual storage class have a static field index: " << *this);
+    auto scope = dynamic_cast<const TxTypeEntity*>(this->get_outer());
+    ASSERT(scope, "Field's scope is not a type: " << *this->get_outer());
+    return scope->get_static_fields().get_field_index(this->get_name());
+}
+
+
+void TxTypeEntity::define_data_layout(ResolutionContext& resCtx, const TxType* type) {
+    if (this->dataLaidOut)
+        return;
+    ASSERT(!this->startedLayout, "Recursive call to define_data_layout() of " << *this);
+    this->startedLayout = true;
+    this->LOGGER().debug("Laying out data of type %s", this->get_full_name().to_string().c_str());
+
+    // copy base type's virtual and instance field tuples (to which we will add and override fields):
+    const TxType* baseType = type->get_base_type();
+    while (baseType && !baseType->entity())
+        baseType = baseType->get_base_type();
+    if (baseType) {
+        baseType->entity()->resolve_symbol_type(resCtx);
+        this->virtualFields = baseType->entity()->virtualFields;
+        this->instanceFields = baseType->entity()->instanceFields;
+    }
+
+    for (auto symname = this->symbol_names_cbegin(); symname != this->symbol_names_cend(); symname++) {
+        if (auto field = dynamic_cast<TxFieldEntity*>(this->get_symbol(*symname))) {
+            auto fieldType = field->resolve_symbol_type(resCtx);
+            if (field->get_storage() == TXS_INSTANCE) {
+                this->LOGGER().info("Laying out instance field %-40s  %s  %s", field->get_full_name().to_string().c_str(),
+                        ::to_string(this->get_decl_flags()).c_str(), fieldType->to_string(true).c_str());
+                this->instanceFields.add_field(field->get_name(), fieldType);
+                this->declaresInstanceFields = true;
+            }
+            else if (field->get_storage() == TXS_VIRTUAL) {
+                if (this->virtualFields.has_field(field->get_name())) {
+                    if (! (field->get_decl_flags() & TXD_OVERRIDE))
+                        this->LOGGER().warning("Field overrides but isn't declared 'override': %s", field->to_string().c_str());
+                }
+                else {
+                    if (field->get_decl_flags() & TXD_OVERRIDE)
+                        this->LOGGER().warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
+                    this->virtualFields.add_field(field->get_name(), fieldType);
+                }
+            }
+            else {
+                ASSERT(field->get_storage() == TXS_STATIC, "Invalid storage class " << field->get_storage() << " for field member " << *field);
+                if (field->get_decl_flags() & TXD_OVERRIDE)
+                    this->LOGGER().warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
+                this->staticFields.add_field(field->get_name(), fieldType);
+            }
+        }
+    }
+
+    this->dataLaidOut = true;
+}
+
 
 bool TxFieldEntity::is_statically_constant() const {
     if ( (this->get_decl_flags() & TXD_GENPARAM) || this->is_generic_param_binding() )

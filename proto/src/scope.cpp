@@ -343,8 +343,6 @@ TxFieldEntity* TxSymbolScope::resolve_field_lookup(ResolutionContext& resCtx, Tx
 
 
 bool TxSymbolScope::symbol_validation_pass(ResolutionContext& resCtx) {
-//    if (this->fullName.begins_with(BUILTIN_NS))
-//        return true;
 //    if (!this->fullName.begins_with(BUILTIN_NS))
 //        this->LOGGER().debug("Validating symbol %s", this->fullName.to_string().c_str());
     bool valid = this->validate_symbol(resCtx);

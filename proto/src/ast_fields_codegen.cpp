@@ -6,7 +6,7 @@ using namespace llvm;
 
 /** Convenience function that returns true if type is a pointer whose destination should be
  * directly loaded / stored when accessed. */
-static bool access_via_load_store(const llvm::Type* type) {
+static bool access_via_load_store(const Type* type) {
     bool ret = (type->isPointerTy() && type->getPointerElementType()->isSingleValueType());
     //bool ret = (type->isPointerTy() && type->getPointerElementType()->isFirstClassType());
     //std::cout << "access_via_load_store(): " << ret << ": type: " << type << std::endl;
@@ -15,12 +15,30 @@ static bool access_via_load_store(const llvm::Type* type) {
 
 
 /** Generate code to obtain field value, potentially based on a base value (pointer). */
-static llvm::Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
-                                         llvm::Value* baseValue, const TxFieldEntity* entity, bool foldStatics=false) {
-    llvm::Value* val = NULL;
+static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
+                                   Value* baseValue, const TxFieldEntity* entity, bool foldStatics=false) {
+    Value* val = NULL;
     switch (entity->get_storage()) {
+    case TXS_VIRTUAL:
+        /*
+        if (baseValue) {  // polymorphic lookup
+            // first retrieve base's actual type and its vtable:
+            Value* vtableBase = baseValue;  // FIXME
+
+            auto fieldIx = entity->get_virtual_field_index();
+            //std::cout << "Getting TXS_VIRTUAL ix " << fieldIx << " value off LLVM base value: " << vtableBase << std::endl;
+            Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
+                                   ConstantInt::get(Type::getInt32Ty(context.llvmContext), fieldIx) };
+            if (!scope)
+                val = GetElementPtrInst::CreateInBounds(vtableBase, ixs);
+            else
+                val = scope->builder->CreateInBoundsGEP(vtableBase, ixs);
+            break;
+        }
+        // no break
+        */
+
     case TXS_STATIC:
-        // TODO: polymorphic lookup
     case TXS_GLOBAL:
     case TXS_STACK:
         if (foldStatics) {
@@ -36,9 +54,9 @@ static llvm::Value* field_value_code_gen(LlvmGenerationContext& context, GenScop
                 // forward declaration situation
                 if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
                     context.LOG.alert("Forward-declaring function %s", entity->get_full_name().to_string().c_str());
-                    llvm::FunctionType *ftype = llvm::cast<llvm::FunctionType>(context.get_llvm_type(txFuncType));
+                    FunctionType *ftype = cast<FunctionType>(context.get_llvm_type(txFuncType));
                     val = context.llvmModule.getOrInsertFunction(entity->get_full_name().to_string(), ftype);
-                    //llvm::cast<llvm::Function>(val)->setLinkage(llvm::GlobalValue::InternalLinkage);  FIXME (can cause LLVM to rename function)
+                    //cast<Function>(val)->setLinkage(GlobalValue::InternalLinkage);  FIXME (can cause LLVM to rename function)
                 }
                 else
                     context.LOG.error("No LLVM value defined for %s", entity->to_string().c_str());
@@ -52,10 +70,10 @@ static llvm::Value* field_value_code_gen(LlvmGenerationContext& context, GenScop
         else {
             auto fieldIx = entity->get_instance_field_index();
             //std::cout << "Getting TXS_INSTANCE ix " << fieldIx << " value off LLVM base value: " << baseValue << std::endl;
-            llvm::Value* ixs[] = { llvm::ConstantInt::get(llvm::Type::getInt32Ty(context.llvmContext), 0),
-                                   llvm::ConstantInt::get(llvm::Type::getInt32Ty(context.llvmContext), fieldIx) };
+            Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
+                                   ConstantInt::get(Type::getInt32Ty(context.llvmContext), fieldIx) };
             if (!scope)
-                val = llvm::GetElementPtrInst::CreateInBounds(baseValue, ixs);
+                val = GetElementPtrInst::CreateInBounds(baseValue, ixs);
             else
                 val = scope->builder->CreateInBoundsGEP(baseValue, ixs);
         }
@@ -69,9 +87,9 @@ static llvm::Value* field_value_code_gen(LlvmGenerationContext& context, GenScop
 }
 
 
-llvm::Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics) const {
+Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics) const {
     //return context.lookup_llvm_value(this->get_entity()->get_full_name().to_string());
-    llvm::Value* value = NULL;
+    Value* value = NULL;
     if (this->base)
         value = this->base->code_gen(context, scope);
     for (auto sym : this->memberPath) {
@@ -83,7 +101,7 @@ llvm::Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, 
                     if (scope)
                         value = scope->builder->CreateLoad(value);
                     else
-                        value = new llvm::LoadInst(value);
+                        value = new LoadInst(value);
                 }
             }
         }
@@ -94,9 +112,9 @@ llvm::Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, 
     return value;
 }
 
-llvm::Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    llvm::Value* value = this->code_gen_address(context, scope, true);
+    Value* value = this->code_gen_address(context, scope, true);
 
     // Only function/complex pointers and non-modifiable temporaries don't require a load instruction:
     if ( value && access_via_load_store(value->getType()) ) {
@@ -105,8 +123,8 @@ llvm::Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope
             value = scope->builder->CreateLoad(value);
         else {
            // in global scope we apparently don't want to load
-           //value = new llvm::LoadInst(value);
-//            if (auto constant = llvm::dyn_cast<llvm::Constant>(value)) {
+           //value = new LoadInst(value);
+//            if (auto constant = dyn_cast<Constant>(value)) {
 //            }
         }
     }
@@ -114,9 +132,9 @@ llvm::Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope
 }
 
 
-llvm::Value* TxFieldAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxFieldAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    llvm::Value* value = NULL;
+    Value* value = NULL;
     if (this->base)
         value = this->base->code_gen(context, scope);
     for (auto sym : this->memberPath) {
