@@ -82,19 +82,23 @@ myref.a
 myref.b
 
 
-## Type resolution is static
+## Type resolution is static and non-polymorhic
 Type . Type
-SFIELD . Type  ## shall not be a polymorphic lookup
-field . Type   ## shall not be a polymorphic lookup
+SFIELD . Type  => decltype(SFIELD).TYPE
+field . Type   => decltype(field).TYPE
+ref . Type     => decltype(ref).TYPE
 
 ## The types of all the following are determined statically:
 Type . SFIELD  ## of course non-polymorphic
 Type . field   ## invalid; produces field's declared type
 
-SFIELD . SFIELD  ## polymorphic
+SFIELD . SFIELD  ## "polymorphic" (but statically known)
 SFIELD . field   ## non-polymorphic
 
-field . SFIELD  ## polymorphic
+field . SFIELD  ## "polymorphic" (but statically known)
 field . field   ## non-polymorphic
+
+ref . SFIELD  ## polymorphic     (determined by the actual object type)
+ref . field   ## non-polymorphic (determined by the declared type of ref)
 
 */

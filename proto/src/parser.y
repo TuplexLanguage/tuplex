@@ -97,6 +97,10 @@ YY_DECL;
 %type <bool> opt_modifiable
 %type <TxIdentifier*> identifier
 
+%type <TxIdentifierNode*> gen_identifier
+%type <TxIdentifierNode*> module_declaration opt_module_decl opt_dataspace
+//%type <TxSymbolIdentifierNode*> field_identifier
+
 %type <TxParsingUnitNode*> parsing_unit
 %type <TxModuleNode*> sub_module
 
@@ -124,8 +128,6 @@ YY_DECL;
 %type <TxExpressionNode*> expr lambda_expr value_literal array_dimensions
 %type <TxFunctionCallNode*> call_expr
 %type <std::vector<TxExpressionNode*> *> expression_list call_params
-%type <TxIdentifierNode*> gen_identifier
-%type <TxIdentifierNode*> module_declaration opt_module_decl opt_dataspace
 %type <TxSuiteNode*> suite
 %type <std::vector<TxStatementNode*> *> statement_list
 %type <TxStatementNode*> statement assignment_stmt return_stmt break_stmt continue_stmt type_decl_stmt
@@ -461,12 +463,18 @@ method_def  :   KW_FUNC opt_modifiable NAME params_def return_type_def sep suite
 
 //// (value) expressions:
 
+//field_identifier : NAME                       { $$ = new TxSymbolIdentifierNode(@1, NULL, $1); }
+//                 | field_identifier DOT NAME  { $$ = new TxSymbolIdentifierNode(@1,   $1, $3); }
+//                 ;
+
 expr
     :   LPAREN expr RPAREN  { $$ = $2; }
     |   value_literal       { $$ = $1; }
     |   lambda_expr         { $$ = $1; }  // is this really combinable within another expression?
     |   call_expr           { $$ = $1; }
 
+//    |   field_identifier           %prec DOT   { $$ = new TxFieldValueNode(@1, NULL, $1); }
+//    |   expr DOT field_identifier  %prec EXPR  { $$ = new TxFieldValueNode(@1, $1,   $3); }
     |   gen_identifier           %prec DOT   { $$ = new TxFieldValueNode(@1, NULL, $1); }
     |   expr DOT gen_identifier  %prec EXPR  { $$ = new TxFieldValueNode(@1, $1, $3); }
     |   expr LBRACKET expr RBRACKET          { $$ = new TxElemDerefNode(@1, $1, $3); }

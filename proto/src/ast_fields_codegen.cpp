@@ -90,8 +90,8 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
 Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics) const {
     //return context.lookup_llvm_value(this->get_entity()->get_full_name().to_string());
     Value* value = NULL;
-    if (this->base)
-        value = this->base->code_gen(context, scope);
+    if (this->baseExpr)
+        value = this->baseExpr->code_gen(context, scope);
     for (auto sym : this->memberPath) {
         if (auto field = dynamic_cast<const TxFieldEntity*>(sym)) {
             value = field_value_code_gen(context, scope, value, field, foldStatics);

@@ -3,20 +3,70 @@
 #include "ast_base.hpp"
 
 
+// unused
+class TxSymbolIdentifierNode : public TxNode {
+    bool resolved = false;
+    std::vector<TxSymbolScope*> memberPath;
+    TxSymbolScope* cachedSymbol = nullptr;
+
+protected:
+    std::vector<TxSymbolScope*>& get_member_path() {
+        return (this->base ? this->base->get_member_path() : this->memberPath );
+    }
+
+    virtual TxSymbolScope* inner_resolve_symbol() {
+        TxIdentifier ident(this->name);
+        if (this->base) {
+            if (TxSymbolScope* baseSym = this->base->resolve_symbol())
+                return baseSym->lookup_member(this->base->get_member_path(), ident);
+            return nullptr;
+        }
+        else
+            return this->context().scope()->start_lookup_symbol(memberPath, ident);
+    }
+
+public:
+    TxSymbolIdentifierNode* base;
+    const std::string name;
+
+    TxSymbolIdentifierNode(const yy::location& parseLocation, TxSymbolIdentifierNode* base, const std::string& name)
+        : TxNode(parseLocation), base(base), name(name)  { }
+
+    TxIdentifier get_full_ident() const {
+        if (this->base) {
+            auto baseIdent = this->base->get_full_ident();
+            baseIdent.append(this->name);
+            return baseIdent;
+        }
+        else
+            return TxIdentifier(this->name);
+    }
+
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
+        this->set_context(lexContext);
+        if (this->base)
+            this->base->symbol_declaration_pass(lexContext);
+    }
+
+    virtual TxSymbolScope* resolve_symbol() final {
+        if (! this->resolved) {
+            LOGGER().trace("resolving symbol of %s", this->to_string().c_str());
+            this->resolved = true;
+            this->cachedSymbol = this->inner_resolve_symbol();
+            if (! this->cachedSymbol)
+                cerror("No such symbol: %s", this->name.c_str());
+        }
+        return cachedSymbol;
+    }
+
+    //inline const TxSymbolScope* get_symbol() const { return this->cachedSymbol; }
+};
+
+
+
 class TxFieldValueNode : public TxExpressionNode {
     std::vector<TxSymbolScope*> memberPath;
     TxFieldEntity * cachedEntity = nullptr;
-
-//    class FieldTypeDefiner : public TxEntityDefiner {
-//        TxFieldValueNode* fieldNode;
-//    public:
-//        FieldTypeDefiner(TxFieldValueNode* fieldNode) : fieldNode(fieldNode) { }
-//        virtual const TxType* symbol_resolution_pass(ResolutionContext& resCtx) override {
-//            return fieldNode->symbol_resolution_pass(resCtx);
-//        }
-//        virtual const TxType* attempt_get_type() const override { return fieldNode->get_type(); }
-//        virtual const TxType* get_type() const override { return fieldNode->get_type(); }
-//    } fieldTypeDefiner;
 
     inline const TxFieldEntity* get_entity() const { return this->cachedEntity; }
 
@@ -26,17 +76,17 @@ protected:
         if (! this->cachedEntity) {
             if (! this->memberPath.empty())
                 return nullptr;  // has already been attempted and failed
-            if (base) {
+            if (this->baseExpr) {
                 // (lookup is similar to that of TxFieldEntity)
-                if (auto baseType = this->base->resolve_type(resCtx))
-                    if (auto symbol = baseType->lookup_instance_member(memberPath, this->member->ident)) {
+                if (auto baseType = this->baseExpr->resolve_type(resCtx))
+                    if (auto symbol = baseType->lookup_instance_member(this->memberPath, this->member->ident)) {
                         this->cachedEntity = this->context().scope()->resolve_field_lookup(resCtx, symbol, this->appliedFuncArgTypes);
-                        if (this->cachedEntity && memberPath.back() != this->cachedEntity)
-                            memberPath[memberPath.size()-1] = this->cachedEntity;
+                        if (this->cachedEntity && this->memberPath.back() != this->cachedEntity)
+                            this->memberPath[this->memberPath.size()-1] = this->cachedEntity;
                     }
             }
             else
-                this->cachedEntity = this->context().scope()->lookup_field(resCtx, memberPath, this->member->ident, this->appliedFuncArgTypes);
+                this->cachedEntity = this->context().scope()->lookup_field(resCtx, this->memberPath, this->member->ident, this->appliedFuncArgTypes);
 
             if (this->cachedEntity) {
                 if (this->cachedEntity->get_decl_flags() & TXD_GENPARAM) {
@@ -65,19 +115,19 @@ protected:
     }
 
 public:
-    TxExpressionNode* base;
+    TxExpressionNode* baseExpr;
     const TxIdentifierNode* member;
 
     TxFieldValueNode(const yy::location& parseLocation, TxExpressionNode* base, const TxIdentifierNode* member)
-        : TxExpressionNode(parseLocation), base(base), member(member) {
+        : TxExpressionNode(parseLocation), baseExpr(base), member(member) {
     }
 
     virtual bool has_predefined_type() const override { return true; }
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
-        if (base)
-            base->symbol_declaration_pass(lexContext);
+        if (this->baseExpr)
+            this->baseExpr->symbol_declaration_pass(lexContext);
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
@@ -97,8 +147,8 @@ public:
     }
 
     virtual void semantic_pass() override {
-        if (base)
-            base->semantic_pass();
+        if (this->baseExpr)
+            this->baseExpr->semantic_pass();
         this->get_entity();
     }
 

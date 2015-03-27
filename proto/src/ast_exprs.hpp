@@ -294,8 +294,10 @@ protected:
                 if (op_class == TXOC_BOOLEAN)
                     this->cerror("Can't perform boolean operation on operands of scalar type: %s", ltype->to_string().c_str());
             }
-            else
+            else if (rtype)
                 cerror("Mismatching scalar operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
+            else
+                return nullptr;
         }
         else if (dynamic_cast<const TxBoolType*>(ltype)) {
             if (dynamic_cast<const TxBoolType*>(rtype)) {
