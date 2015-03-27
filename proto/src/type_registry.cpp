@@ -254,7 +254,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
         std::vector<TxTypeParam> unbound;
         this->builtinModTypes[id] = biType->make_specialized_type(nullptr, tmpSpec, unbound, nullptr);
 
-        this->allStaticTypes.push_back(biType);
+        this->register_type(const_cast<TxType*>(biType));
     }
 
 //    // test adding static field to types:
@@ -300,6 +300,17 @@ void TypeRegistry::initializeBuiltinSymbols() {
         c_puts_func_type_def->type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, returnType);
     }
 }
+
+
+
+void TypeRegistry::register_type(TxType* type) {
+    if (type->is_pure_specialization())
+        return;
+    type->typeId = this->allStaticTypes.size();
+    this->allStaticTypes.push_back(type);
+}
+
+
 
 const TxType* TypeRegistry::get_builtin_type(const BuiltinTypeId id, bool mod) const {
     return mod ? this->builtinModTypes[id] : this->builtinTypes[id]->get_type();
@@ -376,7 +387,7 @@ const TxType* TypeRegistry::get_type_specialization(TxTypeEntity* newEntity, con
 
     TxTypeSpecialization newSpec(specialization.type, newBindings, specialization.dataspace);
     auto newType = specialization.type->make_specialized_type(newEntity, newSpec, unboundParams, errorMsg);
-    this->allStaticTypes.push_back(newType);
+    this->register_type(newType);
     return newType;
 }
 

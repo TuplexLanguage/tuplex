@@ -168,6 +168,12 @@ Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* 
     }
 }
 
+llvm::Value* TxReferenceDerefNode::code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
+    // FIXME: make dynamic by reading the reference's target type id
+    return llvm::ConstantInt::get(llvm::Type::getInt32Ty(context.llvmContext), this->get_type()->get_type_id());
+}
+
+
 
 Value* TxElemDerefNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
     auto arrayval = this->array->code_gen(context, scope);

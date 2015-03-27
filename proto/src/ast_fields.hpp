@@ -177,9 +177,9 @@ protected:
         if (! this->entity) {
             if (! this->memberPath.empty())
                 return nullptr;  // has already been attempted and failed
-            if (base) {
+            if (baseExpr) {
                 // (lookup is similar to that of TxFieldEntity)
-                if (auto baseType = this->base->resolve_type(resCtx))
+                if (auto baseType = this->baseExpr->resolve_type(resCtx))
                     this->entity = dynamic_cast<TxFieldEntity*>(baseType->lookup_instance_member(memberPath, this->member->ident));
             }
             else
@@ -195,30 +195,30 @@ protected:
     }
 
 public:
-    TxExpressionNode* base;
+    TxExpressionNode* baseExpr;
     const TxIdentifierNode* member;
 
     TxFieldAssigneeNode(const yy::location& parseLocation, TxExpressionNode* base, const TxIdentifierNode* member)
-        : TxAssigneeNode(parseLocation), base(base), member(member) { }
+        : TxAssigneeNode(parseLocation), baseExpr(base), member(member) { }
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
-        if (base)
-            base->symbol_declaration_pass(lexContext);
+        if (this->baseExpr)
+            this->baseExpr->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         TxAssigneeNode::symbol_resolution_pass(resCtx);
-        if (base)
-            base->symbol_resolution_pass(resCtx);
+        if (this->baseExpr)
+            this->baseExpr->symbol_resolution_pass(resCtx);
         auto entity = this->get_entity();
         if (entity && entity->get_storage() == TXS_NOSTORAGE)
             cerror("Assignee %s is not an L-value / has no storage.", member->to_string().c_str());
     }
 
     virtual void semantic_pass() override {
-        if (base)
-            base->semantic_pass();
+        if (this->baseExpr)
+            this->baseExpr->semantic_pass();
     }
 
 //    virtual bool hasAddress() const {

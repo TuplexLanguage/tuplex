@@ -47,9 +47,9 @@ func main() Int {
     assert( TRUE, br^.field1 == 8 )
     assert( TRUE, b.field1 == 8 )
 
-    assert( TRUE, ar^.SFIELD == 42 )
+    assert( TRUE, ar^.SFIELD == 42 ) ## not yet polym!
     assert( TRUE, br^.SFIELD == 42 )
     assert( TRUE, b.SFIELD == 42 )
 
-    return Int( ar^.SFIELD )
+    return Int( br^.SFIELD )
 }

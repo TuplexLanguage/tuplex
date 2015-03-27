@@ -402,6 +402,7 @@ public:
         this->appliedFuncArgTypes = appliedFuncArgTypes;
     }
 
+    virtual llvm::Value* code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const;
     ///** Returns true if this expression is a lambda expression (function definition). */
     //virtual bool isLambda(const TuplexContext& context) const { return false; }
 };

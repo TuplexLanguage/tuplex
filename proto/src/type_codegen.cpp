@@ -30,7 +30,7 @@ static Value* code_gen_4_multiple(LlvmGenerationContext& context, GenScope* scop
 
 
 
-Constant* TxType::gen_vtable(LlvmGenerationContext& context) const {
+llvm::StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
     // (similar to tuple type creation)
     auto entity = this->entity();
     if (! entity) {
@@ -47,10 +47,7 @@ Constant* TxType::gen_vtable(LlvmGenerationContext& context) const {
     }
     // note: create() might be better for "named" struct types?
     llvm::StructType* vtableT = llvm::StructType::get(context.llvmContext, members);
-    std::string vtableName(entity->get_full_name().to_string() + "$vtable");
-    GlobalVariable* vtable = new GlobalVariable(context.llvmModule, vtableT, true, GlobalValue::ExternalLinkage,
-                                                nullptr, vtableName);
-    return vtable;
+    return vtableT;
 }
 
 //Constant* TxType::code_gen_vtable_size(LlvmGenerationContext& context) const {

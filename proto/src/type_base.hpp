@@ -25,6 +25,7 @@ class LlvmGenerationContext;
 class GenScope;
 namespace llvm {
     class Type;
+    class StructType;
     class Value;
     class Constant;
     class Function;
@@ -290,6 +291,8 @@ public:
 /** An instance of this class represents a type definition.
  */
 class TxType : public TxTypeDefiner, public Printable {
+    uint32_t typeId = UINT32_MAX;
+
     /** The entity declaration that defined this type. */
     TxTypeEntity * const _entity;
 
@@ -335,6 +338,8 @@ public:
 
 
     /*--- characteristics ---*/
+
+    inline uint32_t get_type_id() const { return ( this->typeId == UINT32_MAX ? this->baseTypeSpec.type->get_type_id() : this->typeId ); }
 
     inline TxTypeEntity* entity() const { return this->_entity; }
 
@@ -535,8 +540,7 @@ private:
 public:
     /*--- LLVM code generation methods ---*/
 
-    virtual llvm::Constant* gen_vtable(LlvmGenerationContext& context) const;
-    //virtual llvm::Constant* gen_vtable_size(LlvmGenerationContext& context) const;
+    virtual llvm::StructType* make_vtable_type(LlvmGenerationContext& context) const;
     virtual llvm::Function* get_type_user_init_func(LlvmGenerationContext& context) const;
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const = 0;

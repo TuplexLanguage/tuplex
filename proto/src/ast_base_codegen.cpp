@@ -129,3 +129,8 @@ llvm::Value* TxFieldDefNode::code_gen(LlvmGenerationContext& context, GenScope* 
     // the parent node does that)
     return nullptr;  // passive node
 }
+
+
+llvm::Value* TxExpressionNode::code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
+    return llvm::ConstantInt::get(llvm::Type::getInt32Ty(context.llvmContext), this->get_type()->get_type_id());
+}

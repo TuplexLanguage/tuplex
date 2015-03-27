@@ -273,16 +273,18 @@ void LlvmGenerationContext::initialize_meta_type_data() {
     uint32_t typeCount = 0;
     std::vector<Constant*> metaTypes;
     for (auto txType = this->tuplexPackage.types().types_cbegin(); txType != this->tuplexPackage.types().types_cend(); txType++) {
-        if ((*txType)->is_pure_specialization())
-            continue;
 //        auto utinitF = (*txType)->get_type_user_init_func(*this);
 //        if (! utinitF->getEntryBlock().getTerminator()) {
 //            // inserting default void return instruction for entry block of function
 //            ReturnInst::Create(this->llvmContext, &utinitF->getEntryBlock());
 //        }
-        auto vtableV = (*txType)->gen_vtable(*this);
-        if (!vtableV)
+        auto vtableT = (*txType)->make_vtable_type(*this);
+        if (!vtableT)
             continue;
+        this->llvmVTableTypeMapping.emplace((*txType)->get_type_id(), vtableT);
+        std::string vtableName((*txType)->entity()->get_full_name().to_string() + "$vtable");
+        GlobalVariable* vtableV = new GlobalVariable(this->llvmModule, vtableT, true, GlobalValue::ExternalLinkage,
+                                                     nullptr, vtableName);
         this->register_llvm_value(vtableV->getName(), vtableV);
 
         auto typeId = typeCount;
@@ -292,17 +294,23 @@ void LlvmGenerationContext::initialize_meta_type_data() {
             // dummyUserInitF  // utinitF
         };
         metaTypes.push_back(ConstantStruct::get(metaType, members));
+
+        std::string typeIdName((*txType)->entity()->get_full_name().to_string() + ".$typeid");
+        Value* typeIdV = new GlobalVariable(this->llvmModule, int32T, true, GlobalValue::ExternalLinkage,
+                                            ConstantInt::get(int32T, typeId), typeIdName);
+        this->register_llvm_value(typeIdV->getName(), typeIdV);
+
         typeCount++;
     }
     auto mtArrayType = ArrayType::get(metaType, typeCount);
     auto mtArrayInit = ConstantArray::get(mtArrayType, metaTypes);
 
-    Value* genTypeCount = new GlobalVariable(this->llvmModule, int32T, true, GlobalValue::ExternalLinkage,
-                                             ConstantInt::get(int32T, typeCount), "tx.runtime.TYPE_COUNT");
-    Value* genMetaTypes = new GlobalVariable(this->llvmModule, mtArrayType, true, GlobalValue::ExternalLinkage,
-                                             mtArrayInit, "tx.runtime.META_TYPES");
-    this->register_llvm_value(genTypeCount->getName(), genTypeCount);
-    this->register_llvm_value(genMetaTypes->getName(), genMetaTypes);
+    Value* typeCountV = new GlobalVariable(this->llvmModule, int32T, true, GlobalValue::ExternalLinkage,
+                                           ConstantInt::get(int32T, typeCount), "tx.runtime.TYPE_COUNT");
+    Value* metaTypesV = new GlobalVariable(this->llvmModule, mtArrayType, true, GlobalValue::ExternalLinkage,
+                                           mtArrayInit, "tx.runtime.META_TYPES");
+    this->register_llvm_value(typeCountV->getName(), typeCountV);
+    this->register_llvm_value(metaTypesV->getName(), metaTypesV);
 }
 
 void LlvmGenerationContext::initialize_builtin_types() {
@@ -343,9 +351,6 @@ void LlvmGenerationContext::initialize_builtin_types() {
 
 void LlvmGenerationContext::generate_runtime_data() {
     for (auto txType = this->tuplexPackage.types().types_cbegin(); txType != this->tuplexPackage.types().types_cend(); txType++) {
-        if ((*txType)->is_pure_specialization())
-            continue;
-
         if (auto entity = (*txType)->entity()) {
             std::string vtableName(entity->get_full_name().to_string() + "$vtable");
             if (auto vtableV = dyn_cast<GlobalVariable>(this->lookup_llvm_value(vtableName))) {
@@ -367,6 +372,44 @@ void LlvmGenerationContext::generate_runtime_data() {
     }
 }
 
+
+Value* LlvmGenerationContext::gen_get_vtable(GenScope* scope, const TxType* statDeclType, Value* typeIdV) const {
+    Value* metaTypesV = this->lookup_llvm_value("tx.runtime.META_TYPES");
+    Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(this->llvmContext), 0),
+                     typeIdV,
+                     ConstantInt::get(Type::getInt32Ty(this->llvmContext), 1) };
+    Value* vtablePtrA;
+    if (!scope)
+        vtablePtrA = GetElementPtrInst::CreateInBounds(metaTypesV, ixs);
+    else
+        vtablePtrA = scope->builder->CreateInBoundsGEP(metaTypesV, ixs);
+
+    // cast vtable type according to statically declared type (may be parent type of actual type):
+    if (auto vtableT = this->get_llvm_vtable_type(statDeclType)) {
+        Type* vtablePtrT = PointerType::getUnqual(vtableT);
+        if (!scope) {
+            auto vtablePtr = new LoadInst(vtablePtrA);
+            return CastInst::CreatePointerCast(vtablePtr, vtablePtrT, "vtableptr");
+        }
+        else {
+            auto vtablePtr = scope->builder->CreateLoad(vtablePtrA);
+            return scope->builder->CreatePointerCast(vtablePtr, vtablePtrT, "vtableptr");
+        }
+    }
+    return nullptr;
+}
+
+Value* LlvmGenerationContext::gen_get_vtable(GenScope* scope, const TxType* statDeclType) const {
+    return gen_get_vtable(scope, statDeclType, ConstantInt::get(Type::getInt32Ty(this->llvmContext), statDeclType->get_type_id()));
+}
+
+
+StructType* LlvmGenerationContext::get_llvm_vtable_type(const TxType* txType) const {
+    auto iter = this->llvmVTableTypeMapping.find(txType->get_type_id());
+    if (iter != this->llvmVTableTypeMapping.end())
+        return iter->second;
+    return nullptr;
+}
 
 
 Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {

@@ -146,6 +146,7 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 

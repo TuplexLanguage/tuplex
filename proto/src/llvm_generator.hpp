@@ -39,6 +39,7 @@ class LlvmGenerationContext {
     llvm::Function* entryFunction = nullptr;
     std::map<const std::string, llvm::Value*> llvmSymbolTable;
     std::map<const TxType*, llvm::Type* const> llvmTypeMapping;
+    std::map<uint32_t, llvm::StructType* const> llvmVTableTypeMapping;
 
     const TxType* lookup_builtin(BuiltinTypeId id);
     void initialize_meta_type_data();
@@ -67,6 +68,7 @@ public:
 
     llvm::Type* get_llvm_type(const TxType* txType);
 
+    llvm::StructType* get_llvm_vtable_type(const TxType* txType) const;
 
     // simple symbol table for llvm values:
     void register_llvm_value(const std::string& identifier, llvm::Value* val);
@@ -81,6 +83,10 @@ public:
     /** Create the top level function to call as program entry.
      * (This is the built-in main, which calls the user main function.)  */
     bool generate_main(const std::string& userMainIdent, const TxFunctionType* mainFuncType);
+
+    llvm::Value* gen_get_vtable(GenScope* scope, const TxType* statDeclType, llvm::Value* typeIdV) const;
+    llvm::Value* gen_get_vtable(GenScope* scope, const TxType* statDeclType) const;
+
 
     /** Verfies the generated LLVM code.
      * Should only be used for debugging, may mess with LLVM's state.
