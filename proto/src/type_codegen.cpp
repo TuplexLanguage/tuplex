@@ -250,9 +250,9 @@ Type* TxReferenceType::make_llvm_type(LlvmGenerationContext& context) const {
     // Note: a reference is always 'concrete'
     ResolutionContext resCtx;
     if (auto txTargetType = this->target_type(resCtx)) {
-        if (llvm::Type* targetType = context.get_llvm_type(txTargetType)) {
+        if (Type* targetType = context.get_llvm_type(txTargetType)) {
             context.LOG.debug("Mapping reference type %s", this->to_string().c_str());
-            return llvm::PointerType::getUnqual(targetType);
+            return make_ref_llvm_type(context, targetType);
         }
         else
             context.LOG.error("No LLVM type mapping for reference target type: %s", txTargetType->to_string().c_str());
@@ -260,6 +260,15 @@ Type* TxReferenceType::make_llvm_type(LlvmGenerationContext& context) const {
     else
         context.LOG.error("Unknown target type of reference type %s", this->to_string().c_str());
     return nullptr;
+}
+
+Type* TxReferenceType::make_ref_llvm_type(LlvmGenerationContext& context, Type* targetType) {
+    std::vector<Type*> llvmMemberTypes {
+        PointerType::getUnqual(targetType),
+        Type::getInt32Ty(context.llvmContext)  // type header for reference target type
+    };
+    auto llvmType = StructType::get(context.llvmContext, llvmMemberTypes);
+    return llvmType;
 }
 
 

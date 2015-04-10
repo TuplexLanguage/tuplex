@@ -37,7 +37,7 @@ func str_test() {
     str2 := str
     puts(str)
     puts(str2)
-    puts(helloWorld2)
+    ##puts(helloWorld2)
 }
 
 func empty_func() { }

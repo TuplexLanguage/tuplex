@@ -43,7 +43,8 @@ class LlvmGenerationContext {
 
     const TxType* lookup_builtin(BuiltinTypeId id);
     void initialize_meta_type_data();
-    void initialize_builtin_types();
+    void initialize_external_functions();
+    void initialize_builtins();
     llvm::Function* gen_static_init_function();
     llvm::Function* gen_main_function(const std::string userMain, bool hasIntReturnValue);
 
@@ -62,7 +63,7 @@ public:
           llvmModule("top", this->llvmContext),
           dataLayout(&llvmModule)
         {
-    		this->initialize_builtin_types();
+    		this->initialize_builtins();
         }
 
 

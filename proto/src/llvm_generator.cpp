@@ -313,11 +313,9 @@ void LlvmGenerationContext::initialize_meta_type_data() {
     this->register_llvm_value(metaTypesV->getName(), metaTypesV);
 }
 
-void LlvmGenerationContext::initialize_builtin_types() {
-    // initialize meta type data:
-    this->initialize_meta_type_data();
 
-    // initialize external functions:
+void LlvmGenerationContext::initialize_external_functions() {
+    // declare external C puts():
     std::vector<Type*> c_puts_args( { Type::getInt8PtrTy(this->llvmContext) } );
     FunctionType* c_puts_func_type = FunctionType::get(
       /*Result=*/Type::getInt32Ty(this->llvmContext),
@@ -331,7 +329,24 @@ void LlvmGenerationContext::initialize_builtin_types() {
       &this->llvmModule);
     c_puts_func->setCallingConv(CallingConv::C);
 
-    this->register_llvm_value("tx.c.puts", c_puts_func);
+    //this->register_llvm_value("tx.c.puts", c_puts_func);
+
+    // create adapter function:
+    auto cstrRefT = TxReferenceType::make_ref_llvm_type(*this, Type::getInt8Ty(this->llvmContext));
+    auto voidType = Type::getVoidTy(this->llvmContext);
+    Function *t_puts_func = cast<Function>(this->llvmModule.getOrInsertFunction("tx.c.puts", voidType, cstrRefT, NULL));
+    BasicBlock *bb = BasicBlock::Create(this->llvmModule.getContext(), "entry", t_puts_func);
+    llvm::IRBuilder<> builder(bb);
+    GenScope scope(&builder);
+    Function::arg_iterator args = t_puts_func->arg_begin();
+    Value *arg_0 = args++;
+    arg_0->setName("cstr");
+    Value* ptrV = gen_get_ref_pointer(*this, &scope, arg_0);
+    CallInst *cPutsCall = builder.CreateCall(c_puts_func, ptrV);
+    cPutsCall->setTailCall(false);
+    ReturnInst::Create(this->llvmModule.getContext(), bb);
+
+    this->register_llvm_value("tx.c.puts", t_puts_func);
 
 // varargs example:
 //    ArrayRef<Type*> FuncTy_7_args;
@@ -346,6 +361,12 @@ void LlvmGenerationContext::initialize_builtin_types() {
 //      /*Name=*/"foo",
 //      &this->llvmModule);
 //     func_foo->setCallingConv(CallingConv::C);
+}
+
+
+void LlvmGenerationContext::initialize_builtins() {
+    this->initialize_meta_type_data();
+    this->initialize_external_functions();
 }
 
 

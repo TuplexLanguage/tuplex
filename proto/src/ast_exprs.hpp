@@ -4,6 +4,11 @@
 #include "ast_fields.hpp"
 
 
+extern llvm::Value* gen_get_ref_pointer(LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV);
+extern llvm::Value* gen_get_ref_typeid(LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV);
+extern llvm::Value* gen_ref(LlvmGenerationContext& context, GenScope* scope, llvm::Type* refT, llvm::Value* ptrV, llvm::Value* tidV);
+
+
 /*=== conversion/casting ===*/
 
 class TxConversionNode : public TxExpressionNode {
@@ -263,6 +268,7 @@ public:
 };
 
 class TxBinaryOperatorNode : public TxOperatorValueNode {
+    bool reference_operands = false;
 protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto ltype = lhs->resolve_type(resCtx);
@@ -310,7 +316,9 @@ protected:
         }
         else if (dynamic_cast<const TxReferenceType*>(ltype)) {
             if (dynamic_cast<const TxReferenceType*>(rtype)) {
-                if (op_class != TXOC_EQUALITY)
+                if (op_class == TXOC_EQUALITY)
+                    this->reference_operands = true;
+                else
                     cerror("Invalid operator for reference operands: %s", to_cstring(this->op));
             }
             else

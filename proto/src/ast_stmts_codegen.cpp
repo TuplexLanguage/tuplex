@@ -133,7 +133,7 @@ Value* TxDerefAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* s
     auto refval = this->operand->code_gen(context, scope);
     if (! refval)
         return NULL;
-    return refval;
+    return gen_get_ref_pointer(context, scope, refval);
 }
 
 

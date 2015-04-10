@@ -41,25 +41,22 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
     auto op_class = get_op_class(this->op);
 
     unsigned llvm_op;
-    bool int_operands;
-    auto operandsType = this->get_type();
-    if (auto intType = dynamic_cast<const TxIntegerType*>(operandsType)) {
-        ASSERT(op_class != TXOC_BOOLEAN, "Can't perform BOOLEAN operation on integer operands: " << this);
+    bool int_operation;
+    auto resultType = this->get_type();
+    if (auto intType = dynamic_cast<const TxIntegerType*>(resultType)) {
         llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
-        int_operands = true;
+        int_operation = true;
     }
-    else if (dynamic_cast<const TxFloatingType*>(operandsType)) {
-        ASSERT(op_class != TXOC_BOOLEAN, "Can't perform BOOLEAN operation on floatingpoint operands: " << this);
+    else if (dynamic_cast<const TxFloatingType*>(resultType)) {
         llvm_op = OP_MAPPING[this->op].l_f_op;
-        int_operands = false;
+        int_operation = false;
     }
-    else if (dynamic_cast<const TxBoolType*>(operandsType)) {
-        ASSERT(op_class != TXOC_ARITHMETIC, "Can't perform ARITHMETIC operation on boolean operands: " << this);
+    else if (dynamic_cast<const TxBoolType*>(resultType)) {
         llvm_op = OP_MAPPING[this->op].l_ui_op;  // as unsigned integers
-        int_operands = true;
+        int_operation = true;
     }
     else {
-        context.LOG.error("%s: Unsupported binary operand type: %s", this->parse_loc_string().c_str(), (operandsType?operandsType->to_string().c_str():"NULL"));
+        context.LOG.error("%s: Unsupported binary operand type: %s", this->parse_loc_string().c_str(), (resultType?resultType->to_string().c_str():"NULL"));
         return NULL;
     }
 
@@ -80,8 +77,12 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
             return ConstantExpr::getCompare(cmp_pred, cast<Constant>(lval), cast<Constant>(rval));
         else {
             ASSERT(scope, "scope is NULL, although expression is not constant and thus should be within runtime block");
-            if (int_operands) {
+            if (int_operation) {
                 ASSERT(CmpInst::isIntPredicate(cmp_pred), "Not a valid LLVM Int comparison predicate: " << llvm_op);
+                if (this->reference_operands) {
+                    lval = gen_get_ref_pointer(context, scope, lval);
+                    rval = gen_get_ref_pointer(context, scope, rval);
+                }
                 return scope->builder->CreateICmp(cmp_pred, lval, rval, fieldName);
             }
             else {
@@ -129,42 +130,124 @@ Value* TxUnaryLogicalNotNode::code_gen(LlvmGenerationContext& context, GenScope*
 }
 
 
+
+Value* gen_get_ref_pointer(LlvmGenerationContext& context, GenScope* scope, Value* refV) {
+    Value* ptrV;
+    if (refV->getType()->isPointerTy()) {  // address of struct
+        if (scope) {
+            auto ptrA = scope->builder->CreateStructGEP(refV, 0);
+            ptrV = scope->builder->CreateLoad(ptrA);
+        }
+        else {
+            Value *idxs[] = {
+              ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
+              ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0)
+            };
+            auto ptrA = GetElementPtrInst::CreateInBounds(refV, idxs);
+            ptrV = new LoadInst(ptrA);
+        }
+    }
+    else {  // direct / "register" struct
+        ASSERT(refV->getType()->isStructTy(), "expected reference-operand to be a struct: " << refV);
+        ptrV = ( scope ? scope->builder->CreateExtractValue(refV, 0)
+                         : ExtractValueInst::Create(refV, 0) );
+    }
+    ASSERT(ptrV->getType()->isPointerTy(), "expected ref.ptr element to be a pointer: " << refV);
+    return ptrV;
+}
+
+Value* gen_get_ref_typeid(LlvmGenerationContext& context, GenScope* scope, Value* refV) {
+    Value* tidV;
+    if (refV->getType()->isPointerTy()) {  // address of struct
+        if (scope) {
+            auto tidA = scope->builder->CreateStructGEP(refV, 1);
+            tidV = scope->builder->CreateLoad(tidA);
+        }
+        else {
+            Value *idxs[] = {
+              ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
+              ConstantInt::get(Type::getInt32Ty(context.llvmContext), 1)
+            };
+            auto tidA = GetElementPtrInst::CreateInBounds(refV, idxs);
+            tidV = new LoadInst(tidA);
+        }
+    }
+    else {  // direct / "register" struct
+        ASSERT(refV->getType()->isStructTy(), "expected reference-operand to be a struct: " << refV);
+        tidV = ( scope ? scope->builder->CreateExtractValue(refV, 1)
+                       : ExtractValueInst::Create(refV, 1) );
+    }
+    return tidV;
+}
+
+Value* gen_ref(LlvmGenerationContext& context, GenScope* scope, Type* refT, Value* ptrV, Value* tidV) {
+    if (scope) {
+        Value* refV = UndefValue::get(refT);
+        refV = scope->builder->CreateInsertValue(refV, ptrV, 0);
+        refV = scope->builder->CreateInsertValue(refV, tidV, 1);
+        return refV;
+    }
+    else {
+        ASSERT(false, "Not yet supported to construct reference to global: " << ptrV);
+        //refA = new GlobalVariable(context.llvmModule, refT, true, GlobalValue::InternalLinkage, init);
+    }
+}
+
+
+
 Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
+    Value* ptrV = nullptr;
     if (auto fieldNode = dynamic_cast<TxFieldValueNode*>(this->target)) {
-        return fieldNode->code_gen_address(context, scope);
+        ptrV = fieldNode->code_gen_address(context, scope);
     }
     else if (auto elemNode = dynamic_cast<TxElemDerefNode*>(this->target)) {
-        return elemNode->code_gen_address(context, scope);
+        ptrV = elemNode->code_gen_address(context, scope);
     }
     else if (this->target->is_statically_constant()) {
         // experimental, automatically allocates space for literals, used for e.g. string literals
         auto targetVal = target->code_gen(context, scope);
-        if (auto c = dyn_cast<Constant>(targetVal))
-            return new GlobalVariable(context.llvmModule, c->getType(), true, GlobalValue::InternalLinkage, c, "");
-        else
+        if (auto constInitializer = dyn_cast<Constant>(targetVal))
+            ptrV = new GlobalVariable(context.llvmModule, constInitializer->getType(), true,
+                                         GlobalValue::InternalLinkage, constInitializer);
+        else {
             context.LOG.error("Target expression supposed to be statically constant but isn't: %s", ::to_string(targetVal).c_str());
+            return nullptr;
+        }
     }
-    ASSERT(false, "Can't construct reference to expression of type: " << *this->target);
+    else {
+        ASSERT(false, "Can't construct reference to expression of type: " << *this->target);
+        return nullptr;
+    }
+
+    auto tidV = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context.llvmContext), this->get_type()->get_type_id());
+
+    // box the pointer:
+    auto refT = this->get_type()->make_llvm_type(context);
+    return gen_ref(context, scope, refT, ptrV, tidV);
 }
+
+
 
 Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     auto refval = this->reference->code_gen(context, scope);
     if (! refval)
         return NULL;
-    ASSERT(refval->getType()->isPointerTy(), this->to_string() << ": expected reference-operand to be a pointer: " << refval);
-    auto elemType = refval->getType()->getPointerElementType();
+
+    Value* ptrval = gen_get_ref_pointer(context, scope, refval);
+
+    auto elemType = ptrval->getType()->getPointerElementType();
     //std::cout << "Line " << this->parseLocation.first_line << ": Dereferencing: " << refval << " of pointer element type: "<< elemType << std::endl;
     if (elemType->isSingleValueType()) {  // can be loaded in register
         if (scope)
-            return scope->builder->CreateLoad(refval);
+            return scope->builder->CreateLoad(ptrval);
         else
-            return new LoadInst(refval);
+            return new LoadInst(ptrval);
     }
     else {
         // handled as pointers in LLVM  // context.LOG.warning("De-referencing reference to non-single-value type not yet fully supported: %s", ::to_string(elemType).c_str());
-        return refval;
+        return ptrval;
     }
 }
 
@@ -325,16 +408,23 @@ Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* s
 
     // from another reference:
     if (dynamic_cast<const TxReferenceType*>(this->expr->get_type())) {
-        // bitcast from one pointer type to another
-        auto targetLlvmType = context.get_llvm_type(this->targetType);
-        if (! targetLlvmType) {
+        auto targetRefT = context.get_llvm_type(this->targetType);
+        if (! targetRefT) {
             context.LOG.error("In reference conversion, no target LLVM type found for %s", this->targetType->to_string().c_str());
             return origValue;  // should we return null instead?
         }
+        auto newPtrT = cast<StructType>(targetRefT)->getElementType(0);
+
+        Value* tidV = gen_get_ref_typeid(context, scope, origValue);
+        Value* origPtrV = gen_get_ref_pointer(context, scope, origValue);
+        Value* newPtrV;
+        // bitcast from one pointer type to another
         if (this->is_statically_constant() && !scope)
-            return ConstantExpr::getBitCast(cast<Constant>(origValue), targetLlvmType);
+            newPtrV = ConstantExpr::getBitCast(cast<Constant>(origPtrV), newPtrT);
         else
-            return scope->builder->CreateBitCast(origValue, targetLlvmType);
+            newPtrV = scope->builder->CreateBitCast(origPtrV, newPtrT);
+
+        return gen_ref(context, scope, targetRefT, newPtrV, tidV);
     }
 //    // from array:
 //    else if (dynamic_cast<const TxArrayType*>(this->expr->get_type())) {

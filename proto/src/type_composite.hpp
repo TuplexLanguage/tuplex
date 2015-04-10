@@ -123,6 +123,7 @@ public:
     virtual bool innerAutoConvertsFrom(const TxType& otherType) const override;
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
+    static llvm::Type* make_ref_llvm_type(LlvmGenerationContext& context, llvm::Type* targetType);
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
