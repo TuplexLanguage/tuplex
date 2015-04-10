@@ -42,7 +42,7 @@ class TypeRegistry {
     BuiltinTypeRecord* builtinTypes[BuiltinTypeId_COUNT];
     const TxType* builtinModTypes[BuiltinTypeId_COUNT];
 
-    /** all the static types, i.e. all types with distinct static data type */
+    /** all the static types, i.e. all types with distinct static data type (and thus distinct TypeId) */
     std::vector<const TxType*> allStaticTypes;
 
     void register_type(TxType* type);

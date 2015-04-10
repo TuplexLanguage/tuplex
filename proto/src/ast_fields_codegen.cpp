@@ -21,6 +21,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
     switch (fieldEntity->get_storage()) {
     case TXS_VIRTUAL:
         if (baseExpr) {  // is polymorphic lookup if base expression is a reference (or reference dereference)
+            ASSERT(! baseValue, "Can't specify both baseValue and baseExpr");
             // retrieve the vtable of the base's actual (runtime) type:
             auto statBaseType = baseExpr->get_type();
             Value* vtableBase = context.gen_get_vtable(scope, statBaseType, baseExpr->code_gen_typeid(context, scope));
@@ -74,9 +75,14 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
         break;
 
     case TXS_INSTANCE:
-        if (! baseValue)
-            context.LOG.error("Attempted to dereference TXS_INSTANCE field but no base pointer provided (identifier %s)", fieldEntity->get_full_name().to_string().c_str());
-        else {
+        {
+            if (baseExpr) {
+                ASSERT(! baseValue, "Can't specify both baseValue and baseExpr");
+                baseValue = baseExpr->code_gen(context, scope);
+            }
+            else if (! baseValue)
+                context.LOG.error("Attempted to dereference TXS_INSTANCE field but no base pointer provided (identifier %s)", fieldEntity->get_full_name().to_string().c_str());
+
             auto fieldIx = fieldEntity->get_instance_field_index();
             //std::cout << "Getting TXS_INSTANCE ix " << fieldIx << " value off LLVM base value: " << baseValue << std::endl;
             Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
@@ -99,9 +105,6 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
 Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics) const {
     //return context.lookup_llvm_value(this->get_entity()->get_full_name().to_string());
     Value* value = NULL;
-    if (this->baseExpr) {
-        value = this->baseExpr->code_gen(context, scope);
-    }
     const TxExpressionNode* baseExpr = this->baseExpr;
     for (auto symbol : this->memberPath) {
         if (auto fieldEntity = dynamic_cast<const TxFieldEntity*>(symbol)) {
@@ -141,8 +144,6 @@ Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 Value* TxFieldAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     Value* value = NULL;
-    if (this->baseExpr)
-        value = this->baseExpr->code_gen(context, scope);
     const TxExpressionNode* baseExpr = this->baseExpr;
     for (auto symbol : this->memberPath) {
         if (auto fieldEntity = dynamic_cast<const TxFieldEntity*>(symbol))

@@ -291,6 +291,7 @@ public:
 /** An instance of this class represents a type definition.
  */
 class TxType : public TxTypeDefiner, public Printable {
+    /** The type id of this type, if it is a statically distinct type (not a pure specialization). */
     uint32_t typeId = UINT32_MAX;
 
     /** The entity declaration that defined this type. */
@@ -339,6 +340,7 @@ public:
 
     /*--- characteristics ---*/
 
+    /** Gets the type id of this type. (Pure specializations return their base type's id.) */
     inline uint32_t get_type_id() const { return ( this->typeId == UINT32_MAX ? this->baseTypeSpec.type->get_type_id() : this->typeId ); }
 
     inline TxTypeEntity* entity() const { return this->_entity; }

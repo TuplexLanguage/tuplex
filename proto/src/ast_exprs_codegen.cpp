@@ -220,7 +220,8 @@ Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* sco
         return nullptr;
     }
 
-    auto tidV = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context.llvmContext), this->get_type()->get_type_id());
+    // the reference gets the statically known target type id
+    auto tidV = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context.llvmContext), this->target->get_type()->get_type_id());
 
     // box the pointer:
     auto refT = this->get_type()->make_llvm_type(context);
@@ -231,29 +232,34 @@ Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* sco
 
 Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    auto refval = this->reference->code_gen(context, scope);
-    if (! refval)
+    auto refV = this->reference->code_gen(context, scope);
+    if (! refV)
         return NULL;
 
-    Value* ptrval = gen_get_ref_pointer(context, scope, refval);
+    Value* ptrV = gen_get_ref_pointer(context, scope, refV);
 
-    auto elemType = ptrval->getType()->getPointerElementType();
+    auto targT = ptrV->getType()->getPointerElementType();
     //std::cout << "Line " << this->parseLocation.first_line << ": Dereferencing: " << refval << " of pointer element type: "<< elemType << std::endl;
-    if (elemType->isSingleValueType()) {  // can be loaded in register
+    if (targT->isSingleValueType()) {  // can be loaded in register
         if (scope)
-            return scope->builder->CreateLoad(ptrval);
+            return scope->builder->CreateLoad(ptrV);
         else
-            return new LoadInst(ptrval);
+            return new LoadInst(ptrV);
     }
     else {
         // handled as pointers in LLVM  // context.LOG.warning("De-referencing reference to non-single-value type not yet fully supported: %s", ::to_string(elemType).c_str());
-        return ptrval;
+        return ptrV;
     }
 }
 
 llvm::Value* TxReferenceDerefNode::code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
-    // FIXME: make dynamic by reading the reference's target type id
-    return llvm::ConstantInt::get(llvm::Type::getInt32Ty(context.llvmContext), this->get_type()->get_type_id());
+    // dynamic by reading the reference's target type id
+    context.LOG.trace("%-48s TypeID", this->to_string().c_str());
+    auto refV = this->reference->code_gen(context, scope);
+    if (! refV)
+        return NULL;
+    Value* tidV = gen_get_ref_typeid(context, scope, refV);
+    return tidV;
 }
 
 

@@ -381,7 +381,7 @@ void LlvmGenerationContext::generate_runtime_data() {
                 for (auto & field : entity->get_virtual_fields().fields) {
                     auto actualFieldEnt = entity->lookup_field(resCtx, field.first);  // FIXME: handle overloaded field names
                     auto llvmField = cast<Constant>(this->lookup_llvm_value(actualFieldEnt->get_full_name().to_string()));
-                    std::cout << "inserting " << field.first << " at ix " << field.second << std::endl;
+                    //std::cout << "inserting " << field.first << " at ix " << field.second << std::endl;
                     initMembers[field.second] = llvmField;
                 }
                 Constant* initializer = ConstantStruct::getAnon(this->llvmContext, initMembers);

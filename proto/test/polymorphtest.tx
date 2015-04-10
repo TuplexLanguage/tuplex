@@ -31,6 +31,7 @@ type BType mod derives AType {
 }
 
 func main() Int {
+    a : AType
     b : BType
     ar : &AType = &b
     br : &BType = &b
@@ -49,7 +50,10 @@ func main() Int {
 
     assert( TRUE, ar^.SFIELD == 42 ) ## not yet polym!
     assert( TRUE, br^.SFIELD == 42 )
+    assert( TRUE, a.SFIELD == 41 )
     assert( TRUE, b.SFIELD == 42 )
+    assert( TRUE, AType.SFIELD == 41 )
+    assert( TRUE, BType.SFIELD == 42 )
 
     return Int( br^.SFIELD )
 }
