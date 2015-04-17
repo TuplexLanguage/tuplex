@@ -30,7 +30,7 @@ static Value* code_gen_4_multiple(LlvmGenerationContext& context, GenScope* scop
 
 
 
-llvm::StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
+StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
     // (similar to tuple type creation)
     auto entity = this->entity();
     if (! entity) {
@@ -38,7 +38,7 @@ llvm::StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const
         return nullptr;
     }
     context.LOG.debug("Mapping vtable of type %s: %s", entity->get_full_name().to_string().c_str(), this->to_string(true).c_str());
-    std::vector<llvm::Type*> members;
+    std::vector<Type*> members;
     for (auto memberTxType : entity->get_virtual_fields().fieldTypes) {
         auto lMemberType = context.get_llvm_type(memberTxType);
         auto membPtrType = PointerType::getUnqual(lMemberType);
@@ -46,7 +46,7 @@ llvm::StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const
         context.LOG.debug("Mapping static member pointer type %s to %s", memberTxType->to_string().c_str(), ::to_string(lMemberType).c_str());
     }
     // note: create() might be better for "named" struct types?
-    llvm::StructType* vtableT = llvm::StructType::get(context.llvmContext, members);
+    StructType* vtableT = StructType::get(context.llvmContext, members);
     return vtableT;
 }
 
@@ -97,19 +97,19 @@ Value* TxType::gen_alloca(LlvmGenerationContext& context, GenScope* scope, const
 
 
 Type* TxBoolType::make_llvm_type(LlvmGenerationContext& context) const {
-    return llvm::Type::getInt1Ty(context.llvmContext);
+    return Type::getInt1Ty(context.llvmContext);
 }
 
 Type* TxIntegerType::make_llvm_type(LlvmGenerationContext& context) const {
     switch (this->_size) {
     case 1:
-        return llvm::Type::getInt8Ty(context.llvmContext);
+        return Type::getInt8Ty(context.llvmContext);
     case 2:
-        return llvm::Type::getInt16Ty(context.llvmContext);
+        return Type::getInt16Ty(context.llvmContext);
     case 4:
-        return llvm::Type::getInt32Ty(context.llvmContext);
+        return Type::getInt32Ty(context.llvmContext);
     case 8:
-        return llvm::Type::getInt64Ty(context.llvmContext);
+        return Type::getInt64Ty(context.llvmContext);
     default:
         context.LOG.error("Unsupported integer size %ld in type %s", this->_size, this->to_string().c_str());
         return nullptr;
@@ -119,11 +119,11 @@ Type* TxIntegerType::make_llvm_type(LlvmGenerationContext& context) const {
 Type* TxFloatingType::make_llvm_type(LlvmGenerationContext& context) const {
     switch (this->_size) {
     case 2:
-        return llvm::Type::getHalfTy(context.llvmContext);
+        return Type::getHalfTy(context.llvmContext);
     case 4:
-        return llvm::Type::getFloatTy(context.llvmContext);
+        return Type::getFloatTy(context.llvmContext);
     case 8:
-        return llvm::Type::getDoubleTy(context.llvmContext);
+        return Type::getDoubleTy(context.llvmContext);
     default:
         context.LOG.error("Unsupported floating-point size %ld in type %s", this->_size, this->to_string().c_str());
         return nullptr;
@@ -140,7 +140,7 @@ Type* TxArrayType::make_llvm_type(LlvmGenerationContext& context) const {
         context.LOG.error("Generic arrays with unspecified element type can't be directly mapped: %s", this->to_string().c_str());
         return nullptr;
     }
-    llvm::Type* elemType = context.get_llvm_type(txElemType);
+    Type* elemType = context.get_llvm_type(txElemType);
     if (! elemType) {
         context.LOG.error("No LLVM type mapping for array element type: %s", txElemType->get_type()->to_string().c_str());
         return nullptr;
@@ -159,11 +159,11 @@ Type* TxArrayType::make_llvm_type(LlvmGenerationContext& context) const {
         // so they can be referenced from e.g. references.
         arrayLen = 0;
     }
-    std::vector<llvm::Type*> llvmMemberTypes {
-        llvm::Type::getInt32Ty(context.llvmContext),
-        llvm::ArrayType::get(elemType, arrayLen)
+    std::vector<Type*> llvmMemberTypes {
+        Type::getInt32Ty(context.llvmContext),
+        ArrayType::get(elemType, arrayLen)
     };
-    auto llvmType = llvm::StructType::get(context.llvmContext, llvmMemberTypes);
+    auto llvmType = StructType::get(context.llvmContext, llvmMemberTypes);
     context.LOG.debug("Mapping array type %s -> %s", this->to_string().c_str(), to_string(llvmType).c_str());
     return llvmType;
 }
@@ -207,7 +207,7 @@ Value* TxArrayType::gen_alloca(LlvmGenerationContext& context, GenScope* scope, 
     Type* elemType = context.get_llvm_type(this->element_type(resCtx));
     auto staticLength = this->length(resCtx)->get_static_constant_proxy();
     uint32_t nofElems = (staticLength ? staticLength->get_value_UInt() : 0);
-    std::vector<llvm::Type*> llvmMemberTypes {
+    std::vector<Type*> llvmMemberTypes {
         headerType,
         ArrayType::get(elemType, nofElems)
     };
@@ -274,16 +274,26 @@ Type* TxReferenceType::make_ref_llvm_type(LlvmGenerationContext& context, Type* 
 
 
 Type* TxFunctionType::make_llvm_type(LlvmGenerationContext& context) const {
-    std::vector<llvm::Type*> llvmArgTypes;
+    auto voidT = Type::getVoidTy(context.llvmContext);
+    auto closurePtrT = PointerType::getUnqual(voidT);  // closure object pointer type
+
+    std::vector<Type*> llvmArgTypes;
+    llvmArgTypes.push_back(closurePtrT);  // first argument is always the closure object pointer
     for (auto argTxType : this->argumentTypes) {
         llvmArgTypes.push_back(context.get_llvm_type(argTxType));
         context.LOG.debug("Mapping arg type %s to %s", argTxType->to_string().c_str(), ::to_string(llvmArgTypes.back()).c_str());
     }
-    llvm::Type* llvmRetType = this->returnType
-                              ? context.get_llvm_type(this->returnType)
-                              : llvm::Type::getVoidTy(context.llvmContext);
-    llvm::FunctionType *ftype = llvm::FunctionType::get(llvmRetType, llvmArgTypes, false);
-    return ftype;
+    Type* llvmRetType = this->returnType
+                        ? context.get_llvm_type(this->returnType)
+                        : voidT;
+    FunctionType *funcT = FunctionType::get(llvmRetType, llvmArgTypes, false);
+
+    std::vector<Type*> llvmMemberTypes {
+        PointerType::getUnqual(funcT),  // function pointer
+        closurePtrT                     // closure object pointer
+    };
+    auto llvmType = StructType::get(context.llvmContext, llvmMemberTypes);
+    return llvmType;
 }
 
 
@@ -291,7 +301,7 @@ Type* TxFunctionType::make_llvm_type(LlvmGenerationContext& context) const {
 Type* TxTupleType::make_llvm_type(LlvmGenerationContext& context) const {
     if (! this->is_concrete()) {
         context.LOG.warning("making LLVM type of non-concrete type %s", this->to_string().c_str());
-        return llvm::StructType::create(context.llvmContext);  // creates opaque (empty placeholder) structure
+        return StructType::create(context.llvmContext);  // creates opaque (empty placeholder) structure
     }
     auto entity = this->entity();
     if (! entity) {
@@ -299,13 +309,13 @@ Type* TxTupleType::make_llvm_type(LlvmGenerationContext& context) const {
         return nullptr;
     }
     context.LOG.debug("Mapping tuple type %s: %s", entity->get_full_name().to_string().c_str(), this->to_string(true).c_str());
-    std::vector<llvm::Type*> llvmTypes;
+    std::vector<Type*> llvmTypes;
     for (auto memberTxType : entity->get_instance_fields().fieldTypes) {
         auto memberLlvmType = context.get_llvm_type(memberTxType);
         llvmTypes.push_back(memberLlvmType);
         context.LOG.debug("Mapping member type %s to %s", memberTxType->to_string().c_str(), ::to_string(memberLlvmType).c_str());
     }
     // note: create() might be better for "named" struct types?
-    llvm::StructType* stype = llvm::StructType::get(context.llvmContext, llvmTypes);
+    StructType* stype = StructType::get(context.llvmContext, llvmTypes);
     return stype;
 }

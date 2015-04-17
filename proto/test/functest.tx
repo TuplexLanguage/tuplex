@@ -34,3 +34,64 @@ func main() Long {
     result := overloaded_func( 41.1, 1 ) + local_func(5, 6)
     return result + Long(other_func(1., 2.) + func_alias( 2., 3. ))
 }
+
+
+/*
+    function ptr storages (internal):
+    global
+    static
+    virtual
+
+    lambda obj storages:
+    global
+    static
+    virtual
+    instance
+    stack
+
+    function "closure types":
+    none
+    instance
+    lambda
+
+
+    A declared function name is semantically always a function
+    that holds its own closure (if any).
+    I.e. it is a "lambda object".
+    
+    Function declarations that are
+     - statically constant
+     - direct-defined (i.e. closure = current scope)
+    don't necessarily need to store a lambda object,
+    the lambda object can be constructed implicitly upon access.
+
+    Upon access of a field of function type,
+    the "storage" of that function must be determined:
+     - actual lambda object, or
+     - merely a function pointer, to be combined with the
+       base pointer which is the "self" closure pointer
+    
+    You can't take a reference to an implicit function/lambda
+    since it has no storage. You can however assign it to a
+    lambda object field (and then take a reference to that).
+
+    
+    myglobalF := func () { }
+    
+    type MyType {
+        static mystaticF := func () { }
+        
+        public static myvirtualF := func () { }
+        
+        myinlineinstanceF := func () { self.valid() }
+        ## doesn't need actual storage in instance struct
+        ## Q: can this be determined without the method sytx?
+
+        myinstanceF := otherF
+        ## does need actual storage in instance struct
+
+        ~mymodinstanceF := func () { self.valid() }
+        ## does need actual storage in instance struct
+    }
+    
+*/

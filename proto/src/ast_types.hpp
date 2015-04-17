@@ -366,7 +366,6 @@ public:
 
 
 class TxFunctionTypeNode : public TxTypeExpressionNode {
-    // Note: implicit reference type
     // Note: the field names aren't part of a function's formal type definition
 
     static TxFieldDefNode* make_return_field(TxTypeExpressionNode* returnType) {

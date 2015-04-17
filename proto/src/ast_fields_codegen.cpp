@@ -64,9 +64,14 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
                 // forward declaration situation
                 if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
                     context.LOG.alert("Forward-declaring function %s", fieldEntity->get_full_name().to_string().c_str());
-                    FunctionType *ftype = cast<FunctionType>(context.get_llvm_type(txFuncType));
-                    val = context.llvmModule.getOrInsertFunction(fieldEntity->get_full_name().to_string(), ftype);
-                    //cast<Function>(val)->setLinkage(GlobalValue::InternalLinkage);  FIXME (can cause LLVM to rename function)
+                    StructType *lambdaT = cast<StructType>(context.get_llvm_type(txFuncType));
+                    FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
+                    auto funcName = fieldEntity->get_full_name().to_string() + "$func";
+                    auto funcV = context.llvmModule.getOrInsertFunction(funcName, funcT);
+                    //cast<Function>(funcV)->setLinkage(GlobalValue::InternalLinkage);  FIXME (can cause LLVM to rename function)
+                    // construct the lambda object:
+                    auto nullClosurePtrV = ConstantPointerNull::get(cast<PointerType>(lambdaT->getElementType(1)));
+                    val = ConstantStruct::get(lambdaT, funcV, nullClosurePtrV, NULL);
                 }
                 else
                     context.LOG.error("No LLVM value defined for %s", fieldEntity->to_string().c_str());

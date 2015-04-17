@@ -1,0 +1,32 @@
+module my
+
+func puts(str : &[]UByte) {
+    tx.c.puts(str^[0])
+}
+
+type AType mod derives Tuple {
+    f : Int
+    func print() {
+        t := self.f + 1
+        puts(c"AType")
+    }
+}
+
+type BType mod derives AType {
+    g : Int
+    static func print() {
+        puts(c"BType")
+    }
+}
+
+func main() Int {
+    a : AType
+    b : BType
+    ##ar : &AType = &b
+    ##br : &BType = &b
+
+    a.print()
+    b.print()
+
+    return 3
+}

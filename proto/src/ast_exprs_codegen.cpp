@@ -131,52 +131,41 @@ Value* TxUnaryLogicalNotNode::code_gen(LlvmGenerationContext& context, GenScope*
 
 
 
-Value* gen_get_ref_pointer(LlvmGenerationContext& context, GenScope* scope, Value* refV) {
-    Value* ptrV;
-    if (refV->getType()->isPointerTy()) {  // address of struct
+Value* gen_get_struct_member(LlvmGenerationContext& context, GenScope* scope, Value* structV, unsigned ix) {
+    Value* memberV;
+    if (auto structPtrV = dyn_cast<PointerType>(structV->getType())) {  // address of struct
+        ASSERT(structPtrV->getPointerElementType()->isStructTy(), "expected pointer element to be a struct: " << structV);
         if (scope) {
-            auto ptrA = scope->builder->CreateStructGEP(refV, 0);
-            ptrV = scope->builder->CreateLoad(ptrA);
+            auto memberA = scope->builder->CreateStructGEP(structV, ix);
+            memberV = scope->builder->CreateLoad(memberA);
         }
         else {
             Value *idxs[] = {
               ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
-              ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0)
+              ConstantInt::get(Type::getInt32Ty(context.llvmContext), ix)
             };
-            auto ptrA = GetElementPtrInst::CreateInBounds(refV, idxs);
-            ptrV = new LoadInst(ptrA);
+            auto memberA = GetElementPtrInst::CreateInBounds(structV, idxs);
+            memberV = new LoadInst(memberA);
         }
     }
     else {  // direct / "register" struct
-        ASSERT(refV->getType()->isStructTy(), "expected reference-operand to be a struct: " << refV);
-        ptrV = ( scope ? scope->builder->CreateExtractValue(refV, 0)
-                         : ExtractValueInst::Create(refV, 0) );
+        ASSERT(structV->getType()->isStructTy(), "expected value to be a struct: " << structV);
+        memberV = ( scope ? scope->builder->CreateExtractValue(structV, ix)
+                          : ExtractValueInst::Create(structV, ix) );
     }
+    return memberV;
+}
+
+
+
+Value* gen_get_ref_pointer(LlvmGenerationContext& context, GenScope* scope, Value* refV) {
+    Value* ptrV = gen_get_struct_member(context, scope, refV, 0);
     ASSERT(ptrV->getType()->isPointerTy(), "expected ref.ptr element to be a pointer: " << refV);
     return ptrV;
 }
 
 Value* gen_get_ref_typeid(LlvmGenerationContext& context, GenScope* scope, Value* refV) {
-    Value* tidV;
-    if (refV->getType()->isPointerTy()) {  // address of struct
-        if (scope) {
-            auto tidA = scope->builder->CreateStructGEP(refV, 1);
-            tidV = scope->builder->CreateLoad(tidA);
-        }
-        else {
-            Value *idxs[] = {
-              ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
-              ConstantInt::get(Type::getInt32Ty(context.llvmContext), 1)
-            };
-            auto tidA = GetElementPtrInst::CreateInBounds(refV, idxs);
-            tidV = new LoadInst(tidA);
-        }
-    }
-    else {  // direct / "register" struct
-        ASSERT(refV->getType()->isStructTy(), "expected reference-operand to be a struct: " << refV);
-        tidV = ( scope ? scope->builder->CreateExtractValue(refV, 1)
-                       : ExtractValueInst::Create(refV, 1) );
-    }
+    Value* tidV = gen_get_struct_member(context, scope, refV, 1);
     return tidV;
 }
 
@@ -467,23 +456,25 @@ Value* TxFunctionCallNode::code_gen(LlvmGenerationContext& context, GenScope* sc
         return this->inlinedExpression->code_gen(context, scope);
     }
 
-    auto calleeVal = this->callee->code_gen(context, scope);
-    //std::cout << "callee: " << calleeVal << std::endl;
-    Function *function = cast<Function>(calleeVal);
-    //  Function *function = context.llvmModule->getFunction(id.name.c_str());
-    if (! function) {
-        context.LOG.error("no such function at %s", this->to_string().c_str());
-        return nullptr;
-    }
+    auto lambdaV = this->callee->code_gen(context, scope);
+    //std::cout << "callee: " << lambdaV << std::endl;
+    auto functionPtrV = gen_get_struct_member(context, scope, lambdaV, 0);
+    auto closurePtrV = gen_get_struct_member(context, scope, lambdaV, 1);
 
     std::vector<Value*> args;
+    args.push_back(closurePtrV);
     for (auto argDef : *this->argsExprList) {
         args.push_back(argDef->code_gen(context, scope));
     }
 
-    context.LOG.debug("Creating function call %s", function->getName().str().c_str());
+    context.LOG.debug("Creating function call '%s'", functionPtrV->getName().str().c_str());
     // pick field's plain name, if available, for the expression value:
     const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->fieldName : "";
-    // FIXME: if not in function body, scope may be NULL
-    return scope->builder->CreateCall(function, args, fieldName);
+    if (scope)
+        return scope->builder->CreateCall(functionPtrV, args, fieldName);
+    else {
+        // FUTURE: support calling functions outside of code block (statically constant or instance initialization)
+        context.LOG.error("calling functions outside of code block not currently supported");
+        return nullptr;
+    }
 }

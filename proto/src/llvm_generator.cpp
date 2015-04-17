@@ -131,9 +131,13 @@ Function* LlvmGenerationContext::gen_main_function(const std::string userMain, b
 //    initCall->setTailCall(false);
 
     //call i32 user main()
-    auto func = this->llvmModule.getFunction(userMain);
+    auto userMainFName = userMain + "$func";
+    auto func = this->llvmModule.getFunction(userMainFName);
     if (func) {
-        CallInst *user_main_call = CallInst::Create(func, "", bb);
+        auto voidPtrT = PointerType::getUnqual(Type::getVoidTy(this->llvmContext));
+        auto nullClosurePtrV = ConstantPointerNull::get(voidPtrT);
+        Value* args[] = { nullClosurePtrV };
+        CallInst *user_main_call = CallInst::Create(func, args, "", bb);
         user_main_call->setTailCall(false);
         auto int32T = Type::getInt32Ty(this->llvmModule.getContext());
         if (hasIntReturnValue) {
@@ -322,31 +326,42 @@ void LlvmGenerationContext::initialize_external_functions() {
       /*Params=*/c_puts_args,
       /*isVarArg=*/false);
 
-    Function* c_puts_func = Function::Create(
+    Function* c_putsF = Function::Create(
       /*Type=*/c_puts_func_type,
       /*Linkage=*/GlobalValue::ExternalLinkage, // (external, no body)
       /*Name=*/"puts",
       &this->llvmModule);
-    c_puts_func->setCallingConv(CallingConv::C);
+    c_putsF->setCallingConv(CallingConv::C);
 
     //this->register_llvm_value("tx.c.puts", c_puts_func);
 
     // create adapter function:
     auto cstrRefT = TxReferenceType::make_ref_llvm_type(*this, Type::getInt8Ty(this->llvmContext));
-    auto voidType = Type::getVoidTy(this->llvmContext);
-    Function *t_puts_func = cast<Function>(this->llvmModule.getOrInsertFunction("tx.c.puts", voidType, cstrRefT, NULL));
-    BasicBlock *bb = BasicBlock::Create(this->llvmModule.getContext(), "entry", t_puts_func);
+    auto voidT = Type::getVoidTy(this->llvmContext);
+    auto voidPtrT = PointerType::getUnqual(voidT);
+    Function *t_putsF = cast<Function>(this->llvmModule.getOrInsertFunction("tx.c.puts$func", voidT, voidPtrT, cstrRefT, NULL));
+    BasicBlock *bb = BasicBlock::Create(this->llvmModule.getContext(), "entry", t_putsF);
     llvm::IRBuilder<> builder(bb);
     GenScope scope(&builder);
-    Function::arg_iterator args = t_puts_func->arg_begin();
-    Value *arg_0 = args++;
-    arg_0->setName("cstr");
-    Value* ptrV = gen_get_ref_pointer(*this, &scope, arg_0);
-    CallInst *cPutsCall = builder.CreateCall(c_puts_func, ptrV);
+    Function::arg_iterator args = t_putsF->arg_begin();
+    args++;  // the implicit closure pointer (null)
+    Value *arg_1 = args++;
+    arg_1->setName("cstr");
+    Value* ptrV = gen_get_ref_pointer(*this, &scope, arg_1);
+    CallInst *cPutsCall = builder.CreateCall(c_putsF, ptrV);
     cPutsCall->setTailCall(false);
     ReturnInst::Create(this->llvmModule.getContext(), bb);
 
-    this->register_llvm_value("tx.c.puts", t_puts_func);
+    // store lambda object:
+    auto nullClosurePtrV = ConstantPointerNull::get(voidPtrT);
+    std::vector<Type*> lambdaMemberTypes {
+        t_putsF->getType(),  // function pointer
+        voidPtrT             // null closure object pointer
+    };
+    auto lambdaT = StructType::get(this->llvmContext, lambdaMemberTypes);
+    auto lambdaV = ConstantStruct::get(lambdaT, t_putsF, nullClosurePtrV, NULL);
+    auto lambdaA = new GlobalVariable(this->llvmModule, lambdaT, true, GlobalValue::InternalLinkage, lambdaV, "tx.c.puts");
+    this->register_llvm_value("tx.c.puts", lambdaA);
 
 // varargs example:
 //    ArrayRef<Type*> FuncTy_7_args;

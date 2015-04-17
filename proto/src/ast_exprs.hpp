@@ -4,6 +4,7 @@
 #include "ast_fields.hpp"
 
 
+extern llvm::Value* gen_get_struct_member(LlvmGenerationContext& context, GenScope* scope, llvm::Value* structV, unsigned ix);
 extern llvm::Value* gen_get_ref_pointer(LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV);
 extern llvm::Value* gen_get_ref_typeid(LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV);
 extern llvm::Value* gen_ref(LlvmGenerationContext& context, GenScope* scope, llvm::Type* refT, llvm::Value* ptrV, llvm::Value* tidV);

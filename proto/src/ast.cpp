@@ -89,14 +89,14 @@ void TxFieldDeclNode::symbol_declaration_pass(LexicalContext& lexContext) {
             cerror("'override' is invalid modifier for module scope field %s", this->field->fieldName.c_str());
         storage = TXS_GLOBAL;
     }
-    else if (this->isMethod) {
-        // static has special meaning for methods, technically a method is always a static function pointer field
-        storage = TXS_STATIC;
-        if (! (this->declFlags & TXD_STATIC)) {
-            // instance method (add implicit self argument)
-            static_cast<TxLambdaExprNode*>(field->initExpression)->make_instance_method();
-        }
-    }
+//    else if (this->isMethod) {
+//        // static has special meaning for methods, technically a method is always a static function pointer field
+//        storage = TXS_STATIC;
+//        if (! (this->declFlags & TXD_STATIC)) {
+//            // instance method (add implicit self argument)
+//            static_cast<TxLambdaExprNode*>(field->initExpression)->make_instance_method();
+//        }
+//    }
     else {
         storage = (this->declFlags & TXD_STATIC) ? TXS_STATIC : TXS_INSTANCE;
     }

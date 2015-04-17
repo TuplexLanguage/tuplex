@@ -21,6 +21,10 @@ type AType mod derives Tuple {
     public static SFIELD2 := 2.72
     field1 : ~Long
     field2 : ~Float
+
+    func print() {
+        puts(c"AType")
+    }
 }
 
 type BType mod derives AType {
@@ -28,6 +32,10 @@ type BType mod derives AType {
     public static SFIELD2 := 3.14
     field1 : ~Long
     field2 : ~Float
+
+    func print() {
+        puts(c"BType")
+    }
 }
 
 func main() Int {
@@ -54,6 +62,9 @@ func main() Int {
     assert( TRUE, b.SFIELD == 42 )
     assert( TRUE, AType.SFIELD == 41 )
     assert( TRUE, BType.SFIELD == 42 )
+
+    a.print()
+    b.print()
 
     return Int( br^.SFIELD )
 }
