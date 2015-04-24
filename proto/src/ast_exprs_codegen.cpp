@@ -172,12 +172,28 @@ Value* gen_get_ref_typeid(LlvmGenerationContext& context, GenScope* scope, Value
 Value* gen_ref(LlvmGenerationContext& context, GenScope* scope, Type* refT, Value* ptrV, Value* tidV) {
     if (scope) {
         Value* refV = UndefValue::get(refT);
-        refV = scope->builder->CreateInsertValue(refV, ptrV, 0);
+        auto castPtrV = scope->builder->CreatePointerCast(ptrV, refT->getStructElementType(0));
+        refV = scope->builder->CreateInsertValue(refV, castPtrV, 0);
         refV = scope->builder->CreateInsertValue(refV, tidV, 1);
         return refV;
     }
     else {
         ASSERT(false, "Not yet supported to construct reference to global: " << ptrV);
+        //refA = new GlobalVariable(context.llvmModule, refT, true, GlobalValue::InternalLinkage, init);
+    }
+}
+
+
+
+Value* gen_lambda(LlvmGenerationContext& context, GenScope* scope, Type* lambdaT, Value* funcV, Value* closureRefV) {
+    if (scope) {
+        Value* lambdaV = UndefValue::get(lambdaT);
+        lambdaV = scope->builder->CreateInsertValue(lambdaV, funcV, 0);
+        lambdaV = scope->builder->CreateInsertValue(lambdaV, closureRefV, 1);
+        return lambdaV;
+    }
+    else {
+        ASSERT(false, "Not yet supported to construct global lambda");
         //refA = new GlobalVariable(context.llvmModule, refT, true, GlobalValue::InternalLinkage, init);
     }
 }
@@ -221,11 +237,13 @@ Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* sco
 
 Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    auto refV = this->reference->code_gen(context, scope);
-    if (! refV)
-        return NULL;
+    if (! this->refExprValue) {
+        this->refExprValue = this->reference->code_gen(context, scope);
+        if (! this->refExprValue)
+            return NULL;
+    }
 
-    Value* ptrV = gen_get_ref_pointer(context, scope, refV);
+    Value* ptrV = gen_get_ref_pointer(context, scope, this->refExprValue);
 
     auto targT = ptrV->getType()->getPointerElementType();
     //std::cout << "Line " << this->parseLocation.first_line << ": Dereferencing: " << refval << " of pointer element type: "<< elemType << std::endl;
@@ -244,10 +262,13 @@ Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* 
 llvm::Value* TxReferenceDerefNode::code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
     // dynamic by reading the reference's target type id
     context.LOG.trace("%-48s TypeID", this->to_string().c_str());
-    auto refV = this->reference->code_gen(context, scope);
-    if (! refV)
-        return NULL;
-    Value* tidV = gen_get_ref_typeid(context, scope, refV);
+    if (! this->refExprValue) {
+        this->refExprValue = this->reference->code_gen(context, scope);
+        if (! this->refExprValue)
+            return NULL;
+    }
+
+    Value* tidV = gen_get_ref_typeid(context, scope, this->refExprValue);
     return tidV;
 }
 
@@ -408,18 +429,7 @@ Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* s
             context.LOG.error("In reference conversion, no target LLVM type found for %s", this->targetType->to_string().c_str());
             return origValue;  // should we return null instead?
         }
-        auto newPtrT = cast<StructType>(targetRefT)->getElementType(0);
-
-        Value* tidV = gen_get_ref_typeid(context, scope, origValue);
-        Value* origPtrV = gen_get_ref_pointer(context, scope, origValue);
-        Value* newPtrV;
-        // bitcast from one pointer type to another
-        if (this->is_statically_constant() && !scope)
-            newPtrV = ConstantExpr::getBitCast(cast<Constant>(origPtrV), newPtrT);
-        else
-            newPtrV = scope->builder->CreateBitCast(origPtrV, newPtrT);
-
-        return gen_ref(context, scope, targetRefT, newPtrV, tidV);
+        return TxReferenceType::gen_ref_conversion(context, scope, origValue, targetRefT);
     }
 //    // from array:
 //    else if (dynamic_cast<const TxArrayType*>(this->expr->get_type())) {
@@ -459,10 +469,10 @@ Value* TxFunctionCallNode::code_gen(LlvmGenerationContext& context, GenScope* sc
     auto lambdaV = this->callee->code_gen(context, scope);
     //std::cout << "callee: " << lambdaV << std::endl;
     auto functionPtrV = gen_get_struct_member(context, scope, lambdaV, 0);
-    auto closurePtrV = gen_get_struct_member(context, scope, lambdaV, 1);
+    auto closureRefV = gen_get_struct_member(context, scope, lambdaV, 1);
 
     std::vector<Value*> args;
-    args.push_back(closurePtrV);
+    args.push_back(closureRefV);
     for (auto argDef : *this->argsExprList) {
         args.push_back(argDef->code_gen(context, scope));
     }

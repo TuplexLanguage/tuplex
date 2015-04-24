@@ -90,6 +90,18 @@ llvm::Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope*
         context.LOG.error("TXS_NOSTORAGE specified for field: %s", entity->get_full_name().to_string().c_str());
         break;
 
+    case TXS_INSTANCEMETHOD:
+        {
+            auto entity = field->get_entity();
+            ASSERT(field->initExpression, "instance method does not have an initializer/definition: " << entity->get_full_name().to_string().c_str());
+            auto initLambdaV = llvm::cast<llvm::ConstantStruct>(field->initExpression->code_gen(context, scope));
+            auto funcPtrV = initLambdaV->getAggregateElement((unsigned)0);
+            //std::cout << "initLambdaV: " << initLambdaV << std::endl;
+            //std::cout << "initFuncPtrV: " << funcPtrV << std::endl;
+            fieldVal = funcPtrV;  // the naked $func is stored (as opposed to a full lambda object)
+        }
+        break;
+
     case TXS_GLOBAL:
         fieldVal = make_constant_nonlocal_field(context, scope, this->field, llvmType);
         break;
@@ -111,8 +123,6 @@ llvm::Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope*
 
     case TXS_INSTANCE:
         // just a type definition; field storage isn't created until parent object is allocated
-        // TODO: if function and non-modifiable, skip "function pointer field assignment"
-        // (else: convert function type to function pointer type)
         break;
 
     case TXS_STACK:
@@ -120,7 +130,7 @@ llvm::Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope*
         break;
     }
     if (fieldVal)
-        context.register_llvm_value(entity->get_full_name().to_string(), fieldVal);
+        context.register_llvm_value(fieldVal->getName(), fieldVal);
     return fieldVal;
 }
 
@@ -132,5 +142,5 @@ llvm::Value* TxFieldDefNode::code_gen(LlvmGenerationContext& context, GenScope* 
 
 
 llvm::Value* TxExpressionNode::code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
-    return llvm::ConstantInt::get(llvm::Type::getInt32Ty(context.llvmContext), this->get_type()->get_type_id());
+    return this->get_type()->gen_typeid(context, scope);
 }

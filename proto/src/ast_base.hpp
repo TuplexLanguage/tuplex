@@ -402,9 +402,8 @@ public:
         this->appliedFuncArgTypes = appliedFuncArgTypes;
     }
 
+    /** Generates code that produces the type id (as opposed to the value) of this expression. */
     virtual llvm::Value* code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const;
-    ///** Returns true if this expression is a lambda expression (function definition). */
-    //virtual bool isLambda(const TuplexContext& context) const { return false; }
 };
 
 
@@ -578,13 +577,13 @@ public:
 
 /** Non-local field declaration */
 class TxFieldDeclNode : public TxDeclarationNode {
-    const bool isMethod = false;
+    const bool isMethodSyntax = false;
 public:
     TxFieldDefNode* field;
 
     TxFieldDeclNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags, TxFieldDefNode* field,
-                    bool isMethod=false)
-            : TxDeclarationNode(parseLocation, declFlags), isMethod(isMethod), field(field) { }
+                    bool isMethodSyntax=false)
+            : TxDeclarationNode(parseLocation, declFlags), isMethodSyntax(isMethodSyntax), field(field) { }
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override;
 

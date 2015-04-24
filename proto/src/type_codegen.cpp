@@ -39,11 +39,17 @@ StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
     }
     context.LOG.debug("Mapping vtable of type %s: %s", entity->get_full_name().to_string().c_str(), this->to_string(true).c_str());
     std::vector<Type*> members;
+    for (auto memberTxType : entity->get_instance_methods().fieldTypes) {
+        auto lMemberType = context.get_llvm_type(memberTxType);
+        auto membPtrType = lMemberType->getStructElementType(0);
+        members.push_back(membPtrType);
+        context.LOG.debug("Mapping virtual instance method type '%s' to: %s", memberTxType->to_string().c_str(), ::to_string(membPtrType).c_str());
+    }
     for (auto memberTxType : entity->get_virtual_fields().fieldTypes) {
         auto lMemberType = context.get_llvm_type(memberTxType);
         auto membPtrType = PointerType::getUnqual(lMemberType);
         members.push_back(membPtrType);
-        context.LOG.debug("Mapping static member pointer type %s to %s", memberTxType->to_string().c_str(), ::to_string(lMemberType).c_str());
+        context.LOG.debug("Mapping virtual member type '%s' to: %s", memberTxType->to_string().c_str(), ::to_string(membPtrType).c_str());
     }
     // note: create() might be better for "named" struct types?
     StructType* vtableT = StructType::get(context.llvmContext, members);
@@ -94,6 +100,9 @@ Value* TxType::gen_alloca(LlvmGenerationContext& context, GenScope* scope, const
     return scope->builder->CreateAlloca(llvmType, 0, varName);
 }
 
+llvm::Value* TxType::gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
+    return ConstantInt::get(Type::getInt32Ty(context.llvmContext), this->get_type_id());
+}
 
 
 Type* TxBoolType::make_llvm_type(LlvmGenerationContext& context) const {
@@ -247,7 +256,7 @@ Value* TxArrayType::gen_alloca(LlvmGenerationContext& context, GenScope* scope, 
 
 
 Type* TxReferenceType::make_llvm_type(LlvmGenerationContext& context) const {
-    // Note: a reference is always 'concrete'
+    // Note: a reference itself is always 'concrete'
     ResolutionContext resCtx;
     if (auto txTargetType = this->target_type(resCtx)) {
         if (Type* targetType = context.get_llvm_type(txTargetType)) {
@@ -271,14 +280,28 @@ Type* TxReferenceType::make_ref_llvm_type(LlvmGenerationContext& context, Type* 
     return llvmType;
 }
 
+Value* TxReferenceType::gen_ref_conversion(LlvmGenerationContext& context, GenScope* scope, Value* origValue, Type* targetRefT) {
+    auto newPtrT = cast<StructType>(targetRefT)->getElementType(0);
+    Value* tidV = gen_get_ref_typeid(context, scope, origValue);
+    Value* origPtrV = gen_get_ref_pointer(context, scope, origValue);
+    Value* newPtrV;
+    // bitcast from one pointer type to another
+    if (!scope)
+        newPtrV = ConstantExpr::getBitCast(cast<Constant>(origPtrV), newPtrT);
+    else
+        newPtrV = scope->builder->CreateBitCast(origPtrV, newPtrT);
+
+    return gen_ref(context, scope, targetRefT, newPtrV, tidV);
+}
+
 
 
 Type* TxFunctionType::make_llvm_type(LlvmGenerationContext& context) const {
     auto voidT = Type::getVoidTy(context.llvmContext);
-    auto closurePtrT = PointerType::getUnqual(voidT);  // closure object pointer type
+    auto closureRefT = TxReferenceType::make_ref_llvm_type(context, voidT);
 
     std::vector<Type*> llvmArgTypes;
-    llvmArgTypes.push_back(closurePtrT);  // first argument is always the closure object pointer
+    llvmArgTypes.push_back(closureRefT);  // first argument is always the closure object pointer
     for (auto argTxType : this->argumentTypes) {
         llvmArgTypes.push_back(context.get_llvm_type(argTxType));
         context.LOG.debug("Mapping arg type %s to %s", argTxType->to_string().c_str(), ::to_string(llvmArgTypes.back()).c_str());
@@ -290,7 +313,7 @@ Type* TxFunctionType::make_llvm_type(LlvmGenerationContext& context) const {
 
     std::vector<Type*> llvmMemberTypes {
         PointerType::getUnqual(funcT),  // function pointer
-        closurePtrT                     // closure object pointer
+        closureRefT                     // closure object pointer
     };
     auto llvmType = StructType::get(context.llvmContext, llvmMemberTypes);
     return llvmType;

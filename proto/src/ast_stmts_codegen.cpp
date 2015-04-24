@@ -69,7 +69,9 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     Function::arg_iterator fArgI = function->arg_begin();
     if (this->selfRefNode) {
         this->selfRefNode->typeExpression->code_gen(context, &fscope);
-        gen_local_field(context, &fscope, this->selfRefNode->get_entity(), fArgI);
+        auto selfT = context.get_llvm_type(this->selfRefNode->get_entity()->get_type());
+        auto convSelfV = TxReferenceType::gen_ref_conversion(context, &fscope, fArgI, selfT);
+        gen_local_field(context, &fscope, this->selfRefNode->get_entity(), convSelfV);
     }
     fArgI++;
     for (auto argDefI = this->funcTypeNode->arguments->cbegin();
@@ -89,8 +91,9 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     ASSERT (entryBlock->getTerminator(), "Function entry block has no terminator");
 
     // construct the lambda object:
-    auto nullClosurePtrV = ConstantPointerNull::get(cast<PointerType>(lambdaT->getElementType(1)));
-    auto lambdaV = ConstantStruct::get(lambdaT, function, nullClosurePtrV, NULL);
+    auto nullClosureRefV = Constant::getNullValue(lambdaT->getElementType(1));
+    auto lambdaV = ConstantStruct::get(lambdaT, function, nullClosureRefV, NULL);
+    //auto lambdaV = gen_lambda(context, scope, lambdaT, function, nullClosurePtrV);
     return lambdaV;
 }
 

@@ -5,9 +5,12 @@
 
 
 extern llvm::Value* gen_get_struct_member(LlvmGenerationContext& context, GenScope* scope, llvm::Value* structV, unsigned ix);
+
 extern llvm::Value* gen_get_ref_pointer(LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV);
 extern llvm::Value* gen_get_ref_typeid(LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV);
 extern llvm::Value* gen_ref(LlvmGenerationContext& context, GenScope* scope, llvm::Type* refT, llvm::Value* ptrV, llvm::Value* tidV);
+
+extern llvm::Value* gen_lambda(LlvmGenerationContext& context, GenScope* scope, llvm::Type* lambdaT, llvm::Value* funcV, llvm::Value* closureRefV);
 
 
 /*=== conversion/casting ===*/
@@ -111,6 +114,9 @@ public:
 /*=== expressions ===*/
 
 class TxReferenceDerefNode : public TxExpressionNode {
+    /** internal "cache" to prevent multiple code generations */
+    mutable llvm::Value* refExprValue = nullptr;
+
 protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto opType = this->reference->resolve_type(resCtx);

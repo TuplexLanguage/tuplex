@@ -16,11 +16,12 @@
  * GLOBAL are globally declared fields, i.e. outside of any type definition.
  * STATIC and VIRTUAL are statically allocated fields within a type definition.
  * VIRTUAL fields are like STATIC but subject to polymorphic lookup.
+ * INSTANCEMETHOD is a special case, where the function pointer is static/virtual and the 'self' ref is provided in runtime
  * INSTANCE fields are members of type instances (i.e. object members).
  * STACK fields are regular "auto" variables, including function arguments.
  * GLOBAL, STATIC, VIRTUAL are compile-time-allocated.
  */
-enum TxFieldStorage : int { TXS_NOSTORAGE, TXS_GLOBAL, TXS_STATIC, TXS_VIRTUAL, TXS_INSTANCE, TXS_STACK };
+enum TxFieldStorage : int { TXS_NOSTORAGE, TXS_GLOBAL, TXS_STATIC, TXS_VIRTUAL, TXS_INSTANCEMETHOD, TXS_INSTANCE, TXS_STACK };
 
 // types are implicitly static
 static const TxDeclarationFlags LEGAL_TYPE_DECL_FLAGS = TXD_ABSTRACT | TXD_FINAL | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM;
@@ -217,6 +218,7 @@ class TxTypeEntity : public TxDistinctEntity, public TxTypeProxy {
     bool declaresInstanceFields = false;
     DataTupleDefinition staticFields;
     DataTupleDefinition virtualFields;
+    DataTupleDefinition instanceMethods;
     DataTupleDefinition instanceFields;
 
     void define_data_layout(ResolutionContext& resCtx, const TxType* type);
@@ -272,7 +274,7 @@ public:
             return std::any_of( this->symbols_cbegin(), this->symbols_cend(),
                                 [](const SymbolMap::value_type & p) {
                                     if (auto field = dynamic_cast<TxFieldEntity*>(p.second))
-                                        return (field->get_storage() == TXS_INSTANCE);
+                                        return (field->get_storage() == TXS_INSTANCE || field->get_storage() == TXS_INSTANCEMETHOD);
                                     return false; } );
         }
         return this->declaresInstanceFields;
@@ -284,6 +286,11 @@ public:
     const DataTupleDefinition& get_instance_fields() const {
         ASSERT(this->dataLaidOut, "Data not laid out in " << this);
         return this->instanceFields;
+    }
+
+    const DataTupleDefinition& get_instance_methods() const {
+        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
+        return this->instanceMethods;
     }
 
     const DataTupleDefinition& get_virtual_fields() const {

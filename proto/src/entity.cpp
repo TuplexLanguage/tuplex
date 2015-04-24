@@ -11,10 +11,14 @@ int TxFieldEntity::get_instance_field_index() const {
 }
 
 int TxFieldEntity::get_virtual_field_index() const {
-    ASSERT(this->storage == TXS_VIRTUAL, "Only fields of static virtual storage class have an virtual field index: " << *this);
+    ASSERT(this->storage == TXS_VIRTUAL || this->storage == TXS_INSTANCEMETHOD,
+           "Only fields of static virtual storage class have an virtual field index: " << *this);
     auto scope = dynamic_cast<const TxTypeEntity*>(this->get_outer());
     ASSERT(scope, "Field's scope is not a type: " << *this->get_outer());
-    return scope->get_virtual_fields().get_field_index(this->get_name());
+    if (this->storage == TXS_VIRTUAL)
+        return scope->get_virtual_fields().get_field_index(this->get_name());
+    else
+        return scope->get_instance_methods().get_field_index(this->get_name());
 }
 
 int TxFieldEntity::get_static_field_index() const {
@@ -39,6 +43,7 @@ void TxTypeEntity::define_data_layout(ResolutionContext& resCtx, const TxType* t
     if (baseType) {
         baseType->entity()->resolve_symbol_type(resCtx);
         this->virtualFields = baseType->entity()->virtualFields;
+        this->instanceMethods = baseType->entity()->instanceMethods;
         this->instanceFields = baseType->entity()->instanceFields;
     }
 
@@ -51,8 +56,26 @@ void TxTypeEntity::define_data_layout(ResolutionContext& resCtx, const TxType* t
                 this->instanceFields.add_field(field->get_name(), fieldType);
                 this->declaresInstanceFields = true;
             }
-            else if (field->get_storage() == TXS_VIRTUAL) {
+            else if (field->get_storage() == TXS_INSTANCEMETHOD) {
                 if (this->virtualFields.has_field(field->get_name())) {
+                    this->LOGGER().error("A non-static method may not override a static parent field: %s", field->to_string().c_str());
+                }
+                else if (this->instanceMethods.has_field(field->get_name())) {
+                    if (! (field->get_decl_flags() & TXD_OVERRIDE))
+                        this->LOGGER().warning("Field overrides but isn't declared 'override': %s", field->to_string().c_str());
+                }
+                else {
+                    if (field->get_decl_flags() & TXD_OVERRIDE)
+                        this->LOGGER().warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
+                    this->instanceMethods.add_field(field->get_name(), fieldType);
+                }
+                this->declaresInstanceFields = true;
+            }
+            else if (field->get_storage() == TXS_VIRTUAL) {
+                if (this->instanceMethods.has_field(field->get_name())) {
+                    this->LOGGER().error("A static field may not override a non-static parent method: %s", field->to_string().c_str());
+                }
+                else if (this->virtualFields.has_field(field->get_name())) {
                     if (! (field->get_decl_flags() & TXD_OVERRIDE))
                         this->LOGGER().warning("Field overrides but isn't declared 'override': %s", field->to_string().c_str());
                 }

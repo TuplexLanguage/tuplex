@@ -1,5 +1,6 @@
 #include <iostream>
 #include <stack>
+#include <unordered_map>
 #include <typeinfo>
 
 #include <llvm/IR/LLVMContext.h>
@@ -134,9 +135,11 @@ Function* LlvmGenerationContext::gen_main_function(const std::string userMain, b
     auto userMainFName = userMain + "$func";
     auto func = this->llvmModule.getFunction(userMainFName);
     if (func) {
-        auto voidPtrT = PointerType::getUnqual(Type::getVoidTy(this->llvmContext));
-        auto nullClosurePtrV = ConstantPointerNull::get(voidPtrT);
-        Value* args[] = { nullClosurePtrV };
+        auto voidT = Type::getVoidTy(this->llvmContext);
+        auto closureRefT = TxReferenceType::make_ref_llvm_type(*this, voidT);
+        auto nullClosureRefV = Constant::getNullValue(closureRefT);
+
+        Value* args[] = { nullClosureRefV };
         CallInst *user_main_call = CallInst::Create(func, args, "", bb);
         user_main_call->setTailCall(false);
         auto int32T = Type::getInt32Ty(this->llvmModule.getContext());
@@ -392,11 +395,18 @@ void LlvmGenerationContext::generate_runtime_data() {
             if (auto vtableV = dyn_cast<GlobalVariable>(this->lookup_llvm_value(vtableName))) {
                 ResolutionContext resCtx;
                 std::vector<Constant*> initMembers;
-                initMembers.resize(entity->get_virtual_fields().fields.size());
+                initMembers.resize(entity->get_instance_methods().fields.size() + entity->get_virtual_fields().fields.size());
+                for (auto & field : entity->get_instance_methods().fields) {
+                    auto actualFieldEnt = entity->lookup_field(resCtx, field.first);  // FIXME: handle overloaded field names
+                    auto funcName = actualFieldEnt->get_full_name().to_string() + "$func";
+                    auto llvmField = cast<Constant>(this->lookup_llvm_value(funcName));
+                    //std::cout << "inserting instance method: " << field.first << " at ix " << field.second << std::endl;
+                    initMembers[field.second] = llvmField;
+                }
                 for (auto & field : entity->get_virtual_fields().fields) {
                     auto actualFieldEnt = entity->lookup_field(resCtx, field.first);  // FIXME: handle overloaded field names
                     auto llvmField = cast<Constant>(this->lookup_llvm_value(actualFieldEnt->get_full_name().to_string()));
-                    //std::cout << "inserting " << field.first << " at ix " << field.second << std::endl;
+                    //std::cout << "inserting virtual field: " << field.first << " at ix " << field.second << std::endl;
                     initMembers[field.second] = llvmField;
                 }
                 Constant* initializer = ConstantStruct::getAnon(this->llvmContext, initMembers);
@@ -409,10 +419,10 @@ void LlvmGenerationContext::generate_runtime_data() {
 }
 
 
-Value* LlvmGenerationContext::gen_get_vtable(GenScope* scope, const TxType* statDeclType, Value* typeIdV) const {
+Value* LlvmGenerationContext::gen_get_vtable(GenScope* scope, const TxType* statDeclType, Value* runtimeBaseTypeIdV) const {
     Value* metaTypesV = this->lookup_llvm_value("tx.runtime.META_TYPES");
     Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(this->llvmContext), 0),
-                     typeIdV,
+                     runtimeBaseTypeIdV,
                      ConstantInt::get(Type::getInt32Ty(this->llvmContext), 1) };
     Value* vtablePtrA;
     if (!scope)

@@ -456,7 +456,7 @@ return_type_def : %empty { $$ = NULL; } | type_expression { $$ = $1; } ;
 
 method_def  :   KW_FUNC opt_modifiable NAME params_def return_type_def sep suite
                 { TxFunctionTypeNode* funcTypeNode = new TxFunctionTypeNode(@1, $2, $4, $5);
-                  $$ = new TxFieldDefNode(@1, $3, NULL, new TxLambdaExprNode(@1, funcTypeNode, $7)); }
+                  $$ = new TxFieldDefNode(@1, $3, NULL, new TxLambdaExprNode(@1, funcTypeNode, $7, true)); }
             ;
 
 

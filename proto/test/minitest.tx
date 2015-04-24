@@ -5,28 +5,32 @@ func puts(str : &[]UByte) {
 }
 
 type AType mod derives Tuple {
-    f : Int
-    func print() {
-        t := self.f + 1
+    f : ~Int
+    public func print() Int {
         puts(c"AType")
+        return self^.f
     }
 }
 
 type BType mod derives AType {
-    g : Int
-    static func print() {
+    g : ~Int
+    public func print() Int {
         puts(c"BType")
+        return self^.g
     }
 }
 
 func main() Int {
     a : AType
     b : BType
-    ##ar : &AType = &b
-    ##br : &BType = &b
+    a.f = 1
+    b.g = 2
+    ar : &AType = &b
+    br : &BType = &b
 
-    a.print()
-    b.print()
+    r : ~Int
+    r = r + ar^.print()
+    r = r + br^.print()
 
-    return 3
+    return r
 }

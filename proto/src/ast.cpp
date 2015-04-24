@@ -79,8 +79,20 @@ void TxNode::cwarning(char const *fmt, ...) const {
 
 void TxFieldDeclNode::symbol_declaration_pass(LexicalContext& lexContext) {
     this->set_context(lexContext);
+
     TxFieldStorage storage;
-    if (dynamic_cast<TxModule*>(lexContext.scope())) {  // if in global scope
+    if (this->isMethodSyntax && dynamic_cast<TxTypeEntity*>(lexContext.scope())) {
+        // Note: instance method storage is handled specially (technically a function pointer is always a static field)
+        auto lambdaExpr = static_cast<TxLambdaExprNode*>(field->initExpression);
+        if (this->declFlags & TXD_STATIC) {
+            storage = TXS_STATIC;
+        }
+        else {
+            lambdaExpr->set_instance_method(true);
+            storage = TXS_INSTANCEMETHOD;
+        }
+    }
+    else if (dynamic_cast<TxModule*>(lexContext.scope())) {  // if in global scope
         if (this->declFlags & TXD_STATIC)
             cerror("'static' is invalid modifier for module scope field %s", this->field->fieldName.c_str());
         if (this->declFlags & TXD_FINAL)
@@ -89,19 +101,11 @@ void TxFieldDeclNode::symbol_declaration_pass(LexicalContext& lexContext) {
             cerror("'override' is invalid modifier for module scope field %s", this->field->fieldName.c_str());
         storage = TXS_GLOBAL;
     }
-//    else if (this->isMethod) {
-//        // static has special meaning for methods, technically a method is always a static function pointer field
-//        storage = TXS_STATIC;
-//        if (! (this->declFlags & TXD_STATIC)) {
-//            // instance method (add implicit self argument)
-//            static_cast<TxLambdaExprNode*>(field->initExpression)->make_instance_method();
-//        }
-//    }
     else {
         storage = (this->declFlags & TXD_STATIC) ? TXS_STATIC : TXS_INSTANCE;
     }
+
     this->field->symbol_declaration_pass_nonlocal_field(lexContext, this->declFlags, storage, TxIdentifier(""));
-    //this->set_context(this->field);
 }
 
 

@@ -92,6 +92,11 @@ func main() Long {
 
         ~mymodinstanceF := func () { self.valid() }
         ## does need actual storage in instance struct
+
+
+        static func mystaticF() { }
+
+        func myinlineinstanceF() { self.valid() }
     }
     
 */
