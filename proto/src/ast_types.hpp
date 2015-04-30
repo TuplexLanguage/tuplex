@@ -83,7 +83,7 @@ public:
             this->fieldDeclNode->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 /** Represents a specialization of a generic type - binding one or more type parameters of a predefined, generic type.
@@ -164,7 +164,7 @@ public:
             ta->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -219,7 +219,7 @@ public:
 
     virtual void semantic_pass() { targetTypeNode->semantic_pass(); }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 /**
@@ -264,7 +264,7 @@ public:
             this->lengthNode->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -361,7 +361,7 @@ public:
         }
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -431,7 +431,7 @@ public:
             this->returnField->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -471,7 +471,7 @@ public:
 
     virtual void semantic_pass() { this->baseType->semantic_pass(); }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 /** A potentially modifiable type expression, depending on syntactic sugar rules.

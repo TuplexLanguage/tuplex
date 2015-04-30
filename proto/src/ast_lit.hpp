@@ -116,7 +116,7 @@ public:
         this->set_context(lexContext);
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -137,7 +137,7 @@ public:
         this->set_context(lexContext);
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -166,7 +166,7 @@ public:
     virtual void semantic_pass() override {
         this->cstringTypeNode->semantic_pass();
     }
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -187,5 +187,5 @@ public:
         this->set_context(lexContext);
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };

@@ -84,21 +84,21 @@ public:
         return (this->constProxy.original_constant() ? &this->constProxy : nullptr);
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxBoolConvNode : public TxConversionNode {
 public:
     TxBoolConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxBoolType* targetType)
         : TxConversionNode(parseLocation, expr, targetType) { }
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxReferenceConvNode : public TxConversionNode {
 public:
     TxReferenceConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxReferenceType* targetType)
         : TxConversionNode(parseLocation, expr, targetType) { }
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 /** Casts (not converts) between object specializations (across type parameters and inheritance). */
@@ -106,7 +106,7 @@ class TxObjSpecCastNode : public TxConversionNode {
 public:
     TxObjSpecCastNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* targetType)
         : TxConversionNode(parseLocation, expr, targetType) { }
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -157,7 +157,7 @@ public:
             cerror("Can't de-reference non-reference expression.");
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
     virtual llvm::Value* code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -209,7 +209,7 @@ public:
     }
 
     virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const;
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -261,7 +261,7 @@ public:
         this->target->set_applied_func_arg_types(appliedTypeParameters);
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -378,7 +378,7 @@ public:
         rhs->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxUnaryMinusNode : public TxOperatorValueNode {
@@ -414,7 +414,7 @@ public:
         operand->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxUnaryLogicalNotNode : public TxOperatorValueNode {
@@ -451,7 +451,7 @@ public:
         operand->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -551,7 +551,7 @@ public:
         return nullptr;
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -593,7 +593,7 @@ public:
             cerror("Can't de-reference non-reference expression.");
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxElemAssigneeNode : public TxAssigneeNode {
@@ -636,5 +636,5 @@ public:
         subscript->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };

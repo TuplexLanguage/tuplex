@@ -26,7 +26,7 @@ public:
         this->field->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 /** Local type declaration */
@@ -53,7 +53,7 @@ public:
         this->typeDecl->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxCallStmtNode : public TxStatementNode {  // function call without assigning return value (if any)
@@ -76,7 +76,7 @@ public:
         ((TxExpressionNode*)this->call)->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxTerminalStmtNode : public TxStatementNode {
@@ -118,7 +118,7 @@ public:
             this->expr->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxBreakStmtNode : public TxTerminalStmtNode {
@@ -128,7 +128,7 @@ public:
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override { this->set_context(lexContext); }
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { }
     virtual void semantic_pass() override { }
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxContinueStmtNode : public TxTerminalStmtNode {
@@ -138,7 +138,7 @@ public:
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override { this->set_context(lexContext); }
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { }
     virtual void semantic_pass() override { }
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -174,7 +174,7 @@ public:
         }
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -198,7 +198,7 @@ public:
         this->suite->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxCondCompoundStmtNode : public TxStatementNode {
@@ -242,7 +242,7 @@ public:
                  TxElseClauseNode* elseClause=nullptr)
         : TxCondCompoundStmtNode(parseLocation, cond, suite, elseClause)  { }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxWhileStmtNode : public TxCondCompoundStmtNode {
@@ -251,7 +251,7 @@ public:
                     TxElseClauseNode* elseClause=nullptr)
         : TxCondCompoundStmtNode(parseLocation, cond, suite, elseClause)  { }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -292,5 +292,5 @@ public:
         this->rvalue->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };

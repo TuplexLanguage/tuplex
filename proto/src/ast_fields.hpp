@@ -158,7 +158,7 @@ public:
 //    }
 
     virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics=false) const;
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -226,5 +226,5 @@ public:
 //        return (entity->get_storage() != TXS_NOSTORAGE);
 //    }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };

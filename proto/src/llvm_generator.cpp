@@ -49,7 +49,7 @@ Function* LlvmGenerationContext::gen_static_init_function() {
     Value* vtablePtrArr;
     {
         GlobalVariable* vtablePtrArrPtr = new GlobalVariable(this->llvmModule, int8PtrArrPtrT, false, GlobalValue::ExternalLinkage,
-                                                             llvm::ConstantPointerNull::get(int8PtrArrPtrT),
+                                                             ConstantPointerNull::get(int8PtrArrPtrT),
                                                              "tx.runtime.VTABLES");
         this->register_llvm_value(vtablePtrArrPtr->getName(), vtablePtrArrPtr);
         auto int8PtrSizeV = ConstantExpr::getTruncOrBitCast(ConstantExpr::getSizeOf(int8PtrT), int32T);
@@ -338,7 +338,7 @@ void LlvmGenerationContext::initialize_external_functions() {
     auto cstrRefT = TxReferenceType::make_ref_llvm_type(*this, Type::getInt8Ty(this->llvmContext));
     Function *t_putsF = cast<Function>(this->llvmModule.getOrInsertFunction("tx.c.puts$func", this->get_voidT(), this->get_voidRefT(), cstrRefT, NULL));
     BasicBlock *bb = BasicBlock::Create(this->llvmModule.getContext(), "entry", t_putsF);
-    llvm::IRBuilder<> builder(bb);
+    IRBuilder<> builder(bb);
     GenScope scope(&builder);
     Function::arg_iterator args = t_putsF->arg_begin();
     args++;  // the implicit closure pointer (null)

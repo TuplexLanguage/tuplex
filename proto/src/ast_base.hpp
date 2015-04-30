@@ -105,7 +105,7 @@ public:
     TxIdentifierNode(const yy::location& parseLocation, const TxIdentifier* ident, IdentifierClass identifierClass=UNSPECIFIED)
         : TxNode(parseLocation), idClass(identifierClass), ident(*ident)  { }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const { return nullptr; }
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 
     virtual std::string to_string() const {
         return TxNode::to_string() + " '" + this->ident.to_string() + "'";
@@ -131,7 +131,7 @@ public:
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const { return nullptr; }
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 };
 
 
@@ -204,7 +204,7 @@ public:
             }
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -234,7 +234,7 @@ public:
             mod->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -322,7 +322,7 @@ public:
     }
 
     virtual void semantic_pass() = 0;
-    //virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    //virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxFieldDefNode;
@@ -568,7 +568,7 @@ public:
             this->initExpression->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual std::string to_string() const {
         return TxNode::to_string() + " '" + this->fieldName + "'";
@@ -609,7 +609,7 @@ public:
         }
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -644,7 +644,7 @@ public:
                 paramDecl->semantic_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 

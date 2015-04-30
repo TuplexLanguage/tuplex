@@ -111,8 +111,8 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
 //                    // construct the lambda object:
 //                    auto nullClosureRefV = Constant::getNullValue(lambdaT->getElementType(1));
 //                    val = ConstantStruct::get(lambdaT, funcV, nullClosureRefV, NULL);
-                    //val = new llvm::GlobalVariable(context.llvmModule, lambdaT, true, llvm::GlobalValue::InternalLinkage,
-                    //                               nullptr, fieldEntity->get_full_name().to_string());
+                    //val = new GlobalVariable(context.llvmModule, lambdaT, true, GlobalValue::InternalLinkage,
+                    //                         nullptr, fieldEntity->get_full_name().to_string());
                     val = context.llvmModule.getOrInsertGlobal(fieldEntity->get_full_name().to_string(), lambdaT);
                 }
                 else {

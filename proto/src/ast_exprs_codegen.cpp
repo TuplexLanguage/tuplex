@@ -224,7 +224,7 @@ Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* sco
     }
 
     // the reference gets the statically known target type id
-    auto tidV = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context.llvmContext), this->target->get_type()->get_type_id());
+    auto tidV = ConstantInt::get(Type::getInt32Ty(context.llvmContext), this->target->get_type()->get_type_id());
 
     // box the pointer:
     auto refT = this->get_type()->make_llvm_type(context);
@@ -257,7 +257,7 @@ Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* 
     }
 }
 
-llvm::Value* TxReferenceDerefNode::code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxReferenceDerefNode::code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
     // dynamic by reading the reference's target type id
     context.LOG.trace("%-48s TypeID", this->to_string().c_str());
     if (! this->refExprValue) {
