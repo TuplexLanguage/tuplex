@@ -41,6 +41,11 @@ class LlvmGenerationContext {
     std::map<const TxType*, llvm::Type* const> llvmTypeMapping;
     std::map<uint32_t, llvm::StructType* const> llvmVTableTypeMapping;
 
+    // some common, basic types:
+    llvm::Type* voidT;
+    llvm::Type* voidPtrT;
+    llvm::Type* voidRefT;
+
     const TxType* lookup_builtin(BuiltinTypeId id);
     void initialize_meta_type_data();
     void initialize_external_functions();
@@ -63,9 +68,17 @@ public:
           llvmModule("top", this->llvmContext),
           dataLayout(&llvmModule)
         {
-    		this->initialize_builtins();
+            this->voidT = llvm::Type::getVoidTy(this->llvmContext);
+            this->voidPtrT = llvm::Type::getInt8PtrTy(this->llvmContext);
+            this->voidRefT = TxReferenceType::make_ref_llvm_type(*this, llvm::Type::getInt8Ty(this->llvmContext));
+
+            this->initialize_builtins();
         }
 
+
+    inline llvm::Type* get_voidT() const     { return this->voidT; }
+    inline llvm::Type* get_voidPtrT() const  { return this->voidPtrT; }
+    inline llvm::Type* get_voidRefT() const  { return this->voidRefT; }
 
     llvm::Type* get_llvm_type(const TxType* txType);
 

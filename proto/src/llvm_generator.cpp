@@ -135,10 +135,7 @@ Function* LlvmGenerationContext::gen_main_function(const std::string userMain, b
     auto userMainFName = userMain + "$func";
     auto func = this->llvmModule.getFunction(userMainFName);
     if (func) {
-        auto voidT = Type::getVoidTy(this->llvmContext);
-        auto closureRefT = TxReferenceType::make_ref_llvm_type(*this, voidT);
-        auto nullClosureRefV = Constant::getNullValue(closureRefT);
-
+        auto nullClosureRefV = Constant::getNullValue(this->get_voidRefT());
         Value* args[] = { nullClosureRefV };
         CallInst *user_main_call = CallInst::Create(func, args, "", bb);
         user_main_call->setTailCall(false);
@@ -231,7 +228,7 @@ const TxType* LlvmGenerationContext::lookup_builtin(BuiltinTypeId id) {
 
 //static Function* gen_dummy_type_user_init_func(LlvmGenerationContext& context) {
 //    std::string funcName("$dummy.$tuinit");
-//    auto voidType = Type::getVoidTy(context.llvmContext);
+//    auto voidT = context.get_voidT();
 //    std::vector<Type*> typeInitFuncArgTypes {
 //        Type::getInt8PtrTy(context.llvmContext)  // void* to type's data
 //    };
@@ -260,17 +257,16 @@ void LlvmGenerationContext::initialize_meta_type_data() {
 
     // define the MetaType LLVM data type:
     auto int32T = Type::getInt32Ty(this->llvmContext);
-//    auto voidT = Type::getVoidTy(this->llvmContext);
 //    std::vector<Type*> typeInitFuncArgTypes {
-//        Type::getInt8PtrTy(this->llvmContext)  // void* to type's data
+//        this->get_voidPtrT()  // void* to type's data
 //    };
-//    FunctionType *typeInitFuncT = FunctionType::get(voidT, typeInitFuncArgTypes, false);
+//    FunctionType *typeInitFuncT = FunctionType::get(this->get_voidT(), typeInitFuncArgTypes, false);
 //    auto dummyUserInitF = gen_dummy_type_user_init_func(*this);
 
-    auto opaqueStructPtrT = PointerType::getUnqual(StructType::create(this->llvmContext));
+    auto emptyStructPtrT = PointerType::getUnqual(StructType::get(this->llvmContext));
     std::vector<Type*> memberTypes {
         int32T,  // type id
-        opaqueStructPtrT,  // vtable pointer
+        emptyStructPtrT,  // vtable pointer
         //int32T,  // data structure size
         //typeInitFuncT,  // initialization function
     };
@@ -340,9 +336,7 @@ void LlvmGenerationContext::initialize_external_functions() {
 
     // create adapter function:
     auto cstrRefT = TxReferenceType::make_ref_llvm_type(*this, Type::getInt8Ty(this->llvmContext));
-    auto voidT = Type::getVoidTy(this->llvmContext);
-    auto voidPtrT = PointerType::getUnqual(voidT);
-    Function *t_putsF = cast<Function>(this->llvmModule.getOrInsertFunction("tx.c.puts$func", voidT, voidPtrT, cstrRefT, NULL));
+    Function *t_putsF = cast<Function>(this->llvmModule.getOrInsertFunction("tx.c.puts$func", this->get_voidT(), this->get_voidRefT(), cstrRefT, NULL));
     BasicBlock *bb = BasicBlock::Create(this->llvmModule.getContext(), "entry", t_putsF);
     llvm::IRBuilder<> builder(bb);
     GenScope scope(&builder);
@@ -356,13 +350,13 @@ void LlvmGenerationContext::initialize_external_functions() {
     ReturnInst::Create(this->llvmModule.getContext(), bb);
 
     // store lambda object:
-    auto nullClosurePtrV = ConstantPointerNull::get(voidPtrT);
+    auto nullClosureRefV = Constant::getNullValue(this->get_voidRefT());
     std::vector<Type*> lambdaMemberTypes {
-        t_putsF->getType(),  // function pointer
-        voidPtrT             // null closure object pointer
+        t_putsF->getType(),   // function pointer
+        this->get_voidRefT()  // null closure object pointer
     };
     auto lambdaT = StructType::get(this->llvmContext, lambdaMemberTypes);
-    auto lambdaV = ConstantStruct::get(lambdaT, t_putsF, nullClosurePtrV, NULL);
+    auto lambdaV = ConstantStruct::get(lambdaT, t_putsF, nullClosureRefV, NULL);
     auto lambdaA = new GlobalVariable(this->llvmModule, lambdaT, true, GlobalValue::InternalLinkage, lambdaV, "tx.c.puts");
     this->register_llvm_value("tx.c.puts", lambdaA);
 
@@ -395,19 +389,23 @@ void LlvmGenerationContext::generate_runtime_data() {
             if (auto vtableV = dyn_cast<GlobalVariable>(this->lookup_llvm_value(vtableName))) {
                 ResolutionContext resCtx;
                 std::vector<Constant*> initMembers;
-                initMembers.resize(entity->get_instance_methods().fields.size() + entity->get_virtual_fields().fields.size());
-                for (auto & field : entity->get_instance_methods().fields) {
+                auto instanceMethods = entity->get_instance_methods();
+                auto virtualFields   = entity->get_virtual_fields();
+                initMembers.resize(instanceMethods.get_field_count() + virtualFields.get_field_count());
+                for (auto & field : instanceMethods.fields) {
                     auto actualFieldEnt = entity->lookup_field(resCtx, field.first);  // FIXME: handle overloaded field names
                     auto funcName = actualFieldEnt->get_full_name().to_string() + "$func";
                     auto llvmField = cast<Constant>(this->lookup_llvm_value(funcName));
                     //std::cout << "inserting instance method: " << field.first << " at ix " << field.second << std::endl;
-                    initMembers[field.second] = llvmField;
+                    auto ix = field.second;
+                    initMembers[ix] = llvmField;
                 }
-                for (auto & field : entity->get_virtual_fields().fields) {
+                for (auto & field : virtualFields.fields) {
                     auto actualFieldEnt = entity->lookup_field(resCtx, field.first);  // FIXME: handle overloaded field names
                     auto llvmField = cast<Constant>(this->lookup_llvm_value(actualFieldEnt->get_full_name().to_string()));
                     //std::cout << "inserting virtual field: " << field.first << " at ix " << field.second << std::endl;
-                    initMembers[field.second] = llvmField;
+                    auto ix = field.second + instanceMethods.get_field_count();
+                    initMembers[ix] = llvmField;
                 }
                 Constant* initializer = ConstantStruct::getAnon(this->llvmContext, initMembers);
                 vtableV->setInitializer(initializer);

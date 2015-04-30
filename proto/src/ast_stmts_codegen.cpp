@@ -93,7 +93,7 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     // construct the lambda object:
     auto nullClosureRefV = Constant::getNullValue(lambdaT->getElementType(1));
     auto lambdaV = ConstantStruct::get(lambdaT, function, nullClosureRefV, NULL);
-    //auto lambdaV = gen_lambda(context, scope, lambdaT, function, nullClosurePtrV);
+    //auto lambdaV = gen_lambda(context, scope, lambdaT, function, nullClosureRefV);
     return lambdaV;
 }
 

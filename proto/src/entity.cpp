@@ -16,7 +16,7 @@ int TxFieldEntity::get_virtual_field_index() const {
     auto scope = dynamic_cast<const TxTypeEntity*>(this->get_outer());
     ASSERT(scope, "Field's scope is not a type: " << *this->get_outer());
     if (this->storage == TXS_VIRTUAL)
-        return scope->get_virtual_fields().get_field_index(this->get_name());
+        return scope->get_virtual_fields().get_field_index(this->get_name()) + scope->get_instance_methods().get_field_count();
     else
         return scope->get_instance_methods().get_field_index(this->get_name());
 }

@@ -178,8 +178,7 @@ Value* gen_ref(LlvmGenerationContext& context, GenScope* scope, Type* refT, Valu
         return refV;
     }
     else {
-        ASSERT(false, "Not yet supported to construct reference to global: " << ptrV);
-        //refA = new GlobalVariable(context.llvmModule, refT, true, GlobalValue::InternalLinkage, init);
+        ASSERT(false, "Not yet supported to construct reference to global: " << ptrV);  // TODO
     }
 }
 
@@ -193,8 +192,7 @@ Value* gen_lambda(LlvmGenerationContext& context, GenScope* scope, Type* lambdaT
         return lambdaV;
     }
     else {
-        ASSERT(false, "Not yet supported to construct global lambda");
-        //refA = new GlobalVariable(context.llvmModule, refT, true, GlobalValue::InternalLinkage, init);
+        ASSERT(false, "Not yet supported to construct global lambda");  // TODO
     }
 }
 

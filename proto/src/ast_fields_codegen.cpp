@@ -69,8 +69,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
         ASSERT(baseValue->getType()->isPointerTy(), "Expected baseValue to be of pointer type but was: " << baseValue->getType());
 
         {   // construct the lambda object:
-            auto voidT = Type::getVoidTy(context.llvmContext);
-            auto closureRefT = TxReferenceType::make_ref_llvm_type(context, voidT);
+            auto closureRefT = context.get_voidRefT();
             auto closureRefV = gen_ref(context, scope, closureRefT, baseValue, instanceTypeIdV);
             auto lambdaT = cast<StructType>(context.get_llvm_type(fieldEntity->get_type()));
             val = gen_lambda(context, scope, lambdaT, funcPtrV, closureRefV);
@@ -103,15 +102,18 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
                 ASSERT(fieldEntity->get_storage() == TXS_GLOBAL || fieldEntity->get_storage() == TXS_STATIC,
                        "'forward-declaration' only expected for GLOBAL or STATIC fields: " << fieldEntity->to_string());
                 if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
-                    context.LOG.alert("Forward-declaring function %s", fieldEntity->get_full_name().to_string().c_str());
+                    context.LOG.alert("Forward-declaring function object %s", fieldEntity->get_full_name().to_string().c_str());
                     StructType *lambdaT = cast<StructType>(context.get_llvm_type(txFuncType));
-                    FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
-                    auto funcName = fieldEntity->get_full_name().to_string() + "$func";
-                    auto funcV = context.llvmModule.getOrInsertFunction(funcName, funcT);
-                    //cast<Function>(funcV)->setLinkage(GlobalValue::InternalLinkage);  FIXME (can cause LLVM to rename function)
-                    // construct the lambda object:
-                    auto nullClosurePtrV = ConstantPointerNull::get(cast<PointerType>(lambdaT->getElementType(1)));
-                    val = ConstantStruct::get(lambdaT, funcV, nullClosurePtrV, NULL);
+//                    FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
+//                    auto funcName = fieldEntity->get_full_name().to_string() + "$func";
+//                    auto funcV = context.llvmModule.getOrInsertFunction(funcName, funcT);
+//                    //cast<Function>(funcV)->setLinkage(GlobalValue::InternalLinkage);  FIXME (can cause LLVM to rename function)
+//                    // construct the lambda object:
+//                    auto nullClosureRefV = Constant::getNullValue(lambdaT->getElementType(1));
+//                    val = ConstantStruct::get(lambdaT, funcV, nullClosureRefV, NULL);
+                    //val = new llvm::GlobalVariable(context.llvmModule, lambdaT, true, llvm::GlobalValue::InternalLinkage,
+                    //                               nullptr, fieldEntity->get_full_name().to_string());
+                    val = context.llvmModule.getOrInsertGlobal(fieldEntity->get_full_name().to_string(), lambdaT);
                 }
                 else {
                     context.LOG.error("No LLVM value defined for %s", fieldEntity->to_string().c_str());

@@ -20,7 +20,6 @@ Value* TxCStringLitNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     };
     auto str = ConstantStruct::getAnon(members);
     return str;
-    //return new GlobalVariable(context.llvmModule, str->getType(), true, GlobalValue::InternalLinkage, str, "");
 }
 
 

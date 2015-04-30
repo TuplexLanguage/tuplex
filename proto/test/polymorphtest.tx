@@ -22,7 +22,7 @@ type AType mod derives Tuple {
     field1 : ~Long
     field2 : ~Float
 
-    func print() {
+    public func print() {
         puts(c"AType")
     }
 }
@@ -33,38 +33,36 @@ type BType mod derives AType {
     field1 : ~Long
     field2 : ~Float
 
-    func print() {
+    public func print() {
         puts(c"BType")
     }
 }
 
 func main() Int {
-    a : AType
-    b : BType
-    ar : &AType = &b
-    br : &BType = &b
+    bo : BType
+    ar : &AType = &bo
+    br : &BType = &bo
 
     ar^.field1 = 1
     br^.field1 = 2
     assert( TRUE, ar^.field1 == 1 )
     assert( TRUE, br^.field1 == 2 )
-    assert( TRUE, b.field1 == 2 )
+    assert( TRUE, bo.field1 == 2 )
 
     ar^.field1 = 4
     br^.field1 = 8
     assert( TRUE, ar^.field1 == 4 )
     assert( TRUE, br^.field1 == 8 )
-    assert( TRUE, b.field1 == 8 )
+    assert( TRUE, bo.field1 == 8 )
 
-    assert( TRUE, ar^.SFIELD == 42 ) ## not yet polym!
+    assert( TRUE, ar^.SFIELD == 42 )
     assert( TRUE, br^.SFIELD == 42 )
-    assert( TRUE, a.SFIELD == 41 )
-    assert( TRUE, b.SFIELD == 42 )
+    assert( TRUE, bo.SFIELD == 42 )
     assert( TRUE, AType.SFIELD == 41 )
     assert( TRUE, BType.SFIELD == 42 )
 
-    a.print()
-    b.print()
+    ar^.print()
+    br^.print()
 
-    return Int( br^.SFIELD )
+    return Int( ar^.SFIELD )
 }

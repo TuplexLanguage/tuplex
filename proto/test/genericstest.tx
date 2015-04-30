@@ -32,7 +32,9 @@ public type NCArray<E> derives Array<E,10> {
 type Type<E,L:UInt> derives Tuple {
 }
 
-type Midtype<F,L:UInt> Type<F,(L)>
+## not yet supported to rename value parameter:
+##type Midtype<F,L:UInt> Type<F,(L)>
+type Midtype<F,L:UInt> Type<F>
 
 LEN : UInt = 5
 type GlobalType Midtype<Float,(LEN)>

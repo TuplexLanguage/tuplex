@@ -44,6 +44,8 @@ public:
     inline bool has_field(const std::string& name) const { return this->fields.count(name); }
 
     inline uint32_t get_field_index(const std::string& name) const { return this->fields.at(name); }
+
+    inline uint32_t get_field_count() const { return this->fieldTypes.size(); }
 };
 
 

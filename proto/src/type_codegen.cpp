@@ -71,11 +71,10 @@ Function* TxType::get_type_user_init_func(LlvmGenerationContext& context) const 
     }
     std::string funcName(entity->get_full_name().to_string() + ".$tuinit");
 
-    auto voidType = Type::getVoidTy(context.llvmContext);
     std::vector<Type*> typeInitFuncArgTypes {
-        Type::getInt8PtrTy(context.llvmContext)  // void* to type's data
+        context.get_voidPtrT()  // void* to type's data
     };
-    FunctionType *typeInitFuncType = FunctionType::get(voidType, typeInitFuncArgTypes, false);
+    FunctionType *typeInitFuncType = FunctionType::get(context.get_voidT(), typeInitFuncArgTypes, false);
 
     Function *initFunc = cast<Function>(context.llvmModule.getOrInsertFunction(funcName, typeInitFuncType));
     BasicBlock::Create(context.llvmModule.getContext(), "entry", initFunc);
@@ -297,9 +296,7 @@ Value* TxReferenceType::gen_ref_conversion(LlvmGenerationContext& context, GenSc
 
 
 Type* TxFunctionType::make_llvm_type(LlvmGenerationContext& context) const {
-    auto voidT = Type::getVoidTy(context.llvmContext);
-    auto closureRefT = TxReferenceType::make_ref_llvm_type(context, voidT);
-
+    auto closureRefT = context.get_voidRefT();
     std::vector<Type*> llvmArgTypes;
     llvmArgTypes.push_back(closureRefT);  // first argument is always the closure object pointer
     for (auto argTxType : this->argumentTypes) {
@@ -308,7 +305,7 @@ Type* TxFunctionType::make_llvm_type(LlvmGenerationContext& context) const {
     }
     Type* llvmRetType = this->returnType
                         ? context.get_llvm_type(this->returnType)
-                        : voidT;
+                        : context.get_voidT();
     FunctionType *funcT = FunctionType::get(llvmRetType, llvmArgTypes, false);
 
     std::vector<Type*> llvmMemberTypes {
