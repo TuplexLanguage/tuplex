@@ -1,0 +1,30 @@
+module my
+
+
+public type Collection<E> {
+    elements : ~Ref<Array<~Ref<E>>>
+    count : ~UInt
+
+    public func init() {
+        self^.elements = new Array<~Ref<E>,100>()
+        self^.count = 0
+    }
+
+    public func add( elem : &E ) {
+        self^.elements^[self^.count] = elem
+        self^.count = self^.count + 1
+    }
+
+    public func get( ix : UInt ) &E {
+        return self^.elements^[ix]
+    }
+}
+
+
+public func main() Int {
+    c : Collection<Int>
+    c.init()
+    v : Float = 32.
+    c.add(&v)
+    return c.get(0)^
+}

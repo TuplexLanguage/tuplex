@@ -52,7 +52,7 @@ public:
         }
         // FUTURE: define implicit closure object when in code block
 
-        this->funcTypeNode->symbol_declaration_pass_func_header(funcLexContext);  // function header
+        this->funcTypeNode->symbol_declaration_pass_func_header(funcLexContext, funcLexContext);  // function header
         this->suite->symbol_declaration_pass_no_subscope(funcLexContext);  // function body
     }
 
@@ -65,7 +65,7 @@ public:
 
         if (this->funcTypeNode->returnField) {
             // verify that suite ends with return statement
-            if (! dynamic_cast<TxReturnStmtNode*>(this->suite->suite->back()))
+            if (this->suite->suite->empty() || ! dynamic_cast<TxReturnStmtNode*>(this->suite->suite->back()))
                 this->cerror("Function has return value, but does not end with a return statement.");
         }
         // TODO: if in global scope, don't permit 'modifying'

@@ -271,7 +271,7 @@ protected:
     /** Gets the type entity declared with this type expression, if any. */
     virtual TxTypeEntity* get_entity() const { return this->declaredEntity; }
 
-    virtual void symbol_declaration_pass_descendants(LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
+    virtual void symbol_declaration_pass_descendants(LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
 
     /** Defines the type of this type expression, constructing/obtaining the TxType instance.
      * The implementation should only traverse the minimum nodes needed to define the type
@@ -287,7 +287,12 @@ public:
     virtual bool has_predefined_type() const { return false; }
 
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext, TxDeclarationFlags declFlags,
+    /** Performs the symbol declaration pass for this type expression.
+     * Type expressions evaluate within a "definition context", representing their "outer" scope,
+     * and a "lexical context", within which they declare their constituent sub-expressions.
+     * The definition context is used for named types lookups, to avoid conflation with names of the sub-expressions.
+     */
+    virtual void symbol_declaration_pass(LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                          const std::string designatedTypeName = std::string(),
                                          const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr);
 
@@ -441,10 +446,10 @@ class TxFieldDefNode : public TxNode, public TxFieldDefiner {
         if (this->typeExpression) {
             // unless the type expression is a directly named type, declare implicit type entity for this field's type:
             if (this->typeExpression->has_predefined_type())
-                this->typeExpression->symbol_declaration_pass(innerContext, typeDeclFlags);
+                this->typeExpression->symbol_declaration_pass(innerContext, innerContext, typeDeclFlags);
             else {
                 auto implTypeName = this->fieldName + "$type";
-                this->typeExpression->symbol_declaration_pass(innerContext, typeDeclFlags, implTypeName);
+                this->typeExpression->symbol_declaration_pass(innerContext, innerContext, typeDeclFlags, implTypeName);
             }
         }
         if (this->initExpression) {
@@ -628,7 +633,8 @@ public:
         validateTypeName(this, declFlags, typeName);
     }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext);
+    virtual void symbol_declaration_pass(LexicalContext& lexContext)  { this->symbol_declaration_pass(lexContext, lexContext); }
+    virtual void symbol_declaration_pass(LexicalContext& defContext, LexicalContext& lexContext);
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
         this->typeExpression->symbol_resolution_pass(resCtx);

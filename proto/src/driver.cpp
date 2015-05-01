@@ -114,6 +114,9 @@ int TxDriver::compile() {
 
     this->package->prepare_modules();
 
+    // Currently the symbol_validation_pass must be run before the symbol_resolution_pass
+    // (symbol_resolution_pass does not traverse references, which can lead to encountering
+    //  unresolved types), this order might be desirable to change in future.
     ResolutionContext resCtx;
     bool symValid = this->package->symbol_validation_pass(resCtx);
     for (auto parsedAST : this->parsedASTs)

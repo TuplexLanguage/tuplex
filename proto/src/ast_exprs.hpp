@@ -485,10 +485,10 @@ public:
         auto typeDeclFlags = TXD_PUBLIC | TXD_IMPLICIT;
         // unless the type expression is a directly named type, declare implicit type entity for this field's type:
         if (this->typeExpr->has_predefined_type())
-            this->typeExpr->symbol_declaration_pass(lexContext, typeDeclFlags);
+            this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags);
         else {
             auto implTypeName = lexContext.scope()->get_unique_name("$type");
-            this->typeExpr->symbol_declaration_pass(lexContext, typeDeclFlags, implTypeName);
+            this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags, implTypeName);
         }
     }
 

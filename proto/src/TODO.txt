@@ -5,6 +5,10 @@ Generic type instance fields support
  - To support declaring instance fields of parameterized type by reference
  - Requires creating 'concrete' member entity copies in specialized subtype
 
+Initializers / constructors
+
+Type conversions (with if statements)
+
 Interfaces
 
 Range typeclass
@@ -14,7 +18,7 @@ for-loops
 Tuple literals
 Array literals
 
-Constructors/initializers, destructors
+Destructors
 
 Union typeclass
 
