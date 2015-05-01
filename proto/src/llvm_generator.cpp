@@ -474,11 +474,7 @@ Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
         // same data type as base type
         return this->get_llvm_type(txType->get_base_type());
 
-// we currently do map abstract types (e.g. reference targets)
-//    if (! txType->is_concrete()) {
-//        this->LOG.error("Can't map a non-concrete type to an LLVM type: %s", txType->to_string().c_str());
-//        return nullptr;
-//    }
+    // note: we do map abstract types (e.g. reference targets)
 
     auto iter = this->llvmTypeMapping.find(txType);
     if (iter != this->llvmTypeMapping.end()) {

@@ -147,6 +147,17 @@ bool TxType::is_builtin() const {
     return this->_entity && (this->_entity->get_decl_flags() & TXD_BUILTIN);
 }
 
+bool TxType::is_concrete() const {
+    // A concrete type is not abstract, nor usually generic (references may be concrete while generic).
+    if (this->is_abstract())
+        return false;
+    if (this->is_generic()) {
+        // TODO: If all members concrete, then return true (also handle this for Array<Ref<>>)
+        return false;
+    }
+    return true;
+}
+
 bool TxType::is_pure_specialization() const {
     return ( this->is_modifiable()
              || ( this->has_base_type() && this->interfaces.empty()

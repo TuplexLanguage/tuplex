@@ -62,6 +62,13 @@ public:
             this->selfRefNode->symbol_resolution_pass(resCtx);
         this->funcTypeNode->symbol_resolution_pass(resCtx);  // function header
         this->suite->symbol_resolution_pass(resCtx);  // function body
+
+        if (this->funcTypeNode->returnField) {
+            // verify that suite ends with return statement
+            if (! dynamic_cast<TxReturnStmtNode*>(this->suite->suite->back()))
+                this->cerror("Function has return value, but does not end with a return statement.");
+        }
+        // TODO: if in global scope, don't permit 'modifying'
     }
 
 //    /** Returns false if this function may modify its closure when run, i.e. have side effects.
@@ -73,7 +80,6 @@ public:
     virtual bool is_statically_constant() const override { return ! this->is_instance_method(); }
 
     virtual void semantic_pass() {
-        // TODO: if in global scope, don't permit 'modifying'
         if (this->selfRefNode)
             this->selfRefNode->semantic_pass();
         this->funcTypeNode->semantic_pass();

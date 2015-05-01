@@ -58,8 +58,8 @@ public:
     virtual TxTypeClass get_type_class() const override { return TXTC_ANY; }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
-        ASSERT(false, "Can't contruct LLVM type for abstract type " << this->to_string());
-        context.LOG.error("Can't contruct LLVM type for abstract type %s", this->to_string().c_str());
+        //ASSERT(false, "Can't contruct LLVM type for abstract type " << this->to_string());
+        context.LOG.debug("LLVM type for abstract type %s is VOID", this->to_string().c_str());
         return context.get_voidT();
     }
 };
@@ -86,8 +86,8 @@ public:
     virtual TxTypeClass get_type_class() const override { return this->typeClass; }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
-        ASSERT(false, "Can't contruct LLVM type for abstract type " << this->to_string());
-        context.LOG.error("Can't contruct LLVM type for abstract type %s", this->to_string().c_str());
+        //ASSERT(false, "Can't contruct LLVM type for abstract type " << this->to_string());
+        context.LOG.debug("LLVM type for abstract type %s is VOID", this->to_string().c_str());
         return context.get_voidT();
     }
 };

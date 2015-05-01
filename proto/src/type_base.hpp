@@ -378,12 +378,12 @@ public:
     /** Returns true if this type is declared abstract. */
     virtual bool is_abstract() const { return true; }
 
-    /** Returns true if this type is concrete (i.e. can be directly instanced).
-     * A concrete type is not abstract, nor usually generic (references may be concrete while generic). */
-    bool is_concrete() const { return !this->is_abstract() && !this->is_generic(); }
-
     /** Returns true if this type is generic (i.e. has unbound type parameters). */
     bool is_generic() const { return !this->type_params().empty(); }
+
+    /** Returns true if this type is concrete (i.e. can be directly instanced).
+     * A concrete type is not abstract, nor usually generic (references may be concrete while generic). */
+    bool is_concrete() const;
 
     /** Returns true if this type is a pure specialization of a base type,
      * i.e. does not extend the base type with any definitions, or interfaces,

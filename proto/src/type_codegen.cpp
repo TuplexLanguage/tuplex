@@ -259,6 +259,8 @@ Type* TxReferenceType::make_llvm_type(LlvmGenerationContext& context) const {
     ResolutionContext resCtx;
     if (auto txTargetType = this->target_type(resCtx)) {
         if (Type* targetType = context.get_llvm_type(txTargetType)) {
+            if (targetType->isVoidTy())
+                targetType = Type::getInt8Ty(context.llvmContext);  // i8* represents void*
             context.LOG.debug("Mapping reference type %s", this->to_string().c_str());
             return make_ref_llvm_type(context, targetType);
         }
@@ -319,10 +321,11 @@ Type* TxFunctionType::make_llvm_type(LlvmGenerationContext& context) const {
 
 
 Type* TxTupleType::make_llvm_type(LlvmGenerationContext& context) const {
-    if (! this->is_concrete()) {
-        context.LOG.warning("making LLVM type of non-concrete type %s", this->to_string().c_str());
-        return StructType::create(context.llvmContext);  // creates opaque (empty placeholder) structure
-    }
+// FUTURE: when is_concrete() is more robust (works for code within generic types) this should maybe be reintroduced:
+//    if (! this->is_concrete()) {
+//        context.LOG.warning("making LLVM type of non-concrete type %s", this->to_string().c_str());
+//        return StructType::create(context.llvmContext);  // creates opaque (empty placeholder) structure
+//    }
     auto entity = this->entity();
     if (! entity) {
         context.LOG.error("No entity for Tuple type %s - can't perform LLVM type mapping", this->to_string().c_str());

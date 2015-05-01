@@ -1,13 +1,9 @@
 
 Dataspace syntax support
 
-Polymorphic inheritance: Static fields, V-table
-
 Generic type instance fields support
  - To support declaring instance fields of parameterized type by reference
  - Requires creating 'concrete' member entity copies in specialized subtype
-
-Methods (implicit self parameter)
 
 Interfaces
 
@@ -19,10 +15,6 @@ Tuple literals
 Array literals
 
 Constructors/initializers, destructors
-
-Boxed references
-
-Heap allocation
 
 Union typeclass
 
