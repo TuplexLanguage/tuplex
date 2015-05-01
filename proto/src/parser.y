@@ -125,7 +125,7 @@ YY_DECL;
 %type <TxTypeExpressionNode*> reference_type array_type //data_tuple_type
 
 %type <TxFunctionTypeNode*> function_type function_header
-%type <TxExpressionNode*> expr lambda_expr value_literal array_dimensions
+%type <TxExpressionNode*> expr new_expr lambda_expr value_literal array_dimensions
 %type <TxFunctionCallNode*> call_expr
 %type <std::vector<TxExpressionNode*> *> expression_list call_params
 %type <TxSuiteNode*> suite
@@ -367,6 +367,9 @@ type_arg        : value_literal       { $$ = new TxTypeArgumentNode($1); }  // u
                 | opt_modifiable predef_type   { auto typeNode = ( $1 ? new TxModifiableTypeNode(@1, $2)
                                                                       : new TxMaybeModTypeNode(@2, $2) );
                                                  $$  = new TxTypeArgumentNode(typeNode); }
+                // TODO: syntactic sugar for reference and array types (possibly chained):
+                // | opt_modifiable AAND predef_type
+                // | opt_modifiable LBRACKET RBRACKET predef_type
                 ;
 
 
@@ -472,6 +475,7 @@ expr
     |   value_literal       { $$ = $1; }
     |   lambda_expr         { $$ = $1; }  // is this really combinable within another expression?
     |   call_expr           { $$ = $1; }
+    |   new_expr            { $$ = $1; }
 
 //    |   field_identifier           %prec DOT   { $$ = new TxFieldValueNode(@1, NULL, $1); }
 //    |   expr DOT field_identifier  %prec EXPR  { $$ = new TxFieldValueNode(@1, $1,   $3); }
@@ -509,6 +513,9 @@ value_literal
         |       KW_TRUE       { $$ = new TxBoolLitNode(@1, true); }
         // |       LIT_STRING    { $$ = new TxStringLitNode(@1, $1); }
     ;
+
+new_expr : KW_NEW type_expression LPAREN RPAREN { $$ = new TxNewExprNode(@1, $2); }
+;
 
 call_expr : expr call_params  { $$ = new TxFunctionCallNode(@1, $1, $2); }
 ;  //  FUTURE: Interface(adaptedObj)

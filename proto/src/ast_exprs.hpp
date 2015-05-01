@@ -186,7 +186,7 @@ public:
 
     virtual bool has_predefined_type() const override { return this->array->has_predefined_type(); }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
         this->array->symbol_declaration_pass(lexContext);
         this->subscript->symbol_declaration_pass(lexContext);
@@ -203,7 +203,7 @@ public:
         return false;  // can we ever know if target is statically constant?
     }
 
-    virtual void semantic_pass() {
+    virtual void semantic_pass() override {
         array->semantic_pass();
         subscript->semantic_pass();
     }
@@ -237,13 +237,13 @@ public:
         this->target->symbol_resolution_pass(resCtx);
     }
 
-    virtual bool is_statically_constant() const {
+    virtual bool is_statically_constant() const override {
         // apparently static const field will not be recognized to have statically const address by llvm
         //return false;
         return this->target->is_statically_constant();  // trying again
     }
 
-    virtual void semantic_pass() {
+    virtual void semantic_pass() override {
         this->target->semantic_pass();
         if (dynamic_cast<TxFieldValueNode*>(this->target)) {
         }
@@ -257,7 +257,7 @@ public:
         //    parser_error(this->parseLocation, "Can't construct reference to non-addressable expression.");
     }
 
-    virtual void set_applied_func_arg_types(std::vector<const TxType*>* appliedTypeParameters) {
+    virtual void set_applied_func_arg_types(std::vector<const TxType*>* appliedTypeParameters) override {
         this->target->set_applied_func_arg_types(appliedTypeParameters);
     }
 
@@ -357,7 +357,7 @@ public:
         ASSERT(is_valid(op), "Invalid operator value: " << (int)op);
     }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
         lhs->symbol_declaration_pass(lexContext);
         rhs->symbol_declaration_pass(lexContext);
@@ -369,11 +369,11 @@ public:
         rhs->symbol_resolution_pass(resCtx);
     }
 
-    virtual bool is_statically_constant() const {
+    virtual bool is_statically_constant() const override {
         return this->lhs->is_statically_constant() && this->rhs->is_statically_constant();
     }
 
-    virtual void semantic_pass() {
+    virtual void semantic_pass() override {
         lhs->semantic_pass();
         rhs->semantic_pass();
     }
@@ -396,7 +396,7 @@ public:
     TxUnaryMinusNode(const yy::location& parseLocation, TxExpressionNode* operand)
         : TxOperatorValueNode(parseLocation), operand(operand) { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
         operand->symbol_declaration_pass(lexContext);
     }
@@ -406,11 +406,11 @@ public:
         operand->symbol_resolution_pass(resCtx);
     }
 
-    virtual bool is_statically_constant() const {
+    virtual bool is_statically_constant() const override {
         return this->operand->is_statically_constant();
     }
 
-    virtual void semantic_pass() {
+    virtual void semantic_pass() override {
         operand->semantic_pass();
     }
 
@@ -428,7 +428,7 @@ public:
     TxUnaryLogicalNotNode(const yy::location& parseLocation, TxExpressionNode* operand)
         : TxOperatorValueNode(parseLocation), operand(operand) { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
         operand->symbol_declaration_pass(lexContext);
     }
@@ -443,12 +443,65 @@ public:
             cerror("Operand of unary '!' is not of Bool type: %s", (type ? type->to_string().c_str() : "NULL"));
     }
 
-    virtual bool is_statically_constant() const {
+    virtual bool is_statically_constant() const override {
         return this->operand->is_statically_constant();
     }
 
-    virtual void semantic_pass() {
+    virtual void semantic_pass() override {
         operand->semantic_pass();
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+};
+
+
+
+class TxNewExprNode : public TxExpressionNode {
+protected:
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", this->typeExpr));
+//        // currently we require the new expr type to be modifiable  TODO: solve assignment from new expr differently
+//        if (auto type = this->typeExpr->resolve_type(resCtx)) {
+//            if (type->is_modifiable())
+//                return type;
+//            else if (! type->is_immutable())
+//                return this->types().get_modifiable_type(nullptr, type);
+//            else
+//                cerror("Not yet supported to assign immutable type in 'new' expression");
+//        }
+//        return nullptr;
+    }
+
+public:
+    TxTypeExpressionNode* typeExpr;
+    TxNewExprNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr)
+        : TxExpressionNode(parseLocation), typeExpr(typeExpr) { }
+
+    virtual bool has_predefined_type() const override { return this->typeExpr->has_predefined_type(); }
+
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
+        // (similar to TxFieldDefNode::symbol_declaration_pass())
+        this->set_context(lexContext);
+        auto typeDeclFlags = TXD_PUBLIC | TXD_IMPLICIT;
+        // unless the type expression is a directly named type, declare implicit type entity for this field's type:
+        if (this->typeExpr->has_predefined_type())
+            this->typeExpr->symbol_declaration_pass(lexContext, typeDeclFlags);
+        else {
+            auto implTypeName = lexContext.scope()->get_unique_name("$type");
+            this->typeExpr->symbol_declaration_pass(lexContext, typeDeclFlags, implTypeName);
+        }
+    }
+
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(resCtx);
+        this->typeExpr->symbol_resolution_pass(resCtx);
+        if (auto type = this->get_type())
+            if (! type->is_concrete())
+                cerror("Field type is not concrete (size potentially unknown): %s", type->to_string().c_str());
+    }
+
+    virtual void semantic_pass() override {
+        this->typeExpr->semantic_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

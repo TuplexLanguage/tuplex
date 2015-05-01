@@ -98,6 +98,10 @@ public:
      * (This is the built-in main, which calls the user main function.)  */
     bool generate_main(const std::string& userMainIdent, const TxFunctionType* mainFuncType);
 
+
+    // "intrinsics":
+    llvm::Value* gen_malloc(GenScope* scope, llvm::Type* objT);
+
     llvm::Value* gen_get_vtable(GenScope* scope, const TxType* statDeclType, llvm::Value* typeIdV) const;
     llvm::Value* gen_get_vtable(GenScope* scope, const TxType* statDeclType) const;
 

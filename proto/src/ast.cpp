@@ -267,7 +267,7 @@ void TxPredefinedTypeNode::symbol_declaration_pass(LexicalContext& lexContext, T
     std::string typeName;
     if (designatedTypeName.empty() && !this->typeArgs->empty()) {
         // ensure generic type specializations always have a declared type (handles e.g. Ref<Ref<Int>>)
-        std::string typeName = "$type";
+        typeName = "$type";
         declFlags = declFlags | TXD_IMPLICIT;
     }
     else

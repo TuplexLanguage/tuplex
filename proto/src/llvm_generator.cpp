@@ -417,6 +417,18 @@ void LlvmGenerationContext::generate_runtime_data() {
 }
 
 
+llvm::Value* LlvmGenerationContext::gen_malloc(GenScope* scope, llvm::Type* objT) {
+    auto int32T = Type::getInt32Ty(this->llvmContext);
+    auto mallocParameterType = int32T;
+    auto objSizeV = ConstantExpr::getTruncOrBitCast(ConstantExpr::getSizeOf(objT), int32T);
+    auto objCountV = ConstantInt::get(int32T, 1);
+    auto objAllocI = CallInst::CreateMalloc(scope->builder->GetInsertBlock(), mallocParameterType,
+                                            objT, objSizeV, objCountV, nullptr, "");
+    scope->builder->GetInsertBlock()->getInstList().push_back(objAllocI);
+    return objAllocI;
+}
+
+
 Value* LlvmGenerationContext::gen_get_vtable(GenScope* scope, const TxType* statDeclType, Value* runtimeBaseTypeIdV) const {
     Value* metaTypesV = this->lookup_llvm_value("tx.runtime.META_TYPES");
     Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(this->llvmContext), 0),

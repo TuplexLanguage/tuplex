@@ -21,7 +21,8 @@ function checked {
 }
 
 echo -e $color_cyan "Compiling: " "$@" $color_off
-checked bin/txc "$@"
+# -rj option disables running in JITed mode from compiler
+checked bin/txc -rj "$@"
 
 # determine output file basepath
 while [[ $# -gt 0 ]]; do

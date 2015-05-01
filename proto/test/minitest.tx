@@ -1,5 +1,13 @@
 module my
 
 func main() Int {
-    return 0
+    heapVar : &~Int = new ~Int()
+    heapRef : &~&~Int = new ~&~Int()
+    heapVar^ = 255
+    heapRef^ = heapVar
+    return heapRef^^
+    /*
+    heapArr := new Array<Int,100>()
+    return heapVar^
+    */
 }
