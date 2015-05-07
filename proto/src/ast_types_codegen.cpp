@@ -41,9 +41,7 @@ Value* TxDerivedTypeNode::code_gen(LlvmGenerationContext& context, GenScope* sco
     context.LOG.trace("%-48s", this->to_string().c_str());
     for (auto type : *this->baseTypes)
         type->code_gen(context, scope);
-    for (auto member : *this->staticMembers)
-        member->code_gen(context, scope);
-    for (auto member : *this->instanceMembers)
+    for (auto member : *this->members)
         member->code_gen(context, scope);
     return nullptr;
 }

@@ -275,35 +275,11 @@ public:
 class TxDerivedTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void symbol_declaration_pass_descendants(LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
-        {
-            //LexicalContext parentContext(lexContext.scope()->get_parent());
-            //std::string basename = "$base"; //this->get_entity()->get_name() + "$base";
-            //int b = 0;
-            for (auto baseType : *this->baseTypes)
-                baseType->symbol_declaration_pass(defContext, lexContext, declFlags);
-        }
+        for (auto baseType : *this->baseTypes)
+            baseType->symbol_declaration_pass(defContext, lexContext, declFlags);
 
-        for (auto member : *this->instanceMembers) {
+        for (auto member : *this->members)
             member->symbol_declaration_pass(lexContext);
-        }
-        auto memIter = this->staticMembers->begin();
-        while (memIter != this->staticMembers->end()) {
-            auto member = *memIter;
-            member->symbol_declaration_pass(lexContext);
-            if (auto fieldDecl = dynamic_cast<TxFieldDeclNode*>(member))
-                if (auto entity = fieldDecl->field->get_entity()) {
-                    if (entity->get_storage() == TXS_INSTANCE) {
-                        // move to instanceMembers list
-                        this->instanceMembers->push_back(fieldDecl);
-                        memIter = this->staticMembers->erase(memIter);
-                        //std::cout << "instance member: " << fieldDecl->field->ident << std::endl;
-                        continue;
-                    }
-                    //else
-                    //    std::cout << "static member: " << fieldDecl->field->ident << std::endl;
-                }
-            memIter++;
-        }
     }
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
@@ -315,35 +291,30 @@ protected:
         if (! baseObjType)
             return nullptr;
         TxTypeSpecialization specialization(baseObjType, std::vector<TxGenericBinding>());
-        // Note: does not specify explicit type parameter bindings; any unbound type parameters
-        // of the base types are expected to match the declared type params.  FIXME: review
+        // Note: Does not specify explicit type parameter bindings; any unbound type parameters
+        //       of the base types are expected to match the declared type params.  FIXME: review
+        // Note: Members are not necessarily resolved at this point.
         auto type = this->types().get_type_specialization(entity, specialization, this->_mutable, this->declTypeParams);
-        // Note: Members of the type are defined via the type entity's members.
-        // FIXME: review: Should we resolve the type members here?
         return type;
     }
 
 public:
     const bool _mutable;
     std::vector<TxPredefinedTypeNode*>* baseTypes;
-    std::vector<TxDeclarationNode*>* staticMembers;
-    std::vector<TxFieldDeclNode*>* instanceMembers;
+    std::vector<TxDeclarationNode*>* members;
 
     TxDerivedTypeNode(const yy::location& parseLocation, const bool _mutable,
                       std::vector<TxPredefinedTypeNode*>* baseTypes,
                       std::vector<TxDeclarationNode*>* members)
             : TxTypeExpressionNode(parseLocation), _mutable(_mutable),
-              baseTypes(baseTypes), staticMembers(members)  {
-        instanceMembers = new std::vector<TxFieldDeclNode*>();
+              baseTypes(baseTypes), members(members)  {
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         TxTypeExpressionNode::symbol_resolution_pass(resCtx);
         for (auto type : *this->baseTypes)
             type->symbol_resolution_pass(resCtx);
-        for (auto member : *this->staticMembers)
-            member->symbol_resolution_pass(resCtx);
-        for (auto member : *this->instanceMembers)
+        for (auto member : *this->members)
             member->symbol_resolution_pass(resCtx);
     }
 
@@ -352,14 +323,10 @@ public:
             type->semantic_pass();
             // TO DO: validity checks
         }
-        for (auto member : *this->staticMembers) {
-            member->semantic_pass();
-            // TO DO: validity checks
-        }
-        for (auto member : *this->instanceMembers) {
+        for (auto member : *this->members) {
             member->semantic_pass();
             // validity checks:
-            // TODO: can't put immutable member in non-immutable type (except via reference)
+            // TODO: can't put immutable instance member in non-immutable type (except via reference)
             //       (OR: disable whole-object-assignment)
         }
     }
