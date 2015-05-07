@@ -200,7 +200,7 @@ public:
     }
 
     virtual bool is_statically_constant() const {
-        return false;  // can we ever know if target is statically constant?
+        return this->array->is_statically_constant() && this->subscript->is_statically_constant();
     }
 
     virtual void semantic_pass() override {

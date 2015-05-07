@@ -1,15 +1,15 @@
 
-Dataspace syntax support
+Initializers / constructors
 
 Generic type instance fields support
  - To support declaring instance fields of parameterized type by reference
  - Requires creating 'concrete' member entity copies in specialized subtype
 
-Initializers / constructors
+Interfaces
 
 Type conversions (with if statements)
 
-Interfaces
+Dataspace syntax support, continued
 
 Range typeclass
 

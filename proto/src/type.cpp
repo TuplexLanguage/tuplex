@@ -39,7 +39,7 @@ std::string TxGenericBinding::to_string() const {
     return this->typeParamName + "=" + ( this->metaType==TxTypeParam::MetaType::TXB_TYPE
                                                 ? (type = this->type_definer().attempt_get_type(),
                                                    type ? type->to_string(true) : "")
-                                                : this->value_expr().to_string() );
+                                                : "expr" );  // this->value_expr().to_string()
 }
 
 bool operator==(const TxGenericBinding& b1, const TxGenericBinding& b2) {

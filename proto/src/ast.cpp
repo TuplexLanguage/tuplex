@@ -154,7 +154,7 @@ static TxExpressionNode* inner_validate_wrap_convert(ResolutionContext& resCtx, 
             }
         }
     }
-    originalExpr->cerror("Can't auto-convert value %s => %s",
+    originalExpr->cerror("Can't auto-convert value\n\tFrom: %80s\n\tTo:   %80s",
                          originalType->to_string().c_str(), requiredType->to_string().c_str());
     return originalExpr;
 }
@@ -227,7 +227,7 @@ void TxTypeExpressionNode::symbol_declaration_pass(LexicalContext& defContext, L
     TxTypeEntity* entity = nullptr;
     if (! designatedTypeName.empty()) {
         entity = lexContext.scope()->declare_type(designatedTypeName, this, declFlags);
-        this->LOGGER().alert("%s: Defining type %-16s: %s", this->parse_loc_string().c_str(), designatedTypeName.c_str(),
+        this->LOGGER().debug("%s: Defining type %-16s: %s", this->parse_loc_string().c_str(), designatedTypeName.c_str(),
                              entity->get_full_name().to_string().c_str());
         if (! entity)
             cerror("Failed to declare type %s", designatedTypeName.c_str());

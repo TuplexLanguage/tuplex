@@ -59,7 +59,7 @@ static Value* make_constant_nonlocal_field(LlvmGenerationContext& context, GenSc
     if (field->initExpression) {
         if (field->initExpression->is_statically_constant()) {
             auto initValue = field->initExpression->code_gen(context, scope);
-            constantInitializer = dyn_cast<Constant>(initValue);
+            constantInitializer = dyn_cast_or_null<Constant>(initValue);
             if (! constantInitializer)
                 context.LOG.error("Global field %s initializer is not constant: %s",
                                   entity->get_full_name().to_string().c_str(), to_string(initValue).c_str());

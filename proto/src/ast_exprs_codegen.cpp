@@ -289,38 +289,107 @@ Value* TxReferenceDerefNode::code_gen_typeid(LlvmGenerationContext& context, Gen
 
 
 
-Value* TxElemDerefNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
-    auto arrayval = this->array->code_gen(context, scope);
-    auto subscriptval = this->subscript->code_gen(context, scope);
-    if (! arrayval || ! subscriptval)
-        return NULL;
-    ASSERT(subscriptval->getType()->isIntegerTy(), "expected subscript to be an integer: " << subscriptval);
-    ASSERT(arrayval->getType()->isPointerTy(), "expected array-operand to be a pointer: " << arrayval);
-    ASSERT(arrayval->getType()->getPointerElementType()->isStructTy(), "expected array-operand to be a pointer to struct: " << arrayval);
+static Value* gen_elem_address(LlvmGenerationContext& context, GenScope* scope, Value* arrayPtrV, Value* subscriptV) {
+    ASSERT(subscriptV->getType()->isIntegerTy(), "expected subscript to be an integer: " << subscriptV);
+    ASSERT(arrayPtrV->getType()->isPointerTy(), "expected array-operand to be a pointer: " << arrayPtrV);
+    ASSERT(arrayPtrV->getType()->getPointerElementType()->isStructTy(), "expected array-operand to be a pointer to struct: " << arrayPtrV);
 
-    if (dyn_cast<Constant>(arrayval) && (dyn_cast<Constant>(subscriptval))) {
+    if (dyn_cast<Constant>(arrayPtrV) && (dyn_cast<Constant>(subscriptV))) {
         // TODO: constant expression, static bounds check sufficient
     }
     else {
         // TODO: Inject code for bounds checking, and support negative indexing from array end
     }
 
+    if (auto arrayPtrC = dyn_cast<Constant>(arrayPtrV)) {
+        if (auto intC = dyn_cast<ConstantInt>(subscriptV)) {
+            Constant* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
+                                ConstantInt::get(Type::getInt32Ty(context.llvmContext), 1),
+                                intC };
+            return ConstantExpr::getInBoundsGetElementPtr(arrayPtrC, ixs);
+        }
+    }
+
     Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
                      ConstantInt::get(Type::getInt32Ty(context.llvmContext), 1),
-                     subscriptval };
-    Value* elemPtr;
-    if (this->is_statically_constant() && !scope) {  // seems we can only do this in global scope?
-        elemPtr = GetElementPtrInst::CreateInBounds(arrayval, ixs);
-    }
-    else {
-        ASSERT(scope, "scope is NULL, although expression is not constant and thus should be within runtime block");
-        elemPtr = scope->builder->CreateInBoundsGEP(arrayval, ixs);
-    }
-    return elemPtr;
+                     subscriptV };
+    if (scope)
+        return scope->builder->CreateInBoundsGEP(arrayPtrV, ixs);
+    else
+        return GetElementPtrInst::CreateInBounds(arrayPtrV, ixs);
 }
+
+Value* TxElemDerefNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
+    auto arrayV = this->array->code_gen(context, scope);
+    auto subscriptV = this->subscript->code_gen(context, scope);
+    if (! arrayV || ! subscriptV)
+        return NULL;
+
+    if (! arrayV->getType()->isPointerTy()) {
+        // aggregate values must be stored in memory (have address) for getting address of element
+        if (scope) {
+            auto arrayA = scope->builder->CreateAlloca(arrayV->getType());
+            scope->builder->CreateStore(arrayV, arrayA);
+            arrayV = arrayA;
+        }
+        else if (auto arrayC = dyn_cast<Constant>(arrayV)) {
+            auto arrayA = new GlobalVariable(context.llvmModule, arrayC->getType(), true, GlobalValue::InternalLinkage,
+                                             arrayC, "$array");
+            arrayV = arrayA;
+        }
+        else {
+            context.LOG.error("Can't dereference non-constant array from global scope");
+            return NULL;
+        }
+    }
+
+    return gen_elem_address(context, scope, arrayV, subscriptV);
+}
+
 Value* TxElemDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    Value* elemPtr = this->code_gen_address(context, scope);
+    auto arrayV = this->array->code_gen(context, scope);
+    auto subscriptV = this->subscript->code_gen(context, scope);
+    if (! arrayV || ! subscriptV)
+        return NULL;
+
+    if (! arrayV->getType()->isPointerTy()) {
+        if (auto arrayC = dyn_cast<Constant>(arrayV)) {
+            if (auto intC = dyn_cast<ConstantInt>(subscriptV)) {
+                uint32_t ixs[] = { 1, (uint32_t)intC->getLimitedValue(UINT32_MAX) };
+                return ConstantExpr::getExtractValue(arrayC, ixs);
+            }
+        }
+
+        // aggregate values must be stored in memory (have address) for performing element access
+        // when the element index value is not statically known
+        if (scope) {
+            auto arrayA = scope->builder->CreateAlloca(arrayV->getType());
+            scope->builder->CreateStore(arrayV, arrayA);
+            arrayV = arrayA;
+        }
+        else if (auto arrayC = dyn_cast<Constant>(arrayV)) {
+            auto arrayA = new GlobalVariable(context.llvmModule, arrayC->getType(), true, GlobalValue::InternalLinkage,
+                                             arrayC, "$array");
+            arrayV = arrayA;
+        }
+        else {
+            context.LOG.error("Can't dereference non-constant array from global scope");
+            return NULL;
+        }
+    }
+    else if (auto arrayPtrG = dyn_cast<GlobalVariable>(arrayV)) {
+        // this enables dereferencing (constant) arrays from global scope
+        // since we can't use load instructions in global (constant) initializers, access the original initializer directly
+        if (arrayPtrG->hasInitializer()) {
+            if (auto intC = dyn_cast<ConstantInt>(subscriptV)) {
+                uint32_t ixs[] = { 1, (uint32_t)intC->getLimitedValue(UINT32_MAX) };
+                return ConstantExpr::getExtractValue(arrayPtrG->getInitializer(), ixs);
+            }
+        }
+    }
+
+    Value* elemPtr = gen_elem_address(context, scope, arrayV, subscriptV);
     auto elemType = elemPtr->getType()->getPointerElementType();
     //std::cout << "Line " << this->parseLocation.first_line << ": Dereferencing array element: " << elemPtr << " of pointer element type: "<< elemType << std::endl;
     if (elemType->isSingleValueType()) {  // can be loaded in register

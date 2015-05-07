@@ -1,7 +1,5 @@
 module my
 
-public type MARef<T> &T
-
 func main() Int {
     return 0
 }
