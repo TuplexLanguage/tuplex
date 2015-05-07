@@ -22,6 +22,9 @@ type AType mod derives Tuple {
     field1 : ~Long
     field2 : ~Float
 
+    public self() {
+    }
+
     public func print() {
         puts(c"AType")
     }

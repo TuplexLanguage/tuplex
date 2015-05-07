@@ -139,6 +139,7 @@ extern "C" int yywrap() { return 0; }
 "union"		{ return token::KW_UNION; }
 "enum"		{ return token::KW_ENUM; }
 "func"		{ return token::KW_FUNC; }
+"lambda"    { return token::KW_LAMBDA; }
 "raises"	{ return token::KW_RAISES; }
 
 "while"		{ return token::KW_WHILE; }

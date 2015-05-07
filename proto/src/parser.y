@@ -85,7 +85,7 @@ YY_DECL;
 %token KW_NULL KW_TRUE KW_FALSE
 
 /* keywords reserved but not currently used */
-%token KW_AND KW_XOR KW_NOT KW_BUILTIN
+%token KW_AND KW_XOR KW_NOT KW_BUILTIN KW_LAMBDA
 
  /* literals: */
 %token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
@@ -430,14 +430,12 @@ array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
 
 /// function type and function declarations:
 
-function_type : KW_FUNC opt_modifiable params_def return_type_def
-                  { $$ = new TxFunctionTypeNode(@1, $2, $3, $4); }
-              ;
+lambda_expr : function_type sep suite  { $$ = new TxLambdaExprNode(@1, $1, $3); } ;
 
-lambda_expr : function_header sep suite  { $$ = new TxLambdaExprNode(@1, $1, $3); } ;
+function_type : KW_FUNC function_header { $$ = $2; } ;
 
-function_header : KW_FUNC opt_modifiable params_def return_type_def
-                  { $$ = new TxFunctionTypeNode(@1, $2, $3, $4); }
+function_header : opt_modifiable params_def return_type_def
+                  { $$ = new TxFunctionTypeNode(@1, $1, $2, $3); }
                 ;
 
 params_def : sLPAREN field_type_list sRPAREN  { $$ = $2; }
@@ -457,9 +455,10 @@ return_type_def : %empty { $$ = NULL; } | type_expression { $$ = $1; } ;
 
 
 
-method_def  :   KW_FUNC opt_modifiable NAME params_def return_type_def sep suite
-                { TxFunctionTypeNode* funcTypeNode = new TxFunctionTypeNode(@1, $2, $4, $5);
-                  $$ = new TxFieldDefNode(@1, $3, NULL, new TxLambdaExprNode(@1, funcTypeNode, $7, true)); }
+method_def  :   KW_FUNC NAME function_header sep suite
+                { $$ = new TxFieldDefNode(@1, $2, NULL, new TxLambdaExprNode(@1, $3, $5, true)); }
+            |   NAME function_header sep suite
+                { $$ = new TxFieldDefNode(@1, $1, NULL, new TxLambdaExprNode(@1, $2, $4, true)); }
             ;
 
 

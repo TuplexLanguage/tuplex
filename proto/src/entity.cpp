@@ -51,7 +51,7 @@ void TxTypeEntity::define_data_layout(ResolutionContext& resCtx, const TxType* t
         if (auto field = dynamic_cast<TxFieldEntity*>(this->get_symbol(*symname))) {
             auto fieldType = field->resolve_symbol_type(resCtx);
             if (field->get_storage() == TXS_INSTANCE) {
-                this->LOGGER().info("Laying out instance field %-40s  %s  %s", field->get_full_name().to_string().c_str(),
+                this->LOGGER().debug("Laying out instance field %-40s  %s  %s", field->get_full_name().to_string().c_str(),
                         ::to_string(this->get_decl_flags()).c_str(), fieldType->to_string(true).c_str());
                 this->instanceFields.add_field(field->get_name(), fieldType);
                 this->declaresInstanceFields = true;
