@@ -441,9 +441,6 @@ class TxFieldDefNode : public TxNode, public TxFieldDefiner {
     TxDeclarationFlags declFlags = TXD_NONE;
     TxFieldEntity* declaredEntity = nullptr;  // null until initialized in symbol declaration pass
 
-    //TxDeclarationNode* stackConstructorDecl = nullptr;  // null unless initialized in symbol declaration pass
-    //TxDeclarationNode* declare_stack_constructor(LexicalContext& lexContext);
-
     void symbol_declaration_pass(LexicalContext& outerContext, LexicalContext& innerContext) {
         this->set_context(outerContext);
         auto typeDeclFlags = (this->declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
@@ -499,17 +496,16 @@ public:
 
     void symbol_declaration_pass_nonlocal_field(LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                                  TxFieldStorage storage, const TxIdentifier& dataspace) {
-        this->declFlags = declFlags;
-
         std::string declName;
         if (this->fieldName != "self")
             declName = this->fieldName;
         else {
             // handle constructor declaration
             declName = "$init";
-            //this->stackConstructorDecl = this->declare_stack_constructor(lexContext);
+            declFlags = declFlags | TXD_CONSTRUCTOR;
         }
 
+        this->declFlags = declFlags;
         this->declaredEntity = lexContext.scope()->declare_field(declName, this, declFlags, storage, dataspace);
         this->symbol_declaration_pass(lexContext, lexContext);
     }
@@ -531,8 +527,6 @@ public:
                 if (! this->initExpression->is_statically_constant())
                     cerror("Non-constant initializer for constant global/static field.");
         }
-        //if (this->stackConstructorDecl)
-        //    this->stackConstructorDecl->symbol_resolution_pass(resCtx);
 
         if (auto type = this->get_type()) {
             if (! type->is_concrete())
@@ -597,8 +591,6 @@ public:
             this->typeExpression->semantic_pass();
         if (this->initExpression)
             this->initExpression->semantic_pass();
-        //if (this->stackConstructorDecl)
-        //    this->stackConstructorDecl->semantic_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

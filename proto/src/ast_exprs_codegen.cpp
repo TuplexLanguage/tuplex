@@ -131,27 +131,6 @@ Value* TxUnaryLogicalNotNode::code_gen(LlvmGenerationContext& context, GenScope*
 
 
 
-Value* TxNewExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
-    this->typeExpr->code_gen(context, scope);
-    Type* objT = context.get_llvm_type(this->typeExpr->get_type());
-    Type* objRefT = context.get_llvm_type(this->get_type());
-    if (!objT || !objRefT)
-        return nullptr;
-    auto objAllocI = context.gen_malloc(scope, objT);
-
-    // call the constructor
-    this->constructor->objectPtrV = objAllocI;
-    this->constructorCall->code_gen(context, scope);
-
-    // the reference gets the statically known target type id
-    auto objTidV = ConstantInt::get(Type::getInt32Ty(context.llvmContext), this->typeExpr->get_type()->get_type_id());
-    auto objRefV = gen_ref(context, scope, objRefT, objAllocI, objTidV);
-    return objRefV;
-}
-
-
-
 Value* gen_get_struct_member(LlvmGenerationContext& context, GenScope* scope, Value* structV, unsigned ix) {
     Value* memberV;
     if (auto structPtrV = dyn_cast<PointerType>(structV->getType())) {  // address of struct
@@ -567,7 +546,10 @@ Value* TxFunctionCallNode::code_gen(LlvmGenerationContext& context, GenScope* sc
     if (this->inlinedExpression) {
         return this->inlinedExpression->code_gen(context, scope);
     }
+    return this->gen_call(context, scope);
+}
 
+Value* TxFunctionCallNode::gen_call(LlvmGenerationContext& context, GenScope* scope) const {
     auto lambdaV = this->callee->code_gen(context, scope);
     //std::cout << "callee: " << lambdaV << std::endl;
     auto functionPtrV = gen_get_struct_member(context, scope, lambdaV, 0);
@@ -590,3 +572,42 @@ Value* TxFunctionCallNode::code_gen(LlvmGenerationContext& context, GenScope* sc
         return nullptr;
     }
 }
+
+
+Value* TxNewExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s", this->to_string().c_str());
+    this->typeExpr->code_gen(context, scope);
+    Type* objT = context.get_llvm_type(this->typeExpr->get_type());
+    Type* objRefT = context.get_llvm_type(this->get_type());
+    if (!objT || !objRefT)
+        return nullptr;
+    auto objAllocI = context.gen_malloc(scope, objT);
+
+    // call the constructor
+    this->constructor->objectPtrV = objAllocI;
+    this->constructorCall->gen_call(context, scope);
+
+    // the reference gets the statically known target type id
+    auto objTidV = ConstantInt::get(Type::getInt32Ty(context.llvmContext), this->typeExpr->get_type()->get_type_id());
+    auto objRefV = gen_ref(context, scope, objRefT, objAllocI, objTidV);
+    return objRefV;
+}
+
+Value* TxStackConstructorNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s", "InlinedStackConstructor");
+    Type* objT = context.get_llvm_type(this->get_object_type());
+    Type* objRefT = context.get_llvm_type(this->get_type());
+    if (!objT || !objRefT)
+        return nullptr;
+    auto objAllocI = context.gen_malloc(scope, objT);
+
+    // call the constructor
+    this->constructor->objectPtrV = objAllocI;
+    this->constructorCall->gen_call(context, scope);
+
+    // the reference gets the statically known target type id
+    auto objTidV = ConstantInt::get(Type::getInt32Ty(context.llvmContext), this->get_object_type()->get_type_id());
+    auto objRefV = gen_ref(context, scope, objRefT, objAllocI, objTidV);
+    return objRefV;
+}
+

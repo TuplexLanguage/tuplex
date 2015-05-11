@@ -462,29 +462,39 @@ TxSymbolScope* TxFieldValueNode::resolve_symbol(ResolutionContext& resCtx) {
         }
     }
 
-    if (dynamic_cast<const TxOverloadedEntity*>(this->cachedSymbol)) {
-        // if symbol is overloaded, and can be resolved to actual field, then do so
-        if (auto resolvedField = this->context().scope()->resolve_field_lookup(resCtx, this->cachedSymbol, this->appliedFuncArgTypes))
-            this->cachedSymbol = resolvedField;
-    }
-    else if (! this->cachedSymbol) {
-        cerror("No such symbol: %s (from %s)", this->memberName.c_str(), this->context().to_string().c_str());
+    if (this->appliedFuncArgTypes) {
+        if (dynamic_cast<const TxOverloadedEntity*>(this->cachedSymbol)) {
+            // if symbol is overloaded, and can be resolved to actual field, then do so
+            if (auto resolvedField = this->context().scope()->resolve_field_lookup(resCtx, this->cachedSymbol, this->appliedFuncArgTypes))
+                this->cachedSymbol = resolvedField;
+        }
+        else if (dynamic_cast<const TxTypeEntity*>(this->cachedSymbol)) {
+            // if symbol is a type, and the applied arguments match a constructor, the resolve to that constructor
+            std::vector<TxSymbolScope*> tmpPath;
+            if (auto constructorSymbol = this->cachedSymbol->lookup_member(tmpPath, "$init")) {
+                if (auto constructor = this->context().scope()->resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes))
+                    this->cachedSymbol = constructor;
+            }
+        }
     }
 
     return this->cachedSymbol;
 }
 
 const TxType* TxFieldValueNode::define_type(ResolutionContext& resCtx) {
-    if (auto cachedEntity = dynamic_cast<TxEntity*>(this->resolve_symbol(resCtx)))
+    if (auto cachedEntity = dynamic_cast<TxFieldEntity*>(this->resolve_symbol(resCtx)))
         return cachedEntity->resolve_symbol_type(resCtx);
+    else if (this->cachedSymbol)
+        cerror("Symbol is not a field: %s", this->cachedSymbol->to_string().c_str());
     else
-        return nullptr;
+        cerror("No such symbol: %s", this->memberName.c_str());
+    return nullptr;
 }
 
 
 
 const TxType* TxConstructorCalleeExprNode::define_type(ResolutionContext& resCtx) {
-    if (auto allocType = this->newExpr->typeExpr->resolve_type(resCtx)) {
+    if (auto allocType = this->get_object_type()) {
         // find the constructor
         TxIdentifier constructorIdent("$init");
         std::vector<TxSymbolScope*> path;
@@ -516,5 +526,44 @@ const TxType* TxConstructorCalleeExprNode::define_type(ResolutionContext& resCtx
         }
         cerror("No matching constructor for type %s", allocType->to_string().c_str());
     }
+    return nullptr;
+}
+
+
+const TxType* TxFunctionCallNode::define_type(ResolutionContext& resCtx) {
+    this->register_callee_signature(resCtx);
+    auto calleeType = this->callee->resolve_type(resCtx);
+    if (!calleeType)
+        return nullptr;
+    if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {
+        // "inline" function call by replacing with conversion expression
+        this->inlinedExpression = validate_wrap_convert(resCtx, this->argsExprList->front(), inlineFunc->returnType, true);
+        return inlineFunc->returnType;
+    }
+    if (auto funcType = dynamic_cast<const TxFunctionType*>(calleeType)) {
+        if (auto constructorMethodType = dynamic_cast<const TxConstructorMethodType*>(calleeType)) {
+            // inline code for stack allocation and constructor invocation
+            if (! dynamic_cast<TxConstructorCalleeExprNode*>(this->callee)) {
+                this->inlinedExpression = new TxStackConstructorNode(this, constructorMethodType->get_object_type());
+                this->inlinedExpression->symbol_declaration_pass(this->context());
+                this->inlinedExpression->symbol_resolution_pass(resCtx);
+            }
+        }
+
+        // verify matching function signature:
+        if (funcType->argumentTypes.size() != this->argsExprList->size()) {
+            cerror("Callee of function call expression has mismatching argument count: %s", calleeType->to_string().c_str());
+            return nullptr;
+        }
+        // (regular function call, not inlined expression)
+        auto argExprI = this->argsExprList->begin();
+        for (auto argDef : funcType->argumentTypes) {
+            // note: similar rules to assignment
+            *argExprI = validate_wrap_assignment(resCtx, *argExprI, argDef);
+            argExprI++;
+        }
+        return funcType->returnType;
+    }
+    cerror("Callee of function call expression is not of function type: %s", calleeType->to_string().c_str());
     return nullptr;
 }

@@ -24,13 +24,13 @@ static const BuiltinTypeId SCALAR_TYPE_IDS[] = {
 
 /*--- private classes providing indirection for fetching the built-in type objects ---*/
 
-class TxBuiltinTypeProxy final : public TxFieldDefiner {
+class TxBuiltinDeclProxy final : public TxFieldDefiner {
 public:
     const std::string name;
     const TxType* type;
 
-    TxBuiltinTypeProxy(const std::string name) : name(name), type() { }
-    TxBuiltinTypeProxy(const std::string name, const TxType* type) : name(name), type(type) { }
+    TxBuiltinDeclProxy(const std::string name) : name(name), type() { }
+    TxBuiltinDeclProxy(const std::string name, const TxType* type) : name(name), type(type) { }
 
     virtual const TxExpressionNode* get_init_expression() const override { return nullptr; }
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
@@ -216,7 +216,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
         // create empty specialization for the constraint type (uniquely named but identical type)
         auto constraintType = this->builtinTypes[ANY]->get_type();
-        TxBuiltinTypeProxy* elemTypeDefiner = new TxBuiltinTypeProxy(this->builtinTypes[ANY]->plainName);
+        TxBuiltinDeclProxy* elemTypeDefiner = new TxBuiltinDeclProxy(this->builtinTypes[ANY]->plainName);
         auto elemTypeEnt = typeEntity->declare_type( "T", elemTypeDefiner, TXD_PUBLIC | TXD_GENPARAM );
         elemTypeDefiner->type = constraintType->make_specialized_type(elemTypeEnt, TxTypeSpecialization(constraintType));
     }
@@ -232,7 +232,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
         // create empty specialization for the constraint type (uniquely named but identical type)
         auto constraintType = this->builtinTypes[ANY]->get_type();
-        TxBuiltinTypeProxy* elemTypeDefiner = new TxBuiltinTypeProxy(this->builtinTypes[ANY]->plainName);
+        TxBuiltinDeclProxy* elemTypeDefiner = new TxBuiltinDeclProxy(this->builtinTypes[ANY]->plainName);
         auto elemTypeEnt = typeEntity->declare_type( "E", elemTypeDefiner, TXD_PUBLIC | TXD_GENPARAM );
         elemTypeDefiner->type = constraintType->make_specialized_type(elemTypeEnt, TxTypeSpecialization(constraintType));
 
@@ -267,14 +267,23 @@ void TypeRegistry::initializeBuiltinSymbols() {
 //                (TxDeclarationFlags)(TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN), TXS_STATIC, TxIdentifier());
 //    }
 
-    // scalar conversion constructor function types:
+    // scalar conversion and constructor functions:
     for (auto fromTypeId : SCALAR_TYPE_IDS) {
         for (auto toTypeId : SCALAR_TYPE_IDS) {
-            TxBuiltinTypeProxy* fieldDefiner = new TxBuiltinTypeProxy(this->builtinTypes[toTypeId]->plainName);
+            // global-scope converter function:
+            TxBuiltinDeclProxy* fieldDefiner = new TxBuiltinDeclProxy(this->builtinTypes[toTypeId]->plainName);
             module->declare_field(fieldDefiner->name, fieldDefiner, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
             fieldDefiner->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
                                                                      this->builtinTypes[fromTypeId]->get_type(),
                                                                      this->builtinTypes[toTypeId]->get_type());
+
+            // constructor method:
+            auto typeEnt = this->builtinTypes[toTypeId]->get_entity();
+            TxBuiltinDeclProxy* constructorDefiner = new TxBuiltinDeclProxy("$init");
+            typeEnt->declare_field(constructorDefiner->name, constructorDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_CONSTRUCTOR, TXS_INSTANCEMETHOD, TxIdentifier(""));
+            std::vector<const TxType*> argTypes { this->builtinTypes[fromTypeId]->get_type() };
+            constructorDefiner->type = new TxConstructorMethodType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
+                                                                   argTypes, this->builtinTypes[toTypeId]->get_type());
         }
     }
 
@@ -298,7 +307,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
         //const TxTypeProxy* cStringTypeDef = new TxBuiltinTypeDefiner("", cStringType);
 
         std::vector<const TxType*> argumentTypes( { cStringType } );
-        auto c_puts_func_type_def = new TxBuiltinTypeProxy("puts");
+        auto c_puts_func_type_def = new TxBuiltinDeclProxy("puts");
         txCfuncModule->declare_field("puts", c_puts_func_type_def, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
         const TxType* returnType = this->builtinTypes[INT]->get_type();
         c_puts_func_type_def->type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, returnType);

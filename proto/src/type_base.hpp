@@ -78,9 +78,7 @@ class TxTypeDefiner : public TxTypeProxy {
 public:
     virtual const TxType* resolve_type(ResolutionContext& resCtx) = 0;
 
-    /** Returns true if this type definer "is ready" - has a defined type.
-     * If this method returns false, calls to TxTypeProxy::get_type() have undefined results.
-     */
+    /** Returns a type if this type definer "is ready" (has a defined type), otherwise NULL. */
     virtual const TxType* attempt_get_type() const = 0;
 };
 

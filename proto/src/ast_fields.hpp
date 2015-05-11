@@ -29,8 +29,9 @@ public:
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         TxExpressionNode::symbol_resolution_pass(resCtx);
-        if (this->baseExpr)
-            this->baseExpr->symbol_resolution_pass(resCtx);
+        // not invoking baseExpr->symbol_resolution_pass() since that is only done via define_type()
+        //if (this->baseExpr)
+        //    this->baseExpr->symbol_resolution_pass(resCtx);
     }
 
     virtual void semantic_pass() override {
@@ -54,42 +55,11 @@ public:
         return false;
     }
 
+    // may not be called before symbol/type is resolved:
     inline const TxFieldEntity* get_field_entity() const { return dynamic_cast<TxFieldEntity*>(this->cachedSymbol); }
+    inline const TxTypeEntity*  get_type_entity()  const { return dynamic_cast<TxTypeEntity*>(this->cachedSymbol); }
 
 
     virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics=false) const;
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
-};
-
-
-
-class TxNewExprNode;
-
-/** Substitute for TxFieldValueNode for calling constructors. */
-class TxConstructorCalleeExprNode : public TxExpressionNode {
-    const TxNewExprNode* newExpr;
-    TxFieldEntity* constructorEntity = nullptr;
-
-    mutable llvm::Value* objectPtrV = nullptr;
-    friend TxNewExprNode;
-
-protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override;
-
-public:
-    TxConstructorCalleeExprNode(const yy::location& parseLocation, const TxNewExprNode* newExpr)
-            : TxExpressionNode(parseLocation), newExpr(newExpr) { }
-
-    virtual bool has_predefined_type() const override { return true; }
-
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-    }
-
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-    }
-
-    virtual void semantic_pass() override { }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };

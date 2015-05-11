@@ -62,7 +62,10 @@ void TxTypeEntity::define_data_layout(ResolutionContext& resCtx, const TxType* t
                 this->declaresInstanceFields = true;
             }
             else if (field->get_storage() == TXS_INSTANCEMETHOD) {
-                if (this->virtualFields.has_field(field->get_name())) {
+                if (field->get_decl_flags() & TXD_CONSTRUCTOR) {
+                    // skip, constructors aren't virtual
+                }
+                else if (this->virtualFields.has_field(field->get_name())) {
                     this->LOGGER().error("A non-static method may not override a static parent field: %s", field->to_string().c_str());
                 }
                 else if (this->instanceMethods.has_field(field->get_name())) {
