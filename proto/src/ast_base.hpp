@@ -435,10 +435,14 @@ TxExpressionNode* validate_wrap_assignment(ResolutionContext& resCtx, TxExpressi
 class TxFieldDefNode : public TxNode, public TxFieldDefiner {
     TxType const * cachedType = nullptr;
 
+    const std::string fieldName;  // the original field name
     bool modifiable;  // true if field name explicitly declared modifiable
     TxTypeDefiner* typeDefiner;  // optional, non-code-generating type definer (can't be specified at same time as typeExpression)
     TxDeclarationFlags declFlags = TXD_NONE;
-    TxFieldEntity* declaredEntity;  // null until initialized in symbol registration pass
+    TxFieldEntity* declaredEntity = nullptr;  // null until initialized in symbol declaration pass
+
+    //TxDeclarationNode* stackConstructorDecl = nullptr;  // null unless initialized in symbol declaration pass
+    //TxDeclarationNode* declare_stack_constructor(LexicalContext& lexContext);
 
     void symbol_declaration_pass(LexicalContext& outerContext, LexicalContext& innerContext) {
         this->set_context(outerContext);
@@ -448,7 +452,7 @@ class TxFieldDefNode : public TxNode, public TxFieldDefiner {
             if (this->typeExpression->has_predefined_type())
                 this->typeExpression->symbol_declaration_pass(innerContext, innerContext, typeDeclFlags);
             else {
-                auto implTypeName = this->fieldName + "$type";
+                auto implTypeName = this->get_field_name() + "$type";
                 this->typeExpression->symbol_declaration_pass(innerContext, innerContext, typeDeclFlags, implTypeName);
             }
         }
@@ -466,20 +470,19 @@ class TxFieldDefNode : public TxNode, public TxFieldDefiner {
     };
 
 public:
-    const std::string fieldName;
     TxTypeExpressionNode* typeExpression;
     TxExpressionNode* initExpression;
 
     TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
                    TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression)
-            : TxNode(parseLocation), modifiable(false), typeDefiner(), declaredEntity(), fieldName(fieldName) {
+            : TxNode(parseLocation), fieldName(fieldName), modifiable(false), typeDefiner() {
         validateFieldName(this, declFlags, fieldName);
         this->typeExpression = typeExpression;
         this->initExpression = initExpression;
     }
     TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
                    TxExpressionNode* initExpression, bool modifiable=false, TxTypeDefiner* typeDefiner=nullptr)
-            : TxNode(parseLocation), modifiable(modifiable), typeDefiner(typeDefiner), declaredEntity(), fieldName(fieldName) {
+            : TxNode(parseLocation), fieldName(fieldName), modifiable(modifiable), typeDefiner(typeDefiner) {
         validateFieldName(this, declFlags, fieldName);
         this->typeExpression = nullptr;
         this->initExpression = initExpression;
@@ -497,7 +500,17 @@ public:
     void symbol_declaration_pass_nonlocal_field(LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                                  TxFieldStorage storage, const TxIdentifier& dataspace) {
         this->declFlags = declFlags;
-        this->declaredEntity = lexContext.scope()->declare_field(this->fieldName, this, declFlags, storage, dataspace);
+
+        std::string declName;
+        if (this->fieldName != "self")
+            declName = this->fieldName;
+        else {
+            // handle constructor declaration
+            declName = "$init";
+            //this->stackConstructorDecl = this->declare_stack_constructor(lexContext);
+        }
+
+        this->declaredEntity = lexContext.scope()->declare_field(declName, this, declFlags, storage, dataspace);
         this->symbol_declaration_pass(lexContext, lexContext);
     }
 
@@ -518,9 +531,18 @@ public:
                 if (! this->initExpression->is_statically_constant())
                     cerror("Non-constant initializer for constant global/static field.");
         }
-        if (auto type = this->get_type())
+        //if (this->stackConstructorDecl)
+        //    this->stackConstructorDecl->symbol_resolution_pass(resCtx);
+
+        if (auto type = this->get_type()) {
             if (! type->is_concrete())
                 cerror("Field type is not concrete (size potentially unknown): %s", type->to_string().c_str());
+            if (this->get_field_name() == "$init") {
+                if (this->get_entity()->get_storage() != TXS_INSTANCEMETHOD)
+                    this->cerror("Illegal declaration name for non-constructor member: %s", this->fieldName.c_str());
+                // TODO: check that constructor function type has void return value
+            }
+        }
     }
 
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override {
@@ -561,6 +583,10 @@ public:
         return this->initExpression;
     }
 
+    inline const std::string& get_field_name() const {
+        return ( this->declaredEntity ? this->declaredEntity->get_name() : this->fieldName );
+    }
+
     TxFieldEntity* get_entity() const {
         ASSERT(this->declaredEntity, "Declared field entity not initialized");
         return this->declaredEntity;
@@ -571,12 +597,14 @@ public:
             this->typeExpression->semantic_pass();
         if (this->initExpression)
             this->initExpression->semantic_pass();
+        //if (this->stackConstructorDecl)
+        //    this->stackConstructorDecl->semantic_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual std::string to_string() const {
-        return TxNode::to_string() + " '" + this->fieldName + "'";
+        return TxNode::to_string() + " '" + this->get_field_name() + "'";
     }
 };
 
@@ -602,7 +630,7 @@ public:
             auto storage = this->field->get_entity()->get_storage();
             if (type->is_modifiable()) {
                 if (storage == TXS_GLOBAL)
-                    cerror("Global fields may not be modifiable: %s", field->fieldName.c_str());
+                    cerror("Global fields may not be modifiable: %s", field->get_field_name().c_str());
             }
             else if (! this->field->initExpression) {
                 if (storage == TXS_GLOBAL || storage == TXS_STATIC)

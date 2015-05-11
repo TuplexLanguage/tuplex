@@ -456,61 +456,48 @@ public:
 
 
 
-class TxNewExprNode : public TxExpressionNode {
-protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", this->typeExpr));
-//        // currently we require the new expr type to be modifiable  TODO: solve assignment from new expr differently
-//        if (auto type = this->typeExpr->resolve_type(resCtx)) {
-//            if (type->is_modifiable())
-//                return type;
-//            else if (! type->is_immutable())
-//                return this->types().get_modifiable_type(nullptr, type);
-//            else
-//                cerror("Not yet supported to assign immutable type in 'new' expression");
-//        }
-//        return nullptr;
-    }
-
+class InlineGenerator {
 public:
-    TxTypeExpressionNode* typeExpr;
-    TxNewExprNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr)
-        : TxExpressionNode(parseLocation), typeExpr(typeExpr) { }
+    virtual ~InlineGenerator() = default;
 
-    virtual bool has_predefined_type() const override { return this->typeExpr->has_predefined_type(); }
+    virtual bool is_statically_constant() const = 0;
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
-        // (similar to TxFieldDefNode::symbol_declaration_pass())
-        this->set_context(lexContext);
-        auto typeDeclFlags = TXD_PUBLIC | TXD_IMPLICIT;
-        // unless the type expression is a directly named type, declare implicit type entity for this field's type:
-        if (this->typeExpr->has_predefined_type())
-            this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags);
-        else {
-            auto implTypeName = lexContext.scope()->get_unique_name("$type");
-            this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags, implTypeName);
-        }
-    }
+    virtual const TxConstantProxy* get_static_constant_proxy() const = 0;
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
-        this->typeExpr->symbol_resolution_pass(resCtx);
-        if (auto type = this->get_type())
-            if (! type->is_concrete())
-                cerror("Field type is not concrete (size potentially unknown): %s", type->to_string().c_str());
-    }
-
-    virtual void semantic_pass() override {
-        this->typeExpr->semantic_pass();
-    }
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
 };
 
+class InlinedExpression : public InlineGenerator {
+    TxExpressionNode* expression;
+public:
+    InlinedExpression(TxExpressionNode* expression) : expression(expression)  { }
+
+    virtual bool is_statically_constant() const override { return this->expression->is_statically_constant(); }
+
+    virtual const TxConstantProxy* get_static_constant_proxy() const override { return this->expression->get_static_constant_proxy(); }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override {
+        return this->expression->code_gen(context, scope);
+    }
+};
+
+//class InlinedStackConstructor : InlineGenerator {
+//    TxStackConstructorType* constructorType;
+//public:
+//    InlinedStackConstructor(TxStackConstructorType* constructorType) : constructorType(constructorType)  { }
+//
+//    virtual bool is_statically_constant() const override { return false; }
+//
+//    virtual const TxConstantProxy* get_static_constant_proxy() const override { return nullptr; }
+//
+//    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override {
+//        return this->constructorType->gen_inline_expr(context, scope);
+//    }
+//};
 
 
 class TxFunctionCallNode : public TxExpressionNode {
-    TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function call if non-null
+    InlineGenerator* inlinedExpression = nullptr;  // substitutes the function call if non-null
 
     /** resolve possible function overloading by registering actual function signature with callee node */
     void register_callee_signature(ResolutionContext& resCtx) const {
@@ -537,10 +524,16 @@ protected:
             return nullptr;
         if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {
             // "inline" function call by replacing with conversion expression
-            this->inlinedExpression = validate_wrap_convert(resCtx, this->argsExprList->front(), inlineFunc->returnType, true);
+            auto convertExpr = validate_wrap_convert(resCtx, this->argsExprList->front(), inlineFunc->returnType, true);
+            this->inlinedExpression = new InlinedExpression(convertExpr);
             return inlineFunc->returnType;
         }
         if (auto funcType = dynamic_cast<const TxFunctionType*>(calleeType)) {
+//            if (auto inlineFunc = dynamic_cast<const TxStackConstructorType*>(calleeType)) {
+//                // "inline" function call by replacing with expression
+//                this->inlinedExpression = new InlinedStackConstructor(inlineFunc);
+//            }
+
             // verify matching function signature:
             if (funcType->argumentTypes.size() != this->argsExprList->size()) {
                 cerror("Callee of function call expression has mismatching argument count: %s", calleeType->to_string().c_str());
@@ -568,7 +561,7 @@ public:
 
     virtual bool has_predefined_type() const override { return true; }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
         this->callee->symbol_declaration_pass(lexContext);
         for (auto argExpr : *this->argsExprList)
@@ -582,31 +575,130 @@ public:
             argExpr->symbol_resolution_pass(resCtx);
     }
 
-    const TxExpressionNode* get_inlined_expression() const {
-        return this->inlinedExpression;
-    }
+//    const TxExpressionNode* get_inlined_expression() const {
+//        return this->inlinedExpression;
+//    }
 
-    virtual void semantic_pass() {
+    virtual void semantic_pass() override {
         callee->semantic_pass();
         for (auto argExpr : *this->argsExprList)
             argExpr->semantic_pass();
     }
 
-    virtual bool is_statically_constant() const {
-        if (auto inlExpr = this->get_inlined_expression())
-            return inlExpr->is_statically_constant();
+    virtual bool is_statically_constant() const override {
+        if (this->inlinedExpression)
+            return this->inlinedExpression->is_statically_constant();
         return false;
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        if (auto inlExpr = this->get_inlined_expression())
-            return inlExpr->get_static_constant_proxy();
+        if (this->inlinedExpression)
+            return this->inlinedExpression->get_static_constant_proxy();
         return nullptr;
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
+
+
+class TxNewExprNode : public TxExpressionNode {
+    TxConstructorCalleeExprNode* constructor;
+    TxFunctionCallNode* constructorCall;
+
+protected:
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", this->typeExpr));
+//        // currently we require the new expr type to be modifiable  TODO: solve assignment from new expr differently
+//        if (auto type = this->typeExpr->resolve_type(resCtx)) {
+//            if (type->is_modifiable())
+//                return type;
+//            else if (! type->is_immutable())
+//                return this->types().get_modifiable_type(nullptr, type);
+//            else
+//                cerror("Not yet supported to assign immutable type in 'new' expression");
+//        }
+//        return nullptr;
+    }
+
+public:
+    TxTypeExpressionNode* typeExpr;
+
+    TxNewExprNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList)
+            : TxExpressionNode(parseLocation), typeExpr(typeExpr) {
+        this->constructor = new TxConstructorCalleeExprNode(parseLocation, this);
+        this->constructorCall = new TxFunctionCallNode(parseLocation, this->constructor, argsExprList);
+    }
+
+    virtual bool has_predefined_type() const override { return this->typeExpr->has_predefined_type(); }
+
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
+        // (similar to TxFieldDefNode::symbol_declaration_pass())
+        this->set_context(lexContext);
+        auto typeDeclFlags = TXD_PUBLIC | TXD_IMPLICIT;
+        // unless the type expression is a directly named type, declare implicit type entity for this field's type:
+        if (this->typeExpr->has_predefined_type())
+            this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags);
+        else {
+            auto implTypeName = lexContext.scope()->get_unique_name("$type");
+            this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags, implTypeName);
+        }
+
+        this->constructorCall->symbol_declaration_pass(lexContext);
+    }
+
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(resCtx);
+        this->typeExpr->symbol_resolution_pass(resCtx);
+        this->constructorCall->symbol_resolution_pass(resCtx);
+    }
+
+    virtual void semantic_pass() override {
+        this->typeExpr->semantic_pass();
+        this->constructorCall->semantic_pass();
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+};
+
+/*
+class TxStackConstructorNode : public TxExpressionNode {
+    TxFieldDefNode* origConstrDef;
+    TxTypeEntity* constructedTypeEnt;
+
+protected:
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        auto origConstrType = dynamic_cast<const TxFunctionType*>(origConstrDef->resolve_type(resCtx));
+        if (! origConstrType)
+            return nullptr;
+        auto returnType = constructedTypeEnt->resolve_symbol_type(resCtx);
+        auto funcType = new TxStackConstructorType(nullptr, this->types().get_builtin_type(FUNCTION),
+                                                   origConstrType->argumentTypes, returnType);
+        return funcType;
+    }
+
+public:
+    TxStackConstructorNode(TxFieldDefNode* origConstrDef, TxTypeEntity* constructedType)
+            : TxExpressionNode(origConstrDef->parseLocation), origConstrDef(origConstrDef), constructedTypeEnt(constructedType) {
+    }
+
+    virtual bool has_predefined_type() const override { return true; }
+
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
+        this->set_context(lexContext);
+    }
+
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+    }
+
+    virtual void semantic_pass() override {
+    }
+
+    virtual bool is_statically_constant() const { return true; }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+};
+*/
 
 
 /*=== assignee expressions ===*/

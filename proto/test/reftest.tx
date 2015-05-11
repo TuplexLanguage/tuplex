@@ -80,6 +80,7 @@ func basic_ref_syntax() Int {
     return __o + _ro^ + rro^^
 }
 
+/*
 func heap_test() Int {
     heapVar : &~Int = new ~Int()
     heapRef : &~&~Int = new ~&~Int()
@@ -88,9 +89,10 @@ func heap_test() Int {
     heapArr := new Array<Int,100>()
     return heapRef^^
 }
+*/
 
 func main() Int {
     ret1 := basic_ref_syntax()
-    ret2 := heap_test()
-    return ret2
+    ##ret2 := heap_test()
+    return ret1
 }

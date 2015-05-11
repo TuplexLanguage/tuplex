@@ -48,7 +48,12 @@ void TxTypeEntity::define_data_layout(ResolutionContext& resCtx, const TxType* t
     }
 
     for (auto symname = this->symbol_names_cbegin(); symname != this->symbol_names_cend(); symname++) {
-        if (auto field = dynamic_cast<TxFieldEntity*>(this->get_symbol(*symname))) {
+        auto symbol = this->get_symbol(*symname);
+        TxFieldEntity* field = dynamic_cast<TxFieldEntity*>(symbol);
+        if (! field)
+            if (auto overloadedField = dynamic_cast<TxOverloadedEntity*>(symbol))
+                field = overloadedField->get_first_field();
+        if (field) {
             auto fieldType = field->resolve_symbol_type(resCtx);
             if (field->get_storage() == TXS_INSTANCE) {
                 this->LOGGER().debug("Laying out instance field %-40s  %s  %s", field->get_full_name().to_string().c_str(),

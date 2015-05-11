@@ -40,40 +40,45 @@ static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenSc
     }
 }
 
+static Value* instance_method_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
+                                             Value* baseValue, const TxExpressionNode* baseExpr, const TxFieldEntity* fieldEntity) {
+    Value* funcPtrV;
+    Value* instanceTypeIdV;
+    if (baseExpr) {
+        // effectively a polymorphic lookup if base expression is a reference dereference
+        ASSERT(! baseValue, "Can't specify both baseValue and baseExpr");
+        instanceTypeIdV = baseExpr->code_gen_typeid(context, scope);
+        funcPtrV = virtual_field_value_code_gen(context, scope, baseExpr->get_type(), instanceTypeIdV, fieldEntity);
+        baseValue = baseExpr->code_gen(context, scope);
+    }
+    else if (baseValue) {
+        auto outerType = static_cast<TxTypeEntity*>(fieldEntity->get_outer())->get_type();
+        instanceTypeIdV = outerType->gen_typeid(context, scope);
+        funcPtrV = virtual_field_value_code_gen(context, scope, outerType, instanceTypeIdV, fieldEntity);
+    }
+    else {
+        context.LOG.error("Can't access instance method without base value/expression: %s", fieldEntity->to_string().c_str());
+        return nullptr;
+    }
+    //std::cout << "funcPtrV: " << funcPtrV << std::endl;
+    ASSERT(funcPtrV->getType()->getPointerElementType()->isFunctionTy() , "Expected funcPtrV to be pointer-to-function type but was: " << funcPtrV->getType());
+    ASSERT(baseValue->getType()->isPointerTy(), "Expected baseValue to be of pointer type but was: " << baseValue->getType());
+
+    {   // construct the lambda object:
+        auto closureRefT = context.get_voidRefT();
+        auto closureRefV = gen_ref(context, scope, closureRefT, baseValue, instanceTypeIdV);
+        auto lambdaT = cast<StructType>(context.get_llvm_type(fieldEntity->get_type()));
+        return gen_lambda(context, scope, lambdaT, funcPtrV, closureRefV);
+    }
+}
+
 /** Generate code to obtain field value, potentially based on a base value (pointer). */
 static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
                                    Value* baseValue, const TxExpressionNode* baseExpr, const TxFieldEntity* fieldEntity, bool foldStatics=false) {
     Value* val;
     switch (fieldEntity->get_storage()) {
     case TXS_INSTANCEMETHOD:
-        Value* funcPtrV;
-        Value* instanceTypeIdV;
-        if (baseExpr) {
-            // effectively a polymorphic lookup if base expression is a reference dereference
-            ASSERT(! baseValue, "Can't specify both baseValue and baseExpr");
-            instanceTypeIdV = baseExpr->code_gen_typeid(context, scope);
-            funcPtrV = virtual_field_value_code_gen(context, scope, baseExpr->get_type(), instanceTypeIdV, fieldEntity);
-            baseValue = baseExpr->code_gen(context, scope);
-        }
-        else if (baseValue) {
-            auto outerType = static_cast<TxTypeEntity*>(fieldEntity->get_outer())->get_type();
-            instanceTypeIdV = outerType->gen_typeid(context, scope);
-            funcPtrV = virtual_field_value_code_gen(context, scope, outerType, instanceTypeIdV, fieldEntity);
-        }
-        else {
-            context.LOG.error("Can't access instance method without base value/expression: %s", fieldEntity->to_string().c_str());
-            return nullptr;
-        }
-        //std::cout << "funcPtrV: " << funcPtrV << std::endl;
-        ASSERT(funcPtrV->getType()->getPointerElementType()->isFunctionTy() , "Expected funcPtrV to be pointer-to-function type but was: " << funcPtrV->getType());
-        ASSERT(baseValue->getType()->isPointerTy(), "Expected baseValue to be of pointer type but was: " << baseValue->getType());
-
-        {   // construct the lambda object:
-            auto closureRefT = context.get_voidRefT();
-            auto closureRefV = gen_ref(context, scope, closureRefT, baseValue, instanceTypeIdV);
-            auto lambdaT = cast<StructType>(context.get_llvm_type(fieldEntity->get_type()));
-            val = gen_lambda(context, scope, lambdaT, funcPtrV, closureRefV);
-        }
+        val = instance_method_value_code_gen(context, scope, baseValue, baseExpr, fieldEntity);
         break;
 
     case TXS_VIRTUAL:
@@ -206,3 +211,9 @@ Value* TxFieldAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* s
     return value;
 }
 
+
+
+Value* TxConstructorCalleeExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s", this->to_string().c_str());
+    return instance_method_value_code_gen(context, scope, this->objectPtrV, nullptr, this->constructorEntity);
+}

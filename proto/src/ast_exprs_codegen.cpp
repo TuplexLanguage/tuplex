@@ -36,7 +36,7 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
         return NULL;
 
     // pick field's plain name, if available, for the expression value:
-    const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->fieldName : "";
+    const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->get_field_name() : "";
 
     auto op_class = get_op_class(this->op);
 
@@ -139,6 +139,10 @@ Value* TxNewExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) 
     if (!objT || !objRefT)
         return nullptr;
     auto objAllocI = context.gen_malloc(scope, objT);
+
+    // call the constructor
+    this->constructor->objectPtrV = objAllocI;
+    this->constructorCall->code_gen(context, scope);
 
     // the reference gets the statically known target type id
     auto objTidV = ConstantInt::get(Type::getInt32Ty(context.llvmContext), this->typeExpr->get_type()->get_type_id());
@@ -563,7 +567,7 @@ Value* TxFunctionCallNode::code_gen(LlvmGenerationContext& context, GenScope* sc
 
     context.LOG.debug("Creating function call '%s'", functionPtrV->getName().str().c_str());
     // pick field's plain name, if available, for the expression value:
-    const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->fieldName : "";
+    const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->get_field_name() : "";
     if (scope)
         return scope->builder->CreateCall(functionPtrV, args, fieldName);
     else {

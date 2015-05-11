@@ -270,11 +270,11 @@ void TypeRegistry::initializeBuiltinSymbols() {
     // scalar conversion constructor function types:
     for (auto fromTypeId : SCALAR_TYPE_IDS) {
         for (auto toTypeId : SCALAR_TYPE_IDS) {
-            TxBuiltinTypeProxy* typeDefiner = new TxBuiltinTypeProxy(this->builtinTypes[toTypeId]->plainName);
-            module->declare_field(typeDefiner->name, typeDefiner, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
-            typeDefiner->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
-                                                                    this->builtinTypes[fromTypeId]->get_type(),
-                                                                    this->builtinTypes[toTypeId]->get_type());
+            TxBuiltinTypeProxy* fieldDefiner = new TxBuiltinTypeProxy(this->builtinTypes[toTypeId]->plainName);
+            module->declare_field(fieldDefiner->name, fieldDefiner, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
+            fieldDefiner->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
+                                                                     this->builtinTypes[fromTypeId]->get_type(),
+                                                                     this->builtinTypes[toTypeId]->get_type());
         }
     }
 

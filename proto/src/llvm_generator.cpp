@@ -382,6 +382,17 @@ void LlvmGenerationContext::initialize_builtins() {
 }
 
 
+/** Looks up a field declaration. If the symbol is overloaded, returns its first field declaration. */
+static TxFieldEntity* lookup_field_simple(TxSymbolScope* scope, ResolutionContext& resCtx, const TxIdentifier& ident) {
+    std::vector<TxSymbolScope*> path;
+    TxSymbolScope* symbol = scope->start_lookup_symbol(path, ident);
+    if (auto fieldEnt = dynamic_cast<TxFieldEntity*>(symbol))
+        return fieldEnt;
+    else if (auto overloadedEnt = dynamic_cast<const TxOverloadedEntity*>(symbol))
+        return overloadedEnt->get_first_field();
+    return nullptr;
+}
+
 void LlvmGenerationContext::generate_runtime_data() {
     for (auto txType = this->tuplexPackage.types().types_cbegin(); txType != this->tuplexPackage.types().types_cend(); txType++) {
         if (auto entity = (*txType)->entity()) {
@@ -393,17 +404,17 @@ void LlvmGenerationContext::generate_runtime_data() {
                 auto virtualFields   = entity->get_virtual_fields();
                 initMembers.resize(instanceMethods.get_field_count() + virtualFields.get_field_count());
                 for (auto & field : instanceMethods.fields) {
-                    auto actualFieldEnt = entity->lookup_field(resCtx, field.first);  // FIXME: handle overloaded field names
+                    //std::cout << "inserting instance method: " << field.first << " at ix " << field.second << std::endl;
+                    auto actualFieldEnt = lookup_field_simple(entity, resCtx, field.first);
                     auto funcName = actualFieldEnt->get_full_name().to_string() + "$func";
                     auto llvmField = cast<Constant>(this->lookup_llvm_value(funcName));
-                    //std::cout << "inserting instance method: " << field.first << " at ix " << field.second << std::endl;
                     auto ix = field.second;
                     initMembers[ix] = llvmField;
                 }
                 for (auto & field : virtualFields.fields) {
-                    auto actualFieldEnt = entity->lookup_field(resCtx, field.first);  // FIXME: handle overloaded field names
-                    auto llvmField = cast<Constant>(this->lookup_llvm_value(actualFieldEnt->get_full_name().to_string()));
                     //std::cout << "inserting virtual field: " << field.first << " at ix " << field.second << std::endl;
+                    auto actualFieldEnt = lookup_field_simple(entity, resCtx, field.first);
+                    auto llvmField = cast<Constant>(this->lookup_llvm_value(actualFieldEnt->get_full_name().to_string()));
                     auto ix = field.second + instanceMethods.get_field_count();
                     initMembers[ix] = llvmField;
                 }

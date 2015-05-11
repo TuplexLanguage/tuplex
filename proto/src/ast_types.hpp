@@ -280,6 +280,23 @@ protected:
 
         for (auto member : *this->members)
             member->symbol_declaration_pass(lexContext);
+
+//        bool explicitConstructor = false;
+//        for (auto member : *this->members) {
+//            member->symbol_declaration_pass(lexContext);
+//            if (auto fieldMember = dynamic_cast<TxFieldDeclNode*>(member)) {
+//                if (fieldMember->field->get_field_name() == "$init")
+//                    explicitConstructor = true;
+//            }
+//        }
+//        if (! explicitConstructor) {
+//            // add default constructor
+//            auto funcType;
+//            auto suite;
+//            auto lambdaExpr = new TxLambdaExprNode(this->parseLocation, funcType, suite, true);
+//            auto fieldDef = new TxFieldDefNode(this->parseLocation, "self", nullptr, lambdaExpr);
+//            auto fieldDecl = new TxFieldDeclNode(this->parseLocation, TXD_PUBLIC, fieldDef, true);
+//        }
     }
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {

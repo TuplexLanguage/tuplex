@@ -92,21 +92,7 @@ protected:
                 if (this->cachedEntity->get_decl_flags() & TXD_GENPARAM) {
                     LOGGER().debug("%s: Resolving field value '%s' as GENPARAM %s from scope %s", this->parse_loc_string().c_str(),
                             this->member->ident.to_string().c_str(), this->cachedEntity->to_string().c_str(), this->context().scope()->get_full_name().to_string().c_str());
-//                    if (declEnt->get_name() == make_generic_binding_name(cachedEntity->get_full_name().to_string())) {
-//                        // if type-arg resolves to ancestor type's type parameter, it is unspecified in current scope
-//                        // (need to catch this, lest we get an infinite alias lookup loop or spurious name resolution)
-//                        if (auto outerType = dynamic_cast<const TxTypeEntity*>(scope->get_parent())) {
-//                            // since we declare base types under the subtype's scope,
-//                            // we may have to lookup via outer (the subtype's) scope
-//                            return inner_define_type(outerType, errorMsg);
-//                        }
-//    //                    else
-//    //                        LOGGER().warning("%s: type '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
-//    //                                         declEnt->get_full_name().to_string().c_str(), identifiedEntity->to_string().c_str());
-//                    }
                 }
-//                else if (this->cachedEntity->get_static_constant_proxy())
-//                    LOGGER().debug("%s: Resolving '%s' as statically constant %s", this->parse_loc_string().c_str(), this->member->ident.to_string().c_str(), this->cachedEntity->to_string().c_str());
             }
             else
                 cerror("No such field: %s (from %s)", this->member->ident.to_string().c_str(), this->context().to_string().c_str());
@@ -225,6 +211,38 @@ public:
 //        auto entity = this->get_entity();
 //        return (entity->get_storage() != TXS_NOSTORAGE);
 //    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+};
+
+
+class TxNewExprNode;
+
+/** Substitute for TxFieldValueNode for calling constructors. */
+class TxConstructorCalleeExprNode : public TxExpressionNode {
+    const TxNewExprNode* newExpr;
+    TxFieldEntity* constructorEntity = nullptr;
+
+    mutable llvm::Value* objectPtrV = nullptr;
+    friend TxNewExprNode;
+
+protected:
+    virtual const TxType* define_type(ResolutionContext& resCtx) override;
+
+public:
+    TxConstructorCalleeExprNode(const yy::location& parseLocation, const TxNewExprNode* newExpr)
+            : TxExpressionNode(parseLocation), newExpr(newExpr) { }
+
+    virtual bool has_predefined_type() const override { return true; }
+
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
+        this->set_context(lexContext);
+    }
+
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+    }
+
+    virtual void semantic_pass() override { }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };

@@ -400,6 +400,8 @@ public:
 
     inline TxTypeEntity* get_type_declaration() const { return typeEntity; }
 
+    inline TxFieldEntity* get_first_field() const { return (this->fieldEntities.empty() ? nullptr : this->fieldEntities.front()); }
+
     inline std::vector<TxFieldEntity*>::const_iterator fields_cbegin() const noexcept { return this->fieldEntities.cbegin(); }
     inline std::vector<TxFieldEntity*>::const_iterator fields_cend() const noexcept { return this->fieldEntities.cend(); }
 
@@ -413,16 +415,6 @@ public:
 
     virtual const TxType* get_type() const override {
         return this->typeEntity ? this->typeEntity->get_type() : nullptr;
-// previous code for returning an "overloaded function name" type:
-//        auto groupType = new TxFunctionGroupType(nullptr);
-//        for (auto decl : this->fieldEntities) {
-//            auto entType = decl->get_type();
-//            if (auto funcType = dynamic_cast<const TxFunctionType*>(entType))
-//                groupType->add(funcType);
-//            else
-//                throw std::logic_error("Illegal overloaded entity type: " + entType->to_string());
-//        }
-//        return groupType;
     }
 
 

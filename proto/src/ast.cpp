@@ -76,13 +76,31 @@ void TxNode::cwarning(char const *fmt, ...) const {
 }
 
 
+/*
+TxDeclarationNode* TxFieldDefNode::declare_stack_constructor(LexicalContext& lexContext) {
+    if (auto constructedType = dynamic_cast<TxTypeEntity*>(lexContext.scope())) {
+        // FUTURE: stack constructor's access should be combination of type's and constructor's access
+        TxDeclarationFlags declFlags = TXD_IMPLICIT | ( ( TXD_STATIC | TXD_PUBLIC | TXD_PROTECTED ) & constructedType->get_decl_flags() );
+        auto constrBody = new TxStackConstructorNode(this, constructedType);
+        auto constrDef  = new TxFieldDefNode(this->parseLocation, constructedType->get_name(), nullptr, constrBody);
+        auto constrDecl = new TxFieldDeclNode(this->parseLocation, declFlags, constrDef);
+        LexicalContext outerCtx(constructedType->get_outer());
+        constrDecl->symbol_declaration_pass(outerCtx);
+        return constrDecl;
+    }
+    else
+        this->cerror("Can't declare constructor outside of type declaration");
+    return nullptr;
+}
+*/
+
 
 void TxFieldDeclNode::symbol_declaration_pass(LexicalContext& lexContext) {
     this->set_context(lexContext);
 
     TxFieldStorage storage;
     if (this->isMethodSyntax && dynamic_cast<TxTypeEntity*>(lexContext.scope())) {
-        // Note: instance method storage is handled specially (technically a function pointer is always a static field)
+        // Note: instance method storage is handled specially (technically the function pointer is a static field)
         auto lambdaExpr = static_cast<TxLambdaExprNode*>(field->initExpression);
         if (this->declFlags & TXD_STATIC) {
             storage = TXS_STATIC;
@@ -94,11 +112,11 @@ void TxFieldDeclNode::symbol_declaration_pass(LexicalContext& lexContext) {
     }
     else if (dynamic_cast<TxModule*>(lexContext.scope())) {  // if in global scope
         if (this->declFlags & TXD_STATIC)
-            cerror("'static' is invalid modifier for module scope field %s", this->field->fieldName.c_str());
+            cerror("'static' is invalid modifier for module scope field %s", this->field->get_field_name().c_str());
         if (this->declFlags & TXD_FINAL)
-            cerror("'final' is invalid modifier for module scope field %s", this->field->fieldName.c_str());
+            cerror("'final' is invalid modifier for module scope field %s", this->field->get_field_name().c_str());
         if (this->declFlags & TXD_OVERRIDE)
-            cerror("'override' is invalid modifier for module scope field %s", this->field->fieldName.c_str());
+            cerror("'override' is invalid modifier for module scope field %s", this->field->get_field_name().c_str());
         storage = TXS_GLOBAL;
     }
     else {
@@ -196,7 +214,7 @@ const std::vector<TxTypeParam>* TxTypeExpressionNode::makeTypeParams(const std::
         if (auto typeDecl = dynamic_cast<TxTypeDeclNode*>(decl))
             paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_TYPE, typeDecl->typeName, typeDecl->typeExpression));
         else if (auto valueDecl = dynamic_cast<TxFieldDeclNode*>(decl))
-            paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_VALUE, valueDecl->field->fieldName, valueDecl->field));
+            paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_VALUE, valueDecl->field->get_field_name(), valueDecl->field));
     }
     return paramsVec;
 }
@@ -423,4 +441,42 @@ void TxMaybeModTypeNode::symbol_declaration_pass(LexicalContext& defContext, Lex
         this->set_context(lexContext);
         this->baseType->symbol_declaration_pass(defContext, lexContext, declFlags, designatedTypeName, typeParamDecls);
     }
+}
+
+
+
+const TxType* TxConstructorCalleeExprNode::define_type(ResolutionContext& resCtx) {
+    if (auto allocType = this->newExpr->typeExpr->resolve_type(resCtx)) {
+        // find the constructor
+        TxIdentifier constructorIdent("$init");
+        std::vector<TxSymbolScope*> path;
+        if (auto symbol = allocType->lookup_instance_member(path, constructorIdent)) {
+            // Check that constructor is not invalidly inherited:
+            if (auto cDefiningTypeEnt = dynamic_cast<TxTypeEntity*>(symbol->get_outer())) {
+                if (auto cDefiningType = cDefiningTypeEnt->resolve_symbol_type(resCtx)) {
+                    do {
+                        if (*allocType == *cDefiningType) {
+                            this->constructorEntity = this->context().scope()->resolve_field_lookup(resCtx, symbol, this->appliedFuncArgTypes);
+                            if (this->constructorEntity)
+                                return this->constructorEntity->resolve_symbol_type(resCtx);
+                            else
+                                break;
+                        }
+                        else if (allocType->is_pure_specialization())
+                            allocType = allocType->get_base_type();
+                        else
+                            break;
+                    } while (true);
+                }
+            }
+        }
+        if (this->appliedFuncArgTypes->size() == 0) {
+            // TODO: support default value constructor
+        }
+        else if (this->appliedFuncArgTypes->size() == 1) {
+            // TODO: support default assignment constructor
+        }
+        cerror("No matching constructor for type %s", allocType->to_string().c_str());
+    }
+    return nullptr;
 }

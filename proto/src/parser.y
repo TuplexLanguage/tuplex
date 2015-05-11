@@ -125,7 +125,7 @@ YY_DECL;
 %type <TxTypeExpressionNode*> reference_type array_type //data_tuple_type
 
 %type <TxFunctionTypeNode*> function_type function_header
-%type <TxExpressionNode*> expr new_expr lambda_expr value_literal array_dimensions
+%type <TxExpressionNode*> expr make_expr lambda_expr value_literal array_dimensions
 %type <TxFunctionCallNode*> call_expr
 %type <std::vector<TxExpressionNode*> *> expression_list call_params
 %type <TxSuiteNode*> suite
@@ -270,7 +270,7 @@ member_declaration
     | declaration_flags KW_TYPE NAME LT type_param_list GT type_spec sep  %prec STMT
             { $$ = new TxTypeDeclNode(@1, $1, $3, $5, $7); }
 
-    // method  (static has special meaning; technically a method is always a static function pointer field)
+    // function / method
     |   declaration_flags method_def sep  %prec STMT
             { $$ = new TxFieldDeclNode(@1, $1, $2, true); }
 
@@ -474,7 +474,7 @@ expr
     |   value_literal       { $$ = $1; }
     |   lambda_expr         { $$ = $1; }  // is this really combinable within another expression?
     |   call_expr           { $$ = $1; }
-    |   new_expr            { $$ = $1; }
+    |   make_expr           { $$ = $1; }
 
 //    |   field_identifier           %prec DOT   { $$ = new TxFieldValueNode(@1, NULL, $1); }
 //    |   expr DOT field_identifier  %prec EXPR  { $$ = new TxFieldValueNode(@1, $1,   $3); }
@@ -513,7 +513,8 @@ value_literal
         // |       LIT_STRING    { $$ = new TxStringLitNode(@1, $1); }
     ;
 
-new_expr : KW_NEW type_expression LPAREN RPAREN { $$ = new TxNewExprNode(@1, $2); }
+make_expr : KW_NEW type_expression call_params { $$ = new TxNewExprNode(@1, $2, $3); }
+          //| COLON type_expression call_params { $$ = NULL; }//new TxStackMakeExprNode(@1, $2, $3); }
 ;
 
 call_expr : expr call_params  { $$ = new TxFunctionCallNode(@1, $1, $2); }

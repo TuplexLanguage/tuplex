@@ -220,6 +220,17 @@ public:
         : TxBuiltinFunctionType(entity, baseType, std::vector<const TxType*>{ argumentType }, returnType) { }
 };
 
+/*
+class TxStackConstructorType : public TxFunctionType {
+public:
+    TxStackConstructorType(TxTypeEntity* entity, const TxType* baseType, const std::vector<const TxType*>& argumentTypes, const TxType* returnType)
+        : TxFunctionType(entity, baseType, argumentTypes, returnType) { }
+
+//    // TO DO: make common "inlinable function" superclass that contains this method:
+//    virtual llvm::Value* gen_inline_expr(LlvmGenerationContext& context, GenScope* scope) const;
+};
+*/
+
 
 
 /** Special, internal type that represents a group of differing function types.
