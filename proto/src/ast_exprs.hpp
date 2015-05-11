@@ -703,6 +703,38 @@ public:
 
 /*=== assignee expressions ===*/
 
+class TxFieldAssigneeNode : public TxAssigneeNode {
+protected:
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        return this->field->resolve_type(resCtx);
+    }
+
+public:
+    TxFieldValueNode* field;
+    TxFieldAssigneeNode(const yy::location& parseLocation, TxFieldValueNode* field)
+        : TxAssigneeNode(parseLocation), field(field) { }
+
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
+        this->set_context(lexContext);
+        field->symbol_declaration_pass(lexContext);
+    }
+
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxAssigneeNode::symbol_resolution_pass(resCtx);
+        field->symbol_resolution_pass(resCtx);
+
+        auto entity = field->get_field_entity();
+        if (entity && entity->get_storage() == TXS_NOSTORAGE)
+            cerror("Assignee %s is not an L-value / has no storage.", field->memberName.c_str());
+    }
+
+    virtual void semantic_pass() override {
+        field->semantic_pass();
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+};
+
 class TxDerefAssigneeNode : public TxAssigneeNode {
 protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {

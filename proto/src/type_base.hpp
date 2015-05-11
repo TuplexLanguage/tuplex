@@ -548,7 +548,7 @@ public:
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const = 0;
     virtual llvm::Value* gen_size(LlvmGenerationContext& context, GenScope* scope) const;
     virtual llvm::Value* gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName="") const;
-    virtual llvm::Value* gen_typeid(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Constant* gen_typeid(LlvmGenerationContext& context, GenScope* scope) const;
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 

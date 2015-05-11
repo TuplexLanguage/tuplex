@@ -99,7 +99,7 @@ Value* TxType::gen_alloca(LlvmGenerationContext& context, GenScope* scope, const
     return scope->builder->CreateAlloca(llvmType, 0, varName);
 }
 
-Value* TxType::gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
+Constant* TxType::gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
     return ConstantInt::get(Type::getInt32Ty(context.llvmContext), this->get_type_id());
 }
 

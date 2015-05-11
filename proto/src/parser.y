@@ -97,9 +97,8 @@ YY_DECL;
 %type <bool> opt_modifiable
 %type <TxIdentifier*> identifier
 
-%type <TxIdentifierNode*> gen_identifier
+%type <TxIdentifierNode*> compound_identifier
 %type <TxIdentifierNode*> module_declaration opt_module_decl opt_dataspace
-//%type <TxSymbolIdentifierNode*> field_identifier
 
 %type <TxParsingUnitNode*> parsing_unit
 %type <TxModuleNode*> sub_module
@@ -109,8 +108,6 @@ YY_DECL;
 
 %type <std::vector<TxDeclarationNode*> *> module_members opt_module_members type_members opt_type_members type_param_list
 %type <TxDeclarationNode *> module_member member_declaration type_param
-//%type <std::vector<TxDeclarationNode*> *> type_param_list
-//%type <TxDeclarationNode*> type_param
 
 %type <std::vector<TxPredefinedTypeNode*> *> opt_base_types predef_type_list
 %type <TxPredefinedTypeNode*> predef_type
@@ -189,7 +186,7 @@ parsing_unit : opt_sep  opt_module_decl
                    }
     ;
 
-sub_module : KW_MODULE gen_identifier opt_sep
+sub_module : KW_MODULE compound_identifier opt_sep
                sLBRACE  opt_import_stmts  opt_sep  opt_module_members  sRBRACE
                  { if (!driver.parsingUnit)  driver.parsingUnit = new TxParsingUnitNode(@1);
                    $$ = new TxModuleNode(@1, $2, $5, $7, NULL);
@@ -200,14 +197,7 @@ sub_module : KW_MODULE gen_identifier opt_sep
 
 
 
-// An 'identifier' refers to an entity declared elsewhere, and contains one or more
-// period-separated 'segments'.
-// Semantically, identifiers are of the period-separated form
-// MODULE_NAME* ( STATIC_ENTITY_NAME ( STATIC_MEMBER_NAME | SCOPE_NAME )* )? ENTITY_NAME ( MEMBER_NAME )*
-// 'Static' includes both constant globals and static members of entities.
-// 'Scopes' are static entities, but serve as namespace for local (stack/register) entities.
-// 'Member' can be either static or dynamic.
-// (Note that (parameterized) type instances may be 'local'.)
+// An 'identifier' refers to an entity declared elsewhere, and contains one or more period-separated 'segments'.
 // Example of fully qualified static name: my.mod.MyClass.staticField.myMethod.$.InnerClass.staticField2
 // Example of fully qualified local name: my.mod.MyClass.staticField.myMethod.$.self
 
@@ -216,14 +206,14 @@ identifier : NAME                     { $$ = new TxIdentifier($1); }
            | identifier DOT ASTERISK  { $$ = $1; $$->append("*"); }
            ;
 
-gen_identifier : identifier  %prec EXPR  { $$ = new TxIdentifierNode(@1, $1); } ;
+compound_identifier : identifier  %prec EXPR  { $$ = new TxIdentifierNode(@1, $1); } ;
 
 
 
 opt_module_decl    : %empty %prec STMT { $$ = new TxIdentifierNode(@$, new TxIdentifier(LOCAL_NS)); }
                    | module_declaration { $$ = $1; } ;
 
-module_declaration : KW_MODULE gen_identifier sep { $$ = $2; } ;
+module_declaration : KW_MODULE compound_identifier sep { $$ = $2; } ;
 
 opt_import_stmts   : %empty { $$ = new std::vector<TxImportNode*>(); }
                    | import_statements { $$ = $1; } ;
@@ -234,7 +224,7 @@ import_statements  : import_statement
                      { $$ = $1; if ($2) $$->push_back($2); }
                    ;
 
-import_statement   : KW_IMPORT gen_identifier sep  %prec STMT
+import_statement   : KW_IMPORT compound_identifier sep  %prec STMT
                         { $$ = new TxImportNode(@1, $2);
                           if ($2->ident.is_qualified())
                               if (! driver.add_import($2->ident.parent()))
@@ -353,9 +343,9 @@ predef_type_list: predef_type  { $$ = new std::vector<TxPredefinedTypeNode*>(); 
                 | predef_type_list sCOMMA predef_type  { $$ = $1;  $$->push_back($3); }
                 ;
 
-predef_type     : gen_identifier                      { $$ = new TxPredefinedTypeNode(@1, $1); }
-                | gen_identifier LT GT  { $$ = new TxPredefinedTypeNode(@1, $1, new std::vector<TxTypeArgumentNode*>()); }
-                | gen_identifier LT type_arg_list GT  { $$ = new TxPredefinedTypeNode(@1, $1, $3); }
+predef_type     : compound_identifier                      { $$ = new TxPredefinedTypeNode(@1, $1); }
+                | compound_identifier LT GT  { $$ = new TxPredefinedTypeNode(@1, $1, new std::vector<TxTypeArgumentNode*>()); }
+                | compound_identifier LT type_arg_list GT  { $$ = new TxPredefinedTypeNode(@1, $1, $3); }
                 ;
 
 type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->push_back($1); }
@@ -397,7 +387,7 @@ reference_type : opt_dataspace ref_token type_expression
                     { /* (custom ast node needed to handle dataspaces) */
                       $$ = new TxReferenceTypeNode(@2, $1, $3);
                     } ;
-opt_dataspace : %empty { $$ = NULL; } | QMARK { $$ = NULL; } | gen_identifier { $$ = $1; } ;
+opt_dataspace : %empty { $$ = NULL; } | QMARK { $$ = NULL; } | compound_identifier { $$ = $1; } ;
 ref_token : KW_REFERENCE | AAND ;
 
 array_type : array_dimensions type_expression
@@ -465,10 +455,6 @@ method_def  :   KW_FUNC NAME function_header sep suite
 
 //// (value) expressions:
 
-//field_identifier : NAME                       { $$ = new TxSymbolIdentifierNode(@1, NULL, $1); }
-//                 | field_identifier DOT NAME  { $$ = new TxSymbolIdentifierNode(@1,   $1, $3); }
-//                 ;
-
 expr
     :   LPAREN expr RPAREN  { $$ = $2; }
     |   value_literal       { $$ = $1; }
@@ -476,10 +462,8 @@ expr
     |   call_expr           { $$ = $1; }
     |   make_expr           { $$ = $1; }
 
-//    |   field_identifier           %prec DOT   { $$ = new TxFieldValueNode(@1, NULL, $1); }
-//    |   expr DOT field_identifier  %prec EXPR  { $$ = new TxFieldValueNode(@1, $1,   $3); }
-    |   gen_identifier           %prec DOT   { $$ = new TxFieldValueNode(@1, NULL, $1); }
-    |   expr DOT gen_identifier  %prec EXPR  { $$ = new TxFieldValueNode(@1, $1, $3); }
+    |   NAME                                 { $$ = new TxFieldValueNode(@1, NULL, $1); }
+    |   expr DOT NAME                        { $$ = new TxFieldValueNode(@1, $1,   $3); }
     |   expr LBRACKET expr RBRACKET          { $$ = new TxElemDerefNode(@1, $1, $3); }
     |   expr CARET                           { $$ = new TxReferenceDerefNode(@1, $1); }
     |   AAND expr                %prec ADDR  { $$ = new TxReferenceToNode(@1, $2); }
@@ -609,8 +593,8 @@ assignment_stmt //:    assignee_pattern EQUAL expr
 //nested_assignee  : assignee_expr | '{' assignee_pattern '}' ;
 
 assignee_expr  // expressions capable of (but not guaranteed) to produce an lvalue
-    :   gen_identifier           { $$ = new TxFieldAssigneeNode(@1, NULL, $1); }
-    |   expr DOT gen_identifier  { $$ = new TxFieldAssigneeNode(@1, $1, $3); }
+    :   NAME             { $$ = new TxFieldAssigneeNode(@1, new TxFieldValueNode(@1, NULL, $1)); }
+    |   expr DOT NAME    { $$ = new TxFieldAssigneeNode(@1, new TxFieldValueNode(@1, $1,   $3)); }
     |   expr CARET       { $$ = new TxDerefAssigneeNode(@1, $1); }  // unary value-of suffix
     |   expr LBRACKET expr RBRACKET { $$ = new TxElemAssigneeNode(@1, $1, $3); }
     ;

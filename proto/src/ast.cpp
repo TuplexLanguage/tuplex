@@ -445,6 +445,44 @@ void TxMaybeModTypeNode::symbol_declaration_pass(LexicalContext& defContext, Lex
 
 
 
+TxSymbolScope* TxFieldValueNode::resolve_symbol(ResolutionContext& resCtx) {
+    if (! this->cachedSymbol) {
+        std::vector<TxSymbolScope*> tmpPath;
+        if (this->baseExpr) {
+            if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
+                if (auto baseSymbol = baseSymbolNode->resolve_symbol(resCtx))
+                    this->cachedSymbol = baseSymbol->lookup_member(tmpPath, this->memberName);
+            }
+            else if (auto baseType = this->baseExpr->resolve_type(resCtx)) {  // non-name (i.e. computed) value expression
+                this->cachedSymbol = baseType->lookup_instance_member(tmpPath, this->memberName);
+            }
+        }
+        else {
+            this->cachedSymbol = this->context().scope()->start_lookup_symbol(tmpPath, this->memberName);
+        }
+    }
+
+    if (dynamic_cast<const TxOverloadedEntity*>(this->cachedSymbol)) {
+        // if symbol is overloaded, and can be resolved to actual field, then do so
+        if (auto resolvedField = this->context().scope()->resolve_field_lookup(resCtx, this->cachedSymbol, this->appliedFuncArgTypes))
+            this->cachedSymbol = resolvedField;
+    }
+    else if (! this->cachedSymbol) {
+        cerror("No such symbol: %s (from %s)", this->memberName.c_str(), this->context().to_string().c_str());
+    }
+
+    return this->cachedSymbol;
+}
+
+const TxType* TxFieldValueNode::define_type(ResolutionContext& resCtx) {
+    if (auto cachedEntity = dynamic_cast<TxEntity*>(this->resolve_symbol(resCtx)))
+        return cachedEntity->resolve_symbol_type(resCtx);
+    else
+        return nullptr;
+}
+
+
+
 const TxType* TxConstructorCalleeExprNode::define_type(ResolutionContext& resCtx) {
     if (auto allocType = this->newExpr->typeExpr->resolve_type(resCtx)) {
         // find the constructor

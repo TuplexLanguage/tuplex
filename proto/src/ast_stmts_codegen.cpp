@@ -147,14 +147,6 @@ Value* TxAssignStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     return do_store(context, scope, lval, rval);
 }
 
-Value* TxDerefAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
-    auto refval = this->operand->code_gen(context, scope);
-    if (! refval)
-        return NULL;
-    return gen_get_ref_pointer(context, scope, refval);
-}
-
 
 
 Value* TxSuiteNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
