@@ -354,6 +354,8 @@ public:
 
 class TxFunctionTypeNode : public TxTypeExpressionNode {
     // Note: the field names aren't part of a function's formal type definition
+    /** If non-null, this function is a constructor and this is the entity that is being constructed. */
+    TxTypeEntity* constructedEntity = nullptr;
 
     static TxFieldDefNode* make_return_field(TxTypeExpressionNode* returnType) {
         if (returnType)
@@ -375,7 +377,9 @@ protected:
         std::vector<const TxType*> argumentTypes;
         for (auto argDefNode : *this->arguments)
             argumentTypes.push_back(argDefNode->resolve_type(resCtx));
-        if (this->returnField)
+        if (this->constructedEntity)
+            return this->types().get_constructor_type(this->get_entity(), argumentTypes, this->constructedEntity);
+        else if (this->returnField)
             return this->types().get_function_type(this->get_entity(), argumentTypes, this->returnField->resolve_type(resCtx), modifiable);
         else
             return this->types().get_function_type(this->get_entity(), argumentTypes, modifiable);
@@ -394,9 +398,10 @@ public:
         : TxTypeExpressionNode(parseLocation), modifiable(modifiable),
           arguments(arguments), returnField(make_return_field(returnType)) { }
 
-    void symbol_declaration_pass_func_header(LexicalContext& defContext, LexicalContext& lexContext) {
-        // (processed as the function header, so declare the function args, and the return type if any)
+    void symbol_declaration_pass_func_header(LexicalContext& defContext, LexicalContext& lexContext, TxTypeEntity* constructedEntity = nullptr) {
+        // (processed as the function instance header, so declare the function args, and the return type if any)
         this->set_context(lexContext);
+        this->constructedEntity = constructedEntity;
         for (auto argField : *this->arguments)
             argField->symbol_declaration_pass_local_field(lexContext, false);
         if (this->returnField)

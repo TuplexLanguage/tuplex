@@ -19,7 +19,7 @@ type BType mod derives AType {
 }
 
 heap_test() Int {
-    ##stackObj := AType()
+    stackObj := AType()
     ##stackRef := []~&~AType(&stackObj)
     heapObj := new AType()
     heapObj := new AType(2, 2.71)

@@ -172,30 +172,3 @@ Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     }
     return value;
 }
-
-
-
-Value* TxConstructorCalleeExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    // special implementation since constructors are called in similar manner to instance methods, but they are not virtual
-    context.LOG.trace("%-48s", this->to_string().c_str());
-    auto allocType = this->get_object_type();
-    if (! allocType)
-        return nullptr;
-    Constant* instanceTypeIdV = allocType->gen_typeid(context, scope);
-
-    //return instance_method_value_code_gen(context, scope, instanceTypeIdV, this->objectPtrV, allocType, this->constructorEntity);
-
-    //Value* funcPtrV = virtual_field_value_code_gen(context, scope, allocType, instanceTypeIdV, this->constructorEntity);
-    Value* funcPtrV = context.lookup_llvm_value(this->constructorEntity->get_full_name().to_string());
-
-    //std::cout << "funcPtrV: " << funcPtrV << std::endl;
-    ASSERT(funcPtrV->getType()->getPointerElementType()->isFunctionTy() , "Expected funcPtrV to be pointer-to-function type but was: " << funcPtrV->getType());
-    ASSERT(this->objectPtrV->getType()->isPointerTy(), "Expected baseValue to be of pointer type but was: " << this->objectPtrV->getType());
-
-    {   // construct the lambda object:
-        auto closureRefT = context.get_voidRefT();
-        auto closureRefV = gen_ref(context, scope, closureRefT, this->objectPtrV, instanceTypeIdV);
-        auto lambdaT = cast<StructType>(context.get_llvm_type(this->constructorEntity->get_type()));
-        return gen_lambda(context, scope, lambdaT, funcPtrV, closureRefV);
-    }
-}

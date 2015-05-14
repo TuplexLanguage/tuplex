@@ -447,13 +447,19 @@ void TxMaybeModTypeNode::symbol_declaration_pass(LexicalContext& defContext, Lex
 
 TxSymbolScope* TxFieldValueNode::resolve_symbol(ResolutionContext& resCtx) {
     if (! this->cachedSymbol) {
+        if (this->hasRunResolve)
+            return nullptr;
+        this->hasRunResolve = true;
         std::vector<TxSymbolScope*> tmpPath;
         if (this->baseExpr) {
+            auto baseType = this->baseExpr->resolve_type(resCtx);  // may or may not refer to a type (e.g. modules don't)
             if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
-                if (auto baseSymbol = baseSymbolNode->resolve_symbol(resCtx))
+                if (auto baseSymbol = baseSymbolNode->resolve_symbol(resCtx)) {
                     this->cachedSymbol = baseSymbol->lookup_member(tmpPath, this->memberName);
+                }
             }
-            else if (auto baseType = this->baseExpr->resolve_type(resCtx)) {  // non-name (i.e. computed) value expression
+            else if (baseType) {
+                // non-name (i.e. computed) value expression
                 this->cachedSymbol = baseType->lookup_instance_member(tmpPath, this->memberName);
             }
         }
@@ -482,18 +488,17 @@ TxSymbolScope* TxFieldValueNode::resolve_symbol(ResolutionContext& resCtx) {
 }
 
 const TxType* TxFieldValueNode::define_type(ResolutionContext& resCtx) {
-    if (auto cachedEntity = dynamic_cast<TxFieldEntity*>(this->resolve_symbol(resCtx)))
-        return cachedEntity->resolve_symbol_type(resCtx);
-    else if (this->cachedSymbol)
-        cerror("Symbol is not a field: %s", this->cachedSymbol->to_string().c_str());
-    else
-        cerror("No such symbol: %s", this->memberName.c_str());
+    if (auto symbol = this->resolve_symbol(resCtx)) {
+        if (auto entity = dynamic_cast<TxEntity*>(symbol))
+            return entity->resolve_symbol_type(resCtx);
+    }
     return nullptr;
 }
 
 
 
 const TxType* TxConstructorCalleeExprNode::define_type(ResolutionContext& resCtx) {
+    ASSERT(this->appliedFuncArgTypes, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized");
     if (auto allocType = this->get_object_type()) {
         // find the constructor
         TxIdentifier constructorIdent("$init");
@@ -535,19 +540,11 @@ const TxType* TxFunctionCallNode::define_type(ResolutionContext& resCtx) {
     auto calleeType = this->callee->resolve_type(resCtx);
     if (!calleeType)
         return nullptr;
-    if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {
-        // "inline" function call by replacing with conversion expression
-        this->inlinedExpression = validate_wrap_convert(resCtx, this->argsExprList->front(), inlineFunc->returnType, true);
-        return inlineFunc->returnType;
-    }
     if (auto funcType = dynamic_cast<const TxFunctionType*>(calleeType)) {
-        if (auto constructorMethodType = dynamic_cast<const TxConstructorMethodType*>(calleeType)) {
-            // inline code for stack allocation and constructor invocation
-            if (! dynamic_cast<TxConstructorCalleeExprNode*>(this->callee)) {
-                this->inlinedExpression = new TxStackConstructorNode(this, constructorMethodType->get_object_type());
-                this->inlinedExpression->symbol_declaration_pass(this->context());
-                this->inlinedExpression->symbol_resolution_pass(resCtx);
-            }
+        if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {
+            // "inline" function call by replacing with conversion expression
+            this->inlinedExpression = validate_wrap_convert(resCtx, this->argsExprList->front(), inlineFunc->returnType, true);
+            return inlineFunc->returnType;
         }
 
         // verify matching function signature:
@@ -562,6 +559,18 @@ const TxType* TxFunctionCallNode::define_type(ResolutionContext& resCtx) {
             *argExprI = validate_wrap_assignment(resCtx, *argExprI, argDef);
             argExprI++;
         }
+
+        if (auto constructorType = dynamic_cast<const TxConstructorType*>(calleeType)) {
+            // inline code for stack allocation and constructor invocation
+            if (! dynamic_cast<TxConstructorCalleeExprNode*>(this->callee)) {  // (prevents infinite recursion)
+                auto objectType = constructorType->get_constructed_entity()->resolve_symbol_type(resCtx);
+                this->inlinedExpression = new TxStackConstructorNode(this, objectType);
+                this->inlinedExpression->symbol_declaration_pass(this->context());
+                this->inlinedExpression->symbol_resolution_pass(resCtx);
+                return objectType;
+            }
+        }
+
         return funcType->returnType;
     }
     cerror("Callee of function call expression is not of function type: %s", calleeType->to_string().c_str());

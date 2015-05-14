@@ -49,11 +49,18 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     StructType *lambdaT = cast<StructType>(context.get_llvm_type(this->funcTypeNode->get_type()));
     FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
     ASSERT(funcT, "Couldn't get LLVM type for function type " << this->funcTypeNode->get_type());
-    std::string funcName = ""; // anonymous function
+
+    std::string funcName;
     if (this->fieldDefNode) {
-        funcName = this->fieldDefNode->get_entity()->get_full_name().to_string();
+        auto entity = this->fieldDefNode->get_entity();
+        if (entity->get_decl_flags() & TXD_CONSTRUCTOR)
+            funcName = entity->get_full_name().to_string();
+        else
+            funcName = entity->get_full_name().to_string() + "$func";
     }
-    funcName += "$func";
+    else
+        funcName = "$func";  // anonymous function
+
     context.LOG.debug("Creating function: %s", funcName.c_str());
     Function *function = cast<Function>(context.llvmModule.getOrInsertFunction(funcName, funcT));
     // function->setLinkage(GlobalValue::InternalLinkage);  FIXME (can cause LLVM to rename function)

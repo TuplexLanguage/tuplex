@@ -5,6 +5,7 @@
 
 class TxFieldValueNode : public TxExpressionNode {
     TxSymbolScope* cachedSymbol = nullptr;
+    bool hasRunResolve = false;
 
     TxSymbolScope* resolve_symbol(ResolutionContext& resCtx);
 
@@ -17,6 +18,15 @@ public:
 
     TxFieldValueNode(const yy::location& parseLocation, TxExpressionNode* base, const std::string& memberName)
         : TxExpressionNode(parseLocation), baseExpr(base), memberName(memberName) {
+    }
+
+    /** Returns the full identifier (dot-separated full name) as specified in the program text,
+     * up to and including this name. */
+    TxIdentifier get_full_identifier() const {
+        if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr))
+            return TxIdentifier(baseSymbolNode->get_full_identifier(), this->memberName);
+        else
+            return TxIdentifier(this->memberName);
     }
 
     virtual bool has_predefined_type() const override { return true; }
@@ -32,6 +42,13 @@ public:
         // not invoking baseExpr->symbol_resolution_pass() since that is only done via define_type()
         //if (this->baseExpr)
         //    this->baseExpr->symbol_resolution_pass(resCtx);
+        if (! this->get_type()) {
+            if (this->cachedSymbol)
+                cerror("Symbol is not a field: %s", this->cachedSymbol->to_string().c_str());
+            else {
+                cerror("No such symbol: %s", this->get_full_identifier().to_string().c_str());
+            }
+        }
     }
 
     virtual void semantic_pass() override {

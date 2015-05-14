@@ -270,20 +270,20 @@ void TypeRegistry::initializeBuiltinSymbols() {
     // scalar conversion and constructor functions:
     for (auto fromTypeId : SCALAR_TYPE_IDS) {
         for (auto toTypeId : SCALAR_TYPE_IDS) {
-            // global-scope converter function:
-            TxBuiltinDeclProxy* fieldDefiner = new TxBuiltinDeclProxy(this->builtinTypes[toTypeId]->plainName);
-            module->declare_field(fieldDefiner->name, fieldDefiner, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
-            fieldDefiner->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
-                                                                     this->builtinTypes[fromTypeId]->get_type(),
-                                                                     this->builtinTypes[toTypeId]->get_type());
+//            // global-scope converter function:
+//            TxBuiltinDeclProxy* fieldDefiner = new TxBuiltinDeclProxy(this->builtinTypes[toTypeId]->plainName);
+//            module->declare_field(fieldDefiner->name, fieldDefiner, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
+//            fieldDefiner->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
+//                                                                     this->builtinTypes[fromTypeId]->get_type(),
+//                                                                     this->builtinTypes[toTypeId]->get_type());
 
-            // constructor method:
+            // constructors for built-in elementary types are really inline conversion expressions:
             auto typeEnt = this->builtinTypes[toTypeId]->get_entity();
             TxBuiltinDeclProxy* constructorDefiner = new TxBuiltinDeclProxy("$init");
             typeEnt->declare_field(constructorDefiner->name, constructorDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_CONSTRUCTOR, TXS_INSTANCEMETHOD, TxIdentifier(""));
-            std::vector<const TxType*> argTypes { this->builtinTypes[fromTypeId]->get_type() };
-            constructorDefiner->type = new TxConstructorMethodType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
-                                                                   argTypes, this->builtinTypes[toTypeId]->get_type());
+            constructorDefiner->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
+                                                                           this->builtinTypes[fromTypeId]->get_type(),
+                                                                           this->builtinTypes[toTypeId]->get_type());
         }
     }
 
@@ -444,6 +444,11 @@ const TxFunctionType* TypeRegistry::get_function_type(TxTypeEntity* newEntity, c
 const TxFunctionType* TypeRegistry::get_function_type(TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes,
                                                       bool mod, std::string* errorMsg) {
     return new TxFunctionType(newEntity, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, nullptr, mod);
+}
+
+const TxConstructorType* TypeRegistry::get_constructor_type(TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes,
+                                                            TxTypeEntity* objectTypeEntity, std::string* errorMsg) {
+    return new TxConstructorType(newEntity, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, objectTypeEntity);
 }
 
 //const TxTupleType* TypeRegistry::get_tuple_type(TxTypeEntity* newEntity, bool mut, std::string* errorMsg) {

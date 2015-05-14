@@ -526,17 +526,14 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     llvm::Value* gen_call(LlvmGenerationContext& context, GenScope* scope) const;
+    llvm::Value* gen_call(LlvmGenerationContext& context, GenScope* scope, llvm::Value* functionPtrV, llvm::Value* closureRefV) const;
 };
 
 
-/** Callee expression node for calling constructors. */
+/** Special callee expression node for calling constructors. */
 class TxConstructorCalleeExprNode : public TxExpressionNode {
     const TxTypeDefiner* objTypeDefiner;
     TxFieldEntity* constructorEntity = nullptr;
-
-    mutable llvm::Value* objectPtrV = nullptr;
-    friend class TxNewExprNode;
-    friend class TxStackConstructorNode;
 
     const TxType* get_object_type() const { return this->objTypeDefiner->get_type(); }
 
@@ -557,15 +554,55 @@ public:
 
     virtual void semantic_pass() override { }
 
+    /** @return a function pointer (not a lambda value) */
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
-class TxNewExprNode : public TxExpressionNode {
-    TxConstructorCalleeExprNode* constructor;
-    TxFunctionCallNode* constructorCall;
-
+/** Abstract common superclass for new expression and local init expression */
+class TxMakeObjectNode : public TxExpressionNode {
 protected:
+    TxExpressionNode* inlinedInitializer = nullptr;  // substitutes the constructor call if non-null
+
+    TxConstructorCalleeExprNode* constructor = nullptr;
+    TxFunctionCallNode* constructorCall = nullptr;
+
+    virtual const TxType* get_object_type() const = 0;
+
+    virtual llvm::Value* gen_alloc(LlvmGenerationContext& context, GenScope* scope, llvm::Type* objT) const = 0;
+
+public:
+    TxMakeObjectNode(const yy::location& parseLocation)
+            : TxExpressionNode(parseLocation) {
+    }
+
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
+        this->set_context(lexContext);
+        this->constructorCall->symbol_declaration_pass(lexContext);
+    }
+
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(resCtx);
+        this->constructorCall->symbol_resolution_pass(resCtx);
+
+        if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(this->constructor->get_type())) {
+            // "inline" initialization by replacing with conversion expression
+            this->inlinedInitializer = validate_wrap_convert(resCtx, this->constructorCall->argsExprList->front(),
+                                                             inlineFunc->returnType, true);
+        }
+    }
+
+    virtual void semantic_pass() override {
+        this->constructorCall->semantic_pass();
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+};
+
+class TxNewExprNode : public TxMakeObjectNode {
+protected:
+    virtual const TxType* get_object_type() const override { return this->typeExpr->get_type(); }
+
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", this->typeExpr));
 //        // currently we require the new expr type to be modifiable  TODO: solve assignment from new expr differently
@@ -580,11 +617,13 @@ protected:
 //        return nullptr;
     }
 
+    virtual llvm::Value* gen_alloc(LlvmGenerationContext& context, GenScope* scope, llvm::Type* objT) const override;
+
 public:
     TxTypeExpressionNode* typeExpr;
 
     TxNewExprNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList)
-            : TxExpressionNode(parseLocation), typeExpr(typeExpr) {
+            : TxMakeObjectNode(parseLocation), typeExpr(typeExpr) {
         this->constructor = new TxConstructorCalleeExprNode(parseLocation, this->typeExpr);
         this->constructorCall = new TxFunctionCallNode(parseLocation, this->constructor, argsExprList);
     }
@@ -592,8 +631,6 @@ public:
     virtual bool has_predefined_type() const override { return this->typeExpr->has_predefined_type(); }
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        // (similar to TxFieldDefNode::symbol_declaration_pass())
-        this->set_context(lexContext);
         auto typeDeclFlags = TXD_PUBLIC | TXD_IMPLICIT;
         // unless the type expression is a directly named type, declare implicit type entity for this field's type:
         if (this->typeExpr->has_predefined_type())
@@ -603,25 +640,23 @@ public:
             this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags, implTypeName);
         }
 
-        this->constructorCall->symbol_declaration_pass(lexContext);
+        TxMakeObjectNode::symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
         this->typeExpr->symbol_resolution_pass(resCtx);
-        this->constructorCall->symbol_resolution_pass(resCtx);
+        TxMakeObjectNode::symbol_resolution_pass(resCtx);
     }
 
     virtual void semantic_pass() override {
         this->typeExpr->semantic_pass();
-        this->constructorCall->semantic_pass();
+        TxMakeObjectNode::semantic_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
-
-class TxStackConstructorNode : public TxExpressionNode {
+class TxStackConstructorNode : public TxMakeObjectNode {
     class TxTypeDefWrapper : public TxTypeDefiner {
         const TxType* txType;
     public:
@@ -632,44 +667,26 @@ class TxStackConstructorNode : public TxExpressionNode {
     };
 
     TxTypeDefWrapper typeDefWrapper;
-    TxConstructorCalleeExprNode* constructor;
-    TxFunctionCallNode* constructorCall;
-
-    const TxType* get_object_type() const { return this->typeDefWrapper.get_type(); }
 
 protected:
+    virtual const TxType* get_object_type() const override { return this->typeDefWrapper.get_type(); }
+
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", &this->typeDefWrapper));
     }
 
+    virtual llvm::Value* gen_alloc(LlvmGenerationContext& context, GenScope* scope, llvm::Type* objT) const override;
+
 public:
     TxStackConstructorNode(TxFunctionCallNode* originalCall, const TxType* objectType)
-            : TxExpressionNode(originalCall->parseLocation), typeDefWrapper(objectType) {
+            : TxMakeObjectNode(originalCall->parseLocation), typeDefWrapper(objectType) {
         this->constructor = new TxConstructorCalleeExprNode(parseLocation, &this->typeDefWrapper);
         this->constructorCall = new TxFunctionCallNode(parseLocation, this->constructor, originalCall->argsExprList);
     }
 
-    virtual bool has_predefined_type() const override { return true; }
+    virtual bool has_predefined_type() const override { return true; }  // TODO: review
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        // does not invoke proper symbol_declaration_pass() since assumes that originalCall has already done that
-        // on its arguments:
-        // this->constructorCall->symbol_declaration_pass(lexContext);
-        this->constructorCall->set_context(this);
-        this->constructor->symbol_declaration_pass(lexContext);
-    }
-
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
-        this->constructorCall->symbol_resolution_pass(resCtx);
-    }
-
-    virtual void semantic_pass() override {
-        this->constructorCall->semantic_pass();
-    }
-
-    virtual bool is_statically_constant() const { return true; }
+    // virtual bool is_statically_constant() const override { return true; }  // TODO: review
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };

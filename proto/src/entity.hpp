@@ -88,7 +88,7 @@ public:
             }
         }
         else {
-            this->LOGGER().debug("NULL type for entity: %s", this->to_string().c_str());
+            this->LOGGER().warning("NULL type for entity: %s", this->to_string().c_str());
             valid = false;
         }
         return valid;
@@ -456,6 +456,6 @@ public:
     }
 
     virtual std::string to_string() const override {
-        return "<overloaded>     " + this->get_full_name().to_string();
+        return "<overloaded>      " + this->get_full_name().to_string();
     }
 };

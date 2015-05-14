@@ -208,14 +208,14 @@ public:
     }
 };
 
-class TxConstructorMethodType : public TxFunctionType {
-    const TxType* objectType;
+class TxConstructorType : public TxFunctionType {
+    TxTypeEntity* objectTypeEntity;
 public:
-    TxConstructorMethodType(TxTypeEntity* entity, const TxType* baseType, const std::vector<const TxType*> argumentTypes, const TxType* objectType)
-        : TxFunctionType(entity, baseType, argumentTypes, nullptr, true), objectType(objectType) { }
+    TxConstructorType(TxTypeEntity* entity, const TxType* baseType, const std::vector<const TxType*> argumentTypes, TxTypeEntity* objectTypeEntity)
+        : TxFunctionType(entity, baseType, argumentTypes, nullptr, true), objectTypeEntity(objectTypeEntity) { }
 
-    const TxType* get_object_type() const {
-        return this->objectType;
+    TxTypeEntity* get_constructed_entity() const {
+        return this->objectTypeEntity;
     }
 };
 

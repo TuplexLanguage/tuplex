@@ -92,6 +92,7 @@ public:
     // Note: "mod" of args not part of the function type (though concrete function may mod-ify its stack arg copies).
     const TxFunctionType* get_function_type(TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, const TxType* returnType, bool mod=false, std::string* errorMsg=nullptr);
     const TxFunctionType* get_function_type(TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, bool mod=false, std::string* errorMsg=nullptr);
+    const TxConstructorType* get_constructor_type(TxTypeEntity* newEntity, const std::vector<const TxType*>& argumentTypes, TxTypeEntity* objectTypeEntity, std::string* errorMsg=nullptr);
 
 //    /** Creates a new tuple type that does not extend another data type or interface.
 //     * "mut" of tuple means it is not immutable, i.e. its instances may be declared modifiable. */

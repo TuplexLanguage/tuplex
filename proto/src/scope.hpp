@@ -248,6 +248,6 @@ public:
 
 
     virtual std::string to_string() const {
-        return "<scope>          " + this->get_full_name().to_string();
+        return "<scope>           " + this->get_full_name().to_string();
     }
 };

@@ -38,6 +38,7 @@ public:
         LexicalContext funcLexContext(lexContext.scope()->create_code_block_scope(funcName));
         this->set_context(funcLexContext);
 
+        TxTypeEntity* constructedEntity = nullptr;
         if (this->is_instance_method()) {
             // insert implicit local field named 'self', that is a reference to the closure type
             if (auto typeEntity = dynamic_cast<TxTypeEntity*>(lexContext.scope())) {  // if in type scope
@@ -46,13 +47,16 @@ public:
                 TxTypeExpressionNode* selfRefTypeExpr = new TxReferenceTypeNode(this->parseLocation, nullptr, selfTypeExprN);
                 this->selfRefNode = new TxFieldDefNode(this->parseLocation, "self", selfRefTypeExpr, nullptr);
                 this->selfRefNode->symbol_declaration_pass_local_field(funcLexContext, false);
+
+                if (this->fieldDefNode->get_entity()->get_decl_flags() & TXD_CONSTRUCTOR)
+                    constructedEntity = typeEntity;
             }
             else
                 this->cerror("The scope of an instance method must be a type scope");
         }
         // FUTURE: define implicit closure object when in code block
 
-        this->funcTypeNode->symbol_declaration_pass_func_header(funcLexContext, funcLexContext);  // function header
+        this->funcTypeNode->symbol_declaration_pass_func_header(funcLexContext, funcLexContext, constructedEntity);  // function header
         this->suite->symbol_declaration_pass_no_subscope(funcLexContext);  // function body
     }
 
