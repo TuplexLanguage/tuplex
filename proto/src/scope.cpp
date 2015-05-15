@@ -147,7 +147,7 @@ TxDistinctEntity* TxSymbolScope::overload_entity(TxDistinctEntity* entity, TxSym
         auto success = this->declare_symbol(specificEntity);
         ASSERT(success, "Internal error, assigned internal name for overloaded entity is not unique: " << specificEntity->get_full_name());
         if (! entity->get_full_name().begins_with(BUILTIN_NS))
-            this->LOGGER().info("    Overloaded %-32s %s", entity->get_full_name().to_string().c_str(), specificEntity->to_string().c_str());
+            this->LOGGER().debug("    Overloaded %-32s %s", entity->get_full_name().to_string().c_str(), specificEntity->to_string().c_str());
         return specificEntity;
     }
     else {

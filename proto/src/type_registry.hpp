@@ -48,7 +48,8 @@ class TypeRegistry {
     void register_type(TxType* type);
 
     void initializeBuiltinSymbols();
-    //void add_builtin(TxModule* module, BuiltinTypeRecord* record);
+    void declare_conversion_constructor(BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId);
+
     void add_builtin_abstract(TxModule* module, TxTypeClass typeClass, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId);
     void add_builtin_integer(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size, bool sign);
     void add_builtin_floating(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size);

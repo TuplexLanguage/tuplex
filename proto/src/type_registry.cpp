@@ -267,32 +267,15 @@ void TypeRegistry::initializeBuiltinSymbols() {
 //                (TxDeclarationFlags)(TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN), TXS_STATIC, TxIdentifier());
 //    }
 
-    // scalar conversion and constructor functions:
+    // scalar conversion-constructor functions:
     for (auto fromTypeId : SCALAR_TYPE_IDS) {
         for (auto toTypeId : SCALAR_TYPE_IDS) {
-//            // global-scope converter function:
-//            TxBuiltinDeclProxy* fieldDefiner = new TxBuiltinDeclProxy(this->builtinTypes[toTypeId]->plainName);
-//            module->declare_field(fieldDefiner->name, fieldDefiner, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
-//            fieldDefiner->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
-//                                                                     this->builtinTypes[fromTypeId]->get_type(),
-//                                                                     this->builtinTypes[toTypeId]->get_type());
-
-            // constructors for built-in elementary types are really inline conversion expressions:
-            auto typeEnt = this->builtinTypes[toTypeId]->get_entity();
-            TxBuiltinDeclProxy* constructorDefiner = new TxBuiltinDeclProxy("$init");
-            typeEnt->declare_field(constructorDefiner->name, constructorDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_CONSTRUCTOR, TXS_INSTANCEMETHOD, TxIdentifier(""));
-            constructorDefiner->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
-                                                                           this->builtinTypes[fromTypeId]->get_type(),
-                                                                           this->builtinTypes[toTypeId]->get_type());
+            declare_conversion_constructor(fromTypeId, toTypeId);
         }
     }
+    declare_conversion_constructor(BOOL, BOOL);
 
 //    // built-in global constants:
-//    // FUTURE: implement TRUE and FALSE as enumeration values and/or parser tokens
-//    //TxTypeDefiner* BoolTypeDef = new TxBuiltinTypeProxy(this->builtinTypes[BOOLEAN]->get_type());
-//    module->declare_field("FALSE", this->builtinTypes[BOOLEAN], TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
-//    module->declare_field("TRUE",  this->builtinTypes[BOOLEAN], TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
-
 //    auto charsType = new TxArrayType("tx.Char"); // BUILTIN_TYPES[CHAR].type);
 //    TxBuiltinTypeDefiner* charsProd = new TxBuiltinTypeDefiner("CharArray", charsType);
 //    auto strRec = BuiltinTypeRecord { STRING, "String", new TxReferenceType("tx.CharArray") };
@@ -314,6 +297,22 @@ void TypeRegistry::initializeBuiltinSymbols() {
     }
 }
 
+void TypeRegistry::declare_conversion_constructor(BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId) {
+//    // global-scope converter function:
+//    TxBuiltinDeclProxy* fieldDefiner = new TxBuiltinDeclProxy(this->builtinTypes[toTypeId]->plainName);
+//    module->declare_field(fieldDefiner->name, fieldDefiner, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
+//    fieldDefiner->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
+//                                                             this->builtinTypes[fromTypeId]->get_type(),
+//                                                             this->builtinTypes[toTypeId]->get_type());
+
+    // constructors for built-in elementary types are really inline conversion expressions
+    auto typeEnt = this->builtinTypes[toTypeId]->get_entity();
+    TxBuiltinDeclProxy* constructorDefiner = new TxBuiltinDeclProxy("$init");
+    typeEnt->declare_field(constructorDefiner->name, constructorDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_CONSTRUCTOR, TXS_INSTANCEMETHOD, TxIdentifier(""));
+    constructorDefiner->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
+                                                                   this->builtinTypes[fromTypeId]->get_type(),
+                                                                   this->builtinTypes[toTypeId]->get_type());
+}
 
 
 void TypeRegistry::register_type(TxType* type) {

@@ -1,0 +1,66 @@
+module my
+
+type AType mod derives Tuple {
+    field1 : Long
+    field2 : Float
+    field3 : ~Bool
+
+    public self() {
+        self^.field1 = 17
+        self^.field2 = 3.14
+        self^.field3 = FALSE
+    }
+    public self(f1 : Long, f2 : Float) {
+        if (f1 < 0) {
+            self^.field1 = f1
+        } else
+            self^.field1 = -f1
+        self^.field2 = f2
+        self^.field3 = TRUE
+    }
+}
+
+type BType mod derives AType {
+    field3 : Bool
+}
+
+object_construction() Int {
+    stackObj := AType()
+    ##stackRef := ~&~AType(&stackObj)
+    heapObj1 := new AType()
+    heapObj2 := new AType(2, 2.71)
+    ##heapObj3 := new BType()  shall not work
+    return Int( heapObj1^.field1 )
+}
+
+builtin_construction() Int {
+    stackBool := Bool(FALSE)
+    heapBool := new Bool(TRUE)
+
+    stackInt := Int(-1)
+    heapInt := new Int(2)
+
+    stackDouble := Double(-123.456)
+    heapDouble := new Double(3.141592)
+
+    heapVar : &~Int = new ~Int(0)
+    heapVar^ = 2
+
+    /*
+    heapRef := <Ref<Scalar>>(heapVar)
+    heapRef := <&Scalar>(heapVar)
+    heapRef := new Ref<Scalar>(heapVar)
+
+    heapRef : &~&~Int = new ~&~Int(heapVar)
+    heapRef^ = heapVar
+    heapArr := new Array<Int,100>()
+    return heapRef^^
+    */
+    return heapVar^
+}
+
+main() Int {
+    ret1 := object_construction()
+    ret2 := builtin_construction()
+    return ret1
+}

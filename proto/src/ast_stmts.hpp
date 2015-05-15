@@ -155,7 +155,7 @@ public:
             stmt->symbol_declaration_pass(lexContext);
     }
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        LexicalContext suiteContext(lexContext.scope()->create_code_block_scope());
+        LexicalContext suiteContext(lexContext.scope()->create_code_block_scope(), lexContext.is_constructor());
         this->symbol_declaration_pass_no_subscope(suiteContext);
     }
 
@@ -277,7 +277,8 @@ public:
         if (! ltype)
             return;  // (error message should have been emitted by lvalue node)
         if (! ltype->is_modifiable()) {
-            cerror("Assignee is not modifiable: %s", ltype->to_string().c_str());
+            if (! this->context().is_constructor())
+                cerror("Assignee is not modifiable: %s", ltype->to_string().c_str());
             // Note: If the object as a whole is modifiable, it can be assigned to.
             // If it has any "non-modifiable" members, those will still get overwritten.
             // We could add custom check to prevent that scenario for Arrays, but then

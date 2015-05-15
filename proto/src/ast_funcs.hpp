@@ -35,21 +35,24 @@ public:
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         std::string funcName = this->fieldDefNode ? this->fieldDefNode->get_entity()->get_name() : "";
-        LexicalContext funcLexContext(lexContext.scope()->create_code_block_scope(funcName));
+        LexicalContext funcLexContext(lexContext.scope()->create_code_block_scope(funcName), true);
         this->set_context(funcLexContext);
 
         TxTypeEntity* constructedEntity = nullptr;
         if (this->is_instance_method()) {
             // insert implicit local field named 'self', that is a reference to the closure type
             if (auto typeEntity = dynamic_cast<TxTypeEntity*>(lexContext.scope())) {  // if in type scope
+                // TODO: 'super' reference
                 auto selfTypeNameN = new TxIdentifierNode(this->parseLocation, new TxIdentifier(typeEntity->get_full_name()));
                 auto selfTypeExprN = new TxPredefinedTypeNode(this->parseLocation, selfTypeNameN);
                 TxTypeExpressionNode* selfRefTypeExpr = new TxReferenceTypeNode(this->parseLocation, nullptr, selfTypeExprN);
                 this->selfRefNode = new TxFieldDefNode(this->parseLocation, "self", selfRefTypeExpr, nullptr);
                 this->selfRefNode->symbol_declaration_pass_local_field(funcLexContext, false);
 
-                if (this->fieldDefNode->get_entity()->get_decl_flags() & TXD_CONSTRUCTOR)
+                if (this->fieldDefNode->get_entity()->get_decl_flags() & TXD_CONSTRUCTOR) {
                     constructedEntity = typeEntity;
+                    funcLexContext.set_constructor(true);
+                }
             }
             else
                 this->cerror("The scope of an instance method must be a type scope");

@@ -498,7 +498,7 @@ value_literal
     ;
 
 make_expr : KW_NEW type_expression call_params { $$ = new TxNewExprNode(@1, $2, $3); }
-          //| COLON type_expression call_params { $$ = NULL; }//new TxStackMakeExprNode(@1, $2, $3); }
+          | LT type_expression GT call_params { $$ = new TxStackConstructorNode(@1, $2, $4); }
 ;
 
 call_expr : expr call_params  { $$ = new TxFunctionCallNode(@1, $1, $2); }
