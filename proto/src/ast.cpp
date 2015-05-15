@@ -499,7 +499,7 @@ const TxType* TxFieldValueNode::define_type(ResolutionContext& resCtx) {
 
 const TxType* TxConstructorCalleeExprNode::define_type(ResolutionContext& resCtx) {
     ASSERT(this->appliedFuncArgTypes, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized");
-    if (auto allocType = this->get_object_type()) {
+    if (auto allocType = this->objectExpr->resolve_type(resCtx)) {
         // find the constructor
         TxIdentifier constructorIdent("$init");
         std::vector<TxSymbolScope*> path;
@@ -540,39 +540,68 @@ const TxType* TxFunctionCallNode::define_type(ResolutionContext& resCtx) {
     auto calleeType = this->callee->resolve_type(resCtx);
     if (!calleeType)
         return nullptr;
-    if (auto funcType = dynamic_cast<const TxFunctionType*>(calleeType)) {
-        if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {
-            // "inline" function call by replacing with conversion expression
-            this->inlinedExpression = validate_wrap_convert(resCtx, this->argsExprList->front(), inlineFunc->returnType, true);
-            return inlineFunc->returnType;
-        }
+    auto funcType = dynamic_cast<const TxFunctionType*>(calleeType);
+    if (! funcType) {
+        if (auto fieldValueNode = dynamic_cast<TxFieldValueNode*>(this->callee)) {
+            // handle direct constructor invocation - self() and super()
+            // FIXME: shall only be legal as first statement within constructor body
+            auto identifier = fieldValueNode->get_full_identifier();
+            if (identifier == "self") {
+                if (! this->context().is_constructor())
+                    this->cerror("self() constructor may only be invoked from the type's other constructors");
 
-        // verify matching function signature:
-        if (funcType->argumentTypes.size() != this->argsExprList->size()) {
-            cerror("Callee of function call expression has mismatching argument count: %s", calleeType->to_string().c_str());
-            return nullptr;
-        }
-        // (regular function call, not inlined expression)
-        auto argExprI = this->argsExprList->begin();
-        for (auto argDef : funcType->argumentTypes) {
-            // note: similar rules to assignment
-            *argExprI = validate_wrap_assignment(resCtx, *argExprI, argDef);
-            argExprI++;
-        }
+                auto objectDeref = new TxReferenceDerefNode(this->callee->parseLocation, this->callee);
+                auto constructorCallee = new TxConstructorCalleeExprNode(this->callee->parseLocation, objectDeref);
+                //constructorCallee->symbol_declaration_pass(this->context());
+                objectDeref->set_context(this);
+                constructorCallee->set_context(this);
+                constructorCallee->set_applied_func_arg_types(this->callee->get_applied_func_arg_types());
 
-        if (auto constructorType = dynamic_cast<const TxConstructorType*>(calleeType)) {
-            // inline code for stack allocation and constructor invocation
-            if (! dynamic_cast<TxConstructorCalleeExprNode*>(this->callee)) {  // (prevents infinite recursion)
-                auto objectType = constructorType->get_constructed_entity()->resolve_symbol_type(resCtx);
-                this->inlinedExpression = new TxStackConstructorNode(this, objectType);
-                this->inlinedExpression->symbol_declaration_pass(this->context());
-                this->inlinedExpression->symbol_resolution_pass(resCtx);
-                return objectType;
+                this->callee = constructorCallee;
+                calleeType = this->callee->resolve_type(resCtx);
+                if (calleeType)
+                    funcType = dynamic_cast<const TxFunctionType*>(calleeType);
+            }
+            else if (identifier == "super") {
+                std::cout << "SUPER!" << std::endl;
             }
         }
 
-        return funcType->returnType;
+        if (! funcType) {
+            cerror("Callee of function call expression is not of function type: %s", calleeType->to_string().c_str());
+            return nullptr;
+        }
     }
-    cerror("Callee of function call expression is not of function type: %s", calleeType->to_string().c_str());
-    return nullptr;
+
+    if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {
+        // "inline" function call by replacing with conversion expression
+        this->inlinedExpression = validate_wrap_convert(resCtx, this->argsExprList->front(), inlineFunc->returnType, true);
+        return inlineFunc->returnType;
+    }
+
+    // verify matching function signature:
+    if (funcType->argumentTypes.size() != this->argsExprList->size()) {
+        cerror("Callee of function call expression has mismatching argument count: %s", calleeType->to_string().c_str());
+        return nullptr;
+    }
+    // (regular function call, not inlined expression)
+    auto argExprI = this->argsExprList->begin();
+    for (auto argDef : funcType->argumentTypes) {
+        // note: similar rules to assignment
+        *argExprI = validate_wrap_assignment(resCtx, *argExprI, argDef);
+        argExprI++;
+    }
+
+    if (auto constructorType = dynamic_cast<const TxConstructorType*>(calleeType)) {
+        // inline code for stack allocation and constructor invocation
+        if (! dynamic_cast<TxConstructorCalleeExprNode*>(this->callee)) {  // (prevents infinite recursion)
+            auto objectType = constructorType->get_constructed_entity()->resolve_symbol_type(resCtx);
+            this->inlinedExpression = new TxStackConstructorNode(this, objectType);
+            this->inlinedExpression->symbol_declaration_pass(this->context());
+            this->inlinedExpression->symbol_resolution_pass(resCtx);
+            return objectType;
+        }
+    }
+
+    return funcType->returnType;
 }

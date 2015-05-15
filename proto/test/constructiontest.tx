@@ -6,8 +6,7 @@ type AType mod derives Tuple {
     field3 : ~Bool
 
     public self() {
-        self^.field1 = 17
-        self^.field2 = 3.14
+        self(17, 3.14)
         self^.field3 = FALSE
     }
     public self(f1 : Long, f2 : Float) {
@@ -21,7 +20,12 @@ type AType mod derives Tuple {
 }
 
 type BType mod derives AType {
-    field3 : Bool
+    field4 : Double
+
+    public self(f4 : Double) {
+        ##super()
+        self^.field4 = f4
+    }
 }
 
 object_construction() Int {
@@ -59,7 +63,18 @@ builtin_construction() Int {
     return heapVar^
 }
 
+mod_test() Int {
+    ~iv := Int(3)
+    iv = 4
+    ~ir := new ~Int(3)
+    ir^ = 4
+    ir = new ~Int(5)
+    iv2 := (new Int(3))^ + Int(3)
+    return iv2
+}
+
 main() Int {
+    ret0 := mod_test()
     ret1 := object_construction()
     ret2 := builtin_construction()
     return ret1

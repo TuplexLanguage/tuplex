@@ -35,7 +35,7 @@ public:
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         std::string funcName = this->fieldDefNode ? this->fieldDefNode->get_entity()->get_name() : "";
-        LexicalContext funcLexContext(lexContext.scope()->create_code_block_scope(funcName), true);
+        LexicalContext funcLexContext(lexContext.scope()->create_code_block_scope(funcName));
         this->set_context(funcLexContext);
 
         TxTypeEntity* constructedEntity = nullptr;

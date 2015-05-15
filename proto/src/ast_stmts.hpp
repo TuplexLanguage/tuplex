@@ -277,7 +277,7 @@ public:
         if (! ltype)
             return;  // (error message should have been emitted by lvalue node)
         if (! ltype->is_modifiable()) {
-            if (! this->context().is_constructor())
+            if (! this->context().is_constructor())  // FIXME: only members of constructed object should skip error
                 cerror("Assignee is not modifiable: %s", ltype->to_string().c_str());
             // Note: If the object as a whole is modifiable, it can be assigned to.
             // If it has any "non-modifiable" members, those will still get overwritten.

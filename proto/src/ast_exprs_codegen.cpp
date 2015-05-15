@@ -578,68 +578,90 @@ Value* TxFunctionCallNode::gen_call(LlvmGenerationContext& context, GenScope* sc
 
 
 Value* TxConstructorCalleeExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    // constructors are similar to instance methods, but they are not virtual (and not in vtable)
-    context.LOG.trace("%-48s", this->to_string().c_str());
-    Value* funcPtrV = context.lookup_llvm_value(this->constructorEntity->get_full_name().to_string());
-    return funcPtrV;
-    /*
-    //std::cout << "funcPtrV: " << funcPtrV << std::endl;
-    auto allocType = this->get_object_type();
+    Value* funcPtrV = this->gen_func_ptr(context, scope);
+    auto allocType = this->objectExpr->get_type();
     if (! allocType)
         return nullptr;
     Constant* instanceTypeIdV = allocType->gen_typeid(context, scope);
-    ASSERT(this->objectPtrV->getType()->isPointerTy(), "Expected baseValue to be of pointer type but was: " << this->objectPtrV->getType());
-    {   // construct the lambda object:
-        auto closureRefT = context.get_voidRefT();
-        auto closureRefV = gen_ref(context, scope, closureRefT, this->objectPtrV, instanceTypeIdV);
-        auto lambdaT = cast<StructType>(context.get_llvm_type(this->constructorEntity->get_type()));
-        return gen_lambda(context, scope, lambdaT, funcPtrV, closureRefV);
+    // construct the lambda object:
+    auto closureRefT = context.get_voidRefT();
+    auto closureRefV = gen_ref(context, scope, closureRefT, this->gen_obj_ptr(context, scope), instanceTypeIdV);
+    auto lambdaT = cast<StructType>(context.get_llvm_type(this->constructorEntity->get_type()));
+    return gen_lambda(context, scope, lambdaT, funcPtrV, closureRefV);
+}
+
+Value* TxConstructorCalleeExprNode::gen_obj_ptr(LlvmGenerationContext& context, GenScope* scope) const {
+    if (! this->objectPtrV) {
+        this->objectPtrV = this->objectExpr->code_gen(context, scope);
+        ASSERT(this->objectPtrV->getType()->isPointerTy(), "Expected baseValue to be of pointer type but was: " << this->objectPtrV->getType());
     }
-    */
+    return this->objectPtrV;
+}
+
+Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context, GenScope* scope) const {
+    // constructors are similar to instance methods, but they are not virtual (and not in vtable)
+    context.LOG.trace("%-48s", this->to_string().c_str());
+    Value* funcPtrV = context.lookup_llvm_value(this->constructorEntity->get_full_name().to_string());
+    if (! funcPtrV) {
+        if (auto txType = this->constructorEntity->get_type()) {
+            // forward declaration situation
+            if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
+                context.LOG.alert("Forward-declaring constructor function %s: %s", this->constructorEntity->get_full_name().to_string().c_str(), txFuncType->to_string().c_str());
+                StructType *lambdaT = cast<StructType>(context.get_llvm_type(txFuncType));
+                FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
+                auto funcName = this->constructorEntity->get_full_name().to_string(); // + "$func";
+                funcPtrV = context.llvmModule.getOrInsertFunction(funcName, funcT);
+            }
+            else
+                context.LOG.error("No LLVM type defined for %s", this->constructorEntity->to_string().c_str());
+        }
+    }
+    return funcPtrV;
+}
+
+
+Value* TxHeapAllocNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    Type* objT = context.get_llvm_type(this->get_type());
+    return context.gen_malloc(scope, objT);
+}
+
+Value* TxStackAllocNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    return this->get_type()->gen_alloca(context, scope);
 }
 
 
 Value* TxMakeObjectNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    if (this->typeExpr)
+        this->typeExpr->code_gen(context, scope);
+
     Type* objT = context.get_llvm_type(this->get_object_type());
-    Type* objRefT = context.get_llvm_type(this->get_type());
-    if (!objT || !objRefT)
+    if (!objT)
         return nullptr;
 
-    auto objAllocI = this->gen_alloc(context, scope, objT);
-
-    Constant* objTypeIdV = this->get_object_type()->gen_typeid(context, scope);
-    auto objRefV = gen_ref(context, scope, objRefT, objAllocI, objTypeIdV);
+    Value* objAllocV = this->constructor->gen_obj_ptr(context, scope);
 
     // initialize the object
     if (this->inlinedInitializer) {
         auto initValue = this->inlinedInitializer->code_gen(context, scope);
         ASSERT(scope, "new expression not supported in global/static scope: " << this->parse_loc_string());
-        scope->builder->CreateStore(initValue, objAllocI);
+        scope->builder->CreateStore(initValue, objAllocV);
     }
     else {
-        Value* funcPtrV = this->constructor->code_gen(context, scope);
-        ASSERT(funcPtrV->getType()->getPointerElementType()->isFunctionTy() , "Expected funcPtrV to be pointer-to-function type but was: " << funcPtrV->getType());
-        auto closureRefT = context.get_voidRefT();  // avoids 'self' ref casting issue
-        auto closureRefV = gen_ref(context, scope, closureRefT, objAllocI, objTypeIdV);
-        this->constructorCall->gen_call(context, scope, funcPtrV, closureRefV);
+        this->constructorCall->code_gen(context, scope);
     }
-
-    return objRefV;
-}
-
-Value* TxNewExprNode::gen_alloc(LlvmGenerationContext& context, GenScope* scope, Type* objT) const {
-    return context.gen_malloc(scope, objT);
+    return objAllocV;
 }
 
 Value* TxNewExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     // new constructor returns the constructed object by reference
     context.LOG.trace("%-48s", this->to_string().c_str());
-    this->typeExpr->code_gen(context, scope);
-    return TxMakeObjectNode::code_gen(context, scope);
-}
-
-Value* TxStackConstructorNode::gen_alloc(LlvmGenerationContext& context, GenScope* scope, Type* objT) const {
-    return this->get_object_type()->gen_alloca(context, scope);
+    Type* objRefT = context.get_llvm_type(this->get_type());
+    if (!objRefT)
+        return nullptr;
+    Value* objAllocV = TxMakeObjectNode::code_gen(context, scope);
+    Constant* objTypeIdV = this->get_object_type()->gen_typeid(context, scope);
+    auto objRefV = gen_ref(context, scope, objRefT, objAllocV, objTypeIdV);
+    return objRefV;
 }
 
 Value* TxStackConstructorNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
@@ -651,8 +673,8 @@ Value* TxStackConstructorNode::code_gen(LlvmGenerationContext& context, GenScope
         return this->inlinedInitializer->code_gen(context, scope);
     }
     else {
-        auto objRefV = TxMakeObjectNode::code_gen(context, scope);
-        return gen_get_ref_pointer(context, scope, objRefV);
+        auto objAllocV = TxMakeObjectNode::code_gen(context, scope);
+        return objAllocV;
     }
 }
 

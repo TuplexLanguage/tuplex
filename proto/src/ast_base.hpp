@@ -337,7 +337,7 @@ class TxExpressionNode : public TxNode, public TxTypeDefiner {
     bool gottenType = false;  // to prevent multiple identical error messages
     TxType const * cachedType = nullptr;
 protected:
-    const std::vector<const TxType*>* appliedFuncArgTypes = nullptr; // injected by expression context if applicable
+    std::vector<const TxType*>* appliedFuncArgTypes = nullptr; // injected by expression context if applicable
 
     /** Defines the type of this expression (as specific as can be known), constructing/obtaining the TxType instance.
      * The implementation should only traverse the minimum nodes needed to define the type
@@ -403,6 +403,7 @@ public:
     }
 
     virtual bool hasAppliedFuncArgTypes()  { return this->appliedFuncArgTypes; }
+    virtual std::vector<const TxType*>* get_applied_func_arg_types()  { return this->appliedFuncArgTypes; }
     virtual void set_applied_func_arg_types(std::vector<const TxType*>* appliedFuncArgTypes) {
         this->appliedFuncArgTypes = appliedFuncArgTypes;
     }

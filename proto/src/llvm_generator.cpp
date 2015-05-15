@@ -139,6 +139,7 @@ Function* LlvmGenerationContext::gen_main_function(const std::string userMain, b
         Value* args[] = { nullClosureRefV };
         CallInst *user_main_call = CallInst::Create(func, args, "", bb);
         user_main_call->setTailCall(false);
+        user_main_call->setIsNoInline();
         auto int32T = Type::getInt32Ty(this->llvmModule.getContext());
         if (hasIntReturnValue) {
             // truncate return value to i32

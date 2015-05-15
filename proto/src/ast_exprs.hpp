@@ -530,33 +530,78 @@ public:
 };
 
 
+
 /** Special callee expression node for calling constructors. */
 class TxConstructorCalleeExprNode : public TxExpressionNode {
-    const TxTypeDefiner* objTypeDefiner;
+    TxExpressionNode* objectExpr;
+
+    /** The constructor method entity */
     TxFieldEntity* constructorEntity = nullptr;
 
-    const TxType* get_object_type() const { return this->objTypeDefiner->get_type(); }
+    mutable llvm::Value* objectPtrV = nullptr;
+
+    /** @return a function pointer (not a lambda value) */
+    virtual llvm::Value* gen_func_ptr(LlvmGenerationContext& context, GenScope* scope) const;
 
 protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override;
 
 public:
-    TxConstructorCalleeExprNode(const yy::location& parseLocation, const TxTypeDefiner* objTypeDefiner)
-            : TxExpressionNode(parseLocation), objTypeDefiner(objTypeDefiner) { }
+    TxConstructorCalleeExprNode(const yy::location& parseLocation, TxExpressionNode* objectExpr)
+            : TxExpressionNode(parseLocation), objectExpr(objectExpr) { }
 
     virtual bool has_predefined_type() const override { return true; }
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
+        this->objectExpr->symbol_declaration_pass(lexContext);
+    }
+    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { this->objectExpr->symbol_resolution_pass(resCtx); }
+    virtual void semantic_pass() override { this->objectExpr->semantic_pass(); }
+
+    /** @return a lambda value */
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    /** @return an object pointer (not a lambda value) */
+    virtual llvm::Value* gen_obj_ptr(LlvmGenerationContext& context, GenScope* scope) const;
+};
+
+
+
+/** Abstract superclass for memory allocation expressions, for heap and stack allocators. */
+class TxMemAllocNode : public TxExpressionNode {
+    TxTypeDefiner* objTypeDefiner;
+
+protected:
+    //const TxType* get_object_type() const { return this->objTypeDefiner->get_type(); }
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        return this->objTypeDefiner->resolve_type(resCtx);
     }
 
+    TxMemAllocNode(const yy::location& parseLocation, TxTypeDefiner* objTypeDefiner)
+            : TxExpressionNode(parseLocation), objTypeDefiner(objTypeDefiner) { }
+
+public:
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override { this->set_context(lexContext); }
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { }
-
     virtual void semantic_pass() override { }
+    virtual bool has_predefined_type() const override { return false; }  // for now
+};
 
-    /** @return a function pointer (not a lambda value) */
+class TxHeapAllocNode : public TxMemAllocNode {
+public:
+    TxHeapAllocNode(const yy::location& parseLocation, TxTypeDefiner* objTypeDefiner)
+            : TxMemAllocNode(parseLocation, objTypeDefiner) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
+
+class TxStackAllocNode : public TxMemAllocNode {
+public:
+    TxStackAllocNode(const yy::location& parseLocation, TxTypeDefiner* objTypeDefiner)
+            : TxMemAllocNode(parseLocation, objTypeDefiner) { }
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+};
+
 
 
 /** Abstract common superclass for new expression and local init expression */
@@ -570,11 +615,8 @@ protected:
 
     virtual const TxType* get_object_type() const = 0;
 
-    virtual llvm::Value* gen_alloc(LlvmGenerationContext& context, GenScope* scope, llvm::Type* objT) const = 0;
-
     TxMakeObjectNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr)
-            : TxExpressionNode(parseLocation), typeExpr(typeExpr) {
-    }
+            : TxExpressionNode(parseLocation), typeExpr(typeExpr) { }
 
 public:
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
@@ -615,30 +657,20 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
+
 class TxNewExprNode : public TxMakeObjectNode {
 protected:
     virtual const TxType* get_object_type() const override { return this->typeExpr->get_type(); }
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        // new constructor returns the constructed object by reference
         return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", this->typeExpr));
-//        // currently we require the new expr type to be modifiable  TODO: solve assignment from new expr differently
-//        if (auto type = this->typeExpr->resolve_type(resCtx)) {
-//            if (type->is_modifiable())
-//                return type;
-//            else if (! type->is_immutable())
-//                return this->types().get_modifiable_type(nullptr, type);
-//            else
-//                cerror("Not yet supported to assign immutable type in 'new' expression");
-//        }
-//        return nullptr;
     }
-
-    virtual llvm::Value* gen_alloc(LlvmGenerationContext& context, GenScope* scope, llvm::Type* objT) const override;
 
 public:
     TxNewExprNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList)
             : TxMakeObjectNode(parseLocation, typeExpr) {
-        this->constructor = new TxConstructorCalleeExprNode(parseLocation, this->typeExpr);
+        this->constructor = new TxConstructorCalleeExprNode(parseLocation, new TxHeapAllocNode(parseLocation, this->typeExpr));
         this->constructorCall = new TxFunctionCallNode(parseLocation, this->constructor, argsExprList);
     }
 
@@ -646,6 +678,7 @@ public:
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
+
 
 class TxStackConstructorNode : public TxMakeObjectNode {
     class TxTypeDefWrapper : public TxTypeDefiner {
@@ -663,21 +696,20 @@ protected:
     virtual const TxType* get_object_type() const override { return this->typeDefiner->get_type(); }
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", this->typeDefiner));
+        // stack constructor returns the constructed object by value, not by reference
+        return this->typeDefiner->resolve_type(resCtx);
     }
-
-    virtual llvm::Value* gen_alloc(LlvmGenerationContext& context, GenScope* scope, llvm::Type* objT) const override;
 
 public:
     TxStackConstructorNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList)
             : TxMakeObjectNode(parseLocation, typeExpr), typeDefiner(typeExpr) {
-        this->constructor = new TxConstructorCalleeExprNode(parseLocation, this->typeDefiner);
+        this->constructor = new TxConstructorCalleeExprNode(parseLocation, new TxStackAllocNode(parseLocation, this->typeDefiner));
         this->constructorCall = new TxFunctionCallNode(parseLocation, this->constructor, argsExprList);
     }
 
     TxStackConstructorNode(TxFunctionCallNode* originalCall, const TxType* objectType)
             : TxMakeObjectNode(originalCall->parseLocation, nullptr), typeDefiner(new TxTypeDefWrapper(objectType)) {
-        this->constructor = new TxConstructorCalleeExprNode(parseLocation, this->typeDefiner);
+        this->constructor = new TxConstructorCalleeExprNode(parseLocation, new TxStackAllocNode(parseLocation, this->typeDefiner));
         this->constructorCall = new TxFunctionCallNode(parseLocation, this->constructor, originalCall->argsExprList);
     }
 
