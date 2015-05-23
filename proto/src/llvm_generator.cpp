@@ -241,7 +241,7 @@ const TxType* LlvmGenerationContext::lookup_builtin(BuiltinTypeId id) {
 //}
 
 void LlvmGenerationContext::initialize_meta_type_data() {
-    /* This is a C declaration equivalent of the constructed runtime type data:
+    /* This is a possible future C declaration equivalent of the constructed runtime type data:
 
     typedef void (*TypeInitializerF)(void* memory);
 
@@ -294,15 +294,14 @@ void LlvmGenerationContext::initialize_meta_type_data() {
         auto typeId = typeCount;
         std::vector<Constant*> members {
             ConstantInt::get(int32T, typeId),
-            vtableV,
+            ConstantExpr::getBitCast(vtableV, emptyStructPtrT),
             // dummyUserInitF  // utinitF
         };
         metaTypes.push_back(ConstantStruct::get(metaType, members));
 
+        // register the constant typeId values for later inclusion in the initialization code:
         std::string typeIdName((*txType)->entity()->get_full_name().to_string() + ".$typeid");
-        Value* typeIdV = new GlobalVariable(this->llvmModule, int32T, true, GlobalValue::ExternalLinkage,
-                                            ConstantInt::get(int32T, typeId), typeIdName);
-        this->register_llvm_value(typeIdV->getName(), typeIdV);
+        this->register_llvm_value(typeIdName, ConstantInt::get(int32T, typeId));
 
         typeCount++;
     }
