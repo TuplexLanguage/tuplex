@@ -1,5 +1,6 @@
 
-Initializers / constructors
+Initializers / constructors - DONE
+TODO: super() constructor invocation; super.method() invocation
 
 Generic type instance fields support
  - To support declaring instance fields of parameterized type by reference

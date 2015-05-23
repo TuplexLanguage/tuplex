@@ -681,15 +681,6 @@ public:
 
 
 class TxStackConstructorNode : public TxMakeObjectNode {
-    class TxTypeDefWrapper : public TxTypeDefiner {
-        const TxType* txType;
-    public:
-        TxTypeDefWrapper(const TxType* txType) : txType(txType) {}
-        virtual const TxType* resolve_type(ResolutionContext& resCtx) { return this->txType; }
-        virtual const TxType* attempt_get_type() const { return this->txType; }
-        virtual const TxType* get_type() const  { return this->txType; }
-    };
-
     TxTypeDefiner* typeDefiner;
 
 protected:

@@ -544,11 +544,11 @@ const TxType* TxFunctionCallNode::define_type(ResolutionContext& resCtx) {
     if (! funcType) {
         if (auto fieldValueNode = dynamic_cast<TxFieldValueNode*>(this->callee)) {
             // handle direct constructor invocation - self() and super()
-            // FIXME: shall only be legal as first statement within constructor body
+            // TODO: shall only be legal as first statement within constructor body
             auto identifier = fieldValueNode->get_full_identifier();
-            if (identifier == "self") {
+            if (identifier == "self" || identifier == "super") {
                 if (! this->context().is_constructor())
-                    this->cerror("self() constructor may only be invoked from the type's other constructors");
+                    this->cerror("self() / super() constructor may only be invoked from within the type's other constructors");
 
                 auto objectDeref = new TxReferenceDerefNode(this->callee->parseLocation, this->callee);
                 auto constructorCallee = new TxConstructorCalleeExprNode(this->callee->parseLocation, objectDeref);
@@ -557,13 +557,11 @@ const TxType* TxFunctionCallNode::define_type(ResolutionContext& resCtx) {
                 constructorCallee->set_context(this);
                 constructorCallee->set_applied_func_arg_types(this->callee->get_applied_func_arg_types());
 
-                this->callee = constructorCallee;
-                calleeType = this->callee->resolve_type(resCtx);
-                if (calleeType)
-                    funcType = dynamic_cast<const TxFunctionType*>(calleeType);
-            }
-            else if (identifier == "super") {
-                std::cout << "SUPER!" << std::endl;
+                if (auto constrCalleeType = constructorCallee->resolve_type(resCtx)) {
+                    this->callee = constructorCallee;
+                    calleeType = constrCalleeType;
+                    funcType = dynamic_cast<const TxFunctionType*>(constrCalleeType);
+                }
             }
         }
 

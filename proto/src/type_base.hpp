@@ -101,6 +101,15 @@ public:
     }
 };
 
+/** Wraps a TxType as a TxTypeDefiner, can be used for const TxType -> non-const TxTypeDefiner conversion. */
+class TxTypeDefWrapper : public TxTypeDefiner {
+    const TxType* type;
+public:
+    TxTypeDefWrapper(const TxType* type) : type(type)  { }
+    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
+    virtual const TxType* attempt_get_type() const override { return this->type; }
+    virtual const TxType* get_type() const override { return this->type; }
+};
 
 ///** Convenience TxConstantProxy implementation for integers. */
 //class TxIntConstant : public TxConstantProxy, public Printable {

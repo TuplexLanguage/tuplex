@@ -1,7 +1,7 @@
 import tx.proto.print.*
 
 type CompoundType mod derives Tuple {
-    static SFIELD := -1
+    public static SFIELD := -1
     static SFIELD2 := c"abra"
     field1 : ~Float
     field2 : ~Long

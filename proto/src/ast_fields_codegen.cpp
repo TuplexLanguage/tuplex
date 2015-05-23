@@ -41,33 +41,51 @@ static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenSc
 }
 
 static Value* instance_method_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
-                                             Value* instanceTypeIdV, Value* baseValue, const TxType* baseType,
-                                             const TxFieldEntity* fieldEntity) {
-    Value* funcPtrV = virtual_field_value_code_gen(context, scope, baseType, instanceTypeIdV, fieldEntity);
+                                             const TxType* staticBaseType, Value* runtimeBaseTypeIdV, const TxFieldEntity* fieldEntity,
+                                             Value* baseValue, bool nonvirtualLookup) {
+    Value* funcPtrV;
+    if (nonvirtualLookup) {
+        Value* staticBaseTypeIdV = staticBaseType->gen_typeid(context, scope);
+        funcPtrV = virtual_field_value_code_gen(context, scope, staticBaseType, staticBaseTypeIdV, fieldEntity);
+    }
+    else
+        funcPtrV = virtual_field_value_code_gen(context, scope, staticBaseType, runtimeBaseTypeIdV, fieldEntity);
     //std::cout << "funcPtrV: " << funcPtrV << std::endl;
     ASSERT(funcPtrV->getType()->getPointerElementType()->isFunctionTy() , "Expected funcPtrV to be pointer-to-function type but was: " << funcPtrV->getType());
     ASSERT(baseValue->getType()->isPointerTy(), "Expected baseValue to be of pointer type but was: " << baseValue->getType());
 
     {   // construct the lambda object:
         auto closureRefT = context.get_voidRefT();
-        auto closureRefV = gen_ref(context, scope, closureRefT, baseValue, instanceTypeIdV);
+        auto closureRefV = gen_ref(context, scope, closureRefT, baseValue, runtimeBaseTypeIdV);
         auto lambdaT = cast<StructType>(context.get_llvm_type(fieldEntity->get_type()));
         return gen_lambda(context, scope, lambdaT, funcPtrV, closureRefV);
     }
+}
+
+static bool is_non_virtual_lookup(const TxExpressionNode* baseExpr) {
+    if (auto fieldValueNode = dynamic_cast<const TxFieldValueNode*>(baseExpr))
+        return (fieldValueNode->get_full_identifier() == "super");  // member invocation via super keyword is non-virtual
+    else if (auto derefNode = dynamic_cast<const TxReferenceDerefNode*>(baseExpr))
+        return is_non_virtual_lookup(derefNode->reference);
+    else
+        return false;
 }
 
 /** Generate code to obtain field value, potentially based on a base value (pointer). */
 static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
                                    const TxExpressionNode* baseExpr, const TxFieldEntity* fieldEntity, bool foldStatics=false) {
     ASSERT(!(fieldEntity->get_decl_flags() & TXD_CONSTRUCTOR), "Can't get 'field value' of constructor " << fieldEntity);
+
+    bool nonvirtualLookup = is_non_virtual_lookup(baseExpr);  // true for super.foo lookups
+
     Value* val;
     switch (fieldEntity->get_storage()) {
     case TXS_INSTANCEMETHOD:
         if (baseExpr) {
-            // effectively a polymorphic lookup if base expression is a reference dereference
-            Value* instanceTypeIdV = baseExpr->code_gen_typeid(context, scope);  // (constant unless reference)
-            Value* baseValue = baseExpr->code_gen(context, scope);
-            val = instance_method_value_code_gen(context, scope, instanceTypeIdV, baseValue, baseExpr->get_type(), fieldEntity);
+            // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference
+            Value* runtimeBaseTypeIdV = baseExpr->code_gen_typeid(context, scope);  // (static unless reference)
+            Value* baseValue = baseExpr->code_gen(context, scope);  // expected to be of pointer type
+            val = instance_method_value_code_gen(context, scope, baseExpr->get_type(), runtimeBaseTypeIdV, fieldEntity, baseValue, nonvirtualLookup);
         }
         else {
             context.LOG.error("Can't access instance method without base value/expression: %s", fieldEntity->to_string().c_str());
@@ -77,8 +95,10 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
 
     case TXS_VIRTUAL:
         if (baseExpr) {
-            // effectively a polymorphic lookup if base expression is a reference dereference
-            val = virtual_field_value_code_gen(context, scope, baseExpr->get_type(), baseExpr->code_gen_typeid(context, scope), fieldEntity);
+            // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference
+            Value* baseTypeIdV = nonvirtualLookup ? baseExpr->get_type()->gen_typeid(context, scope)  // static
+                                                  : baseExpr->code_gen_typeid(context, scope);  // runtime (static unless reference)
+            val = virtual_field_value_code_gen(context, scope, baseExpr->get_type(), baseTypeIdV, fieldEntity);
             break;
         }
         // no break

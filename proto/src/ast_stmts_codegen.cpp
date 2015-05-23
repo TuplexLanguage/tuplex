@@ -75,10 +75,19 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     // name the concrete args (and self, if present) and allocate them on the stack:
     Function::arg_iterator fArgI = function->arg_begin();
     if (this->selfRefNode) {
-        this->selfRefNode->typeExpression->code_gen(context, &fscope);
-        auto selfT = context.get_llvm_type(this->selfRefNode->get_entity()->get_type());
-        auto convSelfV = TxReferenceType::gen_ref_conversion(context, &fscope, fArgI, selfT);
-        gen_local_field(context, &fscope, this->selfRefNode->get_entity(), convSelfV);
+        // (both self and super refer to the same object, but with different ref types)
+        {
+            this->selfRefNode->typeExpression->code_gen(context, &fscope);
+            auto selfT = context.get_llvm_type(this->selfRefNode->get_entity()->get_type());
+            auto convSelfV = TxReferenceType::gen_ref_conversion(context, &fscope, fArgI, selfT);
+            gen_local_field(context, &fscope, this->selfRefNode->get_entity(), convSelfV);
+        }
+        {
+            this->superRefNode->typeExpression->code_gen(context, &fscope);
+            auto superT = context.get_llvm_type(this->superRefNode->get_entity()->get_type());
+            auto convSuperV = TxReferenceType::gen_ref_conversion(context, &fscope, fArgI, superT);
+            gen_local_field(context, &fscope, this->superRefNode->get_entity(), convSuperV);
+        }
     }
     fArgI++;
     for (auto argDefI = this->funcTypeNode->arguments->cbegin();

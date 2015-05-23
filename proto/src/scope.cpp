@@ -364,7 +364,7 @@ void TxSymbolScope::dump_symbols() const {
         auto symbol = this->symbols.at(symName);
         if (auto submod = dynamic_cast<const TxModule*>(symbol))
             subModules.push_back(submod);
-        else if (true) {//this->get_full_name() != builtinNamespace) {
+        else if (this->get_full_name() != builtinNamespace) {
             try {
                 if (auto ent = dynamic_cast<const TxFieldEntity*>(symbol)) {
                     std::string typestr; // = (type && type->entity()) ? type->entity()->get_full_name().to_string() : "nulltype/Void";

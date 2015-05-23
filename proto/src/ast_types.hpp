@@ -148,6 +148,10 @@ public:
         : TxTypeExpressionNode(parseLocation), identNode(identifier),
           typeArgs(new std::vector<TxTypeArgumentNode*>())  { }
 
+    TxPredefinedTypeNode(const yy::location& parseLocation, const std::string& identifier)
+        : TxTypeExpressionNode(parseLocation), identNode(new TxIdentifierNode(parseLocation, identifier)),
+          typeArgs(new std::vector<TxTypeArgumentNode*>())  { }
+
     virtual bool has_predefined_type() const override {
         return this->typeArgs->empty();
     }
@@ -273,10 +277,75 @@ public:
 
 
 class TxDerivedTypeNode : public TxTypeExpressionNode {
+//    // experimental wrappers:
+//
+//    /** Wraps another type expression node in a reentrant way - the wrapped node's passes are not invoked via this node. */
+//    class TxTypeExprWrapperNode : public TxTypeExpressionNode {
+//        TxTypeExpressionNode* wrappedNode;
+//    protected:
+//        virtual void symbol_declaration_pass_descendants(LexicalContext& defContext, LexicalContext& lexContext,
+//                                                         TxDeclarationFlags declFlags) override { }
+//
+//        virtual const TxType* define_type(ResolutionContext& resCtx) override {
+//            return this->wrappedNode->resolve_type(resCtx);
+//        }
+//
+//        virtual bool has_predefined_type() const override { return this->wrappedNode->has_predefined_type(); }
+//
+//    public:
+//        TxTypeExprWrapperNode(TxTypeExpressionNode* wrappedNode)
+//            : TxTypeExpressionNode(wrappedNode->parseLocation), wrappedNode(wrappedNode)  { }
+//
+//        virtual void semantic_pass() override { }
+//
+//        virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+//    };
+
+    /** Wraps a TxTypeDefiner within a TxTypeExpressionNode. */
+    class TxTypeWrapperNode : public TxTypeExpressionNode {
+        TxTypeDefiner* typeDefiner;
+    protected:
+        virtual void symbol_declaration_pass_descendants(LexicalContext& defContext, LexicalContext& lexContext,
+                                                         TxDeclarationFlags declFlags) override { }
+
+        virtual const TxType* define_type(ResolutionContext& resCtx) override {
+            return this->typeDefiner->resolve_type(resCtx);
+        }
+
+    public:
+        TxTypeWrapperNode(const yy::location& parseLocation, TxTypeDefiner* typeDefiner)
+            : TxTypeExpressionNode(parseLocation), typeDefiner(typeDefiner)  { }
+
+        virtual void semantic_pass() override { }
+
+        virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+    };
+
+    TxTypeDeclNode* selfRefTypeNode = nullptr;
+    TxTypeDeclNode* superRefTypeNode = nullptr;
+
+    void init_implicit_types() {
+        // implicit type members '$Self' and '$Super' for types with a body:
+        auto selfTypeExprN = new TxTypeWrapperNode(this->parseLocation, this);
+        auto selfRefTypeExprN = new TxReferenceTypeNode(this->parseLocation, nullptr, selfTypeExprN);
+        const std::string selfTypeName = "$Self";
+        this->selfRefTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_IMPLICIT, selfTypeName, nullptr, selfRefTypeExprN);
+
+        TxTypeDefiner* superDef = this->baseTypes->empty() ? new TxTypeDefWrapper(this->types().get_builtin_type(TUPLE))
+                                                           : static_cast<TxTypeDefiner*>(this->baseTypes->at(0));
+        auto superTypeExprN = new TxTypeWrapperNode(this->parseLocation, superDef);
+        auto superRefTypeExprN = new TxReferenceTypeNode(this->parseLocation, nullptr, superTypeExprN);
+        const std::string superTypeName = "$Super";
+        this->superRefTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN);
+    }
+
 protected:
     virtual void symbol_declaration_pass_descendants(LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
         for (auto baseType : *this->baseTypes)
             baseType->symbol_declaration_pass(defContext, lexContext, declFlags);
+
+        this->selfRefTypeNode->symbol_declaration_pass(lexContext);
+        this->superRefTypeNode->symbol_declaration_pass(lexContext);
 
         for (auto member : *this->members)
             member->symbol_declaration_pass(lexContext);
@@ -325,27 +394,33 @@ public:
                       std::vector<TxDeclarationNode*>* members)
             : TxTypeExpressionNode(parseLocation), _mutable(_mutable),
               baseTypes(baseTypes), members(members)  {
+        this->init_implicit_types();
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         TxTypeExpressionNode::symbol_resolution_pass(resCtx);
-        for (auto type : *this->baseTypes)
-            type->symbol_resolution_pass(resCtx);
-        for (auto member : *this->members)
-            member->symbol_resolution_pass(resCtx);
-    }
-
-    virtual void semantic_pass() {
         for (auto type : *this->baseTypes) {
-            type->semantic_pass();
+            type->symbol_resolution_pass(resCtx);
             // TO DO: validity checks
         }
+
+        this->selfRefTypeNode->symbol_resolution_pass(resCtx);
+        this->superRefTypeNode->symbol_resolution_pass(resCtx);
+
         for (auto member : *this->members) {
-            member->semantic_pass();
-            // validity checks:
+            member->symbol_resolution_pass(resCtx);
             // TODO: can't put immutable instance member in non-immutable type (except via reference)
             //       (OR: disable whole-object-assignment)
         }
+    }
+
+    virtual void semantic_pass() {
+        for (auto type : *this->baseTypes)
+            type->semantic_pass();
+        this->selfRefTypeNode->semantic_pass();
+        this->superRefTypeNode->semantic_pass();
+        for (auto member : *this->members)
+            member->semantic_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

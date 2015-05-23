@@ -7,6 +7,7 @@ class TxLambdaExprNode : public TxExpressionNode {
     const bool isMethodSyntax;
     bool instanceMethod = false;
     TxFieldDefNode* selfRefNode = nullptr;
+    TxFieldDefNode* superRefNode = nullptr;
 
 protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
@@ -42,12 +43,15 @@ public:
         if (this->is_instance_method()) {
             // insert implicit local field named 'self', that is a reference to the closure type
             if (auto typeEntity = dynamic_cast<TxTypeEntity*>(lexContext.scope())) {  // if in type scope
-                // TODO: 'super' reference
-                auto selfTypeNameN = new TxIdentifierNode(this->parseLocation, new TxIdentifier(typeEntity->get_full_name()));
-                auto selfTypeExprN = new TxPredefinedTypeNode(this->parseLocation, selfTypeNameN);
-                TxTypeExpressionNode* selfRefTypeExpr = new TxReferenceTypeNode(this->parseLocation, nullptr, selfTypeExprN);
-                this->selfRefNode = new TxFieldDefNode(this->parseLocation, "self", selfRefTypeExpr, nullptr);
+                // 'self' reference:
+                auto selfRefTypeExprN = new TxPredefinedTypeNode(this->parseLocation, "$Self");
+                this->selfRefNode = new TxFieldDefNode(this->parseLocation, "self", selfRefTypeExprN, nullptr);
                 this->selfRefNode->symbol_declaration_pass_local_field(funcLexContext, false);
+
+                // 'super' reference
+                auto superRefTypeExprN = new TxPredefinedTypeNode(this->parseLocation, "$Super");
+                this->superRefNode = new TxFieldDefNode(this->parseLocation, "super", superRefTypeExprN, nullptr);
+                this->superRefNode->symbol_declaration_pass_local_field(funcLexContext, false);
 
                 if (this->fieldDefNode->get_entity()->get_decl_flags() & TXD_CONSTRUCTOR) {
                     constructedEntity = typeEntity;
@@ -65,8 +69,10 @@ public:
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         TxExpressionNode::symbol_resolution_pass(resCtx);
-        if (this->selfRefNode)
+        if (this->selfRefNode) {
             this->selfRefNode->symbol_resolution_pass(resCtx);
+            this->superRefNode->symbol_resolution_pass(resCtx);
+        }
         this->funcTypeNode->symbol_resolution_pass(resCtx);  // function header
         this->suite->symbol_resolution_pass(resCtx);  // function body
 
@@ -87,8 +93,10 @@ public:
     virtual bool is_statically_constant() const override { return ! this->is_instance_method(); }
 
     virtual void semantic_pass() {
-        if (this->selfRefNode)
+        if (this->selfRefNode) {
             this->selfRefNode->semantic_pass();
+            this->superRefNode->semantic_pass();
+        }
         this->funcTypeNode->semantic_pass();
         this->suite->semantic_pass();
     }

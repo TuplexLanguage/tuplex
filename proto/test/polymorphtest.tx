@@ -28,6 +28,10 @@ type AType mod derives Tuple {
     public func print() {
         puts(c"AType")
     }
+
+    public method(a : Int) Int {
+        return a * 2
+    }
 }
 
 type BType mod derives AType {
@@ -38,6 +42,10 @@ type BType mod derives AType {
 
     public func print() {
         puts(c"BType")
+    }
+
+    public method(a : Int) Int {
+        return super^.method( a ) * 2
     }
 }
 
@@ -67,5 +75,6 @@ func main() Int {
     ar^.print()
     br^.print()
 
-    return Int( ar^.SFIELD )
+    val := ar^.method( 2 )
+    return val
 }

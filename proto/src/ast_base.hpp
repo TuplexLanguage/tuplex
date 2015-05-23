@@ -100,10 +100,13 @@ class TxIdentifierNode : public TxNode {
 public:
     enum IdentifierClass { UNSPECIFIED, MODULE_ID, IMPORT_ID, TYPE_ID, FIELD_ID, DATASPACE_ID };
     const IdentifierClass idClass;
-    const TxIdentifier& ident;
+    const TxIdentifier ident;
 
     TxIdentifierNode(const yy::location& parseLocation, const TxIdentifier* ident, IdentifierClass identifierClass=UNSPECIFIED)
         : TxNode(parseLocation), idClass(identifierClass), ident(*ident)  { }
+
+    TxIdentifierNode(const yy::location& parseLocation, const TxIdentifier& ident)
+        : TxNode(parseLocation), idClass(UNSPECIFIED), ident(ident)  { }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 
