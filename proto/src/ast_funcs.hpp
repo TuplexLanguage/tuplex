@@ -55,7 +55,7 @@ public:
 
                 if (this->fieldDefNode->get_entity()->get_decl_flags() & TXD_CONSTRUCTOR) {
                     constructedEntity = typeEntity;
-                    funcLexContext.set_constructor(true);
+                    funcLexContext.set_constructor(typeEntity);
                 }
             }
             else

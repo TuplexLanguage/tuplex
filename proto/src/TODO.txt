@@ -1,6 +1,30 @@
 
+Symbol table rewrite - DONE
+
+Central compiler "driver" routine and options handling - DONE
+
+Modules and import handling - DONE
+
+Generic (parameterized) types except for reentrant code generation - DONE
+
+Proper integer literal type handling, range checking and conversion - DONE
+
+Bool type and boolean expressions - DONE
+
+Polymorphism (virtual lookup) for static members - DONE
+
+Lambda (function) objects - DONE
+
+Preserve type information in references - DONE
+
+'self' implicit method argument - DONE
+
+Virtual methods - DONE
+
+'new' operator and heap allocation - DONE
+
 Initializers / constructors - DONE
-TODO: super() constructor invocation; super.method() invocation
+super() constructor invocation; super.method() invocation - DONE
 
 Generic type instance fields support
  - To support declaring instance fields of parameterized type by reference

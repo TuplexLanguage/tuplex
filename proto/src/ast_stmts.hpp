@@ -155,7 +155,7 @@ public:
             stmt->symbol_declaration_pass(lexContext);
     }
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        LexicalContext suiteContext(lexContext.scope()->create_code_block_scope(), lexContext.is_constructor());
+        LexicalContext suiteContext(lexContext.scope()->create_code_block_scope(), lexContext.get_constructed_entity());
         this->symbol_declaration_pass_no_subscope(suiteContext);
     }
 

@@ -89,7 +89,7 @@ public:
  */
 class LexicalContext : public Printable {
     TxSymbolScope* _scope;
-    bool constructor;
+    TxTypeEntity* constructedEntity;
 
     static TxModule* get_module(TxSymbolScope* scope) {
         ASSERT(scope, "scope is NULL");
@@ -100,9 +100,10 @@ class LexicalContext : public Printable {
     }
 
 public:
-    LexicalContext() : _scope(), constructor()  { }
+    LexicalContext() : _scope(), constructedEntity()  { }
 
-    LexicalContext(TxSymbolScope* scope, bool constructor = false) : _scope(scope), constructor(constructor)  {
+    LexicalContext(TxSymbolScope* scope, TxTypeEntity* constructedEntity=nullptr)
+            : _scope(scope), constructedEntity(constructedEntity)  {
         ASSERT(scope, "scope is NULL");
     }
 
@@ -116,8 +117,9 @@ public:
     const TxPackage* package() const;
     TxPackage* package();
 
-    inline bool is_constructor() const { return this->constructor; }
-    inline void set_constructor(bool flag) { this->constructor = flag; }
+    inline bool is_constructor() const { return this->constructedEntity; }
+    inline TxTypeEntity* get_constructed_entity() { return this->constructedEntity; }
+    inline void set_constructor(TxTypeEntity* constructedEntity) { this->constructedEntity = constructedEntity; }
 
     inline virtual bool operator==(const LexicalContext& other) const {
         return this->_scope == other._scope;
