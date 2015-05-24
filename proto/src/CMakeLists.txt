@@ -107,6 +107,7 @@ add_executable(txc
         main.cpp
         ast.cpp
         ast_lit.cpp
+        generics.cpp
         type.cpp
         package.cpp
         module.cpp

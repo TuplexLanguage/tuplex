@@ -11,14 +11,13 @@
 #include "identifier.hpp"
 
 #include "type_visitor.hpp"
+#include "generics.hpp"
 
 
 class TxType;
 class TxSymbolScope;
 class TxTypeEntity;
-class TxExpressionNode;
 class ResolutionContext;
-class TxTypeDefiner;
 
 /* forward declarations pertaining to LLVM code generation */
 class LlvmGenerationContext;
@@ -131,103 +130,6 @@ public:
 
     virtual const TxType* get_type() const;
 };
-
-
-/** Represents a type parameter of a generic type.
- * Specializations of the generic type provide a binding to this parameter.
- * The parameter may hold constraints on what definitions are permitted to bind to it.
- * The type parameter of a reference base type's target may specify dataspace constraints.
- *
- * The type parameter object belongs to the type object, which may be named (declared)
- * or anonymous. Type declarations must ensure they have named members in their namespace
- * matching the type parameters.
- */
-class TxTypeParam : public Printable {  // FUTURE: add constraints
-public:
-    enum MetaType { TXB_TYPE, TXB_VALUE };
-
-private:
-    MetaType metaType;
-    std::string typeParamName;
-    TxTypeDefiner* baseTypeDefiner;
-
-public:
-    TxTypeParam() : metaType(), typeParamName(), baseTypeDefiner()  { }
-
-    TxTypeParam(MetaType metaType, const std::string& typeParamName, TxTypeDefiner* baseTypeDefiner)
-            : metaType(metaType), typeParamName(typeParamName), baseTypeDefiner(baseTypeDefiner)  {
-        ASSERT(metaType==TXB_TYPE || baseTypeDefiner, "VALUE type parameter's type is NULL");
-    }
-
-    inline MetaType meta_type() const { return metaType; }
-    inline const std::string& param_name() const { return typeParamName; }
-
-    inline bool has_base_type_definer() const { return this->baseTypeDefiner; }
-    /** Gets the TxType instance that represents the base type constraint (if TYPE) or data type (if VALUE) of this parameter. */
-    inline TxTypeDefiner* get_base_type_definer() const {
-        ASSERT(this->has_base_type_definer(), "This type parameter '" << this->typeParamName << "' has no base type definer set");
-        return this->baseTypeDefiner;
-    }
-
-    inline virtual bool operator==(const TxTypeParam& other) const {
-        return (this->typeParamName == other.typeParamName && this->metaType == other.metaType);
-    }
-    inline virtual bool operator!=(const TxTypeParam& other) const {
-        return ! this->operator==(other);
-    }
-
-    std::string to_string() const {
-        switch (this->meta_type()) {
-        case TXB_TYPE: return "TYPE " + this->param_name();
-        case TXB_VALUE: return "VALUE " + this->param_name();
-        default: return std::string();
-        }
-    }
-};
-
-
-/** Describes the binding of a base type's type parameter to the definition used in a type specialization.
- *
- * The type parameter of a reference base type's target may specify dataspace constraints.
- * The binding of a reference base type's target can specify the dataspace of the target.
- */
-class TxGenericBinding : public Printable {
-    const std::string typeParamName;
-    const TxTypeParam::MetaType metaType;
-    TxTypeDefiner* typeDefiner;
-    TxExpressionNode* valueExpr;
-
-    TxGenericBinding(const std::string& typeParamName, TxTypeParam::MetaType metaType,
-                     TxTypeDefiner* typeDefiner, TxExpressionNode* valueExpr)
-        : typeParamName(typeParamName), metaType(metaType), typeDefiner(typeDefiner), valueExpr(valueExpr)  { }
-
-public:
-    static TxGenericBinding make_type_binding(const std::string& typeParamName, TxTypeDefiner* typeDefiner);
-    static TxGenericBinding make_value_binding(const std::string& typeParamName, TxExpressionNode* valueExpr);
-
-//    /** copy constructor */
-//    TxGenericBinding(const TxGenericBinding& binding)
-//        : TxGenericBinding(typeParamName, metaType, typeDefiner, valueExpr)  { }
-
-    inline const std::string& param_name()    const { return typeParamName; }
-
-    inline TxTypeParam::MetaType meta_type()    const { return metaType; }
-
-    inline TxTypeDefiner& type_definer()  const {
-        ASSERT(metaType==TxTypeParam::MetaType::TXB_TYPE, "Type parameter binding metatype is VALUE, not TYPE: " << this->to_string());
-        return *this->typeDefiner;
-    }
-
-    inline TxExpressionNode& value_expr() const {
-        ASSERT(metaType==TxTypeParam::MetaType::TXB_VALUE, "Type parameter binding metatype is TYPE, not VALUE: " << this->to_string());
-        return *this->valueExpr;
-    }
-
-    std::string to_string() const;
-};
-
-bool operator==(const TxGenericBinding& b1, const TxGenericBinding& b2);
-inline bool operator!=(const TxGenericBinding& b1, const TxGenericBinding& b2) { return !(b1 == b2); }
 
 
 

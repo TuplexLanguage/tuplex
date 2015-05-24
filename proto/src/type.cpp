@@ -26,34 +26,6 @@ const TxType* TxNonModTypeProxy::get_type() const {
 }
 
 
-TxGenericBinding TxGenericBinding::make_type_binding(const std::string& paramName, TxTypeDefiner* typeDefiner) {
-    return TxGenericBinding(paramName, TxTypeParam::MetaType::TXB_TYPE, typeDefiner, nullptr);
-}
-
-TxGenericBinding TxGenericBinding::make_value_binding(const std::string& paramName, TxExpressionNode* valueExpr) {
-    return TxGenericBinding(paramName, TxTypeParam::MetaType::TXB_VALUE, nullptr, valueExpr);
-}
-
-std::string TxGenericBinding::to_string() const {
-    const TxType* type;
-    return this->typeParamName + "=" + ( this->metaType==TxTypeParam::MetaType::TXB_TYPE
-                                                ? (type = this->type_definer().attempt_get_type(),
-                                                   type ? type->to_string(true) : "")
-                                                : "expr" );  // this->value_expr().to_string()
-}
-
-bool operator==(const TxGenericBinding& b1, const TxGenericBinding& b2) {
-    if (! (b1.param_name() == b2.param_name() && b1.meta_type() == b2.meta_type()))
-        return false;
-    if (b1.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
-        return ( *b1.type_definer().get_type() == *b2.type_definer().get_type() );
-    }
-    else {
-        return ( b1.value_expr().get_static_constant_proxy() && b2.value_expr().get_static_constant_proxy()
-            && *b1.value_expr().get_static_constant_proxy() == *b2.value_expr().get_static_constant_proxy() );
-    }
-}
-
 
 bool TxTypeSpecialization::operator==(const TxTypeSpecialization& other) const {
     return ( this->type == other.type
