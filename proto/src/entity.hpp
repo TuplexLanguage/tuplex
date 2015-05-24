@@ -51,7 +51,7 @@ public:
 
 
 /** A symbol that represents a declared source code entity (type or field), or several overloaded ones. */
-class TxEntity : public TxSymbolScope { //, public TxTypeProxy {
+class TxEntity : public TxSymbolScope {
 protected:
     TxEntity(TxSymbolScope* parent, const std::string& name) : TxSymbolScope(parent, name)  { }
 
@@ -214,7 +214,7 @@ public:
 };
 
 /** Represents a single declared type. */
-class TxTypeEntity : public TxDistinctEntity, public TxTypeProxy {
+class TxTypeEntity : public TxDistinctEntity {
     bool dataLaidOut = false;
     bool startedLayout = false;
     bool declaresInstanceFields = false;
@@ -251,16 +251,6 @@ public:
     virtual const TxType* get_type() const override {
         return TxDistinctEntity::get_type();
     }
-//    virtual const TxType* get_type() const override {
-//        auto type = TxDistinctEntity::get_type();
-//        if (! type)
-//            this->LOGGER().warning("In get_type() of entity %s: type is NULL", this->to_string().c_str());
-//            //ASSERT(type, "Type of entity " << this << " is NULL");
-//        else
-//            ASSERT(type->entity()==this, "Type (" << type << ") does not belong to this entity "
-//                    << this->get_full_name() << ", it belongs to " << type->entity());
-//        return type;
-//    }
 
     /** match against this entity's static members (from statically known type, up through its base types) */
     virtual TxSymbolScope* lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) override;
@@ -318,7 +308,7 @@ public:
 class TxAliasEntity : public TxEntity {
     const TxDeclarationFlags declFlags;
     TxDistinctEntity* aliasedEntity;
-    //const TxIdentifier aliasedName;
+
 protected:
     virtual bool declare_symbol(TxSymbolScope* symbol) override {
         this->LOGGER().error("Can't add member symbol (%s) directly to an alias symbol: %s",
@@ -327,8 +317,6 @@ protected:
     }
 
 public:
-//    TxAliasEntity(TxSymbolScope* parent, const std::string& name, TxDeclarationFlags declFlags, const TxIdentifier& aliasedName)
-//            : TxEntity(parent, name), declFlags(declFlags), aliasedName(aliasedName) { }
     TxAliasEntity(TxSymbolScope* parent, const std::string& name, TxDeclarationFlags declFlags, TxDistinctEntity* aliasedEntity)
             : TxEntity(parent, name), declFlags(declFlags), aliasedEntity(aliasedEntity) { }
 
