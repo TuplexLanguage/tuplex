@@ -28,28 +28,6 @@ static const TxDeclarationFlags LEGAL_TYPE_DECL_FLAGS = TXD_ABSTRACT | TXD_FINAL
 static const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS = TXD_STATIC | TXD_FINAL | TXD_OVERRIDE | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM | TXD_CONSTRUCTOR;
 
 
-class DataTupleDefinition {
-public:
-    // we need to be able to look up fields both via index and plain name:
-    /** map from plain name to field index (note, contains fewer entries than fieldTypes when parent field name is hidden) */
-    std::unordered_map<std::string, uint32_t> fields;
-    /** the field types */
-    std::vector<const TxType*> fieldTypes;
-
-    void add_field(const std::string& name, const TxType* type) {
-        this->fields[name] = this->fieldTypes.size();  // (inserts new or overwrites existing entry)
-        this->fieldTypes.push_back(type);
-    }
-
-    inline bool has_field(const std::string& name) const { return this->fields.count(name); }
-
-    inline uint32_t get_field_index(const std::string& name) const { return this->fields.at(name); }
-
-    inline uint32_t get_field_count() const { return this->fieldTypes.size(); }
-};
-
-
-
 /** A symbol that represents a declared source code entity (type or field), or several overloaded ones. */
 class TxEntity : public TxSymbolScope {
 protected:
@@ -215,15 +193,8 @@ public:
 
 /** Represents a single declared type. */
 class TxTypeEntity : public TxDistinctEntity {
-    bool dataLaidOut = false;
-    bool startedLayout = false;
-    bool declaresInstanceFields = false;
-    DataTupleDefinition staticFields;
-    DataTupleDefinition virtualFields;
-    DataTupleDefinition instanceMethods;
-    DataTupleDefinition instanceFields;
-
-    void define_data_layout(ResolutionContext& resCtx, const TxType* type);
+    mutable bool hasCheckedInstanceFields = false;
+    mutable bool declaresInstanceFields = false;
 
     TxSymbolScope* inner_lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident, bool static_lookup);
 
@@ -242,11 +213,11 @@ public:
     virtual bool validate_symbol(ResolutionContext& resCtx) override;
 
 
-    virtual const TxType* resolve_symbol_type(ResolutionContext& resCtx) override {
-        auto type = TxDistinctEntity::resolve_symbol_type(resCtx);
-        this->define_data_layout(resCtx, type);
-        return type;
-    }
+//    virtual const TxType* resolve_symbol_type(ResolutionContext& resCtx) override {
+//        auto type = TxDistinctEntity::resolve_symbol_type(resCtx);
+//        this->define_data_layout(resCtx, type);
+//        return type;
+//    }
 
     virtual const TxType* get_type() const override {
         return TxDistinctEntity::get_type();
@@ -262,8 +233,9 @@ public:
     /** Returns true if this type declares any instance fields (i.e. in addition to base types' members.) */
     bool declares_instance_fields() const {
         // note: this check needs to be shallow - not traverse all type defs - to prevent risk of infinite recursion
-        if (! this->dataLaidOut) {
-            return std::any_of( this->symbols_cbegin(), this->symbols_cend(),
+        if (! this->hasCheckedInstanceFields) {
+            this->hasCheckedInstanceFields = true;
+            this->declaresInstanceFields = std::any_of( this->symbols_cbegin(), this->symbols_cend(),
                                 [](const SymbolMap::value_type & p) {
                                     if (auto field = dynamic_cast<TxFieldEntity*>(p.second))
                                         return (field->get_storage() == TXS_INSTANCE || field->get_storage() == TXS_INSTANCEMETHOD);
@@ -271,30 +243,6 @@ public:
         }
         return this->declaresInstanceFields;
     }
-
-
-    /*--- data layout ---*/
-
-    const DataTupleDefinition& get_instance_fields() const {
-        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
-        return this->instanceFields;
-    }
-
-    const DataTupleDefinition& get_instance_methods() const {
-        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
-        return this->instanceMethods;
-    }
-
-    const DataTupleDefinition& get_virtual_fields() const {
-        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
-        return this->virtualFields;
-    }
-
-    const DataTupleDefinition& get_static_fields() const {
-        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
-        return this->staticFields;
-    }
-
 
 
     virtual std::string to_string() const {

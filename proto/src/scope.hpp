@@ -117,6 +117,9 @@ protected:
 
     virtual TxDistinctEntity* overload_entity(TxDistinctEntity* entity, TxSymbolScope* prevSymbol);
 
+    /** Looks up a symbol via this scope. */
+    virtual TxSymbolScope* lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
+
 public:
     TxSymbolScope(TxSymbolScope* parentScope, const std::string& name);
 
@@ -175,9 +178,6 @@ public:
      */
     virtual TxSymbolScope* start_lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
 
-    /** Looks up a symbol via this scope. */
-    virtual TxSymbolScope* lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
-
     /** Performs a downward lookup of the a member, member's member, and so on, within this symbol scope.
      * (The head segment of the identifier is matched against the direct members of this symbol scope.)
      * Performs an exact match - aliases are not considered and if a symbol along the path is overloaded
@@ -205,9 +205,6 @@ public:
                                        const std::vector<const TxType*>* typeParameters = nullptr) {
         std::vector<TxSymbolScope*> tmpPath;  return this->lookup_field(resCtx, tmpPath, ident, typeParameters);
     }
-
-    /** Attempts to resolve an identified symbol, that is potentially overloaded, as a field using the provided type parameters. */
-    TxFieldEntity* resolve_field_lookup(ResolutionContext& resCtx, TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters);
 
 
     /** Returns a read-only, order-of-declaration iterator that points to the first declared symbol name. */
@@ -251,3 +248,7 @@ public:
         return "<scope>           " + this->get_full_name().to_string();
     }
 };
+
+
+/** Attempts to resolve an identified symbol, that is potentially overloaded, as a field using the provided type parameters. */
+TxFieldEntity* resolve_field_lookup(ResolutionContext& resCtx, TxSymbolScope* symbol, const std::vector<const TxType*>* typeParameters);

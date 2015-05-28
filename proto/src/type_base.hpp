@@ -2,6 +2,7 @@
 
 #include <typeinfo>
 #include <vector>
+#include <unordered_map>
 #include <algorithm>
 #include <cstdlib>
 
@@ -133,6 +134,32 @@ public:
 
 
 
+class DataTupleDefinition {
+public:
+    // we need to be able to look up fields both via index and plain name:
+    /** map from plain name to field index (note, contains fewer entries than fieldTypes when parent field name is hidden) */
+    std::unordered_map<std::string, uint32_t> fields;
+    /** the field types */
+    std::vector<const TxType*> fieldTypes;
+
+    void add_field(const std::string& name, const TxType* type) {
+        this->fields[name] = this->fieldTypes.size();  // (inserts new or overwrites existing entry)
+        this->fieldTypes.push_back(type);
+    }
+
+    inline bool has_field(const std::string& name) const { return this->fields.count(name); }
+
+    inline uint32_t get_field_index(const std::string& name) const {
+        if (!this->fields.count(name))
+            std::cout << "can't find field " << name << std::endl;
+        return this->fields.at(name);
+    }
+
+    inline uint32_t get_field_count() const { return this->fieldTypes.size(); }
+};
+
+
+
 /** Describes a specialization of a base type.
  * In a specialization of a generic base type, the base type's type parameters must either have a binding,
  * or be redeclared with the same name and matching constraints in the specialized type
@@ -212,13 +239,26 @@ class TxType : public TxTypeDefiner, public Printable {
     const TxTypeSpecialization baseTypeSpec;  // including bindings for all type parameters of base type
     const std::vector<TxTypeSpecialization> interfaces;  // FUTURE
 
+    // data layout:
+    bool dataLaidOut = false;
+    bool startedLayout = false;
+    DataTupleDefinition staticFields;
+    DataTupleDefinition virtualFields;
+    DataTupleDefinition instanceMethods;
+    DataTupleDefinition instanceFields;
+
+    void define_data_layout();
+
 protected:
     /** Only to be used for Any type. */
-    TxType(TxTypeEntity* entity) : _entity(entity), typeParams(), baseTypeSpec()  { }
+    TxType(TxTypeEntity* entity) : _entity(entity), typeParams(), baseTypeSpec()  {
+        this->define_data_layout();
+    }
 
     TxType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
            const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
             : _entity(entity), typeParams(typeParams), baseTypeSpec(baseTypeSpec) {
+        this->define_data_layout();
     }
 
     /** Creates a specialization of this type. To be used by the type registry. */
@@ -255,6 +295,13 @@ public:
     inline TxTypeEntity* entity() const { return this->_entity; }
 
     TxTypeEntity* explicit_entity() const;
+
+    TxTypeEntity* get_nearest_entity() const {
+        if (this->_entity)
+            return _entity;
+        else
+            return this->get_base_type()->get_nearest_entity();
+    }
 
 
     /** Returns true if this type has a base type (parent). (Any is the only type that has no base type.) */
@@ -337,7 +384,15 @@ public:
     virtual bool is_statically_sized() const;
 
 
-    /*--- inherited namespace lookup ---*/
+    /*--- namespace lookup ---*/
+
+    virtual TxSymbolScope* get_member(const std::string& name) const;
+
+    /** Returns a read-only, order-of-declaration iterator that points to the first declared member name. */
+    std::vector<std::string>::const_iterator member_names_cbegin() const;
+    /** Returns a read-only, order-of-declaration iterator that points to one past the last declared symbol name. */
+    std::vector<std::string>::const_iterator member_names_cend()   const;
+
 
     /** match against this entity's direct instance/static members, and then its inherited members, returning the first found */
     virtual TxSymbolScope* lookup_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const;
@@ -449,6 +504,32 @@ private:
 
 
 public:
+    /*--- data layout ---*/
+
+    bool is_data_laid_out() const { return this->dataLaidOut; }
+
+    const DataTupleDefinition& get_instance_fields() const {
+        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
+        return this->instanceFields;
+    }
+
+    const DataTupleDefinition& get_instance_methods() const {
+        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
+        return this->instanceMethods;
+    }
+
+    const DataTupleDefinition& get_virtual_fields() const {
+        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
+        return this->virtualFields;
+    }
+
+    const DataTupleDefinition& get_static_fields() const {
+        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
+        return this->staticFields;
+    }
+
+
+
     /*--- LLVM code generation methods ---*/
 
     virtual llvm::StructType* make_vtable_type(LlvmGenerationContext& context) const;

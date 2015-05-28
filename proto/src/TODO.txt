@@ -26,9 +26,17 @@ Virtual methods - DONE
 Initializers / constructors - DONE
 super() constructor invocation; super.method() invocation - DONE
 
+=======================
 Generic type instance fields support
- - To support declaring instance fields of parameterized type by reference
- - Requires creating 'concrete' member entity copies in specialized subtype
+ To support declaring instance fields of parameterized type by reference
+ Requires creating 'concrete' member entity copies in specialized subtype
+
+ - Break apart SymbolScope and Entity objects; join TypeEntity and Type hierarchy
+   SymbolScope created in declaration phase
+   Entities (perhaps renamed as Definitions) created in resolution phase
+   Entities to handle member lookup (including providing "specialized members" of specialized generic types)
+
+=======================
 
 Interfaces
 

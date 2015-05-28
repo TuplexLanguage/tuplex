@@ -471,14 +471,14 @@ TxSymbolScope* TxFieldValueNode::resolve_symbol(ResolutionContext& resCtx) {
     if (this->appliedFuncArgTypes) {
         if (dynamic_cast<const TxOverloadedEntity*>(this->cachedSymbol)) {
             // if symbol is overloaded, and can be resolved to actual field, then do so
-            if (auto resolvedField = this->context().scope()->resolve_field_lookup(resCtx, this->cachedSymbol, this->appliedFuncArgTypes))
+            if (auto resolvedField = resolve_field_lookup(resCtx, this->cachedSymbol, this->appliedFuncArgTypes))
                 this->cachedSymbol = resolvedField;
         }
         else if (dynamic_cast<const TxTypeEntity*>(this->cachedSymbol)) {
             // if symbol is a type, and the applied arguments match a constructor, the resolve to that constructor
             std::vector<TxSymbolScope*> tmpPath;
             if (auto constructorSymbol = this->cachedSymbol->lookup_member(tmpPath, "$init")) {
-                if (auto constructor = this->context().scope()->resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes))
+                if (auto constructor = resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes))
                     this->cachedSymbol = constructor;
             }
         }
@@ -509,7 +509,7 @@ const TxType* TxConstructorCalleeExprNode::define_type(ResolutionContext& resCtx
                 if (auto cDefiningType = cDefiningTypeEnt->resolve_symbol_type(resCtx)) {
                     do {
                         if (*allocType == *cDefiningType) {
-                            this->constructorEntity = this->context().scope()->resolve_field_lookup(resCtx, symbol, this->appliedFuncArgTypes);
+                            this->constructorEntity = resolve_field_lookup(resCtx, symbol, this->appliedFuncArgTypes);
                             if (this->constructorEntity)
                                 return this->constructorEntity->resolve_symbol_type(resCtx);
                             else

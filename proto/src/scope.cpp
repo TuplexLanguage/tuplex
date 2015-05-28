@@ -284,14 +284,16 @@ TxFieldEntity* TxSymbolScope::lookup_field(ResolutionContext& resCtx, std::vecto
     TxSymbolScope* symbol = this->start_lookup_symbol(path, ident);
     if (! symbol)
         return nullptr;
-    TxFieldEntity* field = this->resolve_field_lookup(resCtx, symbol, typeParameters);
+    TxFieldEntity* field = resolve_field_lookup(resCtx, symbol, typeParameters);
     if (field && path.back() != field)
         path[path.size()-1] = field;
     return field;
 }
 
-TxFieldEntity* TxSymbolScope::resolve_field_lookup(ResolutionContext& resCtx, TxSymbolScope* symbol,
-                                                   const std::vector<const TxType*>* typeParameters) {
+
+
+TxFieldEntity* resolve_field_lookup(ResolutionContext& resCtx, TxSymbolScope* symbol,
+                                    const std::vector<const TxType*>* typeParameters) {
     if (auto fieldEnt = dynamic_cast<TxFieldEntity*>(symbol)) {
         // if (typeParameters)  TODO: if type parameters specified, verify that they match
         return fieldEnt;
@@ -303,12 +305,12 @@ TxFieldEntity* TxSymbolScope::resolve_field_lookup(ResolutionContext& resCtx, Tx
                       fieldCandidateI != overloadedEnt->fields_cend(); fieldCandidateI++) {
                 auto fieldCandidateType = (*fieldCandidateI)->resolve_symbol_type(resCtx);
                 if (auto candidateFuncType = dynamic_cast<const TxFunctionType*>(fieldCandidateType)) {
-                    this->LOGGER().trace("Candidate function: %s", candidateFuncType->to_string().c_str());
+                    symbol->LOGGER().trace("Candidate function: %s", candidateFuncType->to_string().c_str());
                     if (candidateFuncType->argumentTypes.size() == typeParameters->size()) {
                         auto typeParamI = typeParameters->cbegin();
                         for (auto argDef : candidateFuncType->argumentTypes) {
                             if (! argDef->auto_converts_from(**typeParamI)) {
-                                this->LOGGER().trace("Argument mismatch: %s  can't convert to  %s", (*typeParamI)->to_string(true).c_str(), argDef->to_string(true).c_str());
+                                symbol->LOGGER().trace("Argument mismatch: %s  can't convert to  %s", (*typeParamI)->to_string(true).c_str(), argDef->to_string(true).c_str());
                                 goto NEXT_CANDIDATE;
                             }
                             typeParamI++;
@@ -325,14 +327,14 @@ TxFieldEntity* TxSymbolScope::resolve_field_lookup(ResolutionContext& resCtx, Tx
                 // TODO: get best match instead of first match
                 return matches.front();
             }
-            this->LOGGER().warning("Type parameters do not match any candidate of %s", symbol->to_string().c_str());
+            symbol->LOGGER().warning("Type parameters do not match any candidate of %s", symbol->to_string().c_str());
             return nullptr;
         }
         else if (overloadedEnt->field_count() == 1) {
             return *overloadedEnt->fields_cbegin();
         }
         else {
-            this->LOGGER().warning("%s must be matched using type parameters", symbol->to_string().c_str());
+            symbol->LOGGER().warning("%s must be matched using type parameters", symbol->to_string().c_str());
             return nullptr;
         }
     }

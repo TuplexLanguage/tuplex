@@ -172,6 +172,22 @@ const TxType* TxType::get_base_type() const {
 }
 
 
+
+TxSymbolScope* TxType::get_member(const std::string& name) const {
+    std::vector<TxSymbolScope*> tmpPath;
+    return this->get_nearest_entity()->lookup_instance_member(tmpPath, name);
+}
+
+
+std::vector<std::string>::const_iterator TxType::member_names_cbegin() const {
+    return this->get_nearest_entity()->symbol_names_cbegin();
+}
+
+std::vector<std::string>::const_iterator TxType::member_names_cend()   const {
+    return this->get_nearest_entity()->symbol_names_cend();
+}
+
+
 TxSymbolScope* TxType::lookup_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const {
     if (this->_entity)
         return this->_entity->lookup_instance_member(path, ident);
@@ -313,6 +329,84 @@ bool TxType::inner_is_a(const TxType& other) const {
     // FUTURE: also check interfaces
     return false;
 }
+
+void TxType::define_data_layout() {
+    if (this->dataLaidOut)
+        return;
+    ASSERT(!this->startedLayout, "Recursive call to define_data_layout() of " << *this);
+    this->startedLayout = true;
+    LOGGER()->debug("Laying out data of type %s", this->to_string().c_str());
+
+    // copy base type's virtual and instance field tuples (to which we will add and override fields):
+    auto baseType = this->get_base_type();
+    while (baseType && !baseType->entity())
+        baseType = baseType->get_base_type();
+    if (baseType) {
+        //baseType->ensure_data_laid_out();
+        this->virtualFields = baseType->virtualFields;
+        this->instanceMethods = baseType->instanceMethods;
+        this->instanceFields = baseType->instanceFields;
+    }
+
+    for (auto symname = this->member_names_cbegin(); symname != this->member_names_cend(); symname++) {
+        auto symbol = this->get_member(*symname);
+        TxFieldEntity* field = dynamic_cast<TxFieldEntity*>(symbol);
+        if (! field)
+            if (auto overloadedField = dynamic_cast<TxOverloadedEntity*>(symbol))
+                field = overloadedField->get_first_field();
+        if (field) {
+            ResolutionContext resCtx;
+            auto fieldType = field->resolve_symbol_type(resCtx);
+            if (field->get_storage() == TXS_INSTANCE) {
+                LOGGER()->debug("Laying out instance field %-40s  %s", field->get_full_name().to_string().c_str(),
+                                fieldType->to_string(true).c_str());
+                this->instanceFields.add_field(field->get_name(), fieldType);
+                //this->declaresInstanceFields = true;
+            }
+            else if (field->get_storage() == TXS_INSTANCEMETHOD) {
+                if (field->get_decl_flags() & TXD_CONSTRUCTOR) {
+                    // skip, constructors aren't virtual
+                }
+                else if (this->virtualFields.has_field(field->get_name())) {
+                    LOGGER()->error("A non-static method may not override a static parent field: %s", field->to_string().c_str());
+                }
+                else if (this->instanceMethods.has_field(field->get_name())) {
+                    if (! (field->get_decl_flags() & TXD_OVERRIDE))
+                        LOGGER()->warning("Field overrides but isn't declared 'override': %s", field->to_string().c_str());
+                }
+                else {
+                    if (field->get_decl_flags() & TXD_OVERRIDE)
+                        LOGGER()->warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
+                    this->instanceMethods.add_field(field->get_name(), fieldType);
+                }
+                //this->declaresInstanceFields = true;
+            }
+            else if (field->get_storage() == TXS_VIRTUAL) {
+                if (this->instanceMethods.has_field(field->get_name())) {
+                    LOGGER()->error("A static field may not override a non-static parent method: %s", field->to_string().c_str());
+                }
+                else if (this->virtualFields.has_field(field->get_name())) {
+                    if (! (field->get_decl_flags() & TXD_OVERRIDE))
+                        LOGGER()->warning("Field overrides but isn't declared 'override': %s", field->to_string().c_str());
+                }
+                else {
+                    if (field->get_decl_flags() & TXD_OVERRIDE)
+                        LOGGER()->warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
+                    this->virtualFields.add_field(field->get_name(), fieldType);
+                }
+            }
+            else {
+                ASSERT(field->get_storage() == TXS_STATIC, "Invalid storage class " << field->get_storage() << " for field member " << *field);
+                if (field->get_decl_flags() & TXD_OVERRIDE)
+                    LOGGER()->warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
+                this->staticFields.add_field(field->get_name(), fieldType);
+            }
+        }
+    }
+
+    this->dataLaidOut = true;
+}
+
 
 
 static void type_bindings_string(std::stringstream& str, const TxTypeSpecialization& specialization) {

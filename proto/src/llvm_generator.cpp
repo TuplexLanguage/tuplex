@@ -400,8 +400,8 @@ void LlvmGenerationContext::generate_runtime_data() {
             if (auto vtableV = dyn_cast<GlobalVariable>(this->lookup_llvm_value(vtableName))) {
                 ResolutionContext resCtx;
                 std::vector<Constant*> initMembers;
-                auto instanceMethods = entity->get_instance_methods();
-                auto virtualFields   = entity->get_virtual_fields();
+                auto instanceMethods = (*txType)->get_instance_methods();
+                auto virtualFields   = (*txType)->get_virtual_fields();
                 initMembers.resize(instanceMethods.get_field_count() + virtualFields.get_field_count());
                 for (auto & field : instanceMethods.fields) {
                     //std::cout << "inserting instance method: " << field.first << " at ix " << field.second << std::endl;

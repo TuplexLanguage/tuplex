@@ -32,20 +32,19 @@ static Value* code_gen_4_multiple(LlvmGenerationContext& context, GenScope* scop
 
 StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
     // (similar to tuple type creation)
-    auto entity = this->entity();
-    if (! entity) {
+    if (! this->entity()) {
         context.LOG.error("No entity for type %s - can't perform vtable LLVM type mapping", this->to_string().c_str());
         return nullptr;
     }
-    context.LOG.debug("Mapping vtable of type %s: %s", entity->get_full_name().to_string().c_str(), this->to_string(true).c_str());
+    context.LOG.debug("Mapping vtable of type %s: %s", this->entity()->get_full_name().to_string().c_str(), this->to_string(true).c_str());
     std::vector<Type*> members;
-    for (auto memberTxType : entity->get_instance_methods().fieldTypes) {
+    for (auto memberTxType : this->get_instance_methods().fieldTypes) {
         auto lMemberType = context.get_llvm_type(memberTxType);
         auto membPtrType = lMemberType->getStructElementType(0);
         members.push_back(membPtrType);
         context.LOG.debug("Mapping virtual instance method type '%s' to: %s", memberTxType->to_string().c_str(), ::to_string(membPtrType).c_str());
     }
-    for (auto memberTxType : entity->get_virtual_fields().fieldTypes) {
+    for (auto memberTxType : this->get_virtual_fields().fieldTypes) {
         auto lMemberType = context.get_llvm_type(memberTxType);
         auto membPtrType = PointerType::getUnqual(lMemberType);
         members.push_back(membPtrType);
@@ -326,14 +325,13 @@ Type* TxTupleType::make_llvm_type(LlvmGenerationContext& context) const {
 //        context.LOG.warning("making LLVM type of non-concrete type %s", this->to_string().c_str());
 //        return StructType::create(context.llvmContext);  // creates opaque (empty placeholder) structure
 //    }
-    auto entity = this->entity();
-    if (! entity) {
+    if (! this->entity()) {
         context.LOG.error("No entity for Tuple type %s - can't perform LLVM type mapping", this->to_string().c_str());
         return nullptr;
     }
-    context.LOG.debug("Mapping tuple type %s: %s", entity->get_full_name().to_string().c_str(), this->to_string(true).c_str());
+    context.LOG.debug("Mapping tuple type %s: %s", this->entity()->get_full_name().to_string().c_str(), this->to_string(true).c_str());
     std::vector<Type*> llvmTypes;
-    for (auto memberTxType : entity->get_instance_fields().fieldTypes) {
+    for (auto memberTxType : this->get_instance_fields().fieldTypes) {
         auto memberLlvmType = context.get_llvm_type(memberTxType);
         llvmTypes.push_back(memberLlvmType);
         context.LOG.debug("Mapping member type %s to %s", memberTxType->to_string().c_str(), ::to_string(memberLlvmType).c_str());

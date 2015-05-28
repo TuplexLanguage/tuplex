@@ -89,7 +89,7 @@ TxModule* TxModule::declare_module(const TxIdentifier& ident) {
 
 TxModule* TxModule::lookup_module(const TxIdentifier& name) {
     std::vector<TxSymbolScope*> tmp;
-    auto sym = static_cast<TxSymbolScope*>(this)->lookup_symbol(tmp, name);
+    auto sym = this->lookup_symbol(tmp, name);
     if (! sym)
         return nullptr;
     if (auto module = dynamic_cast<TxModule*>(sym))
