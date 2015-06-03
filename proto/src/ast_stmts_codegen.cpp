@@ -30,12 +30,12 @@ static Value* do_store(LlvmGenerationContext& context, GenScope* scope, Value* l
 }
 
 
-static Value* gen_local_field(LlvmGenerationContext& context, GenScope* scope, const TxFieldEntity* entity, Value* fieldV) {
-    fieldV->setName(entity->get_name());
-    const TxType* txType = entity->get_type();
-    auto fieldA = txType->gen_alloca(context, scope, entity->get_name() + "_");
+static Value* gen_local_field(LlvmGenerationContext& context, GenScope* scope, const TxField* field, Value* fieldV) {
+    fieldV->setName(field->get_unique_name());
+    const TxType* txType = field->get_type();
+    auto fieldA = txType->gen_alloca(context, scope, field->get_unique_name() + "_");
     do_store(context, scope, fieldA, fieldV);
-    context.register_llvm_value(entity->get_full_name().to_string(), fieldA);
+    context.register_llvm_value(field->get_declaration()->get_unique_full_name(), fieldA);
     return fieldA;
 }
 
@@ -52,18 +52,18 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 
     std::string funcName;
     if (this->fieldDefNode) {
-        auto entity = this->fieldDefNode->get_entity();
-        if (entity->get_decl_flags() & TXD_CONSTRUCTOR)
-            funcName = entity->get_full_name().to_string();
+        auto declaration = this->fieldDefNode->get_declaration();
+        if (declaration->get_decl_flags() & TXD_CONSTRUCTOR)
+            funcName = declaration->get_unique_full_name();
         else
-            funcName = entity->get_full_name().to_string() + "$func";
+            funcName = declaration->get_unique_full_name() + "$func";
     }
     else
         funcName = "$func";  // anonymous function
 
     context.LOG.debug("Creating function: %s", funcName.c_str());
     Function *function = cast<Function>(context.llvmModule.getOrInsertFunction(funcName, funcT));
-    // function->setLinkage(GlobalValue::InternalLinkage);  FIXME (can cause LLVM to rename function)
+    // function->setLinkage(GlobalValue::InternalLinkage);  TODO (can cause LLVM to rename function)
     //Function *function = Function::Create(ftype, GlobalValue::InternalLinkage, funcName.c_str(), &context.llvmModule);
     // note: function is of LLVM function pointer type (since it is an LLVM global value)
 
@@ -78,15 +78,15 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
         // (both self and super refer to the same object, but with different ref types)
         {
             this->selfRefNode->typeExpression->code_gen(context, &fscope);
-            auto selfT = context.get_llvm_type(this->selfRefNode->get_entity()->get_type());
+            auto selfT = context.get_llvm_type(this->selfRefNode->get_type());
             auto convSelfV = TxReferenceType::gen_ref_conversion(context, &fscope, fArgI, selfT);
-            gen_local_field(context, &fscope, this->selfRefNode->get_entity(), convSelfV);
+            gen_local_field(context, &fscope, this->selfRefNode->get_field(), convSelfV);
         }
         {
             this->superRefNode->typeExpression->code_gen(context, &fscope);
-            auto superT = context.get_llvm_type(this->superRefNode->get_entity()->get_type());
+            auto superT = context.get_llvm_type(this->superRefNode->get_type());
             auto convSuperV = TxReferenceType::gen_ref_conversion(context, &fscope, fArgI, superT);
-            gen_local_field(context, &fscope, this->superRefNode->get_entity(), convSuperV);
+            gen_local_field(context, &fscope, this->superRefNode->get_field(), convSuperV);
         }
     }
     fArgI++;
@@ -95,7 +95,7 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
          fArgI++, argDefI++)
     {
         (*argDefI)->typeExpression->code_gen(context, &fscope);
-        gen_local_field(context, &fscope, (*argDefI)->get_entity(), fArgI);
+        gen_local_field(context, &fscope, (*argDefI)->get_field(), fArgI);
     }
 
     this->suite->code_gen(context, &fscope);
@@ -118,9 +118,10 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     context.LOG.trace("%-48s", this->to_string().c_str());
     if (this->field->typeExpression)
         this->field->typeExpression->code_gen(context, scope);
-    auto entity = this->field->get_entity();
-    ASSERT (entity->get_storage() == TXS_STACK, "TxFieldStmtNode can only apply to TX_STACK storage fields: " << entity->get_full_name());
-    auto txType = entity->get_type();
+    auto declaration = this->field->get_declaration();
+    auto uniqueName = declaration->get_unique_full_name();
+    ASSERT (declaration->get_storage() == TXS_STACK, "TxFieldStmtNode can only apply to TX_STACK storage fields: " << uniqueName);
+    auto txType = this->field->get_type();
     Value* fieldVal;
     if (dynamic_cast<const TxFunctionType*>(txType)) {
         // FUTURE: make local function capture
@@ -133,14 +134,14 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
         }
     }
     else {  // LLVM "FirstClassType"
-        fieldVal = txType->gen_alloca(context, scope, entity->get_name());
+        fieldVal = txType->gen_alloca(context, scope, declaration->get_symbol()->get_name());
         if (this->field->initExpression) {
             // create implicit assignment statement
             if (Value* initializer = this->field->initExpression->code_gen(context, scope))
                 do_store(context, scope, fieldVal, initializer);
         }
     }
-    context.register_llvm_value(entity->get_full_name().to_string(), fieldVal);
+    context.register_llvm_value(uniqueName, fieldVal);
     return fieldVal;
 }
 

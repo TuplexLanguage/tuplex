@@ -14,10 +14,10 @@
 #include "type_visitor.hpp"
 #include "generics.hpp"
 
+#include "entity.hpp"
+
 
 class TxType;
-class TxSymbolScope;
-class TxTypeEntity;
 class ResolutionContext;
 
 /* forward declarations pertaining to LLVM code generation */
@@ -58,49 +58,6 @@ enum TxTypeClass {
 
 
 
-/** Proxy interface that provides a layer of indirection to a type reference.
- * This is needed for two reasons:
- * - Before the symbol table pass has completed, resolving the actual type may not be possible
- * - Resolving the type may be context-dependent (e.g. type parameter resolution depends
- *   on subtype context)
- */
-class TxTypeProxy {
-public:
-    virtual ~TxTypeProxy() = default;
-
-    /** Gets the TxType instance this type proxy represents.
-     * The contract is that it shall return the same instance every invocation.
-     */
-    virtual const TxType* get_type() const = 0;
-};
-
-class TxTypeDefiner : public TxTypeProxy {
-public:
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) = 0;
-
-    /** Returns a type if this type definer "is ready" (has a defined type), otherwise NULL. */
-    virtual const TxType* attempt_get_type() const = 0;
-};
-
-/** Represents a value that can be statically computed (in compile time). */
-class TxConstantProxy : public TxTypeProxy {
-public:
-    virtual ~TxConstantProxy() = default;
-
-    /** Gets the TxType instance representing the type of the constant. */
-    virtual const TxType* get_type() const override = 0;
-
-    virtual uint32_t get_value_UInt() const = 0;
-
-    virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
-
-    virtual bool operator==(const TxConstantProxy& other) const;
-
-    inline virtual bool operator!=(const TxConstantProxy& other) const final {
-        return ! this->operator==(other);
-    }
-};
-
 /** Wraps a TxType as a TxTypeDefiner, can be used for const TxType -> non-const TxTypeDefiner conversion. */
 class TxTypeDefWrapper : public TxTypeDefiner {
     const TxType* type;
@@ -111,51 +68,47 @@ public:
     virtual const TxType* get_type() const override { return this->type; }
 };
 
-///** Convenience TxConstantProxy implementation for integers. */
-//class TxIntConstant : public TxConstantProxy, public Printable {
-//    const long intValue;
+///** Type proxy wrapper that provides a non-modifiable 'view' of the underlying type
+// * (which may be either modifiable or not).
+// */
+//class TxNonModTypeProxy : public TxTypeProxy {
+//    TxTypeProxy const * const wrappedProxy;
 //public:
-//    TxIntConstant(long intValue) : intValue(intValue)  { }
-//    virtual long get_int_value() const { return intValue; }
-//    std::string to_string() const { return std::to_string(intValue); }
+//    TxNonModTypeProxy(TxTypeProxy const * wrappedProxy) : wrappedProxy(wrappedProxy)  { }
+//
+//    virtual const TxType* get_type() const;
 //};
-
-
-/** Type proxy wrapper that provides a non-modifiable 'view' of the underlying type
- * (which may be either modifiable or not).
- */
-class TxNonModTypeProxy : public TxTypeProxy {
-    TxTypeProxy const * const wrappedProxy;
-public:
-    TxNonModTypeProxy(TxTypeProxy const * wrappedProxy) : wrappedProxy(wrappedProxy)  { }
-
-    virtual const TxType* get_type() const;
-};
 
 
 
 class DataTupleDefinition {
 public:
     // we need to be able to look up fields both via index and plain name:
-    /** map from plain name to field index (note, contains fewer entries than fieldTypes when parent field name is hidden) */
-    std::unordered_map<std::string, uint32_t> fields;
-    /** the field types */
-    std::vector<const TxType*> fieldTypes;
+    /** map from plain name to field index (note, contains fewer entries than fields vector when parent field name is hidden) */
+    std::unordered_map<std::string, uint32_t> fieldMap;
+    /** the fields */
+    std::vector<const TxField*> fields;
 
-    void add_field(const std::string& name, const TxType* type) {
-        this->fields[name] = this->fieldTypes.size();  // (inserts new or overwrites existing entry)
-        this->fieldTypes.push_back(type);
+    void add_field(const std::string& name, const TxField* field) {
+        this->fieldMap[name] = this->fields.size();  // (inserts new or overwrites existing entry)
+        this->fields.push_back(field);
     }
 
-    inline bool has_field(const std::string& name) const { return this->fields.count(name); }
+    inline bool has_field(const std::string& name) const { return this->fieldMap.count(name); }
 
     inline uint32_t get_field_index(const std::string& name) const {
-        if (!this->fields.count(name))
+        if (!this->fieldMap.count(name))
             std::cout << "can't find field " << name << std::endl;
-        return this->fields.at(name);
+        return this->fieldMap.at(name);
     }
 
-    inline uint32_t get_field_count() const { return this->fieldTypes.size(); }
+    inline const TxField* get_field(const std::string& name) const {
+        if (!this->fieldMap.count(name))
+            std::cout << "can't find field " << name << std::endl;
+        return this->fields.at(this->fieldMap.at(name));
+    }
+
+    inline uint32_t get_field_count() const { return this->fields.size(); }
 };
 
 
@@ -211,7 +164,7 @@ public:
     }
 
     /** Returns empty string if this specialization is valid for the base type. */
-    std::string validate(ResolutionContext& resCtx) const;
+    std::string validate() const;
 
     bool operator==(const TxTypeSpecialization& other) const;
 
@@ -226,12 +179,15 @@ public:
 
 /** An instance of this class represents a type definition.
  */
-class TxType : public TxTypeDefiner, public Printable {
+class TxType : public TxEntity {
+    /** The type class of this type. */
+    const TxTypeClass typeClass;
+
     /** The type id of this type, if it is a statically distinct type (not a pure specialization). */
     uint32_t typeId = UINT32_MAX;
 
-    /** The entity declaration that defined this type. */
-    TxTypeEntity * const _entity;
+//    /** The entity declaration that defined this type. */
+//    TxTypeEntity * const _entity;
 
     /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
     const std::vector<TxTypeParam> typeParams;
@@ -240,29 +196,35 @@ class TxType : public TxTypeDefiner, public Printable {
     const std::vector<TxTypeSpecialization> interfaces;  // FUTURE
 
     // data layout:
-    bool dataLaidOut = false;
-    bool startedLayout = false;
+    bool extendsParentDatatype = false;
+    bool initialized = false;
+    bool startedInit = false;
     DataTupleDefinition staticFields;
     DataTupleDefinition virtualFields;
     DataTupleDefinition instanceMethods;
     DataTupleDefinition instanceFields;
 
-    void define_data_layout();
+    /** prepares / initializes this type, including laying out its data */
+    void prepare_type();
+
+    std::string inner_validate() const;
 
 protected:
     /** Only to be used for Any type. */
-    TxType(TxTypeEntity* entity) : _entity(entity), typeParams(), baseTypeSpec()  {
-        this->define_data_layout();
+    TxType(TxTypeClass typeClass, const TxTypeDeclaration* declaration)
+            : TxEntity(declaration), typeClass(typeClass), typeParams(), baseTypeSpec()  {
+        this->prepare_type();
     }
 
-    TxType(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,
+    TxType(TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
            const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
-            : _entity(entity), typeParams(typeParams), baseTypeSpec(baseTypeSpec) {
-        this->define_data_layout();
+            : TxEntity(declaration), typeClass(typeClass), typeParams(typeParams), baseTypeSpec(baseTypeSpec) {
+        this->prepare_type();
     }
 
     /** Creates a specialization of this type. To be used by the type registry. */
-    virtual TxType* make_specialized_type(TxTypeEntity* entity, const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
+    virtual TxType* make_specialized_type(TxTypeDeclaration* declaration,
+                                          const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
                                           const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>(),
                                           std::string* errorMsg=nullptr) const = 0;
 
@@ -276,13 +238,10 @@ public:
     virtual ~TxType() = default;
 
 
-    /** Returns empty string if this type definition is not valid. */
-    virtual std::string validate(ResolutionContext& resCtx) const;
+    virtual bool validate() const override;
 
 
-    // For now. Implements the TxEntityDefiner interface.
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this; }
-    virtual const TxType* attempt_get_type() const override { return this; }
+    /** Gets self. Implements the TxTypeProxy interface. */
     virtual const TxType* get_type() const override { return this; }
 
 
@@ -292,15 +251,17 @@ public:
     /** Gets the type id of this type. (Pure specializations return their base type's id.) */
     inline uint32_t get_type_id() const { return ( this->typeId == UINT32_MAX ? this->baseTypeSpec.type->get_type_id() : this->typeId ); }
 
-    inline TxTypeEntity* entity() const { return this->_entity; }
+    virtual inline const TxTypeDeclaration* get_declaration() const override {
+        return static_cast<const TxTypeDeclaration*>(TxEntity::get_declaration());
+    }
 
-    TxTypeEntity* explicit_entity() const;
+    const TxTypeDeclaration* get_explicit_declaration() const;
 
-    TxTypeEntity* get_nearest_entity() const {
-        if (this->_entity)
-            return _entity;
+    const TxTypeDeclaration* get_nearest_declaration() const {
+        if (this->get_declaration())
+            return this->get_declaration();
         else
-            return this->get_base_type()->get_nearest_entity();
+            return this->get_base_type()->get_nearest_declaration();
     }
 
 
@@ -308,7 +269,7 @@ public:
     inline bool has_base_type() const { return this->baseTypeSpec.type; }
 
     /** Returns the type class this type belongs to. */
-    virtual TxTypeClass get_type_class() const = 0;
+    inline TxTypeClass get_type_class() const { return this->typeClass; }
 
     /** Returns true iff this type is a built-in type. */
     bool is_builtin() const;
@@ -376,7 +337,7 @@ public:
      * (Generic type specialization is regarded as specialization, not extension, and does thus
      * not cause this method to return true.)
      */
-    virtual bool is_datatype_extension() const;
+    inline bool is_datatype_extension() const { return this->extendsParentDatatype; }
 
     /** Returns true if the size of this type is statically known.
      * May be true for arrays with non-static length initializer or compound types containing such arrays.
@@ -386,25 +347,23 @@ public:
 
     /*--- namespace lookup ---*/
 
-    virtual TxSymbolScope* get_member(const std::string& name) const;
+//    virtual TxScopeSymbol* get_member(const std::string& name) const;
 
-    /** Returns a read-only, order-of-declaration iterator that points to the first declared member name. */
-    std::vector<std::string>::const_iterator member_names_cbegin() const;
-    /** Returns a read-only, order-of-declaration iterator that points to one past the last declared symbol name. */
-    std::vector<std::string>::const_iterator member_names_cend()   const;
+// was undefined whether these should return inherited members or not
+//    /** Returns a read-only, order-of-declaration iterator that points to the first declared member name. */
+//    std::vector<std::string>::const_iterator member_names_cbegin() const;
+//    /** Returns a read-only, order-of-declaration iterator that points to one past the last declared symbol name. */
+//    std::vector<std::string>::const_iterator member_names_cend()   const;
 
 
     /** match against this entity's direct instance/static members, and then its inherited members, returning the first found */
-    virtual TxSymbolScope* lookup_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const;
+    virtual TxEntitySymbol* lookup_instance_member(const std::string& name) const;
 
-    /** match against this entity's inherited instance/static members (i.e. skipping this type's direct members) */
-    virtual TxSymbolScope* lookup_inherited_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const;
-
-    /** match against this entity's direct (and static) members, and then its inherited members, returning the first found */
-    virtual TxSymbolScope* lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const;
-
-    /** match against this entity's inherited (and static) members (i.e. skipping this type's direct members) */
-    virtual TxSymbolScope* lookup_inherited_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const;
+//    /** match against this entity's inherited instance/static members (i.e. skipping this type's direct members) */
+//    virtual const TxEntity* lookup_inherited_instance_member(const std::string& name) const;
+//
+//    /** match against this entity's inherited (and static) members (i.e. skipping this type's direct members) */
+//    virtual const TxEntity* lookup_inherited_member(const std::string& name) const;
 
 
     const TxType* get_base_type() const;  // TODO: move to TxTypeSpecialization
@@ -439,12 +398,12 @@ public:
 
 
     // TODO: rework this; merge with namespace lookup?
-private:
+protected:
     const TxGenericBinding* resolve_param_binding(const std::string& paramName) const {
         // FIXME: handle fully qualified parameter names (or remove these methods in favor of namespace lookup)
         // note: does not check for transitive modifiability
         if (this->has_type_param(paramName))
-            return nullptr;  // type parameter is unbound  // FIXME: return constraint base type instead
+            return nullptr;  // type parameter is unbound  // TODO: return constraint base type instead
         else if (auto baseType = this->get_base_type()) {
             if (this->baseTypeSpec.has_binding(paramName))
                 return &this->baseTypeSpec.get_binding(paramName);
@@ -454,7 +413,6 @@ private:
             return nullptr;  // no such type parameter name in type specialization hierarchy
     }
 
-protected:
     const TxType* resolve_param_type(ResolutionContext& resCtx, const std::string& paramName,
                                      bool nontransitiveModifiability=false) const;
 
@@ -476,7 +434,9 @@ public:
 
     /** Returns true if this type can implicitly convert from the provided type. */
     bool auto_converts_from(const TxType& other) const {
-//        // general logic:
+        // general logic:
+        if (*this == other)
+            return true;
 //        if (this->is_modifiable())
 //            return this->baseTypeSpec.type->auto_converts_from(other);
 //        if (other.is_modifiable())
@@ -506,25 +466,25 @@ private:
 public:
     /*--- data layout ---*/
 
-    bool is_data_laid_out() const { return this->dataLaidOut; }
+    bool is_data_laid_out() const { return this->initialized; }
 
     const DataTupleDefinition& get_instance_fields() const {
-        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
+        ASSERT(this->initialized, "Data not laid out in " << this);
         return this->instanceFields;
     }
 
     const DataTupleDefinition& get_instance_methods() const {
-        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
+        ASSERT(this->initialized, "Data not laid out in " << this);
         return this->instanceMethods;
     }
 
     const DataTupleDefinition& get_virtual_fields() const {
-        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
+        ASSERT(this->initialized, "Data not laid out in " << this);
         return this->virtualFields;
     }
 
     const DataTupleDefinition& get_static_fields() const {
-        ASSERT(this->dataLaidOut, "Data not laid out in " << this);
+        ASSERT(this->initialized, "Data not laid out in " << this);
         return this->staticFields;
     }
 

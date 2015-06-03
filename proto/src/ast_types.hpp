@@ -34,7 +34,7 @@ public:
     /** Creates, registers and returns a newly created TxTypeBinding. May only be called once. */
     virtual TxGenericBinding make_binding(ResolutionContext& resCtx,
                                           const TxType* baseType, const TxTypeParam& param) {
-        auto baseTypeEntity = baseType->entity();
+        auto baseTypeEntity = baseType->get_symbol();
         ASSERT(baseTypeEntity, "baseType has no entity: " << baseType);
         std::string qualPName = baseTypeEntity->get_full_name().to_string() + "." + param.param_name();
         std::string pname = make_generic_binding_name(qualPName);
@@ -207,7 +207,7 @@ protected:
         TxGenericBinding binding = this->targetTypeNode->make_binding(resCtx, baseType, baseType->get_type_param("T"));
         const TxIdentifier* dataspace = (this->dataspace ? &this->dataspace->ident : nullptr);
         //cwarning("Dataspace: %s", (this->dataspace ? this->dataspace->ident.to_string().c_str() : "NULL"));
-        return this->types().get_reference_type(this->get_entity(), binding, dataspace);
+        return this->types().get_reference_type(this->get_declaration(), binding, dataspace);
     }
 
 public:
@@ -240,10 +240,10 @@ protected:
         TxGenericBinding elementBinding = this->elementTypeNode->make_binding(resCtx, baseType, baseType->get_type_param("E"));
         if (this->lengthNode) {
             TxGenericBinding lengthBinding = this->lengthNode->make_binding(resCtx, baseType, baseType->get_type_param("L"));
-            return this->types().get_array_type(this->get_entity(), elementBinding, lengthBinding);
+            return this->types().get_array_type(this->get_declaration(), elementBinding, lengthBinding);
         }
         else
-            return this->types().get_array_type(this->get_entity(), elementBinding);
+            return this->types().get_array_type(this->get_declaration(), elementBinding);
     }
 
 public:
@@ -369,7 +369,7 @@ protected:
     }
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        auto entity = this->get_entity();
+        auto entity = this->get_declaration();
         ASSERT(entity, "No entity declared for derived type " << *this);
         // FUTURE: support interfaces
         const TxType* baseObjType = this->baseTypes->empty() ? this->types().get_builtin_type(TUPLE)
@@ -429,8 +429,8 @@ public:
 
 class TxFunctionTypeNode : public TxTypeExpressionNode {
     // Note: the field names aren't part of a function's formal type definition
-    /** If non-null, this function is a constructor and this is the entity that is being constructed. */
-    TxTypeEntity* constructedEntity = nullptr;
+    /** If non-null, this function is a constructor and this is the object type that is being constructed. */
+    TxTypeDeclaration* constructedObjTypeDecl = nullptr;
 
     static TxFieldDefNode* make_return_field(TxTypeExpressionNode* returnType) {
         if (returnType)
@@ -452,12 +452,12 @@ protected:
         std::vector<const TxType*> argumentTypes;
         for (auto argDefNode : *this->arguments)
             argumentTypes.push_back(argDefNode->resolve_type(resCtx));
-        if (this->constructedEntity)
-            return this->types().get_constructor_type(this->get_entity(), argumentTypes, this->constructedEntity);
+        if (this->constructedObjTypeDecl)
+            return this->types().get_constructor_type(this->get_declaration(), argumentTypes, this->constructedObjTypeDecl);
         else if (this->returnField)
-            return this->types().get_function_type(this->get_entity(), argumentTypes, this->returnField->resolve_type(resCtx), modifiable);
+            return this->types().get_function_type(this->get_declaration(), argumentTypes, this->returnField->resolve_type(resCtx), modifiable);
         else
-            return this->types().get_function_type(this->get_entity(), argumentTypes, modifiable);
+            return this->types().get_function_type(this->get_declaration(), argumentTypes, modifiable);
     }
 
 public:
@@ -473,10 +473,10 @@ public:
         : TxTypeExpressionNode(parseLocation), modifiable(modifiable),
           arguments(arguments), returnField(make_return_field(returnType)) { }
 
-    void symbol_declaration_pass_func_header(LexicalContext& defContext, LexicalContext& lexContext, TxTypeEntity* constructedEntity = nullptr) {
+    void symbol_declaration_pass_func_header(LexicalContext& defContext, LexicalContext& lexContext, TxTypeDeclaration* constructedObjTypeDecl = nullptr) {
         // (processed as the function instance header, so declare the function args, and the return type if any)
         this->set_context(lexContext);
-        this->constructedEntity = constructedEntity;
+        this->constructedObjTypeDecl = constructedObjTypeDecl;
         for (auto argField : *this->arguments)
             argField->symbol_declaration_pass_local_field(lexContext, false);
         if (this->returnField)
@@ -515,7 +515,7 @@ protected:
                 return bType;
             }
             else if (! bType->is_immutable())
-                return this->types().get_modifiable_type(this->get_entity(), bType);
+                return this->types().get_modifiable_type(this->get_declaration(), bType);
             else
                 cerror("Can't declare immutable type as modifiable: %s", bType->to_string().c_str());
         }

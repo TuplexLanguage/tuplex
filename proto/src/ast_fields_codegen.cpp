@@ -15,7 +15,7 @@ static bool access_via_load_store(const Type* type) {
 
 
 static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
-                                           const TxType* staticBaseType, Value* runtimeBaseTypeIdV, const TxFieldEntity* fieldEntity) {
+                                           const TxType* staticBaseType, Value* runtimeBaseTypeIdV, const TxField* fieldEntity) {
     // retrieve the vtable of the base's actual (runtime) type:
     Value* vtableBase = context.gen_get_vtable(scope, staticBaseType, runtimeBaseTypeIdV);
     //std::cout << "vtableBase: " << vtableBase << std::endl;
@@ -26,7 +26,7 @@ static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenSc
 
     // get the virtual field:
     auto fieldIx = fieldEntity->get_virtual_field_index();
-    //std::cout << "(static type id " << baseExpr->get_type()->get_type_id() << ") Getting TXS_VIRTUAL ix " << fieldIx << " value off LLVM base value: " << vtableBase << std::endl;
+    //std::cout << "(static type id " << fieldEntity->get_type()->get_type_id() << ") Getting TXS_VIRTUAL ix " << fieldIx << " value off LLVM base value: " << vtableBase << std::endl;
     Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
                      ConstantInt::get(Type::getInt32Ty(context.llvmContext), fieldIx) };
 
@@ -41,7 +41,7 @@ static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenSc
 }
 
 static Value* instance_method_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
-                                             const TxType* staticBaseType, Value* runtimeBaseTypeIdV, const TxFieldEntity* fieldEntity,
+                                             const TxType* staticBaseType, Value* runtimeBaseTypeIdV, const TxField* fieldEntity,
                                              Value* baseValue, bool nonvirtualLookup) {
     Value* funcPtrV;
     if (nonvirtualLookup) {
@@ -73,7 +73,7 @@ static bool is_non_virtual_lookup(const TxExpressionNode* baseExpr) {
 
 /** Generate code to obtain field value, potentially based on a base value (pointer). */
 static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
-                                   const TxExpressionNode* baseExpr, const TxFieldEntity* fieldEntity, bool foldStatics=false) {
+                                   const TxExpressionNode* baseExpr, const TxField* fieldEntity, bool foldStatics=false) {
     ASSERT(!(fieldEntity->get_decl_flags() & TXD_CONSTRUCTOR), "Can't get 'field value' of constructor " << fieldEntity);
 
     bool nonvirtualLookup = is_non_virtual_lookup(baseExpr);  // true for super.foo lookups
@@ -113,25 +113,25 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
                 break;
             }
         }
-        val = context.lookup_llvm_value(fieldEntity->get_full_name().to_string());
+        val = context.lookup_llvm_value(fieldEntity->get_declaration()->get_unique_full_name());
         if (! val) {
             if (auto txType = fieldEntity->get_type()) {
                 // forward declaration situation
                 ASSERT(fieldEntity->get_storage() == TXS_GLOBAL || fieldEntity->get_storage() == TXS_STATIC,
                        "'forward-declaration' only expected for GLOBAL or STATIC fields: " << fieldEntity->to_string());
                 if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
-                    context.LOG.alert("Forward-declaring function object %s", fieldEntity->get_full_name().to_string().c_str());
+                    context.LOG.alert("Forward-declaring function object %s", fieldEntity->get_declaration()->get_unique_full_name().c_str());
                     StructType *lambdaT = cast<StructType>(context.get_llvm_type(txFuncType));
 //                    FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
 //                    auto funcName = fieldEntity->get_full_name().to_string() + "$func";
 //                    auto funcV = context.llvmModule.getOrInsertFunction(funcName, funcT);
-//                    //cast<Function>(funcV)->setLinkage(GlobalValue::InternalLinkage);  FIXME (can cause LLVM to rename function)
+//                    //cast<Function>(funcV)->setLinkage(GlobalValue::InternalLinkage);  TODO (can cause LLVM to rename function)
 //                    // construct the lambda object:
 //                    auto nullClosureRefV = Constant::getNullValue(lambdaT->getElementType(1));
 //                    val = ConstantStruct::get(lambdaT, funcV, nullClosureRefV, NULL);
                     //val = new GlobalVariable(context.llvmModule, lambdaT, true, GlobalValue::InternalLinkage,
                     //                         nullptr, fieldEntity->get_full_name().to_string());
-                    val = context.llvmModule.getOrInsertGlobal(fieldEntity->get_full_name().to_string(), lambdaT);
+                    val = context.llvmModule.getOrInsertGlobal(fieldEntity->get_declaration()->get_unique_full_name(), lambdaT);
                 }
                 else {
                     context.LOG.error("No LLVM value defined for %s", fieldEntity->to_string().c_str());
@@ -144,7 +144,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
     case TXS_INSTANCE:
         {
             if (! baseExpr) {
-                context.LOG.error("Attempted to dereference TXS_INSTANCE field but no base expression provided (identifier %s)", fieldEntity->get_full_name().to_string().c_str());
+                context.LOG.error("Attempted to dereference TXS_INSTANCE field but no base expression provided (identifier %s)", fieldEntity->get_declaration()->get_unique_full_name().c_str());
                 return nullptr;
             }
             auto baseValue = baseExpr->code_gen(context, scope);
@@ -163,7 +163,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
         break;
 
     case TXS_NOSTORAGE:
-        context.LOG.warning("TXS_NOSTORAGE specified for field: %s", fieldEntity->get_full_name().to_string().c_str());
+        context.LOG.warning("TXS_NOSTORAGE specified for field: %s", fieldEntity->get_declaration()->get_unique_full_name().c_str());
         return nullptr;
     }
     return val;
@@ -171,8 +171,8 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
 
 
 Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics) const {
-    if (auto fieldEntity = dynamic_cast<const TxFieldEntity*>(this->cachedSymbol)) {
-        return field_value_code_gen(context, scope, this->baseExpr, fieldEntity, foldStatics);
+    if (this->cachedField) {
+        return field_value_code_gen(context, scope, this->baseExpr, this->cachedField, foldStatics);
     }
     else
         return NULL;

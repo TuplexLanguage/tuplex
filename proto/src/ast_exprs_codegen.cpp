@@ -551,6 +551,8 @@ Value* TxFunctionCallNode::code_gen(LlvmGenerationContext& context, GenScope* sc
 
 Value* TxFunctionCallNode::gen_call(LlvmGenerationContext& context, GenScope* scope) const {
     auto lambdaV = this->callee->code_gen(context, scope);
+    if (! lambdaV)
+        return nullptr;
     //std::cout << "callee: " << lambdaV << std::endl;
     auto functionPtrV = gen_get_struct_member(context, scope, lambdaV, 0);
     auto closureRefV = gen_get_struct_member(context, scope, lambdaV, 1);
@@ -586,7 +588,7 @@ Value* TxConstructorCalleeExprNode::code_gen(LlvmGenerationContext& context, Gen
     // construct the lambda object:
     auto closureRefT = context.get_voidRefT();
     auto closureRefV = gen_ref(context, scope, closureRefT, this->gen_obj_ptr(context, scope), instanceTypeIdV);
-    auto lambdaT = cast<StructType>(context.get_llvm_type(this->constructorEntity->get_type()));
+    auto lambdaT = cast<StructType>(context.get_llvm_type(this->constructor->get_type()));
     return gen_lambda(context, scope, lambdaT, funcPtrV, closureRefV);
 }
 
@@ -601,19 +603,20 @@ Value* TxConstructorCalleeExprNode::gen_obj_ptr(LlvmGenerationContext& context, 
 Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context, GenScope* scope) const {
     // constructors are similar to instance methods, but they are not virtual (and not in vtable)
     context.LOG.trace("%-48s", this->to_string().c_str());
-    Value* funcPtrV = context.lookup_llvm_value(this->constructorEntity->get_full_name().to_string());
+    auto uniqueName = this->constructor->get_declaration()->get_unique_full_name();
+    Value* funcPtrV = context.lookup_llvm_value(uniqueName);
     if (! funcPtrV) {
-        if (auto txType = this->constructorEntity->get_type()) {
+        if (auto txType = this->constructor->get_type()) {
             // forward declaration situation
             if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
-                context.LOG.alert("Forward-declaring constructor function %s: %s", this->constructorEntity->get_full_name().to_string().c_str(), txFuncType->to_string().c_str());
+                context.LOG.alert("Forward-declaring constructor function %s: %s", uniqueName.c_str(), txFuncType->to_string().c_str());
                 StructType *lambdaT = cast<StructType>(context.get_llvm_type(txFuncType));
                 FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
-                auto funcName = this->constructorEntity->get_full_name().to_string(); // + "$func";
+                auto funcName = uniqueName; // + "$func";
                 funcPtrV = context.llvmModule.getOrInsertFunction(funcName, funcT);
             }
             else
-                context.LOG.error("No LLVM type defined for %s", this->constructorEntity->to_string().c_str());
+                context.LOG.error("No LLVM type defined for %s", this->constructor->to_string().c_str());
         }
     }
     return funcPtrV;

@@ -61,7 +61,7 @@ class TxIntegerLitNode : public TxLiteralValueNode {
 //            }
 //            else return false;
 //        }
-        virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+        virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
     } intConstProxy;
 
     IntValue intValue;

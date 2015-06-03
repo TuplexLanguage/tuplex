@@ -112,6 +112,7 @@ add_executable(txc
         package.cpp
         module.cpp
         scope.cpp
+        declaration.cpp
         entity.cpp
         type_registry.cpp
         type_codegen.cpp

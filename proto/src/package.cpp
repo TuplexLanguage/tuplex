@@ -1,7 +1,7 @@
 #include "package.hpp"
 #include "entity.hpp"
 
-void TxPackage::registerMainFunc(const TxFieldEntity* mainFunc) {
+void TxPackage::registerMainFunc(const TxEntitySymbol* mainFunc) {
     if (! this->mainFunc) {
         this->mainFunc = mainFunc;
         this->LOGGER().debug("Set user main function: %s", mainFunc->to_string().c_str());

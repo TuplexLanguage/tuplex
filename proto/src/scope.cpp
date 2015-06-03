@@ -4,13 +4,14 @@
 #include "scope.hpp"
 #include "package.hpp"
 #include "entity.hpp"
+#include "declaration.hpp"
 
 
-/*=== TxScope implementation ===*/
+/*=== TxScopeSymbol implementation ===*/
 
 /*--- lexical scope tracking ---*/
 
-TxSymbolScope::TxSymbolScope(TxSymbolScope* parent, const std::string& name)
+TxScopeSymbol::TxScopeSymbol(TxScopeSymbol* parent, const std::string& name)
         : LOG(Logger::get("SYMBOLTABLE")), name(name), outer(parent)  {
     if (parent) {
         ASSERT(!name.empty() && name.find_first_of('.') == std::string::npos, "Non-plain name specified for non-root scope: '" << name << "'");
@@ -23,23 +24,24 @@ TxSymbolScope::TxSymbolScope(TxSymbolScope* parent, const std::string& name)
 }
 
 
-TxSymbolScope* TxSymbolScope::get_root_scope() {
-    return const_cast<TxSymbolScope*>(static_cast<const TxSymbolScope *>(this)->get_root_scope());
+TxScopeSymbol* TxScopeSymbol::get_root_scope() {
+    return const_cast<TxScopeSymbol*>(static_cast<const TxScopeSymbol *>(this)->get_root_scope());
 }
-const TxSymbolScope* TxSymbolScope::get_root_scope() const {
+const TxScopeSymbol* TxScopeSymbol::get_root_scope() const {
     if (! this->has_outer())
-        return dynamic_cast<const TxSymbolScope*>(this);
+        return dynamic_cast<const TxScopeSymbol*>(this);
     return this->get_outer()->get_root_scope();
 }
 
 
 
-std::string TxSymbolScope::get_unique_name(const std::string& baseName) const {
+std::string TxScopeSymbol::get_unique_name(const std::string& baseName) const {
     // ensures name is unique under parent scope
     // (don't append numeral if plain name provided and first occurrence)
     int counter = 0;
     while (true) {
-        std::string uniqueName = (baseName.length() > 1 && counter == 0) ? baseName : baseName + std::to_string(counter);
+        //std::string uniqueName = (baseName.length() > 1 && counter == 0) ? baseName : baseName + std::to_string(counter);
+        std::string uniqueName = baseName + std::to_string(counter);
         if (! this->has_symbol(uniqueName))
             return uniqueName;
         counter++;
@@ -47,10 +49,10 @@ std::string TxSymbolScope::get_unique_name(const std::string& baseName) const {
 }
 
 
-TxSymbolScope* TxSymbolScope::create_code_block_scope(const std::string& plainName) {
+TxScopeSymbol* TxScopeSymbol::create_code_block_scope(const std::string& plainName) {
     std::string baseName = plainName + '$';
     std::string uniqueName = this->get_unique_name(baseName);
-    TxSymbolScope* scope = new TxSymbolScope(this, uniqueName);
+    TxScopeSymbol* scope = new TxScopeSymbol(this, uniqueName);
     bool success = this->declare_symbol(scope);
     ASSERT(success, "failed to insert duplicate subscope name '" << baseName << "." << uniqueName << "'");
     this->LOGGER().trace("-->            %s", scope->get_full_name().to_string().c_str());
@@ -60,7 +62,7 @@ TxSymbolScope* TxSymbolScope::create_code_block_scope(const std::string& plainNa
 
 /*--- symbol map implementation ---*/
 
-TxSymbolScope* TxSymbolScope::add_symbol(TxSymbolScope* symbol) {
+TxScopeSymbol* TxScopeSymbol::add_symbol(TxScopeSymbol* symbol) {
     ASSERT(symbol->outer==this, "Mismatching symbol parent reference! " << symbol);
     ASSERT((this->outer==NULL && symbol->get_full_name().is_plain()) || symbol->get_full_name().parent()==this->get_full_name(),
             "Symbol qualifier doesn't match parent scope! " << symbol);
@@ -77,15 +79,15 @@ TxSymbolScope* TxSymbolScope::add_symbol(TxSymbolScope* symbol) {
     }
 }
 
-bool TxSymbolScope::has_symbol(const std::string& name) const {
+bool TxScopeSymbol::has_symbol(const std::string& name) const {
     return this->symbols.count(name);
 }
 
-const TxSymbolScope* TxSymbolScope::get_symbol(const std::string& name) const {
+const TxScopeSymbol* TxScopeSymbol::get_symbol(const std::string& name) const {
     return this->symbols.count(name) ? this->symbols.at(name) : nullptr;
 }
 
-//std::vector<const TxIdentifier*> TxSymbolScope::get_symbol_full_names() const {
+//std::vector<const TxIdentifier*> TxScopeSymbol::get_symbol_full_names() const {
 //    std::vector<const TxIdentifier*> symNames;
 //    for(auto & sym : this->symbols)
 //        symNames.push_back(&sym.second->get_full_name());
@@ -95,21 +97,21 @@ const TxSymbolScope* TxSymbolScope::get_symbol(const std::string& name) const {
 
 /*--- symbol table handling ---*/
 
-static inline bool is_stack_field(const TxSymbolScope* entity) {
-    if (auto fieldEnt = dynamic_cast<const TxFieldEntity*>(entity))
-        if (fieldEnt->get_storage() == TXS_STACK)
-            return true;
-    return false;
-}
+//static inline bool is_stack_field(const TxScopeSymbol* entity) {
+//    if (auto fieldEnt = dynamic_cast<const TxFieldEntity*>(entity))
+//        if (fieldEnt->get_storage() == TXS_STACK)
+//            return true;
+//    return false;
+//}
 
-bool TxSymbolScope::declare_symbol(TxSymbolScope* symbol) {
+bool TxScopeSymbol::declare_symbol(TxScopeSymbol* symbol) {
     if (this->has_symbol(symbol->get_name()))
         return false;
     this->add_symbol(symbol);
     return true;
 }
 
-
+/*
 TxDistinctEntity* TxSymbolScope::overload_entity(TxDistinctEntity* entity, TxSymbolScope* prevSymbol) {
     TxDistinctEntity* specificEntity = nullptr;
     // Note: We don't guard against all illegal collisions here (since type-dependent and types not yet known).
@@ -155,8 +157,9 @@ TxDistinctEntity* TxSymbolScope::overload_entity(TxDistinctEntity* entity, TxSym
         return nullptr;
     }
 }
+*/
 
-TxDistinctEntity* TxSymbolScope::declare_entity(TxDistinctEntity* entity) {
+TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName) {
     // TODO: guard against using reserved keywords (including "tx")
 
 // TODO: disabled to prevent error conditions when symbol pass is only partially completed;
@@ -171,195 +174,88 @@ TxDistinctEntity* TxSymbolScope::declare_entity(TxDistinctEntity* entity) {
 //        }
 //    }
 
-    if (auto prevSymbol = this->get_symbol(entity->get_name())) {
-        // symbol has previously been declared, handle overloading
-        return overload_entity(entity, prevSymbol);
+    TxEntitySymbol* entitySymbol;
+    if (auto symbol = this->get_symbol(plainName)) {
+        entitySymbol = dynamic_cast<TxEntitySymbol*>(symbol);
+        if (! entitySymbol) {
+            this->LOGGER().error("Failed to declare entity symbol, can't overload entities and non-entities under same symbol %s", symbol->to_string().c_str());
+            return nullptr;
+        }
     }
     else {
-        auto success = this->declare_symbol(entity);
-        if (success) {
-            // register possible main() function:
-            if (auto field = dynamic_cast<TxFieldEntity*>(entity)) {
-                if (entity->get_name() == "main") {
-                    // TODO: check that public and static function of correct signature: static mod main(args) Int
-                    auto package = dynamic_cast<TxPackage*>(this->get_root_scope());
-                    ASSERT(package, "root scope is not a TxPackage");
-                    package->registerMainFunc(field);
-                }
-            }
-            this->LOGGER().trace("    Defined    %-32s %s", entity->get_full_name().to_string().c_str(), entity->to_string().c_str());
-            return entity;
+        entitySymbol = new TxEntitySymbol(this, plainName);
+        auto success = this->declare_symbol(entitySymbol);
+        if (! success) {
+            this->LOGGER().error("Failed to declare symbol %s", entitySymbol->to_string().c_str());
+            return nullptr;
         }
-        else
-            this->LOGGER().error("Failed to define symbol %s", entity->to_string().c_str());
+        this->LOGGER().trace("    Defined    %-32s %s", entitySymbol->get_full_name().to_string().c_str(), entitySymbol->to_string().c_str());
+
+        // register possible main() function:
+        if (plainName == "main") {
+            // TODO: check that public and static function of correct signature: static mod main(args) Int
+            auto package = dynamic_cast<TxPackage*>(this->get_root_scope());
+            ASSERT(package, "root scope is not a TxPackage");
+            package->registerMainFunc(entitySymbol);
+        }
     }
-    delete entity;
+    return entitySymbol;
+}
+
+TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxTypeDefiner* typeDefiner,
+                                               TxDeclarationFlags declFlags) {
+    if (TxEntitySymbol* entitySymbol = this->declare_entity(plainName)) {
+        auto typeDeclaration = new TxTypeDeclaration(entitySymbol, declFlags, typeDefiner);
+        if (entitySymbol->add_type(typeDeclaration))
+            return typeDeclaration;
+    }
     return nullptr;
 }
 
-TxTypeEntity* TxSymbolScope::declare_type(const std::string& plainName, TxTypeDefiner* entityDefiner,
-                                          TxDeclarationFlags declFlags) {
-    auto entity = new TxTypeEntity(this, plainName, entityDefiner, declFlags);
-    return dynamic_cast<TxTypeEntity*>(this->declare_entity(entity));
-}
-
-TxFieldEntity* TxSymbolScope::declare_field(const std::string& plainName, TxFieldDefiner* entityDefiner,
-                                            TxDeclarationFlags declFlags, TxFieldStorage storage,
-                                            const TxIdentifier& dataspace) {
-    auto entity = new TxFieldEntity(this, plainName, entityDefiner, declFlags, storage, dataspace);
-    return dynamic_cast<TxFieldEntity*>(this->declare_entity(entity));
-}
-
-TxAliasEntity* TxSymbolScope::declare_alias(const std::string& plainName, TxDeclarationFlags declFlags, TxDistinctEntity* aliasedEntity) {
-    auto entity = new TxAliasEntity(this, plainName, declFlags, aliasedEntity);
-    // TODO: guard against using reserved keywords (including "tx")
-    auto success = this->declare_symbol(entity);
-    if (success) {
-        this->LOGGER().trace("    Defined    %-32s %s", entity->get_full_name().to_string().c_str(), entity->to_string().c_str());
-        return entity;
+TxFieldDeclaration* TxScopeSymbol::declare_field(const std::string& plainName, TxFieldDefiner* fieldDefiner,
+                                                 TxDeclarationFlags declFlags, TxFieldStorage storage,
+                                                 const TxIdentifier& dataspace) {
+    if (TxEntitySymbol* entitySymbol = this->declare_entity(plainName)) {
+        auto fieldDeclaration = new TxFieldDeclaration(entitySymbol, declFlags, fieldDefiner, storage, dataspace);
+        if (entitySymbol->add_field(fieldDeclaration))
+            return fieldDeclaration;
     }
-    this->LOGGER().error("Failed to define symbol %s", entity->to_string().c_str());
-    delete entity;
     return nullptr;
 }
 
-
-
-/*--- symbol table lookup ---*/
-
-TxSymbolScope* TxSymbolScope::start_lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
-    ASSERT(path.empty(), "Non-empty symbol path vector provided to resolve_symbol() of " << this);
-    path.push_back(this);  // starting point of search - the first segment's so-called vantage scope
-    auto symbol = this->lookup_symbol(path, ident);
-    // TODO: implement visibility check
+TxAliasSymbol* TxScopeSymbol::declare_alias(const std::string& plainName, TxDeclarationFlags declFlags, TxEntityDeclaration* aliasedDeclaration) {
+    if (auto prev_symbol = this->get_symbol(plainName)) {
+        this->LOGGER().error("Failed to declare alias symbol, can't overload alias with other declarations under same symbol %s", prev_symbol->to_string().c_str());
+        return nullptr;
+    }
+    auto symbol = new TxAliasSymbol(this, plainName, declFlags, aliasedDeclaration);
+    auto success = this->declare_symbol(symbol);
+    if (! success) {
+        this->LOGGER().error("Failed to declare symbol %s", symbol->to_string().c_str());
+        return nullptr;
+    }
+    this->LOGGER().trace("    Defined    %-32s %s", symbol->get_full_name().to_string().c_str(), symbol->to_string().c_str());
     return symbol;
 }
 
 
-TxSymbolScope* TxSymbolScope::lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
-    if (auto symbol = this->lookup_member(path, ident)) {  // FIXME: use a path copy, in case null is returned
-//        std::cout << ident << " => ";
-//        for (auto s : path)  std::cout << s->get_full_name() << " . ";
-//        std::cout << std::endl;
-        ASSERT(ident.segment_count()==path.size()-1, "Erroneous lookup path length: ident " << ident << " length != " << path.size());
-        ASSERT(symbol == path.back(), "Returned entity != last entity in path: " << *symbol << " != " << *path.back());
-        return symbol;
-    }
-    else if (this->has_outer())
-        return this->get_outer()->lookup_symbol(path, ident);
-    return nullptr;
-}
 
-TxSymbolScope* TxSymbolScope::lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
-    auto memberName = ident.segment(0);
-    //std::cout << "Looking up member " << memberName << " in " << this << std::endl;
-    if (auto member = this->get_symbol(memberName)) {
-        path.push_back(member);
-        if (ident.is_plain())
-            return member;
-        else
-            return member->lookup_member(path, TxIdentifier(ident, 1));
-    }
-    return nullptr;
-}
-
-
-
-TxTypeEntity* TxSymbolScope::lookup_type(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
-    auto symbol = this->start_lookup_symbol(path, ident);
-    if (! symbol)
-        return nullptr;
-    else if (auto typeEnt = dynamic_cast<TxTypeEntity*>(symbol))
-        return typeEnt;
-    else if (auto overloaded = dynamic_cast<TxOverloadedEntity*>(symbol))
-        if (auto typeEnt = overloaded->get_type_declaration())
-            return typeEnt;
-    //std::string msg = "Symbol " + ident.to_string() + " referenced from " + this->to_string() + " is not a Type: " + symbol->to_string();
-    //this->LOGGER().error("%s", msg.c_str());
-    return nullptr;
-}
-
-TxFieldEntity* TxSymbolScope::lookup_field(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident,
-                                           const std::vector<const TxType*>* typeParameters) {
-    TxSymbolScope* symbol = this->start_lookup_symbol(path, ident);
-    if (! symbol)
-        return nullptr;
-    TxFieldEntity* field = resolve_field_lookup(resCtx, symbol, typeParameters);
-    if (field && path.back() != field)
-        path[path.size()-1] = field;
-    return field;
-}
-
-
-
-TxFieldEntity* resolve_field_lookup(ResolutionContext& resCtx, TxSymbolScope* symbol,
-                                    const std::vector<const TxType*>* typeParameters) {
-    if (auto fieldEnt = dynamic_cast<TxFieldEntity*>(symbol)) {
-        // if (typeParameters)  TODO: if type parameters specified, verify that they match
-        return fieldEnt;
-    }
-    else if (auto overloadedEnt = dynamic_cast<const TxOverloadedEntity*>(symbol)) {
-        if (typeParameters) {
-            std::vector<TxFieldEntity*> matches;
-            for (auto fieldCandidateI = overloadedEnt->fields_cbegin();
-                      fieldCandidateI != overloadedEnt->fields_cend(); fieldCandidateI++) {
-                auto fieldCandidateType = (*fieldCandidateI)->resolve_symbol_type(resCtx);
-                if (auto candidateFuncType = dynamic_cast<const TxFunctionType*>(fieldCandidateType)) {
-                    symbol->LOGGER().trace("Candidate function: %s", candidateFuncType->to_string().c_str());
-                    if (candidateFuncType->argumentTypes.size() == typeParameters->size()) {
-                        auto typeParamI = typeParameters->cbegin();
-                        for (auto argDef : candidateFuncType->argumentTypes) {
-                            if (! argDef->auto_converts_from(**typeParamI)) {
-                                symbol->LOGGER().trace("Argument mismatch: %s  can't convert to  %s", (*typeParamI)->to_string(true).c_str(), argDef->to_string(true).c_str());
-                                goto NEXT_CANDIDATE;
-                            }
-                            typeParamI++;
-                        }
-                        matches.push_back(*fieldCandidateI);
-                    }
-                }
-                //else
-                //    std::cerr << "Callee of function call expression is not a function type: " << fieldCandidateType << std::endl;
-                NEXT_CANDIDATE:
-                ;
-            }
-            if (! matches.empty()) {
-                // TODO: get best match instead of first match
-                return matches.front();
-            }
-            symbol->LOGGER().warning("Type parameters do not match any candidate of %s", symbol->to_string().c_str());
-            return nullptr;
-        }
-        else if (overloadedEnt->field_count() == 1) {
-            return *overloadedEnt->fields_cbegin();
-        }
-        else {
-            symbol->LOGGER().warning("%s must be matched using type parameters", symbol->to_string().c_str());
-            return nullptr;
-        }
-    }
-    //this->LOGGER().warning("Symbol %s referenced from %s is not a field: %s",
-    //                       ident.to_string().c_str(), this->to_string().c_str(), symbol->to_string().c_str());
-    return nullptr;
-}
-
-
-bool TxSymbolScope::symbol_validation_pass(ResolutionContext& resCtx) {
+bool TxScopeSymbol::symbol_validation_pass() const {
 //    if (!this->fullName.begins_with(BUILTIN_NS))
 //        this->LOGGER().debug("Validating symbol %s", this->fullName.to_string().c_str());
-    bool valid = this->validate_symbol(resCtx);
+    bool valid = this->validate_symbol();
     if (! valid)
         this->LOGGER().debug("Failed symbol validity test: %s", this->fullName.to_string().c_str());
     for (auto entry : this->symbols)
-        valid &= entry.second->symbol_validation_pass(resCtx);
+        valid &= entry.second->symbol_validation_pass();
     return valid;
 }
 
-bool TxSymbolScope::validate_symbol(ResolutionContext& resCtx) {
+bool TxScopeSymbol::validate_symbol() const {
     return true;
 }
 
-void TxSymbolScope::dump_symbols() const {
+void TxScopeSymbol::dump_symbols() const {
     const TxIdentifier builtinNamespace(BUILTIN_NS);
     std::vector<const TxModule*> subModules;
     for (auto & symName : this->symbolNames) {
@@ -368,6 +264,8 @@ void TxSymbolScope::dump_symbols() const {
             subModules.push_back(submod);
         else if (this->get_full_name() != builtinNamespace) {
             try {
+                printf("%-18s %s\n", symbol->symbol_class_string().c_str(), symbol->get_full_name().to_string().c_str());
+                /*
                 if (auto ent = dynamic_cast<const TxFieldEntity*>(symbol)) {
                     std::string typestr; // = (type && type->entity()) ? type->entity()->get_full_name().to_string() : "nulltype/Void";
                     if (const TxType* type = ent->get_type())
@@ -386,6 +284,7 @@ void TxSymbolScope::dump_symbols() const {
                 }
                 else
                     printf("%s\n", symbol->to_string().c_str());
+                */
 //                else if (dynamic_cast<const TxOverloadedEntity*>(symbol))
 //                    printf("<overloaded>     %s\n", symbol->get_full_name().to_string().c_str());
 //                else
@@ -403,4 +302,268 @@ void TxSymbolScope::dump_symbols() const {
             mod->dump_symbols();
             //printf("<module>       %s\n", mod->to_string().c_str());
     }
+}
+
+
+
+/*=== TxEntitySymbol implementation ===*/
+
+TxEntityDeclaration* TxEntitySymbol::get_distinct_decl() const {
+    ASSERT(!this->is_overloaded(), "Can't get 'distinct' declaration of an overloaded entity: " << this->to_string());
+    if (this->typeDeclaration)
+        return this->typeDeclaration;
+    else
+        return this->get_first_field_decl();
+}
+
+TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
+    // overrides in order to handle instance members
+    //std::cout << "In '" << this->get_full_name() << "': get_member_symbol(" << name << ")" << std::endl;
+    // (if this symbol is a type, static member lookup of the type takes precedence if overloaded)
+    if (this->get_type_decl())
+        return this->TxScopeSymbol::get_member_symbol(name);
+    else if (! this->is_overloaded()) {
+        // this symbol represents a distinct field; look up its instance members
+        if (auto type = this->get_first_field_decl()->get_field_definer()->attempt_get_type()) {
+            if (auto member = type->lookup_instance_member(name))
+                return member;
+        }
+        else
+            this->LOGGER().warning("Type not resolved of %s", this->to_string().c_str());
+    }
+    return nullptr;
+}
+
+bool TxEntitySymbol::validate_symbol() const {
+    bool valid = true;
+
+    if (this->typeDeclaration) {
+        valid &= this->typeDeclaration->validate();
+    }
+
+    for (auto fieldDeclI = this->fields_cbegin(); fieldDeclI != this->fields_cend(); fieldDeclI++) {
+        valid &= (*fieldDeclI)->validate();
+
+        // check that only fields of function type are overloaded
+        auto type = (*fieldDeclI)->get_field_definer()->get_type();
+        if (this->field_count() > 1 && ! dynamic_cast<const TxFunctionType*>(type)) {
+            this->LOGGER().error("Illegal overload of symbol %s with type %s", (*fieldDeclI)->to_string().c_str(),
+                                 (type ? type->to_string().c_str() : "NULL"));
+            valid = false;
+        }
+        // TODO: check that no two signatures are exactly equal
+    }
+
+    return valid;
+}
+
+void TxEntitySymbol::dump_symbols() const {
+    TxScopeSymbol::dump_symbols();
+    if (this->is_overloaded()) {
+        for (auto fieldDecl : this->fieldDeclarations) {
+            printf("FIELD  %-11s %-64s\t%s\n", ::to_string(fieldDecl->get_decl_flags()).c_str(),
+                   fieldDecl->get_unique_full_name().c_str(),
+                   fieldDecl->get_field_definer()->get_type()->to_string().c_str());
+        }
+    }
+}
+
+std::string TxEntitySymbol::symbol_class_string() const {
+    if (this->is_overloaded())
+        return "<overloaded>";
+    else if (this->typeDeclaration)
+        return "TYPE   " + ::to_string(this->typeDeclaration->get_decl_flags());
+    else if (this->field_count())
+        return "FIELD  " + ::to_string(this->get_first_field_decl()->get_decl_flags());
+    else  // declaration not yet assigned to this entity symbol
+        return "<entity>";
+}
+
+
+
+/*=== symbol table lookup functions ===*/
+
+static TxScopeSymbol* search_symbol(std::vector<TxScopeSymbol*>& path, TxScopeSymbol* scope, const TxIdentifier& ident);
+
+TxScopeSymbol* TxAliasSymbol::get_aliased_symbol() const {
+    return this->aliasedDeclaration->get_symbol();
+}
+
+TxScopeSymbol* TxAliasSymbol::resolve_generic(TxScopeSymbol* vantageScope) {
+    LOGGER().alert("Substituting alias %s with %s", this->get_full_name().to_string().c_str(),
+                   this->get_aliased_symbol()->to_string().c_str());
+    return this->get_aliased_symbol()->resolve_generic(vantageScope);
+}
+
+TxScopeSymbol* TxEntitySymbol::resolve_generic(TxScopeSymbol* vantageScope) {
+    if (this->is_overloaded())
+        return this;
+    if (this->get_distinct_decl()->get_decl_flags() & TXD_GENPARAM) {
+        std::string bindingName = this->get_full_name().to_string();
+        std::replace(bindingName.begin(), bindingName.end(), '.', '#');
+        this->LOGGER().trace("Trying to resolve generic parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), vantageScope->get_full_name().to_string().c_str());
+        std::vector<TxScopeSymbol*> tmpPath;
+        if (auto boundSym = search_symbol(tmpPath, vantageScope, bindingName)) {
+            this->LOGGER().debug("Substituting generic parameter %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
+            return boundSym->resolve_generic(vantageScope);
+        }
+        else {
+            // unbound symbols are not resolved against, unless they're defined by an outer scope -
+            // meaning they're type parameters pertaining to the current lexical context
+            if (vantageScope->get_full_name().begins_with(this->get_outer()->get_full_name()))
+                this->LOGGER().debug("Scope of generic parameter %s encompasses current vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
+            else
+                this->LOGGER().debug("Generic parameter %s unbound within vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
+        }
+    }
+    return this;
+}
+
+
+static TxScopeSymbol* lookup_member(std::vector<TxScopeSymbol*>& path, TxScopeSymbol* scope, const TxIdentifier& ident) {
+    //std::cout << "From '" << scope->get_full_name() << "': lookup_member(" << ident << ")" << std::endl;
+    if (auto member = scope->get_member_symbol(ident.segment(0))) {
+        // if the identified member is a type parameter/alias, attempt to resolve it by substituting it for its binding:
+        TxScopeSymbol* vantageScope = path.back();  // FIXME: review if this should be original vantageScope instead
+        member = member->resolve_generic(vantageScope);
+
+        path.push_back(member);
+        if (ident.is_plain())
+            return member;
+        else
+            return lookup_member(path, member, TxIdentifier(ident, 1));
+    }
+    return nullptr;
+}
+
+static TxScopeSymbol* search_symbol(std::vector<TxScopeSymbol*>& path, TxScopeSymbol* scope, const TxIdentifier& ident) {
+    std::vector<TxScopeSymbol*> origPath = path;
+    if (auto symbol = lookup_member(path, scope, ident)) {
+        ASSERT(ident.segment_count()==path.size()-1, "Erroneous lookup path length: ident " << ident << " length != " << path.size());
+        ASSERT(symbol == path.back(), "Returned entity != last entity in path: " << *symbol << " != " << *path.back());
+        return symbol;
+    }
+    else {
+        path = origPath;
+        if (auto outerScope = scope->get_outer()) {
+            if (dynamic_cast<TxModule*>(scope))
+                // if member lookup within a module fails, skip parent modules and do global lookup via root namespace (package)
+                return search_symbol(path, scope->get_root_scope(), ident);
+            else
+                return search_symbol(path, outerScope, ident);
+        }
+    }
+    return nullptr;
+}
+
+TxScopeSymbol* lookup_member(TxScopeSymbol* vantageScope, const TxIdentifier& ident) {
+    std::vector<TxScopeSymbol*> path;
+    path.push_back(vantageScope);  // starting point of search - the first segment's so-called vantage scope
+    auto symbol = lookup_member(path, vantageScope, ident);
+    // TODO: implement visibility check?
+    return symbol;
+}
+
+TxScopeSymbol* lookup_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident) {
+    std::vector<TxScopeSymbol*> path;
+    path.push_back(vantageScope);  // starting point of search - the first segment's so-called vantage scope
+    auto symbol = search_symbol(path, vantageScope, ident);
+    // TODO: implement visibility check
+    return symbol;
+}
+
+
+TxTypeDeclaration* lookup_type(TxScopeSymbol* vantageScope, const TxIdentifier& ident) {
+    if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(lookup_symbol(vantageScope, ident)))
+        return entitySymbol->get_type_decl();
+    return nullptr;
+}
+
+TxFieldDeclaration* lookup_field(TxScopeSymbol* vantageScope, const TxIdentifier& ident,
+                                 const std::vector<const TxType*>* typeParameters) {
+    ResolutionContext resCtx;
+    return resolve_field_lookup(resCtx, lookup_symbol(vantageScope, ident), typeParameters);
+}
+
+
+
+static bool arg_type_matches(const TxType *expectedType, const TxType* providedType) {
+    // mimics behavior of inner_validate_wrap_convert()   FUTURE: merge code
+    if (providedType == expectedType)
+        return true;
+    if (expectedType->auto_converts_from(*providedType))
+        return true;
+    if (auto refType = dynamic_cast<const TxReferenceType*>(expectedType)) {
+        auto refTargetType = refType->target_type();
+        if (refTargetType && providedType->is_a(*refTargetType)) {
+            if (! refTargetType->is_modifiable()) {
+                // originalExpr will be auto-wrapped with a reference-to node
+                return true;
+            }
+//            else {
+//                if (!originalType->is_modifiable())
+//                    LOGGER().debug("Cannot convert reference with non-mod-target to one with mod target: %s -> %s",
+//                                   originalType->to_string().c_str(), requiredType->to_string().c_str());
+//                else
+//                    LOGGER().debug("Cannot implicitly convert to reference with modifiable target: %s -> %s",
+//                                   originalType->to_string().c_str(), requiredType->to_string().c_str());
+//            }
+        }
+    }
+//    LOGGER().debug("Can't auto-convert value\n\tFrom: %80s\n\tTo:   %80s",
+//                   originalType->to_string().c_str(), requiredType->to_string().c_str());
+    return false;
+}
+
+
+TxFieldDeclaration* resolve_field_lookup(ResolutionContext& resCtx, TxScopeSymbol* symbol,
+                                         const std::vector<const TxType*>* typeParameters) {
+    if (auto entitySymbol = dynamic_cast<const TxEntitySymbol*>(symbol)) {
+        if (entitySymbol->field_count() == 1) {
+            return *entitySymbol->fields_cbegin();
+        }
+        if (typeParameters) {
+            std::vector<TxFieldDeclaration*> matches;
+            for (auto fieldCandidateI = entitySymbol->fields_cbegin();
+                      fieldCandidateI != entitySymbol->fields_cend(); fieldCandidateI++) {
+                auto fieldCandidate = (*fieldCandidateI)->get_field_definer()->resolve_field(resCtx);
+                auto fieldCandidateType = fieldCandidate->get_type();
+                if (auto candidateFuncType = dynamic_cast<const TxFunctionType*>(fieldCandidateType)) {
+                    symbol->LOGGER().debug("Candidate function: %s", candidateFuncType->to_string().c_str());
+                    if (candidateFuncType->argumentTypes.size() == typeParameters->size()) {
+                        auto typeParamI = typeParameters->cbegin();
+                        for (auto argDef : candidateFuncType->argumentTypes) {
+                            if (! arg_type_matches(argDef, *typeParamI)) {
+                                symbol->LOGGER().debug("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
+                                                       (*typeParamI)->to_string(true).c_str(), argDef->to_string(true).c_str());
+                                goto NEXT_CANDIDATE;
+                            }
+                            typeParamI++;
+                        }
+                        matches.push_back(*fieldCandidateI);
+                    }
+                }
+                //else
+                //    std::cerr << "Callee of function call expression is not a function type: " << fieldCandidateType << std::endl;
+                NEXT_CANDIDATE:
+                ;
+            }
+            if (! matches.empty()) {
+                // TODO: get best match instead of first match
+                return matches.front();
+            }
+            if (entitySymbol->field_count()) {
+                symbol->LOGGER().warning("Type parameters do not match any candidate of %s", symbol->to_string().c_str());
+                return nullptr;
+            }
+        }
+        else if (entitySymbol->field_count() > 1) {
+            symbol->LOGGER().warning("%s must be matched using type parameters", symbol->to_string().c_str());
+            return nullptr;
+        }
+    }
+    // name is unknown, or a type
+    if (symbol)
+        symbol->LOGGER().warning("%s is not a field", symbol->to_string().c_str());
+    return nullptr;
 }

@@ -4,7 +4,7 @@
 
 
 TxModule::TxModule(TxModule* parent, const std::string& name, bool declared)
-        : TxSymbolScope(parent, name), declared(declared) {
+        : TxScopeSymbol(parent, name), declared(declared) {
     if (parent) {  // if not the root package
         if (! dynamic_cast<TxModule*>(parent))
             throw std::logic_error("Illegal to declare a module under a non-module parent: " + this->get_full_name().to_string());
@@ -18,7 +18,7 @@ TxModule::TxModule(TxModule* parent, const std::string& name, bool declared)
 }
 
 
-bool TxModule::declare_symbol(TxSymbolScope* symbol) {
+bool TxModule::declare_symbol(TxScopeSymbol* symbol) {
     if (! this->declared) {
         // only modules allowed within namespace of non-declared "module"
         if (! dynamic_cast<TxModule*>(symbol)) {
@@ -27,7 +27,7 @@ bool TxModule::declare_symbol(TxSymbolScope* symbol) {
             return false;
         }
     }
-    return TxSymbolScope::declare_symbol(symbol);
+    return TxScopeSymbol::declare_symbol(symbol);
 }
 
 
@@ -87,37 +87,32 @@ TxModule* TxModule::declare_module(const TxIdentifier& ident) {
 }
 
 
-TxModule* TxModule::lookup_module(const TxIdentifier& name) {
-    std::vector<TxSymbolScope*> tmp;
-    auto sym = this->lookup_symbol(tmp, name);
-    if (! sym)
-        return nullptr;
-    if (auto module = dynamic_cast<TxModule*>(sym))
-        return module;
-    this->LOGGER().error("Symbol %s is not a Module: %s", sym->get_full_name().to_string().c_str(), sym->to_string().c_str());
+TxModule* TxModule::lookup_module(const TxIdentifier& fullName) {
+    if (auto member = this->get_member_symbol(fullName.segment(0))) {
+        if (auto module = dynamic_cast<TxModule*>(member)) {
+            if (fullName.is_plain())
+                return module;
+            else
+                return module->lookup_module(TxIdentifier(fullName, 1));
+        }
+        this->LOGGER().error("Symbol is not a Module: %s", member->to_string().c_str());
+    }
     return nullptr;
 }
 
 
 
-TxSymbolScope* TxModule::lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
-    // overrides in order to inject alias lookup, and if alias and member lookup fails,
-    // proceed directly to global lookup via package
-    if (auto symbol = this->lookup_member(path, ident))
+TxScopeSymbol* TxModule::get_member_symbol(const std::string& name) {
+    // overrides in order to inject alias lookup
+    //std::cout << "In module '" << this->get_full_name() << "': get_member_symbol(" << name << ")" << std::endl;
+    if (auto symbol = this->TxScopeSymbol::get_member_symbol(name))
         return symbol;
-    else {
-        auto head = ident.segment(0);
-        if (this->usedNames.count(head)) {  // attempt to find aliased match
-            const TxIdentifier& aliasedName(this->usedNames.at(head));
-            TxIdentifier actualName(aliasedName);
-            if (ident.is_qualified())
-                actualName.appendIdent(TxIdentifier(ident, 1));
-            //std::cout << "lookupAlias " << head << ": " << actualName << std::endl;
-            // TODO: require all names to be imported before use?
-            return this->lookup_symbol(path, actualName);
-        }
+    else if (this->usedNames.count(name)) {  // attempt to find aliased match
+        const TxIdentifier& aliasedName(this->usedNames.at(name));
+        //std::cout << "In module '" << this->get_full_name() << "': matching alias " << name << " == " << aliasedName << std::endl;
+        return lookup_symbol(this->get_package(), aliasedName);
     }
-    return this->get_package()->lookup_member(path, ident);
+    return nullptr;
 }
 
 
@@ -195,12 +190,12 @@ void TxModule::dump_symbols() const {
         }
         printf("--- entities ---\n");
     }
-    TxSymbolScope::dump_symbols();
+    TxScopeSymbol::dump_symbols();
 }
 
 
 const TxPackage* TxModule::get_package() const {
-    return dynamic_cast<const TxPackage*>(this->get_root_scope());
+    return static_cast<const TxPackage*>(this->get_root_scope());
 }
 TxPackage* TxModule::get_package() {
     return const_cast<TxPackage*>(static_cast<const TxModule*>(this)->get_package());

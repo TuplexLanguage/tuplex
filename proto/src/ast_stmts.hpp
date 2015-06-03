@@ -100,17 +100,17 @@ public:
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         // TODO: Fix so that this won't find false positive using outer function's $return typeDecl
         // TODO: Illegal to return reference to STACK dataspace
-        auto returnValue = this->context().scope()->lookup_field(resCtx, TxIdentifier("$return"));
+        auto returnDecl = lookup_field(this->context().scope(), TxIdentifier("$return"));
         if (this->expr) {
             this->expr->symbol_resolution_pass(resCtx);
-            if (returnValue)
-                this->expr = validate_wrap_convert(resCtx, this->expr, returnValue->resolve_symbol_type(resCtx));
+            if (returnDecl)
+                this->expr = validate_wrap_convert(resCtx, this->expr, returnDecl->get_field_definer()->resolve_field(resCtx)->get_type());
             else
                 cerror("Return statement has value expression although function has no return type");
         }
-        else if (returnValue)
+        else if (returnDecl)
             cerror("Return statement has no value expression although function returns %s",
-                   returnValue->to_string().c_str());
+                   returnDecl->to_string().c_str());
     }
 
     virtual void semantic_pass() override {
@@ -277,7 +277,7 @@ public:
         if (! ltype)
             return;  // (error message should have been emitted by lvalue node)
         if (! ltype->is_modifiable()) {
-            if (! this->context().is_constructor())  // FIXME: only members of constructed object should skip error
+            if (! this->context().is_constructor())  // TODO: only members of constructed object should skip error
                 cerror("Assignee is not modifiable: %s", ltype->to_string().c_str());
             // Note: If the object as a whole is modifiable, it can be assigned to.
             // If it has any "non-modifiable" members, those will still get overwritten.

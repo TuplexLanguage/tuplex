@@ -3,58 +3,70 @@
 #include "ast_base.hpp"
 
 
-int TxFieldEntity::get_instance_field_index() const {
-    ASSERT(this->storage == TXS_INSTANCE, "Only fields of instance storage class have an instance field index: " << *this);
-    auto typeEnt = dynamic_cast<const TxTypeEntity*>(this->get_outer());
-    ASSERT(typeEnt, "Field's scope is not a type: " << *this->get_outer());
-    auto type = typeEnt->get_type();
-    return type->get_instance_fields().get_field_index(this->get_name());
+
+const TxType* TxFieldDefiner::resolve_type(ResolutionContext& resCtx) {
+    if (auto field = this->resolve_field(resCtx))
+        return field->get_type();
+    return nullptr;
 }
 
-int TxFieldEntity::get_virtual_field_index() const {
+
+
+int TxField::get_instance_field_index() const {
+    ASSERT(this->storage == TXS_INSTANCE, "Only fields of instance storage class have an instance field index: " << *this);
+    auto typeDecl = this->get_outer_type_decl();
+    ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_outer());
+    auto type = typeDecl->get_type_definer()->get_type();  // assumes already resolved
+    return type->get_instance_fields().get_field_index(this->get_unique_name());
+}
+
+int TxField::get_virtual_field_index() const {
     ASSERT(this->storage == TXS_VIRTUAL || this->storage == TXS_INSTANCEMETHOD,
            "Only fields of static virtual storage class have an virtual field index: " << *this);
-    auto typeEnt = dynamic_cast<const TxTypeEntity*>(this->get_outer());
-    ASSERT(typeEnt, "Field's scope is not a type: " << *this->get_outer());
-    auto type = typeEnt->get_type();
+    auto typeDecl = this->get_outer_type_decl();
+    ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_outer());
+    auto type = typeDecl->get_type_definer()->get_type();  // assumes already resolved
     if (this->storage == TXS_VIRTUAL)
-        return type->get_virtual_fields().get_field_index(this->get_name()) + type->get_instance_methods().get_field_count();
+        return type->get_virtual_fields().get_field_index(this->get_unique_name()) + type->get_instance_methods().get_field_count();
     else
-        return type->get_instance_methods().get_field_index(this->get_name());
+        return type->get_instance_methods().get_field_index(this->get_unique_name());
 }
 
-int TxFieldEntity::get_static_field_index() const {
+int TxField::get_static_field_index() const {
     ASSERT(this->storage == TXS_STATIC, "Only fields of static non-virtual storage class have a static field index: " << *this);
-    auto typeEnt = dynamic_cast<const TxTypeEntity*>(this->get_outer());
-    ASSERT(typeEnt, "Field's scope is not a type: " << *this->get_outer());
-    auto type = typeEnt->get_type();
-    return type->get_static_fields().get_field_index(this->get_name());
+    auto typeDecl = this->get_outer_type_decl();
+    ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_outer());
+    auto type = typeDecl->get_type_definer()->get_type();  // assumes already resolved
+    return type->get_static_fields().get_field_index(this->get_unique_name());
 }
 
 
-bool TxFieldEntity::is_statically_constant() const {
-    if ( (this->get_decl_flags() & TXD_GENPARAM) || this->is_generic_param_binding() )
+bool TxField::is_statically_constant() const {
+    bool genericParamBinding = (this->get_unique_name().find_last_of('#') != std::string::npos);
+    if ( (this->get_decl_flags() & TXD_GENPARAM) || genericParamBinding )
         // (The second condition might be removable in future, but now needed to avoid expecting e.g.
         // tx#Array#L to be statically constant)
         return false;
     if ( this->get_storage() == TXS_GLOBAL )
         return true;
-    ResolutionContext resCtx;
-    if ( auto type = const_cast<TxFieldEntity*>(this)->resolve_symbol_type(resCtx) )
-        if (auto initExpr = this->get_init_expression() )
-            return ( ! type->is_modifiable() && initExpr->is_statically_constant() );
+    if (auto initExpr = this->get_declaration()->get_field_definer()->get_init_expression())
+        return ( ! this->get_type()->is_modifiable() && initExpr->is_statically_constant() );
     return false;
 }
 
-const TxConstantProxy* TxFieldEntity::get_static_constant_proxy() const {
+const TxConstantProxy* TxField::get_static_constant_proxy() const {
     if (this->is_statically_constant())
-        if (auto initExpr = this->get_init_expression())
+        if (auto initExpr = this->get_declaration()->get_field_definer()->get_init_expression())
             return initExpr->get_static_constant_proxy();
     return nullptr;
 }
 
+bool TxField::is_modifiable() const {
+    return this->get_type()->is_modifiable();
+}
 
-TxSymbolScope* TxDistinctEntity::resolve_generic(TxSymbolScope* vantageScope) {
+/*
+TxSymbolScope* TxEntity::resolve_generic(TxSymbolScope* vantageScope) {
     std::vector<TxSymbolScope*> tmpPath;
     if (this->get_decl_flags() & TXD_GENPARAM) {
         std::string bindingName = this->get_full_name().to_string();
@@ -73,18 +85,6 @@ TxSymbolScope* TxDistinctEntity::resolve_generic(TxSymbolScope* vantageScope) {
                 this->LOGGER().debug("Generic parameter %s unbound within vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
         }
     }
-    /*
-    else if (auto alias = this->get_alias()) {
-        this->LOGGER().warning("Trying to resolve alias %s = %s from %s", this->get_full_name().to_string().c_str(), this->get_alias()->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
-        if (auto boundSym = vantageScope->start_lookup_symbol(tmpPath, *alias)) {
-            this->LOGGER().debug("Substituting alias %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
-            return boundSym->resolve_generic(vantageScope);
-        }
-        else {
-            this->LOGGER().warning("Symbol is unknown alias: %s", this->to_string().c_str());
-        }
-    }
-    */
     return this;
 }
 
@@ -153,52 +153,4 @@ TxSymbolScope* TxTypeEntity::lookup_member(std::vector<TxSymbolScope*>& path, co
 TxSymbolScope* TxTypeEntity::lookup_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) {
     return this->inner_lookup_member(path, ident, false);
 }
-
-
-bool TxTypeEntity::validate_symbol(ResolutionContext& resCtx) {
-    bool valid = TxDistinctEntity::validate_symbol(resCtx);
-    if (! valid)
-        return valid;
-    else if (auto type = this->get_type()) {
-        //type->ensure_data_laid_out();  // TO DO: review when this should be invoked
-        if (! type->is_data_laid_out()) {
-            this->LOGGER().error("Data not laid out for type: %s", type->to_string().c_str());
-            valid = false;
-        }
-        else {
-            auto tupleType = dynamic_cast<const TxTupleType*>(type);
-            for (auto symname = this->symbol_names_cbegin(); symname != this->symbol_names_cend(); symname++) {
-                if (auto field = dynamic_cast<TxFieldEntity*>(this->get_symbol(*symname))) {
-                    if (auto fieldType = field->resolve_symbol_type(resCtx)) {
-                        if (! fieldType->is_concrete()) {
-                            this->LOGGER().error("Can't declare a field of non-concrete type: %s", field->to_string().c_str());
-                            valid = false;
-                        }
-                        else if (field->get_storage() == TXS_INSTANCE) {
-                            //std::cout << "Concrete INSTANCE field " << field << std::endl;
-                            if (! fieldType->is_statically_sized()) {
-                                this->LOGGER().error("Instance fields that don't have statically determined size not yet supported: %s", field->to_string().c_str());
-                                valid = false;
-                            }
-                            else if (! (tupleType || (field->get_decl_flags() & (TXD_GENPARAM | TXD_IMPLICIT)))) {
-                                this->LOGGER().error("Can't declare instance member in non-tuple type: %s", field->to_string().c_str());
-                                valid = false;
-                            }
-                        }
-                        else {  // TXS_STATIC
-                            //std::cout << "Concrete STATIC field " << field << std::endl;
-                            if (! fieldType->is_statically_sized()) {
-                                // since static fields are per generic base type, and not per specialization:
-                                this->LOGGER().error("Static fields must have statically determined size: %s", field->to_string().c_str());
-                                valid = false;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    else
-        valid = false;
-    return valid;
-}
+*/

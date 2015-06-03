@@ -33,6 +33,7 @@ public:
     TxTypeParam(MetaType metaType, const std::string& typeParamName, TxTypeDefiner* baseTypeDefiner)
             : metaType(metaType), typeParamName(typeParamName), baseTypeDefiner(baseTypeDefiner)  {
         ASSERT(metaType==TXB_TYPE || baseTypeDefiner, "VALUE type parameter's type is NULL");
+        ASSERT(metaType==TXB_VALUE || baseTypeDefiner, "TYPE type parameter's constraint type is NULL");
     }
 
     inline MetaType meta_type() const { return metaType; }

@@ -4,10 +4,12 @@
 
 
 class TxFieldValueNode : public TxExpressionNode {
-    TxSymbolScope* cachedSymbol = nullptr;
+    TxScopeSymbol* cachedSymbol = nullptr;
+    const TxField* cachedField = nullptr;
     bool hasRunResolve = false;
 
-    TxSymbolScope* resolve_symbol(ResolutionContext& resCtx);
+    TxScopeSymbol* resolve_symbol(ResolutionContext& resCtx);
+    TxEntityDeclaration* resolve_decl(ResolutionContext& resCtx);
 
 protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override;
@@ -58,23 +60,23 @@ public:
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
         this->LOGGER().trace("Getting static constant proxy for field %s", this->memberName.c_str());
-        if (auto ent = this->get_field_entity())
-            if (auto constProxy = ent->get_static_constant_proxy()) {
-                this->LOGGER().debug("Returning static constant proxy for field %s", ent->get_full_name().to_string().c_str());
+        if (this->cachedField)
+            if (auto constProxy = this->cachedField->get_static_constant_proxy()) {
+                this->LOGGER().debug("Returning static constant proxy for field %s", this->cachedField->get_symbol()->get_full_name().to_string().c_str());
                 return constProxy;
             }
         return nullptr;
     }
 
     virtual bool is_statically_constant() const override {
-        if (auto ent = this->get_field_entity())
-            return ent->is_statically_constant();
+        if (this->cachedField)
+            return this->cachedField->is_statically_constant();
         return false;
     }
 
-    // may not be called before symbol/type is resolved:
-    inline const TxFieldEntity* get_field_entity() const { return dynamic_cast<TxFieldEntity*>(this->cachedSymbol); }
-    inline const TxTypeEntity*  get_type_entity()  const { return dynamic_cast<TxTypeEntity*>(this->cachedSymbol); }
+    // should not be called before symbol is resolved:
+    inline const TxField* get_field() const { return this->cachedField; }
+    inline const TxFieldDeclaration* get_field_declaration() const { return (this->cachedField ? this->cachedField->get_declaration() : nullptr); }
 
 
     virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics=false) const;

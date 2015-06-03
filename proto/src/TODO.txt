@@ -13,7 +13,7 @@ Bool type and boolean expressions - DONE
 
 Polymorphism (virtual lookup) for static members - DONE
 
-Lambda (function) objects - DONE
+Function objects retaining their closure (e.g. 'self') - DONE
 
 Preserve type information in references - DONE
 

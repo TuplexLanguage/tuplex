@@ -24,6 +24,27 @@ namespace llvm {
 }
 
 
+/** Represents a value that can be statically computed (in compile time). */
+class TxConstantProxy : public TxTypeProxy {
+public:
+    virtual ~TxConstantProxy() = default;
+
+    /** Gets the TxType instance representing the type of the constant. */
+    virtual const TxType* get_type() const override = 0;
+
+    virtual uint32_t get_value_UInt() const = 0;
+
+    virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
+
+    virtual bool operator==(const TxConstantProxy& other) const;
+
+    inline virtual bool operator!=(const TxConstantProxy& other) const final {
+        return ! this->operator==(other);
+    }
+};
+
+
+
 class TxNode : public Printable {
 private:
     LexicalContext lexContext;
@@ -34,7 +55,7 @@ protected:
         this->lexContext = context;
     }
     /** Sets the lexical context of this node to the current context of the module. */
-    void set_context(TxSymbolScope* lexContext) {
+    void set_context(TxScopeSymbol* lexContext) {
         this->set_context(LexicalContext(lexContext));
     }
 
@@ -259,20 +280,20 @@ class TxTypeExpressionNode : public TxNode, public TxTypeDefiner {
     bool gettingType = false;  // during development - guard against recursive calls to get_type()
     bool gottenType = false;  // to prevent multiple identical error messages
     TxType const * cachedType = nullptr;
-    TxTypeEntity* declaredEntity = nullptr;  // null unless initialized in symbol declaration pass
+    TxTypeDeclaration* typeDeclaration = nullptr;  // null unless initialized in symbol declaration pass
 
     static const std::vector<TxTypeParam>* makeTypeParams(const std::vector<TxDeclarationNode*>* typeParamDecls);
 
 protected:
     const std::vector<TxTypeParam>* declTypeParams = nullptr;    // null unless set in symbol declaration pass
 
-    virtual void set_entity(TxTypeEntity* entity) {
-        ASSERT(!this->declaredEntity, "declaredEntity already set in " << this);
-        this->declaredEntity = entity;
+    virtual void set_entity(TxTypeDeclaration* declaration) {
+        ASSERT(!this->typeDeclaration, "declaredEntity already set in " << this);
+        this->typeDeclaration = declaration;
     }
 
-    /** Gets the type entity declared with this type expression, if any. */
-    virtual TxTypeEntity* get_entity() const { return this->declaredEntity; }
+    /** Gets the type declaration of this type expression, if any. */
+    virtual TxTypeDeclaration* get_declaration() const { return this->typeDeclaration; }
 
     virtual void symbol_declaration_pass_descendants(LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
 
@@ -437,13 +458,14 @@ TxExpressionNode* validate_wrap_assignment(ResolutionContext& resCtx, TxExpressi
 
 
 class TxFieldDefNode : public TxNode, public TxFieldDefiner {
+    TxField const * cachedField = nullptr;
     TxType const * cachedType = nullptr;
 
     const std::string fieldName;  // the original field name
     bool modifiable;  // true if field name explicitly declared modifiable
     TxTypeDefiner* typeDefiner;  // optional, non-code-generating type definer (can't be specified at same time as typeExpression)
     TxDeclarationFlags declFlags = TXD_NONE;
-    TxFieldEntity* declaredEntity = nullptr;  // null until initialized in symbol declaration pass
+    TxFieldDeclaration* fieldDeclaration = nullptr;  // null until initialized in symbol declaration pass
 
     void symbol_declaration_pass(LexicalContext& outerContext, LexicalContext& innerContext) {
         this->set_context(outerContext);
@@ -494,7 +516,7 @@ public:
         if (create_local_scope)
             lexContext.scope(lexContext.scope()->create_code_block_scope());
         this->declFlags = TXD_NONE;
-        this->declaredEntity = lexContext.scope()->declare_field(this->fieldName, this, declFlags, TXS_STACK, TxIdentifier(""));
+        this->fieldDeclaration = lexContext.scope()->declare_field(this->fieldName, this, declFlags, TXS_STACK, TxIdentifier(""));
         this->symbol_declaration_pass(outerCtx, lexContext);
     }
 
@@ -510,7 +532,7 @@ public:
         }
 
         this->declFlags = declFlags;
-        this->declaredEntity = lexContext.scope()->declare_field(declName, this, declFlags, storage, dataspace);
+        this->fieldDeclaration = lexContext.scope()->declare_field(declName, this, declFlags, storage, dataspace);
         this->symbol_declaration_pass(lexContext, lexContext);
     }
 
@@ -519,7 +541,7 @@ public:
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
-        this->resolve_type(resCtx);
+        this->resolve_field(resCtx);
         if (this->typeExpression) {
             this->typeExpression->symbol_resolution_pass(resCtx);
         }
@@ -527,7 +549,7 @@ public:
             this->initExpression->symbol_resolution_pass(resCtx);
             if ((this->typeExpression || this->typeDefiner) && this->cachedType)
                 this->initExpression = validate_wrap_convert(resCtx, this->initExpression, this->cachedType);
-            if (this->get_entity()->is_statically_constant())
+            if (this->cachedField && this->cachedField->is_statically_constant())
                 if (! this->initExpression->is_statically_constant())
                     cerror("Non-constant initializer for constant global/static field.");
         }
@@ -536,11 +558,25 @@ public:
             if (! type->is_concrete())
                 cerror("Field type is not concrete (size potentially unknown): %s", type->to_string().c_str());
             if (this->get_field_name() == "$init") {
-                if (this->get_entity()->get_storage() != TXS_INSTANCEMETHOD)
+                if (this->get_declaration()->get_storage() != TXS_INSTANCEMETHOD)
                     this->cerror("Illegal declaration name for non-constructor member: %s", this->fieldName.c_str());
                 // TODO: check that constructor function type has void return value
             }
         }
+    }
+
+    virtual const TxField* resolve_field(ResolutionContext& resCtx) override {
+        if (! cachedField) {
+            if (auto type = this->resolve_type(resCtx))
+                if (this->fieldDeclaration)
+                    this->cachedField = new TxField(this->fieldDeclaration, type);
+        }
+        return this->cachedField;
+    }
+
+    virtual const TxField* get_field() const override {
+        ASSERT(this->cachedField, "NULL field in " << *this);  // note, is null in case of function type arg
+        return this->cachedField;
     }
 
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override {
@@ -569,11 +605,10 @@ public:
         return this->cachedType;
     }
 
-    virtual const TxType* attempt_get_type() const override final {
+    virtual const TxType* attempt_get_type() const override {
         return cachedType;
     }
-    virtual const TxType* get_type() const override final {
-        ASSERT(this->is_context_set(), "Can't call get_type() before symbol table pass has completed: "  << this);
+    virtual const TxType* get_type() const override {
         return cachedType;
     }
 
@@ -581,13 +616,14 @@ public:
         return this->initExpression;
     }
 
+    /** Gets the plain name of this field as defined in the source text. */
     inline const std::string& get_field_name() const {
-        return ( this->declaredEntity ? this->declaredEntity->get_name() : this->fieldName );
+        return this->fieldName;
     }
 
-    TxFieldEntity* get_entity() const {
-        ASSERT(this->declaredEntity, "Declared field entity not initialized");
-        return this->declaredEntity;
+    TxFieldDeclaration* get_declaration() const {
+        ASSERT(this->fieldDeclaration, "field declaration not initialized for " << this->fieldName);
+        return this->fieldDeclaration;
     }
 
     void semantic_pass() {
@@ -599,7 +635,7 @@ public:
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
-    virtual std::string to_string() const {
+    virtual std::string to_string() const override {
         return TxNode::to_string() + " '" + this->get_field_name() + "'";
     }
 };
@@ -623,14 +659,14 @@ public:
     virtual void semantic_pass() override {
         this->field->semantic_pass();
         if (auto type = this->field->get_type()) {
-            auto storage = this->field->get_entity()->get_storage();
+            auto storage = this->field->get_declaration()->get_storage();
             if (type->is_modifiable()) {
                 if (storage == TXS_GLOBAL)
                     cerror("Global fields may not be modifiable: %s", field->get_field_name().c_str());
             }
             else if (! this->field->initExpression) {
                 if (storage == TXS_GLOBAL || storage == TXS_STATIC)
-                    if (! (this->field->get_entity()->get_decl_flags() & TXD_GENPARAM))
+                    if (! (this->field->get_declaration()->get_decl_flags() & TXD_GENPARAM))
                         cerror("Non-modifiable field must have an initializer");
                 // FUTURE: ensure TXS_INSTANCE fields are initialized either here or in every constructor
                 // FUTURE: check that TXS_STACK fields are initialized before first use

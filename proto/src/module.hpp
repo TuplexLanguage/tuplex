@@ -16,7 +16,7 @@ class TxPackage;
 
 /** Represents a Tuplex Module.
  */
-class TxModule : public TxSymbolScope {
+class TxModule : public TxScopeSymbol {
     /** true if this module has been declared; false if it so far is only a namespace parent of declared module(s) */
     bool declared;
 
@@ -40,9 +40,7 @@ class TxModule : public TxSymbolScope {
     bool use_symbol(const TxModule* imported, const std::string& plainName);
 
 protected:
-    virtual bool declare_symbol(TxSymbolScope* symbol) override;
-
-    virtual TxSymbolScope* lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) override;
+    virtual bool declare_symbol(TxScopeSymbol* symbol) override;
 
 public:
     TxModule(TxModule* parent, const std::string& name, bool declared);
@@ -56,11 +54,14 @@ public:
     inline bool is_declared() const { return this->declared; }
 
 
+    virtual TxScopeSymbol* get_member_symbol(const std::string& name) override;
+
+
     /*--- sub-module handling ---*/
 
-    TxModule* declare_module(const TxIdentifier& name);
+    TxModule* declare_module(const TxIdentifier& fullName);
 
-    TxModule* lookup_module(const TxIdentifier& name);
+    TxModule* lookup_module(const TxIdentifier& fullName);
 
 
     /*--- registering imports & aliases ---*/
@@ -78,9 +79,9 @@ public:
     virtual void dump_symbols() const override;
 
 
-    virtual std::string to_string() const override {
-	    return "<module> " + this->get_full_name().to_string();
-	}
+    virtual std::string symbol_class_string() const override {
+        return "<module>";
+    }
 };
 
 
@@ -88,10 +89,10 @@ public:
 /** Represents the lexical source scope of a syntax node / entity.
  */
 class LexicalContext : public Printable {
-    TxSymbolScope* _scope;
-    TxTypeEntity* constructedEntity;
+    TxScopeSymbol* _scope;
+    TxTypeDeclaration* constructedObjTypeDecl;
 
-    static TxModule* get_module(TxSymbolScope* scope) {
+    static TxModule* get_module(TxScopeSymbol* scope) {
         ASSERT(scope, "scope is NULL");
         if (TxModule* module = dynamic_cast<TxModule*>(scope))
             return module;
@@ -100,26 +101,33 @@ class LexicalContext : public Printable {
     }
 
 public:
-    LexicalContext() : _scope(), constructedEntity()  { }
+    LexicalContext() : _scope(), constructedObjTypeDecl()  { }
 
-    LexicalContext(TxSymbolScope* scope, TxTypeEntity* constructedEntity=nullptr)
-            : _scope(scope), constructedEntity(constructedEntity)  {
+    LexicalContext(TxScopeSymbol* scope, TxTypeDeclaration* constructedEntity=nullptr)
+            : _scope(scope), constructedObjTypeDecl(constructedEntity)  {
         ASSERT(scope, "scope is NULL");
     }
 
-    inline TxSymbolScope* scope() const { return this->_scope; }
+    inline TxScopeSymbol* scope() const { return this->_scope; }
 
-    void scope(TxSymbolScope* scope) { this->_scope = scope; }
+    void scope(TxScopeSymbol* scope) { this->_scope = scope; }
 
+
+    /** If this scope is a type declaration, return it. */
+    inline TxTypeDeclaration* outer_type() const {
+        if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(this->_scope))
+            return entitySymbol->get_type_decl();
+        return nullptr;
+    }
 
     inline TxModule* module() const { return get_module(this->_scope); }
 
     const TxPackage* package() const;
     TxPackage* package();
 
-    inline bool is_constructor() const { return this->constructedEntity; }
-    inline TxTypeEntity* get_constructed_entity() { return this->constructedEntity; }
-    inline void set_constructor(TxTypeEntity* constructedEntity) { this->constructedEntity = constructedEntity; }
+    inline bool is_constructor() const { return this->constructedObjTypeDecl; }
+    inline TxTypeDeclaration* get_constructed_entity() { return this->constructedObjTypeDecl; }
+    inline void set_constructor(TxTypeDeclaration* constructedEntity) { this->constructedObjTypeDecl = constructedEntity; }
 
     inline virtual bool operator==(const LexicalContext& other) const {
         return this->_scope == other._scope;

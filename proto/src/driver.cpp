@@ -114,13 +114,12 @@ int TxDriver::compile() {
 
     this->package->prepare_modules();
 
-    // Currently the symbol_validation_pass must be run before the symbol_resolution_pass
-    // (symbol_resolution_pass does not traverse references, which can lead to encountering
-    //  unresolved types), this order might be desirable to change in future.
     ResolutionContext resCtx;
-    bool symValid = this->package->symbol_validation_pass(resCtx);
     for (auto parsedAST : this->parsedASTs)
         parsedAST->symbol_resolution_pass(resCtx);
+
+    bool symValid = this->package->symbol_validation_pass();
+
     if (symValid && error_count == prev_error_count)
         LOG.info("+ Symbol table pass OK");
 
@@ -258,12 +257,14 @@ int TxDriver::llvm_compile() {
     genContext.generate_runtime_data();
 
     bool mainGenerated = false;
-    if (auto funcField = this->package->getMainFunc()) {
+    if (auto funcDecl = this->package->getMainFunc()) {
+        ResolutionContext dummyCtx;
+        auto funcField = funcDecl->get_field_definer()->resolve_field(dummyCtx);
         if (auto funcType = dynamic_cast<const TxFunctionType*>(funcField->get_type())) {
             if ( funcType->returnType && ! funcType->returnType->is_a( *this->package->types().get_builtin_type(INTEGER) ) )
                 this->LOG.error("main() method had invalid return type: %s", funcType->returnType->to_string().c_str());
-            else if ((mainGenerated = genContext.generate_main(funcField->get_full_name().to_string(), funcType)))
-                this->LOG.debug("Created program entry for user method %s", funcField->get_full_name().to_string().c_str());
+            else if ((mainGenerated = genContext.generate_main(funcDecl->get_unique_full_name(), funcType)))
+                this->LOG.debug("Created program entry for user method %s", funcDecl->get_unique_full_name().c_str());
         }
     }
     if (! mainGenerated)

@@ -99,7 +99,7 @@ void TxFieldDeclNode::symbol_declaration_pass(LexicalContext& lexContext) {
     this->set_context(lexContext);
 
     TxFieldStorage storage;
-    if (this->isMethodSyntax && dynamic_cast<TxTypeEntity*>(lexContext.scope())) {
+    if (this->isMethodSyntax && lexContext.outer_type()) {
         // Note: instance method storage is handled specially (technically the function pointer is a static field)
         auto lambdaExpr = static_cast<TxLambdaExprNode*>(field->initExpression);
         if (this->declFlags & TXD_STATIC) {
@@ -128,13 +128,14 @@ void TxFieldDeclNode::symbol_declaration_pass(LexicalContext& lexContext) {
 
 
 // FUTURE: factor out the 'explicit' code path into separate function
+// FUTURE: rework together with overloaded function resolution
 static TxExpressionNode* inner_validate_wrap_convert(ResolutionContext& resCtx, TxExpressionNode* originalExpr,
                                                      const TxType* requiredType, bool _explicit) {
     // Note: Symbol table pass and semantic pass are not run on the created wrapper nodes.
     auto originalType = originalExpr->resolve_type(resCtx);
     if (! originalType)
         return originalExpr;
-    if (originalType == requiredType)
+    if (originalType == requiredType) // TODO: test with:  || *originalType == *requiredType)
         return originalExpr;
     if (_explicit || requiredType->auto_converts_from(*originalType)) {
         // wrap originalExpr with conversion node
@@ -153,7 +154,7 @@ static TxExpressionNode* inner_validate_wrap_convert(ResolutionContext& resCtx, 
         return originalExpr;
     }
     else if (auto refType = dynamic_cast<const TxReferenceType*>(requiredType)) {
-        auto refTargetType = refType->target_type(resCtx);
+        auto refTargetType = refType->target_type();
         if (refTargetType && originalType->is_a(*refTargetType)) {
             if (refTargetType->is_modifiable()) {
                 if (!originalType->is_modifiable())
@@ -242,17 +243,17 @@ void TxTypeExpressionNode::symbol_declaration_pass(LexicalContext& defContext, L
     // The context of this node represents its outer scope. This node's entity, if any, represents its inner scope.
     this->set_context(lexContext);
 
-    TxTypeEntity* entity = nullptr;
+    TxTypeDeclaration* declaration = nullptr;
     if (! designatedTypeName.empty()) {
-        entity = lexContext.scope()->declare_type(designatedTypeName, this, declFlags);
+        declaration = lexContext.scope()->declare_type(designatedTypeName, this, declFlags);
         this->LOGGER().debug("%s: Defining type %-16s: %s", this->parse_loc_string().c_str(), designatedTypeName.c_str(),
-                             entity->get_full_name().to_string().c_str());
-        if (! entity)
+                             declaration->to_string().c_str());
+        if (! declaration)
             cerror("Failed to declare type %s", designatedTypeName.c_str());
         else
-            this->set_entity(entity);
+            this->set_entity(declaration);
     }
-    LexicalContext typeCtx(entity ? entity : lexContext.scope());
+    LexicalContext typeCtx(declaration ? declaration->get_symbol() : lexContext.scope());
 
     // declare type parameters within type declaration's scope, and before rest of type expression is processed:
     if (typeParamDecls) {
@@ -290,9 +291,8 @@ void TxPredefinedTypeNode::symbol_declaration_pass(LexicalContext& defContext, L
         // Note: Early lookup does not match the type parameters declared in this node, only prior ones:
         //     type Subtype<A> Type<A>  ## Legal since A is subnode of decl's type expression
         //     type Subtype<A> A        ## Illegal since A is top node of decl's type expression
-        ResolutionContext resCtx;
-        if (auto identifiedEntity = lexContext.scope()->lookup_type(resCtx, this->identNode->ident)) {
-            if (identifiedEntity->get_decl_flags() & TXD_GENPARAM) {
+        if (auto identifiedTypeDecl = lookup_type(lexContext.scope(), this->identNode->ident)) {
+            if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
                 if (typeParamDecls && !typeParamDecls->empty()) {
                     cerror("Type parameters can't be declared on top of generic type parameter %s", this->identNode->ident.to_string().c_str());
                     /* This might be desirable in future (or maybe not). E.g:
@@ -302,12 +302,12 @@ void TxPredefinedTypeNode::symbol_declaration_pass(LexicalContext& defContext, L
                 }
 
                 this->set_context(lexContext);
-                auto declaredAlias = lexContext.scope()->declare_alias(typeName, TXD_PUBLIC | TXD_IMPLICIT, identifiedEntity);
+                auto declaredAlias = lexContext.scope()->declare_alias(typeName, TXD_PUBLIC | TXD_IMPLICIT, identifiedTypeDecl);
                 if (declaredAlias) {
                     this->LOGGER().alert("%s: Declared '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
                                          declaredAlias->get_full_name().to_string().c_str(),
-                                         identifiedEntity->to_string().c_str());
-                    this->set_entity(identifiedEntity);  // Or should this be the alias entity?
+                                         identifiedTypeDecl->to_string().c_str());
+                    this->set_entity(identifiedTypeDecl);  // Or should this be the alias entity?
                 }
                 else
                     cerror("Failed to declare alias %s", typeName.c_str());
@@ -324,15 +324,15 @@ void TxPredefinedTypeNode::symbol_declaration_pass(LexicalContext& defContext, L
 
 const TxType* TxPredefinedTypeNode::define_identified_type(ResolutionContext& resCtx) {
     // note: looking up in defContext ("outer" context) to avoid conflation with generic base types' inherited entities
-    if (auto identifiedEntity = this->defContext.scope()->lookup_type(resCtx, this->identNode->ident)) {
-        auto identifiedType = identifiedEntity->resolve_symbol_type(resCtx);
+    if (auto identifiedTypeDecl = lookup_type(this->defContext.scope(), this->identNode->ident)) {
+        auto identifiedType = identifiedTypeDecl->get_type_definer()->resolve_type(resCtx);
         if (!identifiedType)
             return nullptr;
-        else if (auto declEnt = this->get_entity()) {
+        else if (auto declEnt = this->get_declaration()) {
             ASSERT(!declTypeParams || declTypeParams->empty(), "declTypeParams can't be set for 'empty' specialization: " << *this);
-            if (identifiedEntity->get_decl_flags() & TXD_GENPARAM) {
+            if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
                 LOGGER().alert("%s: '%s' refers to unbound generic type parameter %s", this->parse_loc_string().c_str(),
-                               this->identNode->ident.to_string().c_str(), identifiedEntity->to_string().c_str());
+                               this->identNode->ident.to_string().c_str(), identifiedTypeDecl->to_string().c_str());
                 return identifiedType;
             }
             else {
@@ -346,9 +346,9 @@ const TxType* TxPredefinedTypeNode::define_identified_type(ResolutionContext& re
             }
         }
         else {
-            if (identifiedEntity->get_decl_flags() & TXD_GENPARAM) {
+            if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
                 // Should not happen unless source refers specifically to an unbound type parameter
-                cwarning("'%s' refers to unbound generic type parameter %s", this->identNode->ident.to_string().c_str(), identifiedEntity->to_string().c_str());
+                cwarning("'%s' refers to unbound generic type parameter %s", this->identNode->ident.to_string().c_str(), identifiedTypeDecl->to_string().c_str());
                 // (But if legal use case exists, how let this be an alias entity for the generic type parameter?)
                 //LOGGER().error("%s: Can't declare type '%s' as alias for GENPARAM %s since no entity declared for this type node",
                 //               this->parse_loc_string().c_str(), this->identNode->ident.to_string().c_str(), identifiedEntity->to_string().c_str());
@@ -360,8 +360,8 @@ const TxType* TxPredefinedTypeNode::define_identified_type(ResolutionContext& re
 }
 
 const TxType* TxPredefinedTypeNode::define_generic_specialization_type(ResolutionContext& resCtx) {
-    auto baseTypeEntity = this->context().scope()->lookup_type(resCtx, this->identNode->ident);
-    const TxType* baseType = baseTypeEntity ? baseTypeEntity->resolve_symbol_type(resCtx) : nullptr;
+    auto baseTypeDecl = lookup_type(this->context().scope(), this->identNode->ident);
+    const TxType* baseType = baseTypeDecl ? baseTypeDecl->get_type_definer()->resolve_type(resCtx) : nullptr;
     if (! baseType) {
         cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
         return nullptr;
@@ -376,7 +376,7 @@ const TxType* TxPredefinedTypeNode::define_generic_specialization_type(Resolutio
     }
     TxTypeSpecialization specialization(baseType, bindings);
     std::string errorMsg;
-    auto type = this->types().get_type_specialization(this->get_entity(), specialization, false, this->declTypeParams, &errorMsg);
+    auto type = this->types().get_type_specialization(this->get_declaration(), specialization, false, this->declTypeParams, &errorMsg);
     if (! type)
         cerror("Failed to specialize type: %s", errorMsg.c_str());
     return type;
@@ -445,52 +445,83 @@ void TxMaybeModTypeNode::symbol_declaration_pass(LexicalContext& defContext, Lex
 
 
 
-TxSymbolScope* TxFieldValueNode::resolve_symbol(ResolutionContext& resCtx) {
+TxScopeSymbol* TxFieldValueNode::resolve_symbol(ResolutionContext& resCtx) {
     if (! this->cachedSymbol) {
         if (this->hasRunResolve)
             return nullptr;
         this->hasRunResolve = true;
-        std::vector<TxSymbolScope*> tmpPath;
+        std::vector<TxScopeSymbol*> tmpPath;
         if (this->baseExpr) {
-            auto baseType = this->baseExpr->resolve_type(resCtx);  // may or may not refer to a type (e.g. modules don't)
+            // baseExpr may or may not refer to a type (e.g. modules don't)
+            auto baseType = this->baseExpr->resolve_type(resCtx);  // must be resolved before lookups via its symbol
             if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
                 if (auto baseSymbol = baseSymbolNode->resolve_symbol(resCtx)) {
-                    this->cachedSymbol = baseSymbol->lookup_member(tmpPath, this->memberName);
+                    this->cachedSymbol = baseSymbol->get_member_symbol(this->memberName);
                 }
             }
             else if (baseType) {
                 // non-name (i.e. computed) value expression
-                this->cachedSymbol = baseType->lookup_instance_member(tmpPath, this->memberName);
+                this->cachedSymbol = baseType->lookup_instance_member(this->memberName);
             }
         }
         else {
-            this->cachedSymbol = this->context().scope()->start_lookup_symbol(tmpPath, this->memberName);
+            this->cachedSymbol = lookup_symbol(this->context().scope(), this->memberName);
         }
     }
 
-    if (this->appliedFuncArgTypes) {
-        if (dynamic_cast<const TxOverloadedEntity*>(this->cachedSymbol)) {
-            // if symbol is overloaded, and can be resolved to actual field, then do so
-            if (auto resolvedField = resolve_field_lookup(resCtx, this->cachedSymbol, this->appliedFuncArgTypes))
-                this->cachedSymbol = resolvedField;
-        }
-        else if (dynamic_cast<const TxTypeEntity*>(this->cachedSymbol)) {
-            // if symbol is a type, and the applied arguments match a constructor, the resolve to that constructor
-            std::vector<TxSymbolScope*> tmpPath;
-            if (auto constructorSymbol = this->cachedSymbol->lookup_member(tmpPath, "$init")) {
-                if (auto constructor = resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes))
-                    this->cachedSymbol = constructor;
-            }
-        }
-    }
+//    if (this->appliedFuncArgTypes) {
+//        if (dynamic_cast<const TxOverloadedEntity*>(this->cachedSymbol)) {
+//            // if symbol is overloaded, and can be resolved to actual field, then do so
+//            if (auto resolvedField = resolve_field_lookup(resCtx, this->cachedSymbol, this->appliedFuncArgTypes))
+//                this->cachedSymbol = resolvedField;
+//        }
+//        else if (dynamic_cast<const TxTypeEntity*>(this->cachedSymbol)) {
+//            // if symbol is a type, and the applied arguments match a constructor, the resolve to that constructor
+//            std::vector<TxSymbolScope*> tmpPath;
+//            if (auto constructorSymbol = this->cachedSymbol->lookup_member(tmpPath, "$init")) {
+//                if (auto constructor = resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes))
+//                    this->cachedSymbol = constructor;
+//            }
+//        }
+//    }
 
     return this->cachedSymbol;
 }
 
-const TxType* TxFieldValueNode::define_type(ResolutionContext& resCtx) {
+TxEntityDeclaration* TxFieldValueNode::resolve_decl(ResolutionContext& resCtx) {
     if (auto symbol = this->resolve_symbol(resCtx)) {
-        if (auto entity = dynamic_cast<TxEntity*>(symbol))
-            return entity->resolve_symbol_type(resCtx);
+        if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(symbol)) {
+            // if symbol can be resolved to actual field, then do so
+            if (entitySymbol->field_count()) {
+                if (auto fieldDecl = resolve_field_lookup(resCtx, entitySymbol, this->appliedFuncArgTypes))
+                    return fieldDecl;
+            }
+            // if symbol is a type, and arguments are applied, and they match a constructor, the resolve to that constructor
+            if (entitySymbol->get_type_decl()) {
+                if (this->appliedFuncArgTypes) {
+                    if (auto constructorSymbol = entitySymbol->get_member_symbol("$init"))
+                        if (auto constructor = resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes))
+                            return constructor;
+                }
+                // resolve this symbol to its type
+                return entitySymbol->get_type_decl();
+            }
+            this->cerror("Failed to resolve entity symbol to proper field: %s", entitySymbol->to_string().c_str());
+        }
+    }
+    else
+        this->cerror("Unknown symbol: '%s'", this->get_full_identifier().to_string().c_str());
+    return nullptr;
+}
+
+const TxType* TxFieldValueNode::define_type(ResolutionContext& resCtx) {
+    if (auto decl = this->resolve_decl(resCtx)) {
+        if (auto fieldDecl = dynamic_cast<TxFieldDeclaration*>(decl)) {
+            this->cachedField = fieldDecl->get_field_definer()->resolve_field(resCtx);
+            return this->cachedField->get_type();
+        }
+        else
+            return static_cast<TxTypeDeclaration*>(decl)->get_type_definer()->resolve_type(resCtx);
     }
     return nullptr;
 }
@@ -501,27 +532,35 @@ const TxType* TxConstructorCalleeExprNode::define_type(ResolutionContext& resCtx
     ASSERT(this->appliedFuncArgTypes, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized");
     if (auto allocType = this->objectExpr->resolve_type(resCtx)) {
         // find the constructor
-        TxIdentifier constructorIdent("$init");
-        std::vector<TxSymbolScope*> path;
-        if (auto symbol = allocType->lookup_instance_member(path, constructorIdent)) {
+        if (auto symbol = allocType->lookup_instance_member("$init")) {
+            if (auto constructorDecl = resolve_field_lookup(resCtx, symbol, this->appliedFuncArgTypes)) {
+                ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
+                this->constructor = constructorDecl->get_field_definer()->resolve_field(resCtx);
+                if (this->constructor)
+                    return this->constructor->get_type();
+            }
+            /*
             // Check that constructor is not invalidly inherited:
-            if (auto cDefiningTypeEnt = dynamic_cast<TxTypeEntity*>(symbol->get_outer())) {
-                if (auto cDefiningType = cDefiningTypeEnt->resolve_symbol_type(resCtx)) {
-                    do {
-                        if (*allocType == *cDefiningType) {
-                            this->constructorEntity = resolve_field_lookup(resCtx, symbol, this->appliedFuncArgTypes);
-                            if (this->constructorEntity)
-                                return this->constructorEntity->resolve_symbol_type(resCtx);
+            if (auto cDefiningTypeSym = dynamic_cast<TxEntitySymbol*>(symbol->get_outer())) {
+                if (auto cDefiningTypeDecl = cDefiningTypeSym->get_type_decl()) {
+                    if (auto cDefiningType = cDefiningTypeDecl->get_type_definer()->resolve_type(resCtx)) {
+                        do {
+                            if (*allocType == *cDefiningType) {
+                                this->constructorEntity = resolve_field_lookup(resCtx, symbol, this->appliedFuncArgTypes);
+                                if (this->constructorEntity)
+                                    return this->constructorEntity->resolve_symbol_type(resCtx);
+                                else
+                                    break;
+                            }
+                            else if (allocType->is_pure_specialization())
+                                allocType = allocType->get_base_type();
                             else
                                 break;
-                        }
-                        else if (allocType->is_pure_specialization())
-                            allocType = allocType->get_base_type();
-                        else
-                            break;
-                    } while (true);
+                        } while (true);
+                    }
                 }
             }
+            */
         }
         if (this->appliedFuncArgTypes->size() == 0) {
             // TODO: support default value constructor
@@ -593,7 +632,7 @@ const TxType* TxFunctionCallNode::define_type(ResolutionContext& resCtx) {
     if (auto constructorType = dynamic_cast<const TxConstructorType*>(calleeType)) {
         // inline code for stack allocation and constructor invocation
         if (! dynamic_cast<TxConstructorCalleeExprNode*>(this->callee)) {  // (prevents infinite recursion)
-            auto objectType = constructorType->get_constructed_entity()->resolve_symbol_type(resCtx);
+            auto objectType = constructorType->get_constructed_type_decl()->get_type_definer()->resolve_type(resCtx);
             this->inlinedExpression = new TxStackConstructorNode(this, objectType);
             this->inlinedExpression->symbol_declaration_pass(this->context());
             this->inlinedExpression->symbol_resolution_pass(resCtx);

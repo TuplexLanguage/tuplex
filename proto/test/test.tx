@@ -28,15 +28,15 @@ helloWorld := c"hello world!"
 helloWorld2 := helloWorld
 
 func puts(str : &[]UByte) {
-    tx.c.puts(str^[0])
+    tx.c.puts(&str^[0])
 }
 
 func str_test() {
-    puts(helloWorld)
+    puts(&helloWorld)
     str := c"local string"
     str2 := str
-    puts(str)
-    puts(str2)
+    puts(&str)
+    puts(&str2)
     ##puts(helloWorld2)
 }
 
@@ -48,7 +48,7 @@ func main() Int {
     flag = 42 < 40+3
     if Int(42.) != 40+2 {
         str := c"it was TRUE!"
-        puts(str)
+        puts(&str)
     }
     else {
         strRef := &c"it was FALSE!"

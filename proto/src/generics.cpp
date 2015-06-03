@@ -25,7 +25,8 @@ bool operator==(const TxGenericBinding& b1, const TxGenericBinding& b2) {
     if (! (b1.param_name() == b2.param_name() && b1.meta_type() == b2.meta_type()))
         return false;
     if (b1.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
-        return ( *b1.type_definer().get_type() == *b2.type_definer().get_type() );
+        ResolutionContext resCtx;  // resolution currently necessary for Ref's target binding
+        return ( *b1.type_definer().resolve_type(resCtx) == *b2.type_definer().resolve_type(resCtx) );
     }
     else {
         return ( b1.value_expr().get_static_constant_proxy() && b2.value_expr().get_static_constant_proxy()

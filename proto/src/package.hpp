@@ -15,7 +15,7 @@
 class TxPackage : public TxModule {
     TxDriver& _driver;
     TypeRegistry* typeRegistry;
-    const TxFieldEntity* mainFunc;
+    const TxEntitySymbol* mainFunc;
 
 public:
     TxPackage(TxDriver& driver)
@@ -34,14 +34,22 @@ public:
         return const_cast<TypeRegistry&>(static_cast<const TxPackage *>(this)->types());
     }
 
-    void registerMainFunc(const TxFieldEntity* mainFunc);
+    void registerMainFunc(const TxEntitySymbol* mainFunc);
 
-    const TxFieldEntity* getMainFunc() const {
-        return this->mainFunc;
+    const TxFieldDeclaration* getMainFunc() const {
+        if (this->mainFunc) {
+            if (this->mainFunc->field_count() == 1)
+                return this->mainFunc->get_first_field_decl();
+            this->LOGGER().error("main() function symbol is overloaded");
+        }
+        return nullptr;
     }
 
 
-    virtual std::string to_string() const {
-        return "<package> (namespace root)";
+    virtual std::string symbol_class_string() const override {
+        return "<package>";
+    }
+    virtual std::string to_string() const override {
+        return "(namespace root)";
     }
 };

@@ -16,6 +16,8 @@
 #include <llvm/Support/FileSystem.h>
 
 #include "txassert.hpp"
+#include "util.hpp"
+
 #include "tx_lang_defs.hpp"
 #include "llvm_generator.hpp"
 
@@ -84,7 +86,7 @@ Function* LlvmGenerationContext::gen_static_init_function() {
         auto vtableI = CallInst::CreateMalloc(builder.GetInsertBlock(), mallocParameterType,
                                               int8T, constOneV, allocSizeV, nullptr, "vtable");
         builder.GetInsertBlock()->getInstList().push_back(vtableI);
-        builder.CreateMemSet(vtableI, ConstantInt::get(int8T, 0), allocSizeV, 0);  // FIXME: init the vtable
+        builder.CreateMemSet(vtableI, ConstantInt::get(int8T, 0), allocSizeV, 0);  // FIX ME: init the vtable
 
         {   // store the vtable pointer:
             Value* vtIxs[] = { constZeroV, indexV };
@@ -205,7 +207,6 @@ void LlvmGenerationContext::write_bitcode(const std::string& filepath) {
 void LlvmGenerationContext::register_llvm_value(const std::string& identifier, Value* val) {
     if (identifier.compare(0, strlen(BUILTIN_NS), BUILTIN_NS) != 0)
         this->LOG.debug("Registering LLVM value %s : %s", identifier.c_str(), to_string(val->getType()).c_str());
-    //this->LOG.debug("Registering LLVM value %s: %s : %s", identifier.c_str(), to_string(val).c_str(), to_string(val->getType()).c_str());
     this->llvmSymbolTable.emplace(identifier, val);
 }
 
@@ -286,7 +287,7 @@ void LlvmGenerationContext::initialize_meta_type_data() {
         if (!vtableT)
             continue;
         this->llvmVTableTypeMapping.emplace((*txType)->get_type_id(), vtableT);
-        std::string vtableName((*txType)->entity()->get_full_name().to_string() + "$vtable");
+        std::string vtableName((*txType)->get_declaration()->get_unique_full_name() + "$vtable");
         GlobalVariable* vtableV = new GlobalVariable(this->llvmModule, vtableT, true, GlobalValue::ExternalLinkage,
                                                      nullptr, vtableName);
         this->register_llvm_value(vtableV->getName(), vtableV);
@@ -300,7 +301,7 @@ void LlvmGenerationContext::initialize_meta_type_data() {
         metaTypes.push_back(ConstantStruct::get(metaType, members));
 
         // register the constant typeId values for later inclusion in the initialization code:
-        std::string typeIdName((*txType)->entity()->get_full_name().to_string() + ".$typeid");
+        std::string typeIdName((*txType)->get_declaration()->get_unique_full_name() + ".$typeid");
         this->register_llvm_value(typeIdName, ConstantInt::get(int32T, typeId));
 
         typeCount++;
@@ -382,39 +383,36 @@ void LlvmGenerationContext::initialize_builtins() {
 }
 
 
-/** Looks up a field declaration. If the symbol is overloaded, returns its first field declaration. */
-static TxFieldEntity* lookup_field_simple(TxSymbolScope* scope, ResolutionContext& resCtx, const TxIdentifier& ident) {
-    std::vector<TxSymbolScope*> path;
-    TxSymbolScope* symbol = scope->start_lookup_symbol(path, ident);
-    if (auto fieldEnt = dynamic_cast<TxFieldEntity*>(symbol))
-        return fieldEnt;
-    else if (auto overloadedEnt = dynamic_cast<const TxOverloadedEntity*>(symbol))
-        return overloadedEnt->get_first_field();
-    return nullptr;
-}
+///** Looks up a field declaration. If the symbol is overloaded, returns its first field declaration. */
+//static const TxField* lookup_field_simple(TxScopeSymbol* scope, ResolutionContext& resCtx, const TxIdentifier& ident) {
+//    TxScopeSymbol* symbol = lookup_symbol(scope, ident);
+//    if (auto entSym = dynamic_cast<TxEntitySymbol*>(symbol))
+//        return entSym->get_first_field_decl()->get_field_definer()->get_field();
+//    return nullptr;
+//}
 
 void LlvmGenerationContext::generate_runtime_data() {
     for (auto txType = this->tuplexPackage.types().types_cbegin(); txType != this->tuplexPackage.types().types_cend(); txType++) {
-        if (auto entity = (*txType)->entity()) {
+        if (auto entity = (*txType)->get_symbol()) {
             std::string vtableName(entity->get_full_name().to_string() + "$vtable");
             if (auto vtableV = dyn_cast<GlobalVariable>(this->lookup_llvm_value(vtableName))) {
-                ResolutionContext resCtx;
                 std::vector<Constant*> initMembers;
                 auto instanceMethods = (*txType)->get_instance_methods();
                 auto virtualFields   = (*txType)->get_virtual_fields();
                 initMembers.resize(instanceMethods.get_field_count() + virtualFields.get_field_count());
-                for (auto & field : instanceMethods.fields) {
+                for (auto & field : instanceMethods.fieldMap) {
                     //std::cout << "inserting instance method: " << field.first << " at ix " << field.second << std::endl;
-                    auto actualFieldEnt = lookup_field_simple(entity, resCtx, field.first);
-                    auto funcName = actualFieldEnt->get_full_name().to_string() + "$func";
+                    auto actualFieldEnt = instanceMethods.fields.at(field.second);
+                    auto funcName = actualFieldEnt->get_declaration()->get_unique_full_name() + "$func";
                     auto llvmField = cast<Constant>(this->lookup_llvm_value(funcName));
                     auto ix = field.second;
                     initMembers[ix] = llvmField;
                 }
-                for (auto & field : virtualFields.fields) {
+                for (auto & field : virtualFields.fieldMap) {
                     //std::cout << "inserting virtual field: " << field.first << " at ix " << field.second << std::endl;
-                    auto actualFieldEnt = lookup_field_simple(entity, resCtx, field.first);
-                    auto llvmField = cast<Constant>(this->lookup_llvm_value(actualFieldEnt->get_full_name().to_string()));
+                    auto actualFieldEnt = virtualFields.fields.at(field.second);
+                    auto fieldName = actualFieldEnt->get_declaration()->get_unique_full_name();
+                    auto llvmField = cast<Constant>(this->lookup_llvm_value(fieldName));
                     auto ix = field.second + instanceMethods.get_field_count();
                     initMembers[ix] = llvmField;
                 }

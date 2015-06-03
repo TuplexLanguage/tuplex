@@ -463,26 +463,26 @@ expr
     |   make_expr           { $$ = $1; }
 
     |   NAME                                 { $$ = new TxFieldValueNode(@1, NULL, $1); }
-    |   expr DOT NAME                        { $$ = new TxFieldValueNode(@1, $1,   $3); }
-    |   expr LBRACKET expr RBRACKET          { $$ = new TxElemDerefNode(@1, $1, $3); }
-    |   expr CARET                           { $$ = new TxReferenceDerefNode(@1, $1); }
+    |   expr DOT NAME                        { $$ = new TxFieldValueNode(@3, $1,   $3); }
+    |   expr LBRACKET expr RBRACKET          { $$ = new TxElemDerefNode(@2, $1, $3); }
+    |   expr CARET                           { $$ = new TxReferenceDerefNode(@2, $1); }
     |   AAND expr                %prec ADDR  { $$ = new TxReferenceToNode(@1, $2); }
 
     |   MINUS expr  %prec NEG      { $$ = new TxUnaryMinusNode(@1, $2); }  // unary minus
-    |   expr PLUS opt_sep expr     { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_PLUS, $4); }
-    |   expr MINUS opt_sep expr    { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_MINUS, $4); }
-    |   expr ASTERISK opt_sep expr { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_MUL, $4); }
-    |   expr FSLASH opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_DIV, $4); }
-    |   expr EEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_EQ, $4); }
-    |   expr NEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_NE, $4); }
-    |   expr LT opt_sep expr       { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_LT, $4); }
-    |   expr GT opt_sep expr       { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_GT, $4); }
-    |   expr LEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_LE, $4); }
-    |   expr GEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_GE, $4); }
+    |   expr PLUS opt_sep expr     { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_PLUS, $4); }
+    |   expr MINUS opt_sep expr    { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_MINUS, $4); }
+    |   expr ASTERISK opt_sep expr { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_MUL, $4); }
+    |   expr FSLASH opt_sep expr   { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_DIV, $4); }
+    |   expr EEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_EQ, $4); }
+    |   expr NEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_NE, $4); }
+    |   expr LT opt_sep expr       { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_LT, $4); }
+    |   expr GT opt_sep expr       { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_GT, $4); }
+    |   expr LEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_LE, $4); }
+    |   expr GEQUAL opt_sep expr   { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_GE, $4); }
 
     |   EMARK expr  %prec NOT      { $$ = new TxUnaryLogicalNotNode(@1, $2); }  // unary not
-    |   expr AAND opt_sep expr     { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_AND, $4); }
-    |   expr PIPE opt_sep expr     { $$ = new TxBinaryOperatorNode(@1, $1, TXOP_OR,  $4); }
+    |   expr AAND opt_sep expr     { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_AND, $4); }
+    |   expr PIPE opt_sep expr     { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_OR,  $4); }
     ;
 
 value_literal

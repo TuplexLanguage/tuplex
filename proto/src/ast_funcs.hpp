@@ -35,14 +35,16 @@ public:
     virtual bool has_predefined_type() const override { return false; }
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext) {
-        std::string funcName = this->fieldDefNode ? this->fieldDefNode->get_entity()->get_name() : "";
+        std::string funcName = this->fieldDefNode ? this->fieldDefNode->get_field_name() : "";
         LexicalContext funcLexContext(lexContext.scope()->create_code_block_scope(funcName));
         this->set_context(funcLexContext);
 
-        TxTypeEntity* constructedEntity = nullptr;
+        TxTypeDeclaration* constructedObjTypeDecl = nullptr;
         if (this->is_instance_method()) {
             // insert implicit local field named 'self', that is a reference to the closure type
-            if (auto typeEntity = dynamic_cast<TxTypeEntity*>(lexContext.scope())) {  // if in type scope
+            auto entitySym = dynamic_cast<TxEntitySymbol*>(lexContext.scope());
+            TxTypeDeclaration* typeDecl;
+            if (entitySym && (typeDecl = entitySym->get_type_decl())) {  // if in type scope
                 // 'self' reference:
                 auto selfRefTypeExprN = new TxPredefinedTypeNode(this->parseLocation, "$Self");
                 this->selfRefNode = new TxFieldDefNode(this->parseLocation, "self", selfRefTypeExprN, nullptr);
@@ -53,9 +55,9 @@ public:
                 this->superRefNode = new TxFieldDefNode(this->parseLocation, "super", superRefTypeExprN, nullptr);
                 this->superRefNode->symbol_declaration_pass_local_field(funcLexContext, false);
 
-                if (this->fieldDefNode->get_entity()->get_decl_flags() & TXD_CONSTRUCTOR) {
-                    constructedEntity = typeEntity;
-                    funcLexContext.set_constructor(typeEntity);
+                if (this->fieldDefNode->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR) {
+                    constructedObjTypeDecl = typeDecl;
+                    funcLexContext.set_constructor(typeDecl);
                 }
             }
             else
@@ -63,7 +65,7 @@ public:
         }
         // FUTURE: define implicit closure object when in code block
 
-        this->funcTypeNode->symbol_declaration_pass_func_header(funcLexContext, funcLexContext, constructedEntity);  // function header
+        this->funcTypeNode->symbol_declaration_pass_func_header(funcLexContext, funcLexContext, constructedObjTypeDecl);  // function header
         this->suite->symbol_declaration_pass_no_subscope(funcLexContext);  // function body
     }
 

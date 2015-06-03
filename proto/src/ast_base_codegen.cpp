@@ -53,8 +53,8 @@ Value* TxTypeDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope)
 
 
 static Value* make_constant_nonlocal_field(LlvmGenerationContext& context, GenScope* scope,
-                                                 TxFieldDefNode* field, Type* llvmType) {
-    auto entity = field->get_entity();
+                                           TxFieldDefNode* field, Type* llvmType) {
+    auto uniqueName = field->get_declaration()->get_unique_full_name();
     Constant* constantInitializer = nullptr;
     if (field->initExpression) {
         if (field->initExpression->is_statically_constant()) {
@@ -62,53 +62,54 @@ static Value* make_constant_nonlocal_field(LlvmGenerationContext& context, GenSc
             constantInitializer = dyn_cast_or_null<Constant>(initValue);
             if (! constantInitializer)
                 context.LOG.error("Global field %s initializer is not constant: %s",
-                                  entity->get_full_name().to_string().c_str(), to_string(initValue).c_str());
+                                  uniqueName.c_str(), to_string(initValue).c_str());
             else if (is_complex_pointer(constantInitializer->getType())) {
-                context.LOG.alert("Global field %s with complex ptr constant initializer", entity->get_full_name().to_string().c_str());
+                context.LOG.alert("Global field %s with complex ptr constant initializer", uniqueName.c_str());
                 //return constantInitializer;
-                ASSERT(! context.llvmModule.getNamedGlobal(entity->get_full_name().to_string()),
-                       "Can't declare llvm alias since global variable with same name already declared: " << entity->get_full_name().to_string());
+                ASSERT(! context.llvmModule.getNamedGlobal(uniqueName),
+                       "Can't declare llvm alias since global variable with same name already declared: " << uniqueName);
                 return GlobalAlias::create(llvmType, 0, GlobalValue::InternalLinkage,
-                                           entity->get_full_name().to_string(), constantInitializer, &context.llvmModule);
+                                           uniqueName, constantInitializer, &context.llvmModule);
             }
         }
         else
-            context.LOG.error("Global/static constant field %s initializer is not a constant expression", entity->get_full_name().to_string().c_str());
+            context.LOG.error("Global/static constant field %s initializer is not a constant expression", uniqueName.c_str());
     }
     else
-        context.LOG.error("Global/static constant field %s does not have an initializer", entity->get_full_name().to_string().c_str());
+        context.LOG.error("Global/static constant field %s does not have an initializer", uniqueName.c_str());
 
     // handle case when there has been a "forward-declaration" of this field:
-    auto globalV = cast<GlobalVariable>(context.llvmModule.getOrInsertGlobal(entity->get_full_name().to_string(), llvmType));
+    Constant* maybe = context.llvmModule.getOrInsertGlobal(uniqueName, llvmType);
+    //std::cout << "maybe type: " << *maybe->getType() << "  value: " << *maybe << std::endl;
+    auto globalV = cast<GlobalVariable>(maybe);  // bails if bitcast has been inserted, which means wrong type has been chosen
     globalV->setConstant(true);
     globalV->setLinkage(GlobalValue::InternalLinkage);
     ASSERT(!globalV->hasInitializer(), "global already has initializer: " << globalV);
     globalV->setInitializer(constantInitializer);
     return globalV;
-    //context.LOG.alert("Global field %s", entity->get_full_name().to_string().c_str());
+    //context.LOG.alert("Global field %s", fullName.to_string().c_str());
     //return new GlobalVariable(context.llvmModule, llvmType, true, GlobalValue::InternalLinkage,
-    //                                constantInitializer, entity->get_full_name().to_string());
+    //                                constantInitializer, fullName.to_string());
 }
 
 Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     if (this->field->typeExpression)
         this->field->typeExpression->code_gen(context, scope);
-    auto entity = this->field->get_entity();
-    auto txType = entity->get_type();
+    auto uniqueName = this->field->get_declaration()->get_unique_full_name();
+    auto txType = this->field->get_type();
     Type* llvmType = context.get_llvm_type(txType);
 
     Value* fieldVal = nullptr;
-    switch (entity->get_storage()) {
+    switch (this->field->get_declaration()->get_storage()) {
     case TXS_NOSTORAGE:
-        context.LOG.error("TXS_NOSTORAGE specified for field: %s", entity->get_full_name().to_string().c_str());
+        context.LOG.error("TXS_NOSTORAGE specified for field: %s", uniqueName.c_str());
         break;
 
     case TXS_INSTANCEMETHOD:
         {
-            auto entity = field->get_entity();
-            ASSERT(field->initExpression, "instance method does not have an initializer/definition: " << entity->get_full_name().to_string().c_str());
-            auto initLambdaV = cast<ConstantStruct>(field->initExpression->code_gen(context, scope));
+            ASSERT(this->field->initExpression, "instance method does not have an initializer/definition: " << uniqueName.c_str());
+            auto initLambdaV = cast<ConstantStruct>(this->field->initExpression->code_gen(context, scope));
             auto funcPtrV = initLambdaV->getAggregateElement((unsigned)0);
             //std::cout << "initLambdaV: " << initLambdaV << std::endl;
             //std::cout << "initFuncPtrV: " << funcPtrV << std::endl;
@@ -124,14 +125,14 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     case TXS_STATIC:
         if (! txType->is_modifiable()) {
             if (this->field->initExpression && !this->field->initExpression->is_statically_constant()) {
-                auto lvl = ( entity->is_generic_param_binding() ? Level::DEBUG : Level::WARN );
-                context.LOG.log(lvl, "Skipping codegen for global/static constant field %s whose initializer is not a constant expression", entity->get_full_name().to_string().c_str());
+                auto lvl = Level::ALERT; //( entity->is_generic_param_binding() ? Level::DEBUG : Level::WARN );
+                context.LOG.log(lvl, "Skipping codegen for global/static constant field %s whose initializer is not a constant expression", uniqueName.c_str());
             }
             else
                 fieldVal = make_constant_nonlocal_field(context, scope, this->field, llvmType);
         }
         else {
-            context.LOG.error("modifiable TXS_STATIC fields not yet implemented: %s", entity->get_full_name().to_string().c_str());
+            context.LOG.error("modifiable TXS_STATIC fields not yet implemented: %s", uniqueName.c_str());
         }
         break;
 
@@ -140,7 +141,7 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
         break;
 
     case TXS_STACK:
-        context.LOG.error("TxFieldDeclNode can not apply to TXS_STACK storage fields: %s", entity->get_full_name().to_string().c_str());
+        context.LOG.error("TxFieldDeclNode can not apply to TXS_STACK storage fields: %s", uniqueName.c_str());
         break;
     }
     if (fieldVal)

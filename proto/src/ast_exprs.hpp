@@ -32,7 +32,7 @@ public:
         ASSERT(targetType, "NULL targetType");
     }
 
-    virtual bool has_predefined_type() const override { return this->targetType->entity(); }
+    virtual bool has_predefined_type() const override { return this->targetType->get_symbol(); }
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
@@ -66,7 +66,7 @@ class TxScalarConvNode : public TxConversionNode {
         inline const TxConstantProxy* original_constant() const { return this->originalConstant; }
         virtual const TxType* get_type() const override { return this->convNode->targetType; }
         virtual uint32_t get_value_UInt() const override { return this->originalConstant->get_value_UInt(); }
-        virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+        virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
     };
 
     ScalarConvConstantProxy constProxy;
@@ -124,7 +124,7 @@ protected:
             if (refType->is_generic())
                 // FUTURE: return constraint type if present
                 return this->types().get_builtin_type(ANY);
-            return refType->target_type(resCtx);
+            return refType->target_type();
         }
         cerror("Operand is not a reference and can't be dereferenced: %s", opType->to_string().c_str());
         return nullptr;
@@ -167,7 +167,7 @@ protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto opType = this->array->resolve_type(resCtx);
         if (auto arrayType = dynamic_cast<const TxArrayType*>(opType)) {
-            if (auto elemType = arrayType->element_type(resCtx))
+            if (auto elemType = arrayType->element_type())
                 return elemType;
             else
                 // FUTURE: return constraint type if present
@@ -536,7 +536,7 @@ class TxConstructorCalleeExprNode : public TxExpressionNode {
     TxExpressionNode* objectExpr;
 
     /** The constructor method entity */
-    TxFieldEntity* constructorEntity = nullptr;
+    const TxField* constructor = nullptr;
 
     mutable llvm::Value* objectPtrV = nullptr;
 
@@ -737,8 +737,8 @@ public:
         TxAssigneeNode::symbol_resolution_pass(resCtx);
         field->symbol_resolution_pass(resCtx);
 
-        auto entity = field->get_field_entity();
-        if (entity && entity->get_storage() == TXS_NOSTORAGE)
+        auto fieldDecl = field->get_field_declaration();
+        if (fieldDecl && fieldDecl->get_storage() == TXS_NOSTORAGE)
             cerror("Assignee %s is not an L-value / has no storage.", field->memberName.c_str());
     }
 
@@ -757,7 +757,7 @@ protected:
             if (refType->is_generic())
                 // FUTURE: return constraint type if present
                 return this->types().get_builtin_type(ANY);
-            return refType->target_type(resCtx);
+            return refType->target_type();
         }
         cerror("Operand is not a reference and can't be dereferenced: %s", opType->to_string().c_str());
         return nullptr;
@@ -793,7 +793,7 @@ protected:
         auto opType = this->array->resolve_type(resCtx);
         subscript = validate_wrap_convert(resCtx, subscript, this->types().get_builtin_type(LONG));
         if (auto arrayType = dynamic_cast<const TxArrayType*>(opType)) {
-            if (auto elemType = arrayType->element_type(resCtx))
+            if (auto elemType = arrayType->element_type())
                 return elemType;
             else
                 // FUTURE: return constraint type if present
