@@ -6,25 +6,11 @@
 #include "entity.hpp"
 
 
-//static Logger* LOGGER() {
-//    static Logger* LOG; // = Logger::get("PARSER");
-//    if (! LOG)
-//        LOG = &Logger::get("PARSER");
-//    return LOG;
-//}
-
-
 bool TxConstantProxy::operator==(const TxConstantProxy& other) const {
     // simple since we so far only support UInt values
     // FUTURE: improve as more value getters added (note that auto-conversion needs to be supported)
     return this->get_value_UInt() == other.get_value_UInt();
 }
-
-
-//const TxType* TxNonModTypeProxy::get_type() const {
-//    auto type = wrappedProxy->get_type();
-//    return type->is_modifiable() ? type->get_base_type() : type;
-//}
 
 
 
@@ -179,50 +165,14 @@ const TxType* TxType::get_base_type() const {
 
 
 
-//std::vector<std::string>::const_iterator TxType::member_names_cbegin() const {
-//    return this->get_nearest_entity()->symbol_names_cbegin();
-//}
-//
-//std::vector<std::string>::const_iterator TxType::member_names_cend()   const {
-//    return this->get_nearest_entity()->symbol_names_cend();
-//}
-
-/*
-TxSymbolScope* TxType::lookup_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const {
-    if (this->entity())
-        return this->entity()->lookup_instance_member(path, ident);
-        // (the entity will in turn call this type's lookup_inherited_member() if it needs to, so don't call it from here)
-    else
-        return this->lookup_inherited_instance_member(path, ident);
-}
-
-TxSymbolScope* TxType::lookup_inherited_instance_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const {
-    if (this->has_base_type())
-        return this->get_base_type()->lookup_instance_member(path, ident);
-    // FUTURE: implemented interfaces
-    return nullptr;
-}
-
-TxSymbolScope* TxType::lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const {
-    if (this->entity())
-        return this->entity()->lookup_member(path, ident);
-        // (the entity will in turn call this type's lookup_inherited_member() if it needs to, so don't call it from here)
-    else
-        return this->lookup_inherited_member(path, ident);
-}
-
-TxSymbolScope* TxType::lookup_inherited_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) const {
-    if (this->has_base_type())
-        return this->get_base_type()->lookup_member(path, ident);
-    // FUTURE: implemented interfaces
-    return nullptr;
-}
-*/
-
 TxEntitySymbol* TxType::lookup_instance_member(const std::string& name) const {
+    return this->lookup_instance_member(this->get_nearest_declaration()->get_symbol(), name);
+}
+
+TxEntitySymbol* TxType::lookup_instance_member(TxScopeSymbol* vantageScope, const std::string& name) const {
     for (const TxType* type = this; type; type = type->get_base_type()) {
         if (auto decl = type->get_declaration()) {
-            if (auto member = decl->get_symbol()->get_member_symbol(name)) {
+            if (auto member = lookup_member(vantageScope, decl->get_symbol(), name)) {
                 if (auto memberEnt = dynamic_cast<TxEntitySymbol*>(member))
                     return memberEnt;
                 else
@@ -619,7 +569,7 @@ const TxType* TxReferenceType::target_type() const {
     const std::string targetMemName = "tx#Ref#T";
     for ( const TxType* type = this; type; type = type->get_base_type() ) {
         if (auto decl = type->get_declaration()) {
-            if (auto member = decl->get_symbol()->get_member_symbol(targetMemName)) {
+            if (auto member = lookup_member(decl->get_symbol(), decl->get_symbol(), targetMemName)) {
                 TxTypeDeclaration* typeDecl = nullptr;
                 if (auto memberEnt = dynamic_cast<TxEntitySymbol*>(member)) {
                     ASSERT(memberEnt->get_type_decl(), "expected symbol to represent a type declaration: " << member->to_string());

@@ -163,7 +163,7 @@ public:
         return this->get_symbol(name);
     }
 
-    virtual TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope) { return this; }
+    virtual TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) { return this; }
 
 //    /** Resolves a symbol from the vantage point of this scope.
 //     * This is the main symbol lookup entry point and implements the language's
@@ -281,7 +281,7 @@ public:
 
     TxScopeSymbol* get_aliased_symbol() const;
 
-    TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope) override;
+    TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) override;
 
 //    virtual const TxType* resolve_symbol_type(ResolutionContext& resCtx) override {
 //        return this->aliasedEntity->resolve_symbol_type(resCtx);
@@ -352,7 +352,7 @@ public:
 
     virtual TxScopeSymbol* get_member_symbol(const std::string& name) override;
 
-    TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope) override;
+    TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) override;
 
 //    virtual TxSymbolScope* lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) override {
 //        // for now: match against this overloaded symbol's type entity, if present, otherwise fail
@@ -378,7 +378,7 @@ public:
 // TODO: investigate if these need ever be called with longer than a plain name:
 
 /** like lookup_symbol() but doesn't do search of first name segment */
-TxScopeSymbol* lookup_member(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
+TxScopeSymbol* lookup_member(TxScopeSymbol* vantageScope, TxScopeSymbol* scope, const TxIdentifier& ident);
 
 TxScopeSymbol* lookup_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
 

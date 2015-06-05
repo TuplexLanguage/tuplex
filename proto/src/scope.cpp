@@ -389,95 +389,80 @@ std::string TxEntitySymbol::symbol_class_string() const {
 
 /*=== symbol table lookup functions ===*/
 
-static TxScopeSymbol* search_symbol(std::vector<TxScopeSymbol*>& path, TxScopeSymbol* scope, const TxIdentifier& ident);
+static TxScopeSymbol* search_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
 
 TxScopeSymbol* TxAliasSymbol::get_aliased_symbol() const {
     return this->aliasedDeclaration->get_symbol();
 }
 
-TxScopeSymbol* TxAliasSymbol::resolve_generic(TxScopeSymbol* vantageScope) {
+TxScopeSymbol* TxAliasSymbol::resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) {
     LOGGER().alert("Substituting alias %s with %s", this->get_full_name().to_string().c_str(),
                    this->get_aliased_symbol()->to_string().c_str());
-    return this->get_aliased_symbol()->resolve_generic(vantageScope);
+    return this->get_aliased_symbol()->resolve_generic(vantageScope, scope);
 }
 
-TxScopeSymbol* TxEntitySymbol::resolve_generic(TxScopeSymbol* vantageScope) {
+TxScopeSymbol* TxEntitySymbol::resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) {
     if (this->is_overloaded())
         return this;
     if (this->get_distinct_decl()->get_decl_flags() & TXD_GENPARAM) {
         std::string bindingName = this->get_full_name().to_string();
         std::replace(bindingName.begin(), bindingName.end(), '.', '#');
-        this->LOGGER().trace("Trying to resolve generic parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), vantageScope->get_full_name().to_string().c_str());
-        std::vector<TxScopeSymbol*> tmpPath;
-        if (auto boundSym = search_symbol(tmpPath, vantageScope, bindingName)) {
+        this->LOGGER().debug("Trying to resolve generic parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), vantageScope->get_full_name().to_string().c_str());
+        if (auto boundSym = search_symbol(scope, bindingName)) {
             this->LOGGER().debug("Substituting generic parameter %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
-            return boundSym->resolve_generic(vantageScope);
+            return boundSym->resolve_generic(vantageScope, scope);
         }
         else {
-            // unbound symbols are not resolved against, unless they're defined by an outer scope -
-            // meaning they're type parameters pertaining to the current lexical context
-            if (vantageScope->get_full_name().begins_with(this->get_outer()->get_full_name()))
-                this->LOGGER().debug("Scope of generic parameter %s encompasses current vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
-            else
-                this->LOGGER().debug("Generic parameter %s unbound within vantage scope %s", this->to_string().c_str(), vantageScope->get_full_name().to_string().c_str());
+// TODO: review
+//            // unbound symbols are not resolved against, unless they're defined by an outer scope -
+//            // meaning they're type parameters pertaining to the current lexical context
+//            if (scope->get_full_name().begins_with(this->get_outer()->get_full_name()))
+//                this->LOGGER().debug("Scope of generic parameter %s encompasses current vantage scope %s", this->to_string().c_str(), scope->get_full_name().to_string().c_str());
+//            else
+//                this->LOGGER().debug("Generic parameter %s unbound within vantage scope %s", this->to_string().c_str(), scope->get_full_name().to_string().c_str());
         }
     }
     return this;
 }
 
 
-static TxScopeSymbol* lookup_member(std::vector<TxScopeSymbol*>& path, TxScopeSymbol* scope, const TxIdentifier& ident) {
+static TxScopeSymbol* inner_lookup_member(TxScopeSymbol* vantageScope, TxScopeSymbol* scope, const TxIdentifier& ident) {
     //std::cout << "From '" << scope->get_full_name() << "': lookup_member(" << ident << ")" << std::endl;
     if (auto member = scope->get_member_symbol(ident.segment(0))) {
         // if the identified member is a type parameter/alias, attempt to resolve it by substituting it for its binding:
-        TxScopeSymbol* vantageScope = path.back();  // FIXME: review if this should be original vantageScope instead
-        member = member->resolve_generic(vantageScope);
+        member = member->resolve_generic(vantageScope, scope);
 
-        path.push_back(member);
         if (ident.is_plain())
             return member;
         else
-            return lookup_member(path, member, TxIdentifier(ident, 1));
+            return inner_lookup_member(vantageScope, member, TxIdentifier(ident, 1));
     }
     return nullptr;
 }
 
-static TxScopeSymbol* search_symbol(std::vector<TxScopeSymbol*>& path, TxScopeSymbol* scope, const TxIdentifier& ident) {
-    std::vector<TxScopeSymbol*> origPath = path;
-    if (auto symbol = lookup_member(path, scope, ident)) {
-        ASSERT(ident.segment_count()==path.size()-1, "Erroneous lookup path length: ident " << ident << " length != " << path.size());
-        ASSERT(symbol == path.back(), "Returned entity != last entity in path: " << *symbol << " != " << *path.back());
-        return symbol;
-    }
-    else {
-        path = origPath;
-        if (auto outerScope = scope->get_outer()) {
-            if (dynamic_cast<TxModule*>(scope))
-                // if member lookup within a module fails, skip parent modules and do global lookup via root namespace (package)
-                return search_symbol(path, scope->get_root_scope(), ident);
-            else
-                return search_symbol(path, outerScope, ident);
-        }
+static TxScopeSymbol* search_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident) {
+    for (auto scope = vantageScope; scope; scope = scope->get_outer()) {
+        if (auto symbol = inner_lookup_member(vantageScope, scope, ident))
+            return symbol;
+        if (dynamic_cast<TxModule*>(scope))
+            // if member lookup within a module fails, skip parent modules and do global lookup via root namespace (package)
+            return inner_lookup_member(vantageScope, scope->get_root_scope(), ident);
     }
     return nullptr;
 }
 
-TxScopeSymbol* lookup_member(TxScopeSymbol* vantageScope, const TxIdentifier& ident) {
-    std::vector<TxScopeSymbol*> path;
-    path.push_back(vantageScope);  // starting point of search - the first segment's so-called vantage scope
-    auto symbol = lookup_member(path, vantageScope, ident);
-    // TODO: implement visibility check?
-    return symbol;
-}
 
-TxScopeSymbol* lookup_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident) {
-    std::vector<TxScopeSymbol*> path;
-    path.push_back(vantageScope);  // starting point of search - the first segment's so-called vantage scope
-    auto symbol = search_symbol(path, vantageScope, ident);
+TxScopeSymbol* lookup_member(TxScopeSymbol* vantageScope, TxScopeSymbol* scope, const TxIdentifier& ident) {
+    auto symbol = inner_lookup_member(vantageScope, scope, ident);
     // TODO: implement visibility check
     return symbol;
 }
 
+TxScopeSymbol* lookup_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident) {
+    auto symbol = search_symbol(vantageScope, ident);
+    // TODO: implement visibility check
+    return symbol;
+}
 
 TxTypeDeclaration* lookup_type(TxScopeSymbol* vantageScope, const TxIdentifier& ident) {
     if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(lookup_symbol(vantageScope, ident)))

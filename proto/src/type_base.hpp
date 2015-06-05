@@ -345,6 +345,7 @@ public:
 
     /** match against this entity's direct instance/static members, and then its inherited members, returning the first found */
     virtual TxEntitySymbol* lookup_instance_member(const std::string& name) const;
+    virtual TxEntitySymbol* lookup_instance_member(TxScopeSymbol* vantageScope, const std::string& name) const;
 
 //    /** match against this entity's inherited instance/static members (i.e. skipping this type's direct members) */
 //    virtual const TxEntity* lookup_inherited_instance_member(const std::string& name) const;

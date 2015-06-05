@@ -453,14 +453,15 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol(ResolutionContext& resCtx) {
         if (this->baseExpr) {
             // baseExpr may or may not refer to a type (e.g. modules don't)
             auto baseType = this->baseExpr->resolve_type(resCtx);  // must be resolved before lookups via its symbol
+            TxScopeSymbol* vantageScope = this->context().scope();
             if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
                 if (auto baseSymbol = baseSymbolNode->resolve_symbol(resCtx)) {
-                    this->cachedSymbol = baseSymbol->get_member_symbol(this->memberName);
+                    this->cachedSymbol = lookup_member(vantageScope, baseSymbol, this->memberName);
                 }
             }
             else if (baseType) {
                 // non-name (i.e. computed) value expression
-                this->cachedSymbol = baseType->lookup_instance_member(this->memberName);
+                this->cachedSymbol = baseType->lookup_instance_member(vantageScope, this->memberName);
             }
         }
         else {
@@ -496,14 +497,17 @@ TxEntityDeclaration* TxFieldValueNode::resolve_decl(ResolutionContext& resCtx) {
                     return fieldDecl;
             }
             // if symbol is a type, and arguments are applied, and they match a constructor, the resolve to that constructor
-            if (entitySymbol->get_type_decl()) {
+            if (auto typeDecl = entitySymbol->get_type_decl()) {
                 if (this->appliedFuncArgTypes) {
-                    if (auto constructorSymbol = entitySymbol->get_member_symbol("$init"))
-                        if (auto constructor = resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes))
-                            return constructor;
+                    if (auto allocType = typeDecl->get_type_definer()->resolve_type(resCtx))
+                        if (auto constructorSymbol = allocType->lookup_instance_member("$init"))
+                            if (auto constructorDecl = resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes)) {
+                                ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
+                                return constructorDecl;
+                            }
                 }
                 // resolve this symbol to its type
-                return entitySymbol->get_type_decl();
+                return typeDecl;
             }
             CERROR(this, "Failed to resolve entity symbol to proper field: " << entitySymbol->to_string().c_str());
         }
@@ -531,8 +535,8 @@ const TxType* TxConstructorCalleeExprNode::define_type(ResolutionContext& resCtx
     ASSERT(this->appliedFuncArgTypes, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized");
     if (auto allocType = this->objectExpr->resolve_type(resCtx)) {
         // find the constructor
-        if (auto symbol = allocType->lookup_instance_member("$init")) {
-            if (auto constructorDecl = resolve_field_lookup(resCtx, symbol, this->appliedFuncArgTypes)) {
+        if (auto constructorSymbol = allocType->lookup_instance_member("$init")) {
+            if (auto constructorDecl = resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes)) {
                 ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
                 this->constructor = constructorDecl->get_field_definer()->resolve_field(resCtx);
                 if (this->constructor)
