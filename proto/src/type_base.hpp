@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cstdlib>
 
-#include "txassert.hpp"
+#include "assert.hpp"
 #include "printable.hpp"
 
 #include "identifier.hpp"
@@ -55,29 +55,6 @@ enum TxTypeClass {
     /** The Enum types. */
     TXTC_ENUM,
 };
-
-
-
-/** Wraps a TxType as a TxTypeDefiner, can be used for const TxType -> non-const TxTypeDefiner conversion. */
-class TxTypeDefWrapper : public TxTypeDefiner {
-    const TxType* type;
-public:
-    TxTypeDefWrapper(const TxType* type) : type(type)  { }
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
-    virtual const TxType* attempt_get_type() const override { return this->type; }
-    virtual const TxType* get_type() const override { return this->type; }
-};
-
-///** Type proxy wrapper that provides a non-modifiable 'view' of the underlying type
-// * (which may be either modifiable or not).
-// */
-//class TxNonModTypeProxy : public TxTypeProxy {
-//    TxTypeProxy const * const wrappedProxy;
-//public:
-//    TxNonModTypeProxy(TxTypeProxy const * wrappedProxy) : wrappedProxy(wrappedProxy)  { }
-//
-//    virtual const TxType* get_type() const;
-//};
 
 
 
@@ -543,4 +520,18 @@ protected:
         return str;
     }
 
+};
+
+
+
+/** Wraps a TxType as a TxTypeDefiner, can be used for const TxType -> non-const TxTypeDefiner conversion. */
+class TxTypeDefWrapper : public TxTypeDefiner {
+    const TxType* type;
+public:
+    TxTypeDefWrapper(const TxType* type) : type(type)  { }
+    virtual TxDriver* get_driver() const override { return this->type->get_driver(); }
+    virtual const yy::location& get_parse_location() const override { return this->type->get_parse_location(); }
+    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
+    virtual const TxType* attempt_get_type() const override { return this->type; }
+    virtual const TxType* get_type() const override { return this->type; }
 };

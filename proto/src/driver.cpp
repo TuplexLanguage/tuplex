@@ -2,7 +2,7 @@
 #include <string>
 
 #include "driver.hpp"
-#include "txassert.hpp"
+#include "assert.hpp"
 #include "files_env.hpp"
 #include "tinydir/tinydir.h"
 
@@ -306,37 +306,37 @@ static void format_location_message(char *buf, size_t bufSize, const yy::locatio
 }
 
 
-static Logger* PLOG; // = Logger::get("PARSER");
+static Logger* CLOG; // = Logger::get("PARSER");
 
 void TxDriver::emit_comp_error(const yy::location& loc, const std::string& msg) {
     char buf[512];
     format_location_message(buf, 512, loc, msg.c_str());
-    if (! PLOG)
-        PLOG = &Logger::get("PARSER");
-    PLOG->error("%s", buf);
+    if (! CLOG)
+        CLOG = &Logger::get("COMPILER");
+    CLOG->error("%s", buf);
 }
 
 void TxDriver::emit_comp_warning(const yy::location& loc, const std::string& msg) {
     char buf[512];
     format_location_message(buf, 512, loc, msg.c_str());
-    if (! PLOG)
-        PLOG = &Logger::get("PARSER");
-    PLOG->warning("%s", buf);
+    if (! CLOG)
+        CLOG = &Logger::get("COMPILER");
+    CLOG->warning("%s", buf);
 }
 
 
 void TxDriver::emit_comp_error(char const *msg) {
     error_count++;
-    if (! PLOG)
-        PLOG = &Logger::get("PARSER");
-    PLOG->error("%s", msg);
+    if (! CLOG)
+        CLOG = &Logger::get("COMPILER");
+    CLOG->error("%s", msg);
 }
 
 void TxDriver::emit_comp_warning(char const *msg) {
     warning_count++;
-    if (! PLOG)
-        PLOG = &Logger::get("PARSER");
-    PLOG->warning("%s", msg);
+    if (! CLOG)
+        CLOG = &Logger::get("COMPILER");
+    CLOG->warning("%s", msg);
 }
 
 

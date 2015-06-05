@@ -102,6 +102,7 @@ add_executable(txc
         files_env.cpp
         logging.cpp
         tx_operations.cpp
+        tx_error.cpp
         identifier.cpp
         driver.cpp
         main.cpp

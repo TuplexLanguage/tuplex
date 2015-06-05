@@ -3,7 +3,7 @@
 #include <vector>
 #include <unordered_map>
 
-#include "txassert.hpp"
+#include "assert.hpp"
 #include "logging.hpp"
 
 #include "identifier.hpp"
@@ -44,10 +44,6 @@ protected:
 
 public:
     TxModule(TxModule* parent, const std::string& name, bool declared);
-
-    /** Gets the TuplexPackage root scope. */
-    const TxPackage* get_package() const;
-    TxPackage* get_package();
 
     /** Returns true if this module has been declared; false if it so far
      * is only a namespace parent of declared module(s) */

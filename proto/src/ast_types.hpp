@@ -43,7 +43,7 @@ public:
         this->bound = true;
         if (this->typeExprNode) {
             if (param.meta_type() != param.TXB_TYPE)
-                cerror("Provided a TYPE argument to VALUE parameter %s", pname.c_str());
+                CERROR(this, "Provided a TYPE argument to VALUE parameter " << pname);
             // Shall be below the parent, like so:
             // $local.main$.$0.d$type.tx#Ref#T.tx#Array#E
             this->typeDeclNode = new TxTypeDeclNode(this->typeExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT,
@@ -59,7 +59,7 @@ public:
         else {
             ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
             if (param.meta_type() != param.TXB_VALUE)
-                cerror("Provided a TYPE argument to VALUE parameter %s", pname.c_str());
+                CERROR(this, "Provided a TYPE argument to VALUE parameter " << pname);
             auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, pname, this->valueExprNode, false, param.get_base_type_definer());
             // (passes the param's type-definer to the field def, so that proper type checking is done)
             this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
@@ -130,7 +130,7 @@ protected:
         else
             type = this->define_identified_type(resCtx);
         if (! type)
-            cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
+            CERROR(this, "Unknown type: " << this->identNode->ident << " (from " << this->context().scope() << ")");
         return type;
     }
 
@@ -261,7 +261,7 @@ public:
         if (this->lengthNode) {
             this->lengthNode->symbol_resolution_pass(resCtx);
             //if (! this->lengthNode->valueExprNode->is_statically_constant())
-            //    cerror("Non-constant array length specifier not yet supported.");
+            //    CERROR(this, "Non-constant array length specifier not yet supported.");
         }
     }
 
@@ -511,13 +511,13 @@ protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         if (auto bType = this->baseType->resolve_type(resCtx)) {
             if (bType->is_modifiable()) {
-                cerror("'modifiable' specified more than once for type: %s", bType->to_string().c_str());
+                CERROR(this, "'modifiable' specified more than once for type: " << bType);
                 return bType;
             }
             else if (! bType->is_immutable())
                 return this->types().get_modifiable_type(this->get_declaration(), bType);
             else
-                cerror("Can't declare immutable type as modifiable: %s", bType->to_string().c_str());
+                CERROR(this, "Can't declare immutable type as modifiable: " << bType);
         }
         return nullptr;
     }

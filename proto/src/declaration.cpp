@@ -1,7 +1,7 @@
-#include "txassert.hpp"
-
 #include "scope.hpp"
 #include "declaration.hpp"
+
+#include "assert.hpp"
 #include "entity.hpp"
 #include "type.hpp"
 

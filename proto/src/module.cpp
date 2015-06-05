@@ -22,8 +22,8 @@ bool TxModule::declare_symbol(TxScopeSymbol* symbol) {
     if (! this->declared) {
         // only modules allowed within namespace of non-declared "module"
         if (! dynamic_cast<TxModule*>(symbol)) {
-            this->LOGGER().error("Can't add non-module symbol %s to undeclared namespace %s",
-                                 symbol->to_string().c_str(), this->get_full_name().to_string().c_str());
+            CERROR(&this->get_root_scope()->driver(), "Can't add non-module symbol " << symbol
+                   << " to undeclared namespace " << this->get_full_name());
             return false;
         }
     }
@@ -36,8 +36,7 @@ TxModule* TxModule::declare_module(const TxIdentifier& ident) {
     if (ident.is_qualified()) {
         // declare submodule further down the namespace hierarchy (not a direct child of this one)
         if (! (ident.begins_with(this->get_full_name()) && ident.segment_count() > this->get_full_name().segment_count())) {
-            this->LOGGER().error("Can't declare module %s as a submodule of %s",
-                                 ident.to_string().c_str(), this->get_full_name().to_string().c_str());
+            CERROR(&this->get_root_scope()->driver(), "Can't declare module " << ident << " as a submodule of " << this->get_full_name());
             return nullptr;
         }
         auto subName = TxIdentifier(ident, this->get_full_name().segment_count());
@@ -71,7 +70,7 @@ TxModule* TxModule::declare_module(const TxIdentifier& ident) {
             return prevMod;
         }
         else {
-            this->LOGGER().error("Name collision upon declaring module %s", prev->get_full_name().to_string().c_str());
+            CERROR(&this->get_root_scope()->driver(), "Name collision upon declaring module " << prev->get_full_name());
             return nullptr;
         }
     }
@@ -95,7 +94,7 @@ TxModule* TxModule::lookup_module(const TxIdentifier& fullName) {
             else
                 return module->lookup_module(TxIdentifier(fullName, 1));
         }
-        this->LOGGER().error("Symbol is not a Module: %s", member->to_string().c_str());
+        CERROR(&this->get_root_scope()->driver(), "Symbol is not a Module: " << member);
     }
     return nullptr;
 }
@@ -110,7 +109,7 @@ TxScopeSymbol* TxModule::get_member_symbol(const std::string& name) {
     else if (this->usedNames.count(name)) {  // attempt to find aliased match
         const TxIdentifier& aliasedName(this->usedNames.at(name));
         //std::cout << "In module '" << this->get_full_name() << "': matching alias " << name << " == " << aliasedName << std::endl;
-        return lookup_symbol(this->get_package(), aliasedName);
+        return lookup_symbol(this->get_root_scope(), aliasedName);
     }
     return nullptr;
 }
@@ -131,15 +130,14 @@ bool TxModule::use_symbol(const TxModule* imported, const std::string& plainName
         }
     }
     else
-        this->LOGGER().error("Imported symbol '%s' does not exist in module '%s'",
-                             plainName.c_str(), imported->get_full_name().to_string().c_str());
+        CERROR(&this->get_root_scope()->driver(), "Imported symbol '" << plainName << "' does not exist in module " << imported->get_full_name());
     return false;
 }
 
 bool TxModule::import_symbol(const TxIdentifier& identifier) {
     // Note: the imported symbols are only visible within current module
     ASSERT(identifier.is_qualified(), "can't import unqualified identifier: " << identifier);
-    auto otherModule = this->get_package()->lookup_module(identifier.parent());
+    auto otherModule = this->get_root_scope()->lookup_module(identifier.parent());
     if (! otherModule)
         return false;
     else if (identifier.name() == "*") {
@@ -160,7 +158,7 @@ void TxModule::prepare_modules() {
     this->LOGGER().debug("Preparing module %s", this->get_full_name().to_string().c_str());
     for (auto import : this->registeredImports) {
         if (! this->import_symbol(import))
-            this->get_package()->driver().cerror("Failed to import " + import.to_string());
+            this->get_root_scope()->driver().cerror("Failed to import " + import.to_string());
     }
     for (auto entry = this->symbols_begin(); entry != this->symbols_end(); entry++) {
         if (auto submod = dynamic_cast<TxModule*>(entry->second))
@@ -193,13 +191,6 @@ void TxModule::dump_symbols() const {
     TxScopeSymbol::dump_symbols();
 }
 
-
-const TxPackage* TxModule::get_package() const {
-    return static_cast<const TxPackage*>(this->get_root_scope());
-}
-TxPackage* TxModule::get_package() {
-    return const_cast<TxPackage*>(static_cast<const TxModule*>(this)->get_package());
-}
 
 
 const TxPackage* LexicalContext::package() const {

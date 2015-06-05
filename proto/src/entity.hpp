@@ -2,8 +2,7 @@
 
 #include <unordered_map>
 
-#include "txassert.hpp"
-
+#include "assert.hpp"
 #include "tx_lang_defs.hpp"
 #include "identifier.hpp"
 
@@ -15,7 +14,7 @@ class TxConstantProxy;
 
 
 /** Represents the definition of a type or a field. */
-class TxEntity : public TxTypeProxy, public Printable {
+class TxEntity : public TxTypeProxy, public TxParseOrigin, public Printable {
     Logger& LOG;
 
     const TxEntityDeclaration* declaration;
@@ -27,6 +26,13 @@ protected:
     inline Logger& LOGGER() const { return this->LOG; }
 
 public:
+    virtual TxDriver* get_driver() const override {
+        return (this->declaration ? this->declaration->get_definer()->get_driver() : nullptr);
+    }
+    virtual const yy::location& get_parse_location() const override {
+        return (this->declaration ? this->declaration->get_definer()->get_parse_location() : NULL_LOC);
+    }
+
     virtual inline const TxEntityDeclaration* get_declaration() const { return this->declaration; }
 
     TxScopeSymbol* get_symbol() const {

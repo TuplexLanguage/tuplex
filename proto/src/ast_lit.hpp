@@ -88,9 +88,9 @@ public:
     virtual void symbol_declaration_pass(LexicalContext& lexContext) {
         this->set_context(lexContext);
         if (this->intValue.radix < 2 || this->intValue.radix > 36)
-            cerror("Radix outside valid range [2,36]: %d", this->intValue.radix);
+            CERROR(this, "Radix outside valid range [2,36]: " << this->intValue.radix);
         else if (this->intValue.outOfRange)
-            cerror("Integer literal badly formatted or outside value range of type %s", this->types().get_builtin_type(this->intValue.typeId)->to_string().c_str());
+            CERROR(this, "Integer literal badly formatted or outside value range of type " << this->types().get_builtin_type(this->intValue.typeId));
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override { return &this->intConstProxy; }

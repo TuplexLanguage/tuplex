@@ -15,11 +15,11 @@
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/FileSystem.h>
 
-#include "txassert.hpp"
 #include "util.hpp"
 
 #include "tx_lang_defs.hpp"
 #include "llvm_generator.hpp"
+#include "assert.hpp"
 
 
 using namespace llvm;

@@ -1,6 +1,7 @@
-#include "txassert.hpp"
 #include "tx_lang_defs.hpp"
 #include "type_registry.hpp"
+
+#include "assert.hpp"
 #include "package.hpp"
 #include "entity.hpp"
 #include "llvm_generator.hpp"
@@ -33,6 +34,9 @@ public:
     TxBuiltinTypeDefiner() : type() { }
     TxBuiltinTypeDefiner(const TxType* type) : type(type) { }
 
+    virtual TxDriver* get_driver() const override { return this->type->get_driver(); }
+    virtual const yy::location& get_parse_location() const override { return this->type->get_parse_location(); }
+
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
@@ -44,6 +48,9 @@ public:
 
     TxBuiltinFieldDefiner() : field() { }
     TxBuiltinFieldDefiner(const TxField* field) : field(field) { }
+
+    virtual TxDriver* get_driver() const override { return this->field->get_driver(); }
+    virtual const yy::location& get_parse_location() const override { return this->field->get_parse_location(); }
 
     virtual const TxExpressionNode* get_init_expression() const override { return nullptr; }
     virtual const TxField* resolve_field(ResolutionContext& resCtx) override { return this->field; }
@@ -119,6 +126,9 @@ public:
         ASSERT(!this->declaration, "declaration already set");
         this->declaration = declaration;
     }
+
+    virtual TxDriver* get_driver() const override { return this->type->get_driver(); }
+    virtual const yy::location& get_parse_location() const override { return this->type->get_parse_location(); }
 
     //virtual const TxExpressionNode* get_init_expression() const override { return nullptr; }
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }

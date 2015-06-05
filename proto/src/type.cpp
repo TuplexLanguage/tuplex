@@ -1,4 +1,5 @@
 #include "logging.hpp"
+#include "tx_error.hpp"
 
 #include "type.hpp"
 #include "ast.hpp"
@@ -111,7 +112,7 @@ std::string TxType::inner_validate() const {
 bool TxType::validate() const {
     auto res = this->inner_validate();
     if (! res.empty()) {
-        LOGGER().error("%s", res.c_str());
+        CERROR(this, res);
         return false;
     }
     return true;
@@ -420,23 +421,23 @@ void TxType::prepare_type() {
                 // validate:
                 if (auto fieldType = field->get_type()) {
                     if (! fieldType->is_concrete()) {
-                        LOGGER().error("Can't declare a field of non-concrete type: %s", field->to_string().c_str());
+                        CERROR(this, "Can't declare a field of non-concrete type: " << field);
                     }
                     else if (field->get_storage() == TXS_INSTANCE) {
                         //std::cout << "Concrete INSTANCE field " << field << std::endl;
                         if (! fieldType->is_statically_sized()) {
-                            LOGGER().error("Instance fields that don't have statically determined size not yet supported: %s", field->to_string().c_str());
+                            CERROR(this, "Instance fields that don't have statically determined size not yet supported: " << field);
                         }
                         else if (! (field->get_decl_flags() & (TXD_GENPARAM | TXD_IMPLICIT))) {
                             if (this->get_type_class() != TXTC_TUPLE)
-                                LOGGER().error("Can't declare instance member in non-tuple type: %s", field->to_string().c_str());
+                                CERROR(this, "Can't declare instance member in non-tuple type: " << field);
                         }
                     }
                     else {  // TXS_STATIC
                         //std::cout << "Concrete STATIC field " << field << std::endl;
                         if (! fieldType->is_statically_sized()) {
                             // since static fields are per generic base type, and not per specialization:
-                            LOGGER().error("Static fields must have statically determined size: %s", field->to_string().c_str());
+                            CERROR(this, "Static fields must have statically determined size: " << field);
                         }
                     }
                 }
@@ -456,13 +457,13 @@ void TxType::prepare_type() {
                         // skip, constructors aren't virtual
                     }
                     else if (this->virtualFields.has_field(field->get_unique_name())) {
-                        LOGGER().error("A non-static method may not override a static parent field: %s", field->to_string().c_str());
+                        CERROR(this, "A non-static method may not override a static parent field: " << field);
                     }
                     else if (this->instanceMethods.has_field(field->get_unique_name())) {
                         if (! (field->get_decl_flags() & TXD_OVERRIDE))
-                            LOGGER().warning("Field overrides but isn't declared 'override': %s", field->to_string().c_str());
+                            CWARNING(this, "Field overrides but isn't declared 'override': " << field);
                         if (! (field->get_type()->is_a(*this->instanceMethods.get_field(field->get_unique_name())->get_type())))
-                            LOGGER().error("Overriding member's type does not derive from overridden member's type: %s", field->get_type()->to_string().c_str());
+                            CERROR(this, "Overriding member's type does not derive from overridden member's type: " << field->get_type());
                         this->instanceMethods.override_field(field->get_unique_name(), field);
                     }
                     else {
@@ -474,13 +475,13 @@ void TxType::prepare_type() {
                 }
                 else if (field->get_storage() == TXS_VIRTUAL) {
                     if (this->instanceMethods.has_field(field->get_unique_name())) {
-                        LOGGER().error("A static field may not override a non-static parent method: %s", field->to_string().c_str());
+                        CERROR(this, "A static field may not override a non-static parent method: " << field);
                     }
                     else if (this->virtualFields.has_field(field->get_unique_name())) {
                         if (! (field->get_decl_flags() & TXD_OVERRIDE))
-                            LOGGER().warning("Field overrides but isn't declared 'override': %s", field->to_string().c_str());
+                            CWARNING(this, "Field overrides but isn't declared 'override': " << field);
                         if (! (field->get_type()->is_a(*this->virtualFields.get_field(field->get_unique_name())->get_type())))
-                            LOGGER().error("Overriding member's type does not derive from overridden member's type: %s", field->get_type()->to_string().c_str());
+                            CERROR(this, "Overriding member's type does not derive from overridden member's type: " << field->get_type());
                         this->virtualFields.override_field(field->get_unique_name(), field);
                     }
                     else {
@@ -630,7 +631,7 @@ const TxType* TxReferenceType::target_type() const {
                     typeDecl = dynamic_cast<TxTypeDeclaration*>(memberAlias->get_aliased_declaration());
                 }
                 else
-                    LOGGER().error("Ref target %s is not an entity or alias: %s", targetMemName.c_str(), member->to_string().c_str());
+                    CERROR(this, "Ref target '" << targetMemName << "' is not an entity or alias: " << member);
 
                 if (typeDecl) {
                     ResolutionContext resCtx;
@@ -655,6 +656,6 @@ const TxType* TxReferenceType::target_type() const {
         LOGGER().debug("Resolved target type of (unnamed) reference type to %s", ttype->to_string().c_str());
     }
     else
-        LOGGER().error("Failed to resolve target type for (unnamed) reference type %s", this->to_string().c_str());
+        CERROR(this, "Failed to resolve target type for (unnamed) reference type " << this);
     return ttype;
 }

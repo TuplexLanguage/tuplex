@@ -46,9 +46,9 @@ public:
         //    this->baseExpr->symbol_resolution_pass(resCtx);
         if (! this->get_type()) {
             if (this->cachedSymbol)
-                cerror("Symbol is not a field: %s", this->cachedSymbol->to_string().c_str());
+                CERROR(this, "Symbol is not a field: " << this->cachedSymbol);
             else {
-                cerror("No such symbol: %s", this->get_full_identifier().to_string().c_str());
+                CERROR(this, "No such symbol: " << this->get_full_identifier());
             }
         }
     }

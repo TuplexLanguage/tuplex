@@ -2,6 +2,7 @@
 
 #include "driver.hpp"
 #include "logging.hpp"
+#include "tx_error.hpp"
 #include "type_registry.hpp"
 #include "module.hpp"
 
@@ -40,7 +41,9 @@ public:
         if (this->mainFunc) {
             if (this->mainFunc->field_count() == 1)
                 return this->mainFunc->get_first_field_decl();
-            this->LOGGER().error("main() function symbol is overloaded");
+            else if (this->mainFunc->is_overloaded())
+                CWARNING(this->mainFunc->get_first_field_decl()->get_definer(),
+                         "main() function symbol is overloaded: " << this->mainFunc);
         }
         return nullptr;
     }

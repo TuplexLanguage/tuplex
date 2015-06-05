@@ -10,6 +10,7 @@
 #include "entity_proxy.hpp"
 
 
+class TxPackage;
 class TxAliasSymbol;
 class TxEntitySymbol;
 class TxEntityDeclaration;
@@ -99,7 +100,7 @@ protected:
     virtual bool declare_symbol(TxScopeSymbol* symbol);
 
     /** Prepares an entity declaration (adding to an existing or a newly created entity symbol within this scope). */
-    virtual TxEntitySymbol* declare_entity(const std::string& plainName);
+    virtual TxEntitySymbol* declare_entity(const std::string& plainName, TxEntityDefiner* definer);
 
     //virtual TxDistinctEntity* overload_entity(TxDistinctEntity* entity, TxSymbolScope* prevSymbol);
 
@@ -125,10 +126,14 @@ public:
 
     inline const TxIdentifier& get_full_name() const { return this->fullName; }
 
-    /** Gets the top-most outer scope of this symbol, which is a root scope. */
-    const TxScopeSymbol* get_root_scope() const;
-    /** Gets the top-most outer scope of this symbol, which is a root scope. */
-    TxScopeSymbol* get_root_scope();
+//    /** Gets the TuplexPackage root scope. */
+//    const TxPackage* get_package() const;
+//    TxPackage* get_package();
+
+    /** Gets the top-most outer scope of this symbol, which is the root "package" scope. */
+    const TxPackage* get_root_scope() const;
+    /** Gets the top-most outer scope of this symbol, which is the root "package" scope. */
+    TxPackage* get_root_scope();
 
 
     /*--- lexical scope tracking ---*/
@@ -260,8 +265,7 @@ class TxAliasSymbol : public TxScopeSymbol {
 
 protected:
     virtual bool declare_symbol(TxScopeSymbol* symbol) override {
-        this->LOGGER().error("Can't add member symbol (%s) directly to an alias symbol: %s",
-                             symbol->to_string().c_str(), this->get_full_name().to_string().c_str());
+        ASSERT(false, "Can't add member symbol (" << symbol << ") directly to an alias symbol: " << this->get_full_name());
         return false;
     }
 
@@ -309,8 +313,7 @@ protected:
         if (this->typeDeclaration)
             return TxScopeSymbol::declare_symbol(symbol);
         else {
-            this->LOGGER().error("Can't add member symbol (%s) to a field symbol: %s",
-                                 symbol->to_string().c_str(), this->get_full_name().to_string().c_str());
+            ASSERT(false, "Can't add member symbol (" << symbol << ") to a field symbol: " << this->get_full_name());
             return false;
         }
     }
@@ -320,45 +323,9 @@ public:
             : TxScopeSymbol(parentScope, name), typeDeclaration(), fieldDeclarations() {
     }
 
-    bool add_type(TxTypeDeclaration* typeDeclaration) {
-        if (this->typeDeclaration) {
-            this->LOGGER().error("Can't overload several type declarations under the same name: %s", this->get_full_name().to_string().c_str());
-            return false;
-        }
-        this->typeDeclaration = typeDeclaration;
-        return true;
-    }
+    bool add_type(TxTypeDeclaration* typeDeclaration);
 
-    bool add_field(TxFieldDeclaration* fieldDeclaration) {
-        this->fieldDeclarations.push_back(fieldDeclaration);
-        return true;
-    }
-
-//    /** Adds a distinct entity declaration to this overloaded symbol, after performing some validity checking.
-//     * Note that the provided entity does not get this overloaded symbol as its parent scope.
-//     */
-//    bool add(TxDistinctEntity* entity) {
-//        // verify that the names are equal except for the internal "$..." suffix:
-//        auto entName = entity->get_full_name().to_string();
-//        ASSERT(this->get_full_name().to_string() == entName.substr(0, this->get_full_name().to_string().length()),
-//               "Overloaded entity declarations must have the same qualified name (except for $ suffix): "
-//               << entName << "!=" << this->get_full_name().to_string());
-//
-//        if (auto typeEnt = dynamic_cast<TxTypeEntity*>(entity)) {
-//            if (this->typeEntity) {
-//                this->LOGGER().error("Can't overload several type declarations on the same name: %s", this->get_full_name().to_string().c_str());
-//                return false;
-//            }
-//            this->typeEntity = typeEnt;
-//        }
-//        else if (auto fieldEnt = dynamic_cast<TxFieldEntity*>(entity))
-//            this->fieldEntities.push_back(fieldEnt);
-//        else {  // shouldn't happen...
-//            this->LOGGER().error("Unknown TxDistinctEntity type: %s", entity->to_string().c_str());
-//            return false;
-//        }
-//        return true;
-//    }
+    bool add_field(TxFieldDeclaration* fieldDeclaration);
 
     inline bool is_overloaded() const { return this->count() > 1; }
 

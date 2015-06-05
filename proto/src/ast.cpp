@@ -3,7 +3,7 @@
 
 static bool commonNameValidityChecks(TxNode* node, TxDeclarationFlags declFlags, const std::string& name) {
     if (name.empty()) {
-        node->cerror("Name string is empty.");
+        CERROR(node, "Name string is empty.");
         return false;
     }
     bool valid = true;
@@ -50,30 +50,30 @@ std::string TxNode::parse_loc_string() const {
     return std::string(buf);
 }
 
-void TxNode::cerror(char const *fmt, ...) const {
-    va_list ap;
-    va_start(ap, fmt);
-    char buf[512];
-    vsnprintf(buf, 512, fmt, ap);
-    va_end(ap);
-    if (this->is_context_set())
-        this->driver().cerror(this->parseLocation, std::string(buf));
-    else {
-        TxDriver::emit_comp_error(this->parseLocation, std::string(buf));
-    }
-}
-void TxNode::cwarning(char const *fmt, ...) const {
-    va_list ap;
-    va_start(ap, fmt);
-    char buf[512];
-    vsnprintf(buf, 512, fmt, ap);
-    va_end(ap);
-    if (this->is_context_set())
-        this->driver().cwarning(this->parseLocation, std::string(buf));
-    else {
-        TxDriver::emit_comp_warning(this->parseLocation, std::string(buf));
-    }
-}
+//void TxNode::CERROR(this, char const *fmt, ...) const {
+//    va_list ap;
+//    va_start(ap, fmt);
+//    char buf[512];
+//    vsnprintf(buf, 512, fmt, ap);
+//    va_end(ap);
+//    if (this->is_context_set())
+//        this->driver().CERROR(this, this->parseLocation, std::string(buf));
+//    else {
+//        TxDriver::emit_comp_error(this->parseLocation, std::string(buf));
+//    }
+//}
+//void TxNode::cwarning(char const *fmt, ...) const {
+//    va_list ap;
+//    va_start(ap, fmt);
+//    char buf[512];
+//    vsnprintf(buf, 512, fmt, ap);
+//    va_end(ap);
+//    if (this->is_context_set())
+//        this->driver().cwarning(this->parseLocation, std::string(buf));
+//    else {
+//        TxDriver::emit_comp_warning(this->parseLocation, std::string(buf));
+//    }
+//}
 
 
 /*
@@ -89,7 +89,7 @@ TxDeclarationNode* TxFieldDefNode::declare_stack_constructor(LexicalContext& lex
         return constrDecl;
     }
     else
-        this->cerror("Can't declare constructor outside of type declaration");
+        CERROR(this, "Can't declare constructor outside of type declaration");
     return nullptr;
 }
 */
@@ -112,11 +112,11 @@ void TxFieldDeclNode::symbol_declaration_pass(LexicalContext& lexContext) {
     }
     else if (dynamic_cast<TxModule*>(lexContext.scope())) {  // if in global scope
         if (this->declFlags & TXD_STATIC)
-            cerror("'static' is invalid modifier for module scope field %s", this->field->get_field_name().c_str());
+            CERROR(this, "'static' is invalid modifier for module scope field " << this->field->get_field_name());
         if (this->declFlags & TXD_FINAL)
-            cerror("'final' is invalid modifier for module scope field %s", this->field->get_field_name().c_str());
+            CERROR(this, "'final' is invalid modifier for module scope field " << this->field->get_field_name());
         if (this->declFlags & TXD_OVERRIDE)
-            cerror("'override' is invalid modifier for module scope field %s", this->field->get_field_name().c_str());
+            CERROR(this, "'override' is invalid modifier for module scope field " << this->field->get_field_name());
         storage = TXS_GLOBAL;
     }
     else {
@@ -158,11 +158,11 @@ static TxExpressionNode* inner_validate_wrap_convert(ResolutionContext& resCtx, 
         if (refTargetType && originalType->is_a(*refTargetType)) {
             if (refTargetType->is_modifiable()) {
                 if (!originalType->is_modifiable())
-                    originalExpr->cerror("Cannot convert reference with non-mod-target to one with mod target: %s -> %s",
-                                 originalType->to_string().c_str(), requiredType->to_string().c_str());
+                    CERROR(originalExpr, "Cannot convert reference with non-mod-target to one with mod target: "
+                           << originalType << " -> " << requiredType);
                 else
-                    originalExpr->cerror("Cannot implicitly convert to reference with modifiable target: %s -> %s",
-                                 originalType->to_string().c_str(), requiredType->to_string().c_str());
+                    CERROR(originalExpr, "Cannot implicitly convert to reference with modifiable target: "
+                            << originalType << " -> " << requiredType);
                 return originalExpr;
             }
             else {
@@ -173,8 +173,7 @@ static TxExpressionNode* inner_validate_wrap_convert(ResolutionContext& resCtx, 
             }
         }
     }
-    originalExpr->cerror("Can't auto-convert value\n\tFrom: %80s\n\tTo:   %80s",
-                         originalType->to_string().c_str(), requiredType->to_string().c_str());
+    CERROR(originalExpr, "Can't auto-convert value\n\tFrom: " << originalType << "\n\tTo:   " << requiredType);
     return originalExpr;
 }
 
@@ -191,7 +190,7 @@ TxExpressionNode* validate_wrap_convert(ResolutionContext& resCtx, TxExpressionN
 TxExpressionNode* validate_wrap_assignment(ResolutionContext& resCtx, TxExpressionNode* rValueExpr, const TxType* requiredType) {
     if (! requiredType->is_concrete())
         // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
-        rValueExpr->cerror("Assignee is not a concrete type (size potentially unknown): %s", requiredType->to_string().c_str());
+        CERROR(rValueExpr, "Assignee is not a concrete type (size potentially unknown): " << requiredType);
     // if assignee is a reference:
     // TODO: check dataspace rules
     return validate_wrap_convert(resCtx, rValueExpr, requiredType);
@@ -249,7 +248,7 @@ void TxTypeExpressionNode::symbol_declaration_pass(LexicalContext& defContext, L
         this->LOGGER().debug("%s: Defining type %-16s: %s", this->parse_loc_string().c_str(), designatedTypeName.c_str(),
                              declaration->to_string().c_str());
         if (! declaration)
-            cerror("Failed to declare type %s", designatedTypeName.c_str());
+            CERROR(this, "Failed to declare type " << designatedTypeName);
         else
             this->set_entity(declaration);
     }
@@ -294,7 +293,7 @@ void TxPredefinedTypeNode::symbol_declaration_pass(LexicalContext& defContext, L
         if (auto identifiedTypeDecl = lookup_type(lexContext.scope(), this->identNode->ident)) {
             if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
                 if (typeParamDecls && !typeParamDecls->empty()) {
-                    cerror("Type parameters can't be declared on top of generic type parameter %s", this->identNode->ident.to_string().c_str());
+                    CERROR(this, "Type parameters can't be declared on top of generic type parameter " << this->identNode->ident);
                     /* This might be desirable in future (or maybe not). E.g:
                        type Subtype<A derives Array> {
                           A<Int,5> field
@@ -310,7 +309,7 @@ void TxPredefinedTypeNode::symbol_declaration_pass(LexicalContext& defContext, L
                     this->set_entity(identifiedTypeDecl);  // Or should this be the alias entity?
                 }
                 else
-                    cerror("Failed to declare alias %s", typeName.c_str());
+                    CERROR(this, "Failed to declare alias " << typeName.c_str());
                 LexicalContext typeCtx(declaredAlias ? declaredAlias : lexContext.scope());
                 this->symbol_declaration_pass_descendants(defContext, typeCtx, declFlags);
                 return;
@@ -341,14 +340,14 @@ const TxType* TxPredefinedTypeNode::define_identified_type(ResolutionContext& re
                 auto type = this->types().get_type_specialization(declEnt, TxTypeSpecialization(identifiedType),
                                                                   false, this->declTypeParams, &errorMsg);
                 if (! type)
-                    cerror("Failed to create 'empty' type specialization: %s", errorMsg.c_str());
+                    CERROR(this, "Failed to create 'empty' type specialization: " << errorMsg);
                 return type;
             }
         }
         else {
             if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
                 // Should not happen unless source refers specifically to an unbound type parameter
-                cwarning("'%s' refers to unbound generic type parameter %s", this->identNode->ident.to_string().c_str(), identifiedTypeDecl->to_string().c_str());
+                CWARNING(this, "'" << this->identNode->ident << "' refers to unbound generic type parameter " << identifiedTypeDecl);
                 // (But if legal use case exists, how let this be an alias entity for the generic type parameter?)
                 //LOGGER().error("%s: Can't declare type '%s' as alias for GENPARAM %s since no entity declared for this type node",
                 //               this->parse_loc_string().c_str(), this->identNode->ident.to_string().c_str(), identifiedEntity->to_string().c_str());
@@ -363,11 +362,11 @@ const TxType* TxPredefinedTypeNode::define_generic_specialization_type(Resolutio
     auto baseTypeDecl = lookup_type(this->context().scope(), this->identNode->ident);
     const TxType* baseType = baseTypeDecl ? baseTypeDecl->get_type_definer()->resolve_type(resCtx) : nullptr;
     if (! baseType) {
-        cerror("Unknown type: %s (from %s)", this->identNode->ident.to_string().c_str(), this->context().scope()->to_string().c_str());
+        CERROR(this, "Unknown type: " << this->identNode->ident << " (from " << this->context().scope() << ")");
         return nullptr;
     }
     if (baseType->type_params().size() < this->typeArgs->size()) {
-        cerror("Too many generic type arguments specified for type %s", identNode->ident.to_string().c_str());
+        CERROR(this, "Too many generic type arguments specified for type " << identNode->ident);
         return nullptr;
     }
     std::vector<TxGenericBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
@@ -378,7 +377,7 @@ const TxType* TxPredefinedTypeNode::define_generic_specialization_type(Resolutio
     std::string errorMsg;
     auto type = this->types().get_type_specialization(this->get_declaration(), specialization, false, this->declTypeParams, &errorMsg);
     if (! type)
-        cerror("Failed to specialize type: %s", errorMsg.c_str());
+        CERROR(this, "Failed to specialize type: " << errorMsg);
     return type;
 }
 
@@ -506,11 +505,11 @@ TxEntityDeclaration* TxFieldValueNode::resolve_decl(ResolutionContext& resCtx) {
                 // resolve this symbol to its type
                 return entitySymbol->get_type_decl();
             }
-            this->cerror("Failed to resolve entity symbol to proper field: %s", entitySymbol->to_string().c_str());
+            CERROR(this, "Failed to resolve entity symbol to proper field: " << entitySymbol->to_string().c_str());
         }
     }
     else
-        this->cerror("Unknown symbol: '%s'", this->get_full_identifier().to_string().c_str());
+        CERROR(this, "Unknown symbol: '" << this->get_full_identifier() << "'");
     return nullptr;
 }
 
@@ -568,7 +567,7 @@ const TxType* TxConstructorCalleeExprNode::define_type(ResolutionContext& resCtx
         else if (this->appliedFuncArgTypes->size() == 1) {
             // TODO: support default assignment constructor
         }
-        cerror("No matching constructor for type %s", allocType->to_string().c_str());
+        CERROR(this, "No matching constructor for type " << allocType);
     }
     return nullptr;
 }
@@ -587,7 +586,7 @@ const TxType* TxFunctionCallNode::define_type(ResolutionContext& resCtx) {
             auto identifier = fieldValueNode->get_full_identifier();
             if (identifier == "self" || identifier == "super") {
                 if (! this->context().is_constructor())
-                    this->cerror("self() / super() constructor may only be invoked from within the type's other constructors");
+                    CERROR(this, "self() / super() constructor may only be invoked from within the type's other constructors");
 
                 auto objectDeref = new TxReferenceDerefNode(this->callee->parseLocation, this->callee);
                 auto constructorCallee = new TxConstructorCalleeExprNode(this->callee->parseLocation, objectDeref);
@@ -605,7 +604,7 @@ const TxType* TxFunctionCallNode::define_type(ResolutionContext& resCtx) {
         }
 
         if (! funcType) {
-            cerror("Callee of function call expression is not of function type: %s", calleeType->to_string().c_str());
+            CERROR(this, "Callee of function call expression is not of function type: " << calleeType);
             return nullptr;
         }
     }
@@ -618,7 +617,7 @@ const TxType* TxFunctionCallNode::define_type(ResolutionContext& resCtx) {
 
     // verify matching function signature:
     if (funcType->argumentTypes.size() != this->argsExprList->size()) {
-        cerror("Callee of function call expression has mismatching argument count: %s", calleeType->to_string().c_str());
+        CERROR(this, "Callee of function call expression has mismatching argument count: " << calleeType);
         return nullptr;
     }
     // (regular function call, not inlined expression)

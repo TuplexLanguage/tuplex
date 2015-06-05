@@ -1,7 +1,7 @@
-#include "txassert.hpp"
-
 #include "tx_lang_defs.hpp"
 #include "scope.hpp"
+
+#include "assert.hpp"
 #include "package.hpp"
 #include "entity.hpp"
 #include "declaration.hpp"
@@ -24,12 +24,12 @@ TxScopeSymbol::TxScopeSymbol(TxScopeSymbol* parent, const std::string& name)
 }
 
 
-TxScopeSymbol* TxScopeSymbol::get_root_scope() {
-    return const_cast<TxScopeSymbol*>(static_cast<const TxScopeSymbol *>(this)->get_root_scope());
+TxPackage* TxScopeSymbol::get_root_scope() {
+    return const_cast<TxPackage*>(static_cast<const TxScopeSymbol *>(this)->get_root_scope());
 }
-const TxScopeSymbol* TxScopeSymbol::get_root_scope() const {
+const TxPackage* TxScopeSymbol::get_root_scope() const {
     if (! this->has_outer())
-        return dynamic_cast<const TxScopeSymbol*>(this);
+        return static_cast<const TxPackage*>(this);
     return this->get_outer()->get_root_scope();
 }
 
@@ -159,7 +159,7 @@ TxDistinctEntity* TxSymbolScope::overload_entity(TxDistinctEntity* entity, TxSym
 }
 */
 
-TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName) {
+TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName, TxEntityDefiner* definer) {
     // TODO: guard against using reserved keywords (including "tx")
 
 // TODO: disabled to prevent error conditions when symbol pass is only partially completed;
@@ -178,18 +178,14 @@ TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName) {
     if (auto symbol = this->get_symbol(plainName)) {
         entitySymbol = dynamic_cast<TxEntitySymbol*>(symbol);
         if (! entitySymbol) {
-            this->LOGGER().error("Failed to declare entity symbol, can't overload entities and non-entities under same symbol %s", symbol->to_string().c_str());
+            CERROR(definer, "Failed to declare entity symbol, can't overload entities and non-entities under same symbol: " << symbol);
             return nullptr;
         }
     }
     else {
         entitySymbol = new TxEntitySymbol(this, plainName);
-        auto success = this->declare_symbol(entitySymbol);
-        if (! success) {
-            this->LOGGER().error("Failed to declare symbol %s", entitySymbol->to_string().c_str());
-            return nullptr;
-        }
-        this->LOGGER().trace("    Defined    %-32s %s", entitySymbol->get_full_name().to_string().c_str(), entitySymbol->to_string().c_str());
+        this->declare_symbol(entitySymbol);
+        this->LOGGER().trace("    Declared   %-32s %s", entitySymbol->get_full_name().to_string().c_str(), entitySymbol->to_string().c_str());
 
         // register possible main() function:
         if (plainName == "main") {
@@ -204,7 +200,7 @@ TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName) {
 
 TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxTypeDefiner* typeDefiner,
                                                TxDeclarationFlags declFlags) {
-    if (TxEntitySymbol* entitySymbol = this->declare_entity(plainName)) {
+    if (TxEntitySymbol* entitySymbol = this->declare_entity(plainName, typeDefiner)) {
         auto typeDeclaration = new TxTypeDeclaration(entitySymbol, declFlags, typeDefiner);
         if (entitySymbol->add_type(typeDeclaration))
             return typeDeclaration;
@@ -215,7 +211,7 @@ TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxT
 TxFieldDeclaration* TxScopeSymbol::declare_field(const std::string& plainName, TxFieldDefiner* fieldDefiner,
                                                  TxDeclarationFlags declFlags, TxFieldStorage storage,
                                                  const TxIdentifier& dataspace) {
-    if (TxEntitySymbol* entitySymbol = this->declare_entity(plainName)) {
+    if (TxEntitySymbol* entitySymbol = this->declare_entity(plainName, fieldDefiner)) {
         auto fieldDeclaration = new TxFieldDeclaration(entitySymbol, declFlags, fieldDefiner, storage, dataspace);
         if (entitySymbol->add_field(fieldDeclaration))
             return fieldDeclaration;
@@ -225,16 +221,12 @@ TxFieldDeclaration* TxScopeSymbol::declare_field(const std::string& plainName, T
 
 TxAliasSymbol* TxScopeSymbol::declare_alias(const std::string& plainName, TxDeclarationFlags declFlags, TxEntityDeclaration* aliasedDeclaration) {
     if (auto prev_symbol = this->get_symbol(plainName)) {
-        this->LOGGER().error("Failed to declare alias symbol, can't overload alias with other declarations under same symbol %s", prev_symbol->to_string().c_str());
+        CERROR(&this->get_root_scope()->driver(), "Failed to declare alias symbol, can't overload alias with other declarations under same symbol " << prev_symbol);
         return nullptr;
     }
     auto symbol = new TxAliasSymbol(this, plainName, declFlags, aliasedDeclaration);
-    auto success = this->declare_symbol(symbol);
-    if (! success) {
-        this->LOGGER().error("Failed to declare symbol %s", symbol->to_string().c_str());
-        return nullptr;
-    }
-    this->LOGGER().trace("    Defined    %-32s %s", symbol->get_full_name().to_string().c_str(), symbol->to_string().c_str());
+    this->declare_symbol(symbol);
+    this->LOGGER().trace("    Declared   %-32s %s", symbol->get_full_name().to_string().c_str(), symbol->to_string().c_str());
     return symbol;
 }
 
@@ -316,6 +308,20 @@ TxEntityDeclaration* TxEntitySymbol::get_distinct_decl() const {
         return this->get_first_field_decl();
 }
 
+bool TxEntitySymbol::add_type(TxTypeDeclaration* typeDeclaration) {
+    if (this->typeDeclaration) {
+        CERROR(typeDeclaration->get_type_definer(), "Can't overload several type declarations under the same name: " << this->get_full_name());
+        return false;
+    }
+    this->typeDeclaration = typeDeclaration;
+    return true;
+}
+
+bool TxEntitySymbol::add_field(TxFieldDeclaration* fieldDeclaration) {
+    this->fieldDeclarations.push_back(fieldDeclaration);
+    return true;
+}
+
 TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
     // overrides in order to handle instance members
     //std::cout << "In '" << this->get_full_name() << "': get_member_symbol(" << name << ")" << std::endl;
@@ -347,8 +353,8 @@ bool TxEntitySymbol::validate_symbol() const {
         // check that only fields of function type are overloaded
         auto type = (*fieldDeclI)->get_field_definer()->get_type();
         if (this->field_count() > 1 && ! dynamic_cast<const TxFunctionType*>(type)) {
-            this->LOGGER().error("Illegal overload of symbol %s with type %s", (*fieldDeclI)->to_string().c_str(),
-                                 (type ? type->to_string().c_str() : "NULL"));
+            CERROR((*fieldDeclI)->get_definer(), "Illegal overload of symbol " << (*fieldDeclI) << " with type "
+                   << (type ? type->to_string().c_str() : "NULL"));
             valid = false;
         }
         // TODO: check that no two signatures are exactly equal

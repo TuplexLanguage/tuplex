@@ -126,7 +126,7 @@ protected:
                 return this->types().get_builtin_type(ANY);
             return refType->target_type();
         }
-        cerror("Operand is not a reference and can't be dereferenced: %s", opType->to_string().c_str());
+        CERROR(this, "Operand is not a reference and can't be dereferenced: " << opType);
         return nullptr;
     }
 
@@ -154,7 +154,7 @@ public:
     virtual void semantic_pass() {
         reference->semantic_pass();
         if (! dynamic_cast<const TxReferenceType*>(this->reference->get_type()))
-            cerror("Can't de-reference non-reference expression.");
+            CERROR(this, "Can't de-reference non-reference expression.");
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -174,7 +174,7 @@ protected:
                 return this->types().get_builtin_type(ANY);
         }
         if (opType)
-            cerror("Operand is not an array and can't be subscripted: %s", opType->to_string().c_str());
+            CERROR(this, "Operand is not an array and can't be subscripted: " << opType);
         return nullptr;
     }
 
@@ -252,7 +252,7 @@ public:
         else if (this->target->is_statically_constant()) {
         }
         else
-            cerror("Can't construct reference to non-addressable expression / rvalue.");
+            CERROR(this, "Can't construct reference to non-addressable expression / rvalue.");
         //if (this->get_target_entity()->get_storage() == TXS_NOSTORAGE)
         //    parser_error(this->parseLocation, "Can't construct reference to non-addressable expression.");
     }
@@ -306,33 +306,33 @@ protected:
             }
             if (arithResultType) {
                 if (op_class == TXOC_BOOLEAN)
-                    this->cerror("Can't perform boolean operation on operands of scalar type: %s", ltype->to_string().c_str());
+                    CERROR(this, "Can't perform boolean operation on operands of scalar type: " << ltype);
             }
             else if (rtype)
-                cerror("Mismatching scalar operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
+                CERROR(this, "Mismatching scalar operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
             else
                 return nullptr;
         }
         else if (dynamic_cast<const TxBoolType*>(ltype)) {
             if (dynamic_cast<const TxBoolType*>(rtype)) {
                 if (op_class == TXOC_ARITHMETIC)
-                    this->cerror("Can't perform arithmetic operation on operands of boolean type: %s", to_cstring(this->op));
+                    CERROR(this, "Can't perform arithmetic operation on operands of boolean type: " << this->op);
             }
             else
-                cerror("Mismatching operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
+                CERROR(this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
         }
         else if (dynamic_cast<const TxReferenceType*>(ltype)) {
             if (dynamic_cast<const TxReferenceType*>(rtype)) {
                 if (op_class == TXOC_EQUALITY)
                     this->reference_operands = true;
                 else
-                    cerror("Invalid operator for reference operands: %s", to_cstring(this->op));
+                    CERROR(this, "Invalid operator for reference operands: " << this->op);
             }
             else
-                cerror("Mismatching operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
+                CERROR(this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
         }
         else if (ltype && rtype) {
-            cerror("Unsupported operand types for binary operator %s: %s, %s", to_cstring(this->op), ltype->to_string().c_str(), rtype->to_string().c_str());
+            CERROR(this, "Unsupported operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
         }
         else
             return nullptr;
@@ -387,7 +387,7 @@ protected:
         // TODO: promote unsigned integers upon negation
         auto type = this->operand->resolve_type(resCtx);
         if (! dynamic_cast<const TxScalarType*>(type))
-            cerror("Operand of unary '-' is not of scalar type: %s", (type ? type->to_string().c_str() : "NULL"));
+            CERROR(this, "Operand of unary '-' is not of scalar type: " << (type ? type->to_string().c_str() : "NULL"));
         return type;
     }
 
@@ -440,7 +440,7 @@ public:
         // assume arithmetic, scalar negation:
         if (! dynamic_cast<const TxBoolType*>(type))
             // should we support any auto-conversion to Bool?
-            cerror("Operand of unary '!' is not of Bool type: %s", (type ? type->to_string().c_str() : "NULL"));
+            CERROR(this, "Operand of unary '!' is not of Bool type: " << (type ? type->to_string().c_str() : "NULL"));
     }
 
     virtual bool is_statically_constant() const override {
@@ -739,7 +739,7 @@ public:
 
         auto fieldDecl = field->get_field_declaration();
         if (fieldDecl && fieldDecl->get_storage() == TXS_NOSTORAGE)
-            cerror("Assignee %s is not an L-value / has no storage.", field->memberName.c_str());
+            CERROR(this, "Assignee '" << field->memberName << "' is not an L-value / has no storage.");
     }
 
     virtual void semantic_pass() override {
@@ -759,7 +759,7 @@ protected:
                 return this->types().get_builtin_type(ANY);
             return refType->target_type();
         }
-        cerror("Operand is not a reference and can't be dereferenced: %s", opType->to_string().c_str());
+        CERROR(this, "Operand is not a reference and can't be dereferenced: " << opType);
         return nullptr;
     }
 
@@ -781,7 +781,7 @@ public:
     virtual void semantic_pass() override {
         operand->semantic_pass();
         if (! dynamic_cast<const TxReferenceType*>(this->operand->get_type()))
-            cerror("Can't de-reference non-reference expression.");
+            CERROR(this, "Can't de-reference non-reference expression.");
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -800,7 +800,7 @@ protected:
                 return this->types().get_builtin_type(ANY);  // (not modifiable)
         }
         // operand type is unknown / not an array and can't be subscripted
-        cerror("Can't subscript non-array expression.");
+        CERROR(this, "Can't subscript non-array expression.");
         return nullptr;
     }
 

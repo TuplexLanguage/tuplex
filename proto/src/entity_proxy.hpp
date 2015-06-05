@@ -1,5 +1,7 @@
 #pragma once
 
+#include "tx_error.hpp"
+
 
 class TxExpressionNode;
 class TxType;
@@ -24,12 +26,12 @@ public:
 };
 
 
-class TxEntityDefiner {
+class TxEntityDefiner : public virtual TxParseOrigin {
 public:
     virtual ~TxEntityDefiner() = default;
 };
 
-class TxTypeDefiner : public TxTypeProxy, public TxEntityDefiner {
+class TxTypeDefiner : public TxEntityDefiner, public TxTypeProxy {
 public:
     virtual const TxType* resolve_type(ResolutionContext& resCtx) = 0;
 

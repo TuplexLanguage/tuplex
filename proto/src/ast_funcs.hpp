@@ -25,7 +25,7 @@ public:
 
     void set_instance_method(bool flag) {
         if (flag && !this->isMethodSyntax)
-            this->cerror("Function definition was expected to have instance method syntax");
+            CERROR(this, "Function definition was expected to have instance method syntax");
         this->instanceMethod = flag;
     }
 
@@ -61,7 +61,7 @@ public:
                 }
             }
             else
-                this->cerror("The scope of an instance method must be a type scope");
+                CERROR(this, "The scope of an instance method must be a type scope");
         }
         // FUTURE: define implicit closure object when in code block
 
@@ -81,7 +81,7 @@ public:
         if (this->funcTypeNode->returnField) {
             // verify that suite ends with return statement
             if (this->suite->suite->empty() || ! dynamic_cast<TxReturnStmtNode*>(this->suite->suite->back()))
-                this->cerror("Function has return value, but does not end with a return statement.");
+                CERROR(this, "Function has return value, but does not end with a return statement.");
         }
         // TODO: if in global scope, don't permit 'modifying'
     }

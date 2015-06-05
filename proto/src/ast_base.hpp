@@ -3,8 +3,9 @@
 #include <typeinfo>
 #include <vector>
 
-#include "txassert.hpp"
+#include "assert.hpp"
 #include "logging.hpp"
+#include "tx_error.hpp"
 
 #include "tx_operations.hpp"
 #include "identifier.hpp"
@@ -45,7 +46,7 @@ public:
 
 
 
-class TxNode : public Printable {
+class TxNode : public virtual TxParseOrigin, public Printable {
 private:
     LexicalContext lexContext;
 
@@ -64,9 +65,6 @@ protected:
 //    }
     inline TypeRegistry& types() const {
         return const_cast<TxPackage*>(this->context().package())->types();  // hackish... review type creation approach
-    }
-    inline TxDriver& driver() const {
-        return this->context().package()->driver();
     }
 
 public:
@@ -94,14 +92,23 @@ public:
         return const_cast<LexicalContext&>(static_cast<const TxNode *>(this)->context());
     }
 
+    virtual TxDriver* get_driver() const override {
+        return ( this->is_context_set() ? &this->context().package()->driver() : nullptr );
+    }
+
+    virtual const yy::location& get_parse_location() const override {
+        return this->parseLocation;
+    }
+
+
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
 
     virtual std::string to_string() const;
 
     std::string parse_loc_string() const;
 
-    virtual void cerror(char const *fmt, ...) const;
-    virtual void cwarning(char const *fmt, ...) const;
+    //virtual void cerror(char const *fmt, ...) const;
+    //virtual void cwarning(char const *fmt, ...) const;
 
     inline Logger& LOGGER() const {
         // FUTURE: improve
@@ -148,7 +155,7 @@ public:
     virtual void symbol_declaration_pass(TxModule* module) {
         this->set_context(module);
         if (! identNode->ident.is_qualified())
-            cerror("can't import unqualified identifier '%s'", identNode->ident.to_string().c_str());
+            CERROR(this, "can't import unqualified identifier '" << identNode->ident << "'");
         module->register_import(identNode->ident);
     }
 
@@ -485,7 +492,7 @@ class TxFieldDefNode : public TxNode, public TxFieldDefiner {
 //                // declare implicit type entity for this field's type:
 //                TxTypeEntity* typeEntity = lexContext.scope()->declare_type(implTypeName, this->typeExpression, typeDeclFlags);
 //                if (!typeEntity)
-//                    cerror("Failed to declare implicit type %s for field %s", implTypeName.c_str(), this->fieldName.c_str());
+//                    CERROR(this, "Failed to declare implicit type %s for field %s", implTypeName.c_str(), this->fieldName.c_str());
 //            }
             this->initExpression->fieldDefNode = this;
             this->initExpression->symbol_declaration_pass(outerContext);
@@ -551,15 +558,15 @@ public:
                 this->initExpression = validate_wrap_convert(resCtx, this->initExpression, this->cachedType);
             if (this->cachedField && this->cachedField->is_statically_constant())
                 if (! this->initExpression->is_statically_constant())
-                    cerror("Non-constant initializer for constant global/static field.");
+                    CERROR(this, "Non-constant initializer for constant global/static field.");
         }
 
         if (auto type = this->get_type()) {
             if (! type->is_concrete())
-                cerror("Field type is not concrete (size potentially unknown): %s", type->to_string().c_str());
+                CERROR(this, "Field type is not concrete (size potentially unknown): " << type);
             if (this->get_field_name() == "$init") {
                 if (this->get_declaration()->get_storage() != TXS_INSTANCEMETHOD)
-                    this->cerror("Illegal declaration name for non-constructor member: %s", this->fieldName.c_str());
+                    CERROR(this, "Illegal declaration name for non-constructor member: " << this->fieldName);
                 // TODO: check that constructor function type has void return value
             }
         }
@@ -662,12 +669,12 @@ public:
             auto storage = this->field->get_declaration()->get_storage();
             if (type->is_modifiable()) {
                 if (storage == TXS_GLOBAL)
-                    cerror("Global fields may not be modifiable: %s", field->get_field_name().c_str());
+                    CERROR(this, "Global fields may not be modifiable: " << field->get_field_name().c_str());
             }
             else if (! this->field->initExpression) {
                 if (storage == TXS_GLOBAL || storage == TXS_STATIC)
                     if (! (this->field->get_declaration()->get_decl_flags() & TXD_GENPARAM))
-                        cerror("Non-modifiable field must have an initializer");
+                        CERROR(this, "Non-modifiable field must have an initializer");
                 // FUTURE: ensure TXS_INSTANCE fields are initialized either here or in every constructor
                 // FUTURE: check that TXS_STACK fields are initialized before first use
             }

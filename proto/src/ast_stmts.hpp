@@ -106,11 +106,10 @@ public:
             if (returnDecl)
                 this->expr = validate_wrap_convert(resCtx, this->expr, returnDecl->get_field_definer()->resolve_field(resCtx)->get_type());
             else
-                cerror("Return statement has value expression although function has no return type");
+                CERROR(this, "Return statement has value expression although function has no return type");
         }
         else if (returnDecl)
-            cerror("Return statement has no value expression although function returns %s",
-                   returnDecl->to_string().c_str());
+            CERROR(this, "Return statement has no value expression although function returns " << returnDecl);
     }
 
     virtual void semantic_pass() override {
@@ -168,7 +167,7 @@ public:
         TxStatementNode* prev_stmt = nullptr;
         for (auto stmt : *this->suite) {
             if (prev_stmt && dynamic_cast<TxTerminalStmtNode*>(prev_stmt))
-                stmt->cerror("This statement is unreachable.");
+                CERROR(stmt, "This statement is unreachable.");
             stmt->semantic_pass();
             prev_stmt = stmt;
         }
@@ -278,7 +277,7 @@ public:
             return;  // (error message should have been emitted by lvalue node)
         if (! ltype->is_modifiable()) {
             if (! this->context().is_constructor())  // TODO: only members of constructed object should skip error
-                cerror("Assignee is not modifiable: %s", ltype->to_string().c_str());
+                CERROR(this, "Assignee is not modifiable: " << ltype);
             // Note: If the object as a whole is modifiable, it can be assigned to.
             // If it has any "non-modifiable" members, those will still get overwritten.
             // We could add custom check to prevent that scenario for Arrays, but then

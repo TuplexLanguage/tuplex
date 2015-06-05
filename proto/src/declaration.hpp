@@ -28,6 +28,8 @@ public:
 
     TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
 
+    virtual TxEntityDefiner* get_definer() const = 0;
+
     virtual bool validate() const = 0;
 
     /** Returns a globally unique full name for this declaration.
@@ -59,6 +61,8 @@ public:
         ASSERT((declFlags | LEGAL_FIELD_DECL_FLAGS) == LEGAL_FIELD_DECL_FLAGS, "Illegal field declFlags: " << declFlags);
     }
 
+    virtual TxEntityDefiner* get_definer() const override { return this->fieldDefiner; }
+
     TxFieldDefiner* get_field_definer() const { return this->fieldDefiner; }
 
     TxFieldStorage get_storage() const { return this->storage; }
@@ -81,6 +85,8 @@ public:
     }
 
     TxTypeDefiner* get_type_definer() const { return this->typeDefiner; }
+
+    virtual TxEntityDefiner* get_definer() const override { return this->typeDefiner; }
 
     virtual bool validate() const override;
 
