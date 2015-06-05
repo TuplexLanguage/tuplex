@@ -461,6 +461,9 @@ void TxType::prepare_type() {
                     else if (this->instanceMethods.has_field(field->get_unique_name())) {
                         if (! (field->get_decl_flags() & TXD_OVERRIDE))
                             LOGGER().warning("Field overrides but isn't declared 'override': %s", field->to_string().c_str());
+                        if (! (field->get_type()->is_a(*this->instanceMethods.get_field(field->get_unique_name())->get_type())))
+                            LOGGER().error("Overriding member's type does not derive from overridden member's type: %s", field->get_type()->to_string().c_str());
+                        this->instanceMethods.override_field(field->get_unique_name(), field);
                     }
                     else {
                         if (field->get_decl_flags() & TXD_OVERRIDE)
@@ -476,6 +479,9 @@ void TxType::prepare_type() {
                     else if (this->virtualFields.has_field(field->get_unique_name())) {
                         if (! (field->get_decl_flags() & TXD_OVERRIDE))
                             LOGGER().warning("Field overrides but isn't declared 'override': %s", field->to_string().c_str());
+                        if (! (field->get_type()->is_a(*this->virtualFields.get_field(field->get_unique_name())->get_type())))
+                            LOGGER().error("Overriding member's type does not derive from overridden member's type: %s", field->get_type()->to_string().c_str());
+                        this->virtualFields.override_field(field->get_unique_name(), field);
                     }
                     else {
                         if (field->get_decl_flags() & TXD_OVERRIDE)

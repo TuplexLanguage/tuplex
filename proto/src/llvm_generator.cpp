@@ -401,16 +401,16 @@ void LlvmGenerationContext::generate_runtime_data() {
                 auto virtualFields   = (*txType)->get_virtual_fields();
                 initMembers.resize(instanceMethods.get_field_count() + virtualFields.get_field_count());
                 for (auto & field : instanceMethods.fieldMap) {
-                    //std::cout << "inserting instance method: " << field.first << " at ix " << field.second << std::endl;
                     auto actualFieldEnt = instanceMethods.fields.at(field.second);
+                    //std::cout << "inserting instance method: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                     auto funcName = actualFieldEnt->get_declaration()->get_unique_full_name() + "$func";
                     auto llvmField = cast<Constant>(this->lookup_llvm_value(funcName));
                     auto ix = field.second;
                     initMembers[ix] = llvmField;
                 }
                 for (auto & field : virtualFields.fieldMap) {
-                    //std::cout << "inserting virtual field: " << field.first << " at ix " << field.second << std::endl;
                     auto actualFieldEnt = virtualFields.fields.at(field.second);
+                    //std::cout << "inserting virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                     auto fieldName = actualFieldEnt->get_declaration()->get_unique_full_name();
                     auto llvmField = cast<Constant>(this->lookup_llvm_value(fieldName));
                     auto ix = field.second + instanceMethods.get_field_count();

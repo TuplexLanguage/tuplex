@@ -89,9 +89,19 @@ public:
     /** the fields */
     std::vector<const TxField*> fields;
 
+    /** Adds a field to this tuple. If the field name already exists, it will be shadowed by the new field. */
     void add_field(const std::string& name, const TxField* field) {
+        //std::cout << "Adding field " << name << " at index " << this->fields.size() << ": " << field << std::endl;
         this->fieldMap[name] = this->fields.size();  // (inserts new or overwrites existing entry)
         this->fields.push_back(field);
+    }
+
+    /** Overrides an existing field name of this tuple with a new field definition. */
+    void override_field(const std::string& name, const TxField* field) {
+        auto index = this->fieldMap.at(name);
+        //std::cout << "Overriding field " << name << " at index " << index << ": " << field << std::endl;
+        this->fieldMap[name] = index;  // (overwrites existing entry)
+        this->fields[index] = field;
     }
 
     inline bool has_field(const std::string& name) const { return this->fieldMap.count(name); }
