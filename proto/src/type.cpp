@@ -199,48 +199,19 @@ TxEntitySymbol* TxType::lookup_instance_member(TxScopeSymbol* vantageScope, cons
 }
 
 
-const TxType* TxType::resolve_param_type(ResolutionContext& resCtx, const std::string& paramName, bool nontransitiveModifiability) const {
-    const TxType* type = nullptr;
-    if (auto memberEnt = this->lookup_instance_member(paramName)) {
-        if (memberEnt->get_type_decl())
-            type = memberEnt->get_type_decl()->get_type_definer()->get_type();
+const TxGenericBinding* TxType::resolve_param_binding(const std::string& paramName) const {
+    // note: does not check for transitive modifiability
+    ASSERT(paramName.find_last_of('#') == std::string::npos, "Non-plain type parameter name provided: " << paramName);
+    if (this->has_type_param(paramName))
+        return nullptr;  // type parameter is unbound  // TODO: return constraint base type instead
+    else if (auto baseType = this->get_base_type()) {
+        if (this->baseTypeSpec.has_binding(paramName))
+            return &this->baseTypeSpec.get_binding(paramName);
+        return baseType->resolve_param_binding(paramName);
     }
-    if (! type) {
-        // TODO: resolve via symbol table?
-        //LOGGER().alert("Resolving type parameter '%s' of type %s", paramName.c_str(), this->to_string().c_str());
-        const TxGenericBinding* binding;
-        size_t pos = paramName.find_last_of('#');
-        if (pos != std::string::npos)
-            binding = this->resolve_param_binding(paramName.substr(pos+1));
-        else
-            binding = this->resolve_param_binding(paramName);
-        if (binding && binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
-            type = binding->type_definer().resolve_type(resCtx);
-            LOGGER().debug("Resolved type parameter '%s' of type that has no entity, to %s", paramName.c_str(), type->to_string().c_str());
-        }
-        else
-            LOGGER().warning("Failed to resolve type parameter '%s' of type that has no entity: %s", paramName.c_str(), this->to_string().c_str());
-    }
-
-    if (type) {
-        if (! this->is_modifiable() && ! nontransitiveModifiability)
-            // non-modifiability transitively applies to TYPE type parameters (NOTE: except for references)
-            return type->is_modifiable() ? type->get_base_type() : type;
-        else
-            return type;
-    }
-    return nullptr;  // no such type parameter name in type specialization hierarchy
+    else
+        return nullptr;  // no such type parameter name in type specialization hierarchy
 }
-
-const TxExpressionNode* TxType::resolve_param_value(ResolutionContext& resCtx, const std::string& paramName) const {
-    // TODO: resolve via symbol table
-    if (auto binding = this->resolve_param_binding(paramName)) {
-        if (binding->meta_type() == TxTypeParam::MetaType::TXB_VALUE)
-            return &binding->value_expr();
-    }
-    return nullptr;  // no such type parameter name in type specialization hierarchy
-}
-
 
 
 bool TxType::operator==(const TxType& other) const {
@@ -509,6 +480,8 @@ void TxType::self_string(std::stringstream& str, bool brief) const {
 
 
 
+/*=== ArrayType and ReferenceType implementation ===*/
+
 bool TxArrayType::is_statically_sized() const {
     return this->is_concrete() && this->element_type()->is_statically_sized()
            && this->length()->is_statically_constant();
@@ -563,6 +536,46 @@ bool TxReferenceType::innerAutoConvertsFrom(const TxType& otherType) const {
     else
         return false;
 }
+
+
+
+const TxExpressionNode* TxArrayType::length() const {
+    // TODO: resolve via symbol table
+    if (auto binding = this->resolve_param_binding("L")) {
+        if (binding->meta_type() == TxTypeParam::MetaType::TXB_VALUE) {
+            const TxExpressionNode* len = &binding->value_expr();
+            return len;
+        }
+    }
+    return nullptr;  // no such type parameter name in type specialization hierarchy
+}
+
+const TxType* TxArrayType::element_type() const {
+    const TxType* type = nullptr;
+    if (auto memberEnt = this->lookup_instance_member("tx#Array#E")) {
+        if (memberEnt->get_type_decl())
+            type = memberEnt->get_type_decl()->get_type_definer()->get_type();
+    }
+    if (! type) {
+        const TxGenericBinding* binding = this->resolve_param_binding("E");
+        if (binding && binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
+            ResolutionContext resCtx;
+            type = binding->type_definer().resolve_type(resCtx);
+        }
+    }
+
+    if (type) {
+        if (! this->is_modifiable()) {  // TODO: review, uncertain if this has effect
+            // non-modifiability transitively applies to TYPE type parameters (NOTE: except for references)
+            LOGGER().debug("transitive non-modifiability for array %s", this->to_string().c_str());
+            return type->is_modifiable() ? type->get_base_type() : type;
+        }
+        return type;
+    }
+    LOGGER().warning("NULL element type for array %s", this->to_string().c_str());
+    return nullptr;  // no such type parameter name in type specialization hierarchy
+}
+
 
 const TxType* TxReferenceType::target_type() const {
     // special resolution implementation for the tx#Ref#T member - this forces resolution of the reference target type

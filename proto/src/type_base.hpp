@@ -221,6 +221,9 @@ protected:
 
     friend class TypeRegistry;  // allows access for registry's type construction
 
+    /** For internal type implementation use; searches the type hierarchy's parameter bindings. */
+    const TxGenericBinding* resolve_param_binding(const std::string& paramName) const;
+
 public:
     virtual ~TxType() = default;
 
@@ -385,29 +388,6 @@ public:
     }
 
 
-    // TODO: rework this; merge with namespace lookup?
-protected:
-    const TxGenericBinding* resolve_param_binding(const std::string& paramName) const {
-        // FIXME: handle fully qualified parameter names (or remove these methods in favor of namespace lookup)
-        // note: does not check for transitive modifiability
-        if (this->has_type_param(paramName))
-            return nullptr;  // type parameter is unbound  // TODO: return constraint base type instead
-        else if (auto baseType = this->get_base_type()) {
-            if (this->baseTypeSpec.has_binding(paramName))
-                return &this->baseTypeSpec.get_binding(paramName);
-            return baseType->resolve_param_binding(paramName);
-        }
-        else
-            return nullptr;  // no such type parameter name in type specialization hierarchy
-    }
-
-    const TxType* resolve_param_type(ResolutionContext& resCtx, const std::string& paramName,
-                                     bool nontransitiveModifiability=false) const;
-
-    const TxExpressionNode* resolve_param_value(ResolutionContext& resCtx, const std::string& paramName) const;
-
-
-public:
     // FUTURE: checksum?
 
     // FUTURE: Should we remove the == != operator overloads in favor of more specifically named comparison methods?

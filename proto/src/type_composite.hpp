@@ -44,22 +44,10 @@ public:
 
 
     /** Returns nullptr if unbound. */
-    inline const TxType* element_type() const {
-        ResolutionContext resCtx;
-        const TxType* etype = this->resolve_param_type(resCtx, "tx#Array#E", true);
-        if (! etype)
-            Logger::get("PARSER").warning("NULL element type for array %s", this->to_string().c_str());
-        //ASSERT(etype, "NULL element type for array " << this);
-        return etype;
-    }
+    const TxType* element_type() const;
 
     /** Returns nullptr if unbound. */
-    inline const TxExpressionNode* length() const {
-        ResolutionContext resCtx;
-        //const TxConstantProxy* len = this->resolve_param_value("tx#Array#L");
-        const TxExpressionNode* len = this->resolve_param_value(resCtx, "L");
-        return len;
-    }
+    const TxExpressionNode* length() const;
 
 
     virtual bool is_abstract() const { return false; }
