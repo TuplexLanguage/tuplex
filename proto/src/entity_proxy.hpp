@@ -21,17 +21,19 @@ public:
 
     /** Gets the TxType instance this type proxy represents.
      * The contract is that it shall return the same instance every invocation.
+     * If called before symbol resolution has completed the result is undefined
+     * (may assert or return null).
      */
     virtual const TxType* get_type() const = 0;
 };
 
 
-class TxEntityDefiner : public virtual TxParseOrigin {
+class TxEntityDefiner : public TxTypeProxy, public virtual TxParseOrigin {
 public:
     virtual ~TxEntityDefiner() = default;
 };
 
-class TxTypeDefiner : public TxEntityDefiner, public TxTypeProxy {
+class TxTypeDefiner : public TxEntityDefiner {
 public:
     virtual const TxType* resolve_type(ResolutionContext& resCtx) = 0;
 

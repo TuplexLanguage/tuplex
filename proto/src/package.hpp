@@ -49,10 +49,10 @@ public:
     }
 
 
-    virtual std::string symbol_class_string() const override {
-        return "<package>";
+    virtual std::string description_string() const override {
+        return "package";
     }
     virtual std::string to_string() const override {
-        return "(namespace root)";
+        return "package";
     }
 };

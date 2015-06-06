@@ -249,10 +249,12 @@ public:
     inline bool operator!=(const TxScopeSymbol& other) const  { return ! this->operator ==(other); }
 
 
-    virtual inline std::string symbol_class_string() const { return "<scope>"; }
+    virtual std::string declaration_string() const { return ""; }
+
+    virtual std::string description_string() const { return ""; };
 
     virtual std::string to_string() const {
-        return this->symbol_class_string() + " " + this->get_full_name().to_string();
+        return this->get_full_name().to_string();
     }
 };
 
@@ -283,20 +285,7 @@ public:
 
     TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) override;
 
-//    virtual const TxType* resolve_symbol_type(ResolutionContext& resCtx) override {
-//        return this->aliasedEntity->resolve_symbol_type(resCtx);
-//    }
-//
-//    virtual const TxType* get_type() const override {
-//        return this->aliasedEntity->get_type();
-//    }
-
-    virtual std::string symbol_class_string() const override {
-        return "<alias>";
-    }
-//    virtual std::string to_string() const override {
-//        return "<alias>          " + this->get_full_name().to_string() + " = TODO"; // + this->get_aliased_name().to_string();
-//    }
+    virtual std::string description_string() const override;
 };
 
 
@@ -370,7 +359,13 @@ public:
 
     virtual void dump_symbols() const override;
 
-    virtual std::string symbol_class_string() const override;
+    virtual std::string declaration_string() const override;
+
+    virtual std::string description_string() const override;
+
+    virtual std::string to_string() const override {
+        return this->declaration_string() + " " + this->get_full_name().to_string();
+    }
 };
 
 

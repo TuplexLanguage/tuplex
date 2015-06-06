@@ -303,7 +303,7 @@ void TxPredefinedTypeNode::symbol_declaration_pass(LexicalContext& defContext, L
                 this->set_context(lexContext);
                 auto declaredAlias = lexContext.scope()->declare_alias(typeName, TXD_PUBLIC | TXD_IMPLICIT, identifiedTypeDecl);
                 if (declaredAlias) {
-                    this->LOGGER().alert("%s: Declared '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
+                    this->LOGGER().debug("%s: Declared '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
                                          declaredAlias->get_full_name().to_string().c_str(),
                                          identifiedTypeDecl->to_string().c_str());
                     this->set_entity(identifiedTypeDecl);  // Or should this be the alias entity?
@@ -330,8 +330,9 @@ const TxType* TxPredefinedTypeNode::define_identified_type(ResolutionContext& re
         else if (auto declEnt = this->get_declaration()) {
             ASSERT(!declTypeParams || declTypeParams->empty(), "declTypeParams can't be set for 'empty' specialization: " << *this);
             if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
-                LOGGER().alert("%s: '%s' refers to unbound generic type parameter %s", this->parse_loc_string().c_str(),
-                               this->identNode->ident.to_string().c_str(), identifiedTypeDecl->to_string().c_str());
+                // refers to unbound generic type parameter, which is ok within the type declaring the parameter
+                LOGGER().debug("%s: '%s' in %s refers to unbound generic type parameter %s", this->parse_loc_string().c_str(),
+                               this->identNode->ident.to_string().c_str(), this->defContext.scope()->get_full_name().to_string().c_str(), identifiedTypeDecl->to_string().c_str());
                 return identifiedType;
             }
             else {

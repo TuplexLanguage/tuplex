@@ -256,7 +256,8 @@ void TxScopeSymbol::dump_symbols() const {
             subModules.push_back(submod);
         else if (this->get_full_name() != builtinNamespace) {
             try {
-                printf("%-18s %s\n", symbol->symbol_class_string().c_str(), symbol->get_full_name().to_string().c_str());
+                printf("%-11s %-48s %s\n", symbol->declaration_string().c_str(), symbol->get_full_name().to_string().c_str(),
+                       symbol->description_string().c_str());
                 /*
                 if (auto ent = dynamic_cast<const TxFieldEntity*>(symbol)) {
                     std::string typestr; // = (type && type->entity()) ? type->entity()->get_full_name().to_string() : "nulltype/Void";
@@ -295,6 +296,18 @@ void TxScopeSymbol::dump_symbols() const {
             //printf("<module>       %s\n", mod->to_string().c_str());
     }
 }
+
+
+
+/*=== TxAliasSymbol implementation ===*/
+
+TxScopeSymbol* TxAliasSymbol::get_aliased_symbol() const {
+    return this->aliasedDeclaration->get_symbol();
+}
+
+std::string TxAliasSymbol::description_string() const {
+    return "alias " + this->aliasedDeclaration->get_unique_full_name();
+};
 
 
 
@@ -367,22 +380,39 @@ void TxEntitySymbol::dump_symbols() const {
     TxScopeSymbol::dump_symbols();
     if (this->is_overloaded()) {
         for (auto fieldDecl : this->fieldDeclarations) {
-            printf("FIELD  %-11s %-64s\t%s\n", ::to_string(fieldDecl->get_decl_flags()).c_str(),
+            printf("%-11s %-48s FIELD  %s\n", ::to_string(fieldDecl->get_decl_flags()).c_str(),
                    fieldDecl->get_unique_full_name().c_str(),
                    fieldDecl->get_field_definer()->get_type()->to_string().c_str());
         }
     }
 }
 
-std::string TxEntitySymbol::symbol_class_string() const {
+std::string TxEntitySymbol::declaration_string() const {
+    if (this->is_overloaded())
+        return "";
+    else if (this->typeDeclaration)
+        return ::to_string(this->typeDeclaration->get_decl_flags());
+    else if (this->field_count())
+        return ::to_string(this->get_first_field_decl()->get_decl_flags());
+    else  // declaration not yet assigned to this entity symbol
+        return "";
+}
+
+std::string TxEntitySymbol::description_string() const {
     if (this->is_overloaded())
         return "<overloaded>";
     else if (this->typeDeclaration)
-        return "TYPE   " + ::to_string(this->typeDeclaration->get_decl_flags());
+        if (auto type = this->typeDeclaration->get_type_definer()->attempt_get_type())
+            return "TYPE   " + type->to_string();
+        else
+            return "TYPE   <undef>";
     else if (this->field_count())
-        return "FIELD  " + ::to_string(this->get_first_field_decl()->get_decl_flags());
+        if (auto type = this->get_first_field_decl()->get_field_definer()->attempt_get_type())
+            return "FIELD  " + type->to_string();
+        else
+            return "FIELD  <undef type>";
     else  // declaration not yet assigned to this entity symbol
-        return "<entity>";
+        return "<undef entity>";
 }
 
 
@@ -390,10 +420,6 @@ std::string TxEntitySymbol::symbol_class_string() const {
 /*=== symbol table lookup functions ===*/
 
 static TxScopeSymbol* search_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
-
-TxScopeSymbol* TxAliasSymbol::get_aliased_symbol() const {
-    return this->aliasedDeclaration->get_symbol();
-}
 
 TxScopeSymbol* TxAliasSymbol::resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) {
     LOGGER().alert("Substituting alias %s with %s", this->get_full_name().to_string().c_str(),
@@ -407,19 +433,24 @@ TxScopeSymbol* TxEntitySymbol::resolve_generic(TxScopeSymbol* vantageScope, TxSc
     if (this->get_distinct_decl()->get_decl_flags() & TXD_GENPARAM) {
         std::string bindingName = this->get_full_name().to_string();
         std::replace(bindingName.begin(), bindingName.end(), '.', '#');
-        this->LOGGER().debug("Trying to resolve generic parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), vantageScope->get_full_name().to_string().c_str());
+        this->LOGGER().debug("Trying to resolve generic parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), scope->get_full_name().to_string().c_str());
         if (auto boundSym = search_symbol(scope, bindingName)) {
-            this->LOGGER().debug("Substituting generic parameter %s with %s", this->to_string().c_str(), boundSym->to_string().c_str());
+            // #-ified symbol is bound
+            this->LOGGER().alert("Substituting generic parameter %s with %s", this->get_full_name().to_string().c_str(), boundSym->to_string().c_str());
             return boundSym->resolve_generic(vantageScope, scope);
         }
         else {
-// TODO: review
-//            // unbound symbols are not resolved against, unless they're defined by an outer scope -
-//            // meaning they're type parameters pertaining to the current lexical context
-//            if (scope->get_full_name().begins_with(this->get_outer()->get_full_name()))
-//                this->LOGGER().debug("Scope of generic parameter %s encompasses current vantage scope %s", this->to_string().c_str(), scope->get_full_name().to_string().c_str());
-//            else
-//                this->LOGGER().debug("Generic parameter %s unbound within vantage scope %s", this->to_string().c_str(), scope->get_full_name().to_string().c_str());
+            // #-ified symbol is unbound
+            // unbound symbols are not resolved against, unless they're defined by an outer or parent scope -
+            // meaning they're type parameters pertaining to the current lexical context
+            if (this->get_outer()->get_full_name().begins_with(scope->get_full_name()))
+                this->LOGGER().debug("Scope (%s) of unbound generic parameter %s encompasses scope %s (so OK)",
+                                     this->get_outer()->get_full_name().to_string().c_str(),
+                                     bindingName.c_str(), scope->get_full_name().to_string().c_str());
+            else
+                this->LOGGER().warning("Scope (%s) of unbound generic parameter %s DOESN'T encompass scope %s",
+                                       this->get_outer()->get_full_name().to_string().c_str(),
+                                       bindingName.c_str(), scope->get_full_name().to_string().c_str());
         }
     }
     return this;

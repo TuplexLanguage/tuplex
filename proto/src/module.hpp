@@ -75,8 +75,8 @@ public:
     virtual void dump_symbols() const override;
 
 
-    virtual std::string symbol_class_string() const override {
-        return "<module>";
+    virtual std::string description_string() const override {
+        return "module";
     }
 };
 
