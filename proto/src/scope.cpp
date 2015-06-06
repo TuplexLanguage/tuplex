@@ -443,7 +443,7 @@ TxScopeSymbol* TxEntitySymbol::resolve_generic(TxScopeSymbol* vantageScope, TxSc
             // #-ified symbol is unbound
             // unbound symbols are not resolved against, unless they're defined by an outer or parent scope -
             // meaning they're type parameters pertaining to the current lexical context
-            if (this->get_outer()->get_full_name().begins_with(scope->get_full_name()))
+            if (scope->get_full_name().begins_with(this->get_outer()->get_full_name()))
                 this->LOGGER().debug("Scope (%s) of unbound generic parameter %s encompasses scope %s (so OK)",
                                      this->get_outer()->get_full_name().to_string().c_str(),
                                      bindingName.c_str(), scope->get_full_name().to_string().c_str());
