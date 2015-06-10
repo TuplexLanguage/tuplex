@@ -289,10 +289,10 @@ class TxTypeExpressionNode : public TxNode, public TxTypeDefiner {
     TxType const * cachedType = nullptr;
     TxTypeDeclaration* typeDeclaration = nullptr;  // null unless initialized in symbol declaration pass
 
-    static const std::vector<TxTypeParam>* makeTypeParams(const std::vector<TxDeclarationNode*>* typeParamDecls);
-
 protected:
-    const std::vector<TxTypeParam>* declTypeParams = nullptr;    // null unless set in symbol declaration pass
+    /** if parent node is a type declaration that declares type parameters, these will be set by it */
+    const std::vector<TxDeclarationNode*>* typeParamDeclNodes = nullptr;
+    const std::vector<TxTypeParam>* declTypeParams = nullptr;
 
     virtual void set_entity(TxTypeDeclaration* declaration) {
         ASSERT(!this->typeDeclaration, "declaredEntity already set in " << this);
@@ -313,6 +313,9 @@ protected:
 public:
     TxTypeExpressionNode(const yy::location& parseLocation) : TxNode(parseLocation)  { }
 
+    /** if parent node is a type declaration that declares type parameters, this is invoked by it */
+    virtual void setTypeParams(const std::vector<TxDeclarationNode*>* typeParamDeclNodes);
+
     /** Returns true if this type expression is a directly identified type
      * (i.e. a previously declared type, does not construct a new type). */
     virtual bool has_predefined_type() const { return false; }
@@ -324,8 +327,7 @@ public:
      * The definition context is used for named types lookups, to avoid conflation with names of the sub-expressions.
      */
     virtual void symbol_declaration_pass(LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags,
-                                         const std::string designatedTypeName = std::string(),
-                                         const std::vector<TxDeclarationNode*>* typeParamDecls = nullptr);
+                                         const std::string designatedTypeName = std::string());
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
         this->resolve_type(resCtx);
@@ -693,6 +695,8 @@ public:
         : TxDeclarationNode(parseLocation, declFlags),
           typeName(typeName), typeParamDecls(typeParamDecls), typeExpression(typeExpression) {
         validateTypeName(this, declFlags, typeName);
+        if (typeParamDecls)
+            this->typeExpression->setTypeParams(typeParamDecls);
     }
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext)  { this->symbol_declaration_pass(lexContext, lexContext); }
