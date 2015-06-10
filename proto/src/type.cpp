@@ -155,13 +155,6 @@ bool TxType::is_statically_sized() const {
 }
 
 
-const TxType* TxType::get_base_type() const {
-    if (! has_base_type())
-        return nullptr;
-    return this->baseTypeSpec.type;
-}
-
-
 
 TxEntitySymbol* TxType::lookup_instance_member(const std::string& name) const {
     return this->lookup_instance_member(this->get_nearest_declaration()->get_symbol(), name);
@@ -323,8 +316,9 @@ void TxType::prepare_type() {
         // generate concrete type, resolving generic type parameters to their bindings:
         LOGGER().alert("Type is concrete specialization of generic base type: %s", this->to_string().c_str());
         // FIXME
-//        auto decl = this->get_declaration();
-//        auto typeExpr = static_cast<TxTypeExpressionNode*>(this->get_declaration()->get_type_definer());
+        //auto typeExpr = static_cast<TxTypeExpressionNode*>(this->get_declaration()->get_type_definer());
+        // run declaration pass
+        // run resolution pass
     }
 //    else if (this->get_declaration()->get_symbol()->get_full_name().name() == "$type0") {
 //        LOGGER().alert("Type is NOT concrete specialization of generic base type: %s", this->get_declaration()->get_symbol()->to_string().c_str());

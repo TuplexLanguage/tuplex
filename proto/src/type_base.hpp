@@ -252,8 +252,12 @@ public:
     }
 
 
-    /** Returns true if this type has a base type (parent). (Any is the only type that has no base type.) */
+    /** Returns true if this type has a base type (parent). ('Any' is the only type that has no base type.) */
     inline bool has_base_type() const { return this->baseTypeSpec.type; }
+
+    /** Gets the base type (parent) of this type. ('Any' is the only type that has no base type.) */
+    inline const TxType* get_base_type() const { return this->baseTypeSpec.type; }
+
 
     /** Returns the type class this type belongs to. */
     inline TxTypeClass get_type_class() const { return this->typeClass; }
@@ -272,9 +276,7 @@ public:
      * A corollary is that a non-pure-specialization type is never immediately modifiable,
      * it must first be specialized as such.
      */
-    bool is_modifiable() const {
-        return this->baseTypeSpec.modifiable;
-    }
+    inline bool is_modifiable() const { return this->baseTypeSpec.modifiable; }
 
     /** Returns true if this type cannot be extended. */
     virtual bool is_final() const { return false; }
@@ -283,7 +285,7 @@ public:
     virtual bool is_abstract() const { return true; }
 
     /** Returns true if this type is generic (i.e. has unbound type parameters). */
-    bool is_generic() const { return !this->type_params().empty(); }
+    inline bool is_generic() const { return !this->type_params().empty(); }
 
     /** Returns true if this type is concrete (i.e. can be directly instanced).
      * A concrete type is not abstract, nor usually generic (references may be concrete while generic). */
@@ -352,9 +354,6 @@ public:
 //
 //    /** match against this entity's inherited (and static) members (i.e. skipping this type's direct members) */
 //    virtual const TxEntity* lookup_inherited_member(const std::string& name) const;
-
-
-    const TxType* get_base_type() const;  // TODO: move to TxTypeSpecialization
 
 
     /*--- type parameter handling ---*/
