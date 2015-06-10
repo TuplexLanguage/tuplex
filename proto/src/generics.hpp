@@ -28,8 +28,6 @@ private:
     TxTypeDefiner* baseTypeDefiner;
 
 public:
-    TxTypeParam() : metaType(), typeParamName(), baseTypeDefiner()  { }
-
     TxTypeParam(MetaType metaType, const std::string& typeParamName, TxTypeDefiner* baseTypeDefiner)
             : metaType(metaType), typeParamName(typeParamName), baseTypeDefiner(baseTypeDefiner)  {
         ASSERT(metaType==TXB_TYPE || baseTypeDefiner, "VALUE type parameter's type is NULL");

@@ -490,7 +490,7 @@ protected:
 
     std::string type_params_string() const {
         std::string str = "<";
-        for (auto p : this->type_params()) {
+        for (auto & p : this->type_params()) {
             if (str.length() > 1)  str += ",";
             str += p.to_string();
         }

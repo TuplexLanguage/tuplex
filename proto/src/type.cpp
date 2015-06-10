@@ -48,12 +48,10 @@ std::string TxTypeSpecialization::validate() const {
                     // TODO: check: VALUE parameters can not be of modifiable type
                 }
                 else {
-                    if (p.has_base_type_definer()) {
-                        auto constraintType = p.get_base_type_definer()->get_type();
-                        auto boundType = b.type_definer().get_type();
-                        if (boundType && ! boundType->is_a(*constraintType))
-                            return std::string("Bound type ") + boundType->to_string() + " for type parameter " + p.to_string() + " is not a derivation of type " + constraintType->to_string();
-                    }
+                    auto constraintType = p.get_base_type_definer()->get_type();
+                    auto boundType = b.type_definer().get_type();
+                    if (boundType && ! boundType->is_a(*constraintType))
+                        return std::string("Bound type ") + boundType->to_string() + " for type parameter " + p.to_string() + " is not a derivation of type " + constraintType->to_string();
                 }
             }
             else
@@ -292,8 +290,7 @@ void TxType::prepare_type() {
     // resolve all this type's parameters and bindings
     ResolutionContext resCtx;
     for (auto & p : this->typeParams) {
-        //if (p.has_base_type_definer())
-            p.get_base_type_definer()->resolve_type(resCtx);
+        p.get_base_type_definer()->resolve_type(resCtx);
     }
     for (auto & b : this->baseTypeSpec.bindings) {
         if (b.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
@@ -323,9 +320,11 @@ void TxType::prepare_type() {
     }
 
     if (madeConcrete) {
-        // copy symbol hierarchy, resolving generic type parameters to their bindings:
+        // generate concrete type, resolving generic type parameters to their bindings:
         LOGGER().alert("Type is concrete specialization of generic base type: %s", this->to_string().c_str());
         // FIXME
+//        auto decl = this->get_declaration();
+//        auto typeExpr = static_cast<TxTypeExpressionNode*>(this->get_declaration()->get_type_definer());
     }
 //    else if (this->get_declaration()->get_symbol()->get_full_name().name() == "$type0") {
 //        LOGGER().alert("Type is NOT concrete specialization of generic base type: %s", this->get_declaration()->get_symbol()->to_string().c_str());
