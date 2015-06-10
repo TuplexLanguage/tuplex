@@ -467,16 +467,11 @@ TxExpressionNode* validate_wrap_assignment(ResolutionContext& resCtx, TxExpressi
 class TxFieldDefNode : public TxNode, public TxFieldDefiner {
     TxField const * cachedField = nullptr;
     TxType const * cachedType = nullptr;
-
-    const std::string fieldName;  // the original field name
-    bool modifiable;  // true if field name explicitly declared modifiable
-    TxTypeDefiner* typeDefiner;  // optional, non-code-generating type definer (can't be specified at same time as typeExpression)
-    TxDeclarationFlags declFlags = TXD_NONE;
     TxFieldDeclaration* fieldDeclaration = nullptr;  // null until initialized in symbol declaration pass
 
-    void symbol_declaration_pass(LexicalContext& outerContext, LexicalContext& innerContext) {
+    void symbol_declaration_pass(LexicalContext& outerContext, LexicalContext& innerContext, TxDeclarationFlags declFlags) {
         this->set_context(outerContext);
-        auto typeDeclFlags = (this->declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
+        auto typeDeclFlags = (declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
         if (this->typeExpression) {
             // unless the type expression is a directly named type, declare implicit type entity for this field's type:
             if (this->typeExpression->has_predefined_type())
@@ -500,20 +495,21 @@ class TxFieldDefNode : public TxNode, public TxFieldDefiner {
     };
 
 public:
+    const std::string fieldName;  // the original field name
+    const bool modifiable;  // true if field name explicitly declared modifiable
+    TxTypeDefiner* typeDefiner;  // optional, non-code-generating type definer (can't be specified at same time as typeExpression)
     TxTypeExpressionNode* typeExpression;
     TxExpressionNode* initExpression;
 
     TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
                    TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression)
             : TxNode(parseLocation), fieldName(fieldName), modifiable(false), typeDefiner() {
-        validateFieldName(this, declFlags, fieldName);
         this->typeExpression = typeExpression;
         this->initExpression = initExpression;
     }
     TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
                    TxExpressionNode* initExpression, bool modifiable=false, TxTypeDefiner* typeDefiner=nullptr)
             : TxNode(parseLocation), fieldName(fieldName), modifiable(modifiable), typeDefiner(typeDefiner) {
-        validateFieldName(this, declFlags, fieldName);
         this->typeExpression = nullptr;
         this->initExpression = initExpression;
     }
@@ -522,9 +518,9 @@ public:
         auto outerCtx = lexContext;  // prevents init expr from referring to this field
         if (create_local_scope)
             lexContext.scope(lexContext.scope()->create_code_block_scope());
-        this->declFlags = TXD_NONE;
+        TxDeclarationFlags declFlags = TXD_NONE;
         this->fieldDeclaration = lexContext.scope()->declare_field(this->fieldName, this, declFlags, TXS_STACK, TxIdentifier(""));
-        this->symbol_declaration_pass(outerCtx, lexContext);
+        this->symbol_declaration_pass(outerCtx, lexContext, declFlags);
     }
 
     void symbol_declaration_pass_nonlocal_field(LexicalContext& lexContext, TxDeclarationFlags declFlags,
@@ -538,13 +534,12 @@ public:
             declFlags = declFlags | TXD_CONSTRUCTOR;
         }
 
-        this->declFlags = declFlags;
         this->fieldDeclaration = lexContext.scope()->declare_field(declName, this, declFlags, storage, dataspace);
-        this->symbol_declaration_pass(lexContext, lexContext);
+        this->symbol_declaration_pass(lexContext, lexContext, declFlags);
     }
 
     void symbol_declaration_pass_functype_arg(LexicalContext& lexContext) {
-        this->symbol_declaration_pass(lexContext, lexContext);
+        this->symbol_declaration_pass(lexContext, lexContext, TXD_NONE);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {

@@ -277,29 +277,6 @@ public:
 
 
 class TxDerivedTypeNode : public TxTypeExpressionNode {
-//    // experimental wrappers:
-//
-//    /** Wraps another type expression node in a reentrant way - the wrapped node's passes are not invoked via this node. */
-//    class TxTypeExprWrapperNode : public TxTypeExpressionNode {
-//        TxTypeExpressionNode* wrappedNode;
-//    protected:
-//        virtual void symbol_declaration_pass_descendants(LexicalContext& defContext, LexicalContext& lexContext,
-//                                                         TxDeclarationFlags declFlags) override { }
-//
-//        virtual const TxType* define_type(ResolutionContext& resCtx) override {
-//            return this->wrappedNode->resolve_type(resCtx);
-//        }
-//
-//        virtual bool has_predefined_type() const override { return this->wrappedNode->has_predefined_type(); }
-//
-//    public:
-//        TxTypeExprWrapperNode(TxTypeExpressionNode* wrappedNode)
-//            : TxTypeExpressionNode(wrappedNode->parseLocation), wrappedNode(wrappedNode)  { }
-//
-//        virtual void semantic_pass() override { }
-//
-//        virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
-//    };
 
     /** Wraps a TxTypeDefiner within a TxTypeExpressionNode. */
     class TxTypeWrapperNode : public TxTypeExpressionNode {
@@ -321,8 +298,6 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
         virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
     };
 
-    TxTypeDeclNode* selfRefTypeNode = nullptr;
-    TxTypeDeclNode* superRefTypeNode = nullptr;
 
     void init_implicit_types() {
         // implicit type members '$Self' and '$Super' for types with a body:
@@ -369,8 +344,8 @@ protected:
     }
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        auto entity = this->get_declaration();
-        ASSERT(entity, "No entity declared for derived type " << *this);
+        auto declaration = this->get_declaration();
+        ASSERT(declaration, "No declaration for derived type " << *this);
         // FUTURE: support interfaces
         const TxType* baseObjType = this->baseTypes->empty() ? this->types().get_builtin_type(TUPLE)
                                                              : this->baseTypes->at(0)->resolve_type(resCtx);
@@ -380,7 +355,7 @@ protected:
         // Note: Does not specify explicit type parameter bindings; any unbound type parameters
         //       of the base types are expected to match the declared type params.  FIXME: review
         // Note: Members are not necessarily resolved at this point.
-        auto type = this->types().get_type_specialization(entity, specialization, this->_mutable, this->declTypeParams);
+        auto type = this->types().get_type_specialization(declaration, specialization, this->_mutable, this->declTypeParams);
         return type;
     }
 
@@ -388,6 +363,8 @@ public:
     const bool _mutable;
     std::vector<TxPredefinedTypeNode*>* baseTypes;
     std::vector<TxDeclarationNode*>* members;
+    TxTypeDeclNode* selfRefTypeNode = nullptr;
+    TxTypeDeclNode* superRefTypeNode = nullptr;
 
     TxDerivedTypeNode(const yy::location& parseLocation, const bool _mutable,
                       std::vector<TxPredefinedTypeNode*>* baseTypes,

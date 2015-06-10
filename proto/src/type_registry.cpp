@@ -27,15 +27,13 @@ static const BuiltinTypeId SCALAR_TYPE_IDS[] = {
 
 class TxBuiltinTypeDefiner final : public TxTypeDefiner {
 public:
-    //const std::string name;
     const TxType* type;
 
-    //TxBuiltinTypeDefiner(const std::string name) : name(name), type() { }
     TxBuiltinTypeDefiner() : type() { }
-    TxBuiltinTypeDefiner(const TxType* type) : type(type) { }
+    //TxBuiltinTypeDefiner(const TxType* type) : package(package), type(type) { }
 
-    virtual TxDriver* get_driver() const override { return this->type->get_driver(); }
-    virtual const yy::location& get_parse_location() const override { return this->type->get_parse_location(); }
+    virtual TxDriver* get_driver() const override { return &this->type->get_declaration()->get_symbol()->get_root_scope()->driver(); }
+    virtual const yy::location& get_parse_location() const override { return NULL_LOC; }
 
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
@@ -49,8 +47,8 @@ public:
     TxBuiltinFieldDefiner() : field() { }
     TxBuiltinFieldDefiner(const TxField* field) : field(field) { }
 
-    virtual TxDriver* get_driver() const override { return this->field->get_driver(); }
-    virtual const yy::location& get_parse_location() const override { return this->field->get_parse_location(); }
+    virtual TxDriver* get_driver() const override { return &this->field->get_declaration()->get_symbol()->get_root_scope()->driver(); }
+    virtual const yy::location& get_parse_location() const override { return NULL_LOC; }
 
     virtual const TxExpressionNode* get_init_expression() const override { return nullptr; }
     virtual const TxField* resolve_field(ResolutionContext& resCtx) override { return this->field; }
@@ -58,6 +56,39 @@ public:
     virtual const TxType* get_type() const override { return this->field->get_type(); }
     virtual const TxType* attempt_get_type() const override { return this->field->get_type(); }
 };
+
+
+class BuiltinTypeRecord : public TxTypeDefiner {
+    const TxType* type;
+    TxTypeDeclaration* declaration;
+public:
+    const BuiltinTypeId id;
+    const std::string plainName;
+
+    BuiltinTypeRecord(BuiltinTypeId id, std::string plainName)
+        : type(), declaration(), id(id), plainName(plainName)  {
+    }
+
+    void set_type(const TxType* type) {
+        ASSERT(!this->type, "type already set");
+        this->type = type;
+    }
+
+    void set_declaration(TxTypeDeclaration* declaration) {
+        ASSERT(!this->declaration, "declaration already set");
+        this->declaration = declaration;
+    }
+
+    TxTypeDeclaration* get_declaration() const { return this->declaration; }
+
+    virtual TxDriver* get_driver() const override { return &this->declaration->get_symbol()->get_root_scope()->driver(); }
+    virtual const yy::location& get_parse_location() const override { return NULL_LOC; }
+
+    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
+    virtual const TxType* attempt_get_type() const override { return this->type; }
+    virtual const TxType* get_type() const override { return this->type; }
+};
+
 
 
 /** Used solely for the Any root type object. */
@@ -108,47 +139,6 @@ public:
     }
 };
 
-
-
-class BuiltinTypeRecord : public TxTypeDefiner {
-    const TxType * type;
-    TxTypeDeclaration* declaration;
-public:
-    const BuiltinTypeId id;
-    const std::string plainName;
-
-    BuiltinTypeRecord(BuiltinTypeId id, std::string plainName)
-        : type(), declaration(), id(id), plainName(plainName)  {
-    }
-
-    TxTypeDeclaration* get_declaration() const { return this->declaration; }
-    void set_declaration(TxTypeDeclaration* declaration) {
-        ASSERT(!this->declaration, "declaration already set");
-        this->declaration = declaration;
-    }
-
-    virtual TxDriver* get_driver() const override { return this->type->get_driver(); }
-    virtual const yy::location& get_parse_location() const override { return this->type->get_parse_location(); }
-
-    //virtual const TxExpressionNode* get_init_expression() const override { return nullptr; }
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
-    virtual const TxType* attempt_get_type() const override { return this->type; }
-    virtual const TxType* get_type() const override { return this->type; }
-    void set_type(const TxType* type) {
-        ASSERT(!this->type, "type already set");
-        this->type = type;
-    }
-};
-
-
-//static const BuiltinTypeRecord BUILTIN_COMPLEX_TYPES[] {
-//    { STRING,     "String",    new TxArrayType(BUILTIN_TYPES[CHAR].type) },
-//};
-
-//static const TxBuiltinTypeProducer FOREIGN_FUNCS[] {
-//    // TO DO: make these members of mutable "io" objects
-//    TxBuiltinTypeProducer("printf", new TxFunctionType(std::vector<const TxType*>(foobar)))
-//};
 
 
 void TypeRegistry::add_builtin_abstract(TxModule* module, TxTypeClass typeClass, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId) {
@@ -268,6 +258,19 @@ void TypeRegistry::initializeBuiltinSymbols() {
         this->builtinTypes[record->id] = record;
     }
 
+//    // create the CString base array type:
+//    {
+//        auto record = new BuiltinTypeRecord( CSTRING, "CString" );
+//        record->set_declaration( module->declare_type( record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+//        auto charBinding = TxGenericBinding::make_type_binding("E", this->builtinTypes[UBYTE]);
+//        this->builtinTypes[record->id] = record;
+//
+//        std::vector<TxGenericBinding> bindings( { charBinding } );
+//        TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
+//        std::vector<TxTypeParam> typeParams { TxTypeParam(TxTypeParam::TXB_VALUE, "L", this->builtinTypes[UINT]) };
+//        record->set_type( specialization.type->make_specialized_type(record->get_declaration(), specialization) );
+//    }
+
 
     // create modifiable specializations of the concrete built-in types:
     for (int id = 0; id < BuiltinTypeId_COUNT; id++) {
@@ -306,11 +309,13 @@ void TypeRegistry::initializeBuiltinSymbols() {
     {
         auto txCfuncModule = this->package.declare_module(TxIdentifier(BUILTIN_NS ".c"));
 
+        auto implTypeName = "UByte$Ref";
+        auto ubyteRefDef = new TxBuiltinTypeDefiner();
+        auto ubyteRefDecl = txCfuncModule->declare_type(implTypeName, ubyteRefDef, TXD_PUBLIC | TXD_IMPLICIT);
         auto charBinding = TxGenericBinding::make_type_binding("T", this->builtinTypes[UBYTE]);
-        const TxType* cStringType = this->get_reference_type(nullptr, charBinding);
-        //const TxTypeProxy* cStringTypeDef = new TxBuiltinTypeDefiner("", cStringType);
+        ubyteRefDef->type = this->get_reference_type(ubyteRefDecl, charBinding);
 
-        std::vector<const TxType*> argumentTypes( { cStringType } );
+        std::vector<const TxType*> argumentTypes( { ubyteRefDef->type } );  // CString arg type
         auto c_puts_func_type_def = new TxBuiltinFieldDefiner();
         auto c_puts_decl = txCfuncModule->declare_field("puts", c_puts_func_type_def, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
         const TxType* returnType = this->builtinTypes[INT]->get_type();
@@ -432,6 +437,34 @@ const TxReferenceType* TypeRegistry::get_reference_type(TxTypeDeclaration* decla
     std::vector<TxGenericBinding> bindings( { targetTypeBinding } );
     TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type(), bindings, dataspace);
     return static_cast<const TxReferenceType*>(this->get_type_specialization(declaration, specialization, false, nullptr, errorMsg));
+
+    /* if to use this approach, find way to avoid resolving the target type (causes recursion):
+    // Each type gets a shared reference type declared adjacent to it.
+    ResolutionContext resCtx;
+    auto targetType = targetTypeBinding.type_definer().resolve_type(resCtx);
+    auto targetTypeSymbol = targetType->get_declaration()->get_symbol();
+    auto targetTypeScope = targetTypeSymbol->get_outer();
+    std::string refTypeName = targetTypeSymbol->get_name() + ( targetType->is_modifiable() ? "$MRef" : "$Ref" );
+    auto refTypeSymbol = dynamic_cast<TxEntitySymbol*>(lookup_member(targetTypeScope->get_root_scope(), targetTypeScope, refTypeName));
+    const TxType* refType = ( (refTypeSymbol && refTypeSymbol->get_type_decl()) ? refTypeSymbol->get_type_decl()->get_type_definer()->resolve_type(resCtx) : nullptr);
+
+    if (! refType) {
+        // this target type has no shared ref type declared for it yet
+        auto typeDefiner = new TxBuiltinTypeDefiner();
+        auto commonDecl = targetTypeScope->declare_type(refTypeName, typeDefiner, TXD_PUBLIC);
+        std::vector<TxGenericBinding> bindings( { targetTypeBinding } );
+        TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type(), bindings);
+        typeDefiner->type = this->get_type_specialization(commonDecl, specialization, false, nullptr, errorMsg);
+        refType = typeDefiner->type;
+    }
+
+    if (declaration) {
+        // new declaration provided - create empty specialization (uniquely named but identical type)
+        refType = this->get_type_specialization(declaration, TxTypeSpecialization(refType), false, nullptr, errorMsg);
+    }
+    // TODO: Dataspace-specific instances may need their own derivation regardless
+    return static_cast<const TxReferenceType*>(refType);
+    */
 }
 
 //const TxReferenceType* TypeRegistry::get_reference_type(TxTypeDeclaration* declaration, TxEntityDefiner* targetType,

@@ -173,9 +173,6 @@ class TxType : public TxEntity {
     /** The type id of this type, if it is a statically distinct type (not a pure specialization). */
     uint32_t typeId = UINT32_MAX;
 
-//    /** The entity declaration that defined this type. */
-//    TxTypeEntity * const _entity;
-
     /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
     const std::vector<TxTypeParam> typeParams;
 

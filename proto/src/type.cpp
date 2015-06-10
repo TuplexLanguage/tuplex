@@ -314,10 +314,22 @@ void TxType::prepare_type() {
         this->instanceFields = baseType->instanceFields;
     }
 
+    bool madeConcrete = !this->is_generic() && this->get_base_type() && this->get_base_type()->is_generic();
+
     if (! this->get_declaration()) {
+        ASSERT(! madeConcrete, "Type is concrete specialization of generic base type, but unnamed (undeclared): " << this);
         this->initialized = true;
         return;
     }
+
+    if (madeConcrete) {
+        // copy symbol hierarchy, resolving generic type parameters to their bindings:
+        LOGGER().alert("Type is concrete specialization of generic base type: %s", this->to_string().c_str());
+        // FIXME
+    }
+//    else if (this->get_declaration()->get_symbol()->get_full_name().name() == "$type0") {
+//        LOGGER().alert("Type is NOT concrete specialization of generic base type: %s", this->get_declaration()->get_symbol()->to_string().c_str());
+//    }
 
     // for all the member names declared or redeclared in this type:
     auto typeDeclNamespace = this->get_declaration()->get_symbol();

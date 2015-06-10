@@ -216,7 +216,9 @@ public:
 class TxReferenceToNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", this->target));
+        auto implTypeName = this->context().scope()->get_unique_name("$type");
+        auto typeDecl = this->context().scope()->declare_type(implTypeName, this, TXD_PUBLIC | TXD_IMPLICIT);
+        return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->target));
     }
 
 public:
@@ -623,7 +625,7 @@ public:
         this->set_context(lexContext);
         if (this->typeExpr) {
             auto typeDeclFlags = TXD_PUBLIC | TXD_IMPLICIT;
-            // unless the type expression is a directly named type, declare implicit type entity for this field's type:
+            // unless the type expression is a directly named type, declare implicit type:
             if (this->typeExpr->has_predefined_type())
                 this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags);
             else {
@@ -664,7 +666,9 @@ protected:
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         // new constructor returns the constructed object by reference
-        return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", this->typeExpr));
+        auto implTypeName = this->context().scope()->get_unique_name("$type");
+        auto typeDecl = this->context().scope()->declare_type(implTypeName, this, TXD_PUBLIC | TXD_IMPLICIT);
+        return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->typeExpr));
     }
 
 public:

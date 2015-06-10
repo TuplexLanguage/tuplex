@@ -245,7 +245,7 @@ void TxTypeExpressionNode::symbol_declaration_pass(LexicalContext& defContext, L
     TxTypeDeclaration* declaration = nullptr;
     if (! designatedTypeName.empty()) {
         declaration = lexContext.scope()->declare_type(designatedTypeName, this, declFlags);
-        this->LOGGER().debug("%s: Defining type %-16s: %s", this->parse_loc_string().c_str(), designatedTypeName.c_str(),
+        this->LOGGER().debug("%s: Declaring type %-16s: %s", this->parse_loc_string().c_str(), designatedTypeName.c_str(),
                              declaration->to_string().c_str());
         if (! declaration)
             CERROR(this, "Failed to declare type " << designatedTypeName);

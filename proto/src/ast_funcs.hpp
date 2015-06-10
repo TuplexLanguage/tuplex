@@ -4,7 +4,6 @@
 
 
 class TxLambdaExprNode : public TxExpressionNode {
-    const bool isMethodSyntax;
     bool instanceMethod = false;
     TxFieldDefNode* selfRefNode = nullptr;
     TxFieldDefNode* superRefNode = nullptr;
@@ -17,10 +16,11 @@ protected:
 public:
     TxFunctionTypeNode* funcTypeNode;
     TxSuiteNode* suite;
+    const bool isMethodSyntax;
 
     TxLambdaExprNode(const yy::location& parseLocation, TxFunctionTypeNode* funcTypeNode, TxSuiteNode* suite,
                      bool isMethodSyntax=false)
-            : TxExpressionNode(parseLocation), isMethodSyntax(isMethodSyntax), funcTypeNode(funcTypeNode), suite(suite) {
+            : TxExpressionNode(parseLocation), funcTypeNode(funcTypeNode), suite(suite), isMethodSyntax(isMethodSyntax) {
     }
 
     void set_instance_method(bool flag) {

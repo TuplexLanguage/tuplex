@@ -161,7 +161,7 @@ public:
           literal(literal), value(literal, 2, literal.length()-3) { }
     // TODO: properly parse string literal
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext);
+    virtual void symbol_declaration_pass(LexicalContext& lexContext) override;
 
     virtual void semantic_pass() override {
         this->cstringTypeNode->semantic_pass();
