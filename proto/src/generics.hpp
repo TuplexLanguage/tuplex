@@ -25,23 +25,24 @@ public:
 private:
     MetaType metaType;
     std::string typeParamName;
-    TxTypeDefiner* baseTypeDefiner;
+    TxTypeDefiner* constraintTypeDefiner;
 
 public:
-    TxTypeParam(MetaType metaType, const std::string& typeParamName, TxTypeDefiner* baseTypeDefiner)
-            : metaType(metaType), typeParamName(typeParamName), baseTypeDefiner(baseTypeDefiner)  {
-        ASSERT(metaType==TXB_TYPE || baseTypeDefiner, "VALUE type parameter's type is NULL");
-        ASSERT(metaType==TXB_VALUE || baseTypeDefiner, "TYPE type parameter's constraint type is NULL");
+    TxTypeParam(MetaType metaType, const std::string& typeParamName, TxTypeDefiner* constraintTypeDefiner)
+            : metaType(metaType), typeParamName(typeParamName), constraintTypeDefiner(constraintTypeDefiner)  {
+        ASSERT(metaType==TXB_TYPE || constraintTypeDefiner, "VALUE type parameter's type is NULL");
+        ASSERT(metaType==TXB_VALUE || constraintTypeDefiner, "TYPE type parameter's constraint type is NULL");
     }
 
     inline MetaType meta_type() const { return metaType; }
     inline const std::string& param_name() const { return typeParamName; }
 
-    inline bool has_base_type_definer() const { return this->baseTypeDefiner; }
-    /** Gets the TxType instance that represents the base type constraint (if TYPE) or data type (if VALUE) of this parameter. */
-    inline TxTypeDefiner* get_base_type_definer() const {
-        ASSERT(this->has_base_type_definer(), "This type parameter '" << this->typeParamName << "' has no base type definer set");
-        return this->baseTypeDefiner;
+    inline bool has_constraint_type_definer() const { return this->constraintTypeDefiner; }
+
+    /** Gets the TxType that represents the constraint type (if TYPE) or data type (if VALUE) of this parameter. */
+    inline TxTypeDefiner* get_constraint_type_definer() const {
+        ASSERT(this->has_constraint_type_definer(), "This type parameter '" << this->typeParamName << "' has no constraint type definer set");
+        return this->constraintTypeDefiner;
     }
 
     inline virtual bool operator==(const TxTypeParam& other) const {

@@ -369,9 +369,10 @@ const TxType* TxPredefinedTypeNode::define_generic_specialization_type(Resolutio
         CERROR(this, "Too many generic type arguments specified for type " << identNode->ident);
         return nullptr;
     }
+    auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
     std::vector<TxGenericBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
     for (size_t i = 0; i < this->typeArgs->size(); i++) {
-        bindings.push_back(this->typeArgs->at(i)->make_binding(resCtx, baseType, baseType->type_params().at(i)));
+        bindings.push_back(this->typeArgs->at(i)->make_binding(baseTypeName, baseType->type_params().at(i)));
     }
     TxTypeSpecialization specialization(baseType, bindings);
     std::string errorMsg;
@@ -445,56 +446,41 @@ void TxMaybeModTypeNode::symbol_declaration_pass(LexicalContext& defContext, Lex
 
 
 TxScopeSymbol* TxFieldValueNode::resolve_symbol(ResolutionContext& resCtx) {
-    if (! this->cachedSymbol) {
-        if (this->hasRunResolve)
-            return nullptr;
-        this->hasRunResolve = true;
-        std::vector<TxScopeSymbol*> tmpPath;
-        if (this->baseExpr) {
-            // baseExpr may or may not refer to a type (e.g. modules don't)
-            auto baseType = this->baseExpr->resolve_type(resCtx);  // must be resolved before lookups via its symbol
-            TxScopeSymbol* vantageScope = this->context().scope();
-            if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
-                if (auto baseSymbol = baseSymbolNode->resolve_symbol(resCtx)) {
-                    this->cachedSymbol = lookup_member(vantageScope, baseSymbol, this->memberName);
-                }
-            }
-            else if (baseType) {
-                // non-name (i.e. computed) value expression
-                this->cachedSymbol = baseType->lookup_instance_member(vantageScope, this->memberName);
+    TxScopeSymbol* symbol = nullptr;
+    std::vector<TxScopeSymbol*> tmpPath;
+    if (this->baseExpr) {
+        // baseExpr may or may not refer to a type (e.g. modules don't)
+        auto baseType = this->baseExpr->resolve_type(resCtx);  // must be resolved before lookups via its symbol
+        TxScopeSymbol* vantageScope = this->context().scope();
+        if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
+            if (auto baseSymbol = baseSymbolNode->resolve_symbol(resCtx)) {
+                symbol = lookup_member(vantageScope, baseSymbol, this->memberName);
             }
         }
-        else {
-            this->cachedSymbol = lookup_symbol(this->context().scope(), this->memberName);
+        else if (baseType) {
+            // non-name (i.e. computed) value expression
+            symbol = baseType->lookup_instance_member(vantageScope, this->memberName);
         }
     }
-
-//    if (this->appliedFuncArgTypes) {
-//        if (dynamic_cast<const TxOverloadedEntity*>(this->cachedSymbol)) {
-//            // if symbol is overloaded, and can be resolved to actual field, then do so
-//            if (auto resolvedField = resolve_field_lookup(resCtx, this->cachedSymbol, this->appliedFuncArgTypes))
-//                this->cachedSymbol = resolvedField;
-//        }
-//        else if (dynamic_cast<const TxTypeEntity*>(this->cachedSymbol)) {
-//            // if symbol is a type, and the applied arguments match a constructor, the resolve to that constructor
-//            std::vector<TxSymbolScope*> tmpPath;
-//            if (auto constructorSymbol = this->cachedSymbol->lookup_member(tmpPath, "$init")) {
-//                if (auto constructor = resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes))
-//                    this->cachedSymbol = constructor;
-//            }
-//        }
-//    }
-
-    return this->cachedSymbol;
+    else {
+        symbol = lookup_symbol(this->context().scope(), this->memberName);
+    }
+    return symbol;
 }
 
-TxEntityDeclaration* TxFieldValueNode::resolve_decl(ResolutionContext& resCtx) {
+const TxEntityDeclaration* TxFieldValueNode::resolve_decl(ResolutionContext& resCtx) {
+    if (this->declaration)
+        return this->declaration;
+    if (this->hasRunResolve)
+        return nullptr;
+    this->hasRunResolve = true;
     if (auto symbol = this->resolve_symbol(resCtx)) {
         if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(symbol)) {
             // if symbol can be resolved to actual field, then do so
             if (entitySymbol->field_count()) {
-                if (auto fieldDecl = resolve_field_lookup(resCtx, entitySymbol, this->appliedFuncArgTypes))
-                    return fieldDecl;
+                this->declaration = resolve_field_lookup(resCtx, entitySymbol, this->appliedFuncArgTypes);
+                if (this->declaration)
+                    return this->declaration;
             }
             // if symbol is a type, and arguments are applied, and they match a constructor, the resolve to that constructor
             if (auto typeDecl = entitySymbol->get_type_decl()) {
@@ -503,11 +489,13 @@ TxEntityDeclaration* TxFieldValueNode::resolve_decl(ResolutionContext& resCtx) {
                         if (auto constructorSymbol = allocType->lookup_instance_member("$init"))
                             if (auto constructorDecl = resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes)) {
                                 ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
-                                return constructorDecl;
+                                this->declaration = constructorDecl;
+                                return this->declaration;
                             }
                 }
                 // resolve this symbol to its type
-                return typeDecl;
+                this->declaration = typeDecl;
+                return this->declaration;
             }
             CERROR(this, "Failed to resolve entity symbol to proper field: " << entitySymbol->to_string().c_str());
         }
@@ -519,12 +507,12 @@ TxEntityDeclaration* TxFieldValueNode::resolve_decl(ResolutionContext& resCtx) {
 
 const TxType* TxFieldValueNode::define_type(ResolutionContext& resCtx) {
     if (auto decl = this->resolve_decl(resCtx)) {
-        if (auto fieldDecl = dynamic_cast<TxFieldDeclaration*>(decl)) {
+        if (auto fieldDecl = dynamic_cast<const TxFieldDeclaration*>(decl)) {
             this->cachedField = fieldDecl->get_field_definer()->resolve_field(resCtx);
             return this->cachedField->get_type();
         }
         else
-            return static_cast<TxTypeDeclaration*>(decl)->get_type_definer()->resolve_type(resCtx);
+            return static_cast<const TxTypeDeclaration*>(decl)->get_type_definer()->resolve_type(resCtx);
     }
     return nullptr;
 }

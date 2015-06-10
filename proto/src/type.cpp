@@ -48,7 +48,7 @@ std::string TxTypeSpecialization::validate() const {
                     // TODO: check: VALUE parameters can not be of modifiable type
                 }
                 else {
-                    auto constraintType = p.get_base_type_definer()->get_type();
+                    auto constraintType = p.get_constraint_type_definer()->get_type();
                     auto boundType = b.type_definer().get_type();
                     if (boundType && ! boundType->is_a(*constraintType))
                         return std::string("Bound type ") + boundType->to_string() + " for type parameter " + p.to_string() + " is not a derivation of type " + constraintType->to_string();
@@ -283,7 +283,7 @@ void TxType::prepare_type() {
     // resolve all this type's parameters and bindings
     ResolutionContext resCtx;
     for (auto & p : this->typeParams) {
-        p.get_base_type_definer()->resolve_type(resCtx);
+        p.get_constraint_type_definer()->resolve_type(resCtx);
     }
     for (auto & b : this->baseTypeSpec.bindings) {
         if (b.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {

@@ -11,9 +11,46 @@ std::string make_generic_binding_name(const std::string& originalName);
 /** Represents a binding for a type parameter. Can be either a Type or a Value parameter binding. */
 class TxTypeArgumentNode : public TxNode {
     LexicalContext defContext;
+
+    std::string paramDeclName;
     TxTypeDeclNode* typeDeclNode;
     TxFieldDeclNode* fieldDeclNode;
     bool bound = false;  // during development: checks invocation order
+
+    /** To be called after symbol_declaration_pass() and before symbol_resolution_pass(). */
+    void setup_declarations(const TxIdentifier& fullBaseTypeName, const TxTypeParam& param) {
+        std::string qualPName = fullBaseTypeName.to_string() + "." + param.param_name();
+        std::string declName = make_generic_binding_name(qualPName);
+        if (! this->paramDeclName.empty()) {
+            // the declaration nodes have already been set up in the initial generic pass
+            if (declName != this->paramDeclName)
+                // can happen if the parameterized type itself is a type parameter; this would change the full name;
+                // unsupported (may cause structural differences between specializations?)
+                CERROR(this, "Specialization of generic type parameter does not result in same parameter name: " << declName << "!=" << this->paramDeclName);
+            return;
+        }
+
+        LOGGER().debug("%s: Binding %s in ctx %s", this->parse_loc_string().c_str(), declName.c_str(), this->context().scope()->get_full_name().to_string().c_str());
+        ASSERT(!this->bound, "make_binding() called more than once for " << this);
+        this->bound = true;
+        if (this->typeExprNode) {
+            if (param.meta_type() != param.TXB_TYPE)
+                CERROR(this, "Provided a TYPE argument to VALUE parameter " << declName);
+            // Shall be below the parent, like so:
+            // $local.main$.$0.d$type.tx#Ref#T.tx#Array#E
+            this->typeDeclNode = new TxTypeDeclNode(this->typeExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT,
+                    declName, nullptr, this->typeExprNode);
+        }
+        else {
+            ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
+            if (param.meta_type() != param.TXB_VALUE)
+                CERROR(this, "Provided a TYPE argument to VALUE parameter " << declName);
+            auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, declName, this->valueExprNode, false, param.get_constraint_type_definer());
+            // (passes the param's type-definer to the field def, so that proper type checking is done)
+            this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
+        }
+    }
+
 public:
     TxTypeExpressionNode* typeExprNode;
     TxExpressionNode* valueExprNode;
@@ -31,40 +68,18 @@ public:
         this->set_context(lexContext);
     }
 
-    /** Creates, registers and returns a newly created TxTypeBinding. May only be called once. */
-    virtual TxGenericBinding make_binding(ResolutionContext& resCtx,
-                                          const TxType* baseType, const TxTypeParam& param) {
-        auto baseTypeEntity = baseType->get_symbol();
-        ASSERT(baseTypeEntity, "baseType has no entity: " << baseType);
-        std::string qualPName = baseTypeEntity->get_full_name().to_string() + "." + param.param_name();
-        std::string pname = make_generic_binding_name(qualPName);
-        LOGGER().debug("%s: Binding %s in ctx %s", this->parse_loc_string().c_str(), pname.c_str(), this->context().scope()->get_full_name().to_string().c_str());
-        ASSERT(!this->bound, "make_binding() called more than once for " << this);
-        this->bound = true;
-        if (this->typeExprNode) {
-            if (param.meta_type() != param.TXB_TYPE)
-                CERROR(this, "Provided a TYPE argument to VALUE parameter " << pname);
-            // Shall be below the parent, like so:
-            // $local.main$.$0.d$type.tx#Ref#T.tx#Array#E
-            this->typeDeclNode = new TxTypeDeclNode(this->typeExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT,
-                                                    pname, nullptr, this->typeExprNode);
+    /** Creates, registers and returns a newly created TxTypeBinding.
+     * To be called after symbol_declaration_pass() and before symbol_resolution_pass(). */
+    TxGenericBinding make_binding(const TxIdentifier& fullBaseTypeName, const TxTypeParam& param) {
+        this->setup_declarations(fullBaseTypeName, param);
+
+        if (this->typeDeclNode) {
             this->typeDeclNode->symbol_declaration_pass(this->defContext, this->context());
-            // best way to avoid over-resolving target type of Ref?
-            if (! dynamic_cast<const TxReferenceType*>(baseType))
-                this->typeExprNode->resolve_type(resCtx);
-            else
-                this->LOGGER().debug("%s: Skipping resolve_type() of reference", this->parse_loc_string().c_str());
             return TxGenericBinding::make_type_binding(param.param_name(), this->typeExprNode);
         }
         else {
-            ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
-            if (param.meta_type() != param.TXB_VALUE)
-                CERROR(this, "Provided a TYPE argument to VALUE parameter " << pname);
-            auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, pname, this->valueExprNode, false, param.get_base_type_definer());
-            // (passes the param's type-definer to the field def, so that proper type checking is done)
-            this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
+            ASSERT(this->fieldDeclNode, "Value expression not set in VALUE type parameter " << this);
             this->fieldDeclNode->symbol_declaration_pass(this->context());
-            this->valueExprNode->resolve_type(resCtx);
             return TxGenericBinding::make_value_binding(param.param_name(), this->valueExprNode);
         }
     }
@@ -203,7 +218,8 @@ protected:
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto baseType = this->types().get_builtin_type(REFERENCE);
-        TxGenericBinding binding = this->targetTypeNode->make_binding(resCtx, baseType, baseType->get_type_param("T"));
+        auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
+        TxGenericBinding binding = this->targetTypeNode->make_binding(baseTypeName, baseType->get_type_param("T"));
         const TxIdentifier* dataspace = (this->dataspace ? &this->dataspace->ident : nullptr);
         //cwarning("Dataspace: %s", (this->dataspace ? this->dataspace->ident.to_string().c_str() : "NULL"));
         return this->types().get_reference_type(this->get_declaration(), binding, dataspace);
@@ -236,9 +252,10 @@ protected:
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto baseType = this->types().get_builtin_type(ARRAY);
-        TxGenericBinding elementBinding = this->elementTypeNode->make_binding(resCtx, baseType, baseType->get_type_param("E"));
+        auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
+        TxGenericBinding elementBinding = this->elementTypeNode->make_binding(baseTypeName, baseType->get_type_param("E"));
         if (this->lengthNode) {
-            TxGenericBinding lengthBinding = this->lengthNode->make_binding(resCtx, baseType, baseType->get_type_param("L"));
+            TxGenericBinding lengthBinding = this->lengthNode->make_binding(baseTypeName, baseType->get_type_param("L"));
             return this->types().get_array_type(this->get_declaration(), elementBinding, lengthBinding);
         }
         else

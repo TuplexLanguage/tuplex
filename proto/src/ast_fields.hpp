@@ -4,12 +4,12 @@
 
 
 class TxFieldValueNode : public TxExpressionNode {
-    TxScopeSymbol* cachedSymbol = nullptr;
+    const TxEntityDeclaration* declaration = nullptr;
     const TxField* cachedField = nullptr;
     bool hasRunResolve = false;
 
     TxScopeSymbol* resolve_symbol(ResolutionContext& resCtx);
-    TxEntityDeclaration* resolve_decl(ResolutionContext& resCtx);
+    const TxEntityDeclaration* resolve_decl(ResolutionContext& resCtx);
 
 protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override;
@@ -45,8 +45,8 @@ public:
         //if (this->baseExpr)
         //    this->baseExpr->symbol_resolution_pass(resCtx);
         if (! this->get_type()) {
-            if (this->cachedSymbol)
-                CERROR(this, "Symbol is not a field: " << this->cachedSymbol);
+            if (this->declaration)
+                CERROR(this, "Symbol is not a field: " << this->declaration);
             else {
                 CERROR(this, "No such symbol: " << this->get_full_identifier());
             }

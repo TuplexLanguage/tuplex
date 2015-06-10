@@ -15,8 +15,8 @@ const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS = TXD_STATIC | TXD_FINAL | TXD_O
 
 
 class TxEntityDeclaration : public Printable {
-    TxEntitySymbol* symbol;
-    TxDeclarationFlags declFlags;
+    TxEntitySymbol* const symbol;
+    const TxDeclarationFlags declFlags;
 
 public:
     TxEntityDeclaration(TxEntitySymbol* symbol, TxDeclarationFlags declFlags)
@@ -48,8 +48,8 @@ public:
 };
 
 class TxFieldDeclaration : public TxEntityDeclaration {
-    TxFieldDefiner* fieldDefiner;
-    TxFieldStorage storage;
+    TxFieldDefiner* const fieldDefiner;
+    const TxFieldStorage storage;
     const TxIdentifier dataspace;
 
     unsigned get_overload_index() const;
@@ -76,7 +76,7 @@ public:
 };
 
 class TxTypeDeclaration : public TxEntityDeclaration {
-    TxTypeDefiner* typeDefiner;
+    TxTypeDefiner* const typeDefiner;
 
 public:
     TxTypeDeclaration(TxEntitySymbol* symbol, TxDeclarationFlags declFlags, TxTypeDefiner* typeDefiner)
