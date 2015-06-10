@@ -121,9 +121,10 @@ public:
     const TxPackage* package() const;
     TxPackage* package();
 
-    inline bool is_constructor() const { return this->constructedObjTypeDecl; }
-    inline TxTypeDeclaration* get_constructed_entity() { return this->constructedObjTypeDecl; }
-    inline void set_constructor(TxTypeDeclaration* constructedEntity) { this->constructedObjTypeDecl = constructedEntity; }
+    /** If non-null, this context is within a constructor and the declaration for the constructed object type is returned. */
+    inline TxTypeDeclaration* get_constructed() { return this->constructedObjTypeDecl; }
+
+    inline void set_constructed(TxTypeDeclaration* constructedEntity) { this->constructedObjTypeDecl = constructedEntity; }
 
     inline virtual bool operator==(const LexicalContext& other) const {
         return this->_scope == other._scope;

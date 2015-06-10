@@ -370,6 +370,7 @@ class TxExpressionNode : public TxNode, public TxTypeDefiner {
     bool gottenType = false;  // to prevent multiple identical error messages
     TxType const * cachedType = nullptr;
 protected:
+    const TxFieldDefNode* fieldDefNode = nullptr; // injected by field definition if known and applicable
     std::vector<const TxType*>* appliedFuncArgTypes = nullptr; // injected by expression context if applicable
 
     /** Defines the type of this expression (as specific as can be known), constructing/obtaining the TxType instance.
@@ -379,9 +380,12 @@ protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) = 0;
 
 public:
-    const TxFieldDefNode* fieldDefNode = nullptr; // injected by field definition if known and applicable
-
     TxExpressionNode(const yy::location& parseLocation) : TxNode(parseLocation) { }
+
+    /** Injected by field definition if known and applicable. */
+    virtual void set_field_def_node(const TxFieldDefNode* fieldDefNode) {
+        this->fieldDefNode = fieldDefNode;
+    }
 
     /** Returns true if this value expression is of a directly identified type
      * (i.e. does not construct a new type), e.g. value literals and directly identified fields. */
@@ -491,7 +495,6 @@ class TxFieldDefNode : public TxNode, public TxFieldDefiner {
 //                if (!typeEntity)
 //                    CERROR(this, "Failed to declare implicit type %s for field %s", implTypeName.c_str(), this->fieldName.c_str());
 //            }
-            this->initExpression->fieldDefNode = this;
             this->initExpression->symbol_declaration_pass(outerContext);
         }
     };
@@ -508,12 +511,16 @@ public:
             : TxNode(parseLocation), fieldName(fieldName), modifiable(false), typeDefiner() {
         this->typeExpression = typeExpression;
         this->initExpression = initExpression;
+        if (this->initExpression)
+            this->initExpression->set_field_def_node(this);
     }
     TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
                    TxExpressionNode* initExpression, bool modifiable=false, TxTypeDefiner* typeDefiner=nullptr)
             : TxNode(parseLocation), fieldName(fieldName), modifiable(modifiable), typeDefiner(typeDefiner) {
         this->typeExpression = nullptr;
         this->initExpression = initExpression;
+        if (this->initExpression)
+            this->initExpression->set_field_def_node(this);
     }
 
     void symbol_declaration_pass_local_field(LexicalContext& lexContext, bool create_local_scope) {

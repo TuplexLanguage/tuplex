@@ -422,8 +422,6 @@ public:
 
 class TxFunctionTypeNode : public TxTypeExpressionNode {
     // Note: the field names aren't part of a function's formal type definition
-    /** If non-null, this function is a constructor and this is the object type that is being constructed. */
-    TxTypeDeclaration* constructedObjTypeDecl = nullptr;
 
     static TxFieldDefNode* make_return_field(TxTypeExpressionNode* returnType) {
         if (returnType)
@@ -433,6 +431,8 @@ class TxFunctionTypeNode : public TxTypeExpressionNode {
     }
 
 protected:
+//    const TxFieldDefNode* funcFieldDefNode = nullptr;  // injected by TxLambdaExprNode if known and applicable
+
     virtual void symbol_declaration_pass_descendants(LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
         // (processed as a function type and therefore doesn't declare (create entities for) the function args)
         for (auto argDef : *this->arguments)
@@ -445,8 +445,8 @@ protected:
         std::vector<const TxType*> argumentTypes;
         for (auto argDefNode : *this->arguments)
             argumentTypes.push_back(argDefNode->resolve_type(resCtx));
-        if (this->constructedObjTypeDecl)
-            return this->types().get_constructor_type(this->get_declaration(), argumentTypes, this->constructedObjTypeDecl);
+        if (this->context().get_constructed())
+            return this->types().get_constructor_type(this->get_declaration(), argumentTypes, this->context().get_constructed());
         else if (this->returnField)
             return this->types().get_function_type(this->get_declaration(), argumentTypes, this->returnField->resolve_type(resCtx), modifiable);
         else
@@ -466,10 +466,14 @@ public:
         : TxTypeExpressionNode(parseLocation), modifiable(modifiable),
           arguments(arguments), returnField(make_return_field(returnType)) { }
 
-    void symbol_declaration_pass_func_header(LexicalContext& defContext, LexicalContext& lexContext, TxTypeDeclaration* constructedObjTypeDecl = nullptr) {
+//    /** Injected by TxLambdaExprNode if known and applicable. */
+//    virtual void set_field_def_node(const TxFieldDefNode* funcFieldDefNode) {
+//        this->funcFieldDefNode = funcFieldDefNode;
+//    }
+
+    void symbol_declaration_pass_func_header(LexicalContext& lexContext) {
         // (processed as the function instance header, so declare the function args, and the return type if any)
         this->set_context(lexContext);
-        this->constructedObjTypeDecl = constructedObjTypeDecl;
         for (auto argField : *this->arguments)
             argField->symbol_declaration_pass_local_field(lexContext, false);
         if (this->returnField)

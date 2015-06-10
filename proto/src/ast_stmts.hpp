@@ -154,7 +154,7 @@ public:
             stmt->symbol_declaration_pass(lexContext);
     }
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        LexicalContext suiteContext(lexContext.scope()->create_code_block_scope(), lexContext.get_constructed_entity());
+        LexicalContext suiteContext(lexContext.scope()->create_code_block_scope(), lexContext.get_constructed());
         this->symbol_declaration_pass_no_subscope(suiteContext);
     }
 
@@ -276,7 +276,7 @@ public:
         if (! ltype)
             return;  // (error message should have been emitted by lvalue node)
         if (! ltype->is_modifiable()) {
-            if (! this->context().is_constructor())  // TODO: only members of constructed object should skip error
+            if (! this->context().get_constructed())  // TODO: only members of constructed object should skip error
                 CERROR(this, "Assignee is not modifiable: " << ltype);
             // Note: If the object as a whole is modifiable, it can be assigned to.
             // If it has any "non-modifiable" members, those will still get overwritten.

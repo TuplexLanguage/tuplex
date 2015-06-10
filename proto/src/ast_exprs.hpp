@@ -277,7 +277,6 @@ public:
 };
 
 class TxBinaryOperatorNode : public TxOperatorValueNode {
-    bool reference_operands = false;
 protected:
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         auto ltype = lhs->resolve_type(resCtx);
@@ -325,9 +324,7 @@ protected:
         }
         else if (dynamic_cast<const TxReferenceType*>(ltype)) {
             if (dynamic_cast<const TxReferenceType*>(rtype)) {
-                if (op_class == TXOC_EQUALITY)
-                    this->reference_operands = true;
-                else
+                if (op_class != TXOC_EQUALITY)
                     CERROR(this, "Invalid operator for reference operands: " << this->op);
             }
             else
@@ -535,10 +532,8 @@ public:
 
 /** Special callee expression node for calling constructors. */
 class TxConstructorCalleeExprNode : public TxExpressionNode {
-    TxExpressionNode* objectExpr;
-
-    /** The constructor method entity */
-    const TxField* constructor = nullptr;
+    /** The constructor method's declaration */
+    const TxFieldDeclaration* constructorDecl = nullptr;
 
     mutable llvm::Value* objectPtrV = nullptr;
 
@@ -546,6 +541,8 @@ class TxConstructorCalleeExprNode : public TxExpressionNode {
     virtual llvm::Value* gen_func_ptr(LlvmGenerationContext& context, GenScope* scope) const;
 
 protected:
+    TxExpressionNode* objectExpr;
+
     virtual const TxType* define_type(ResolutionContext& resCtx) override;
 
 public:

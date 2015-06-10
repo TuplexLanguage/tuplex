@@ -526,32 +526,10 @@ const TxType* TxConstructorCalleeExprNode::define_type(ResolutionContext& resCtx
         if (auto constructorSymbol = allocType->lookup_instance_member("$init")) {
             if (auto constructorDecl = resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes)) {
                 ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
-                this->constructor = constructorDecl->get_definer()->resolve_field(resCtx);
-                if (this->constructor)
-                    return this->constructor->get_type();
+                this->constructorDecl = constructorDecl;
+                if (auto constructorField = constructorDecl->get_definer()->resolve_field(resCtx))
+                    return constructorField->get_type();
             }
-            /*
-            // Check that constructor is not invalidly inherited:
-            if (auto cDefiningTypeSym = dynamic_cast<TxEntitySymbol*>(symbol->get_outer())) {
-                if (auto cDefiningTypeDecl = cDefiningTypeSym->get_type_decl()) {
-                    if (auto cDefiningType = cDefiningTypeDecl->get_type_definer()->resolve_type(resCtx)) {
-                        do {
-                            if (*allocType == *cDefiningType) {
-                                this->constructorEntity = resolve_field_lookup(resCtx, symbol, this->appliedFuncArgTypes);
-                                if (this->constructorEntity)
-                                    return this->constructorEntity->resolve_symbol_type(resCtx);
-                                else
-                                    break;
-                            }
-                            else if (allocType->is_pure_specialization())
-                                allocType = allocType->get_base_type();
-                            else
-                                break;
-                        } while (true);
-                    }
-                }
-            }
-            */
         }
         if (this->appliedFuncArgTypes->size() == 0) {
             // TODO: support default value constructor
@@ -577,7 +555,7 @@ const TxType* TxFunctionCallNode::define_type(ResolutionContext& resCtx) {
             // TODO: shall only be legal as first statement within constructor body
             auto identifier = fieldValueNode->get_full_identifier();
             if (identifier == "self" || identifier == "super") {
-                if (! this->context().is_constructor())
+                if (! this->context().get_constructed())
                     CERROR(this, "self() / super() constructor may only be invoked from within the type's other constructors");
 
                 auto objectDeref = new TxReferenceDerefNode(this->callee->parseLocation, this->callee);

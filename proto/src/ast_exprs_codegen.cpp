@@ -79,7 +79,8 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
             ASSERT(scope, "scope is NULL, although expression is not constant and thus should be within runtime block");
             if (int_operation) {
                 ASSERT(CmpInst::isIntPredicate(cmp_pred), "Not a valid LLVM Int comparison predicate: " << llvm_op);
-                if (this->reference_operands) {
+                if (this->lhs->get_type()->get_type_class() == TXTC_REFERENCE) {
+                    // both operands are references, compare their pointer values
                     lval = gen_get_ref_pointer(context, scope, lval);
                     rval = gen_get_ref_pointer(context, scope, rval);
                 }
@@ -588,7 +589,7 @@ Value* TxConstructorCalleeExprNode::code_gen(LlvmGenerationContext& context, Gen
     // construct the lambda object:
     auto closureRefT = context.get_voidRefT();
     auto closureRefV = gen_ref(context, scope, closureRefT, this->gen_obj_ptr(context, scope), instanceTypeIdV);
-    auto lambdaT = cast<StructType>(context.get_llvm_type(this->constructor->get_type()));
+    auto lambdaT = cast<StructType>(context.get_llvm_type(this->get_type()));
     return gen_lambda(context, scope, lambdaT, funcPtrV, closureRefV);
 }
 
@@ -603,10 +604,10 @@ Value* TxConstructorCalleeExprNode::gen_obj_ptr(LlvmGenerationContext& context, 
 Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context, GenScope* scope) const {
     // constructors are similar to instance methods, but they are not virtual (and not in vtable)
     context.LOG.trace("%-48s", this->to_string().c_str());
-    auto uniqueName = this->constructor->get_declaration()->get_unique_full_name();
+    auto uniqueName = this->constructorDecl->get_unique_full_name();
     Value* funcPtrV = context.lookup_llvm_value(uniqueName);
     if (! funcPtrV) {
-        if (auto txType = this->constructor->get_type()) {
+        if (auto txType = this->get_type()) {
             // forward declaration situation
             if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
                 context.LOG.alert("Forward-declaring constructor function %s: %s", uniqueName.c_str(), txFuncType->to_string().c_str());
@@ -616,7 +617,7 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
                 funcPtrV = context.llvmModule.getOrInsertFunction(funcName, funcT);
             }
             else
-                context.LOG.error("No LLVM type defined for %s", this->constructor->to_string().c_str());
+                context.LOG.error("No LLVM type defined for %s", txType->to_string().c_str());
         }
     }
     return funcPtrV;
