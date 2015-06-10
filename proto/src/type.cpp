@@ -336,12 +336,12 @@ void TxType::prepare_type() {
         if (entitySym->get_type_decl()) {
             if (*symname != "tx#Ref#T") {  // prevents infinite recursion
                 //LOGGER().alert("resolving member type %s", entitySym->get_full_name().to_string().c_str());
-                entitySym->get_type_decl()->get_type_definer()->resolve_type(resCtx);
+                entitySym->get_type_decl()->get_definer()->resolve_type(resCtx);
             }
         }
 
         for (auto fieldDecl = entitySym->fields_cbegin(); fieldDecl != entitySym->fields_cend(); fieldDecl++) {
-            auto field = (*fieldDecl)->get_field_definer()->resolve_field(resCtx);
+            auto field = (*fieldDecl)->get_definer()->resolve_field(resCtx);
 
             if (field) {
                 // validate:
@@ -559,7 +559,7 @@ const TxType* TxArrayType::element_type() const {
     const TxType* type = nullptr;
     if (auto memberEnt = this->lookup_instance_member("tx#Array#E")) {
         if (memberEnt->get_type_decl())
-            type = memberEnt->get_type_decl()->get_type_definer()->get_type();
+            type = memberEnt->get_type_decl()->get_definer()->get_type();
     }
     if (! type) {
         const TxGenericBinding* binding = this->resolve_param_binding("E");
@@ -603,7 +603,7 @@ const TxType* TxReferenceType::target_type() const {
 
                 if (typeDecl) {
                     ResolutionContext resCtx;
-                    if (auto ttype = typeDecl->get_type_definer()->resolve_type(resCtx)) {
+                    if (auto ttype = typeDecl->get_definer()->resolve_type(resCtx)) {
                         //LOGGER().alert("Resolved target type of reference type %s to %s", this->to_string().c_str(), ttype->to_string().c_str());
                         return ttype;
                     }

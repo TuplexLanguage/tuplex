@@ -104,7 +104,7 @@ public:
         if (this->expr) {
             this->expr->symbol_resolution_pass(resCtx);
             if (returnDecl)
-                this->expr = validate_wrap_convert(resCtx, this->expr, returnDecl->get_field_definer()->resolve_field(resCtx)->get_type());
+                this->expr = validate_wrap_convert(resCtx, this->expr, returnDecl->get_definer()->resolve_field(resCtx)->get_type());
             else
                 CERROR(this, "Return statement has value expression although function has no return type");
         }

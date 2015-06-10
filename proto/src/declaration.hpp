@@ -61,9 +61,7 @@ public:
         ASSERT((declFlags | LEGAL_FIELD_DECL_FLAGS) == LEGAL_FIELD_DECL_FLAGS, "Illegal field declFlags: " << declFlags);
     }
 
-    virtual TxEntityDefiner* get_definer() const override { return this->fieldDefiner; }
-
-    TxFieldDefiner* get_field_definer() const { return this->fieldDefiner; }
+    virtual TxFieldDefiner* get_definer() const override { return this->fieldDefiner; }
 
     TxFieldStorage get_storage() const { return this->storage; }
 
@@ -84,9 +82,7 @@ public:
         ASSERT((declFlags | LEGAL_TYPE_DECL_FLAGS) == LEGAL_TYPE_DECL_FLAGS, "Illegal type declFlags: " << declFlags);
     }
 
-    TxTypeDefiner* get_type_definer() const { return this->typeDefiner; }
-
-    virtual TxEntityDefiner* get_definer() const override { return this->typeDefiner; }
+    virtual TxTypeDefiner* get_definer() const override { return this->typeDefiner; }
 
     virtual bool validate() const override;
 

@@ -259,7 +259,7 @@ int TxDriver::llvm_compile() {
     bool mainGenerated = false;
     if (auto funcDecl = this->package->getMainFunc()) {
         ResolutionContext dummyCtx;
-        auto funcField = funcDecl->get_field_definer()->resolve_field(dummyCtx);
+        auto funcField = funcDecl->get_definer()->resolve_field(dummyCtx);
         if (auto funcType = dynamic_cast<const TxFunctionType*>(funcField->get_type())) {
             if ( funcType->returnType && ! funcType->returnType->is_a( *this->package->types().get_builtin_type(INTEGER) ) )
                 this->LOG.error("main() method had invalid return type: %s", funcType->returnType->to_string().c_str());

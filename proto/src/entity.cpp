@@ -16,7 +16,7 @@ int TxField::get_instance_field_index() const {
     ASSERT(this->storage == TXS_INSTANCE, "Only fields of instance storage class have an instance field index: " << *this);
     auto typeDecl = this->get_outer_type_decl();
     ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_outer());
-    auto type = typeDecl->get_type_definer()->get_type();  // assumes already resolved
+    auto type = typeDecl->get_definer()->get_type();  // assumes already resolved
     return type->get_instance_fields().get_field_index(this->get_unique_name());
 }
 
@@ -25,7 +25,7 @@ int TxField::get_virtual_field_index() const {
            "Only fields of static virtual storage class have an virtual field index: " << *this);
     auto typeDecl = this->get_outer_type_decl();
     ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_outer());
-    auto type = typeDecl->get_type_definer()->get_type();  // assumes already resolved
+    auto type = typeDecl->get_definer()->get_type();  // assumes already resolved
     if (this->storage == TXS_VIRTUAL)
         return type->get_virtual_fields().get_field_index(this->get_unique_name()) + type->get_instance_methods().get_field_count();
     else
@@ -36,7 +36,7 @@ int TxField::get_static_field_index() const {
     ASSERT(this->storage == TXS_STATIC, "Only fields of static non-virtual storage class have a static field index: " << *this);
     auto typeDecl = this->get_outer_type_decl();
     ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_outer());
-    auto type = typeDecl->get_type_definer()->get_type();  // assumes already resolved
+    auto type = typeDecl->get_definer()->get_type();  // assumes already resolved
     return type->get_static_fields().get_field_index(this->get_unique_name());
 }
 
@@ -49,14 +49,14 @@ bool TxField::is_statically_constant() const {
         return false;
     if ( this->get_storage() == TXS_GLOBAL )
         return true;
-    if (auto initExpr = this->get_declaration()->get_field_definer()->get_init_expression())
+    if (auto initExpr = this->get_declaration()->get_definer()->get_init_expression())
         return ( ! this->get_type()->is_modifiable() && initExpr->is_statically_constant() );
     return false;
 }
 
 const TxConstantProxy* TxField::get_static_constant_proxy() const {
     if (this->is_statically_constant())
-        if (auto initExpr = this->get_declaration()->get_field_definer()->get_init_expression())
+        if (auto initExpr = this->get_declaration()->get_definer()->get_init_expression())
             return initExpr->get_static_constant_proxy();
     return nullptr;
 }

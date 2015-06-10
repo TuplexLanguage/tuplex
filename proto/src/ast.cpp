@@ -323,7 +323,7 @@ void TxPredefinedTypeNode::symbol_declaration_pass(LexicalContext& defContext, L
 const TxType* TxPredefinedTypeNode::define_identified_type(ResolutionContext& resCtx) {
     // note: looking up in defContext ("outer" context) to avoid conflation with generic base types' inherited entities
     if (auto identifiedTypeDecl = lookup_type(this->defContext.scope(), this->identNode->ident)) {
-        auto identifiedType = identifiedTypeDecl->get_type_definer()->resolve_type(resCtx);
+        auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type(resCtx);
         if (!identifiedType)
             return nullptr;
         else if (auto declEnt = this->get_declaration()) {
@@ -360,7 +360,7 @@ const TxType* TxPredefinedTypeNode::define_identified_type(ResolutionContext& re
 
 const TxType* TxPredefinedTypeNode::define_generic_specialization_type(ResolutionContext& resCtx) {
     auto baseTypeDecl = lookup_type(this->context().scope(), this->identNode->ident);
-    const TxType* baseType = baseTypeDecl ? baseTypeDecl->get_type_definer()->resolve_type(resCtx) : nullptr;
+    const TxType* baseType = baseTypeDecl ? baseTypeDecl->get_definer()->resolve_type(resCtx) : nullptr;
     if (! baseType) {
         CERROR(this, "Unknown type: " << this->identNode->ident << " (from " << this->context().scope() << ")");
         return nullptr;
@@ -485,7 +485,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl(ResolutionContext& res
             // if symbol is a type, and arguments are applied, and they match a constructor, the resolve to that constructor
             if (auto typeDecl = entitySymbol->get_type_decl()) {
                 if (this->appliedFuncArgTypes) {
-                    if (auto allocType = typeDecl->get_type_definer()->resolve_type(resCtx))
+                    if (auto allocType = typeDecl->get_definer()->resolve_type(resCtx))
                         if (auto constructorSymbol = allocType->lookup_instance_member("$init"))
                             if (auto constructorDecl = resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes)) {
                                 ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
@@ -508,11 +508,11 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl(ResolutionContext& res
 const TxType* TxFieldValueNode::define_type(ResolutionContext& resCtx) {
     if (auto decl = this->resolve_decl(resCtx)) {
         if (auto fieldDecl = dynamic_cast<const TxFieldDeclaration*>(decl)) {
-            this->cachedField = fieldDecl->get_field_definer()->resolve_field(resCtx);
+            this->cachedField = fieldDecl->get_definer()->resolve_field(resCtx);
             return this->cachedField->get_type();
         }
         else
-            return static_cast<const TxTypeDeclaration*>(decl)->get_type_definer()->resolve_type(resCtx);
+            return static_cast<const TxTypeDeclaration*>(decl)->get_definer()->resolve_type(resCtx);
     }
     return nullptr;
 }
@@ -526,7 +526,7 @@ const TxType* TxConstructorCalleeExprNode::define_type(ResolutionContext& resCtx
         if (auto constructorSymbol = allocType->lookup_instance_member("$init")) {
             if (auto constructorDecl = resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes)) {
                 ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
-                this->constructor = constructorDecl->get_field_definer()->resolve_field(resCtx);
+                this->constructor = constructorDecl->get_definer()->resolve_field(resCtx);
                 if (this->constructor)
                     return this->constructor->get_type();
             }
@@ -623,7 +623,7 @@ const TxType* TxFunctionCallNode::define_type(ResolutionContext& resCtx) {
     if (auto constructorType = dynamic_cast<const TxConstructorType*>(calleeType)) {
         // inline code for stack allocation and constructor invocation
         if (! dynamic_cast<TxConstructorCalleeExprNode*>(this->callee)) {  // (prevents infinite recursion)
-            auto objectType = constructorType->get_constructed_type_decl()->get_type_definer()->resolve_type(resCtx);
+            auto objectType = constructorType->get_constructed_type_decl()->get_definer()->resolve_type(resCtx);
             this->inlinedExpression = new TxStackConstructorNode(this, objectType);
             this->inlinedExpression->symbol_declaration_pass(this->context());
             this->inlinedExpression->symbol_resolution_pass(resCtx);

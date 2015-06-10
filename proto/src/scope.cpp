@@ -323,7 +323,7 @@ TxEntityDeclaration* TxEntitySymbol::get_distinct_decl() const {
 
 bool TxEntitySymbol::add_type(TxTypeDeclaration* typeDeclaration) {
     if (this->typeDeclaration) {
-        CERROR(typeDeclaration->get_type_definer(), "Can't overload several type declarations under the same name: " << this->get_full_name());
+        CERROR(typeDeclaration->get_definer(), "Can't overload several type declarations under the same name: " << this->get_full_name());
         return false;
     }
     this->typeDeclaration = typeDeclaration;
@@ -343,7 +343,7 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
         return this->TxScopeSymbol::get_member_symbol(name);
     else if (! this->is_overloaded()) {
         // this symbol represents a distinct field; look up its instance members
-        if (auto type = this->get_first_field_decl()->get_field_definer()->attempt_get_type()) {
+        if (auto type = this->get_first_field_decl()->get_definer()->attempt_get_type()) {
             if (auto member = type->lookup_instance_member(name))
                 return member;
         }
@@ -364,7 +364,7 @@ bool TxEntitySymbol::validate_symbol() const {
         valid &= (*fieldDeclI)->validate();
 
         // check that only fields of function type are overloaded
-        auto type = (*fieldDeclI)->get_field_definer()->get_type();
+        auto type = (*fieldDeclI)->get_definer()->get_type();
         if (this->field_count() > 1 && ! dynamic_cast<const TxFunctionType*>(type)) {
             CERROR((*fieldDeclI)->get_definer(), "Illegal overload of symbol " << (*fieldDeclI) << " with type "
                    << (type ? type->to_string().c_str() : "NULL"));
@@ -382,7 +382,7 @@ void TxEntitySymbol::dump_symbols() const {
         for (auto fieldDecl : this->fieldDeclarations) {
             printf("%-11s %-48s FIELD  %s\n", ::to_string(fieldDecl->get_decl_flags()).c_str(),
                    fieldDecl->get_unique_full_name().c_str(),
-                   fieldDecl->get_field_definer()->get_type()->to_string().c_str());
+                   fieldDecl->get_definer()->get_type()->to_string().c_str());
         }
     }
 }
@@ -402,12 +402,12 @@ std::string TxEntitySymbol::description_string() const {
     if (this->is_overloaded())
         return "<overloaded>";
     else if (this->typeDeclaration)
-        if (auto type = this->typeDeclaration->get_type_definer()->attempt_get_type())
+        if (auto type = this->typeDeclaration->get_definer()->attempt_get_type())
             return "TYPE   " + type->to_string();
         else
             return "TYPE   <undef>";
     else if (this->field_count())
-        if (auto type = this->get_first_field_decl()->get_field_definer()->attempt_get_type())
+        if (auto type = this->get_first_field_decl()->get_definer()->attempt_get_type())
             return "FIELD  " + type->to_string();
         else
             return "FIELD  <undef type>";
@@ -548,7 +548,7 @@ TxFieldDeclaration* resolve_field_lookup(ResolutionContext& resCtx, TxScopeSymbo
             std::vector<TxFieldDeclaration*> matches;
             for (auto fieldCandidateI = entitySymbol->fields_cbegin();
                       fieldCandidateI != entitySymbol->fields_cend(); fieldCandidateI++) {
-                auto fieldCandidate = (*fieldCandidateI)->get_field_definer()->resolve_field(resCtx);
+                auto fieldCandidate = (*fieldCandidateI)->get_definer()->resolve_field(resCtx);
                 auto fieldCandidateType = fieldCandidate->get_type();
                 if (auto candidateFuncType = dynamic_cast<const TxFunctionType*>(fieldCandidateType)) {
                     symbol->LOGGER().debug("Candidate function: %s", candidateFuncType->to_string().c_str());

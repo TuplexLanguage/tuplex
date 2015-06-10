@@ -20,7 +20,7 @@ unsigned TxFieldDeclaration::get_overload_index() const {
 }
 
 bool TxFieldDeclaration::validate() const {
-    if (auto field = this->get_field_definer()->get_field())
+    if (auto field = this->get_definer()->get_field())
         return field->validate();
     return false;
 }
@@ -40,7 +40,7 @@ std::string TxFieldDeclaration::get_unique_name() const {
 }
 
 bool TxTypeDeclaration::validate() const {
-    if (auto type = this->get_type_definer()->get_type())
+    if (auto type = this->get_definer()->get_type())
         return type->validate();
     return false;
 }
