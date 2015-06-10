@@ -601,11 +601,11 @@ const TxType* TxFunctionCallNode::define_type(ResolutionContext& resCtx) {
     if (auto constructorType = dynamic_cast<const TxConstructorType*>(calleeType)) {
         // inline code for stack allocation and constructor invocation
         if (! dynamic_cast<TxConstructorCalleeExprNode*>(this->callee)) {  // (prevents infinite recursion)
-            auto objectType = constructorType->get_constructed_type_decl()->get_definer()->resolve_type(resCtx);
-            this->inlinedExpression = new TxStackConstructorNode(this, objectType);
+            auto objectDefiner = constructorType->get_constructed_type_decl()->get_definer();
+            this->inlinedExpression = new TxStackConstructorNode(this, objectDefiner);
             this->inlinedExpression->symbol_declaration_pass(this->context());
             this->inlinedExpression->symbol_resolution_pass(resCtx);
-            return objectType;
+            return objectDefiner->resolve_type(resCtx);
         }
     }
 

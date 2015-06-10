@@ -607,11 +607,12 @@ public:
 class TxMakeObjectNode : public TxExpressionNode {
 protected:
     TxTypeExpressionNode* typeExpr;
-    TxExpressionNode* inlinedInitializer = nullptr;  // substitutes the constructor call if non-null
-
     TxConstructorCalleeExprNode* constructor = nullptr;
     TxFunctionCallNode* constructorCall = nullptr;
 
+    TxExpressionNode* inlinedInitializer = nullptr;  // substitutes the constructor call if non-null
+
+    /** Gets the type of the allocated object. Should not be called before resolution. */
     virtual const TxType* get_object_type() const = 0;
 
     TxMakeObjectNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr)
@@ -620,23 +621,20 @@ protected:
 public:
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
         this->set_context(lexContext);
-        if (this->typeExpr) {
-            auto typeDeclFlags = TXD_PUBLIC | TXD_IMPLICIT;
-            // unless the type expression is a directly named type, declare implicit type:
-            if (this->typeExpr->has_predefined_type())
-                this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags);
-            else {
-                auto implTypeName = lexContext.scope()->get_unique_name("$type");
-                this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags, implTypeName);
-            }
+        auto typeDeclFlags = TXD_PUBLIC | TXD_IMPLICIT;
+        // unless the type expression is a directly named type, declare implicit type:
+        if (this->typeExpr->has_predefined_type())
+            this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags);
+        else {
+            auto implTypeName = lexContext.scope()->get_unique_name("$type");
+            this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags, implTypeName);
         }
         this->constructorCall->symbol_declaration_pass(lexContext);
     }
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         TxExpressionNode::symbol_resolution_pass(resCtx);
-        if (this->typeExpr)
-            this->typeExpr->symbol_resolution_pass(resCtx);
+        this->typeExpr->symbol_resolution_pass(resCtx);
 
         this->constructorCall->symbol_resolution_pass(resCtx);
 
@@ -648,15 +646,14 @@ public:
     }
 
     virtual void semantic_pass() override {
-        if (this->typeExpr)
-            this->typeExpr->semantic_pass();
+        this->typeExpr->semantic_pass();
         this->constructorCall->semantic_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
-
+/** Makes a new object in newly allocated heap memory and returns it by reference. */
 class TxNewExprNode : public TxMakeObjectNode {
 protected:
     virtual const TxType* get_object_type() const override { return this->typeExpr->get_type(); }
@@ -671,7 +668,7 @@ protected:
 public:
     TxNewExprNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList)
             : TxMakeObjectNode(parseLocation, typeExpr) {
-        this->constructor = new TxConstructorCalleeExprNode(parseLocation, new TxHeapAllocNode(parseLocation, this->typeExpr));
+        this->constructor = new TxConstructorCalleeExprNode(parseLocation, new TxHeapAllocNode(parseLocation, typeExpr));
         this->constructorCall = new TxFunctionCallNode(parseLocation, this->constructor, argsExprList);
     }
 
@@ -680,33 +677,32 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
-
+/** Makes a new object in newly allocated stack memory and returns it by value. */
 class TxStackConstructorNode : public TxMakeObjectNode {
-    TxTypeDefiner* typeDefiner;
-
 protected:
-    virtual const TxType* get_object_type() const override { return this->typeDefiner->get_type(); }
+    virtual const TxType* get_object_type() const override { return this->get_type(); }
 
     virtual const TxType* define_type(ResolutionContext& resCtx) override {
         // stack constructor returns the constructed object by value, not by reference
-        return this->typeDefiner->resolve_type(resCtx);
+        return this->typeExpr->resolve_type(resCtx);
     }
 
 public:
-    TxStackConstructorNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList)
-            : TxMakeObjectNode(parseLocation, typeExpr), typeDefiner(typeExpr) {
-        this->constructor = new TxConstructorCalleeExprNode(parseLocation, new TxStackAllocNode(parseLocation, this->typeDefiner));
+    /** produced by the expression syntax: <...type-expr...>(...constructor-args...) */
+    TxStackConstructorNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr,
+                           std::vector<TxExpressionNode*>* argsExprList)
+            : TxMakeObjectNode(parseLocation, typeExpr) {
+        this->constructor = new TxConstructorCalleeExprNode(parseLocation, new TxStackAllocNode(parseLocation, typeExpr));
         this->constructorCall = new TxFunctionCallNode(parseLocation, this->constructor, argsExprList);
     }
 
-    TxStackConstructorNode(TxFunctionCallNode* originalCall, const TxType* objectType)
-            : TxMakeObjectNode(originalCall->parseLocation, nullptr), typeDefiner(new TxTypeDefWrapper(objectType)) {
-        this->constructor = new TxConstructorCalleeExprNode(parseLocation, new TxStackAllocNode(parseLocation, this->typeDefiner));
-        this->constructorCall = new TxFunctionCallNode(parseLocation, this->constructor, originalCall->argsExprList);
+    TxStackConstructorNode(TxFunctionCallNode* originalCall, TxTypeDefiner* typeDefiner)
+            : TxStackConstructorNode(originalCall->parseLocation, new TxTypeWrapperNode(originalCall->parseLocation, typeDefiner),
+                                     originalCall->argsExprList) {
     }
 
     virtual bool has_predefined_type() const override {
-        return (this->typeExpr ? this->typeExpr->has_predefined_type() : true);
+        return this->typeExpr->has_predefined_type();
     }
 
     // virtual bool is_statically_constant() const override { return true; }  // TODO: review

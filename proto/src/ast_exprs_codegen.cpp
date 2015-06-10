@@ -635,8 +635,7 @@ Value* TxStackAllocNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 
 
 Value* TxMakeObjectNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    if (this->typeExpr)
-        this->typeExpr->code_gen(context, scope);
+    this->typeExpr->code_gen(context, scope);
 
     Type* objT = context.get_llvm_type(this->get_object_type());
     if (!objT)

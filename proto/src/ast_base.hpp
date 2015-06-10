@@ -363,6 +363,27 @@ public:
     //virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
+/** Wraps a TxTypeDefiner within a TxTypeExpressionNode. */
+class TxTypeWrapperNode : public TxTypeExpressionNode {
+    TxTypeDefiner* typeDefiner;
+protected:
+    virtual void symbol_declaration_pass_descendants(LexicalContext& defContext, LexicalContext& lexContext,
+                                                     TxDeclarationFlags declFlags) override { }
+
+    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+        return this->typeDefiner->resolve_type(resCtx);
+    }
+
+public:
+    TxTypeWrapperNode(const yy::location& parseLocation, TxTypeDefiner* typeDefiner)
+        : TxTypeExpressionNode(parseLocation), typeDefiner(typeDefiner)  { }
+
+    virtual void semantic_pass() override { }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+};
+
+
 class TxFieldDefNode;
 
 class TxExpressionNode : public TxNode, public TxTypeDefiner {
