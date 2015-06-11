@@ -604,7 +604,7 @@ Value* TxConstructorCalleeExprNode::gen_obj_ptr(LlvmGenerationContext& context, 
 Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context, GenScope* scope) const {
     // constructors are similar to instance methods, but they are not virtual (and not in vtable)
     context.LOG.trace("%-48s", this->to_string().c_str());
-    auto uniqueName = this->constructorDecl->get_unique_full_name();
+    auto uniqueName = this->declaration->get_unique_full_name();
     Value* funcPtrV = context.lookup_llvm_value(uniqueName);
     if (! funcPtrV) {
         if (auto txType = this->get_type()) {

@@ -5,8 +5,7 @@
 
 class TxFieldValueNode : public TxExpressionNode {
     const TxEntityDeclaration* declaration = nullptr;
-    const TxField* cachedField = nullptr;
-    bool hasRunResolve = false;
+    const TxField* field = nullptr;
 
     TxScopeSymbol* resolve_symbol(ResolutionContext& resCtx);
     const TxEntityDeclaration* resolve_decl(ResolutionContext& resCtx);
@@ -60,23 +59,23 @@ public:
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
         this->LOGGER().trace("Getting static constant proxy for field %s", this->memberName.c_str());
-        if (this->cachedField)
-            if (auto constProxy = this->cachedField->get_static_constant_proxy()) {
-                this->LOGGER().debug("Returning static constant proxy for field %s", this->cachedField->get_symbol()->get_full_name().to_string().c_str());
+        if (this->field)
+            if (auto constProxy = this->field->get_static_constant_proxy()) {
+                this->LOGGER().debug("Returning static constant proxy for field %s", this->field->get_symbol()->get_full_name().to_string().c_str());
                 return constProxy;
             }
         return nullptr;
     }
 
     virtual bool is_statically_constant() const override {
-        if (this->cachedField)
-            return this->cachedField->is_statically_constant();
+        if (this->field)
+            return this->field->is_statically_constant();
         return false;
     }
 
     // should not be called before symbol is resolved:
-    inline const TxField* get_field() const { return this->cachedField; }
-    inline const TxFieldDeclaration* get_field_declaration() const { return (this->cachedField ? this->cachedField->get_declaration() : nullptr); }
+    inline const TxField* get_field() const { return this->field; }
+    inline const TxFieldDeclaration* get_field_declaration() const { return (this->field ? this->field->get_declaration() : nullptr); }
 
 
     virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics=false) const;

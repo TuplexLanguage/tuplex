@@ -533,7 +533,7 @@ public:
 /** Special callee expression node for calling constructors. */
 class TxConstructorCalleeExprNode : public TxExpressionNode {
     /** The constructor method's declaration */
-    const TxFieldDeclaration* constructorDecl = nullptr;
+    const TxEntityDeclaration* declaration = nullptr;
 
     mutable llvm::Value* objectPtrV = nullptr;
 

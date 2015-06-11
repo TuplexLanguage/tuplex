@@ -471,9 +471,6 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol(ResolutionContext& resCtx) {
 const TxEntityDeclaration* TxFieldValueNode::resolve_decl(ResolutionContext& resCtx) {
     if (this->declaration)
         return this->declaration;
-    if (this->hasRunResolve)
-        return nullptr;
-    this->hasRunResolve = true;
     if (auto symbol = this->resolve_symbol(resCtx)) {
         if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(symbol)) {
             // if symbol can be resolved to actual field, then do so
@@ -508,8 +505,8 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl(ResolutionContext& res
 const TxType* TxFieldValueNode::define_type(ResolutionContext& resCtx) {
     if (auto decl = this->resolve_decl(resCtx)) {
         if (auto fieldDecl = dynamic_cast<const TxFieldDeclaration*>(decl)) {
-            this->cachedField = fieldDecl->get_definer()->resolve_field(resCtx);
-            return this->cachedField->get_type();
+            this->field = fieldDecl->get_definer()->resolve_field(resCtx);
+            return this->field->get_type();
         }
         else
             return static_cast<const TxTypeDeclaration*>(decl)->get_definer()->resolve_type(resCtx);
@@ -526,7 +523,7 @@ const TxType* TxConstructorCalleeExprNode::define_type(ResolutionContext& resCtx
         if (auto constructorSymbol = allocType->lookup_instance_member("$init")) {
             if (auto constructorDecl = resolve_field_lookup(resCtx, constructorSymbol, this->appliedFuncArgTypes)) {
                 ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
-                this->constructorDecl = constructorDecl;
+                this->declaration = constructorDecl;
                 if (auto constructorField = constructorDecl->get_definer()->resolve_field(resCtx))
                     return constructorField->get_type();
             }

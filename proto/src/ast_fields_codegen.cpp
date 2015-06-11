@@ -171,8 +171,8 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
 
 
 Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics) const {
-    if (this->cachedField) {
-        return field_value_code_gen(context, scope, this->baseExpr, this->cachedField, foldStatics);
+    if (this->field) {
+        return field_value_code_gen(context, scope, this->baseExpr, this->field, foldStatics);
     }
     else
         return NULL;

@@ -6,7 +6,8 @@ public:
     LexicalContext lexContext;
     LexicalContext defContext;
     const TxEntityDeclaration* declaration = nullptr;
-    const TxEntity* entity = nullptr;
+    const TxType* type = nullptr;
+    const TxField* field = nullptr;
     bool isResolving = false;  // during development - guard against recursive resolution
     bool hasResolved = false;  // to prevent multiple identical error messages
     TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function/constructor call if non-null
@@ -19,6 +20,23 @@ public:
 
     TxSpecializationPass() : lexContext(), defContext()  { }
 };
+
+class TxNode;
+class TxTypeExpressionNode;
+class TxExpressionNode;
+class TxFieldDefNode;
+class TxAssigneeNode;
+class TxTypeArgumentNode;
+class TxPredefinedTypeNode;
+class TxFunctionTypeNode;
+class TxFieldValueNode;
+class TxReferenceDerefNode;
+class TxBinaryOperatorNode;
+class TxFunctionCallNode;
+class TxConstructorCalleeExprNode;
+class TxMakeObjectNode;
+
+
 
 //class TxNode : public virtual TxParseOrigin, public Printable {
 //    LexicalContext lexContext;
@@ -65,7 +83,7 @@ public:
 
 //class TxReferenceDerefNode : public TxExpressionNode {
     /** internal "cache" to prevent multiple code generations */
-    mutable llvm::Value* refExprValue = nullptr;
+    //mutable llvm::Value* refExprValue = nullptr;
 
 //class TxBinaryOperatorNode : public TxOperatorValueNode {
 //    bool reference_operands = false;
@@ -76,7 +94,7 @@ public:
 //class TxConstructorCalleeExprNode : public TxExpressionNode {
 //    /** The constructor method's declaration */
 //    const TxFieldDeclaration* constructorDecl = nullptr;
-    mutable llvm::Value* objectPtrV = nullptr;
+    //mutable llvm::Value* objectPtrV = nullptr;
 
 //class TxMakeObjectNode : public TxExpressionNode {
 //    TxExpressionNode* inlinedInitializer = nullptr;  // substitutes the constructor call if non-null
