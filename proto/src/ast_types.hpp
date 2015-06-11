@@ -92,14 +92,6 @@ public:
             this->fieldDeclNode->symbol_resolution_pass(resCtx);
     }
 
-    virtual void semantic_pass() {
-        ASSERT(this->bound, "make_binding() has not been invoked on type argument " << this);
-        if (this->typeDeclNode)
-            this->typeDeclNode->semantic_pass();
-        else
-            this->fieldDeclNode->semantic_pass();
-    }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -181,11 +173,6 @@ public:
             ta->symbol_resolution_pass(resCtx);
     }
 
-    virtual void semantic_pass() override {
-        for (TxTypeArgumentNode* ta : *this->typeArgs)
-            ta->semantic_pass();
-    }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -239,8 +226,6 @@ public:
         this->targetTypeNode->symbol_resolution_pass(resCtx);
     }
 
-    virtual void semantic_pass() { targetTypeNode->semantic_pass(); }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -279,12 +264,6 @@ public:
             //if (! this->lengthNode->valueExprNode->is_statically_constant())
             //    CERROR(this, "Non-constant array length specifier not yet supported.");
         }
-    }
-
-    virtual void semantic_pass() {
-        this->elementTypeNode->semantic_pass();
-        if (this->lengthNode)
-            this->lengthNode->semantic_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -386,15 +365,6 @@ public:
         }
     }
 
-    virtual void semantic_pass() {
-        for (auto type : *this->baseTypes)
-            type->semantic_pass();
-        this->selfRefTypeNode->semantic_pass();
-        this->superRefTypeNode->semantic_pass();
-        for (auto member : *this->members)
-            member->semantic_pass();
-    }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -467,13 +437,6 @@ public:
             this->returnField->symbol_resolution_pass(resCtx);
     }
 
-    virtual void semantic_pass() {
-        for (auto argDef : *this->arguments)
-            argDef->semantic_pass();
-        if (this->returnField)
-            this->returnField->semantic_pass();
-    }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -516,8 +479,6 @@ public:
         TxTypeExpressionNode::symbol_resolution_pass(resCtx);
         this->baseType->symbol_resolution_pass(resCtx);
     }
-
-    virtual void semantic_pass() { this->baseType->semantic_pass(); }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };

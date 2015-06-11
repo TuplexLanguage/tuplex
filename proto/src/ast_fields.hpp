@@ -52,11 +52,6 @@ public:
         }
     }
 
-    virtual void semantic_pass() override {
-        if (this->baseExpr)
-            this->baseExpr->semantic_pass();
-    }
-
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
         this->LOGGER().trace("Getting static constant proxy for field %s", this->memberName.c_str());
         if (this->field)

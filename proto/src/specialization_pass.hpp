@@ -15,27 +15,26 @@ public:
     inline const TxTypeDeclaration*  get_type_decl()  const { return static_cast<const TxTypeDeclaration* >(this->declaration); }
     inline const TxFieldDeclaration* get_field_decl() const { return static_cast<const TxFieldDeclaration*>(this->declaration); }
 
-    inline const TxType*  get_type()  const { return static_cast<const TxType* >(this->entity); }
-    inline const TxField* get_field() const { return static_cast<const TxField*>(this->entity); }
+//    inline const TxType*  get_type()  const { return static_cast<const TxType* >(this->entity); }
+//    inline const TxField* get_field() const { return static_cast<const TxField*>(this->entity); }
 
     TxSpecializationPass() : lexContext(), defContext()  { }
 };
 
-class TxNode;
-class TxTypeExpressionNode;
-class TxExpressionNode;
-class TxFieldDefNode;
-class TxAssigneeNode;
-class TxTypeArgumentNode;
-class TxPredefinedTypeNode;
-class TxFunctionTypeNode;
-class TxFieldValueNode;
-class TxReferenceDerefNode;
-class TxBinaryOperatorNode;
-class TxFunctionCallNode;
-class TxConstructorCalleeExprNode;
-class TxMakeObjectNode;
-
+//class TxNode;
+//class TxTypeExpressionNode;
+//class TxExpressionNode;
+//class TxFieldDefNode;
+//class TxAssigneeNode;
+//class TxTypeArgumentNode;
+//class TxPredefinedTypeNode;
+//class TxFunctionTypeNode;
+//class TxFieldValueNode;
+//class TxReferenceDerefNode;
+//class TxBinaryOperatorNode;
+//class TxFunctionCallNode;
+//class TxConstructorCalleeExprNode;
+//class TxMakeObjectNode;
 
 
 //class TxNode : public virtual TxParseOrigin, public Printable {

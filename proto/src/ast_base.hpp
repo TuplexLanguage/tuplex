@@ -163,8 +163,6 @@ public:
     virtual void symbol_declaration_pass(LexicalContext& lexContext) = 0;
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) = 0;
-
-    virtual void semantic_pass() = 0;
 };
 
 
@@ -215,13 +213,6 @@ public:
         }
     }
 
-    virtual void semantic_pass() {
-        if (this->members)
-            for (auto elem : *this->members) {
-                elem->semantic_pass();
-            }
-    }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -247,11 +238,6 @@ public:
             mod->symbol_resolution_pass(resCtx);
     }
 
-    virtual void semantic_pass() {
-        for (auto mod : this->modules)
-            mod->semantic_pass();
-    }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -262,7 +248,6 @@ public:
     TxStatementNode(const yy::location& parseLocation) : TxNode(parseLocation) { }
     virtual void symbol_declaration_pass(LexicalContext& lexContext) = 0;
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) = 0;
-    virtual void semantic_pass() = 0;
 };
 
 
@@ -345,9 +330,6 @@ public:
         ASSERT(type, "Type not set in " << this);
         return type;
     }
-
-    virtual void semantic_pass() = 0;
-    //virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 /** Wraps a TxTypeDefiner within a TxTypeExpressionNode. */
@@ -364,8 +346,6 @@ protected:
 public:
     TxTypeWrapperNode(const yy::location& parseLocation, TxTypeDefiner* typeDefiner)
         : TxTypeExpressionNode(parseLocation), typeDefiner(typeDefiner)  { }
-
-    virtual void semantic_pass() override { }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 };
@@ -404,8 +384,6 @@ public:
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
         this->resolve_type(resCtx);
     }
-
-    virtual void semantic_pass() = 0;
 
     /** Returns the type (as specific as can be known) of the value this expression produces. */
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override final {
@@ -644,13 +622,6 @@ public:
         return this->declaration;
     }
 
-    void semantic_pass() {
-        if (this->typeExpression)
-            this->typeExpression->semantic_pass();
-        if (this->initExpression)
-            this->initExpression->semantic_pass();
-    }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual std::string to_string() const override {
@@ -672,10 +643,7 @@ public:
 
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         this->field->symbol_resolution_pass(resCtx);
-    }
 
-    virtual void semantic_pass() override {
-        this->field->semantic_pass();
         if (auto type = this->field->get_type()) {
             auto storage = this->field->get_declaration()->get_storage();
             if (type->is_modifiable()) {
@@ -723,13 +691,6 @@ public:
                 paramDecl->symbol_resolution_pass(resCtx);
     }
 
-    virtual void semantic_pass() {
-        this->typeExpression->semantic_pass();
-        if (this->typeParamDecls)
-            for (auto paramDecl : *this->typeParamDecls)
-                paramDecl->semantic_pass();
-    }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -757,8 +718,6 @@ public:
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
         this->resolve_type(resCtx);
     }
-
-    virtual void semantic_pass() = 0;
 
     /** Gets the type of this assignee. */
     virtual const TxType* get_type() const final {

@@ -107,12 +107,19 @@ int TxDriver::compile() {
     int prev_error_count = error_count;
 
 
-    /*--- perform symbol table pass ---*/
+    /*--- perform declaration pass ---*/
 
     for (auto parsedAST : this->parsedASTs)
         parsedAST->symbol_declaration_pass(this->package);
 
-    this->package->prepare_modules();
+    this->package->prepare_modules();  // (prepares the declared imports)
+
+    if (error_count != prev_error_count)
+        LOG.error("- Declaration pass completed, %d errors", error_count-prev_error_count);
+    else
+        LOG.info("+ Declaration pass OK");
+
+    /*--- perform resolution pass ---*/
 
     ResolutionContext resCtx;
     for (auto parsedAST : this->parsedASTs)
@@ -121,7 +128,7 @@ int TxDriver::compile() {
     bool symValid = this->package->symbol_validation_pass();
 
     if (symValid && error_count == prev_error_count)
-        LOG.info("+ Symbol table pass OK");
+        LOG.info("+ Resolution pass OK");
 
     if (this->options.dump_symbol_table) {
         std::cout << "SYMBOL TABLE DUMP:\n";
@@ -130,22 +137,11 @@ int TxDriver::compile() {
     }
 
     if (! (symValid && error_count == prev_error_count)) {
-        LOG.error("- Symbol table pass completed, %d errors", error_count-prev_error_count);
+        LOG.error("- Resolution pass completed, %d errors", error_count-prev_error_count);
         if (! symValid)
-            LOG.error("- Symbol table pass validation failed");
-        return 1;
+            LOG.error("- Symbol validation failed");
     }
 
-
-    /*--- perform semantic pass ---*/
-
-    for (auto parsedAST : this->parsedASTs) {
-        parsedAST->semantic_pass();
-    }
-    if (error_count > prev_error_count)
-        LOG.error("- Semantic pass completed, %d errors", error_count-prev_error_count);
-    else
-        LOG.info("+ Semantic pass OK");
     if (error_count)
         return error_count;
 

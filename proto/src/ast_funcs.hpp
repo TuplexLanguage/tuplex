@@ -92,14 +92,5 @@ public:
     /** Returns true if this expression is a constant expression that can be evaluated at compile time. */
     virtual bool is_statically_constant() const override { return ! this->is_instance_method(); }
 
-    virtual void semantic_pass() {
-        if (this->selfRefNode) {
-            this->selfRefNode->semantic_pass();
-            this->superRefNode->semantic_pass();
-        }
-        this->funcTypeNode->semantic_pass();
-        this->suite->semantic_pass();
-    }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };

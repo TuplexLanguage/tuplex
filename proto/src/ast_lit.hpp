@@ -17,8 +17,6 @@ public:
     virtual bool has_predefined_type() const override final { return true; }
 
     virtual bool is_statically_constant() const override final { return true; }
-
-    virtual void semantic_pass() override { }
 };
 
 
@@ -163,9 +161,6 @@ public:
 
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override;
 
-    virtual void semantic_pass() override {
-        this->cstringTypeNode->semantic_pass();
-    }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 

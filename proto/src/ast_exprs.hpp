@@ -44,8 +44,6 @@ public:
     }
 
     virtual bool is_statically_constant() const override { return this->expr->is_statically_constant(); }
-
-    virtual void semantic_pass() override { ASSERT(this->get_type(), "symbol resolution pass not run for " << this); }
 };
 
 class TxScalarConvNode : public TxConversionNode {
@@ -145,16 +143,13 @@ public:
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         TxExpressionNode::symbol_resolution_pass(resCtx);
         this->reference->symbol_resolution_pass(resCtx);
+
+        if (! dynamic_cast<const TxReferenceType*>(this->reference->get_type()))
+            CERROR(this, "Can't de-reference non-reference expression.");
     }
 
     virtual bool is_statically_constant() const {
         return false;  // can we ever know if target is statically constant?
-    }
-
-    virtual void semantic_pass() {
-        reference->semantic_pass();
-        if (! dynamic_cast<const TxReferenceType*>(this->reference->get_type()))
-            CERROR(this, "Can't de-reference non-reference expression.");
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -203,11 +198,6 @@ public:
         return this->array->is_statically_constant() && this->subscript->is_statically_constant();
     }
 
-    virtual void semantic_pass() override {
-        array->semantic_pass();
-        subscript->semantic_pass();
-    }
-
     virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const;
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
@@ -237,16 +227,7 @@ public:
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         TxExpressionNode::symbol_resolution_pass(resCtx);
         this->target->symbol_resolution_pass(resCtx);
-    }
 
-    virtual bool is_statically_constant() const override {
-        // apparently static const field will not be recognized to have statically const address by llvm
-        //return false;
-        return this->target->is_statically_constant();  // trying again
-    }
-
-    virtual void semantic_pass() override {
-        this->target->semantic_pass();
         if (dynamic_cast<TxFieldValueNode*>(this->target)) {
         }
         else if (dynamic_cast<TxElemDerefNode*>(this->target)) {
@@ -257,6 +238,12 @@ public:
             CERROR(this, "Can't construct reference to non-addressable expression / rvalue.");
         //if (this->get_target_entity()->get_storage() == TXS_NOSTORAGE)
         //    parser_error(this->parseLocation, "Can't construct reference to non-addressable expression.");
+    }
+
+    virtual bool is_statically_constant() const override {
+        // apparently static const field will not be recognized to have statically const address by llvm
+        //return false;
+        return this->target->is_statically_constant();  // trying again
     }
 
     virtual void set_applied_func_arg_types(std::vector<const TxType*>* appliedTypeParameters) override {
@@ -372,11 +359,6 @@ public:
         return this->lhs->is_statically_constant() && this->rhs->is_statically_constant();
     }
 
-    virtual void semantic_pass() override {
-        lhs->semantic_pass();
-        rhs->semantic_pass();
-    }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -407,10 +389,6 @@ public:
 
     virtual bool is_statically_constant() const override {
         return this->operand->is_statically_constant();
-    }
-
-    virtual void semantic_pass() override {
-        operand->semantic_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -444,10 +422,6 @@ public:
 
     virtual bool is_statically_constant() const override {
         return this->operand->is_statically_constant();
-    }
-
-    virtual void semantic_pass() override {
-        operand->semantic_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -501,15 +475,6 @@ public:
             argExpr->symbol_resolution_pass(resCtx);
     }
 
-    virtual void semantic_pass() override {
-        if (this->inlinedExpression)
-            this->inlinedExpression->semantic_pass();
-        else
-            this->callee->semantic_pass();
-        for (auto argExpr : *this->argsExprList)
-            argExpr->semantic_pass();
-    }
-
     virtual bool is_statically_constant() const override {
         if (this->inlinedExpression)
             return this->inlinedExpression->is_statically_constant();
@@ -556,7 +521,6 @@ public:
         this->objectExpr->symbol_declaration_pass(lexContext);
     }
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { this->objectExpr->symbol_resolution_pass(resCtx); }
-    virtual void semantic_pass() override { this->objectExpr->semantic_pass(); }
 
     /** @return a lambda value */
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -583,7 +547,6 @@ protected:
 public:
     virtual void symbol_declaration_pass(LexicalContext& lexContext) override { this->set_context(lexContext); }
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { }
-    virtual void semantic_pass() override { }
     virtual bool has_predefined_type() const override { return false; }  // for now
 };
 
@@ -643,11 +606,6 @@ public:
             this->inlinedInitializer = validate_wrap_convert(resCtx, this->constructorCall->argsExprList->front(),
                                                              inlineFunc->returnType, true);
         }
-    }
-
-    virtual void semantic_pass() override {
-        this->typeExpr->semantic_pass();
-        this->constructorCall->semantic_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -739,10 +697,6 @@ public:
             CERROR(this, "Assignee '" << field->memberName << "' is not an L-value / has no storage.");
     }
 
-    virtual void semantic_pass() override {
-        field->semantic_pass();
-    }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -773,10 +727,7 @@ public:
     virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
         TxAssigneeNode::symbol_resolution_pass(resCtx);
         operand->symbol_resolution_pass(resCtx);
-    }
 
-    virtual void semantic_pass() override {
-        operand->semantic_pass();
         if (! dynamic_cast<const TxReferenceType*>(this->operand->get_type()))
             CERROR(this, "Can't de-reference non-reference expression.");
     }
@@ -817,11 +768,6 @@ public:
         TxAssigneeNode::symbol_resolution_pass(resCtx);
         array->symbol_resolution_pass(resCtx);
         subscript->symbol_resolution_pass(resCtx);
-    }
-
-    virtual void semantic_pass() override {
-        array->semantic_pass();
-        subscript->semantic_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
