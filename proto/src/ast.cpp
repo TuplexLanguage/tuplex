@@ -33,6 +33,9 @@ std::string make_generic_binding_name(const std::string& originalName) {
 }
 
 
+
+Logger& TxNode::LOG = Logger::get("AST");
+
 std::string TxNode::to_string() const {
     char buf[256];
     snprintf(buf, 256, "%-24s : %-11s", typeid(*this).name(), this->parse_loc_string().c_str());

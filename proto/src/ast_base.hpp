@@ -47,7 +47,8 @@ public:
 
 
 class TxNode : public virtual TxParseOrigin, public Printable {
-private:
+    static Logger& LOG;
+
     LexicalContext lexContext;
 
 protected:
@@ -60,12 +61,7 @@ protected:
         this->set_context(LexicalContext(lexContext));
     }
 
-//    inline const TypeRegistry& types() const {
-//        return this->context().get_package()->types();
-//    }
-    inline TypeRegistry& types() const {
-        return const_cast<TxPackage*>(this->context().package())->types();  // hackish... review type creation approach
-    }
+    inline TypeRegistry& types() { return this->context().package()->types(); }
 
 public:
     const yy::location parseLocation;
@@ -107,16 +103,7 @@ public:
 
     std::string parse_loc_string() const;
 
-    //virtual void cerror(char const *fmt, ...) const;
-    //virtual void cwarning(char const *fmt, ...) const;
-
-    inline Logger& LOGGER() const {
-        // FUTURE: improve
-        if (this->is_context_set())
-            return this->context().scope()->LOGGER();
-        else
-            return Logger::get("PARSER");
-    }
+    inline Logger& LOGGER() const { return this->LOG; }
 };
 
 

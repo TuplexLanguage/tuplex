@@ -118,8 +118,7 @@ public:
 
     inline TxModule* module() const { return get_module(this->_scope); }
 
-    const TxPackage* package() const;
-    TxPackage* package();
+    inline TxPackage* package() const { return this->_scope->get_root_scope(); }
 
     /** If non-null, this context is within a constructor and the declaration for the constructed object type is returned. */
     inline TxTypeDeclaration* get_constructed() { return this->constructedObjTypeDecl; }

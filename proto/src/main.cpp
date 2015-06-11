@@ -9,12 +9,14 @@
 #include "TuplexConfig.h"
 
 
+static Logger& LOG = Logger::get("MAIN");
 
 int main(int argc, char **argv)
 {
-    Logger* LOG = &Logger::get("MAIN");
-    //for (int lvl=Level::NONE; lvl < Level::ALL; lvl++)
-    //    LOG->log(Level(lvl), LEVEL_NAMES[lvl]);
+//    Logger::set_global_threshold(Level::ALL);
+//    for (int lvl=Level::NONE; lvl < Level::ALL; lvl++)
+//        LOG.log(Level(lvl), LEVEL_NAMES[lvl]);
+//    Logger::set_global_threshold(Level::INFO);
 
     TxOptions options;
 
@@ -62,20 +64,20 @@ int main(int argc, char **argv)
                 options.only_parse = true;
             else if (! strcmp(argv[a], "-sp") || ! strcmp(argv[a], "-sourcepath")) {
                 if (++a >= argc) {
-                    LOG->error("Invalid command options, specified %s without subsequent argument", argv[a-1]);
+                    LOG.error("Invalid command options, specified %s without subsequent argument", argv[a-1]);
                     return 1;  // exits
                 }
                 options.sourceSearchPaths = get_path_list(argv[a]);
             }
             else if (! strcmp(argv[a], "-o") || ! strcmp(argv[a], "-output")) {
                 if (++a >= argc) {
-                    LOG->error("Invalid command options, specified %s without subsequent argument", argv[a-1]);
+                    LOG.error("Invalid command options, specified %s without subsequent argument", argv[a-1]);
                     return 1;  // exits
                 }
                 options.outputFileName = argv[a];
             }
             else {
-                LOG->error("Unknown option '%s'", argv[a]);
+                LOG.error("Unknown option '%s'", argv[a]);
                 return 1;  // exits
             }
         }

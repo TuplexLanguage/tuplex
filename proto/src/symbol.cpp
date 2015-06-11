@@ -8,30 +8,23 @@
 
 /*=== TxScopeSymbol implementation ===*/
 
+Logger& TxScopeSymbol::LOG = Logger::get("SYMBOL");
+
 /*--- lexical scope tracking ---*/
 
 TxScopeSymbol::TxScopeSymbol(TxScopeSymbol* parent, const std::string& name)
-        : LOG(Logger::get("SYMBOLTABLE")), name(name), outer(parent)  {
+        : name(name), outer(parent)  {
     if (parent) {
         ASSERT(!name.empty() && name.find_first_of('.') == std::string::npos, "Non-plain name specified for non-root scope: '" << name << "'");
         this->fullName = TxIdentifier(this->outer->get_full_name(), this->name);
+        this->root = parent->get_root_scope();
     }
     else {
         ASSERT(name.empty(), "Non-empty name specified for parent-less root scope: " << name);
         this->fullName = TxIdentifier();
+        this->root = (TxPackage*)this;
     }
 }
-
-
-TxPackage* TxScopeSymbol::get_root_scope() {
-    return const_cast<TxPackage*>(static_cast<const TxScopeSymbol *>(this)->get_root_scope());
-}
-const TxPackage* TxScopeSymbol::get_root_scope() const {
-    if (! this->has_outer())
-        return static_cast<const TxPackage*>(this);
-    return this->get_outer()->get_root_scope();
-}
-
 
 
 std::string TxScopeSymbol::get_unique_name(const std::string& baseName) const {

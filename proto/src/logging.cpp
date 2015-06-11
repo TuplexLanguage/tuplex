@@ -10,11 +10,13 @@ struct ThresholdLevel {
     Level level;
 };
 static struct ThresholdLevel THRESHOLD_LEVELS[] {
-        { "MAIN",           CONFIG },
+        { "MAIN",           ALL },
         { "DRIVER",         ALL },
-        { "PARSER",         ALL },
-        { "SYMBOLTABLE",    ALL },
+        { "AST",            ALL },
+        { "SYMBOL",         ALL },
+        { "ENTITY",         ALL },
         { "LLVMGEN",        ALL },
+        { "COMPILER",       ALL },
 };
 
 static Level globalThreshold = INFO;
@@ -90,8 +92,11 @@ static const char* txtrst="\e[0m";    // Text Reset
 static std::unordered_map<std::string, Logger*> loggers;
 
 Logger& Logger::get(const std::string& name) {
-    if (loggers.count(name))
-        return *loggers.at(name);
+    Logger* logger;
+    if (loggers.count(name)) {
+        logger = loggers.at(name);
+        //std::cout << "Fetching logger '" << name << "' with threshold " << LEVEL_NAMES[logger->get_threshold()] << std::endl;
+    }
     else {
         Level initialThreshold = INFO;
         for (unsigned i = 0; i < sizeof(THRESHOLD_LEVELS)/sizeof(*THRESHOLD_LEVELS); i++)
@@ -99,10 +104,11 @@ Logger& Logger::get(const std::string& name) {
                 initialThreshold = THRESHOLD_LEVELS[i].level;
                 break;
             }
-        auto logger = new Logger(name, initialThreshold);
+        logger = new Logger(name, initialThreshold);
         loggers.emplace(name, logger);
-        return *logger;
+        //std::cout << "Created logger '" << name << "' with threshold " << LEVEL_NAMES[logger->get_threshold()] << std::endl;
     }
+    return *logger;
 }
 
 Level Logger::get_global_threshold()               { return globalThreshold; }
@@ -118,9 +124,9 @@ Logger::Logger(const std::string& name, Level initialThreshold) : name(name), th
 void Logger::emit(Level level, const char* str) {
     if (level <= globalThreshold) {
         if (colorsEnabled)
-            fprintf(stderr, "%s%-5s %-15s %s%s\n", LEVEL_COLORS[level], LEVEL_NAMES[level], this->name.c_str(), str, txtrst);
+            fprintf(stderr, "%s%-5s %-8s %s%s\n", LEVEL_COLORS[level], LEVEL_NAMES[level], this->name.c_str(), str, txtrst);
         else
-            fprintf(stderr, "%-5s %-15s %s\n", LEVEL_NAMES[level], this->name.c_str(), str);
+            fprintf(stderr, "%-5s %-8s %s\n", LEVEL_NAMES[level], this->name.c_str(), str);
     }
 }
 

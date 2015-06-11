@@ -64,7 +64,7 @@ public:
     typedef std::unordered_map<std::string, TxScopeSymbol*> SymbolMap;
 
 private:
-    Logger& LOG;
+    static Logger& LOG;
 
     /** Plain name of this symbol, which is unique within its outer (parent) scope. Does not contain any '.' characters. */
     const std::string name;
@@ -72,6 +72,9 @@ private:
     TxScopeSymbol* const outer;
     /** The fully qualified name of this symbol. The last segment equals this scope's plain name. */
     TxIdentifier fullName;
+
+    /** The root (outer-most) scope which is the TxPackage (equal to this if this is the root scope). */
+    TxPackage* root;
 
     /** This scope's member symbols. The identifier keys are the symbols' plain names within this namespace. */
     SymbolMap symbols;
@@ -126,14 +129,8 @@ public:
 
     inline const TxIdentifier& get_full_name() const { return this->fullName; }
 
-//    /** Gets the TuplexPackage root scope. */
-//    const TxPackage* get_package() const;
-//    TxPackage* get_package();
-
     /** Gets the top-most outer scope of this symbol, which is the root "package" scope. */
-    const TxPackage* get_root_scope() const;
-    /** Gets the top-most outer scope of this symbol, which is the root "package" scope. */
-    TxPackage* get_root_scope();
+    inline TxPackage* get_root_scope() const { return this->root; }
 
 
     /*--- lexical scope tracking ---*/

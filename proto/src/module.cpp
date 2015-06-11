@@ -190,12 +190,3 @@ void TxModule::dump_symbols() const {
     }
     TxScopeSymbol::dump_symbols();
 }
-
-
-
-const TxPackage* LexicalContext::package() const {
-    return dynamic_cast<const TxPackage*>(this->_scope->get_root_scope());
-}
-TxPackage* LexicalContext::package() {
-    return dynamic_cast<TxPackage*>(this->_scope->get_root_scope());
-}
