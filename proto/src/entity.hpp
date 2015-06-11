@@ -6,8 +6,8 @@
 #include "tx_lang_defs.hpp"
 #include "identifier.hpp"
 
-#include "scope.hpp"
 #include "declaration.hpp"
+#include "symbol.hpp"
 
 
 class TxConstantProxy;

@@ -1,10 +1,9 @@
 #include "tx_lang_defs.hpp"
-#include "scope.hpp"
-
 #include "assert.hpp"
 #include "package.hpp"
 #include "entity.hpp"
 #include "declaration.hpp"
+#include "symbol.hpp"
 
 
 /*=== TxScopeSymbol implementation ===*/

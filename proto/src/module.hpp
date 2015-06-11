@@ -7,8 +7,8 @@
 #include "logging.hpp"
 
 #include "identifier.hpp"
+#include "symbol.hpp"
 #include "type.hpp"
-#include "scope.hpp"
 
 
 class TxPackage;
