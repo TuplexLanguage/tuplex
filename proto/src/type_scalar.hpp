@@ -5,9 +5,9 @@
 
 class TxBoolType : public TxType {
 protected:
-    virtual TxBoolType* make_specialized_type(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                 const std::vector<TxTypeParam>& typeParams,
-                                                 std::string* errorMsg=nullptr) const override {
+    virtual TxBoolType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+                                              const std::vector<TxTypeParam>& typeParams,
+                                              std::string* errorMsg=nullptr) const override {
         ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
         if (dynamic_cast<const TxBoolType*>(baseTypeSpec.type))
             return new TxBoolType(declaration, baseTypeSpec);
@@ -15,7 +15,7 @@ protected:
     };
 
 public:
-    TxBoolType(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec)
+    TxBoolType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec)
         : TxType(TXTC_ELEMENTARY, declaration, baseTypeSpec) { }
 
     virtual bool is_immutable() const override { return false; }
@@ -43,13 +43,13 @@ class TxScalarType : public TxType {
 protected:
     const uint64_t _size;
 
-    virtual TxScalarType* make_specialized_type(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxScalarType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                 const std::vector<TxTypeParam>& typeParams,
                                                 std::string* errorMsg=nullptr) const override {
         throw std::logic_error("Can't specialize type " + this->to_string());
     };
 
-    TxScalarType(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, uint64_t size)
+    TxScalarType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, uint64_t size)
         : TxType(TXTC_ELEMENTARY, declaration, baseTypeSpec), _size(size) { }
 
 public:
@@ -63,7 +63,7 @@ public:
 
 class TxIntegerType final : public TxScalarType {
 protected:
-    virtual TxIntegerType* make_specialized_type(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxIntegerType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                  const std::vector<TxTypeParam>& typeParams,
                                                  std::string* errorMsg=nullptr) const override {
         ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
@@ -72,13 +72,13 @@ protected:
         throw std::logic_error("Specified a base type for TxIntegerType that was not a TxIntegerType: " + baseTypeSpec.type->to_string());
     };
 
-    TxIntegerType(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, int size, bool sign)
+    TxIntegerType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, int size, bool sign)
         : TxScalarType(declaration, baseTypeSpec, size), sign(sign) { }
 
 public:
     const bool sign;
 
-    TxIntegerType(TxTypeDeclaration* declaration, const TxType* baseType, int size, bool sign)
+    TxIntegerType(const TxTypeDeclaration* declaration, const TxType* baseType, int size, bool sign)
         : TxScalarType(declaration, TxTypeSpecialization(baseType), size), sign(sign) { }
 
 
@@ -103,7 +103,7 @@ public:
 
 class TxFloatingType final : public TxScalarType {
 protected:
-    virtual TxFloatingType* make_specialized_type(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxFloatingType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                   const std::vector<TxTypeParam>& typeParams,
                                                   std::string* errorMsg=nullptr) const override {
         ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
@@ -112,11 +112,11 @@ protected:
         throw std::logic_error("Specified a base type for TxFloatingType that was not a TxFloatingType: " + baseTypeSpec.type->to_string());
     };
 
-    TxFloatingType(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, int size)
+    TxFloatingType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, int size)
         : TxScalarType(declaration, baseTypeSpec, size) { }
 
 public:
-    TxFloatingType(TxTypeDeclaration* declaration, const TxType* baseType, int size)
+    TxFloatingType(const TxTypeDeclaration* declaration, const TxType* baseType, int size)
         : TxScalarType(declaration, TxTypeSpecialization(baseType), size) { }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;

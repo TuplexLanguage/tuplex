@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "assert.hpp"
+#include "context.hpp"
 #include "logging.hpp"
 #include "tx_error.hpp"
 
@@ -12,7 +13,6 @@
 #include "package.hpp"
 #include "module.hpp"
 #include "entity.hpp"
-
 #include "driver.hpp"
 #include "location.hh"
 
@@ -49,6 +49,29 @@ public:
 class TxNode : public virtual TxParseOrigin, public Printable {
     static Logger& LOG;
 
+protected:
+    TxNode(const yy::location& parseLocation) : parseLocation(parseLocation) { }
+
+    virtual ~TxNode() = default;
+
+public:
+    const yy::location parseLocation;
+
+    virtual const yy::location& get_parse_location() const override {
+        return this->parseLocation;
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
+
+    virtual std::string to_string() const override;
+
+    std::string parse_loc_string() const;
+
+    inline Logger& LOGGER() const { return this->LOG; }
+};
+
+
+class TxNonSpecializableNode : public TxNode {
     LexicalContext lexContext;
 
 protected:
@@ -61,83 +84,105 @@ protected:
         this->set_context(LexicalContext(lexContext));
     }
 
-    inline TypeRegistry& types() { return this->context().package()->types(); }
-
 public:
-    const yy::location parseLocation;
-
-    TxNode(const yy::location& parseLocation) : lexContext(), parseLocation(parseLocation) { }
-
-    virtual ~TxNode() {
-        if (this->is_context_set())
-            LOGGER().debug("Running destructor of %s", this->to_string().c_str());
-    }
+    TxNonSpecializableNode(const yy::location& parseLocation) : TxNode(parseLocation), lexContext() { }
 
     inline bool is_context_set() const { return this->lexContext.scope(); }
 
-    /** Sets the lexical context of this node to be equal to that of the provided node. */
-    void set_context(const TxNode* node) {
-        this->set_context(node->context());
-    }
+//    /** Sets the lexical context of this node to be equal to that of the provided node. */
+//    void set_context(const TxNode* node) {
+//        this->set_context(node->context());
+//    }
 
     inline const LexicalContext& context() const {
         ASSERT(this->is_context_set(), "lexicalContext not initialized in " << this->to_string());
         return this->lexContext;
     }
     inline LexicalContext& context() {
-        return const_cast<LexicalContext&>(static_cast<const TxNode *>(this)->context());
+        return const_cast<LexicalContext&>(static_cast<const TxNonSpecializableNode *>(this)->context());
     }
 
     virtual TxDriver* get_driver() const override {
         return ( this->is_context_set() ? &this->context().package()->driver() : nullptr );
     }
-
-    virtual const yy::location& get_parse_location() const override {
-        return this->parseLocation;
-    }
-
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
-
-    virtual std::string to_string() const;
-
-    std::string parse_loc_string() const;
-
-    inline Logger& LOGGER() const { return this->LOG; }
 };
 
 
-bool validateTypeName(TxNode* node, TxDeclarationFlags declFlags, const std::string& name);
-bool validateFieldName(TxNode* node, TxDeclarationFlags declFlags, const std::string& name);
+class TxSpecializableNode : public TxNode {
+    std::vector<TxSpecializationPass> specializations;
+protected:
+    inline const TxSpecializationPass& get_spec(TxSpecializationIndex six) const {
+        ASSERT(six < this->specializations.size(), "Non-existant specialization index " << six << " in " << this);
+        return this->specializations.at(six);
+    }
+    inline TxSpecializationPass& get_spec(TxSpecializationIndex six) {
+        while (six >= this->specializations.size())
+            this->specializations.emplace_back();
+        return this->specializations.at(six);
+    }
 
 
-class TxIdentifierNode : public TxNode {
+    inline TypeRegistry& types() { return this->get_spec(0).lexContext.package()->types(); }
+
+public:
+    TxSpecializableNode(const yy::location& parseLocation) : TxNode(parseLocation), specializations(1) { }
+
+
+    inline bool is_context_set(TxSpecializationIndex six) const {
+        return this->specializations.size() > six && this->specializations.at(six).lexContext.scope();
+    }
+
+    void set_context(TxSpecializationIndex six, const LexicalContext& context) {
+        ASSERT(!this->is_context_set(six), "lexicalContext already initialized in " << this->to_string());
+        this->get_spec(six).lexContext = context;
+    }
+
+    inline const LexicalContext& context(TxSpecializationIndex six) const {
+        ASSERT(this->is_context_set(six), "lexicalContext not initialized in " << this->to_string());
+        return this->get_spec(six).lexContext;
+    }
+    inline LexicalContext& context(TxSpecializationIndex six) {
+        return const_cast<LexicalContext&>(static_cast<const TxSpecializableNode *>(this)->context(six));
+    }
+
+    virtual TxDriver* get_driver() const override {
+        return ( this->is_context_set(0) ? &this->context(0).package()->driver() : nullptr );
+    }
+};
+
+
+
+bool validateTypeName (TxSpecializableNode* node, TxDeclarationFlags declFlags, const std::string& name);
+bool validateFieldName(TxSpecializableNode* node, TxDeclarationFlags declFlags, const std::string& name);
+
+
+class TxIdentifierNode : public TxNonSpecializableNode {
 public:
     enum IdentifierClass { UNSPECIFIED, MODULE_ID, IMPORT_ID, TYPE_ID, FIELD_ID, DATASPACE_ID };
     const IdentifierClass idClass;
     const TxIdentifier ident;
 
     TxIdentifierNode(const yy::location& parseLocation, const TxIdentifier* ident, IdentifierClass identifierClass=UNSPECIFIED)
-        : TxNode(parseLocation), idClass(identifierClass), ident(*ident)  { }
+        : TxNonSpecializableNode(parseLocation), idClass(identifierClass), ident(*ident)  { }
 
     TxIdentifierNode(const yy::location& parseLocation, const TxIdentifier& ident)
-        : TxNode(parseLocation), idClass(UNSPECIFIED), ident(ident)  { }
+        : TxNonSpecializableNode(parseLocation), idClass(UNSPECIFIED), ident(ident)  { }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 
     virtual std::string to_string() const {
-        return TxNode::to_string() + " '" + this->ident.to_string() + "'";
+        return TxNonSpecializableNode::to_string() + " '" + this->ident.to_string() + "'";
     }
 };
 
 
 
-class TxImportNode : public TxNode {
+class TxImportNode : public TxNonSpecializableNode {
 public:
     const TxIdentifierNode* identNode;
 
     TxImportNode(const yy::location& parseLocation, const TxIdentifierNode* identifier)
-        : TxNode(parseLocation), identNode(identifier)  { }
+        : TxNonSpecializableNode(parseLocation), identNode(identifier)  { }
 
     virtual void symbol_declaration_pass(TxModule* module) {
         this->set_context(module);
@@ -153,20 +198,20 @@ public:
 };
 
 
-class TxDeclarationNode : public TxNode {  // either type or field
+class TxDeclarationNode : public TxSpecializableNode {  // either type or field
 public:
     const TxDeclarationFlags declFlags;
 
     TxDeclarationNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags)
-        : TxNode(parseLocation), declFlags(declFlags) { }
+        : TxSpecializableNode(parseLocation), declFlags(declFlags) { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) = 0;
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) = 0;
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
 };
 
 
-class TxModuleNode : public TxNode {
+class TxModuleNode : public TxNonSpecializableNode {
     const TxIdentifierNode* identNode;
     std::vector<TxImportNode*>* imports;
     std::vector<TxDeclarationNode*>* members;
@@ -176,7 +221,8 @@ public:
     TxModuleNode(const yy::location& parseLocation, const TxIdentifierNode* identifier,
                  std::vector<TxImportNode*>* imports, std::vector<TxDeclarationNode*>* members,
                  std::vector<TxModuleNode*>* subModules)
-        : TxNode(parseLocation), identNode(identifier), imports(imports), members(members), subModules(subModules), module()  {
+        : TxNonSpecializableNode(parseLocation), identNode(identifier), imports(imports), members(members),
+          subModules(subModules), module()  {
         ASSERT(identifier, "NULL identifier");  // (sanity check on parser)
     }
 
@@ -190,7 +236,7 @@ public:
         if (this->members) {
             LexicalContext lexContext(this->module);
             for (auto elem : *this->members)
-                elem->symbol_declaration_pass(lexContext);
+                elem->symbol_declaration_pass(0, lexContext);
         }
         if (this->subModules) {
             for (auto mod : *this->subModules)
@@ -205,7 +251,7 @@ public:
         }
         if (this->members) {
             for (auto elem : *this->members)
-                elem->symbol_resolution_pass(resCtx);
+                elem->symbol_resolution_pass(0, resCtx);
         }
         if (this->subModules) {
             for (auto mod : *this->subModules)
@@ -218,11 +264,11 @@ public:
 
 
 /** Represents a parsing unit, i.e. a given source text input (e.g. source file). */
-class TxParsingUnitNode : public TxNode {
+class TxParsingUnitNode : public TxNonSpecializableNode {
     std::vector<TxModuleNode*> modules;
 public:
 
-    TxParsingUnitNode(const yy::location& parseLocation) : TxNode(parseLocation) { }
+    TxParsingUnitNode(const yy::location& parseLocation) : TxNonSpecializableNode(parseLocation) { }
 
     void add_module(TxModuleNode* module) {
         this->modules.push_back(module);
@@ -243,47 +289,102 @@ public:
 
 
 
-class TxStatementNode : public TxNode {
+class TxStatementNode : public TxSpecializableNode {
 public:
-    TxStatementNode(const yy::location& parseLocation) : TxNode(parseLocation) { }
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) = 0;
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) = 0;
+    TxStatementNode(const yy::location& parseLocation) : TxSpecializableNode(parseLocation) { }
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
 };
 
+
+
+class TxTypeDefiningNode : public TxSpecializableNode, public TxSpecializableTypeDefiner {
+    std::vector<TxSpecializationTypeDefiner> specializationDefs;
+
+protected:
+    TxSpecializationTypeDefiner* get_spec_type_def(TxSpecializationIndex six) {
+        for (unsigned s = this->specializationDefs.size(); s <= six; s++)
+            this->specializationDefs.emplace_back(this, s);
+        return &this->specializationDefs.at(six);
+    }
+
+    /** Defines the type of this expression (as specific as can be known), constructing/obtaining the TxType instance.
+     * The implementation should only traverse the minimum nodes needed to define the type
+     * (e.g. not require the actual target type of a reference to be defined).
+     * This should only be invoked once, from the TxExpressionNode class. */
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
+
+public:
+    TxTypeDefiningNode(const yy::location& parseLocation) : TxSpecializableNode(parseLocation) { }
+
+    inline TxTypeDefiner* get_type_definer(TxSpecializationIndex six) { return this->get_spec_type_def(six); }
+
+    /** Returns the type (as specific as can be known) of the value this expression produces. */
+    virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) override final {
+        auto & spec = this->get_spec(six);
+        if (!spec.type && !spec.hasResolved) {
+            LOGGER().trace("resolving type of %s", this->to_string().c_str());
+            ASSERT(!spec.startedRslv, "Recursive invocation of resolve_type() of " << this);
+            spec.startedRslv = true;
+            spec.type = this->define_type(six, resCtx);
+            spec.hasResolved = true;
+        }
+        return spec.type;
+    }
+
+    virtual const TxType* attempt_get_type(TxSpecializationIndex six) const override final { return this->get_spec(six).type; }
+    virtual const TxType* get_type        (TxSpecializationIndex six) const override final { return this->get_spec(six).type; }
+};
+
+
+class TxFieldDefiningNode : public TxSpecializableNode, public TxSpecializableFieldDefiner {
+    std::vector<TxSpecializationFieldDefiner> specializationDefs;
+
+protected:
+    TxSpecializationFieldDefiner* get_spec_field_def(TxSpecializationIndex six) {
+        for (unsigned s = this->specializationDefs.size(); s <= six; s++)
+            this->specializationDefs.emplace_back(this, s);
+        return &this->specializationDefs.at(six);
+    }
+
+public:
+    TxFieldDefiningNode(const yy::location& parseLocation) : TxSpecializableNode(parseLocation) { }
+
+    TxTypeDefiner* get_field_definer(TxSpecializationIndex six) { return this->get_spec_field_def(six); }
+
+    virtual const TxType*  attempt_get_type(TxSpecializationIndex six) const override final { return this->get_spec(six).type; }
+    virtual const TxType*  get_type        (TxSpecializationIndex six) const override final { return this->get_spec(six).type; }
+    virtual const TxField* get_field       (TxSpecializationIndex six) const override final { return this->get_spec(six).field; }
+//    virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
+//    virtual const TxField* resolve_field(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
+//    virtual const TxExpressionNode* get_init_expression() const = 0;
+};
 
 
 /**
  * The context of this node refers to its outer scope. This node's entity, if any, refers to its inner scope.
  */
-class TxTypeExpressionNode : public TxNode, public TxTypeDefiner {
-    bool isResolving = false;  // during development - guard against recursive calls to get_type()
-    bool hasResolved = false;  // to prevent multiple identical error messages
-    TxType const * type = nullptr;
-    TxTypeDeclaration* declaration = nullptr;  // null unless initialized in symbol declaration pass
+class TxTypeExpressionNode : public TxTypeDefiningNode {
+//    bool isResolving = false;  // during development - guard against recursive calls to get_type()
+//    bool hasResolved = false;  // to prevent multiple identical error messages
+//    TxType const * type = nullptr;
+//    TxTypeDeclaration* declaration = nullptr;  // null unless initialized in symbol declaration pass
 
 protected:
     /** if parent node is a type declaration that declares type parameters, these will be set by it */
     const std::vector<TxDeclarationNode*>* typeParamDeclNodes = nullptr;
     const std::vector<TxTypeParam>* declTypeParams = nullptr;
 
-    virtual void set_entity(TxTypeDeclaration* declaration) {
-        ASSERT(!this->declaration, "declaredEntity already set in " << this);
-        this->declaration = declaration;
+    /** Gets the type declaration of this type expression, if any. */
+    inline const TxTypeDeclaration* get_declaration(TxSpecializationIndex six) const {
+        return dynamic_cast<const TxTypeDeclaration*>(this->get_spec(six).declaration);
     }
 
-    /** Gets the type declaration of this type expression, if any. */
-    virtual TxTypeDeclaration* get_declaration() const { return this->declaration; }
-
-    virtual void symbol_declaration_pass_descendants(LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
-
-    /** Defines the type of this type expression, constructing/obtaining the TxType instance.
-     * The implementation should only traverse the minimum nodes needed to define the type
-     * (e.g. not require the actual target type of a reference to be defined).
-     * This should only be invoked once, from the TxTypeExpressionNode class. */
-    virtual const TxType* define_type(ResolutionContext& resCtx) = 0;
+    virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
+                                                     LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
 
 public:
-    TxTypeExpressionNode(const yy::location& parseLocation) : TxNode(parseLocation)  { }
+    TxTypeExpressionNode(const yy::location& parseLocation) : TxTypeDefiningNode(parseLocation)  { }
 
     /** if parent node is a type declaration that declares type parameters, this is invoked by it */
     virtual void setTypeParams(const std::vector<TxDeclarationNode*>* typeParamDeclNodes);
@@ -298,77 +399,68 @@ public:
      * and a "lexical context", within which they declare their constituent sub-expressions.
      * The definition context is used for named types lookups, to avoid conflation with names of the sub-expressions.
      */
-    virtual void symbol_declaration_pass(LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags,
-                                         const std::string designatedTypeName = std::string());
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& defContext, LexicalContext& lexContext,
+                                         TxDeclarationFlags declFlags, const std::string designatedTypeName = std::string());
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
-        this->resolve_type(resCtx);
-    }
-
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override final {
-        if (!type && !hasResolved) {
-            LOGGER().trace("resolving type of %s", this->to_string().c_str());
-            ASSERT(!isResolving, "Recursive invocation of resolve_type() of " << this);
-            this->isResolving = true;
-            this->type = this->define_type(resCtx);
-            this->hasResolved = true;
-            this->isResolving = false;
-//            if (this->cachedType && this->declaredEntity)
-//                ASSERT(this->cachedType->entity()==this->declaredEntity || this->declaredEntity->get_alias(),
-//                        "entity " << this->cachedType->entity() << " (of type " << this->cachedType
-//                        << ") is not same as declared entity " << this->declaredEntity
-//                        << " (of node " << *this << ")");
-        }
-        return type;
-    }
-
-    virtual const TxType* attempt_get_type() const override final {
-        return type;
-    }
-    inline virtual const TxType* get_type() const override final {
-        ASSERT(this->is_context_set(), "Can't call get_type() before symbol table pass has completed: "  << this);
-        ASSERT(type, "Type not set in " << this);
-        return type;
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) {
+        this->resolve_type(six, resCtx);
     }
 };
 
-/** Wraps a TxTypeDefiner within a TxTypeExpressionNode. */
-class TxTypeWrapperNode : public TxTypeExpressionNode {
+/** Wraps a TxTypeDefiner within a TxTypeExpressionNode. The same type will be resolved regardless of specialization index. */
+class TxTypeDefWrapperNode : public TxTypeExpressionNode {
     TxTypeDefiner* typeDefiner;
 protected:
-    virtual void symbol_declaration_pass_descendants(LexicalContext& defContext, LexicalContext& lexContext,
-                                                     TxDeclarationFlags declFlags) override { }
+    virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
+                                                     LexicalContext& lexContext, TxDeclarationFlags declFlags) override { }
 
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         return this->typeDefiner->resolve_type(resCtx);
     }
 
 public:
-    TxTypeWrapperNode(const yy::location& parseLocation, TxTypeDefiner* typeDefiner)
+    TxTypeDefWrapperNode(const yy::location& parseLocation, TxTypeDefiner* typeDefiner)
         : TxTypeExpressionNode(parseLocation), typeDefiner(typeDefiner)  { }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 };
 
+/** Wraps a TxTypeExpressionNode within another node which will not forward declaration and resolution pass calls.
+ * This allows the wrapped node to be added as a child to additional parent nodes. */
+class TxTypeExprWrapperNode : public TxTypeExpressionNode {
+    TxTypeExpressionNode* typeExpr;
+protected:
+    virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
+                                                     LexicalContext& lexContext, TxDeclarationFlags declFlags) override { }
+
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        return this->typeExpr->resolve_type(six, resCtx);
+    }
+
+public:
+    TxTypeExprWrapperNode(TxTypeExpressionNode* typeExpr)
+        : TxTypeExpressionNode(typeExpr->parseLocation), typeExpr(typeExpr)  { }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+};
+
+
 
 class TxFieldDefNode;
 
-class TxExpressionNode : public TxNode, public TxTypeDefiner {
-    bool isResolving = false;  // during development - guard against recursive calls to get_type()
-    bool hasResolved = false;  // to prevent multiple identical error messages
-    TxType const * type = nullptr;
-protected:
-    const TxFieldDefNode* fieldDefNode = nullptr; // injected by field definition if known and applicable
-    std::vector<const TxType*>* appliedFuncArgTypes = nullptr; // injected by expression context if applicable
+class TxExpressionNode : public TxTypeDefiningNode {
+//    bool isResolving = false;  // during development - guard against recursive calls to get_type()
+//    bool hasResolved = false;  // to prevent multiple identical error messages
+//    TxType const * type = nullptr;
+//    /** injected by expression context if applicable */
+//    std::vector<const TxType*>* appliedFuncArgTypes = nullptr;
 
-    /** Defines the type of this expression (as specific as can be known), constructing/obtaining the TxType instance.
-     * The implementation should only traverse the minimum nodes needed to define the type
-     * (e.g. not require the actual target type of a reference to be defined).
-     * This should only be invoked once, from the TxExpressionNode class. */
-    virtual const TxType* define_type(ResolutionContext& resCtx) = 0;
+protected:
+    /** injected by field definition if known and applicable */
+    const TxFieldDefNode* fieldDefNode = nullptr;
 
 public:
-    TxExpressionNode(const yy::location& parseLocation) : TxNode(parseLocation) { }
+    TxExpressionNode(const yy::location& parseLocation) : TxTypeDefiningNode(parseLocation) { }
 
     /** Injected by field definition if known and applicable. */
     virtual void set_field_def_node(const TxFieldDefNode* fieldDefNode) {
@@ -379,39 +471,11 @@ public:
      * (i.e. does not construct a new type), e.g. value literals and directly identified fields. */
     virtual bool has_predefined_type() const = 0;
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) = 0;
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
-        this->resolve_type(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) {
+        this->resolve_type(six, resCtx);
     }
-
-    /** Returns the type (as specific as can be known) of the value this expression produces. */
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override final {
-        if (!this->type && !hasResolved) {
-            LOGGER().trace("resolving type of %s", this->to_string().c_str());
-            ASSERT(!isResolving, "Recursive invocation of resolve_type() of " << this);
-            this->isResolving = true;
-            this->type = this->define_type(resCtx);
-            this->hasResolved = true;
-            this->isResolving = false;
-            //if (! this->cachedType)
-            //    LOGGER().warning("%s: resolve_type() yielded NULL", this->parse_loc_string().c_str());
-        }
-        return this->type;
-    }
-
-    virtual const TxType* attempt_get_type() const override final {
-        return this->type;
-    }
-    /** Returns the type (as specific as can be known) of the value this expression produces. */
-    virtual const TxType* get_type() const override final {
-        // (for now) not a strict requirement, these nodes are sometimes added dynamically (e.g. conversions):
-        //ASSERT(this->is_context_set(), "Can't call get_type() before symbol table pass has completed: "  << this);
-        return this->type;
-    }
-
-    ///** Returns true if this expression represents a specific storage location (e.g. a field). */
-    //virtual bool has_address() const { return false; }
 
     /** Returns true if this expression is a constant expression that can be evaluated at compile time. */
     virtual bool is_statically_constant() const { return false; }
@@ -425,10 +489,11 @@ public:
         return nullptr;
     }
 
-    virtual bool hasAppliedFuncArgTypes()  { return this->appliedFuncArgTypes; }
-    virtual std::vector<const TxType*>* get_applied_func_arg_types()  { return this->appliedFuncArgTypes; }
-    virtual void set_applied_func_arg_types(std::vector<const TxType*>* appliedFuncArgTypes) {
-        this->appliedFuncArgTypes = appliedFuncArgTypes;
+    virtual std::vector<const TxType*>* get_applied_func_arg_types(TxSpecializationIndex six) {
+        return this->get_spec(six).appliedFuncArgTypes;
+    }
+    virtual void set_applied_func_arg_types(TxSpecializationIndex six, std::vector<const TxType*>* appliedFuncArgTypes) {
+        this->get_spec(six).appliedFuncArgTypes = appliedFuncArgTypes;
     }
 
     /** Generates code that produces the type id (as opposed to the value) of this expression. */
@@ -443,7 +508,8 @@ public:
  * Will run symbol registration and symbol resolution passes on any inserted nodes.
  * Does not run the semantic pass on inserted nodes.
  */
-TxExpressionNode* validate_wrap_convert(ResolutionContext& resCtx, TxExpressionNode* originalExpr, const TxType* requiredType, bool _explicit=false);
+TxExpressionNode* validate_wrap_convert(TxSpecializationIndex six, ResolutionContext& resCtx, TxExpressionNode* originalExpr,
+                                        const TxType* requiredType, bool _explicit=false);
 
 /** Checks that an rvalue expression of an assignment or argument to a funciton call
  * has a type that matches the required type,
@@ -453,24 +519,26 @@ TxExpressionNode* validate_wrap_convert(ResolutionContext& resCtx, TxExpressionN
  * Will run symbol registration and symbol resolution passes on any inserted nodes.
  * Does not run the semantic pass on inserted nodes.
  */
-TxExpressionNode* validate_wrap_assignment(ResolutionContext& resCtx, TxExpressionNode* rValueExpr, const TxType* requiredType);
+TxExpressionNode* validate_wrap_assignment(TxSpecializationIndex six, ResolutionContext& resCtx, TxExpressionNode* rValueExpr,
+                                           const TxType* requiredType);
 
 
-class TxFieldDefNode : public TxNode, public TxFieldDefiner {
-    TxFieldDeclaration* declaration = nullptr;  // null until initialized in symbol declaration pass
-    TxType const * type = nullptr;
-    TxField const * field = nullptr;
+class TxFieldDefNode : public TxFieldDefiningNode {
+//    TxFieldDeclaration* declaration = nullptr;  // null until initialized in symbol declaration pass
+//    TxType const * type = nullptr;
+//    TxField const * field = nullptr;
 
-    void symbol_declaration_pass(LexicalContext& outerContext, LexicalContext& innerContext, TxDeclarationFlags declFlags) {
-        this->set_context(outerContext);
+    void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& outerContext, LexicalContext& innerContext,
+                                 TxDeclarationFlags declFlags) {
+        this->set_context(six, outerContext);
         auto typeDeclFlags = (declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
         if (this->typeExpression) {
             // unless the type expression is a directly named type, declare implicit type entity for this field's type:
             if (this->typeExpression->has_predefined_type())
-                this->typeExpression->symbol_declaration_pass(innerContext, innerContext, typeDeclFlags);
+                this->typeExpression->symbol_declaration_pass(six, innerContext, innerContext, typeDeclFlags);
             else {
                 auto implTypeName = this->get_field_name() + "$type";
-                this->typeExpression->symbol_declaration_pass(innerContext, innerContext, typeDeclFlags, implTypeName);
+                this->typeExpression->symbol_declaration_pass(six, innerContext, innerContext, typeDeclFlags, implTypeName);
             }
         }
         if (this->initExpression) {
@@ -481,45 +549,46 @@ class TxFieldDefNode : public TxNode, public TxFieldDefiner {
 //                if (!typeEntity)
 //                    CERROR(this, "Failed to declare implicit type %s for field %s", implTypeName.c_str(), this->fieldName.c_str());
 //            }
-            this->initExpression->symbol_declaration_pass(outerContext);
+            this->initExpression->symbol_declaration_pass(six, outerContext);
         }
     };
 
 public:
     const std::string fieldName;  // the original field name
     const bool modifiable;  // true if field name explicitly declared modifiable
-    TxTypeDefiner* typeDefiner;  // optional, non-code-generating type definer (can't be specified at same time as typeExpression)
+    TxSpecializableTypeDefiner* typeDefiner;  // optional, non-code-generating type definer (can't be specified at same time as typeExpression)
     TxTypeExpressionNode* typeExpression;
     TxExpressionNode* initExpression;
 
     TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
                    TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression)
-            : TxNode(parseLocation), fieldName(fieldName), modifiable(false), typeDefiner() {
+            : TxFieldDefiningNode(parseLocation), fieldName(fieldName), modifiable(false), typeDefiner() {
         this->typeExpression = typeExpression;
         this->initExpression = initExpression;
         if (this->initExpression)
             this->initExpression->set_field_def_node(this);
     }
     TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
-                   TxExpressionNode* initExpression, bool modifiable=false, TxTypeDefiner* typeDefiner=nullptr)
-            : TxNode(parseLocation), fieldName(fieldName), modifiable(modifiable), typeDefiner(typeDefiner) {
+                   TxExpressionNode* initExpression, bool modifiable=false, TxSpecializableTypeDefiner* typeDefiner=nullptr)
+            : TxFieldDefiningNode(parseLocation), fieldName(fieldName), modifiable(modifiable), typeDefiner(typeDefiner) {
         this->typeExpression = nullptr;
         this->initExpression = initExpression;
         if (this->initExpression)
             this->initExpression->set_field_def_node(this);
     }
 
-    void symbol_declaration_pass_local_field(LexicalContext& lexContext, bool create_local_scope) {
+    void symbol_declaration_pass_local_field(TxSpecializationIndex six, LexicalContext& lexContext, bool create_local_scope) {
         auto outerCtx = lexContext;  // prevents init expr from referring to this field
         if (create_local_scope)
             lexContext.scope(lexContext.scope()->create_code_block_scope());
         TxDeclarationFlags declFlags = TXD_NONE;
-        this->declaration = lexContext.scope()->declare_field(this->fieldName, this, declFlags, TXS_STACK, TxIdentifier(""));
-        this->symbol_declaration_pass(outerCtx, lexContext, declFlags);
+        this->get_spec(six).declaration = lexContext.scope()->declare_field(this->fieldName, this->get_spec_field_def(six),
+                                                                            declFlags, TXS_STACK, TxIdentifier(""));
+        this->symbol_declaration_pass(six, outerCtx, lexContext, declFlags);
     }
 
-    void symbol_declaration_pass_nonlocal_field(LexicalContext& lexContext, TxDeclarationFlags declFlags,
-                                                 TxFieldStorage storage, const TxIdentifier& dataspace) {
+    void symbol_declaration_pass_nonlocal_field(TxSpecializationIndex six, LexicalContext& lexContext, TxDeclarationFlags declFlags,
+                                                TxFieldStorage storage, const TxIdentifier& dataspace) {
         std::string declName;
         if (this->fieldName != "self")
             declName = this->fieldName;
@@ -529,83 +598,74 @@ public:
             declFlags = declFlags | TXD_CONSTRUCTOR;
         }
 
-        this->declaration = lexContext.scope()->declare_field(declName, this, declFlags, storage, dataspace);
-        this->symbol_declaration_pass(lexContext, lexContext, declFlags);
+        this->get_spec(six).declaration = lexContext.scope()->declare_field(declName, this->get_spec_field_def(six),
+                                                                            declFlags, storage, dataspace);
+        this->symbol_declaration_pass(six, lexContext, lexContext, declFlags);
     }
 
-    void symbol_declaration_pass_functype_arg(LexicalContext& lexContext) {
-        this->symbol_declaration_pass(lexContext, lexContext, TXD_NONE);
+    void symbol_declaration_pass_functype_arg(TxSpecializationIndex six, LexicalContext& lexContext) {
+        this->symbol_declaration_pass(six, lexContext, lexContext, TXD_NONE);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
-        this->resolve_field(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) {
+        this->resolve_field(six, resCtx);
         if (this->typeExpression) {
-            this->typeExpression->symbol_resolution_pass(resCtx);
+            this->typeExpression->symbol_resolution_pass(six, resCtx);
         }
         if (this->initExpression) {
-            this->initExpression->symbol_resolution_pass(resCtx);
-            if ((this->typeExpression || this->typeDefiner) && this->type)
-                this->initExpression = validate_wrap_convert(resCtx, this->initExpression, this->type);
-            if (this->field && this->field->is_statically_constant())
+            this->initExpression->symbol_resolution_pass(six, resCtx);
+            if ((this->typeExpression || this->typeDefiner) && this->get_spec(six).type)
+                this->initExpression = validate_wrap_convert(six, resCtx, this->initExpression, this->get_spec(six).type);
+            if (this->get_spec(six).field && this->get_spec(six).field->is_statically_constant())
                     if (! this->initExpression->is_statically_constant())
                         CERROR(this, "Non-constant initializer for constant global/static field.");
         }
 
-        if (auto type = this->get_type()) {
+        if (auto type = this->get_type(six)) {
             if (! type->is_concrete())
                 CERROR(this, "Field type is not concrete (size potentially unknown): " << type);
             if (this->get_field_name() == "$init") {
-                if (this->get_declaration()->get_storage() != TXS_INSTANCEMETHOD)
+                if (this->get_declaration(six)->get_storage() != TXS_INSTANCEMETHOD)
                     CERROR(this, "Illegal declaration name for non-constructor member: " << this->fieldName);
                 // TODO: check that constructor function type has void return value
             }
         }
     }
 
-    virtual const TxField* resolve_field(ResolutionContext& resCtx) override {
-        if (! this->field) {
+    virtual const TxField* resolve_field(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        auto & spec = this->get_spec(six);
+        if (! spec.field) {
             LOGGER().trace("resolving type of %s", this->to_string().c_str());
             if (this->typeExpression) {
-                this->type = this->typeExpression->resolve_type(resCtx);
+                spec.type = this->typeExpression->resolve_type(six, resCtx);
             }
             else if (this->typeDefiner) {
-                this->type = this->typeDefiner->resolve_type(resCtx);
+                spec.type = this->typeDefiner->resolve_type(six, resCtx);
             }
             else {
-                this->type = this->initExpression->resolve_type(resCtx);
-                if (this->type) {
+                spec.type = this->initExpression->resolve_type(six, resCtx);
+                if (spec.type) {
                     if (this->modifiable) {
-                        if (! this->type->is_modifiable())
-                            this->type = this->types().get_modifiable_type(nullptr, this->type);
+                        if (! spec.type->is_modifiable())
+                            spec.type = this->types().get_modifiable_type(nullptr, spec.type);
                     }
-                    else if (this->type->is_modifiable())
+                    else if (spec.type->is_modifiable())
                         // if initialization expression is modifiable type, and modifiable not explicitly specified,
                         // lose modifiable attribute (modifiability must be explicit)
-                        this->type = this->type->get_base_type();
+                        spec.type = spec.type->get_base_type();
                 }
             }
 
-            if (this->type && this->declaration)
-                this->field = new TxField(this->declaration, this->type);
+            if (spec.type)
+                if (auto decl = dynamic_cast<const TxFieldDeclaration*>(spec.declaration))
+                    spec.field = new TxField(decl, spec.type);
         }
-        return this->field;
+        return spec.field;
     }
 
-    virtual const TxField* get_field() const override {
-        ASSERT(this->field, "NULL field in " << *this);  // note, is null in case of function type arg
-        return this->field;
-    }
-
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override {
-        resolve_field(resCtx);
-        return this->type;
-    }
-
-    virtual const TxType* attempt_get_type() const override {
-        return this->type;
-    }
-    virtual const TxType* get_type() const override {
-        return this->type;
+    virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        this->resolve_field(six, resCtx);
+        return this->get_spec(six).type;
     }
 
     virtual const TxExpressionNode* get_init_expression() const override {
@@ -617,15 +677,15 @@ public:
         return this->fieldName;
     }
 
-    TxFieldDeclaration* get_declaration() const {
-        ASSERT(this->declaration, "field declaration not initialized for " << this->fieldName);
-        return this->declaration;
+    const TxFieldDeclaration* get_declaration(TxSpecializationIndex six) const {
+        ASSERT(this->get_spec(six).declaration, "field declaration not initialized for " << this->fieldName);
+        return dynamic_cast<const TxFieldDeclaration*>(this->get_spec(six).declaration);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual std::string to_string() const override {
-        return TxNode::to_string() + " '" + this->get_field_name() + "'";
+        return TxSpecializableNode::to_string() + " '" + this->get_field_name() + "'";
     }
 };
 
@@ -639,20 +699,20 @@ public:
                     bool isMethodSyntax=false)
             : TxDeclarationNode(parseLocation, declFlags), isMethodSyntax(isMethodSyntax), field(field) { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override;
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override;
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        this->field->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        this->field->symbol_resolution_pass(six, resCtx);
 
-        if (auto type = this->field->get_type()) {
-            auto storage = this->field->get_declaration()->get_storage();
+        if (auto type = this->field->get_type(six)) {
+            auto storage = this->field->get_declaration(six)->get_storage();
             if (type->is_modifiable()) {
                 if (storage == TXS_GLOBAL)
                     CERROR(this, "Global fields may not be modifiable: " << field->get_field_name().c_str());
             }
             else if (! this->field->initExpression) {
                 if (storage == TXS_GLOBAL || storage == TXS_STATIC)
-                    if (! (this->field->get_declaration()->get_decl_flags() & TXD_GENPARAM))
+                    if (! (this->field->get_declaration(six)->get_decl_flags() & TXD_GENPARAM))
                         CERROR(this, "Non-modifiable field must have an initializer");
                 // FUTURE: ensure TXS_INSTANCE fields are initialized either here or in every constructor
                 // FUTURE: check that TXS_STACK fields are initialized before first use
@@ -681,46 +741,32 @@ public:
             this->typeExpression->setTypeParams(typeParamDecls);
     }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext)  { this->symbol_declaration_pass(lexContext, lexContext); }
-    virtual void symbol_declaration_pass(LexicalContext& defContext, LexicalContext& lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->symbol_declaration_pass(six, lexContext, lexContext);
+    }
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& defContext, LexicalContext& lexContext);
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
-        this->typeExpression->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        this->typeExpression->symbol_resolution_pass(six, resCtx);
         if (this->typeParamDecls)
             for (auto paramDecl : *this->typeParamDecls)
-                paramDecl->symbol_resolution_pass(resCtx);
+                paramDecl->symbol_resolution_pass(six, resCtx);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
-class TxAssigneeNode : public TxNode {
-    bool hasResolved = false;
-    TxType const * type = nullptr;
-
-    /** Defines/obtains the type (as specific as can be known) of the value of this assignee.
-     * Must be defined by all TxAssigneeNode subclasses, but should only be invoked from TxAssigneeNode. */
-    virtual const TxType* define_type(ResolutionContext& resCtx) = 0;
+class TxAssigneeNode : public TxTypeDefiningNode {
+//    bool hasResolved = false;
+//    TxType const * type = nullptr;
 
 public:
-    TxAssigneeNode(const yy::location& parseLocation) : TxNode(parseLocation) { }
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) = 0;
+    TxAssigneeNode(const yy::location& parseLocation) : TxTypeDefiningNode(parseLocation) { }
 
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) final {
-        if (! hasResolved) {
-            hasResolved = true;
-            this->type = this->define_type(resCtx);
-        }
-        return type;
-    }
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
-        this->resolve_type(resCtx);
-    }
-
-    /** Gets the type of this assignee. */
-    virtual const TxType* get_type() const final {
-        return this->type;
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) {
+        this->resolve_type(six, resCtx);
     }
 };

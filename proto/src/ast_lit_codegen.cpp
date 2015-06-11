@@ -68,8 +68,8 @@ Constant* TxIntegerLitNode::IntConstantProxy::code_gen(LlvmGenerationContext& co
 
 Value* TxFloatingLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s\t%f", this->to_string().c_str(), this->value);
-    Type* type = context.get_llvm_type(this->get_type());
-    ASSERT (type, "Could not get Type for TxFloatingLitNode " << context.get_llvm_type(this->get_type()));
+    Type* type = context.get_llvm_type(this->get_type(0));
+    ASSERT (type, "Could not get Type for TxFloatingLitNode " << context.get_llvm_type(this->get_type(0)));
     auto value = ConstantFP::get(type, this->literal);
     //auto value = ConstantFP::get(type, this->value);
     return value;

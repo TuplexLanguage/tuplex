@@ -13,13 +13,13 @@ public:
     TxFieldStmtNode(const yy::location& parseLocation, TxFieldDefNode* field)
         : TxStatementNode(parseLocation), field(field) { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->field->symbol_declaration_pass_local_field(lexContext, true);
-        this->set_context(this->field);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->field->symbol_declaration_pass_local_field(six, lexContext, true);
+        this->set_context(six, this->field->context(six));
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        this->field->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        this->field->symbol_resolution_pass(six, resCtx);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -36,13 +36,13 @@ public:
           typeDecl(new TxTypeDeclNode(parseLocation, TXD_NONE, typeName, typeParamDecls, typeExpression))
     { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->typeDecl->symbol_declaration_pass(lexContext);
-        this->set_context(this->typeDecl);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->typeDecl->symbol_declaration_pass(six, lexContext);
+        this->set_context(six, this->typeDecl->context(six));
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        this->typeDecl->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        this->typeDecl->symbol_resolution_pass(six, resCtx);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -55,13 +55,13 @@ public:
     TxCallStmtNode(const yy::location& parseLocation, TxFunctionCallNode* call)
         : TxStatementNode(parseLocation), call(call) { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        ((TxExpressionNode*)this->call)->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        ((TxExpressionNode*)this->call)->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        ((TxExpressionNode*)this->call)->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        ((TxExpressionNode*)this->call)->symbol_resolution_pass(six, resCtx);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -79,20 +79,20 @@ public:
     TxReturnStmtNode(const yy::location& parseLocation, TxExpressionNode* expr)
         : TxTerminalStmtNode(parseLocation), expr(expr) { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
         if (this->expr)
-            this->expr->symbol_declaration_pass(lexContext);
+            this->expr->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         // TODO: Fix so that this won't find false positive using outer function's $return typeDecl
         // TODO: Illegal to return reference to STACK dataspace
-        auto returnDecl = lookup_field(this->context().scope(), TxIdentifier("$return"));
+        auto returnDecl = lookup_field(this->context(six).scope(), TxIdentifier("$return"));
         if (this->expr) {
-            this->expr->symbol_resolution_pass(resCtx);
+            this->expr->symbol_resolution_pass(six, resCtx);
             if (returnDecl)
-                this->expr = validate_wrap_convert(resCtx, this->expr, returnDecl->get_definer()->resolve_field(resCtx)->get_type());
+                this->expr = validate_wrap_convert(six, resCtx, this->expr, returnDecl->get_definer()->resolve_field(resCtx)->get_type());
             else
                 CERROR(this, "Return statement has value expression although function has no return type");
         }
@@ -107,8 +107,8 @@ class TxBreakStmtNode : public TxTerminalStmtNode {
 public:
     TxBreakStmtNode(const yy::location& parseLocation) : TxTerminalStmtNode(parseLocation)  { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override { this->set_context(lexContext); }
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { }
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override { this->set_context(six, lexContext); }
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -116,8 +116,8 @@ class TxContinueStmtNode : public TxTerminalStmtNode {
 public:
     TxContinueStmtNode(const yy::location& parseLocation) : TxTerminalStmtNode(parseLocation)  { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override { this->set_context(lexContext); }
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { }
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override { this->set_context(six, lexContext); }
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -129,22 +129,22 @@ public:
     TxSuiteNode(const yy::location& parseLocation);
     TxSuiteNode(const yy::location& parseLocation, std::vector<TxStatementNode*>* suite);
 
-    virtual void symbol_declaration_pass_no_subscope(LexicalContext& lexContext) {
-        this->set_context(lexContext);
+    virtual void symbol_declaration_pass_no_subscope(TxSpecializationIndex six, LexicalContext& lexContext) {
+        this->set_context(six, lexContext);
         for (auto stmt : *this->suite)
-            stmt->symbol_declaration_pass(lexContext);
+            stmt->symbol_declaration_pass(six, lexContext);
     }
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         LexicalContext suiteContext(lexContext.scope()->create_code_block_scope(), lexContext.get_constructed());
-        this->symbol_declaration_pass_no_subscope(suiteContext);
+        this->symbol_declaration_pass_no_subscope(six, suiteContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         TxStatementNode* prev_stmt = nullptr;
         for (auto stmt : *this->suite) {
             if (dynamic_cast<TxTerminalStmtNode*>(prev_stmt))
                 CERROR(stmt, "This statement is unreachable.");
-            stmt->symbol_resolution_pass(resCtx);
+            stmt->symbol_resolution_pass(six, resCtx);
             prev_stmt = stmt;
         }
     }
@@ -160,13 +160,13 @@ public:
     TxElseClauseNode(const yy::location& parseLocation, TxStatementNode* suite)
         : TxStatementNode(parseLocation), suite(suite)  { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        this->suite->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        this->suite->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        this->suite->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        this->suite->symbol_resolution_pass(six, resCtx);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -183,20 +183,20 @@ public:
                            TxElseClauseNode* elseClause=nullptr)
         : TxStatementNode(parseLocation), cond(cond), suite(suite), elseClause(elseClause)  { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        this->cond->symbol_declaration_pass(lexContext);
-        this->suite->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        this->cond->symbol_declaration_pass(six, lexContext);
+        this->suite->symbol_declaration_pass(six, lexContext);
         if (this->elseClause)
-            this->elseClause->symbol_declaration_pass(lexContext);
+            this->elseClause->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        this->cond->symbol_resolution_pass(resCtx);
-        this->cond = validate_wrap_convert(resCtx, this->cond, this->types().get_builtin_type(BOOL));
-        this->suite->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        this->cond->symbol_resolution_pass(six, resCtx);
+        this->cond = validate_wrap_convert(six, resCtx, this->cond, this->types().get_builtin_type(BOOL));
+        this->suite->symbol_resolution_pass(six, resCtx);
         if (this->elseClause)
-            this->elseClause->symbol_resolution_pass(resCtx);
+            this->elseClause->symbol_resolution_pass(six, resCtx);
     }
 };
 
@@ -228,20 +228,20 @@ public:
     TxAssignStmtNode(const yy::location& parseLocation, TxAssigneeNode* lvalue, TxExpressionNode* rvalue)
         : TxStatementNode(parseLocation), lvalue(lvalue), rvalue(rvalue)  { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        this->lvalue->symbol_declaration_pass(lexContext);
-        this->rvalue->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        this->lvalue->symbol_declaration_pass(six, lexContext);
+        this->rvalue->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        this->lvalue->symbol_resolution_pass(resCtx);
-        this->rvalue->symbol_resolution_pass(resCtx);
-        auto ltype = this->lvalue->resolve_type(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        this->lvalue->symbol_resolution_pass(six, resCtx);
+        this->rvalue->symbol_resolution_pass(six, resCtx);
+        auto ltype = this->lvalue->resolve_type(six, resCtx);
         if (! ltype)
             return;  // (error message should have been emitted by lvalue node)
         if (! ltype->is_modifiable()) {
-            if (! this->context().get_constructed())  // TODO: only members of constructed object should skip error
+            if (! this->context(six).get_constructed())  // TODO: only members of constructed object should skip error
                 CERROR(this, "Assignee is not modifiable: " << ltype);
             // Note: If the object as a whole is modifiable, it can be assigned to.
             // If it has any "non-modifiable" members, those will still get overwritten.
@@ -249,7 +249,7 @@ public:
             // it would in this regard behave differently than other aggregate objects.
         }
         // note: similar rules to passing function arg
-        this->rvalue = validate_wrap_assignment(resCtx, this->rvalue, ltype);
+        this->rvalue = validate_wrap_assignment(six, resCtx, this->rvalue, ltype);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

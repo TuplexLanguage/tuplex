@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "context.hpp"
 #include "logging.hpp"
 
 #include "type_base.hpp"
@@ -22,12 +23,12 @@
 
 
 class TxArrayType : public TxType {
-    TxArrayType(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+    TxArrayType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                 const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
             : TxType(TXTC_ARRAY, declaration, baseTypeSpec, typeParams)  { }
 
 protected:
-    virtual TxArrayType* make_specialized_type(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxArrayType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                const std::vector<TxTypeParam>& typeParams,
                                                std::string* errorMsg=nullptr) const override {
         if (! dynamic_cast<const TxArrayType*>(baseTypeSpec.type))
@@ -37,10 +38,10 @@ protected:
 
 public:
     /** Creates the Array base type (no element type nor length specified). Only one such instance should exist. */
-    TxArrayType(TxTypeDeclaration* declaration, const TxType* anyType, TxTypeDefiner* anyTypeDefiner, TxTypeDefiner* uintTypeDefiner)
+    TxArrayType(const TxTypeDeclaration* declaration, const TxType* anyType, TxTypeDefiner* anyTypeDefiner, TxTypeDefiner* uintTypeDefiner)
             : TxType(TXTC_ARRAY, declaration, TxTypeSpecialization(anyType),
-                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE,  "E", anyTypeDefiner),
-                                                 TxTypeParam(TxTypeParam::TXB_VALUE, "L", uintTypeDefiner) } ) ) { }
+                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE,  "E", new TxFixedTypeDefiner(anyTypeDefiner)),
+                                                 TxTypeParam(TxTypeParam::TXB_VALUE, "L", new TxFixedTypeDefiner(uintTypeDefiner)) } ) ) { }
 
 
     /** Returns nullptr if unbound. */
@@ -69,12 +70,12 @@ private:
 
 
 class TxReferenceType : public TxType {
-    TxReferenceType(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+    TxReferenceType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                     const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
             : TxType(TXTC_REFERENCE, declaration, baseTypeSpec, typeParams)  { }
 
 protected:
-    virtual TxReferenceType* make_specialized_type(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxReferenceType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                    const std::vector<TxTypeParam>& typeParams,
                                                    std::string* errorMsg=nullptr) const override {
         if (! dynamic_cast<const TxReferenceType*>(baseTypeSpec.type))
@@ -84,9 +85,9 @@ protected:
 
 public:
     /** Creates the Reference base type (no target type specified). Only one such instance should exist. */
-    TxReferenceType(TxTypeDeclaration* declaration, const TxType* anyType, TxTypeDefiner* anyTypeDefiner)
+    TxReferenceType(const TxTypeDeclaration* declaration, const TxType* anyType, TxTypeDefiner* anyTypeDefiner)
             : TxType(TXTC_REFERENCE, declaration, TxTypeSpecialization(anyType),
-                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE, "T", anyTypeDefiner) } ) ) { }
+                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE, "T", new TxFixedTypeDefiner(anyTypeDefiner)) } ) ) { }
 
 
     /** Returns the target type of this reference type, or nullptr if it failed to resolve. */
@@ -119,14 +120,14 @@ class TxFunctionType : public TxType {
     /** Indicates whether functions of this type may modify its closure when run. */
     const bool modifiableClosure;
 
-    TxFunctionType(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, const std::vector<TxTypeParam>& typeParams,
+    TxFunctionType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, const std::vector<TxTypeParam>& typeParams,
                    const std::vector<const TxType*>& argumentTypes, const TxType* returnType=nullptr,
                    bool modifiableClosure=false)
             : TxType(TXTC_FUNCTION, declaration, baseTypeSpec, typeParams), modifiableClosure(modifiableClosure),
               argumentTypes(argumentTypes), returnType(returnType)  { }
 
 protected:
-    virtual TxFunctionType* make_specialized_type(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxFunctionType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                   const std::vector<TxTypeParam>& typeParams,
                                                   std::string* errorMsg=nullptr) const override {
         if (auto funcBaseType = dynamic_cast<const TxFunctionType*>(baseTypeSpec.type))
@@ -139,7 +140,7 @@ public:
     const std::vector<const TxType*> argumentTypes;
     TxType const * const returnType;
 
-    TxFunctionType(TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*>& argumentTypes,
+    TxFunctionType(const TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*>& argumentTypes,
                    const TxType* returnType=nullptr, bool modifiableClosure=false)
         : TxType(TXTC_FUNCTION, declaration, TxTypeSpecialization(baseType)),
           modifiableClosure(modifiableClosure), argumentTypes(argumentTypes), returnType(returnType)  { }
@@ -189,7 +190,7 @@ public:
 class TxConstructorType : public TxFunctionType {
     TxTypeDeclaration* objTypeDeclaration;
 public:
-    TxConstructorType(TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*> argumentTypes, TxTypeDeclaration* objTypeDeclaration)
+    TxConstructorType(const TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*> argumentTypes, TxTypeDeclaration* objTypeDeclaration)
         : TxFunctionType(declaration, baseType, argumentTypes, nullptr, true), objTypeDeclaration(objTypeDeclaration) { }
 
     TxTypeDeclaration* get_constructed_type_decl() const {
@@ -199,20 +200,20 @@ public:
 
 class TxBuiltinFunctionType : public TxFunctionType {
 public:
-    TxBuiltinFunctionType(TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*> argumentTypes, const TxType* returnType)
+    TxBuiltinFunctionType(const TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*> argumentTypes, const TxType* returnType)
         : TxFunctionType(declaration, baseType, argumentTypes, returnType) { }
 };
 
 class TxBuiltinConversionFunctionType : public TxBuiltinFunctionType {
 public:
-    TxBuiltinConversionFunctionType(TxTypeDeclaration* declaration, const TxType* baseType, const TxType* argumentType, const TxType* returnType)
+    TxBuiltinConversionFunctionType(const TxTypeDeclaration* declaration, const TxType* baseType, const TxType* argumentType, const TxType* returnType)
         : TxBuiltinFunctionType(declaration, baseType, std::vector<const TxType*>{ argumentType }, returnType) { }
 };
 
 /*
 class TxStackConstructorType : public TxFunctionType {
 public:
-    TxStackConstructorType(TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*>& argumentTypes, const TxType* returnType)
+    TxStackConstructorType(const TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*>& argumentTypes, const TxType* returnType)
         : TxFunctionType(declaration, baseType, argumentTypes, returnType) { }
 
 //    // TO DO: make common "inlinable function" superclass that contains this method:
@@ -228,15 +229,15 @@ public:
 class TxFunctionGroupType : public TxType {
     std::vector<const TxFunctionType*> functionTypes;
 
-    TxFunctionGroupType* make_specialized_type(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+    TxFunctionGroupType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                const std::vector<TxTypeParam>& typeParams,
                                                std::string* errorMsg=nullptr) const override {
         throw std::logic_error("Can't specialize type " + this->to_string());
     };
 
 public:
-    TxFunctionGroupType(TxTypeDeclaration* declaration) : TxType(TXTC_FUNCTION, declaration) { }
-    TxFunctionGroupType(TxTypeDeclaration* declaration, const TxFunctionType* funcType) : TxType(declaration) {
+    TxFunctionGroupType(const TxTypeDeclaration* declaration) : TxType(TXTC_FUNCTION, declaration) { }
+    TxFunctionGroupType(const TxTypeDeclaration* declaration, const TxFunctionType* funcType) : TxType(declaration) {
         this->functionTypes.push_back(funcType);
     }
 
@@ -254,11 +255,11 @@ class TxTupleType : public TxType {
     const bool _mutable;
     const bool abstract = false;
 
-    TxTupleType(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, const std::vector<TxTypeParam>& typeParams, bool _mutable=false)
+    TxTupleType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, const std::vector<TxTypeParam>& typeParams, bool _mutable=false)
             : TxType(TXTC_TUPLE, declaration, baseTypeSpec, typeParams), _mutable(_mutable)  { }
 
 protected:
-    virtual TxTupleType* make_specialized_type(TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+    virtual TxTupleType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                const std::vector<TxTypeParam>& typeParams,
                                                std::string* errorMsg=nullptr) const override {
         if (auto tupleBaseType = dynamic_cast<const TxTupleType*>(baseTypeSpec.type))
@@ -267,7 +268,7 @@ protected:
     };
 
 public:
-    TxTupleType(TxTypeDeclaration* declaration, const TxType* baseType, bool _mutable=false)
+    TxTupleType(const TxTypeDeclaration* declaration, const TxType* baseType, bool _mutable=false)
             : TxType(TXTC_TUPLE, declaration, TxTypeSpecialization(baseType)), _mutable(_mutable)  {
         ASSERT(declaration, "NULL declaration");
     }

@@ -207,7 +207,7 @@ protected:
     }
 
     /** Creates a specialization of this type. To be used by the type registry. */
-    virtual TxType* make_specialized_type(TxTypeDeclaration* declaration,
+    virtual TxType* make_specialized_type(const TxTypeDeclaration* declaration,
                                           const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
                                           const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>(),
                                           std::string* errorMsg=nullptr) const = 0;
@@ -502,10 +502,10 @@ protected:
 
 
 /** Wraps a TxType as a TxTypeDefiner, can be used for const TxType -> non-const TxTypeDefiner conversion. */
-class TxTypeDefWrapper : public TxTypeDefiner {
+class TxTypeWrapperDef : public TxTypeDefiner {
     const TxType* type;
 public:
-    TxTypeDefWrapper(const TxType* type) : type(type)  { }
+    TxTypeWrapperDef(const TxType* type) : type(type)  { }
     virtual TxDriver* get_driver() const override { return this->type->get_driver(); }
     virtual const yy::location& get_parse_location() const override { return this->type->get_parse_location(); }
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }

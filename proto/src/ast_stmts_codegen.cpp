@@ -45,14 +45,14 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 
     // FUTURE: if this is a lambda within a code-block, define the implicit closure object here
 
-    //FunctionType *ftype = cast<FunctionType>(context.get_llvm_type(this->funcTypeNode->get_type()));
-    StructType *lambdaT = cast<StructType>(context.get_llvm_type(this->funcTypeNode->get_type()));
+    //FunctionType *ftype = cast<FunctionType>(context.get_llvm_type(this->funcTypeNode->get_type(0)));
+    StructType *lambdaT = cast<StructType>(context.get_llvm_type(this->funcTypeNode->get_type(0)));
     FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
-    ASSERT(funcT, "Couldn't get LLVM type for function type " << this->funcTypeNode->get_type());
+    ASSERT(funcT, "Couldn't get LLVM type for function type " << this->funcTypeNode->get_type(0));
 
     std::string funcName;
     if (this->fieldDefNode) {
-        auto declaration = this->fieldDefNode->get_declaration();
+        auto declaration = this->fieldDefNode->get_declaration(0);
         if (declaration->get_decl_flags() & TXD_CONSTRUCTOR)
             funcName = declaration->get_unique_full_name();
         else
@@ -78,15 +78,15 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
         // (both self and super refer to the same object, but with different ref types)
         {
             this->selfRefNode->typeExpression->code_gen(context, &fscope);
-            auto selfT = context.get_llvm_type(this->selfRefNode->get_type());
+            auto selfT = context.get_llvm_type(this->selfRefNode->get_type(0));
             auto convSelfV = TxReferenceType::gen_ref_conversion(context, &fscope, fArgI, selfT);
-            gen_local_field(context, &fscope, this->selfRefNode->get_field(), convSelfV);
+            gen_local_field(context, &fscope, this->selfRefNode->get_field(0), convSelfV);
         }
         {
             this->superRefNode->typeExpression->code_gen(context, &fscope);
-            auto superT = context.get_llvm_type(this->superRefNode->get_type());
+            auto superT = context.get_llvm_type(this->superRefNode->get_type(0));
             auto convSuperV = TxReferenceType::gen_ref_conversion(context, &fscope, fArgI, superT);
-            gen_local_field(context, &fscope, this->superRefNode->get_field(), convSuperV);
+            gen_local_field(context, &fscope, this->superRefNode->get_field(0), convSuperV);
         }
     }
     fArgI++;
@@ -95,7 +95,7 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
          fArgI++, argDefI++)
     {
         (*argDefI)->typeExpression->code_gen(context, &fscope);
-        gen_local_field(context, &fscope, (*argDefI)->get_field(), fArgI);
+        gen_local_field(context, &fscope, (*argDefI)->get_field(0), fArgI);
     }
 
     this->suite->code_gen(context, &fscope);
@@ -118,10 +118,10 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     context.LOG.trace("%-48s", this->to_string().c_str());
     if (this->field->typeExpression)
         this->field->typeExpression->code_gen(context, scope);
-    auto declaration = this->field->get_declaration();
+    auto declaration = this->field->get_declaration(0);
     auto uniqueName = declaration->get_unique_full_name();
     ASSERT (declaration->get_storage() == TXS_STACK, "TxFieldStmtNode can only apply to TX_STACK storage fields: " << uniqueName);
-    auto txType = this->field->get_type();
+    auto txType = this->field->get_type(0);
     Value* fieldVal;
     if (dynamic_cast<const TxFunctionType*>(txType)) {
         // FUTURE: make local function capture

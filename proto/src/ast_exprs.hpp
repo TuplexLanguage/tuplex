@@ -17,9 +17,9 @@ extern llvm::Value* gen_lambda(LlvmGenerationContext& context, GenScope* scope, 
 
 class TxConversionNode : public TxExpressionNode {
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         // FIXME: type equality logic
-        //auto type = expr->resolve_type(resCtx);
+        //auto type = expr->resolve_type(six, resCtx);
         //ASSERT(type && (*type) == (*this->targetType), "Mismatching types in " << this << ": \n" << type << " != \n" << this->targetType);
         return this->targetType;
     }
@@ -34,13 +34,13 @@ public:
 
     virtual bool has_predefined_type() const override { return this->targetType->get_symbol(); }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
-        this->expr->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(six, resCtx);
+        this->expr->symbol_resolution_pass(six, resCtx);
     }
 
     virtual bool is_statically_constant() const override { return this->expr->is_statically_constant(); }
@@ -72,8 +72,8 @@ public:
     TxScalarConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxScalarType* targetType)
         : TxConversionNode(parseLocation, expr, targetType), constProxy()  { }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxConversionNode::symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxConversionNode::symbol_resolution_pass(six, resCtx);
         if (auto originalConstant = this->expr->get_static_constant_proxy())
             this->constProxy.init(this, originalConstant);
     }
@@ -116,8 +116,8 @@ class TxReferenceDerefNode : public TxExpressionNode {
     mutable llvm::Value* refExprValue = nullptr;
 
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        auto opType = this->reference->resolve_type(resCtx);
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        auto opType = this->reference->resolve_type(six, resCtx);
         if (auto refType = dynamic_cast<const TxReferenceType*>(opType)) {
             if (refType->is_generic())
                 // FUTURE: return constraint type if present
@@ -135,16 +135,16 @@ public:
 
     virtual bool has_predefined_type() const override { return this->reference->has_predefined_type(); }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
-        this->set_context(lexContext);
-        reference->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) {
+        this->set_context(six, lexContext);
+        reference->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
-        this->reference->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(six, resCtx);
+        this->reference->symbol_resolution_pass(six, resCtx);
 
-        if (! dynamic_cast<const TxReferenceType*>(this->reference->get_type()))
+        if (! dynamic_cast<const TxReferenceType*>(this->reference->get_type(six)))
             CERROR(this, "Can't de-reference non-reference expression.");
     }
 
@@ -159,8 +159,8 @@ public:
 
 class TxElemDerefNode : public TxExpressionNode {
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        auto opType = this->array->resolve_type(resCtx);
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        auto opType = this->array->resolve_type(six, resCtx);
         if (auto arrayType = dynamic_cast<const TxArrayType*>(opType)) {
             if (auto elemType = arrayType->element_type())
                 return elemType;
@@ -181,17 +181,17 @@ public:
 
     virtual bool has_predefined_type() const override { return this->array->has_predefined_type(); }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        this->array->symbol_declaration_pass(lexContext);
-        this->subscript->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        this->array->symbol_declaration_pass(six, lexContext);
+        this->subscript->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
-        this->array->symbol_resolution_pass(resCtx);
-        this->subscript->symbol_resolution_pass(resCtx);
-        this->subscript = validate_wrap_convert(resCtx, this->subscript, this->types().get_builtin_type(LONG));
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(six, resCtx);
+        this->array->symbol_resolution_pass(six, resCtx);
+        this->subscript->symbol_resolution_pass(six, resCtx);
+        this->subscript = validate_wrap_convert(six, resCtx, this->subscript, this->types().get_builtin_type(LONG));
     }
 
     virtual bool is_statically_constant() const {
@@ -205,10 +205,10 @@ public:
 
 class TxReferenceToNode : public TxExpressionNode {
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        auto implTypeName = this->context().scope()->get_unique_name("$type");
-        auto typeDecl = this->context().scope()->declare_type(implTypeName, this, TXD_PUBLIC | TXD_IMPLICIT);
-        return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->target));
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        auto implTypeName = this->context(six).scope()->get_unique_name("$type");
+        auto typeDecl = this->context(six).scope()->declare_type(implTypeName, this->get_type_definer(six), TXD_PUBLIC | TXD_IMPLICIT);
+        return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->target->get_type_definer(six)));
     }
 
 public:
@@ -219,14 +219,14 @@ public:
 
     virtual bool has_predefined_type() const override { return false; }  // (this expr constructs new type)
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
-        this->set_context(lexContext);
-        target->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) {
+        this->set_context(six, lexContext);
+        target->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
-        this->target->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(six, resCtx);
+        this->target->symbol_resolution_pass(six, resCtx);
 
         if (dynamic_cast<TxFieldValueNode*>(this->target)) {
         }
@@ -246,8 +246,8 @@ public:
         return this->target->is_statically_constant();  // trying again
     }
 
-    virtual void set_applied_func_arg_types(std::vector<const TxType*>* appliedTypeParameters) override {
-        this->target->set_applied_func_arg_types(appliedTypeParameters);
+    virtual void set_applied_func_arg_types(TxSpecializationIndex six, std::vector<const TxType*>* appliedTypeParameters) override {
+        this->target->set_applied_func_arg_types(six, appliedTypeParameters);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -265,9 +265,9 @@ public:
 
 class TxBinaryOperatorNode : public TxOperatorValueNode {
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        auto ltype = lhs->resolve_type(resCtx);
-        auto rtype = rhs->resolve_type(resCtx);
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        auto ltype = lhs->resolve_type(six, resCtx);
+        auto rtype = rhs->resolve_type(six, resCtx);
 
         const TxType* arithResultType = nullptr;
         if (auto scalar_ltype = dynamic_cast<const TxScalarType*>(ltype)) {
@@ -276,15 +276,15 @@ protected:
                     if (scalar_ltype->auto_converts_from(*scalar_rtype)) {
                         // wrap rhs with cast instruction node
                         this->rhs = new TxScalarConvNode(this->rhs->parseLocation, this->rhs, scalar_ltype);
-                        this->rhs->symbol_declaration_pass(this->context());
-                        this->rhs->symbol_resolution_pass(resCtx);
+                        this->rhs->symbol_declaration_pass(six, this->context(six));
+                        this->rhs->symbol_resolution_pass(six, resCtx);
                         arithResultType = scalar_ltype;
                     }
                     else if (scalar_rtype->auto_converts_from(*scalar_ltype)) {
                         // wrap lhs with cast instruction node
                         this->lhs = new TxScalarConvNode(this->lhs->parseLocation, this->lhs, scalar_rtype);
-                        this->lhs->symbol_declaration_pass(this->context());
-                        this->lhs->symbol_resolution_pass(resCtx);
+                        this->lhs->symbol_declaration_pass(six, this->context(six));
+                        this->lhs->symbol_resolution_pass(six, resCtx);
                         arithResultType = scalar_rtype;
                     }
                 }
@@ -343,16 +343,16 @@ public:
         ASSERT(is_valid(op), "Invalid operator value: " << (int)op);
     }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        lhs->symbol_declaration_pass(lexContext);
-        rhs->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        lhs->symbol_declaration_pass(six, lexContext);
+        rhs->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
-        lhs->symbol_resolution_pass(resCtx);
-        rhs->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(six, resCtx);
+        lhs->symbol_resolution_pass(six, resCtx);
+        rhs->symbol_resolution_pass(six, resCtx);
     }
 
     virtual bool is_statically_constant() const override {
@@ -364,9 +364,9 @@ public:
 
 class TxUnaryMinusNode : public TxOperatorValueNode {
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         // TODO: promote unsigned integers upon negation
-        auto type = this->operand->resolve_type(resCtx);
+        auto type = this->operand->resolve_type(six, resCtx);
         if (! dynamic_cast<const TxScalarType*>(type))
             CERROR(this, "Operand of unary '-' is not of scalar type: " << (type ? type->to_string().c_str() : "NULL"));
         return type;
@@ -377,14 +377,14 @@ public:
     TxUnaryMinusNode(const yy::location& parseLocation, TxExpressionNode* operand)
         : TxOperatorValueNode(parseLocation), operand(operand) { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        operand->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        operand->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
-        operand->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(six, resCtx);
+        operand->symbol_resolution_pass(six, resCtx);
     }
 
     virtual bool is_statically_constant() const override {
@@ -396,7 +396,7 @@ public:
 
 class TxUnaryLogicalNotNode : public TxOperatorValueNode {
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         return this->types().get_builtin_type(BOOL);
     }
 
@@ -405,15 +405,15 @@ public:
     TxUnaryLogicalNotNode(const yy::location& parseLocation, TxExpressionNode* operand)
         : TxOperatorValueNode(parseLocation), operand(operand) { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        operand->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        operand->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
-        operand->symbol_resolution_pass(resCtx);
-        auto type = operand->get_type();
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(six, resCtx);
+        operand->symbol_resolution_pass(six, resCtx);
+        auto type = operand->get_type(six);
         // assume arithmetic, scalar negation:
         if (! dynamic_cast<const TxBoolType*>(type))
             // should we support any auto-conversion to Bool?
@@ -430,14 +430,15 @@ public:
 
 
 class TxFunctionCallNode : public TxExpressionNode {
-    TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function call if non-null
+//    /** substitutes the function call if non-null */
+//    TxExpressionNode* inlinedExpression = nullptr;
 
     /** resolve possible function overloading by registering actual function signature with callee node */
-    void register_callee_signature(ResolutionContext& resCtx) const {
-        ASSERT (!callee->hasAppliedFuncArgTypes(), "callee already has applied func arg types: " << callee);
+    void register_callee_signature(TxSpecializationIndex six, ResolutionContext& resCtx) const {
+        ASSERT (!callee->get_applied_func_arg_types(six), "callee already has applied func arg types: " << callee);
         std::vector<const TxType*>* appliedArgTypes = new std::vector<const TxType*>();
         for (auto argExpr : *this->argsExprList) {
-            if (auto argType = argExpr->resolve_type(resCtx))
+            if (auto argType = argExpr->resolve_type(six, resCtx))
                 appliedArgTypes->push_back(argType);
             else {
                 delete appliedArgTypes;
@@ -446,11 +447,11 @@ class TxFunctionCallNode : public TxExpressionNode {
             }
         }
         if (appliedArgTypes)
-            callee->set_applied_func_arg_types(appliedArgTypes);
+            callee->set_applied_func_arg_types(six, appliedArgTypes);
     }
 
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override;
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override;
 
 public:
     TxExpressionNode* callee;
@@ -461,29 +462,29 @@ public:
 
     virtual bool has_predefined_type() const override { return true; }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        this->callee->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        this->callee->symbol_declaration_pass(six, lexContext);
         for (auto argExpr : *this->argsExprList)
-            argExpr->symbol_declaration_pass(lexContext);
+            argExpr->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
-        callee->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(six, resCtx);
+        callee->symbol_resolution_pass(six, resCtx);
         for (auto argExpr : *this->argsExprList)
-            argExpr->symbol_resolution_pass(resCtx);
+            argExpr->symbol_resolution_pass(six, resCtx);
     }
 
     virtual bool is_statically_constant() const override {
-        if (this->inlinedExpression)
-            return this->inlinedExpression->is_statically_constant();
+        if (this->get_spec(0).inlinedExpression)
+            return this->get_spec(0).inlinedExpression->is_statically_constant();
         return false;
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        if (this->inlinedExpression)
-            return this->inlinedExpression->get_static_constant_proxy();
+        if (this->get_spec(0).inlinedExpression)
+            return this->get_spec(0).inlinedExpression->get_static_constant_proxy();
         return nullptr;
     }
 
@@ -497,8 +498,8 @@ public:
 
 /** Special callee expression node for calling constructors. */
 class TxConstructorCalleeExprNode : public TxExpressionNode {
-    /** The constructor method's declaration */
-    const TxEntityDeclaration* declaration = nullptr;
+//    /** The constructor method's declaration */
+//    const TxEntityDeclaration* declaration = nullptr;
 
     mutable llvm::Value* objectPtrV = nullptr;
 
@@ -508,7 +509,7 @@ class TxConstructorCalleeExprNode : public TxExpressionNode {
 protected:
     TxExpressionNode* objectExpr;
 
-    virtual const TxType* define_type(ResolutionContext& resCtx) override;
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override;
 
 public:
     TxConstructorCalleeExprNode(const yy::location& parseLocation, TxExpressionNode* objectExpr)
@@ -516,11 +517,11 @@ public:
 
     virtual bool has_predefined_type() const override { return true; }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        this->objectExpr->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        this->objectExpr->symbol_declaration_pass(six, lexContext);
     }
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { this->objectExpr->symbol_resolution_pass(resCtx); }
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override { this->objectExpr->symbol_resolution_pass(six, resCtx); }
 
     /** @return a lambda value */
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -533,34 +534,34 @@ public:
 
 /** Abstract superclass for memory allocation expressions, for heap and stack allocators. */
 class TxMemAllocNode : public TxExpressionNode {
-    TxTypeDefiner* objTypeDefiner;
+    TxTypeExpressionNode* objTypeExpr;
 
 protected:
     //const TxType* get_object_type() const { return this->objTypeDefiner->get_type(); }
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        return this->objTypeDefiner->resolve_type(resCtx);
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        return this->objTypeExpr->resolve_type(six, resCtx);
     }
 
-    TxMemAllocNode(const yy::location& parseLocation, TxTypeDefiner* objTypeDefiner)
-            : TxExpressionNode(parseLocation), objTypeDefiner(objTypeDefiner) { }
+    TxMemAllocNode(const yy::location& parseLocation, TxTypeExpressionNode* objTypeExpr)
+            : TxExpressionNode(parseLocation), objTypeExpr(objTypeExpr) { }
 
 public:
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override { this->set_context(lexContext); }
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override { }
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override { this->set_context(six, lexContext); }
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override { }
     virtual bool has_predefined_type() const override { return false; }  // for now
 };
 
 class TxHeapAllocNode : public TxMemAllocNode {
 public:
-    TxHeapAllocNode(const yy::location& parseLocation, TxTypeDefiner* objTypeDefiner)
-            : TxMemAllocNode(parseLocation, objTypeDefiner) { }
+    TxHeapAllocNode(const yy::location& parseLocation, TxTypeExpressionNode* objTypeExpr)
+            : TxMemAllocNode(parseLocation, objTypeExpr) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxStackAllocNode : public TxMemAllocNode {
 public:
-    TxStackAllocNode(const yy::location& parseLocation, TxTypeDefiner* objTypeDefiner)
-            : TxMemAllocNode(parseLocation, objTypeDefiner) { }
+    TxStackAllocNode(const yy::location& parseLocation, TxTypeExpressionNode* objTypeExpr)
+            : TxMemAllocNode(parseLocation, objTypeExpr) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -573,38 +574,39 @@ protected:
     TxConstructorCalleeExprNode* constructor = nullptr;
     TxFunctionCallNode* constructorCall = nullptr;
 
-    TxExpressionNode* inlinedInitializer = nullptr;  // substitutes the constructor call if non-null
+//    /** substitutes the constructor call if non-null */
+//    TxExpressionNode* inlinedInitializer = nullptr;
 
     /** Gets the type of the allocated object. Should not be called before resolution. */
-    virtual const TxType* get_object_type() const = 0;
+    virtual const TxType* get_object_type(TxSpecializationIndex six) const = 0;
 
     TxMakeObjectNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr)
             : TxExpressionNode(parseLocation), typeExpr(typeExpr) { }
 
 public:
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
         auto typeDeclFlags = TXD_PUBLIC | TXD_IMPLICIT;
         // unless the type expression is a directly named type, declare implicit type:
         if (this->typeExpr->has_predefined_type())
-            this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags);
+            this->typeExpr->symbol_declaration_pass(six, lexContext, lexContext, typeDeclFlags);
         else {
             auto implTypeName = lexContext.scope()->get_unique_name("$type");
-            this->typeExpr->symbol_declaration_pass(lexContext, lexContext, typeDeclFlags, implTypeName);
+            this->typeExpr->symbol_declaration_pass(six, lexContext, lexContext, typeDeclFlags, implTypeName);
         }
-        this->constructorCall->symbol_declaration_pass(lexContext);
+        this->constructorCall->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
-        this->typeExpr->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(six, resCtx);
+        this->typeExpr->symbol_resolution_pass(six, resCtx);
 
-        this->constructorCall->symbol_resolution_pass(resCtx);
+        this->constructorCall->symbol_resolution_pass(six, resCtx);
 
-        if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(this->constructor->get_type())) {
+        if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(this->constructor->get_type(six))) {
             // "inline" initialization by replacing with conversion expression
-            this->inlinedInitializer = validate_wrap_convert(resCtx, this->constructorCall->argsExprList->front(),
-                                                             inlineFunc->returnType, true);
+            this->get_spec(six).inlinedExpression = validate_wrap_convert(six, resCtx, this->constructorCall->argsExprList->front(),
+                                                                          inlineFunc->returnType, true);
         }
     }
 
@@ -614,13 +616,13 @@ public:
 /** Makes a new object in newly allocated heap memory and returns it by reference. */
 class TxNewExprNode : public TxMakeObjectNode {
 protected:
-    virtual const TxType* get_object_type() const override { return this->typeExpr->get_type(); }
+    virtual const TxType* get_object_type(TxSpecializationIndex six) const override { return this->typeExpr->get_type(six); }
 
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         // new constructor returns the constructed object by reference
-        auto implTypeName = this->context().scope()->get_unique_name("$type");
-        auto typeDecl = this->context().scope()->declare_type(implTypeName, this, TXD_PUBLIC | TXD_IMPLICIT);
-        return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->typeExpr));
+        auto implTypeName = this->context(six).scope()->get_unique_name("$type");
+        auto typeDecl = this->context(six).scope()->declare_type(implTypeName, this->get_type_definer(six), TXD_PUBLIC | TXD_IMPLICIT);
+        return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->typeExpr->get_type_definer(six)));
     }
 
 public:
@@ -638,11 +640,11 @@ public:
 /** Makes a new object in newly allocated stack memory and returns it by value. */
 class TxStackConstructorNode : public TxMakeObjectNode {
 protected:
-    virtual const TxType* get_object_type() const override { return this->get_type(); }
+    virtual const TxType* get_object_type(TxSpecializationIndex six) const override { return this->get_type(six); }
 
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         // stack constructor returns the constructed object by value, not by reference
-        return this->typeExpr->resolve_type(resCtx);
+        return this->typeExpr->resolve_type(six, resCtx);
     }
 
 public:
@@ -655,7 +657,7 @@ public:
     }
 
     TxStackConstructorNode(TxFunctionCallNode* originalCall, TxTypeDefiner* typeDefiner)
-            : TxStackConstructorNode(originalCall->parseLocation, new TxTypeWrapperNode(originalCall->parseLocation, typeDefiner),
+            : TxStackConstructorNode(originalCall->parseLocation, new TxTypeDefWrapperNode(originalCall->parseLocation, typeDefiner),
                                      originalCall->argsExprList) {
     }
 
@@ -674,8 +676,8 @@ public:
 
 class TxFieldAssigneeNode : public TxAssigneeNode {
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        return this->field->resolve_type(resCtx);
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        return this->field->resolve_type(six, resCtx);
     }
 
 public:
@@ -683,16 +685,16 @@ public:
     TxFieldAssigneeNode(const yy::location& parseLocation, TxFieldValueNode* field)
         : TxAssigneeNode(parseLocation), field(field) { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        field->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        field->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxAssigneeNode::symbol_resolution_pass(resCtx);
-        field->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxAssigneeNode::symbol_resolution_pass(six, resCtx);
+        field->symbol_resolution_pass(six, resCtx);
 
-        auto fieldDecl = field->get_field_declaration();
+        auto fieldDecl = field->get_field_declaration(six);
         if (fieldDecl && fieldDecl->get_storage() == TXS_NOSTORAGE)
             CERROR(this, "Assignee '" << field->memberName << "' is not an L-value / has no storage.");
     }
@@ -702,8 +704,8 @@ public:
 
 class TxDerefAssigneeNode : public TxAssigneeNode {
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        auto opType = this->operand->resolve_type(resCtx);
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        auto opType = this->operand->resolve_type(six, resCtx);
         if (auto refType = dynamic_cast<const TxReferenceType*>(opType)) {
             if (refType->is_generic())
                 // FUTURE: return constraint type if present
@@ -719,16 +721,16 @@ public:
     TxDerefAssigneeNode(const yy::location& parseLocation, TxExpressionNode* operand)
         : TxAssigneeNode(parseLocation), operand(operand) { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        operand->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        operand->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxAssigneeNode::symbol_resolution_pass(resCtx);
-        operand->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxAssigneeNode::symbol_resolution_pass(six, resCtx);
+        operand->symbol_resolution_pass(six, resCtx);
 
-        if (! dynamic_cast<const TxReferenceType*>(this->operand->get_type()))
+        if (! dynamic_cast<const TxReferenceType*>(this->operand->get_type(six)))
             CERROR(this, "Can't de-reference non-reference expression.");
     }
 
@@ -737,9 +739,9 @@ public:
 
 class TxElemAssigneeNode : public TxAssigneeNode {
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        auto opType = this->array->resolve_type(resCtx);
-        subscript = validate_wrap_convert(resCtx, subscript, this->types().get_builtin_type(LONG));
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        auto opType = this->array->resolve_type(six, resCtx);
+        subscript = validate_wrap_convert(six, resCtx, subscript, this->types().get_builtin_type(LONG));
         if (auto arrayType = dynamic_cast<const TxArrayType*>(opType)) {
             if (auto elemType = arrayType->element_type())
                 return elemType;
@@ -758,16 +760,16 @@ public:
     TxElemAssigneeNode(const yy::location& parseLocation, TxExpressionNode* array, TxExpressionNode* subscript)
         : TxAssigneeNode(parseLocation), array(array), subscript(subscript)  { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
-        array->symbol_declaration_pass(lexContext);
-        subscript->symbol_declaration_pass(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        array->symbol_declaration_pass(six, lexContext);
+        subscript->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxAssigneeNode::symbol_resolution_pass(resCtx);
-        array->symbol_resolution_pass(resCtx);
-        subscript->symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxAssigneeNode::symbol_resolution_pass(six, resCtx);
+        array->symbol_resolution_pass(six, resCtx);
+        subscript->symbol_resolution_pass(six, resCtx);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

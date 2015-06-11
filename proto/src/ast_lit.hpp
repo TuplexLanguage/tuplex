@@ -50,7 +50,7 @@ class TxIntegerLitNode : public TxLiteralValueNode {
         TxIntegerLitNode* intNode;
     public:
         IntConstantProxy(TxIntegerLitNode* intNode) : intNode(intNode) { }
-        virtual const TxType* get_type() const override { return intNode->get_type(); }
+        virtual const TxType* get_type() const override { return intNode->get_type(0); }
         virtual uint32_t get_value_UInt() const override { return intNode->intValue.get_value_UInt(); }
 //        virtual bool operator==(const TxConstantProxy& other) const override {
 //            if (auto otherInt = dynamic_cast<const IntConstantProxy*>(&other)) {
@@ -66,7 +66,7 @@ class TxIntegerLitNode : public TxLiteralValueNode {
     const std::string sourceLiteral;
 
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         return this->types().get_builtin_type(this->intValue.typeId);
     }
 
@@ -83,8 +83,8 @@ public:
             : TxLiteralValueNode(parseLocation), intConstProxy(this),
               intValue(u64value, typeId), sourceLiteral("")  { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
-        this->set_context(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
         if (this->intValue.radix < 2 || this->intValue.radix > 36)
             CERROR(this, "Radix outside valid range [2,36]: " << this->intValue.radix);
         else if (this->intValue.outOfRange)
@@ -99,7 +99,7 @@ public:
 
 class TxFloatingLitNode : public TxLiteralValueNode {
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         // TODO: produce different Floating types
         return this->types().get_builtin_type(FLOAT);
     }
@@ -110,8 +110,8 @@ public:
     TxFloatingLitNode(const yy::location& parseLocation, const std::string& literal)
         : TxLiteralValueNode(parseLocation), literal(literal), value(atof(literal.c_str())) { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
-        this->set_context(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -120,7 +120,7 @@ public:
 
 class TxCharacterLitNode : public TxLiteralValueNode {
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         return this->types().get_builtin_type(UBYTE);
     }
 
@@ -131,8 +131,8 @@ public:
         : TxLiteralValueNode(parseLocation), literal(literal), value(literal.at(1)) { }
     // TODO: properly parse char literal
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
-        this->set_context(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -144,10 +144,10 @@ class TxCStringLitNode : public TxLiteralValueNode {
     TxTypeDeclNode* cstringTypeNode;  // implicit type definer
 
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
 //        const TxType* charType = this->types().get_builtin_type(UBYTE);
 //        return this->types().get_array_type(nullptr, charType, &this->arrayLength);
-        return this->cstringTypeNode->typeExpression->resolve_type(resCtx);
+        return this->cstringTypeNode->typeExpression->resolve_type(six, resCtx);
     }
 
 public:
@@ -159,7 +159,7 @@ public:
           literal(literal), value(literal, 2, literal.length()-3) { }
     // TODO: properly parse string literal
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override;
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override;
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
@@ -168,7 +168,7 @@ public:
 
 class TxBoolLitNode : public TxLiteralValueNode {
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         return this->types().get_builtin_type(BOOL);
     }
 
@@ -178,8 +178,8 @@ public:
     TxBoolLitNode(const yy::location& parseLocation, bool value)
         : TxLiteralValueNode(parseLocation), value(value)  { }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
-        this->set_context(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

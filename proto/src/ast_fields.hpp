@@ -4,14 +4,14 @@
 
 
 class TxFieldValueNode : public TxExpressionNode {
-    const TxEntityDeclaration* declaration = nullptr;
-    const TxField* field = nullptr;
+    //const TxEntityDeclaration* declaration = nullptr;
+    //const TxField* field = nullptr;
 
-    TxScopeSymbol* resolve_symbol(ResolutionContext& resCtx);
-    const TxEntityDeclaration* resolve_decl(ResolutionContext& resCtx);
+    TxScopeSymbol* resolve_symbol(TxSpecializationIndex six, ResolutionContext& resCtx);
+    const TxEntityDeclaration* resolve_decl(TxSpecializationIndex six, ResolutionContext& resCtx);
 
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override;
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override;
 
 public:
     TxExpressionNode* baseExpr;
@@ -32,20 +32,20 @@ public:
 
     virtual bool has_predefined_type() const override { return true; }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) override {
-        this->set_context(lexContext);
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
         if (this->baseExpr)
-            this->baseExpr->symbol_declaration_pass(lexContext);
+            this->baseExpr->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(six, resCtx);
         // not invoking baseExpr->symbol_resolution_pass() since that is only done via define_type()
         //if (this->baseExpr)
-        //    this->baseExpr->symbol_resolution_pass(resCtx);
-        if (! this->get_type()) {
-            if (this->declaration)
-                CERROR(this, "Symbol is not a field: " << this->declaration);
+        //    this->baseExpr->symbol_resolution_pass(six, resCtx);
+        if (! this->get_type(six)) {
+            if (this->get_spec(six).declaration)
+                CERROR(this, "Symbol is not a field: " << this->get_spec(six).declaration);
             else {
                 CERROR(this, "No such symbol: " << this->get_full_identifier());
             }
@@ -54,23 +54,25 @@ public:
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
         this->LOGGER().trace("Getting static constant proxy for field %s", this->memberName.c_str());
-        if (this->field)
-            if (auto constProxy = this->field->get_static_constant_proxy()) {
-                this->LOGGER().debug("Returning static constant proxy for field %s", this->field->get_symbol()->get_full_name().to_string().c_str());
+        if (auto field = this->get_field(0))
+            if (auto constProxy = field->get_static_constant_proxy()) {
+                this->LOGGER().debug("Returning static constant proxy for field %s", field->get_symbol()->get_full_name().to_string().c_str());
                 return constProxy;
             }
         return nullptr;
     }
 
     virtual bool is_statically_constant() const override {
-        if (this->field)
-            return this->field->is_statically_constant();
+        if (auto field = this->get_field(0))
+            return field->is_statically_constant();
         return false;
     }
 
     // should not be called before symbol is resolved:
-    inline const TxField* get_field() const { return this->field; }
-    inline const TxFieldDeclaration* get_field_declaration() const { return (this->field ? this->field->get_declaration() : nullptr); }
+    inline const TxField* get_field(TxSpecializationIndex six) const { return this->get_spec(six).field; }
+    inline const TxFieldDeclaration* get_field_declaration(TxSpecializationIndex six) const {
+        return dynamic_cast<const TxFieldDeclaration*>(this->get_spec(six).declaration);
+    }
 
 
     virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics=false) const;

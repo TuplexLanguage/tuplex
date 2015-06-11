@@ -6,6 +6,7 @@
 
 class TxType;
 class TxTypeDefiner;
+class TxSpecializableTypeDefiner;
 class TxExpressionNode;
 
 
@@ -25,10 +26,10 @@ public:
 private:
     MetaType metaType;
     std::string typeParamName;
-    TxTypeDefiner* constraintTypeDefiner;
+    TxSpecializableTypeDefiner* constraintTypeDefiner;
 
 public:
-    TxTypeParam(MetaType metaType, const std::string& typeParamName, TxTypeDefiner* constraintTypeDefiner)
+    TxTypeParam(MetaType metaType, const std::string& typeParamName, TxSpecializableTypeDefiner* constraintTypeDefiner)
             : metaType(metaType), typeParamName(typeParamName), constraintTypeDefiner(constraintTypeDefiner)  {
         ASSERT(metaType==TXB_TYPE || constraintTypeDefiner, "VALUE type parameter's type is NULL");
         ASSERT(metaType==TXB_VALUE || constraintTypeDefiner, "TYPE type parameter's constraint type is NULL");
@@ -39,8 +40,8 @@ public:
 
     inline bool has_constraint_type_definer() const { return this->constraintTypeDefiner; }
 
-    /** Gets the TxType that represents the constraint type (if TYPE) or data type (if VALUE) of this parameter. */
-    inline TxTypeDefiner* get_constraint_type_definer() const {
+    /** Gets the type definer that represents the constraint type (if TYPE) or data type (if VALUE) of this parameter. */
+    inline TxSpecializableTypeDefiner* get_constraint_type_definer() const {
         ASSERT(this->has_constraint_type_definer(), "This type parameter '" << this->typeParamName << "' has no constraint type definer set");
         return this->constraintTypeDefiner;
     }
@@ -80,10 +81,6 @@ class TxGenericBinding : public Printable {
 public:
     static TxGenericBinding make_type_binding(const std::string& typeParamName, TxTypeDefiner* typeDefiner);
     static TxGenericBinding make_value_binding(const std::string& typeParamName, TxExpressionNode* valueExpr);
-
-//    /** copy constructor */
-//    TxGenericBinding(const TxGenericBinding& binding)
-//        : TxGenericBinding(typeParamName, metaType, typeDefiner, valueExpr)  { }
 
     inline const std::string& param_name()    const { return typeParamName; }
 

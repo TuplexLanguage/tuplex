@@ -85,7 +85,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
             // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference
             Value* runtimeBaseTypeIdV = baseExpr->code_gen_typeid(context, scope);  // (static unless reference)
             Value* baseValue = baseExpr->code_gen(context, scope);  // expected to be of pointer type
-            val = instance_method_value_code_gen(context, scope, baseExpr->get_type(), runtimeBaseTypeIdV, fieldEntity, baseValue, nonvirtualLookup);
+            val = instance_method_value_code_gen(context, scope, baseExpr->get_type(0), runtimeBaseTypeIdV, fieldEntity, baseValue, nonvirtualLookup);
         }
         else {
             context.LOG.error("Can't access instance method without base value/expression: %s", fieldEntity->to_string().c_str());
@@ -96,9 +96,9 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
     case TXS_VIRTUAL:
         if (baseExpr) {
             // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference
-            Value* baseTypeIdV = nonvirtualLookup ? baseExpr->get_type()->gen_typeid(context, scope)  // static
+            Value* baseTypeIdV = nonvirtualLookup ? baseExpr->get_type(0)->gen_typeid(context, scope)  // static
                                                   : baseExpr->code_gen_typeid(context, scope);  // runtime (static unless reference)
-            val = virtual_field_value_code_gen(context, scope, baseExpr->get_type(), baseTypeIdV, fieldEntity);
+            val = virtual_field_value_code_gen(context, scope, baseExpr->get_type(0), baseTypeIdV, fieldEntity);
             break;
         }
         // no break
@@ -171,9 +171,8 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
 
 
 Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics) const {
-    if (this->field) {
-        return field_value_code_gen(context, scope, this->baseExpr, this->field, foldStatics);
-    }
+    if (auto field = this->get_field(0))
+        return field_value_code_gen(context, scope, this->baseExpr, field, foldStatics);
     else
         return NULL;
 }

@@ -9,8 +9,8 @@ class TxLambdaExprNode : public TxExpressionNode {
     TxFieldDefNode* superRefNode = nullptr;
 
 protected:
-    virtual const TxType* define_type(ResolutionContext& resCtx) override {
-        return this->funcTypeNode->resolve_type(resCtx);  // function header
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        return this->funcTypeNode->resolve_type(six, resCtx);  // function header
     }
 
 public:
@@ -34,10 +34,10 @@ public:
 
     virtual bool has_predefined_type() const override { return false; }
 
-    virtual void symbol_declaration_pass(LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         std::string funcName = this->fieldDefNode ? this->fieldDefNode->get_field_name() : "";
         LexicalContext funcLexContext(lexContext.scope()->create_code_block_scope(funcName));
-        this->set_context(funcLexContext);
+        this->set_context(six, funcLexContext);
 
         if (this->is_instance_method()) {
             // insert implicit local field named 'self', that is a reference to the closure type
@@ -46,14 +46,14 @@ public:
                 // 'self' reference:
                 auto selfRefTypeExprN = new TxPredefinedTypeNode(this->parseLocation, "$Self");
                 this->selfRefNode = new TxFieldDefNode(this->parseLocation, "self", selfRefTypeExprN, nullptr);
-                this->selfRefNode->symbol_declaration_pass_local_field(funcLexContext, false);
+                this->selfRefNode->symbol_declaration_pass_local_field(six, funcLexContext, false);
 
                 // 'super' reference
                 auto superRefTypeExprN = new TxPredefinedTypeNode(this->parseLocation, "$Super");
                 this->superRefNode = new TxFieldDefNode(this->parseLocation, "super", superRefTypeExprN, nullptr);
-                this->superRefNode->symbol_declaration_pass_local_field(funcLexContext, false);
+                this->superRefNode->symbol_declaration_pass_local_field(six, funcLexContext, false);
 
-                if (this->fieldDefNode->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR) {
+                if (this->fieldDefNode->get_declaration(six)->get_decl_flags() & TXD_CONSTRUCTOR) {
                     auto constructedObjTypeDecl = entitySym->get_type_decl();
                     funcLexContext.set_constructed(constructedObjTypeDecl);
                 }
@@ -63,18 +63,18 @@ public:
         }
         // FUTURE: define implicit closure object when in code block
 
-        this->funcTypeNode->symbol_declaration_pass_func_header(funcLexContext);  // function header
-        this->suite->symbol_declaration_pass_no_subscope(funcLexContext);  // function body
+        this->funcTypeNode->symbol_declaration_pass_func_header(six, funcLexContext);  // function header
+        this->suite->symbol_declaration_pass_no_subscope(six, funcLexContext);  // function body
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        TxExpressionNode::symbol_resolution_pass(six, resCtx);
         if (this->selfRefNode) {
-            this->selfRefNode->symbol_resolution_pass(resCtx);
-            this->superRefNode->symbol_resolution_pass(resCtx);
+            this->selfRefNode->symbol_resolution_pass(six, resCtx);
+            this->superRefNode->symbol_resolution_pass(six, resCtx);
         }
-        this->funcTypeNode->symbol_resolution_pass(resCtx);  // function header
-        this->suite->symbol_resolution_pass(resCtx);  // function body
+        this->funcTypeNode->symbol_resolution_pass(six, resCtx);  // function header
+        this->suite->symbol_resolution_pass(six, resCtx);  // function body
 
         if (this->funcTypeNode->returnField) {
             // verify that suite ends with return statement
