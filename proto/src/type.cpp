@@ -14,6 +14,8 @@ bool TxConstantProxy::operator==(const TxConstantProxy& other) const {
 
 
 
+/*=== TxTypeSpecialization implementation ===*/
+
 bool TxTypeSpecialization::operator==(const TxTypeSpecialization& other) const {
     return ( this->type == other.type
              || ( this->type && other.type && *this->type == *other.type) )
@@ -62,6 +64,9 @@ std::string TxTypeSpecialization::validate() const {
 }
 
 
+
+/*=== TxType implementation ===*/
+
 std::string TxType::inner_validate() const {
     //std::cout << "validating type " << typeid(*this).name() << std::endl;
     if (auto baseType = this->get_base_type()) {
@@ -100,6 +105,158 @@ bool TxType::validate() const {
         return false;
     }
     return true;
+}
+
+
+void TxType::prepare_type() {
+    ASSERT(!this->startedInit, "Recursive call to prepare_type() of " << *this);
+    this->startedInit = true;
+    LOGGER().debug("Preparing type %s", this->to_string().c_str());
+
+    // resolve all this type's parameters and bindings
+    ResolutionContext resCtx;
+    for (auto & p : this->typeParams) {
+        p.get_constraint_type_definer()->resolve_type(0, resCtx);
+    }
+    for (auto & b : this->baseTypeSpec.bindings) {
+        if (b.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
+            //std::cout << "resolving binding " << b.param_name() << " of " << this->to_string() << std::endl;
+            if (! (this->get_type_class() == TXTC_REFERENCE && b.param_name() == "T"))
+                b.type_definer().resolve_type(resCtx);
+        }
+    }
+
+    // copy base type's virtual and instance field tuples (to which we will add and override fields):
+    auto baseType = this->get_base_type();
+    while (baseType && !baseType->get_symbol())
+        baseType = baseType->get_base_type();
+    if (baseType) {
+        //baseType->ensure_data_laid_out();
+        this->virtualFields = baseType->virtualFields;
+        this->instanceMethods = baseType->instanceMethods;
+        this->instanceFields = baseType->instanceFields;
+    }
+
+    bool madeConcrete = !this->is_generic() && this->get_base_type() && this->get_base_type()->is_generic();
+
+    if (! this->get_declaration()) {
+        ASSERT(! madeConcrete, "Type is concrete specialization of generic base type, but unnamed (undeclared): " << this);
+        return;
+    }
+
+    if (madeConcrete) {
+        // generate concrete type, resolving generic type parameters to their bindings:
+        LOGGER().alert("Type is concrete specialization of generic base type: %s", this->to_string().c_str());
+        // FIXME
+        //auto typeExpr = static_cast<TxTypeExpressionNode*>(this->get_declaration()->get_type_definer());
+        // run declaration pass
+        // run resolution pass
+    }
+//    else if (this->get_declaration()->get_symbol()->get_full_name().name() == "$type0") {
+//        LOGGER().alert("Type is NOT concrete specialization of generic base type: %s", this->get_declaration()->get_symbol()->to_string().c_str());
+//    }
+
+    // for all the member names declared or redeclared in this type:
+    auto typeDeclNamespace = this->get_declaration()->get_symbol();
+    for (auto symname = typeDeclNamespace->symbol_names_cbegin(); symname != typeDeclNamespace->symbol_names_cend(); symname++) {
+        // this drives resolution of all this type's members
+
+        auto entitySym = dynamic_cast<TxEntitySymbol*>(typeDeclNamespace->get_member_symbol(*symname));
+        if (! entitySym)
+            continue;
+
+        if (entitySym->get_type_decl()) {
+            if (*symname != "tx#Ref#T") {  // prevents infinite recursion
+                //LOGGER().alert("resolving member type %s", entitySym->get_full_name().to_string().c_str());
+                entitySym->get_type_decl()->get_definer()->resolve_type(resCtx);
+            }
+        }
+
+        for (auto fieldDecl = entitySym->fields_cbegin(); fieldDecl != entitySym->fields_cend(); fieldDecl++) {
+            auto field = (*fieldDecl)->get_definer()->resolve_field(resCtx);
+
+            if (field) {
+                // validate:
+                if (auto fieldType = field->get_type()) {
+                    if (! fieldType->is_concrete()) {
+                        CERROR(this, "Can't declare a field of non-concrete type: " << field);
+                    }
+                    else if (field->get_storage() == TXS_INSTANCE) {
+                        //std::cout << "Concrete INSTANCE field " << field << std::endl;
+                        if (! fieldType->is_statically_sized()) {
+                            CERROR(this, "Instance fields that don't have statically determined size not yet supported: " << field);
+                        }
+                        else if (! (field->get_decl_flags() & (TXD_GENPARAM | TXD_IMPLICIT))) {
+                            if (this->get_type_class() != TXTC_TUPLE)
+                                CERROR(this, "Can't declare instance member in non-tuple type: " << field);
+                        }
+                    }
+                    else {  // TXS_STATIC
+                        //std::cout << "Concrete STATIC field " << field << std::endl;
+                        if (! fieldType->is_statically_sized()) {
+                            // since static fields are per generic base type, and not per specialization:
+                            CERROR(this, "Static fields must have statically determined size: " << field);
+                        }
+                    }
+                }
+
+                // layout:
+                if (field->get_storage() == TXS_INSTANCE) {
+                    LOGGER().debug("Laying out instance field %-40s  %s", field->to_string().c_str(),
+                                    field->get_type()->to_string(true).c_str());
+                    this->instanceFields.add_field(field->get_unique_name(), field);
+                    if (field->get_unique_name().find('#') == std::string::npos)
+                        // FIXME: make VALUE type params be declared as instance members in generic base type,
+                        // so that they are not "extensions" to the specialized subtypes, and remove this '#' test
+                        this->extendsParentDatatype = true;
+                }
+                else if (field->get_storage() == TXS_INSTANCEMETHOD) {
+                    if (field->get_decl_flags() & TXD_CONSTRUCTOR) {
+                        // skip, constructors aren't virtual
+                    }
+                    else if (this->virtualFields.has_field(field->get_unique_name())) {
+                        CERROR(this, "A non-static method may not override a static parent field: " << field);
+                    }
+                    else if (this->instanceMethods.has_field(field->get_unique_name())) {
+                        if (! (field->get_decl_flags() & TXD_OVERRIDE))
+                            CWARNING(this, "Field overrides but isn't declared 'override': " << field);
+                        if (! (field->get_type()->is_a(*this->instanceMethods.get_field(field->get_unique_name())->get_type())))
+                            CERROR(this, "Overriding member's type does not derive from overridden member's type: " << field->get_type());
+                        this->instanceMethods.override_field(field->get_unique_name(), field);
+                    }
+                    else {
+                        if (field->get_decl_flags() & TXD_OVERRIDE)
+                            LOGGER().warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
+                        this->instanceMethods.add_field(field->get_unique_name(), field);
+                        this->extendsParentDatatype = true;
+                    }
+                }
+                else if (field->get_storage() == TXS_VIRTUAL) {
+                    if (this->instanceMethods.has_field(field->get_unique_name())) {
+                        CERROR(this, "A static field may not override a non-static parent method: " << field);
+                    }
+                    else if (this->virtualFields.has_field(field->get_unique_name())) {
+                        if (! (field->get_decl_flags() & TXD_OVERRIDE))
+                            CWARNING(this, "Field overrides but isn't declared 'override': " << field);
+                        if (! (field->get_type()->is_a(*this->virtualFields.get_field(field->get_unique_name())->get_type())))
+                            CERROR(this, "Overriding member's type does not derive from overridden member's type: " << field->get_type());
+                        this->virtualFields.override_field(field->get_unique_name(), field);
+                    }
+                    else {
+                        if (field->get_decl_flags() & TXD_OVERRIDE)
+                            LOGGER().warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
+                        this->virtualFields.add_field(field->get_unique_name(), field);
+                    }
+                }
+                else {
+                    ASSERT(field->get_storage() == TXS_STATIC, "Invalid storage class " << field->get_storage() << " for field member " << *field);
+                    if (field->get_decl_flags() & TXD_OVERRIDE)
+                        LOGGER().warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
+                    this->staticFields.add_field(field->get_unique_name(), field);
+                }
+            }
+        }
+    }
 }
 
 
@@ -272,163 +429,6 @@ bool TxType::inner_is_a(const TxType& other) const {
     // FUTURE: also check interfaces
     return false;
 }
-
-void TxType::prepare_type() {
-    if (this->initialized)
-        return;
-    ASSERT(!this->startedInit, "Recursive call to prepare_type() of " << *this);
-    this->startedInit = true;
-    LOGGER().debug("Preparing type %s", this->to_string().c_str());
-
-    // resolve all this type's parameters and bindings
-    ResolutionContext resCtx;
-    for (auto & p : this->typeParams) {
-        p.get_constraint_type_definer()->resolve_type(0, resCtx);
-    }
-    for (auto & b : this->baseTypeSpec.bindings) {
-        if (b.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
-            //std::cout << "resolving binding " << b.param_name() << " of " << this->to_string() << std::endl;
-            if (! (this->get_type_class() == TXTC_REFERENCE && b.param_name() == "T"))
-                b.type_definer().resolve_type(resCtx);
-        }
-    }
-
-    // copy base type's virtual and instance field tuples (to which we will add and override fields):
-    auto baseType = this->get_base_type();
-    while (baseType && !baseType->get_symbol())
-        baseType = baseType->get_base_type();
-    if (baseType) {
-        //baseType->ensure_data_laid_out();
-        this->virtualFields = baseType->virtualFields;
-        this->instanceMethods = baseType->instanceMethods;
-        this->instanceFields = baseType->instanceFields;
-    }
-
-    bool madeConcrete = !this->is_generic() && this->get_base_type() && this->get_base_type()->is_generic();
-
-    if (! this->get_declaration()) {
-        ASSERT(! madeConcrete, "Type is concrete specialization of generic base type, but unnamed (undeclared): " << this);
-        this->initialized = true;
-        return;
-    }
-
-    if (madeConcrete) {
-        // generate concrete type, resolving generic type parameters to their bindings:
-        LOGGER().alert("Type is concrete specialization of generic base type: %s", this->to_string().c_str());
-        // FIXME
-        //auto typeExpr = static_cast<TxTypeExpressionNode*>(this->get_declaration()->get_type_definer());
-        // run declaration pass
-        // run resolution pass
-    }
-//    else if (this->get_declaration()->get_symbol()->get_full_name().name() == "$type0") {
-//        LOGGER().alert("Type is NOT concrete specialization of generic base type: %s", this->get_declaration()->get_symbol()->to_string().c_str());
-//    }
-
-    // for all the member names declared or redeclared in this type:
-    auto typeDeclNamespace = this->get_declaration()->get_symbol();
-    for (auto symname = typeDeclNamespace->symbol_names_cbegin(); symname != typeDeclNamespace->symbol_names_cend(); symname++) {
-        // this drives resolution of all this type's members
-
-        auto entitySym = dynamic_cast<TxEntitySymbol*>(typeDeclNamespace->get_member_symbol(*symname));
-        if (! entitySym)
-            continue;
-
-        if (entitySym->get_type_decl()) {
-            if (*symname != "tx#Ref#T") {  // prevents infinite recursion
-                //LOGGER().alert("resolving member type %s", entitySym->get_full_name().to_string().c_str());
-                entitySym->get_type_decl()->get_definer()->resolve_type(resCtx);
-            }
-        }
-
-        for (auto fieldDecl = entitySym->fields_cbegin(); fieldDecl != entitySym->fields_cend(); fieldDecl++) {
-            auto field = (*fieldDecl)->get_definer()->resolve_field(resCtx);
-
-            if (field) {
-                // validate:
-                if (auto fieldType = field->get_type()) {
-                    if (! fieldType->is_concrete()) {
-                        CERROR(this, "Can't declare a field of non-concrete type: " << field);
-                    }
-                    else if (field->get_storage() == TXS_INSTANCE) {
-                        //std::cout << "Concrete INSTANCE field " << field << std::endl;
-                        if (! fieldType->is_statically_sized()) {
-                            CERROR(this, "Instance fields that don't have statically determined size not yet supported: " << field);
-                        }
-                        else if (! (field->get_decl_flags() & (TXD_GENPARAM | TXD_IMPLICIT))) {
-                            if (this->get_type_class() != TXTC_TUPLE)
-                                CERROR(this, "Can't declare instance member in non-tuple type: " << field);
-                        }
-                    }
-                    else {  // TXS_STATIC
-                        //std::cout << "Concrete STATIC field " << field << std::endl;
-                        if (! fieldType->is_statically_sized()) {
-                            // since static fields are per generic base type, and not per specialization:
-                            CERROR(this, "Static fields must have statically determined size: " << field);
-                        }
-                    }
-                }
-
-                // layout:
-                if (field->get_storage() == TXS_INSTANCE) {
-                    LOGGER().debug("Laying out instance field %-40s  %s", field->to_string().c_str(),
-                                    field->get_type()->to_string(true).c_str());
-                    this->instanceFields.add_field(field->get_unique_name(), field);
-                    if (field->get_unique_name().find('#') == std::string::npos)
-                        // FIXME: make VALUE type params be declared as instance members in generic base type,
-                        // so that they are not "extensions" to the specialized subtypes, and remove this '#' test
-                        this->extendsParentDatatype = true;
-                }
-                else if (field->get_storage() == TXS_INSTANCEMETHOD) {
-                    if (field->get_decl_flags() & TXD_CONSTRUCTOR) {
-                        // skip, constructors aren't virtual
-                    }
-                    else if (this->virtualFields.has_field(field->get_unique_name())) {
-                        CERROR(this, "A non-static method may not override a static parent field: " << field);
-                    }
-                    else if (this->instanceMethods.has_field(field->get_unique_name())) {
-                        if (! (field->get_decl_flags() & TXD_OVERRIDE))
-                            CWARNING(this, "Field overrides but isn't declared 'override': " << field);
-                        if (! (field->get_type()->is_a(*this->instanceMethods.get_field(field->get_unique_name())->get_type())))
-                            CERROR(this, "Overriding member's type does not derive from overridden member's type: " << field->get_type());
-                        this->instanceMethods.override_field(field->get_unique_name(), field);
-                    }
-                    else {
-                        if (field->get_decl_flags() & TXD_OVERRIDE)
-                            LOGGER().warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
-                        this->instanceMethods.add_field(field->get_unique_name(), field);
-                        this->extendsParentDatatype = true;
-                    }
-                }
-                else if (field->get_storage() == TXS_VIRTUAL) {
-                    if (this->instanceMethods.has_field(field->get_unique_name())) {
-                        CERROR(this, "A static field may not override a non-static parent method: " << field);
-                    }
-                    else if (this->virtualFields.has_field(field->get_unique_name())) {
-                        if (! (field->get_decl_flags() & TXD_OVERRIDE))
-                            CWARNING(this, "Field overrides but isn't declared 'override': " << field);
-                        if (! (field->get_type()->is_a(*this->virtualFields.get_field(field->get_unique_name())->get_type())))
-                            CERROR(this, "Overriding member's type does not derive from overridden member's type: " << field->get_type());
-                        this->virtualFields.override_field(field->get_unique_name(), field);
-                    }
-                    else {
-                        if (field->get_decl_flags() & TXD_OVERRIDE)
-                            LOGGER().warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
-                        this->virtualFields.add_field(field->get_unique_name(), field);
-                    }
-                }
-                else {
-                    ASSERT(field->get_storage() == TXS_STATIC, "Invalid storage class " << field->get_storage() << " for field member " << *field);
-                    if (field->get_decl_flags() & TXD_OVERRIDE)
-                        LOGGER().warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
-                    this->staticFields.add_field(field->get_unique_name(), field);
-                }
-            }
-        }
-    }
-
-    this->initialized = true;
-}
-
 
 
 static void type_bindings_string(std::stringstream& str, const TxTypeSpecialization& specialization) {

@@ -181,14 +181,13 @@ class TxType : public TxEntity {
 
     // data layout:
     bool extendsParentDatatype = false;
-    bool initialized = false;
     bool startedInit = false;
     DataTupleDefinition staticFields;
     DataTupleDefinition virtualFields;
     DataTupleDefinition instanceMethods;
     DataTupleDefinition instanceFields;
 
-    /** prepares / initializes this type, including laying out its data */
+    /** Prepares / initializes this type, including laying out its data. Called from constructor. */
     void prepare_type();
 
     std::string inner_validate() const;
@@ -430,25 +429,23 @@ private:
 public:
     /*--- data layout ---*/
 
-    bool is_data_laid_out() const { return this->initialized; }
-
     const DataTupleDefinition& get_instance_fields() const {
-        ASSERT(this->initialized, "Data not laid out in " << this);
+        ASSERT(this->startedInit, "Data not laid out in " << this);
         return this->instanceFields;
     }
 
     const DataTupleDefinition& get_instance_methods() const {
-        ASSERT(this->initialized, "Data not laid out in " << this);
+        ASSERT(this->startedInit, "Data not laid out in " << this);
         return this->instanceMethods;
     }
 
     const DataTupleDefinition& get_virtual_fields() const {
-        ASSERT(this->initialized, "Data not laid out in " << this);
+        ASSERT(this->startedInit, "Data not laid out in " << this);
         return this->virtualFields;
     }
 
     const DataTupleDefinition& get_static_fields() const {
-        ASSERT(this->initialized, "Data not laid out in " << this);
+        ASSERT(this->startedInit, "Data not laid out in " << this);
         return this->staticFields;
     }
 
