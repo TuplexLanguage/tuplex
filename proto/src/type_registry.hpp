@@ -80,8 +80,7 @@ public:
      * will automatically be redeclared in the specialized type.
      */
     const TxType* get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
-                                          bool _mutable, const std::vector<TxTypeParam>* typeParams=nullptr,
-                                          std::string* errorMsg=nullptr);
+                                          const std::vector<TxTypeParam>* typeParams=nullptr, bool _mutable=false);
 
 
     const TxReferenceType* get_reference_type(const TxTypeDeclaration* declaration, TxGenericBinding targetTypeBinding,

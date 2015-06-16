@@ -1,5 +1,7 @@
 #include "context.hpp"
 #include "module.hpp"
+#include "ast_base.hpp"
+
 
 TxModule* LexicalContext::get_module(TxScopeSymbol* scope) {
     ASSERT(scope, "scope is NULL");
@@ -14,3 +16,9 @@ TxModule* LexicalContext::get_module(TxScopeSymbol* scope) {
 //        return entitySymbol->get_type_decl();
 //    return nullptr;
 //}
+
+
+
+TxTypeDefiningNode* TxSpecializationTypeDefiner::get_node() const {
+    return dynamic_cast<TxTypeDefiningNode*>(this->specDefiner);
+}

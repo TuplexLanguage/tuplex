@@ -130,6 +130,12 @@ public:
         ASSERT(baseType, "NULL baseType");
     }
 
+    TxTypeSpecialization(const TxType* baseType, std::vector<TxGenericBinding>&& baseBindings,
+                         const TxIdentifier* dataspace=nullptr)
+            : type(baseType), modifiable(false), dataspace(dataspace), bindings(baseBindings)  {
+        ASSERT(baseType, "NULL baseType");
+    }
+
     TxTypeSpecialization(const TxType* baseType, const std::vector<TxGenericBinding>& baseBindings,
                          const TxIdentifier* dataspace=nullptr)
             : type(baseType), modifiable(false), dataspace(dataspace), bindings(baseBindings)  {
@@ -283,7 +289,7 @@ public:
     /** Returns true if this type is declared abstract. */
     virtual bool is_abstract() const { return true; }
 
-    /** Returns true if this type is generic (i.e. has unbound type parameters). */
+    /** Returns true if this type is generic (i.e. has unbound type parameters). */  // TODO: what about bindings to param aliases?
     inline bool is_generic() const { return !this->type_params().empty(); }
 
     /** Returns true if this type is concrete (i.e. can be directly instanced).

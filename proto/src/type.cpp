@@ -50,7 +50,7 @@ std::string TxTypeSpecialization::validate() const {
                     // TODO: check: VALUE parameters can not be of modifiable type
                 }
                 else {
-                    auto constraintType = p.get_constraint_type_definer()->get_type(0);  // FIXME: review six for type params
+                    auto constraintType = p.get_constraint_type_definer()->get_type();
                     auto boundType = b.type_definer().get_type();
                     if (boundType && ! boundType->is_a(*constraintType))
                         return std::string("Bound type ") + boundType->to_string() + " for type parameter " + p.to_string() + " is not a derivation of type " + constraintType->to_string();
@@ -116,7 +116,7 @@ void TxType::prepare_type() {
     // resolve all this type's parameters and bindings
     ResolutionContext resCtx;
     for (auto & p : this->typeParams) {
-        p.get_constraint_type_definer()->resolve_type(0, resCtx);
+        p.get_constraint_type_definer()->resolve_type(resCtx);
     }
     for (auto & b : this->baseTypeSpec.bindings) {
         if (b.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
@@ -128,33 +128,24 @@ void TxType::prepare_type() {
 
     // copy base type's virtual and instance field tuples (to which we will add and override fields):
     auto baseType = this->get_base_type();
-    while (baseType && !baseType->get_symbol())
+    while (baseType && !baseType->get_declaration())
         baseType = baseType->get_base_type();
     if (baseType) {
-        //baseType->ensure_data_laid_out();
         this->virtualFields = baseType->virtualFields;
         this->instanceMethods = baseType->instanceMethods;
         this->instanceFields = baseType->instanceFields;
     }
 
     bool madeConcrete = !this->is_generic() && this->get_base_type() && this->get_base_type()->is_generic();
+    if (madeConcrete && this->get_type_class() != TXTC_REFERENCE && this->get_type_class() != TXTC_ARRAY) {
+        // Should have already happened: Generate concrete type, resolving generic type parameters to their bindings.
+        LOGGER().warning("Type is concrete specialization of generic base type: %s", this->to_string().c_str());
+    }
 
     if (! this->get_declaration()) {
         ASSERT(! madeConcrete, "Type is concrete specialization of generic base type, but unnamed (undeclared): " << this);
         return;
     }
-
-    if (madeConcrete) {
-        // generate concrete type, resolving generic type parameters to their bindings:
-        LOGGER().alert("Type is concrete specialization of generic base type: %s", this->to_string().c_str());
-        // FIXME
-        //auto typeExpr = static_cast<TxTypeExpressionNode*>(this->get_declaration()->get_type_definer());
-        // run declaration pass
-        // run resolution pass
-    }
-//    else if (this->get_declaration()->get_symbol()->get_full_name().name() == "$type0") {
-//        LOGGER().alert("Type is NOT concrete specialization of generic base type: %s", this->get_declaration()->get_symbol()->to_string().c_str());
-//    }
 
     // for all the member names declared or redeclared in this type:
     auto typeDeclNamespace = this->get_declaration()->get_symbol();

@@ -40,8 +40,8 @@ public:
     /** Creates the Array base type (no element type nor length specified). Only one such instance should exist. */
     TxArrayType(const TxTypeDeclaration* declaration, const TxType* anyType, TxTypeDefiner* anyTypeDefiner, TxTypeDefiner* uintTypeDefiner)
             : TxType(TXTC_ARRAY, declaration, TxTypeSpecialization(anyType),
-                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE,  "E", new TxFixedTypeDefiner(anyTypeDefiner)),
-                                                 TxTypeParam(TxTypeParam::TXB_VALUE, "L", new TxFixedTypeDefiner(uintTypeDefiner)) } ) ) { }
+                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE,  "E", anyTypeDefiner),
+                                                 TxTypeParam(TxTypeParam::TXB_VALUE, "L", uintTypeDefiner) } ) ) { }
 
 
     /** Returns nullptr if unbound. */
@@ -87,7 +87,7 @@ public:
     /** Creates the Reference base type (no target type specified). Only one such instance should exist. */
     TxReferenceType(const TxTypeDeclaration* declaration, const TxType* anyType, TxTypeDefiner* anyTypeDefiner)
             : TxType(TXTC_REFERENCE, declaration, TxTypeSpecialization(anyType),
-                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE, "T", new TxFixedTypeDefiner(anyTypeDefiner)) } ) ) { }
+                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE, "T", anyTypeDefiner) } ) ) { }
 
 
     /** Returns the target type of this reference type, or nullptr if it failed to resolve. */

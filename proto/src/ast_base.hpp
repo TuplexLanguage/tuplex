@@ -110,6 +110,7 @@ public:
 
 class TxSpecializableNode : public TxNode {
     std::vector<TxSpecializationPass> specializations;
+
 protected:
     inline const TxSpecializationPass& get_spec(TxSpecializationIndex six) const {
         ASSERT(six < this->specializations.size(), "Non-existant specialization index " << six << " in " << this);
@@ -127,18 +128,22 @@ protected:
 public:
     TxSpecializableNode(const yy::location& parseLocation) : TxNode(parseLocation), specializations(1) { }
 
+    TxSpecializationIndex next_spec_index() const {
+        return this->specializations.size();
+    }
 
     inline bool is_context_set(TxSpecializationIndex six) const {
         return this->specializations.size() > six && this->specializations.at(six).lexContext.scope();
     }
 
-    void set_context(TxSpecializationIndex six, const LexicalContext& context) {
-        ASSERT(!this->is_context_set(six), "lexicalContext already initialized in " << this->to_string());
+    inline void set_context(TxSpecializationIndex six, const LexicalContext& context) {
+        ASSERT(!this->is_context_set(six), "lexicalContext already initialized for s-ix " << six << " in " << this->to_string());
         this->get_spec(six).lexContext = context;
+        //std::cerr << "Set context for s-ix " << six << " in " << this->to_string() << std::endl;
     }
 
     inline const LexicalContext& context(TxSpecializationIndex six) const {
-        ASSERT(this->is_context_set(six), "lexicalContext not initialized in " << this->to_string());
+        ASSERT(this->is_context_set(six), "lexicalContext not initialized for s-ix " << six << " in " << this->to_string());
         return this->get_spec(six).lexContext;
     }
     inline LexicalContext& context(TxSpecializationIndex six) {
@@ -299,13 +304,13 @@ public:
 
 
 class TxTypeDefiningNode : public TxSpecializableNode, public TxSpecializableTypeDefiner {
-    std::vector<TxSpecializationTypeDefiner> specializationDefs;
+    std::vector<TxSpecializationTypeDefiner*> specializationDefs;
 
 protected:
     TxSpecializationTypeDefiner* get_spec_type_def(TxSpecializationIndex six) {
         for (unsigned s = this->specializationDefs.size(); s <= six; s++)
-            this->specializationDefs.emplace_back(this, s);
-        return &this->specializationDefs.at(six);
+            this->specializationDefs.push_back(new TxSpecializationTypeDefiner(this, s));
+        return this->specializationDefs.at(six);
     }
 
     /** Defines the type of this expression (as specific as can be known), constructing/obtaining the TxType instance.
@@ -323,7 +328,7 @@ public:
     virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) override final {
         auto & spec = this->get_spec(six);
         if (!spec.type && !spec.hasResolved) {
-            LOGGER().trace("resolving type of %s", this->to_string().c_str());
+            LOGGER().trace("resolving type of %s (s-ix %u)", this->to_string().c_str(), six);
             ASSERT(!spec.startedRslv, "Recursive invocation of resolve_type() of " << this);
             spec.startedRslv = true;
             spec.type = this->define_type(six, resCtx);
@@ -338,19 +343,19 @@ public:
 
 
 class TxFieldDefiningNode : public TxSpecializableNode, public TxSpecializableFieldDefiner {
-    std::vector<TxSpecializationFieldDefiner> specializationDefs;
+    std::vector<TxSpecializationFieldDefiner*> specializationDefs;
 
 protected:
     TxSpecializationFieldDefiner* get_spec_field_def(TxSpecializationIndex six) {
         for (unsigned s = this->specializationDefs.size(); s <= six; s++)
-            this->specializationDefs.emplace_back(this, s);
-        return &this->specializationDefs.at(six);
+            this->specializationDefs.push_back(new TxSpecializationFieldDefiner(this, s));
+        return this->specializationDefs.at(six);
     }
 
 public:
     TxFieldDefiningNode(const yy::location& parseLocation) : TxSpecializableNode(parseLocation) { }
 
-    TxTypeDefiner* get_field_definer(TxSpecializationIndex six) { return this->get_spec_field_def(six); }
+    TxFieldDefiner* get_field_definer(TxSpecializationIndex six) { return this->get_spec_field_def(six); }
 
     virtual const TxType*  attempt_get_type(TxSpecializationIndex six) const override final { return this->get_spec(six).type; }
     virtual const TxType*  get_type        (TxSpecializationIndex six) const override final { return this->get_spec(six).type; }
@@ -370,10 +375,22 @@ class TxTypeExpressionNode : public TxTypeDefiningNode {
 //    TxType const * type = nullptr;
 //    TxTypeDeclaration* declaration = nullptr;  // null unless initialized in symbol declaration pass
 
-protected:
     /** if parent node is a type declaration that declares type parameters, these will be set by it */
-    const std::vector<TxDeclarationNode*>* typeParamDeclNodes = nullptr;
-    const std::vector<TxTypeParam>* declTypeParams = nullptr;
+    std::vector<const std::vector<TxDeclarationNode*>*> typeParamDeclNodes;
+
+    void setTypeParamDeclNodes(TxSpecializationIndex six, const std::vector<TxDeclarationNode*>* typeParamDeclNodes) {
+        while (six >= this->typeParamDeclNodes.size())
+            this->typeParamDeclNodes.push_back(nullptr);
+        this->typeParamDeclNodes[six] = typeParamDeclNodes;
+    }
+
+protected:
+    inline const std::vector<TxDeclarationNode*>* getTypeParamDeclNodes(TxSpecializationIndex six) const {
+        return ( six < this->typeParamDeclNodes.size() ? this->typeParamDeclNodes.at(six) : nullptr );
+    }
+
+    /** constructs a newly allocated TxTypeParam vector for this type expression's type parameter declaration nodes */
+    std::vector<TxTypeParam>* makeDeclTypeParams(TxSpecializationIndex six);
 
     /** Gets the type declaration of this type expression, if any. */
     inline const TxTypeDeclaration* get_declaration(TxSpecializationIndex six) const {
@@ -384,10 +401,7 @@ protected:
                                                      LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
 
 public:
-    TxTypeExpressionNode(const yy::location& parseLocation) : TxTypeDefiningNode(parseLocation)  { }
-
-    /** if parent node is a type declaration that declares type parameters, this is invoked by it */
-    virtual void setTypeParams(const std::vector<TxDeclarationNode*>* typeParamDeclNodes);
+    TxTypeExpressionNode(const yy::location& parseLocation) : TxTypeDefiningNode(parseLocation), typeParamDeclNodes(1)  { }
 
     /** Returns true if this type expression is a directly identified type
      * (i.e. a previously declared type, does not construct a new type). */
@@ -400,7 +414,8 @@ public:
      * The definition context is used for named types lookups, to avoid conflation with names of the sub-expressions.
      */
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& defContext, LexicalContext& lexContext,
-                                         TxDeclarationFlags declFlags, const std::string designatedTypeName = std::string());
+                                         TxDeclarationFlags declFlags, const std::string designatedTypeName,
+                                         const std::vector<TxDeclarationNode*>* typeParamDeclNodes);
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) {
         this->resolve_type(six, resCtx);
@@ -534,12 +549,8 @@ class TxFieldDefNode : public TxFieldDefiningNode {
         auto typeDeclFlags = (declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
         if (this->typeExpression) {
             // unless the type expression is a directly named type, declare implicit type entity for this field's type:
-            if (this->typeExpression->has_predefined_type())
-                this->typeExpression->symbol_declaration_pass(six, innerContext, innerContext, typeDeclFlags);
-            else {
-                auto implTypeName = this->get_field_name() + "$type";
-                this->typeExpression->symbol_declaration_pass(six, innerContext, innerContext, typeDeclFlags, implTypeName);
-            }
+            std::string implTypeName = ( this->typeExpression->has_predefined_type() ? "" : this->get_field_name() + "$type" );
+            this->typeExpression->symbol_declaration_pass(six, innerContext, innerContext, typeDeclFlags, implTypeName, nullptr);
         }
         if (this->initExpression) {
 // TODO: delegate this to the expression nodes
@@ -556,7 +567,7 @@ class TxFieldDefNode : public TxFieldDefiningNode {
 public:
     const std::string fieldName;  // the original field name
     const bool modifiable;  // true if field name explicitly declared modifiable
-    TxSpecializableTypeDefiner* typeDefiner;  // optional, non-code-generating type definer (can't be specified at same time as typeExpression)
+    TxTypeDefiner* typeDefiner;  // optional, non-code-generating type definer (can't be specified at same time as typeExpression)
     TxTypeExpressionNode* typeExpression;
     TxExpressionNode* initExpression;
 
@@ -569,7 +580,7 @@ public:
             this->initExpression->set_field_def_node(this);
     }
     TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
-                   TxExpressionNode* initExpression, bool modifiable=false, TxSpecializableTypeDefiner* typeDefiner=nullptr)
+                   TxExpressionNode* initExpression, bool modifiable=false, TxTypeDefiner* typeDefiner=nullptr)
             : TxFieldDefiningNode(parseLocation), fieldName(fieldName), modifiable(modifiable), typeDefiner(typeDefiner) {
         this->typeExpression = nullptr;
         this->initExpression = initExpression;
@@ -635,12 +646,12 @@ public:
     virtual const TxField* resolve_field(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         auto & spec = this->get_spec(six);
         if (! spec.field) {
-            LOGGER().trace("resolving type of %s", this->to_string().c_str());
+            LOGGER().trace("resolving type of %s (s-ix %u)", this->to_string().c_str(), six);
             if (this->typeExpression) {
                 spec.type = this->typeExpression->resolve_type(six, resCtx);
             }
             else if (this->typeDefiner) {
-                spec.type = this->typeDefiner->resolve_type(six, resCtx);
+                spec.type = this->typeDefiner->resolve_type(resCtx);
             }
             else {
                 spec.type = this->initExpression->resolve_type(six, resCtx);
@@ -737,8 +748,6 @@ public:
         : TxDeclarationNode(parseLocation, declFlags),
           typeName(typeName), typeParamDecls(typeParamDecls), typeExpression(typeExpression) {
         validateTypeName(this, declFlags, typeName);
-        if (typeParamDecls)
-            this->typeExpression->setTypeParams(typeParamDecls);
     }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {

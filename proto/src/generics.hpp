@@ -6,7 +6,6 @@
 
 class TxType;
 class TxTypeDefiner;
-class TxSpecializableTypeDefiner;
 class TxExpressionNode;
 
 
@@ -26,10 +25,10 @@ public:
 private:
     MetaType metaType;
     std::string typeParamName;
-    TxSpecializableTypeDefiner* constraintTypeDefiner;
+    TxTypeDefiner* constraintTypeDefiner;
 
 public:
-    TxTypeParam(MetaType metaType, const std::string& typeParamName, TxSpecializableTypeDefiner* constraintTypeDefiner)
+    TxTypeParam(MetaType metaType, const std::string& typeParamName, TxTypeDefiner* constraintTypeDefiner)
             : metaType(metaType), typeParamName(typeParamName), constraintTypeDefiner(constraintTypeDefiner)  {
         ASSERT(metaType==TXB_TYPE || constraintTypeDefiner, "VALUE type parameter's type is NULL");
         ASSERT(metaType==TXB_VALUE || constraintTypeDefiner, "TYPE type parameter's constraint type is NULL");
@@ -41,7 +40,7 @@ public:
     inline bool has_constraint_type_definer() const { return this->constraintTypeDefiner; }
 
     /** Gets the type definer that represents the constraint type (if TYPE) or data type (if VALUE) of this parameter. */
-    inline TxSpecializableTypeDefiner* get_constraint_type_definer() const {
+    inline TxTypeDefiner* get_constraint_type_definer() const {
         ASSERT(this->has_constraint_type_definer(), "This type parameter '" << this->typeParamName << "' has no constraint type definer set");
         return this->constraintTypeDefiner;
     }

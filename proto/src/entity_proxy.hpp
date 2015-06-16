@@ -3,6 +3,7 @@
 #include "tx_error.hpp"
 
 
+class TxTypeDefiningNode;
 class TxExpressionNode;
 class TxType;
 class TxField;
@@ -29,8 +30,8 @@ public:
 
 
 class TxEntityDefiner : public TxTypeProxy, public virtual TxParseOrigin {
-public:
-    virtual ~TxEntityDefiner() = default;
+//public:
+//    virtual ~TxEntityDefiner() = default;
 };
 
 class TxTypeDefiner : public TxEntityDefiner {
@@ -39,6 +40,9 @@ public:
 
     /** Returns a type if this type definer "is ready" (has a defined type), otherwise NULL. */
     virtual const TxType* attempt_get_type() const = 0;
+
+    /** Returns the node defining the type, if available. */
+    virtual TxTypeDefiningNode* get_node() const { return nullptr; }
 };
 
 class TxFieldDefiner : public TxTypeDefiner {

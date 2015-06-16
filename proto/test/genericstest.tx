@@ -33,8 +33,8 @@ type Type<E,L:UInt> derives Tuple {
 }
 
 ## not yet supported to rename value parameter:
-##type Midtype<F,L:UInt> Type<F,(L)>
-type Midtype<F,L:UInt> Type<F>
+type Midtype<F,L:UInt> Type<F,(L)>
+##type Midtype<F,L:UInt> Type<F>
 
 LEN : UInt = 5
 type GlobalType Midtype<Float,(LEN)>

@@ -126,6 +126,8 @@ public:
     virtual const TxType* attempt_get_type() const override { return specDefiner->attempt_get_type(six); }
 
     virtual const TxType* get_type() const override { return specDefiner->get_type(six); }
+
+    virtual TxTypeDefiningNode* get_node() const override;
 };
 
 
@@ -156,7 +158,7 @@ public:
 
 
 /** TxSpecializableTypeDefiner wrapper for a "fixed" TxTypeDefiner (independent of specialization index). */
-class TxFixedTypeDefiner : public TxSpecializableTypeDefiner {
+class TxFixedTypeDefiner : public TxSpecializableTypeDefiner {  // currently unused, remove?
     TxTypeDefiner* const definer;
 
 public:

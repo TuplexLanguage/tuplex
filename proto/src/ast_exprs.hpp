@@ -36,6 +36,8 @@ public:
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);
+        if (! this->expr->is_context_set(six))
+            this->expr->symbol_declaration_pass(six, lexContext);
     }
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
@@ -588,12 +590,8 @@ public:
         this->set_context(six, lexContext);
         auto typeDeclFlags = TXD_PUBLIC | TXD_IMPLICIT;
         // unless the type expression is a directly named type, declare implicit type:
-        if (this->typeExpr->has_predefined_type())
-            this->typeExpr->symbol_declaration_pass(six, lexContext, lexContext, typeDeclFlags);
-        else {
-            auto implTypeName = lexContext.scope()->get_unique_name("$type");
-            this->typeExpr->symbol_declaration_pass(six, lexContext, lexContext, typeDeclFlags, implTypeName);
-        }
+        auto implTypeName = ( this->typeExpr->has_predefined_type() ? "" : lexContext.scope()->get_unique_name("$type") );
+        this->typeExpr->symbol_declaration_pass(six, lexContext, lexContext, typeDeclFlags, implTypeName, nullptr);
         this->constructorCall->symbol_declaration_pass(six, lexContext);
     }
 

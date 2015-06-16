@@ -41,25 +41,31 @@ public:
 
         if (this->is_instance_method()) {
             // insert implicit local field named 'self', that is a reference to the closure type
-            auto entitySym = dynamic_cast<TxEntitySymbol*>(lexContext.scope());
-            if (entitySym && entitySym->get_type_decl()) {  // if in type scope
-                // 'self' reference:
-                auto selfRefTypeExprN = new TxPredefinedTypeNode(this->parseLocation, "$Self");
-                this->selfRefNode = new TxFieldDefNode(this->parseLocation, "self", selfRefTypeExprN, nullptr);
-                this->selfRefNode->symbol_declaration_pass_local_field(six, funcLexContext, false);
+            if (six == 0) {
+                auto entitySym = dynamic_cast<TxEntitySymbol*>(lexContext.scope());
+                if (entitySym && entitySym->get_type_decl()) {  // if in type scope
+                    // 'self' reference:
+                    auto selfRefTypeExprN = new TxPredefinedTypeNode(this->parseLocation, "$Self");
+                    this->selfRefNode = new TxFieldDefNode(this->parseLocation, "self", selfRefTypeExprN, nullptr);
+                    this->selfRefNode->symbol_declaration_pass_local_field(six, funcLexContext, false);
 
-                // 'super' reference
-                auto superRefTypeExprN = new TxPredefinedTypeNode(this->parseLocation, "$Super");
-                this->superRefNode = new TxFieldDefNode(this->parseLocation, "super", superRefTypeExprN, nullptr);
-                this->superRefNode->symbol_declaration_pass_local_field(six, funcLexContext, false);
+                    // 'super' reference
+                    auto superRefTypeExprN = new TxPredefinedTypeNode(this->parseLocation, "$Super");
+                    this->superRefNode = new TxFieldDefNode(this->parseLocation, "super", superRefTypeExprN, nullptr);
+                    this->superRefNode->symbol_declaration_pass_local_field(six, funcLexContext, false);
 
-                if (this->fieldDefNode->get_declaration(six)->get_decl_flags() & TXD_CONSTRUCTOR) {
-                    auto constructedObjTypeDecl = entitySym->get_type_decl();
-                    funcLexContext.set_constructed(constructedObjTypeDecl);
+                    if (this->fieldDefNode->get_declaration(six)->get_decl_flags() & TXD_CONSTRUCTOR) {
+                        auto constructedObjTypeDecl = entitySym->get_type_decl();
+                        funcLexContext.set_constructed(constructedObjTypeDecl);
+                    }
                 }
+                else
+                    CERROR(this, "The scope of an instance method must be a type scope");
             }
-            else
-                CERROR(this, "The scope of an instance method must be a type scope");
+            else if (this->selfRefNode) {
+                this->selfRefNode->symbol_declaration_pass_local_field(six, funcLexContext, false);
+                this->superRefNode->symbol_declaration_pass_local_field(six, funcLexContext, false);
+            }
         }
         // FUTURE: define implicit closure object when in code block
 

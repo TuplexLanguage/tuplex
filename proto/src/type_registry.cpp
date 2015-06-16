@@ -376,25 +376,32 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
     return type->make_specialized_type(declaration, tmpSpec, unbound, errorMsg);
 }
 
-const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
-                                                    bool _mutable, const std::vector<TxTypeParam>* typeParams,
-                                                    std::string* errorMsg) {
-    // FUTURE: Should sequences of pure type specializations be collapsed into single pure specializations
-    // (except for individual type specializations that are named (have an entity))?
-    // Note: type specialization is never applied to a modifiable-specialization (legal only on generic base type)
-    ASSERT(!specialization.type->is_modifiable(), "Can't specialize a 'modifiable' base type: " << specialization);
-    ASSERT(!specialization.modifiable, "Can't specify 'modifiable' in a type parameter specialization: " << specialization);
-
-    if (specialization.type->get_symbol() && (specialization.type->get_declaration()->get_decl_flags() & TXD_GENPARAM)) {
-        if (errorMsg)
-            errorMsg->append("Can't derive from generic type parameter " + specialization.type->to_string());
-        return nullptr;
+/*
+static const TxType* make_concrete(const TxType* type, const std::vector<TxGenericBinding>& bindings) {
+    // Re-create the super types, starting with the top generic one, and continue down to this new type.
+    // (Can't restrict the traversed super types based on the parameter names, since super types'
+    // parameters can have been rebound to derivations of sub-types' parameters.)
+    // Each recreated super type shall thus be made concrete.
+    auto baseType = type->get_base_type();
+    if (baseType->is_generic()) {
+        // FIX ME: accumulate bindings
+        auto newBaseType = make_concrete(baseType, bindings);
     }
 
+    // FIX ME:
+    // resolve bindings (tricky part?)
+    // determine new type name
+    // run declaration pass
+    // run resolution pass
+}
+*/
+
+static inline std::vector<TxTypeParam> prepare_type_parameters(const TxTypeSpecialization& specialization,
+                                                               const std::vector<TxTypeParam>* typeParams,
+                                                               const TxParseOrigin* pOrigin) {
     std::vector<TxTypeParam> unboundParams;
     if (typeParams)
         unboundParams = *typeParams;
-    std::vector<TxGenericBinding> newBindings = specialization.bindings;
     for (auto & baseTypeParam : specialization.type->type_params()) {
         const TxGenericBinding* matchedBinding = nullptr;
         for (auto & paramBinding : specialization.bindings)
@@ -405,34 +412,101 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
         if (! matchedBinding) {
             if (typeParams) {
                 const TxTypeParam* matchedNewParam = nullptr;
-                for (auto & newParam : *typeParams)
+                for (auto & newParam : *typeParams) {
                     if (baseTypeParam.param_name() == newParam.param_name() && baseTypeParam.meta_type() == newParam.meta_type()) {
                         matchedNewParam = &newParam;
                         break;
                     }
-                if (matchedNewParam) {
-                    // effectively redeclared
-                    //newBindings.push_back(TxTypeBinding(baseTypeParam.param_name(), *matchedNewParam));
                 }
-                else {
-                    if (errorMsg)
-                        errorMsg->append("Type parameter " + baseTypeParam.to_string()
-                                         + " neither bound or redeclared in specialization of " + specialization.type->to_string());
-                    return nullptr;
+                if (! matchedNewParam) {
+                    // Note: This can be the case for specializations that have defined the parameter (it is no longer GENPARAM)
+                    CWARNING(pOrigin, "Type parameter " << baseTypeParam << " of base type " << specialization.type
+                             << " neither bound or redeclared in the specialization" );
                 }
             }
             else {
-                // automatically redeclare unbound type parameters:
+                // if no type parameters declared at all, automatically redeclare the unbound type parameters of base type:
                 unboundParams.push_back(baseTypeParam);
-                //newBindings.push_back(TxTypeBinding(baseTypeParam.param_name(), baseTypeParam));
             }
         }
     }
+    return unboundParams;
+}
 
-    TxTypeSpecialization newSpec(specialization.type, newBindings, specialization.dataspace);
-    auto newType = specialization.type->make_specialized_type(declaration, newSpec, unboundParams, errorMsg);
-    this->register_type(newType);
-    return newType;
+// FUTURE: add interfaces
+const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
+                                                    const std::vector<TxTypeParam>* typeParams, bool _mutable) {
+    // Note: type specialization is never applied to a modifiable-specialization (legal only on generic base type)
+    ASSERT(!specialization.type->is_modifiable(), "Can't specialize a 'modifiable' base type: " << specialization);
+    ASSERT(!specialization.modifiable, "Can't specify 'modifiable' in a type parameter specialization: " << specialization);
+
+    if (specialization.type->get_declaration() && (specialization.type->get_declaration()->get_decl_flags() & TXD_GENPARAM)) {
+        CERROR(declaration->get_definer(), "Can't derive from generic type parameter " << specialization.type);
+        return nullptr;
+    }
+
+    std::string errorMsg;  // TODO: deprecated, remove
+    // TODO: pass _mutable flag to type extensions
+
+    const TxParseOrigin* pOrigin = ( declaration ? (const TxParseOrigin*)declaration->get_definer() : (const TxParseOrigin*)specialization.type );
+    std::vector<TxTypeParam> allParams = prepare_type_parameters(specialization, typeParams, pOrigin);
+
+    if (allParams.empty() && ! specialization.bindings.empty()
+        && ! specialization.type->is_builtin()) {  // (avoids source-expression-less built-in types (incl Ref<> and Array<>))
+        // non-parameterized type that binds parameters of base type,
+        // re-base it on new non-generic specialization of the base type
+
+        // TODO: How should we handle Ref? We can't resolve it's parameter in order to prevent infinite recursion.
+        //       We also need to handle the dataspace use case.
+        // TODO: How should we handle Array? Should user be allowed to extend it?
+
+        ASSERT(declaration, "expected type that binds base type's parameters to be named (declared) but was not");
+        this->package.LOGGER().debug("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
+                                     declaration->get_unique_full_name().c_str(), specialization.type->to_string().c_str());
+
+        ASSERT(specialization.type->get_declaration(), "base type has no declaration: " << specialization.type);
+        auto baseTypeExpr = static_cast<TxTypeExpressionNode*>(specialization.type->get_declaration()->get_definer()->get_node());
+        TxSpecializationIndex newSix = baseTypeExpr->next_spec_index();
+
+        // make new parameter declarations that resolve to the bindings:
+        auto typeParamDeclNodes = new std::vector<TxDeclarationNode*>();
+        ResolutionContext resCtx;
+        for (auto & binding : specialization.bindings) {
+            if (binding.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
+                auto & parseLoc = binding.type_definer().get_parse_location();
+                auto typeExpr = new TxTypeDefWrapperNode(parseLoc, &binding.type_definer());
+                auto declNode = new TxTypeDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, binding.param_name(), nullptr, typeExpr);
+                typeParamDeclNodes->push_back(declNode);
+            }
+            else {
+                //if (binding.value_expr().is_context_set(newSix)) continue;
+                // FIXME
+                ASSERT(!binding.value_expr().is_context_set(newSix), "VALUE param '" << binding.param_name() << "' already processed for s-ix " << newSix);
+                auto & parseLoc = binding.value_expr().get_parse_location();
+                auto fieldDef = new TxFieldDefNode(parseLoc, binding.param_name(), nullptr, &binding.value_expr());
+                auto declNode = new TxFieldDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
+                typeParamDeclNodes->push_back(declNode);
+            }
+            this->package.LOGGER().trace("Re-bound base type's parameter '%s'", binding.param_name().c_str());
+        }
+
+        // process new specialization of the base type:
+        LexicalContext lexContext = LexicalContext(declaration->get_symbol()->get_outer());
+        std::string newBaseName = lexContext.scope()->get_unique_name(declaration->get_unique_name() + "$"
+                                                                      + specialization.type->get_declaration()->get_unique_name());
+        baseTypeExpr->symbol_declaration_pass(newSix, lexContext, lexContext, TXD_PUBLIC | TXD_IMPLICIT, newBaseName, typeParamDeclNodes);
+        baseTypeExpr->symbol_resolution_pass(newSix, resCtx);
+        auto newBaseType = baseTypeExpr->resolve_type(newSix, resCtx);
+        TxTypeSpecialization newSpec(newBaseType);
+        auto newType = specialization.type->make_specialized_type(declaration, newSpec, allParams, &errorMsg);
+        this->register_type(newType);
+        return newType;
+    }
+    else {
+        auto newType = specialization.type->make_specialized_type(declaration, specialization, allParams, &errorMsg);
+        this->register_type(newType);
+        return newType;
+    }
 }
 
 
@@ -440,7 +514,7 @@ const TxReferenceType* TypeRegistry::get_reference_type(const TxTypeDeclaration*
                                                         const TxIdentifier* dataspace, std::string* errorMsg) {
     std::vector<TxGenericBinding> bindings( { targetTypeBinding } );
     TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type(), bindings, dataspace);
-    return static_cast<const TxReferenceType*>(this->get_type_specialization(declaration, specialization, false, nullptr, errorMsg));
+    return static_cast<const TxReferenceType*>(this->get_type_specialization(declaration, specialization));
 
     /* if to use this approach, find way to avoid resolving the target type (causes recursion):
     // Each type gets a shared reference type declared adjacent to it.
@@ -483,7 +557,7 @@ const TxArrayType* TypeRegistry::get_array_type(const TxTypeDeclaration* declara
     //std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", length) } );
     std::vector<TxGenericBinding> bindings( { elemTypeBinding, lengthBinding } );
     TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
-    return static_cast<const TxArrayType*>(this->get_type_specialization(declaration, specialization, false, nullptr, errorMsg));
+    return static_cast<const TxArrayType*>(this->get_type_specialization(declaration, specialization));
 }
 
 const TxArrayType* TypeRegistry::get_array_type(const TxTypeDeclaration* declaration, TxGenericBinding elemTypeBinding,
@@ -491,7 +565,7 @@ const TxArrayType* TypeRegistry::get_array_type(const TxTypeDeclaration* declara
     //std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType) } );
     std::vector<TxGenericBinding> bindings( { elemTypeBinding } );
     TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
-    return static_cast<const TxArrayType*>(this->get_type_specialization(declaration, specialization, false, nullptr, errorMsg));
+    return static_cast<const TxArrayType*>(this->get_type_specialization(declaration, specialization));
 }
 
 
