@@ -481,7 +481,8 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
             else {
                 //if (binding.value_expr().is_context_set(newSix)) continue;
                 // FIXME
-                ASSERT(!binding.value_expr().is_context_set(newSix), "VALUE param '" << binding.param_name() << "' already processed for s-ix " << newSix);
+                ASSERT(!binding.value_expr().is_context_set(newSix), "VALUE param '" << binding.param_name() << "' at "
+                       << binding.value_expr().parseLocation << " already processed for s-ix " << newSix);
                 auto & parseLoc = binding.value_expr().get_parse_location();
                 auto fieldDef = new TxFieldDefNode(parseLoc, binding.param_name(), nullptr, &binding.value_expr());
                 auto declNode = new TxFieldDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
@@ -492,14 +493,14 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
 
         // process new specialization of the base type:
         LexicalContext lexContext = LexicalContext(declaration->get_symbol()->get_outer());
-        std::string newBaseName = lexContext.scope()->get_unique_name(declaration->get_unique_name() + "$"
-                                                                      + specialization.type->get_declaration()->get_unique_name());
+        std::string newBaseName = lexContext.scope()->make_unique_name(declaration->get_unique_name() + "$"
+                                                                       + specialization.type->get_declaration()->get_unique_name());
         baseTypeExpr->symbol_declaration_pass(newSix, lexContext, lexContext, TXD_PUBLIC | TXD_IMPLICIT, newBaseName, typeParamDeclNodes);
         baseTypeExpr->symbol_resolution_pass(newSix, resCtx);
         auto newBaseType = baseTypeExpr->resolve_type(newSix, resCtx);
         TxTypeSpecialization newSpec(newBaseType);
         auto newType = specialization.type->make_specialized_type(declaration, newSpec, allParams, &errorMsg);
-        this->register_type(newType);
+        this->register_type(newType);  // or should we not generate vtables for these?
         return newType;
     }
     else {

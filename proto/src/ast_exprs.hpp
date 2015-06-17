@@ -208,7 +208,7 @@ public:
 class TxReferenceToNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        auto implTypeName = this->context(six).scope()->get_unique_name("$type");
+        auto implTypeName = this->context(six).scope()->make_unique_name("$type");
         auto typeDecl = this->context(six).scope()->declare_type(implTypeName, this->get_type_definer(six), TXD_PUBLIC | TXD_IMPLICIT);
         return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->target->get_type_definer(six)));
     }
@@ -590,7 +590,7 @@ public:
         this->set_context(six, lexContext);
         auto typeDeclFlags = TXD_PUBLIC | TXD_IMPLICIT;
         // unless the type expression is a directly named type, declare implicit type:
-        auto implTypeName = ( this->typeExpr->has_predefined_type() ? "" : lexContext.scope()->get_unique_name("$type") );
+        auto implTypeName = ( this->typeExpr->has_predefined_type() ? "" : lexContext.scope()->make_unique_name("$type") );
         this->typeExpr->symbol_declaration_pass(six, lexContext, lexContext, typeDeclFlags, implTypeName, nullptr);
         this->constructorCall->symbol_declaration_pass(six, lexContext);
     }
@@ -618,7 +618,7 @@ protected:
 
     virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         // new constructor returns the constructed object by reference
-        auto implTypeName = this->context(six).scope()->get_unique_name("$type");
+        auto implTypeName = this->context(six).scope()->make_unique_name("$type");
         auto typeDecl = this->context(six).scope()->declare_type(implTypeName, this->get_type_definer(six), TXD_PUBLIC | TXD_IMPLICIT);
         return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->typeExpr->get_type_definer(six)));
     }

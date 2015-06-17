@@ -137,7 +137,7 @@ public:
 
     /** Gets a name that is unique in this scope, starting with the provided base-name.
      * Note, this method does not declare or reserve the returned name. */
-    std::string get_unique_name(const std::string& baseName) const;
+    std::string make_unique_name(const std::string& baseName) const;
 
     TxScopeSymbol* create_code_block_scope(const std::string& plainName = "");
 

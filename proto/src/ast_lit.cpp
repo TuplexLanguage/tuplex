@@ -197,7 +197,7 @@ void TxCStringLitNode::symbol_declaration_pass(TxSpecializationIndex six, Lexica
     this->set_context(six, lexContext);
 
     // (for now) Create AST to declare the implicit type of this c-string literal:
-    std::string typeName = this->context(six).scope()->get_unique_name("$type");
+    std::string typeName = this->context(six).scope()->make_unique_name("$type");
     auto elemType = new TxIdentifierNode(this->parseLocation, new TxIdentifier("tx.UByte"));
     TxTypeExpressionNode* elemTypeExpr = new TxPredefinedTypeNode(this->parseLocation, elemType);
     TxExpressionNode* lengthExpr = new TxIntegerLitNode(this->parseLocation, literal.length()-2);

@@ -27,7 +27,7 @@ TxScopeSymbol::TxScopeSymbol(TxScopeSymbol* parent, const std::string& name)
 }
 
 
-std::string TxScopeSymbol::get_unique_name(const std::string& baseName) const {
+std::string TxScopeSymbol::make_unique_name(const std::string& baseName) const {
     // ensures name is unique under parent scope
     // (don't append numeral if plain name provided and first occurrence)
     int counter = 0;
@@ -43,7 +43,7 @@ std::string TxScopeSymbol::get_unique_name(const std::string& baseName) const {
 
 TxScopeSymbol* TxScopeSymbol::create_code_block_scope(const std::string& plainName) {
     std::string baseName = plainName + '$';
-    std::string uniqueName = this->get_unique_name(baseName);
+    std::string uniqueName = this->make_unique_name(baseName);
     TxScopeSymbol* scope = new TxScopeSymbol(this, uniqueName);
     bool success = this->declare_symbol(scope);
     ASSERT(success, "failed to insert duplicate subscope name '" << baseName << "." << uniqueName << "'");
