@@ -11,8 +11,13 @@ class TxExpressionNode;
 
 /** Represents a type parameter of a generic type.
  * Specializations of the generic type provide a binding to this parameter.
+ *
  * The parameter may hold constraints on what definitions are permitted to bind to it.
  * The type parameter of a reference base type's target may specify dataspace constraints.
+ *
+ * A parameter instance is specific to a single specialization, i.e. a specific specialization-index:
+ * This matters for the TYPE parameter's constraint type, which can be narrowed in subtypes of a
+ * parameterized type.
  *
  * The type parameter object belongs to the type object, which may be named (declared)
  * or anonymous. Type declarations must ensure they have named members in their namespace
@@ -63,6 +68,7 @@ public:
 
 
 /** Describes the binding of a base type's type parameter to the definition used in a type specialization.
+ * A binding instance is specific to a single specialization, i.e. a specific specialization-index.
  *
  * The type parameter of a reference base type's target may specify dataspace constraints.
  * The binding of a reference base type's target can specify the dataspace of the target.
@@ -71,15 +77,15 @@ class TxGenericBinding : public Printable {
     const std::string typeParamName;
     const TxTypeParam::MetaType metaType;
     TxTypeDefiner* typeDefiner;
-    TxExpressionNode* valueExpr;
+    TxExpressionNode* valueDefiner;
 
     TxGenericBinding(const std::string& typeParamName, TxTypeParam::MetaType metaType,
-                     TxTypeDefiner* typeDefiner, TxExpressionNode* valueExpr)
-        : typeParamName(typeParamName), metaType(metaType), typeDefiner(typeDefiner), valueExpr(valueExpr)  { }
+                     TxTypeDefiner* typeDefiner, TxExpressionNode* valueDefiner)
+        : typeParamName(typeParamName), metaType(metaType), typeDefiner(typeDefiner), valueDefiner(valueDefiner)  { }
 
 public:
     static TxGenericBinding make_type_binding(const std::string& typeParamName, TxTypeDefiner* typeDefiner);
-    static TxGenericBinding make_value_binding(const std::string& typeParamName, TxExpressionNode* valueExpr);
+    static TxGenericBinding make_value_binding(const std::string& typeParamName, TxExpressionNode* valueDefiner);
 
     inline const std::string& param_name()    const { return typeParamName; }
 
@@ -90,9 +96,9 @@ public:
         return *this->typeDefiner;
     }
 
-    inline TxExpressionNode& value_expr() const {
+    inline TxExpressionNode& value_definer() const {
         ASSERT(metaType==TxTypeParam::MetaType::TXB_VALUE, "Type parameter binding metatype is TYPE, not VALUE: " << this->to_string());
-        return *this->valueExpr;
+        return *this->valueDefiner;
     }
 
     std::string to_string() const;

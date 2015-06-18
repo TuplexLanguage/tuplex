@@ -76,6 +76,8 @@ extern "C" int yywrap() { return 0; }
  /* emit extra NL token before LBRACE and before & after RBRACE (since they are implicit statement separators) */
 "{"     { static int extra_lbr_nl = 0; if ((extra_lbr_nl = !extra_lbr_nl)) { yyless(0); return token::NL; } else return token::LBRACE; }
 "}"     { static int extra_rbr_nl = 0; if ((extra_rbr_nl = !extra_rbr_nl)) { unput('\n'); unput('}'); yylloc->lines(-1); return token::NL; } else return token::RBRACE; }
+ /* Bug: Encountering both braces "{ }" on the first line will yield a 1 too high line count for the rest of the file,
+    since the yyloc->lines(-1) above won't actually reduce the line count below 1. */ 
  /* "{"     { return token::LBRACE; } */
  /* "}"     { return token::RBRACE; } */
 

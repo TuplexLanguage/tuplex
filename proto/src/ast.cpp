@@ -36,9 +36,11 @@ std::string make_generic_binding_name(const std::string& originalName) {
 
 Logger& TxNode::LOG = Logger::get("AST");
 
+unsigned TxNode::nextNodeId = 0;
+
 std::string TxNode::to_string() const {
     char buf[256];
-    snprintf(buf, 256, "%-24s : %-11s", typeid(*this).name(), this->parse_loc_string().c_str());
+    snprintf(buf, 256, "%-24s %3u : %-11s", typeid(*this).name(), this->get_node_id(), this->parse_loc_string().c_str());
     return std::string(buf);
 }
 
@@ -102,6 +104,11 @@ void TxFieldDeclNode::symbol_declaration_pass(TxSpecializationIndex six, Lexical
     }
 
     this->field->symbol_declaration_pass_nonlocal_field(six, lexContext, this->declFlags, storage, TxIdentifier(""));
+}
+
+
+TxExpressionNode* TxExpressionNode::get_value_definer(TxSpecializationIndex six) {
+    return new TxExprWrapperNode(this, six);
 }
 
 

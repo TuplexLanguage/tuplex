@@ -420,8 +420,8 @@ static inline std::vector<TxTypeParam> prepare_type_parameters(const TxTypeSpeci
                 }
                 if (! matchedNewParam) {
                     // Note: This can be the case for specializations that have defined the parameter (it is no longer GENPARAM)
-                    CWARNING(pOrigin, "Type parameter " << baseTypeParam << " of base type " << specialization.type
-                             << " neither bound or redeclared in the specialization" );
+                    CERROR(pOrigin, "Type parameter " << baseTypeParam << " of base type " << specialization.type
+                           << " neither bound or redeclared in the specialization" );
                 }
             }
             else {
@@ -448,7 +448,7 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
     std::string errorMsg;  // TODO: deprecated, remove
     // TODO: pass _mutable flag to type extensions
 
-    const TxParseOrigin* pOrigin = ( declaration ? (const TxParseOrigin*)declaration->get_definer() : (const TxParseOrigin*)specialization.type );
+    const TxParseOrigin* pOrigin = (declaration ? static_cast<const TxParseOrigin*>(declaration->get_definer()) : specialization.type);
     std::vector<TxTypeParam> allParams = prepare_type_parameters(specialization, typeParams, pOrigin);
 
     if (allParams.empty() && ! specialization.bindings.empty()
@@ -461,11 +461,12 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
         // TODO: How should we handle Array? Should user be allowed to extend it?
 
         ASSERT(declaration, "expected type that binds base type's parameters to be named (declared) but was not");
-        this->package.LOGGER().debug("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
+        this->package.LOGGER().alert("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
                                      declaration->get_unique_full_name().c_str(), specialization.type->to_string().c_str());
 
-        ASSERT(specialization.type->get_declaration(), "base type has no declaration: " << specialization.type);
-        auto baseTypeExpr = static_cast<TxTypeExpressionNode*>(specialization.type->get_declaration()->get_definer()->get_node());
+        auto decl = specialization.type->get_declaration();
+        ASSERT(decl, "base type has no declaration: " << specialization.type);
+        auto baseTypeExpr = static_cast<TxTypeExpressionNode*>(decl->get_definer()->get_node());
         TxSpecializationIndex newSix = baseTypeExpr->next_spec_index();
 
         // make new parameter declarations that resolve to the bindings:
@@ -477,24 +478,24 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
                 auto typeExpr = new TxTypeDefWrapperNode(parseLoc, &binding.type_definer());
                 auto declNode = new TxTypeDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, binding.param_name(), nullptr, typeExpr);
                 typeParamDeclNodes->push_back(declNode);
+                this->package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", decl->get_unique_full_name().c_str(),
+                                             binding.param_name().c_str(), typeExpr->to_string().c_str());
             }
             else {
-                //if (binding.value_expr().is_context_set(newSix)) continue;
-                // FIXME
-                ASSERT(!binding.value_expr().is_context_set(newSix), "VALUE param '" << binding.param_name() << "' at "
-                       << binding.value_expr().parseLocation << " already processed for s-ix " << newSix);
-                auto & parseLoc = binding.value_expr().get_parse_location();
-                auto fieldDef = new TxFieldDefNode(parseLoc, binding.param_name(), nullptr, &binding.value_expr());
+                ASSERT(!binding.value_definer().is_context_set(newSix), "VALUE param '" << binding.param_name() << "' at "
+                       << binding.value_definer().to_string() << " already processed for s-ix " << newSix);
+                auto & parseLoc = binding.value_definer().get_parse_location();
+                auto fieldDef = new TxFieldDefNode(parseLoc, binding.param_name(), nullptr, &binding.value_definer());
                 auto declNode = new TxFieldDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
                 typeParamDeclNodes->push_back(declNode);
+                this->package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", decl->get_unique_full_name().c_str(),
+                                             binding.param_name().c_str(), binding.value_definer().to_string().c_str());
             }
-            this->package.LOGGER().trace("Re-bound base type's parameter '%s'", binding.param_name().c_str());
         }
 
         // process new specialization of the base type:
         LexicalContext lexContext = LexicalContext(declaration->get_symbol()->get_outer());
-        std::string newBaseName = lexContext.scope()->make_unique_name(declaration->get_unique_name() + "$"
-                                                                       + specialization.type->get_declaration()->get_unique_name());
+        std::string newBaseName = lexContext.scope()->make_unique_name(declaration->get_unique_name() + "$" + decl->get_unique_name());
         baseTypeExpr->symbol_declaration_pass(newSix, lexContext, lexContext, TXD_PUBLIC | TXD_IMPLICIT, newBaseName, typeParamDeclNodes);
         baseTypeExpr->symbol_resolution_pass(newSix, resCtx);
         auto newBaseType = baseTypeExpr->resolve_type(newSix, resCtx);

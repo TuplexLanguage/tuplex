@@ -48,9 +48,11 @@ public:
 
 class TxNode : public virtual TxParseOrigin, public Printable {
     static Logger& LOG;
+    static unsigned nextNodeId;
+    const unsigned nodeId;
 
 protected:
-    TxNode(const yy::location& parseLocation) : parseLocation(parseLocation) { }
+    TxNode(const yy::location& parseLocation) : nodeId(nextNodeId++), parseLocation(parseLocation) { }
 
     virtual ~TxNode() = default;
 
@@ -66,6 +68,8 @@ public:
     virtual std::string to_string() const override;
 
     std::string parse_loc_string() const;
+
+    unsigned get_node_id() const { return this->nodeId; }
 
     inline Logger& LOGGER() const { return this->LOG; }
 };
@@ -88,11 +92,6 @@ public:
     TxNonSpecializableNode(const yy::location& parseLocation) : TxNode(parseLocation), lexContext() { }
 
     inline bool is_context_set() const { return this->lexContext.scope(); }
-
-//    /** Sets the lexical context of this node to be equal to that of the provided node. */
-//    void set_context(const TxNode* node) {
-//        this->set_context(node->context());
-//    }
 
     inline const LexicalContext& context() const {
         ASSERT(this->is_context_set(), "lexicalContext not initialized in " << this->to_string());
@@ -477,6 +476,8 @@ protected:
 public:
     TxExpressionNode(const yy::location& parseLocation) : TxTypeDefiningNode(parseLocation) { }
 
+    TxExpressionNode* get_value_definer(TxSpecializationIndex six);
+
     /** Injected by field definition if known and applicable. */
     virtual void set_field_def_node(const TxFieldDefNode* fieldDefNode) {
         this->fieldDefNode = fieldDefNode;
@@ -513,6 +514,40 @@ public:
 
     /** Generates code that produces the type id (as opposed to the value) of this expression. */
     virtual llvm::Value* code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const;
+};
+
+
+/** Wraps a TxExpressionNode within another node which will not forward declaration and resolution pass calls.
+ * This allows the wrapped node to be added as a child to additional parent nodes / specializations. */
+// FUTURE: Perhaps make a TxValueDefiner instead, analogous to TxTypeDefiner
+class TxExprWrapperNode : public TxExpressionNode {
+    TxExpressionNode* const expr;
+    TxSpecializationIndex const six;
+protected:
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        return this->expr->resolve_type(this->six, resCtx);
+    }
+
+public:
+    TxExprWrapperNode(TxExpressionNode* expr, TxSpecializationIndex six)
+        : TxExpressionNode(expr->parseLocation), expr(expr), six(six)  { }
+
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext); }
+
+    virtual bool is_statically_constant() const { return this->expr->is_statically_constant(); }
+    virtual bool has_predefined_type() const override { return this->expr->has_predefined_type(); }
+    virtual const TxConstantProxy* get_static_constant_proxy() const override { return this->expr->get_static_constant_proxy(); }
+
+    virtual std::vector<const TxType*>* get_applied_func_arg_types(TxSpecializationIndex six) {
+        return this->expr->get_applied_func_arg_types(this->six); }
+    virtual void set_applied_func_arg_types(TxSpecializationIndex six, std::vector<const TxType*>* appliedFuncArgTypes) {
+        this->expr->set_applied_func_arg_types(this->six, appliedFuncArgTypes); }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override {
+        return this->expr->code_gen(context, scope); }
+    virtual llvm::Value* code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const override {
+        return this->expr->code_gen_typeid(context, scope); }
 };
 
 
@@ -696,7 +731,7 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual std::string to_string() const override {
-        return TxSpecializableNode::to_string() + " '" + this->get_field_name() + "'";
+        return TxFieldDefiningNode::to_string() + " '" + this->get_field_name() + "'";
     }
 };
 
@@ -732,6 +767,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual std::string to_string() const {
+        return TxDeclarationNode::to_string() + " '" + this->field->get_field_name() + "'";
+    }
 };
 
 
@@ -763,6 +802,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual std::string to_string() const {
+        return TxDeclarationNode::to_string() + " '" + this->typeName + "'";
+    }
 };
 
 

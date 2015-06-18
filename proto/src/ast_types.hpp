@@ -81,7 +81,7 @@ public:
         else {
             ASSERT(this->fieldDeclNode, "Value expression not set in VALUE type parameter " << this);
             this->fieldDeclNode->symbol_declaration_pass(six, this->context(six));
-            return TxGenericBinding::make_value_binding(param.param_name(), this->valueExprNode);
+            return TxGenericBinding::make_value_binding(param.param_name(), this->valueExprNode->get_value_definer(six));
         }
     }
 

@@ -539,7 +539,7 @@ const TxExpressionNode* TxArrayType::length() const {
     // TODO: resolve via symbol table
     if (auto binding = this->resolve_param_binding("L")) {
         if (binding->meta_type() == TxTypeParam::MetaType::TXB_VALUE) {
-            const TxExpressionNode* len = &binding->value_expr();
+            const TxExpressionNode* len = &binding->value_definer();
             return len;
         }
     }
