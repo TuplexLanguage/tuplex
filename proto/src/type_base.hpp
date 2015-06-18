@@ -473,22 +473,22 @@ public:
 
     /*--- to string methods ---*/
 
-    virtual std::string to_string() const {
+    virtual std::string to_string() const override final {
         return this->to_string(false);
     }
-    virtual std::string to_string(bool brief) const {
+    virtual std::string to_string(bool brief, bool skipFirstName=false) const final {
         std::stringstream str;
         if (this->is_abstract())
             str << "ABSTRACT ";
         if (this->is_immutable())
             str << "IMMUTABLE ";
-        this->self_string(str, brief);
+        this->self_string(str, brief, skipFirstName);
         return str.str();
     }
 
 
 protected:
-    void self_string(std::stringstream& str, bool brief=false) const;
+    virtual void self_string(std::stringstream& str, bool brief, bool skipFirstName) const;
 
     std::string type_params_string() const {
         std::string str = "<";

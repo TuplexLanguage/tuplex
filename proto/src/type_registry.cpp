@@ -461,7 +461,7 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
         // TODO: How should we handle Array? Should user be allowed to extend it?
 
         ASSERT(declaration, "expected type that binds base type's parameters to be named (declared) but was not");
-        this->package.LOGGER().alert("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
+        this->package.LOGGER().debug("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
                                      declaration->get_unique_full_name().c_str(), specialization.type->to_string().c_str());
 
         auto decl = specialization.type->get_declaration();

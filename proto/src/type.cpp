@@ -434,13 +434,14 @@ static void type_bindings_string(std::stringstream& str, const TxTypeSpecializat
     str << ">";
 }
 
-void TxType::self_string(std::stringstream& str, bool brief) const {
+void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName) const {
     if (this->is_modifiable()) {
         str << "MOD ";
     }
     TxEntitySymbol* symbol = nullptr;
-    if (auto explDecl = this->get_explicit_declaration())
-        symbol = explDecl->get_symbol();
+    if (! skipFirstName)
+        if (auto explDecl = this->get_declaration())
+            symbol = explDecl->get_symbol();
     if (brief && symbol) {
         str << symbol->get_full_name();
         if (this->is_generic())
@@ -466,7 +467,7 @@ void TxType::self_string(std::stringstream& str, bool brief) const {
         }
         if (separator)
             str << " : ";
-        this->baseTypeSpec.type->self_string(str, true);  // set to false to print entire type chain
+        this->baseTypeSpec.type->self_string(str, true, false);  // set 'brief' to false to print entire type chain
     }
     else if (symbol)
         str << symbol->get_full_name();

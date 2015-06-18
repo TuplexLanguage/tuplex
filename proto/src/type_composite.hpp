@@ -171,8 +171,8 @@ public:
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 
-    virtual std::string to_string() const override {
-        std::stringstream str;
+protected:
+    virtual void self_string(std::stringstream& str, bool brief, bool skipFirstName) const override {
         str << "func(";
         if (! this->argumentTypes.empty()) {
             auto ai = this->argumentTypes.cbegin();
@@ -183,7 +183,6 @@ public:
         str << ")";
         if (this->returnType)
             str << " -> " << this->returnType->to_string(true);
-        return str.str();
     }
 };
 

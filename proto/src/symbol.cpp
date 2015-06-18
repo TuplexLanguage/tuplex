@@ -395,12 +395,12 @@ std::string TxEntitySymbol::description_string() const {
         return "<overloaded>";
     else if (this->typeDeclaration)
         if (auto type = this->typeDeclaration->get_definer()->attempt_get_type())
-            return "TYPE   " + type->to_string();
+            return "TYPE   " + type->to_string(true, true);
         else
             return "TYPE   <undef>";
     else if (this->field_count())
         if (auto type = this->get_first_field_decl()->get_definer()->attempt_get_type())
-            return "FIELD  " + type->to_string();
+            return "FIELD  " + type->to_string(true);
         else
             return "FIELD  <undef type>";
     else  // declaration not yet assigned to this entity symbol
