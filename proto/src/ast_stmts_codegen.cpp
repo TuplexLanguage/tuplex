@@ -263,8 +263,23 @@ Value* TxCallStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope)
 
 Value* TxReturnStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    if (this->expr)
-        return scope->builder->CreateRet(this->expr->code_gen(context, scope));
+    if (this->expr) {
+        // TODO: this is hackish, can we find systematic solution?
+        auto exprV = this->expr->code_gen(context, scope);
+        auto expectedT = context.get_llvm_type(this->expr->get_type(0));
+        if (exprV->getType() == expectedT)
+            return scope->builder->CreateRet(exprV);
+        else if (exprV->getType()->isPointerTy() && exprV->getType()->getPointerElementType() == expectedT) {
+            context.LOG.alert("auto-loading return value type %s  to expected  %s",
+                    ::to_string(exprV->getType()).c_str(), ::to_string(expectedT).c_str());
+            return scope->builder->CreateRet(scope->builder->CreateLoad(exprV));
+        }
+        else {
+            context.LOG.error("Mismatching return value type: %s is not as expected %s",
+                    ::to_string(exprV->getType()).c_str(), ::to_string(expectedT).c_str());
+            return scope->builder->CreateRet(exprV);
+        }
+    }
     else
         return scope->builder->CreateRetVoid();
 }

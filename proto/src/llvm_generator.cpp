@@ -286,6 +286,7 @@ void LlvmGenerationContext::initialize_meta_type_data() {
         auto vtableT = (*txType)->make_vtable_type(*this);
         if (!vtableT)
             continue;
+        //std::cerr << "vtable type for " << (*txType) << " (id " << (*txType)->get_type_id() << "): " << vtableT << std::endl;
         this->llvmVTableTypeMapping.emplace((*txType)->get_type_id(), vtableT);
         std::string vtableName((*txType)->get_declaration()->get_unique_full_name() + "$vtable");
         GlobalVariable* vtableV = new GlobalVariable(this->llvmModule, vtableT, true, GlobalValue::ExternalLinkage,
@@ -392,13 +393,15 @@ void LlvmGenerationContext::initialize_builtins() {
 //}
 
 void LlvmGenerationContext::generate_runtime_data() {
-    for (auto txType = this->tuplexPackage.types().types_cbegin(); txType != this->tuplexPackage.types().types_cend(); txType++) {
-        if (auto entity = (*txType)->get_symbol()) {
+    for (auto txTypeI = this->tuplexPackage.types().types_cbegin(); txTypeI != this->tuplexPackage.types().types_cend(); txTypeI++) {
+        auto txType = *txTypeI;
+        if (auto entity = txType->get_symbol()) {
             std::string vtableName(entity->get_full_name().to_string() + "$vtable");
             if (auto vtableV = dyn_cast<GlobalVariable>(this->lookup_llvm_value(vtableName))) {
+                this->LOG.trace("Populating vtable initializer for %s", vtableName.c_str());
                 std::vector<Constant*> initMembers;
-                auto instanceMethods = (*txType)->get_instance_methods();
-                auto virtualFields   = (*txType)->get_virtual_fields();
+                auto instanceMethods = txType->get_instance_methods();
+                auto virtualFields   = txType->get_virtual_fields();
                 initMembers.resize(instanceMethods.get_field_count() + virtualFields.get_field_count());
                 for (auto & field : instanceMethods.fieldMap) {
                     auto actualFieldEnt = instanceMethods.fields.at(field.second);
@@ -451,6 +454,7 @@ Value* LlvmGenerationContext::gen_get_vtable(GenScope* scope, const TxType* stat
 
     // cast vtable type according to statically declared type (may be parent type of actual type):
     if (auto vtableT = this->get_llvm_vtable_type(statDeclType)) {
+        //std::cerr << "got vtable type for " << statDeclType << " (id " << statDeclType->get_type_id() << "): " << vtableT << std::endl;
         Type* vtablePtrT = PointerType::getUnqual(vtableT);
         if (!scope) {
             auto vtablePtr = new LoadInst(vtablePtrA);
@@ -479,9 +483,9 @@ StructType* LlvmGenerationContext::get_llvm_vtable_type(const TxType* txType) co
 
 Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
     ASSERT(txType, "NULL txType provided to getLlvmType()");
-    if (txType->is_virtual_specialization())
+    if (txType->get_type_class() != TXTC_REFERENCE && txType->is_virtual_derivation())
         // same data type as base type
-        return this->get_llvm_type(txType->get_base_type());
+        return this->get_llvm_type(txType->get_base_data_type());
 
     // note: we do map abstract types (e.g. reference targets)
 
@@ -490,8 +494,10 @@ Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
         return iter->second;
     }
 	Type* llvmType = txType->make_llvm_type(*this);
-	if (llvmType)
+	if (llvmType) {
 	    this->llvmTypeMapping.emplace(txType, llvmType);
+	    this->LOG.debug("Made LLVM type mapping for type %s: %s", txType->to_string(true).c_str(), to_string(llvmType).c_str());
+	}
 	else
 		this->LOG.error("No LLVM type mapping for type: %s", txType->to_string().c_str());
 	return llvmType;

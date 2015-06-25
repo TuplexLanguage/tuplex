@@ -122,7 +122,7 @@ protected:
     }
 
 
-    inline TypeRegistry& types() { return this->get_spec(0).lexContext.package()->types(); }
+    inline TypeRegistry& types(TxSpecializationIndex six=0) { return this->get_spec(six).lexContext.package()->types(); }
 
 public:
     TxSpecializableNode(const yy::location& parseLocation) : TxNode(parseLocation), specializations(1) { }
@@ -421,39 +421,35 @@ public:
     }
 };
 
-/** Wraps a TxTypeDefiner within a TxTypeExpressionNode. The same type will be resolved regardless of specialization index. */
-class TxTypeDefWrapperNode : public TxTypeExpressionNode {
-    TxTypeDefiner* typeDefiner;
-protected:
-    virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
-                                                     LexicalContext& lexContext, TxDeclarationFlags declFlags) override { }
-
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        return this->typeDefiner->resolve_type(resCtx);
-    }
-
-public:
-    TxTypeDefWrapperNode(const yy::location& parseLocation, TxTypeDefiner* typeDefiner)
-        : TxTypeExpressionNode(parseLocation), typeDefiner(typeDefiner)  { }
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
-};
-
-/** Wraps a TxTypeExpressionNode within another node which will not forward declaration and resolution pass calls.
- * This allows the wrapped node to be added as a child to additional parent nodes. */
+/** Wraps a TxTypeDefiner or a TxTypeExpressionNode within another TxTypeExpressionNode.
+ * If a TxTypeDefiner is wrapped, the same type will be resolved regardless of specialization index.
+ * If a TxTypeExpressionNode is wrapped, the declaration and resolution pass calls won't be forwarded,
+ * allowing the wrapped node to be added as a child to additional parent nodes. */
 class TxTypeExprWrapperNode : public TxTypeExpressionNode {
-    TxTypeExpressionNode* typeExpr;
+    TxTypeDefiner* const typeDefiner;
+    TxTypeExpressionNode* const typeExpr;
 protected:
     virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
                                                      LexicalContext& lexContext, TxDeclarationFlags declFlags) override { }
 
     virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        return this->typeExpr->resolve_type(six, resCtx);
+        auto type = ( typeDefiner ? this->typeDefiner->resolve_type(resCtx) : this->typeExpr->resolve_type(six, resCtx) );
+        if (!type)
+            return nullptr;
+        else if (auto declEnt = this->get_declaration(six)) {
+            if (! type->is_modifiable())
+                // create empty specialization (uniquely named but identical type)
+                return this->types(six).get_type_specialization(declEnt, TxTypeSpecialization(type));
+        }
+        return type;
     }
 
 public:
+    TxTypeExprWrapperNode(const yy::location& parseLocation, TxTypeDefiner* typeDefiner)
+        : TxTypeExpressionNode(parseLocation), typeDefiner(typeDefiner), typeExpr()  { }
+
     TxTypeExprWrapperNode(TxTypeExpressionNode* typeExpr)
-        : TxTypeExpressionNode(typeExpr->parseLocation), typeExpr(typeExpr)  { }
+        : TxTypeExpressionNode(typeExpr->parseLocation), typeDefiner(), typeExpr(typeExpr)  { }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 };
@@ -577,6 +573,8 @@ class TxFieldDefNode : public TxFieldDefiningNode {
 //    TxFieldDeclaration* declaration = nullptr;  // null until initialized in symbol declaration pass
 //    TxType const * type = nullptr;
 //    TxField const * field = nullptr;
+    const std::string fieldName;  // the original source field name
+    std::string declName = "";  // the declared field name
 
     void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& outerContext, LexicalContext& innerContext,
                                  TxDeclarationFlags declFlags) {
@@ -584,7 +582,7 @@ class TxFieldDefNode : public TxFieldDefiningNode {
         auto typeDeclFlags = (declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
         if (this->typeExpression) {
             // unless the type expression is a directly named type, declare implicit type entity for this field's type:
-            std::string implTypeName = ( this->typeExpression->has_predefined_type() ? "" : this->get_field_name() + "$type" );
+            std::string implTypeName = ( this->typeExpression->has_predefined_type() ? "" : this->get_decl_field_name() + "$type" );
             this->typeExpression->symbol_declaration_pass(six, innerContext, innerContext, typeDeclFlags, implTypeName, nullptr);
         }
         if (this->initExpression) {
@@ -600,7 +598,6 @@ class TxFieldDefNode : public TxFieldDefiningNode {
     };
 
 public:
-    const std::string fieldName;  // the original field name
     const bool modifiable;  // true if field name explicitly declared modifiable
     TxTypeDefiner* typeDefiner;  // optional, non-code-generating type definer (can't be specified at same time as typeExpression)
     TxTypeExpressionNode* typeExpression;
@@ -628,23 +625,23 @@ public:
         if (create_local_scope)
             lexContext.scope(lexContext.scope()->create_code_block_scope());
         TxDeclarationFlags declFlags = TXD_NONE;
-        this->get_spec(six).declaration = lexContext.scope()->declare_field(this->fieldName, this->get_spec_field_def(six),
+        this->declName = this->fieldName;
+        this->get_spec(six).declaration = lexContext.scope()->declare_field(this->declName, this->get_spec_field_def(six),
                                                                             declFlags, TXS_STACK, TxIdentifier(""));
         this->symbol_declaration_pass(six, outerCtx, lexContext, declFlags);
     }
 
     void symbol_declaration_pass_nonlocal_field(TxSpecializationIndex six, LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                                 TxFieldStorage storage, const TxIdentifier& dataspace) {
-        std::string declName;
         if (this->fieldName != "self")
-            declName = this->fieldName;
+            this->declName = this->fieldName;
         else {
             // handle constructor declaration
-            declName = "$init";
+            this->declName = "$init";
             declFlags = declFlags | TXD_CONSTRUCTOR;
         }
 
-        this->get_spec(six).declaration = lexContext.scope()->declare_field(declName, this->get_spec_field_def(six),
+        this->get_spec(six).declaration = lexContext.scope()->declare_field(this->declName, this->get_spec_field_def(six),
                                                                             declFlags, storage, dataspace);
         this->symbol_declaration_pass(six, lexContext, lexContext, declFlags);
     }
@@ -670,7 +667,7 @@ public:
         if (auto type = this->get_type(six)) {
             if (! type->is_concrete())
                 CERROR(this, "Field type is not concrete (size potentially unknown): " << type);
-            if (this->get_field_name() == "$init") {
+            if (this->get_decl_field_name() == "$init") {
                 if (this->get_declaration(six)->get_storage() != TXS_INSTANCEMETHOD)
                     CERROR(this, "Illegal declaration name for non-constructor member: " << this->fieldName);
                 // TODO: check that constructor function type has void return value
@@ -719,8 +716,13 @@ public:
     }
 
     /** Gets the plain name of this field as defined in the source text. */
-    inline const std::string& get_field_name() const {
+    inline const std::string& get_source_field_name() const {
         return this->fieldName;
+    }
+
+    /** Gets the plain name of this field as actually declared in the symbol table. */
+    inline const std::string& get_decl_field_name() const {
+        return this->declName;
     }
 
     const TxFieldDeclaration* get_declaration(TxSpecializationIndex six) const {
@@ -731,7 +733,7 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual std::string to_string() const override {
-        return TxFieldDefiningNode::to_string() + " '" + this->get_field_name() + "'";
+        return TxFieldDefiningNode::to_string() + " '" + this->get_source_field_name() + "'";
     }
 };
 
@@ -754,7 +756,7 @@ public:
             auto storage = this->field->get_declaration(six)->get_storage();
             if (type->is_modifiable()) {
                 if (storage == TXS_GLOBAL)
-                    CERROR(this, "Global fields may not be modifiable: " << field->get_field_name().c_str());
+                    CERROR(this, "Global fields may not be modifiable: " << field->get_source_field_name().c_str());
             }
             else if (! this->field->initExpression) {
                 if (storage == TXS_GLOBAL || storage == TXS_STATIC)
@@ -769,7 +771,7 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual std::string to_string() const {
-        return TxDeclarationNode::to_string() + " '" + this->field->get_field_name() + "'";
+        return TxDeclarationNode::to_string() + " '" + this->field->get_source_field_name() + "'";
     }
 };
 

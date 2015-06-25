@@ -69,6 +69,8 @@ class TxField : public TxEntity {
         return nullptr;
     }
 
+    const TxType* get_outer_type() const;
+
 public:
     TxField(const TxFieldDeclaration* declaration, const TxType* type)
             : TxEntity(declaration), type(type),
@@ -83,6 +85,12 @@ public:
     inline TxFieldStorage get_storage() const { return this->storage; }
 
     inline const TxType* get_type() const { return this->type; }
+
+    /** Gets the storage "index" of this field within its data tuple.
+     * This field must not have global or stack storage class.
+     * (This should maybe be moved elsewhere as it is specific to low-level code generation.)
+     */
+    int get_storage_index() const;
 
     /** Gets the storage "index" of this field within its data tuple.
      * This field must have instance storage class.

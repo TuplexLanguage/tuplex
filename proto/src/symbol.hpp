@@ -136,8 +136,10 @@ public:
     /*--- lexical scope tracking ---*/
 
     /** Gets a name that is unique in this scope, starting with the provided base-name.
-     * Note, this method does not declare or reserve the returned name. */
-    std::string make_unique_name(const std::string& baseName) const;
+     * Note, this method does not declare or reserve the returned name.
+     * If suppressZeroSuffix is true, don't append '0' if provided base name is non-empty and unique.
+     */
+    std::string make_unique_name(const std::string& baseName, bool suppressZeroSuffix=false) const;
 
     TxScopeSymbol* create_code_block_scope(const std::string& plainName = "");
 

@@ -26,12 +26,6 @@ bool validateFieldName(TxSpecializableNode* node, TxDeclarationFlags declFlags, 
     return commonNameValidityChecks(node, declFlags, name);
 }
 
-std::string make_generic_binding_name(const std::string& originalName) {
-    std::string pname = originalName;
-    std::replace(pname.begin(), pname.end(), '.', '#');
-    return pname;
-}
-
 
 
 Logger& TxNode::LOG = Logger::get("AST");
@@ -92,11 +86,11 @@ void TxFieldDeclNode::symbol_declaration_pass(TxSpecializationIndex six, Lexical
     }
     else if (dynamic_cast<TxModule*>(lexContext.scope())) {  // if in global scope
         if (this->declFlags & TXD_STATIC)
-            CERROR(this, "'static' is invalid modifier for module scope field " << this->field->get_field_name());
+            CERROR(this, "'static' is invalid modifier for module scope field " << this->field->get_source_field_name());
         if (this->declFlags & TXD_FINAL)
-            CERROR(this, "'final' is invalid modifier for module scope field " << this->field->get_field_name());
+            CERROR(this, "'final' is invalid modifier for module scope field " << this->field->get_source_field_name());
         if (this->declFlags & TXD_OVERRIDE)
-            CERROR(this, "'override' is invalid modifier for module scope field " << this->field->get_field_name());
+            CERROR(this, "'override' is invalid modifier for module scope field " << this->field->get_source_field_name());
         storage = TXS_GLOBAL;
     }
     else {
@@ -219,7 +213,7 @@ std::vector<TxTypeParam>* TxTypeExpressionNode::makeDeclTypeParams(TxSpecializat
             if (auto typeDeclNode = dynamic_cast<TxTypeDeclNode*>(declNode))
                 paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_TYPE, typeDeclNode->typeName, typeDeclNode->typeExpression->get_type_definer(six)));
             else if (auto valueDeclNode = dynamic_cast<TxFieldDeclNode*>(declNode))
-                paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_VALUE, valueDeclNode->field->get_field_name(), valueDeclNode->field->get_field_definer(six)));
+                paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_VALUE, valueDeclNode->field->get_decl_field_name(), valueDeclNode->field->get_field_definer(six)));
         }
 //        else
 //            std::cout << "param decl is NOT a GENPARAM: " << declNode << std::endl;
@@ -299,6 +293,7 @@ void TxPredefinedTypeNode::symbol_declaration_pass(TxSpecializationIndex six, Le
         // Note: Early lookup does not match the type parameters declared in this node, only prior ones:
         //     type Subtype<A> Type<A>  ## Legal since A is subnode of decl's type expression
         //     type Subtype<A> A        ## Illegal since A is top node of decl's type expression
+        //std::cerr << "early lookup of " << this->identNode->ident << " under " << lexContext.scope() << std::endl;
         if (auto identifiedTypeDecl = lookup_type(lexContext.scope(), this->identNode->ident)) {
             if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
                 if (typeParamDeclNodes && !typeParamDeclNodes->empty()) {
@@ -325,6 +320,8 @@ void TxPredefinedTypeNode::symbol_declaration_pass(TxSpecializationIndex six, Le
             }
         }
     }
+//    else
+//        std::cerr << "skipped early lookup of " << this->identNode->ident << " under " << lexContext.scope() << std::endl;
 
     TxTypeExpressionNode::symbol_declaration_pass(six, defContext, lexContext, declFlags, typeName, typeParamDeclNodes);
 }
@@ -343,21 +340,17 @@ const TxType* TxPredefinedTypeNode::define_identified_type(TxSpecializationIndex
                                this->identNode->ident.to_string().c_str(), this->get_spec(six).defContext.scope()->get_full_name().to_string().c_str(), identifiedTypeDecl->to_string().c_str());
                 return identifiedType;
             }
-            else {
+            else if (!identifiedType->is_modifiable()){
                 // create empty specialization (uniquely named but identical type)
                 return this->types().get_type_specialization(declEnt, TxTypeSpecialization(identifiedType));
             }
         }
-        else {
-            if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
-                // Should not happen unless source refers specifically to an unbound type parameter
-                CWARNING(this, "'" << this->identNode->ident << "' refers to unbound generic type parameter " << identifiedTypeDecl);
-                // (But if legal use case exists, how let this be an alias entity for the generic type parameter?)
-                //LOGGER().error("%s: Can't declare type '%s' as alias for GENPARAM %s since no entity declared for this type node",
-                //               this->parse_loc_string().c_str(), this->identNode->ident.to_string().c_str(), identifiedEntity->to_string().c_str());
-            }
-            return identifiedType;
-        }
+//        else if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
+//            // Happens if source (e.g. member) refers specifically to an unbound type parameter
+//            // (should we let this be an alias for the generic type parameter, and if so, how?)
+//            CWARNING(this, "'" << this->identNode->ident << "' refers to unbound generic type parameter " << identifiedTypeDecl);
+//        }
+        return identifiedType;
     }
     return nullptr;
 }
@@ -523,6 +516,8 @@ const TxType* TxConstructorCalleeExprNode::define_type(TxSpecializationIndex six
     ASSERT(spec.appliedFuncArgTypes, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized");
     if (auto allocType = this->objectExpr->resolve_type(six, resCtx)) {
         // find the constructor
+        while (allocType->is_equivalent_derivation())
+            allocType = allocType->get_base_type();
         if (auto constructorSymbol = allocType->lookup_instance_member("$init")) {
             if (auto constructorDecl = resolve_field_lookup(resCtx, constructorSymbol, spec.appliedFuncArgTypes)) {
                 ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());

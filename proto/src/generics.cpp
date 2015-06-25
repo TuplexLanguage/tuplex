@@ -13,11 +13,20 @@ TxGenericBinding TxGenericBinding::make_value_binding(const std::string& paramNa
     return TxGenericBinding(paramName, TxTypeParam::MetaType::TXB_VALUE, nullptr, valueDefiner);
 }
 
+static inline std::string type_arg_to_string(const TxType* type) {
+    if (type) {
+        if (type->get_explicit_declaration() || !type->is_empty_derivation())
+            return type->to_string(true);
+        else
+            return type_arg_to_string(type->get_base_type());
+    }
+    else
+        return "n/r";
+}
+
 std::string TxGenericBinding::to_string() const {
-    const TxType* type;
     return this->typeParamName + "=" + ( this->metaType==TxTypeParam::MetaType::TXB_TYPE
-                                                ? (type = this->type_definer().attempt_get_type(),
-                                                   type ? type->to_string(true) : "")
+                                                ? type_arg_to_string(this->type_definer().attempt_get_type())
                                                 : "expr" );  // this->value_expr().to_string()
 }
 

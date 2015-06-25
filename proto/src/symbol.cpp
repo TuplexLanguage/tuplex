@@ -27,13 +27,10 @@ TxScopeSymbol::TxScopeSymbol(TxScopeSymbol* parent, const std::string& name)
 }
 
 
-std::string TxScopeSymbol::make_unique_name(const std::string& baseName) const {
-    // ensures name is unique under parent scope
-    // (don't append numeral if plain name provided and first occurrence)
+std::string TxScopeSymbol::make_unique_name(const std::string& baseName, bool suppressZeroSuffix) const {
     int counter = 0;
     while (true) {
-        //std::string uniqueName = (baseName.length() > 1 && counter == 0) ? baseName : baseName + std::to_string(counter);
-        std::string uniqueName = baseName + std::to_string(counter);
+        std::string uniqueName = (counter == 0 && suppressZeroSuffix && !baseName.empty()) ? baseName : baseName + std::to_string(counter);
         if (! this->has_symbol(uniqueName))
             return uniqueName;
         counter++;
@@ -394,15 +391,23 @@ std::string TxEntitySymbol::description_string() const {
     if (this->is_overloaded())
         return "<overloaded>";
     else if (this->typeDeclaration)
-        if (auto type = this->typeDeclaration->get_definer()->attempt_get_type())
-            return "TYPE   " + type->to_string(true, true);
+        if (auto type = this->typeDeclaration->get_definer()->attempt_get_type()) {
+            if (type->is_empty_derivation())
+                return "TYPE      = " + type->get_base_data_type()->to_string(true);
+            else
+                return "TYPE      " + type->to_string(true, true);
+        }
         else
-            return "TYPE   <undef>";
-    else if (this->field_count())
+            return "TYPE      <undef>";
+    else if (this->field_count()) {
+        auto field = this->get_first_field_decl()->get_definer()->get_field();
+        auto storageIx = (field->get_decl_flags() & TXD_CONSTRUCTOR ? -1 : field->get_storage_index());
+        std::string storageIxString = ( storageIx >= 0 ? std::string("[") + std::to_string(storageIx) + "] " : std::string("    ") );
         if (auto type = this->get_first_field_decl()->get_definer()->attempt_get_type())
-            return "FIELD  " + type->to_string(true);
+            return "FIELD " + storageIxString + type->to_string(true);
         else
-            return "FIELD  <undef type>";
+            return "FIELD " + storageIxString + "<undef type>";
+    }
     else  // declaration not yet assigned to this entity symbol
         return "<undef entity>";
 }

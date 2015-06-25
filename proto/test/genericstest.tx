@@ -29,42 +29,37 @@ public type NCArray<E> derives Array<E,10> {
 
 
 
-type Type<E,L:UInt> derives Tuple {
+type Type<E,F> derives Tuple {
 }
 
-## not yet supported to rename value parameter:
-type Midtype<F,L:UInt> Type<F,(L)>
-##type Midtype<F,L:UInt> Type<F>
-
-LEN : UInt = 5
-type GlobalType Midtype<Float,(LEN)>
+type SType<E,G> Type<E,G>
 
 func generics_test() Int {
-    len := 10UI
-    type LocalTypeX Midtype<Float,(len)>
-    type LocalTypeY Midtype<Int,(UInt(12+1))>
+    type LocalTypeX SType<~Float,~Double>
+    type LocalTypeY SType<~Int,~Long>
     x : LocalTypeX
     y : LocalTypeY
-    xe1 : x.E
-    xe2 : x.my#Type#E
-    xf1 : x.F
-    xf2 : x.my#Midtype#F
-    ye1 : y.E
-    ye2 : y.my#Type#E
-    yf1 : y.F
-    yf2 : y.my#Midtype#F
-    xl1 := x.L
-    xl2 := x.my#Midtype#L
-    ## xl3 := x.my#Type#L  NOT SUPPORTED YET
-    yl1 := y.L
-    yl2 := y.my#Midtype#L
-    ## yl3 := y.my#Type#L  NOT SUPPORTED YET
-    return Int(xl1-xl2 + yl1-yl2)
+
+    xe1 : x.E           = 1.
+    xe2 : x.my#SType#E  = 2.
+    xe3 : x.my#Type#E   = 4.
+    xg1 : x.G           = 8.
+    xg2 : x.my#SType#G  = 16.
+    xg3 : x.my#Type#F   = 32.
+
+    ye1 : y.E           = 1
+    ye2 : y.my#SType#E  = 2
+    ye3 : y.my#Type#E   = 4
+    yg1 : y.G           = 8
+    yg2 : y.my#SType#G  = 16
+    yg3 : y.my#Type#F   = 32
+
+    return Int(xe1 + xe2)
 }
 
 /*
 func dynamic_generics_test(len : UInt) Int {
-    type DynamicType Midtype<Float,(len)>
+    type DynamicType SType<Float,(len)>
     a : DynamicType
     return Int(a.K)
 }

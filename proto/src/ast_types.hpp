@@ -1,11 +1,7 @@
 #pragma once
 
-#include <algorithm>
-
 #include "ast_base.hpp"
 
-
-std::string make_generic_binding_name(const std::string& originalName);
 
 
 /** Represents a binding for a type parameter. Can be either a Type or a Value parameter binding. */
@@ -19,8 +15,7 @@ class TxTypeArgumentNode : public TxSpecializableNode {
 
     /** To be called after symbol_declaration_pass() and before symbol_resolution_pass(). */
     void setup_declarations(const TxIdentifier& fullBaseTypeName, const TxTypeParam& param) {
-        std::string qualPName = fullBaseTypeName.to_string() + "." + param.param_name();
-        std::string declName = make_generic_binding_name(qualPName);
+        std::string declName = TxIdentifier(fullBaseTypeName, param.param_name()).to_hash_string();
         if (! this->paramDeclName.empty()) {
             // the declaration nodes have already been set up in the initial generic pass
             if (declName != this->paramDeclName)
@@ -46,6 +41,11 @@ class TxTypeArgumentNode : public TxSpecializableNode {
             ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
             if (param.meta_type() != param.TXB_VALUE)
                 CERROR(this, "Provided a TYPE argument to VALUE parameter " << declName);
+            // FIXME: Since this is an instance field rather than 'static' type, this needs to be handled as an assignment
+            // if this expression's value to the base type's 'parameter field'.
+            // This assignment (which needs the 'super' reference) should perhaps be placed in an implicit
+            // pre-constructor initialization function (which is needed long-term anyway).
+            // The pre-constructor's arguments should be the VALUE parameters of the type.
             auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, declName, this->valueExprNode, false, param.get_constraint_type_definer());
             // (passes the param's type-definer to the field def, so that proper type checking is done)
             this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
@@ -332,10 +332,11 @@ protected:
                                                              : this->baseTypes->at(0)->resolve_type(six, resCtx);
         if (! baseObjType)
             return nullptr;
+//        const TxType* genericBaseType = this->baseTypes->empty() ? this->types().get_builtin_type(TUPLE)
+//                                                                 : this->baseTypes->at(0)->resolve_type(0, resCtx);
         TxTypeSpecialization specialization(baseObjType, std::vector<TxGenericBinding>());
         // Note: Does not specify explicit type parameter bindings; any unbound type parameters
         //       of the base types are expected to match the declared type params.  FIXME: review
-        // Note: Members are not necessarily resolved at this point.
         auto declTypeParams = makeDeclTypeParams(six);
         auto type = this->types().get_type_specialization(declaration, specialization, declTypeParams, this->_mutable);
         return type;
@@ -360,7 +361,6 @@ public:
         TxTypeExpressionNode::symbol_resolution_pass(six, resCtx);
         for (auto type : *this->baseTypes) {
             type->symbol_resolution_pass(six, resCtx);
-            // TO DO: validity checks
         }
 
         this->selfRefTypeNode->symbol_resolution_pass(six, resCtx);

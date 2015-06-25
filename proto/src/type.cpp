@@ -25,86 +25,76 @@ bool TxTypeSpecialization::operator==(const TxTypeSpecialization& other) const {
 
 std::string TxTypeSpecialization::to_string() const { return "specialization of " + this->type->to_string(); }
 
-std::string TxTypeSpecialization::validate() const {
+void TxTypeSpecialization::validate() const {
     if (this->type->is_modifiable())
-        return std::string("Can't specialize a 'modifiable' type (specialize its base type instead).");
+        CERROR(this->type, "Can't specialize a 'modifiable' type (specialize its base type instead).");
     if (this->modifiable) {
         if (this->type->is_immutable())
-            return std::string("Can't make an immutable type modifiable.");
+            CERROR(this->type, "Can't make an immutable type modifiable.");
         if (! this->bindings.empty())
-            return std::string("Can't bind type parameters on top of a 'modifiable' type.");
+            CERROR(this->type, "Can't bind type parameters on top of a 'modifiable' type.");
         if (this->dataspace)
-            return std::string("Can't specify dataspace for a 'modifiable' specialization");
-        return std::string();
+            CERROR(this->type, "Can't specify dataspace for a 'modifiable' specialization");
+        return;
     }
     if (this->dataspace && this->type->get_type_class() != TXTC_REFERENCE)
-        return std::string("Specified dataspace for non-referernce type ") + this->type->to_string();
-    if (! this->bindings.empty()) {
-        for (auto & b : this->bindings) {
-            if (this->type->has_type_param(b.param_name())) {
-                // validate metatype and constraints
-                auto p = this->type->get_type_param(b.param_name());
-                if (b.meta_type() != p.meta_type())
-                    return std::string("Binding for type parameter ") + p.to_string() + " of wrong meta-type (TYPE vs VALUE)";
-                if (b.meta_type() == TxTypeParam::MetaType::TXB_VALUE) {
-                    // TODO: check: VALUE parameters can not be of modifiable type
-                }
-                else {
-                    auto constraintType = p.get_constraint_type_definer()->get_type();
-                    auto boundType = b.type_definer().get_type();
-                    if (boundType && ! boundType->is_a(*constraintType))
-                        return std::string("Bound type ") + boundType->to_string() + " for type parameter " + p.to_string() + " is not a derivation of type " + constraintType->to_string();
-                }
+        CERROR(this->type, "Specified dataspace for non-referernce type " << this->type->to_string());
+    ResolutionContext resCtx;
+    for (auto & b : this->bindings) {
+        if (this->type->has_type_param(b.param_name())) {
+            // validate metatype and constraints
+            auto & p = this->type->get_type_param(b.param_name());
+            if (b.meta_type() != p.meta_type())
+                CERROR(this->type, "Binding for type parameter " << p.to_string() << " of wrong meta-type (TYPE vs VALUE)");
+            if (b.meta_type() == TxTypeParam::MetaType::TXB_VALUE) {
+                // TODO: check: VALUE parameters can not be of modifiable type
             }
-            else
-                return std::string("No type parameter matches provided binding " + b.to_string());
+            else {
+                auto constraintType = p.get_constraint_type_definer()->resolve_type(resCtx);
+                auto boundType = b.type_definer().resolve_type(resCtx);
+                //std::cerr << this->type << ": Constraint type for param " << p.param_name() << ": " << "checking bound type " << boundType << "\tagainst constraint type " << constraintType << std::endl;
+                if (! boundType->is_a(*constraintType))
+                    CERROR(this->type, "Bound type " << boundType->to_string() << " for type parameter " << p.to_string() << " is not a derivation of type " + constraintType->to_string());
+            }
         }
+        else
+            CERROR(this->type, "No type parameter matches provided binding " + b.to_string());
     }
-    return std::string();
 }
 
 
 
 /*=== TxType implementation ===*/
 
-std::string TxType::inner_validate() const {
-    //std::cout << "validating type " << typeid(*this).name() << std::endl;
-    if (auto baseType = this->get_base_type()) {
-        auto res = this->baseTypeSpec.validate();
-        if (! res.empty())
-            return std::string("Invalid specialization of " + baseType->to_string() + ": " + res);
+bool TxType::validate() const {
+    //std::cerr << "validating type " << this << std::endl;
+    if (this->baseTypeSpec.type) {
+        this->baseTypeSpec.validate();
+
         if (this->baseTypeSpec.modifiable) {
             // verify that this 'modifiable' type usage is a pure specialization
             if (typeid(*this) != typeid(*this->baseTypeSpec.type))
-                return std::string("'modifiable' specialization must have same TxType class as the base type: " + baseType->to_string());
+                CERROR(this, "'modifiable' specialization must have same TxType class as the base type: " << this->baseTypeSpec.type->to_string());
             if (! this->interfaces.empty())
-                return std::string("'modifiable' specialization cannot add any interface base types");
+                CERROR(this, "'modifiable' specialization cannot add any interface base types");
         }
         else {
             // verify that all parameters of base type are either bound, or redeclared
-            for (auto & p : baseType->type_params()) {
+            for (auto & p : this->baseTypeSpec.type->type_params()) {
                 if (! this->baseTypeSpec.has_binding(p.param_name()))
                     if (! this->has_type_param(p.param_name()))
-                        return std::string("No binding or redeclaration of base type's type parameter " + p.to_string());
+                        CERROR(this, "No binding or redeclaration of base type's type parameter " + p.to_string());
             }
         }
-        if (! this->baseTypeSpec.type->get_symbol())
+        if (! this->baseTypeSpec.type->get_declaration())
             // also validate any anonymous base types (otherwise their validate() won't be called)
-            return this->baseTypeSpec.type->inner_validate();
+            this->baseTypeSpec.type->validate();
     }
     // FUTURE: validate interfaces
     // check that generic interfaces can't be implemented multiple times throughout a type hierarchy,
     // unless their type arguments are exactly the same
-    return std::string();
-}
 
-bool TxType::validate() const {
-    auto res = this->inner_validate();
-    if (! res.empty()) {
-        CERROR(this, res);
-        return false;
-    }
-    return true;
+    return true;  // do away with these return values?
 }
 
 
@@ -116,33 +106,37 @@ void TxType::prepare_type() {
     // resolve all this type's parameters and bindings
     ResolutionContext resCtx;
     for (auto & p : this->typeParams) {
-        p.get_constraint_type_definer()->resolve_type(resCtx);
+        auto constraintType = p.get_constraint_type_definer()->resolve_type(resCtx);
+        if (p.meta_type() != TxTypeParam::MetaType::TXB_TYPE || constraintType->get_type_class() != TXTC_REFERENCE)
+            this->nonRefParameters = true;
     }
     for (auto & b : this->baseTypeSpec.bindings) {
         if (b.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
             //std::cout << "resolving binding " << b.param_name() << " of " << this->to_string() << std::endl;
-            if (! (this->get_type_class() == TXTC_REFERENCE && b.param_name() == "T"))
+            if (! (this->get_type_class() == TXTC_REFERENCE && b.param_name() == "T")) {
                 b.type_definer().resolve_type(resCtx);
+
+                auto & param = this->baseTypeSpec.type->get_type_param(b.param_name());
+                if (param.get_constraint_type_definer()->get_type()->get_type_class() != TXTC_REFERENCE) {
+                    this->nonRefBindings = true;
+                    //LOGGER().info("Binding for parameter '%s' is non-virtual", b.param_name().c_str());
+                }
+            }
         }
+        else
+            this->nonRefBindings = true;
     }
 
     // copy base type's virtual and instance field tuples (to which we will add and override fields):
-    auto baseType = this->get_base_type();
-    while (baseType && !baseType->get_declaration())
-        baseType = baseType->get_base_type();
+    auto baseType = this->get_base_data_type();
     if (baseType) {
         this->virtualFields = baseType->virtualFields;
         this->instanceMethods = baseType->instanceMethods;
         this->instanceFields = baseType->instanceFields;
     }
 
-    bool madeConcrete = !this->is_generic() && this->get_base_type() && this->get_base_type()->is_generic();
-    if (madeConcrete && this->get_type_class() != TXTC_REFERENCE && this->get_type_class() != TXTC_ARRAY) {
-        // Should have already happened: Generate concrete type, resolving generic type parameters to their bindings.
-        LOGGER().warning("Type is concrete specialization of generic base type: %s", this->to_string().c_str());
-    }
-
     if (! this->get_declaration()) {
+        bool madeConcrete = !this->is_generic() && this->get_base_type() && this->get_base_type()->is_generic();
         ASSERT(! madeConcrete, "Type is concrete specialization of generic base type, but unnamed (undeclared): " << this);
         return;
     }
@@ -156,10 +150,15 @@ void TxType::prepare_type() {
         if (! entitySym)
             continue;
 
-        if (entitySym->get_type_decl()) {
+        if (auto typeDecl = entitySym->get_type_decl()) {
             if (*symname != "tx#Ref#T") {  // prevents infinite recursion
                 //LOGGER().alert("resolving member type %s", entitySym->get_full_name().to_string().c_str());
-                entitySym->get_type_decl()->get_definer()->resolve_type(resCtx);
+                auto type = typeDecl->get_definer()->resolve_type(resCtx);
+
+                if (typeDecl->get_unique_name() == "$GenericBase") {
+                    //LOGGER().alert("Generic base type of %s is %s", entitySym->get_full_name().to_string().c_str(), type->to_string().c_str());
+                    this->genericBaseType = type;
+                }
             }
         }
 
@@ -170,7 +169,7 @@ void TxType::prepare_type() {
                 // validate:
                 if (auto fieldType = field->get_type()) {
                     if (! fieldType->is_concrete()) {
-                        CERROR(this, "Can't declare a field of non-concrete type: " << field);
+                        CERROR(this, "Can't declare a field of non-concrete type: " << field << " " << fieldType);
                     }
                     else if (field->get_storage() == TXS_INSTANCE) {
                         //std::cout << "Concrete INSTANCE field " << field << std::endl;
@@ -193,13 +192,13 @@ void TxType::prepare_type() {
 
                 // layout:
                 if (field->get_storage() == TXS_INSTANCE) {
-                    LOGGER().debug("Laying out instance field %-40s  %s", field->to_string().c_str(),
-                                    field->get_type()->to_string(true).c_str());
+                    LOGGER().debug("Laying out instance field %-40s  %s  %u", field->to_string().c_str(),
+                                   field->get_type()->to_string(true).c_str(), this->instanceFields.get_field_count());
                     this->instanceFields.add_field(field->get_unique_name(), field);
                     if (field->get_unique_name().find('#') == std::string::npos)
                         // FIXME: make VALUE type params be declared as instance members in generic base type,
                         // so that they are not "extensions" to the specialized subtypes, and remove this '#' test
-                        this->extendsParentDatatype = true;
+                        this->extendsInstanceDatatype = true;
                 }
                 else if (field->get_storage() == TXS_INSTANCEMETHOD) {
                     if (field->get_decl_flags() & TXD_CONSTRUCTOR) {
@@ -214,12 +213,13 @@ void TxType::prepare_type() {
                         if (! (field->get_type()->is_a(*this->instanceMethods.get_field(field->get_unique_name())->get_type())))
                             CERROR(this, "Overriding member's type does not derive from overridden member's type: " << field->get_type());
                         this->instanceMethods.override_field(field->get_unique_name(), field);
+                        this->modifiesVTable = true;
                     }
                     else {
                         if (field->get_decl_flags() & TXD_OVERRIDE)
-                            LOGGER().warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
+                            CWARNING(this, "Field doesn't override but is declared 'override': " << field->to_string());
                         this->instanceMethods.add_field(field->get_unique_name(), field);
-                        this->extendsParentDatatype = true;
+                        this->modifiesVTable = true;
                     }
                 }
                 else if (field->get_storage() == TXS_VIRTUAL) {
@@ -232,17 +232,19 @@ void TxType::prepare_type() {
                         if (! (field->get_type()->is_a(*this->virtualFields.get_field(field->get_unique_name())->get_type())))
                             CERROR(this, "Overriding member's type does not derive from overridden member's type: " << field->get_type());
                         this->virtualFields.override_field(field->get_unique_name(), field);
+                        this->modifiesVTable = true;
                     }
                     else {
                         if (field->get_decl_flags() & TXD_OVERRIDE)
-                            LOGGER().warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
+                            CWARNING(this, "Field doesn't override but is declared 'override': " << field->to_string());
                         this->virtualFields.add_field(field->get_unique_name(), field);
+                        this->modifiesVTable = true;
                     }
                 }
                 else {
                     ASSERT(field->get_storage() == TXS_STATIC, "Invalid storage class " << field->get_storage() << " for field member " << *field);
                     if (field->get_decl_flags() & TXD_OVERRIDE)
-                        LOGGER().warning("Field doesn't override but is declared 'override': %s", field->to_string().c_str());
+                        CWARNING(this, "Field doesn't override but is declared 'override': " << field->to_string());
                     this->staticFields.add_field(field->get_unique_name(), field);
                 }
             }
@@ -257,45 +259,59 @@ const TxTypeDeclaration* TxType::get_explicit_declaration() const {
     return nullptr;
 }
 
-bool TxType::is_builtin() const {
-    return this->get_symbol() && (this->get_declaration()->get_decl_flags() & TXD_BUILTIN);
-}
-
 bool TxType::is_concrete() const {
     // A concrete type is not abstract, nor usually generic (references may be concrete while generic).
+    if (this->typeClass == TXTC_REFERENCE)
+        return true;
+    // TODO: If array of reference elements with known length, return true
     if (this->is_abstract())
         return false;
     if (this->is_generic()) {
-        // TODO: If all members concrete, then return true (also handle this for Array<Ref<>>)
+        // TODO: If all members concrete, then return true
         return false;
     }
     return true;
 }
 
 bool TxType::is_pure_specialization() const {
-    return ( this->is_modifiable()
+    return ( this->baseTypeSpec.modifiable
              || ( this->has_base_type() && this->interfaces.empty()
                   && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
                   && typeid(*this) == typeid(*this->baseTypeSpec.type)
-                  && !this->is_datatype_extension() ) );
+                  && ( this->genericBaseType
+                       || ( !this->extendsInstanceDatatype && !this->modifiesVTable ) ) ) );
 }
 
-bool TxType::is_empty_specialization() const {
-    return ( this->has_base_type() && this->interfaces.empty()
+bool TxType::is_empty_derivation() const {
+    return ( this->has_base_type()
+             && this->interfaces.empty()
+             && !this->baseTypeSpec.modifiable
              && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
              && typeid(*this) == typeid(*this->baseTypeSpec.type)
              && this->baseTypeSpec.bindings.empty()
-             && !this->baseTypeSpec.modifiable
-             && !this->is_datatype_extension() );
+             && !this->genericBaseType
+             && !this->extendsInstanceDatatype
+             && !this->modifiesVTable );
 }
 
-bool TxType::is_virtual_specialization() const {
-    return ( this->is_modifiable()
+bool TxType::is_equivalent_derivation() const {
+    return ( this->baseTypeSpec.modifiable
+             || ( this->has_base_type()
+                  && this->interfaces.empty()
+                  && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
+                  && typeid(*this) == typeid(*this->baseTypeSpec.type)
+                  && !this->nonRefBindings
+                  && ( ( this->genericBaseType && !this->genericBaseType->nonRefParameters )
+                       || ( !this->extendsInstanceDatatype && !this->modifiesVTable ) ) ) );
+}
+
+bool TxType::is_virtual_derivation() const {
+    return ( this->baseTypeSpec.modifiable
              || ( this->has_base_type()
                   && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
                   && typeid(*this) == typeid(*this->baseTypeSpec.type)
-                  && this->baseTypeSpec.bindings.empty()
-                  && !this->is_datatype_extension() ) );
+                  && !this->nonRefBindings
+                  && !this->extendsInstanceDatatype ) );
 }
 
 bool TxType::is_statically_sized() const {
@@ -309,7 +325,7 @@ TxEntitySymbol* TxType::lookup_instance_member(const std::string& name) const {
 }
 
 TxEntitySymbol* TxType::lookup_instance_member(TxScopeSymbol* vantageScope, const std::string& name) const {
-    for (const TxType* type = this; type; type = type->get_base_type()) {
+    for (const TxType* type = this; type; type = type->baseTypeSpec.type) {
         if (auto decl = type->get_declaration()) {
             if (auto member = lookup_member(vantageScope, decl->get_symbol(), name)) {
                 if (auto memberEnt = dynamic_cast<TxEntitySymbol*>(member))
@@ -372,11 +388,11 @@ bool TxType::is_a(const TxType& other) const {
 
     // by-pass anonymous, virtual specializations:
     if (! this->get_explicit_declaration()) {
-        if (this->is_virtual_specialization())
+        if (this->is_virtual_derivation())
             return this->get_base_type()->is_a(other);
     }
     if (! other.get_explicit_declaration()) {
-        if (other.is_virtual_specialization())
+        if (other.is_virtual_derivation())
             return this->is_a(*other.get_base_type());
     }
 
@@ -435,22 +451,21 @@ static void type_bindings_string(std::stringstream& str, const TxTypeSpecializat
 }
 
 void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName) const {
-    if (this->is_modifiable()) {
+    if (this->is_modifiable())
         str << "MOD ";
-    }
-    TxEntitySymbol* symbol = nullptr;
+    TxEntitySymbol* explSymbol = nullptr;
     if (! skipFirstName)
         if (auto explDecl = this->get_declaration())
-            symbol = explDecl->get_symbol();
-    if (brief && symbol) {
-        str << symbol->get_full_name();
+            explSymbol = explDecl->get_symbol();
+    if (brief && explSymbol) {
+        str << explSymbol->get_full_name();
         if (this->is_generic())
             str << this->type_params_string();
     }
     else if (this->has_base_type()) {
         bool separator = false;
-        if (symbol) {
-            str << symbol->get_full_name();
+        if (explSymbol) {
+            str << explSymbol->get_full_name();
             if (this->is_generic())
                 str << this->type_params_string();
             separator = true;
@@ -469,8 +484,8 @@ void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName)
             str << " : ";
         this->baseTypeSpec.type->self_string(str, true, false);  // set 'brief' to false to print entire type chain
     }
-    else if (symbol)
-        str << symbol->get_full_name();
+    else if (explSymbol)
+        str << explSymbol->get_full_name();
     else
         str << typeid(*this).name();
 }
@@ -615,7 +630,9 @@ const TxType* TxReferenceType::target_type() const {
         ttype = binding->type_definer().resolve_type(resCtx);
         LOGGER().debug("Resolved target type of (unnamed) reference type to %s", ttype->to_string().c_str());
     }
-    else
-        CERROR(this, "Failed to resolve target type for (unnamed) reference type " << this);
+    else {
+        LOGGER().alert("Failed to resolve target type for (unnamed) reference type %s", this->to_string().c_str());
+        ttype = this->get_root_any_type();  // we know the basic constraint type for ref target is Any
+    }
     return ttype;
 }

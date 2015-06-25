@@ -15,10 +15,11 @@ static bool access_via_load_store(const Type* type) {
 
 
 static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
-                                           const TxType* staticBaseType, Value* runtimeBaseTypeIdV, const TxField* fieldEntity) {
+                                           const TxType* staticBaseType, Value* runtimeBaseTypeIdV,
+                                           Type* expectedValueType, const TxField* fieldEntity) {
     // retrieve the vtable of the base's actual (runtime) type:
     Value* vtableBase = context.gen_get_vtable(scope, staticBaseType, runtimeBaseTypeIdV);
-    //std::cout << "vtableBase: " << vtableBase << std::endl;
+    //std::cerr << "vtableBase: " << vtableBase << "  for field=" << fieldEntity << std::endl;
     if (! vtableBase) {
         context.LOG.error("No vtable obtained for %s", staticBaseType->to_string().c_str());
         return nullptr;
@@ -26,7 +27,7 @@ static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenSc
 
     // get the virtual field:
     auto fieldIx = fieldEntity->get_virtual_field_index();
-    //std::cout << "(static type id " << fieldEntity->get_type()->get_type_id() << ") Getting TXS_VIRTUAL ix " << fieldIx << " value off LLVM base value: " << vtableBase << std::endl;
+    //std::cerr << "(static type id " << staticBaseType->get_type_id() << ") Getting TXS_VIRTUAL ix " << fieldIx << " value off LLVM base value: " << vtableBase << std::endl;
     Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
                      ConstantInt::get(Type::getInt32Ty(context.llvmContext), fieldIx) };
 
@@ -36,20 +37,27 @@ static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenSc
     }
     else {
         Value* fieldPtr = scope->builder->CreateInBoundsGEP(vtableBase, ixs);
-        return scope->builder->CreateLoad(fieldPtr);
+        Value* fieldV = scope->builder->CreateLoad(fieldPtr);
+        // cast value type (necessary for certain (e.g. Ref-binding) specializations' methods):
+        if (expectedValueType && expectedValueType->isPointerTy() && fieldV->getType()->isPointerTy()) {
+            //std::cerr << "Casting from " << fieldV->getType() << "  to  " << expectedValueType << std::endl;
+            fieldV = scope->builder->CreatePointerCast(fieldV, expectedValueType);
+        }
+        return fieldV;
     }
 }
 
 static Value* instance_method_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
                                              const TxType* staticBaseType, Value* runtimeBaseTypeIdV, const TxField* fieldEntity,
                                              Value* baseValue, bool nonvirtualLookup) {
+    auto lambdaT = cast<StructType>(context.get_llvm_type(fieldEntity->get_type()));
     Value* funcPtrV;
     if (nonvirtualLookup) {
         Value* staticBaseTypeIdV = staticBaseType->gen_typeid(context, scope);
-        funcPtrV = virtual_field_value_code_gen(context, scope, staticBaseType, staticBaseTypeIdV, fieldEntity);
+        funcPtrV = virtual_field_value_code_gen(context, scope, staticBaseType, staticBaseTypeIdV, lambdaT->getElementType(0), fieldEntity);
     }
     else
-        funcPtrV = virtual_field_value_code_gen(context, scope, staticBaseType, runtimeBaseTypeIdV, fieldEntity);
+        funcPtrV = virtual_field_value_code_gen(context, scope, staticBaseType, runtimeBaseTypeIdV, lambdaT->getElementType(0), fieldEntity);
     //std::cout << "funcPtrV: " << funcPtrV << std::endl;
     ASSERT(funcPtrV->getType()->getPointerElementType()->isFunctionTy() , "Expected funcPtrV to be pointer-to-function type but was: " << funcPtrV->getType());
     ASSERT(baseValue->getType()->isPointerTy(), "Expected baseValue to be of pointer type but was: " << baseValue->getType());
@@ -57,7 +65,6 @@ static Value* instance_method_value_code_gen(LlvmGenerationContext& context, Gen
     {   // construct the lambda object:
         auto closureRefT = context.get_voidRefT();
         auto closureRefV = gen_ref(context, scope, closureRefT, baseValue, runtimeBaseTypeIdV);
-        auto lambdaT = cast<StructType>(context.get_llvm_type(fieldEntity->get_type()));
         return gen_lambda(context, scope, lambdaT, funcPtrV, closureRefV);
     }
 }
@@ -98,7 +105,8 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
             // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference
             Value* baseTypeIdV = nonvirtualLookup ? baseExpr->get_type(0)->gen_typeid(context, scope)  // static
                                                   : baseExpr->code_gen_typeid(context, scope);  // runtime (static unless reference)
-            val = virtual_field_value_code_gen(context, scope, baseExpr->get_type(0), baseTypeIdV, fieldEntity);
+            Type* expectedT = context.get_llvm_type(fieldEntity->get_type());
+            val = virtual_field_value_code_gen(context, scope, baseExpr->get_type(0), baseTypeIdV, expectedT, fieldEntity);
             break;
         }
         // no break
@@ -152,7 +160,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
                 return nullptr;
 
             auto fieldIx = fieldEntity->get_instance_field_index();
-            //std::cout << "Getting TXS_INSTANCE ix " << fieldIx << " value off LLVM base value: " << baseValue << std::endl;
+            //std::cerr << "Getting TXS_INSTANCE ix " << fieldIx << " value off LLVM base value: " << baseValue << std::endl;
             Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
                              ConstantInt::get(Type::getInt32Ty(context.llvmContext), fieldIx) };
             if (!scope)
@@ -189,5 +197,6 @@ Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope* scop
            // in global scope we apparently don't want to load
         }
     }
+    //std::cerr << "skipping LOAD for " << value << std::endl;
     return value;
 }

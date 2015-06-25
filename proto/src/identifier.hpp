@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "assert.hpp"
 #include "printable.hpp"
@@ -218,6 +219,14 @@ public:
 
     inline bool operator<=(const TxIdentifier& other) const {
         return this->to_string() <= other.to_string();
+    }
+
+
+    inline std::string to_hash_string() const {
+        std::string hname = this->ns;
+        std::replace(hname.begin(), hname.end(), '.', '#');
+        return hname;
+
     }
 
 

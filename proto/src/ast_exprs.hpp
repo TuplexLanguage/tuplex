@@ -655,7 +655,7 @@ public:
     }
 
     TxStackConstructorNode(TxFunctionCallNode* originalCall, TxTypeDefiner* typeDefiner)
-            : TxStackConstructorNode(originalCall->parseLocation, new TxTypeDefWrapperNode(originalCall->parseLocation, typeDefiner),
+            : TxStackConstructorNode(originalCall->parseLocation, new TxTypeExprWrapperNode(originalCall->parseLocation, typeDefiner),
                                      originalCall->argsExprList) {
     }
 

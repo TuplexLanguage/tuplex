@@ -113,6 +113,23 @@ public:
  *
  * 2 is used for type aliases, and for derived types that don't bind type parameters.
  * 3 is used for specializing generic types, including derived types (that extend with additional members).
+
+
+type Bar<R> { ... }
+
+type Foo<S> derives Bar<S>, Interf<S> { ... }
+
+type Mud Foo<Int>
+
+Mud : Foo$Long : Bar$Long :
+               \          \
+                : Foo<Any> : Bar<Any> : Tuple : Any
+               /          /
+Mac : Foo$Byte : Bar$Byte :
+
+Foo<Any> is the "generic base type" for Foo$xxx
+Bar$xxx is the "specific base type" for Foo$xxx
+
  */
 class TxTypeSpecialization : public Printable {
 public:
@@ -156,8 +173,8 @@ public:
         throw std::out_of_range("No such bound type parameter: " + typeParamName);
     }
 
-    /** Returns empty string if this specialization is valid for the base type. */
-    std::string validate() const;
+    /** Checks if this specialization is valid for the base type. */
+    void validate() const;
 
     bool operator==(const TxTypeSpecialization& other) const;
 
@@ -175,6 +192,13 @@ public:
 class TxType : public TxEntity {
     /** The type class of this type. */
     const TxTypeClass typeClass;
+    /** true if this is a built-in type */
+    const bool builtin;
+
+    /** false unless there are TYPE parameters with other than Ref constraint */
+    bool nonRefParameters = false;
+    /** false unless there are TYPE bindings for parameters with other than Ref constraint */
+    bool nonRefBindings = false;
 
     /** The type id of this type, if it is a statically distinct type (not a pure specialization). */
     uint32_t typeId = UINT32_MAX;
@@ -185,8 +209,13 @@ class TxType : public TxEntity {
     const TxTypeSpecialization baseTypeSpec;  // including bindings for all type parameters of base type
     const std::vector<TxTypeSpecialization> interfaces;  // FUTURE
 
+    /** Set for non-generic specializations of a generic base type.
+     * This also implies a pure specialization, even if extendsParentDatatype technically is true. */
+    const TxType* genericBaseType = nullptr;
+
     // data layout:
-    bool extendsParentDatatype = false;
+    bool extendsInstanceDatatype = false;
+    bool modifiesVTable = false;
     bool startedInit = false;
     DataTupleDefinition staticFields;
     DataTupleDefinition virtualFields;
@@ -196,18 +225,18 @@ class TxType : public TxEntity {
     /** Prepares / initializes this type, including laying out its data. Called from constructor. */
     void prepare_type();
 
-    std::string inner_validate() const;
-
 protected:
     /** Only to be used for Any type. */
     TxType(TxTypeClass typeClass, const TxTypeDeclaration* declaration)
-            : TxEntity(declaration), typeClass(typeClass), typeParams(), baseTypeSpec()  {
+            : TxEntity(declaration), typeClass(typeClass), builtin(declaration && (declaration->get_decl_flags() & TXD_BUILTIN)),
+              typeParams(), baseTypeSpec()  {
         this->prepare_type();
     }
 
     TxType(TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
            const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
-            : TxEntity(declaration), typeClass(typeClass), typeParams(typeParams), baseTypeSpec(baseTypeSpec) {
+            : TxEntity(declaration), typeClass(typeClass), builtin(declaration && (declaration->get_decl_flags() & TXD_BUILTIN)),
+              typeParams(typeParams), baseTypeSpec(baseTypeSpec) {
         this->prepare_type();
     }
 
@@ -226,6 +255,13 @@ protected:
     /** For internal type implementation use; searches the type hierarchy's parameter bindings. */
     const TxGenericBinding* resolve_param_binding(const std::string& paramName) const;
 
+    /** Gets the Any root type. */
+    inline const TxType* get_root_any_type() const {
+        if (! this->has_base_type())
+            return this;
+        return this->get_base_type()->get_root_any_type();
+    }
+
 public:
     virtual ~TxType() = default;
 
@@ -237,11 +273,10 @@ public:
     virtual const TxType* get_type() const override { return this; }
 
 
-
     /*--- characteristics ---*/
 
-    /** Gets the type id of this type. (Pure specializations return their base type's id.) */
-    inline uint32_t get_type_id() const { return ( this->typeId == UINT32_MAX ? this->baseTypeSpec.type->get_type_id() : this->typeId ); }
+    /** Gets the type id of this type. (Empty specializations return their base type's id.) */
+    inline uint32_t get_type_id() const { return ( this->typeId == UINT32_MAX ? this->get_base_type()->get_type_id() : this->typeId ); }
 
     virtual inline const TxTypeDeclaration* get_declaration() const override {
         return static_cast<const TxTypeDeclaration*>(TxEntity::get_declaration());
@@ -261,17 +296,17 @@ public:
     inline bool has_base_type() const { return this->baseTypeSpec.type; }
 
     /** Gets the base type (parent) of this type. ('Any' is the only type that has no base type.) */
-    inline const TxType* get_base_type() const { return this->baseTypeSpec.type; }
+    inline const TxType* get_base_type() const { return this->genericBaseType ? this->genericBaseType : this->baseTypeSpec.type; }
+
+    /** Gets the base data type (parent) of this type. The same as get_base_type() except for generic type specializations. */
+    inline const TxType* get_base_data_type() const { return this->baseTypeSpec.type; }
 
 
     /** Returns the type class this type belongs to. */
     inline TxTypeClass get_type_class() const { return this->typeClass; }
 
     /** Returns true iff this type is a built-in type. */
-    bool is_builtin() const;
-
-    /** Returns true if this type is immutable (its instances' contents can never be modified after initialization). */
-    virtual bool is_immutable() const { return false; }
+    inline bool is_builtin() const { return this->builtin; }
 
     /** Returns true if this type is modifiable (its instances' contents may be modified after initialization).
      * This can only be the case for pure specializations:
@@ -283,17 +318,23 @@ public:
      */
     inline bool is_modifiable() const { return this->baseTypeSpec.modifiable; }
 
+    /** Returns true if this type is immutable (its instances' contents can never be modified after initialization). */
+    virtual bool is_immutable() const { return false; }
+
     /** Returns true if this type cannot be extended. */
     virtual bool is_final() const { return false; }
 
     /** Returns true if this type is declared abstract. */
     virtual bool is_abstract() const { return true; }
 
-    /** Returns true if this type is generic (i.e. has unbound type parameters). */  // TODO: what about bindings to param aliases?
+    /** Returns true if this type is generic (i.e. has unbound type parameters).
+     * Note that a non-generic type may still have members that refer to unbound type parameters of an outer scope
+     */
     inline bool is_generic() const { return !this->type_params().empty(); }
 
     /** Returns true if this type is concrete (i.e. can be directly instanced).
-     * A concrete type is not abstract, nor usually generic (references may be concrete while generic). */
+     * A concrete type is not abstract, nor usually generic.
+     * References are always concrete (even if generic). */
     bool is_concrete() const;
 
     /** Returns true if this type is a pure specialization of a base type,
@@ -309,29 +350,37 @@ public:
      *
      * We currently don't regard adding static members, or defining previously abstract methods,
      * as making a specialization impure.
+     *
+     * (Returns false for Any which has no base type.)
      */
     bool is_pure_specialization() const;
 
-    /** Returns true if this type is an empty specialization of a base type,
+    /** Returns true if this type is an empty derivation of a base type,
      * i.e. does not specialize any type parameters of the base type, nor modifiable,
-     * not extends the base type with any definitions, or interfaces.
-     * This implies that this type is equivalent to its base type - is the same data type.
+     * nor extends the base type with any members, nor derives any additional interfaces.
+     * This implies that this type is fully equivalent to its base type.
      * (An empty specialization is by implication a pure specialization.)
+     * (Returns false for Any which has no base type.)
      */
-    bool is_empty_specialization() const;
+    bool is_empty_derivation() const;
 
-    /** Returns true if this type is a virtual specialization of a base type,
-     * i.e. is effectively the same data type as the base type.
-     * Modifiability, added interfaces and added static members do not affect the data type;
-     * added instance members and bound type parameters do.
+    /** Returns true if this type is equivalent to its base type,
+     * i.e. is effectively the same *instance data type* as well as same static definition as the base type.
+     * If true, this type does not need a distinct vtable nor distinct code generation.
+     *
+     * Added interfaces, added virtual members, added instance members cause this to return false;
+     * modifiability and bound non-ref type parameters do not.
+     * (Returns false for Any which has no base type.)
      */
-    bool is_virtual_specialization() const;
+    bool is_equivalent_derivation() const;
 
-    /** Returns true if this type extends its base type with additional instance members.
-     * (Generic type specialization is regarded as specialization, not extension, and does thus
-     * not cause this method to return true.)
+    /** Returns true if this type is a virtual derivation of a base type,
+     * i.e. is effectively the same *instance data type* as the base type.
+     * Added instance members and bound non-ref type parameters cause this to return false;
+     * modifiability, added interfaces, added virtual members do not.
+     * (Returns false for Any which has no base type.)
      */
-    inline bool is_datatype_extension() const { return this->extendsParentDatatype; }
+    bool is_virtual_derivation() const;
 
     /** Returns true if the size of this type is statically known.
      * May be true for arrays with non-static length initializer or compound types containing such arrays.

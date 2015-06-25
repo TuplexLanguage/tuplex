@@ -344,9 +344,13 @@ void TypeRegistry::declare_conversion_constructor(BuiltinTypeId fromTypeId, Buil
 
 
 void TypeRegistry::register_type(TxType* type) {
-    if (type->is_pure_specialization())
+    // Types that are distinct in instance data type, or vtable, get their own type id and vtable.
+    if (type->is_equivalent_derivation()) {
+        //std::cerr << "Not registering equivalent derivation: " << type << std::endl;
         return;
+    }
     type->typeId = this->allStaticTypes.size();
+    //std::cerr << "Registering: " << type << " with id " << type->typeId << std::endl;
     this->allStaticTypes.push_back(type);
 }
 
@@ -437,6 +441,8 @@ static inline std::vector<TxTypeParam> prepare_type_parameters(const TxTypeSpeci
 const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
                                                     const std::vector<TxTypeParam>* typeParams, bool _mutable) {
     // Note: type specialization is never applied to a modifiable-specialization (legal only on generic base type)
+    // Note: A non-parameterized type (without any declared type parameters) is not necessarily non-generic:
+    //       It may have members that refer to generic parameters declared in an outer scope.
     ASSERT(!specialization.type->is_modifiable(), "Can't specialize a 'modifiable' base type: " << specialization);
     ASSERT(!specialization.modifiable, "Can't specify 'modifiable' in a type parameter specialization: " << specialization);
 
@@ -451,23 +457,31 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
     const TxParseOrigin* pOrigin = (declaration ? static_cast<const TxParseOrigin*>(declaration->get_definer()) : specialization.type);
     std::vector<TxTypeParam> allParams = prepare_type_parameters(specialization, typeParams, pOrigin);
 
-    if (allParams.empty() && ! specialization.bindings.empty()
+    if (allParams.empty() && ! specialization.bindings.empty()  // non-parameterized type that binds parameters of its base type
         && ! specialization.type->is_builtin()) {  // (avoids source-expression-less built-in types (incl Ref<> and Array<>))
-        // non-parameterized type that binds parameters of base type,
-        // re-base it on new non-generic specialization of the base type
+        // re-base it on new non-generic specialization of the base type:
+        // (this replaces the bindings of the TxTypeSpecialization object with direct declarations within the new type)
 
         // TODO: How should we handle Ref? We can't resolve it's parameter in order to prevent infinite recursion.
         //       We also need to handle the dataspace use case.
         // TODO: How should we handle Array? Should user be allowed to extend it?
 
         ASSERT(declaration, "expected type that binds base type's parameters to be named (declared) but was not");
-        this->package.LOGGER().debug("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
+        this->package.LOGGER().alert("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
                                      declaration->get_unique_full_name().c_str(), specialization.type->to_string().c_str());
 
-        auto decl = specialization.type->get_declaration();
-        ASSERT(decl, "base type has no declaration: " << specialization.type);
-        auto baseTypeExpr = static_cast<TxTypeExpressionNode*>(decl->get_definer()->get_node());
+        // before we substitute the TxTypeSpecialization, validate it:
+        specialization.validate();
+
+        auto baseDecl = specialization.type->get_declaration();
+        ASSERT(baseDecl, "base type has no declaration: " << specialization.type);
+        auto baseTypeExpr = static_cast<TxTypeExpressionNode*>(baseDecl->get_definer()->get_node());
         TxSpecializationIndex newSix = baseTypeExpr->next_spec_index();
+
+        //LexicalContext lexContext = LexicalContext(declaration->get_symbol()->get_outer());
+        //std::string newBaseName = lexContext.scope()->make_unique_name(declaration->get_unique_name() + "$" + baseDecl->get_unique_name());
+        LexicalContext lexContext = LexicalContext(baseDecl->get_symbol()->get_outer());
+        std::string newBaseName = baseDecl->get_unique_name();
 
         // make new parameter declarations that resolve to the bindings:
         auto typeParamDeclNodes = new std::vector<TxDeclarationNode*>();
@@ -475,11 +489,18 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
         for (auto & binding : specialization.bindings) {
             if (binding.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
                 auto & parseLoc = binding.type_definer().get_parse_location();
-                auto typeExpr = new TxTypeDefWrapperNode(parseLoc, &binding.type_definer());
+                auto typeExpr = new TxTypeExprWrapperNode(parseLoc, &binding.type_definer());
                 auto declNode = new TxTypeDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, binding.param_name(), nullptr, typeExpr);
                 typeParamDeclNodes->push_back(declNode);
-                this->package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", decl->get_unique_full_name().c_str(),
-                                             binding.param_name().c_str(), typeExpr->to_string().c_str());
+
+                const TxType* btype = binding.type_definer().resolve_type(resCtx);
+                while (btype->is_equivalent_derivation())
+                    btype = btype->get_base_type();
+                ASSERT(btype->get_declaration(), "Bound type (or equiv. parent) does not have declaration: " << btype);
+                auto boundTypeName = btype->get_declaration()->get_symbol()->get_full_name().to_hash_string();
+                newBaseName += "$" + boundTypeName;
+                package.LOGGER().alert("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
+                                       binding.param_name().c_str(), typeExpr->to_string().c_str());
             }
             else {
                 ASSERT(!binding.value_definer().is_context_set(newSix), "VALUE param '" << binding.param_name() << "' at "
@@ -488,20 +509,31 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
                 auto fieldDef = new TxFieldDefNode(parseLoc, binding.param_name(), nullptr, &binding.value_definer());
                 auto declNode = new TxFieldDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
                 typeParamDeclNodes->push_back(declNode);
-                this->package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", decl->get_unique_full_name().c_str(),
-                                             binding.param_name().c_str(), binding.value_definer().to_string().c_str());
+
+                newBaseName += "$VALUE";
+                package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
+                                       binding.param_name().c_str(), binding.value_definer().to_string().c_str());
             }
         }
 
+        {
+            auto & parseLoc = declaration->get_definer()->get_parse_location();
+            auto typeExpr = new TxTypeExprWrapperNode(parseLoc, new TxTypeWrapperDef(specialization.type));
+            auto declNode = new TxTypeDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, "$GenericBase", nullptr, typeExpr);
+            typeParamDeclNodes->push_back(declNode);
+            //package.LOGGER().alert("Provided $GenericBase type: %s", baseDecl->get_unique_full_name().c_str());
+        }
+
+        newBaseName = lexContext.scope()->make_unique_name(newBaseName, true);
+        // TODO: if name already exists and specialization is equal, return existing type instead of creating new one
+
         // process new specialization of the base type:
-        LexicalContext lexContext = LexicalContext(declaration->get_symbol()->get_outer());
-        std::string newBaseName = lexContext.scope()->make_unique_name(declaration->get_unique_name() + "$" + decl->get_unique_name());
         baseTypeExpr->symbol_declaration_pass(newSix, lexContext, lexContext, TXD_PUBLIC | TXD_IMPLICIT, newBaseName, typeParamDeclNodes);
         baseTypeExpr->symbol_resolution_pass(newSix, resCtx);
         auto newBaseType = baseTypeExpr->resolve_type(newSix, resCtx);
         TxTypeSpecialization newSpec(newBaseType);
         auto newType = specialization.type->make_specialized_type(declaration, newSpec, allParams, &errorMsg);
-        this->register_type(newType);  // or should we not generate vtables for these?
+        this->register_type(newType);
         return newType;
     }
     else {
