@@ -54,7 +54,8 @@ void TxTypeSpecialization::validate() const {
                 auto boundType = b.type_definer().resolve_type(resCtx);
                 //std::cerr << this->type << ": Constraint type for param " << p.param_name() << ": " << "checking bound type " << boundType << "\tagainst constraint type " << constraintType << std::endl;
                 if (! boundType->is_a(*constraintType))
-                    CERROR(this->type, "Bound type " << boundType->to_string() << " for type parameter " << p.to_string() << " is not a derivation of type " + constraintType->to_string());
+                    CERROR(boundType, "Bound type " << boundType->to_string() << " for type parameter " << p.to_string() << " is not a derivation of type " + constraintType->to_string());
+                    // FIXME: can we move this check to where the binding is provided in the source text?
             }
         }
         else
@@ -476,12 +477,15 @@ void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName)
                 str << this->type_params_string();
             separator = true;
         }
+
         if (! this->baseTypeSpec.bindings.empty()) {
             type_bindings_string(str, this->baseTypeSpec);
             separator = true;
         }
         if (separator)
             str << " : ";
+        else if (skipFirstName)
+            str << ": ";
         this->baseTypeSpec.type->self_string(str, true, false);  // set 'brief' to false to print entire type chain
     }
     else if (explSymbol)

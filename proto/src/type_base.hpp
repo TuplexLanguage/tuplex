@@ -438,6 +438,11 @@ public:
     }
 
 
+    const std::vector<TxGenericBinding>& get_bindings() const {
+        return this->baseTypeSpec.bindings;
+    }
+
+
     // FUTURE: checksum?
 
     // FUTURE: Should we remove the == != operator overloads in favor of more specifically named comparison methods?
