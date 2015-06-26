@@ -70,7 +70,7 @@ extern "C" int yywrap() { return 0; }
 [ \t\r]+    yylloc->step();
 
  /* statement separators */
-[\n]+       { yylloc->lines(yyleng); return token::NL; }
+[\n]        { yylloc->lines(yyleng); return token::NL; }
 ";"         { return token::SEMICOLON; }
 
  /* emit extra NL token before LBRACE and before & after RBRACE (since they are implicit statement separators) */

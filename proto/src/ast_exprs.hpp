@@ -467,8 +467,11 @@ public:
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);
         this->callee->symbol_declaration_pass(six, lexContext);
-        for (auto argExpr : *this->argsExprList)
+        for (auto argExpr : *this->argsExprList) {
+            if (argExpr->is_context_set(six))
+                break;  // can happen if wrapped, e.g. for stack construction calls
             argExpr->symbol_declaration_pass(six, lexContext);
+        }
     }
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {

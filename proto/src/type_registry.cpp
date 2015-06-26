@@ -646,13 +646,13 @@ const TxArrayType* TypeRegistry::get_array_type(const TxTypeDeclaration* declara
 
 
 const TxFunctionType* TypeRegistry::get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, const TxType* returnType,
-                                                      bool mod, std::string* errorMsg) {
-    return new TxFunctionType(declaration, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, returnType, mod);
+                                                      bool modifiableClosure, std::string* errorMsg) {
+    return new TxFunctionType(declaration, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, returnType, modifiableClosure);
 }
 
 const TxFunctionType* TypeRegistry::get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
-                                                      bool mod, std::string* errorMsg) {
-    return new TxFunctionType(declaration, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, nullptr, mod);
+                                                      bool modifiableClosure, std::string* errorMsg) {
+    return new TxFunctionType(declaration, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, nullptr, modifiableClosure);
 }
 
 const TxConstructorType* TypeRegistry::get_constructor_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,

@@ -470,9 +470,21 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl(TxSpecializationIndex 
         if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(symbol)) {
             // if symbol can be resolved to actual field, then do so
             if (entitySymbol->field_count()) {
-                spec.declaration = resolve_field_lookup(resCtx, entitySymbol, this->get_spec(six).appliedFuncArgTypes);
-                if (spec.declaration)
+                if (auto fieldDecl = resolve_field_lookup(resCtx, entitySymbol, this->get_spec(six).appliedFuncArgTypes)) {
+                    if (fieldDecl->get_storage() == TXS_INSTANCE || fieldDecl->get_storage() == TXS_INSTANCEMETHOD) {
+                        if (!this->baseExpr) {
+                            CERROR(this, "Instance member field referenced without instance base: " << this->get_full_identifier());
+                            return nullptr;
+                        }
+                        else if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
+                            if (!baseSymbolNode->get_field(six)) {
+                                CERROR(this, "Instance member field referenced without instance base: " << this->get_full_identifier());                                return nullptr;
+                            }
+                        }
+                    }
+                    spec.declaration = fieldDecl;
                     return spec.declaration;
+                }
             }
             // if symbol is a type, and arguments are applied, and they match a constructor, the resolve to that constructor
             if (auto typeDecl = entitySymbol->get_type_decl()) {
@@ -489,7 +501,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl(TxSpecializationIndex 
                 spec.declaration = typeDecl;
                 return spec.declaration;
             }
-            CERROR(this, "Failed to resolve entity symbol to proper field: " << entitySymbol->to_string().c_str());
+            CERROR(this, "Failed to resolve entity symbol to proper field: " << this->get_full_identifier());
         }
     }
     else
@@ -500,8 +512,10 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl(TxSpecializationIndex 
 const TxType* TxFieldValueNode::define_type(TxSpecializationIndex six, ResolutionContext& resCtx) {
     if (auto decl = this->resolve_decl(six, resCtx)) {
         if (auto fieldDecl = dynamic_cast<const TxFieldDeclaration*>(decl)) {
-            this->get_spec(six).field = fieldDecl->get_definer()->resolve_field(resCtx);
-            return this->get_spec(six).field->get_type();
+            if (auto field = fieldDecl->get_definer()->resolve_field(resCtx)) {
+                this->get_spec(six).field = field;
+                return field->get_type();
+            }
         }
         else
             return static_cast<const TxTypeDeclaration*>(decl)->get_definer()->resolve_type(resCtx);

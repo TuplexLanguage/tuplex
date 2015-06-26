@@ -18,7 +18,6 @@ public:
     TxBoolType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec)
         : TxType(TXTC_ELEMENTARY, declaration, baseTypeSpec) { }
 
-    virtual bool is_immutable() const override { return false; }
     virtual bool is_final() const override { return true; }
     virtual bool is_abstract() const override { return false; }
 
@@ -54,7 +53,6 @@ protected:
 
 public:
     virtual uint64_t size() const { return this->_size; }
-    virtual bool is_immutable() const override { return false; }
     virtual bool is_final() const override { return true; }
     virtual bool is_abstract() const override { return false; }
 

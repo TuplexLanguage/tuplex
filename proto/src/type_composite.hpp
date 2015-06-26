@@ -147,11 +147,11 @@ public:
 
     bool hasReturnValue() const  { return this->returnType != nullptr; }
 
-    virtual bool is_abstract() const { return false; }
+    virtual bool modifiable_closure() const { return this->modifiableClosure; }
 
-    virtual bool is_immutable() const { return !this->modifiableClosure; }
+    virtual bool is_abstract() const override { return false; }
 
-    inline virtual bool operator==(const TxType& other) const {
+    inline virtual bool operator==(const TxType& other) const override {
         if (auto otherF = dynamic_cast<const TxFunctionType*>(&other))
             return ( ( this->returnType == otherF->returnType
                        || ( this->returnType != nullptr && otherF->returnType != nullptr
@@ -163,13 +163,13 @@ public:
         return false;
     }
 
-    virtual bool innerAutoConvertsFrom(const TxType& someType) const {
+    virtual bool innerAutoConvertsFrom(const TxType& someType) const override {
         return (*this) == someType;  // FUTURE: allow polymorphic compatibility
     }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
-    virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
+    virtual void accept(TxTypeVisitor& visitor) const override { visitor.visit(*this); }
 
 protected:
     virtual void self_string(std::stringstream& str, bool brief, bool skipFirstName) const override {
@@ -189,7 +189,8 @@ protected:
 class TxConstructorType : public TxFunctionType {
     TxTypeDeclaration* objTypeDeclaration;
 public:
-    TxConstructorType(const TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*> argumentTypes, TxTypeDeclaration* objTypeDeclaration)
+    TxConstructorType(const TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*> argumentTypes,
+                      TxTypeDeclaration* objTypeDeclaration)
         : TxFunctionType(declaration, baseType, argumentTypes, nullptr, true), objTypeDeclaration(objTypeDeclaration) { }
 
     TxTypeDeclaration* get_constructed_type_decl() const {
@@ -199,13 +200,15 @@ public:
 
 class TxBuiltinFunctionType : public TxFunctionType {
 public:
-    TxBuiltinFunctionType(const TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*> argumentTypes, const TxType* returnType)
+    TxBuiltinFunctionType(const TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*> argumentTypes,
+                          const TxType* returnType)
         : TxFunctionType(declaration, baseType, argumentTypes, returnType) { }
 };
 
 class TxBuiltinConversionFunctionType : public TxBuiltinFunctionType {
 public:
-    TxBuiltinConversionFunctionType(const TxTypeDeclaration* declaration, const TxType* baseType, const TxType* argumentType, const TxType* returnType)
+    TxBuiltinConversionFunctionType(const TxTypeDeclaration* declaration, const TxType* baseType, const TxType* argumentType,
+                                    const TxType* returnType)
         : TxBuiltinFunctionType(declaration, baseType, std::vector<const TxType*>{ argumentType }, returnType) { }
 };
 

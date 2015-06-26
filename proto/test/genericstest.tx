@@ -29,7 +29,8 @@ public type NCArray<E> derives Array<E,10> {
 
 
 
-type Type<E,F> derives Tuple {
+type Type<E derives Ref,F> derives Tuple {
+    var : E
 }
 
 type SType<E,G> Type<E,G>
@@ -37,6 +38,7 @@ type SType<E,G> Type<E,G>
 func generics_test() Int {
     type LocalTypeX SType<~Float,~Double>
     type LocalTypeY SType<~Int,~Long>
+    type LocalTypeZ SType<~Int,~Long>
     x : LocalTypeX
     y : LocalTypeY
 

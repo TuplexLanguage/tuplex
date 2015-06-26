@@ -458,7 +458,7 @@ method_def  :   KW_FUNC NAME function_header sep suite
 expr
     :   LPAREN expr RPAREN  { $$ = $2; }
     |   value_literal       { $$ = $1; }
-    |   lambda_expr         { $$ = $1; }  // is this really combinable within another expression?
+    |   lambda_expr NL      { $$ = $1; }  // (eats the extra NL emitted by the suite's closing brace)
     |   call_expr           { $$ = $1; }
     |   make_expr           { $$ = $1; }
 

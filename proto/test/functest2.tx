@@ -1,0 +1,48 @@
+type FuncType func ( a : Int ) Int
+
+square( a : Int ) Int { return a * a }
+
+## these are equivalent:
+aFunction : func ( a : Int ) Int = square
+bFunction : FuncType             = square
+cFunction                       := square
+
+
+type Multiplier {
+    b : Int
+
+    self( b : Int ) { self^.b = b }
+
+    mul( a : Int ) Int { return a * self^.b }
+
+    higher( f : FuncType ) Int {
+        return f( self^.b )
+    }
+}
+
+main() Int {
+    localFunc := func( a : Int ) Int { return a * 2 }
+
+    value : ~Int = 2
+
+    ## global function invocation:
+    value = square( value ) ## 4
+
+    ## local function assignment and invocation:
+    tmpFn : ~FuncType = localFunc
+    value = tmpFn( value )  ## 8
+
+    ## global function assignment and invocation:
+    tmpFn = aFunction
+    value = tmpFn( value )  ## 64
+
+    ## instance method assignment and invocation:
+    mulObj := Multiplier(2)
+    tmpFn = mulObj.mul
+    value = tmpFn( value )  ## 128
+
+    ## higher order function and inline lambda:
+    value = value + mulObj.higher( func ( a : Int ) Int { return a + 1 } )
+
+    return value  ## process returns 131
+}

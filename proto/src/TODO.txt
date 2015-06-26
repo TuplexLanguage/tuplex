@@ -30,13 +30,10 @@ Refactor symbols, declarations, definitions/entities/fields/types - DONE
  - Break apart SymbolScope and Entity objects; join TypeEntity and Type hierarchy
  - SymbolScope created in declaration phase
  - Entities (now represent definitions) created in resolution phase
+ - TxType fully defined upon construction (during type resolution pass)
 
-=======================
-Generic type instance fields support
- To support declaring instance fields of parameterized type by reference
- Requires creating 'concrete' member entity copies in specialized subtype
-
-=======================
+Generic type instance fields support (with Ref contraint type) - DONE
+ - The AST for a type definition is re-entrant, and reprocessed for each specialization
 
 Interfaces
 
@@ -59,13 +56,12 @@ Full dataspaces support
 
 Shared objects
 
+Generic type instance fields support (with Any contraint type)
+ - To support declaring instance fields of dynamically resolved type by value (not just reference)
+
 Make TxType be fully defined upon construction (during type resolution pass)
  - Means base types are fully resolved by subtype construction
  - Static (vtable) and instance field layouts can be done upon construction
  - Target (LLVM) type construction could also be done right away
-
-Dynamic generics support
- - To support declaring instance fields of dynamically resolved type by value (not just reference)
- - Requires making the AST for a generic type definition re-entrant, and reprocessed for each specialization
 
 Enum typeclass

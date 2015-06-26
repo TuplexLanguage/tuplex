@@ -122,24 +122,11 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     auto uniqueName = declaration->get_unique_full_name();
     ASSERT (declaration->get_storage() == TXS_STACK, "TxFieldStmtNode can only apply to TX_STACK storage fields: " << uniqueName);
     auto txType = this->field->get_type(0);
-    Value* fieldVal;
-    if (dynamic_cast<const TxFunctionType*>(txType)) {
-        // FUTURE: make local function capture
-        if (this->field->initExpression)
-            fieldVal = this->field->initExpression->code_gen(context, scope);
-        else {
-            // TODO: Local function pointers without immediate initializer
-            context.LOG.error("%s: Local function pointers without immediate initializer not yet supported", this->parse_loc_string().c_str());
-            return nullptr;
-        }
-    }
-    else {  // LLVM "FirstClassType"
-        fieldVal = txType->gen_alloca(context, scope, declaration->get_symbol()->get_name());
-        if (this->field->initExpression) {
-            // create implicit assignment statement
-            if (Value* initializer = this->field->initExpression->code_gen(context, scope))
-                do_store(context, scope, fieldVal, initializer);
-        }
+    Value* fieldVal = txType->gen_alloca(context, scope, declaration->get_symbol()->get_name());
+    if (this->field->initExpression) {
+        // create implicit assignment statement
+        if (Value* initializer = this->field->initExpression->code_gen(context, scope))
+            do_store(context, scope, fieldVal, initializer);
     }
     context.register_llvm_value(uniqueName, fieldVal);
     return fieldVal;
@@ -158,7 +145,7 @@ Value* TxAssignStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     if ((! lval) || (! rval))
         return NULL;
     if (! lval->getType()->isPointerTy()) {
-        context.LOG.error("At %s: L-value is not of pointer type: %s; %s", this->parse_loc_string().c_str(), ::to_string(lval).c_str(), ::to_string(lval->getType()).c_str());
+        context.LOG.error("At %s: L-value is not of pointer type:\n%s", this->parse_loc_string().c_str(), ::to_string(lval).c_str());
         return rval;
     }
     return do_store(context, scope, lval, rval);
@@ -264,8 +251,10 @@ Value* TxCallStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope)
 Value* TxReturnStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     if (this->expr) {
-        // TODO: this is hackish, can we find systematic solution?
         auto exprV = this->expr->code_gen(context, scope);
+        if (! exprV)
+            return nullptr;
+        // TODO: this is hackish, can we find systematic solution?
         auto expectedT = context.get_llvm_type(this->expr->get_type(0));
         if (exprV->getType() == expectedT)
             return scope->builder->CreateRet(exprV);
