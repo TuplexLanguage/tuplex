@@ -4,82 +4,150 @@ module tx
 public type Opt<E derives Ref> Union { E, Null }
 
 
-public interface Sequenceable<E derives Ref> {
-    public func sequencer() ~Sequencer<E>  ## returns by value - constructs new sequencer
+## Should sequences always have Opt<E> as return type, or should they always use valid values (e.g. first/last in ranges)
+## for access outside the sequence bounds?
+## But if not Opt, how handle empty sequences?
+## If exceptions are implemented in future, it would be undesirable to have Opt<> hard-defined in that interface.
+## But perhaps changing return type from Opt<E> to E won't break usages?
+## (letting type parameter contraint type initially be Opt<Ref> is uncertain if desirable and if works as intended)
+
+
+public interface SequenceableI<E derives Ref> {
+    public sequencer() ~SequencerI<E>  ## returns by value - constructs new sequencer
 }
 
 
-public interface Indexable<E derives Ref> derives Sequenceable<E> {
-    public func size() ULong
-    public func at(index : ULong) Opt<E>  ## valid indices in interval [0,size()-1]
+/** An iterable sequence supports forward and backward traversal. */
+public interface IterableI<E derives Ref> derives SequencableI<E> {
+    public override sequencer() ~IteratorI<E>
+}
+
+
+/** An indicable sequence is finite, has known limits, and supports random-access. */
+public interface IndicableI<E derives Ref> derives IterableI<E> {
+    public count() ULong
+    public at(index : ULong) Opt<E>  ## valid indices within range
+}
+
+
+public interface UpdateableI<E derives Ref> derives SequenceableI<E> {
+    public updater() ~UpdaterI<E>
 }
 
 
 
-public interface Sequencer<E derives Ref> mod derives Sequenceable<E> {
-    public func sequencer() ~Sequencer<E> { return self }  ## returns by value, i.e. a copy
+public interface SequencerI<E derives Ref> mod derives SequenceableI<E> {
+    public sequencer() ~SequencerI<E> { return self }  ## returns by value, i.e. a copy
 
-    public func hasNext() Bool
-    public func ~next() Opt<E>  ## note: sequences may contain NULL
+    public hasNext() Bool  ## needed since sequences may contain NULL
+    public ~next() Opt<E>
 }
 
-public interface RepeatableSequencer<E derives Ref> mod derives Sequencer<E> {
-    public func sequencer() ~RepeatableSequencer<E> { return self }
 
-    public func ~reset()
+public interface IteratorI<E derives Ref> mod derives SequencerI<E> {
+    public override sequencer() ~IteratorI<E> { return self }  ## returns by value, i.e. a copy
+
+    public hasPrev() Bool  ## needed since sequences may contain NULL
+    public ~prev() Opt<E>
+}
+
+
+public interface UpdaterI<E derives Ref> mod derives SequencerI<E> {
+    public sequencer() ~UpdaterI<E> { return self }  ## returns by value, i.e. a copy
+
+    public ~update(newValue : Opt<E>)  ## replaces value returned be most-recent call to next() / prev()
 }
 
 
 
 
 /** A type whose values are enumerable. (E.g. integers, enums) */
-public interface Enumerable<T> {
-    public func ordinal() ULong
-    public func successor(step : ULong) Opt<T>
+public interface EnumerableI<T> {
+    public ordinal() ULong
+    public successor(step : ULong) Opt<T>
 }
 
 
 
-/** An ERange is a virtual, indexable sequence of an enumerable type. */
-public type ERange<E derives Enumerable> derives Indexable<E> {
-  ## This type requires dynamic type parameter support.
+/** An ERange is a virtual, indicable sequence of an enumerable type. */
+public type ERange<E derives Enumerable> derives IndicableI<E> {
+  ## NOTE: This type requires dynamic type parameter support.
     public first : E
-    public last : E
-    public step : ULong
+    public last  : E
+    public step  : Long
 
-    public func self( f : E, l : E, s : ULong ) { first = f; last = l; step = s }
+    public self( f : E, l : E, s : Long ) { first = f; last = l; step = s }
 
-    public func sequencer() ~Sequencer<E>  { return ERangeSequencer(first, last, step) }
-    public func size() ULong               { return (last - first + 1) / step }
-    public func at(index : ULong) Opt<E>   { r := first + index * step; return ( r<=last ? r : NULL ) }
+    public sequencer() ~IteratorI<E>   { return ERangeIterator(first, last, step) }
+    public count() ULong              { return (last - first + 1) / step }
+    public at(index : ULong) Opt<E>   { r := first + index * step; return ( r<=last ? r : NULL ) }
 }
 
-type ERangeSequencer<E derives Enumerable> mod derives ERange<E>, Sequencer<E> {
-    next : ~E
 
-    public func self( f : E, l : E, s : ULong ) { super.init(f, l, s); next = f }
+/** The typical 'int' and 'index' range type.
+ * Conceptually implements IndicableI.
+ * Empty range is expressed by last = 0, first = step
+ * Access beyond range returns last (0 for empty ranges)
+ */
+public type IRange /*derives IndicableI<Long> */ /*ERange<Long>*/ {
+    public first : Long
+    public last  : Long
+    public step  : Long
 
-    public func hasNext() Bool {
-        return next >= range.last
+    public self( f : Long, l : Long, s : Long ) { self.first = f; self.last = l; self.step = s }
+
+    public sequencer() ~IRangeIterator  { return IRangeIterator(self) }
+    public count() ULong                { return (self.last - self.first) / self.step + 1 }
+    public at(index : ULong) Long       { r := self.first + index * self.step; return ( r <= self.last ? r : self.last ) }
+}
+
+public type IRangeIterator mod /* derives IteratorI<Long> */ {
+    range : &IRange
+    next  : ~Long
+
+    public self( range : &IRange ) { self.range = range; self.next = range.first }
+
+    public hasNext() Bool  { return self.next <= self.range.last }
+    public ~next() Long  {
+        if self.next > self.range.last
+            return self.range.last
+        r := self.next;
+        self.next = self.next + self.range.step;
+        return r
     }
-    public func ~next() Opt<E> {
-        if next >= range.last
-            return NULL
-        r := next;
-        next = next.successor(range.step);
+    public hasPrev() Bool  { return self.next-self.range.step >= self.range.first }
+    public ~prev() Long  {
+        r := self.next - self.range.step;
+        if r < self.range.first
+            return self.range.first
+        self.next = r;
         return r
     }
 }
+
+/** The typical 'floating point' range type. Conceptually implements IndicableI. */
+public type DRange  /*derives ERange<Double>*/ {
+    public first : Double
+    public last  : Double
+    public step  : Double
+
+    public self( f : Double, l : Double, s : Double ) { self.first = f; self.last = l; self.step = s }
+
+    public sequencer() ~DRangeIterator  { return DRangeIterator(self) }
+    public count() ULong                { return ULong( (self.last - self.first) / self.step ) + 1 }  ## returns ULONG_MAX upon overflow
+    public at(index : ULong) Double     { r := self.first + index * self.step; return ( r <= self.last ? r : self.last ) }
+}
+
 
 
 /** Used in expressions like this:
     for i in nonIndexableSequence[3:5]
  */
-public type SubSequencer<E derives Ref> mod derives Sequencer<E> {
-    seq : ~Sequencer<E>
+public type SubSequencer<E derives Ref> mod derives SequencerI<E> {
+    seq : ~SequencerI<E>
     sub : &ERange<ULong>
 
-    public func self( s : &Sequenceable<E>, sub : &ERange<ULong> ) {
+    public self( s : &SequenceableI<E>, sub : &ERange<ULong> ) {
         self.seq = s.sequencer()
         self.sub = sub
         for i in 0:sub.start {
@@ -89,10 +157,10 @@ public type SubSequencer<E derives Ref> mod derives Sequencer<E> {
         }
     }
 
-    public func hasNext() Bool {
+    public hasNext() Bool {
         return self.seq.hasNext()
     }
-    public func ~next() Opt<E> {
+    public ~next() Opt<E> {
         r := self.seq.next()
         for i in 1:sub.step {
             if (! self.seq.hasNext())
@@ -105,19 +173,19 @@ public type SubSequencer<E derives Ref> mod derives Sequencer<E> {
 
 
 /** Used in expressions like this:
-    for i in indexableSequence[3:5]
+    for i in indicableSequence[3:5]
  */
-public type SubIndexable<E derives Ref> mod derives Indexable<E> {
-    ixa : &Indexable<E>
-    sub : &Indexable<ULong>
+public type SubIndicable<E derives Ref> mod derives IndicableI<E> {
+    ixa : &Indicable<E>
+    sub : &Indicable<ULong>
 
-    public func self( ixa : &Indexable<E>, sub : &Indexable<ULong> ) {
+    public self( ixa : &IndicableI<E>, sub : &IndicableI<ULong> ) {
         self.ixa = ixa
         self.sub = sub
     }
 
-    public func size() ULong               { return sub.size() }
-    public func at(index : ULong) Opt<E>   { if sub.at(index) is (ULong i) return ixa.at(i) else return NULL }
+    public count() ULong              { return sub.count() }
+    public at(index : ULong) Opt<E>   { if sub.at(index) is (ULong i) return ixa.at(i) else return NULL }
 
-    public func sequencer() ~Sequencer<E> { TODO }
+    public sequencer() ~SequencerI<E> { TODO }
 }
