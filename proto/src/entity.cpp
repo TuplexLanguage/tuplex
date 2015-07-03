@@ -15,6 +15,14 @@ const TxType* TxFieldDefiner::resolve_type(ResolutionContext& resCtx) {
 Logger& TxEntity::LOG = Logger::get("ENTITY");
 
 
+TxDriver* TxEntity::get_driver() const {
+    return (this->declaration ? &this->declaration->get_symbol()->get_root_scope()->driver() : nullptr);
+}
+const yy::location& TxEntity::get_parse_location() const {
+    return (this->declaration ? this->declaration->get_definer()->get_parse_location() : NULL_LOC);
+}
+
+
 const TxType* TxField::get_outer_type() const {
     auto typeDecl = this->get_outer_type_decl();
     ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_symbol()->get_outer());
@@ -22,7 +30,7 @@ const TxType* TxField::get_outer_type() const {
 }
 
 int TxField::get_storage_index() const {
-    switch (this->storage) {
+    switch (this->get_storage()) {
     case TXS_STATIC:
         return this->get_outer_type()->get_static_fields().get_field_index(this->get_unique_name());
     case TXS_VIRTUAL:
@@ -39,7 +47,7 @@ int TxField::get_storage_index() const {
 }
 
 int TxField::get_instance_field_index() const {
-    ASSERT(this->storage == TXS_INSTANCE, "Only fields of instance storage class have an instance field index: " << *this);
+    ASSERT(this->get_storage() == TXS_INSTANCE, "Only fields of instance storage class have an instance field index: " << *this);
     auto typeDecl = this->get_outer_type_decl();
     ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_symbol()->get_outer());
     auto type = typeDecl->get_definer()->get_type();  // assumes already resolved
@@ -47,12 +55,12 @@ int TxField::get_instance_field_index() const {
 }
 
 int TxField::get_virtual_field_index() const {
-    ASSERT(this->storage == TXS_VIRTUAL || this->storage == TXS_INSTANCEMETHOD,
+    ASSERT(this->get_storage() == TXS_VIRTUAL || this->get_storage() == TXS_INSTANCEMETHOD,
            "Only fields of static virtual storage class have an virtual field index: " << *this);
     auto typeDecl = this->get_outer_type_decl();
     ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_symbol()->get_outer());
     auto type = typeDecl->get_definer()->get_type();  // assumes already resolved
-    if (this->storage == TXS_VIRTUAL)
+    if (this->get_storage() == TXS_VIRTUAL)
         return type->get_virtual_fields().get_field_index(this->get_unique_name()) + type->get_instance_methods().get_field_count();
     else {
         ASSERT(! (this->get_decl_flags() & TXD_CONSTRUCTOR), "constructor does not have an instance method index: " << this);
@@ -61,7 +69,7 @@ int TxField::get_virtual_field_index() const {
 }
 
 int TxField::get_static_field_index() const {
-    ASSERT(this->storage == TXS_STATIC, "Only fields of static non-virtual storage class have a static field index: " << *this);
+    ASSERT(this->get_storage() == TXS_STATIC, "Only fields of static non-virtual storage class have a static field index: " << *this);
     auto typeDecl = this->get_outer_type_decl();
     ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_symbol()->get_outer());
     auto type = typeDecl->get_definer()->get_type();  // assumes already resolved

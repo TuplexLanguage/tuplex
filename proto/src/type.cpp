@@ -53,7 +53,7 @@ void TxTypeSpecialization::validate() const {
                 auto constraintType = p.get_constraint_type_definer()->resolve_type(resCtx);
                 auto boundType = b.type_definer().resolve_type(resCtx);
                 //std::cerr << this->type << ": Constraint type for param " << p.param_name() << ": " << "checking bound type " << boundType << "\tagainst constraint type " << constraintType << std::endl;
-                if (! boundType->is_a(*constraintType))
+                if (boundType && !boundType->is_a(*constraintType))
                     CERROR(boundType, "Bound type " << boundType->to_string() << " for type parameter " << p.to_string() << " is not a derivation of type " + constraintType->to_string());
                     // FIXME: can we move this check to where the binding is provided in the source text?
             }
@@ -100,8 +100,6 @@ bool TxType::validate() const {
 
 
 void TxType::prepare_type() {
-    ASSERT(!this->startedInit, "Recursive call to prepare_type() of " << *this);
-    this->startedInit = true;
     LOGGER().debug("Preparing type %s", this->to_string().c_str());
 
     // resolve all this type's parameters and bindings
@@ -166,14 +164,17 @@ void TxType::prepare_type() {
         for (auto fieldDecl = entitySym->fields_cbegin(); fieldDecl != entitySym->fields_cend(); fieldDecl++) {
             auto field = (*fieldDecl)->get_definer()->resolve_field(resCtx);
 
+            if ((*fieldDecl)->get_decl_flags() & TXD_ABSTRACT)
+                if (this->get_type_class() != TXTC_INTERFACE && !(this->get_declaration()->get_decl_flags() & TXD_ABSTRACT))
+                    CERROR(this, "Can't declare abstract member in type that is not declared abstract: " << field);
+
             if (field) {
-                // validate:
+                // validate type:
                 if (auto fieldType = field->get_type()) {
                     if (! fieldType->is_concrete()) {
                         CERROR(this, "Can't declare a field of non-concrete type: " << field << " " << fieldType);
                     }
                     else if (field->get_storage() == TXS_INSTANCE) {
-                        //std::cout << "Concrete INSTANCE field " << field << std::endl;
                         if (! fieldType->is_statically_sized()) {
                             CERROR(this, "Instance fields that don't have statically determined size not yet supported: " << field);
                         }
@@ -182,8 +183,7 @@ void TxType::prepare_type() {
                                 CERROR(this, "Can't declare instance member in non-tuple type: " << field);
                         }
                     }
-                    else {  // TXS_STATIC
-                        //std::cout << "Concrete STATIC field " << field << std::endl;
+                    else {  // static / virtual
                         if (! fieldType->is_statically_sized()) {
                             // since static fields are per generic base type, and not per specialization:
                             CERROR(this, "Static fields must have statically determined size: " << field);
@@ -195,6 +195,8 @@ void TxType::prepare_type() {
                 if (field->get_storage() == TXS_INSTANCE) {
                     LOGGER().debug("Laying out instance field %-40s  %s  %u", field->to_string().c_str(),
                                    field->get_type()->to_string(true).c_str(), this->instanceFields.get_field_count());
+                    if (field->get_decl_flags() & TXD_ABSTRACT)
+                        CERROR(this, "Can't declare an instance field as abstract: " << field);
                     this->instanceFields.add_field(field->get_unique_name(), field);
                     if (field->get_unique_name().find('#') == std::string::npos)
                         // FIXME: make VALUE type params be declared as instance members in generic base type,
@@ -218,7 +220,7 @@ void TxType::prepare_type() {
                     }
                     else {
                         if (field->get_decl_flags() & TXD_OVERRIDE)
-                            CWARNING(this, "Field doesn't override but is declared 'override': " << field->to_string());
+                            CWARNING(this, "Field doesn't override but is declared 'override': " << field);
                         this->instanceMethods.add_field(field->get_unique_name(), field);
                         this->modifiesVTable = true;
                     }
@@ -237,19 +239,25 @@ void TxType::prepare_type() {
                     }
                     else {
                         if (field->get_decl_flags() & TXD_OVERRIDE)
-                            CWARNING(this, "Field doesn't override but is declared 'override': " << field->to_string());
+                            CWARNING(this, "Field doesn't override but is declared 'override': " << field);
                         this->virtualFields.add_field(field->get_unique_name(), field);
                         this->modifiesVTable = true;
                     }
                 }
                 else {
                     ASSERT(field->get_storage() == TXS_STATIC, "Invalid storage class " << field->get_storage() << " for field member " << *field);
+                    if (field->get_decl_flags() & TXD_ABSTRACT)
+                        CERROR(this, "Can't declare a non-virtual field as abstract: " << field);
                     if (field->get_decl_flags() & TXD_OVERRIDE)
-                        CWARNING(this, "Field doesn't override but is declared 'override': " << field->to_string());
+                        CWARNING(this, "Field doesn't override but is declared 'override': " << field);
                     this->staticFields.add_field(field->get_unique_name(), field);
                 }
             }
         }
+    }
+
+    if (! (this->get_declaration()->get_decl_flags() & TXD_ABSTRACT)) {
+        // FIXME: check that all abstract members of base types & interfaces are implemented
     }
 }
 
@@ -383,15 +391,18 @@ bool TxType::operator==(const TxType& other) const {
 
 
 bool TxType::is_a(const TxType& other) const {
-    //std::cout << *this << "  IS-A\n" << other << std::endl;
+    //std::cerr << *this << "  IS-A\n" << other << std::endl;
+    if (other.get_type_class() == TXTC_INTERFACE)
+        return this->derives_interface(other);
+
     if (*this == other)
         return true;
 
     // by-pass anonymous, virtual specializations:
-    if (! this->get_explicit_declaration()) {
-        if (this->is_virtual_derivation())
-            return this->get_base_type()->is_a(other);
-    }
+//    if (! this->get_explicit_declaration()) {
+//        if (this->is_virtual_derivation())
+//            return this->get_base_type()->is_a(other);
+//    }
     if (! other.get_explicit_declaration()) {
         if (other.is_virtual_derivation())
             return this->is_a(*other.get_base_type());
@@ -434,7 +445,30 @@ bool TxType::inner_is_a(const TxType& other) const {
     if (this->has_base_type())
         if (this->get_base_type()->inner_is_a(other))
             return true;
-    // FUTURE: also check interfaces
+    return false;
+}
+
+bool TxType::derives_interface(const TxType& interface) const {
+    // check whether any parent type that this type specializes is-a of the other type:
+    //std::cerr << *this << "  DERIVES-INTERFACE\n" << interface << std::endl;
+    if (*this == interface)
+        return true;
+
+    // by-pass anonymous, empty specializations:
+    if (! interface.get_explicit_declaration()) {
+        if (interface.is_equivalent_derivation())
+            return this->derives_interface(*interface.get_base_type());
+    }
+
+    if (this->has_base_type()) {
+        if (this->get_base_type()->derives_interface(interface))
+            return true;
+        for (auto & interfSpec : this->interfaces) {
+            // TODO: This may not suffice - does not take modifiable, bindings, or dataspace of spec into account
+            if (interfSpec.type->derives_interface(interface))
+                return true;
+        }
+    }
     return false;
 }
 
@@ -632,11 +666,45 @@ const TxType* TxReferenceType::target_type() const {
     if (binding && binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
         ResolutionContext resCtx;
         ttype = binding->type_definer().resolve_type(resCtx);
-        LOGGER().debug("Resolved target type of (unnamed) reference type to %s", ttype->to_string().c_str());
+        if (ttype)
+            LOGGER().debug("Resolved target type of (unnamed) reference type to %s", ttype->to_string().c_str());
     }
     else {
         LOGGER().alert("Failed to resolve target type for (unnamed) reference type %s", this->to_string().c_str());
         ttype = this->get_root_any_type();  // we know the basic constraint type for ref target is Any
     }
     return ttype;
+}
+
+
+void TxInterfaceAdapterType::prepare_adapter() {
+    LOGGER().debug("preparing adapter for %s to interface %s", this->adaptedType->to_string().c_str(), this->get_base_type()->to_string().c_str());
+    // The virtual fields of the abstract base interface type are overridden to refer to
+    // the correspondingly named fields of the adapted type.
+
+    auto & adapteeInstanceMethods = this->adaptedType->get_instance_methods();
+    for (auto & f : this->instanceMethods.fieldMap) {
+        if (! adapteeInstanceMethods.has_field(f.first))
+            CERROR(this, "Adapted type " << this->adaptedType << " does not define instance method " << f.first << " of " << this->get_base_type());
+        else {
+            auto targetField = adapteeInstanceMethods.get_field(f.first);
+            // FIXME: verify that type matches
+            this->instanceMethods.override_field(f.first, targetField);
+        }
+    }
+
+    auto & adapteeVirtualFields = this->adaptedType->get_virtual_fields();
+    for (auto & f : this->virtualFields.fieldMap) {
+        if (f.first == "$adTypeId")
+            continue; // this field is not overridden to refer to an adaptee field (and it's initialized together with the vtable)
+        else if (! adapteeVirtualFields.has_field(f.first))
+            CERROR(this, "Adapted type " << this->adaptedType << " does not define virtual field " << f.first);
+        else {
+            auto targetField = adapteeVirtualFields.get_field(f.first);
+            // FIXME: verify that type matches
+            this->virtualFields.override_field(f.first, targetField);
+        }
+    }
+
+    this->modifiesVTable = true;
 }

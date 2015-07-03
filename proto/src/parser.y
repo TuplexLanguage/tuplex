@@ -76,16 +76,17 @@ YY_DECL;
 %token COLEQUAL PLUSEQUAL MINUSEQUAL ASTERISKEQUAL FSLASHEQUAL
 
 /* keywords: */
-%token KW_MODULE KW_IMPORT KW_PUBLIC KW_PROTECTED KW_STATIC KW_TYPE KW_CLASS KW_INTERFACE KW_ABSTRACT
-%token KW_FINAL KW_OVERRIDE KW_MODIFIABLE KW_REFERENCE KW_EXTENDS KW_IMPLEMENTS KW_DERIVES
+%token KW_MODULE KW_IMPORT KW_TYPE KW_INTERFACE
+%token KW_PUBLIC KW_PROTECTED KW_STATIC KW_ABSTRACT KW_FINAL KW_OVERRIDE
+%token KW_MODIFIABLE KW_REFERENCE KW_DERIVES
 %token KW_FUNC KW_TUPLE KW_UNION KW_ENUM
 %token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_OR
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
-%token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_FROM
+%token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE KW_FROM
 %token KW_NULL KW_TRUE KW_FALSE
 
 /* keywords reserved but not currently used */
-%token KW_AND KW_XOR KW_NOT KW_BUILTIN KW_LAMBDA
+%token KW_AND KW_XOR KW_NOT KW_BUILTIN KW_LAMBDA KW_CLASS KW_EXTENDS KW_IMPLEMENTS
 
  /* literals: */
 %token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
@@ -94,7 +95,7 @@ YY_DECL;
    The types refer to the %union declaration above.
  */
 %type <TxDeclarationFlags> declaration_flags
-%type <bool> opt_modifiable
+%type <bool> opt_modifiable type_or_if
 %type <TxIdentifier*> identifier
 
 %type <TxIdentifierNode*> compound_identifier
@@ -115,7 +116,7 @@ YY_DECL;
 %type <TxTypeArgumentNode *> type_arg
 %type <std::vector<TxTypeArgumentNode*> *> type_arg_list
 
-%type <TxFieldDefNode*> field_def field_type_def field_assignment_def method_def
+%type <TxFieldDefNode*> field_def field_type_def field_assignment_def method_def abstr_method_def
 %type <std::vector<TxFieldDefNode*> *> params_def field_type_list
 
 %type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression return_type_def
@@ -255,14 +256,16 @@ member_declaration
     : declaration_flags field_def sep  %prec STMT  { $$ = new TxFieldDeclNode(@1, $1, $2); }
 
     // type
-    | declaration_flags KW_TYPE NAME type_spec sep  %prec STMT
-            { $$ = new TxTypeDeclNode(@1, $1, $3, NULL, $4); }
-    | declaration_flags KW_TYPE NAME LT type_param_list GT type_spec sep  %prec STMT
-            { $$ = new TxTypeDeclNode(@1, $1, $3, $5, $7); }
+    | declaration_flags type_or_if NAME type_spec sep  %prec STMT
+            { $$ = new TxTypeDeclNode(@1, $1, $3, NULL, $4, $2); }
+    | declaration_flags type_or_if NAME LT type_param_list GT type_spec sep  %prec STMT
+            { $$ = new TxTypeDeclNode(@1, $1, $3, $5,   $7, $2); }
 
     // function / method
     |   declaration_flags method_def sep  %prec STMT
             { $$ = new TxFieldDeclNode(@1, $1, $2, true); }
+    |   declaration_flags abstr_method_def sep  %prec STMT
+            { $$ = new TxFieldDeclNode(@1, $1 | TXD_ABSTRACT, $2, true); }
 
     // error recovery
     |   error sep  %prec STMT  { $$ = NULL; }
@@ -283,7 +286,10 @@ declaration_flags
     | KW_FINAL                              { $$ = TXD_FINAL; }
     | KW_STATIC KW_FINAL                    { $$ = TXD_STATIC | TXD_FINAL; }
     ;
-
+    
+type_or_if : KW_TYPE        { $$ = false; }
+           | KW_INTERFACE   { $$ = true;  }
+           ;
 
 field_def : field_type_def { $$ = $1; } | field_assignment_def { $$ = $1; } ;
 
@@ -451,6 +457,12 @@ method_def  :   KW_FUNC NAME function_header sep suite
                 { $$ = new TxFieldDefNode(@1, $1, NULL, new TxLambdaExprNode(@1, $2, $4, true)); }
             ;
 
+abstr_method_def : KW_ABSTRACT KW_FUNC NAME function_header
+                    { $$ = new TxFieldDefNode(@3, $3, $4, NULL); }
+                 | KW_ABSTRACT NAME function_header
+                    { $$ = new TxFieldDefNode(@2, $2, $3, NULL); }
+                 ;
+
 
 
 //// (value) expressions:
@@ -552,10 +564,10 @@ non_cond_stmt
     ;
 
 // TODO: support declaration flags abstract, final, and maybe static
-type_decl_stmt  : KW_TYPE NAME type_spec
-                    { $$ = new TxTypeStmtNode(@1, $2, NULL, $3); }
-                | KW_TYPE NAME LT type_param_list GT type_spec
-                    { $$ = new TxTypeStmtNode(@1, $2, $4, $6); }
+type_decl_stmt  : type_or_if NAME type_spec
+                    { $$ = new TxTypeStmtNode(@1, $2, NULL, $3, $1); }
+                | type_or_if NAME LT type_param_list GT type_spec
+                    { $$ = new TxTypeStmtNode(@1, $2, $4,   $6, $1); }
                 ;
 
 else_clause     : KW_ELSE opt_sep statement     { $$ = new TxElseClauseNode(@1, $3); } ;

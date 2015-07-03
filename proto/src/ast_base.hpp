@@ -749,24 +749,7 @@ public:
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override;
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        this->field->symbol_resolution_pass(six, resCtx);
-
-        if (auto type = this->field->get_type(six)) {
-            auto storage = this->field->get_declaration(six)->get_storage();
-            if (type->is_modifiable()) {
-                if (storage == TXS_GLOBAL)
-                    CERROR(this, "Global fields may not be modifiable: " << field->get_source_field_name().c_str());
-            }
-            else if (! this->field->initExpression) {
-                if (storage == TXS_GLOBAL || storage == TXS_STATIC)
-                    if (! (this->field->get_declaration(six)->get_decl_flags() & TXD_GENPARAM))
-                        CERROR(this, "Non-modifiable field must have an initializer");
-                // FUTURE: ensure TXS_INSTANCE fields are initialized either here or in every constructor
-                // FUTURE: check that TXS_STACK fields are initialized before first use
-            }
-        }
-    }
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override;
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
@@ -780,14 +763,15 @@ public:
 class TxTypeDeclNode : public TxDeclarationNode {
 public:
     const std::string typeName;
+    const bool interfaceKW;
     const std::vector<TxDeclarationNode*>* typeParamDecls;
     TxTypeExpressionNode* typeExpression;
 
     TxTypeDeclNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags,
                    const std::string typeName, const std::vector<TxDeclarationNode*>* typeParamDecls,
-                   TxTypeExpressionNode* typeExpression)
+                   TxTypeExpressionNode* typeExpression, bool interfaceKW=false)
         : TxDeclarationNode(parseLocation, declFlags),
-          typeName(typeName), typeParamDecls(typeParamDecls), typeExpression(typeExpression) {
+          typeName(typeName), interfaceKW(interfaceKW), typeParamDecls(typeParamDecls), typeExpression(typeExpression) {
         validateTypeName(this, declFlags, typeName);
     }
 

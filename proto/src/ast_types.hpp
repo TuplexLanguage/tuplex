@@ -327,18 +327,36 @@ protected:
     virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         auto declaration = this->get_declaration(six);
         ASSERT(declaration, "No declaration for derived type " << *this);
-        // FUTURE: support interfaces
-        const TxType* baseObjType = this->baseTypes->empty() ? this->types().get_builtin_type(TUPLE)
-                                                             : this->baseTypes->at(0)->resolve_type(six, resCtx);
-        if (! baseObjType)
-            return nullptr;
-//        const TxType* genericBaseType = this->baseTypes->empty() ? this->types().get_builtin_type(TUPLE)
-//                                                                 : this->baseTypes->at(0)->resolve_type(0, resCtx);
-        TxTypeSpecialization specialization(baseObjType, std::vector<TxGenericBinding>());
+
         // Note: Does not specify explicit type parameter bindings; any unbound type parameters
         //       of the base types are expected to match the declared type params.  FIXME: review
+        auto bindings = std::vector<TxGenericBinding>();
+
+        const TxType* baseObjType = nullptr;
+        std::vector<TxTypeSpecialization> interfaces;
+        if (this->baseTypes->empty())
+            baseObjType = this->types().get_builtin_type(TUPLE);
+        else {
+            interfaces.reserve(this->baseTypes->size()-1);
+            for (size_t i = 0; i < this->baseTypes->size(); i++) {
+                if (auto baseType = this->baseTypes->at(i)->resolve_type(six, resCtx)) {
+                    if (i == 0) {
+                        baseObjType = baseType;
+                    }
+                    else {
+                        if (baseType->get_type_class() != TXTC_INTERFACE)
+                                CERROR(this, "Only the first derived-from type can be a non-interface type: " << baseType);
+                        interfaces.emplace_back(baseType, bindings);
+                    }
+                }
+                else
+                    return nullptr;
+            }
+        }
+
+        TxTypeSpecialization specialization(baseObjType, bindings);
         auto declTypeParams = makeDeclTypeParams(six);
-        auto type = this->types().get_type_specialization(declaration, specialization, declTypeParams, this->_mutable);
+        auto type = this->types().get_type_specialization(declaration, specialization, interfaces, declTypeParams, this->_mutable);
         return type;
     }
 

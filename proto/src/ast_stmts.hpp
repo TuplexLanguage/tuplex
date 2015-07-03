@@ -20,6 +20,10 @@ public:
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         this->field->symbol_resolution_pass(six, resCtx);
+        if (! field->initExpression) {
+            // TODO: instead check that TXS_STACK fields are initialized before first use
+            //CWARNING(this, "Local field without initializer: " << this->field->get_source_field_name());
+        }
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -30,10 +34,13 @@ class TxTypeStmtNode : public TxStatementNode {
 public:
     TxTypeDeclNode* const typeDecl;
 
+    TxTypeStmtNode(const yy::location& parseLocation, TxTypeDeclNode* typeDecl)
+        : TxStatementNode(parseLocation), typeDecl(typeDecl) { }
+
     TxTypeStmtNode(const yy::location& parseLocation, const std::string typeName,
-                   const std::vector<TxDeclarationNode*>* typeParamDecls, TxTypeExpressionNode* typeExpression)
-        : TxStatementNode(parseLocation),
-          typeDecl(new TxTypeDeclNode(parseLocation, TXD_NONE, typeName, typeParamDecls, typeExpression))
+                   const std::vector<TxDeclarationNode*>* typeParamDecls, TxTypeExpressionNode* typeExpression, bool interfaceKW=false)
+        : TxTypeStmtNode(parseLocation,
+                         new TxTypeDeclNode(parseLocation, TXD_NONE, typeName, typeParamDecls, typeExpression, interfaceKW))
     { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {

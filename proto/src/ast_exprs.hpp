@@ -20,19 +20,19 @@ protected:
     virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         // FIXME: type equality logic
         //auto type = expr->resolve_type(six, resCtx);
-        //ASSERT(type && (*type) == (*this->targetType), "Mismatching types in " << this << ": \n" << type << " != \n" << this->targetType);
-        return this->targetType;
+        //ASSERT(type && (*type) == (*this->resultType), "Mismatching types in " << this << ": \n" << type << " != \n" << this->resultType);
+        return this->resultType;
     }
 public:
     TxExpressionNode* expr;
-    TxType const * const targetType;
+    TxType const * const resultType;
 
-    TxConversionNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* targetType)
-            : TxExpressionNode(parseLocation), expr(expr), targetType(targetType) {
-        ASSERT(targetType, "NULL targetType");
+    TxConversionNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* resultType)
+            : TxExpressionNode(parseLocation), expr(expr), resultType(resultType) {
+        ASSERT(resultType, "NULL resultType");
     }
 
-    virtual bool has_predefined_type() const override { return this->targetType->get_symbol(); }
+    virtual bool has_predefined_type() const override { return this->resultType->get_symbol(); }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);
@@ -64,15 +64,15 @@ class TxScalarConvNode : public TxConversionNode {
         }
 
         inline const TxConstantProxy* original_constant() const { return this->originalConstant; }
-        virtual const TxType* get_type() const override { return this->convNode->targetType; }
+        virtual const TxType* get_type() const override { return this->convNode->resultType; }
         virtual uint32_t get_value_UInt() const override { return this->originalConstant->get_value_UInt(); }
         virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
     };
 
     ScalarConvConstantProxy constProxy;
 public:
-    TxScalarConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxScalarType* targetType)
-        : TxConversionNode(parseLocation, expr, targetType), constProxy()  { }
+    TxScalarConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxScalarType* resultType)
+        : TxConversionNode(parseLocation, expr, resultType), constProxy()  { }
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         TxConversionNode::symbol_resolution_pass(six, resCtx);
@@ -89,23 +89,42 @@ public:
 
 class TxBoolConvNode : public TxConversionNode {
 public:
-    TxBoolConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxBoolType* targetType)
-        : TxConversionNode(parseLocation, expr, targetType) { }
+    TxBoolConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxBoolType* resultType)
+        : TxConversionNode(parseLocation, expr, resultType) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxReferenceConvNode : public TxConversionNode {
+protected:
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        auto resultTargetType = static_cast<const TxReferenceType*>(this->resultType)->target_type();
+        if (resultTargetType && resultTargetType->get_type_class() == TXTC_INTERFACE) {
+            // create / retrieve interface adapter type
+            //std::cerr << "Converting reference to interface -> reference to adapter for " << resultTargetType << std::endl;
+            auto origType = static_cast<const TxReferenceType*>(this->expr->resolve_type(six, resCtx));
+            auto adapterType = this->types().get_interface_adapter(resultTargetType, origType->target_type());
+
+            // create reference type to the adapter type  TODO: delegate this to TypeRegistry
+            auto implTypeName = this->context(six).scope()->make_unique_name("$type");
+            auto typeDecl = this->context(six).scope()->declare_type(implTypeName, this->get_type_definer(six), TXD_PUBLIC | TXD_IMPLICIT);
+            auto adapterDefiner = new TxTypeWrapperDef(adapterType);
+            return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", adapterDefiner));
+        }
+        else
+            return TxConversionNode::define_type(six, resCtx);
+    }
+
 public:
-    TxReferenceConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxReferenceType* targetType)
-        : TxConversionNode(parseLocation, expr, targetType) { }
+    TxReferenceConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxReferenceType* resultType)
+        : TxConversionNode(parseLocation, expr, resultType) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 /** Casts (not converts) between object specializations (across type parameters and inheritance). */
 class TxObjSpecCastNode : public TxConversionNode {
 public:
-    TxObjSpecCastNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* targetType)
-        : TxConversionNode(parseLocation, expr, targetType) { }
+    TxObjSpecCastNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* resultType)
+        : TxConversionNode(parseLocation, expr, resultType) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 

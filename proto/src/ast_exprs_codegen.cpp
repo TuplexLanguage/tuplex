@@ -245,7 +245,7 @@ Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* 
     Value* ptrV = gen_get_ref_pointer(context, scope, this->refExprValue);
 
     auto targT = ptrV->getType()->getPointerElementType();
-    //std::cout << "Line " << this->parseLocation.first_line << ": Dereferencing: " << refval << " of pointer element type: "<< elemType << std::endl;
+    //std::cerr << this->parseLocation << ": Dereferencing: " << ptrV << " of pointer element type: "<< targT << std::endl;
     if (targT->isSingleValueType()) {  // can be loaded in register
         if (scope)
             return scope->builder->CreateLoad(ptrV);
@@ -422,33 +422,33 @@ Value* TxDerefAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* s
 
 
 Value* TxBoolConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->targetType->to_string().c_str());
+    context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->resultType->to_string().c_str());
     auto origValue = this->expr->code_gen(context, scope);
     if (! origValue)
         return NULL;
     auto targetLlvmType = Type::getInt1Ty(context.llvmContext);
     // current implementation accepts most (all?) scalar types and converts to bool: 0 => FALSE, otherwise => TRUE
     Instruction::CastOps cop = CastInst::getCastOpcode(origValue, false, targetLlvmType, false);
-    ASSERT(cop, "No CastOps code found for cast from " << this->expr->get_type(0) << " to " << this->targetType);
+    ASSERT(cop, "No CastOps code found for cast from " << this->expr->get_type(0) << " to " << this->resultType);
     if (!scope) {
         ASSERT(this->is_statically_constant(), "Non-statically-constant expression in global scope: " << this);
-        context.LOG.debug("non-local scope cast -> %s", this->targetType->to_string().c_str());
+        context.LOG.debug("non-local scope cast -> %s", this->resultType->to_string().c_str());
         return ConstantExpr::getCast(cop, cast<Constant>(origValue), targetLlvmType);
     }
     else {
-        context.LOG.debug("local scope cast -> %s", this->targetType->to_string().c_str());
+        context.LOG.debug("local scope cast -> %s", this->resultType->to_string().c_str());
         return scope->builder->CreateCast(cop, origValue, targetLlvmType, "");
     }
 }
 
 Value* TxScalarConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->targetType->to_string().c_str());
+    context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->resultType->to_string().c_str());
     auto origValue = this->expr->code_gen(context, scope);
     if (! origValue)
         return NULL;
-    auto targetLlvmType = context.get_llvm_type(this->targetType);
+    auto targetLlvmType = context.get_llvm_type(this->resultType);
     if (! targetLlvmType) {
-        context.LOG.error("In scalar cast, no target LLVM type found for %s", this->targetType->to_string().c_str());
+        context.LOG.error("In scalar cast, no target LLVM type found for %s", this->resultType->to_string().c_str());
         return origValue;  // should we return null instead?
     }
     // FUTURE: manually determine cast instruction
@@ -456,18 +456,18 @@ Value* TxScalarConvNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     if (auto intType = dynamic_cast<const TxIntegerType*>(this->expr->get_type(0)))
         if (intType->sign)
             srcSigned = true;
-    if (auto intType = dynamic_cast<const TxIntegerType*>(this->targetType))
+    if (auto intType = dynamic_cast<const TxIntegerType*>(this->resultType))
         if (intType->sign)
             dstSigned = true;
     Instruction::CastOps cop = CastInst::getCastOpcode(origValue, srcSigned, targetLlvmType, dstSigned);
-    ASSERT(cop, "No CastOps code found for cast from " << this->expr->get_type(0) << " to " << this->targetType);
+    ASSERT(cop, "No CastOps code found for cast from " << this->expr->get_type(0) << " to " << this->resultType);
     if (!scope) {
         ASSERT(this->is_statically_constant(), "Non-statically-constant expression in global scope: " << this);
-        context.LOG.debug("non-local scope cast -> %s", this->targetType->to_string().c_str());
+        context.LOG.debug("non-local scope cast -> %s", this->resultType->to_string().c_str());
         return ConstantExpr::getCast(cop, cast<Constant>(origValue), targetLlvmType);
     }
     else {
-        context.LOG.debug("local scope cast -> %s", this->targetType->to_string().c_str());
+        context.LOG.debug("local scope cast -> %s", this->resultType->to_string().c_str());
         return scope->builder->CreateCast(cop, origValue, targetLlvmType, "");
     }
 /* for reference, copied from Instruction.def:
@@ -489,7 +489,7 @@ HANDLE_CAST_INST(45, AddrSpaceCast, AddrSpaceCastInst)  // addrspace cast
 
 
 Constant* TxScalarConvNode::ScalarConvConstantProxy::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s -> %s", typeid(*this).name(), this->convNode->targetType->to_string().c_str());
+    context.LOG.trace("%-48s -> %s", typeid(*this).name(), this->convNode->resultType->to_string().c_str());
     auto value = this->convNode->code_gen(context, scope);
     if (auto constant = dyn_cast<Constant>(value))
         return constant;
@@ -499,19 +499,24 @@ Constant* TxScalarConvNode::ScalarConvConstantProxy::code_gen(LlvmGenerationCont
 
 
 Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->targetType->to_string().c_str());
+    context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->resultType->to_string().c_str());
     auto origValue = this->expr->code_gen(context, scope);
     if (! origValue)
         return NULL;
 
     // from another reference:
     if (dynamic_cast<const TxReferenceType*>(this->expr->get_type(0))) {
-        auto targetRefT = context.get_llvm_type(this->targetType);
-        if (! targetRefT) {
-            context.LOG.error("In reference conversion, no target LLVM type found for %s", this->targetType->to_string().c_str());
+//        auto refTargetType = static_cast<const TxReferenceType*>(this->resultType)->target_type();
+//        if (refTargetType->get_type_class() == TXTC_INTERFACE) {
+//            std::cerr << "Ref conversion from " << this->expr->get_type(0) << "  to Ref to  " << refTargetType << std::endl;
+//        }
+        auto refT = context.get_llvm_type(this->resultType);
+        if (! refT) {
+            context.LOG.error("In reference conversion, LLVM type not found for result type %s", this->resultType->to_string().c_str());
             return origValue;  // should we return null instead?
         }
-        return TxReferenceType::gen_ref_conversion(context, scope, origValue, targetRefT);
+        //std::cerr << "Ref conversion from " << this->expr->get_type(0) << "  to Ref to  " << refTargetType << " = " << refT << std::endl;
+        return TxReferenceType::gen_ref_conversion(context, scope, origValue, refT);
     }
 //    // from array:
 //    else if (dynamic_cast<const TxArrayType*>(this->expr->get_type(0))) {
@@ -535,7 +540,7 @@ Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* s
 
 
 Value* TxObjSpecCastNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->targetType->to_string().c_str());
+    context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->resultType->to_string().c_str());
     // this is a semantic conversion; it doesn't actually do anything
     return this->expr->code_gen(context, scope);
 }

@@ -54,6 +54,8 @@ enum TxTypeClass {
     TXTC_RANGE,
     /** The Enum types. */
     TXTC_ENUM,
+    /** The internal, implicit interface adapter types. */
+    TXTC_INTERFACEADAPTER,
 };
 
 
@@ -68,7 +70,7 @@ public:
 
     /** Adds a field to this tuple. If the field name already exists, it will be shadowed by the new field. */
     void add_field(const std::string& name, const TxField* field) {
-        //std::cout << "Adding field " << name << " at index " << this->fields.size() << ": " << field << std::endl;
+        //std::cerr << "Adding field " << name << " at index " << this->fields.size() << ": " << field << std::endl;
         this->fieldMap[name] = this->fields.size();  // (inserts new or overwrites existing entry)
         this->fields.push_back(field);
     }
@@ -76,8 +78,7 @@ public:
     /** Overrides an existing field name of this tuple with a new field definition. */
     void override_field(const std::string& name, const TxField* field) {
         auto index = this->fieldMap.at(name);
-        //std::cout << "Overriding field " << name << " at index " << index << ": " << field << std::endl;
-        this->fieldMap[name] = index;  // (overwrites existing entry)
+        //std::cerr << "Overriding field " << name << " at index " << index << ": " << field << std::endl;
         this->fields[index] = field;
     }
 
@@ -85,14 +86,18 @@ public:
 
     inline uint32_t get_field_index(const std::string& name) const {
         if (!this->fieldMap.count(name))
-            std::cout << "can't find field " << name << std::endl;
+            std::cerr << "can't find field " << name << std::endl;
         return this->fieldMap.at(name);
     }
 
     inline const TxField* get_field(const std::string& name) const {
         if (!this->fieldMap.count(name))
-            std::cout << "can't find field " << name << std::endl;
+            std::cerr << "can't find field " << name << std::endl;
         return this->fields.at(this->fieldMap.at(name));
+    }
+
+    inline const TxField* get_field(uint32_t ix) const {
+        return this->fields.at(ix);
     }
 
     inline uint32_t get_field_count() const { return this->fields.size(); }
@@ -207,47 +212,47 @@ class TxType : public TxEntity {
     const std::vector<TxTypeParam> typeParams;
 
     const TxTypeSpecialization baseTypeSpec;  // including bindings for all type parameters of base type
-    const std::vector<TxTypeSpecialization> interfaces;  // FUTURE
+    const std::vector<TxTypeSpecialization> interfaces;
 
     /** Set for non-generic specializations of a generic base type.
      * This also implies a pure specialization, even if extendsParentDatatype technically is true. */
     const TxType* genericBaseType = nullptr;
 
+    /** Prepares / initializes this type, including laying out its data. Called from constructor. */
+    void prepare_type();
+
+protected:
     // data layout:
     bool extendsInstanceDatatype = false;
     bool modifiesVTable = false;
-    bool startedInit = false;
     DataTupleDefinition staticFields;
     DataTupleDefinition virtualFields;
     DataTupleDefinition instanceMethods;
     DataTupleDefinition instanceFields;
 
-    /** Prepares / initializes this type, including laying out its data. Called from constructor. */
-    void prepare_type();
-
-protected:
     /** Only to be used for Any type. */
     TxType(TxTypeClass typeClass, const TxTypeDeclaration* declaration)
             : TxEntity(declaration), typeClass(typeClass), builtin(declaration && (declaration->get_decl_flags() & TXD_BUILTIN)),
-              typeParams(), baseTypeSpec()  {
+              typeParams(), baseTypeSpec(), interfaces()  {
         this->prepare_type();
     }
 
     TxType(TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+           const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
            const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
             : TxEntity(declaration), typeClass(typeClass), builtin(declaration && (declaration->get_decl_flags() & TXD_BUILTIN)),
-              typeParams(typeParams), baseTypeSpec(baseTypeSpec) {
+              typeParams(typeParams), baseTypeSpec(baseTypeSpec), interfaces(interfaces) {
         this->prepare_type();
     }
 
     /** Creates a specialization of this type. To be used by the type registry. */
     virtual TxType* make_specialized_type(const TxTypeDeclaration* declaration,
                                           const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
-                                          const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>(),
-                                          std::string* errorMsg=nullptr) const = 0;
+                                          const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
+                                          const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>()) const = 0;
 
     /** Returns true if this type can implicitly convert from the provided type.
-     * Internal, base-type-specific implementation. */
+     * Internal, type-class-specific implementation. */
     virtual bool innerAutoConvertsFrom(const TxType& someType) const { return false; }
 
     friend class TypeRegistry;  // allows access for registry's type construction
@@ -376,7 +381,7 @@ public:
 
     /** Returns true if this type is a virtual derivation of a base type,
      * i.e. is effectively the same *instance data type* as the base type.
-     * Added instance members and bound non-ref type parameters cause this to return false;
+     * Added instance fields and bound non-ref type parameters cause this to return false;
      * modifiability, added interfaces, added virtual members do not.
      * (Returns false for Any which has no base type.)
      */
@@ -484,28 +489,24 @@ public:
 
 private:
     bool inner_is_a(const TxType& other) const;
-
+    bool derives_interface(const TxType& interface) const;
 
 public:
     /*--- data layout ---*/
 
     const DataTupleDefinition& get_instance_fields() const {
-        ASSERT(this->startedInit, "Data not laid out in " << this);
         return this->instanceFields;
     }
 
     const DataTupleDefinition& get_instance_methods() const {
-        ASSERT(this->startedInit, "Data not laid out in " << this);
         return this->instanceMethods;
     }
 
     const DataTupleDefinition& get_virtual_fields() const {
-        ASSERT(this->startedInit, "Data not laid out in " << this);
         return this->virtualFields;
     }
 
     const DataTupleDefinition& get_static_fields() const {
-        ASSERT(this->startedInit, "Data not laid out in " << this);
         return this->staticFields;
     }
 
@@ -532,7 +533,9 @@ public:
     }
     virtual std::string to_string(bool brief, bool skipFirstName=false) const final {
         std::stringstream str;
-        if (this->is_abstract())
+        if (this->get_type_class() == TXTC_INTERFACE)
+            str << "i/f ";
+        else if (this->is_abstract())
             str << "ABSTRACT ";
         if (this->is_immutable())
             str << "IMMUTABLE ";

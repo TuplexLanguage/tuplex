@@ -26,12 +26,8 @@ protected:
     inline Logger& LOGGER() const { return this->LOG; }
 
 public:
-    virtual TxDriver* get_driver() const override {
-        return (this->declaration ? this->declaration->get_definer()->get_driver() : nullptr);
-    }
-    virtual const yy::location& get_parse_location() const override {
-        return (this->declaration ? this->declaration->get_definer()->get_parse_location() : NULL_LOC);
-    }
+    virtual TxDriver* get_driver() const override;
+    virtual const yy::location& get_parse_location() const override;
 
     virtual inline const TxEntityDeclaration* get_declaration() const { return this->declaration; }
 
@@ -51,17 +47,6 @@ public:
 /** Represents a field definition. */
 class TxField : public TxEntity {
     const TxType* type;
-    const TxFieldStorage storage;
-
-    static inline TxFieldStorage determine_storage(TxFieldStorage storage, TxDeclarationFlags declFlags) {
-        if ( storage == TXS_STATIC
-             && ( declFlags & (TXD_PUBLIC | TXD_PROTECTED) )  // private fields are non-virtual
-             // if final but doesn't override, its effectively non-virtual:
-             && ( ( declFlags & (TXD_OVERRIDE | TXD_FINAL)) != TXD_FINAL ) )
-            return TXS_VIRTUAL;
-        else
-            return storage;
-    }
 
     const TxTypeDeclaration* get_outer_type_decl() const {
         if (auto outerEntity = dynamic_cast<TxEntitySymbol*>(get_symbol()->get_outer()))
@@ -73,8 +58,7 @@ class TxField : public TxEntity {
 
 public:
     TxField(const TxFieldDeclaration* declaration, const TxType* type)
-            : TxEntity(declaration), type(type),
-              storage(determine_storage(declaration->get_storage(), declaration->get_decl_flags())) {
+            : TxEntity(declaration), type(type) {
         ASSERT(declaration, "Fields must be named (have non-null declaration)");
     }
 
@@ -82,7 +66,7 @@ public:
         return static_cast<const TxFieldDeclaration*>(TxEntity::get_declaration());
     }
 
-    inline TxFieldStorage get_storage() const { return this->storage; }
+    inline TxFieldStorage get_storage() const { return this->get_declaration()->get_storage(); }
 
     inline const TxType* get_type() const { return this->type; }
 

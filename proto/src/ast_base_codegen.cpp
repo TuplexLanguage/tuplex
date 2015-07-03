@@ -96,18 +96,19 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     context.LOG.trace("%-48s", this->to_string().c_str());
     if (this->field->typeExpression)
         this->field->typeExpression->code_gen(context, scope);
-    auto uniqueName = this->field->get_declaration(0)->get_unique_full_name();
+    auto fieldDecl = this->field->get_declaration(0);
+    auto uniqueName = fieldDecl->get_unique_full_name();
     auto txType = this->field->get_type(0);
     Type* llvmType = context.get_llvm_type(txType);
 
     Value* fieldVal = nullptr;
-    switch (this->field->get_declaration(0)->get_storage()) {
+    switch (fieldDecl->get_storage()) {
     case TXS_NOSTORAGE:
         context.LOG.error("TXS_NOSTORAGE specified for field: %s", uniqueName.c_str());
         break;
 
     case TXS_INSTANCEMETHOD:
-        {
+        if (! (fieldDecl->get_decl_flags() & TXD_ABSTRACT)) {
             ASSERT(this->field->initExpression, "instance method does not have an initializer/definition: " << uniqueName.c_str());
             auto initLambdaV = cast<ConstantStruct>(this->field->initExpression->code_gen(context, scope));
             auto funcPtrV = initLambdaV->getAggregateElement((unsigned)0);
@@ -123,16 +124,15 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
 
     case TXS_VIRTUAL:
     case TXS_STATIC:
-        if (! txType->is_modifiable()) {
+        if (! (fieldDecl->get_decl_flags() & TXD_ABSTRACT)) {
+            //if (txType->is_modifiable())
+            //    context.LOG.error("modifiable TXS_STATIC fields not yet implemented: %s", uniqueName.c_str());
             if (this->field->initExpression && !this->field->initExpression->is_statically_constant()) {
                 auto lvl = Level::ALERT; //( entity->is_generic_param_binding() ? Level::DEBUG : Level::WARN );
                 context.LOG.log(lvl, "Skipping codegen for global/static constant field %s whose initializer is not a constant expression", uniqueName.c_str());
             }
             else
                 fieldVal = make_constant_nonlocal_field(context, scope, this->field, llvmType);
-        }
-        else {
-            context.LOG.error("modifiable TXS_STATIC fields not yet implemented: %s", uniqueName.c_str());
         }
         break;
 

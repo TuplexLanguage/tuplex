@@ -6,8 +6,8 @@
 class TxBoolType : public TxType {
 protected:
     virtual TxBoolType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                              const std::vector<TxTypeParam>& typeParams,
-                                              std::string* errorMsg=nullptr) const override {
+                                              const std::vector<TxTypeSpecialization>& interfaces,
+                                              const std::vector<TxTypeParam>& typeParams) const override {
         ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
         if (dynamic_cast<const TxBoolType*>(baseTypeSpec.type))
             return new TxBoolType(declaration, baseTypeSpec);
@@ -43,8 +43,8 @@ protected:
     const uint64_t _size;
 
     virtual TxScalarType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                const std::vector<TxTypeParam>& typeParams,
-                                                std::string* errorMsg=nullptr) const override {
+                                                const std::vector<TxTypeSpecialization>& interfaces,
+                                                const std::vector<TxTypeParam>& typeParams) const override {
         throw std::logic_error("Can't specialize type " + this->to_string());
     };
 
@@ -62,8 +62,8 @@ public:
 class TxIntegerType final : public TxScalarType {
 protected:
     virtual TxIntegerType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                 const std::vector<TxTypeParam>& typeParams,
-                                                 std::string* errorMsg=nullptr) const override {
+                                                 const std::vector<TxTypeSpecialization>& interfaces,
+                                                 const std::vector<TxTypeParam>& typeParams) const override {
         ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
         if (const TxIntegerType* intType = dynamic_cast<const TxIntegerType*>(baseTypeSpec.type))
             return new TxIntegerType(declaration, baseTypeSpec, intType->size(), intType->sign);
@@ -102,8 +102,8 @@ public:
 class TxFloatingType final : public TxScalarType {
 protected:
     virtual TxFloatingType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                  const std::vector<TxTypeParam>& typeParams,
-                                                  std::string* errorMsg=nullptr) const override {
+                                                  const std::vector<TxTypeSpecialization>& interfaces,
+                                                  const std::vector<TxTypeParam>& typeParams) const override {
         ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
         if (const TxFloatingType* floatType = dynamic_cast<const TxFloatingType*>(baseTypeSpec.type))
             return new TxFloatingType(declaration, baseTypeSpec, floatType->size());

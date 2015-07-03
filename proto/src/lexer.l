@@ -162,6 +162,7 @@ extern "C" int yywrap() { return 0; }
 "finally"	{ return token::KW_FINALLY; }
 "raise"		{ return token::KW_RAISE; }
 "new"		{ return token::KW_NEW; }
+"delete"    { return token::KW_DELETE; }
 "from"		{ return token::KW_FROM; }
 "or"		{ return token::KW_OR; }
 "and"		{ return token::KW_AND; }  // reserved but not currently used

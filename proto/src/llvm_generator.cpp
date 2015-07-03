@@ -398,29 +398,50 @@ void LlvmGenerationContext::generate_runtime_data() {
         if (auto entity = txType->get_symbol()) {
             std::string vtableName(entity->get_full_name().to_string() + "$vtable");
             if (auto vtableV = dyn_cast<GlobalVariable>(this->lookup_llvm_value(vtableName))) {
-                this->LOG.trace("Populating vtable initializer for %s", vtableName.c_str());
+                this->LOG.debug("Populating vtable initializer for %s", vtableName.c_str());
                 std::vector<Constant*> initMembers;
                 auto instanceMethods = txType->get_instance_methods();
                 auto virtualFields   = txType->get_virtual_fields();
                 initMembers.resize(instanceMethods.get_field_count() + virtualFields.get_field_count());
                 for (auto & field : instanceMethods.fieldMap) {
-                    auto actualFieldEnt = instanceMethods.fields.at(field.second);
-                    //std::cout << "inserting instance method: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
-                    auto funcName = actualFieldEnt->get_declaration()->get_unique_full_name() + "$func";
-                    auto llvmField = cast<Constant>(this->lookup_llvm_value(funcName));
+                    auto actualFieldEnt = instanceMethods.get_field(field.second);
+                    Constant* llvmField;
+                    if (actualFieldEnt->get_decl_flags() & TXD_ABSTRACT) {
+                        //std::cerr << "inserting NULL for abstract method: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
+                        auto closureType = this->get_llvm_type(actualFieldEnt->get_type());
+                        auto funcPtrType = closureType->getStructElementType(0);
+                        llvmField = Constant::getNullValue(funcPtrType);
+                    }
+                    else {
+                        //std::cerr << "inserting instance method: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
+                        auto funcName = actualFieldEnt->get_declaration()->get_unique_full_name() + "$func";
+                        llvmField = cast<Constant>(this->lookup_llvm_value(funcName));
+                    }
                     auto ix = field.second;
                     initMembers[ix] = llvmField;
                 }
                 for (auto & field : virtualFields.fieldMap) {
-                    auto actualFieldEnt = virtualFields.fields.at(field.second);
-                    //std::cout << "inserting virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
-                    auto fieldName = actualFieldEnt->get_declaration()->get_unique_full_name();
+                    auto actualFieldEnt = virtualFields.get_field(field.second);
+                    //Constant* llvmField;
+                    std::string fieldName;
+                    if (field.first == "$adTypeId") {
+                        auto adapterType = static_cast<const TxInterfaceAdapterType*>(txType);
+                        fieldName = adapterType->adapted_type()->get_declaration()->get_unique_full_name() + ".$typeid";
+//                        auto adTypeId = adapterType->adapted_type()->get_type_id();
+//                        llvmField = ConstantInt::get(Type::getInt32Ty(this->llvmContext), adTypeId);
+//                        std::cerr << "inserting $adTypeId = " << adTypeId << std::endl;
+                    }
+                    else {
+                        std::cerr << "inserting virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
+                        fieldName = actualFieldEnt->get_declaration()->get_unique_full_name();
+                    }
                     auto llvmField = cast<Constant>(this->lookup_llvm_value(fieldName));
                     auto ix = field.second + instanceMethods.get_field_count();
                     initMembers[ix] = llvmField;
                 }
                 Constant* initializer = ConstantStruct::getAnon(this->llvmContext, initMembers);
                 vtableV->setInitializer(initializer);
+                //std::cerr << "initializing " << vtableV << " with " << initializer << std::endl;
             }
             else
                 this->LOG.error("No vtable found for %s", vtableName.c_str());

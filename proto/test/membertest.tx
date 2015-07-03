@@ -6,12 +6,12 @@ type CompoundType mod derives Tuple {
     field1 : ~Float
     field2 : ~Long
     protected field3 : [20]Int
-    public field4 := c"abra"
+    ##public field4 := c"abra" ## not yet supported
     field5 : ~InnerCompType
     field6 : ~&~InnerCompType
     type InnerCompType mod derives Tuple {
         static PI := 3.14
-        ~blaha := 0.1
+        blaha : ~Float
     }
 }
 

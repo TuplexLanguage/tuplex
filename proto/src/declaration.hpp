@@ -10,8 +10,8 @@ class TxEntitySymbol;
 
 
 // (types are implicitly static)
-const TxDeclarationFlags LEGAL_TYPE_DECL_FLAGS = TXD_ABSTRACT | TXD_FINAL | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM;
-const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS = TXD_STATIC | TXD_FINAL | TXD_OVERRIDE | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM | TXD_CONSTRUCTOR;
+const TxDeclarationFlags LEGAL_TYPE_DECL_FLAGS = TXD_ABSTRACT | TXD_FINAL | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM;
+const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS = TXD_STATIC | TXD_FINAL | TXD_OVERRIDE | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM | TXD_CONSTRUCTOR;
 
 
 class TxEntityDeclaration : public Printable {
@@ -24,9 +24,9 @@ public:
 
     virtual ~TxEntityDeclaration() = default;
 
-    TxEntitySymbol* get_symbol() const { return this->symbol; }
+    inline TxEntitySymbol* get_symbol() const { return this->symbol; }
 
-    TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
+    inline TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
 
     virtual TxEntityDefiner* get_definer() const = 0;
 
@@ -52,20 +52,31 @@ class TxFieldDeclaration : public TxEntityDeclaration {
     const TxFieldStorage storage;
     const TxIdentifier dataspace;
 
+    static inline TxFieldStorage determine_storage(TxFieldStorage storage, TxDeclarationFlags declFlags) {
+        if ( storage == TXS_STATIC
+             && ( declFlags & (TXD_PUBLIC | TXD_PROTECTED) )  // private fields are non-virtual
+             // if final but doesn't override, its effectively non-virtual:
+             && ( ( declFlags & (TXD_OVERRIDE | TXD_FINAL)) != TXD_FINAL ) )
+            return TXS_VIRTUAL;
+        else
+            return storage;
+    }
+
     unsigned get_overload_index() const;
 
 public:
     TxFieldDeclaration(TxEntitySymbol* symbol, TxDeclarationFlags declFlags, TxFieldDefiner* fieldDefiner,
                        TxFieldStorage storage, const TxIdentifier& dataspace)
-            : TxEntityDeclaration(symbol, declFlags), fieldDefiner(fieldDefiner), storage(storage), dataspace(dataspace)  {
+            : TxEntityDeclaration(symbol, declFlags), fieldDefiner(fieldDefiner),
+              storage(determine_storage(storage, declFlags)), dataspace(dataspace)  {
         ASSERT((declFlags | LEGAL_FIELD_DECL_FLAGS) == LEGAL_FIELD_DECL_FLAGS, "Illegal field declFlags: " << declFlags);
     }
 
     virtual TxFieldDefiner* get_definer() const override { return this->fieldDefiner; }
 
-    TxFieldStorage get_storage() const { return this->storage; }
+    inline TxFieldStorage get_storage() const { return this->storage; }
 
-    const TxIdentifier& get_dataspace() const { return this->dataspace; }
+    inline const TxIdentifier& get_dataspace() const { return this->dataspace; }
 
     virtual bool validate() const override;
 

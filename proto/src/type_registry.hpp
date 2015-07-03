@@ -28,6 +28,7 @@ enum BuiltinTypeId : int {
     ARRAY,
     FUNCTION,
     TUPLE,
+    INTERFACE,
     BuiltinTypeId_COUNT
 };
 
@@ -80,21 +81,24 @@ public:
      * will automatically be redeclared in the specialized type.
      */
     const TxType* get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
+                                          const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
                                           const std::vector<TxTypeParam>* typeParams=nullptr, bool _mutable=false);
 
 
-    const TxReferenceType* get_reference_type(const TxTypeDeclaration* declaration, TxGenericBinding targetTypeBinding,
-                                              const TxIdentifier* dataspace=nullptr, std::string* errorMsg=nullptr);
-    //const TxReferenceType* get_reference_type(const TxTypeDeclaration* declaration, TxEntityDefiner* targetType, std::string* errorMsg=nullptr);
+    const TxType* get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);
 
-    const TxArrayType* get_array_type(const TxTypeDeclaration* declaration, TxGenericBinding elemTypeBinding, TxGenericBinding lengthBinding, std::string* errorMsg=nullptr);
-    const TxArrayType* get_array_type(const TxTypeDeclaration* declaration, TxGenericBinding elemTypeBinding, std::string* errorMsg=nullptr);
+    const TxReferenceType* get_reference_type(const TxTypeDeclaration* declaration, TxGenericBinding targetTypeBinding,
+                                              const TxIdentifier* dataspace=nullptr);
+    //const TxReferenceType* get_reference_type(const TxTypeDeclaration* declaration, TxEntityDefiner* targetType);
+
+    const TxArrayType* get_array_type(const TxTypeDeclaration* declaration, TxGenericBinding elemTypeBinding, TxGenericBinding lengthBinding);
+    const TxArrayType* get_array_type(const TxTypeDeclaration* declaration, TxGenericBinding elemTypeBinding);
 
     // "mod" of function refers to whether functions of this type may modify its closure when run.
     // Note: "mod" of args not part of the function type (though concrete function may mod-ify its stack arg copies).
-    const TxFunctionType* get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, const TxType* returnType, bool mod=false, std::string* errorMsg=nullptr);
-    const TxFunctionType* get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, bool mod=false, std::string* errorMsg=nullptr);
-    const TxConstructorType* get_constructor_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, TxTypeDeclaration* constructedObjTypeDecl, std::string* errorMsg=nullptr);
+    const TxFunctionType* get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, const TxType* returnType, bool mod=false);
+    const TxFunctionType* get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, bool mod=false);
+    const TxConstructorType* get_constructor_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, TxTypeDeclaration* constructedObjTypeDecl);
 
 //    /** Creates a new tuple type that does not extend another data type or interface.
 //     * "mut" of tuple means it is not immutable, i.e. its instances may be declared modifiable. */

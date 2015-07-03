@@ -48,9 +48,10 @@ StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
     for (auto memberTxField : this->get_virtual_fields().fields) {
         auto memberTxType = memberTxField->get_type();
         auto lMemberType = context.get_llvm_type(memberTxType);
-        auto membPtrType = PointerType::getUnqual(lMemberType);
-        members.push_back(membPtrType);
-        context.LOG.debug("Mapping virtual member type '%s' to: %s", memberTxType->to_string().c_str(), ::to_string(membPtrType).c_str());
+        if (memberTxField->get_unique_name() != "$adTypeId")  // $adTypeId is direct value, not a pointer to separate global
+            lMemberType = PointerType::getUnqual(lMemberType);
+        members.push_back(lMemberType);
+        context.LOG.debug("Mapping virtual member type '%s' to: %s", memberTxType->to_string().c_str(), ::to_string(lMemberType).c_str());
     }
     // note: create() might be better for "named" struct types?
     StructType* vtableT = StructType::get(context.llvmContext, members);
@@ -338,4 +339,14 @@ Type* TxTupleType::make_llvm_type(LlvmGenerationContext& context) const {
     // note: create() might be better for "named" struct types?
     StructType* stype = StructType::get(context.llvmContext, llvmTypes);
     return stype;
+}
+
+Type* TxInterfaceType::make_llvm_type(LlvmGenerationContext& context) const {
+    return StructType::get(context.llvmContext);  // abstract type
+    //return context.get_voidT();  // abstract type
+}
+
+Type* TxInterfaceAdapterType::make_llvm_type(LlvmGenerationContext& context) const {
+    return StructType::get(context.llvmContext);  // abstract type
+    //return context.get_voidT();  // abstract type
 }

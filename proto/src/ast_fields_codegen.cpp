@@ -7,6 +7,7 @@ using namespace llvm;
 /** Convenience function that returns true if type is a pointer whose destination should be
  * directly loaded / stored when accessed. */
 static bool access_via_load_store(const Type* type) {
+    // FIXME: This confuses 'void*' (i8*), which shouldn't be loaded, with pointer to i8. Can we name/unique voidT to avoid this?
     bool ret = (type->isPointerTy() && type->getPointerElementType()->isSingleValueType());
     //bool ret = (type->isPointerTy() && type->getPointerElementType()->isFirstClassType());
     //std::cout << "access_via_load_store(): " << ret << ": type: " << type << std::endl;
