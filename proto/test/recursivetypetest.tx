@@ -6,11 +6,7 @@ type Node derives Tuple {
     parent : Ref<Node>
 
     self() {  ## creates root
-        self^.parent = self
-        if self^.is_root()
-            print(c"root is root")
-        else
-            print(c"ERROR, root is NOT root")
+        self^.parent = self  ## UNSAFE if obj copied
     }
     self(parent : Ref<Node>) {
         self^.parent = parent
@@ -25,7 +21,6 @@ type Node derives Tuple {
     }
 
     get_depth() Int {
-        print(c"here")
         if self^.is_root()
             return 0
         return self^.get_parent()^.get_depth() + 1
@@ -33,12 +28,9 @@ type Node derives Tuple {
 }
 
 main() Int {
-    root   := Node()
-    if root.is_root()
-        print(c"root is root")
-    else
-        print(c"ERROR, root is NOT root")
-    child1 := Node(root)
-    child2 := Node(child1)
-    return root.get_depth()
+    ##root   := Node()  ## allocates twice & copies!
+    root   := new Node()
+    child1 := new Node(root)
+    child2 := new Node(child1)
+    return child2^.get_depth()
 }
