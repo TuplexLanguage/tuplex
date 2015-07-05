@@ -139,6 +139,24 @@ public:
 };
 
 
+/** Declares the members of the Any root type. */
+static void declare_any_members(const TxTypeDeclaration* anyDecl) {
+    // candidates:
+    // public static _typeid() UInt
+    // public final _address() ULong
+}
+
+
+void TypeRegistry::declare_tx_functions(TxModule* module) {
+    // public _address( r : Ref ) ULong
+    std::vector<const TxType*> argumentTypes( { this->builtinTypes[REFERENCE]->get_type() } );
+    auto funcTypeDef = new TxBuiltinFieldDefiner();
+    auto funcDecl = module->declare_field("_address", funcTypeDef, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
+    auto type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(), argumentTypes,
+                                   this->builtinTypes[ULONG]->get_type());
+    funcTypeDef->field = new TxField(funcDecl, type);
+}
+
 
 void TypeRegistry::add_builtin_abstract(TxModule* module, TxTypeClass typeClass, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId) {
     auto record = new BuiltinTypeRecord( id, plainName );
@@ -304,6 +322,10 @@ void TypeRegistry::initializeBuiltinSymbols() {
         }
     }
     declare_conversion_constructor(BOOL, BOOL);
+
+    declare_any_members(this->builtinTypes[ANY]->get_declaration());
+
+    declare_tx_functions(module);
 
 //    // built-in global constants:
 //    auto charsType = new TxArrayType("tx.Char"); // BUILTIN_TYPES[CHAR].type);

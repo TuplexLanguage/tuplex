@@ -50,6 +50,7 @@ class TypeRegistry {
 
     void initializeBuiltinSymbols();
     void declare_conversion_constructor(BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId);
+    void declare_tx_functions(TxModule* module);
 
     void add_builtin_abstract(TxModule* module, TxTypeClass typeClass, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId);
     void add_builtin_integer(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size, bool sign);

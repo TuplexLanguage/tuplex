@@ -48,6 +48,7 @@ class LlvmGenerationContext {
 
     const TxType* lookup_builtin(BuiltinTypeId id);
     void initialize_meta_type_data();
+    void initialize_builtin_functions();
     void initialize_external_functions();
     void initialize_builtins();
     llvm::Function* gen_static_init_function();
