@@ -1,0 +1,44 @@
+module my
+
+import tx.proto.print.*
+
+type Node derives Tuple {
+    parent : Ref<Node>
+
+    self() {  ## creates root
+        self^.parent = self
+        if self^.is_root()
+            print(c"root is root")
+        else
+            print(c"ERROR, root is NOT root")
+    }
+    self(parent : Ref<Node>) {
+        self^.parent = parent
+    }
+
+    get_parent() Ref<Node> {
+        return self^.parent
+    }
+
+    is_root() Bool {
+        return self == self^.parent
+    }
+
+    get_depth() Int {
+        print(c"here")
+        if self^.is_root()
+            return 0
+        return self^.get_parent()^.get_depth() + 1
+    }
+}
+
+main() Int {
+    root   := Node()
+    if root.is_root()
+        print(c"root is root")
+    else
+        print(c"ERROR, root is NOT root")
+    child1 := Node(root)
+    child2 := Node(child1)
+    return root.get_depth()
+}

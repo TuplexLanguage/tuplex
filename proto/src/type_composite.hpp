@@ -239,6 +239,7 @@ public:
     }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
+    virtual llvm::Type* make_llvm_type_body(LlvmGenerationContext& context, llvm::Type* header) const override;
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
@@ -281,6 +282,11 @@ public:
 class TxInterfaceAdapterType : public TxType {
     const TxType* adaptedType;
 
+    TxInterfaceAdapterType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+                           const std::vector<TxTypeSpecialization>& interfaces, const std::vector<TxTypeParam>& typeParams,
+                           const TxType* adaptedType)
+            : TxType(TXTC_INTERFACE, declaration, baseTypeSpec, interfaces, typeParams), adaptedType(adaptedType)  { }
+
     /** Prepares this adapter type, overriding the abstract methods from the interface. Called from constructor. */
     void prepare_adapter();
 
@@ -288,7 +294,10 @@ protected:
     virtual TxInterfaceAdapterType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                           const std::vector<TxTypeSpecialization>& interfaces,
                                                           const std::vector<TxTypeParam>& typeParams) const override {
-        throw std::logic_error("Can't specialize a TxInterfaceAdapterType");
+        // Note: Only 'modifiable' and perhaps reference target binding is allowed.
+        if (dynamic_cast<const TxInterfaceAdapterType*>(baseTypeSpec.type))
+            return new TxInterfaceAdapterType(declaration, baseTypeSpec, interfaces, typeParams, this->adaptedType);
+        throw std::logic_error("Specified a base type for TxInterfaceAdapterType that was not a TxInterfaceAdapterType: " + baseTypeSpec.type->to_string());
     }
 
 public:

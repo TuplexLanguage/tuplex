@@ -427,12 +427,9 @@ void LlvmGenerationContext::generate_runtime_data() {
                     if (field.first == "$adTypeId") {
                         auto adapterType = static_cast<const TxInterfaceAdapterType*>(txType);
                         fieldName = adapterType->adapted_type()->get_declaration()->get_unique_full_name() + ".$typeid";
-//                        auto adTypeId = adapterType->adapted_type()->get_type_id();
-//                        llvmField = ConstantInt::get(Type::getInt32Ty(this->llvmContext), adTypeId);
-//                        std::cerr << "inserting $adTypeId = " << adTypeId << std::endl;
                     }
                     else {
-                        std::cerr << "inserting virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
+                        //std::cerr << "inserting virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                         fieldName = actualFieldEnt->get_declaration()->get_unique_full_name();
                     }
                     auto llvmField = cast<Constant>(this->lookup_llvm_value(fieldName));
@@ -521,5 +518,13 @@ Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
 	}
 	else
 		this->LOG.error("No LLVM type mapping for type: %s", txType->to_string().c_str());
+
+	Type* llvmTypeBody = txType->make_llvm_type_body(*this, llvmType);
+	if (llvmTypeBody != llvmType) {
+	    // replace header with full type definition in mapping
+        this->llvmTypeMapping[txType] = llvmTypeBody;
+        this->LOG.alert("replaced LLVM type mapping for type %s: %s", txType->to_string(true).c_str(), to_string(llvmTypeBody).c_str());
+	}
+
 	return llvmType;
 }

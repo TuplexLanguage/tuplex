@@ -215,7 +215,7 @@ class TxType : public TxEntity {
     const std::vector<TxTypeSpecialization> interfaces;
 
     /** Set for non-generic specializations of a generic base type.
-     * This also implies a pure specialization, even if extendsParentDatatype technically is true. */
+     * This also implies a pure specialization, even if extendsInstanceDatatype technically is true. */
     const TxType* genericBaseType = nullptr;
 
     /** Prepares / initializes this type, including laying out its data. Called from constructor. */
@@ -517,7 +517,12 @@ public:
     virtual llvm::StructType* make_vtable_type(LlvmGenerationContext& context) const;
     virtual llvm::Function* get_type_user_init_func(LlvmGenerationContext& context) const;
 
+    /** Returns the llvm::Type for an instance of this type (possibly only an opaque struct declaration). */
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const = 0;
+    /** Invoked after make_llvm_type() to augment a possibly forward-declared llvm::Type "header" (named, opaque struct).
+     * Default implementation returns the "header" type without modifying it;
+     * types that actually predefine an opaque header should override and augment the type or return a new, full type. */
+    virtual llvm::Type* make_llvm_type_body(LlvmGenerationContext& context, llvm::Type* header) const { return header; }
     virtual llvm::Value* gen_size(LlvmGenerationContext& context, GenScope* scope) const;
     virtual llvm::Value* gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName="") const;
     virtual llvm::Constant* gen_typeid(LlvmGenerationContext& context, GenScope* scope) const;

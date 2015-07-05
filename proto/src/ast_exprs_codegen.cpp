@@ -83,6 +83,7 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
                     // both operands are references, compare their pointer values
                     lval = gen_get_ref_pointer(context, scope, lval);
                     rval = gen_get_ref_pointer(context, scope, rval);
+                    std::cerr << "comparing references: " << lval << "  " << rval << std::endl;
                 }
                 return scope->builder->CreateICmp(cmp_pred, lval, rval, fieldName);
             }

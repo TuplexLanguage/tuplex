@@ -74,7 +74,7 @@ public:
     /** Gets a modifiable 'usage' of a base type.
      * The type parameters of the base type will pass-through (appear redeclared) in the modifiable type.
      */
-    const TxType* get_modifiable_type(const TxTypeDeclaration* declaration, const TxType* type, std::string* errorMsg=nullptr);
+    const TxType* get_modifiable_type(const TxTypeDeclaration* declaration, const TxType* type);
 
     /** Gets a specialization of a base type.
      * Any type parameters of the base type that aren't bound in the provided specialization
@@ -84,7 +84,7 @@ public:
                                           const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
                                           const std::vector<TxTypeParam>* typeParams=nullptr, bool _mutable=false);
 
-
+    /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
     const TxType* get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);
 
     const TxReferenceType* get_reference_type(const TxTypeDeclaration* declaration, TxGenericBinding targetTypeBinding,

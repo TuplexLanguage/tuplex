@@ -122,7 +122,7 @@ protected:
     }
 
 
-    inline TypeRegistry& types(TxSpecializationIndex six=0) { return this->get_spec(six).lexContext.package()->types(); }
+    inline TypeRegistry& types(TxSpecializationIndex six=0) { return this->context(six).package()->types(); }
 
 public:
     TxSpecializableNode(const yy::location& parseLocation) : TxNode(parseLocation), specializations(1) { }

@@ -257,8 +257,10 @@ Type* TxReferenceType::make_llvm_type(LlvmGenerationContext& context) const {
     // Note: a reference itself is always 'concrete'
     if (auto txTargetType = this->target_type()) {
         if (Type* targetType = context.get_llvm_type(txTargetType)) {
-            if (targetType->isVoidTy())
+            if (targetType->isVoidTy()) {
+                // happens when the target type was resolved to Any
                 targetType = Type::getInt8Ty(context.llvmContext);  // i8* represents void*
+            }
             context.LOG.debug("Mapping reference type %s", this->to_string().c_str());
             return make_ref_llvm_type(context, targetType);
         }
@@ -324,21 +326,26 @@ Type* TxTupleType::make_llvm_type(LlvmGenerationContext& context) const {
 //        context.LOG.warning("making LLVM type of non-concrete type %s", this->to_string().c_str());
 //        return StructType::create(context.llvmContext);  // creates opaque (empty placeholder) structure
 //    }
-    if (! this->get_symbol()) {
-        context.LOG.error("No entity for Tuple type %s - can't perform LLVM type mapping", this->to_string().c_str());
+    if (! this->get_declaration()) {
+        context.LOG.error("No declaration for Tuple type %s - can't perform LLVM type mapping", this->to_string().c_str());
         return nullptr;
     }
+    StructType* opaqueType = StructType::create(context.llvmContext, this->get_declaration()->get_unique_full_name());
+    return opaqueType;
+}
+
+Type* TxTupleType::make_llvm_type_body(LlvmGenerationContext& context, Type* header) const {
     context.LOG.debug("Mapping tuple type %s: %s", this->get_symbol()->get_full_name().to_string().c_str(), this->to_string(true).c_str());
-    std::vector<Type*> llvmTypes;
+    std::vector<Type*> fieldTypes;
     for (auto memberTxField : this->get_instance_fields().fields) {
         auto memberTxType = memberTxField->get_type();
         auto memberLlvmType = context.get_llvm_type(memberTxType);
-        llvmTypes.push_back(memberLlvmType);
+        fieldTypes.push_back(memberLlvmType);
         context.LOG.debug("Mapping member type %s to %s", memberTxType->to_string().c_str(), ::to_string(memberLlvmType).c_str());
     }
-    // note: create() might be better for "named" struct types?
-    StructType* stype = StructType::get(context.llvmContext, llvmTypes);
-    return stype;
+    StructType* sType = cast<StructType>(header);
+    sType->setBody(fieldTypes);
+    return sType;
 }
 
 Type* TxInterfaceType::make_llvm_type(LlvmGenerationContext& context) const {

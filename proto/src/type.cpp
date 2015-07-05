@@ -27,10 +27,10 @@ std::string TxTypeSpecialization::to_string() const { return "specialization of 
 
 void TxTypeSpecialization::validate() const {
     if (this->type->is_modifiable())
-        CERROR(this->type, "Can't specialize a 'modifiable' type (specialize its base type instead).");
+        CERROR(this->type, "Can't specialize a 'modifiable' type (specialize its base type instead): " << this->type);
     if (this->modifiable) {
         if (this->type->is_immutable())
-            CERROR(this->type, "Can't make an immutable type modifiable.");
+            CERROR(this->type, "Can't make an immutable type modifiable: " << this->type);
         if (! this->bindings.empty())
             CERROR(this->type, "Can't bind type parameters on top of a 'modifiable' type.");
         if (this->dataspace)
@@ -379,13 +379,20 @@ const TxGenericBinding* TxType::resolve_param_binding(const std::string& paramNa
 
 
 bool TxType::operator==(const TxType& other) const {
-    auto explDecl = this->get_explicit_declaration();
-    return explDecl == other.get_explicit_declaration()  // same declaration or both null
+    // skips empty type derivations that aren't explicitly declared
+    const TxType* thisType = this;
+    const TxType* otherType = &other;
+    while (!thisType->get_explicit_declaration() && thisType->is_empty_derivation())
+        thisType = thisType->get_base_type();
+    while (!otherType->get_explicit_declaration() && otherType->is_empty_derivation())
+        otherType = otherType->get_base_type();
+    auto explDecl = thisType->get_explicit_declaration();
+    return explDecl == otherType->get_explicit_declaration()  // same declaration or both null
            && ( explDecl
                 // if unnamed but identical, pure specialization:
-                || ( typeid(*this) == typeid(other)
-                     && this->baseTypeSpec == other.baseTypeSpec
-                     && this->type_params() == other.type_params() ) );
+                || ( typeid(*thisType) == typeid(*otherType)
+                     && thisType->baseTypeSpec == otherType->baseTypeSpec
+                     && thisType->type_params() == otherType->type_params() ) );
     // (interfaces and members can only apply to a type with an explicit declaration, and an explicit declaration can have only one type instance)
 }
 
@@ -667,10 +674,12 @@ const TxType* TxReferenceType::target_type() const {
         ResolutionContext resCtx;
         ttype = binding->type_definer().resolve_type(resCtx);
         if (ttype)
-            LOGGER().debug("Resolved target type of (unnamed) reference type to %s", ttype->to_string().c_str());
+            LOGGER().debug("Resolved target type of reference type to %s", ttype->to_string().c_str());
+        else
+            LOGGER().alert("Failed to resolve target type for reference type %s", this->to_string().c_str());
     }
     else {
-        LOGGER().alert("Failed to resolve target type for (unnamed) reference type %s", this->to_string().c_str());
+        LOGGER().debug("Unbound target type for reference type %s", this->to_string().c_str());
         ttype = this->get_root_any_type();  // we know the basic constraint type for ref target is Any
     }
     return ttype;

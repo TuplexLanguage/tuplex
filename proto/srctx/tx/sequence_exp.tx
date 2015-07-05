@@ -1,20 +1,6 @@
 module tx
 
 
-public type Opt<E derives Ref> Union { E, Null }
-
-
-## Should sequences always have Opt<E> as return type, or should they always use valid values (e.g. first/last in ranges)
-## for access outside the sequence bounds?
-## But if not Opt, how handle empty sequences?
-## If exceptions are implemented in future, it would be undesirable to have Opt<> hard-defined in that interface.
-## But perhaps changing return type from Opt<E> to E won't break usages?
-## (letting type parameter contraint type initially be Opt<Ref> is uncertain if desirable and if works as intended)
-
-
-public interface SequenceableI<E derives Ref> {
-    public sequencer() ~SequencerI<E>  ## returns by value - constructs new sequencer
-}
 
 
 /** An iterable sequence supports forward and backward traversal. */
@@ -34,14 +20,6 @@ public interface UpdateableI<E derives Ref> derives SequenceableI<E> {
     public updater() ~UpdaterI<E>
 }
 
-
-
-public interface SequencerI<E derives Ref> mod derives SequenceableI<E> {
-    public sequencer() ~SequencerI<E> { return self }  ## returns by value, i.e. a copy
-
-    public hasNext() Bool  ## needed since sequences may contain NULL
-    public ~next() Opt<E>
-}
 
 
 public interface IteratorI<E derives Ref> mod derives SequencerI<E> {

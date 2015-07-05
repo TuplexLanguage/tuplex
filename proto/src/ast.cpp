@@ -390,7 +390,7 @@ const TxType* TxPredefinedTypeNode::define_identified_type(TxSpecializationIndex
             }
             else if (!identifiedType->is_modifiable()){
                 // create empty specialization (uniquely named but identical type)
-                return this->types().get_type_specialization(declEnt, TxTypeSpecialization(identifiedType));
+                return this->types(six).get_type_specialization(declEnt, TxTypeSpecialization(identifiedType));
             }
         }
 //        else if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
@@ -439,6 +439,25 @@ void TxArrayTypeNode::symbol_declaration_pass_descendants(TxSpecializationIndex 
 //    }
     if (this->lengthNode)
         this->lengthNode->symbol_declaration_pass(six, defContext, lexContext);
+}
+
+
+void TxDerivedTypeNode::init_implicit_types() {
+    // implicit type members '$Self' and '$Super' for types with a body:
+    // FUTURE: if type is immutable, the reference target type should perhaps not be modifiable?
+    auto selfTypeExprN = new TxTypeExprWrapperNode(this);
+    auto selfRefTypeExprN = new TxReferenceTypeNode(this->parseLocation, nullptr,
+                                                    new TxModifiableTypeNode(this->parseLocation, selfTypeExprN));
+    const std::string selfTypeName = "$Self";
+    this->selfRefTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_IMPLICIT, selfTypeName, nullptr, selfRefTypeExprN);
+
+    TxTypeExpressionNode* superTypeExprN = this->baseTypes->empty()
+                                       ? new TxPredefinedTypeNode(this->parseLocation, "tx.Tuple")
+                                       : static_cast<TxTypeExpressionNode*>(new TxTypeExprWrapperNode(this->baseTypes->at(0)));
+    auto superRefTypeExprN = new TxReferenceTypeNode(this->parseLocation, nullptr,
+                                                     new TxModifiableTypeNode(this->parseLocation, superTypeExprN));
+    const std::string superTypeName = "$Super";
+    this->superRefTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN);
 }
 
 

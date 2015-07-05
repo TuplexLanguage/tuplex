@@ -38,8 +38,8 @@ public:
 class LlvmGenerationContext {
     llvm::Function* entryFunction = nullptr;
     std::map<const std::string, llvm::Value*> llvmSymbolTable;
-    std::map<const TxType*, llvm::Type* const> llvmTypeMapping;
-    std::map<uint32_t, llvm::StructType* const> llvmVTableTypeMapping;
+    std::map<const TxType*, llvm::Type*> llvmTypeMapping;
+    std::map<uint32_t, llvm::StructType*> llvmVTableTypeMapping;
 
     // some common, basic types:
     llvm::Type* voidT;

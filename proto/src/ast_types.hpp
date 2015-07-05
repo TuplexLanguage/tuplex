@@ -278,21 +278,8 @@ public:
 
 class TxDerivedTypeNode : public TxTypeExpressionNode {
 
-    void init_implicit_types() {
-        // implicit type members '$Self' and '$Super' for types with a body:
-        auto selfTypeExprN = new TxTypeExprWrapperNode(this);
-        auto selfRefTypeExprN = new TxReferenceTypeNode(this->parseLocation, nullptr, selfTypeExprN);
-        const std::string selfTypeName = "$Self";
-        this->selfRefTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_IMPLICIT, selfTypeName, nullptr, selfRefTypeExprN);
-
-
-        TxTypeExpressionNode* superTypeExprN = this->baseTypes->empty()
-                                           ? new TxPredefinedTypeNode(this->parseLocation, "tx.Tuple")
-                                           : static_cast<TxTypeExpressionNode*>(new TxTypeExprWrapperNode(this->baseTypes->at(0)));
-        auto superRefTypeExprN = new TxReferenceTypeNode(this->parseLocation, nullptr, superTypeExprN);
-        const std::string superTypeName = "$Super";
-        this->superRefTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN);
-    }
+    /** Initialized implicit type members such as '$Self' and '$Super' for types with a body. */
+    void init_implicit_types();
 
 protected:
     virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
