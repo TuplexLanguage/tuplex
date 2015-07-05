@@ -94,7 +94,7 @@ YY_DECL;
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above.
  */
-%type <TxDeclarationFlags> declaration_flags
+%type <TxDeclarationFlags> declaration_flags opt_visibility opt_static opt_override opt_final
 %type <bool> opt_modifiable type_or_if
 %type <TxIdentifier*> identifier
 
@@ -271,22 +271,17 @@ member_declaration
     |   error sep  %prec STMT  { $$ = NULL; }
     ;
 
-// TODO: add KW_ABSTRACT, and KW_OVERRIDE (valid for static member fields)
-declaration_flags
-    : %empty                                { $$ = TXD_NONE; }
-    | KW_PUBLIC                             { $$ = TXD_PUBLIC; }
-    | KW_PUBLIC KW_STATIC                   { $$ = TXD_PUBLIC | TXD_STATIC; }
-    | KW_PUBLIC KW_FINAL                    { $$ = TXD_PUBLIC | TXD_FINAL; }
-    | KW_PUBLIC KW_STATIC KW_FINAL          { $$ = TXD_PUBLIC | TXD_STATIC | TXD_FINAL; }
-    | KW_PROTECTED                          { $$ = TXD_PROTECTED; }
-    | KW_PROTECTED KW_STATIC                { $$ = TXD_PROTECTED | TXD_STATIC; }
-    | KW_PROTECTED KW_FINAL                 { $$ = TXD_PROTECTED | TXD_FINAL; }
-    | KW_PROTECTED KW_STATIC KW_FINAL       { $$ = TXD_PROTECTED | TXD_STATIC | TXD_FINAL; }
-    | KW_STATIC                             { $$ = TXD_STATIC; }
-    | KW_FINAL                              { $$ = TXD_FINAL; }
-    | KW_STATIC KW_FINAL                    { $$ = TXD_STATIC | TXD_FINAL; }
-    ;
-    
+declaration_flags : opt_visibility opt_static opt_override opt_final  { $$ = ($1 | $2 | $3 | $4); } ;
+
+opt_visibility : %empty        { $$ = TXD_NONE; }
+               | KW_PUBLIC     { $$ = TXD_PUBLIC; }
+               | KW_PROTECTED  { $$ = TXD_PROTECTED; }
+               ;
+opt_static     : %empty { $$ = TXD_NONE; } | KW_STATIC   { $$ = TXD_STATIC;   } ;
+opt_override   : %empty { $$ = TXD_NONE; } | KW_OVERRIDE { $$ = TXD_OVERRIDE; } ;
+opt_final      : %empty { $$ = TXD_NONE; } | KW_FINAL    { $$ = TXD_FINAL;    } ;
+
+
 type_or_if : KW_TYPE        { $$ = false; }
            | KW_INTERFACE   { $$ = true;  }
            ;

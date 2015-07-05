@@ -213,7 +213,10 @@ void TxType::prepare_type() {
                     else if (this->instanceMethods.has_field(field->get_unique_name())) {
                         if (! (field->get_decl_flags() & TXD_OVERRIDE))
                             CWARNING(this, "Field overrides but isn't declared 'override': " << field);
-                        if (! (field->get_type()->is_a(*this->instanceMethods.get_field(field->get_unique_name())->get_type())))
+                        auto overriddenField = this->instanceMethods.get_field(field->get_unique_name());
+                        if (overriddenField->get_decl_flags() & TXD_FINAL)
+                            CERROR(this, "Can't override a base type field that is declared 'final': " << field);
+                        if (! (field->get_type()->is_a(*overriddenField->get_type())))
                             CERROR(this, "Overriding member's type does not derive from overridden member's type: " << field->get_type());
                         this->instanceMethods.override_field(field->get_unique_name(), field);
                         this->modifiesVTable = true;
@@ -232,7 +235,10 @@ void TxType::prepare_type() {
                     else if (this->virtualFields.has_field(field->get_unique_name())) {
                         if (! (field->get_decl_flags() & TXD_OVERRIDE))
                             CWARNING(this, "Field overrides but isn't declared 'override': " << field);
-                        if (! (field->get_type()->is_a(*this->virtualFields.get_field(field->get_unique_name())->get_type())))
+                        auto overriddenField = this->virtualFields.get_field(field->get_unique_name());
+                        if (overriddenField->get_decl_flags() & TXD_FINAL)
+                            CERROR(this, "Can't override a base type field that is declared 'final': " << field);
+                        if (! (field->get_type()->is_a(*overriddenField->get_type())))
                             CERROR(this, "Overriding member's type does not derive from overridden member's type: " << field->get_type());
                         this->virtualFields.override_field(field->get_unique_name(), field);
                         this->modifiesVTable = true;

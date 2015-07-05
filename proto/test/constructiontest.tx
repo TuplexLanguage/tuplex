@@ -35,7 +35,7 @@ type BType mod derives AType {
         self^.field4 = f2
     }
 
-    public method(a : Int) Int {
+    public override method(a : Int) Int {
         return super^.method( a ) * 2
     }
 }

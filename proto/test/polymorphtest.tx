@@ -35,16 +35,16 @@ type AType mod derives Tuple {
 }
 
 type BType mod derives AType {
-    public static SFIELD := 42
-    public static SFIELD2 := 3.14
+    public static override SFIELD := 42
+    public static override SFIELD2 := 3.14
     field1 : ~Long
     field2 : ~Float
 
-    public func print() {
+    public override func print() {
         puts(c"BType")
     }
 
-    public method(a : Int) Int {
+    public override method(a : Int) Int {
         return super^.method( a ) * 2
     }
 }

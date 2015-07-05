@@ -22,12 +22,6 @@ public interface UpdateableI<E derives Ref> derives SequenceableI<E> {
 
 
 
-public interface IteratorI<E derives Ref> mod derives SequencerI<E> {
-    public override sequencer() ~IteratorI<E> { return self }  ## returns by value, i.e. a copy
-
-    public hasPrev() Bool  ## needed since sequences may contain NULL
-    public ~prev() Opt<E>
-}
 
 
 public interface UpdaterI<E derives Ref> mod derives SequencerI<E> {
