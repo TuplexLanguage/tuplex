@@ -332,6 +332,8 @@ public:
             spec.startedRslv = true;
             spec.type = this->define_type(six, resCtx);
             spec.hasResolved = true;
+            if (spec.type && !spec.type->is_prepared())
+                const_cast<TxType*>(spec.type)->prepare_type_members();
         }
         return spec.type;
     }

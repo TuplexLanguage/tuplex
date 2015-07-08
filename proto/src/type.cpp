@@ -91,7 +91,7 @@ bool TxType::validate() const {
             // also validate any anonymous base types (otherwise their validate() won't be called)
             this->baseTypeSpec.type->validate();
     }
-    // FUTURE: validate interfaces
+    // TODO: validate interfaces
     // check that generic interfaces can't be implemented multiple times throughout a type hierarchy,
     // unless their type arguments are exactly the same
 
@@ -101,6 +101,8 @@ bool TxType::validate() const {
 
 void TxType::prepare_type() {
     LOGGER().debug("Preparing type %s", this->to_string().c_str());
+
+    ASSERT(!this->baseTypeSpec.type || this->baseTypeSpec.type->is_prepared(), "Non-prepared base type: " << this->baseTypeSpec.type);
 
     // resolve all this type's parameters and bindings
     ResolutionContext resCtx;
@@ -126,12 +128,48 @@ void TxType::prepare_type() {
             this->nonRefBindings = true;
     }
 
-    // copy base type's virtual and instance field tuples (to which we will add and override fields):
+    // copy base type's virtual and instance field tuples (to which fields may be added / overridden):
     auto baseType = this->get_base_data_type();
     if (baseType) {
         this->virtualFields = baseType->virtualFields;
         this->instanceFields = baseType->instanceFields;
     }
+
+    // determine basic type characteristics (needed for e.g. equivalence determination):
+    if (this->get_declaration()) {
+        auto typeDeclNamespace = this->get_declaration()->get_symbol();
+        for (auto symname = typeDeclNamespace->symbol_names_cbegin(); symname != typeDeclNamespace->symbol_names_cend(); symname++) {
+            if (auto entitySym = dynamic_cast<TxEntitySymbol*>(typeDeclNamespace->get_member_symbol(*symname))) {
+                for (auto fieldDeclI = entitySym->fields_cbegin(); fieldDeclI != entitySym->fields_cend(); fieldDeclI++) {
+                    auto fieldDecl = *fieldDeclI;
+                    switch (fieldDecl->get_storage()) {
+                    case TXS_INSTANCE:
+                        if (fieldDecl->get_unique_name().find('#') != std::string::npos)
+                            // FIXME: make VALUE type params be declared as instance members in generic base type,
+                            // so that they are not "extensions" to the specialized subtypes, and remove this '#' test
+                            break;
+                        this->extendsInstanceDatatype = true;
+                        break;
+                    case TXS_VIRTUAL:
+                    case TXS_INSTANCEMETHOD:
+                        if (fieldDecl->get_decl_flags() & TXD_CONSTRUCTOR)
+                            break;
+                        this->modifiesVTable = true;
+                        break;
+                    default:
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void TxType::prepare_type_members() {
+    LOGGER().debug("Preparing members of type %s", this->to_string().c_str());
+
+    ASSERT(! this->prepared, "Can't prepare type more than once: " << this);
+    this->prepared = true;
 
     if (! this->get_declaration()) {
         bool madeConcrete = !this->is_generic() && this->get_base_type() && this->get_base_type()->is_generic();
@@ -140,6 +178,7 @@ void TxType::prepare_type() {
     }
 
     // for all the member names declared or redeclared in this type:
+    ResolutionContext resCtx;
     auto typeDeclNamespace = this->get_declaration()->get_symbol();
     for (auto symname = typeDeclNamespace->symbol_names_cbegin(); symname != typeDeclNamespace->symbol_names_cend(); symname++) {
         // this drives resolution of all this type's members
@@ -160,10 +199,11 @@ void TxType::prepare_type() {
             }
         }
 
-        for (auto fieldDecl = entitySym->fields_cbegin(); fieldDecl != entitySym->fields_cend(); fieldDecl++) {
-            auto field = (*fieldDecl)->get_definer()->resolve_field(resCtx);
+        for (auto fieldDeclI = entitySym->fields_cbegin(); fieldDeclI != entitySym->fields_cend(); fieldDeclI++) {
+            auto fieldDecl = *fieldDeclI;
+            auto field = fieldDecl->get_definer()->resolve_field(resCtx);
 
-            if ((*fieldDecl)->get_decl_flags() & TXD_ABSTRACT)
+            if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
                 if (this->get_type_class() != TXTC_INTERFACE && !(this->get_declaration()->get_decl_flags() & TXD_ABSTRACT))
                     CERROR(this, "Can't declare abstract member in type that is not declared abstract: " << field);
 
@@ -173,11 +213,11 @@ void TxType::prepare_type() {
                     if (! fieldType->is_concrete()) {
                         CERROR(this, "Can't declare a field of non-concrete type: " << field << " " << fieldType);
                     }
-                    else if (field->get_storage() == TXS_INSTANCE) {
+                    else if (fieldDecl->get_storage() == TXS_INSTANCE) {
                         if (! fieldType->is_statically_sized()) {
                             CERROR(this, "Instance fields that don't have statically determined size not yet supported: " << field);
                         }
-                        else if (! (field->get_decl_flags() & (TXD_GENPARAM | TXD_IMPLICIT))) {
+                        else if (! (fieldDecl->get_decl_flags() & (TXD_GENPARAM | TXD_IMPLICIT))) {
                             if (this->get_type_class() != TXTC_TUPLE)
                                 CERROR(this, "Can't declare instance member in non-tuple type: " << field);
                         }
@@ -191,23 +231,20 @@ void TxType::prepare_type() {
                 }
 
                 // layout:
-                if (field->get_storage() == TXS_INSTANCE) {
+                switch (fieldDecl->get_storage()) {
+                case TXS_INSTANCE:
                     LOGGER().debug("Laying out instance field %-40s  %s  %u", field->to_string().c_str(),
                                    field->get_type()->to_string(true).c_str(), this->instanceFields.get_field_count());
-                    if (field->get_decl_flags() & TXD_ABSTRACT)
+                    if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
                         CERROR(this, "Can't declare an instance field as abstract: " << field);
                     this->instanceFields.add_field(field->get_unique_name(), field);
-                    if (field->get_unique_name().find('#') == std::string::npos)
-                        // FIXME: make VALUE type params be declared as instance members in generic base type,
-                        // so that they are not "extensions" to the specialized subtypes, and remove this '#' test
-                        this->extendsInstanceDatatype = true;
-                }
-                else if (field->get_storage() == TXS_VIRTUAL || field->get_storage() == TXS_INSTANCEMETHOD) {
-                    if (field->get_decl_flags() & TXD_CONSTRUCTOR) {
-                        // skip, constructors aren't virtual
-                    }
-                    else if (this->virtualFields.has_field(field->get_unique_name())) {
-                        if (! (field->get_decl_flags() & TXD_OVERRIDE))
+                    break;
+                case TXS_VIRTUAL:
+                case TXS_INSTANCEMETHOD:
+                    if (fieldDecl->get_decl_flags() & TXD_CONSTRUCTOR)
+                        break;  // skip, constructors aren't virtual
+                    if (this->virtualFields.has_field(field->get_unique_name())) {
+                        if (! (fieldDecl->get_decl_flags() & TXD_OVERRIDE))
                             CWARNING(this, "Field overrides but isn't declared 'override': " << field);
                         auto overriddenField = this->virtualFields.get_field(field->get_unique_name());
                         if (overriddenField->get_decl_flags() & TXD_FINAL)
@@ -215,20 +252,20 @@ void TxType::prepare_type() {
                         if (! (field->get_type()->is_a(*overriddenField->get_type())))
                             CERROR(this, "Overriding member's type does not derive from overridden member's type: " << field->get_type());
                         this->virtualFields.override_field(field->get_unique_name(), field);
-                        this->modifiesVTable = true;
                     }
                     else {
-                        if (field->get_decl_flags() & TXD_OVERRIDE)
+                        if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
                             CWARNING(this, "Field doesn't override but is declared 'override': " << field);
                         this->virtualFields.add_field(field->get_unique_name(), field);
-                        this->modifiesVTable = true;
                     }
-                }
-                else {
-                    ASSERT(field->get_storage() == TXS_STATIC, "Invalid storage class " << field->get_storage() << " for field member " << *field);
-                    if (field->get_decl_flags() & TXD_ABSTRACT)
+                    LOGGER().alert("Adding/overriding virtual field %-40s  %s  %u", field->to_string().c_str(),
+                                   field->get_type()->to_string(true).c_str(), this->virtualFields.get_field_count());
+                    break;
+                default:
+                    ASSERT(fieldDecl->get_storage() == TXS_STATIC, "Invalid storage class " << fieldDecl->get_storage() << " for field member " << *field);
+                    if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
                         CERROR(this, "Can't declare a non-virtual field as abstract: " << field);
-                    if (field->get_decl_flags() & TXD_OVERRIDE)
+                    if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
                         CWARNING(this, "Field doesn't override but is declared 'override': " << field);
                     this->staticFields.add_field(field->get_unique_name(), field);
                 }
@@ -676,7 +713,9 @@ const TxType* TxReferenceType::target_type() const {
 }
 
 
-void TxInterfaceAdapterType::prepare_adapter() {
+void TxInterfaceAdapterType::prepare_type_members() {
+    TxType::prepare_type_members();
+
     LOGGER().debug("preparing adapter for %s to interface %s", this->adaptedType->to_string().c_str(), this->get_base_type()->to_string().c_str());
     // The virtual fields of the abstract base interface type are overridden to refer to
     // the correspondingly named fields of the adapted type.

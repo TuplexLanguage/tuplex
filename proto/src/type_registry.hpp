@@ -83,10 +83,11 @@ public:
     /** Gets a specialization of a base type.
      * Any type parameters of the base type that aren't bound in the provided specialization
      * will automatically be redeclared in the specialized type.
+     * Note: Added / overridden members will not be initialized, the caller must invoke prepare_type_members() to do that.
      */
-    const TxType* get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
-                                          const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
-                                          const std::vector<TxTypeParam>* typeParams=nullptr, bool _mutable=false);
+    TxType* get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
+                                    const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
+                                    const std::vector<TxTypeParam>* typeParams=nullptr, bool _mutable=false);
 
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
     const TxType* get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);

@@ -432,6 +432,7 @@ void LlvmGenerationContext::initialize_builtins() {
 void LlvmGenerationContext::generate_runtime_data() {
     for (auto txTypeI = this->tuplexPackage.types().types_cbegin(); txTypeI != this->tuplexPackage.types().types_cend(); txTypeI++) {
         auto txType = *txTypeI;
+        ASSERT(txType->is_prepared(), "Non-prepared type: " << txType);
         if (auto entity = txType->get_symbol()) {
             std::string vtableName(entity->get_full_name().to_string() + "$vtable");
             if (auto vtableV = dyn_cast<GlobalVariable>(this->lookup_llvm_value(vtableName))) {
@@ -480,6 +481,8 @@ void LlvmGenerationContext::generate_runtime_data() {
             else
                 this->LOG.error("No vtable found for %s", vtableName.c_str());
         }
+        else
+            this->LOG.warning("No symbol for registered type %s", txType->to_string().c_str());
     }
 }
 

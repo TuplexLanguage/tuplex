@@ -328,12 +328,11 @@ protected:
             interfaces.reserve(this->baseTypes->size()-1);
             for (size_t i = 0; i < this->baseTypes->size(); i++) {
                 if (auto baseType = this->baseTypes->at(i)->resolve_type(six, resCtx)) {
-                    if (i == 0) {
+                    if (i == 0)
                         baseObjType = baseType;
-                    }
                     else {
                         if (baseType->get_type_class() != TXTC_INTERFACE)
-                                CERROR(this, "Only the first derived-from type can be a non-interface type: " << baseType);
+                            CERROR(this, "Only the first derived-from type can be a non-interface type: " << baseType);
                         interfaces.emplace_back(baseType, bindings);
                     }
                 }

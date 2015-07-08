@@ -224,7 +224,10 @@ class TxType : public TxEntity {
      * This also implies a pure specialization, even if extendsInstanceDatatype technically is true. */
     const TxType* genericBaseType = nullptr;
 
-    /** Prepares / initializes this type, including laying out its data. Called from constructor. */
+    /** false until prepare_type_members() has completed (after that this object should be considered immutable) */
+    bool prepared = false;
+
+    /** Prepares / initializes this type. Called from constructor. */
     void prepare_type();
 
 protected:
@@ -274,6 +277,11 @@ protected:
     }
 
 public:
+    inline bool is_prepared() const { return this->prepared; }
+
+    /** Prepares this type's members, including data layout. Called after object construction has completed. */
+    virtual void prepare_type_members();
+
     virtual ~TxType() = default;
 
 

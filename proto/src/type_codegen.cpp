@@ -20,7 +20,6 @@ static Value* code_gen_4_multiple(LlvmGenerationContext& context, GenScope* scop
 
 
 StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
-    // (similar to tuple type creation)
     if (! this->get_symbol()) {
         context.LOG.error("No entity for type %s - can't perform vtable LLVM type mapping", this->to_string().c_str());
         return nullptr;

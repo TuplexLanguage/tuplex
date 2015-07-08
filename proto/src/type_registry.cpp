@@ -161,7 +161,9 @@ void TypeRegistry::declare_tx_functions(TxModule* module) {
 void TypeRegistry::add_builtin_abstract(TxModule* module, TxTypeClass typeClass, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId) {
     auto record = new BuiltinTypeRecord( id, plainName );
     record->set_declaration( module->declare_type(plainName, record, TXD_PUBLIC | TXD_BUILTIN) );
-    record->set_type( new TxBuiltinBaseType( typeClass, record->get_declaration(), this->builtinTypes[parentId]->get_type() ) );
+    auto type = new TxBuiltinBaseType( typeClass, record->get_declaration(), this->builtinTypes[parentId]->get_type());
+    type->prepare_type_members();
+    record->set_type( type );
     this->builtinTypes[record->id] = record;
 }
 
@@ -169,14 +171,18 @@ void TypeRegistry::add_builtin_integer(TxModule* module, BuiltinTypeId id, std::
                                        int size, bool sign) {
     auto record = new BuiltinTypeRecord( id, plainName );
     record->set_declaration( module->declare_type(plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
-    record->set_type( new TxIntegerType( record->get_declaration(), this->builtinTypes[parentId]->get_type(), size, sign) );
+    auto type = new TxIntegerType( record->get_declaration(), this->builtinTypes[parentId]->get_type(), size, sign);
+    type->prepare_type_members();
+    record->set_type( type );
     this->builtinTypes[record->id] = record;
 }
 
 void TypeRegistry::add_builtin_floating(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size) {
     auto record = new BuiltinTypeRecord( id, plainName );
     record->set_declaration( module->declare_type(plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
-    record->set_type( new TxFloatingType( record->get_declaration(), this->builtinTypes[parentId]->get_type(), size ) );
+    auto type = new TxFloatingType( record->get_declaration(), this->builtinTypes[parentId]->get_type(), size );
+    type->prepare_type_members();
+    record->set_type( type );
     this->builtinTypes[record->id] = record;
 }
 
@@ -188,7 +194,9 @@ void TypeRegistry::initializeBuiltinSymbols() {
     {
         auto record = new BuiltinTypeRecord( ANY, "Any" );
         record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
-        record->set_type( new TxAnyType(record->get_declaration()) );
+        auto type = new TxAnyType( record->get_declaration() );
+        type->prepare_type_members();
+        record->set_type( type );
         this->builtinTypes[record->id] = record;
     }
 
@@ -220,7 +228,9 @@ void TypeRegistry::initializeBuiltinSymbols() {
     {
         auto record = new BuiltinTypeRecord( BOOL, "Bool" );
         record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
-        record->set_type( new TxBoolType(record->get_declaration(), this->builtinTypes[ANY]->get_type() ) );
+        auto type = new TxBoolType(record->get_declaration(), this->builtinTypes[ANY]->get_type() );
+        type->prepare_type_members();
+        record->set_type( type );
         this->builtinTypes[record->id] = record;
     }
 
@@ -228,7 +238,9 @@ void TypeRegistry::initializeBuiltinSymbols() {
     {
         auto record = new BuiltinTypeRecord( FUNCTION, "Function" );
         record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
-        record->set_type( new TxBuiltinBaseType(TXTC_FUNCTION, record->get_declaration(), this->builtinTypes[ANY]->get_type() ) );
+        auto type = new TxBuiltinBaseType(TXTC_FUNCTION, record->get_declaration(), this->builtinTypes[ANY]->get_type() );
+        type->prepare_type_members();
+        record->set_type( type );
         this->builtinTypes[record->id] = record;
     }
 
@@ -237,7 +249,9 @@ void TypeRegistry::initializeBuiltinSymbols() {
         auto record = new BuiltinTypeRecord( REFERENCE, "Ref" );
         auto typeDecl = module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN );
         record->set_declaration( typeDecl );
-        record->set_type( new TxReferenceType(record->get_declaration(), this->builtinTypes[ANY]->get_type(), this->builtinTypes[ANY] ) );
+        auto type = new TxReferenceType(record->get_declaration(), this->builtinTypes[ANY]->get_type(), this->builtinTypes[ANY] );
+        type->prepare_type_members();
+        record->set_type( type );
         this->builtinTypes[record->id] = record;
 
         // create empty specialization for the constraint type (uniquely named but identical type)
@@ -252,8 +266,10 @@ void TypeRegistry::initializeBuiltinSymbols() {
         auto record = new BuiltinTypeRecord( ARRAY, "Array" );
         auto typeDecl = module->declare_type( record->plainName, record, TXD_PUBLIC | TXD_BUILTIN );
         record->set_declaration( typeDecl );
-        record->set_type( new TxArrayType(record->get_declaration(), this->builtinTypes[ANY]->get_type(),
-                                          this->builtinTypes[ANY], this->builtinTypes[UINT] ) );
+        auto type = new TxArrayType(record->get_declaration(), this->builtinTypes[ANY]->get_type(),
+                                          this->builtinTypes[ANY], this->builtinTypes[UINT] );
+        type->prepare_type_members();
+        record->set_type( type );
         this->builtinTypes[record->id] = record;
 
         // create empty specialization for the constraint type (uniquely named but identical type)
@@ -271,7 +287,9 @@ void TypeRegistry::initializeBuiltinSymbols() {
     {
         auto record = new BuiltinTypeRecord( TUPLE, "Tuple" );
         record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
-        record->set_type( new TxTupleType(record->get_declaration(), this->builtinTypes[ANY]->get_type(), true ) );
+        auto type = new TxTupleType(record->get_declaration(), this->builtinTypes[ANY]->get_type(), true );
+        type->prepare_type_members();
+        record->set_type( type );
         this->builtinTypes[record->id] = record;
     }
 
@@ -285,7 +303,9 @@ void TypeRegistry::initializeBuiltinSymbols() {
             auto fieldDecl = record->get_declaration()->get_symbol()->declare_field("$adTypeId", fieldDef, TXD_PUBLIC | TXD_STATIC | TXD_ABSTRACT | TXD_IMPLICIT, TXS_STATIC, "");
             fieldDef->field = new TxField(fieldDecl, fieldType);
         }
-        record->set_type( new TxInterfaceType(record->get_declaration(), this->builtinTypes[ANY]->get_type()) );
+        auto type = new TxInterfaceType(record->get_declaration(), this->builtinTypes[ANY]->get_type());
+        type->prepare_type_members();
+        record->set_type( type );
         this->builtinTypes[record->id] = record;
     }
 
@@ -310,7 +330,9 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
         auto biType = this->builtinTypes[id]->get_type();
         TxTypeSpecialization tmpSpec(biType, true);
-        this->builtinModTypes[id] = biType->make_specialized_type(nullptr, tmpSpec);
+        auto type = biType->make_specialized_type(nullptr, tmpSpec);
+        type->prepare_type_members();
+        this->builtinModTypes[id] = type;
 
         this->register_type(const_cast<TxType*>(biType));
     }
@@ -373,6 +395,7 @@ void TypeRegistry::declare_conversion_constructor(BuiltinTypeId fromTypeId, Buil
     auto type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
                                                     this->builtinTypes[fromTypeId]->get_type(),
                                                     this->builtinTypes[toTypeId]->get_type());
+    type->prepare_type_members();
     constructorDefiner->field = new TxField(constructorDecl, type);
 }
 
@@ -410,7 +433,9 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
         ASSERT(false, "could not find built-in base type: " << type);
     }
     TxTypeSpecialization tmpSpec(type, true);
-    return type->make_specialized_type(declaration, tmpSpec);
+    auto mtype = type->make_specialized_type(declaration, tmpSpec);
+    mtype->prepare_type_members();
+    return mtype;
 }
 
 /*
@@ -499,10 +524,9 @@ static std::string make_bound_type_name(ResolutionContext& resCtx, const TxType*
     return boundTypeName;
 }
 
-// FUTURE: add interfaces
-const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
-                                                    const std::vector<TxTypeSpecialization>& interfaces,
-                                                    const std::vector<TxTypeParam>* typeParams, bool _mutable) {
+TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
+                                              const std::vector<TxTypeSpecialization>& interfaces,
+                                              const std::vector<TxTypeParam>* typeParams, bool _mutable) {
     // Note: type specialization is never applied to a modifiable-specialization (legal only on generic base type)
     // Note: A non-parameterized type (without any declared type parameters) is not necessarily non-generic:
     //       It may have members that refer to generic parameters declared in an outer scope.
@@ -628,7 +652,7 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
         if (! specializedBaseType) {
             // process new specialization of the base type:
             newBaseName = baseContext.scope()->make_unique_name(newBaseName, true);
-            std::cerr << "specializing base " << newBaseName << ": " << specialization.type << std::endl;
+            //std::cerr << "specializing base " << newBaseName << ": " << specialization.type << std::endl;
             baseTypeExpr->symbol_declaration_pass(newSix, baseContext, baseContext, TXD_PUBLIC | TXD_IMPLICIT, newBaseName, typeParamDeclNodes);
             baseTypeExpr->symbol_resolution_pass(newSix, resCtx);
             specializedBaseType = baseTypeExpr->resolve_type(newSix, resCtx);
@@ -678,6 +702,7 @@ const TxInterfaceAdapterType* TypeRegistry::inner_get_interface_adapter(const Tx
     auto adapterType = new TxInterfaceAdapterType(typeDecl, interfaceType, adaptedType);
     typeDefiner->type = adapterType;
     this->register_type(adapterType);
+    adapterType->prepare_type_members();
     return adapterType;
 }
 

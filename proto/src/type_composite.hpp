@@ -287,9 +287,6 @@ class TxInterfaceAdapterType : public TxType {
                            const TxType* adaptedType)
             : TxType(TXTC_INTERFACE, declaration, baseTypeSpec, interfaces, typeParams), adaptedType(adaptedType)  { }
 
-    /** Prepares this adapter type, overriding the abstract methods from the interface. Called from constructor. */
-    void prepare_adapter();
-
 protected:
     virtual TxInterfaceAdapterType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                           const std::vector<TxTypeSpecialization>& interfaces,
@@ -302,9 +299,9 @@ protected:
 
 public:
     TxInterfaceAdapterType(const TxTypeDeclaration* declaration, const TxType* interfaceType, const TxType* adaptedType)
-            : TxType(TXTC_INTERFACEADAPTER, declaration, TxTypeSpecialization(interfaceType)), adaptedType(adaptedType)  {
-        this->prepare_adapter();
-    }
+            : TxType(TXTC_INTERFACEADAPTER, declaration, TxTypeSpecialization(interfaceType)), adaptedType(adaptedType)  { }
+
+    virtual void prepare_type_members() override;
 
     virtual bool is_abstract() const override { return false; }
 
