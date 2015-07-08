@@ -95,23 +95,27 @@ public:
 };
 
 class TxReferenceConvNode : public TxConversionNode {
+    uint32_t convertTypeId = UINT32_MAX;
 protected:
     virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         auto resultTargetType = static_cast<const TxReferenceType*>(this->resultType)->target_type();
         if (resultTargetType && resultTargetType->get_type_class() == TXTC_INTERFACE) {
-            // create / retrieve interface adapter type
-            //std::cerr << "Converting reference to interface -> reference to adapter for " << resultTargetType << std::endl;
             auto origType = static_cast<const TxReferenceType*>(this->expr->resolve_type(six, resCtx));
-            auto adapterType = this->types().get_interface_adapter(resultTargetType, origType->target_type());
+            auto origTargetType = origType->target_type();
+            if (! equivalent(resultTargetType, origTargetType)) {
+                // create / retrieve interface adapter type
+                //std::cerr << "Converting interface reference to adapter:\n\tfrom & " << origTargetType << "\n\tto   & " << resultTargetType << std::endl;
+                auto adapterType = this->types().get_interface_adapter(resultTargetType, origTargetType);
+                this->convertTypeId = adapterType->get_type_id();
 
-            // create reference type to the adapter type  TODO: delegate this to TypeRegistry
-            auto implTypeName = this->context(six).scope()->make_unique_name("$type");
-            auto typeDecl = this->context(six).scope()->declare_type(implTypeName, this->get_type_definer(six), TXD_PUBLIC | TXD_IMPLICIT);
-            auto adapterDefiner = new TxTypeWrapperDef(adapterType);
-            return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", adapterDefiner));
+                // create reference type to the adapter type  TODO: delegate this to TypeRegistry
+                auto implTypeName = this->context(six).scope()->make_unique_name("$type");
+                auto typeDecl = this->context(six).scope()->declare_type(implTypeName, this->get_type_definer(six), TXD_PUBLIC | TXD_IMPLICIT);
+                auto adapterDefiner = new TxTypeWrapperDef(adapterType);
+                return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", adapterDefiner));
+            }
         }
-        else
-            return TxConversionNode::define_type(six, resCtx);
+        return TxConversionNode::define_type(six, resCtx);  // returns the required resultType
     }
 
 public:

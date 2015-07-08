@@ -56,6 +56,9 @@ class TypeRegistry {
     void add_builtin_integer(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size, bool sign);
     void add_builtin_floating(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size);
 
+    /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
+    const TxInterfaceAdapterType* inner_get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);
+
 public:
     TypeRegistry(TxPackage& package) : package(package) {
         this->initializeBuiltinSymbols();

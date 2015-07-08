@@ -21,7 +21,7 @@ type Type derives Tuple, CompA {
 }
 
 main() Int {
-    t := Type(32)
+    t := Type(42)
     r : &CompA = &t
     return r^.get_value()
 }

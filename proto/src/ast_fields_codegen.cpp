@@ -65,6 +65,14 @@ static Value* instance_method_value_code_gen(LlvmGenerationContext& context, Gen
 
     {   // construct the lambda object:
         auto closureRefT = context.get_voidRefT();
+        if (staticBaseType->get_type_class() == TXTC_INTERFACE) {
+            // if base is an interface (in practice, interface adapter), populate the lambda with the adaptee type id instead
+            auto adapteeTypeIdField = staticBaseType->get_virtual_fields().get_field("$adTypeId");
+            auto adapteeTypeIdV = virtual_field_value_code_gen(context, scope, staticBaseType, runtimeBaseTypeIdV,
+                                                               Type::getInt32Ty(context.llvmContext), adapteeTypeIdField);
+            //std::cerr << "Invoking interface method " << fieldEntity << ", replacing type id " << runtimeBaseTypeIdV << " with " << adapteeTypeIdV << std::endl;
+            runtimeBaseTypeIdV = adapteeTypeIdV;
+        }
         auto closureRefV = gen_ref(context, scope, closureRefT, baseValue, runtimeBaseTypeIdV);
         return gen_lambda(context, scope, lambdaT, funcPtrV, closureRefV);
     }

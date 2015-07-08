@@ -192,6 +192,12 @@ public:
 
 
 
+/** Returns true if the two types are mutually equivalent (see also is_equivalent_derivation()).
+ * Note, does not take explicit naming into account. */
+extern bool equivalent(const TxType* typeA, const TxType* typeB);
+
+
+
 /** An instance of this class represents a type definition.
  */
 class TxType : public TxEntity {
@@ -205,8 +211,8 @@ class TxType : public TxEntity {
     /** false unless there are TYPE bindings for parameters with other than Ref constraint */
     bool nonRefBindings = false;
 
-    /** The type id of this type, if it is a statically distinct type (not a pure specialization). */
-    uint32_t typeId = UINT32_MAX;
+    /** The runtime type id of this type, if it is a distinct runtime type (not an equivalent specialization). */
+    uint32_t runtimeTypeId = UINT32_MAX;
 
     /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
     const std::vector<TxTypeParam> typeParams;
@@ -280,8 +286,8 @@ public:
 
     /*--- characteristics ---*/
 
-    /** Gets the type id of this type. (Empty specializations return their base type's id.) */
-    inline uint32_t get_type_id() const { return ( this->typeId == UINT32_MAX ? this->get_base_type()->get_type_id() : this->typeId ); }
+    /** Gets the runtime type id of this type. (Equivalent specializations return their base type's id.) */
+    inline uint32_t get_type_id() const { return ( this->runtimeTypeId == UINT32_MAX ? this->get_base_type()->get_type_id() : this->runtimeTypeId ); }
 
     virtual inline const TxTypeDeclaration* get_declaration() const override {
         return static_cast<const TxTypeDeclaration*>(TxEntity::get_declaration());
@@ -373,8 +379,8 @@ public:
      * i.e. is effectively the same *instance data type* as well as same static definition as the base type.
      * If true, this type does not need a distinct vtable nor distinct code generation.
      *
-     * Added interfaces, added virtual members, added instance members cause this to return false;
-     * modifiability and bound non-ref type parameters do not.
+     * Added interfaces, bound non-ref type parameters, added virtual members, added instance members cause this to return false;
+     * modifiability and bound ref-constrained type parameters do not.
      * (Returns false for Any which has no base type.)
      */
     bool is_equivalent_derivation() const;
@@ -382,7 +388,7 @@ public:
     /** Returns true if this type is a virtual derivation of a base type,
      * i.e. is effectively the same *instance data type* as the base type.
      * Added instance fields and bound non-ref type parameters cause this to return false;
-     * modifiability, added interfaces, added virtual members do not.
+     * modifiability, bound ref-constrained type parameters, added interfaces, added virtual members do not.
      * (Returns false for Any which has no base type.)
      */
     bool is_virtual_derivation() const;
@@ -407,12 +413,6 @@ public:
     /** match against this entity's direct instance/static members, and then its inherited members, returning the first found */
     virtual TxEntitySymbol* lookup_instance_member(const std::string& name) const;
     virtual TxEntitySymbol* lookup_instance_member(TxScopeSymbol* vantageScope, const std::string& name) const;
-
-//    /** match against this entity's inherited instance/static members (i.e. skipping this type's direct members) */
-//    virtual const TxEntity* lookup_inherited_instance_member(const std::string& name) const;
-//
-//    /** match against this entity's inherited (and static) members (i.e. skipping this type's direct members) */
-//    virtual const TxEntity* lookup_inherited_member(const std::string& name) const;
 
 
     /*--- type parameter handling ---*/
@@ -442,6 +442,12 @@ public:
         throw std::out_of_range("No such unbound type parameter in " + this->to_string() + ": " + typeParamName);
     }
 
+
+    /** Returns true if there are TYPE parameters with other than Ref constraint. */
+    inline bool has_nonref_parameters() const { return this->nonRefParameters; }
+
+    /** Returns true if there are TYPE bindings for base type's parameters with other than Ref constraint. */
+    inline bool has_nonref_bindings() const { return this->nonRefBindings; }
 
     const std::vector<TxGenericBinding>& get_bindings() const {
         return this->baseTypeSpec.bindings;
@@ -494,21 +500,11 @@ private:
 public:
     /*--- data layout ---*/
 
-    const DataTupleDefinition& get_instance_fields() const {
-        return this->instanceFields;
-    }
+    inline const DataTupleDefinition& get_instance_fields() const { return this->instanceFields; }
 
-    const DataTupleDefinition& get_instance_methods() const {
-        return this->instanceMethods;
-    }
+    inline const DataTupleDefinition& get_virtual_fields() const { return this->virtualFields; }
 
-    const DataTupleDefinition& get_virtual_fields() const {
-        return this->virtualFields;
-    }
-
-    const DataTupleDefinition& get_static_fields() const {
-        return this->staticFields;
-    }
+    inline const DataTupleDefinition& get_static_fields() const { return this->staticFields; }
 
 
 

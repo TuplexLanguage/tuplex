@@ -506,17 +506,13 @@ Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* s
 
     // from another reference:
     if (dynamic_cast<const TxReferenceType*>(this->expr->get_type(0))) {
-//        auto refTargetType = static_cast<const TxReferenceType*>(this->resultType)->target_type();
-//        if (refTargetType->get_type_class() == TXTC_INTERFACE) {
-//            std::cerr << "Ref conversion from " << this->expr->get_type(0) << "  to Ref to  " << refTargetType << std::endl;
-//        }
         auto refT = context.get_llvm_type(this->resultType);
         if (! refT) {
             context.LOG.error("In reference conversion, LLVM type not found for result type %s", this->resultType->to_string().c_str());
             return origValue;  // should we return null instead?
         }
         //std::cerr << "Ref conversion from " << this->expr->get_type(0) << "  to Ref to  " << refTargetType << " = " << refT << std::endl;
-        return TxReferenceType::gen_ref_conversion(context, scope, origValue, refT);
+        return TxReferenceType::gen_ref_conversion(context, scope, origValue, refT, this->convertTypeId);
     }
 //    // from array:
 //    else if (dynamic_cast<const TxArrayType*>(this->expr->get_type(0))) {

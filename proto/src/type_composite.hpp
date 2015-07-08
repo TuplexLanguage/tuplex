@@ -94,9 +94,9 @@ public:
 
     static llvm::Type* make_ref_llvm_type(LlvmGenerationContext& context, llvm::Type* targetType);
 
-    /** Casts a reference value from one type to another */
-    static llvm::Value* gen_ref_conversion(LlvmGenerationContext& context, GenScope* scope,
-                                           llvm::Value* origRefV, llvm::Type* targetRefT);
+    /** Casts a reference value from one type to another. If targetTypeId is specified, it will replace the original type id. */
+    static llvm::Value* gen_ref_conversion(LlvmGenerationContext& context, GenScope* scope, llvm::Value* origRefV,
+                                           llvm::Type* targetRefT, uint32_t targetTypeId=UINT32_MAX);
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
@@ -306,8 +306,13 @@ public:
         this->prepare_adapter();
     }
 
+    virtual bool is_abstract() const override { return false; }
+
     virtual bool innerAutoConvertsFrom(const TxType& someType) const override {
-        return (*this) == someType;
+        if (auto otherAdapter = dynamic_cast<const TxInterfaceAdapterType*>(&someType))
+            return (*this == *otherAdapter && this->adaptedType == otherAdapter->adaptedType);
+        else
+            return false;
     }
 
     inline const TxType* adapted_type() const { return this->adaptedType; }

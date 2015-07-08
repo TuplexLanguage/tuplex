@@ -130,7 +130,6 @@ void TxType::prepare_type() {
     auto baseType = this->get_base_data_type();
     if (baseType) {
         this->virtualFields = baseType->virtualFields;
-        this->instanceMethods = baseType->instanceMethods;
         this->instanceFields = baseType->instanceFields;
     }
 
@@ -203,34 +202,9 @@ void TxType::prepare_type() {
                         // so that they are not "extensions" to the specialized subtypes, and remove this '#' test
                         this->extendsInstanceDatatype = true;
                 }
-                else if (field->get_storage() == TXS_INSTANCEMETHOD) {
+                else if (field->get_storage() == TXS_VIRTUAL || field->get_storage() == TXS_INSTANCEMETHOD) {
                     if (field->get_decl_flags() & TXD_CONSTRUCTOR) {
                         // skip, constructors aren't virtual
-                    }
-                    else if (this->virtualFields.has_field(field->get_unique_name())) {
-                        CERROR(this, "A non-static method may not override a static parent field: " << field);
-                    }
-                    else if (this->instanceMethods.has_field(field->get_unique_name())) {
-                        if (! (field->get_decl_flags() & TXD_OVERRIDE))
-                            CWARNING(this, "Field overrides but isn't declared 'override': " << field);
-                        auto overriddenField = this->instanceMethods.get_field(field->get_unique_name());
-                        if (overriddenField->get_decl_flags() & TXD_FINAL)
-                            CERROR(this, "Can't override a base type field that is declared 'final': " << field);
-                        if (! (field->get_type()->is_a(*overriddenField->get_type())))
-                            CERROR(this, "Overriding member's type does not derive from overridden member's type: " << field->get_type());
-                        this->instanceMethods.override_field(field->get_unique_name(), field);
-                        this->modifiesVTable = true;
-                    }
-                    else {
-                        if (field->get_decl_flags() & TXD_OVERRIDE)
-                            CWARNING(this, "Field doesn't override but is declared 'override': " << field);
-                        this->instanceMethods.add_field(field->get_unique_name(), field);
-                        this->modifiesVTable = true;
-                    }
-                }
-                else if (field->get_storage() == TXS_VIRTUAL) {
-                    if (this->instanceMethods.has_field(field->get_unique_name())) {
-                        CERROR(this, "A static field may not override a non-static parent method: " << field);
                     }
                     else if (this->virtualFields.has_field(field->get_unique_name())) {
                         if (! (field->get_decl_flags() & TXD_OVERRIDE))
@@ -543,6 +517,16 @@ void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName)
 
 
 
+bool equivalent(const TxType* typeA, const TxType* typeB) {
+    while (typeA->is_equivalent_derivation())
+        typeA = typeA->get_base_type();
+    while (typeB->is_equivalent_derivation())
+        typeB = typeB->get_base_type();
+    return (*typeA == *typeB);
+}
+
+
+
 /*=== ArrayType and ReferenceType implementation ===*/
 
 bool TxArrayType::is_statically_sized() const {
@@ -696,17 +680,6 @@ void TxInterfaceAdapterType::prepare_adapter() {
     LOGGER().debug("preparing adapter for %s to interface %s", this->adaptedType->to_string().c_str(), this->get_base_type()->to_string().c_str());
     // The virtual fields of the abstract base interface type are overridden to refer to
     // the correspondingly named fields of the adapted type.
-
-    auto & adapteeInstanceMethods = this->adaptedType->get_instance_methods();
-    for (auto & f : this->instanceMethods.fieldMap) {
-        if (! adapteeInstanceMethods.has_field(f.first))
-            CERROR(this, "Adapted type " << this->adaptedType << " does not define instance method " << f.first << " of " << this->get_base_type());
-        else {
-            auto targetField = adapteeInstanceMethods.get_field(f.first);
-            // FIXME: verify that type matches
-            this->instanceMethods.override_field(f.first, targetField);
-        }
-    }
 
     auto & adapteeVirtualFields = this->adaptedType->get_virtual_fields();
     for (auto & f : this->virtualFields.fieldMap) {

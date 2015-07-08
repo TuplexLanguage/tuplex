@@ -34,10 +34,9 @@ int TxField::get_storage_index() const {
     case TXS_STATIC:
         return this->get_outer_type()->get_static_fields().get_field_index(this->get_unique_name());
     case TXS_VIRTUAL:
-        return this->get_outer_type()->get_virtual_fields().get_field_index(this->get_unique_name()) + type->get_instance_methods().get_field_count();
     case TXS_INSTANCEMETHOD:
         ASSERT(! (this->get_decl_flags() & TXD_CONSTRUCTOR), "constructor does not have an instance method index: " << this);
-        return this->get_outer_type()->get_instance_methods().get_field_index(this->get_unique_name());
+        return this->get_outer_type()->get_virtual_fields().get_field_index(this->get_unique_name());
     case TXS_INSTANCE:
         return this->get_outer_type()->get_instance_fields().get_field_index(this->get_unique_name());
     default:
@@ -60,12 +59,8 @@ int TxField::get_virtual_field_index() const {
     auto typeDecl = this->get_outer_type_decl();
     ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_symbol()->get_outer());
     auto type = typeDecl->get_definer()->get_type();  // assumes already resolved
-    if (this->get_storage() == TXS_VIRTUAL)
-        return type->get_virtual_fields().get_field_index(this->get_unique_name()) + type->get_instance_methods().get_field_count();
-    else {
-        ASSERT(! (this->get_decl_flags() & TXD_CONSTRUCTOR), "constructor does not have an instance method index: " << this);
-        return type->get_instance_methods().get_field_index(this->get_unique_name());
-    }
+    ASSERT(! (this->get_decl_flags() & TXD_CONSTRUCTOR), "constructor does not have an instance method index: " << this);
+    return type->get_virtual_fields().get_field_index(this->get_unique_name());
 }
 
 int TxField::get_static_field_index() const {

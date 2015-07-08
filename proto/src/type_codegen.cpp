@@ -18,17 +18,6 @@ static Value* code_gen_4_multiple(LlvmGenerationContext& context, GenScope* scop
 }
 
 
-//static Value* get_static_type(const TxType* type) {
-//    if (auto baseType = type->get_base_type()) {
-//        get_static_type(baseType);
-//    }
-//
-//    if (auto entity = type.entity()) {
-//    }
-//
-//}
-
-
 
 StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
     // (similar to tuple type creation)
@@ -36,24 +25,20 @@ StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
         context.LOG.error("No entity for type %s - can't perform vtable LLVM type mapping", this->to_string().c_str());
         return nullptr;
     }
-    context.LOG.debug("Mapping vtable of type %s: %s", this->get_symbol()->get_full_name().to_string().c_str(), this->to_string(true).c_str());
+    context.LOG.debug("Mapping vtable of type %s: %s", this->get_declaration()->get_unique_full_name().c_str(), this->to_string(true).c_str());
     std::vector<Type*> members;
-    for (auto memberTxField : this->get_instance_methods().fields) {
-        auto memberTxType = memberTxField->get_type();
-        auto lMemberType = context.get_llvm_type(memberTxType);
-        auto membPtrType = lMemberType->getStructElementType(0);
-        members.push_back(membPtrType);
-        context.LOG.debug("Mapping virtual instance method type '%s' to: %s", memberTxType->to_string().c_str(), ::to_string(membPtrType).c_str());
-    }
     for (auto memberTxField : this->get_virtual_fields().fields) {
         auto memberTxType = memberTxField->get_type();
         auto lMemberType = context.get_llvm_type(memberTxType);
-        if (memberTxField->get_unique_name() != "$adTypeId")  // $adTypeId is direct value, not a pointer to separate global
+        if (memberTxField->get_storage() == TXS_INSTANCEMETHOD)
+            lMemberType = lMemberType->getStructElementType(0);
+        else if (memberTxField->get_unique_name() != "$adTypeId")  // $adTypeId is direct value, not a pointer to separate global
             lMemberType = PointerType::getUnqual(lMemberType);
         members.push_back(lMemberType);
         context.LOG.debug("Mapping virtual member type '%s' to: %s", memberTxType->to_string().c_str(), ::to_string(lMemberType).c_str());
     }
-    // note: create() might be better for "named" struct types?
+    // (create() could be used to get named struct types)
+    //StructType* vtableT = StructType::create(context.llvmContext, members, this->get_declaration()->get_unique_full_name() + "$VTable");
     StructType* vtableT = StructType::get(context.llvmContext, members);
     return vtableT;
 }
@@ -281,9 +266,11 @@ Type* TxReferenceType::make_ref_llvm_type(LlvmGenerationContext& context, Type* 
     return llvmType;
 }
 
-Value* TxReferenceType::gen_ref_conversion(LlvmGenerationContext& context, GenScope* scope, Value* origValue, Type* targetRefT) {
+Value* TxReferenceType::gen_ref_conversion(LlvmGenerationContext& context, GenScope* scope, Value* origValue,
+                                           Type* targetRefT, uint32_t targetTypeId) {
     auto newPtrT = cast<StructType>(targetRefT)->getElementType(0);
-    Value* tidV = gen_get_ref_typeid(context, scope, origValue);
+    Value* tidV = (targetTypeId == UINT32_MAX ? gen_get_ref_typeid(context, scope, origValue)
+                                              : ConstantInt::get(Type::getInt32Ty(context.llvmContext), targetTypeId));
     Value* origPtrV = gen_get_ref_pointer(context, scope, origValue);
     Value* newPtrV;
     // bitcast from one pointer type to another

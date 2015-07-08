@@ -279,6 +279,12 @@ void TypeRegistry::initializeBuiltinSymbols() {
     {
         auto record = new BuiltinTypeRecord( INTERFACE, "Interface" );
         record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        {   // declare the adaptee type id virtual field member, which is abstract here but concrete in adapter subtypes:
+            const TxType* fieldType = this->get_builtin_type(UINT);
+            auto fieldDef = new TxBuiltinFieldDefiner();
+            auto fieldDecl = record->get_declaration()->get_symbol()->declare_field("$adTypeId", fieldDef, TXD_PUBLIC | TXD_STATIC | TXD_ABSTRACT | TXD_IMPLICIT, TXS_STATIC, "");
+            fieldDef->field = new TxField(fieldDecl, fieldType);
+        }
         record->set_type( new TxInterfaceType(record->get_declaration(), this->builtinTypes[ANY]->get_type()) );
         this->builtinTypes[record->id] = record;
     }
@@ -377,8 +383,8 @@ void TypeRegistry::register_type(TxType* type) {
         //std::cerr << "Not registering equivalent derivation: " << type << std::endl;
         return;
     }
-    type->typeId = this->allStaticTypes.size();
-    //std::cerr << "Registering: " << type << " with id " << type->typeId << std::endl;
+    type->runtimeTypeId = this->allStaticTypes.size();
+    //std::cerr << "Registering: " << type << " with id " << type->runtimeTypeId << std::endl;
     this->allStaticTypes.push_back(type);
 }
 
@@ -517,7 +523,8 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
 
     std::vector<TxTypeParam> allParams = prepare_type_parameters(specialization, typeParams, pOrigin);
 
-    if (allParams.empty() && ! specialization.bindings.empty()  // non-parameterized type that binds parameters of its base type
+    // (binding of ref-constrained type parameters don't make the specialization more concrete, so disregard those)
+    if (allParams.empty() && specialization.type->has_nonref_parameters()  // non-parameterized type & binds a non-ref parameter
         && ! specialization.type->is_builtin()) {  // (avoids source-expression-less built-in types (incl Ref<> and Array<>))
         // re-base it on new non-generic specialization of the base type:
         // (this replaces the bindings of the TxTypeSpecialization object with direct declarations within the new type)
@@ -527,7 +534,7 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
         // TODO: How should we handle Array? Should user be allowed to extend it?
 
         ASSERT(declaration, "expected type that binds base type's parameters to be named (declared) but was not");
-        this->package.LOGGER().debug("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
+        this->package.LOGGER().alert("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
                                      declaration->get_unique_full_name().c_str(), specialization.type->to_string().c_str());
 
         // before we substitute the TxTypeSpecialization, validate it:
@@ -640,12 +647,10 @@ const TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* dec
 }
 
 
-const TxType* TypeRegistry::get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType) {
-    auto modIf = interfaceType->is_modifiable();
-    while (interfaceType->is_modifiable() || interfaceType->is_empty_derivation())
-        interfaceType = interfaceType->get_base_type();
-    while (adaptedType->is_modifiable() || adaptedType->is_empty_derivation())
-        adaptedType = adaptedType->get_base_type();
+const TxInterfaceAdapterType* TypeRegistry::inner_get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType) {
+    ASSERT(! interfaceType->is_modifiable(), "Shouldn't create adapter for 'modifiable' interface type: " << interfaceType);
+    ASSERT(!   adaptedType->is_modifiable(), "Shouldn't create adapter for 'modifiable' adaptee type: "   << adaptedType);
+    ASSERT(*interfaceType != *adaptedType,   "Shouldn't create adapter between equivalent types");
 
     auto ifDecl = interfaceType->get_declaration();
     auto scope = ifDecl->get_symbol()->get_outer();
@@ -655,25 +660,39 @@ const TxType* TypeRegistry::get_interface_adapter(const TxType* interfaceType, c
     if (auto existingAdapterSymbol = dynamic_cast<TxEntitySymbol*>(scope->get_member_symbol(adapterName))) {
         if (auto typeDecl = existingAdapterSymbol->get_type_decl()) {
             ResolutionContext resCtx;
-            return typeDecl->get_definer()->resolve_type(resCtx);
+            auto adapterType = static_cast<const TxInterfaceAdapterType*>(typeDecl->get_definer()->resolve_type(resCtx));
+            std::cerr << "Getting existing interface adapter: " << adapterType << std::endl;
+            return adapterType;
         }
     }
 
+    std::cerr << "Creating interface adapter:\n\tfrom " << adaptedType << "\n\tto   " << interfaceType << std::endl;
     auto typeDefiner = new TxBuiltinTypeDefiner();
     auto typeDecl = scope->declare_type(adapterName, typeDefiner, TXD_PUBLIC);
-    {   // declare the adaptee type id virtual field member:
+    {   // override the adaptee type id virtual field member:
         const TxType* fieldType = this->get_builtin_type(UINT);
         auto fieldDef = new TxBuiltinFieldDefiner();
-        auto fieldDecl = typeDecl->get_symbol()->declare_field("$adTypeId", fieldDef, TXD_PUBLIC | TXD_STATIC | TXD_IMPLICIT, TXS_STATIC, "");
+        auto fieldDecl = typeDecl->get_symbol()->declare_field("$adTypeId", fieldDef, TXD_PUBLIC | TXD_STATIC | TXD_OVERRIDE | TXD_IMPLICIT, TXS_STATIC, "");
         fieldDef->field = new TxField(fieldDecl, fieldType);
     }
     auto adapterType = new TxInterfaceAdapterType(typeDecl, interfaceType, adaptedType);
     typeDefiner->type = adapterType;
     this->register_type(adapterType);
+    return adapterType;
+}
 
-    if (modIf) {
+const TxType* TypeRegistry::get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType) {
+    auto modIf = interfaceType->is_modifiable();
+    while (interfaceType->is_equivalent_derivation())
+        interfaceType = interfaceType->get_base_type();
+    while (adaptedType->is_equivalent_derivation())
+        adaptedType = adaptedType->get_base_type();
+
+    auto adapterType = this->inner_get_interface_adapter(interfaceType, adaptedType);
+    ASSERT(adapterType->adapted_type()->get_type_id() == adaptedType->get_type_id(),
+           "Mismatching type ids between adapter and adaptee: " << adapterType->adapted_type()->get_type_id() << " != " << adaptedType->get_type_id());
+    if (modIf)
         return this->get_modifiable_type(nullptr, adapterType);
-    }
     else
         return adapterType;
 }

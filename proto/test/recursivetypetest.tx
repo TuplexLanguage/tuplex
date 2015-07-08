@@ -27,6 +27,15 @@ type Node derives Tuple {
     }
 }
 
+/*
+type A {
+    br : &B
+}
+type B {
+    ar : &A
+}
+*/
+
 main() Int {
     ##root   := Node()  ## allocates twice & copies!
     root   := new Node()

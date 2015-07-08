@@ -316,7 +316,8 @@ protected:
         ASSERT(declaration, "No declaration for derived type " << *this);
 
         // Note: Does not specify explicit type parameter bindings; any unbound type parameters
-        //       of the base types are expected to match the declared type params.  FIXME: review
+        //       of the base types are expected to match the declared type parameters.
+        //       (which are declared within this lexical scope which encompasses the base type expressions)
         auto bindings = std::vector<TxGenericBinding>();
 
         const TxType* baseObjType = nullptr;
