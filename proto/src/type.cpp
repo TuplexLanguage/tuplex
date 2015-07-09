@@ -401,11 +401,11 @@ bool TxType::operator==(const TxType& other) const {
 }
 
 
-bool TxType::is_assignable_to(const TxType& other) const {
-    // fields must at least be the same instance data type, for now we consider virtual derivations legal
+bool TxType::is_assignable_to(const TxType& destination) const {
+    // fields must at least be the same instance data type; for now we consider virtual derivations legal
     auto thisType = this;
     do {
-        if (*thisType == other)
+        if (*thisType == destination)
             return true;
         if (this->is_virtual_derivation())
             thisType = thisType->get_base_type();
@@ -566,65 +566,68 @@ bool equivalent(const TxType* typeA, const TxType* typeB) {
 
 /*=== ArrayType and ReferenceType implementation ===*/
 
-bool TxArrayType::is_statically_sized() const {
-    return this->is_concrete() && this->element_type()->is_statically_sized()
-           && this->length()->is_statically_constant();
-}
-
-bool TxArrayType::inner_auto_converts_from(const TxType& otherType) const {
-    if (const TxArrayType* otherArray = dynamic_cast<const TxArrayType*>(&otherType)) {
-        // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
-        if (auto e = this->element_type()) {
-            if (auto otherE = otherArray->element_type()) {
-                // note: is-a test insufficient for array elements, since same concrete type (same size) required
-                if (*e != *otherE)
-                    return false;
-            }
-            else
-                return false;  // other has not bound E
-        }
-        if (auto len = this->length()) {
-            if (auto otherLen = otherArray->length()) {
-                return (len->get_static_constant_proxy() && otherLen->get_static_constant_proxy()
-                        && *len->get_static_constant_proxy() == *otherLen->get_static_constant_proxy());
-            }
-            else
-                return false;  // other has not bound L
-        }
-        return true;
-    }
-    return false;
-}
-
-
-bool TxReferenceType::is_assignable_to(const TxType& other) const {
-    return other.auto_converts_from(*this);
-}
-
-bool TxReferenceType::inner_auto_converts_from(const TxType& otherType) const {
-    if (const TxReferenceType* otherRef = dynamic_cast<const TxReferenceType*>(&otherType)) {
-        // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
-        if (auto target = this->target_type()) {
-            if (auto otherTarget = otherRef->target_type()) {
-                // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
-                //std::cout << "CHECKING AUTOCONV FROM\n" << *otherTarget->get_type() << "\nTO\n" << *target->get_type() << std::endl;
-                if (! otherTarget->is_a(*target))
-                    return false;
-                else if (target->is_modifiable() && !otherTarget->is_modifiable())
-                    return false;  // can't lose modifiable attribute of target
-                else
-                    return true;
-            }
-            else
-                return false;  // other has not bound T
+static bool array_assignable_from(const TxArrayType* toArray, const TxArrayType* fromArray) {
+    // if origin has unbound type params that destination does not, origin is more generic and can't be assigned to destination
+    if (auto toElem = toArray->element_type()) {
+        if (auto fromElem = fromArray->element_type()) {
+            // note: is-a test insufficient for array elements, since assignable type (same instance data type) required
+            if (! fromElem->is_assignable_to(*toElem))
+                return false;
         }
         else
-            return true;
+            return false;  // origin has not bound E
     }
+    if (auto len = toArray->length()) {
+        if (auto otherLen = fromArray->length()) {
+            return (len->get_static_constant_proxy() && otherLen->get_static_constant_proxy()
+                    && *len->get_static_constant_proxy() == *otherLen->get_static_constant_proxy());
+        }
+        else
+            return false;  // origin has not bound L
+    }
+    return true;
+}
+
+static bool ref_assignable_from(const TxReferenceType* toRef, const TxReferenceType* fromRef) {
+    // if origin has unbound type params that destination does not, origin is more generic and can't be assigned to destination
+    if (auto toTarget = toRef->target_type()) {
+        if (auto fromTarget = fromRef->target_type()) {
+            // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
+            //std::cout << "CHECKING REF ASSIGNABLE FROM\n" << *fromTarget->get_type() << "\nTO\n" << *toTarget->get_type() << std::endl;
+            if (! fromTarget->is_a(*toTarget))
+                return false;
+            else if (toTarget->is_modifiable() && !fromTarget->is_modifiable())
+                return false;  // can't lose modifiable attribute of target
+            else
+                return true;
+        }
+        else
+            return false;  // origin has not bound T
+    }
+    else
+        return true;
+}
+
+bool TxArrayType::is_assignable_to(const TxType& destination) const {
+    if (const TxArrayType* toArray = dynamic_cast<const TxArrayType*>(&destination))
+        return array_assignable_from(toArray, this);
     else
         return false;
 }
 
+bool TxReferenceType::is_assignable_to(const TxType& destination) const {
+    if (const TxReferenceType* toRef = dynamic_cast<const TxReferenceType*>(&destination))
+        return ref_assignable_from(toRef, this);
+    else
+        return false;
+}
+
+
+
+bool TxArrayType::is_statically_sized() const {
+    return this->is_concrete() && this->element_type()->is_statically_sized()
+           && this->length()->is_statically_constant();
+}
 
 
 const TxExpressionNode* TxArrayType::length() const {
@@ -715,6 +718,7 @@ const TxType* TxReferenceType::target_type() const {
     }
     return ttype;
 }
+
 
 
 void TxInterfaceAdapterType::prepare_type_members() {

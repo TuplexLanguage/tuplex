@@ -260,10 +260,6 @@ protected:
                                           const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
                                           const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>()) const = 0;
 
-    /** Returns true if this type can implicitly convert from the provided type.
-     * Internal, type-class-specific implementation. */
-    virtual bool inner_auto_converts_from(const TxType& someType) const { return false; }
-
     friend class TypeRegistry;  // allows access for registry's type construction
 
     /** For internal type implementation use; searches the type hierarchy's parameter bindings. */
@@ -475,26 +471,25 @@ public:
     inline bool operator!=(const TxType& other) const  { return ! this->operator==(other); }
 
 
-    /** Returns true if an instance of this type can implicitly convert from an instance of the provided type.
+    /** Returns true if an instance of this type can implicitly convert to an instance of the destination type.
+     * Note that this does not test whether destination is modifiable;
+     * it only tests type instance compatibility for assignment.
+     * (For example, an initializer to an unmodifiable field is still valid if assignable to its type.)
      * This is a less strict test than is_assignable, since some types that are not directly assignable
-     * may be so after implicit conversion (e.g. Byte -> Int). */
-    bool auto_converts_from(const TxType& other) const {
-        // general logic:
-        if (*this == other)
-            return true;
-//        if (this->is_modifiable())
-//            return this->baseTypeSpec.type->auto_converts_from(other);
-//        if (other.is_modifiable())
-//            return this->auto_converts_from(*other.baseTypeSpec.type);
-
-        // base-type-specific logic:
-        return this->inner_auto_converts_from(other);
+     * may be so after an implicit conversion (e.g. Byte -> Int). */
+    virtual bool auto_converts_to(const TxType& destination) const {
+        return this->is_assignable_to(destination);  // default implementation is equal to assignability
     }
 
     /** Returns true if an instance of this type can be assigned to a field of the provided type
      * (without performing any value conversion).
-     * This is a more strict test than is-a. */
-    virtual bool is_assignable_to(const TxType& other) const;
+     * Note that this does not test whether destination is modifiable;
+     * it only tests type instance compatibility for assignment.
+     * (For example, an initializer to an unmodifiable field is still valid if assignable to its type.)
+     * For many type classes this is a more strict test than is-a,
+     * however for functions, arrays, references and adapters this test concerns data type equivalence and
+     * substitutability rather than is-a relationship. */
+    virtual bool is_assignable_to(const TxType& destination) const;
 
     /** Returns true if the provided type is the same as this, or a specialization of this.
      * Note that true does not guarantee assignability, for example modifiability is not taken into account.

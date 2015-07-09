@@ -42,7 +42,7 @@ public:
 
     virtual bool is_statically_sized() const override;
 
-    virtual bool inner_auto_converts_from(const TxType& otherType) const override;
+    virtual bool is_assignable_to(const TxType& other) const override;
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
     virtual llvm::Value* gen_size(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -88,8 +88,6 @@ public:
     virtual bool is_concrete() const { return true; }
 
     virtual bool is_assignable_to(const TxType& other) const override;
-
-    virtual bool inner_auto_converts_from(const TxType& otherType) const override;
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
@@ -146,7 +144,7 @@ public:
 
     inline virtual bool operator==(const TxType& other) const override {
         if (auto otherF = dynamic_cast<const TxFunctionType*>(&other)) {
-            std::cerr << "EQUAL RETURN TYPES?\n\t" << this->returnType << "\n\t" << otherF->returnType << std::endl;
+            //std::cerr << "EQUAL RETURN TYPES?\n\t" << this->returnType << "\n\t" << otherF->returnType << std::endl;
             return ( ( this->returnType == otherF->returnType
                        || ( this->returnType != nullptr && otherF->returnType != nullptr
                             && *this->returnType == *otherF->returnType ) )
@@ -160,7 +158,7 @@ public:
 
     virtual bool is_assignable_to(const TxType& other) const override {
         if (auto otherF = dynamic_cast<const TxFunctionType*>(&other)) {
-            std::cerr << "ASSIGNABLE RETURN TYPES?\n\t" << this->returnType << "\n\t" << otherF->returnType << std::endl;
+            //std::cerr << "ASSIGNABLE RETURN TYPES?\n\t" << this->returnType << "\n\t" << otherF->returnType << std::endl;
             return ( ( this->returnType == otherF->returnType
                        || ( this->returnType != nullptr && otherF->returnType != nullptr
                             && this->returnType->is_assignable_to( *otherF->returnType ) ) )
@@ -170,10 +168,6 @@ public:
                                    [](const TxType* ta, const TxType* oa) { return oa->is_assignable_to( *ta ); } ) );
         }
         return false;
-    }
-
-    virtual bool inner_auto_converts_from(const TxType& someType) const override {
-        return (*this) == someType;
     }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
@@ -255,10 +249,6 @@ public:
     // (currently such members are not supported so this can't be false for valid tuple types)
     //bool TxArrayType::is_statically_sized() const override;
 
-    virtual bool inner_auto_converts_from(const TxType& someType) const override {
-        return (*this) == someType;
-    }
-
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
     virtual llvm::Type* make_llvm_type_body(LlvmGenerationContext& context, llvm::Type* header) const override;
 
@@ -287,10 +277,7 @@ public:
         ASSERT(declaration, "NULL declaration");
     }
 
-    virtual bool inner_auto_converts_from(const TxType& someType) const override {
-        // TODO: allow primary subtypes (i.e. not derived as secondary etc base type) to auto-convert
-        return (*this) == someType;
-    }
+    // TODO: allow interfaces with proper is-a relationship to auto-convert (via adapter)
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
@@ -327,7 +314,9 @@ public:
 
     virtual bool is_abstract() const override { return false; }
 
-    virtual bool inner_auto_converts_from(const TxType& someType) const override {
+    // TODO: allow adapters with proper is-a relationship to auto-convert
+
+    virtual bool is_assignable_to(const TxType& someType) const override {
         if (auto otherAdapter = dynamic_cast<const TxInterfaceAdapterType*>(&someType))
             return (*this == *otherAdapter && this->adaptedType == otherAdapter->adaptedType);
         else

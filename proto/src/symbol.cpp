@@ -510,7 +510,7 @@ static bool arg_type_matches(const TxType *expectedType, const TxType* providedT
     // mimics behavior of inner_validate_wrap_convert()   FUTURE: merge code
     if (providedType == expectedType)
         return true;
-    if (expectedType->auto_converts_from(*providedType))
+    if (providedType->auto_converts_to(*expectedType))
         return true;
     if (auto refType = dynamic_cast<const TxReferenceType*>(expectedType)) {
         auto refTargetType = refType->target_type();

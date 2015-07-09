@@ -25,12 +25,6 @@ public:
         return ( typeid(*this) == typeid(other) );
     }
 
-    virtual bool inner_auto_converts_from(const TxType& other) const override {
-        // should we auto-convert from Null (false)?
-        // should we auto-convert from integers (0 => false)?
-        return ( typeid(*this) == typeid(other) );
-    }
-
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
@@ -88,12 +82,12 @@ public:
                 && this->_size == ((TxIntegerType&)other)._size);
     }
 
-    virtual bool inner_auto_converts_from(const TxType& otherType) const override {
-        if (const TxIntegerType* intType = dynamic_cast<const TxIntegerType*>(&otherType)) {
-            if (this->sign == intType->sign)
-                return this->_size >= intType->_size;
+    virtual bool auto_converts_to(const TxType& destination) const override {
+        if (const TxIntegerType* destInt = dynamic_cast<const TxIntegerType*>(&destination)) {
+            if (this->sign == destInt->sign)
+                return this->_size <= destInt->_size;
             else
-                return this->sign && this->_size > intType->_size;
+                return destInt->sign && this->_size < destInt->_size;
         }
         return false;
     }
@@ -124,9 +118,9 @@ public:
                 && this->_size == ((TxFloatingType&)other)._size);
     }
 
-    virtual bool inner_auto_converts_from(const TxType& otherType) const override {
-        if (const TxFloatingType* floatType = dynamic_cast<const TxFloatingType*>(&otherType))
-            return this->_size >= floatType->_size;
+    virtual bool auto_converts_to(const TxType& destination) const override {
+        if (const TxFloatingType* destFloat = dynamic_cast<const TxFloatingType*>(&destination))
+            return this->_size <= destFloat->_size;
         return false;
     }
 };

@@ -165,7 +165,7 @@ static TxExpressionNode* inner_validate_wrap_convert(TxSpecializationIndex six, 
         return originalExpr;
     if (originalType == requiredType) // TODO: test with:  || *originalType == *requiredType)
         return originalExpr;
-    if (_explicit || requiredType->auto_converts_from(*originalType)) {
+    if (_explicit || originalType->auto_converts_to(*requiredType)) {
         // wrap originalExpr with conversion node
         if (auto boolType = dynamic_cast<const TxBoolType*>(requiredType))
             return new TxBoolConvNode(originalExpr->parseLocation, originalExpr, boolType);
@@ -214,7 +214,7 @@ TxExpressionNode* validate_wrap_convert(TxSpecializationIndex six, ResolutionCon
         if (auto convNode = dynamic_cast<TxConversionNode*>(originalExpr))
             fromExpr = convNode->expr;  // pass-through conversion added in s-ix 0
         if (auto originalType = fromExpr->resolve_type(six, resCtx)) {
-            if (! (originalType == requiredType || _explicit || requiredType->auto_converts_from(*originalType)))
+            if (! (originalType == requiredType || _explicit || originalType->auto_converts_to(*requiredType)))
                 CERROR(fromExpr, "Can't auto-convert value (s-ix " << six << ")\n\tFrom: " << originalType << " \t@" << originalType->get_parse_location()
                                      << "\n\tTo:   " << requiredType << " \t@" << requiredType->get_parse_location());
         }

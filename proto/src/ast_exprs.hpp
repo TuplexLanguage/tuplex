@@ -298,14 +298,14 @@ protected:
         if (auto scalar_ltype = dynamic_cast<const TxScalarType*>(ltype)) {
             if (auto scalar_rtype = dynamic_cast<const TxScalarType*>(rtype)) {
                 if (scalar_ltype != scalar_rtype) {
-                    if (scalar_ltype->auto_converts_from(*scalar_rtype)) {
+                    if (scalar_rtype->auto_converts_to(*scalar_ltype)) {
                         // wrap rhs with cast instruction node
                         this->rhs = new TxScalarConvNode(this->rhs->parseLocation, this->rhs, scalar_ltype);
                         this->rhs->symbol_declaration_pass(six, this->context(six));
                         this->rhs->symbol_resolution_pass(six, resCtx);
                         arithResultType = scalar_ltype;
                     }
-                    else if (scalar_rtype->auto_converts_from(*scalar_ltype)) {
+                    else if (scalar_ltype->auto_converts_to(*scalar_rtype)) {
                         // wrap lhs with cast instruction node
                         this->lhs = new TxScalarConvNode(this->lhs->parseLocation, this->lhs, scalar_rtype);
                         this->lhs->symbol_declaration_pass(six, this->context(six));
