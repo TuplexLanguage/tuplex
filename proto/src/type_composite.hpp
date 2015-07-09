@@ -42,7 +42,7 @@ public:
 
     virtual bool is_statically_sized() const override;
 
-    virtual bool innerAutoConvertsFrom(const TxType& otherType) const override;
+    virtual bool inner_auto_converts_from(const TxType& otherType) const override;
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
     virtual llvm::Value* gen_size(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -86,9 +86,10 @@ public:
     /** Returns true if this type is concrete (i.e. can be directly instanced).
      * A concrete type is not abstract, nor usually generic (references may be concrete while generic). */
     virtual bool is_concrete() const { return true; }
-    // FUTURE: might be abstract when unknown whether independent object or member ref?
 
-    virtual bool innerAutoConvertsFrom(const TxType& otherType) const override;
+    virtual bool is_assignable_to(const TxType& other) const override;
+
+    virtual bool inner_auto_converts_from(const TxType& otherType) const override;
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
@@ -102,7 +103,11 @@ public:
 };
 
 
-
+/** A function type describes the user signature of a function.
+ * It does not include the implicit "receiver" / "closure" reference argument.
+ * This means that free functions, methods and lambda expressions can have the same function type,
+ * although their closures work differently.
+ */
 class TxFunctionType : public TxType {
     /** Indicates whether functions of this type may modify its closure when run. */
     const bool modifiableClosure;
@@ -140,19 +145,35 @@ public:
     virtual bool is_abstract() const override { return false; }
 
     inline virtual bool operator==(const TxType& other) const override {
-        if (auto otherF = dynamic_cast<const TxFunctionType*>(&other))
+        if (auto otherF = dynamic_cast<const TxFunctionType*>(&other)) {
+            std::cerr << "EQUAL RETURN TYPES?\n\t" << this->returnType << "\n\t" << otherF->returnType << std::endl;
             return ( ( this->returnType == otherF->returnType
                        || ( this->returnType != nullptr && otherF->returnType != nullptr
                             && *this->returnType == *otherF->returnType ) )
                      && this->argumentTypes.size() == otherF->argumentTypes.size()
                      && std::equal(this->argumentTypes.cbegin(), this->argumentTypes.cend(),
                                    otherF->argumentTypes.cbegin(),
-                                   [](const TxType* t1, const TxType* t2) { return *t1 == *t2; } ) );
+                                   [](const TxType* ta, const TxType* oa) { return *ta == *oa; } ) );
+        }
         return false;
     }
 
-    virtual bool innerAutoConvertsFrom(const TxType& someType) const override {
-        return (*this) == someType;  // FUTURE: allow polymorphic compatibility
+    virtual bool is_assignable_to(const TxType& other) const override {
+        if (auto otherF = dynamic_cast<const TxFunctionType*>(&other)) {
+            std::cerr << "ASSIGNABLE RETURN TYPES?\n\t" << this->returnType << "\n\t" << otherF->returnType << std::endl;
+            return ( ( this->returnType == otherF->returnType
+                       || ( this->returnType != nullptr && otherF->returnType != nullptr
+                            && this->returnType->is_assignable_to( *otherF->returnType ) ) )
+                     && this->argumentTypes.size() == otherF->argumentTypes.size()
+                     && std::equal(this->argumentTypes.cbegin(), this->argumentTypes.cend(),
+                                   otherF->argumentTypes.cbegin(),
+                                   [](const TxType* ta, const TxType* oa) { return oa->is_assignable_to( *ta ); } ) );
+        }
+        return false;
+    }
+
+    virtual bool inner_auto_converts_from(const TxType& someType) const override {
+        return (*this) == someType;
     }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
@@ -234,7 +255,7 @@ public:
     // (currently such members are not supported so this can't be false for valid tuple types)
     //bool TxArrayType::is_statically_sized() const override;
 
-    virtual bool innerAutoConvertsFrom(const TxType& someType) const override {
+    virtual bool inner_auto_converts_from(const TxType& someType) const override {
         return (*this) == someType;
     }
 
@@ -266,7 +287,8 @@ public:
         ASSERT(declaration, "NULL declaration");
     }
 
-    virtual bool innerAutoConvertsFrom(const TxType& someType) const override {
+    virtual bool inner_auto_converts_from(const TxType& someType) const override {
+        // TODO: allow primary subtypes (i.e. not derived as secondary etc base type) to auto-convert
         return (*this) == someType;
     }
 
@@ -305,7 +327,7 @@ public:
 
     virtual bool is_abstract() const override { return false; }
 
-    virtual bool innerAutoConvertsFrom(const TxType& someType) const override {
+    virtual bool inner_auto_converts_from(const TxType& someType) const override {
         if (auto otherAdapter = dynamic_cast<const TxInterfaceAdapterType*>(&someType))
             return (*this == *otherAdapter && this->adaptedType == otherAdapter->adaptedType);
         else

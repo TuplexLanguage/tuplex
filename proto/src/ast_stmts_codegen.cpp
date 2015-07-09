@@ -259,7 +259,7 @@ Value* TxReturnStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scop
         if (exprV->getType() == expectedT)
             return scope->builder->CreateRet(exprV);
         else if (exprV->getType()->isPointerTy() && exprV->getType()->getPointerElementType() == expectedT) {
-            context.LOG.alert("auto-loading return value type %s  to expected  %s",
+            context.LOG.debug("auto-loading return value type %s  to expected  %s",
                     ::to_string(exprV->getType()).c_str(), ::to_string(expectedT).c_str());
             return scope->builder->CreateRet(scope->builder->CreateLoad(exprV));
         }

@@ -262,7 +262,7 @@ protected:
 
     /** Returns true if this type can implicitly convert from the provided type.
      * Internal, type-class-specific implementation. */
-    virtual bool innerAutoConvertsFrom(const TxType& someType) const { return false; }
+    virtual bool inner_auto_converts_from(const TxType& someType) const { return false; }
 
     friend class TypeRegistry;  // allows access for registry's type construction
 
@@ -314,7 +314,8 @@ public:
     /** Returns true if this type has a base type (parent). ('Any' is the only type that has no base type.) */
     inline bool has_base_type() const { return this->baseTypeSpec.type; }
 
-    /** Gets the base type (parent) of this type. ('Any' is the only type that has no base type.) */
+    /** Gets the base type (parent) of this type.
+     * ('Any' is the only type that has no base type, for this type NULL is returned.) */
     inline const TxType* get_base_type() const { return this->genericBaseType ? this->genericBaseType : this->baseTypeSpec.type; }
 
     /** Gets the base data type (parent) of this type. The same as get_base_type() except for generic type specializations. */
@@ -474,7 +475,9 @@ public:
     inline bool operator!=(const TxType& other) const  { return ! this->operator==(other); }
 
 
-    /** Returns true if this type can implicitly convert from the provided type. */
+    /** Returns true if an instance of this type can implicitly convert from an instance of the provided type.
+     * This is a less strict test than is_assignable, since some types that are not directly assignable
+     * may be so after implicit conversion (e.g. Byte -> Int). */
     bool auto_converts_from(const TxType& other) const {
         // general logic:
         if (*this == other)
@@ -485,9 +488,13 @@ public:
 //            return this->auto_converts_from(*other.baseTypeSpec.type);
 
         // base-type-specific logic:
-        return this->innerAutoConvertsFrom(other);
+        return this->inner_auto_converts_from(other);
     }
 
+    /** Returns true if an instance of this type can be assigned to a field of the provided type
+     * (without performing any value conversion).
+     * This is a more strict test than is-a. */
+    virtual bool is_assignable_to(const TxType& other) const;
 
     /** Returns true if the provided type is the same as this, or a specialization of this.
      * Note that true does not guarantee assignability, for example modifiability is not taken into account.
@@ -496,10 +503,6 @@ public:
 
     /** Returns the common base type of this and other, if both are pure specializations of it. */
     const TxType* common_generic_base_type(const TxType& other) const;
-
-//    /** Returns true if an instance of this type can be assigned from an instance of the provided type
-//     * (without performing any kind of conversion). */
-//    virtual bool is_assignable_from(const TxType& someType) const { return (*this) == someType; }
 
 private:
     bool inner_is_a(const TxType& other) const;

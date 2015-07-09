@@ -249,8 +249,8 @@ void TxType::prepare_type_members() {
                         auto overriddenField = this->virtualFields.get_field(field->get_unique_name());
                         if (overriddenField->get_decl_flags() & TXD_FINAL)
                             CERROR(this, "Can't override a base type field that is declared 'final': " << field);
-                        if (! (field->get_type()->is_a(*overriddenField->get_type())))
-                            CERROR(this, "Overriding member's type does not derive from overridden member's type: " << field->get_type());
+                        if (! (field->get_type()->is_assignable_to(*overriddenField->get_type())))
+                            CERROR(this, "Overriding member's type may not override overridden member's type: " << field->get_type());
                         this->virtualFields.override_field(field->get_unique_name(), field);
                     }
                     else {
@@ -258,7 +258,7 @@ void TxType::prepare_type_members() {
                             CWARNING(this, "Field doesn't override but is declared 'override': " << field);
                         this->virtualFields.add_field(field->get_unique_name(), field);
                     }
-                    LOGGER().alert("Adding/overriding virtual field %-40s  %s  %u", field->to_string().c_str(),
+                    LOGGER().debug("Adding/overriding virtual field %-40s  %s  %u", field->to_string().c_str(),
                                    field->get_type()->to_string(true).c_str(), this->virtualFields.get_field_count());
                     break;
                 default:
@@ -364,19 +364,6 @@ TxEntitySymbol* TxType::lookup_instance_member(TxScopeSymbol* vantageScope, cons
         }
     }
     return nullptr;
-
-//    // FIX ME: the provided symbol name won't match the field's unique name if it's overloaded
-//    if (this->instanceMethods.has_field(name))
-//        return this->instanceMethods.get_field(name)->get_declaration()->get_symbol();
-//    if (this->instanceFields.has_field(name))
-//        return this->instanceFields.get_field(name)->get_declaration()->get_symbol();
-//    if (this->staticFields.has_field(name))
-//        return this->staticFields.get_field(name)->get_declaration()->get_symbol();
-//    if (this->virtualFields.has_field(name))
-//        return this->virtualFields.get_field(name)->get_declaration()->get_symbol();
-//    if (auto type = this->lookup_member_type(name))
-//        return type->get_declaration()->get_symbol();
-//    return nullptr;
 }
 
 
@@ -413,6 +400,19 @@ bool TxType::operator==(const TxType& other) const {
     // (interfaces and members can only apply to a type with an explicit declaration, and an explicit declaration can have only one type instance)
 }
 
+
+bool TxType::is_assignable_to(const TxType& other) const {
+    // fields must at least be the same instance data type, for now we consider virtual derivations legal
+    auto thisType = this;
+    do {
+        if (*thisType == other)
+            return true;
+        if (this->is_virtual_derivation())
+            thisType = thisType->get_base_type();
+        else
+            return false;
+    } while (true);
+}
 
 bool TxType::is_a(const TxType& other) const {
     //std::cerr << *this << "  IS-A\n" << other << std::endl;
@@ -571,7 +571,7 @@ bool TxArrayType::is_statically_sized() const {
            && this->length()->is_statically_constant();
 }
 
-bool TxArrayType::innerAutoConvertsFrom(const TxType& otherType) const {
+bool TxArrayType::inner_auto_converts_from(const TxType& otherType) const {
     if (const TxArrayType* otherArray = dynamic_cast<const TxArrayType*>(&otherType)) {
         // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
         if (auto e = this->element_type()) {
@@ -597,7 +597,11 @@ bool TxArrayType::innerAutoConvertsFrom(const TxType& otherType) const {
 }
 
 
-bool TxReferenceType::innerAutoConvertsFrom(const TxType& otherType) const {
+bool TxReferenceType::is_assignable_to(const TxType& other) const {
+    return other.auto_converts_from(*this);
+}
+
+bool TxReferenceType::inner_auto_converts_from(const TxType& otherType) const {
     if (const TxReferenceType* otherRef = dynamic_cast<const TxReferenceType*>(&otherType)) {
         // if other has unbound type params that this does not, other is more generic and can't be auto-converted to this
         if (auto target = this->target_type()) {

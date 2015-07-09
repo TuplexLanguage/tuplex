@@ -25,7 +25,7 @@ public:
         return ( typeid(*this) == typeid(other) );
     }
 
-    virtual bool innerAutoConvertsFrom(const TxType& other) const override {
+    virtual bool inner_auto_converts_from(const TxType& other) const override {
         // should we auto-convert from Null (false)?
         // should we auto-convert from integers (0 => false)?
         return ( typeid(*this) == typeid(other) );
@@ -88,7 +88,7 @@ public:
                 && this->_size == ((TxIntegerType&)other)._size);
     }
 
-    virtual bool innerAutoConvertsFrom(const TxType& otherType) const override {
+    virtual bool inner_auto_converts_from(const TxType& otherType) const override {
         if (const TxIntegerType* intType = dynamic_cast<const TxIntegerType*>(&otherType)) {
             if (this->sign == intType->sign)
                 return this->_size >= intType->_size;
@@ -124,7 +124,7 @@ public:
                 && this->_size == ((TxFloatingType&)other)._size);
     }
 
-    virtual bool innerAutoConvertsFrom(const TxType& otherType) const override {
+    virtual bool inner_auto_converts_from(const TxType& otherType) const override {
         if (const TxFloatingType* floatType = dynamic_cast<const TxFloatingType*>(&otherType))
             return this->_size >= floatType->_size;
         return false;

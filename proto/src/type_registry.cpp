@@ -690,7 +690,7 @@ const TxInterfaceAdapterType* TypeRegistry::inner_get_interface_adapter(const Tx
         }
     }
 
-    std::cerr << "Creating interface adapter:\n\tfrom " << adaptedType << "\n\tto   " << interfaceType << std::endl;
+    //std::cerr << "Creating interface adapter:\n\tfrom " << adaptedType << "\n\tto   " << interfaceType << std::endl;
     auto typeDefiner = new TxBuiltinTypeDefiner();
     auto typeDecl = scope->declare_type(adapterName, typeDefiner, TXD_PUBLIC);
     {   // override the adaptee type id virtual field member:
