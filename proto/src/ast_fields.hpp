@@ -43,13 +43,13 @@ public:
         // not invoking baseExpr->symbol_resolution_pass() since that is only done via define_type()
         //if (this->baseExpr)
         //    this->baseExpr->symbol_resolution_pass(six, resCtx);
-        if (! this->get_type(six)) {
-            if (this->get_spec(six).declaration)
-                CERROR(this, "Symbol is not a field: " << this->get_spec(six).declaration);
-            else {
-                CERROR(this, "No such symbol: " << this->get_full_identifier());
-            }
-        }
+//        if (! this->get_type(six)) {
+//            if (this->get_spec(six).declaration)
+//                CERROR(this, "Symbol is not a field: " << this->get_spec(six).declaration);
+//            else {
+//                CERROR(this, "No such symbol: " << this->get_full_identifier());
+//            }
+//        }
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {

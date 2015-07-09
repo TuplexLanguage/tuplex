@@ -569,7 +569,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl(TxSpecializationIndex 
                 spec.declaration = typeDecl;
                 return spec.declaration;
             }
-            CERROR(this, "Failed to resolve entity symbol to proper field: " << this->get_full_identifier());
+            CERROR(this, "Failed to resolve entity symbol to a field: " << this->get_full_identifier());
         }
     }
     else

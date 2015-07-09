@@ -593,11 +593,11 @@ static bool ref_assignable_from(const TxReferenceType* toRef, const TxReferenceT
     if (auto toTarget = toRef->target_type()) {
         if (auto fromTarget = fromRef->target_type()) {
             // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
-            //std::cout << "CHECKING REF ASSIGNABLE FROM\n" << *fromTarget->get_type() << "\nTO\n" << *toTarget->get_type() << std::endl;
+            //std::cout << "CHECKING REF ASSIGNABLE\n\tFROM " << *fromTarget->get_type() << "\n\tTO   " << *toTarget->get_type() << std::endl;
             if (! fromTarget->is_a(*toTarget))
                 return false;
             else if (toTarget->is_modifiable() && !fromTarget->is_modifiable())
-                return false;  // can't lose modifiable attribute of target
+                return false;  // can't lose non-modifiability of target type
             else
                 return true;
         }

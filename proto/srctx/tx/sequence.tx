@@ -1,0 +1,237 @@
+module tx.tmp
+
+
+##public type Opt<T derives Ref> derives Union { T, NULL }
+public type Opt<T derives Ref> derives Tuple {
+    val : T
+
+    public self( value : T ) { self^.val = value }
+
+    public value() T { return self^.val }
+}
+
+## Should sequences always have Opt<E> as return type, or should they always use valid values (e.g. first/last in ranges)
+## for access outside the sequence bounds?
+## But if not Opt, how handle empty sequences?
+## If exceptions are implemented in future, it would be undesirable to have Opt<> hard-defined in that interface.
+## But perhaps changing return type from Opt<E> to E won't break usages?
+## (letting type parameter contraint type initially be Opt<Ref> is uncertain if desirable and if works as intended)
+
+
+public interface Sequenceable<E derives Ref> derives Interface {
+    public abstract sequencer() Ref<~Sequencer<E>>  ## undefined whether constructs/allocates new sequencer?
+}
+
+
+/** An iterable sequence supports forward and backward traversal. */
+public interface Iterable<E derives Ref> derives Sequenceable<E> {
+    public override abstract sequencer() Ref<~Iterator<E>>
+}
+
+
+/** An indicable sequence is finite, has known limits, and supports random-access.
+ * Valid indices are in the range [0, count()-1].
+ */
+public interface Indicable<E derives Ref> derives Iterable<E> {
+    public abstract count() ULong
+    public abstract at(index : ULong) E  ## (panics upon out-of-bounds)
+}
+
+
+public interface Updateable<E derives Ref> derives Sequenceable<E> {
+    public abstract updater() Ref<~Updater<E>>
+}
+
+
+
+
+public interface Sequencer<E derives Ref> derives Interface /* Sequenceable<E> */ {
+    public sequencer() Ref<~Sequencer<E>> { return self }
+
+    public abstract hasNext() Bool  ## needed since sequences may contain NULL
+    public abstract next()  ## (panics upon out-of-bounds)
+}
+
+
+public interface Iterator<E derives Ref> derives Sequencer<E> {
+    public override sequencer() Ref<~Iterator<E>> { return self }
+
+    public abstract hasPrev() Bool  ## needed since sequences may contain NULL
+    public abstract prev()  ## (panics upon out-of-bounds)
+}
+
+
+public interface Updater<E derives Ref> derives Sequencer<E> {
+    public override sequencer() Ref<~Updater<E>> { return self }
+
+    /** replaces value returned by most-recent call to next() / prev() */
+    public abstract update(newValue : E)  ## (panics upon out-of-bounds)
+}
+
+
+
+
+/** A standard Iterator implementation that does a full traversal of an arbitrary Indicable.
+ * Used in expressions like this:
+     for i in indicableSequenceExpr
+ */
+public type IndicableIterator<E derives Ref> derives Tuple, Iterator<E> {
+    indicable : &Indicable<E>
+    nextIx    : ~ULong
+
+    public self( indicable : &Indicable<E> ) { self^.indicable = indicable; self^.nextIx = 0 }
+
+    public sequencer() Ref<~IndicableIterator<E>> { return self }
+
+    public hasNext() Bool  {
+        return self^.nextIx < self^.indicable^.count()
+    }
+
+    public next() E  {
+        if self^.nextIx >= self^.indicable^.count()
+            return self^.indicable^.at( 0 )  ## TODO: panic
+        i := self^.nextIx
+        self^.nextIx = self^.nextIx + 1
+        return self^.indicable^.at( i )
+    }
+
+    public hasPrev() Bool  {
+        return self^.nextIx > 0
+    }
+
+    public prev() E  {
+        if self^.nextIx == 0
+            return self^.indicable^.at( 0 )  ## TODO: panic
+        self^.nextIx = self^.nextIx - 1
+        return self^.indicable^.at( self^.nextIx )
+    }
+}
+
+
+
+
+/** The typical 'ULong' and 'index' range type.
+ * Conceptually implements Indicable.
+ * Empty range is expressed by last = 0, first = step
+ * Access beyond range returns last (0 for empty ranges)
+ */
+public type ULRange derives Tuple /*, Indicable<ULong> */ {
+    public first : ULong
+    public last  : ULong
+    public step  : ULong
+
+    public self( f : ULong, l : ULong, s : ULong ) { self^.first = f; self^.last = l; self^.step = s }
+
+    public sequencer() Ref<~ULRangeIterator> { return new ~ULRangeIterator(self) }
+    public count() ULong                     { return (self^.last - self^.first) / self^.step + 1 }
+    public at(index : ULong) ULong           {  ## (panics upon out-of-bounds)
+        r := self^.first + index * self^.step
+        if r <= self^.last
+            return r
+        return self^.last  ## TODO: panic
+    }
+}
+
+
+/** The ULRange iterator.
+ * Conceptually implements Iterator.
+ */
+public type ULRangeIterator derives Tuple /*, Iterator<ULong> */ {
+    range   : &ULRange
+    nextVal : ~ULong
+
+    public self( range : &ULRange ) { self^.range = range; self^.nextVal = range^.first }
+
+    public sequencer() Ref<~ULRangeIterator> { return self }
+
+    public hasNext() Bool  { return self^.nextVal <= self^.range^.last }
+
+    public next() ULong  {
+        if self^.nextVal > self^.range^.last
+            return self^.range^.last  ## TODO: panic
+        r := self^.nextVal
+        self^.nextVal = self^.nextVal + self^.range^.step
+        return r
+    }
+
+    public hasPrev() Bool  { return self^.nextVal-self^.range^.step >= self^.range^.first }
+ 
+    public prev() ULong  {
+        if self^.range^.first + self^.range^.step > self^.nextVal
+            return self^.range^.first  ## TODO: panic
+        self^.nextVal = self^.nextVal - self^.range^.step
+        return self^.nextVal
+    }
+}
+
+
+/** Produces an indicable sub-sequence (slice) of an indicable sequence.
+ * Used in expressions like this:
+     for i in indicableSequence[3:5]
+ */
+public type SubIndicable<E derives Ref> mod derives Tuple, Indicable<E> {
+    ind : &Indicable<E>
+    sub : &ULRange
+
+    public self( ind : &Indicable<E>, sub : &ULRange ) {
+        ## if sub^.count() > 0 & sub^.last > ind^.count()
+        ##     TODO: panic
+        self^.ind = ind
+        self^.sub = sub
+    }
+
+    public override sequencer() Ref<~Iterator<E>> {
+        return new ~IndicableIterator<E>( self )
+    }
+
+    public override count() ULong { return self^.sub^.count() }
+
+    public override at(index : ULong) E {
+        i := self^.sub^.at( index )
+        return self^.ind^.at( i )
+    }
+}
+
+
+
+/** A selecting sub-sequencer that wraps another sequence.
+ * Used in expressions like this:
+     for i in nonIndexableSequencer[3:5]
+ */
+public type SubSequencer<E derives Ref> mod derives Tuple, Sequencer<E> {
+    seq : &Sequencer<E>
+    sub : &ULRange
+
+    public self( seq : &Sequencer<E>, sub : &ULRange ) {
+        self^.seq = seq
+        self^.sub = sub
+        /* TODO: for loops
+        if sub.start > 0
+            for i in 0:sub.start {
+                if (! self^.seq^.hasNext())
+                    break
+                self^.seq^.next()
+            }
+        */
+    }
+
+    public override sequencer() Ref<~Sequencer<E>> { return self }
+
+    public override hasNext() Bool {
+        return self^.seq^.hasNext()
+    }
+
+    public override next() E {
+        e := self^.seq^.next()
+        /* TODO: for loops
+        for i in 2:sub^.step {
+            if (! self^.seq^.hasNext())
+                break
+            self^.seq^.next()
+        }
+        */
+        return e
+    }
+}
+
+## TODO: filtered sub-iterable of an iterable (forwards and backwards traversal)
