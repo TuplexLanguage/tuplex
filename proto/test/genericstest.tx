@@ -29,8 +29,8 @@ public type NCArray<E> derives Array<E,10> {
 
 
 
-type Type<E derives Ref,F> derives Tuple {
-    var : E
+type Type<E,F> derives Tuple {
+    var : &E
 }
 
 type SType<E,G> Type<E,G>
