@@ -49,7 +49,7 @@ public interface Sequencer<E derives Ref> derives Interface /* Sequenceable<E> *
     public sequencer() Ref<~Sequencer<E>> { return self }
 
     public abstract hasNext() Bool  ## needed since sequences may contain NULL
-    public abstract next()  ## (panics upon out-of-bounds)
+    public abstract next() E  ## (panics upon out-of-bounds)
 }
 
 
@@ -57,7 +57,7 @@ public interface Iterator<E derives Ref> derives Sequencer<E> {
     public override sequencer() Ref<~Iterator<E>> { return self }
 
     public abstract hasPrev() Bool  ## needed since sequences may contain NULL
-    public abstract prev()  ## (panics upon out-of-bounds)
+    public abstract prev() E  ## (panics upon out-of-bounds)
 }
 
 

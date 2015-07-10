@@ -605,16 +605,23 @@ Value* TxConstructorCalleeExprNode::gen_obj_ptr(LlvmGenerationContext& context, 
 Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context, GenScope* scope) const {
     // constructors are similar to instance methods, but they are not virtual (and not in vtable)
     context.LOG.trace("%-48s", this->to_string().c_str());
-    auto uniqueName = this->get_spec(0).declaration->get_unique_full_name();
-    Value* funcPtrV = context.lookup_llvm_value(uniqueName);
+    // find the constructor
+    // (constructors aren't inherited, but we bypass pure specializations to find the code-generated constructor)
+    auto uniqueName = this->get_spec(0).declaration->get_unique_name();
+    const TxType* allocType = this->objectExpr->get_type(0);
+    while (allocType->is_pure_specialization())
+        allocType = allocType->get_base_type();
+    auto uniqueFullName = allocType->get_declaration()->get_unique_full_name() + "." + uniqueName;
+    //std::cerr << "Code-generated constructor name: " << uniqueFullName << " (from: " << this->get_spec(0).declaration->get_unique_full_name() << ")" << std::endl;
+    Value* funcPtrV = context.lookup_llvm_value(uniqueFullName);
     if (! funcPtrV) {
         if (auto txType = this->get_type(0)) {
             // forward declaration situation
             if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
-                context.LOG.alert("Forward-declaring constructor function %s: %s", uniqueName.c_str(), txFuncType->to_string().c_str());
+                context.LOG.alert("Forward-declaring constructor function %s: %s", uniqueFullName.c_str(), txFuncType->to_string().c_str());
                 StructType *lambdaT = cast<StructType>(context.get_llvm_type(txFuncType));
                 FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
-                auto funcName = uniqueName; // + "$func";
+                auto funcName = uniqueFullName; // + "$func";
                 funcPtrV = context.llvmModule.getOrInsertFunction(funcName, funcT);
             }
             else

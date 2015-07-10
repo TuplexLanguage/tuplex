@@ -406,18 +406,19 @@ public:
 
     /*--- namespace lookup ---*/
 
-//    virtual TxScopeSymbol* get_member(const std::string& name) const;
-
 // was undefined whether these should return inherited members or not
 //    /** Returns a read-only, order-of-declaration iterator that points to the first declared member name. */
 //    std::vector<std::string>::const_iterator member_names_cbegin() const;
 //    /** Returns a read-only, order-of-declaration iterator that points to one past the last declared symbol name. */
 //    std::vector<std::string>::const_iterator member_names_cend()   const;
 
+    /** match against this entity's direct instance/static members (not its inherited members). */
+    virtual TxEntitySymbol* get_instance_member(const std::string& name) const;
+    virtual TxEntitySymbol* get_instance_member(TxScopeSymbol* vantageScope, const std::string& name) const;
 
     /** match against this entity's direct instance/static members, and then its inherited members, returning the first found */
-    virtual TxEntitySymbol* lookup_instance_member(const std::string& name) const;
-    virtual TxEntitySymbol* lookup_instance_member(TxScopeSymbol* vantageScope, const std::string& name) const;
+    virtual TxEntitySymbol* lookup_inherited_instance_member(const std::string& name) const;
+    virtual TxEntitySymbol* lookup_inherited_instance_member(TxScopeSymbol* vantageScope, const std::string& name) const;
 
 
     /*--- type parameter handling ---*/

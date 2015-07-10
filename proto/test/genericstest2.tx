@@ -1,0 +1,30 @@
+module my
+
+## tests specialization of ref-bound generic type
+
+type AType<S derives Ref> mod derives Tuple {
+    public memref : S
+
+    public self(s : S) {
+        self^.memref = s
+    }
+
+    public getter() S {
+        return self^.memref
+    }
+}
+
+type RInt Ref<Int>
+
+type ATypeRInt AType<RInt>
+
+main() Int {
+    val : Int = 42
+    sobj := ATypeRInt(val)
+    hobj := new ATypeRInt(val)
+    p : sobj.S
+    ##q : hobj^.S
+    ##tst : RInt = hobj^.memref
+    ret := hobj^.getter()
+    return ret^
+}

@@ -22,6 +22,7 @@ unsigned TxFieldDeclaration::get_overload_index() const {
 bool TxFieldDeclaration::validate() const {
     if (auto field = this->get_definer()->get_field())
         return field->validate();
+    this->get_symbol()->LOGGER().warning("In validation of %s: No field definition", this->to_string().c_str());
     return false;
 }
 
@@ -42,6 +43,7 @@ std::string TxFieldDeclaration::get_unique_name() const {
 bool TxTypeDeclaration::validate() const {
     if (auto type = this->get_definer()->get_type())
         return type->validate();
+    this->get_symbol()->LOGGER().warning("In validation of %s: No type definition", this->to_string().c_str());
     return false;
 }
 

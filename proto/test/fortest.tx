@@ -47,4 +47,8 @@ Wholly or partially implicit ranges are permissable in a sub-sequencing (slicing
 [-2:]  ## only last two elements
 
 
+if for's sequence expression is-a Sequencer, execute
+else if it is-a Sequenceable, invoke sequencer() on it and execute on that
+
+
 */

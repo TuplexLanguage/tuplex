@@ -521,7 +521,7 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol(TxSpecializationIndex six, Resol
         }
         else if (baseType) {
             // non-name (i.e. computed) value expression
-            symbol = baseType->lookup_instance_member(vantageScope, this->memberName);
+            symbol = baseType->lookup_inherited_instance_member(vantageScope, this->memberName);
         }
     }
     else {
@@ -557,13 +557,18 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl(TxSpecializationIndex 
             // if symbol is a type, and arguments are applied, and they match a constructor, the resolve to that constructor
             if (auto typeDecl = entitySymbol->get_type_decl()) {
                 if (this->get_spec(six).appliedFuncArgTypes) {
-                    if (auto allocType = typeDecl->get_definer()->resolve_type(resCtx))
-                        if (auto constructorSymbol = allocType->lookup_instance_member("$init"))
+                    if (auto allocType = typeDecl->get_definer()->resolve_type(resCtx)) {
+                        // (constructors aren't inherited, but we bypass empty derivations)
+                        while (allocType->is_modifiable() || allocType->is_empty_derivation())
+                            allocType = allocType->get_base_type();
+                        if (auto constructorSymbol = allocType->get_instance_member("$init"))  // (constructors aren't inherited)
                             if (auto constructorDecl = resolve_field_lookup(resCtx, constructorSymbol, this->get_spec(six).appliedFuncArgTypes)) {
                                 ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
+                                //std::cerr << "resolving field to constructor: " << this << ": " << constructorDecl << std::endl;
                                 spec.declaration = constructorDecl;
                                 return spec.declaration;
                             }
+                    }
                 }
                 // resolve this symbol to its type
                 spec.declaration = typeDecl;
@@ -598,9 +603,10 @@ const TxType* TxConstructorCalleeExprNode::define_type(TxSpecializationIndex six
     ASSERT(spec.appliedFuncArgTypes, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized");
     if (auto allocType = this->objectExpr->resolve_type(six, resCtx)) {
         // find the constructor
-        while (allocType->is_equivalent_derivation())
+        // (constructors aren't inherited, but we bypass empty derivations)
+        while (allocType->is_modifiable() || allocType->is_empty_derivation())
             allocType = allocType->get_base_type();
-        if (auto constructorSymbol = allocType->lookup_instance_member("$init")) {
+        if (auto constructorSymbol = allocType->get_instance_member("$init")) {
             if (auto constructorDecl = resolve_field_lookup(resCtx, constructorSymbol, spec.appliedFuncArgTypes)) {
                 ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
                 this->get_spec(six).declaration = constructorDecl;

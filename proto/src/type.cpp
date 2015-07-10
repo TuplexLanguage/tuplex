@@ -140,6 +140,13 @@ void TxType::prepare_type() {
         auto typeDeclNamespace = this->get_declaration()->get_symbol();
         for (auto symname = typeDeclNamespace->symbol_names_cbegin(); symname != typeDeclNamespace->symbol_names_cend(); symname++) {
             if (auto entitySym = dynamic_cast<TxEntitySymbol*>(typeDeclNamespace->get_member_symbol(*symname))) {
+                if (auto typeDecl = entitySym->get_type_decl()) {
+                    if (typeDecl->get_unique_name() == "$GenericBase") {
+                        this->genericBaseType = typeDecl->get_definer()->resolve_type(resCtx);
+                        //LOGGER().alert("Generic base type of %s is %s", entitySym->get_full_name().to_string().c_str(), this->genericBaseType->to_string().c_str());
+                    }
+                }
+
                 for (auto fieldDeclI = entitySym->fields_cbegin(); fieldDeclI != entitySym->fields_cend(); fieldDeclI++) {
                     auto fieldDecl = *fieldDeclI;
                     switch (fieldDecl->get_storage()) {
@@ -190,12 +197,7 @@ void TxType::prepare_type_members() {
         if (auto typeDecl = entitySym->get_type_decl()) {
             if (*symname != "tx#Ref#T") {  // prevents infinite recursion
                 //LOGGER().alert("resolving member type %s", entitySym->get_full_name().to_string().c_str());
-                auto type = typeDecl->get_definer()->resolve_type(resCtx);
-
-                if (typeDecl->get_unique_name() == "$GenericBase") {
-                    //LOGGER().alert("Generic base type of %s is %s", entitySym->get_full_name().to_string().c_str(), type->to_string().c_str());
-                    this->genericBaseType = type;
-                }
+                typeDecl->get_definer()->resolve_type(resCtx);
             }
         }
 
@@ -345,23 +347,32 @@ bool TxType::is_statically_sized() const {
 }
 
 
-
-TxEntitySymbol* TxType::lookup_instance_member(const std::string& name) const {
-    return this->lookup_instance_member(this->get_nearest_declaration()->get_symbol(), name);
+TxEntitySymbol* TxType::get_instance_member(const std::string& name) const {
+    return this->get_instance_member(this->get_nearest_declaration()->get_symbol(), name);
 }
 
-TxEntitySymbol* TxType::lookup_instance_member(TxScopeSymbol* vantageScope, const std::string& name) const {
-    for (const TxType* type = this; type; type = type->baseTypeSpec.type) {
-        if (auto decl = type->get_declaration()) {
-            if (auto member = lookup_member(vantageScope, decl->get_symbol(), name)) {
-                if (auto memberEnt = dynamic_cast<TxEntitySymbol*>(member))
-                    return memberEnt;
-                else
-                    // FIXME: handle alias??
-                    LOGGER().warning("Looked-up member is not an entity: %s",  member->to_string().c_str());
-                break;
-            }
+TxEntitySymbol* TxType::get_instance_member(TxScopeSymbol* vantageScope, const std::string& name) const {
+    if (auto decl = this->get_declaration()) {
+        if (auto member = lookup_member(vantageScope, decl->get_symbol(), name)) {
+            if (auto memberEnt = dynamic_cast<TxEntitySymbol*>(member))
+                return memberEnt;
+            else
+                // FIXME: handle alias??
+                LOGGER().warning("Looked-up member is not an entity: %s",  member->to_string().c_str());
         }
+    }
+    return nullptr;
+}
+
+TxEntitySymbol* TxType::lookup_inherited_instance_member(const std::string& name) const {
+    return this->lookup_inherited_instance_member(this->get_nearest_declaration()->get_symbol(), name);
+}
+
+TxEntitySymbol* TxType::lookup_inherited_instance_member(TxScopeSymbol* vantageScope, const std::string& name) const {
+    ASSERT(name != "$init", "Can't look up constructors as *inherited* members; in: " << this);
+    for (const TxType* type = this; type; type = type->baseTypeSpec.type) {
+        if (auto memberEnt = type->get_instance_member(vantageScope, name))
+            return memberEnt;
     }
     return nullptr;
 }
@@ -643,7 +654,7 @@ const TxExpressionNode* TxArrayType::length() const {
 
 const TxType* TxArrayType::element_type() const {
     const TxType* type = nullptr;
-    if (auto memberEnt = this->lookup_instance_member("tx#Array#E")) {
+    if (auto memberEnt = this->lookup_inherited_instance_member("tx#Array#E")) {
         if (memberEnt->get_type_decl())
             type = memberEnt->get_type_decl()->get_definer()->get_type();
     }

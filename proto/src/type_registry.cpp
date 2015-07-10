@@ -547,8 +547,10 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
     std::vector<TxTypeParam> allParams = prepare_type_parameters(specialization, typeParams, pOrigin);
 
-    // (binding of ref-constrained type parameters don't make the specialization more concrete, so disregard those)
-    if (allParams.empty() && specialization.type->has_nonref_parameters()  // non-parameterized type & binds a non-ref parameter
+    // (binding of ref-constrained type parameters don't make the code generation more concrete,
+    //  but accesses to the members still need the specialized version of them (e.g. the correct ref-target))
+    if (allParams.empty() && ! specialization.bindings.empty()  // non-parameterized type that binds parameters of its base type
+        //if (allParams.empty() && specialization.type->has_nonref_parameters()  // non-parameterized type & binds a non-ref parameter
         && ! specialization.type->is_builtin()) {  // (avoids source-expression-less built-in types (incl Ref<> and Array<>))
         // re-base it on new non-generic specialization of the base type:
         // (this replaces the bindings of the TxTypeSpecialization object with direct declarations within the new type)
@@ -581,7 +583,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
                 auto typeExpr = new TxTypeExprWrapperNode(parseLoc, &binding.type_definer());
                 auto declNode = new TxTypeDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, binding.param_name(), nullptr, typeExpr);
                 typeParamDeclNodes->push_back(declNode);
-                package.LOGGER().info("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
+                package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
                                        binding.param_name().c_str(), typeExpr->to_string().c_str());
 
                 const TxType* btype = binding.type_definer().resolve_type(resCtx);

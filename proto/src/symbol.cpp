@@ -333,7 +333,7 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
     else if (! this->is_overloaded()) {
         // this symbol represents a distinct field; look up its instance members
         if (auto type = this->get_first_field_decl()->get_definer()->attempt_get_type()) {
-            if (auto member = type->lookup_instance_member(name))
+            if (auto member = type->lookup_inherited_instance_member(name))
                 return member;
         }
         else
@@ -389,7 +389,7 @@ std::string TxEntitySymbol::declaration_string() const {
 
 std::string TxEntitySymbol::description_string() const {
     if (this->is_overloaded())
-        return "<overloaded>";
+        return "-overloaded-";
     else if (this->typeDeclaration)
         if (auto type = this->typeDeclaration->get_definer()->attempt_get_type()) {
             if (type->is_empty_derivation())
@@ -398,18 +398,18 @@ std::string TxEntitySymbol::description_string() const {
                 return "TYPE      " + type->to_string(true, true);
         }
         else
-            return "TYPE      <undef>";
+            return "TYPE      -undef-";
     else if (this->field_count()) {
-        auto field = this->get_first_field_decl()->get_definer()->get_field();
-        auto storageIx = (field->get_decl_flags() & TXD_CONSTRUCTOR ? -1 : field->get_storage_index());
-        std::string storageIxString = ( storageIx >= 0 ? std::string("[") + std::to_string(storageIx) + "] " : std::string("    ") );
-        if (auto type = this->get_first_field_decl()->get_definer()->attempt_get_type())
-            return "FIELD " + storageIxString + type->to_string(true);
+        if (auto field = this->get_first_field_decl()->get_definer()->get_field()) {
+            auto storageIx = (field->get_decl_flags() & TXD_CONSTRUCTOR ? -1 : field->get_storage_index());
+            std::string storageIxString = ( storageIx >= 0 ? std::string("[") + std::to_string(storageIx) + "] " : std::string("    ") );
+            return "FIELD " + storageIxString + field->get_type()->to_string(true);
+        }
         else
-            return "FIELD " + storageIxString + "<undef type>";
+            return "FIELD     -undef-";
     }
     else  // declaration not yet assigned to this entity symbol
-        return "<undef entity>";
+        return "-undef entity-";
 }
 
 

@@ -315,7 +315,7 @@ protected:
     /** Defines the type of this expression (as specific as can be known), constructing/obtaining the TxType instance.
      * The implementation should only traverse the minimum nodes needed to define the type
      * (e.g. not require the actual target type of a reference to be defined).
-     * This should only be invoked once, from the TxExpressionNode class. */
+     * This should only be invoked once, from the TxTypeDefiningNode class. */
     virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
 
 public:
@@ -353,16 +353,36 @@ protected:
         return this->specializationDefs.at(six);
     }
 
+    /** Defines the field of this node, constructing/obtaining the TxField instance.
+     * This should only be invoked once, from the TxFieldDefiningNode class. */
+    virtual const TxField* define_field(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
+
 public:
     TxFieldDefiningNode(const yy::location& parseLocation) : TxSpecializableNode(parseLocation) { }
 
     TxFieldDefiner* get_field_definer(TxSpecializationIndex six) { return this->get_spec_field_def(six); }
 
+    /** Returns the type (as specific as can be known) of the value this expression produces. */
+    virtual const TxField* resolve_field(TxSpecializationIndex six, ResolutionContext& resCtx) override final {
+        auto & spec = this->get_spec(six);
+        if (!spec.field && !spec.hasResolved) {
+            LOGGER().trace("resolving field of %s (s-ix %u)", this->to_string().c_str(), six);
+            ASSERT(!spec.startedRslv, "Recursive invocation of resolve_field() of " << this);
+            spec.startedRslv = true;
+            spec.field = this->define_field(six, resCtx);
+            spec.hasResolved = true;
+        }
+        return spec.field;
+    }
+
+    virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) override final {
+        this->resolve_field(six, resCtx);
+        return this->get_spec(six).type;
+    }
+
     virtual const TxType*  attempt_get_type(TxSpecializationIndex six) const override final { return this->get_spec(six).type; }
     virtual const TxType*  get_type        (TxSpecializationIndex six) const override final { return this->get_spec(six).type; }
     virtual const TxField* get_field       (TxSpecializationIndex six) const override final { return this->get_spec(six).field; }
-//    virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
-//    virtual const TxField* resolve_field(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
 //    virtual const TxExpressionNode* get_init_expression() const = 0;
 };
 
@@ -599,6 +619,42 @@ class TxFieldDefNode : public TxFieldDefiningNode {
         }
     };
 
+protected:
+    virtual const TxField* define_field(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        LOGGER().trace("resolving type of %s (s-ix %u)", this->to_string().c_str(), six);
+        const TxType* type;
+        if (this->typeExpression) {
+            type = this->typeExpression->resolve_type(six, resCtx);
+        }
+        else if (this->typeDefiner) {
+            type = this->typeDefiner->resolve_type(resCtx);
+        }
+        else {
+            type = this->initExpression->resolve_type(six, resCtx);
+            if (type) {
+                if (this->modifiable) {
+                    if (! type->is_modifiable())
+                        type = this->types().get_modifiable_type(nullptr, type);
+                }
+                else if (type->is_modifiable())
+                    // if initialization expression is modifiable type, and modifiable not explicitly specified,
+                    // lose modifiable attribute (modifiability must be explicit)
+                    type = type->get_base_type();
+            }
+        }
+
+        if (type) {
+            auto & spec = this->get_spec(six);
+            spec.type = type;
+            if (auto decl = static_cast<const TxFieldDeclaration*>(spec.declaration))
+                return new TxField(decl, type);
+            // else is not an error - function type's arguments & return type lack field declarations
+        }
+        else
+            CERROR(this, "No type defined for field");
+        return nullptr;
+    }
+
 public:
     const bool modifiable;  // true if field name explicitly declared modifiable
     TxTypeDefiner* typeDefiner;  // optional, non-code-generating type definer (can't be specified at same time as typeExpression)
@@ -675,42 +731,6 @@ public:
                 // TODO: check that constructor function type has void return value
             }
         }
-    }
-
-    virtual const TxField* resolve_field(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        auto & spec = this->get_spec(six);
-        if (! spec.field) {
-            LOGGER().trace("resolving type of %s (s-ix %u)", this->to_string().c_str(), six);
-            if (this->typeExpression) {
-                spec.type = this->typeExpression->resolve_type(six, resCtx);
-            }
-            else if (this->typeDefiner) {
-                spec.type = this->typeDefiner->resolve_type(resCtx);
-            }
-            else {
-                spec.type = this->initExpression->resolve_type(six, resCtx);
-                if (spec.type) {
-                    if (this->modifiable) {
-                        if (! spec.type->is_modifiable())
-                            spec.type = this->types().get_modifiable_type(nullptr, spec.type);
-                    }
-                    else if (spec.type->is_modifiable())
-                        // if initialization expression is modifiable type, and modifiable not explicitly specified,
-                        // lose modifiable attribute (modifiability must be explicit)
-                        spec.type = spec.type->get_base_type();
-                }
-            }
-
-            if (spec.type)
-                if (auto decl = dynamic_cast<const TxFieldDeclaration*>(spec.declaration))
-                    spec.field = new TxField(decl, spec.type);
-        }
-        return spec.field;
-    }
-
-    virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        this->resolve_field(six, resCtx);
-        return this->get_spec(six).type;
     }
 
     virtual const TxExpressionNode* get_init_expression() const override {
