@@ -36,6 +36,10 @@ YY_DECL;
 %{
 #include "tx_lang_defs.hpp"
 #include "tx_operations.hpp"
+
+#define BEGIN_TXEXPERR(loc,exp_errs)  driver.begin_exp_err(loc, exp_errs);
+#define END_TXEXPERR(loc) driver.end_exp_err(loc);
+#define TX_SYNTAX_ERROR   if (driver.is_exp_err()) { yyerrok; }
 %}
 
 
@@ -84,6 +88,7 @@ YY_DECL;
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE KW_FROM
 %token KW_NULL KW_TRUE KW_FALSE
+%token KW_ASSERT KW_EXPERR
 
 /* keywords reserved but not currently used */
 %token KW_AND KW_XOR KW_NOT KW_BUILTIN KW_LAMBDA KW_CLASS KW_EXTENDS KW_IMPLEMENTS
@@ -128,8 +133,9 @@ YY_DECL;
 %type <std::vector<TxExpressionNode*> *> expression_list call_params
 %type <TxSuiteNode*> suite
 %type <std::vector<TxStatementNode*> *> statement_list
-%type <TxStatementNode*> statement assignment_stmt return_stmt break_stmt continue_stmt type_decl_stmt
+%type <TxStatementNode*> statement assignment_stmt return_stmt break_stmt continue_stmt assert_stmt type_decl_stmt
 %type <TxStatementNode*> non_cond_stmt cond_stmt cond_else_stmt else_clause
+%type <TxStatementNode*> experr_stmt
 %type <TxAssigneeNode*> assignee_expr
 
 
@@ -545,8 +551,15 @@ statement
     |   non_cond_stmt sep  %prec STMT { $$ = $1; }
     |   cond_else_stmt     %prec KW_ELSE { $$ = $1; }
     |   cond_stmt          %prec STMT { $$ = $1; }
-    |   error sep          %prec STMT { $$ = NULL; }
+    |   experr_stmt        %prec STMT { $$ = $1; }
+    |   error sep          %prec STMT { $$ = new TxExpErrStmtNode(@1); TX_SYNTAX_ERROR; }
     ;
+
+experr_stmt : KW_EXPERR COLON             { BEGIN_TXEXPERR(@1, 1); } opt_sep statement
+                { END_TXEXPERR(@5); $$ = new TxExpErrStmtNode(@1, $5); }
+            | KW_EXPERR LIT_DEC_INT COLON { BEGIN_TXEXPERR(@1, std::stoi($2)); } opt_sep statement
+                { END_TXEXPERR(@6); $$ = new TxExpErrStmtNode(@1, $6); }
+            ;
 
 non_cond_stmt
     :   field_def { $$ = new TxFieldStmtNode(@1, $1); }
@@ -556,6 +569,7 @@ non_cond_stmt
     |   return_stmt     { $$ = $1; }
     |   break_stmt      { $$ = $1; }
     |   continue_stmt   { $$ = $1; }
+    |   assert_stmt     { $$ = $1; }
     ;
 
 // TODO: support declaration flags abstract, final, and maybe static
@@ -586,6 +600,10 @@ return_stmt : KW_RETURN expr  { $$ = new TxReturnStmtNode(@1, $2); }
 
 break_stmt     : KW_BREAK     { $$ = new TxBreakStmtNode(@1); }  ;
 continue_stmt  : KW_CONTINUE  { $$ = new TxContinueStmtNode(@1); }  ;
+
+assert_stmt : KW_ASSERT expr  { $$ = new TxAssertStmtNode(@1, $2); }
+            // | KW_ASSERT expr COMMA expr
+            ;
 
 
 assignment_stmt //:    assignee_pattern EQUAL expr

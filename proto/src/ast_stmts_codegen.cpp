@@ -152,6 +152,15 @@ Value* TxAssignStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 }
 
 
+Value* TxAssertStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s", this->to_string().c_str());
+    if (context.tuplexPackage.driver().get_options().suppress_asserts)
+        return nullptr;
+    else
+        return this->ifStmt->code_gen(context, scope);
+}
+
+
 
 Value* TxSuiteNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());

@@ -25,6 +25,7 @@ public:
     bool dump_symbol_table = false;
     bool dump_ir = false;
     bool run_jit = true;
+    bool suppress_asserts = false;
     std::vector<std::string> sourceSearchPaths;
     std::vector<std::string> startSourceFiles;
     std::string outputFileName;
@@ -40,7 +41,16 @@ class TxDriver {
     const TxOptions options;
     TxPackage * const package;
 
+    /** true if within an EXPERR block */
+    bool exp_err = false;
+    /** number or errors expected within an EXPERR block */
+    int exp_err_count = 0;
+    /** number or errors encountered within an EXPERR block */
+    int enc_err_count = 0;
+
+    /** number of compilation errors */
     int error_count = 0;
+    /** number of compilation warnings */
     int warning_count = 0;
 
     /** used for parse error messages */
@@ -87,6 +97,9 @@ public:
 
     virtual ~TxDriver();
 
+    inline const TxOptions& get_options() const { return this->options; }
+
+
     /** Compile this Tuplex package.
      * @return 0 on success
      */
@@ -105,7 +118,10 @@ public:
     std::string* current_input_filepath();
 
 
-    // Compilation message handling.
+    // Compilation error handling.
+    void begin_exp_err(const yy::location& loc, int expected_errors);
+    void end_exp_err(const yy::location& loc);
+    bool is_exp_err();
     void cerror(const yy::location& loc, char const *fmt, ...);
     void cerror(const yy::location& loc, const std::string& msg);
     void cerror(const std::string& msg);

@@ -170,6 +170,9 @@ extern "C" int yywrap() { return 0; }
 "not"		{ return token::KW_NOT; }  // reserved but not currently used
 "builtin"	{ return token::KW_BUILTIN; }  // reserved but not currently used
 
+"assert"    { return token::KW_ASSERT; }
+"#experr"   { return token::KW_EXPERR; }
+
  /* literals */
 "NULL"                  { return token::KW_NULL; }
 "TRUE"                  { return token::KW_TRUE; }

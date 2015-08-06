@@ -362,9 +362,8 @@ void TypeRegistry::initializeBuiltinSymbols() {
 //    TxBuiltinTypeDefiner* strProd = new TxBuiltinTypeDefiner(strRec);
 //    builtinModule->declareType(strProd->name, TXD_PUBLIC, false, *strProd);
 
-    {
-        auto txCfuncModule = this->package.declare_module(TxIdentifier(BUILTIN_NS ".c"));
-
+    auto txCfuncModule = this->package.declare_module(TxIdentifier(BUILTIN_NS ".c"));
+    {   // declare tx.c.puts:
         auto implTypeName = "UByte$Ref";
         auto ubyteRefDef = new TxBuiltinTypeDefiner();
         auto ubyteRefDecl = txCfuncModule->declare_type(implTypeName, ubyteRefDef, TXD_PUBLIC | TXD_IMPLICIT);
@@ -377,6 +376,13 @@ void TypeRegistry::initializeBuiltinSymbols() {
         const TxType* returnType = this->builtinTypes[INT]->get_type();
         auto type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, returnType);
         c_puts_func_type_def->field = new TxField(c_puts_decl, type);
+    }
+    {  // declare tx.c.abort:
+        std::vector<const TxType*> argumentTypes( {} );
+        auto c_abort_func_type_def = new TxBuiltinFieldDefiner();
+        auto c_abort_decl = txCfuncModule->declare_field("abort", c_abort_func_type_def, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
+        auto type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(), argumentTypes);
+        c_abort_func_type_def->field = new TxField(c_abort_decl, type);
     }
 }
 

@@ -356,6 +356,40 @@ void LlvmGenerationContext::initialize_builtin_functions() {
 
 
 void LlvmGenerationContext::initialize_external_functions() {
+    {   // declare external C abort():
+        std::vector<Type*> c_abort_args;
+        FunctionType* c_abort_func_type = FunctionType::get(
+            /*Result=*/Type::getVoidTy(this->llvmContext),
+            /*Params=*/c_abort_args,
+            /*isVarArg=*/false);
+        Function* c_abortF = Function::Create(
+            /*Type=*/c_abort_func_type,
+            /*Linkage=*/GlobalValue::ExternalLinkage, // (external, no body)
+            /*Name=*/"abort",
+            &this->llvmModule);
+        c_abortF->setCallingConv(CallingConv::C);
+
+        // create adapter function:
+        Function *t_abortF = cast<Function>(this->llvmModule.getOrInsertFunction("tx.c.abort$func", this->get_voidT(), this->get_voidRefT(), NULL));
+        BasicBlock *bb = BasicBlock::Create(this->llvmModule.getContext(), "entry", t_abortF);
+        IRBuilder<> builder(bb);
+        GenScope scope(&builder);
+        CallInst *c_abortCall = builder.CreateCall(c_abortF);
+        c_abortCall->setTailCall(false);
+        ReturnInst::Create(this->llvmModule.getContext(), bb);
+
+        // store lambda object:
+        auto nullClosureRefV = Constant::getNullValue(this->get_voidRefT());
+        std::vector<Type*> lambdaMemberTypes {
+            t_abortF->getType(),   // function pointer
+            this->get_voidRefT()  // null closure object pointer
+        };
+        auto lambdaT = StructType::get(this->llvmContext, lambdaMemberTypes);
+        auto lambdaV = ConstantStruct::get(lambdaT, t_abortF, nullClosureRefV, NULL);
+        auto lambdaA = new GlobalVariable(this->llvmModule, lambdaT, true, GlobalValue::InternalLinkage, lambdaV, "tx.c.abort");
+        this->register_llvm_value("tx.c.abort", lambdaA);
+    }
+
     // declare external C puts():
     std::vector<Type*> c_puts_args( { Type::getInt8PtrTy(this->llvmContext) } );
     FunctionType* c_puts_func_type = FunctionType::get(
@@ -369,8 +403,6 @@ void LlvmGenerationContext::initialize_external_functions() {
       /*Name=*/"puts",
       &this->llvmModule);
     c_putsF->setCallingConv(CallingConv::C);
-
-    //this->register_llvm_value("tx.c.puts", c_puts_func);
 
     // create adapter function:
     auto cstrRefT = TxReferenceType::make_ref_llvm_type(*this, Type::getInt8Ty(this->llvmContext));

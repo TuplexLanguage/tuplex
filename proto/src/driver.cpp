@@ -318,15 +318,49 @@ void TxDriver::emit_comp_warning(const yy::location& loc, const std::string& msg
 
 
 void TxDriver::emit_comp_error(char const *msg) {
-    error_count++;
-    CLOG.error("%s", msg);
+    if (this->exp_err) {
+        this->enc_err_count++;
+        CLOG.info("EXPECTED CERROR: %s", msg);
+    }
+    else {
+        this->error_count++;
+        CLOG.error("%s", msg);
+    }
 }
 
 void TxDriver::emit_comp_warning(char const *msg) {
-    warning_count++;
+    this->warning_count++;
     CLOG.warning("%s", msg);
 }
 
+
+void TxDriver::begin_exp_err(const yy::location& loc, int expected_errors) {
+    if (this->exp_err) {
+        this->cerror(loc, "Nested EXPECTED ERROR constructs not supported");
+        return;
+    }
+    this->exp_err = true;
+    this->exp_err_count = expected_errors;
+    this->enc_err_count = 0;
+    //puts("EXPERR {");
+}
+
+void TxDriver::end_exp_err(const yy::location& loc) {
+    if (!this->exp_err) {
+        this->cerror(loc, "EXPECTED ERROR construct end doesn't match a corresponding begin");
+        return;
+    }
+    this->exp_err = false;
+    //puts("} EXPERR");
+    if (this->exp_err_count != this->enc_err_count) {
+        this->cerror(loc, "COMPILER TEST FAIL: Expected %d compilation errors but encountered %d",
+                     this->exp_err_count, this->enc_err_count);
+    }
+}
+
+bool TxDriver::is_exp_err() {
+    return this->exp_err;
+}
 
 void TxDriver::cerror(const yy::location& loc, char const *fmt, ...) {
     va_list ap;
@@ -334,18 +368,18 @@ void TxDriver::cerror(const yy::location& loc, char const *fmt, ...) {
     char buf[512];
     vsnprintf(buf, 512, fmt, ap);
     va_end(ap);
-    cerror(loc, std::string(buf));
+    this->cerror(loc, std::string(buf));
 }
 
 void TxDriver::cerror(const yy::location& loc, const std::string& msg) {
     char buf[512];
     format_location_message(buf, 512, loc, msg.c_str());
-    emit_comp_error(buf);
+    this->emit_comp_error(buf);
 }
 
 void TxDriver::cerror(const std::string& msg)
 {
-    cerror(yy::location(NULL, 0, 0), "%s", msg.c_str());
+    this->cerror(yy::location(NULL, 0, 0), "%s", msg.c_str());
 }
 
 void TxDriver::cwarning(const yy::location& loc, char const *fmt, ...) {
@@ -354,16 +388,15 @@ void TxDriver::cwarning(const yy::location& loc, char const *fmt, ...) {
     char buf[512];
     vsnprintf(buf, 512, fmt, ap);
     va_end(ap);
-    cwarning(loc, std::string(buf));
+    this->cwarning(loc, std::string(buf));
 }
 
 void TxDriver::cwarning(const yy::location& loc, const std::string& msg) {
     char buf[512];
     format_location_message(buf, 512, loc, msg.c_str());
-    emit_comp_warning(buf);
+    this->emit_comp_warning(buf);
 }
 
-void TxDriver::cwarning(const std::string& msg)
-{
-    cwarning(yy::location(NULL, 0, 0), "%s", msg.c_str());
+void TxDriver::cwarning(const std::string& msg) {
+    this->cwarning(yy::location(NULL, 0, 0), "%s", msg.c_str());
 }

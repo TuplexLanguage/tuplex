@@ -1,0 +1,23 @@
+module my
+
+
+main() Int {
+    #experr: bad syntax
+
+    ~i := 3
+
+    #experr: i = i + 3 bad
+
+    #experr: {
+        i = i + 3 bad
+    }
+
+    #experr 2: {
+        i = i + 3 bad
+        bad again
+    }
+
+    assert i == 3
+
+    return i
+}

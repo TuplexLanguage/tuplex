@@ -39,6 +39,7 @@ int main(int argc, char **argv)
                 printf("  %-22s %s\n", "-dy", "Print debugging output from grammar parser");
                 printf("  %-22s %s\n", "-rj", "Toggle running program after successful compilation (in JIT mode)");
                 printf("  %-22s %s\n", "-onlyparse", "Stop after grammar parse");
+                printf("  %-22s %s\n", "-cnoassert", "Suppress code generation for assert statements");
                 printf("  %-22s %s\n", "-o  | -output <file>", "Explicitly specify LLVM bitcode output file name");
                 printf("  %-22s %s\n", "-sp <pathlist>", "Set source files search paths (overrides TUPLEX_PATH environment variable)");
                 printf("  %-22s %s\n", "-sourcepath <pathlist>", "Set source files search paths (overrides TUPLEX_PATH environment variable)");
@@ -62,6 +63,8 @@ int main(int argc, char **argv)
                 options.run_jit = !options.run_jit;
             else if (! strcmp(argv[a], "-onlyparse"))
                 options.only_parse = true;
+            else if (! strcmp(argv[a], "-cnoassert"))
+                options.suppress_asserts = true;
             else if (! strcmp(argv[a], "-sp") || ! strcmp(argv[a], "-sourcepath")) {
                 if (++a >= argc) {
                     LOG.error("Invalid command options, specified %s without subsequent argument", argv[a-1]);

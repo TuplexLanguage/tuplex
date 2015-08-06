@@ -261,3 +261,49 @@ public:
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
+
+
+
+class TxAssertStmtNode : public TxStatementNode {
+    TxExpressionNode* expr;
+    TxStatementNode* ifStmt;
+public:
+    TxAssertStmtNode(const yy::location& parseLocation, TxExpressionNode* expr);
+
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        this->ifStmt->symbol_declaration_pass(six, lexContext);
+    }
+
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        this->ifStmt->symbol_resolution_pass(six, resCtx);
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+};
+
+
+
+class TxExpErrStmtNode : public TxStatementNode {
+public:
+    TxStatementNode* suite;
+
+    TxExpErrStmtNode(const yy::location& parseLocation)
+        : TxStatementNode(parseLocation), suite()  { }
+
+    TxExpErrStmtNode(const yy::location& parseLocation, TxStatementNode* suite)
+        : TxStatementNode(parseLocation), suite(suite)  { }
+
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        if (this->suite)
+            this->suite->symbol_declaration_pass(six, lexContext);
+    }
+
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        if (this->suite)
+            this->suite->symbol_resolution_pass(six, resCtx);
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+};
