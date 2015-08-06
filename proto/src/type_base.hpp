@@ -122,20 +122,35 @@ public:
 
 type Bar<R> { ... }
 
-type Foo<S> derives Bar<S>, Interf<S> { ... }
+type Foo<S> derives Bar<S> { ... }
 
-type Mud Foo<Int>
+type Mud Foo<Long>
+type Mac Foo<Byte>
 
-Mud : Foo$Long : Bar$Long :
+Mud : Foo$Long : Bar$Long : Tuple : Any
                \          \
                 : Foo<Any> : Bar<Any> : Tuple : Any
                /          /
-Mac : Foo$Byte : Bar$Byte :
+Mac : Foo$Byte : Bar$Byte : Tuple : Any
 
 Foo<Any> is the "generic base type" for Foo$xxx
-Bar$xxx is the "specific base type" for Foo$xxx
+Bar$xxx is the     "base data type" for Foo$xxx
 
+It's the base data type that the vtable mechanics use.
+For semantic inheritance mechanics, the generic base type is used.
  */
+// FIXME: ensure the following symbol declaration semantics:
+/*
+Bar.R           Any     (GENPARAM decl)
+Foo.S           Any     (GENPARAM decl)
+Foo.Bar#R       S       (type expression which here = S)
+
+Bar$Long.R      Long    (specialization decl)
+Foo$Long.S      Long    (specialization decl)
+Foo$Long.Bar#R  S       (type expression which here = S)
+
+Mud.Foo#S       Long    (type expression which here = Long)
+*/
 class TxTypeSpecialization : public Printable {
 public:
     TxType const * const type;

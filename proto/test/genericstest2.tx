@@ -23,7 +23,8 @@ main() Int {
     sobj := ATypeRInt(val)
     hobj := new ATypeRInt(val)
     p : sobj.S
-    ##q : hobj^.S
+    ##q : sobj.my#AType#S  ## should work?
+    ##q : hobj^.S  ## type expr doesn't handle ^
     ##tst : RInt = hobj^.memref
     ret := hobj^.getter()
     return ret^

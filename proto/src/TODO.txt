@@ -35,7 +35,23 @@ Refactor symbols, declarations, definitions/entities/fields/types - DONE
 Generic type instance fields support (with Ref contraint type) - DONE
  - The AST for a type definition is re-entrant, and reprocessed for each specialization
 
-Interfaces
+Interfaces - DONE
+
+Syntax support for writing negative tests (expecting compiler errors)
+
+Fix / revise TYPE parameter declaration. See inheritance doc in TxTypeSpecialization. From genericstest2.tx:
+    ----P--I--- my.RInt.tx#Ref#T                                 TYPE      = tx.Int
+    ----------- my.ATypeRInt                                     TYPE      = my.AType$tx#Ref  ## is =, should not contain members right?
+    ----P--I--- my.ATypeRInt.my#AType#S                          TYPE      = my.RInt          ## should be "moved" to my.AType$tx#Ref ?
+    
+    ----P--I--- my.AType$tx#Ref                                  TYPE      : tx.Tuple
+    ----P--I--- my.AType$tx#Ref.S                                TYPE      = my.ATypeRInt.my#AType#S  ## this seems circular...
+    ----P--I--- my.AType$tx#Ref.$GenericBase                     TYPE      = my.AType<TYPE S>
+
+Fix instantiation of ref-constrained type parameters - they should get unique names,
+  which means that ref targets must be partly resolved (producing e.g. my.AType$tx#Ref$Int above)
+
+Refactor TxType instantiation - multi-pass so that "cyclic" references possible 
 
 Type conversions (with if statements)
 
