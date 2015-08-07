@@ -37,9 +37,10 @@ bool is_unsigned_out_of_range(const uint64_t u64, const BuiltinTypeId typeId) {
     }
 }
 
-inline std::string strip_underscores(const std::string input) {
+/** removes underscores, spaces and tabs */
+inline std::string strip_ignored_chars(const std::string input) {
     std::string tmp = input;
-    tmp.erase(std::remove_if(tmp.begin(), tmp.end(), [](char c){ return c=='_'; }), tmp.end());
+    tmp.erase(std::remove_if(tmp.begin(), tmp.end(), [](char c){ return c=='_' || c==' ' || c=='\t'; }), tmp.end());
     return tmp;
 }
 
@@ -60,7 +61,7 @@ IntValue::IntValue(const std::string& sourceLiteral, bool hasRadix, BuiltinTypeI
         ASSERT(valuePos!=std::string::npos, "Expected '#' radix separator in string: '" << sourceLiteral << "'");
         std::string radixStr(sourceLiteral, 0, valuePos);
         auto typePos = sourceLiteral.find('#', ++valuePos);
-        valueStr = strip_underscores(sourceLiteral.substr(valuePos, typePos-valuePos));
+        valueStr = strip_ignored_chars(sourceLiteral.substr(valuePos, typePos-valuePos));
         if (typePos != std::string::npos)
             typeStr = sourceLiteral.substr(typePos+1);
 
@@ -73,10 +74,10 @@ IntValue::IntValue(const std::string& sourceLiteral, bool hasRadix, BuiltinTypeI
     }
     else {
         this->radix = 10;
-        valueStr = strip_underscores(sourceLiteral);
+        valueStr = strip_ignored_chars(sourceLiteral);
         if (std::isalpha(valueStr.back())) {
             int suffixLen = (valueStr.length() > 2 && std::isalpha(valueStr.at(valueStr.length()-2)) ? 2 : 1);
-            typeStr = sourceLiteral.substr(valueStr.length()-suffixLen);
+            typeStr = sourceLiteral.substr(sourceLiteral.length()-suffixLen);
             valueStr.erase(valueStr.length()-suffixLen);
         }
     }
@@ -121,7 +122,7 @@ IntValue::IntValue(const std::string& sourceLiteral, bool hasRadix, BuiltinTypeI
         // this will set all zero / positive integers to the smallest possible unsigned type,
         // and negative integers to the smallest possible signed type
         this->value.u64 = strtoull(valueStr.c_str(), &pEnd, radix);
-        if (errno == ERANGE || *pEnd) {
+        if (errno == ERANGE || *pEnd || valueStr.front() == '-') {
             errno = 0;
             this->value.i64 = strtoll(valueStr.c_str(), &pEnd, radix);
             if (errno == ERANGE || *pEnd)

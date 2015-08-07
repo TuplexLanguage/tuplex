@@ -4,6 +4,7 @@ H			[a-fA-F0-9]
 E			[Ee][+-]?{D}+
 FS			[U]?[HFDQ]
 IS			[U]?[BSIL]
+WS          [ \t]
 
 %{ /* -*- C++ -*- */
 #include <cerrno>
@@ -181,12 +182,12 @@ extern "C" int yywrap() { return 0; }
 {L}({L}|{D}|"#")*       { yylval->build(std::string (yytext)); return token::NAME; }
                         /* return yy::TxParser::make_NAME(std::string(yytext), loc); */
 
-[1-9]{D}*"#""-"?({L}|{D})+("#"{IS})?  { yylval->build(std::string (yytext)); return token::LIT_RADIX_INT; }
-{D}({D}|"_")*{IS}?	                { yylval->build(std::string (yytext)); return token::LIT_DEC_INT; }
+[1-9]{D}*"#"{WS}*("-"{WS}*)?({L}|{D})+("#"{IS})?  { yylval->build(std::string (yytext)); return token::LIT_RADIX_INT; }
+("-"{WS}*)?{D}({D}|"_")*{IS}?	              { yylval->build(std::string (yytext)); return token::LIT_DEC_INT; }
 
-{D}+{E}{FS}?		    { yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
-{D}*"."{D}+({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
-{D}+"."{D}*({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
+("-"{WS}*)?{D}+{E}{FS}?		    { yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
+("-"{WS}*)?{D}*"."{D}+({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
+("-"{WS}*)?{D}+"."{D}*({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
 
 '(\\.|[^\\'])'	        { yylval->build(std::string (yytext)); return token::LIT_CHARACTER; }
 
