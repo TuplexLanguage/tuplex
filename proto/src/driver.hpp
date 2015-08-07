@@ -43,10 +43,8 @@ class TxDriver {
 
     /** true if within an EXPERR block */
     bool exp_err = false;
-    /** number or errors expected within an EXPERR block */
-    int exp_err_count = 0;
     /** number or errors encountered within an EXPERR block */
-    int enc_err_count = 0;
+    int exp_err_count = 0;
 
     /** number of compilation errors */
     int error_count = 0;
@@ -119,9 +117,13 @@ public:
 
 
     // Compilation error handling.
-    void begin_exp_err(const yy::location& loc, int expected_errors);
-    void end_exp_err(const yy::location& loc);
-    bool is_exp_err();
+    void begin_exp_err(const yy::location& loc);
+    int    end_exp_err(const yy::location& loc);
+    bool    is_exp_err();
+
+    int  get_error_count();
+    int  get_warning_count();
+
     void cerror(const yy::location& loc, char const *fmt, ...);
     void cerror(const yy::location& loc, const std::string& msg);
     void cerror(const std::string& msg);

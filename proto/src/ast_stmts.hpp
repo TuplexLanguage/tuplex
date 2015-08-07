@@ -285,24 +285,54 @@ public:
 
 
 class TxExpErrStmtNode : public TxStatementNode {
+    const int expected_error_count;
+    int encountered_error_count;
 public:
-    TxStatementNode* suite;
+    TxStatementNode* body;
 
-    TxExpErrStmtNode(const yy::location& parseLocation)
-        : TxStatementNode(parseLocation), suite()  { }
-
-    TxExpErrStmtNode(const yy::location& parseLocation, TxStatementNode* suite)
-        : TxStatementNode(parseLocation), suite(suite)  { }
+    TxExpErrStmtNode(const yy::location& parseLocation, int expected_error_count, int prev_encountered_errors, TxStatementNode* body)
+        : TxStatementNode(parseLocation), expected_error_count(expected_error_count),
+          encountered_error_count(prev_encountered_errors), body(body)  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);
-        if (this->suite)
-            this->suite->symbol_declaration_pass(six, lexContext);
+        if (six == 0) {
+            lexContext.package()->driver().begin_exp_err(this->parseLocation);
+            this->body->symbol_declaration_pass(six, lexContext);
+            this->encountered_error_count += lexContext.package()->driver().end_exp_err(this->parseLocation);
+        }
+        else
+            this->body->symbol_declaration_pass(six, lexContext);
     }
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        if (this->suite)
-            this->suite->symbol_resolution_pass(six, resCtx);
+        auto ctx = this->context(six);
+        if (six == 0) {
+            ctx.package()->driver().begin_exp_err(this->parseLocation);
+            this->body->symbol_resolution_pass(six, resCtx);
+            this->encountered_error_count += ctx.package()->driver().end_exp_err(this->parseLocation);
+            if (this->expected_error_count != this->encountered_error_count) {
+                CERROR(this, "COMPILER TEST FAIL: Expected " << this->expected_error_count
+                             << " compilation errors but encountered " << this->encountered_error_count);
+            }
+        }
+        else
+            this->body->symbol_resolution_pass(six, resCtx);
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+};
+
+
+class TxNoOpStmtNode : public TxStatementNode {
+public:
+    TxNoOpStmtNode(const yy::location& parseLocation) : TxStatementNode(parseLocation) {}
+
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+    }
+
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }

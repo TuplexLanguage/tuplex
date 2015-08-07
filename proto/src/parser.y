@@ -37,9 +37,9 @@ YY_DECL;
 #include "tx_lang_defs.hpp"
 #include "tx_operations.hpp"
 
-#define BEGIN_TXEXPERR(loc,exp_errs)  driver.begin_exp_err(loc, exp_errs);
-#define END_TXEXPERR(loc) driver.end_exp_err(loc);
-#define TX_SYNTAX_ERROR   if (driver.is_exp_err()) { yyerrok; }
+#define BEGIN_TXEXPERR(loc) driver.begin_exp_err(loc);
+#define END_TXEXPERR(loc)   driver.end_exp_err(loc);
+#define TX_SYNTAX_ERROR     { yyerrok; }
 %}
 
 
@@ -552,13 +552,15 @@ statement
     |   cond_else_stmt     %prec KW_ELSE { $$ = $1; }
     |   cond_stmt          %prec STMT { $$ = $1; }
     |   experr_stmt        %prec STMT { $$ = $1; }
-    |   error sep          %prec STMT { $$ = new TxExpErrStmtNode(@1); TX_SYNTAX_ERROR; }
+    |   error sep          %prec STMT { $$ = new TxNoOpStmtNode(@1); TX_SYNTAX_ERROR; }
     ;
 
-experr_stmt : KW_EXPERR COLON             { BEGIN_TXEXPERR(@1, 1); } opt_sep statement
-                { END_TXEXPERR(@5); $$ = new TxExpErrStmtNode(@1, $5); }
-            | KW_EXPERR LIT_DEC_INT COLON { BEGIN_TXEXPERR(@1, std::stoi($2)); } opt_sep statement
-                { END_TXEXPERR(@6); $$ = new TxExpErrStmtNode(@1, $6); }
+experr_stmt : KW_EXPERR COLON
+                { BEGIN_TXEXPERR(@1); } opt_sep statement
+                    { int enc = END_TXEXPERR(@5); $$ = new TxExpErrStmtNode(@1, 1, enc, $5); }
+            | KW_EXPERR LIT_DEC_INT COLON
+                { BEGIN_TXEXPERR(@1); } opt_sep statement
+                    { int enc = END_TXEXPERR(@6); $$ = new TxExpErrStmtNode(@1, std::stoi($2), enc, $6); }
             ;
 
 non_cond_stmt

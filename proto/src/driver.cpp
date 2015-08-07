@@ -319,7 +319,7 @@ void TxDriver::emit_comp_warning(const yy::location& loc, const std::string& msg
 
 void TxDriver::emit_comp_error(char const *msg) {
     if (this->exp_err) {
-        this->enc_err_count++;
+        this->exp_err_count++;
         CLOG.info("EXPECTED CERROR: %s", msg);
     }
     else {
@@ -334,33 +334,39 @@ void TxDriver::emit_comp_warning(char const *msg) {
 }
 
 
-void TxDriver::begin_exp_err(const yy::location& loc, int expected_errors) {
+void TxDriver::begin_exp_err(const yy::location& loc) {
     if (this->exp_err) {
-        this->cerror(loc, "Nested EXPECTED ERROR constructs not supported");
+        this->cerror(loc, "Nested EXPECTED ERROR blocks not supported");
         return;
     }
-    this->exp_err = true;
-    this->exp_err_count = expected_errors;
-    this->enc_err_count = 0;
     //puts("EXPERR {");
+    this->exp_err = true;
+    this->exp_err_count = 0;
 }
 
-void TxDriver::end_exp_err(const yy::location& loc) {
+int TxDriver::end_exp_err(const yy::location& loc) {
     if (!this->exp_err) {
-        this->cerror(loc, "EXPECTED ERROR construct end doesn't match a corresponding begin");
-        return;
+        this->cerror(loc, "EXPECTED ERROR block end doesn't match a corresponding begin");
+        return 0;
     }
-    this->exp_err = false;
     //puts("} EXPERR");
-    if (this->exp_err_count != this->enc_err_count) {
-        this->cerror(loc, "COMPILER TEST FAIL: Expected %d compilation errors but encountered %d",
-                     this->exp_err_count, this->enc_err_count);
-    }
+    this->exp_err = false;
+    return this->exp_err_count;
 }
 
 bool TxDriver::is_exp_err() {
     return this->exp_err;
 }
+
+
+int  TxDriver::get_error_count() {
+    return this->error_count;
+}
+
+int  TxDriver::get_warning_count() {
+    return this->warning_count;
+}
+
 
 void TxDriver::cerror(const yy::location& loc, char const *fmt, ...) {
     va_list ap;

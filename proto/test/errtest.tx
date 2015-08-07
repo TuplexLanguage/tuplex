@@ -6,15 +6,15 @@ main() Int {
 
     ~i := 3
 
-    #experr: i = i + 3 bad
+    #experr: i = i + 3 bad syntax
 
     #experr: {
-        i = i + 3 bad
+        i = i + 3 bad syntax
     }
 
     #experr 2: {
-        i = i + 3 bad
-        bad again
+        i = i + 3 bad syntax
+        i = i + 3.0  ## bad type conversion
     }
 
     assert i == 3
