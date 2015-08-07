@@ -39,6 +39,7 @@ func first() ULong {
     if TRUE {} else {}
 
     expected : ULong = 1+4+32+64+256+512
+    assert v == expected
     return v-expected
 }
 
@@ -67,10 +68,12 @@ func second() ULong {
         v = v + 1024
 
     expected : ULong = 1+2+8+32+256
+    assert v == expected
     return v-expected
 }
 
 func main() Int {
-    return Int(first())
-    ##return Int(second())
+    first()
+    second()
+    return 0
 }

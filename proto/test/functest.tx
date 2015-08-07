@@ -33,6 +33,7 @@ func main() Int {
 
     result := overloaded_func( 41.1, 1 ) + local_func(5, 6)
     return Int( result + Long(other_func(1., 2.) + func_alias( 2., 3. )) )
+    ## #experr: str := c"this should be unreachable"
 }
 
 

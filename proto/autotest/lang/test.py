@@ -23,6 +23,8 @@ def run_cmd( cmdline, expected_ret_code=0 ):
 source_files = [
     "errtest.tx",
     "inttest.tx",
+    "ifelsetest.tx",
+    "whiletest.tx",
 ]
 
 for src in source_files:
