@@ -427,17 +427,26 @@ Value* TxBoolConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope)
     if (! origValue)
         return NULL;
     auto targetLlvmType = Type::getInt1Ty(context.llvmContext);
-    // current implementation accepts most (all?) scalar types and converts to bool: 0 => FALSE, otherwise => TRUE
-    Instruction::CastOps cop = CastInst::getCastOpcode(origValue, false, targetLlvmType, false);
-    ASSERT(cop, "No CastOps code found for cast from " << this->expr->get_type(0) << " to " << this->resultType);
+    //std::cerr << "origValue: " << origValue << " type: " << origValue->getType() << std::endl;
+    //std::cerr << "targType: " << targetLlvmType << std::endl;
+    // accepts scalar types and converts to bool: 0 => FALSE, otherwise => TRUE
+    // Note: can't cast, since that will simply truncate to the lowest source bit
+    //Instruction::CastOps cop = CastInst::getCastOpcode(origValue, false, targetLlvmType, false);
+    //ASSERT(cop, "No CastOps code found for cast from " << this->expr->get_type(0) << " to " << this->resultType);
     if (!scope) {
         ASSERT(this->is_statically_constant(), "Non-statically-constant expression in global scope: " << this);
         context.LOG.debug("non-local scope cast -> %s", this->resultType->to_string().c_str());
-        return ConstantExpr::getCast(cop, cast<Constant>(origValue), targetLlvmType);
+        if (origValue->getType()->isIntegerTy())
+            return ConstantExpr::getICmp(ICmpInst::ICMP_NE, cast<Constant>(origValue), ConstantInt::get(origValue->getType(), 0));
+        ASSERT(origValue->getType()->isFloatingPointTy(), "Expected floating point type but was: " << origValue->getType());
+        return ConstantExpr::getFCmp(FCmpInst::FCMP_UNE, cast<Constant>(origValue), ConstantFP::get(origValue->getType(), 0));
     }
     else {
         context.LOG.debug("local scope cast -> %s", this->resultType->to_string().c_str());
-        return scope->builder->CreateCast(cop, origValue, targetLlvmType, "");
+        if (origValue->getType()->isIntegerTy())
+            return scope->builder->CreateICmpNE(origValue, ConstantInt::get(origValue->getType(), 0));
+        ASSERT(origValue->getType()->isFloatingPointTy(), "Expected floating point type but was: " << origValue->getType());
+        return ConstantExpr::getFCmp(FCmpInst::FCMP_UNE, cast<Constant>(origValue), ConstantFP::get(origValue->getType(), 0));
     }
 }
 

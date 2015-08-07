@@ -25,6 +25,7 @@ source_files = [
     "inttest.tx",
     "ifelsetest.tx",
     "whiletest.tx",
+    "binoptest.tx",
 ]
 
 for src in source_files:
