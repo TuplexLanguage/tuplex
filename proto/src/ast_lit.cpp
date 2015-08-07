@@ -66,6 +66,7 @@ IntValue::IntValue(const std::string& sourceLiteral, bool hasRadix, BuiltinTypeI
 
         this->radix = strtoul(radixStr.c_str(), &pEnd, 10);
         if (errno == ERANGE || *pEnd || this->radix < 2 || this->radix > 36) {
+            errno = 0;
             this->outOfRange = true;
             return;
         }
@@ -104,6 +105,7 @@ IntValue::IntValue(const std::string& sourceLiteral, bool hasRadix, BuiltinTypeI
                 this->outOfRange = true;
             else
                 this->outOfRange = is_unsigned_out_of_range(this->value.u64, this->typeId);
+            errno = 0;
         }
         else {
             this->_signed = true;
@@ -112,6 +114,7 @@ IntValue::IntValue(const std::string& sourceLiteral, bool hasRadix, BuiltinTypeI
                 this->outOfRange = true;
             else
                 this->outOfRange = is_signed_out_of_range(this->value.i64, this->typeId);
+            errno = 0;
         }
     }
     else {  // unspecified type
@@ -119,9 +122,11 @@ IntValue::IntValue(const std::string& sourceLiteral, bool hasRadix, BuiltinTypeI
         // and negative integers to the smallest possible signed type
         this->value.u64 = strtoull(valueStr.c_str(), &pEnd, radix);
         if (errno == ERANGE || *pEnd) {
+            errno = 0;
             this->value.i64 = strtoll(valueStr.c_str(), &pEnd, radix);
             if (errno == ERANGE || *pEnd)
                 this->outOfRange = true;
+            errno = 0;
             this->_signed = true;
             if      (this->value.u64 >= INT8_MIN)   this->typeId = BYTE;
             else if (this->value.u64 >= INT16_MIN)  this->typeId = SHORT;

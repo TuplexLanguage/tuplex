@@ -25,6 +25,7 @@ public:
     bool dump_symbol_table = false;
     bool dump_ir = false;
     bool run_jit = true;
+    bool no_bc_output = false;
     bool suppress_asserts = false;
     std::vector<std::string> sourceSearchPaths;
     std::vector<std::string> startSourceFiles;

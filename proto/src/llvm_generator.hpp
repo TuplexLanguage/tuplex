@@ -109,17 +109,19 @@ public:
 
     /** Verfies the generated LLVM code.
      * Should only be used for debugging, may mess with LLVM's state.
-     * @return false if ok, true if error
+     * @return 0 upon success
      */
-    bool verify_code();
+    int verify_code();
 
     /** Print the LLVM IR in a human-readable format to stdout */
     void print_IR();
 
-    /** Print the LLVM IR as binary bitcode to a file. */
-    void write_bitcode(const std::string& filepath);
+    /** Print the LLVM IR as binary bitcode to a file.
+     * @return 0 upon success */
+    int write_bitcode(const std::string& filepath);
 
-    void run_code();
+    /** Returns the program's return code. */
+    int run_code();
 };
 
 

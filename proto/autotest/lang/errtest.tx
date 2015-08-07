@@ -19,5 +19,5 @@ main() Int {
 
     assert i == 3
 
-    return i
+    return 0
 }

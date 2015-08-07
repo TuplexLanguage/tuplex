@@ -32,12 +32,15 @@ int main(int argc, char **argv)
                 printf("  %-22s %s\n", "-version", "Print version and exit");
                 printf("  %-22s %s\n", "-v  | -verbose", "Verbose logging");
                 printf("  %-22s %s\n", "-vv | -veryverbose", "Very verbose logging");
+                printf("  %-22s %s\n", "-quiet", "Quiet, only log warnings and errors");
                 printf("  %-22s %s\n", "-nocol", "Disable color encoding in console output");
                 printf("  %-22s %s\n", "-ds", "Dump symbol table");
                 printf("  %-22s %s\n", "-di", "Dump intermediate representation (LLVM IR)");
                 printf("  %-22s %s\n", "-dl", "Print debugging output from lexer (token scanner)");
                 printf("  %-22s %s\n", "-dy", "Print debugging output from grammar parser");
-                printf("  %-22s %s\n", "-rj", "Toggle running program after successful compilation (in JIT mode)");
+                printf("  %-22s %s\n", "-nojit", "Disable running program in JIT mode after successful compilation");
+                printf("  %-22s %s\n", "-jit", "Run program in JIT mode after successful compilation");
+                printf("  %-22s %s\n", "-nobc", "Don't output bitcode (and if also running in JIT mode, exit with program's return code)");
                 printf("  %-22s %s\n", "-onlyparse", "Stop after grammar parse");
                 printf("  %-22s %s\n", "-cnoassert", "Suppress code generation for assert statements");
                 printf("  %-22s %s\n", "-o  | -output <file>", "Explicitly specify LLVM bitcode output file name");
@@ -49,6 +52,8 @@ int main(int argc, char **argv)
                 Logger::set_global_threshold(DEBUG);
             else if (! strcmp(argv[a], "-vv") || ! strcmp(argv[a], "-veryverbose"))
                 Logger::set_global_threshold(ALL);
+            else if (! strcmp(argv[a], "-quiet"))
+                Logger::set_global_threshold(WARN);
             else if (! strcmp(argv[a], "-nocol"))
                 Logger::set_colors_enabled(false);
             else if (! strcmp(argv[a], "-ds"))
@@ -59,8 +64,12 @@ int main(int argc, char **argv)
                 options.debug_lexer = true;
             else if (! strcmp(argv[a], "-dy"))
                 options.debug_parser = true;
-            else if (! strcmp(argv[a], "-rj"))
-                options.run_jit = !options.run_jit;
+            else if (! strcmp(argv[a], "-nojit"))
+                options.run_jit = false;
+            else if (! strcmp(argv[a], "-jit"))
+                options.run_jit = true;
+            else if (! strcmp(argv[a], "-nobc"))
+                options.no_bc_output = true;
             else if (! strcmp(argv[a], "-onlyparse"))
                 options.only_parse = true;
             else if (! strcmp(argv[a], "-cnoassert"))

@@ -1,7 +1,5 @@
 module my
 
-import tx.proto.print.*
-
 func main() Int {
     b := 0B
     s := 0S
@@ -12,15 +10,17 @@ func main() Int {
     ui := 0UI
     ul := 0UL
 
+    ## radix tests
     rb := 2#1111_1111#UB
     rs := 8#177777#US
     ri := 16#FFFF_FFFF#UI
     rl := 16#FFFF_FFFF_FFFF_FFFF#UL
+    assert rb == 255
+    assert rs == 65535
+    assert ri == 4294967295
+    assert rl == 18446744073709551615
 
-    print(rb)
-    print(rs)
-    print(ri)
-
+    ## limits
     ub1 := 255
     us1 := 256
     us2 := 65535
@@ -28,5 +28,5 @@ func main() Int {
     ui2 := 4294967295
     ul1 := 4294967296
 
-    return rb
+    return 0
 }

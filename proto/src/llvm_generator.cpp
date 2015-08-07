@@ -173,14 +173,17 @@ bool LlvmGenerationContext::generate_main(const std::string& userMainIdent, cons
     return this->entryFunction;
 }
 
-bool LlvmGenerationContext::verify_code() {
+int LlvmGenerationContext::verify_code() {
     //this->LOG.info("Verifying LLVM code...");;
     std::string errInfo;
     raw_string_ostream ostr(errInfo);
     bool ret = verifyModule(this->llvmModule, &ostr);
-    if (ret)
+    if (ret) {
         this->LOG.error("LLVM code verification failed: %s", errInfo.c_str());
-    return ret;
+        return 1;
+    }
+    else
+        return 0;
 }
 
 void LlvmGenerationContext::print_IR() {
@@ -193,14 +196,18 @@ void LlvmGenerationContext::print_IR() {
     std::cout << std::endl;
 }
 
-void LlvmGenerationContext::write_bitcode(const std::string& filepath) {
+int LlvmGenerationContext::write_bitcode(const std::string& filepath) {
     this->LOG.info("Writing LLVM bitcode file '%s'", filepath.c_str());
     std::string errInfo;
     raw_fd_ostream ostream(filepath.c_str(), errInfo, sys::fs::F_RW);
-    if (errInfo.empty())
+    if (errInfo.empty()) {
         WriteBitcodeToFile(&this->llvmModule, ostream);
-    else
+        return 0;
+    }
+    else {
         this->LOG.error("Failed to open bitcode output file for writing: %s", errInfo.c_str());
+        return 1;
+    }
 }
 
 

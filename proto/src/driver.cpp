@@ -263,27 +263,31 @@ int TxDriver::llvm_compile() {
                 this->LOG.debug("Created program entry for user method %s", funcDecl->get_unique_full_name().c_str());
         }
     }
-    if (! mainGenerated)
-        this->LOG.warning("No main() method found.");
     LOG.info("+ LLVM code generated");
 
     if (this->options.dump_ir)
         genContext.print_IR();
 
-    bool verError = genContext.verify_code();
-    if (! verError)
+    int retCode = genContext.verify_code();
+    if (retCode)
+        return retCode;
+    else
         LOG.info("+ LLVM code verification OK");
-    if (verError)
-        return 1;
 
-    if (mainGenerated && this->options.run_jit) {
-        genContext.run_code();
+    if (this->options.run_jit) {
+        if (! mainGenerated)
+            this->LOG.error("Can't run program, no main() method found.");
+        else {
+            retCode = genContext.run_code();
+        }
     }
 
-    genContext.write_bitcode(options.outputFileName);
-    LOG.info("+ Wrote bitcode file '%s'", options.outputFileName.c_str());
+    if (! this->options.no_bc_output) {
+        retCode = genContext.write_bitcode(options.outputFileName);
+        LOG.info("+ Wrote bitcode file '%s'", options.outputFileName.c_str());
+    }
 
-    return 0;
+    return retCode;
 }
 
 
