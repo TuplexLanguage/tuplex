@@ -144,7 +144,8 @@ YY_DECL;
 %precedence EXPR
 %left COMMA COLON
 %right EQUAL
-%left AAND PIPE  // boolean (logical, not bitwise) operators
+%left PIPE  // boolean (logical, not bitwise) operator
+%left AAND  // boolean (logical, not bitwise) operator
 %precedence NOT   /* unary logical not */
 %left EEQUAL NEQUAL
 %left LT GT LEQUAL GEQUAL

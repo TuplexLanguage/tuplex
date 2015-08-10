@@ -183,11 +183,11 @@ extern "C" int yywrap() { return 0; }
                         /* return yy::TxParser::make_NAME(std::string(yytext), loc); */
 
 [1-9]{D}*"#"{WS}*("-"{WS}*)?({L}|{D})+("#"{IS})?  { yylval->build(std::string (yytext)); return token::LIT_RADIX_INT; }
-("-"{WS}*)?{D}({D}|"_")*{IS}?	              { yylval->build(std::string (yytext)); return token::LIT_DEC_INT; }
+{D}({D}|"_")*{IS}?	    { yylval->build(std::string (yytext)); return token::LIT_DEC_INT; }
 
-("-"{WS}*)?{D}+{E}{FS}?		    { yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
-("-"{WS}*)?{D}*"."{D}+({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
-("-"{WS}*)?{D}+"."{D}*({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
+{D}+{E}{FS}?		    { yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
+{D}*"."{D}+({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
+{D}+"."{D}*({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
 
 '(\\.|[^\\'])'	        { yylval->build(std::string (yytext)); return token::LIT_CHARACTER; }
 

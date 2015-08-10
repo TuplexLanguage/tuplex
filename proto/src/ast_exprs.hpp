@@ -390,10 +390,34 @@ public:
 class TxUnaryMinusNode : public TxOperatorValueNode {
 protected:
     virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        // TODO: promote unsigned integers upon negation
         auto type = this->operand->resolve_type(six, resCtx);
         if (! dynamic_cast<const TxScalarType*>(type))
-            CERROR(this, "Operand of unary '-' is not of scalar type: " << (type ? type->to_string().c_str() : "NULL"));
+            CERROR(this, "Invalid operand type for unary '-', not of scalar type: " << (type ? type->to_string().c_str() : "NULL"));
+        else if (auto intType = dynamic_cast<const TxIntegerType*>(type))
+            if (! intType->is_signed()) {
+                // promote unsigned integers upon negation
+                // TODO: if operand is an integer literal (or statically constant) and small enough, convert to signed of same width
+                bool mod = intType->is_modifiable();
+                switch (intType->get_type_id()) {
+                case UBYTE:
+                    type = this->types(six).get_builtin_type(SHORT, mod);
+                    break;
+                case USHORT:
+                    type = this->types(six).get_builtin_type(INT, mod);
+                    break;
+                case UINT:
+                    type = this->types(six).get_builtin_type(LONG, mod);
+                    break;
+                case ULONG:
+                    CERROR(this, "Invalid operand type for unary '-': " << (type ? type->to_string().c_str() : "NULL"));
+                    break;
+                default:
+                    ASSERT(false, "Unknown unsigned integer type id=" << intType->get_type_id() << ": " << intType);
+                }
+                this->operand = new TxScalarConvNode(this->operand->parseLocation, this->operand, static_cast<const TxScalarType*>(type));
+                this->operand->symbol_declaration_pass(six, this->context(six));
+                this->operand->symbol_resolution_pass(six, resCtx);
+            }
         return type;
     }
 

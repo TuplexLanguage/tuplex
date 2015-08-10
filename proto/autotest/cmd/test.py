@@ -13,8 +13,12 @@ def run_cmd( cmdline, expected_ret_code=0 ):
         retcode = call( cmdline, shell=True )
         if retcode < 0:
             print >>sys.stderr, "\033[0;41mTest failed, child was terminated by signal %s\033[0m" % ( -retcode, )
-        elif retcode != expected_ret_code:
-            print >>sys.stderr, "\033[0;41mExpected return code %s but was %s\033[0m" % ( expected_ret_code, retcode )
+        else:
+            if expected_ret_code == "nonzero":
+                if retcode == 0:
+                    print >>sys.stderr, "\033[0;41mExpected nonzero return code but was %s\033[0m" % ( retcode, )
+            elif retcode != expected_ret_code:
+                print >>sys.stderr, "\033[0;41mExpected return code %s but was %s\033[0m" % ( expected_ret_code, retcode )
     except OSError as e:
         print >>sys.stderr, "Execution failed:", e 
         raise
@@ -40,3 +44,7 @@ run_cmd( """echo "main() Int { return 0 }" | txc -quiet -jit -nobc""" )
 
 # run minimal source file with explicit 'return 3'
 run_cmd( """echo "main() Int { return 3 }" | txc -quiet -jit -nobc""", 3 )
+
+# test assertions
+run_cmd( """echo "main() Int { assert TRUE;  return 0 }" | txc -quiet -jit -nobc""" )
+run_cmd( """echo "main() Int { assert FALSE; return 0 }" | txc -quiet -jit -nobc >/dev/null""", "nonzero" )

@@ -31,7 +31,6 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
     context.LOG.trace("%-48s", this->to_string().c_str());
     auto lval = this->lhs->code_gen(context, scope);
     auto rval = this->rhs->code_gen(context, scope);
-    //Value* result;
     if ((! lval) || (! rval))
         return NULL;
 
@@ -39,28 +38,23 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
     const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->get_source_field_name() : "";
 
     auto op_class = get_op_class(this->op);
-
-    unsigned llvm_op;
-    bool int_operation;
     auto resultType = this->get_type(0);
-    if (auto intType = dynamic_cast<const TxIntegerType*>(resultType)) {
-        llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
-        int_operation = true;
-    }
-    else if (dynamic_cast<const TxFloatingType*>(resultType)) {
-        llvm_op = OP_MAPPING[this->op].l_f_op;
-        int_operation = false;
-    }
-    else if (dynamic_cast<const TxBoolType*>(resultType)) {
-        llvm_op = OP_MAPPING[this->op].l_ui_op;  // as unsigned integers
-        int_operation = true;
-    }
-    else {
-        context.LOG.error("%s: Unsupported binary operand type: %s", this->parse_loc_string().c_str(), (resultType?resultType->to_string().c_str():"NULL"));
-        return NULL;
-    }
 
     if (op_class == TXOC_ARITHMETIC || op_class == TXOC_BOOLEAN) {
+        unsigned llvm_op;
+        if (auto intType = dynamic_cast<const TxIntegerType*>(resultType)) {
+            llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
+        }
+        else if (dynamic_cast<const TxFloatingType*>(resultType)) {
+            llvm_op = OP_MAPPING[this->op].l_f_op;
+        }
+        else if (dynamic_cast<const TxBoolType*>(resultType)) {
+            llvm_op = OP_MAPPING[this->op].l_ui_op;  // as unsigned integers
+        }
+        else {
+            ASSERT(false, "Unsupported binary operand type: " << (resultType?resultType->to_string().c_str():"NULL"));
+        }
+
         ASSERT(Instruction::isBinaryOp(llvm_op), "Not a valid LLVM binary op: " << llvm_op);
         Instruction::BinaryOps binop_instr = (Instruction::BinaryOps) llvm_op;
         if (this->is_statically_constant() && !scope)  // seems we can only do this in global scope?
@@ -68,16 +62,44 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
         else {
             ASSERT(scope, "scope is NULL, although expression is not constant and thus should be within runtime block");
             return scope->builder->CreateBinOp(binop_instr, lval, rval, fieldName);
-            //return BinaryOperator::Create(instr, lval, rval, fieldName, scope->builder->GetInsertBlock());
         }
     }
+
     else { // if (op_class == TXOC_EQUALITY || op_class == TXOC_COMPARISON) {
+        unsigned llvm_op;
+        bool float_operation;
+        if (auto intType = dynamic_cast<const TxIntegerType*>(resultType)) {
+            llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
+            float_operation = false;
+        }
+        else if (dynamic_cast<const TxFloatingType*>(resultType)) {
+            llvm_op = OP_MAPPING[this->op].l_f_op;
+            float_operation = true;
+        }
+        else if (dynamic_cast<const TxBoolType*>(resultType)) {
+            if (dynamic_cast<const TxFloatingType*>(this->lhs->get_type(0))) {
+                llvm_op = OP_MAPPING[this->op].l_f_op;
+                float_operation = true;
+            }
+            else {
+                llvm_op = OP_MAPPING[this->op].l_ui_op;  // as unsigned integers
+                float_operation = false;
+            }
+        }
+        else {
+            ASSERT(false, "Unsupported binary operand type: " << (resultType?resultType->to_string().c_str():"NULL"));
+        }
+
         CmpInst::Predicate cmp_pred = (CmpInst::Predicate) llvm_op;
         if (this->is_statically_constant() && !scope)  // seems we can only do this in global scope?
             return ConstantExpr::getCompare(cmp_pred, cast<Constant>(lval), cast<Constant>(rval));
         else {
             ASSERT(scope, "scope is NULL, although expression is not constant and thus should be within runtime block");
-            if (int_operation) {
+            if (float_operation) {
+                ASSERT(CmpInst::isFPPredicate(cmp_pred), "Not a valid LLVM FP comparison predicate: " << llvm_op);
+                return scope->builder->CreateFCmp(cmp_pred, lval, rval, fieldName);
+            }
+            else {
                 ASSERT(CmpInst::isIntPredicate(cmp_pred), "Not a valid LLVM Int comparison predicate: " << llvm_op);
                 if (this->lhs->get_type(0)->get_type_class() == TXTC_REFERENCE) {
                     // both operands are references, compare their pointer values
@@ -85,10 +107,6 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
                     rval = gen_get_ref_pointer(context, scope, rval);
                 }
                 return scope->builder->CreateICmp(cmp_pred, lval, rval, fieldName);
-            }
-            else {
-                ASSERT(CmpInst::isFPPredicate(cmp_pred), "Not a valid LLVM FP comparison predicate: " << llvm_op);
-                return scope->builder->CreateFCmp(cmp_pred, lval, rval, fieldName);
             }
         }
     }
@@ -426,9 +444,8 @@ Value* TxBoolConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope)
     auto origValue = this->expr->code_gen(context, scope);
     if (! origValue)
         return NULL;
-    auto targetLlvmType = Type::getInt1Ty(context.llvmContext);
     //std::cerr << "origValue: " << origValue << " type: " << origValue->getType() << std::endl;
-    //std::cerr << "targType: " << targetLlvmType << std::endl;
+    //std::cerr << "targType: " << Type::getInt1Ty(context.llvmContext) << std::endl;
     // accepts scalar types and converts to bool: 0 => FALSE, otherwise => TRUE
     // Note: can't cast, since that will simply truncate to the lowest source bit
     //Instruction::CastOps cop = CastInst::getCastOpcode(origValue, false, targetLlvmType, false);

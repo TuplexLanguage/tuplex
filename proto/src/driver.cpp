@@ -295,14 +295,14 @@ int TxDriver::llvm_compile() {
 static void format_location_message(char *buf, size_t bufSize, const yy::location& parseLocation, char const *msg) {
     auto filename = parseLocation.begin.filename ? parseLocation.begin.filename->c_str() : "";
     if (parseLocation.begin.line == parseLocation.end.line) {
-        int lcol = (parseLocation.end.column > parseLocation.begin.column) ? parseLocation.end.column-1 : parseLocation.end.column;
+        int lcol = (parseLocation.end.column > parseLocation.begin.column) ? parseLocation.end.column : parseLocation.end.column;
         snprintf(buf, bufSize, "%s %2d.%2d-%2d: %s", filename,
                  parseLocation.begin.line, parseLocation.begin.column, lcol, msg);
     }
     else
         snprintf(buf, bufSize, "%s %2d.%2d-%2d.%2d: %s", filename,
                  parseLocation.begin.line, parseLocation.begin.column,
-                 parseLocation.end.line, parseLocation.end.column-1, msg);
+                 parseLocation.end.line, parseLocation.end.column, msg);
 }
 
 

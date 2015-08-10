@@ -528,6 +528,7 @@ TxAssertStmtNode::TxAssertStmtNode(const yy::location& parseLocation, TxExpressi
     auto putsCallee = new TxFieldValueNode(pLoc, nullptr, "tx.c.puts");
     auto putsCallExpr = new TxFunctionCallNode( pLoc, putsCallee, new std::vector<TxExpressionNode*>( { convStrExpr } ) );
     TxStatementNode* putsStmt = new TxCallStmtNode(pLoc, putsCallExpr);
+    // TODO: emit it to stderr instead of stdout
 
     // we call c library abort() upon assertion failure
     auto abortCallee = new TxFieldValueNode(pLoc, nullptr, "tx.c.abort");

@@ -40,6 +40,37 @@ func test_bool_ops() {
     #experr: b = FALSE == 0
 }
 
+func test_bool_op_prios() {
+    ## AND precedes OR:
+    assert   ( (FALSE &  FALSE) | TRUE  )
+    assert ! (  FALSE & (FALSE  | TRUE) )
+    assert   (  FALSE &  FALSE  | TRUE  )
+
+    assert   (  TRUE | (FALSE  & FALSE) )
+    assert ! ( (TRUE |  FALSE) & FALSE  )
+    assert   (  TRUE |  FALSE  & FALSE  )
+
+
+    ## NE precedes AND:
+    assert   ( (FALSE &  TRUE) != TRUE  )
+    assert ! (  FALSE & (TRUE  != TRUE) )
+    assert ! (  FALSE &  TRUE  != TRUE  )
+
+    assert   (  TRUE != (TRUE  & FALSE) )
+    assert ! ( (TRUE !=  TRUE) & FALSE  )
+    assert ! (  TRUE !=  TRUE  & FALSE  )
+
+
+    ## EQ precedes OR:
+    assert ! ( (TRUE |  FALSE) == FALSE  )
+    assert   (  TRUE | (FALSE  == FALSE) )
+    assert   (  TRUE |  FALSE  == FALSE  )
+
+    assert ! (  FALSE == (FALSE  | TRUE) )
+    assert   ( (FALSE ==  FALSE) | TRUE  )
+    assert   (  FALSE ==  FALSE  | TRUE  )
+}
+
 test_scalar_to_bool_conversion() {
     ## integer -> bool
     assert !Bool(0)
@@ -86,5 +117,6 @@ test_scalar_to_bool_conversion() {
 func main() Int {
     test_bool_ops()
     test_scalar_to_bool_conversion()
+    test_bool_op_prios()
     return 0
 }

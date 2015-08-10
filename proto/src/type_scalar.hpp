@@ -74,6 +74,8 @@ public:
         : TxScalarType(declaration, TxTypeSpecialization(baseType), size), sign(sign) { }
 
 
+    inline bool is_signed() const { return this->sign; }
+
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
     inline virtual bool operator==(const TxType& other) const override {
