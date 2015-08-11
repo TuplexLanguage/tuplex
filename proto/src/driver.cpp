@@ -144,14 +144,16 @@ int TxDriver::compile() {
     }
 
     if (error_count)
-        return error_count;
+        return 2;
 
 
     /*--- generate LLVM code ---*/
 
     int ret = this->llvm_compile();
+    if (ret)
+        return 3;
 
-    return ret;
+    return 0;
 }
 
 
@@ -279,7 +281,7 @@ int TxDriver::llvm_compile() {
         if (! mainGenerated)
             this->LOG.error("Can't run program, no main() method found.");
         else {
-            retCode = genContext.run_code();
+            genContext.run_code();
         }
     }
 

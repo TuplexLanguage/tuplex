@@ -352,14 +352,27 @@ bool TxEntitySymbol::validate_symbol() const {
     for (auto fieldDeclI = this->fields_cbegin(); fieldDeclI != this->fields_cend(); fieldDeclI++) {
         valid &= (*fieldDeclI)->validate();
 
-        // check that only fields of function type are overloaded
         auto type = (*fieldDeclI)->get_definer()->get_type();
-        if (this->field_count() > 1 && ! dynamic_cast<const TxFunctionType*>(type)) {
-            CERROR((*fieldDeclI)->get_definer(), "Illegal overload of symbol " << (*fieldDeclI) << " with type "
+        if (auto funcType = dynamic_cast<const TxFunctionType*>(type)) {
+            // check that no two signatures are exactly equal
+            for (auto prevFieldDeclI = this->fields_cbegin(); prevFieldDeclI != fieldDeclI; prevFieldDeclI++) {
+                auto prevFuncType = static_cast<const TxFunctionType*>((*prevFieldDeclI)->get_definer()->get_type());
+                if (funcType->argumentTypes.size() == prevFuncType->argumentTypes.size()
+                    && equal( funcType->argumentTypes.begin(), funcType->argumentTypes.end(), prevFuncType->argumentTypes.begin(),
+                              [](const TxType* t1, const TxType* t2) { return *t1 == *t2; } ) ) {
+                    CERROR((*fieldDeclI)->get_definer(), "Can't overload two functions with identical argument types: \n\t"
+                            << this->get_full_name() << ": " << funcType << "\n\t" << this->get_full_name() << ": " << prevFuncType);
+                    valid = false;
+                    break;
+                }
+            }
+        }
+        else if (this->field_count() > 1) {
+            // only fields of function type may be overloaded
+            CERROR((*fieldDeclI)->get_definer(), "Can't overload symbol with non-function " << (*fieldDeclI) << " of type "
                    << (type ? type->to_string().c_str() : "NULL"));
             valid = false;
         }
-        // TODO: check that no two signatures are exactly equal
     }
 
     return valid;
@@ -572,17 +585,17 @@ TxFieldDeclaration* resolve_field_lookup(ResolutionContext& resCtx, TxScopeSymbo
                 return matches.front();
             }
             if (entitySymbol->field_count()) {
-                symbol->LOGGER().warning("Type parameters do not match any candidate of %s", symbol->to_string().c_str());
+                symbol->LOGGER().alert("Type parameters do not match any candidate of %s", symbol->to_string().c_str());
                 return nullptr;
             }
         }
         else if (entitySymbol->field_count() > 1) {
-            symbol->LOGGER().warning("%s must be matched using type parameters", symbol->to_string().c_str());
+            symbol->LOGGER().alert("%s must be matched using type parameters", symbol->to_string().c_str());
             return nullptr;
         }
     }
     // name is unknown, or a type
     if (symbol)
-        symbol->LOGGER().warning("%s is not a field", symbol->to_string().c_str());
+        symbol->LOGGER().alert("%s is not a field", symbol->to_string().c_str());
     return nullptr;
 }

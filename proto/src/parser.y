@@ -112,8 +112,8 @@ YY_DECL;
 %type <std::vector<TxImportNode*> *> import_statements opt_import_stmts
 %type <TxImportNode *> import_statement
 
-%type <std::vector<TxDeclarationNode*> *> module_members opt_module_members type_members opt_type_members type_param_list
-%type <TxDeclarationNode *> module_member member_declaration type_param
+%type <std::vector<TxDeclarationNode*> *> module_members opt_module_members type_body member_list type_param_list
+%type <TxDeclarationNode *> module_member member_declaration experr_decl type_param
 
 %type <std::vector<TxPredefinedTypeNode*> *> opt_base_types predef_type_list
 %type <TxPredefinedTypeNode*> predef_type
@@ -261,7 +261,18 @@ member_declaration
 
     // error recovery
     |   error SEMICOLON  { $$ = NULL; }
+
+    |   experr_decl      { $$ = $1; }
     ;
+
+experr_decl : KW_EXPERR COLON
+                { BEGIN_TXEXPERR(@1); }  member_declaration
+                    { int enc = END_TXEXPERR(@4); $$ = new TxExpErrDeclNode(@1, 1, enc, $4); }
+            | KW_EXPERR LIT_DEC_INT COLON
+                { BEGIN_TXEXPERR(@1); }  member_declaration
+                    { int enc = END_TXEXPERR(@5); $$ = new TxExpErrDeclNode(@1, std::stoi($2), enc, $5); }
+            ;
+
 
 declaration_flags : opt_visibility opt_static opt_override opt_final  { $$ = ($1 | $2 | $3 | $4); } ;
 
@@ -311,22 +322,27 @@ type_spec : type_expression SEMICOLON { $$ = $1; }
 //          | type_interface { $$ = $1; }
           ;
 
-type_extension : opt_modifiable opt_base_types LBRACE  opt_type_members  RBRACE
-                        { $$ = new TxDerivedTypeNode(@1, $1, $2, $4); }
+type_extension : opt_modifiable opt_base_types type_body  //LBRACE  opt_type_members  RBRACE
+                        { $$ = new TxDerivedTypeNode(@1, $1, $2, $3); }
                ;
 
-opt_type_members : %empty { $$ = new std::vector<TxDeclarationNode*>(); }
-                 | type_members { $$ = $1; } ;
+type_body
+    //:   %empty                          { $$ = new std::vector<TxDeclarationNode*>(); }
+    :   LBRACE RBRACE                   { $$ = new std::vector<TxDeclarationNode*>(); }
+    |   LBRACE member_list RBRACE       { $$ = $2; }
+    |   LBRACE error RBRACE             { $$ = new std::vector<TxDeclarationNode*>(); TX_SYNTAX_ERROR; }
+    |   LBRACE member_list error RBRACE { $$ = $2;                                    TX_SYNTAX_ERROR; }
+    ;
 
-type_members : member_declaration
+member_list : member_declaration
                      { $$ = new std::vector<TxDeclarationNode*>();
                        if ($1 != NULL)
                            $$->push_back($1); }
-             | type_members member_declaration
+            | member_list member_declaration
                      { $$ = $1;
                        if ($2 != NULL)
                            $$->push_back($2); }
-;
+            ;
 
 opt_base_types  : %empty    { $$ = new std::vector<TxPredefinedTypeNode*>(); }
                 | KW_DERIVES predef_type_list  { $$ = $2; }

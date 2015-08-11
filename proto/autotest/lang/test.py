@@ -29,6 +29,7 @@ source_files = [
     "binoptest.tx",
     "arithmetictest.tx",
     "funcsyntaxtest.tx",
+    "funcoverloadtest.tx",
     "test.modul.tx",
     "importtest.tx",
     "membertest.tx",

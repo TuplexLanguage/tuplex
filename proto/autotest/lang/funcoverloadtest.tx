@@ -1,39 +1,29 @@
-module my.namesp
 
-func overloaded_func(a : Long, b : Int) Int {
-    r : Long = a + b
-    return Int(r)
+func overloaded_func(a : Int, b : Int) Int {
+    return a + b;
 }
 
-func overloaded_func(a : Float, b : Int) Int {
-    r : Int = Int(a + Float(b))
-    return r
+func overloaded_func(a : Float, b : Int) Float {
+    return a * Float( b );
 }
 
-type FooFuncType func (a : Double, b : Double) Double
+## TODO: #experr: func overloaded_func(a : Float, b : Int) Int { return b; }
+
+type FooFuncType func (a : Double, b : Double) Double;
 
 func other_func(a : Double, b : Double) Double {
-    r := a * b / 2.0
-    return r
+    r := a * b / 2.0;
+    return r;
 }
 
-func_alias := other_func
-func_alias2 : FooFuncType = other_func
 
 func main() Int {
-    /* TODO: support modifiable function pointers
-    local_func : func(a : Int, b : Int) Int =
-        func(a : Int, b : Int) Int {
-            return a * b
-        }
-    */
-    local_func := func(a : Int, b : Int) Int {
-        return a * b
-    }
+    #experr 2: func_ref := overloaded_func;
 
-    result := overloaded_func( 41.1, 1 ) + local_func(5, 6)
-    return Int( result + Long(other_func(1., 2.) + func_alias( 2., 3. )) )
-    ## #experr: str := c"this should be unreachable"
+    result := overloaded_func( 3, 4 ) + Int( overloaded_func( 1.5, 10 ) );
+    assert result == 22;
+
+    return 0;
 }
 
 

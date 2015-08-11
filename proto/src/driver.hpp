@@ -100,6 +100,11 @@ public:
 
 
     /** Compile this Tuplex package.
+     * Return values:
+     * 0 upon success
+     * 1 if compilation could not start (e.g. bad command arguments or no source)
+     * 2 if compilation failed (source code errors)
+     * 3 if code generation failed
      * @return 0 on success
      */
     int compile();

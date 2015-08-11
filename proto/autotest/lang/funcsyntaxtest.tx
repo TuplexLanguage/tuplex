@@ -47,4 +47,5 @@ main() Int {
     assert value == 131;
 
     return 0;
+    ## #experr: str := c"this should be unreachable";
 }
