@@ -137,9 +137,10 @@ int TxDriver::compile() {
     }
 
     if (! (symValid && error_count == prev_error_count)) {
-        LOG.error("- Resolution pass completed, %d errors", error_count-prev_error_count);
-        if (! symValid)
-            LOG.error("- Symbol validation failed");
+        if (error_count == prev_error_count)
+            LOG.warning("- Resolution pass completed with 0 errors, but symbol validation failed");
+        else
+            LOG.error("- Resolution pass completed, %d errors", error_count-prev_error_count);
     }
 
     if (error_count)

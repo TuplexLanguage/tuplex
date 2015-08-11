@@ -1,0 +1,57 @@
+main() Int {
+    i1 : Int;  ## TODO: how should we handle unmodifiable declaration without initializer value?
+    i2 : Int = 5;
+    i3 := 5;
+    ## TODO: verify types
+    #experr: i1 = 6;  ## unmodifiable
+    #experr: i2 = 6;  ## unmodifiable
+    #experr: i3 = 6;  ## unmodifiable
+    ## assert i1 == 0;
+    assert i2 == 5;
+    assert i3 == 5;
+
+    m1 : ~Int;
+    m2 : ~Int = 5;
+    ~m3 := 5;
+    #experr: ~m4 : Int;
+    #experr: ~m4 : ~Int;
+    #experr: ~m4 : ~Int = 5;
+    ## assert m1 == 0;
+    assert m2 == 5;
+    assert m3 == 5;
+    m1 = 6;
+    m2 = 6;
+    m3 = 6;
+    assert m1 == 6;
+    assert m2 == 6;
+    assert m3 == 6;
+
+    f1 : Float;  ## TODO: how should we handle unmodifiable declaration without initializer value?
+    f2 : Float = 5.;
+    f3 := 5.;
+    ## TODO: verify types
+    #experr: f1 = 6.;  ## unmodifiable
+    #experr: f2 = 6.;  ## unmodifiable
+    #experr: f3 = 6.;  ## unmodifiable
+    ## assert f1 == 0.;
+    assert f2 == 5.;
+    assert f3 == 5.;
+
+    ## test constructor-style syntax
+    ## i4 : Int = Int();  ## not currently supported
+    ## assert i4 == 0;
+    i5 : Int = Int(0);
+    i6 := Int(5.0);
+    i7 := Int(5.9);
+    assert i5 == 0;
+    assert i6 == 5;
+    assert i7 == 5;
+
+    #experr 3: v : missing = lacking;
+    #experr 2: v : lacking;
+    #experr 2: v := missing;
+    #experr 1: v := Int;
+    #experr 1: v := Tuple;
+
+    return 0;
+}

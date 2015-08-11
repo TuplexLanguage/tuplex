@@ -1,89 +1,87 @@
-module my
-
 func test_int_literals_and_limits() Int {
     {
-        b := 0B
-        s := 0S
-        i := 0I
-        l := 0L
-        ub := 0UB
-        us := 0US
-        ui := 0UI
-        ul := 0UL
-        #experr: b := 0 B
-        #experr: s := 0 S
-        #experr: i := 0 I
-        #experr: l := 0 L
-        #experr: ub := 0 UB
-        #experr: us := 0 US
-        #experr: ui := 0 UI
-        #experr: ul := 0 UL
+        b := 0B;
+        s := 0S;
+        i := 0I;
+        l := 0L;
+        ub := 0UB;
+        us := 0US;
+        ui := 0UI;
+        ul := 0UL;
+        #experr: b := 0 B;
+        #experr: s := 0 S;
+        #experr: i := 0 I;
+        #experr: l := 0 L;
+        #experr: ub := 0 UB;
+        #experr: us := 0 US;
+        #experr: ui := 0 UI;
+        #experr: ul := 0 UL;
     }
     {
-        b := -0B
-        s := -1S
-        i := - 0I
-        l := - 1L
+        b := -0B;
+        s := -1S;
+        i := - 0I;
+        l := - 1L;
     }
 
     ## test unsigned->signed promotion upon unary -
-    #experr: var : UByte  = -1UB
-    #experr: var : UShort = - 1US
-    #experr: var : UInt   = -1UI
-    #experr: var : ULong  = - 1UL
+    #experr: var : UByte  = -1UB;
+    #experr: var : UShort = - 1US;
+    #experr: var : UInt   = -1UI;
+    #experr: var : ULong  = - 1UL;
 
     ## radix tests
-    rb := 2#1111_1111#UB
-    rs := 8#177777#US
-    ri := 16#FFFF_FFFF#UI
-    rl := 16#FFFF_FFFF_FFFF_FFFF#UL
-    assert rb == 255
-    assert rs == 65535
-    assert ri == 4294967295
-    assert rl == 18446744073709551615
-    assert 2#-1000_0000#B == -128
-    assert 8# -100000#S == -32768
-    assert 16#- 8000_0000#I == -2147483648
-    assert 16# - 8000_0000_0000_0000#L == -9223372036854775807L-1
+    rb := 2#1111_1111#UB;
+    rs := 8#177777#US;
+    ri := 16#FFFF_FFFF#UI;
+    rl := 16#FFFF_FFFF_FFFF_FFFF#UL;
+    assert rb == 255;
+    assert rs == 65535;
+    assert ri == 4294967295;
+    assert rl == 18446744073709551615;
+    assert 2#-1000_0000#B == -128;
+    assert 8# -100000#S == -32768;
+    assert 16#- 8000_0000#I == -2147483648;
+    assert 16# - 8000_0000_0000_0000#L == -9223372036854775807L-1;
 
     ## limits
-    ub1 := 255
-    #experr: var : UByte = 256
-    #experr: var : UByte = -1
-    us1 := 256
-    us2 := 65535
-    #experr: var : UShort = 65536
-    #experr: var : UShort = -1
-    ui1 := 65536
-    ui2 := 4294967295
-    #experr: var : UInt = 4294967296
-    #experr: var : UInt = -1
-    ul1 := 4294967296
-    #experr: var : ULong = -1
+    ub1 := 255;
+    #experr: var : UByte = 256;
+    #experr: var : UByte = -1;
+    us1 := 256;
+    us2 := 65535;
+    #experr: var : UShort = 65536;
+    #experr: var : UShort = -1;
+    ui1 := 65536;
+    ui2 := 4294967295;
+    #experr: var : UInt = 4294967296;
+    #experr: var : UInt = -1;
+    ul1 := 4294967296;
+    #experr: var : ULong = -1;
 
-    b_p := 127
-    #experr: var : Byte = 128
-    b_n := -128
-    #experr: var : Byte = -129
-    s_p := 32767
-    #experr: var : Short = 32768
-    s_n := -32768
-    #experr: var : Short = -32769
-    i_p := 2147483647
-    #experr: var : Int = 2147483648
-    i_n := -2147483648
-    #experr: var : Int = -2147483649
-    l_p := 9223372036854775807
-    #experr: var : Long = 9223372036854775808
+    b_p := 127;
+    #experr: var : Byte = 128;
+    b_n := -128;
+    #experr: var : Byte = -129;
+    s_p := 32767;
+    #experr: var : Short = 32768;
+    s_n := -32768;
+    #experr: var : Short = -32769;
+    i_p := 2147483647;
+    #experr: var : Int = 2147483648;
+    i_n := -2147483648;
+    #experr: var : Int = -2147483649;
+    l_p := 9223372036854775807;
+    #experr: var : Long = 9223372036854775808;
     ## TODO: unary minus not smart enough for negative Long constants yet:
-    ## l_n := -9223372036854775808
-    ## #experr: var : Long = -9223372036854775809
+    ## l_n := -9223372036854775808;
+    ## #experr: var : Long = -9223372036854775809;
 
     ## TODO: test promotions and demotions
 
-    return 0
+    return 0;
 }
 
 func main() Int {
-    return test_int_literals_and_limits()
+    return test_int_literals_and_limits();
 }

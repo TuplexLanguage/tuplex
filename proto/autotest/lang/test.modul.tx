@@ -1,0 +1,11 @@
+module test.modul
+
+public double_a_value( val : Int ) Int {
+    return val * 2;
+}
+
+main() Int {
+    assert double_a_value( 5 ) == 10;
+    
+    return 0;
+}

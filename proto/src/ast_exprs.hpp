@@ -744,7 +744,7 @@ public:
 
         auto fieldDecl = field->get_field_declaration(six);
         if (fieldDecl && fieldDecl->get_storage() == TXS_NOSTORAGE)
-            CERROR(this, "Assignee '" << field->memberName << "' is not an L-value / has no storage.");
+            CERROR(this, "Assignee '" << field->symbolName << "' is not an L-value / has no storage.");
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

@@ -224,7 +224,7 @@ Value* LlvmGenerationContext::lookup_llvm_value(const std::string& identifier) c
         return val;
     }
     catch (const std::out_of_range& oor) {
-        this->LOG.warning("Unknown LLVM value identifier %s", identifier.c_str());
+        this->LOG.alert("Unknown LLVM value identifier %s", identifier.c_str());
         return nullptr;
     }
 }

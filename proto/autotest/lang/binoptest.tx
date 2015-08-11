@@ -1,122 +1,122 @@
 func test_bool_ops() {
-    assert TRUE
-    assert !FALSE
-    t := TRUE
-    f := FALSE
-    assert t
-    assert !f
-    assert t != f
+    assert TRUE;
+    assert !FALSE;
+    t := TRUE;
+    f := FALSE;
+    assert t;
+    assert !f;
+    assert t != f;
 
-    b : ~Bool
+    b : ~Bool;
 
-    b = t & t  ; assert b
-    b = t & f  ; assert !b
-    b = f & t  ; assert !b
-    b = f & f  ; assert !b
+    b = t & t  ; assert b;
+    b = t & f  ; assert !b;
+    b = f & t  ; assert !b;
+    b = f & f  ; assert !b;
 
-    b = t | t  ; assert b
-    b = t | f  ; assert b
-    b = f | t  ; assert b
-    b = f | f  ; assert !b
+    b = t | t  ; assert b;
+    b = t | f  ; assert b;
+    b = f | t  ; assert b;
+    b = f | f  ; assert !b;
 
-    b = t != t  ; assert !b
-    b = t != f  ; assert b
-    b = f != t  ; assert b
-    b = f != f  ; assert !b
+    b = t != t  ; assert !b;
+    b = t != f  ; assert b;
+    b = f != t  ; assert b;
+    b = f != f  ; assert !b;
 
-    #experr: b = 0
-    #experr: b = 1
-    #experr: b = -1
-    #experr: b = 0.
-    #experr: b = 1.
-    #experr: b = -1.
-    #experr: b = TRUE & 1
-    #experr: b = TRUE & 0
-    #experr: b = TRUE | 1
-    #experr: b = TRUE | 0
-    #experr: b = FALSE == 1
-    #experr: b = FALSE == 0
-    #experr: b = FALSE == 1
-    #experr: b = FALSE == 0
+    #experr: b = 0;
+    #experr: b = 1;
+    #experr: b = -1;
+    #experr: b = 0.;
+    #experr: b = 1.;
+    #experr: b = -1.;
+    #experr: b = TRUE & 1;
+    #experr: b = TRUE & 0;
+    #experr: b = TRUE | 1;
+    #experr: b = TRUE | 0;
+    #experr: b = FALSE == 1;
+    #experr: b = FALSE == 0;
+    #experr: b = FALSE == 1;
+    #experr: b = FALSE == 0;
 }
 
 func test_bool_op_prios() {
     ## AND precedes OR:
-    assert   ( (FALSE &  FALSE) | TRUE  )
-    assert ! (  FALSE & (FALSE  | TRUE) )
-    assert   (  FALSE &  FALSE  | TRUE  )
+    assert   ( (FALSE &  FALSE) | TRUE  );
+    assert ! (  FALSE & (FALSE  | TRUE) );
+    assert   (  FALSE &  FALSE  | TRUE  );
 
-    assert   (  TRUE | (FALSE  & FALSE) )
-    assert ! ( (TRUE |  FALSE) & FALSE  )
-    assert   (  TRUE |  FALSE  & FALSE  )
+    assert   (  TRUE | (FALSE  & FALSE) );
+    assert ! ( (TRUE |  FALSE) & FALSE  );
+    assert   (  TRUE |  FALSE  & FALSE  );
 
 
     ## NE precedes AND:
-    assert   ( (FALSE &  TRUE) != TRUE  )
-    assert ! (  FALSE & (TRUE  != TRUE) )
-    assert ! (  FALSE &  TRUE  != TRUE  )
+    assert   ( (FALSE &  TRUE) != TRUE  );
+    assert ! (  FALSE & (TRUE  != TRUE) );
+    assert ! (  FALSE &  TRUE  != TRUE  );
 
-    assert   (  TRUE != (TRUE  & FALSE) )
-    assert ! ( (TRUE !=  TRUE) & FALSE  )
-    assert ! (  TRUE !=  TRUE  & FALSE  )
+    assert   (  TRUE != (TRUE  & FALSE) );
+    assert ! ( (TRUE !=  TRUE) & FALSE  );
+    assert ! (  TRUE !=  TRUE  & FALSE  );
 
 
     ## EQ precedes OR:
-    assert ! ( (TRUE |  FALSE) == FALSE  )
-    assert   (  TRUE | (FALSE  == FALSE) )
-    assert   (  TRUE |  FALSE  == FALSE  )
+    assert ! ( (TRUE |  FALSE) == FALSE  );
+    assert   (  TRUE | (FALSE  == FALSE) );
+    assert   (  TRUE |  FALSE  == FALSE  );
 
-    assert ! (  FALSE == (FALSE  | TRUE) )
-    assert   ( (FALSE ==  FALSE) | TRUE  )
-    assert   (  FALSE ==  FALSE  | TRUE  )
+    assert ! (  FALSE == (FALSE  | TRUE) );
+    assert   ( (FALSE ==  FALSE) | TRUE  );
+    assert   (  FALSE ==  FALSE  | TRUE  );
 }
 
 test_scalar_to_bool_conversion() {
     ## integer -> bool
-    assert !Bool(0)
-    assert !Bool(-0)
-    assert Bool(1)
-    assert Bool(-1)
-    assert Bool(2)
-    assert Bool(-2)
-    assert !Bool(0B)
-    assert !Bool(-0B)
-    assert Bool(1B)
-    assert Bool(-1B)
-    assert Bool(2B)
-    assert Bool(-2B)
-    assert !Bool(0L)
-    assert Bool(1L)
-    assert Bool(-1L)
-    assert Bool(2L)
-    assert Bool(-2L)
-    assert !Bool(0UL)
-    assert Bool(1UL)
-    assert Bool(2UL)
+    assert !Bool(0);
+    assert !Bool(-0);
+    assert Bool(1);
+    assert Bool(-1);
+    assert Bool(2);
+    assert Bool(-2);
+    assert !Bool(0B);
+    assert !Bool(-0B);
+    assert Bool(1B);
+    assert Bool(-1B);
+    assert Bool(2B);
+    assert Bool(-2B);
+    assert !Bool(0L);
+    assert Bool(1L);
+    assert Bool(-1L);
+    assert Bool(2L);
+    assert Bool(-2L);
+    assert !Bool(0UL);
+    assert Bool(1UL);
+    assert Bool(2UL);
 
     ## floating point -> bool
-    assert !Bool(0.)
-    assert !Bool(0.0)
-    assert !Bool(.0)
-    assert !Bool(-0.)
-    assert !Bool(-0.0)
-    assert !Bool(-.0)
-    assert Bool(.0000001)
-    assert Bool(-.0000001)
-    assert Bool(1.)
-    assert Bool(-1.)
-    assert Bool(2.)
-    assert Bool(-2.)
+    assert !Bool(0.);
+    assert !Bool(0.0);
+    assert !Bool(.0);
+    assert !Bool(-0.);
+    assert !Bool(-0.0);
+    assert !Bool(-.0);
+    assert Bool(.0000001);
+    assert Bool(-.0000001);
+    assert Bool(1.);
+    assert Bool(-1.);
+    assert Bool(2.);
+    assert Bool(-2.);
     ## (1e37 and 1e-37 are according to c std always representable with a float/double/longdouble)
-    assert Bool(1e37)
-    assert Bool(-1e37)
-    assert Bool(1e-37)
-    assert Bool(-1e-37)
+    assert Bool(1e37);
+    assert Bool(-1e37);
+    assert Bool(1e-37);
+    assert Bool(-1e-37);
 }
 
 func main() Int {
-    test_bool_ops()
-    test_scalar_to_bool_conversion()
-    test_bool_op_prios()
-    return 0
+    test_bool_ops();
+    test_scalar_to_bool_conversion();
+    test_bool_op_prios();
+    return 0;
 }

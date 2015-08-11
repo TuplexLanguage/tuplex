@@ -33,7 +33,7 @@ extern "C" int yywrap() { return 0; }
 %}
 
 /* %option yylineno */
-/* %option nounput */
+%option nounput
 %option noinput
 %option noyywrap
 %option batch
@@ -50,7 +50,7 @@ extern "C" int yywrap() { return 0; }
 
 
  /* append extra newline at end-of-file */
-<<EOF>>     { static int extra_eof_nl = 0; return (extra_eof_nl = !extra_eof_nl) ? token::NL : token::END; }
+ /* <<EOF>>     { static int extra_eof_nl = 0; return (extra_eof_nl = !extra_eof_nl) ? token::NL : token::END; } */
 
 
  /* multi-line comment */
@@ -69,18 +69,13 @@ extern "C" int yywrap() { return 0; }
 
  /* white space */
 [ \t\r]+    yylloc->step();
+[\n]+       { yylloc->lines(yyleng); /*return token::NL;*/ }
 
  /* statement separators */
-[\n]        { yylloc->lines(yyleng); return token::NL; }
 ";"         { return token::SEMICOLON; }
 
- /* emit extra NL token before LBRACE and before & after RBRACE (since they are implicit statement separators) */
-"{"     { static int extra_lbr_nl = 0; if ((extra_lbr_nl = !extra_lbr_nl)) { yyless(0); return token::NL; } else return token::LBRACE; }
-"}"     { static int extra_rbr_nl = 0; if ((extra_rbr_nl = !extra_rbr_nl)) { unput('\n'); unput('}'); yylloc->lines(-1); return token::NL; } else return token::RBRACE; }
- /* Bug: Encountering both braces "{ }" on the first line will yield a 1 too high line count for the rest of the file,
-    since the yyloc->lines(-1) above won't actually reduce the line count below 1. */ 
- /* "{"     { return token::LBRACE; } */
- /* "}"     { return token::RBRACE; } */
+"{"     { return token::LBRACE; }
+"}"     { return token::RBRACE; }
 
 
  /* operators */
@@ -120,6 +115,7 @@ extern "C" int yywrap() { return 0; }
 "-="		{ return token::MINUSEQUAL; }
 "*="		{ return token::ASTERISKEQUAL; }
 "/="		{ return token::FSLASHEQUAL; }
+"->"        { return token::DASHGT; }
 
  /* keywords */
 "module"	{ return token::KW_MODULE; }

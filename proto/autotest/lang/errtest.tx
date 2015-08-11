@@ -1,23 +1,28 @@
 module my
 
-
 main() Int {
-    #experr: bad syntax
+    #experr: bad tokens;
 
-    ~i := 3
+    ~i := 3;
 
-    #experr: i = i + 3 bad syntax
+    #experr: i = i + 3 bad tokens;
 
     #experr: {
-        i = i + 3 bad syntax
+        i = i + 3 ## missing semicolon
     }
 
-    #experr 2: {
-        i = i + 3 bad syntax
-        i = i + 3.0  ## bad type conversion
+    #experr: {
+        i = i + 3 ## missing semicolon
+        i = i + 3;
     }
 
-    assert i == 3
+    #experr 3: {
+        i = i + 3 bad tokens;
+        i = i + 3.0;  ## bad type conversion
+        i = i + 3 ## missing semicolon
+    }
 
-    return 0
+    assert i == 3;
+
+    return 0;
 }

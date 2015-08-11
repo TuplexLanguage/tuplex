@@ -550,16 +550,16 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol(TxSpecializationIndex six, Resol
         TxScopeSymbol* vantageScope = this->context(six).scope();
         if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
             if (auto baseSymbol = baseSymbolNode->resolve_symbol(six, resCtx)) {
-                symbol = lookup_member(vantageScope, baseSymbol, this->memberName);
+                symbol = lookup_member(vantageScope, baseSymbol, this->symbolName);
             }
         }
         else if (baseType) {
             // non-name (i.e. computed) value expression
-            symbol = baseType->lookup_inherited_instance_member(vantageScope, this->memberName);
+            symbol = baseType->lookup_inherited_instance_member(vantageScope, this->symbolName);
         }
     }
     else {
-        symbol = lookup_symbol(this->context(six).scope(), this->memberName);
+        symbol = lookup_symbol(this->context(six).scope(), this->symbolName);
     }
     return symbol;
 }
@@ -603,13 +603,19 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl(TxSpecializationIndex 
                                 return spec.declaration;
                             }
                     }
+                    CERROR(this, "No matching constructor signature for type symbol: " << this->get_full_identifier());
                 }
-                // resolve this symbol to its type
-                spec.declaration = typeDecl;
-                return spec.declaration;
+                else {
+                    // resolve this symbol to its type
+                    spec.declaration = typeDecl;
+                    return spec.declaration;
+                }
             }
-            CERROR(this, "Failed to resolve entity symbol to a field: " << this->get_full_identifier());
+            else
+                CERROR(this, "Symbol could not be resolved to a distinct field or type: " << this->get_full_identifier());
         }
+        else
+            CERROR(this, "Symbol is not a field or type: " << this->get_full_identifier());
     }
     else
         CERROR(this, "Unknown symbol: '" << this->get_full_identifier() << "'");
