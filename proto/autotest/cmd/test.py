@@ -40,8 +40,8 @@ run_cmd( """echo "bad syntax" | txc -quiet -nojit -nobc 2>/dev/null""", 1 )
 run_cmd( """echo "main() { }" | txc -quiet -jit -nobc""" )
 
 # run minimal source file with explicit 'return 0'
-run_cmd( """echo "main() Int { return 0; }" | txc -quiet -jit -nobc""" )
+run_cmd( """echo "main()->Int { return 0; }" | txc -quiet -jit -nobc""" )
 
 # test assertions
-run_cmd( """echo "main() Int { assert TRUE;  return 0; }" | txc -quiet -jit -nobc""" )
-run_cmd( """echo "main() Int { assert FALSE; return 0; }" | txc -quiet -jit -nobc >/dev/null""", "nonzero" )
+run_cmd( """echo "main()->Int { assert TRUE;  return 0; }" | txc -quiet -jit -nobc""" )
+run_cmd( """echo "main()->Int { assert FALSE; return 0; }" | txc -quiet -jit -nobc >/dev/null""", "nonzero" )

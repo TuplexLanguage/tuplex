@@ -1,4 +1,4 @@
-func test_while_syntax() {
+test_while_syntax() {
     while FALSE { }
 
     while FALSE {
@@ -45,7 +45,7 @@ func test_while_syntax() {
     assert i == 2;
 }
 
-func test_while_logic() {
+test_while_logic() {
     while FALSE {
         assert FALSE;
     }
@@ -93,8 +93,7 @@ func test_while_logic() {
     }
 }
 
-func main() Int {
+main() {
     test_while_syntax();
     test_while_logic();
-    return 0;
 }

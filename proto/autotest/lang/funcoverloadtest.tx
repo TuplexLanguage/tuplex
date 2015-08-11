@@ -1,23 +1,23 @@
 
-func overloaded_func(a : Int, b : Int) Int {
+overloaded_func(a : Int, b : Int)->Int {
     return a + b;
 }
 
-func overloaded_func(a : Float, b : Int) Float {
+overloaded_func(a : Float, b : Int)->Float {
     return a * Float( b );
 }
 
-## TODO: #experr: func overloaded_func(a : Float, b : Int) Int { return b; }
+## TODO: #experr: overloaded_func(a : Float, b : Int)->Int { return b; }
 
-type FooFuncType func (a : Double, b : Double) Double;
+type FooFuncType (a : Double, b : Double)->Double;
 
-func other_func(a : Double, b : Double) Double {
+other_func(a : Double, b : Double)->Double {
     r := a * b / 2.0;
     return r;
 }
 
 
-func main() Int {
+main()->Int {
     #experr 2: func_ref := overloaded_func;
 
     result := overloaded_func( 3, 4 ) + Int( overloaded_func( 1.5, 10 ) );

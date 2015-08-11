@@ -18,7 +18,7 @@ type Subtype mod derives CompoundType {
     ##subfield1 : ~Long;
 }
 
-func testfunc() {
+testfunc() {
     obj : ~CompoundType;
     obj.field1 = 133;
     obj.field2 = CompoundType.SFIELD2 * 10.;
@@ -54,9 +54,8 @@ func testfunc() {
     #experr 2: bad5 : ~CompoundType.field3;  ## implicit type entity may not be available
 }
 
-func main() Int {
+main() {
     testfunc();
-    return 0;
 }
 
 

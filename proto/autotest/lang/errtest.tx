@@ -19,7 +19,7 @@ CONSTANT := 42;
     return 42;
 }
 
-main() Int {
+main()->Int {
     #experr: bad tokens;
 
     ~i := 3;

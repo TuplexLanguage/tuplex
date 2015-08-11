@@ -33,6 +33,7 @@ source_files = [
     "test.modul.tx",
     "importtest.tx",
     "membertest.tx",
+    "reftest.tx",
 ]
 
 for src in source_files:

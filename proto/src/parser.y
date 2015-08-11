@@ -124,10 +124,10 @@ YY_DECL;
 %type <TxFieldDefNode*> field_def field_type_def field_assignment_def method_def abstr_method_def
 %type <std::vector<TxFieldDefNode*> *> params_def field_type_list
 
-%type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression return_type_def
+%type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression
 %type <TxTypeExpressionNode*> reference_type array_type //data_tuple_type
 
-%type <TxFunctionTypeNode*> function_type function_header
+%type <TxFunctionTypeNode*> function_header
 %type <TxExpressionNode*> expr make_expr lambda_expr value_literal array_dimensions cond_expr
 %type <TxFunctionCallNode*> call_expr
 %type <std::vector<TxExpressionNode*> *> expression_list call_params
@@ -385,7 +385,7 @@ base_type_expression
     :  predef_type      { $$ = $1; }
     |  reference_type   { $$ = $1; }
     |  array_type       { $$ = $1; }
-    |  function_type    { $$ = $1; }
+    |  function_header    { $$ = $1; }
 //    |  data_tuple_type  { $$ = $1; }
 //    |  union_type
 //    |  enum_type
@@ -430,12 +430,16 @@ array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
 
 /// function type and function declarations:
 
-lambda_expr : function_type suite  { $$ = new TxLambdaExprNode(@1, $1, $2); } ;
+lambda_expr : function_header suite  { $$ = new TxLambdaExprNode(@1, $1, $2); } ;
 
-function_type : KW_FUNC function_header { $$ = $2; } ;
+//function_type : KW_FUNC function_header { $$ = $2; }
+//              | function_header { $$ = $1; }
+//              ;
 
-function_header : opt_modifiable params_def return_type_def
-                  { $$ = new TxFunctionTypeNode(@1, $1, $2, $3); }
+function_header : params_def DASHGT type_expression
+                  { $$ = new TxFunctionTypeNode(@1, false, $1, $3); }
+                | params_def //DASHGT
+                  { $$ = new TxFunctionTypeNode(@1, false, $1, NULL); }
                 ;
 
 params_def : LPAREN field_type_list RPAREN  { $$ = $2; }
@@ -451,20 +455,18 @@ field_type_list : field_type_def
                 | error  { $$ = new std::vector<TxFieldDefNode*>(); }
                 ;
 
-return_type_def : %empty { $$ = NULL; } | type_expression { $$ = $1; } ;
-
 
 
 method_def  :   NAME function_header suite
                 { $$ = new TxFieldDefNode(@1, $1, NULL, new TxLambdaExprNode(@1, $2, $3, true)); }
-            |   KW_FUNC NAME function_header suite
-                { $$ = new TxFieldDefNode(@1, $2, NULL, new TxLambdaExprNode(@1, $3, $4, true)); }
+//            |   KW_FUNC NAME function_header suite
+//                { $$ = new TxFieldDefNode(@1, $2, NULL, new TxLambdaExprNode(@1, $3, $4, true)); }
             ;
 
 abstr_method_def : KW_ABSTRACT NAME function_header SEMICOLON
                     { $$ = new TxFieldDefNode(@2, $2, $3, NULL); }
-                 | KW_ABSTRACT KW_FUNC NAME function_header SEMICOLON
-                    { $$ = new TxFieldDefNode(@3, $3, $4, NULL); }
+//                 | KW_ABSTRACT KW_FUNC NAME function_header SEMICOLON
+//                    { $$ = new TxFieldDefNode(@3, $3, $4, NULL); }
                  ;
 
 

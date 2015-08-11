@@ -1,4 +1,4 @@
-func first() ULong {
+first() {
     ~v := 0UL;
 
     if TRUE {
@@ -40,10 +40,9 @@ func first() ULong {
 
     expected : ULong = 1+4+32+64+256+512;
     assert v == expected;
-    return v-expected;
 }
 
-func second() ULong {
+second() {
     ~v := 0UL;
 
     if TRUE
@@ -69,11 +68,9 @@ func second() ULong {
 
     expected : ULong = 1+2+8+32+256;
     assert v == expected;
-    return v-expected;
 }
 
-func main() Int {
+main() {
     first();
     second();
-    return 0;
 }

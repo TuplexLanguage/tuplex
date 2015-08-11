@@ -1,0 +1,62 @@
+basic_ref_syntax()->Int {
+    otherO : ~Int = 2;
+    __o : ~ Int;
+    _ro : ~ & ~ Int;
+    rro : ~ & ~ & ~ Int;
+    
+    __o   = otherO;
+    _ro   = &__o;
+    rro   = &_ro;
+
+    b : ~Bool;
+    b =   __o   == otherO  ; assert TRUE == b;
+    b =   _ro^  == otherO  ; assert TRUE == b;
+    b =   rro^^ == otherO  ; assert TRUE == b;
+    
+    b =   &__o  == &otherO  ; assert FALSE == b;
+    b =    _ro  == &otherO  ; assert FALSE == b;
+    b =    rro^ == &otherO  ; assert FALSE == b;
+
+    b =   __o   < otherO  ; assert FALSE == b;
+    b =   _ro^  < otherO  ; assert FALSE == b;
+    b =   rro^^ < otherO  ; assert FALSE == b;
+    
+    assert 2 == __o;
+    _ro^  = 3         ; assert 3 == __o;
+    rro^^ = 4         ; assert 4 == __o;
+    
+    rro^  = &otherO   ; assert 2 == otherO;
+    _ro^  = 3         ; assert 3 == otherO;
+    rro^^ = 4         ; assert 4 == otherO;
+
+    /*
+    __o   += otherO;
+    _ro^  += otherO;
+    rro^^ += otherO;
+    
+    __o.normalize();
+    _ro.normalize();  // syntactic sugar
+    _ro^.normalize();
+    rro^.normalize();  // syntactic sugar
+    rro^^.normalize();
+    */
+
+    return __o + _ro^ + rro^^;
+}
+
+/*
+heap_test()->Int {
+    heapVar : &~Int = new ~Int();
+    heapRef : &~&~Int = new ~&~Int();
+    heapVar^ = 2;
+    heapRef^ = heapVar;
+    heapArr := new Array<Int,100>();
+    return heapRef^^;
+}
+*/
+
+main() {
+    ret1 := basic_ref_syntax();
+    assert ret1 == 12;
+    ##ret2 := heap_test();
+}

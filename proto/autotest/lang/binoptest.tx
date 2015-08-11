@@ -1,4 +1,4 @@
-func test_bool_ops() {
+test_bool_ops() {
     assert TRUE;
     assert !FALSE;
     t := TRUE;
@@ -40,7 +40,7 @@ func test_bool_ops() {
     #experr: b = FALSE == 0;
 }
 
-func test_bool_op_prios() {
+test_bool_op_prios() {
     ## AND precedes OR:
     assert   ( (FALSE &  FALSE) | TRUE  );
     assert ! (  FALSE & (FALSE  | TRUE) );
@@ -114,9 +114,8 @@ test_scalar_to_bool_conversion() {
     assert Bool(-1e-37);
 }
 
-func main() Int {
+main() {
     test_bool_ops();
     test_scalar_to_bool_conversion();
     test_bool_op_prios();
-    return 0;
 }

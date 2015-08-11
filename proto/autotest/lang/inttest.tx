@@ -1,4 +1,4 @@
-func test_int_literals_and_limits() Int {
+test_int_literals_and_limits() {
     {
         b := 0B;
         s := 0S;
@@ -78,10 +78,8 @@ func test_int_literals_and_limits() Int {
     ## #experr: var : Long = -9223372036854775809;
 
     ## TODO: test promotions and demotions
-
-    return 0;
 }
 
-func main() Int {
-    return test_int_literals_and_limits();
+main() {
+    test_int_literals_and_limits();
 }

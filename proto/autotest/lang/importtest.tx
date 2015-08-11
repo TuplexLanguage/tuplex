@@ -2,8 +2,6 @@ module my
 
 import test.modul.*
 
-main() Int {
+main() {
     assert double_a_value( 10 ) == 20;
-    
-    return 0;
 }

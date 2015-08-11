@@ -1,4 +1,4 @@
-main() Int {
+main() {
     i1 : Int;  ## TODO: how should we handle unmodifiable declaration without initializer value?
     i2 : Int = 5;
     i3 := 5;
@@ -52,6 +52,4 @@ main() Int {
     #experr 2: v := missing;
     #experr 1: v := Int;
     #experr 1: v := Tuple;
-
-    return 0;
 }
