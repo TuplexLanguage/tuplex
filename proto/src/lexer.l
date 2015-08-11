@@ -61,7 +61,7 @@ extern "C" int yywrap() { return 0; }
   "*/"      yylloc->step(); BEGIN(INITIAL);
   [^\*\n]+  yylloc->step(); // eat comment in chunks
   "*"       yylloc->step(); // eat the lone star
-  [\n]+    { yylloc->lines(yyleng); }
+  [\n]+    { yylloc->lines(yyleng); yylloc->step(); }
 }
 
  /* line comment */
@@ -69,7 +69,7 @@ extern "C" int yywrap() { return 0; }
 
  /* white space */
 [ \t\r]+    yylloc->step();
-[\n]+       { yylloc->lines(yyleng); /*return token::NL;*/ }
+[\n]+       { yylloc->lines(yyleng); yylloc->step(); }
 
  /* statement separators */
 ";"         { return token::SEMICOLON; }

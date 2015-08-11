@@ -19,6 +19,16 @@ type Subtype mod derives CompoundType {
 }
 
 testfunc() {
+    {
+        good : tx.Int;
+        #experr 2: bad : unknown;
+        #experr 1: bad : $local.CompoundType;  ## not explicitly referenceable
+        #experr 2: bad : tx;
+        #experr 2: bad : tx.c;
+        #experr 2: bad : tx.c.puts;
+        #experr 2: bad : tx.unknown;
+    }
+
     obj : ~CompoundType;
     obj.field1 = 133;
     obj.field2 = CompoundType.SFIELD2 * 10.;

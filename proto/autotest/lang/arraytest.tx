@@ -1,0 +1,89 @@
+
+FOO_STR := c"foo";
+FOO_CHR1 := c"foo"[1];
+FOO_CHR2 := FOO_STR[1];
+
+ret_array()->&[]UByte {
+    s : [4]UByte = FOO_STR;
+    t : &[]UByte = FOO_STR;
+    #experr: u : [4]UByte = t^;  ## unknown length
+    puts(s);
+    return t;
+}
+
+puts(cstr : &[]UByte) {
+    tx.c.puts(cstr^[0]);
+}
+
+basic_array_syntax()->Int {
+    puts( ret_array() );
+
+    a : ~Array<~UByte,10>;
+    b : ~[10]~UByte;
+    c := c"1234567890";
+    b[0] = c"123"[2];
+    b[1] = c[1];
+    b[2] = c[0];
+    b[3] = UByte(0);
+    puts(b);  ## expect "321"
+    a = b;
+    puts(a);  ## expect "321"
+    return c[2]-48;  ## 48 is ASCII '0'
+}
+
+
+setelem(cstr : &~[]UByte, i : Int, chr : UByte) {
+    cstr^[i] = chr;
+}
+
+array_modifiability() {
+    cs : [4]UByte = c"cst";
+    crcs : &[]UByte = cs;    ## implicit reference
+    mrcs : ~&[]UByte = cs;   ## implicit reference
+
+    #experr: cs = c"qqq";     ## not modifiable
+    #experr: cs[0] = 'A';     ## not modifiable
+    #experr: crcs^[0] = 'A';  ## not modifiable
+    #experr: mrcs^[1] = 'B';  ## not modifiable
+    #experr: setelem(crcs, 2, 'C');
+    #experr: setelem(mrcs, 2, 'C');
+
+    puts(mrcs);  ## expect "cst"
+
+    ms : ~[4]~UByte = c"mod";
+    crms : &~[]UByte = &ms;   ## explicit reference required
+    mrms : ~&~[]UByte = &ms;  ## explicit reference required
+    mrms = crms;
+    ms[0] = 'A';
+    crms^[0] = 'A';
+    mrms^[1] = 'B';
+    setelem(&ms, 2, 'C');  ## explicit reference required
+    setelem(crms, 2, 'C');
+    setelem(mrms, 2, 'C');
+
+    #experr: crms = mrms;
+    #experr: mrms = &cs;
+    #experr: mrms = crcs;
+    #experr: mrms = mrcs;
+
+    puts(mrms);  ## expect "ABC"
+
+    ms = c"qqq";
+    puts(mrms);  ## expect "qqq"
+
+    ##crms^ = mrcs^;  ## TODO: dynamic concrete type resolution of array sizes?
+    crms_ : &~[4]UByte = &ms;
+    mrcs_ : ~&[4]UByte = cs;
+    crms_^ = mrcs_^;
+    puts(ms);  ## expect "cst"
+
+    conststr := c"1234567890";
+    strcopy : ~[11]~UByte;
+    strcopy = conststr;
+}
+
+main() {
+    array_modifiability();
+    ret := basic_array_syntax();
+    assert ret == 3;
+}

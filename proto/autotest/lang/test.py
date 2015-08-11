@@ -34,6 +34,7 @@ source_files = [
     "importtest.tx",
     "membertest.tx",
     "reftest.tx",
+    "arraytest.tx",
 ]
 
 for src in source_files:

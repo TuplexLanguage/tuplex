@@ -614,8 +614,9 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl(TxSpecializationIndex 
             else
                 CERROR(this, "Symbol could not be resolved to a distinct field or type: " << this->get_full_identifier());
         }
-        else
-            CERROR(this, "Symbol is not a field or type: " << this->get_full_identifier());
+        // not an error
+        //else
+        //    CERROR(this, "Symbol is not a field or type: " << this->get_full_identifier());
     }
     else
         CERROR(this, "Unknown symbol: '" << this->get_full_identifier() << "'");
