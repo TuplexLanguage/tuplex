@@ -256,7 +256,7 @@ std::vector<TxTypeParam>* TxTypeExpressionNode::makeDeclTypeParams(TxSpecializat
         return nullptr;
     auto paramsVec = new std::vector<TxTypeParam>();
     for (auto declNode : *typeParamDeclNodes) {
-        if (declNode->declFlags & TXD_GENPARAM) {
+        if (declNode->get_decl_flags() & TXD_GENPARAM) {
             //std::cout << "param decl is a GENPARAM: " << declNode << std::endl;
             if (auto typeDeclNode = dynamic_cast<TxTypeDeclNode*>(declNode))
                 paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_TYPE, typeDeclNode->typeName, typeDeclNode->typeExpression->get_type_definer(six)));

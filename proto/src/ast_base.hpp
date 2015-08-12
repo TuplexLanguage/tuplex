@@ -203,11 +203,15 @@ public:
 
 
 class TxDeclarationNode : public TxSpecializableNode {  // either type or field
-public:
-    const TxDeclarationFlags declFlags;
+protected:
+    TxDeclarationFlags declFlags;
 
+public:
     TxDeclarationNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags)
         : TxSpecializableNode(parseLocation), declFlags(declFlags) { }
+
+    inline TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
+    inline void set_decl_flags(TxDeclarationFlags declFlags) { this->declFlags = declFlags; }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
 
@@ -840,8 +844,11 @@ public:
     TxDeclarationNode* body;
 
     TxExpErrDeclNode(const yy::location& parseLocation, int expected_error_count, int prev_encountered_errors, TxDeclarationNode* body)
-        : TxDeclarationNode(parseLocation, (body ? body->declFlags : TXD_NONE)), expected_error_count(expected_error_count),
-          encountered_error_count(prev_encountered_errors), body(body)  { }
+        : TxDeclarationNode(parseLocation, (body ? body->get_decl_flags() : TXD_NONE) | TXD_EXPERRBLOCK),
+          expected_error_count(expected_error_count), encountered_error_count(prev_encountered_errors), body(body)  {
+        if (body)
+            body->set_decl_flags(this->declFlags);
+    }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);

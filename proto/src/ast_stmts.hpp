@@ -295,14 +295,15 @@ public:
           encountered_error_count(prev_encountered_errors), body(body)  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
-        this->set_context(six, lexContext);
+        LexicalContext experrBlockContext(lexContext.scope()->create_code_block_scope("EE", true), lexContext.get_constructed());
+        this->set_context(six, experrBlockContext);
         if (six == 0) {
-            lexContext.package()->driver().begin_exp_err(this->parseLocation);
-            this->body->symbol_declaration_pass(six, lexContext);
-            this->encountered_error_count += lexContext.package()->driver().end_exp_err(this->parseLocation);
+            experrBlockContext.package()->driver().begin_exp_err(this->parseLocation);
+            this->body->symbol_declaration_pass(six, experrBlockContext);
+            this->encountered_error_count += experrBlockContext.package()->driver().end_exp_err(this->parseLocation);
         }
         else
-            this->body->symbol_declaration_pass(six, lexContext);
+            this->body->symbol_declaration_pass(six, experrBlockContext);
     }
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {

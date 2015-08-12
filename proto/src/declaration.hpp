@@ -10,8 +10,12 @@ class TxEntitySymbol;
 
 
 // (types are implicitly static)
-const TxDeclarationFlags LEGAL_TYPE_DECL_FLAGS = TXD_ABSTRACT | TXD_FINAL | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM;
-const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS = TXD_STATIC | TXD_FINAL | TXD_OVERRIDE | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM | TXD_CONSTRUCTOR;
+const TxDeclarationFlags LEGAL_TYPE_DECL_FLAGS
+        = TXD_ABSTRACT | TXD_FINAL | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT
+          | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM | TXD_EXPERRBLOCK;
+const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS
+        = TXD_STATIC | TXD_FINAL | TXD_OVERRIDE | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT
+          | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM | TXD_CONSTRUCTOR | TXD_EXPERRBLOCK;
 
 
 class TxEntityDeclaration : public Printable {
@@ -27,6 +31,8 @@ public:
     inline TxEntitySymbol* get_symbol() const { return this->symbol; }
 
     inline TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
+
+    bool in_exp_err_block() const;
 
     virtual TxEntityDefiner* get_definer() const = 0;
 
