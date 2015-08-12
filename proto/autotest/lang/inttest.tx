@@ -80,6 +80,125 @@ test_int_literals_and_limits() {
     ## TODO: test promotions and demotions
 }
 
+test_int_comparisons() {
+    assert 0 == 0;
+
+    assert 1B == 1B;
+    assert 1B == 1S;
+    assert 1B == 1I;
+    assert 1B == 1L;
+    /* TODO: support
+    assert 1B == 1UB;
+    assert 1B == 1US;
+    assert 1B == 1UI;
+    assert 1B == 1UL;
+    */
+
+    assert 1S == 1B;
+    assert 1S == 1S;
+    assert 1S == 1I;
+    assert 1S == 1L;
+    assert 1S == 1UB;
+    /* TODO: support
+    assert 1S == 1US;
+    assert 1S == 1UI;
+    assert 1S == 1UL;
+    */
+
+    assert 1I == 1B;
+    assert 1I == 1S;
+    assert 1I == 1I;
+    assert 1I == 1L;
+    assert 1I == 1UB;
+    assert 1I == 1US;
+    /* TODO: support
+    assert 1I == 1UI;
+    assert 1I == 1UL;
+    */
+
+    assert 1L == 1B;
+    assert 1L == 1S;
+    assert 1L == 1I;
+    assert 1L == 1L;
+    assert 1L == 1UB;
+    assert 1L == 1US;
+    assert 1L == 1UI;
+    /* TODO: support
+    assert 1L == 1UL;
+    */
+
+    ##assert 1UB == 1B;
+    assert 1UB == 1S;
+    assert 1UB == 1I;
+    assert 1UB == 1L;
+    assert 1UB == 1UB;
+    assert 1UB == 1US;
+    assert 1UB == 1UI;
+    assert 1UB == 1UL;
+
+    ##assert 1US == 1B;
+    ##assert 1US == 1S;
+    assert 1US == 1I;
+    assert 1US == 1L;
+    assert 1US == 1UB;
+    assert 1US == 1US;
+    assert 1US == 1UI;
+    assert 1US == 1UL;
+
+    ##assert 1UI == 1B;
+    ##assert 1UI == 1S;
+    ##assert 1UI == 1I;
+    assert 1UI == 1L;
+    assert 1UI == 1UB;
+    assert 1UI == 1US;
+    assert 1UI == 1UI;
+    assert 1UI == 1UL;
+
+    ##assert 1UL == 1B;
+    ##assert 1UL == 1S;
+    ##assert 1UL == 1I;
+    ##assert 1UL == 1L;
+    assert 1UL == 1UB;
+    assert 1UL == 1US;
+    assert 1UL == 1UI;
+    assert 1UL == 1UL;
+
+
+    assert -1B == -1B;
+    assert -1B == -1S;
+    assert -1B == -1I;
+    assert -1B == -1L;
+
+    assert -1S == -1B;
+    assert -1S == -1S;
+    assert -1S == -1I;
+    assert -1S == -1L;
+
+    assert -1I == -1B;
+    assert -1I == -1S;
+    assert -1I == -1I;
+    assert -1I == -1L;
+
+    assert -1L == -1B;
+    assert -1L == -1S;
+    assert -1L == -1I;
+    assert -1L == -1L;
+
+
+    ## TODO: further develop overflow checking
+    assert -32768 == -32767-1;
+    assert -32769 == -32768-1;
+
+
+    assert  1 >  0;
+    assert  0 <  1;
+    assert  0 > -1;
+    assert -1 <  0;
+    assert -1 <  1;
+    assert  1 > -1;
+}
+
 main() {
     test_int_literals_and_limits();
+    test_int_comparisons();
 }

@@ -38,23 +38,35 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
     const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->get_source_field_name() : "";
 
     auto op_class = get_op_class(this->op);
-    auto resultType = this->get_type(0);
-
-    if (op_class == TXOC_ARITHMETIC || op_class == TXOC_BOOLEAN) {
-        unsigned llvm_op;
+    unsigned llvm_op;
+    bool float_operation = false;
+    if (op_class == TXOC_ARITHMETIC) {
+        auto resultType = this->get_type(0);
         if (auto intType = dynamic_cast<const TxIntegerType*>(resultType)) {
             llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
         }
         else if (dynamic_cast<const TxFloatingType*>(resultType)) {
             llvm_op = OP_MAPPING[this->op].l_f_op;
-        }
-        else if (dynamic_cast<const TxBoolType*>(resultType)) {
-            llvm_op = OP_MAPPING[this->op].l_ui_op;  // as unsigned integers
+            float_operation = true;
         }
         else {
             ASSERT(false, "Unsupported binary operand type: " << (resultType?resultType->to_string().c_str():"NULL"));
         }
+    }
+    else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
+        if (dynamic_cast<const TxFloatingType*>(this->lhs->get_type(0))) {
+            llvm_op = OP_MAPPING[this->op].l_f_op;
+            float_operation = true;
+        }
+        else if (auto intType = dynamic_cast<const TxIntegerType*>(this->lhs->get_type(0))) {
+            llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
+        }
+        else {  // Bool or Ref operands
+            llvm_op = OP_MAPPING[this->op].l_ui_op;  // as unsigned integers
+        }
+    }
 
+    if (op_class == TXOC_ARITHMETIC || op_class == TXOC_BOOLEAN) {
         ASSERT(Instruction::isBinaryOp(llvm_op), "Not a valid LLVM binary op: " << llvm_op);
         Instruction::BinaryOps binop_instr = (Instruction::BinaryOps) llvm_op;
         if (this->is_statically_constant() && !scope)  // seems we can only do this in global scope?
@@ -66,30 +78,6 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
     }
 
     else { // if (op_class == TXOC_EQUALITY || op_class == TXOC_COMPARISON) {
-        unsigned llvm_op;
-        bool float_operation;
-        if (auto intType = dynamic_cast<const TxIntegerType*>(resultType)) {
-            llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
-            float_operation = false;
-        }
-        else if (dynamic_cast<const TxFloatingType*>(resultType)) {
-            llvm_op = OP_MAPPING[this->op].l_f_op;
-            float_operation = true;
-        }
-        else if (dynamic_cast<const TxBoolType*>(resultType)) {
-            if (dynamic_cast<const TxFloatingType*>(this->lhs->get_type(0))) {
-                llvm_op = OP_MAPPING[this->op].l_f_op;
-                float_operation = true;
-            }
-            else {
-                llvm_op = OP_MAPPING[this->op].l_ui_op;  // as unsigned integers
-                float_operation = false;
-            }
-        }
-        else {
-            ASSERT(false, "Unsupported binary operand type: " << (resultType?resultType->to_string().c_str():"NULL"));
-        }
-
         CmpInst::Predicate cmp_pred = (CmpInst::Predicate) llvm_op;
         if (this->is_statically_constant() && !scope)  // seems we can only do this in global scope?
             return ConstantExpr::getCompare(cmp_pred, cast<Constant>(lval), cast<Constant>(rval));

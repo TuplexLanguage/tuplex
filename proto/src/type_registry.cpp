@@ -577,7 +577,11 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
         auto baseTypeExpr = static_cast<TxTypeExpressionNode*>(baseDecl->get_definer()->get_node());
         TxSpecializationIndex newSix = baseTypeExpr->next_spec_index();
 
-        LexicalContext baseContext = LexicalContext(baseDecl->get_symbol()->get_outer());
+        //LexicalContext baseContext = LexicalContext(baseDecl->get_symbol()->get_outer());
+        LexicalContext baseContext = LexicalContext(baseTypeExpr->context(0));
+        ASSERT(baseContext.scope() == baseDecl->get_symbol()->get_outer(),
+               "Expected scope " << baseDecl->get_symbol()->get_outer() << " but was " << baseContext.scope());
+
         std::string newBaseName = baseDecl->get_unique_name();
 
         // make new parameter declarations that resolve to the bindings:

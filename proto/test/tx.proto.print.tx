@@ -3,86 +3,86 @@ module tx.proto.print
 import tx.c.puts
 
 
-func print(cstr : &[]UByte) {
-    puts( cstr^[0] )
+print(cstr : &[]UByte) {
+    puts( cstr^[0] );
 }
 
 /*
-func print_digit(d : Long) {
-    digits := c"0123456789"
-    str : [2]~UByte = c" "
+print_digit(d : Long) {
+    digits := c"0123456789";
+    str : [2]~UByte = c" ";
     if d >= 10 {
-        puts(c"d greater than 9")
-        return
+        puts(c"d greater than 9");
+        return;
     }
     if d < 0 {
-        puts(c"d less than 0")
-        return
+        puts(c"d less than 0");
+        return;
     }
-    str[0] = digits[d]
-    puts(str)
+    str[0] = digits[d];
+    puts(str);
 }
 */
 
-func itoa(val : Long, cstr : &~[]~UByte) {
-    itoa(val, cstr, UByte(10))
+itoa(val : Long, cstr : &~[]~UByte) {
+    itoa(val, cstr, UByte(10));
 }
 
-func itoa(val : Long, cstr : &~[]~UByte, radix : UByte) {
-    ##cstr^[0] = UByte(0)
-    ##str := cstr^
-    v : ~Long
-    i : ~Int
+itoa(val : Long, cstr : &~[]~UByte, radix : UByte) {
+    ##cstr^[0] = UByte(0);
+    ##str := cstr^;
+    v : ~Long;
+    i : ~Int;
     if val == 0 {
-        cstr^[0] = '0'
-        cstr^[1] = UByte(0)
-        return
+        cstr^[0] = '0';
+        cstr^[1] = UByte(0);
+        return;
     }
     if val < 0 {
-        v = -val
-        cstr^[0] = '-'
-        i = 1
+        v = -val;
+        cstr^[0] = '-';
+        i = 1;
     }
     else {
-        v = val
-        i = 0
+        v = val;
+        i = 0;
     }
-    first := i
+    first := i;
     while v > 0 {
-        nextV := v / radix
-        digitV := v - nextV * radix
-        cstr^[i] = UByte(48 + digitV)
-        v = nextV
-        i = i + 1
+        nextV := v / radix;
+        digitV := v - nextV * radix;
+        cstr^[i] = UByte(48 + digitV);
+        v = nextV;
+        i = i + 1;
     }
-    cstr^[i] = UByte(0)
+    cstr^[i] = UByte(0);
     
     ## reverse string:
-    i = i - 1
-    end := i+first
+    i = i - 1;
+    end := i+first;
     while i > end/2 {
-        c := cstr^[i]
-        cstr^[i] = cstr^[end-i]
-        cstr^[end-i] = c
-        i = i - 1
+        c := cstr^[i];
+        cstr^[i] = cstr^[end-i];
+        cstr^[end-i] = c;
+        i = i - 1;
     }
 }
 
-func print(val : Long) {
-    cstr : ~[100]~UByte
-    itoa(val, &cstr)
-    print(&cstr)
+print(val : Long) {
+    cstr : ~[100]~UByte;
+    itoa(val, &cstr);
+    print(&cstr);
 }
 
-func main() Int {
-    print(0)
-    print(1)
-    print(-1)
-    print(10)
-    print(-10)
-    print(12345678)
-    print(-12345678)
-    print(123456789)
-    print(-123456789)
+main()->Int {
+    print(0);
+    print(1);
+    print(-1);
+    print(10);
+    print(-10);
+    print(12345678);
+    print(-12345678);
+    print(12345678900L);
+    print(-12345678900L);
     return 0;
 }

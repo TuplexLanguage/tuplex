@@ -23,12 +23,28 @@ class LexicalContext : public Printable {
     static TxModule* get_module(TxScopeSymbol* scope);
 
 public:
+    /** Constructs an "uninitialized" lexical context. */
     LexicalContext() : _scope(), constructedObjTypeDecl()  { }
 
-    LexicalContext(TxScopeSymbol* scope, TxTypeDeclaration* constructedEntity=nullptr)
-            : _scope(scope), constructedObjTypeDecl(constructedEntity)  {
+    /** Copy constructor. */
+    LexicalContext(const LexicalContext& context) : LexicalContext(context, context._scope) {}
+
+    /** Constructs a lexical context for the provided module.
+     * (A module context does not require a parent context.) */
+    LexicalContext(TxModule* module) : _scope((TxScopeSymbol*)module), constructedObjTypeDecl()  {
+        ASSERT(module, "module is NULL");
+    }
+
+    /** Constructs a lexical context that is a sub-context of the provided context.
+     * The provided scope must be the same or a sub-scope of the parent's scope. */
+    LexicalContext(const LexicalContext& parentContext, TxScopeSymbol* scope)
+            : _scope(scope), constructedObjTypeDecl(parentContext.constructedObjTypeDecl)  {
         ASSERT(scope, "scope is NULL");
     }
+//    LexicalContext(TxScopeSymbol* scope, TxTypeDeclaration* constructedEntity=nullptr)
+//            : _scope(scope), constructedObjTypeDecl(constructedEntity)  {
+//        ASSERT(scope, "scope is NULL");
+//    }
 
     inline TxScopeSymbol* scope() const { return this->_scope; }
 

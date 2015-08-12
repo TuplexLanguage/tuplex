@@ -36,7 +36,7 @@ public:
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         std::string funcName = this->fieldDefNode ? this->fieldDefNode->get_decl_field_name() : "";
-        LexicalContext funcLexContext(lexContext.scope()->create_code_block_scope(funcName));
+        LexicalContext funcLexContext(lexContext, lexContext.scope()->create_code_block_scope(funcName));
         this->set_context(six, funcLexContext);
 
         if (this->is_instance_method()) {

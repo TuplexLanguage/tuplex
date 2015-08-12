@@ -142,7 +142,7 @@ public:
             stmt->symbol_declaration_pass(six, lexContext);
     }
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
-        LexicalContext suiteContext(lexContext.scope()->create_code_block_scope(), lexContext.get_constructed());
+        LexicalContext suiteContext(lexContext, lexContext.scope()->create_code_block_scope());
         this->symbol_declaration_pass_no_subscope(six, suiteContext);
     }
 
@@ -295,7 +295,7 @@ public:
           encountered_error_count(prev_encountered_errors), body(body)  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
-        LexicalContext experrBlockContext(lexContext.scope()->create_code_block_scope("EE", true), lexContext.get_constructed());
+        LexicalContext experrBlockContext(lexContext, lexContext.scope()->create_code_block_scope("EE", true));
         this->set_context(six, experrBlockContext);
         if (six == 0) {
             experrBlockContext.package()->driver().begin_exp_err(this->parseLocation);

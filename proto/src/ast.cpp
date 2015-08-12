@@ -302,7 +302,7 @@ void TxTypeExpressionNode::symbol_declaration_pass(TxSpecializationIndex six, Le
         else
             this->get_spec(six).declaration = declaration;
     }
-    LexicalContext typeCtx(declaration ? declaration->get_symbol() : lexContext.scope());
+    LexicalContext typeCtx(lexContext, declaration ? declaration->get_symbol() : lexContext.scope());
 
     // declare type parameters within type declaration's scope, and before rest of type expression is processed:
     if (typeParamDeclNodes) {
@@ -362,7 +362,7 @@ void TxPredefinedTypeNode::symbol_declaration_pass(TxSpecializationIndex six, Le
                 }
                 else
                     CERROR(this, "Failed to declare alias " << typeName.c_str());
-                LexicalContext typeCtx(declaredAlias ? declaredAlias : lexContext.scope());
+                LexicalContext typeCtx(lexContext, declaredAlias ? declaredAlias : lexContext.scope());
                 this->symbol_declaration_pass_descendants(six, defContext, typeCtx, declFlags);
                 return;
             }

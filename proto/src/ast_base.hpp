@@ -84,8 +84,8 @@ protected:
         this->lexContext = context;
     }
     /** Sets the lexical context of this node to the current context of the module. */
-    void set_context(TxScopeSymbol* lexContext) {
-        this->set_context(LexicalContext(lexContext));
+    void set_context(TxModule* module) {
+        this->set_context(LexicalContext(module));
     }
 
 public:
