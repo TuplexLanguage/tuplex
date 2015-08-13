@@ -1,0 +1,77 @@
+
+puts(cstr : &[]UByte) {
+    tx.c.puts( cstr^[0] );
+}
+
+type AType mod derives Tuple {
+    public static SFIELD := 41;
+    public static SFIELD2 := 2.72;
+    field1 : ~Long;
+    field2 : ~Float;
+
+    public self() {
+    }
+
+    public print() {
+        puts(c"AType");
+    }
+
+    public method(a : Int)->Int {
+        return a * 2;
+    }
+}
+
+type BType mod derives AType {
+    public static override SFIELD := 42;
+    public static override SFIELD2 := 3.14;
+    field1 : ~Long;
+    field2 : ~Float;
+
+    public override print() {
+        puts(c"BType");
+    }
+
+    public override method(a : Int)->Int {
+        return super^.method( a ) * 2;
+    }
+
+    ## currently a warning, not an error:
+    ##public override bad_method() {}
+
+    public b_method() {}
+}
+
+main()->Int {
+    bo : BType;
+    ar : &AType = &bo;
+    br : &BType = &bo;
+
+    ar^.field1 = 1;
+    br^.field1 = 2;
+    assert ar^.field1 == 1;
+    assert br^.field1 == 2;
+    assert bo.field1 == 2;
+
+    ar^.field1 = 4;
+    br^.field1 = 8;
+    assert ar^.field1 == 4;
+    assert br^.field1 == 8;
+    assert bo.field1 == 8;
+
+    assert ar^.SFIELD == 42;
+    assert br^.SFIELD == 42;
+    assert bo.SFIELD == 42;
+    assert AType.SFIELD == 41;
+    assert BType.SFIELD == 42;
+
+    br^.b_method();
+    #experr: ar^.b_method();
+
+    ar^.print();
+    br^.print();
+
+    val := ar^.method( 2 );
+    assert val == 8;
+    
+    return 0;
+}

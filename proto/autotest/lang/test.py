@@ -22,22 +22,30 @@ def run_cmd( cmdline, expected_ret_code=0 ):
 
 source_files = [
     "errtest.tx",
+
     "inttest.tx",
     "declsyntaxtest.tx",
     "globalstest.tx",
     "ifelsetest.tx",
     "whiletest.tx",
+
     "binoptest.tx",
     "arithmetictest.tx",
+
     "funcdeclsyntaxtest.tx",
     "funcrettest.tx",
     "funcoverloadtest.tx",
     "funcrecursetest.tx",
+
     "test.modul.tx",
     "importtest.tx",
-    "membertest.tx",
+
     "reftest.tx",
     "arraytest.tx",
+    #"stringtest.tx",
+
+    "membertest.tx",
+    "polymorphtest.tx",
 ]
 
 for src in source_files:
