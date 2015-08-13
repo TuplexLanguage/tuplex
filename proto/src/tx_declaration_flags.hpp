@@ -5,12 +5,14 @@
 
 enum TxDeclarationFlags {
 	TXD_NONE       = 0,
+	// can be declared in source:
 	TXD_STATIC     = 1 << 0,
-	TXD_ABSTRACT   = 1 << 1,
-    TXD_FINAL      = 1 << 2,
-    TXD_OVERRIDE   = 1 << 3,
-	TXD_PUBLIC 	   = 1 << 4,
-    TXD_PROTECTED  = 1 << 5,
+    TXD_PUBLIC     = 1 << 1,
+    TXD_PROTECTED  = 1 << 2,
+	TXD_ABSTRACT   = 1 << 3,
+    TXD_FINAL      = 1 << 4,
+    TXD_OVERRIDE   = 1 << 5,
+    // cannot be declared in source:
     TXD_BUILTIN    = 1 << 6,
     TXD_IMPLICIT   = 1 << 7,
     TXD_GENPARAM   = 1 << 8,
@@ -30,13 +32,14 @@ inline TxDeclarationFlags operator^(TxDeclarationFlags a, TxDeclarationFlags b) 
 
 inline std::string to_string(TxDeclarationFlags flags) {
     char buf[16];
-    sprintf(buf, "%c%c%c%c%c%c%c%c%c%c%c%c",
+    sprintf(buf, "%c%c%c%c%c%c%c%c%c%c%c%c%c",
             (flags & TXD_STATIC)    ? 'S' : '-',
+            (flags & TXD_PUBLIC)    ? 'P' : '-',
+            (flags & TXD_PROTECTED) ? 'R' : '-',
             (flags & TXD_ABSTRACT)  ? 'A' : '-',
             (flags & TXD_FINAL)     ? 'F' : '-',
             (flags & TXD_OVERRIDE)  ? 'O' : '-',
-            (flags & TXD_PUBLIC)    ? 'P' : '-',
-            (flags & TXD_PROTECTED) ? 'R' : '-',
+            ' ',
             (flags & TXD_BUILTIN)   ? 'B' : '-',
             (flags & TXD_IMPLICIT)  ? 'I' : '-',
             (flags & TXD_GENPARAM)  ? 'G' : '-',

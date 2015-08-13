@@ -38,6 +38,7 @@ int main(int argc, char **argv)
                 printf("  %-22s %s\n", "-di", "Dump intermediate representation (LLVM IR)");
                 printf("  %-22s %s\n", "-dl", "Print debugging output from lexer (token scanner)");
                 printf("  %-22s %s\n", "-dy", "Print debugging output from grammar parser");
+                printf("  %-22s %s\n", "-nover", "Disable verifying generated code after successful compilation");
                 printf("  %-22s %s\n", "-nojit", "Disable running program in JIT mode after successful compilation");
                 printf("  %-22s %s\n", "-jit", "Run program in JIT mode after successful compilation");
                 printf("  %-22s %s\n", "-nobc", "Don't output bitcode (and if also running in JIT mode, exit with program's return code)");
@@ -64,6 +65,8 @@ int main(int argc, char **argv)
                 options.debug_lexer = true;
             else if (! strcmp(argv[a], "-dy"))
                 options.debug_parser = true;
+            else if (! strcmp(argv[a], "-nover"))
+                options.run_verifier = false;
             else if (! strcmp(argv[a], "-nojit"))
                 options.run_jit = false;
             else if (! strcmp(argv[a], "-jit"))

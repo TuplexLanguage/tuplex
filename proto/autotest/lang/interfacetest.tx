@@ -1,0 +1,76 @@
+
+## 'abstract' tests
+
+#experr: forward_func()->Int;  ## "forward declaration" free functions not currently supported
+
+#experr: abstract_func()->Int;  ## "abstract" free functions not currently supported
+
+#experr 2: abstract concrete_func()->Int { return 2; }
+
+
+## an abstract (non-interface) type can have both abstract and concrete members:
+abstract type AbstractType derives Tuple {
+    public static foo : Int = 2;
+    public static abstract bar : Int;
+    #experr 1: public static abstract bad : Int = 3;  ## can't specify initializer for abstract field
+    #experr 2: static abstract mac : Int;             ## 'abstract' fields cannot be private (since private are non-virtual)
+
+    abstract abstr_method()->Int;
+
+    #experr: abstract concrete_method()->Int { return 2; }  ## can't specify initializer for abstract field
+
+    concrete_method2()->Int { return 2; }
+}
+
+## a concrete type can't have abstract members:
+type ConcreteType derives Tuple {
+    public static foo : Int = 2;
+    #experr 0: public static abstract bar : Int;      ## a concrete type can't have abstract members
+    #experr 1: public static abstract bad : Int = 3;  ## can't specify initializer for abstract field
+    #experr 2: static abstract mac : Int;             ## 'abstract' fields cannot be private (since private are non-virtual)
+
+    #experr 0: abstract abstr_method()->Int;          ## a concrete type can't have abstract members:
+
+    #experr: abstract concrete_method()->Int { return 2; }  ## can't specify initializer for abstract field
+
+    concrete_method2()->Int { return 2; }
+}
+
+
+
+## interface tests
+
+type CompA derives Interface {
+    public abstract get_value()->Int;
+
+    ## "mixin" or default-implementations currently not supported:
+    #experr 0: public concrete_method()->Int { return 2; }
+
+    #experr 0: ifField : Int;
+}
+
+/* future syntax?
+interface CompB {
+    public abstract get_value()->Int;
+}
+*/
+
+type Type derives Tuple, CompA {
+    fld : Int;
+
+    self(f : Int) { self^.fld = f; }
+
+    public get_value()->Int {
+        return self^.fld;
+    }
+
+    #experr 0: public abstract abstr_method()->Int;  ## Type isn't declared abstract
+}
+
+
+main()->Int {
+    t := Type(42);
+    r : &CompA = &t;
+    assert r^.get_value() == 42;
+    return 0;
+}

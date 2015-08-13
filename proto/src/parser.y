@@ -99,7 +99,7 @@ YY_DECL;
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above.
  */
-%type <TxDeclarationFlags> declaration_flags opt_visibility opt_static opt_override opt_final
+%type <TxDeclarationFlags> declaration_flags opt_visibility opt_static opt_abstract opt_override opt_final
 %type <bool> opt_modifiable type_or_if
 %type <TxIdentifier*> identifier
 
@@ -121,7 +121,7 @@ YY_DECL;
 %type <TxTypeArgumentNode *> type_arg
 %type <std::vector<TxTypeArgumentNode*> *> type_arg_list
 
-%type <TxFieldDefNode*> field_def field_type_def field_assignment_def method_def abstr_method_def
+%type <TxFieldDefNode*> field_def field_type_def field_assignment_def method_def
 %type <std::vector<TxFieldDefNode*> *> params_def field_type_list
 
 %type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression
@@ -245,19 +245,17 @@ module_member : member_declaration { $$ = $1; }
 member_declaration
     // field
     : declaration_flags field_def SEMICOLON
-            { $$ = new TxFieldDeclNode(@1, $1, $2); }
+            { $$ = new TxFieldDeclNode(@2, $1, $2); }
 
     // type
     | declaration_flags type_or_if NAME type_spec  
-            { $$ = new TxTypeDeclNode(@1, $1, $3, NULL, $4, $2); }
+            { $$ = new TxTypeDeclNode(@2, $1, $3, NULL, $4, $2); }
     | declaration_flags type_or_if NAME LT type_param_list GT type_spec
-            { $$ = new TxTypeDeclNode(@1, $1, $3, $5,   $7, $2); }
+            { $$ = new TxTypeDeclNode(@2, $1, $3, $5,   $7, $2); }
 
     // function / method
     |   declaration_flags method_def
-            { $$ = new TxFieldDeclNode(@1, $1, $2, true); }
-    |   declaration_flags abstr_method_def
-            { $$ = new TxFieldDeclNode(@1, $1 | TXD_ABSTRACT, $2, true); }
+            { $$ = new TxFieldDeclNode(@2, $1, $2, true); }
 
     // error recovery
     |   error SEMICOLON  { $$ = NULL; }
@@ -274,13 +272,14 @@ experr_decl : KW_EXPERR COLON
             ;
 
 
-declaration_flags : opt_visibility opt_static opt_override opt_final  { $$ = ($1 | $2 | $3 | $4); } ;
+declaration_flags : opt_visibility opt_static opt_abstract opt_override opt_final  { $$ = ($1 | $2 | $3 | $4); } ;
 
 opt_visibility : %empty        { $$ = TXD_NONE; }
                | KW_PUBLIC     { $$ = TXD_PUBLIC; }
                | KW_PROTECTED  { $$ = TXD_PROTECTED; }
                ;
 opt_static     : %empty { $$ = TXD_NONE; } | KW_STATIC   { $$ = TXD_STATIC;   } ;
+opt_abstract   : %empty { $$ = TXD_NONE; } | KW_ABSTRACT { $$ = TXD_ABSTRACT; } ;
 opt_override   : %empty { $$ = TXD_NONE; } | KW_OVERRIDE { $$ = TXD_OVERRIDE; } ;
 opt_final      : %empty { $$ = TXD_NONE; } | KW_FINAL    { $$ = TXD_FINAL;    } ;
 
@@ -432,10 +431,6 @@ array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
 
 lambda_expr : function_header suite  { $$ = new TxLambdaExprNode(@1, $1, $2); } ;
 
-//function_type : KW_FUNC function_header { $$ = $2; }
-//              | function_header { $$ = $1; }
-//              ;
-
 function_header : params_def DASHGT type_expression
                   { $$ = new TxFunctionTypeNode(@1, false, $1, $3); }
                 | params_def //DASHGT
@@ -456,18 +451,11 @@ field_type_list : field_type_def
                 ;
 
 
-
-method_def  :   NAME function_header suite
-                { $$ = new TxFieldDefNode(@1, $1, NULL, new TxLambdaExprNode(@1, $2, $3, true)); }
-//            |   KW_FUNC NAME function_header suite
-//                { $$ = new TxFieldDefNode(@1, $2, NULL, new TxLambdaExprNode(@1, $3, $4, true)); }
+method_def  : NAME function_header suite
+                { $$ = new TxFieldDefNode(@1, $1, nullptr, new TxLambdaExprNode(@1, $2, $3, true)); }
+            | NAME function_header SEMICOLON  // abstract method (KW_ABSTRACT should be specified)
+                { $$ = new TxFieldDefNode(@1, $1, $2,      nullptr); }
             ;
-
-abstr_method_def : KW_ABSTRACT NAME function_header SEMICOLON
-                    { $$ = new TxFieldDefNode(@2, $2, $3, NULL); }
-//                 | KW_ABSTRACT KW_FUNC NAME function_header SEMICOLON
-//                    { $$ = new TxFieldDefNode(@3, $3, $4, NULL); }
-                 ;
 
 
 

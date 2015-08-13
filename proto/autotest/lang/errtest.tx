@@ -13,9 +13,9 @@ CONSTANT := 42;
     static BAR := 7  ## missing semicolon
 }
 
-#experr: bad_func();
+#experr: bad_func1();
 
-#experr: bad_func() {
+#experr: bad_func2() {
     return 42;
 }
 

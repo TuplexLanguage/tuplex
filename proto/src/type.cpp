@@ -197,37 +197,52 @@ void TxType::prepare_type_members() {
         if (auto typeDecl = entitySym->get_type_decl()) {
             if (*symname != "tx#Ref#T") {  // prevents infinite recursion
                 //LOGGER().alert("resolving member type %s", entitySym->get_full_name().to_string().c_str());
+                if (typeDecl->get_decl_flags() & TXD_EXPERRBLOCK)
+                    this->get_driver()->begin_exp_err(typeDecl->get_definer()->get_parse_location());
+
                 typeDecl->get_definer()->resolve_type(resCtx);
+
+                if (typeDecl->get_decl_flags() & TXD_EXPERRBLOCK) {
+                    /*int encountered_error_count =*/ this->get_driver()->end_exp_err(typeDecl->get_definer()->get_parse_location());
+                    // FIXME: include in expected error count
+                }
             }
         }
 
         for (auto fieldDeclI = entitySym->fields_cbegin(); fieldDeclI != entitySym->fields_cend(); fieldDeclI++) {
             auto fieldDecl = *fieldDeclI;
-            auto field = fieldDecl->get_definer()->resolve_field(resCtx);
 
-            if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
+            bool expErrField = fieldDecl->get_decl_flags() & TXD_EXPERRBLOCK;
+            if (expErrField)
+                this->get_driver()->begin_exp_err(fieldDecl->get_definer()->get_parse_location());
+
+            if (fieldDecl->get_decl_flags() & TXD_ABSTRACT) {
                 if (this->get_type_class() != TXTC_INTERFACE && !(this->get_declaration()->get_decl_flags() & TXD_ABSTRACT))
-                    CERROR(this, "Can't declare abstract member in type that is not declared abstract: " << field);
+                    CERROR(fieldDecl->get_definer(), "Can't declare abstract member '" << fieldDecl->get_unique_name() << "' in type that is not declared abstract: " << this);
+            }
+            else if (this->get_type_class() == TXTC_INTERFACE)
+                CERROR(fieldDecl->get_definer(), "Can't declare instance member '" << fieldDecl->get_unique_name() << "' in interface type: " << this);
 
-            if (field) {
+            if (auto field = fieldDecl->get_definer()->resolve_field(resCtx)) {
                 // validate type:
                 if (auto fieldType = field->get_type()) {
                     if (! fieldType->is_concrete()) {
-                        CERROR(this, "Can't declare a field of non-concrete type: " << field << " " << fieldType);
+                        CERROR(field, "Can't declare a field of non-concrete type: " << field << " " << fieldType);
                     }
                     else if (fieldDecl->get_storage() == TXS_INSTANCE) {
                         if (! fieldType->is_statically_sized()) {
-                            CERROR(this, "Instance fields that don't have statically determined size not yet supported: " << field);
+                            CERROR(field, "Instance fields that don't have statically determined size not yet supported: " << field);
                         }
                         else if (! (fieldDecl->get_decl_flags() & (TXD_GENPARAM | TXD_IMPLICIT))) {
                             if (this->get_type_class() != TXTC_TUPLE)
-                                CERROR(this, "Can't declare instance member in non-tuple type: " << field);
+                                if (this->get_type_class() != TXTC_INTERFACE)  // (if not error already emitted above)
+                                    CERROR(field, "Can't declare instance member in non-tuple type: " << field);
                         }
                     }
                     else {  // static / virtual
                         if (! fieldType->is_statically_sized()) {
                             // since static fields are per generic base type, and not per specialization:
-                            CERROR(this, "Static fields must have statically determined size: " << field);
+                            CERROR(field, "Static fields must have statically determined size: " << field);
                         }
                     }
                 }
@@ -238,8 +253,9 @@ void TxType::prepare_type_members() {
                     LOGGER().debug("Laying out instance field %-40s  %s  %u", field->to_string().c_str(),
                                    field->get_type()->to_string(true).c_str(), this->instanceFields.get_field_count());
                     if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
-                        CERROR(this, "Can't declare an instance field as abstract: " << field);
-                    this->instanceFields.add_field(field->get_unique_name(), field);
+                        CERROR(field, "Can't declare an instance field as abstract: " << field);
+                    if (! expErrField)
+                        this->instanceFields.add_field(field->get_unique_name(), field);
                     break;
                 case TXS_VIRTUAL:
                 case TXS_INSTANCEMETHOD:
@@ -247,18 +263,20 @@ void TxType::prepare_type_members() {
                         break;  // skip, constructors aren't virtual
                     if (this->virtualFields.has_field(field->get_unique_name())) {
                         if (! (fieldDecl->get_decl_flags() & TXD_OVERRIDE))
-                            CWARNING(this, "Field overrides but isn't declared 'override': " << field);
+                            CWARNING(field, "Field overrides but isn't declared 'override': " << field);
                         auto overriddenField = this->virtualFields.get_field(field->get_unique_name());
                         if (overriddenField->get_decl_flags() & TXD_FINAL)
-                            CERROR(this, "Can't override a base type field that is declared 'final': " << field);
+                            CERROR(field, "Can't override a base type field that is declared 'final': " << field);
                         if (! (field->get_type()->is_assignable_to(*overriddenField->get_type())))
-                            CERROR(this, "Overriding member's type may not override overridden member's type: " << field->get_type());
-                        this->virtualFields.override_field(field->get_unique_name(), field);
+                            CERROR(field, "Overriding member's type may not override overridden member's type: " << field->get_type());
+                        if (! expErrField)
+                            this->virtualFields.override_field(field->get_unique_name(), field);
                     }
                     else {
                         if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
-                            CWARNING(this, "Field doesn't override but is declared 'override': " << field);
-                        this->virtualFields.add_field(field->get_unique_name(), field);
+                            CWARNING(field, "Field doesn't override but is declared 'override': " << field);
+                        if (! expErrField)
+                            this->virtualFields.add_field(field->get_unique_name(), field);
                     }
                     LOGGER().debug("Adding/overriding virtual field %-40s  %s  %u", field->to_string().c_str(),
                                    field->get_type()->to_string(true).c_str(), this->virtualFields.get_field_count());
@@ -266,11 +284,17 @@ void TxType::prepare_type_members() {
                 default:
                     ASSERT(fieldDecl->get_storage() == TXS_STATIC, "Invalid storage class " << fieldDecl->get_storage() << " for field member " << *field);
                     if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
-                        CERROR(this, "Can't declare a non-virtual field as abstract: " << field);
+                        CERROR(field, "Can't declare a non-virtual field as abstract: " << field);
                     if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
-                        CWARNING(this, "Field doesn't override but is declared 'override': " << field);
-                    this->staticFields.add_field(field->get_unique_name(), field);
+                        CWARNING(field, "Field doesn't override but is declared 'override': " << field);
+                    if (! expErrField)
+                        this->staticFields.add_field(field->get_unique_name(), field);
                 }
+            }
+
+            if (expErrField) {
+                /*int encountered_error_count =*/ this->get_driver()->end_exp_err(fieldDecl->get_definer()->get_parse_location());
+                // FIXME: include in expected error count
             }
         }
     }
@@ -745,6 +769,7 @@ void TxInterfaceAdapterType::prepare_type_members() {
             continue; // this field is not overridden to refer to an adaptee field (and it's initialized together with the vtable)
         else if (! adapteeVirtualFields.has_field(f.first))
             CERROR(this, "Adapted type " << this->adaptedType << " does not define virtual field " << f.first);
+            // FUTURE: support default implementation (mixins)?
         else {
             auto targetField = adapteeVirtualFields.get_field(f.first);
             // FIXME: verify that type matches

@@ -247,7 +247,7 @@ void TxScopeSymbol::dump_symbols() const {
             subModules.push_back(submod);
         else if (this->get_full_name() != builtinNamespace) {
             try {
-                printf("%-12s %-48s %s\n", symbol->declaration_string().c_str(), symbol->get_full_name().to_string().c_str(),
+                printf("%-13s %-48s %s\n", symbol->declaration_string().c_str(), symbol->get_full_name().to_string().c_str(),
                        symbol->description_string().c_str());
                 /*
                 if (auto ent = dynamic_cast<const TxFieldEntity*>(symbol)) {

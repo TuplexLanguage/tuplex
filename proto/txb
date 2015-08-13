@@ -21,8 +21,8 @@ function checked {
 }
 
 echo -e $color_cyan "Compiling: " "$@" $color_off
-# -rj option disables running in JITed mode from compiler
-checked bin/txc -rj "$@"
+# -nojit option disables running in JITed mode from compiler
+checked bin/txc -nojit "$@"
 
 # determine output file basepath
 while [[ $# -gt 0 ]]; do
@@ -35,7 +35,6 @@ while [[ $# -gt 0 ]]; do
         shift
     fi
 done
-echo "basepath: " $basepath
 
 bctarget="${basepath}.bc"
 objtarget="${basepath}.o"

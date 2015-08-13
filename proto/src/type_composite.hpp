@@ -294,7 +294,7 @@ class TxInterfaceAdapterType : public TxType {
     TxInterfaceAdapterType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                            const std::vector<TxTypeSpecialization>& interfaces, const std::vector<TxTypeParam>& typeParams,
                            const TxType* adaptedType)
-            : TxType(TXTC_INTERFACE, declaration, baseTypeSpec, interfaces, typeParams), adaptedType(adaptedType)  { }
+            : TxType(TXTC_INTERFACEADAPTER, declaration, baseTypeSpec, interfaces, typeParams), adaptedType(adaptedType)  { }
 
 protected:
     virtual TxInterfaceAdapterType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,

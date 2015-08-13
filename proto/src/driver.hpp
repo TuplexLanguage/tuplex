@@ -24,6 +24,7 @@ public:
     bool debug_parser = false;
     bool dump_symbol_table = false;
     bool dump_ir = false;
+    bool run_verifier = true;
     bool run_jit = true;
     bool no_bc_output = false;
     bool suppress_asserts = false;

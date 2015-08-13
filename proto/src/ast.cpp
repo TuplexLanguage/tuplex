@@ -74,7 +74,7 @@ void TxFieldDeclNode::symbol_declaration_pass(TxSpecializationIndex six, Lexical
 
     if (field->initExpression) {
         if (this->declFlags & TXD_ABSTRACT)
-            CERROR(this, "'abstract' is invalid modifier for field / method that has an initializer / body");
+            CERROR(this, "'abstract' is invalid modifier for field / method that has an initializer / body: " << field->initExpression);
     }
 
     // Note: TXS_STATIC is set here, and may later be changed to TXS_VIRTUAL depending on context.

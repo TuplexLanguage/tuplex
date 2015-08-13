@@ -266,16 +266,19 @@ int TxDriver::llvm_compile() {
                 this->LOG.debug("Created program entry for user method %s", funcDecl->get_unique_full_name().c_str());
         }
     }
-    LOG.info("+ LLVM code generated");
+    LOG.info("+ LLVM code generated (not yet written)");
 
     if (this->options.dump_ir)
         genContext.print_IR();
 
-    int retCode = genContext.verify_code();
-    if (retCode)
-        return retCode;
-    else
-        LOG.info("+ LLVM code verification OK");
+    int retCode = 0;
+    if (this->options.run_verifier) {
+        retCode = genContext.verify_code();
+        if (retCode)
+            return retCode;
+        else
+            LOG.info("+ LLVM code verification OK");
+    }
 
     if (this->options.run_jit) {
         if (! mainGenerated)

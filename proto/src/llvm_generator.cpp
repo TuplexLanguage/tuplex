@@ -197,7 +197,7 @@ void LlvmGenerationContext::print_IR() {
 }
 
 int LlvmGenerationContext::write_bitcode(const std::string& filepath) {
-    this->LOG.info("Writing LLVM bitcode file '%s'", filepath.c_str());
+    this->LOG.debug("Writing LLVM bitcode file '%s'", filepath.c_str());
     std::string errInfo;
     raw_fd_ostream ostream(filepath.c_str(), errInfo, sys::fs::F_RW);
     if (errInfo.empty()) {
@@ -234,6 +234,13 @@ const TxType* LlvmGenerationContext::lookup_builtin(BuiltinTypeId id) {
     return this->tuplexPackage.types().get_builtin_type(id);
 }
 
+
+
+void LlvmGenerationContext::initialize_builtins() {
+    this->initialize_meta_type_data();
+    this->initialize_builtin_functions();
+    this->initialize_external_functions();
+}
 
 //static Function* gen_dummy_type_user_init_func(LlvmGenerationContext& context) {
 //    std::string funcName("$dummy.$tuinit");
@@ -453,13 +460,6 @@ void LlvmGenerationContext::initialize_external_functions() {
 }
 
 
-void LlvmGenerationContext::initialize_builtins() {
-    this->initialize_meta_type_data();
-    this->initialize_builtin_functions();
-    this->initialize_external_functions();
-}
-
-
 ///** Looks up a field declaration. If the symbol is overloaded, returns its first field declaration. */
 //static const TxField* lookup_field_simple(TxScopeSymbol* scope, ResolutionContext& resCtx, const TxIdentifier& ident) {
 //    TxScopeSymbol* symbol = lookup_symbol(scope, ident);
@@ -489,8 +489,12 @@ void LlvmGenerationContext::generate_runtime_data() {
                             auto closureType = this->get_llvm_type(actualFieldEnt->get_type());
                             fieldType = closureType->getStructElementType(0);
                         }
-                        else
+                        else if (field.first == "$adTypeId") {
+                            ASSERT(txType->get_type_class() == TXTC_INTERFACE, "Expected TxInterfaceType: " << txType);
                             fieldType = this->get_llvm_type(actualFieldEnt->get_type());
+                        }
+                        else
+                            fieldType = PointerType::getUnqual(this->get_llvm_type(actualFieldEnt->get_type()));
                         llvmField = Constant::getNullValue(fieldType);
                     }
                     else {
@@ -510,7 +514,8 @@ void LlvmGenerationContext::generate_runtime_data() {
                         }
                         llvmField = cast<Constant>(this->lookup_llvm_value(fieldName));
                     }
-                    auto ix = field.second; // + instanceMethods.get_field_count();
+                    //std::cerr << "inserting field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
+                    auto ix = field.second;
                     initMembers[ix] = llvmField;
                 }
                 Constant* initializer = ConstantStruct::getAnon(this->llvmContext, initMembers);
