@@ -82,9 +82,9 @@ public:
         this->suite->symbol_resolution_pass(six, resCtx);  // function body
 
         if (this->funcTypeNode->returnField) {
-            // verify that suite ends with return statement
-            if (this->suite->suite->empty() || ! dynamic_cast<TxReturnStmtNode*>(this->suite->suite->back()))
-                CERROR(this, "Function has return value, but does not end with a return statement.");
+            // verify that body always ends with explicit return statement
+            if (! this->suite->ends_with_return_stmt())
+                CERROR(this, "Function has return value, but not all code paths end with a return statement.");
         }
         // TODO: if in global scope, don't permit 'modifying'
     }

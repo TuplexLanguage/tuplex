@@ -77,6 +77,13 @@ public:
 class TxTerminalStmtNode : public TxStatementNode {
 protected:
     TxTerminalStmtNode(const yy::location& parseLocation) : TxStatementNode(parseLocation)  { }
+
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+    }
+    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override { }
+
+    virtual bool ends_with_terminal_stmt() const override final { return true; }
 };
 
 class TxReturnStmtNode : public TxTerminalStmtNode {
@@ -99,13 +106,16 @@ public:
         if (this->expr) {
             this->expr->symbol_resolution_pass(six, resCtx);
             if (returnDecl)
-                this->expr = validate_wrap_convert(six, resCtx, this->expr, returnDecl->get_definer()->resolve_field(resCtx)->get_type());
+                this->expr = validate_wrap_convert(six, resCtx, this->expr,
+                                                   returnDecl->get_definer()->resolve_field(resCtx)->get_type());
             else
                 CERROR(this, "Return statement has value expression although function has no return type");
         }
         else if (returnDecl)
             CERROR(this, "Return statement has no value expression although function returns " << returnDecl);
     }
+
+    virtual bool ends_with_return_stmt() const override { return true; }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
@@ -114,8 +124,8 @@ class TxBreakStmtNode : public TxTerminalStmtNode {
 public:
     TxBreakStmtNode(const yy::location& parseLocation) : TxTerminalStmtNode(parseLocation)  { }
 
-    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override { this->set_context(six, lexContext); }
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override { }
+    virtual bool may_end_with_non_return_stmt() const override { return true; }
+
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -123,8 +133,8 @@ class TxContinueStmtNode : public TxTerminalStmtNode {
 public:
     TxContinueStmtNode(const yy::location& parseLocation) : TxTerminalStmtNode(parseLocation)  { }
 
-    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override { this->set_context(six, lexContext); }
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override { }
+    virtual bool may_end_with_non_return_stmt() const override { return true; }
+
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -149,11 +159,30 @@ public:
     virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         TxStatementNode* prev_stmt = nullptr;
         for (auto stmt : *this->suite) {
-            if (dynamic_cast<TxTerminalStmtNode*>(prev_stmt))
+            if (prev_stmt && prev_stmt->ends_with_terminal_stmt())
                 CERROR(stmt, "This statement is unreachable.");
             stmt->symbol_resolution_pass(six, resCtx);
             prev_stmt = stmt;
         }
+    }
+
+    virtual bool may_end_with_non_return_stmt() const override {
+        for (auto stmt : *this->suite)
+            if (stmt->may_end_with_non_return_stmt())
+                return true;
+        return false;
+    }
+    virtual bool ends_with_terminal_stmt() const override {
+        return ( !this->suite->empty() && this->suite->back()->ends_with_terminal_stmt() );
+    }
+    virtual bool ends_with_return_stmt() const override {
+        if (this->suite->empty())
+            return false;
+        for (auto stmt : *this->suite) {
+            if (stmt->may_end_with_non_return_stmt())
+                return false;
+        }
+        return this->suite->back()->ends_with_return_stmt();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -162,18 +191,28 @@ public:
 
 class TxElseClauseNode : public TxStatementNode {
 public:
-    TxStatementNode* suite;
+    TxStatementNode* body;
 
     TxElseClauseNode(const yy::location& parseLocation, TxStatementNode* suite)
-        : TxStatementNode(parseLocation), suite(suite)  { }
+        : TxStatementNode(parseLocation), body(suite)  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);
-        this->suite->symbol_declaration_pass(six, lexContext);
+        this->body->symbol_declaration_pass(six, lexContext);
     }
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        this->suite->symbol_resolution_pass(six, resCtx);
+        this->body->symbol_resolution_pass(six, resCtx);
+    }
+
+    virtual bool may_end_with_non_return_stmt() const override {
+        return this->body->may_end_with_non_return_stmt();
+    }
+    virtual bool ends_with_terminal_stmt() const override {
+        return this->body->ends_with_terminal_stmt();
+    }
+    virtual bool ends_with_return_stmt() const override {
+        return this->body->ends_with_return_stmt();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -182,18 +221,18 @@ public:
 class TxCondCompoundStmtNode : public TxStatementNode {
 protected:
     TxExpressionNode* cond;
-    TxStatementNode* suite;
+    TxStatementNode*  body;
     TxElseClauseNode* elseClause;
 
 public:
-    TxCondCompoundStmtNode(const yy::location& parseLocation, TxExpressionNode* cond, TxStatementNode* suite,
+    TxCondCompoundStmtNode(const yy::location& parseLocation, TxExpressionNode* cond, TxStatementNode* body,
                            TxElseClauseNode* elseClause=nullptr)
-        : TxStatementNode(parseLocation), cond(cond), suite(suite), elseClause(elseClause)  { }
+        : TxStatementNode(parseLocation), cond(cond), body(body), elseClause(elseClause)  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);
         this->cond->symbol_declaration_pass(six, lexContext);
-        this->suite->symbol_declaration_pass(six, lexContext);
+        this->body->symbol_declaration_pass(six, lexContext);
         if (this->elseClause)
             this->elseClause->symbol_declaration_pass(six, lexContext);
     }
@@ -201,9 +240,13 @@ public:
     virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         this->cond->symbol_resolution_pass(six, resCtx);
         this->cond = validate_wrap_convert(six, resCtx, this->cond, this->types().get_builtin_type(BOOL));
-        this->suite->symbol_resolution_pass(six, resCtx);
+        this->body->symbol_resolution_pass(six, resCtx);
         if (this->elseClause)
             this->elseClause->symbol_resolution_pass(six, resCtx);
+    }
+
+    virtual bool ends_with_return_stmt() const override {
+        return ( this->body->ends_with_return_stmt() && this->elseClause && this->elseClause->ends_with_return_stmt() );
     }
 };
 
@@ -213,6 +256,13 @@ public:
                  TxElseClauseNode* elseClause=nullptr)
         : TxCondCompoundStmtNode(parseLocation, cond, suite, elseClause)  { }
 
+    virtual bool may_end_with_non_return_stmt() const override {
+        return ( this->body->may_end_with_non_return_stmt() || (this->elseClause && this->elseClause->may_end_with_non_return_stmt()) );
+    }
+    virtual bool ends_with_terminal_stmt() const override {
+        return ( this->body->ends_with_terminal_stmt() && this->elseClause && this->elseClause->ends_with_terminal_stmt() );
+    }
+
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -221,6 +271,16 @@ public:
     TxWhileStmtNode(const yy::location& parseLocation, TxExpressionNode* cond, TxStatementNode* suite,
                     TxElseClauseNode* elseClause=nullptr)
         : TxCondCompoundStmtNode(parseLocation, cond, suite, elseClause)  { }
+
+    virtual bool may_end_with_non_return_stmt() const override {
+        // FUTURE: handle break & continue that terminate statement outside this loop
+        return false;
+    }
+    virtual bool ends_with_terminal_stmt() const override {
+        // FUTURE: handle break & continue that terminate statement outside this loop
+        //return ( this->body->ends_with_terminal_stmt() && this->elseClause && this->elseClause->ends_with_terminal_stmt() );
+        return this->ends_with_return_stmt();
+    }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
