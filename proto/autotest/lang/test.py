@@ -46,6 +46,8 @@ source_files = [
 
     "membertest.tx",
     "polymorphtest.tx",
+    "recursivetypetest.tx",
+    "constructiontest.tx",
 ]
 
 for src in source_files:

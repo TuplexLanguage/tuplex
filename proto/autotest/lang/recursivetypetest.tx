@@ -1,0 +1,61 @@
+
+type Node derives Tuple {
+    parent : Ref<Node>;
+
+    self() {  ## creates root
+        self^.parent = self;  ## UNSAFE if obj copied
+    }
+    self(parent : Ref<Node>) {
+        self^.parent = parent;
+    }
+
+    get_parent()->Ref<Node> {
+        return self^.parent;
+    }
+
+    is_root()->Bool {
+        return self == self^.parent;
+    }
+
+    get_depth()->Int {
+        if self^.is_root()
+            return 1;
+        return self^.get_parent()^.get_depth() + 1;
+    }
+}
+
+
+## data recursion via reference OK
+
+type A {
+    bref : &B;
+}
+type B {
+    aref : &A;
+    aobj : A;
+}
+
+
+## data type can't contain itself, directly or indirectly:
+
+type AA {
+    bbobj : BB;
+}
+type BB {
+    aaref : &AA;
+    ## FIXME #experr: aaobj : AA;
+}
+
+type CC {
+    ## FIXME #experr: ccobj : CC;
+}
+
+
+main()->Int {
+    root   := new Node();
+    child1 := new Node(root);
+    child2 := new Node(child1);
+    depth := child2^.get_depth();
+    assert depth == 3;
+    return 0;
+}
