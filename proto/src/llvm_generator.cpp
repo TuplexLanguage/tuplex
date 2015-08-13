@@ -224,7 +224,7 @@ Value* LlvmGenerationContext::lookup_llvm_value(const std::string& identifier) c
         return val;
     }
     catch (const std::out_of_range& oor) {
-        this->LOG.alert("Unknown LLVM value identifier %s", identifier.c_str());
+        this->LOG.note("Unknown LLVM value identifier %s", identifier.c_str());
         return nullptr;
     }
 }
@@ -602,7 +602,7 @@ Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
 	if (llvmTypeBody != llvmType) {
 	    // replace header with full type definition in mapping
         this->llvmTypeMapping[txType] = llvmTypeBody;
-        this->LOG.alert("replaced LLVM type mapping for type %s: %s", txType->to_string(true).c_str(), to_string(llvmTypeBody).c_str());
+        this->LOG.note("replaced LLVM type mapping for type %s: %s", txType->to_string(true).c_str(), to_string(llvmTypeBody).c_str());
 	}
 
 	return llvmType;

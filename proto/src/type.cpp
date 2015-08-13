@@ -691,8 +691,8 @@ const TxType* TxReferenceType::target_type() const {
                     typeDecl = memberEnt->get_type_decl();
                 }
                 else if (auto memberAlias = dynamic_cast<TxAliasSymbol*>(member)) {
-                    LOGGER().alert("Substituting alias %s with %s", memberAlias->get_full_name().to_string().c_str(),
-                                   memberAlias->get_aliased_declaration()->to_string().c_str());
+                    LOGGER().note("Substituting alias %s with %s", memberAlias->get_full_name().to_string().c_str(),
+                                  memberAlias->get_aliased_declaration()->to_string().c_str());
                     typeDecl = dynamic_cast<TxTypeDeclaration*>(memberAlias->get_aliased_declaration());
                 }
                 else

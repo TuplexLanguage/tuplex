@@ -1,6 +1,8 @@
 module my
 
-import test.modul.*
+import tx.*;
+import tx.c.puts;
+import test.modul.*;
 
 main() {
     assert double_a_value( 10 ) == 20;

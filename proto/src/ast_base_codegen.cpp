@@ -64,7 +64,7 @@ static Value* make_constant_nonlocal_field(LlvmGenerationContext& context, GenSc
                 context.LOG.error("Global field %s initializer is not constant: %s",
                                   uniqueName.c_str(), to_string(initValue).c_str());
             else if (is_complex_pointer(constantInitializer->getType())) {
-                context.LOG.alert("Global field %s with complex ptr constant initializer", uniqueName.c_str());
+                context.LOG.note("Global field %s with complex ptr constant initializer", uniqueName.c_str());
                 //return constantInitializer;
                 ASSERT(! context.llvmModule.getNamedGlobal(uniqueName),
                        "Can't declare llvm alias since global variable with same name already declared: " << uniqueName);

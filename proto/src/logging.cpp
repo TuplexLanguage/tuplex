@@ -19,7 +19,7 @@ static struct ThresholdLevel THRESHOLD_LEVELS[] {
         { "COMPILER",       ALL },
 };
 
-static Level globalThreshold = INFO;
+static Level globalThreshold = CONFIG;
 static bool colorsEnabled = true;
 
 const char* LEVEL_NAMES[] {
@@ -29,6 +29,7 @@ const char* LEVEL_NAMES[] {
     "WARN",
     "ALERT",
     "INFO",
+    "NOTE",
     "CONFG",
     "DEBUG",
     "TRACE",
@@ -40,8 +41,9 @@ static const char* LEVEL_COLORS[] = {
         "\e[41m",
         "\e[0;91m",
         "\e[0;93m",
+        "\e[0;33m",
+        "\e[0;32m",  // INFO
         "\e[0;92m",
-        "\e[0;32m",
         "\e[0;94m",
         "\e[0;95m",
         "\e[0;35m",

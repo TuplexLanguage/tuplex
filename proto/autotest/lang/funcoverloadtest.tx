@@ -7,7 +7,11 @@ overloaded_func(a : Float, b : Int)->Float {
     return a * Float( b );
 }
 
-## TODO: #experr: overloaded_func(a : Float, b : Int)->Int { return b; }
+/* TODO: make experr count errors discovered in symbol verification pass
+#experr: overloaded_func(a : Float, b : Int)->Int { return b; }  ## overload with duplicate function signature
+
+#experr: overloaded_func : Int = 3;  ## overload with non-function type
+*/
 
 type FooFuncType (a : Double, b : Double)->Double;
 

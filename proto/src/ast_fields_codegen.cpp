@@ -122,7 +122,6 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
 
     case TXS_STATIC:
     case TXS_GLOBAL:
-    case TXS_STACK:
         if (foldStatics) {
             if (auto constProxy = fieldEntity->get_static_constant_proxy()) {
                 val = constProxy->code_gen(context, scope);
@@ -132,29 +131,14 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
         }
         val = context.lookup_llvm_value(fieldEntity->get_declaration()->get_unique_full_name());
         if (! val) {
-            if (auto txType = fieldEntity->get_type()) {
-                // forward declaration situation
-                ASSERT(fieldEntity->get_storage() == TXS_GLOBAL || fieldEntity->get_storage() == TXS_STATIC,
-                       "'forward-declaration' only expected for GLOBAL or STATIC fields: " << fieldEntity->to_string());
-                if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
-                    context.LOG.alert("Forward-declaring function object %s", fieldEntity->get_declaration()->get_unique_full_name().c_str());
-                    StructType *lambdaT = cast<StructType>(context.get_llvm_type(txFuncType));
-//                    FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
-//                    auto funcName = fieldEntity->get_full_name().to_string() + "$func";
-//                    auto funcV = context.llvmModule.getOrInsertFunction(funcName, funcT);
-//                    //cast<Function>(funcV)->setLinkage(GlobalValue::InternalLinkage);  TODO (can cause LLVM to rename function)
-//                    // construct the lambda object:
-//                    auto nullClosureRefV = Constant::getNullValue(lambdaT->getElementType(1));
-//                    val = ConstantStruct::get(lambdaT, funcV, nullClosureRefV, NULL);
-                    //val = new GlobalVariable(context.llvmModule, lambdaT, true, GlobalValue::InternalLinkage,
-                    //                         nullptr, fieldEntity->get_full_name().to_string());
-                    val = context.llvmModule.getOrInsertGlobal(fieldEntity->get_declaration()->get_unique_full_name(), lambdaT);
-                }
-                else {
-                    context.LOG.error("No LLVM value defined for %s", fieldEntity->to_string().c_str());
-                    return nullptr;
-                }
-            }
+            // forward declaration situation
+            // Note: Forward declaring doesn't work when other globals (constants) use this value in their constant initializer
+            //       (since they need the initializer value, not the address, of the forward-declared global)
+            context.LOG.alert("Forward-declaring field %s", fieldEntity->get_declaration()->get_unique_full_name().c_str());
+            Type *fieldT = context.get_llvm_type(fieldEntity->get_type());
+            val = context.llvmModule.getOrInsertGlobal(fieldEntity->get_declaration()->get_unique_full_name(), fieldT);
+            //if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType))
+            //    context.LOG.alert("Forward-declaring function object %s", fieldEntity->get_declaration()->get_unique_full_name().c_str());
         }
         break;
 
@@ -179,8 +163,12 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
         }
         break;
 
+    case TXS_STACK:
+        val = context.lookup_llvm_value(fieldEntity->get_declaration()->get_unique_full_name());
+        break;
+
     case TXS_NOSTORAGE:
-        context.LOG.warning("TXS_NOSTORAGE specified for field: %s", fieldEntity->get_declaration()->get_unique_full_name().c_str());
+        context.LOG.error("TXS_NOSTORAGE specified for field: %s", fieldEntity->get_declaration()->get_unique_full_name().c_str());
         return nullptr;
     }
     return val;

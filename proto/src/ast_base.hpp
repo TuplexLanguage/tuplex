@@ -523,7 +523,6 @@ public:
      * In future, this should return non-null for all expressions for which is_statically_constant() returns true.
      */
     virtual const TxConstantProxy* get_static_constant_proxy() const {
-        //throw std::logic_error("Getting constant proxy not supported for expression node " + this->to_string());
         return nullptr;
     }
 

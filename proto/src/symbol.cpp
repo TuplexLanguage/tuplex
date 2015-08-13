@@ -434,8 +434,8 @@ std::string TxEntitySymbol::description_string() const {
 static TxScopeSymbol* search_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
 
 TxScopeSymbol* TxAliasSymbol::resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) {
-    LOGGER().alert("Substituting alias %s with %s", this->get_full_name().to_string().c_str(),
-                   this->get_aliased_symbol()->to_string().c_str());
+    LOGGER().note("Substituting alias %s with %s", this->get_full_name().to_string().c_str(),
+                  this->get_aliased_symbol()->to_string().c_str());
     return this->get_aliased_symbol()->resolve_generic(vantageScope, scope);
 }
 
@@ -448,7 +448,7 @@ TxScopeSymbol* TxEntitySymbol::resolve_generic(TxScopeSymbol* vantageScope, TxSc
         this->LOGGER().debug("Trying to resolve generic parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), scope->get_full_name().to_string().c_str());
         if (auto boundSym = search_symbol(scope, bindingName)) {
             // #-ified symbol is bound
-            this->LOGGER().alert("Substituting generic parameter %s with %s", this->get_full_name().to_string().c_str(), boundSym->to_string().c_str());
+            this->LOGGER().note("Substituting generic parameter %s with %s", this->get_full_name().to_string().c_str(), boundSym->to_string().c_str());
             return boundSym->resolve_generic(vantageScope, scope);
         }
         else {
@@ -587,17 +587,17 @@ TxFieldDeclaration* resolve_field_lookup(ResolutionContext& resCtx, TxScopeSymbo
                 return matches.front();
             }
             if (entitySymbol->field_count()) {
-                symbol->LOGGER().alert("Type parameters do not match any candidate of %s", symbol->to_string().c_str());
+                symbol->LOGGER().note("Type parameters do not match any candidate of %s", symbol->to_string().c_str());
                 return nullptr;
             }
         }
         else if (entitySymbol->field_count() > 1) {
-            symbol->LOGGER().alert("%s must be matched using type parameters", symbol->to_string().c_str());
+            symbol->LOGGER().note("%s must be matched using type parameters", symbol->to_string().c_str());
             return nullptr;
         }
     }
     // name is unknown, or a type
     if (symbol)
-        symbol->LOGGER().alert("%s is not a field", symbol->to_string().c_str());
+        symbol->LOGGER().note("%s is not a field", symbol->to_string().c_str());
     return nullptr;
 }

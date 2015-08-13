@@ -24,6 +24,7 @@ source_files = [
     "errtest.tx",
     "inttest.tx",
     "declsyntaxtest.tx",
+    "globalstest.tx",
     "ifelsetest.tx",
     "whiletest.tx",
     "binoptest.tx",

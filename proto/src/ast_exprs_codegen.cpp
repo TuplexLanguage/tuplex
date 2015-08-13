@@ -632,7 +632,7 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
         if (auto txType = this->get_type(0)) {
             // forward declaration situation
             if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
-                context.LOG.alert("Forward-declaring constructor function %s: %s", uniqueFullName.c_str(), txFuncType->to_string().c_str());
+                context.LOG.note("Forward-declaring constructor function %s: %s", uniqueFullName.c_str(), txFuncType->to_string().c_str());
                 StructType *lambdaT = cast<StructType>(context.get_llvm_type(txFuncType));
                 FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
                 auto funcName = uniqueFullName; // + "$func";

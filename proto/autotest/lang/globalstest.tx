@@ -1,0 +1,30 @@
+CONSTANT : tx.Int = 17;
+
+CONSTANT_EXPR : tx.Int = -3+4;
+
+COPY := CONSTANT;
+
+## evaluation dependency in reverse lexical order:
+FIELDA := FIELDB;
+FIELDB := CONSTANT;
+
+## TODO: support for constant initializer *expressions* with reverse lexical order dependency
+##FIELDC := FIELDD + 3;
+FIELDD := CONSTANT + 2;
+
+## currently function calls (including pure ones) are regarded as non-statically-constant:
+#experr: FIELDSQ := square( 3 );
+
+square( a : Int )->Int {
+    return a * a;
+}
+
+
+main() {
+    assert CONSTANT + CONSTANT_EXPR == 18;
+    assert COPY == 17;
+    assert FIELDA == 17;
+    assert FIELDB == 17;
+    ##assert FIELDC == 22;
+    assert FIELDD == 19;
+}

@@ -1,9 +1,17 @@
 module test.modul
 
+
 public double_a_value( val : Int )->Int {
     return val * 2;
 }
 
+
+module test.modul.submod {
+    SUB_FIELD : Int = 42;
+}
+
+
 main() {
-    assert double_a_value( 5 ) == 10;
+    assert test.modul.submod.SUB_FIELD == 42;
+    assert double_a_value( submod.SUB_FIELD ) == 84;
 }

@@ -12,6 +12,7 @@ enum Level {
     WARN,
     ALERT,
     INFO,
+    NOTE,
     CONFIG,
     DEBUG,
     TRACE,
@@ -23,7 +24,7 @@ extern const char* LEVEL_NAMES[];
 class Logger {
 protected:
     const std::string name;
-    Level threshold=INFO;
+    Level threshold;
 
     Logger(const std::string& name, Level initialThreshold);
 
@@ -43,6 +44,7 @@ public:
     inline void warning(const char *fmt, ...) { va_list a; va_start(a,fmt); this->log(WARN,  fmt, a); va_end(a); }
     inline void alert(const char *fmt, ...)   { va_list a; va_start(a,fmt); this->log(ALERT, fmt, a); va_end(a); }
     inline void info(const char *fmt, ...)    { va_list a; va_start(a,fmt); this->log(INFO,  fmt, a); va_end(a); }
+    inline void note(const char *fmt, ...)    { va_list a; va_start(a,fmt); this->log(NOTE,  fmt, a); va_end(a); }
     inline void config(const char *fmt, ...)  { va_list a; va_start(a,fmt); this->log(CONFIG,fmt, a); va_end(a); }
     inline void debug(const char *fmt, ...)   { va_list a; va_start(a,fmt); this->log(DEBUG, fmt, a); va_end(a); }
     inline void trace(const char *fmt, ...)   { va_list a; va_start(a,fmt); this->log(TRACE, fmt, a); va_end(a); }

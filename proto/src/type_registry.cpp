@@ -566,8 +566,8 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
         // TODO: How should we handle Array? Should user be allowed to extend it?
 
         ASSERT(declaration, "expected type that binds base type's parameters to be named (declared) but was not");
-        this->package.LOGGER().alert("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
-                                     declaration->get_unique_full_name().c_str(), specialization.type->to_string().c_str());
+        this->package.LOGGER().note("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
+                                    declaration->get_unique_full_name().c_str(), specialization.type->to_string().c_str());
 
         // before we substitute the TxTypeSpecialization, validate it:
         specialization.validate();
@@ -654,7 +654,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
                         matchOK = false;
                     }
                     if (matchOK) {
-                        package.LOGGER().alert("new specialization equal to preexisting one, reusing: %s", existingBaseType->to_string().c_str());
+                        package.LOGGER().note("new specialization equal to preexisting one, reusing: %s", existingBaseType->to_string().c_str());
                         specializedBaseType = existingBaseType;
                     }
                 }
