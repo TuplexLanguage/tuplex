@@ -20,6 +20,7 @@ int main(int argc, char **argv)
 
     TxOptions options;
     std::vector<std::string> startSourceFiles;
+    bool separateJobs = false;
 
     for (int a = 1; a < argc; a++) {
         if (argv[a][0] == '-' && argv[a][1]) {
@@ -95,6 +96,8 @@ int main(int argc, char **argv)
                 }
                 options.outputFileName = argv[a];
             }
+            else if (! strcmp(argv[a], "-sepjobs"))  // undocumented option to compile source files as separate jobs
+                separateJobs = true;
             else {
                 LOG.error("Unknown option '%s'", argv[a]);
                 return 1;  // exits
@@ -126,7 +129,21 @@ int main(int argc, char **argv)
         if (options.sourceSearchPaths.empty())
             options.sourceSearchPaths.push_back(".");  // if no search paths provided, the current directory is searched
 
-    TxDriver driver(options);
-    int ret = driver.compile(startSourceFiles);
-    return ret;
+    if (separateJobs) {
+        int ret = 0;
+        for (auto & sourceFile : startSourceFiles) {
+            TxDriver driver(options);
+            ret = driver.compile( { sourceFile } );
+            if (ret)
+                LOG.error("Completed compilation job '%s' with return code %d", sourceFile.c_str(), ret);
+            else
+                LOG.info("Completed compilation job '%s' with return code %d", sourceFile.c_str(), ret);
+        }
+        return ret;
+    }
+    else {
+        TxDriver driver(options);
+        int ret = driver.compile(startSourceFiles);
+        return ret;
+    }
 }
