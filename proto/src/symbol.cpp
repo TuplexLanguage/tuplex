@@ -245,7 +245,7 @@ void TxScopeSymbol::dump_symbols() const {
         auto symbol = this->symbols.at(symName);
         if (auto submod = dynamic_cast<const TxModule*>(symbol))
             subModules.push_back(submod);
-        else if (this->get_full_name() != builtinNamespace) {
+        else if (this->get_full_name() != builtinNamespace || this->get_root_scope()->driver().get_options().dump_tx_symbols) {
             try {
                 printf("%-13s %-48s %s\n", symbol->declaration_string().c_str(), symbol->get_full_name().to_string().c_str(),
                        symbol->description_string().c_str());

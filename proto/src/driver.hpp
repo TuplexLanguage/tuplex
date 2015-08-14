@@ -23,24 +23,29 @@ public:
     bool debug_lexer = false;
     bool debug_parser = false;
     bool dump_symbol_table = false;
+    bool dump_tx_symbols = false;
     bool dump_ir = false;
     bool run_verifier = true;
     bool run_jit = true;
     bool no_bc_output = false;
     bool suppress_asserts = false;
     std::vector<std::string> sourceSearchPaths;
-    std::vector<std::string> startSourceFiles;
     std::string outputFileName;
 };
 
 
 /** Represents a Tuplex package compilation job.
  * Conducts the whole scanning, parsing, symbol table and semantic passes, and code generation.
+ * A TxDriver instance is not reentrant in the sense that it only performs a single compilation.
  */
 class TxDriver {
     Logger& LOG;
 
     const TxOptions options;
+
+
+    /*--- these members reflect the current compilation state ---*/
+    /** the currently compiled tuplex package */
     TxPackage * const package;
 
     /** true if within an EXPERR block */
@@ -64,6 +69,7 @@ class TxDriver {
     /** The source files already parsed.
      * The value is the top level root node of the AST. */
     std::unordered_map<std::string, TxParsingUnitNode*> parsedSourceFiles;
+
 
     // Handling the scanner.
     int scan_begin(const std::string &filePath);
@@ -100,7 +106,7 @@ public:
     inline const TxOptions& get_options() const { return this->options; }
 
 
-    /** Compile this Tuplex package.
+    /** Compile this Tuplex package. May only be called once.
      * Return values:
      * 0 upon success
      * 1 if compilation could not start (e.g. bad command arguments or no source)
@@ -108,8 +114,9 @@ public:
      * 3 if code generation failed
      * @return 0 on success
      */
-    int compile();
+    int compile(const std::vector<std::string>& startSourceFiles);
 
+    /** Checks that the module name is valid in relation to the currently parsed source file and its file name/path. */
     bool validate_module_name(const TxIdentifier& moduleName);
 
     /** Add a module to the currently compiling package.

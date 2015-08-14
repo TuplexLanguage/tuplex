@@ -33,8 +33,11 @@ run_cmd( """txc -foobar 2>/dev/null""", 1 )
 # empty source file
 run_cmd( """echo "" | txc -quiet -nojit -nobc""" )
 
-# minimal source file containing error, should return 1
+# minimal source file containing syntax error, should return 1
 run_cmd( """echo "bad syntax" | txc -quiet -nojit -nobc 2>/dev/null""", 1 )
+
+# minimal source file containing semantic error, should return 2
+run_cmd( """echo "X : Int = 1.1;" | txc -quiet -nojit -nobc 2>/dev/null""", 2 )
 
 # run minimal source file (implicit 'return 0')
 run_cmd( """echo "main() { }" | txc -quiet -jit -nobc""" )

@@ -31,8 +31,30 @@ bool TxModule::declare_symbol(TxScopeSymbol* symbol) {
 }
 
 
-TxModule* TxModule::declare_module(const TxIdentifier& ident) {
+TxModule* TxModule::declare_module(const TxIdentifier& ident, bool builtin) {
     //this->LOGGER().debug("Declaring module %s at %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());
+    if (! this->get_outer()) {
+        // this is the namespace root - the tuplex package
+        if (! builtin) {
+            if (ident.begins_with(BUILTIN_NS))
+                CERROR(&this->get_root_scope()->driver(), "Can't declare or extend built-in namespace from user code: '" << ident << "'");
+        }
+    }
+    else {
+        if (ident.begins_with(LOCAL_NS))
+            CERROR(&this->get_root_scope()->driver(), "Can't declare or extend $local namespace under other than the namespace root: '" << this->get_full_name() << "'");
+    }
+
+// currently validated directly from the grammar parse
+//    if (! builtin) {
+//        if (! this->get_root_scope()->driver().validate_module_name(ident))
+//            return nullptr;
+//    }
+
+    return this->inner_declare_module(ident, builtin);
+}
+
+TxModule* TxModule::inner_declare_module(const TxIdentifier& ident, bool builtin) {
     if (ident.is_qualified()) {
         // declare submodule further down the namespace hierarchy (not a direct child of this one)
         if (! (ident.begins_with(this->get_full_name()) && ident.segment_count() > this->get_full_name().segment_count())) {
@@ -41,7 +63,7 @@ TxModule* TxModule::declare_module(const TxIdentifier& ident) {
         }
         auto subName = TxIdentifier(ident, this->get_full_name().segment_count());
         if (subName.is_plain())
-            return this->declare_module(subName);
+            return this->inner_declare_module(subName, builtin);
         else {
             auto nextName = subName.segment(0);
             TxModule* nextModule = dynamic_cast<TxModule*>(this->get_symbol(nextName));
@@ -53,7 +75,7 @@ TxModule* TxModule::declare_module(const TxIdentifier& ident) {
                     return nullptr;
                 }
             }
-            return nextModule->declare_module(ident);
+            return nextModule->inner_declare_module(ident, builtin);
         }
     }
 
@@ -177,7 +199,7 @@ void TxModule::dump_symbols() const {
         {
             bool headerprinted = false;
             for (auto & pair : this->usedNames) {
-                if (pair.second.parent() != builtinNamespace) {
+                if (pair.second.parent() != builtinNamespace || this->get_root_scope()->driver().get_options().dump_tx_symbols) {
                     if (! headerprinted) {
                         printf("--- aliases ---\n");
                         headerprinted = true;

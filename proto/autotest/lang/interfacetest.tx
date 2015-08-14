@@ -14,6 +14,9 @@ abstract type AbstractType derives Tuple {
     public static abstract bar : Int;
     #experr 1: public static abstract bad : Int = 3;  ## can't specify initializer for abstract field
     #experr 2: static abstract mac : Int;             ## 'abstract' fields cannot be private (since private are non-virtual)
+    
+    public instanceField : Int;
+    #experr: public abstract abstrInstanceField : Int;  ## instance fields can't be abstract
 
     abstract abstr_method()->Int;
 
@@ -28,6 +31,9 @@ type ConcreteType derives Tuple {
     #experr 0: public static abstract bar : Int;      ## a concrete type can't have abstract members
     #experr 1: public static abstract bad : Int = 3;  ## can't specify initializer for abstract field
     #experr 2: static abstract mac : Int;             ## 'abstract' fields cannot be private (since private are non-virtual)
+
+    public instanceField : Int;
+    #experr: public abstract abstrInstanceField : Int;  ## instance fields can't be abstract
 
     #experr 0: abstract abstr_method()->Int;          ## a concrete type can't have abstract members:
 

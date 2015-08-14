@@ -39,6 +39,8 @@ class TxModule : public TxScopeSymbol {
 
     bool use_symbol(const TxModule* imported, const std::string& plainName);
 
+    TxModule* inner_declare_module(const TxIdentifier& ident, bool builtin);
+
 protected:
     virtual bool declare_symbol(TxScopeSymbol* symbol) override;
 
@@ -55,7 +57,10 @@ public:
 
     /*--- sub-module handling ---*/
 
-    TxModule* declare_module(const TxIdentifier& fullName);
+    /** Declares a sub-module to this module.
+     * @param builtin set to true if this is a built-in module (not defined by user code)
+     */
+    TxModule* declare_module(const TxIdentifier& qualName, bool builtin=false);
 
     TxModule* lookup_module(const TxIdentifier& fullName);
 

@@ -68,13 +68,13 @@ int TxDriver::parse(const std::string &filePath) {
 }
 
 
-int TxDriver::compile() {
+int TxDriver::compile(const std::vector<std::string>& startSourceFiles) {
     ASSERT(this->parsedSourceFiles.empty(), "Can only run driver instance once");
-    if (options.startSourceFiles.empty()) {
+    if (startSourceFiles.empty()) {
         this->LOG.fatal("No source specified.");
         return 1;
     }
-    for (auto startFile : options.startSourceFiles)
+    for (auto startFile : startSourceFiles)
         this->sourceFileQueue.push_back( std::pair<TxIdentifier,std::string>(TxIdentifier(), startFile) );
 
     /*--- parse all source filed (during parsing, files are added to the queue as the are imported) ---*/
@@ -164,8 +164,6 @@ bool TxDriver::validate_module_name(const TxIdentifier& moduleName) {
             return false;
         }
     }
-    else
-        ASSERT(moduleName.to_string().find_first_of('$') == std::string::npos, "Explicit module name can't contain '$': " << moduleName);
     auto res = moduleName.begins_with(this->sourceFileQueue.front().first);
     if (! res)
         this->cerror("Source contains module '" + moduleName.to_string() + "', not '"

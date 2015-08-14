@@ -19,6 +19,7 @@ int main(int argc, char **argv)
 //    Logger::set_global_threshold(Level::INFO);
 
     TxOptions options;
+    std::vector<std::string> startSourceFiles;
 
     for (int a = 1; a < argc; a++) {
         if (argv[a][0] == '-' && argv[a][1]) {
@@ -35,6 +36,7 @@ int main(int argc, char **argv)
                 printf("  %-22s %s\n", "-quiet", "Quiet, only log warnings and errors");
                 printf("  %-22s %s\n", "-nocol", "Disable color encoding in console output");
                 printf("  %-22s %s\n", "-ds", "Dump symbol table");
+                printf("  %-22s %s\n", "-dstx", "Dump full symbol table including built-in symbols");
                 printf("  %-22s %s\n", "-di", "Dump intermediate representation (LLVM IR)");
                 printf("  %-22s %s\n", "-dl", "Print debugging output from lexer (token scanner)");
                 printf("  %-22s %s\n", "-dy", "Print debugging output from grammar parser");
@@ -59,6 +61,8 @@ int main(int argc, char **argv)
                 Logger::set_colors_enabled(false);
             else if (! strcmp(argv[a], "-ds"))
                 options.dump_symbol_table = true;
+            else if (! strcmp(argv[a], "-dstx"))
+                options.dump_symbol_table = options.dump_tx_symbols = true;
             else if (! strcmp(argv[a], "-di"))
                 options.dump_ir = true;
             else if (! strcmp(argv[a], "-dl"))
@@ -97,15 +101,15 @@ int main(int argc, char **argv)
             }
         }
         else {
-            options.startSourceFiles.push_back(argv[a]);
+            startSourceFiles.push_back(argv[a]);
         }
     }
 
     if (options.outputFileName.empty()) {
-        if (options.startSourceFiles.empty() || options.startSourceFiles.front() == "-")
+        if (startSourceFiles.empty() || startSourceFiles.front() == "-")
             options.outputFileName = "-";  // this will write to stdout
         else {
-            options.outputFileName = options.startSourceFiles.front();
+            options.outputFileName = startSourceFiles.front();
             if (options.outputFileName.length() >= 3 && options.outputFileName.substr(options.outputFileName.length()-3) == ".tx")
                 options.outputFileName.replace(options.outputFileName.length()-2, 2, "bc");
             else
@@ -113,8 +117,8 @@ int main(int argc, char **argv)
         }
     }
 
-    if (options.startSourceFiles.empty()) {
-        options.startSourceFiles.push_back("-");  // this will read source from stdin
+    if (startSourceFiles.empty()) {
+        startSourceFiles.push_back("-");  // this will read source from stdin
     }
 
     if (options.sourceSearchPaths.empty())
@@ -123,6 +127,6 @@ int main(int argc, char **argv)
             options.sourceSearchPaths.push_back(".");  // if no search paths provided, the current directory is searched
 
     TxDriver driver(options);
-    int ret = driver.compile();
+    int ret = driver.compile(startSourceFiles);
     return ret;
 }

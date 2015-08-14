@@ -188,7 +188,7 @@ void TypeRegistry::add_builtin_floating(TxModule* module, BuiltinTypeId id, std:
 
 /** Initializes the built-in symbols. */
 void TypeRegistry::initializeBuiltinSymbols() {
-    auto module = this->package.declare_module(* new TxIdentifier(BUILTIN_NS));
+    auto module = this->package.declare_module(* new TxIdentifier(BUILTIN_NS), true);
 
     // create the Any root type:
     {
@@ -362,7 +362,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 //    TxBuiltinTypeDefiner* strProd = new TxBuiltinTypeDefiner(strRec);
 //    builtinModule->declareType(strProd->name, TXD_PUBLIC, false, *strProd);
 
-    auto txCfuncModule = this->package.declare_module(TxIdentifier(BUILTIN_NS ".c"));
+    auto txCfuncModule = this->package.declare_module(TxIdentifier(BUILTIN_NS ".c"), true);
     {   // declare tx.c.puts:
         auto implTypeName = "UByte$Ref";
         auto ubyteRefDef = new TxBuiltinTypeDefiner();

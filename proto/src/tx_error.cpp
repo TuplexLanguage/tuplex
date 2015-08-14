@@ -21,9 +21,9 @@ void cwarning(const TxParseOrigin* origin, const std::string& msg) {
 
 void cerror(TxDriver* driver, const std::string& msg) {
     if (driver)
-        driver->cwarning(NULL_LOC, msg);
+        driver->cerror(NULL_LOC, msg);
     else
-        TxDriver::emit_comp_warning(NULL_LOC, msg);
+        TxDriver::emit_comp_error(NULL_LOC, msg);
 }
 void cwarning(TxDriver* driver, const std::string& msg) {
     if (driver)
