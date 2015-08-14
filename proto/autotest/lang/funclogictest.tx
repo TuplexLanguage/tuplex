@@ -1,0 +1,35 @@
+## test function body logic - args, scoping rules, etc
+
+
+main()->Int {
+    assert func1(42) == 42;
+    assert func2(42) == 84;
+    assert func3(42) == 63;
+    assert func4(42) == 63;
+    return 0;
+}
+
+func1( v : Int )->Int {
+    #experr: v = v * 2;  ## unmodifiable
+    return v;
+}
+
+func2( v : ~Int )->Int {
+    v = v * 2;
+    return v;
+}
+
+func3( v : Int )->Int {
+    v : ~Float = Float(v);
+    v = v * 1.5;
+    return Int(v);
+}
+
+func4( v : Int )->Int {
+    v : ~Float = Float(v);
+    {
+        v : Float = 100.;
+    }
+    v = v * 1.5;
+    return Int(v);
+}

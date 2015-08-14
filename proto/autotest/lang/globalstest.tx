@@ -19,6 +19,10 @@ square( a : Int )->Int {
     return a * a;
 }
 
+/* TODO: controlled error message upon recursive definition
+REC1 := REC2;
+REC2 := REC1;
+*/
 
 main() {
     assert CONSTANT + CONSTANT_EXPR == 18;

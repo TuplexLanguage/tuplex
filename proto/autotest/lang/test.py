@@ -33,6 +33,7 @@ source_files = [
     "arithmetictest.tx",
 
     "funcdeclsyntaxtest.tx",
+    "funclogictest.tx",
     "funcrettest.tx",
     "funcoverloadtest.tx",
     "funcrecursetest.tx",

@@ -30,6 +30,6 @@ Makefile
 *~
 
 # Tuplex compiler output files
-**/*.bc
-**/*.o
-**/*.out
+*.bc
+*.o
+*.out

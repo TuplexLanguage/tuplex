@@ -41,7 +41,10 @@ Syntax support for writing negative tests (expecting compiler errors) - DONE
 
 Author test harness / automatic testing suite
 
-Refactor TxType instantiation - multi-pass so that "cyclic" references possible 
+Refactor TxType instantiation - multi-pass so that "cyclic" references possible
+
+Implement implicit static initializer function for types' static members and static code
+Implement implicit instance initializer function for types' instance members' inlined initializers
 
 Fix instantiation of ref-constrained type parameters - they should get unique names,
   which means that ref targets must be partly resolved (producing e.g. my.AType$tx#Ref$Int above)
@@ -58,6 +61,14 @@ Fix / revise TYPE parameter declaration. See inheritance doc in TxTypeSpecializa
 Make fields be "bindings to entities" rather than "entities", in order to fix multi-instantiation in e.g:
   stackObj := AType();  ## allocates twice & copies! 
 
+String datatype
+
+Type reflection, at least for autotesting, some ideas:
+    assert static_type(var) == static_type(Ref<Parent>)
+    assert type(var^) == type(Child)
+    #exptype( var, Ref<Parent> )  ## compilation test, no code generated
+    #exptype( var, "$local.Foo.$type" )  ## compilation test, no code generated
+
 Type conversions (with if statements)
 
 Dataspace syntax support, continued
@@ -65,6 +76,8 @@ Dataspace syntax support, continued
 Range typeclass
 
 for-loops
+
+break and continue out of nested loops
 
 Tuple literals
 Array literals

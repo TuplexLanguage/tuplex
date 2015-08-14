@@ -128,7 +128,8 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
             //if (txType->is_modifiable())
             //    context.LOG.error("modifiable TXS_STATIC fields not yet implemented: %s", uniqueName.c_str());
             if (this->field->initExpression && !this->field->initExpression->is_statically_constant()) {
-                auto lvl = Level::ALERT; //( entity->is_generic_param_binding() ? Level::DEBUG : Level::WARN );
+                // TODO
+                auto lvl = Level::WARN; //( entity->is_generic_param_binding() ? Level::DEBUG : Level::WARN );
                 context.LOG.log(lvl, "Skipping codegen for global/static constant field %s whose initializer is not a constant expression", uniqueName.c_str());
             }
             else
