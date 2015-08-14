@@ -5,19 +5,22 @@ type AType mod derives Tuple {
     field3 : ~Bool;
 
     public self() {
+        ## FUTURE: default constructor for Tuple base type: super();
         self(17, 3.14);
-        self^.field3 = FALSE;
+        self.field3 = FALSE;
     }
     public self(f1 : Long, f2 : Float) {
         if (f1 < 0) {
-            self^.field1 = f1;
+            self.field1 = f1;
         } else
-            self^.field1 = -f1;
-        self^.field2 = f2;
-        self^.field3 = TRUE;
+            self.field1 = -f1;
+        self.field2 = f2;
+        self.field3 = TRUE;
     }
 
     public method(a : Int)->Int {
+        #experr: self.field1 = a;  ## non-mod field only modifiable within constructor
+        #experr: self(3, 3.3);     ## constructor only callable from other constructor
         return a * 2;
     }
 }
@@ -27,15 +30,19 @@ type BType mod derives AType {
 
     public self(f4 : Double) {
         super();
-        self^.field4 = f4;
+        self.field4 = f4;
     }
     public self(f1 : Long, f2 : Float) {
         super(f1, f2);
-        self^.field4 = f2;
+        self.field4 = f2;
     }
 
     public override method(a : Int)->Int {
-        return super^.method( a ) * 2;
+        #experr: self.field1 = a;          ## non-mod field only modifiable within constructor
+        #experr: self.field4 = Double(a);  ## non-mod field only modifiable within constructor
+        #experr: self(3.3);      ## constructor only callable from other constructor
+        #experr: super(3, 3.3);  ## constructor only callable from other constructor
+        return super.method( a ) * 2;
     }
 }
 
@@ -48,32 +55,32 @@ object_construction()->Int {
     ##stackRef := ~&~AType(&stackObj);
 
     heapObj1 := new AType();
-    assert heapObj1^.field1 == -17;
-    assert heapObj1^.field2 == 3.14;
-    assert heapObj1^.field3 == FALSE;
+    assert heapObj1.field1 == -17;
+    assert heapObj1.field2 == 3.14;
+    assert heapObj1.field3 == FALSE;
 
     heapObj2 := new AType(2, 2.71);
-    assert heapObj2^.field1 == -2;
-    assert heapObj2^.field2 == 2.71;
-    assert heapObj2^.field3 == TRUE;
+    assert heapObj2.field1 == -2;
+    assert heapObj2.field2 == 2.71;
+    assert heapObj2.field3 == TRUE;
 
     heapObj3 := new BType(1.1);
-    assert heapObj3^.field1 == -17;
-    assert heapObj3^.field2 == 3.14;
-    assert heapObj3^.field3 == FALSE;
-    assert heapObj3^.field4 == 1.1;
+    assert heapObj3.field1 == -17;
+    assert heapObj3.field2 == 3.14;
+    assert heapObj3.field3 == FALSE;
+    assert heapObj3.field4 == 1.1;
 
     heapObj4 := new BType(101, 2.71);
-    assert heapObj4^.field1 == -101;
-    assert heapObj4^.field2 == 2.71;
-    assert heapObj4^.field3 == TRUE;
-    assert heapObj4^.field4 == 2.71;
+    assert heapObj4.field1 == -101;
+    assert heapObj4.field2 == 2.71;
+    assert heapObj4.field3 == TRUE;
+    assert heapObj4.field4 == 2.71;
 
     ## constructors aren't inherited:
     #experr 2: bad1 := BType();  
     #experr  : bad2 := new BType();  
 
-    return heapObj4^.method( 2 );
+    return heapObj4.method( 2 );
 }
 
 builtin_construction()->Int {

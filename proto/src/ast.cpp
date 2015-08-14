@@ -41,11 +41,11 @@ std::string TxNode::to_string() const {
 std::string TxNode::parse_loc_string() const {
     char buf[128];
     if (parseLocation.begin.line == parseLocation.end.line) {
-        int lcol = (parseLocation.end.column > parseLocation.begin.column) ? parseLocation.end.column-1 : parseLocation.end.column;
+        int lcol = (parseLocation.end.column > parseLocation.begin.column) ? parseLocation.end.column : parseLocation.end.column;
         snprintf(buf, 128, "%2d.%2d-%2d", parseLocation.begin.line, parseLocation.begin.column, lcol);
     }
     else
-        snprintf(buf, 128, "%2d.%2d-%2d.%2d", parseLocation.begin.line, parseLocation.begin.column, parseLocation.end.line, parseLocation.end.column-1);
+        snprintf(buf, 128, "%2d.%2d-%2d.%2d", parseLocation.begin.line, parseLocation.begin.column, parseLocation.end.line, parseLocation.end.column);
     return std::string(buf);
 }
 
@@ -156,13 +156,9 @@ TxExpressionNode* TxExpressionNode::get_value_definer(TxSpecializationIndex six)
 
 // FUTURE: factor out the 'explicit' code path into separate function
 // FUTURE: rework together with overloaded function resolution
-static TxExpressionNode* inner_validate_wrap_convert(TxSpecializationIndex six, ResolutionContext& resCtx,
-                                                     TxExpressionNode* originalExpr,
-                                                     const TxType* requiredType, bool _explicit) {
-    // Note: Symbol table pass and semantic pass are not run on the created wrapper nodes.
-    auto originalType = originalExpr->resolve_type(six, resCtx);
-    if (! originalType)
-        return originalExpr;
+static TxExpressionNode* inner_wrap_conversion(TxSpecializationIndex six, ResolutionContext& resCtx,
+                                               TxExpressionNode* originalExpr, const TxType* originalType,
+                                               const TxType* requiredType, bool _explicit) {
     if (originalType == requiredType) // TODO: test with:  || *originalType == *requiredType)
         return originalExpr;
     if (_explicit || originalType->auto_converts_to(*requiredType)) {
@@ -179,28 +175,61 @@ static TxExpressionNode* inner_validate_wrap_convert(TxSpecializationIndex six, 
             return originalExpr;  // or do we actually need to do something here?
         originalExpr->LOGGER().error("Type supposedly auto-converts but no conversion logic available:  %s => %s",
                                      originalType->to_string().c_str(), requiredType->to_string().c_str());
-        return originalExpr;
     }
-    else if (auto refType = dynamic_cast<const TxReferenceType*>(requiredType)) {
-        auto refTargetType = refType->target_type();
-        if (refTargetType && originalType->is_a(*refTargetType)) {
-            if (refTargetType->is_modifiable()) {
-                if (!originalType->is_modifiable())
-                    CERROR(originalExpr, "Cannot convert reference with non-mod-target to one with mod target: "
-                           << originalType << " -> " << requiredType);
-                else
-                    CERROR(originalExpr, "Cannot implicitly convert to reference with modifiable target: "
-                            << originalType << " -> " << requiredType);
-                return originalExpr;
-            }
-            else {
-                // wrap originalExpr with a reference-to node
-                auto refToNode = new TxReferenceToNode(originalExpr->parseLocation, originalExpr);
-                refToNode->set_context(six, originalExpr->context(six));
-                return new TxReferenceConvNode(originalExpr->parseLocation, refToNode, refType);
+    return nullptr;
+}
+
+static TxExpressionNode* inner_validate_wrap_convert(TxSpecializationIndex six, ResolutionContext& resCtx,
+                                                     TxExpressionNode* originalExpr,
+                                                     const TxType* requiredType, bool _explicit) {
+    // Note: Symbol table pass and semantic pass are not run on the created wrapper nodes.
+    auto originalType = originalExpr->resolve_type(six, resCtx);
+    if (! originalType)
+        return originalExpr;
+
+    if (auto newExpr = inner_wrap_conversion(six, resCtx, originalExpr, originalType, requiredType, _explicit))
+        return newExpr;
+
+    // implicit reference-to ('&') operation:
+    if (auto reqRefType = dynamic_cast<const TxReferenceType*>(requiredType)) {
+        if (auto reqRefTargetType = reqRefType->target_type()) {
+            if (originalType->is_a(*reqRefTargetType)) {
+                if (reqRefTargetType->is_modifiable()) {
+                    if (!originalType->is_modifiable())
+                        CERROR(originalExpr, "Cannot convert reference with non-mod-target to one with mod target: "
+                               << originalType << " -> " << requiredType);
+                    else
+                        CERROR(originalExpr, "Cannot implicitly convert to reference with modifiable target: "
+                                << originalType << " -> " << requiredType);
+                    return originalExpr;
+                }
+                else {
+                    // wrap originalExpr with a reference-to node
+                    //std::cerr << "Adding implicit '&' to: " << originalExpr << std::endl;
+                    auto refToNode = new TxReferenceToNode(originalExpr->parseLocation, originalExpr);
+                    refToNode->set_context(six, originalExpr->context(six));  // in lieu of symbol_declaration_pass()
+                    return new TxReferenceConvNode(originalExpr->parseLocation, refToNode, reqRefType);
+                }
             }
         }
     }
+
+    // implicit dereferencing ('^') operation:
+    if (auto origRefType = dynamic_cast<const TxReferenceType*>(originalType)) {
+        if (auto origRefTargetType = origRefType->target_type()) {
+            if (origRefTargetType->is_a(*requiredType)) {
+                // wrap originalExpr with a dereference node
+                //std::cerr << "Adding implicit '^' to: " << originalExpr << std::endl;
+                auto derefNode = new TxReferenceDerefNode(originalExpr->parseLocation, originalExpr);
+                derefNode->set_context(six, originalExpr->context(six));  // in lieu of symbol_declaration_pass()
+                if (auto newExpr = inner_wrap_conversion(six, resCtx, derefNode, origRefTargetType, requiredType, _explicit))
+                    if (newExpr != derefNode)
+                        return newExpr;
+                return new TxExprWrapperNode(derefNode, six);
+            }
+        }
+    }
+
     CERROR(originalExpr, "Can't auto-convert value (s-ix " << six << ")\n\tFrom: " << originalType << " \t@" << originalType->get_parse_location()
                          << "\n\tTo:   " << requiredType << " \t@" << requiredType->get_parse_location());
     return originalExpr;
@@ -546,7 +575,23 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol(TxSpecializationIndex six, Resol
     std::vector<TxScopeSymbol*> tmpPath;
     if (this->baseExpr) {
         // baseExpr may or may not refer to a type (e.g. modules don't)
-        auto baseType = this->baseExpr->resolve_type(six, resCtx);  // must be resolved before lookups via its symbol
+        auto baseType = this->baseExpr->resolve_type(six, resCtx);  // (must be resolved before lookups via its symbol)
+
+        if (auto baseRefType = dynamic_cast<const TxReferenceType*>(baseType)) {
+            // implicit dereferencing ('^') operation:
+            if (auto baseRefTargetType = baseRefType->target_type()) {
+                //std::cerr << "Adding implicit '^' to: " << this->baseExpr << std::endl;
+                auto derefNode = new TxReferenceDerefNode(this->baseExpr->parseLocation, this->baseExpr);
+                derefNode->set_context(six, this->baseExpr->context(six));  // in lieu of symbol_declaration_pass()
+                ASSERT(! dynamic_cast<const TxExprWrapperNode*>(this->baseExpr), "implicit dereferencing more than once on: " << this);
+                auto wrapperNode = new TxExprWrapperNode(derefNode, six);
+                wrapperNode->symbol_declaration_pass(six, this->baseExpr->context(six));
+                wrapperNode->symbol_resolution_pass(six, resCtx);
+                this->baseExpr = wrapperNode;
+                baseType = baseRefTargetType;
+            }
+        }
+
         TxScopeSymbol* vantageScope = this->context(six).scope();
         if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
             if (auto baseSymbol = baseSymbolNode->resolve_symbol(six, resCtx)) {

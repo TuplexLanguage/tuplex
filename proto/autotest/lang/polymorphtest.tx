@@ -32,7 +32,7 @@ type BType mod derives AType {
     }
 
     public override method(a : Int)->Int {
-        return super^.method( a ) * 2;
+        return super.method( a ) * 2;
     }
 
     ## currently a warning, not an error:
@@ -46,31 +46,31 @@ main()->Int {
     ar : &AType = &bo;
     br : &BType = &bo;
 
-    ar^.field1 = 1;
-    br^.field1 = 2;
-    assert ar^.field1 == 1;
-    assert br^.field1 == 2;
+    ar.field1 = 1;
+    br.field1 = 2;
+    assert ar.field1 == 1;
+    assert br.field1 == 2;
     assert bo.field1 == 2;
 
-    ar^.field1 = 4;
-    br^.field1 = 8;
-    assert ar^.field1 == 4;
-    assert br^.field1 == 8;
+    ar.field1 = 4;
+    br.field1 = 8;
+    assert ar.field1 == 4;
+    assert br.field1 == 8;
     assert bo.field1 == 8;
 
-    assert ar^.SFIELD == 42;
-    assert br^.SFIELD == 42;
+    assert ar.SFIELD == 42;
+    assert br.SFIELD == 42;
     assert bo.SFIELD == 42;
     assert AType.SFIELD == 41;
     assert BType.SFIELD == 42;
 
-    br^.b_method();
-    #experr: ar^.b_method();
+    br.b_method();
+    #experr: ar.b_method();
 
-    ar^.print();
-    br^.print();
+    ar.print();
+    br.print();
 
-    val := ar^.method( 2 );
+    val := ar.method( 2 );
     assert val == 8;
     
     return 0;

@@ -64,10 +64,10 @@ interface CompB {
 type Type derives Tuple, CompA {
     fld : Int;
 
-    self(f : Int) { self^.fld = f; }
+    self(f : Int) { self.fld = f; }
 
     public get_value()->Int {
-        return self^.fld;
+        return self.fld;
     }
 
     #experr 0: public abstract abstr_method()->Int;  ## Type isn't declared abstract
@@ -77,6 +77,6 @@ type Type derives Tuple, CompA {
 main()->Int {
     t := Type(42);
     r : &CompA = &t;
-    assert r^.get_value() == 42;
+    assert r.get_value() == 42;
     return 0;
 }

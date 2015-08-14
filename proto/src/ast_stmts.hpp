@@ -372,7 +372,8 @@ public:
             ctx.package()->driver().begin_exp_err(this->parseLocation);
             this->body->symbol_resolution_pass(six, resCtx);
             this->encountered_error_count += ctx.package()->driver().end_exp_err(this->parseLocation);
-            if (this->expected_error_count != this->encountered_error_count) {
+            if (    ( this->expected_error_count <  0 && this->encountered_error_count == 0 )
+                 || ( this->expected_error_count >= 0 && this->expected_error_count != this->encountered_error_count ) ) {
                 CERROR(this, "COMPILER TEST FAIL: Expected " << this->expected_error_count
                              << " compilation errors but encountered " << this->encountered_error_count);
             }

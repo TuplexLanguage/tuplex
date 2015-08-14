@@ -564,6 +564,9 @@ public:
     TxExprWrapperNode(TxExpressionNode* expr, TxSpecializationIndex six)
         : TxExpressionNode(expr->parseLocation), expr(expr), six(six)  { }
 
+    inline TxExpressionNode* get_wrapped() const { return this->expr; }
+    inline TxSpecializationIndex get_six() const { return this->six; }
+
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext); }
 
@@ -593,7 +596,7 @@ public:
 TxExpressionNode* validate_wrap_convert(TxSpecializationIndex six, ResolutionContext& resCtx, TxExpressionNode* originalExpr,
                                         const TxType* requiredType, bool _explicit=false);
 
-/** Checks that an rvalue expression of an assignment or argument to a funciton call
+/** Checks that an rvalue expression of an assignment or argument to a function call
  * has a type that matches the required type,
  * and wraps a value & type conversion node around it if permitted and necessary.
  *
@@ -880,7 +883,8 @@ public:
             if (this->body)
                 this->body->symbol_resolution_pass(six, resCtx);
             this->encountered_error_count += ctx.package()->driver().end_exp_err(this->parseLocation);
-            if (this->expected_error_count != this->encountered_error_count) {
+            if (    ( this->expected_error_count <  0 && this->encountered_error_count == 0 )
+                 || ( this->expected_error_count >= 0 && this->expected_error_count != this->encountered_error_count ) ) {
                 CERROR(this, "COMPILER TEST FAIL: Expected " << this->expected_error_count
                              << " compilation errors but encountered " << this->encountered_error_count);
             }

@@ -30,7 +30,6 @@ public:
     bool no_bc_output = false;
     bool suppress_asserts = false;
     std::vector<std::string> sourceSearchPaths;
-    std::string outputFileName;
 };
 
 
@@ -79,7 +78,7 @@ class TxDriver {
     int parse(const std::string &filePath);
 
     /** Generate LLVM IR and/or bytecode. */
-    int llvm_compile();
+    int llvm_compile(const std::string& outputFileName);
 
 
     /** Add all .tx source files directly under the specified directory to the currently compiling package. */
@@ -114,7 +113,7 @@ public:
      * 3 if code generation failed
      * @return 0 on success
      */
-    int compile(const std::vector<std::string>& startSourceFiles);
+    int compile(const std::vector<std::string>& startSourceFiles, const std::string& outputFileName);
 
     /** Checks that the module name is valid in relation to the currently parsed source file and its file name/path. */
     bool validate_module_name(const TxIdentifier& moduleName);

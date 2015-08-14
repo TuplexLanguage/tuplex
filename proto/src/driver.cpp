@@ -68,7 +68,7 @@ int TxDriver::parse(const std::string &filePath) {
 }
 
 
-int TxDriver::compile(const std::vector<std::string>& startSourceFiles) {
+int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const std::string& outputFileName) {
     ASSERT(this->parsedSourceFiles.empty(), "Can only run driver instance once");
     if (startSourceFiles.empty()) {
         this->LOG.fatal("No source specified.");
@@ -149,7 +149,7 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles) {
 
     /*--- generate LLVM code ---*/
 
-    int ret = this->llvm_compile();
+    int ret = this->llvm_compile(outputFileName);
     if (ret)
         return 3;
 
@@ -244,7 +244,7 @@ std::string* TxDriver::current_input_filepath() {
 }
 
 
-int TxDriver::llvm_compile() {
+int TxDriver::llvm_compile(const std::string& outputFileName) {
     LlvmGenerationContext genContext(*this->package);
 
     for (auto parsedAST : this->parsedASTs) {
@@ -287,8 +287,8 @@ int TxDriver::llvm_compile() {
     }
 
     if (! this->options.no_bc_output) {
-        retCode = genContext.write_bitcode(options.outputFileName);
-        LOG.info("+ Wrote bitcode file '%s'", options.outputFileName.c_str());
+        retCode = genContext.write_bitcode(outputFileName);
+        LOG.info("+ Wrote bitcode file '%s'", outputFileName.c_str());
     }
 
     return retCode;

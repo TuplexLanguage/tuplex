@@ -265,7 +265,7 @@ member_declaration
 
 experr_decl : KW_EXPERR COLON
                 { BEGIN_TXEXPERR(@1); }  member_declaration
-                    { int enc = END_TXEXPERR(@4); $$ = new TxExpErrDeclNode(@1, 1, enc, $4); }
+                    { int enc = END_TXEXPERR(@4); $$ = new TxExpErrDeclNode(@1, -1, enc, $4); }
             | KW_EXPERR LIT_DEC_INT COLON
                 { BEGIN_TXEXPERR(@1); }  member_declaration
                     { int enc = END_TXEXPERR(@5); $$ = new TxExpErrDeclNode(@1, std::stoi($2), enc, $5); }
@@ -557,7 +557,7 @@ other_stmt
 
 experr_stmt : KW_EXPERR COLON
                 { BEGIN_TXEXPERR(@1); }  statement
-                    { int enc = END_TXEXPERR(@4); $$ = new TxExpErrStmtNode(@1, 1, enc, static_cast<TxStatementNode*>($4)); }
+                    { int enc = END_TXEXPERR(@4); $$ = new TxExpErrStmtNode(@1, -1, enc, static_cast<TxStatementNode*>($4)); }
             | KW_EXPERR LIT_DEC_INT COLON
                 { BEGIN_TXEXPERR(@1); }  statement
                     { int enc = END_TXEXPERR(@5); $$ = new TxExpErrStmtNode(@1, std::stoi($2), enc, $5); }

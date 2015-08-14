@@ -1,11 +1,13 @@
-basic_ref_syntax()->Int {
+basic_ref_syntax() {
     otherO : ~Int = 2;
     __o : ~ Int;
     _ro : ~ & ~ Int;
     rro : ~ & ~ & ~ Int;
     
     __o   = otherO;
+    #experr: _ro   = __o;
     _ro   = &__o;
+    #experr: rro   = &__o;
     rro   = &_ro;
 
     b : ~Bool;
@@ -41,7 +43,62 @@ basic_ref_syntax()->Int {
     rro^^.normalize();
     */
 
-    return __o + _ro^ + rro^^;
+    val := __o + _ro^ + rro^^;
+    assert val == 12;
+}
+
+type MyType {
+    field : Int;
+    self( f : Int ) { self.field = f; }
+    get_field()->Int { return self.field; }
+}
+
+ref_sugar_syntax() {
+    __o : ~ Int = 3;
+
+    #experr: _ro1 : ~ & ~ Int = __o;
+    _ro2 : ~ & ~ Int = &__o;
+    _ro3 : ~ & Int = __o;
+
+    #experr: rro1 : ~ & ~ & ~ Int = _ro2;
+    rro2 : ~ & ~ & ~ Int = &_ro2;
+    rro3 : ~ & & ~ Int = _ro2;
+    #experr: rro4 : ~ & ~ & ~ Int = __o;
+
+    val : ~Int;
+    val = __o;    assert val == 3;
+    val = _ro2;   assert val == 3;  ## implicit '^'
+    val = _ro3;   assert val == 3;  ## implicit '^'
+    val = rro2^;  assert val == 3;  ## implicit '^'
+    val = rro3^;  assert val == 3;  ## implicit '^'
+    #experr: val = rro2;  ## can't add more than one implicit '^'
+    #experr: val = rro3;  ## can't add more than one implicit '^'
+
+    stackObj := MyType(5);
+    val = stackObj.field;        assert val == 5;
+    val = stackObj.get_field();  assert val == 5;
+    #experr: val = stackObj^.field;        assert val == 5;
+    #experr: val = stackObj^.get_field();  assert val == 5;
+
+    stackRef := &stackObj;
+    val = stackRef.field;         assert val == 5;
+    val = stackRef.get_field();   assert val == 5;
+    val = stackRef^.field;        assert val == 5;
+    val = stackRef^.get_field();  assert val == 5;
+
+    heapRef := new MyType(7);
+    val = heapRef.field;         assert val == 7;
+    val = heapRef.get_field();   assert val == 7;
+    val = heapRef^.field;        assert val == 7;
+    val = heapRef^.get_field();  assert val == 7;
+
+    heapRefRef := &heapRef;
+    #experr: val = heapRefRef.field;         assert val == 7;
+    #experr: val = heapRefRef.get_field();   assert val == 7;
+    val = heapRefRef^.field;        assert val == 7;
+    val = heapRefRef^.get_field();  assert val == 7;
+    val = heapRefRef^^.field;        assert val == 7;
+    val = heapRefRef^^.get_field();  assert val == 7;
 }
 
 /*
@@ -56,7 +113,7 @@ heap_test()->Int {
 */
 
 main() {
-    ret1 := basic_ref_syntax();
-    assert ret1 == 12;
-    ##ret2 := heap_test();
+    basic_ref_syntax();
+    ref_sugar_syntax();
+    ##ret := heap_test();
 }

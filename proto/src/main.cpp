@@ -20,6 +20,7 @@ int main(int argc, char **argv)
 
     TxOptions options;
     std::vector<std::string> startSourceFiles;
+    std::string outputFileName;
     bool separateJobs = false;
 
     for (int a = 1; a < argc; a++) {
@@ -46,6 +47,7 @@ int main(int argc, char **argv)
                 printf("  %-22s %s\n", "-jit", "Run program in JIT mode after successful compilation");
                 printf("  %-22s %s\n", "-nobc", "Don't output bitcode (and if also running in JIT mode, exit with program's return code)");
                 printf("  %-22s %s\n", "-onlyparse", "Stop after grammar parse");
+                printf("  %-22s %s\n", "-sepjobs", "Compile each command line source file as a separate compilation job");
                 printf("  %-22s %s\n", "-cnoassert", "Suppress code generation for assert statements");
                 printf("  %-22s %s\n", "-o  | -output <file>", "Explicitly specify LLVM bitcode output file name");
                 printf("  %-22s %s\n", "-sp <pathlist>", "Set source files search paths (overrides TUPLEX_PATH environment variable)");
@@ -80,6 +82,8 @@ int main(int argc, char **argv)
                 options.no_bc_output = true;
             else if (! strcmp(argv[a], "-onlyparse"))
                 options.only_parse = true;
+            else if (! strcmp(argv[a], "-sepjobs"))
+                separateJobs = true;
             else if (! strcmp(argv[a], "-cnoassert"))
                 options.suppress_asserts = true;
             else if (! strcmp(argv[a], "-sp") || ! strcmp(argv[a], "-sourcepath")) {
@@ -94,10 +98,8 @@ int main(int argc, char **argv)
                     LOG.error("Invalid command options, specified %s without subsequent argument", argv[a-1]);
                     return 1;  // exits
                 }
-                options.outputFileName = argv[a];
+                outputFileName = argv[a];
             }
-            else if (! strcmp(argv[a], "-sepjobs"))  // undocumented option to compile source files as separate jobs
-                separateJobs = true;
             else {
                 LOG.error("Unknown option '%s'", argv[a]);
                 return 1;  // exits
@@ -108,20 +110,9 @@ int main(int argc, char **argv)
         }
     }
 
-    if (options.outputFileName.empty()) {
-        if (startSourceFiles.empty() || startSourceFiles.front() == "-")
-            options.outputFileName = "-";  // this will write to stdout
-        else {
-            options.outputFileName = startSourceFiles.front();
-            if (options.outputFileName.length() >= 3 && options.outputFileName.substr(options.outputFileName.length()-3) == ".tx")
-                options.outputFileName.replace(options.outputFileName.length()-2, 2, "bc");
-            else
-                options.outputFileName.append(".bc");
-        }
-    }
-
     if (startSourceFiles.empty()) {
         startSourceFiles.push_back("-");  // this will read source from stdin
+        // (will also write output to stdout unless an output filename has been specified)
     }
 
     if (options.sourceSearchPaths.empty())
@@ -130,10 +121,23 @@ int main(int argc, char **argv)
             options.sourceSearchPaths.push_back(".");  // if no search paths provided, the current directory is searched
 
     if (separateJobs) {
+        if (! outputFileName.empty() && outputFileName != "-")
+            LOG.info("Since compiling as separate jobs, specified output file name '%s' will be used as path prefix", outputFileName.c_str());
         int ret = 0;
         for (auto & sourceFile : startSourceFiles) {
+            std::string tmpOutputFileName;
+            if (outputFileName != "-") {
+                tmpOutputFileName = outputFileName + startSourceFiles.front();
+                if (tmpOutputFileName.length() >= 3 && tmpOutputFileName.substr(tmpOutputFileName.length()-3) == ".tx")
+                    tmpOutputFileName.replace(tmpOutputFileName.length()-2, 2, "bc");
+                else
+                    tmpOutputFileName.append(".bc");
+            }
+            else
+                tmpOutputFileName = outputFileName;
+
             TxDriver driver(options);
-            ret = driver.compile( { sourceFile } );
+            ret = driver.compile( { sourceFile }, tmpOutputFileName );
             if (ret)
                 LOG.error("Completed compilation job '%s' with return code %d", sourceFile.c_str(), ret);
             else
@@ -142,8 +146,18 @@ int main(int argc, char **argv)
         return ret;
     }
     else {
+        if (outputFileName.empty()) {
+            outputFileName = startSourceFiles.front();
+            if (outputFileName != "-") {
+                if (outputFileName.length() >= 3 && outputFileName.substr(outputFileName.length()-3) == ".tx")
+                    outputFileName.replace(outputFileName.length()-2, 2, "bc");
+                else
+                    outputFileName.append(".bc");
+            }
+        }
+
         TxDriver driver(options);
-        int ret = driver.compile(startSourceFiles);
+        int ret = driver.compile(startSourceFiles, outputFileName);
         return ret;
     }
 }

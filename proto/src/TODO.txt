@@ -39,7 +39,13 @@ Interfaces - DONE
 
 Syntax support for writing negative tests (expecting compiler errors) - DONE
 
-Author test harness / automatic testing suite
+Author test harness / automatic testing suite - DONE
+
+Change statement syntax from \n to ; - DONE
+
+Change function header syntax from 'func' to ()-> - DONE
+
+Implement syntactic sugar for automatic reference dereferencing (implicit '^') - DONE
 
 Refactor TxType instantiation - multi-pass so that "cyclic" references possible
 

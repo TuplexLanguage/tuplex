@@ -83,6 +83,8 @@ static bool is_non_virtual_lookup(const TxExpressionNode* baseExpr) {
         return (fieldValueNode->get_full_identifier() == "super");  // member invocation via super keyword is non-virtual
     else if (auto derefNode = dynamic_cast<const TxReferenceDerefNode*>(baseExpr))
         return is_non_virtual_lookup(derefNode->reference);
+    else if (auto wrapperNode = dynamic_cast<const TxExprWrapperNode*>(baseExpr))
+        return is_non_virtual_lookup(wrapperNode->get_wrapped());
     else
         return false;
 }
