@@ -228,7 +228,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
     {
         auto record = new BuiltinTypeRecord( BOOL, "Bool" );
         record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
-        auto type = new TxBoolType(record->get_declaration(), this->builtinTypes[ANY]->get_type() );
+        auto type = new TxBoolType(record->get_declaration(), this->builtinTypes[ELEMENTARY]->get_type() );
         type->prepare_type_members();
         record->set_type( type );
         this->builtinTypes[record->id] = record;

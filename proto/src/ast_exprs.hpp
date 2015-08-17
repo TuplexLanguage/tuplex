@@ -479,9 +479,6 @@ public:
 
 
 class TxFunctionCallNode : public TxExpressionNode {
-//    /** substitutes the function call if non-null */
-//    TxExpressionNode* inlinedExpression = nullptr;
-
     /** resolve possible function overloading by registering actual function signature with callee node */
     void register_callee_signature(TxSpecializationIndex six, ResolutionContext& resCtx) const {
         ASSERT (!callee->get_applied_func_arg_types(six), "callee already has applied func arg types: " << callee);
@@ -550,9 +547,6 @@ public:
 
 /** Special callee expression node for calling constructors. */
 class TxConstructorCalleeExprNode : public TxExpressionNode {
-//    /** The constructor method's declaration */
-//    const TxEntityDeclaration* declaration = nullptr;
-
     mutable llvm::Value* objectPtrV = nullptr;
 
     /** @return a function pointer (not a lambda value) */
@@ -625,9 +619,6 @@ protected:
     TxTypeExpressionNode* typeExpr;
     TxConstructorCalleeExprNode* constructor = nullptr;
     TxFunctionCallNode* constructorCall = nullptr;
-
-//    /** substitutes the constructor call if non-null */
-//    TxExpressionNode* inlinedInitializer = nullptr;
 
     /** Gets the type of the allocated object. Should not be called before resolution. */
     virtual const TxType* get_object_type(TxSpecializationIndex six) const = 0;

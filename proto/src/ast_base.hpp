@@ -406,11 +406,6 @@ public:
  * The context of this node refers to its outer scope. This node's entity, if any, refers to its inner scope.
  */
 class TxTypeExpressionNode : public TxTypeDefiningNode {
-//    bool isResolving = false;  // during development - guard against recursive calls to get_type()
-//    bool hasResolved = false;  // to prevent multiple identical error messages
-//    TxType const * type = nullptr;
-//    TxTypeDeclaration* declaration = nullptr;  // null unless initialized in symbol declaration pass
-
     /** if parent node is a type declaration that declares type parameters, these will be set by it */
     std::vector<const std::vector<TxDeclarationNode*>*> typeParamDeclNodes;
 
@@ -496,12 +491,6 @@ public:
 class TxFieldDefNode;
 
 class TxExpressionNode : public TxTypeDefiningNode {
-//    bool isResolving = false;  // during development - guard against recursive calls to get_type()
-//    bool hasResolved = false;  // to prevent multiple identical error messages
-//    TxType const * type = nullptr;
-//    /** injected by expression context if applicable */
-//    std::vector<const TxType*>* appliedFuncArgTypes = nullptr;
-
 protected:
     /** injected by field definition if known and applicable */
     const TxFieldDefNode* fieldDefNode = nullptr;
@@ -609,9 +598,6 @@ TxExpressionNode* validate_wrap_assignment(TxSpecializationIndex six, Resolution
 
 
 class TxFieldDefNode : public TxFieldDefiningNode {
-//    TxFieldDeclaration* declaration = nullptr;  // null until initialized in symbol declaration pass
-//    TxType const * type = nullptr;
-//    TxField const * field = nullptr;
     const std::string fieldName;  // the original source field name
     std::string declName = "";  // the declared field name
 
@@ -835,9 +821,6 @@ public:
 
 
 class TxAssigneeNode : public TxTypeDefiningNode {
-//    bool hasResolved = false;
-//    TxType const * type = nullptr;
-
 public:
     TxAssigneeNode(const yy::location& parseLocation) : TxTypeDefiningNode(parseLocation) { }
 

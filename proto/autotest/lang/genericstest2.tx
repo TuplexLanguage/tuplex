@@ -1,0 +1,32 @@
+module my
+
+## tests specialization of ref-bound generic type
+
+type AType<S derives Ref> mod derives Tuple {
+    public memref : S;
+
+    public self(s : S) {
+        self.memref = s;
+    }
+
+    public getref()->S {
+        return self^.memref;
+    }
+}
+
+type RInt Ref<Int>;
+
+type ATypeRInt AType<RInt>;
+
+main()->Int {
+    val : Int = 42;
+    sobj := ATypeRInt(val);
+    hobj := new ATypeRInt(val);
+    s1 : sobj.S;
+    ##s2 : sobj.my#AType#S;  ## FIXME: fix bug where sobj type is my.AType$tx#Ref rather than my.ATypeRInt
+    ##s2 : hobj^.S;  ## type expr doesn't handle ^
+
+    assert sobj.getref()^ == 42;
+    assert hobj.getref()^ == 42;
+    return 0;
+}

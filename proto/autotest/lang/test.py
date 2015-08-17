@@ -64,6 +64,9 @@ source_files = [
     "recursivetypetest.tx",
     "constructiontest.tx",
     "interfacetest.tx",
+    
+    "genericstest.tx",
+    "genericstest2.tx",
 ]
 
 for src in source_files:

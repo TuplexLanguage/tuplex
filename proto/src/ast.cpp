@@ -50,25 +50,6 @@ std::string TxNode::parse_loc_string() const {
 }
 
 
-/*
-TxDeclarationNode* TxFieldDefNode::declare_stack_constructor(LexicalContext& lexContext) {
-    if (auto constructedType = dynamic_cast<TxTypeEntity*>(lexContext.scope())) {
-        // FUTURE: stack constructor's access should be combination of type's and constructor's access
-        TxDeclarationFlags declFlags = TXD_IMPLICIT | ( ( TXD_STATIC | TXD_PUBLIC | TXD_PROTECTED ) & constructedType->get_decl_flags() );
-        auto constrBody = new TxStackConstructorNode(this, constructedType);
-        auto constrDef  = new TxFieldDefNode(this->parseLocation, constructedType->get_name(), nullptr, constrBody);
-        auto constrDecl = new TxFieldDeclNode(this->parseLocation, declFlags, constrDef);
-        LexicalContext outerCtx(constructedType->get_outer());
-        constrDecl->symbol_declaration_pass(outerCtx);
-        return constrDecl;
-    }
-    else
-        CERROR(this, "Can't declare constructor outside of type declaration");
-    return nullptr;
-}
-*/
-
-
 void TxFieldDeclNode::symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) {
     this->set_context(six, lexContext);
 

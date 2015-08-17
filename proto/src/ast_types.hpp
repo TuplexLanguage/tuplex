@@ -6,8 +6,6 @@
 
 /** Represents a binding for a type parameter. Can be either a Type or a Value parameter binding. */
 class TxTypeArgumentNode : public TxSpecializableNode {
-//    LexicalContext defContext;
-
     std::string paramDeclName;
     TxTypeDeclNode* typeDeclNode;
     TxFieldDeclNode* fieldDeclNode;
@@ -118,8 +116,6 @@ type Field<E,C,L> derives Array<Ref<Abstr<E,C>>,L> {
 
  */
 class TxPredefinedTypeNode : public TxTypeExpressionNode {
-//    LexicalContext defContext;
-
     const TxType* define_identified_type(TxSpecializationIndex six, ResolutionContext& resCtx);
 
     const TxType* define_generic_specialization_type(TxSpecializationIndex six, ResolutionContext& resCtx);
@@ -277,7 +273,6 @@ public:
 
 
 class TxDerivedTypeNode : public TxTypeExpressionNode {
-
     /** Initialized implicit type members such as '$Self' and '$Super' for types with a body. */
     void init_implicit_types();
 
@@ -393,8 +388,6 @@ class TxFunctionTypeNode : public TxTypeExpressionNode {
     }
 
 protected:
-//    const TxFieldDefNode* funcFieldDefNode = nullptr;  // injected by TxLambdaExprNode if known and applicable
-
     virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
                                                      LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
         // (processed as a function type and therefore doesn't declare (create entities for) the function args)
@@ -428,11 +421,6 @@ public:
                        TxTypeExpressionNode* returnType)
         : TxTypeExpressionNode(parseLocation), modifiable(modifiable),
           arguments(arguments), returnField(make_return_field(returnType)) { }
-
-//    /** Injected by TxLambdaExprNode if known and applicable. */
-//    virtual void set_field_def_node(const TxFieldDefNode* funcFieldDefNode) {
-//        this->funcFieldDefNode = funcFieldDefNode;
-//    }
 
     void symbol_declaration_pass_func_header(TxSpecializationIndex six, LexicalContext& lexContext) {
         // (processed as the function instance header, so declare the function args, and the return type if any)
@@ -480,11 +468,6 @@ public:
     TxTypeExpressionNode* baseType;
     TxModifiableTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
         : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
-
-//    /** pass-through to baseType */
-//    virtual void setTypeParams(const std::vector<TxDeclarationNode*>* typeParamDeclNodes) override {
-//        this->baseType->setTypeParams(typeParamDeclNodes);
-//    }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                          const std::string designatedTypeName,

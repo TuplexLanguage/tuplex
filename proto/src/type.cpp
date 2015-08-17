@@ -394,7 +394,7 @@ TxEntitySymbol* TxType::lookup_inherited_instance_member(const std::string& name
 
 TxEntitySymbol* TxType::lookup_inherited_instance_member(TxScopeSymbol* vantageScope, const std::string& name) const {
     ASSERT(name != "$init", "Can't look up constructors as *inherited* members; in: " << this);
-    for (const TxType* type = this; type; type = type->baseTypeSpec.type) {
+    for (const TxType* type = this; type; type = type->get_base_data_type()) {
         if (auto memberEnt = type->get_instance_member(vantageScope, name))
             return memberEnt;
     }
@@ -706,8 +706,9 @@ const TxType* TxArrayType::element_type() const {
 const TxType* TxReferenceType::target_type() const {
     // special resolution implementation for the tx#Ref#T member - this forces resolution of the reference target type
     const std::string targetMemName = "tx#Ref#T";
-    for ( const TxType* type = this; type; type = type->get_base_type() ) {
+    for ( const TxType* type = this; type; type = type->get_base_data_type() ) {
         if (auto decl = type->get_declaration()) {
+            //LOGGER().note("Looking up tx#Ref#T in type %s", decl->get_symbol()->get_full_name().to_string().c_str());
             if (auto member = lookup_member(decl->get_symbol(), decl->get_symbol(), targetMemName)) {
                 TxTypeDeclaration* typeDecl = nullptr;
                 if (auto memberEnt = dynamic_cast<TxEntitySymbol*>(member)) {
@@ -725,7 +726,7 @@ const TxType* TxReferenceType::target_type() const {
                 if (typeDecl) {
                     ResolutionContext resCtx;
                     if (auto ttype = typeDecl->get_definer()->resolve_type(resCtx)) {
-                        //LOGGER().alert("Resolved target type of reference type %s to %s", this->to_string().c_str(), ttype->to_string().c_str());
+                        //LOGGER().note("Resolved target type of reference type %s to %s", this->to_string().c_str(), ttype->to_string().c_str());
                         return ttype;
                     }
                     else

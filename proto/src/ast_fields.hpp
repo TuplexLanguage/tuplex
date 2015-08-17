@@ -4,9 +4,6 @@
 
 
 class TxFieldValueNode : public TxExpressionNode {
-    //const TxEntityDeclaration* declaration = nullptr;
-    //const TxField* field = nullptr;
-
     TxScopeSymbol* resolve_symbol(TxSpecializationIndex six, ResolutionContext& resCtx);
     const TxEntityDeclaration* resolve_decl(TxSpecializationIndex six, ResolutionContext& resCtx);
 

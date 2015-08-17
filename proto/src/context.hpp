@@ -27,7 +27,8 @@ public:
     LexicalContext() : _scope(), constructedObjTypeDecl()  { }
 
     /** Copy constructor. */
-    LexicalContext(const LexicalContext& context) : LexicalContext(context, context._scope) {}
+    LexicalContext(const LexicalContext& context)
+        : _scope(context._scope), constructedObjTypeDecl(context.constructedObjTypeDecl) { }
 
     /** Constructs a lexical context for the provided module.
      * (A module context does not require a parent context.) */
@@ -41,10 +42,6 @@ public:
             : _scope(scope), constructedObjTypeDecl(parentContext.constructedObjTypeDecl)  {
         ASSERT(scope, "scope is NULL");
     }
-//    LexicalContext(TxScopeSymbol* scope, TxTypeDeclaration* constructedEntity=nullptr)
-//            : _scope(scope), constructedObjTypeDecl(constructedEntity)  {
-//        ASSERT(scope, "scope is NULL");
-//    }
 
     inline TxScopeSymbol* scope() const { return this->_scope; }
 
