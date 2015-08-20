@@ -36,7 +36,7 @@ TxModule* TxModule::declare_module(const TxIdentifier& ident, bool builtin) {
     if (! this->get_outer()) {
         // this is the namespace root - the tuplex package
         if (! builtin) {
-            if (ident.begins_with(BUILTIN_NS))
+            if (ident.begins_with(BUILTIN_NS) && !this->get_root_scope()->driver().get_options().allow_tx)
                 CERROR(&this->get_root_scope()->driver(), "Can't declare or extend built-in namespace from user code: '" << ident << "'");
         }
     }

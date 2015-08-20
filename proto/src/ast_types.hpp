@@ -23,7 +23,7 @@ class TxTypeArgumentNode : public TxSpecializableNode {
             return;
         }
 
-        LOGGER().debug("%s: Binding %s in ctx %s", this->parse_loc_string().c_str(), declName.c_str(), this->context(0).scope()->get_full_name().to_string().c_str());
+        LOGGER().debug("%s: Binding %s", this->parse_loc_string().c_str(), declName.c_str()); //, this->context(0).scope()->get_full_name().to_string().c_str());
         ASSERT(!this->bound, "make_binding() called more than once for " << this);
         this->bound = true;
         this->paramDeclName = declName;
@@ -63,7 +63,7 @@ public:
           typeExprNode(), valueExprNode(valueExprNode) { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& defContext, LexicalContext& lexContext) {
-        this->get_spec(six).defContext = defContext;
+        this->get_spec(six)->defContext = defContext;
         this->set_context(six, lexContext);
     }
 
@@ -73,7 +73,7 @@ public:
         this->setup_declarations(fullBaseTypeName, param);
 
         if (this->typeDeclNode) {
-            this->typeDeclNode->symbol_declaration_pass(six, this->get_spec(six).defContext, this->context(six));
+            this->typeDeclNode->symbol_declaration_pass(six, this->get_spec(six)->defContext, this->context(six));
             return TxGenericBinding::make_type_binding(param.param_name(), this->typeExprNode->get_type_definer(six));
         }
         else {
@@ -457,7 +457,7 @@ protected:
                 return bType;
             }
             else if (! bType->is_immutable())
-                return this->types().get_modifiable_type(this->get_declaration(six), bType);
+                return this->types(six).get_modifiable_type(this->get_declaration(six), bType);
             else
                 CERROR(this, "Can't declare immutable type as modifiable: " << bType);
         }

@@ -323,18 +323,22 @@ void TypeRegistry::initializeBuiltinSymbols() {
 //    }
 
 
-    // create modifiable specializations of the concrete built-in types:
-    for (int id = 0; id < BuiltinTypeId_COUNT; id++) {
+    // register the built-in types and create modifiable specializations of them:
+    for (unsigned id = 0; id < BuiltinTypeId_COUNT; id++) {
         // verify that all built-in types are initialized:
         ASSERT(this->builtinTypes[id], "Uninitialized built-in type! id=" << id);
+        auto biType = const_cast<TxType*>(this->builtinTypes[id]->get_type());
+        ASSERT(id == this->staticTypes.size(), "registering built-in type in wrong order / id: " << id);
+        ASSERT(biType->is_prepared(), "built-in type not prepared: " << biType);
+        biType->runtimeTypeId = id;
+        this->staticTypes.push_back(biType);
 
-        auto biType = this->builtinTypes[id]->get_type();
-        TxTypeSpecialization tmpSpec(biType, true);
-        auto type = biType->make_specialized_type(nullptr, tmpSpec);
-        type->prepare_type_members();
-        this->builtinModTypes[id] = type;
-
-        this->register_type(const_cast<TxType*>(biType));
+        auto mbiDef = new TxBuiltinTypeDefiner();
+        auto mbiDecl = module->declare_type("~" + this->builtinTypes[id]->plainName, mbiDef, TXD_PUBLIC | TXD_BUILTIN | TXD_IMPLICIT );
+        auto mbitype = biType->make_specialized_type(mbiDecl, TxTypeSpecialization(biType, true));
+        mbitype->prepare_type_members();
+        mbiDef->type = mbitype;
+        this->builtinModTypes[id] = mbitype;
     }
 
 //    // test adding static field to types:
@@ -406,17 +410,36 @@ void TypeRegistry::declare_conversion_constructor(BuiltinTypeId fromTypeId, Buil
 }
 
 
-void TypeRegistry::register_type(TxType* type) {
-    // Types that are distinct in instance data type, or vtable, get their own type id and vtable.
-    if (type->is_equivalent_derivation()) {
-        //std::cerr << "Not registering equivalent derivation: " << type << std::endl;
-        return;
-    }
-    type->runtimeTypeId = this->allStaticTypes.size();
-    //std::cerr << "Registering: " << type << " with id " << type->runtimeTypeId << std::endl;
-    this->allStaticTypes.push_back(type);
+void TypeRegistry::add_type(TxType* type) {
+//    // Types that are distinct in instance data type, or vtable, get their own type id and vtable.
+//    if (type->is_equivalent_derivation()) {
+//        //std::cerr << "Not registering equivalent derivation: " << type << std::endl;
+//        return;
+//    }
+//    type->runtimeTypeId = this->allStaticTypes.size();
+//    //std::cerr << "Registering: " << type << " with id " << type->runtimeTypeId << std::endl;
+    this->createdTypes.push_back(type);
 }
 
+void TypeRegistry::register_types() {
+    for (auto type : this->createdTypes) {
+        if (! type->is_builtin())
+            type->prepare_type_members();
+        else {
+            ASSERT(type->is_prepared(), "Unprepared builtin type: " << type);
+        }
+        // Types that are distinct in instance data type, or vtable, get their own type id and vtable.
+        if (type->get_type_class() == TXTC_FUNCTION)
+            continue;
+        if (type->is_equivalent_derivation()) {
+            //std::cerr << "Not registering equivalent derivation: " << type << std::endl;
+            continue;
+        }
+        type->runtimeTypeId = this->staticTypes.size();
+        this->staticTypes.push_back(type);
+        //std::cerr << "Registering: " << type << " with id " << type->runtimeTypeId << std::endl;
+    }
+}
 
 
 const TxTypeDefiner* TypeRegistry::get_builtin_type_def(const BuiltinTypeId id) const {
@@ -440,8 +463,17 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
     }
     TxTypeSpecialization tmpSpec(type, true);
     auto mtype = type->make_specialized_type(declaration, tmpSpec);
-    mtype->prepare_type_members();
+    //mtype->prepare_type_members();
+    this->add_type(mtype);
     return mtype;
+}
+
+const TxType* TypeRegistry::get_empty_specialization(const TxTypeDeclaration* declaration, const TxType* type) {
+    TxTypeSpecialization specialization(type, false, true);
+    //std::cerr << "MAKING EMPTY TYPE: " << declaration->to_string() << std::endl;
+    auto newType = specialization.type->make_specialized_type(declaration, specialization);
+    this->add_type(newType);
+    return newType;
 }
 
 /*
@@ -507,17 +539,21 @@ static std::string make_bound_type_name(ResolutionContext& resCtx, const TxType*
         boundTypeName += "~";
         type = type->get_base_type();
     }
-    while (type->is_equivalent_derivation())
+    while (type->is_same_instance_type())
         type = type->get_base_type();
     ASSERT(type->get_declaration(), "Bound type (or equiv. parent) does not have declaration: " << type);
     //ASSERT(type->type_params().empty(), "Bound type (or equiv. parent) has unbound parameters: " << type);
     boundTypeName += type->get_declaration()->get_symbol()->get_full_name().to_hash_string();
     if (! type->get_bindings().empty()) {
         boundTypeName += "<";
+        bool comma = false;
         for (auto & binding : type->get_bindings()) {
+            if (comma)  boundTypeName += ",";
+            else        comma = true;
+
             if (binding.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
                 auto t = binding.type_definer().resolve_type(resCtx);
-                boundTypeName += "$" + make_bound_type_name(resCtx, t);
+                boundTypeName += make_bound_type_name(resCtx, t);
             }
             else {
                 boundTypeName += "$VALUE";
@@ -528,6 +564,75 @@ static std::string make_bound_type_name(ResolutionContext& resCtx, const TxType*
     //if (type->get_type_class() == TXTC_REFERENCE)
     //    std::cerr << "make_bound_type_name: " << type << ": " << boundTypeName << std::endl;
     return boundTypeName;
+}
+
+static const TxType* get_existing_type(const TxTypeSpecialization& specialization,
+                                       const LexicalContext& baseContext, const std::string& newBaseName,
+                                       ResolutionContext& resCtx) {
+    if (specialization.bindings.size() == specialization.type->type_params().size()) {
+        // if generic type specialization is equivalent to the generic base type, reuse it:
+        //std::cerr << "existingBaseType    0: " << specialization.type << std::endl;
+        bool matchOK = true;
+        for (auto & binding : specialization.bindings) {
+            auto & param = specialization.type->get_type_param(binding.param_name());
+            if (binding.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
+                auto bindingType = binding.type_definer().get_type();
+                auto constraintType = param.get_constraint_type_definer()->resolve_type(resCtx);  // FIXME: resolve before this?
+                ASSERT(constraintType, "NULL constraint type for type parameter " << param);
+                if (*constraintType == *bindingType)
+                    continue;
+            }
+            else {  // TxTypeParam::MetaType::TXB_VALUE
+                //if (auto fieldDecl = memberSymbol->get_first_field_decl())  { }  // TODO
+            }
+            matchOK = false;
+            break;
+        }
+        if (matchOK) {
+            baseContext.package()->LOGGER().note("new specialization equal to preexisting one, reusing: %s", specialization.type->to_string().c_str());
+            return specialization.type;
+        }
+    }
+
+    // if name already exists and specialization is equal, reuse it:
+    if (auto existingBaseSymbol = dynamic_cast<TxEntitySymbol*>(baseContext.scope()->get_member_symbol(newBaseName))) {
+        if (auto typeDecl = existingBaseSymbol->get_type_decl()) {
+            auto existingBaseType = typeDecl->get_definer()->resolve_type(resCtx);
+            //std::cerr << "existingBaseType    1: " << existingBaseType << std::endl;
+            auto existingGenBaseType = existingBaseType->get_base_type();
+            //std::cerr << "existingGenBaseType 2: " << existingGenBaseType << std::endl;
+            if (existingGenBaseType->is_empty_derivation()) {
+                existingGenBaseType = existingGenBaseType->get_base_type();
+                //std::cerr << "existingGenBaseType 3: " << existingGenBaseType << std::endl;
+            }
+            if (*existingGenBaseType == *specialization.type
+                    && existingBaseType->type_params().empty()
+                    && existingBaseType->get_bindings().empty()) {
+                bool matchOK = true;
+                for (auto & binding : specialization.bindings) {
+                    if (auto memberSymbol = dynamic_cast<TxEntitySymbol*>(existingBaseSymbol->get_member_symbol(binding.param_name()))) {
+                        if (binding.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
+                            const TxType* membType = memberSymbol->get_type_decl()->get_definer()->get_type();
+                            if (! membType)
+                                baseContext.package()->LOGGER().warning("NULL type for member symbol %s", memberSymbol->get_type_decl()->to_string().c_str());
+                            else if (*membType == *binding.type_definer().get_type())
+                                continue;
+                        }
+                        else {  // TxTypeParam::MetaType::TXB_VALUE
+                            //if (auto fieldDecl = memberSymbol->get_first_field_decl())  { }  // TODO
+                        }
+                    }
+                    matchOK = false;
+                    break;
+                }
+                if (matchOK) {
+                    baseContext.package()->LOGGER().note("new specialization equal to preexisting one, reusing: %s", existingBaseType->to_string().c_str());
+                    return existingBaseType;
+                }
+            }
+        }
+    }
+    return nullptr;
 }
 
 TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
@@ -569,8 +674,8 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
         this->package.LOGGER().note("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
                                     declaration->get_unique_full_name().c_str(), specialization.type->to_string().c_str());
 
-        // before we substitute the TxTypeSpecialization, validate it:
-        specialization.validate();
+//        // before we substitute the TxTypeSpecialization, validate it:
+//        specialization.validate();
 
         auto baseDecl = specialization.type->get_declaration();
         ASSERT(baseDecl, "base type has no declaration: " << specialization.type);
@@ -583,11 +688,15 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
                "Expected scope " << baseDecl->get_symbol()->get_outer() << " but was " << baseContext.scope());
 
         std::string newBaseName = baseDecl->get_unique_name();
+        newBaseName += "<";
 
         // make new parameter declarations that resolve to the bindings:
         auto typeParamDeclNodes = new std::vector<TxDeclarationNode*>();
         ResolutionContext resCtx;
+        bool comma = false;
         for (auto & binding : specialization.bindings) {
+            if (comma)  newBaseName += ",";
+            else        comma = true;
             if (binding.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
                 auto & parseLoc = binding.type_definer().get_parse_location();
                 auto typeExpr = new TxTypeExprWrapperNode(parseLoc, &binding.type_definer());
@@ -598,7 +707,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
                 const TxType* btype = binding.type_definer().resolve_type(resCtx);
                 std::string boundTypeName = make_bound_type_name(resCtx, btype);
-                newBaseName += "$" + boundTypeName;
+                newBaseName += boundTypeName;
             }
             else {
                 ASSERT(!binding.value_definer().is_context_set(newSix), "VALUE param '" << binding.param_name() << "' at "
@@ -613,6 +722,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
                 newBaseName += "$VALUE";
             }
         }
+        newBaseName += ">";
 
         {
             auto & parseLoc = declaration->get_definer()->get_parse_location();
@@ -622,44 +732,8 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
             //package.LOGGER().alert("Provided $GenericBase type: %s", baseDecl->get_unique_full_name().c_str());
         }
 
-        // if name already exists and specialization is equal, return existing type, otherwise create new one:
-        const TxType* specializedBaseType = nullptr;
-        if (auto existingBaseSymbol = dynamic_cast<TxEntitySymbol*>(baseContext.scope()->get_member_symbol(newBaseName))) {
-            if (auto typeDecl = existingBaseSymbol->get_type_decl()) {
-                auto existingBaseType = typeDecl->get_definer()->resolve_type(resCtx);
-                //std::cerr << "existingBaseType: " << existingBaseType << std::endl;
-                auto existingGenBaseType = existingBaseType->get_base_type();
-                //std::cerr << "existingGenBaseType: " << existingGenBaseType << std::endl;
-                if (existingGenBaseType->is_empty_derivation()) {
-                    existingGenBaseType = existingGenBaseType->get_base_type();
-                    //std::cerr << "existingGenBaseType: " << existingGenBaseType << std::endl;
-                }
-                if (*existingGenBaseType == *specialization.type
-                        && existingBaseType->type_params().empty()
-                        && existingBaseType->get_bindings().empty()) {
-                    bool matchOK = true;
-                    for (auto & binding : specialization.bindings) {
-                        if (auto memberSymbol = dynamic_cast<TxEntitySymbol*>(existingBaseSymbol->get_member_symbol(binding.param_name()))) {
-                            const TxType* membType = nullptr;
-                            if (binding.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
-                                membType = memberSymbol->get_type_decl()->get_definer()->get_type();
-                                if (membType && *membType == *binding.type_definer().get_type())
-                                    continue;
-                            }
-                            else {
-                                //if (auto fieldDecl = memberSymbol->get_first_field_decl())  { }  // TODO
-                            }
-                            //std::cerr << "binding mismatch: " << binding << "=" << binding.type_definer().get_type() << "\n    memberDecl: " << memberSymbol->get_type_decl() << "=" << membType << std::endl;
-                        }
-                        matchOK = false;
-                    }
-                    if (matchOK) {
-                        package.LOGGER().note("new specialization equal to preexisting one, reusing: %s", existingBaseType->to_string().c_str());
-                        specializedBaseType = existingBaseType;
-                    }
-                }
-            }
-        }
+        // if equivalent specialized type already exists then reuse it, otherwise create new one:
+        const TxType* specializedBaseType = get_existing_type(specialization, baseContext, newBaseName, resCtx);
 
         if (! specializedBaseType) {
             // process new specialization of the base type:
@@ -672,12 +746,12 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
         TxTypeSpecialization newSpec(specializedBaseType);
         auto newType = specialization.type->make_specialized_type(declaration, newSpec, interfaces, allParams);
-        this->register_type(newType);
+        this->add_type(newType);
         return newType;
     }
     else {
         auto newType = specialization.type->make_specialized_type(declaration, specialization, interfaces, allParams);
-        this->register_type(newType);
+        this->add_type(newType);
         return newType;
     }
 }
@@ -713,21 +787,21 @@ const TxInterfaceAdapterType* TypeRegistry::inner_get_interface_adapter(const Tx
     }
     auto adapterType = new TxInterfaceAdapterType(typeDecl, interfaceType, adaptedType);
     typeDefiner->type = adapterType;
-    this->register_type(adapterType);
-    adapterType->prepare_type_members();
+    this->add_type(adapterType);
+    //adapterType->prepare_type_members();
     return adapterType;
 }
 
 const TxType* TypeRegistry::get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType) {
     auto modIf = interfaceType->is_modifiable();
-    while (interfaceType->is_equivalent_derivation())
+    while (interfaceType->is_same_vtable_type())
         interfaceType = interfaceType->get_base_type();
-    while (adaptedType->is_equivalent_derivation())
+    while (adaptedType->is_same_vtable_type())
         adaptedType = adaptedType->get_base_type();
 
     auto adapterType = this->inner_get_interface_adapter(interfaceType, adaptedType);
-    ASSERT(adapterType->adapted_type()->get_type_id() == adaptedType->get_type_id(),
-           "Mismatching type ids between adapter and adaptee: " << adapterType->adapted_type()->get_type_id() << " != " << adaptedType->get_type_id());
+//    ASSERT(adapterType->adapted_type()->get_type_id() == adaptedType->get_type_id(),
+//           "Mismatching type ids between adapter and adaptee: " << adapterType->adapted_type()->get_type_id() << " != " << adaptedType->get_type_id());
     if (modIf)
         return this->get_modifiable_type(nullptr, adapterType);
     else
@@ -793,17 +867,23 @@ const TxArrayType* TypeRegistry::get_array_type(const TxTypeDeclaration* declara
 
 const TxFunctionType* TypeRegistry::get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, const TxType* returnType,
                                                       bool modifiableClosure) {
-    return new TxFunctionType(declaration, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, returnType, modifiableClosure);
+    auto funcType = new TxFunctionType(declaration, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, returnType, modifiableClosure);
+    this->add_type(funcType);
+    return funcType;
 }
 
 const TxFunctionType* TypeRegistry::get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
                                                       bool modifiableClosure) {
-    return new TxFunctionType(declaration, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, nullptr, modifiableClosure);
+    auto funcType = new TxFunctionType(declaration, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, nullptr, modifiableClosure);
+    this->add_type(funcType);
+    return funcType;
 }
 
 const TxConstructorType* TypeRegistry::get_constructor_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
                                                             TxTypeDeclaration* objectTypeDecl) {
-    return new TxConstructorType(declaration, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, objectTypeDecl);
+    auto type = new TxConstructorType(declaration, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, objectTypeDecl);
+    this->add_type(type);
+    return type;
 }
 
 //const TxTupleType* TypeRegistry::get_tuple_type(const TxTypeDeclaration* declaration, bool mut) {

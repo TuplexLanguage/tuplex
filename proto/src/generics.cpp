@@ -15,7 +15,7 @@ TxGenericBinding TxGenericBinding::make_value_binding(const std::string& paramNa
 
 static inline std::string type_arg_to_string(const TxType* type) {
     if (type) {
-        if (type->get_explicit_declaration() || !type->is_empty_derivation())
+        if (type->get_declaration())
             return type->to_string(true);
         else
             return type_arg_to_string(type->get_base_type());

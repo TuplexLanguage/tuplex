@@ -44,9 +44,11 @@ class TypeRegistry {
     const TxType* builtinModTypes[BuiltinTypeId_COUNT];
 
     /** all the static types, i.e. all types with distinct static data type (and thus distinct TypeId) */
-    std::vector<const TxType*> allStaticTypes;
+    std::vector<TxType*> createdTypes;
+    /** all the static types, i.e. all types with distinct static data type (and thus distinct TypeId) */
+    std::vector<const TxType*> staticTypes;
 
-    void register_type(TxType* type);
+    void add_type(TxType* type);
 
     void initializeBuiltinSymbols();
     void declare_conversion_constructor(BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId);
@@ -60,12 +62,15 @@ class TypeRegistry {
     const TxInterfaceAdapterType* inner_get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);
 
 public:
+    /** The root type. All variables / fields / interfaces / objects are instances of this type. */
+    static TxType const * const Any;
+
     TypeRegistry(TxPackage& package) : package(package) {
         this->initializeBuiltinSymbols();
     }
 
-    /** The root type. All variables / fields / interfaces / objects are instances of this type. */
-    static TxType const * const Any;
+    /** to be invoked after the whole package's source has been processed, before code generation */
+    void register_types();
 
 
     const TxTypeDefiner* get_builtin_type_def(const BuiltinTypeId id) const;
@@ -79,6 +84,8 @@ public:
      * The type parameters of the base type will pass-through (appear redeclared) in the modifiable type.
      */
     const TxType* get_modifiable_type(const TxTypeDeclaration* declaration, const TxType* type);
+
+    const TxType* get_empty_specialization(const TxTypeDeclaration* declaration, const TxType* type);
 
     /** Gets a specialization of a base type.
      * Any type parameters of the base type that aren't bound in the provided specialization
@@ -116,9 +123,9 @@ public:
 
 
     /** Returns a read-only iterator that points to the first type. */
-    inline std::vector<const TxType*>::const_iterator types_cbegin() const { return this->allStaticTypes.cbegin(); }
+    inline std::vector<const TxType*>::const_iterator types_cbegin() const { return this->staticTypes.cbegin(); }
     /** Returns a read-only iterator that points to one past the last type. */
-    inline std::vector<const TxType*>::const_iterator types_cend()   const { return this->allStaticTypes.cend(); }
+    inline std::vector<const TxType*>::const_iterator types_cend()   const { return this->staticTypes.cend(); }
 
-    inline uint32_t get_type_count() const { return this->allStaticTypes.size(); }
+    inline uint32_t get_type_count() const { return this->staticTypes.size(); }
 };

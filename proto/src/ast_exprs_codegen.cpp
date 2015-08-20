@@ -526,7 +526,8 @@ Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* s
             return origValue;  // should we return null instead?
         }
         //std::cerr << "Ref conversion from " << this->expr->get_type(0) << "  to Ref to  " << refTargetType << " = " << refT << std::endl;
-        return TxReferenceType::gen_ref_conversion(context, scope, origValue, refT, this->convertTypeId);
+        uint32_t adapterTypeId = (this->adapterType ? this->adapterType->get_type_id() : UINT32_MAX);
+        return TxReferenceType::gen_ref_conversion(context, scope, origValue, refT, adapterTypeId);
     }
 //    // from array:
 //    else if (dynamic_cast<const TxArrayType*>(this->expr->get_type(0))) {
@@ -559,8 +560,8 @@ Value* TxObjSpecCastNode::code_gen(LlvmGenerationContext& context, GenScope* sco
 
 Value* TxFunctionCallNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    if (this->get_spec(0).inlinedExpression) {
-        return this->get_spec(0).inlinedExpression->code_gen(context, scope);
+    if (auto inlExp = this->get_spec(0)->inlinedExpression) {
+        return inlExp->code_gen(context, scope);
     }
     return this->gen_call(context, scope);
 }
@@ -621,12 +622,15 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
     context.LOG.trace("%-48s", this->to_string().c_str());
     // find the constructor
     // (constructors aren't inherited, but we bypass pure specializations to find the code-generated constructor)
-    auto uniqueName = this->get_spec(0).declaration->get_unique_name();
+    auto uniqueName = this->get_spec(0)->declaration->get_unique_name();
     const TxType* allocType = this->objectExpr->get_type(0);
+
+    // as we don't (yet) generate code for specializations, we'll find the actual constructor in the top generic base type:
     while (allocType->is_pure_specialization())
         allocType = allocType->get_base_type();
     auto uniqueFullName = allocType->get_declaration()->get_unique_full_name() + "." + uniqueName;
     //std::cerr << "Code-generated constructor name: " << uniqueFullName << " (from: " << this->get_spec(0).declaration->get_unique_full_name() << ")" << std::endl;
+
     Value* funcPtrV = context.lookup_llvm_value(uniqueFullName);
     if (! funcPtrV) {
         if (auto txType = this->get_type(0)) {
@@ -666,8 +670,8 @@ Value* TxMakeObjectNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     Value* objAllocV = this->constructor->gen_obj_ptr(context, scope);
 
     // initialize the object
-    if (this->get_spec(0).inlinedExpression) {
-        auto initValue = this->get_spec(0).inlinedExpression->code_gen(context, scope);
+    if (auto inlExp = this->get_spec(0)->inlinedExpression) {
+        auto initValue = inlExp->code_gen(context, scope);
         ASSERT(scope, "new expression not supported in global/static scope: " << this->parse_loc_string());
         scope->builder->CreateStore(initValue, objAllocV);
     }
@@ -692,10 +696,10 @@ Value* TxNewExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) 
 Value* TxStackConstructorNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     // stack constructor returns the constructed object by value, not by reference
     context.LOG.trace("%-48s", this->to_string().c_str());
-    if (this->get_spec(0).inlinedExpression) {
+    if (auto inlExp = this->get_spec(0)->inlinedExpression) {
         // if inlined, the stack constructor doesn't need to actually allocate storage on stack
         // (the receiver of this expression value might do this, if it needs to)
-        return this->get_spec(0).inlinedExpression->code_gen(context, scope);
+        return inlExp->code_gen(context, scope);
     }
     else {
         auto objAllocV = TxMakeObjectNode::code_gen(context, scope);

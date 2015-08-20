@@ -40,7 +40,7 @@ public:
         // not invoking baseExpr->symbol_resolution_pass() since that is only done via define_type()
         //if (this->baseExpr)
         //    this->baseExpr->symbol_resolution_pass(six, resCtx);
-        if (auto typeDecl = dynamic_cast<const TxTypeDeclaration*>(this->get_spec(six).declaration))
+        if (auto typeDecl = dynamic_cast<const TxTypeDeclaration*>(this->get_spec(six)->declaration))
             CERROR(this, "'" << get_full_identifier() << "' resolved to a type, not a field: " << typeDecl);
     }
 
@@ -61,9 +61,9 @@ public:
     }
 
     // should not be called before symbol is resolved:
-    inline const TxField* get_field(TxSpecializationIndex six) const { return this->get_spec(six).field; }
+    inline const TxField* get_field(TxSpecializationIndex six) const { return this->get_spec(six)->field; }
     inline const TxFieldDeclaration* get_field_declaration(TxSpecializationIndex six) const {
-        return dynamic_cast<const TxFieldDeclaration*>(this->get_spec(six).declaration);
+        return dynamic_cast<const TxFieldDeclaration*>(this->get_spec(six)->declaration);
     }
 
 

@@ -50,10 +50,6 @@ enum TxTypeClass {
     TXTC_FUNCTION,
     /** The interface types. */
     TXTC_INTERFACE,
-    /** The Range types. */
-    TXTC_RANGE,
-    /** The Enum types. */
-    TXTC_ENUM,
     /** The internal, implicit interface adapter types. */
     TXTC_INTERFACEADAPTER,
 };
@@ -155,27 +151,29 @@ class TxTypeSpecialization : public Printable {
 public:
     TxType const * const type;
     const bool modifiable;
+    const bool empty;
     TxIdentifier const * const dataspace;  // only set for reference specializations
     const std::vector<TxGenericBinding> bindings;
 
     /** Only legal to use by the Any type. */
     TxTypeSpecialization()
-            : type(), modifiable(), dataspace(), bindings()  { }
+            : type(), modifiable(), empty(), dataspace(), bindings()  { }
 
-    TxTypeSpecialization(const TxType* baseType, bool modifiable=false)
-            : type(baseType), modifiable(modifiable), dataspace(), bindings()  {
+    TxTypeSpecialization(const TxType* baseType, bool modifiable=false, bool empty=false)
+            : type(baseType), modifiable(modifiable), empty(empty), dataspace(), bindings()  {
         ASSERT(baseType, "NULL baseType");
+        ASSERT(!(modifiable && empty), "Type specialization can't be both modifiable and empty: " << baseType);
     }
 
     TxTypeSpecialization(const TxType* baseType, std::vector<TxGenericBinding>&& baseBindings,
                          const TxIdentifier* dataspace=nullptr)
-            : type(baseType), modifiable(false), dataspace(dataspace), bindings(baseBindings)  {
+            : type(baseType), modifiable(false), empty(false), dataspace(dataspace), bindings(baseBindings)  {
         ASSERT(baseType, "NULL baseType");
     }
 
     TxTypeSpecialization(const TxType* baseType, const std::vector<TxGenericBinding>& baseBindings,
                          const TxIdentifier* dataspace=nullptr)
-            : type(baseType), modifiable(false), dataspace(dataspace), bindings(baseBindings)  {
+            : type(baseType), modifiable(false), empty(false), dataspace(dataspace), bindings(baseBindings)  {
         ASSERT(baseType, "NULL baseType");
     }
 
@@ -204,12 +202,6 @@ public:
 
     std::string to_string() const;
 };
-
-
-
-/** Returns true if the two types are mutually equivalent (see also is_equivalent_derivation()).
- * Note, does not take explicit naming into account. */
-extern bool equivalent(const TxType* typeA, const TxType* typeB);
 
 
 
@@ -246,9 +238,10 @@ class TxType : public TxEntity {
     void prepare_type();
 
 protected:
-    // data layout:
     bool extendsInstanceDatatype = false;
     bool modifiesVTable = false;
+    bool emptyDerivation = false;
+    // data layout:
     DataTupleDefinition staticFields;
     DataTupleDefinition virtualFields;
     DataTupleDefinition instanceMethods;
@@ -288,11 +281,6 @@ protected:
     }
 
 public:
-    inline bool is_prepared() const { return this->prepared; }
-
-    /** Prepares this type's members, including data layout. Called after object construction has completed. */
-    virtual void prepare_type_members();
-
     virtual ~TxType() = default;
 
 
@@ -303,10 +291,17 @@ public:
     virtual const TxType* get_type() const override { return this; }
 
 
-    /*--- characteristics ---*/
+    inline bool is_prepared() const { return this->prepared; }
+
+    /** Prepares this type's members, including data layout. Called after object construction has completed. */
+    virtual void prepare_type_members();
 
     /** Gets the runtime type id of this type. (Equivalent specializations return their base type's id.) */
-    inline uint32_t get_type_id() const { return ( this->runtimeTypeId == UINT32_MAX ? this->get_base_type()->get_type_id() : this->runtimeTypeId ); }
+    inline uint32_t get_type_id() const {
+        ASSERT(this->prepared, "Can't get runtime type id of unprepared type: " << this);
+        return ( this->runtimeTypeId == UINT32_MAX ? this->get_base_type()->get_type_id() : this->runtimeTypeId );
+    }
+
 
     virtual inline const TxTypeDeclaration* get_declaration() const override {
         return static_cast<const TxTypeDeclaration*>(TxEntity::get_declaration());
@@ -322,6 +317,8 @@ public:
     }
 
 
+    /*--- characteristics ---*/
+
     /** Returns true if this type has a base type (parent). ('Any' is the only type that has no base type.) */
     inline bool has_base_type() const { return this->baseTypeSpec.type; }
 
@@ -331,6 +328,11 @@ public:
 
     /** Gets the base data type (parent) of this type. The same as get_base_type() except for generic type specializations. */
     inline const TxType* get_base_data_type() const { return this->baseTypeSpec.type; }
+
+    /** Gets the "instance base type" of this type, which is either this type, or the closest ancestor type
+     * which defines a distinct instance data type.
+     * This is used to bypass same-instance-type derivations (e.g. empty/mod. specializations). */
+    const TxType* get_instance_base_type() const;
 
 
     /** Returns the type class this type belongs to. */
@@ -368,23 +370,11 @@ public:
      * References are always concrete (even if generic). */
     bool is_concrete() const;
 
-    /** Returns true if this type is a pure specialization of a base type,
-     * i.e. does not extend the base type with any definitions, or interfaces,
-     * besides type parameter bindings and the modifiable attribute.
-     * Such a type is a *direct usage form* of the base type.
-     *
-     * Note that a pure specialization may still be non-concrete (generic and/or abstract),
-     * and that it isn't necessarily the same data type as the base type.
-     *
-     * Technically, pure specialization types are created when only specializing a base type
-     * with type parameter bindings and/or the modifiable attribute.
-     *
-     * We currently don't regard adding static members, or defining previously abstract methods,
-     * as making a specialization impure.
-     *
-     * (Returns false for Any which has no base type.)
-     */
-    bool is_pure_specialization() const;
+    /** Returns true if this type has the same vtable as its base type. */
+    inline bool is_same_vtable_type() const { return !this->modifiesVTable; }
+
+    /** Returns true if this type has the same instance data type as its base type. */
+    inline bool is_same_instance_type() const { return !this->extendsInstanceDatatype; }
 
     /** Returns true if this type is an empty derivation of a base type,
      * i.e. does not specialize any type parameters of the base type, nor modifiable,
@@ -399,11 +389,26 @@ public:
      * i.e. is effectively the same *instance data type* as well as same static definition as the base type.
      * If true, this type does not need a distinct vtable nor distinct code generation.
      *
-     * Added interfaces, bound non-ref type parameters, added virtual members, added instance members cause this to return false;
-     * modifiability and bound ref-constrained type parameters do not.
+     * Added bound non-ref type parameters, added virtual members, added instance members cause this to return false;
+     * interfaces, modifiability, and bound ref-constrained type parameters do not.
      * (Returns false for Any which has no base type.)
      */
     bool is_equivalent_derivation() const;
+
+    /** Returns true if this type is a pure specialization of a base type,
+     * i.e. does not extend the base type with any definitions, or interfaces,
+     * besides type parameter bindings and the modifiable attribute.
+     * Such a type is a *direct usage form* of the base type.
+     *
+     * Note that a pure specialization may still be non-concrete (generic and/or abstract),
+     * and that it isn't necessarily the same data type as the base type.
+     *
+     * Technically, pure specialization types are created when only specializing a base type
+     * with type parameter bindings and/or the modifiable attribute.
+     *
+     * (Returns false for Any which has no base type.)
+     */
+    bool is_pure_specialization() const;
 
     /** Returns true if this type is a virtual derivation of a base type,
      * i.e. is effectively the same *instance data type* as the base type.
@@ -419,6 +424,53 @@ public:
     virtual bool is_statically_sized() const;
 
 
+    // FUTURE: checksum?
+
+    // FUTURE: Should we remove the == != operator overloads in favor of more specifically named comparison methods?
+
+    /** Returns true iff the two types are equal in the Tuplex language definition sense.
+     * Note that named types are non-equal if not same name. */
+    virtual bool operator==(const TxType& other) const;
+
+    /** Returns true iff the two types are unequal in the Tuplex language definition sense. */
+    inline bool operator!=(const TxType& other) const  { return ! this->operator==(other); }
+
+
+    /** Returns true if an instance of this type can implicitly convert to an instance of the destination type.
+     * Note that this does not test whether destination is modifiable;
+     * it only tests type instance compatibility for assignment.
+     * (For example, an initializer to an unmodifiable field is still valid if assignable to its type.)
+     * This is a less strict test than is_assignable, since some types that are not directly assignable
+     * may be so after an implicit conversion (e.g. Byte -> Int). */
+    virtual bool auto_converts_to(const TxType& destination) const {
+        return this->is_assignable_to(destination);  // default implementation is equal to assignability
+    }
+
+    /** Returns true if an instance of this type can be assigned to a field of the provided type
+     * (without performing any value conversion).
+     * Note that this does not test whether destination is modifiable;
+     * it only tests type instance compatibility for assignment.
+     * (For example, an initializer to an unmodifiable field is still valid if assignable to its type.)
+     * For many type classes this is a more strict test than is-a,
+     * however for functions, arrays, references and adapters this test concerns data type equivalence and
+     * substitutability rather than is-a relationship. */
+    virtual bool is_assignable_to(const TxType& destination) const;
+
+    /** Returns true if the provided type is the same as this, or a specialization of this.
+     * Note that true does not guarantee assignability, for example modifiability is not taken into account.
+     */
+    bool is_a(const TxType& other) const;
+
+private:
+    bool inner_equals(const TxType& otherType) const;
+
+    /** Returns the common base type of this and other, if both are pure specializations of it. */
+    const TxType* common_generic_base_type(const TxType& other) const;
+
+    bool derives_object(const TxType* objectType) const;
+    bool derives_interface(const TxType* interfaceType) const;
+
+public:
     /*--- namespace lookup ---*/
 
 // was undefined whether these should return inherited members or not
@@ -464,62 +516,17 @@ public:
     }
 
 
-    /** Returns true if there are TYPE parameters with other than Ref constraint. */
-    inline bool has_nonref_parameters() const { return this->nonRefParameters; }
-
-    /** Returns true if there are TYPE bindings for base type's parameters with other than Ref constraint. */
-    inline bool has_nonref_bindings() const { return this->nonRefBindings; }
+//    /** Returns true if there are TYPE parameters with other than Ref constraint. */
+//    inline bool has_nonref_parameters() const { return this->nonRefParameters; }
+//
+//    /** Returns true if there are TYPE bindings for base type's parameters with other than Ref constraint. */
+//    inline bool has_nonref_bindings() const { return this->nonRefBindings; }
 
     const std::vector<TxGenericBinding>& get_bindings() const {
         return this->baseTypeSpec.bindings;
     }
 
 
-    // FUTURE: checksum?
-
-    // FUTURE: Should we remove the == != operator overloads in favor of more specifically named comparison methods?
-
-    /** Returns true iff the two types are equal in the Tuplex language definition sense.
-     * Note that named types are non-equal if not same name. */
-    virtual bool operator==(const TxType& other) const;
-
-    /** Returns true iff the two types are unequal in the Tuplex language definition sense. */
-    inline bool operator!=(const TxType& other) const  { return ! this->operator==(other); }
-
-
-    /** Returns true if an instance of this type can implicitly convert to an instance of the destination type.
-     * Note that this does not test whether destination is modifiable;
-     * it only tests type instance compatibility for assignment.
-     * (For example, an initializer to an unmodifiable field is still valid if assignable to its type.)
-     * This is a less strict test than is_assignable, since some types that are not directly assignable
-     * may be so after an implicit conversion (e.g. Byte -> Int). */
-    virtual bool auto_converts_to(const TxType& destination) const {
-        return this->is_assignable_to(destination);  // default implementation is equal to assignability
-    }
-
-    /** Returns true if an instance of this type can be assigned to a field of the provided type
-     * (without performing any value conversion).
-     * Note that this does not test whether destination is modifiable;
-     * it only tests type instance compatibility for assignment.
-     * (For example, an initializer to an unmodifiable field is still valid if assignable to its type.)
-     * For many type classes this is a more strict test than is-a,
-     * however for functions, arrays, references and adapters this test concerns data type equivalence and
-     * substitutability rather than is-a relationship. */
-    virtual bool is_assignable_to(const TxType& destination) const;
-
-    /** Returns true if the provided type is the same as this, or a specialization of this.
-     * Note that true does not guarantee assignability, for example modifiability is not taken into account.
-     */
-    bool is_a(const TxType& other) const;
-
-    /** Returns the common base type of this and other, if both are pure specializations of it. */
-    const TxType* common_generic_base_type(const TxType& other) const;
-
-private:
-    bool inner_is_a(const TxType& other) const;
-    bool derives_interface(const TxType& interface) const;
-
-public:
     /*--- data layout ---*/
 
     inline const DataTupleDefinition& get_instance_fields() const { return this->instanceFields; }
@@ -558,6 +565,8 @@ public:
         std::stringstream str;
         if (this->get_type_class() == TXTC_INTERFACE)
             str << "i/f ";
+        else if (this->get_type_class() == TXTC_INTERFACEADAPTER)
+            str << "i/f/ad ";
         else if (this->is_abstract())
             str << "ABSTRACT ";
         if (this->is_immutable())

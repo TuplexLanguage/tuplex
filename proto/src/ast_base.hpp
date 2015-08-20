@@ -108,16 +108,19 @@ public:
 
 
 class TxSpecializableNode : public TxNode {
-    std::vector<TxSpecializationPass> specializations;
+    TxSpecializationPass firstSpec;
+    std::vector<TxSpecializationPass*> specializations;
 
 protected:
-    inline const TxSpecializationPass& get_spec(TxSpecializationIndex six) const {
+    inline const TxSpecializationPass* get_spec(TxSpecializationIndex six) const {
         ASSERT(six < this->specializations.size(), "Non-existant specialization index " << six << " in " << this);
         return this->specializations.at(six);
     }
-    inline TxSpecializationPass& get_spec(TxSpecializationIndex six) {
-        while (six >= this->specializations.size())
-            this->specializations.emplace_back();
+    inline TxSpecializationPass* get_spec(TxSpecializationIndex six) {
+        while (six >= this->specializations.size()) {
+            //std::cerr << "EXTENDING SPEC VEC TO six " << six << " OF " << this << std::endl;
+            this->specializations.push_back(new TxSpecializationPass());
+        }
         return this->specializations.at(six);
     }
 
@@ -125,25 +128,25 @@ protected:
     inline TypeRegistry& types(TxSpecializationIndex six=0) { return this->context(six).package()->types(); }
 
 public:
-    TxSpecializableNode(const yy::location& parseLocation) : TxNode(parseLocation), specializations(1) { }
+    TxSpecializableNode(const yy::location& parseLocation) : TxNode(parseLocation), specializations({ &this->firstSpec }) { }
 
     TxSpecializationIndex next_spec_index() const {
         return this->specializations.size();
     }
 
     inline bool is_context_set(TxSpecializationIndex six) const {
-        return this->specializations.size() > six && this->specializations.at(six).lexContext.scope();
+        return this->specializations.size() > six && this->specializations.at(six)->lexContext.scope();
     }
 
     inline void set_context(TxSpecializationIndex six, const LexicalContext& context) {
         ASSERT(!this->is_context_set(six), "lexicalContext already initialized for s-ix " << six << " in " << this->to_string());
-        this->get_spec(six).lexContext = context;
+        this->get_spec(six)->lexContext = context;
         //std::cerr << "Set context for s-ix " << six << " in " << this->to_string() << std::endl;
     }
 
     inline const LexicalContext& context(TxSpecializationIndex six) const {
         ASSERT(this->is_context_set(six), "lexicalContext not initialized for s-ix " << six << " in " << this->to_string());
-        return this->get_spec(six).lexContext;
+        return this->get_spec(six)->lexContext;
     }
     inline LexicalContext& context(TxSpecializationIndex six) {
         return const_cast<LexicalContext&>(static_cast<const TxSpecializableNode *>(this)->context(six));
@@ -340,21 +343,21 @@ public:
 
     /** Returns the type (as specific as can be known) of the value this expression produces. */
     virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) override final {
-        auto & spec = this->get_spec(six);
-        if (!spec.type && !spec.hasResolved) {
+        auto spec = this->get_spec(six);
+        if (!spec->type && !spec->hasResolved) {
             LOGGER().trace("resolving type of %s (s-ix %u)", this->to_string().c_str(), six);
-            ASSERT(!spec.startedRslv, "Recursive invocation of resolve_type() of " << this);
-            spec.startedRslv = true;
-            spec.type = this->define_type(six, resCtx);
-            spec.hasResolved = true;
-            if (spec.type && !spec.type->is_prepared())
-                const_cast<TxType*>(spec.type)->prepare_type_members();
+            ASSERT(!spec->startedRslv, "Recursive invocation of resolve_type() of " << this);
+            spec->startedRslv = true;
+            spec->type = this->define_type(six, resCtx);
+            spec->hasResolved = true;
+//            if (spec->type && !spec->type->is_prepared())
+//                const_cast<TxType*>(spec->type)->prepare_type_members();
         }
-        return spec.type;
+        return spec->type;
     }
 
-    virtual const TxType* attempt_get_type(TxSpecializationIndex six) const override final { return this->get_spec(six).type; }
-    virtual const TxType* get_type        (TxSpecializationIndex six) const override final { return this->get_spec(six).type; }
+    virtual const TxType* attempt_get_type(TxSpecializationIndex six) const override final { return this->get_spec(six)->type; }
+    virtual const TxType* get_type        (TxSpecializationIndex six) const override final { return this->get_spec(six)->type; }
 };
 
 
@@ -379,25 +382,25 @@ public:
 
     /** Returns the type (as specific as can be known) of the value this expression produces. */
     virtual const TxField* resolve_field(TxSpecializationIndex six, ResolutionContext& resCtx) override final {
-        auto & spec = this->get_spec(six);
-        if (!spec.field && !spec.hasResolved) {
+        auto spec = this->get_spec(six);
+        if (!spec->field && !spec->hasResolved) {
             LOGGER().trace("resolving field of %s (s-ix %u)", this->to_string().c_str(), six);
-            ASSERT(!spec.startedRslv, "Recursive invocation of resolve_field() of " << this);
-            spec.startedRslv = true;
-            spec.field = this->define_field(six, resCtx);
-            spec.hasResolved = true;
+            ASSERT(!spec->startedRslv, "Recursive invocation of resolve_field() of " << this);
+            spec->startedRslv = true;
+            spec->field = this->define_field(six, resCtx);
+            spec->hasResolved = true;
         }
-        return spec.field;
+        return spec->field;
     }
 
     virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) override final {
         this->resolve_field(six, resCtx);
-        return this->get_spec(six).type;
+        return this->get_spec(six)->type;
     }
 
-    virtual const TxType*  attempt_get_type(TxSpecializationIndex six) const override final { return this->get_spec(six).type; }
-    virtual const TxType*  get_type        (TxSpecializationIndex six) const override final { return this->get_spec(six).type; }
-    virtual const TxField* get_field       (TxSpecializationIndex six) const override final { return this->get_spec(six).field; }
+    virtual const TxType*  attempt_get_type(TxSpecializationIndex six) const override final { return this->get_spec(six)->type; }
+    virtual const TxType*  get_type        (TxSpecializationIndex six) const override final { return this->get_spec(six)->type; }
+    virtual const TxField* get_field       (TxSpecializationIndex six) const override final { return this->get_spec(six)->field; }
 //    virtual const TxExpressionNode* get_init_expression() const = 0;
 };
 
@@ -425,7 +428,7 @@ protected:
 
     /** Gets the type declaration of this type expression, if any. */
     inline const TxTypeDeclaration* get_declaration(TxSpecializationIndex six) const {
-        return dynamic_cast<const TxTypeDeclaration*>(this->get_spec(six).declaration);
+        return dynamic_cast<const TxTypeDeclaration*>(this->get_spec(six)->declaration);
     }
 
     virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
@@ -471,7 +474,7 @@ protected:
         else if (auto declEnt = this->get_declaration(six)) {
             if (! type->is_modifiable())
                 // create empty specialization (uniquely named but identical type)
-                return this->types(six).get_type_specialization(declEnt, TxTypeSpecialization(type));
+                return this->types(six).get_empty_specialization(declEnt, type);
         }
         return type;
     }
@@ -527,10 +530,10 @@ public:
     }
 
     virtual std::vector<const TxType*>* get_applied_func_arg_types(TxSpecializationIndex six) {
-        return this->get_spec(six).appliedFuncArgTypes;
+        return this->get_spec(six)->appliedFuncArgTypes;
     }
     virtual void set_applied_func_arg_types(TxSpecializationIndex six, std::vector<const TxType*>* appliedFuncArgTypes) {
-        this->get_spec(six).appliedFuncArgTypes = appliedFuncArgTypes;
+        this->get_spec(six)->appliedFuncArgTypes = appliedFuncArgTypes;
     }
 
     /** Generates code that produces the type id (as opposed to the value) of this expression. */
@@ -647,9 +650,9 @@ protected:
         }
 
         if (type) {
-            auto & spec = this->get_spec(six);
-            spec.type = type;
-            if (auto decl = static_cast<const TxFieldDeclaration*>(spec.declaration))
+            auto spec = this->get_spec(six);
+            spec->type = type;
+            if (auto decl = static_cast<const TxFieldDeclaration*>(spec->declaration))
                 return new TxField(decl, type);
             // else is not an error - function type's arguments & return type lack field declarations
         }
@@ -687,7 +690,7 @@ public:
             lexContext.scope(lexContext.scope()->create_code_block_scope());
         TxDeclarationFlags declFlags = TXD_NONE;
         this->declName = this->fieldName;
-        this->get_spec(six).declaration = lexContext.scope()->declare_field(this->declName, this->get_spec_field_def(six),
+        this->get_spec(six)->declaration = lexContext.scope()->declare_field(this->declName, this->get_spec_field_def(six),
                                                                             declFlags, TXS_STACK, TxIdentifier(""));
         this->symbol_declaration_pass(six, outerCtx, lexContext, declFlags);
     }
@@ -702,7 +705,7 @@ public:
             declFlags = declFlags | TXD_CONSTRUCTOR;
         }
 
-        this->get_spec(six).declaration = lexContext.scope()->declare_field(this->declName, this->get_spec_field_def(six),
+        this->get_spec(six)->declaration = lexContext.scope()->declare_field(this->declName, this->get_spec_field_def(six),
                                                                             declFlags, storage, dataspace);
         this->symbol_declaration_pass(six, lexContext, lexContext, declFlags);
     }
@@ -718,9 +721,10 @@ public:
         }
         if (this->initExpression) {
             this->initExpression->symbol_resolution_pass(six, resCtx);
-            if ((this->typeExpression || this->typeDefiner) && this->get_spec(six).type)
-                this->initExpression = validate_wrap_convert(six, resCtx, this->initExpression, this->get_spec(six).type);
-            if (this->get_spec(six).field && this->get_spec(six).field->is_statically_constant())
+            auto spec = this->get_spec(six);
+            if ((this->typeExpression || this->typeDefiner) && spec->type)
+                this->initExpression = validate_wrap_convert(six, resCtx, this->initExpression, spec->type);
+            if (spec->field && spec->field->is_statically_constant())
                     if (! this->initExpression->is_statically_constant())
                         CERROR(this, "Non-constant initializer for constant global/static field.");
         }
@@ -751,8 +755,8 @@ public:
     }
 
     const TxFieldDeclaration* get_declaration(TxSpecializationIndex six) const {
-        ASSERT(this->get_spec(six).declaration, "field declaration not initialized for " << this->fieldName);
-        return dynamic_cast<const TxFieldDeclaration*>(this->get_spec(six).declaration);
+        ASSERT(this->get_spec(six)->declaration, "field declaration not initialized for " << this->fieldName);
+        return dynamic_cast<const TxFieldDeclaration*>(this->get_spec(six)->declaration);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

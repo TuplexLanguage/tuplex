@@ -94,19 +94,30 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
+
+/** Returns true if the two types are mutually "equivalent".
+ * Note, does not take explicit naming into account. */
+// FIXME: possibly revise together with is_equivalent_derivation()
+static bool equivalent_interface_target_types(const TxType* typeA, const TxType* typeB) {
+    while (typeA->is_same_vtable_type())
+        typeA = typeA->get_base_type();
+    while (typeB->is_same_vtable_type())
+        typeB = typeB->get_base_type();
+    return (*typeA == *typeB);
+}
+
 class TxReferenceConvNode : public TxConversionNode {
-    uint32_t convertTypeId = UINT32_MAX;
+    const TxType* adapterType = nullptr;
 protected:
     virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
         auto resultTargetType = static_cast<const TxReferenceType*>(this->resultType)->target_type();
         if (resultTargetType && resultTargetType->get_type_class() == TXTC_INTERFACE) {
             auto origType = static_cast<const TxReferenceType*>(this->expr->resolve_type(six, resCtx));
             auto origTargetType = origType->target_type();
-            if (! equivalent(resultTargetType, origTargetType)) {
+            if (! equivalent_interface_target_types(resultTargetType, origTargetType)) {
                 // create / retrieve interface adapter type
                 //std::cerr << "Converting interface reference to adapter:\n\tfrom & " << origTargetType << "\n\tto   & " << resultTargetType << std::endl;
-                auto adapterType = this->types().get_interface_adapter(resultTargetType, origTargetType);
-                this->convertTypeId = adapterType->get_type_id();
+                this->adapterType = this->types().get_interface_adapter(resultTargetType, origTargetType);
 
                 // create reference type to the adapter type  TODO: delegate this to TypeRegistry
                 auto implTypeName = this->context(six).scope()->make_unique_name("$type");
@@ -526,14 +537,14 @@ public:
     }
 
     virtual bool is_statically_constant() const override {
-        if (this->get_spec(0).inlinedExpression)
-            return this->get_spec(0).inlinedExpression->is_statically_constant();
+        if (this->get_spec(0)->inlinedExpression)
+            return this->get_spec(0)->inlinedExpression->is_statically_constant();
         return false;
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        if (this->get_spec(0).inlinedExpression)
-            return this->get_spec(0).inlinedExpression->get_static_constant_proxy();
+        if (this->get_spec(0)->inlinedExpression)
+            return this->get_spec(0)->inlinedExpression->get_static_constant_proxy();
         return nullptr;
     }
 
@@ -644,8 +655,8 @@ public:
 
         if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(this->constructor->get_type(six))) {
             // "inline" initialization by replacing with conversion expression
-            this->get_spec(six).inlinedExpression = validate_wrap_convert(six, resCtx, this->constructorCall->argsExprList->front(),
-                                                                          inlineFunc->returnType, true);
+            this->get_spec(six)->inlinedExpression = validate_wrap_convert(six, resCtx, this->constructorCall->argsExprList->front(),
+                                                                           inlineFunc->returnType, true);
         }
     }
 

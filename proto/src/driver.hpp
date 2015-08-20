@@ -29,6 +29,7 @@ public:
     bool run_jit = true;
     bool no_bc_output = false;
     bool suppress_asserts = false;
+    bool allow_tx = false;
     std::vector<std::string> sourceSearchPaths;
 };
 

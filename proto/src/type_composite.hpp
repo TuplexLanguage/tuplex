@@ -312,16 +312,16 @@ public:
 
     virtual void prepare_type_members() override;
 
-    virtual bool is_abstract() const override { return false; }
+//    virtual bool is_abstract() const override { return false; }
 
-    // TODO: allow adapters with proper is-a relationship to auto-convert
-
-    virtual bool is_assignable_to(const TxType& someType) const override {
-        if (auto otherAdapter = dynamic_cast<const TxInterfaceAdapterType*>(&someType))
-            return (*this == *otherAdapter && this->adaptedType == otherAdapter->adaptedType);
-        else
-            return false;
-    }
+// as adapters are intrinsically abstract, no instances are created and can't be any more assignable than interfaces
+//    // TO DO: allow adapters with proper is-a relationship to auto-convert
+//    virtual bool is_assignable_to(const TxType& someType) const override {
+//        if (auto otherAdapter = dynamic_cast<const TxInterfaceAdapterType*>(&someType))
+//            return (*this == *otherAdapter && this->adaptedType == otherAdapter->adaptedType);
+//        else
+//            return false;
+//    }
 
     inline const TxType* adapted_type() const { return this->adaptedType; }
 

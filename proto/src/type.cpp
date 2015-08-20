@@ -102,7 +102,100 @@ bool TxType::validate() const {
 void TxType::prepare_type() {
     LOGGER().debug("Preparing type %s", this->to_string().c_str());
 
-    ASSERT(!this->baseTypeSpec.type || this->baseTypeSpec.type->is_prepared(), "Non-prepared base type: " << this->baseTypeSpec.type);
+    if (this->is_modifiable()) {
+        // a modifiable type is a usage form of its base type, and doesn't affect the instance nor the vtable type
+    }
+    else if (! this->baseTypeSpec.bindings.empty()) {
+        // Binding of a base type parameter implies reinterpretation of its members and thus
+        // the chance of modified instance / vtable types.
+        // FUTURE: at least distinguish between binding ref-constrained parameters and others
+        this->extendsInstanceDatatype = true;
+        this->modifiesVTable = true;
+    }
+    else if (this->is_builtin()) {
+        // Built-in implies a distinct instance type compared to the base type.
+        this->extendsInstanceDatatype = true;
+    }
+    else if (this->get_type_class() == TXTC_FUNCTION) {
+        // function type implies a distinct instance type compared to the base type (for now)
+        this->extendsInstanceDatatype = true;
+    }
+
+    if (this->get_declaration()) {
+        auto typeDeclNamespace = this->get_declaration()->get_symbol();
+        // determine generic base type, if any:
+        if (auto entitySym = dynamic_cast<TxEntitySymbol*>(typeDeclNamespace->get_member_symbol("$GenericBase"))) {
+            if (auto typeDecl = entitySym->get_type_decl()) {
+                ResolutionContext resCtx;
+                this->genericBaseType = typeDecl->get_definer()->resolve_type(resCtx);
+                //ASSERT(this->genericBaseType, "$GenericBase not already resolved upon creation of " << this->get_declaration());
+                //LOGGER().alert("Generic base type of %s is %s", entitySym->get_full_name().to_string().c_str(), this->genericBaseType->to_string().c_str());
+            }
+        }
+
+        // perform shallow pass on type's member declarations to determine derivation degree:
+        bool hasExplicitFieldMembers = false;
+        bool hasImplicitFieldMembers = false;
+        for (auto symname = typeDeclNamespace->symbol_names_cbegin(); symname != typeDeclNamespace->symbol_names_cend(); symname++) {
+            if (auto entitySym = dynamic_cast<TxEntitySymbol*>(typeDeclNamespace->get_member_symbol(*symname))) {
+                for (auto fieldDeclI = entitySym->fields_cbegin(); fieldDeclI != entitySym->fields_cend(); fieldDeclI++) {
+                    auto fieldDecl = *fieldDeclI;
+
+                    if (fieldDecl->get_decl_flags() & TXD_IMPLICIT)
+                        hasImplicitFieldMembers = true;
+                    else
+                        hasExplicitFieldMembers = true;
+
+                    switch (fieldDecl->get_storage()) {
+                    case TXS_INSTANCE:
+                        if (fieldDecl->get_unique_name().find('#') != std::string::npos)
+                            // FIXME: make VALUE type params be declared as instance members in generic base type,
+                            // so that they are not "extensions" to the specialized subtypes, and remove this '#' test
+                            break;
+                        this->extendsInstanceDatatype = true;
+                        break;
+                    case TXS_INSTANCEMETHOD:
+                        if (fieldDecl->get_decl_flags() & TXD_CONSTRUCTOR)
+                            break;
+                        // no break
+                    case TXS_VIRTUAL:
+                        this->modifiesVTable = true;
+                        break;
+                    // note: TXS_STATIC members are private, and like globals but with limited visibility,
+                    // and don't affect the derivation degree.
+                    default:
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (! hasExplicitFieldMembers) {
+            if (hasImplicitFieldMembers) {
+                LOGGER().alert("Type with only implicit field members: %s", this->to_string().c_str());
+            }
+            if (! this->is_builtin() && ! this->is_modifiable()) {
+                this->emptyDerivation = true;
+                if (! this->baseTypeSpec.empty)
+                    LOGGER().alert("Type without field members not pre-specified as empty: %s", this->to_string().c_str());
+            }
+        }
+    }
+    else {
+        bool madeConcrete = !this->is_generic() && this->get_base_type() && this->get_base_type()->is_generic();
+        ASSERT(! madeConcrete, "Type is concrete specialization of generic base type, but unnamed (undeclared): " << this);
+        if (this->get_type_class() != TXTC_FUNCTION)
+            LOGGER().alert("No declaration for non-func type (nearest decl: %s)\t%s", this->get_nearest_declaration()->to_string().c_str(),
+                           this->to_string().c_str());
+        return;
+    }
+}
+
+void TxType::prepare_type_members() {
+    LOGGER().debug("Preparing members of type %s", this->to_string().c_str());
+
+    ASSERT(! this->prepared, "Can't prepare type more than once: " << this);
+    this->prepared = true;
 
     // resolve all this type's parameters and bindings
     ResolutionContext resCtx;
@@ -135,57 +228,11 @@ void TxType::prepare_type() {
         this->instanceFields = baseType->instanceFields;
     }
 
-    // determine basic type characteristics (needed for e.g. equivalence determination):
-    if (this->get_declaration()) {
-        auto typeDeclNamespace = this->get_declaration()->get_symbol();
-        for (auto symname = typeDeclNamespace->symbol_names_cbegin(); symname != typeDeclNamespace->symbol_names_cend(); symname++) {
-            if (auto entitySym = dynamic_cast<TxEntitySymbol*>(typeDeclNamespace->get_member_symbol(*symname))) {
-                if (auto typeDecl = entitySym->get_type_decl()) {
-                    if (typeDecl->get_unique_name() == "$GenericBase") {
-                        this->genericBaseType = typeDecl->get_definer()->resolve_type(resCtx);
-                        //LOGGER().alert("Generic base type of %s is %s", entitySym->get_full_name().to_string().c_str(), this->genericBaseType->to_string().c_str());
-                    }
-                }
-
-                for (auto fieldDeclI = entitySym->fields_cbegin(); fieldDeclI != entitySym->fields_cend(); fieldDeclI++) {
-                    auto fieldDecl = *fieldDeclI;
-                    switch (fieldDecl->get_storage()) {
-                    case TXS_INSTANCE:
-                        if (fieldDecl->get_unique_name().find('#') != std::string::npos)
-                            // FIXME: make VALUE type params be declared as instance members in generic base type,
-                            // so that they are not "extensions" to the specialized subtypes, and remove this '#' test
-                            break;
-                        this->extendsInstanceDatatype = true;
-                        break;
-                    case TXS_VIRTUAL:
-                    case TXS_INSTANCEMETHOD:
-                        if (fieldDecl->get_decl_flags() & TXD_CONSTRUCTOR)
-                            break;
-                        this->modifiesVTable = true;
-                        break;
-                    default:
-                        break;
-                    }
-                }
-            }
-        }
-    }
-}
-
-void TxType::prepare_type_members() {
-    LOGGER().debug("Preparing members of type %s", this->to_string().c_str());
-
-    ASSERT(! this->prepared, "Can't prepare type more than once: " << this);
-    this->prepared = true;
-
     if (! this->get_declaration()) {
-        bool madeConcrete = !this->is_generic() && this->get_base_type() && this->get_base_type()->is_generic();
-        ASSERT(! madeConcrete, "Type is concrete specialization of generic base type, but unnamed (undeclared): " << this);
         return;
     }
 
     // for all the member names declared or redeclared in this type:
-    ResolutionContext resCtx;
     auto typeDeclNamespace = this->get_declaration()->get_symbol();
     for (auto symname = typeDeclNamespace->symbol_names_cbegin(); symname != typeDeclNamespace->symbol_names_cend(); symname++) {
         // this drives resolution of all this type's members
@@ -215,13 +262,6 @@ void TxType::prepare_type_members() {
             bool expErrField = fieldDecl->get_decl_flags() & TXD_EXPERRBLOCK;
             if (expErrField)
                 this->get_driver()->begin_exp_err(fieldDecl->get_definer()->get_parse_location());
-
-            if (fieldDecl->get_decl_flags() & TXD_ABSTRACT) {
-                if (this->get_type_class() != TXTC_INTERFACE && !(this->get_declaration()->get_decl_flags() & TXD_ABSTRACT))
-                    CERROR(fieldDecl->get_definer(), "Can't declare abstract member '" << fieldDecl->get_unique_name() << "' in type that is not declared abstract: " << this);
-            }
-            else if (this->get_type_class() == TXTC_INTERFACE)
-                CERROR(fieldDecl->get_definer(), "Can't declare instance member '" << fieldDecl->get_unique_name() << "' in interface type: " << this);
 
             if (auto field = fieldDecl->get_definer()->resolve_field(resCtx)) {
                 // validate type:
@@ -261,6 +301,15 @@ void TxType::prepare_type_members() {
                 case TXS_INSTANCEMETHOD:
                     if (fieldDecl->get_decl_flags() & TXD_CONSTRUCTOR)
                         break;  // skip, constructors aren't virtual
+
+                    if (fieldDecl->get_decl_flags() & TXD_ABSTRACT) {
+                        if (this->get_type_class() != TXTC_INTERFACE && !(this->get_declaration()->get_decl_flags() & TXD_ABSTRACT))
+                            CERROR(fieldDecl->get_definer(), "Can't declare abstract member '" << fieldDecl->get_unique_name() << "' in type that is not declared abstract: " << this);
+                    }
+                    // permit this for now
+                    //else if (this->get_type_class() == TXTC_INTERFACE)
+                    //    CERROR(fieldDecl->get_definer(), "Can't declare non-abstract virtual member '" << fieldDecl->get_unique_name() << "' in interface type: " << this);
+
                     if (this->virtualFields.has_field(field->get_unique_name())) {
                         if (! (fieldDecl->get_decl_flags() & TXD_OVERRIDE))
                             CWARNING(field, "Field overrides but isn't declared 'override': " << field);
@@ -326,8 +375,9 @@ bool TxType::is_concrete() const {
 }
 
 bool TxType::is_pure_specialization() const {
+    ASSERT(this->prepared, "Can't determine specialization degree of unprepared type: " << this);
     return ( this->baseTypeSpec.modifiable
-             || ( this->has_base_type() && this->interfaces.empty()
+             || ( this->has_base_type()
                   && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
                   && typeid(*this) == typeid(*this->baseTypeSpec.type)
                   && ( this->genericBaseType
@@ -335,22 +385,26 @@ bool TxType::is_pure_specialization() const {
 }
 
 bool TxType::is_empty_derivation() const {
+    return this->emptyDerivation;
+    /*
+    ASSERT(this->prepared, "Can't determine specialization degree of unprepared type: " << this);
     return ( this->has_base_type()
              && this->interfaces.empty()
              && !this->baseTypeSpec.modifiable
-             && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
+             && !this->is_builtin()  // being built-in implies that it is more specialized than base class
              && typeid(*this) == typeid(*this->baseTypeSpec.type)
              && this->baseTypeSpec.bindings.empty()
              && !this->genericBaseType
              && !this->extendsInstanceDatatype
              && !this->modifiesVTable );
+     */
 }
 
 bool TxType::is_equivalent_derivation() const {
+    ASSERT(this->prepared, "Can't determine specialization degree of unprepared type: " << this);
     return ( this->baseTypeSpec.modifiable
              || ( this->has_base_type()
-                  && this->interfaces.empty()
-                  && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
+                  && !this->is_builtin()  // being built-in implies that it is more specialized than base class
                   && typeid(*this) == typeid(*this->baseTypeSpec.type)
                   && !this->nonRefBindings
                   && ( ( this->genericBaseType && !this->genericBaseType->nonRefParameters )
@@ -358,9 +412,10 @@ bool TxType::is_equivalent_derivation() const {
 }
 
 bool TxType::is_virtual_derivation() const {
+    ASSERT(this->prepared, "Can't determine specialization degree of unprepared type: " << this);
     return ( this->baseTypeSpec.modifiable
              || ( this->has_base_type()
-                  && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
+                  && !this->is_builtin()  // being built-in implies that it is more specialized than base class
                   && typeid(*this) == typeid(*this->baseTypeSpec.type)
                   && !this->nonRefBindings
                   && !this->extendsInstanceDatatype ) );
@@ -368,6 +423,11 @@ bool TxType::is_virtual_derivation() const {
 
 bool TxType::is_statically_sized() const {
     return this->is_concrete();
+}
+
+
+const TxType* TxType::get_instance_base_type() const {
+    return (this->is_same_instance_type() ? this->get_base_type()->get_instance_base_type() : this);
 }
 
 
@@ -417,6 +477,14 @@ const TxGenericBinding* TxType::resolve_param_binding(const std::string& paramNa
 }
 
 
+bool TxType::inner_equals(const TxType& otherType) const {
+    auto explDecl = this->get_explicit_declaration();
+    return explDecl == otherType.get_explicit_declaration()  // same declaration or both null
+           && ( explDecl  // same explicit declaration
+                || ( this->baseTypeSpec == otherType.baseTypeSpec ) );  // unnamed but identical, pure specializations
+    // (interfaces and members can only apply to a type with an explicit declaration, and an explicit declaration can have only one type instance)
+}
+
 bool TxType::operator==(const TxType& other) const {
     // skips empty type derivations that aren't explicitly declared
     const TxType* thisType = this;
@@ -425,55 +493,66 @@ bool TxType::operator==(const TxType& other) const {
         thisType = thisType->get_base_type();
     while (!otherType->get_explicit_declaration() && otherType->is_empty_derivation())
         otherType = otherType->get_base_type();
-    auto explDecl = thisType->get_explicit_declaration();
-    return explDecl == otherType->get_explicit_declaration()  // same declaration or both null
-           && ( explDecl
-                // if unnamed but identical, pure specialization:
-                || ( typeid(*thisType) == typeid(*otherType)
-                     && thisType->baseTypeSpec == otherType->baseTypeSpec
-                     && thisType->type_params() == otherType->type_params() ) );
-    // (interfaces and members can only apply to a type with an explicit declaration, and an explicit declaration can have only one type instance)
+    return thisType->inner_equals(*otherType);
 }
 
 
 bool TxType::is_assignable_to(const TxType& destination) const {
-    // fields must at least be the same instance data type; for now we consider virtual derivations legal
+    // fields must at least be the same instance data type
     auto thisType = this;
     do {
         if (*thisType == destination)
             return true;
-        if (this->is_virtual_derivation())
+        if (this->is_same_instance_type())
             thisType = thisType->get_base_type();
         else
             return false;
     } while (true);
 }
 
+
+static std::string type_name(const TxType* type) {
+    if (auto decl = type->get_declaration())
+        return decl->to_string();
+    else
+        return typeid(*type).name();
+}
+static void print_hierarchy(const TxType* type) {
+    while (type) {
+        if (type->is_empty_derivation())
+            std::cerr << type_name(type) << "\t (EMPTY)" << std::endl;
+        else if (type->is_modifiable())
+            std::cerr << type_name(type) << "\t (MOD)" << std::endl;
+        else
+            std::cerr << type_name(type) << std::endl;
+        type = type->get_base_type();
+    }
+}
+
+
 bool TxType::is_a(const TxType& other) const {
     //std::cerr << *this << "  IS-A\n" << other << std::endl;
-    if (other.get_type_class() == TXTC_INTERFACE)
-        return this->derives_interface(other);
+    ASSERT(! this->genericBaseType, "Invoked is_a() on concrete specialization type: " << this);
+    ASSERT(! other.genericBaseType, "Invoked is_a() with other being a concrete specialization type: " << this);
 
-    if (*this == other)
+    // by-pass anonymous, empty specializations:
+    const TxType* thisType = this;
+    const TxType* otherType = &other;
+    while (!thisType->get_explicit_declaration() && (thisType->is_empty_derivation() || thisType->is_modifiable()))
+        thisType = thisType->get_base_type();
+    while (!otherType->get_explicit_declaration() && (otherType->is_empty_derivation() || otherType->is_modifiable()))
+        otherType = otherType->get_base_type();
+
+    if (thisType->inner_equals(*otherType))
         return true;
 
-    // by-pass anonymous, virtual specializations:
-//    if (! this->get_explicit_declaration()) {
-//        if (this->is_virtual_derivation())
-//            return this->get_base_type()->is_a(other);
-//    }
-    if (! other.get_explicit_declaration()) {
-        if (other.is_virtual_derivation())
-            return this->is_a(*other.get_base_type());
-    }
-
     // check whether other is a more generic version of the same type:
-    if (auto genBaseType = this->common_generic_base_type(other)) {
+    if (auto genBaseType = thisType->common_generic_base_type(*otherType)) {
         for (auto & param : genBaseType->type_params()) {
             // other's param shall either be redeclared (generic) or *equal* to this (is-a is not sufficient in general case)
             // TODO: more thorough analysis of which additional cases may be compatible
-            if (auto otherBinding = other.resolve_param_binding(param.param_name())) {
-                if (auto thisBinding = this->resolve_param_binding(param.param_name())) {
+            if (auto otherBinding = otherType->resolve_param_binding(param.param_name())) {
+                if (auto thisBinding = thisType->resolve_param_binding(param.param_name())) {
                     if (*thisBinding != *otherBinding)  // checks whether both bindings resolve to same type/value
                         return false;
                 }
@@ -484,51 +563,55 @@ bool TxType::is_a(const TxType& other) const {
         return true;
     }
 
-    return (this->has_base_type() && this->get_base_type()->inner_is_a(other));
+    // check whether any ancestor type is-a the other type:
+    if (otherType->get_type_class() == TXTC_INTERFACE)
+        return this->derives_interface(otherType);
+    else
+        return this->derives_object(otherType);
 }
 
 const TxType* TxType::common_generic_base_type(const TxType& other) const {
-    if (! this->get_explicit_declaration() && this->is_pure_specialization())
-        return this->get_base_type()->common_generic_base_type(other);
-    if (! other.get_explicit_declaration() && other.is_pure_specialization())
-        return this->common_generic_base_type(*other.get_base_type());
-    if (*this == other)
-        return this;
+    // !!! this implementation assumes that if a type has bindings, it is a pure specialization !!!
+    //std::cerr << "this: " << this << "   other: " << other << std::endl;
+    const TxType* thisType = this;
+    const TxType* otherType = &other;
+    while (!thisType->get_explicit_declaration() && !thisType->get_bindings().empty())
+        thisType = thisType->get_base_type();
+    while (!otherType->get_explicit_declaration() && !otherType->get_bindings().empty())
+        otherType = otherType->get_base_type();
+    if (thisType->inner_equals(*otherType))
+        return thisType;
+//    if (! this->get_explicit_declaration() && this->is_pure_specialization())
+//        return this->get_base_type()->common_generic_base_type(other);
+//    if (! other.get_explicit_declaration() && other.is_pure_specialization())
+//        return this->common_generic_base_type(*other.get_base_type());
+//    if (*this == other)
+//        return this;
     return nullptr;
 }
 
-bool TxType::inner_is_a(const TxType& other) const {
-    // check whether any parent type that this type specializes is-a of the other type:
-    if (*this == other)
-        return true;
-    if (this->has_base_type())
-        if (this->get_base_type()->inner_is_a(other))
+bool TxType::derives_object(const TxType* otherType) const {
+    auto thisType = this;
+    while (thisType->has_base_type()) {
+        thisType = thisType->get_base_type();
+        if (thisType->inner_equals(*otherType))
             return true;
+    }
     return false;
 }
 
-bool TxType::derives_interface(const TxType& interface) const {
-    // check whether any parent type that this type specializes is-a of the other type:
-    //std::cerr << *this << "  DERIVES-INTERFACE\n" << interface << std::endl;
-    if (*this == interface)
+bool TxType::derives_interface(const TxType* otherType) const {
+    if (this->inner_equals(*otherType))
         return true;
-
-    // by-pass anonymous, empty specializations:
-    if (! interface.get_explicit_declaration()) {
-        if (interface.is_equivalent_derivation())
-            return this->derives_interface(*interface.get_base_type());
-    }
-
-    if (this->has_base_type()) {
-        if (this->get_base_type()->derives_interface(interface))
+    for (auto & interfSpec : this->interfaces) {
+        // TODO: This may not suffice - does not take modifiable, bindings, or dataspace of spec into account
+        if (interfSpec.type->derives_interface(otherType))
             return true;
-        for (auto & interfSpec : this->interfaces) {
-            // TODO: This may not suffice - does not take modifiable, bindings, or dataspace of spec into account
-            if (interfSpec.type->derives_interface(interface))
-                return true;
-        }
     }
-    return false;
+    if (this->has_base_type())
+        return this->get_base_type()->derives_interface(otherType);
+    else
+        return false;
 }
 
 
@@ -564,7 +647,8 @@ void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName)
                 str << this->type_params_string();
             separator = true;
         }
-        else if (!this->is_pure_specialization() || this->is_generic() || typeid(*this) != typeid(*baseTypeSpec.type)) {
+        //else if (!this->is_pure_specialization() || this->is_generic() || typeid(*this) != typeid(*baseTypeSpec.type)) {
+        else if (this->is_generic() || typeid(*this) != typeid(*baseTypeSpec.type)) {
             str << typeid(*this).name();
             if (this->is_generic())
                 str << this->type_params_string();
@@ -585,16 +669,6 @@ void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName)
         str << explSymbol->get_full_name();
     else
         str << typeid(*this).name();
-}
-
-
-
-bool equivalent(const TxType* typeA, const TxType* typeB) {
-    while (typeA->is_equivalent_derivation())
-        typeA = typeA->get_base_type();
-    while (typeB->is_equivalent_derivation())
-        typeB = typeB->get_base_type();
-    return (*typeA == *typeB);
 }
 
 
@@ -629,6 +703,7 @@ static bool ref_assignable_from(const TxReferenceType* toRef, const TxReferenceT
         if (auto fromTarget = fromRef->target_type()) {
             // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
             //std::cout << "CHECKING REF ASSIGNABLE\n\tFROM " << *fromTarget->get_type() << "\n\tTO   " << *toTarget->get_type() << std::endl;
+            //std::cerr << "CHECKING REF ASSIGNABLE from\n"; print_hierarchy(fromTarget); std::cerr << "to:\n"; print_hierarchy(toTarget);
             if (! fromTarget->is_a(*toTarget))
                 return false;
             else if (toTarget->is_modifiable() && !fromTarget->is_modifiable())

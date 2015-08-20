@@ -49,6 +49,7 @@ int main(int argc, char **argv)
                 printf("  %-22s %s\n", "-onlyparse", "Stop after grammar parse");
                 printf("  %-22s %s\n", "-sepjobs", "Compile each command line source file as a separate compilation job");
                 printf("  %-22s %s\n", "-cnoassert", "Suppress code generation for assert statements");
+                printf("  %-22s %s\n", "-allowtx", "Permit source code to declare within the tx namespace");
                 printf("  %-22s %s\n", "-o  | -output <file>", "Explicitly specify LLVM bitcode output file name");
                 printf("  %-22s %s\n", "-sp <pathlist>", "Set source files search paths (overrides TUPLEX_PATH environment variable)");
                 printf("  %-22s %s\n", "-sourcepath <pathlist>", "Set source files search paths (overrides TUPLEX_PATH environment variable)");
@@ -86,6 +87,8 @@ int main(int argc, char **argv)
                 separateJobs = true;
             else if (! strcmp(argv[a], "-cnoassert"))
                 options.suppress_asserts = true;
+            else if (! strcmp(argv[a], "-allowtx"))
+                options.allow_tx = true;
             else if (! strcmp(argv[a], "-sp") || ! strcmp(argv[a], "-sourcepath")) {
                 if (++a >= argc) {
                     LOG.error("Invalid command options, specified %s without subsequent argument", argv[a-1]);
