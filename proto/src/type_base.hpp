@@ -129,8 +129,8 @@ Mud : Foo$Long : Bar$Long : Tuple : Any
                /          /
 Mac : Foo$Byte : Bar$Byte : Tuple : Any
 
-Foo<Any> is the "generic base type" for Foo$xxx
-Bar$xxx is the     "base data type" for Foo$xxx
+Foo<Any> is the "generic base type" for Foo$xyz
+Bar$xyz is the     "base data type" for Foo$xyz
 
 It's the base data type that the vtable mechanics use.
 For semantic inheritance mechanics, the generic base type is used.
@@ -152,47 +152,28 @@ public:
     TxType const * const type;
     const bool modifiable;
     const bool empty;
-    TxIdentifier const * const dataspace;  // only set for reference specializations
-    const std::vector<TxGenericBinding> bindings;
+    //TxIdentifier const * const dataspace;  // only set for reference specializations
 
     /** Only legal to use by the Any type. */
     TxTypeSpecialization()
-            : type(), modifiable(), empty(), dataspace(), bindings()  { }
+            : type(), modifiable(), empty()  { }
 
     TxTypeSpecialization(const TxType* baseType, bool modifiable=false, bool empty=false)
-            : type(baseType), modifiable(modifiable), empty(empty), dataspace(), bindings()  {
+            : type(baseType), modifiable(modifiable), empty(empty)  {
         ASSERT(baseType, "NULL baseType");
         ASSERT(!(modifiable && empty), "Type specialization can't be both modifiable and empty: " << baseType);
     }
 
-    TxTypeSpecialization(const TxType* baseType, std::vector<TxGenericBinding>&& baseBindings,
-                         const TxIdentifier* dataspace=nullptr)
-            : type(baseType), modifiable(false), empty(false), dataspace(dataspace), bindings(baseBindings)  {
+//    TxTypeSpecialization(const TxType* baseType, const TxIdentifier* dataspace=nullptr)
+//            : type(baseType), modifiable(false), empty(false), dataspace(dataspace)  {
+//        ASSERT(baseType, "NULL baseType");
+//    }
+
+    TxTypeSpecialization(const TxType* baseType, //const std::vector<TxGenericBinding>& baseBindings,
+                         const TxIdentifier* dataspace)
+            : type(baseType), modifiable(false), empty(false)  {
         ASSERT(baseType, "NULL baseType");
     }
-
-    TxTypeSpecialization(const TxType* baseType, const std::vector<TxGenericBinding>& baseBindings,
-                         const TxIdentifier* dataspace=nullptr)
-            : type(baseType), modifiable(false), empty(false), dataspace(dataspace), bindings(baseBindings)  {
-        ASSERT(baseType, "NULL baseType");
-    }
-
-    bool has_binding(const std::string& typeParamName) const {
-        for (auto & b : this->bindings)
-            if (b.param_name() == typeParamName)
-                return true;
-        return false;
-    }
-
-    const TxGenericBinding& get_binding(const std::string& typeParamName) const {
-        for (auto & b : this->bindings)
-            if (b.param_name() == typeParamName)
-                return b;
-        throw std::out_of_range("No such bound type parameter: " + typeParamName);
-    }
-
-    /** Checks if this specialization is valid for the base type. */
-    void validate() const;
 
     bool operator==(const TxTypeSpecialization& other) const;
 
@@ -213,16 +194,16 @@ class TxType : public TxEntity {
     /** true if this is a built-in type */
     const bool builtin;
 
-    /** false unless there are TYPE parameters with other than Ref constraint */
-    bool nonRefParameters = false;
-    /** false unless there are TYPE bindings for parameters with other than Ref constraint */
-    bool nonRefBindings = false;
-
     /** The runtime type id of this type, if it is a distinct runtime type (not an equivalent specialization). */
     uint32_t runtimeTypeId = UINT32_MAX;
 
     /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
-    const std::vector<TxTypeParam> typeParams;
+    //std::vector<TxTypeParam> params;
+    std::vector<TxEntityDeclaration*> params;
+
+    /** Bindings of the base type's type parameters. Should not be accessed directly, use type_bindings() accessor instead. */
+    //std::vector<TxGenericBinding> bindings;
+    std::vector<TxEntityDeclaration*> bindings;
 
     const TxTypeSpecialization baseTypeSpec;  // including bindings for all type parameters of base type
     const std::vector<TxTypeSpecialization> interfaces;
@@ -231,16 +212,23 @@ class TxType : public TxEntity {
      * This also implies a pure specialization, even if extendsInstanceDatatype technically is true. */
     const TxType* genericBaseType = nullptr;
 
+    /** false unless there are TYPE parameters with other than Ref constraint */
+    bool nonRefParameters = false;
+    /** false unless there are TYPE bindings for parameters with other than Ref constraint */
+    bool nonRefBindings = false;
+
     /** false until prepare_type_members() has completed (after that this object should be considered immutable) */
     bool prepared = false;
 
     /** Prepares / initializes this type. Called from constructor. */
     void prepare_type();
+    void prepare_type_validation() const;
 
 protected:
     bool extendsInstanceDatatype = false;
     bool modifiesVTable = false;
     bool emptyDerivation = false;
+    bool pureDerivation = false;
     // data layout:
     DataTupleDefinition staticFields;
     DataTupleDefinition virtualFields;
@@ -250,41 +238,36 @@ protected:
     /** Only to be used for Any type. */
     TxType(TxTypeClass typeClass, const TxTypeDeclaration* declaration)
             : TxEntity(declaration), typeClass(typeClass), builtin(declaration && (declaration->get_decl_flags() & TXD_BUILTIN)),
-              typeParams(), baseTypeSpec(), interfaces()  {
+              baseTypeSpec(), interfaces()  {
         this->prepare_type();
     }
 
     TxType(TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-           const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
-           const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
+           const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>())
             : TxEntity(declaration), typeClass(typeClass), builtin(declaration && (declaration->get_decl_flags() & TXD_BUILTIN)),
-              typeParams(typeParams), baseTypeSpec(baseTypeSpec), interfaces(interfaces) {
+              baseTypeSpec(baseTypeSpec), interfaces(interfaces) {
         this->prepare_type();
     }
 
     /** Creates a specialization of this type. To be used by the type registry. */
     virtual TxType* make_specialized_type(const TxTypeDeclaration* declaration,
                                           const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
-                                          const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
-                                          const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>()) const = 0;
+                                          const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>()) const = 0;
 
     friend class TypeRegistry;  // allows access for registry's type construction
-
-    /** For internal type implementation use; searches the type hierarchy's parameter bindings. */
-    const TxGenericBinding* resolve_param_binding(const std::string& paramName) const;
 
     /** Gets the Any root type. */
     inline const TxType* get_root_any_type() const {
         if (! this->has_base_type())
             return this;
-        return this->get_base_type()->get_root_any_type();
+        return this->get_semantic_base_type()->get_root_any_type();
     }
 
 public:
     virtual ~TxType() = default;
 
 
-    virtual bool validate() const override;
+    virtual bool validate() const override { return true; }
 
 
     /** Gets self. Implements the TxTypeProxy interface. */
@@ -299,11 +282,11 @@ public:
     /** Gets the runtime type id of this type. (Equivalent specializations return their base type's id.) */
     inline uint32_t get_type_id() const {
         ASSERT(this->prepared, "Can't get runtime type id of unprepared type: " << this);
-        return ( this->runtimeTypeId == UINT32_MAX ? this->get_base_type()->get_type_id() : this->runtimeTypeId );
+        return ( this->runtimeTypeId == UINT32_MAX ? this->get_semantic_base_type()->get_type_id() : this->runtimeTypeId );
     }
 
 
-    virtual inline const TxTypeDeclaration* get_declaration() const override {
+    virtual inline const TxTypeDeclaration* get_declaration() const override final {
         return static_cast<const TxTypeDeclaration*>(TxEntity::get_declaration());
     }
 
@@ -313,8 +296,11 @@ public:
         if (this->get_declaration())
             return this->get_declaration();
         else
-            return this->get_base_type()->get_nearest_declaration();
+            return this->get_semantic_base_type()->get_nearest_declaration();
     }
+
+    /** Returns true if this type is explicitly declared and is not a generic parameter nor generic binding. */
+    bool is_explicit_nongen_declaration() const;
 
 
     /*--- characteristics ---*/
@@ -323,11 +309,13 @@ public:
     inline bool has_base_type() const { return this->baseTypeSpec.type; }
 
     /** Gets the base type (parent) of this type.
-     * ('Any' is the only type that has no base type, for this type NULL is returned.) */
-    inline const TxType* get_base_type() const { return this->genericBaseType ? this->genericBaseType : this->baseTypeSpec.type; }
+     * ('Any' is the only type that has no base type, in which case null is returned.) */
+    inline const TxType* get_base_type() const { return this->baseTypeSpec.type; }
 
-    /** Gets the base data type (parent) of this type. The same as get_base_type() except for generic type specializations. */
-    inline const TxType* get_base_data_type() const { return this->baseTypeSpec.type; }
+    /** Gets the 'semantic' base type (parent) of this type,
+     * which is the same as get_base_type() except for generic type specializations
+     * in which case the generic base type is returned (instead of the implicitly generated specialization thereof). */
+    inline const TxType* get_semantic_base_type() const { return this->genericBaseType ? this->genericBaseType : this->baseTypeSpec.type; }
 
     /** Gets the "instance base type" of this type, which is either this type, or the closest ancestor type
      * which defines a distinct instance data type.
@@ -487,32 +475,42 @@ public:
     virtual TxEntitySymbol* lookup_inherited_instance_member(const std::string& name) const;
     virtual TxEntitySymbol* lookup_inherited_instance_member(TxScopeSymbol* vantageScope, const std::string& name) const;
 
+    /** Specialized lookup: searches the type hierarchy's parameter bindings to find the binding for a parameter. */
+    const TxEntityDeclaration* lookup_param_binding(const TxEntityDeclaration* paramDecl) const;
+    const TxFieldDeclaration* lookup_value_param_binding(const std::string& fullParamName) const;
+    const TxTypeDeclaration* lookup_type_param_binding(const std::string& fullParamName) const;
+
 
     /*--- type parameter handling ---*/
 
-    /** Gets the type parameters of this type (this type is a generic type if this is non-empty). */
-    const std::vector<TxTypeParam>& type_params() const {
-        if (this->typeParams.empty()) {
-            // if this is an 'empty' or 'modifiable' type usage, pass-through the parameters of the base type
-            // (shouldn't need generic base type resolution here)
-            if (this->baseTypeSpec.type && this->baseTypeSpec.bindings.empty())
-                return this->baseTypeSpec.type->type_params();
-        }
-        return this->typeParams;
+    /** Gets the (unbound) type parameters of this type (this type is a generic type if this is non-empty). */
+    const std::vector<TxEntityDeclaration*>& type_params() const {
+        return ( (this->is_empty_derivation() || this->is_modifiable()) ? this->get_base_type()->type_params() : this->params );
     }
 
-    bool has_type_param(const std::string& typeParamName) const {
+    /** Returns true if this type has an (unbound) type parameter with the specified (plain) name. */
+    bool has_type_param(const std::string& plainParamName) const {
         for (auto & p : this->type_params())
-            if (p.param_name() == typeParamName)
+            if (p->get_unique_name() == plainParamName)
                 return true;
         return false;
     }
 
-    const TxTypeParam& get_type_param(const std::string& typeParamName) const {
-        for (auto & p : this->type_params())
-            if (p.param_name() == typeParamName)
-                return p;
-        throw std::out_of_range("No such unbound type parameter in " + this->to_string() + ": " + typeParamName);
+    /** Gets a TxTypeParam for a type parameter of this type. (Note - this does not search ancestors' bound parameters.) */
+    const TxTypeParam get_type_param(const std::string& plainParamName) const {
+        for (auto & paramDecl : this->type_params())
+            if (plainParamName == paramDecl->get_unique_name())
+                return TxTypeParam(paramDecl);
+        throw std::out_of_range("No such unbound type parameter in " + this->to_string() + ": " + plainParamName);
+    }
+
+    /** Gets the declaration of a type parameter of this type. (Note - this does not search ancestors' bound parameters.) */
+    const TxEntityDeclaration* get_type_param_decl(const std::string& plainParamName) const {
+        for (auto & paramDecl : this->type_params()) {
+            if (plainParamName == paramDecl->get_unique_name())
+                return paramDecl;
+        }
+        return nullptr;
     }
 
 
@@ -522,9 +520,17 @@ public:
 //    /** Returns true if there are TYPE bindings for base type's parameters with other than Ref constraint. */
 //    inline bool has_nonref_bindings() const { return this->nonRefBindings; }
 
-    const std::vector<TxGenericBinding>& get_bindings() const {
-        return this->baseTypeSpec.bindings;
+    inline const std::vector<TxEntityDeclaration*>& get_bindings() const { return this->bindings; }
+
+    /** Gets the declaration of a type parameter of this type, or null if it doesn't exist.
+     * (Note - this does not search ancestors' bound parameters.) */
+    const TxEntityDeclaration* get_binding(const std::string& plainName) const {
+        for (auto b : this->get_bindings())
+            if (b->get_unique_name() == plainName)
+                return b;
+        return nullptr;
     }
+
 
 
     /*--- data layout ---*/
@@ -558,37 +564,11 @@ public:
 
     /*--- to string methods ---*/
 
-    virtual std::string to_string() const override final {
-        return this->to_string(false);
-    }
-    virtual std::string to_string(bool brief, bool skipFirstName=false) const final {
-        std::stringstream str;
-        if (this->get_type_class() == TXTC_INTERFACE)
-            str << "i/f ";
-        else if (this->get_type_class() == TXTC_INTERFACEADAPTER)
-            str << "i/f/ad ";
-        else if (this->is_abstract())
-            str << "ABSTRACT ";
-        if (this->is_immutable())
-            str << "IMMUTABLE ";
-        this->self_string(str, brief, skipFirstName);
-        return str.str();
-    }
-
+    virtual std::string to_string() const override final { return this->to_string(false); }
+    virtual std::string to_string(bool brief, bool skipFirstName=false, bool skipImplicitNames=false) const final;
 
 protected:
-    virtual void self_string(std::stringstream& str, bool brief, bool skipFirstName) const;
-
-    std::string type_params_string() const {
-        std::string str = "<";
-        for (auto & p : this->type_params()) {
-            if (str.length() > 1)  str += ",";
-            str += p.to_string();
-        }
-        str += ">";
-        return str;
-    }
-
+    virtual void self_string(std::stringstream& str, bool brief, bool skipFirstName, bool skipImplicitNames) const;
 };
 
 
@@ -597,10 +577,11 @@ protected:
 class TxTypeWrapperDef : public TxTypeDefiner {
     const TxType* type;
 public:
-    TxTypeWrapperDef(const TxType* type) : type(type)  { }
+    TxTypeWrapperDef(const TxType* type) : type(type)  { ASSERT(type, "NULL type"); ASSERT(type->get_declaration(), "NULL type declaration");}
     virtual TxDriver* get_driver() const override { return this->type->get_driver(); }
     virtual const yy::location& get_parse_location() const override { return this->type->get_parse_location(); }
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
+    virtual TxTypeDefiningNode* get_node() const override { return this->type->get_declaration()->get_definer()->get_node(); }
 };

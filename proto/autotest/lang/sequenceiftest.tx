@@ -1,0 +1,56 @@
+public interface Sequenceable<E derives Ref> derives Interface {
+    public abstract sequencer()->Ref<~Sequencer<E>>;
+}
+
+public interface Sequencer<E derives Ref> derives Sequenceable<E> {
+    public override sequencer()->Ref<~Sequencer<E>> { return self; }
+
+    public abstract hasNext()->Bool;
+    public abstract next()->E;
+}
+
+type SingleRef<S derives Ref> derives Tuple, Sequenceable<S> {
+
+    type SingleSeq derives Tuple, Sequencer<S> {
+        element : S;
+        done : ~Bool;
+
+        self( element : S ) {
+            self.element = element;
+            self.done = FALSE;
+        }
+        public override hasNext()->Bool {
+            return !self.done;
+        }
+        public override next()->S {
+            if (self.done)
+                panic := TRUE;  ## TODO: panic
+            self.done = TRUE;
+            return self.element;
+        }
+    }
+
+    element : S;
+    
+    self( element : S ) {
+        self.element = element;
+    }
+
+    public override sequencer()->Ref<~Sequencer<S>> {
+        el : S = self.element;
+        return new ~SingleSeq( el );
+    }
+}
+
+
+main()->Int {
+    myint : Int = 5;
+    singleton := new SingleRef<Int>( myint );
+    seq := singleton.sequencer();
+    assert seq.hasNext();
+    elem := seq.next();
+    assert 5 == elem^;
+    assert !seq.hasNext();
+    
+    return 0;
+}

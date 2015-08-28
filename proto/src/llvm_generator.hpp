@@ -47,6 +47,7 @@ class LlvmGenerationContext {
     llvm::Type* voidRefT;
 
     const TxType* lookup_builtin(BuiltinTypeId id);
+    void initialize_basic_llvm_types();
     void initialize_meta_type_data();
     void initialize_builtin_functions();
     void initialize_external_functions();

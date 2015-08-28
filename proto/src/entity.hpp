@@ -23,9 +23,9 @@ protected:
     TxEntity(const TxEntityDeclaration* declaration)
         : declaration(declaration)  { }
 
+public:
     inline Logger& LOGGER() const { return this->LOG; }
 
-public:
     virtual TxDriver* get_driver() const override;
     virtual const yy::location& get_parse_location() const override;
 
@@ -60,6 +60,7 @@ public:
     TxField(const TxFieldDeclaration* declaration, const TxType* type)
             : TxEntity(declaration), type(type) {
         ASSERT(declaration, "Fields must be named (have non-null declaration)");
+        ASSERT(type, "NULL type for field " << declaration);
     }
 
     virtual inline const TxFieldDeclaration* get_declaration() const override {

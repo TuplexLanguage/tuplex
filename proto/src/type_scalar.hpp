@@ -6,9 +6,7 @@
 class TxBoolType : public TxType {
 protected:
     virtual TxBoolType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                              const std::vector<TxTypeSpecialization>& interfaces,
-                                              const std::vector<TxTypeParam>& typeParams) const override {
-        ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
+                                              const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (dynamic_cast<const TxBoolType*>(baseTypeSpec.type))
             return new TxBoolType(declaration, baseTypeSpec);
         throw std::logic_error("Specified a base type for TxBoolType that was not a TxBoolType: " + baseTypeSpec.type->to_string());
@@ -36,11 +34,10 @@ class TxScalarType : public TxType {
 protected:
     const uint64_t _size;
 
-    virtual TxScalarType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                const std::vector<TxTypeSpecialization>& interfaces,
-                                                const std::vector<TxTypeParam>& typeParams) const override {
-        throw std::logic_error("Can't specialize type " + this->to_string());
-    };
+//    virtual TxScalarType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+//                                                const std::vector<TxTypeSpecialization>& interfaces) const override {
+//        throw std::logic_error("Can't specialize type " + this->to_string());
+//    };
 
     TxScalarType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, uint64_t size)
         : TxType(TXTC_ELEMENTARY, declaration, baseTypeSpec), _size(size) { }
@@ -56,9 +53,7 @@ public:
 class TxIntegerType final : public TxScalarType {
 protected:
     virtual TxIntegerType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                 const std::vector<TxTypeSpecialization>& interfaces,
-                                                 const std::vector<TxTypeParam>& typeParams) const override {
-        ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
+                                                 const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (const TxIntegerType* intType = dynamic_cast<const TxIntegerType*>(baseTypeSpec.type))
             return new TxIntegerType(declaration, baseTypeSpec, intType->size(), intType->sign);
         throw std::logic_error("Specified a base type for TxIntegerType that was not a TxIntegerType: " + baseTypeSpec.type->to_string());
@@ -98,9 +93,7 @@ public:
 class TxFloatingType final : public TxScalarType {
 protected:
     virtual TxFloatingType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                  const std::vector<TxTypeSpecialization>& interfaces,
-                                                  const std::vector<TxTypeParam>& typeParams) const override {
-        ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
+                                                  const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (const TxFloatingType* floatType = dynamic_cast<const TxFloatingType*>(baseTypeSpec.type))
             return new TxFloatingType(declaration, baseTypeSpec, floatType->size());
         throw std::logic_error("Specified a base type for TxFloatingType that was not a TxFloatingType: " + baseTypeSpec.type->to_string());

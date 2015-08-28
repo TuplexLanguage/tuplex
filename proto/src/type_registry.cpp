@@ -25,11 +25,39 @@ static const BuiltinTypeId SCALAR_TYPE_IDS[] = {
 
 /*--- private classes providing indirection for fetching the built-in type objects ---*/
 
-class TxBuiltinTypeDefiner final : public TxTypeDefiner {
+class TxBuiltinTypeDefiningNode final : public TxTypeExpressionNode {
+    const TxType* baseType;
+protected:
+    virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
+                                                     LexicalContext& lexContext, TxDeclarationFlags declFlags) override { }
+
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+        if (six == 0)
+            return baseType;
+        else
+            return this->types(six).make_specialized_type(this->get_declaration(six), TxTypeSpecialization(baseType), {});
+    }
+
+public:
+    TxBuiltinTypeDefiningNode() : TxTypeExpressionNode(NULL_LOC), baseType() { }
+
+    void set_type(const TxType* type) {
+        ASSERT(!this->baseType, "type already set");
+        this->baseType = type;
+    }
+
+    virtual bool has_predefined_type() const override { return true; }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+};
+
+
+class TxBuiltinTypeDefiner final : public TxTypeDefiner {  // FIXME: remove/replace this
 public:
     const TxType* type;
 
     TxBuiltinTypeDefiner() : type() { }
+    TxBuiltinTypeDefiner(const TxType* type) : type(type) { }
 
     virtual TxDriver* get_driver() const override { return &this->type->get_declaration()->get_symbol()->get_root_scope()->driver(); }
     virtual const yy::location& get_parse_location() const override { return NULL_LOC; }
@@ -37,6 +65,7 @@ public:
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
+    virtual TxTypeDefiningNode* get_node() const override { ASSERT(false, "unexpected invocation"); return nullptr; }
 };
 
 class TxBuiltinFieldDefiner final : public TxFieldDefiner {
@@ -57,35 +86,46 @@ public:
 };
 
 
-class BuiltinTypeRecord : public TxTypeDefiner {
-    const TxType* type;
-    const TxTypeDeclaration* declaration;
+class BuiltinTypeRecord final : public TxTypeDefiner {
+    //const TxType* type;
+    //const TxTypeDeclaration* declaration;
+    TxBuiltinTypeDefiningNode* node;
 public:
     const BuiltinTypeId id;
     const std::string plainName;
 
     BuiltinTypeRecord(BuiltinTypeId id, std::string plainName)
-        : type(), declaration(), id(id), plainName(plainName)  {
+        : node(new TxBuiltinTypeDefiningNode()), id(id), plainName(plainName)  {
+    }
+
+    void symbol_declaration_pass(TxModule* module, const std::vector<TxDeclarationNode*>* typeParamDeclNodes=nullptr) {
+        LexicalContext ctx(module);
+        this->node->symbol_declaration_pass(0, ctx, ctx, TXD_PUBLIC | TXD_BUILTIN, this->plainName, typeParamDeclNodes);
     }
 
     void set_type(const TxType* type) {
-        ASSERT(!this->type, "type already set");
-        this->type = type;
+        this->node->set_type(type);
     }
 
-    void set_declaration(const TxTypeDeclaration* declaration) {
-        ASSERT(!this->declaration, "declaration already set");
-        this->declaration = declaration;
+    void symbol_resolution_pass() {
+        ResolutionContext resCtx;
+        this->node->symbol_resolution_pass(0, resCtx);
     }
 
-    const TxTypeDeclaration* get_declaration() const { return this->declaration; }
+//    void set_declaration(const TxTypeDeclaration* declaration) {
+//        ASSERT(!this->declaration, "declaration already set");
+//        this->declaration = declaration;
+//    }
+    const TxTypeDeclaration* get_declaration() const { return this->node->get_declaration(0); }
 
-    virtual TxDriver* get_driver() const override { return &this->declaration->get_symbol()->get_root_scope()->driver(); }
-    virtual const yy::location& get_parse_location() const override { return NULL_LOC; }
+    virtual TxDriver* get_driver() const override { return this->node->get_driver(); }
+    virtual const yy::location& get_parse_location() const override { return this->node->get_parse_location(); }
 
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
-    virtual const TxType* attempt_get_type() const override { return this->type; }
-    virtual const TxType* get_type() const override { return this->type; }
+    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->get_type(); }
+    virtual const TxType* attempt_get_type() const override { return this->get_type(); }
+    virtual const TxType* get_type() const override { return this->node->get_type(0); }
+
+    virtual TxTypeExpressionNode* get_node() const override { return this->node; }
 };
 
 
@@ -96,9 +136,7 @@ class TxAnyType final : public TxType {
             : TxType(TXTC_ANY, declaration, baseTypeSpec)  { }
 
     TxType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                  const std::vector<TxTypeSpecialization>& interfaces,
-                                  const std::vector<TxTypeParam>& typeParams) const override {
-        ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
+                                  const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (! dynamic_cast<const TxAnyType*>(baseTypeSpec.type))
             throw std::logic_error("Specified a base type for TxAnyType that was not a TxAnyType: " + baseTypeSpec.type->to_string());
         return new TxAnyType(declaration, baseTypeSpec);
@@ -117,9 +155,7 @@ public:
 /** Used for the built-in types' abstract base types. */
 class TxBuiltinBaseType final : public TxType {
     TxType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                  const std::vector<TxTypeSpecialization>& interfaces,
-                                  const std::vector<TxTypeParam>& typeParams) const override {
-        ASSERT(typeParams.empty(), "can't specify type parameters for " << this);
+                                  const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (! dynamic_cast<const TxBuiltinBaseType*>(baseTypeSpec.type))
             throw std::logic_error("Specified a base type for TxBuiltinBaseType that was not a TxBuiltinBaseType: " + baseTypeSpec.type->to_string());
         return new TxBuiltinBaseType(baseTypeSpec.type->get_type_class(), declaration, baseTypeSpec);
@@ -160,29 +196,35 @@ void TypeRegistry::declare_tx_functions(TxModule* module) {
 
 void TypeRegistry::add_builtin_abstract(TxModule* module, TxTypeClass typeClass, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId) {
     auto record = new BuiltinTypeRecord( id, plainName );
-    record->set_declaration( module->declare_type(plainName, record, TXD_PUBLIC | TXD_BUILTIN) );
+    //record->set_declaration( module->declare_type(plainName, record, TXD_PUBLIC | TXD_BUILTIN) );
+    record->symbol_declaration_pass(module);
     auto type = new TxBuiltinBaseType( typeClass, record->get_declaration(), this->builtinTypes[parentId]->get_type());
     type->prepare_type_members();
     record->set_type( type );
+    record->symbol_resolution_pass();
     this->builtinTypes[record->id] = record;
 }
 
 void TypeRegistry::add_builtin_integer(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId,
                                        int size, bool sign) {
     auto record = new BuiltinTypeRecord( id, plainName );
-    record->set_declaration( module->declare_type(plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+    //record->set_declaration( module->declare_type(plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+    record->symbol_declaration_pass(module);
     auto type = new TxIntegerType( record->get_declaration(), this->builtinTypes[parentId]->get_type(), size, sign);
     type->prepare_type_members();
     record->set_type( type );
+    record->symbol_resolution_pass();
     this->builtinTypes[record->id] = record;
 }
 
 void TypeRegistry::add_builtin_floating(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size) {
     auto record = new BuiltinTypeRecord( id, plainName );
-    record->set_declaration( module->declare_type(plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+    //record->set_declaration( module->declare_type(plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+    record->symbol_declaration_pass(module);
     auto type = new TxFloatingType( record->get_declaration(), this->builtinTypes[parentId]->get_type(), size );
     type->prepare_type_members();
     record->set_type( type );
+    record->symbol_resolution_pass();
     this->builtinTypes[record->id] = record;
 }
 
@@ -193,10 +235,12 @@ void TypeRegistry::initializeBuiltinSymbols() {
     // create the Any root type:
     {
         auto record = new BuiltinTypeRecord( ANY, "Any" );
-        record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        //record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        record->symbol_declaration_pass(module);
         auto type = new TxAnyType( record->get_declaration() );
         type->prepare_type_members();
         record->set_type( type );
+        record->symbol_resolution_pass();
         this->builtinTypes[record->id] = record;
     }
 
@@ -227,85 +271,104 @@ void TypeRegistry::initializeBuiltinSymbols() {
     // create the boolean type:
     {
         auto record = new BuiltinTypeRecord( BOOL, "Bool" );
-        record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        //record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        record->symbol_declaration_pass(module);
         auto type = new TxBoolType(record->get_declaration(), this->builtinTypes[ELEMENTARY]->get_type() );
         type->prepare_type_members();
         record->set_type( type );
+        record->symbol_resolution_pass();
         this->builtinTypes[record->id] = record;
     }
 
     // create the function base type:
     {
         auto record = new BuiltinTypeRecord( FUNCTION, "Function" );
-        record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        //record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        record->symbol_declaration_pass(module);
         auto type = new TxBuiltinBaseType(TXTC_FUNCTION, record->get_declaration(), this->builtinTypes[ANY]->get_type() );
         type->prepare_type_members();
         record->set_type( type );
+        record->symbol_resolution_pass();
         this->builtinTypes[record->id] = record;
     }
 
     // create the reference base type:
     {
         auto record = new BuiltinTypeRecord( REFERENCE, "Ref" );
-        auto typeDecl = module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN );
-        record->set_declaration( typeDecl );
-        auto type = new TxReferenceType(record->get_declaration(), this->builtinTypes[ANY]->get_type(), this->builtinTypes[ANY] );
-        type->prepare_type_members();
+        //auto typeDecl = module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN );
+        //record->set_declaration( typeDecl );
+
+        //auto elemTypeDefiner = this->builtinTypes[ANY];
+        //typeDecl->get_symbol()->declare_type( "T", elemTypeDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_GENPARAM );
+        auto anyType = new TxPredefinedTypeNode(NULL_LOC, "tx.Any");
+        auto paramNodes = new std::vector<TxDeclarationNode*>( { new TxTypeDeclNode(NULL_LOC, TXD_PUBLIC | TXD_GENPARAM,
+                                                                                    "T", nullptr, anyType) } );
+        record->symbol_declaration_pass(module, paramNodes);
+
+        auto type = new TxReferenceType(record->get_declaration(), this->builtinTypes[ANY]->get_type());
         record->set_type( type );
+        record->symbol_resolution_pass();
         this->builtinTypes[record->id] = record;
 
-        // create empty specialization for the constraint type (uniquely named but identical type)
-        auto constraintType = this->builtinTypes[ANY]->get_type();
-        auto elemTypeDefiner = new TxBuiltinTypeDefiner();
-        auto elemTypeEnt = typeDecl->get_symbol()->declare_type( "T", elemTypeDefiner, TXD_PUBLIC | TXD_GENPARAM );
-        elemTypeDefiner->type = constraintType->make_specialized_type(elemTypeEnt, TxTypeSpecialization(constraintType));
+        type->prepare_type_members();
     }
 
     // create the array base type:
     {
         auto record = new BuiltinTypeRecord( ARRAY, "Array" );
-        auto typeDecl = module->declare_type( record->plainName, record, TXD_PUBLIC | TXD_BUILTIN );
-        record->set_declaration( typeDecl );
-        auto type = new TxArrayType(record->get_declaration(), this->builtinTypes[ANY]->get_type(),
-                                          this->builtinTypes[ANY], this->builtinTypes[UINT] );
-        type->prepare_type_members();
+        //auto typeDecl = module->declare_type( record->plainName, record, TXD_PUBLIC | TXD_BUILTIN );
+        //record->set_declaration( typeDecl );
+
+        //auto elemTypeDefiner = this->builtinTypes[ANY];
+        //typeDecl->get_symbol()->declare_type( "E", elemTypeDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_GENPARAM );
+
+        //auto lengthDefiner = new TxBuiltinFieldDefiner();
+        //auto lengthDecl = typeDecl->get_symbol()->declare_field( "L", lengthDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_GENPARAM, TXS_INSTANCE, TxIdentifier() );
+        //lengthDefiner->field = new TxField(lengthDecl, this->builtinTypes[UINT]->get_type());
+        auto anyType = new TxPredefinedTypeNode(NULL_LOC, "tx.Any");
+        auto lenFieldDef = new TxFieldDefNode(NULL_LOC, "L", nullptr, false, this->builtinTypes[UINT]);
+        auto paramNodes = new std::vector<TxDeclarationNode*>( { new TxTypeDeclNode(NULL_LOC, TXD_PUBLIC | TXD_GENPARAM,
+                                                                                    "E", nullptr, anyType),
+                                                                 new TxFieldDeclNode(NULL_LOC, TXD_PUBLIC | TXD_GENPARAM,
+                                                                                     lenFieldDef) } );
+        record->symbol_declaration_pass(module, paramNodes);
+
+        auto type = new TxArrayType(record->get_declaration(), this->builtinTypes[ANY]->get_type());
         record->set_type( type );
+        record->symbol_resolution_pass();
         this->builtinTypes[record->id] = record;
 
-        // create empty specialization for the constraint type (uniquely named but identical type)
-        auto constraintType = this->builtinTypes[ANY]->get_type();
-        auto elemTypeDefiner = new TxBuiltinTypeDefiner();
-        auto elemTypeDecl = typeDecl->get_symbol()->declare_type( "E", elemTypeDefiner, TXD_PUBLIC | TXD_GENPARAM );
-        elemTypeDefiner->type = constraintType->make_specialized_type(elemTypeDecl, TxTypeSpecialization(constraintType));
-
-        auto lengthDefiner = new TxBuiltinFieldDefiner();
-        auto lengthDecl = typeDecl->get_symbol()->declare_field( "L", lengthDefiner, TXD_PUBLIC | TXD_GENPARAM, TXS_INSTANCE, TxIdentifier() );
-        lengthDefiner->field = new TxField(lengthDecl, this->builtinTypes[UINT]->get_type());
+        type->prepare_type_members();
     }
 
     // create the tuple base type:
     {
         auto record = new BuiltinTypeRecord( TUPLE, "Tuple" );
-        record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        //record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        record->symbol_declaration_pass(module);
         auto type = new TxTupleType(record->get_declaration(), this->builtinTypes[ANY]->get_type(), true );
         type->prepare_type_members();
         record->set_type( type );
+        record->symbol_resolution_pass();
         this->builtinTypes[record->id] = record;
     }
 
     // create the interface base type:
     {
         auto record = new BuiltinTypeRecord( INTERFACE, "Interface" );
-        record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        //record->set_declaration( module->declare_type(record->plainName, record, TXD_PUBLIC | TXD_BUILTIN ) );
+        record->symbol_declaration_pass(module);
         {   // declare the adaptee type id virtual field member, which is abstract here but concrete in adapter subtypes:
             const TxType* fieldType = this->get_builtin_type(UINT);
             auto fieldDef = new TxBuiltinFieldDefiner();
-            auto fieldDecl = record->get_declaration()->get_symbol()->declare_field("$adTypeId", fieldDef, TXD_PUBLIC | TXD_STATIC | TXD_ABSTRACT | TXD_IMPLICIT, TXS_STATIC, "");
+            auto fieldDecl = record->get_declaration()->get_symbol()->declare_field(
+                    "$adTypeId", fieldDef, TXD_PUBLIC | TXD_BUILTIN | TXD_STATIC | TXD_ABSTRACT | TXD_IMPLICIT, TXS_STATIC, "");
             fieldDef->field = new TxField(fieldDecl, fieldType);
         }
         auto type = new TxInterfaceType(record->get_declaration(), this->builtinTypes[ANY]->get_type());
         type->prepare_type_members();
         record->set_type( type );
+        record->symbol_resolution_pass();
         this->builtinTypes[record->id] = record;
     }
 
@@ -333,19 +396,15 @@ void TypeRegistry::initializeBuiltinSymbols() {
         biType->runtimeTypeId = id;
         this->staticTypes.push_back(biType);
 
-        auto mbiDef = new TxBuiltinTypeDefiner();
-        auto mbiDecl = module->declare_type("~" + this->builtinTypes[id]->plainName, mbiDef, TXD_PUBLIC | TXD_BUILTIN | TXD_IMPLICIT );
-        auto mbitype = biType->make_specialized_type(mbiDecl, TxTypeSpecialization(biType, true));
-        mbitype->prepare_type_members();
-        mbiDef->type = mbitype;
-        this->builtinModTypes[id] = mbitype;
+        this->builtinModTypes[id] = nullptr;  // prevents read from uninitialized value
+        auto modNode = new TxModifiableTypeNode(NULL_LOC, new TxPredefinedTypeNode(NULL_LOC, this->builtinTypes[id]->plainName));
+        auto & ctx = this->builtinTypes[id]->get_node()->context(0);
+        modNode->symbol_declaration_pass(0, ctx, ctx, TXD_PUBLIC | TXD_IMPLICIT, "$~"+this->builtinTypes[id]->plainName, nullptr);
+        ResolutionContext resCtx;
+        modNode->symbol_resolution_pass(0, resCtx);
+        this->builtinModTypes[id] = modNode->get_type(0);
+        ASSERT(this->builtinModTypes[id], "NULL mod builtin type: " << biType);
     }
-
-//    // test adding static field to types:
-//    for (int id = 0; id < BuiltinTypeId_COUNT; id++) {
-//        const_cast<TxTypeEntity*>(this->builtinTypes[id]->get_entity())->declare_field("typeid", this->builtinTypes[USHORT],
-//                (TxDeclarationFlags)(TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN), TXS_STATIC, TxIdentifier());
-//    }
 
     // scalar conversion-constructor functions:
     for (auto fromTypeId : SCALAR_TYPE_IDS) {
@@ -368,17 +427,25 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     auto txCfuncModule = this->package.declare_module(TxIdentifier(BUILTIN_NS ".c"), true);
     {   // declare tx.c.puts:
-        auto implTypeName = "UByte$Ref";
-        auto ubyteRefDef = new TxBuiltinTypeDefiner();
-        auto ubyteRefDecl = txCfuncModule->declare_type(implTypeName, ubyteRefDef, TXD_PUBLIC | TXD_IMPLICIT);
-        auto charBinding = TxGenericBinding::make_type_binding("T", this->builtinTypes[UBYTE]);
-        ubyteRefDef->type = this->get_reference_type(ubyteRefDecl, charBinding);
+//        auto implTypeName = "UByte$Ref";
+//        auto ubyteRefDef = new TxBuiltinTypeDefiner();
+//        auto ubyteRefDecl = txCfuncModule->declare_type(implTypeName, ubyteRefDef, TXD_PUBLIC | TXD_IMPLICIT);
+//        auto charBinding = TxGenericBinding::make_type_binding("T", this->builtinTypes[UBYTE]);
+//        ubyteRefDef->type = this->get_reference_type(ubyteRefDecl, charBinding);
 
-        std::vector<const TxType*> argumentTypes( { ubyteRefDef->type } );  // CString arg type
         auto c_puts_func_type_def = new TxBuiltinFieldDefiner();
         auto c_puts_decl = txCfuncModule->declare_field("puts", c_puts_func_type_def, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
+
+        auto refTypeNode = new TxReferenceTypeNode(NULL_LOC, nullptr, new TxPredefinedTypeNode(NULL_LOC, "tx.UByte"));
+        LexicalContext ctx(txCfuncModule);
+        refTypeNode->symbol_declaration_pass(0, ctx, ctx, TXD_PUBLIC | TXD_IMPLICIT, "puts$argtype", nullptr);
+        ResolutionContext resCtx;
+        refTypeNode->symbol_resolution_pass(0, resCtx);
+        auto ubyteRefType = refTypeNode->get_type(0);
+
         const TxType* returnType = this->builtinTypes[INT]->get_type();
-        auto type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(), argumentTypes, returnType);
+
+        auto type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(), { ubyteRefType }, returnType);
         c_puts_func_type_def->field = new TxField(c_puts_decl, type);
     }
     {  // declare tx.c.abort:
@@ -423,19 +490,21 @@ void TypeRegistry::add_type(TxType* type) {
 
 void TypeRegistry::register_types() {
     for (auto type : this->createdTypes) {
-        if (! type->is_builtin())
-            type->prepare_type_members();
-        else {
+        if (type->is_builtin()) {
             ASSERT(type->is_prepared(), "Unprepared builtin type: " << type);
+            ASSERT(type->runtimeTypeId != UINT32_MAX, "builtin type doesn't have type id set: " << type);
         }
-        // Types that are distinct in instance data type, or vtable, get their own type id and vtable.
-        if (type->get_type_class() == TXTC_FUNCTION)
-            continue;
-        if (type->is_equivalent_derivation()) {
-            //std::cerr << "Not registering equivalent derivation: " << type << std::endl;
-            continue;
+        else {
+            type->prepare_type_members();
+            // Types that are distinct in instance data type, or vtable, get their own type id and vtable.
+            if (type->get_type_class() == TXTC_FUNCTION)
+                continue;
+            if (type->is_equivalent_derivation()) {
+                //std::cerr << "Not registering equivalent derivation: " << type << std::endl;
+                continue;
+            }
+            type->runtimeTypeId = this->staticTypes.size();
         }
-        type->runtimeTypeId = this->staticTypes.size();
         this->staticTypes.push_back(type);
         //std::cerr << "Registering: " << type << " with id " << type->runtimeTypeId << std::endl;
     }
@@ -451,174 +520,146 @@ const TxType* TypeRegistry::get_builtin_type(const BuiltinTypeId id, bool mod) c
 }
 
 
-const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declaration, const TxType* type) {
-    // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
-    ASSERT(!type->is_modifiable(), "Can't make a modifiable specialization of a modifiable type: " << type);
-    if (type->is_builtin()) {
-        // FUTURE: rewrite when we have the built-in type id in the type object
-        for (int id = 0; id < BuiltinTypeId_COUNT; id++)
-            if (this->builtinTypes[id]->get_type() == type)
-                return this->builtinModTypes[id];
-        ASSERT(false, "could not find built-in base type: " << type);
-    }
-    TxTypeSpecialization tmpSpec(type, true);
-    auto mtype = type->make_specialized_type(declaration, tmpSpec);
-    //mtype->prepare_type_members();
-    this->add_type(mtype);
-    return mtype;
-}
 
-const TxType* TypeRegistry::get_empty_specialization(const TxTypeDeclaration* declaration, const TxType* type) {
-    TxTypeSpecialization specialization(type, false, true);
-    //std::cerr << "MAKING EMPTY TYPE: " << declaration->to_string() << std::endl;
-    auto newType = specialization.type->make_specialized_type(declaration, specialization);
+TxType* TypeRegistry::make_specialized_type(const TxTypeDeclaration* declaration,
+                                            const TxTypeSpecialization& specialization,
+                                            const std::vector<TxTypeSpecialization>& interfaces) {
+    auto newType = specialization.type->make_specialized_type(declaration, specialization, interfaces);
     this->add_type(newType);
     return newType;
 }
 
-/*
-static const TxType* make_concrete(const TxType* type, const std::vector<TxGenericBinding>& bindings) {
-    // Re-create the super types, starting with the top generic one, and continue down to this new type.
-    // (Can't restrict the traversed super types based on the parameter names, since super types'
-    // parameters can have been rebound to derivations of sub-types' parameters.)
-    // Each recreated super type shall thus be made concrete.
-    auto baseType = type->get_base_type();
-    if (baseType->is_generic()) {
-        // FIX ME: accumulate bindings
-        auto newBaseType = make_concrete(baseType, bindings);
+
+
+const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declaration, const TxType* type) {
+    // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
+    ASSERT(!type->is_modifiable(), "Can't make a modifiable specialization of a modifiable type: " << type);
+    if (type->is_builtin()) {
+        ASSERT(type->get_type_id() != UINT32_MAX, "builtin type doesn't have type id set: " << type);
+        if (auto mtype = this->builtinModTypes[type->get_type_id()])
+            return mtype;
+        // if not set, then this is run during initialization and a modifiable of a built-in type is being created
+    }
+    while (type->is_empty_derivation() && !type->is_explicit_nongen_declaration())
+        type = type->get_base_type();
+
+    if (! declaration) {
+        std::string prefix = ( type->get_declaration()->get_decl_flags() & TXD_IMPLICIT ? "~" : "$~" );
+        std::string name = prefix + type->get_declaration()->get_unique_name();
+        auto & ctx = type->get_declaration()->get_definer()->get_node()->context(0);
+        if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(ctx.scope()->get_member_symbol(name))) {
+            if (auto typeDecl = entitySymbol->get_type_decl()) {
+                ResolutionContext resCtx;
+                if (auto existingType = typeDecl->get_definer()->resolve_type(resCtx)) {
+                    if (existingType->is_modifiable() && *existingType->get_base_type() == *type)
+                        return existingType;
+                }
+            }
+            type->LOGGER().warning("Name collision when trying to declare implicit MOD type, preexisting symbol: %s", entitySymbol->to_string().c_str());
+            name = ctx.scope()->make_unique_name(name);
+        }
+        auto modNode = new TxModifiableTypeNode(NULL_LOC, new TxPredefinedTypeNode(NULL_LOC, type->get_declaration()->get_unique_name()));
+        //LexicalContext ctx(type->get_declaration()->get_symbol()->get_outer());
+        modNode->symbol_declaration_pass(0, ctx, ctx, type->get_declaration()->get_decl_flags() | TXD_IMPLICIT, name, nullptr);
+        ResolutionContext resCtx;
+        modNode->symbol_resolution_pass(0, resCtx);
+        return modNode->get_type(0);
     }
 
-    // FIX ME:
-    // resolve bindings (tricky part?)
-    // determine new type name
-    // run declaration pass
-    // run resolution pass
+    return this->make_specialized_type(declaration, TxTypeSpecialization(type, true));
 }
-*/
 
-static std::vector<TxTypeParam> prepare_type_parameters(const TxTypeSpecialization& specialization,
-                                                        const std::vector<TxTypeParam>* typeParams,
-                                                        const TxParseOrigin* pOrigin) {
+const TxType* TypeRegistry::get_empty_specialization(const TxTypeDeclaration* declaration, const TxType* type) {
+    //std::cerr << "MAKING EMPTY TYPE: " << declaration->to_string() << std::endl;
+    return this->make_specialized_type(declaration, TxTypeSpecialization(type, false, true));
+}
+
+
+
+/** Collates the remaining unbound type parameters for the given specialization. * /
+static std::vector<TxTypeParam> get_unbound_type_parameters(const TxTypeSpecialization& specialization,
+                                                            const std::vector<TxGenericBinding>* bindings,
+                                                            const std::vector<TxTypeParam>* typeParams) {
     std::vector<TxTypeParam> unboundParams;
-    if (typeParams)
-        unboundParams = *typeParams;
-    for (auto & baseTypeParam : specialization.type->type_params()) {
-        const TxGenericBinding* matchedBinding = nullptr;
-        for (auto & paramBinding : specialization.bindings)
-            if (baseTypeParam.param_name() == paramBinding.param_name() && baseTypeParam.meta_type() == paramBinding.meta_type()) {
-                matchedBinding = &paramBinding;
-                break;
-            }
-        if (! matchedBinding) {
-            if (typeParams) {
-                const TxTypeParam* matchedNewParam = nullptr;
-                for (auto & newParam : *typeParams) {
-                    if (baseTypeParam.param_name() == newParam.param_name() && baseTypeParam.meta_type() == newParam.meta_type()) {
-                        matchedNewParam = &newParam;
-                        break;
-                    }
-                }
-                if (! matchedNewParam) {
-                    // Note: This can be the case for specializations that have defined the parameter (it is no longer GENPARAM)
-                    CERROR(pOrigin, "Type parameter " << baseTypeParam << " of base type " << specialization.type
-                           << " neither bound or redeclared in the specialization" );
-                }
-            }
-            else {
-                // if no type parameters declared at all, automatically redeclare the unbound type parameters of base type:
-                unboundParams.push_back(baseTypeParam);
-            }
+    if (typeParams) {
+        for (auto & newTypeParam : *typeParams)
+            unboundParams.push_back(newTypeParam);
+    }
+    for (auto baseTypeParamDecl : specialization.type->type_params()) {
+        auto pname = baseTypeParamDecl->get_unique_name();
+        if (! std::any_of( bindings->cbegin(), bindings->cend(),
+                           [&pname](const TxGenericBinding& b){ return b.param_name() == pname; } ) ) {
+            unboundParams.emplace_back(baseTypeParamDecl);
         }
     }
     return unboundParams;
 }
+*/
 
-static std::string make_bound_type_name(ResolutionContext& resCtx, const TxType* type) {
-    std::string boundTypeName;
-    if (type->is_modifiable()) {
-        boundTypeName += "~";
+static std::string encode_type_name(const TxType* type) {
+    std::stringstream boundTypeName;
+    if (type->is_modifiable() && !type->get_declaration()) {
+        boundTypeName << "~";
         type = type->get_base_type();
     }
-    while (type->is_same_instance_type())
-        type = type->get_base_type();
-    ASSERT(type->get_declaration(), "Bound type (or equiv. parent) does not have declaration: " << type);
-    //ASSERT(type->type_params().empty(), "Bound type (or equiv. parent) has unbound parameters: " << type);
-    boundTypeName += type->get_declaration()->get_symbol()->get_full_name().to_hash_string();
-    if (! type->get_bindings().empty()) {
-        boundTypeName += "<";
-        bool comma = false;
-        for (auto & binding : type->get_bindings()) {
-            if (comma)  boundTypeName += ",";
-            else        comma = true;
-
-            if (binding.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
-                auto t = binding.type_definer().resolve_type(resCtx);
-                boundTypeName += make_bound_type_name(resCtx, t);
-            }
-            else {
-                boundTypeName += "$VALUE";
-            }
-        }
-        boundTypeName += ">";
-    }
-    //if (type->get_type_class() == TXTC_REFERENCE)
-    //    std::cerr << "make_bound_type_name: " << type << ": " << boundTypeName << std::endl;
-    return boundTypeName;
+    ASSERT(type->get_declaration(), "Type does not have declaration: " << type);
+    boundTypeName << hashify( type->get_declaration()->get_unique_full_name() );
+    return boundTypeName.str();
 }
 
-static const TxType* get_existing_type(const TxTypeSpecialization& specialization,
-                                       const LexicalContext& baseContext, const std::string& newBaseName,
+
+static const TxType* get_existing_type(const TxTypeSpecialization& specialization, const std::vector<TxGenericBinding>* bindings,
+                                       TxScopeSymbol* baseScope, const std::string& newBaseName,
                                        ResolutionContext& resCtx) {
-    if (specialization.bindings.size() == specialization.type->type_params().size()) {
+    if (bindings->size() == specialization.type->type_params().size()) {
         // if generic type specialization is equivalent to the generic base type, reuse it:
         //std::cerr << "existingBaseType    0: " << specialization.type << std::endl;
         bool matchOK = true;
-        for (auto & binding : specialization.bindings) {
+        for (auto & binding : *bindings) {
             auto & param = specialization.type->get_type_param(binding.param_name());
-            if (binding.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
+            if (binding.meta_type() == MetaType::TXB_TYPE) {
                 auto bindingType = binding.type_definer().get_type();
-                auto constraintType = param.get_constraint_type_definer()->resolve_type(resCtx);  // FIXME: resolve before this?
+                auto constraintType = param.get_constraint_type_definer()->resolve_type(resCtx);
                 ASSERT(constraintType, "NULL constraint type for type parameter " << param);
                 if (*constraintType == *bindingType)
                     continue;
             }
-            else {  // TxTypeParam::MetaType::TXB_VALUE
+            else {  // MetaType::TXB_VALUE
                 //if (auto fieldDecl = memberSymbol->get_first_field_decl())  { }  // TODO
             }
             matchOK = false;
             break;
         }
         if (matchOK) {
-            baseContext.package()->LOGGER().note("new specialization equal to preexisting one, reusing: %s", specialization.type->to_string().c_str());
+            baseScope->LOGGER().note("new specialization equal to preexisting one, reusing: %s", specialization.type->to_string().c_str());
             return specialization.type;
         }
     }
 
     // if name already exists and specialization is equal, reuse it:
-    if (auto existingBaseSymbol = dynamic_cast<TxEntitySymbol*>(baseContext.scope()->get_member_symbol(newBaseName))) {
+    if (auto existingBaseSymbol = dynamic_cast<TxEntitySymbol*>(baseScope->get_member_symbol(newBaseName))) {
         if (auto typeDecl = existingBaseSymbol->get_type_decl()) {
             auto existingBaseType = typeDecl->get_definer()->resolve_type(resCtx);
             //std::cerr << "existingBaseType    1: " << existingBaseType << std::endl;
-            auto existingGenBaseType = existingBaseType->get_base_type();
+            auto existingGenBaseType = existingBaseType->get_semantic_base_type();
             //std::cerr << "existingGenBaseType 2: " << existingGenBaseType << std::endl;
             if (existingGenBaseType->is_empty_derivation()) {
-                existingGenBaseType = existingGenBaseType->get_base_type();
+                existingGenBaseType = existingGenBaseType->get_semantic_base_type();
                 //std::cerr << "existingGenBaseType 3: " << existingGenBaseType << std::endl;
             }
             if (*existingGenBaseType == *specialization.type
-                    && existingBaseType->type_params().empty()
-                    && existingBaseType->get_bindings().empty()) {
+                    && existingBaseType->type_params().empty()) {
                 bool matchOK = true;
-                for (auto & binding : specialization.bindings) {
+                for (auto & binding : *bindings) {
                     if (auto memberSymbol = dynamic_cast<TxEntitySymbol*>(existingBaseSymbol->get_member_symbol(binding.param_name()))) {
-                        if (binding.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
-                            const TxType* membType = memberSymbol->get_type_decl()->get_definer()->get_type();
+                        if (binding.meta_type() == MetaType::TXB_TYPE) {
+                            const TxType* membType = memberSymbol->get_type_decl()->get_definer()->resolve_type(resCtx);
                             if (! membType)
-                                baseContext.package()->LOGGER().warning("NULL type for member symbol %s", memberSymbol->get_type_decl()->to_string().c_str());
+                                baseScope->LOGGER().warning("NULL type for member symbol %s", memberSymbol->get_type_decl()->to_string().c_str());
                             else if (*membType == *binding.type_definer().get_type())
                                 continue;
                         }
-                        else {  // TxTypeParam::MetaType::TXB_VALUE
+                        else {  // MetaType::TXB_VALUE
                             //if (auto fieldDecl = memberSymbol->get_first_field_decl())  { }  // TODO
                         }
                     }
@@ -626,7 +667,7 @@ static const TxType* get_existing_type(const TxTypeSpecialization& specializatio
                     break;
                 }
                 if (matchOK) {
-                    baseContext.package()->LOGGER().note("new specialization equal to preexisting one, reusing: %s", existingBaseType->to_string().c_str());
+                    baseScope->LOGGER().note("new specialization equal to preexisting one, reusing: %s", existingBaseType->to_string().c_str());
                     return existingBaseType;
                 }
             }
@@ -637,6 +678,7 @@ static const TxType* get_existing_type(const TxTypeSpecialization& specializatio
 
 TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
                                               const std::vector<TxTypeSpecialization>& interfaces,
+                                              const std::vector<TxGenericBinding>* bindings,
                                               const std::vector<TxTypeParam>* typeParams, bool _mutable) {
     // Note: type specialization is never applied to a modifiable-specialization (legal only on generic base type)
     // Note: A non-parameterized type (without any declared type parameters) is not necessarily non-generic:
@@ -648,7 +690,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
     if (specialization.type->get_declaration() && (specialization.type->get_declaration()->get_decl_flags() & TXD_GENPARAM)) {
         // only empty derivation allowed from generic type parameter
-        if (! (specialization.bindings.empty() && interfaces.empty() && (!typeParams || typeParams->empty()))) {
+        if (! (bindings->empty() && interfaces.empty() && (!typeParams || typeParams->empty()))) {
             CERROR(pOrigin, "Can't derive from generic type parameter " << specialization.type);
             return nullptr;
         }
@@ -656,103 +698,90 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
     // TODO: pass _mutable flag to type extensions
 
-    std::vector<TxTypeParam> allParams = prepare_type_parameters(specialization, typeParams, pOrigin);
+    // Note: Binding of ref-constrained type parameters don't make the code generation more concrete,
+    //       but accesses to the members still need the specialized version of them (e.g. the correct ref-target).
 
-    // (binding of ref-constrained type parameters don't make the code generation more concrete,
-    //  but accesses to the members still need the specialized version of them (e.g. the correct ref-target))
-    if (allParams.empty() && ! specialization.bindings.empty()  // non-parameterized type that binds parameters of its base type
-        //if (allParams.empty() && specialization.type->has_nonref_parameters()  // non-parameterized type & binds a non-ref parameter
-        && ! specialization.type->is_builtin()) {  // (avoids source-expression-less built-in types (incl Ref<> and Array<>))
+    if (! bindings->empty())        // type that binds parameters of its base type
+        //&& get_unbound_type_parameters(specialization, bindings, typeParams).empty()  // non-parameterized type
+    {
         // re-base it on new non-generic specialization of the base type:
-        // (this replaces the bindings of the TxTypeSpecialization object with direct declarations within the new type)
-
-        // TODO: How should we handle Ref? We can't resolve it's parameter in order to prevent infinite recursion.
-        //       We also need to handle the dataspace use case.
-        // TODO: How should we handle Array? Should user be allowed to extend it?
+        // (this replaces the type parameter bindings with direct declarations within the new type)
 
         ASSERT(declaration, "expected type that binds base type's parameters to be named (declared) but was not");
-        this->package.LOGGER().note("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
-                                    declaration->get_unique_full_name().c_str(), specialization.type->to_string().c_str());
-
-//        // before we substitute the TxTypeSpecialization, validate it:
-//        specialization.validate();
+        this->package.LOGGER().debug("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
+                                     declaration->get_unique_full_name().c_str(), specialization.type->to_string().c_str());
 
         auto baseDecl = specialization.type->get_declaration();
         ASSERT(baseDecl, "base type has no declaration: " << specialization.type);
-        auto baseTypeExpr = static_cast<TxTypeExpressionNode*>(baseDecl->get_definer()->get_node());
-        TxSpecializationIndex newSix = baseTypeExpr->next_spec_index();
-
-        //LexicalContext baseContext = LexicalContext(baseDecl->get_symbol()->get_outer());
-        LexicalContext baseContext = LexicalContext(baseTypeExpr->context(0));
-        ASSERT(baseContext.scope() == baseDecl->get_symbol()->get_outer(),
-               "Expected scope " << baseDecl->get_symbol()->get_outer() << " but was " << baseContext.scope());
-
-        std::string newBaseName = baseDecl->get_unique_name();
-        newBaseName += "<";
+        std::stringstream newBaseTypeName;
+        newBaseTypeName << "$" << baseDecl->get_unique_name() << "<";
 
         // make new parameter declarations that resolve to the bindings:
-        auto typeParamDeclNodes = new std::vector<TxDeclarationNode*>();
+        auto bindingDeclNodes = new std::vector<TxDeclarationNode*>();
         ResolutionContext resCtx;
-        bool comma = false;
-        for (auto & binding : specialization.bindings) {
-            if (comma)  newBaseName += ",";
-            else        comma = true;
-            if (binding.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
+        unsigned bindCount = 0;
+        for (auto & binding : *bindings) {
+            if (bindCount++)  newBaseTypeName << ",";
+
+            if (binding.meta_type() == MetaType::TXB_TYPE) {
+                // we want to bypass empty, implicit derivations:
+                auto btype = binding.type_definer().resolve_type(resCtx);
+                if (! btype)
+                    return nullptr;  // specialization fails if a binding fails resolve
+                while (btype->is_empty_derivation() && !btype->is_explicit_nongen_declaration())
+                    btype = btype->get_base_type();
+                newBaseTypeName << encode_type_name(btype);
+
                 auto & parseLoc = binding.type_definer().get_parse_location();
-                auto typeExpr = new TxTypeExprWrapperNode(parseLoc, &binding.type_definer());
-                auto declNode = new TxTypeDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, binding.param_name(), nullptr, typeExpr);
-                typeParamDeclNodes->push_back(declNode);
+                auto typeExpr = new TxTypeExprWrapperNode(parseLoc, new TxTypeWrapperDef(btype));
+                auto declNode = new TxTypeDeclNode(parseLoc, TXD_PUBLIC | TXD_GENBINDING, binding.param_name(), nullptr, typeExpr);
+                bindingDeclNodes->push_back(declNode);
                 package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
                                        binding.param_name().c_str(), typeExpr->to_string().c_str());
-
-                const TxType* btype = binding.type_definer().resolve_type(resCtx);
-                std::string boundTypeName = make_bound_type_name(resCtx, btype);
-                newBaseName += boundTypeName;
             }
             else {
-                ASSERT(!binding.value_definer().is_context_set(newSix), "VALUE param '" << binding.param_name() << "' at "
-                       << binding.value_definer().to_string() << " already processed for s-ix " << newSix);
                 auto & parseLoc = binding.value_definer().get_parse_location();
                 auto fieldDef = new TxFieldDefNode(parseLoc, binding.param_name(), nullptr, &binding.value_definer());
-                auto declNode = new TxFieldDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
-                typeParamDeclNodes->push_back(declNode);
+                auto declNode = new TxFieldDeclNode(parseLoc, TXD_PUBLIC | TXD_GENBINDING, fieldDef);
+                bindingDeclNodes->push_back(declNode);
                 package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
                                        binding.param_name().c_str(), binding.value_definer().to_string().c_str());
 
-                newBaseName += "$VALUE";
+                newBaseTypeName << "$VALUE";
             }
         }
-        newBaseName += ">";
-
-        {
-            auto & parseLoc = declaration->get_definer()->get_parse_location();
-            auto typeExpr = new TxTypeExprWrapperNode(parseLoc, new TxTypeWrapperDef(specialization.type));
-            auto declNode = new TxTypeDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, "$GenericBase", nullptr, typeExpr);
-            typeParamDeclNodes->push_back(declNode);
-            //package.LOGGER().alert("Provided $GenericBase type: %s", baseDecl->get_unique_full_name().c_str());
-        }
+        newBaseTypeName << ">";
+        auto newBaseTypeNameStr = newBaseTypeName.str();
 
         // if equivalent specialized type already exists then reuse it, otherwise create new one:
-        const TxType* specializedBaseType = get_existing_type(specialization, baseContext, newBaseName, resCtx);
-
+        auto baseScope = baseDecl->get_symbol()->get_outer();
+        const TxType* specializedBaseType = get_existing_type(specialization, bindings, baseScope, newBaseTypeNameStr, resCtx);
         if (! specializedBaseType) {
+            {   // pass on the generic base type to the new specialization via member named $GenericBase:
+                auto & parseLoc = declaration->get_definer()->get_parse_location();
+                auto typeExpr = new TxTypeExprWrapperNode(parseLoc, new TxTypeWrapperDef(specialization.type));
+                auto declNode = new TxTypeDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, "$GenericBase", nullptr, typeExpr);
+                bindingDeclNodes->push_back(declNode);
+            }
+
             // process new specialization of the base type:
-            newBaseName = baseContext.scope()->make_unique_name(newBaseName, true);
+            auto baseTypeExpr = static_cast<TxTypeExpressionNode*>(baseDecl->get_definer()->get_node());
+            TxSpecializationIndex newSix = baseTypeExpr->next_spec_index();
+            LexicalContext baseContext = LexicalContext(baseTypeExpr->context(0));
+            ASSERT(baseContext.scope() == baseScope, "Unexpected lexical scope: " << baseContext.scope() << " != " << baseScope);
+
+            newBaseTypeNameStr = baseScope->make_unique_name(newBaseTypeNameStr, true);
             //std::cerr << "specializing base " << newBaseName << ": " << specialization.type << std::endl;
-            baseTypeExpr->symbol_declaration_pass(newSix, baseContext, baseContext, TXD_PUBLIC | TXD_IMPLICIT, newBaseName, typeParamDeclNodes);
+            baseTypeExpr->symbol_declaration_pass(newSix, baseContext, baseContext, TXD_PUBLIC | TXD_IMPLICIT, newBaseTypeNameStr, bindingDeclNodes);
             baseTypeExpr->symbol_resolution_pass(newSix, resCtx);
             specializedBaseType = baseTypeExpr->resolve_type(newSix, resCtx);
         }
 
         TxTypeSpecialization newSpec(specializedBaseType);
-        auto newType = specialization.type->make_specialized_type(declaration, newSpec, interfaces, allParams);
-        this->add_type(newType);
-        return newType;
+        return this->make_specialized_type(declaration, newSpec, interfaces);
     }
     else {
-        auto newType = specialization.type->make_specialized_type(declaration, specialization, interfaces, allParams);
-        this->add_type(newType);
-        return newType;
+        return this->make_specialized_type(declaration, specialization, interfaces);
     }
 }
 
@@ -764,8 +793,11 @@ const TxInterfaceAdapterType* TypeRegistry::inner_get_interface_adapter(const Tx
 
     auto ifDecl = interfaceType->get_declaration();
     auto scope = ifDecl->get_symbol()->get_outer();
-    ResolutionContext resCtx;
-    std::string adapterName = ifDecl->get_unique_name() + "$if$" + make_bound_type_name(resCtx, adaptedType);
+
+    // we want to bypass empty, implicit derivations:
+    while (adaptedType->is_empty_derivation() && !adaptedType->is_explicit_nongen_declaration())
+        adaptedType = adaptedType->get_base_type();
+    std::string adapterName = ifDecl->get_unique_name() + "$if$" + encode_type_name(adaptedType);
 
     if (auto existingAdapterSymbol = dynamic_cast<TxEntitySymbol*>(scope->get_member_symbol(adapterName))) {
         if (auto typeDecl = existingAdapterSymbol->get_type_decl()) {
@@ -778,7 +810,7 @@ const TxInterfaceAdapterType* TypeRegistry::inner_get_interface_adapter(const Tx
 
     //std::cerr << "Creating interface adapter:\n\tfrom " << adaptedType << "\n\tto   " << interfaceType << std::endl;
     auto typeDefiner = new TxBuiltinTypeDefiner();
-    auto typeDecl = scope->declare_type(adapterName, typeDefiner, TXD_PUBLIC);
+    auto typeDecl = scope->declare_type(adapterName, typeDefiner, TXD_PUBLIC | TXD_IMPLICIT);
     {   // override the adaptee type id virtual field member:
         const TxType* fieldType = this->get_builtin_type(UINT);
         auto fieldDef = new TxBuiltinFieldDefiner();
@@ -788,16 +820,15 @@ const TxInterfaceAdapterType* TypeRegistry::inner_get_interface_adapter(const Tx
     auto adapterType = new TxInterfaceAdapterType(typeDecl, interfaceType, adaptedType);
     typeDefiner->type = adapterType;
     this->add_type(adapterType);
-    //adapterType->prepare_type_members();
     return adapterType;
 }
 
 const TxType* TypeRegistry::get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType) {
     auto modIf = interfaceType->is_modifiable();
     while (interfaceType->is_same_vtable_type())
-        interfaceType = interfaceType->get_base_type();
+        interfaceType = interfaceType->get_semantic_base_type();
     while (adaptedType->is_same_vtable_type())
-        adaptedType = adaptedType->get_base_type();
+        adaptedType = adaptedType->get_semantic_base_type();
 
     auto adapterType = this->inner_get_interface_adapter(interfaceType, adaptedType);
 //    ASSERT(adapterType->adapted_type()->get_type_id() == adaptedType->get_type_id(),
@@ -809,60 +840,34 @@ const TxType* TypeRegistry::get_interface_adapter(const TxType* interfaceType, c
 }
 
 
+
+// FUTURE: maybe remove the declaration argument, disallowing 'user' type names for references?
 const TxReferenceType* TypeRegistry::get_reference_type(const TxTypeDeclaration* declaration, TxGenericBinding targetTypeBinding,
                                                         const TxIdentifier* dataspace) {
+//    std::vector<TxGenericBinding> bindings( { TxGenericBinding::make_type_binding("T", targetTypeDefiner) } );
     std::vector<TxGenericBinding> bindings( { targetTypeBinding } );
-    TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type(), bindings, dataspace);
-    return static_cast<const TxReferenceType*>(this->get_type_specialization(declaration, specialization));
-
-    /* if to use this approach, find way to avoid resolving the target type (causes recursion):
-    // Each type gets a shared reference type declared adjacent to it.
-    ResolutionContext resCtx;
-    auto targetType = targetTypeBinding.type_definer().resolve_type(resCtx);
-    auto targetTypeSymbol = targetType->get_declaration()->get_symbol();
-    auto targetTypeScope = targetTypeSymbol->get_outer();
-    std::string refTypeName = targetTypeSymbol->get_name() + ( targetType->is_modifiable() ? "$MRef" : "$Ref" );
-    auto refTypeSymbol = dynamic_cast<TxEntitySymbol*>(lookup_member(targetTypeScope->get_root_scope(), targetTypeScope, refTypeName));
-    const TxType* refType = ( (refTypeSymbol && refTypeSymbol->get_type_decl()) ? refTypeSymbol->get_type_decl()->get_type_definer()->resolve_type(resCtx) : nullptr);
-
-    if (! refType) {
-        // this target type has no shared ref type declared for it yet
-        auto typeDefiner = new TxBuiltinTypeDefiner();
-        auto commonDecl = targetTypeScope->declare_type(refTypeName, typeDefiner, TXD_PUBLIC);
-        std::vector<TxGenericBinding> bindings( { targetTypeBinding } );
-        TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type(), bindings);
-        typeDefiner->type = this->get_type_specialization(commonDecl, specialization, false, nullptr, errorMsg);
-        refType = typeDefiner->type;
-    }
-
-    if (declaration) {
-        // new declaration provided - create empty specialization (uniquely named but identical type)
-        refType = this->get_type_specialization(declaration, TxTypeSpecialization(refType), false, nullptr, errorMsg);
-    }
-    // TODO: Dataspace-specific instances may need their own derivation regardless
-    return static_cast<const TxReferenceType*>(refType);
-    */
+    TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type());
+    return static_cast<const TxReferenceType*>(this->get_type_specialization(declaration, specialization, {}, &bindings));
 }
 
-//const TxReferenceType* TypeRegistry::get_reference_type(const TxTypeDeclaration* declaration, TxEntityDefiner* targetType) {
-//    return this->get_reference_type(declaration, TxTypeBinding("T", targetType) );
-//}
 
 
 const TxArrayType* TypeRegistry::get_array_type(const TxTypeDeclaration* declaration,
                                                 TxGenericBinding elemTypeBinding, TxGenericBinding lengthBinding) {
-    //std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType), TxTypeBinding("L", length) } );
+//    std::vector<TxGenericBinding> bindings( { TxGenericBinding::make_type_binding("E", elemTypeDefiner),
+//                                              TxGenericBinding::make_value_binding("L", lengthDefiner) } );
     std::vector<TxGenericBinding> bindings( { elemTypeBinding, lengthBinding } );
-    TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
-    return static_cast<const TxArrayType*>(this->get_type_specialization(declaration, specialization));
+    TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type());
+    return static_cast<const TxArrayType*>(this->get_type_specialization(declaration, specialization, {}, &bindings));
 }
 
 const TxArrayType* TypeRegistry::get_array_type(const TxTypeDeclaration* declaration, TxGenericBinding elemTypeBinding) {
-    //std::vector<TxTypeBinding> bindings( { TxTypeBinding("E", elemType) } );
+//    std::vector<TxGenericBinding> bindings( { TxGenericBinding::make_type_binding("E", elemTypeDefiner) } );
     std::vector<TxGenericBinding> bindings( { elemTypeBinding } );
-    TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type(), bindings);
-    return static_cast<const TxArrayType*>(this->get_type_specialization(declaration, specialization));
+    TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type());
+    return static_cast<const TxArrayType*>(this->get_type_specialization(declaration, specialization, {}, &bindings));
 }
+
 
 
 const TxFunctionType* TypeRegistry::get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, const TxType* returnType,
@@ -885,12 +890,3 @@ const TxConstructorType* TypeRegistry::get_constructor_type(const TxTypeDeclarat
     this->add_type(type);
     return type;
 }
-
-//const TxTupleType* TypeRegistry::get_tuple_type(const TxTypeDeclaration* declaration, bool mut) {
-//    return new TxTupleType(declaration, this->builtinTypes[TUPLE]->get_type(), mut);
-//}
-//
-//const TxTupleType* TypeRegistry::get_tuple_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseType,
-//                                                bool mut) {
-//    return static_cast<const TxTupleType*>(this->get_type_specialization(declaration, baseType, errorMsg));
-//}

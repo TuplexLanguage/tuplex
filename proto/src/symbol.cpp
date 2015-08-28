@@ -247,7 +247,7 @@ void TxScopeSymbol::dump_symbols() const {
             subModules.push_back(submod);
         else if (this->get_full_name() != builtinNamespace || this->get_root_scope()->driver().get_options().dump_tx_symbols) {
             try {
-                printf("%-13s %-48s %s\n", symbol->declaration_string().c_str(), symbol->get_full_name().to_string().c_str(),
+                printf("%-14s %-48s %s\n", symbol->declaration_string().c_str(), symbol->get_full_name().to_string().c_str(),
                        symbol->description_string().c_str());
                 /*
                 if (auto ent = dynamic_cast<const TxFieldEntity*>(symbol)) {
@@ -347,12 +347,18 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
 bool TxEntitySymbol::validate_symbol() const {
     bool valid = true;
 
+    bool internalName = (this->get_name().find_first_of('$') != std::string::npos);
+
     if (this->typeDeclaration) {
         valid &= this->typeDeclaration->validate();
+        ASSERT(internalName == !!(this->typeDeclaration->get_decl_flags() & (TXD_IMPLICIT | TXD_CONSTRUCTOR)),
+               "Mismatch between name format and IMPLICIT flag for " << this->typeDeclaration);
     }
 
     for (auto fieldDeclI = this->fields_cbegin(); fieldDeclI != this->fields_cend(); fieldDeclI++) {
         valid &= (*fieldDeclI)->validate();
+        ASSERT(internalName == !!((*fieldDeclI)->get_decl_flags() & (TXD_IMPLICIT | TXD_CONSTRUCTOR)),
+               "Mismatch between name format and IMPLICIT flag for " << (*fieldDeclI));
 
         auto type = (*fieldDeclI)->get_definer()->get_type();
         if (auto funcType = dynamic_cast<const TxFunctionType*>(type)) {
@@ -407,10 +413,7 @@ std::string TxEntitySymbol::description_string() const {
         return "-overloaded-";
     else if (this->typeDeclaration)
         if (auto type = this->typeDeclaration->get_definer()->attempt_get_type()) {
-            if (type->is_empty_derivation())
-                return "TYPE      = " + type->get_base_data_type()->to_string(true);
-            else
-                return "TYPE      " + type->to_string(true, true);
+            return "TYPE      " + type->to_string(false, true);
         }
         else
             return "TYPE      -undef-";

@@ -627,7 +627,7 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
 
     // as we don't (yet) generate code for specializations, we'll find the actual constructor in the top generic base type:
     while (allocType->is_pure_specialization())
-        allocType = allocType->get_base_type();
+        allocType = allocType->get_semantic_base_type();
     auto uniqueFullName = allocType->get_declaration()->get_unique_full_name() + "." + uniqueName;
     //std::cerr << "Code-generated constructor name: " << uniqueFullName << " (from: " << this->get_spec(0).declaration->get_unique_full_name() << ")" << std::endl;
 

@@ -16,9 +16,10 @@ enum TxDeclarationFlags {
     TXD_BUILTIN    = 1 << 6,
     TXD_IMPLICIT   = 1 << 7,
     TXD_GENPARAM   = 1 << 8,
-    TXD_ALIAS      = 1 << 9,
-    TXD_CONSTRUCTOR= 1 << 10,
-    TXD_EXPERRBLOCK= 1 << 11,
+    TXD_GENBINDING = 1 << 9,
+    TXD_ALIAS      = 1 << 10,
+    TXD_CONSTRUCTOR= 1 << 11,
+    TXD_EXPERRBLOCK= 1 << 12,
 };
 inline TxDeclarationFlags operator|(TxDeclarationFlags a, TxDeclarationFlags b) {
 	return static_cast<TxDeclarationFlags>(static_cast<int>(a) | static_cast<int>(b));
@@ -32,7 +33,7 @@ inline TxDeclarationFlags operator^(TxDeclarationFlags a, TxDeclarationFlags b) 
 
 inline std::string to_string(TxDeclarationFlags flags) {
     char buf[16];
-    sprintf(buf, "%c%c%c%c%c%c%c%c%c%c%c%c%c",
+    sprintf(buf, "%c%c%c%c%c%c%c%c%c%c%c%c%c%c",
             (flags & TXD_STATIC)    ? 'S' : '-',
             (flags & TXD_PUBLIC)    ? 'P' : '-',
             (flags & TXD_PROTECTED) ? 'R' : '-',
@@ -40,9 +41,10 @@ inline std::string to_string(TxDeclarationFlags flags) {
             (flags & TXD_FINAL)     ? 'F' : '-',
             (flags & TXD_OVERRIDE)  ? 'O' : '-',
             ' ',
-            (flags & TXD_BUILTIN)   ? 'B' : '-',
+            (flags & TXD_BUILTIN)   ? 'b' : '-',
             (flags & TXD_IMPLICIT)  ? 'I' : '-',
             (flags & TXD_GENPARAM)  ? 'G' : '-',
+            (flags & TXD_GENBINDING)? 'B' : '-',
             (flags & TXD_ALIAS)     ? 'A' : '-',
             (flags & TXD_CONSTRUCTOR)?'C' : '-',
             (flags & TXD_EXPERRBLOCK)?'E' : '-');

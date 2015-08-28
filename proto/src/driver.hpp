@@ -46,7 +46,7 @@ class TxDriver {
 
     /*--- these members reflect the current compilation state ---*/
     /** the currently compiled tuplex package */
-    TxPackage * const package;
+    TxPackage* package = nullptr;
 
     /** true if within an EXPERR block */
     bool exp_err = false;

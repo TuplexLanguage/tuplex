@@ -134,7 +134,7 @@ TxSymbolScope* TxTypeEntity::inner_lookup_member(std::vector<TxSymbolScope*>& pa
                 member = nullptr;
                 if (auto fieldType = fieldMember->attempt_get_type()) {
                     if (fieldType->is_modifiable())
-                        fieldType = fieldType->get_base_type();
+                        fieldType = fieldType->get_semantic_base_type();
                     member = fieldType->entity();
                 }
                 if (! member) {

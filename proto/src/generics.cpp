@@ -5,12 +5,31 @@
 #include "ast.hpp"
 
 
+MetaType meta_type_of(const TxEntityDeclaration* declaration) {
+    return ( dynamic_cast<const TxFieldDeclaration*>(declaration) ? TXB_VALUE : TXB_TYPE );
+}
+
+
+TxTypeParam::TxTypeParam(const TxEntityDeclaration* decl)
+        : metaType(meta_type_of(decl)), decl(decl) {
+    ASSERT(decl->get_decl_flags() & TXD_GENPARAM, "Declaration is not a generic parameter declaration: " << decl);
+}
+
+const std::string TxTypeParam::param_name() const {
+    return this->decl->get_unique_name();
+}
+
+TxTypeDefiner* TxTypeParam::get_constraint_type_definer() const {
+    return static_cast<const TxTypeDeclaration*>(this->decl)->get_definer();
+}
+
+
 TxGenericBinding TxGenericBinding::make_type_binding(const std::string& paramName, TxTypeDefiner* typeDefiner) {
-    return TxGenericBinding(paramName, TxTypeParam::MetaType::TXB_TYPE, typeDefiner, nullptr);
+    return TxGenericBinding(paramName, MetaType::TXB_TYPE, typeDefiner, nullptr);
 }
 
 TxGenericBinding TxGenericBinding::make_value_binding(const std::string& paramName, TxExpressionNode* valueDefiner) {
-    return TxGenericBinding(paramName, TxTypeParam::MetaType::TXB_VALUE, nullptr, valueDefiner);
+    return TxGenericBinding(paramName, MetaType::TXB_VALUE, nullptr, valueDefiner);
 }
 
 static inline std::string type_arg_to_string(const TxType* type) {
@@ -18,14 +37,14 @@ static inline std::string type_arg_to_string(const TxType* type) {
         if (type->get_declaration())
             return type->to_string(true);
         else
-            return type_arg_to_string(type->get_base_type());
+            return type_arg_to_string(type->get_semantic_base_type());
     }
     else
         return "n/r";
 }
 
 std::string TxGenericBinding::to_string() const {
-    return this->typeParamName + "=" + ( this->metaType==TxTypeParam::MetaType::TXB_TYPE
+    return this->typeParamName + "=" + ( this->metaType==MetaType::TXB_TYPE
                                                 ? type_arg_to_string(this->type_definer().attempt_get_type())
                                                 : "expr" );  // this->value_expr().to_string()
 }
@@ -33,7 +52,7 @@ std::string TxGenericBinding::to_string() const {
 bool operator==(const TxGenericBinding& b1, const TxGenericBinding& b2) {
     if (! (b1.param_name() == b2.param_name() && b1.meta_type() == b2.meta_type()))
         return false;
-    if (b1.meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
+    if (b1.meta_type() == MetaType::TXB_TYPE) {
         ResolutionContext resCtx;  // resolution currently necessary for Ref's target binding
         auto t1 = b1.type_definer().resolve_type(resCtx);
         auto t2 = b2.type_definer().resolve_type(resCtx);

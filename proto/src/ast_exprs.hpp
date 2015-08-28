@@ -2,6 +2,7 @@
 
 #include "ast_base.hpp"
 #include "ast_fields.hpp"
+#include "ast_types.hpp"
 
 
 extern llvm::Value* gen_get_struct_member(LlvmGenerationContext& context, GenScope* scope, llvm::Value* structV, unsigned ix);
@@ -100,9 +101,9 @@ public:
 // FIXME: possibly revise together with is_equivalent_derivation()
 static bool equivalent_interface_target_types(const TxType* typeA, const TxType* typeB) {
     while (typeA->is_same_vtable_type())
-        typeA = typeA->get_base_type();
+        typeA = typeA->get_semantic_base_type();
     while (typeB->is_same_vtable_type())
-        typeB = typeB->get_base_type();
+        typeB = typeB->get_semantic_base_type();
     return (*typeA == *typeB);
 }
 
@@ -272,8 +273,6 @@ public:
         }
         else
             CERROR(this, "Can't construct reference to non-addressable expression / rvalue.");
-        //if (this->get_target_entity()->get_storage() == TXS_NOSTORAGE)
-        //    parser_error(this->parseLocation, "Can't construct reference to non-addressable expression.");
     }
 
     virtual bool is_statically_constant() const override {

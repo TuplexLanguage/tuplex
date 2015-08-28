@@ -1,5 +1,6 @@
 #pragma once
 
+#include "assert.hpp"
 #include "tx_error.hpp"
 
 
@@ -30,19 +31,17 @@ public:
 
 
 class TxEntityDefiner : public TxTypeProxy, public virtual TxParseOrigin {
-//public:
-//    virtual ~TxEntityDefiner() = default;
+public:
+    virtual const TxType* resolve_type(ResolutionContext& resCtx) = 0;
 };
 
 class TxTypeDefiner : public TxEntityDefiner {
 public:
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) = 0;
-
     /** Returns a type if this type definer "is ready" (has a defined type), otherwise NULL. */
     virtual const TxType* attempt_get_type() const = 0;
 
-    /** Returns the node defining the type, if available. */
-    virtual TxTypeDefiningNode* get_node() const { return nullptr; }
+    /** Returns the node defining the type. */
+    virtual TxTypeDefiningNode* get_node() const = 0;
 };
 
 class TxFieldDefiner : public TxTypeDefiner {
@@ -60,4 +59,6 @@ public:
     virtual const TxType* resolve_type(ResolutionContext& resCtx) override;
 
     //virtual const TxType* attempt_get_type() const override = 0;
+
+    virtual TxTypeDefiningNode* get_node() const override { ASSERT(false, "FIXME: REVIEW"); return nullptr; }
 };

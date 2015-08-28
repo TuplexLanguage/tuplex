@@ -8,15 +8,13 @@
 #include "printable.hpp"
 
 
-class TxIdentifier : public Printable { // : public TxIdentifier {
+class TxIdentifier : public Printable {
     std::string ns;
     std::vector<std::string> segments;
 
 public:
     /** Constructs an empty identifier (""). */
-    TxIdentifier() {  // currently we treat this as legal
-        //std::cout << "TxIdentifier default constructor" << std::endl;
-    }
+    TxIdentifier()  { }  // currently we treat this as legal
 
     /** Constructs a TxIdentifier whose contents are parsed from the provided string.
      * (split on the '.' characters)
@@ -39,29 +37,21 @@ public:
             this->append(input.substr(lastPos, (pos-lastPos)));  // next segment
             lastPos = pos+1;  // skip the period
         }
-        //parseC++;
-        //std::cout << "TxIdentifier parse constructor: " << this->ns << std::endl;
     }
 
     /** Constructs a TxIdentifier that extends the base namespace with another name segment. */
     TxIdentifier(const TxIdentifier& base, const std::string& name) : TxIdentifier(base) {
         this->append(name);
-        //appendCopCopC++;
-        //std::cout << "TxIdentifier append constructor: " << this->ns << std::endl;
     }
 
     /** Constructs a TxIdentifier that extends the base namespace with another (moved) name segment. */
     TxIdentifier(const TxIdentifier& base, std::string&& name) : TxIdentifier(base) {
         this->append(name);
-        //appendCopMovC++;
-        //std::cout << "TxIdentifier append constructor (moved name): " << this->ns << std::endl;
     }
 
     /** Constructs a TxIdentifier that extends the (moved) base namespace with another (moved) name segment. */
     TxIdentifier(TxIdentifier&& base, std::string&& name) : TxIdentifier(base) {
         this->append(name);
-        //appendMovMovC++;
-        //std::cout << "TxIdentifier append constructor (moved base & name): " << this->ns << std::endl;
     }
 
     /** Constructs a TxIdentifier that is a subsequence of the provided namespace. */
@@ -77,22 +67,14 @@ public:
             throw std::out_of_range("endIndex out of range [0," + std::to_string(termIx) + "): " + std::to_string(endIndex));
         for (int i = startIndex; i < endIndex; i++)
             this->append(other.segments[i]);
-        //std::cout << "TxIdentifier [0," << std::to_string(termIx) << ")  subsequence ["
-        //          << std::to_string(startIndex) << "," << std::to_string(endIndex) << ") = " << *this << std::endl;
-        //subidentC++;
-        //std::cout << "TxIdentifier parent constructor: " << this->ns << std::endl;
     }
 
     /** Copy constructor. */
     TxIdentifier(const TxIdentifier& other) : ns(other.ns), segments(other.segments) {
-        //copyC++;
-        //std::cout << "TxIdentifier copy constructor: " << this->ns << std::endl;
     }
 
     /** Move constructor. */
     TxIdentifier(TxIdentifier&& other) : ns(std::move(other.ns)), segments(std::move(other.segments)) {
-        //moveC++;
-        //std::cout << "TxIdentifier move constructor: " << this->ns << std::endl;
     }
 
     virtual ~TxIdentifier() = default;
@@ -104,7 +86,6 @@ public:
             this->ns = other.ns;
             this->segments = other.segments;
         }
-        //std::cout << "TxIdentifier copy assignment operator: " << this->ns << std::endl;
         return *this;
     }
 
@@ -114,7 +95,6 @@ public:
             this->ns = std::move(other.ns);
             this->segments = std::move(other.segments);
         }
-        //std::cout << "TxIdentifier move assignment operator: " << this->ns << std::endl;
         return *this;
     }
 
@@ -222,28 +202,9 @@ public:
     }
 
 
-    inline std::string to_hash_string() const {
-        std::string hname = this->ns;
-        std::replace(hname.begin(), hname.end(), '.', '#');
-        return hname;
-
-    }
-
-
     inline virtual std::string to_string() const {
         return this->ns;
     }
-
-
-//    // for debugging:
-//    static int parseC;
-//    static int appendCopCopC;
-//    static int appendCopMovC;
-//    static int appendMovMovC;
-//    static int subidentC;
-//    static int copyC;
-//    static int moveC;
-//    static void printStats();
 };
 
 

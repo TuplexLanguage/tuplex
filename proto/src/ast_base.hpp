@@ -219,6 +219,8 @@ public:
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
+
+    virtual const TxEntityDeclaration* get_declaration(TxSpecializationIndex six) const = 0;
 };
 
 
@@ -357,7 +359,8 @@ public:
     }
 
     virtual const TxType* attempt_get_type(TxSpecializationIndex six) const override final { return this->get_spec(six)->type; }
-    virtual const TxType* get_type        (TxSpecializationIndex six) const override final { return this->get_spec(six)->type; }
+    virtual const TxType* get_type        (TxSpecializationIndex six) const override final {
+        auto spec = this->get_spec(six); ASSERT(spec->hasResolved, "entity definer not resolved: " << this); return spec->type; }
 };
 
 
@@ -399,8 +402,10 @@ public:
     }
 
     virtual const TxType*  attempt_get_type(TxSpecializationIndex six) const override final { return this->get_spec(six)->type; }
-    virtual const TxType*  get_type        (TxSpecializationIndex six) const override final { return this->get_spec(six)->type; }
-    virtual const TxField* get_field       (TxSpecializationIndex six) const override final { return this->get_spec(six)->field; }
+    virtual const TxType*  get_type        (TxSpecializationIndex six) const override final {
+        auto spec = this->get_spec(six); ASSERT(spec->hasResolved, "entity definer not resolved: " << this); return spec->type; }
+    virtual const TxField* get_field       (TxSpecializationIndex six) const override final {
+        auto spec = this->get_spec(six); ASSERT(spec->hasResolved, "entity definer not resolved: " << this); return spec->field; }
 //    virtual const TxExpressionNode* get_init_expression() const = 0;
 };
 
@@ -412,24 +417,25 @@ class TxTypeExpressionNode : public TxTypeDefiningNode {
     /** if parent node is a type declaration that declares type parameters, these will be set by it */
     std::vector<const std::vector<TxDeclarationNode*>*> typeParamDeclNodes;
 
-    void setTypeParamDeclNodes(TxSpecializationIndex six, const std::vector<TxDeclarationNode*>* typeParamDeclNodes) {
+    void set_type_param_decl_nodes(TxSpecializationIndex six, const std::vector<TxDeclarationNode*>* typeParamDeclNodes) {
         while (six >= this->typeParamDeclNodes.size())
             this->typeParamDeclNodes.push_back(nullptr);
         this->typeParamDeclNodes[six] = typeParamDeclNodes;
     }
 
 protected:
-    inline const std::vector<TxDeclarationNode*>* getTypeParamDeclNodes(TxSpecializationIndex six) const {
+    inline bool has_type_param_decl_nodes(TxSpecializationIndex six) const {
+        if ( six >= this->typeParamDeclNodes.size() ) return false;
+        if ( auto nodes = this->typeParamDeclNodes.at(six) ) return ! nodes->empty();
+        return false;
+    }
+
+    inline const std::vector<TxDeclarationNode*>* get_type_param_decl_nodes(TxSpecializationIndex six) const {
         return ( six < this->typeParamDeclNodes.size() ? this->typeParamDeclNodes.at(six) : nullptr );
     }
 
-    /** constructs a newly allocated TxTypeParam vector for this type expression's type parameter declaration nodes */
-    std::vector<TxTypeParam>* makeDeclTypeParams(TxSpecializationIndex six);
-
-    /** Gets the type declaration of this type expression, if any. */
-    inline const TxTypeDeclaration* get_declaration(TxSpecializationIndex six) const {
-        return dynamic_cast<const TxTypeDeclaration*>(this->get_spec(six)->declaration);
-    }
+    /** returns a newly allocated TxTypeParam vector with this type expression's GENPARAM type parameter declaration nodes */
+    std::vector<TxTypeParam>* make_decl_type_params(TxSpecializationIndex six);
 
     virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
                                                      LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
@@ -441,6 +447,10 @@ public:
      * (i.e. a previously declared type, does not construct a new type). */
     virtual bool has_predefined_type() const { return false; }
 
+    /** Gets the type declaration of this type expression, if any. */
+    inline const TxTypeDeclaration* get_declaration(TxSpecializationIndex six) const {
+        return dynamic_cast<const TxTypeDeclaration*>(this->get_spec(six)->declaration);
+    }
 
     /** Performs the symbol declaration pass for this type expression.
      * Type expressions evaluate within a "definition context", representing their "outer" scope,
@@ -452,23 +462,28 @@ public:
                                          const std::vector<TxDeclarationNode*>* typeParamDeclNodes);
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) {
+        if (auto typeParamDeclNodes = this->get_type_param_decl_nodes(six)) {
+            for (auto paramDeclNode : *typeParamDeclNodes) {
+                paramDeclNode->symbol_resolution_pass(six, resCtx);
+            }
+        }
         this->resolve_type(six, resCtx);
     }
 };
 
 /** Wraps a TxTypeDefiner or a TxTypeExpressionNode within another TxTypeExpressionNode.
  * If a TxTypeDefiner is wrapped, the same type will be resolved regardless of specialization index.
- * If a TxTypeExpressionNode is wrapped, the declaration and resolution pass calls won't be forwarded,
- * allowing the wrapped node to be added as a child to additional parent nodes. */
+ * If a TxTypeDefiningNode is wrapped, the declaration and resolution pass calls won't be forwarded,
+ * allowing the wrapped node to be added as a TxTypeExpressionNode child to additional parent nodes. */
 class TxTypeExprWrapperNode : public TxTypeExpressionNode {
     TxTypeDefiner* const typeDefiner;
-    TxTypeExpressionNode* const typeExpr;
+    TxTypeDefiningNode* const typeDefNode;
 protected:
     virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
                                                      LexicalContext& lexContext, TxDeclarationFlags declFlags) override { }
 
     virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        auto type = ( typeDefiner ? this->typeDefiner->resolve_type(resCtx) : this->typeExpr->resolve_type(six, resCtx) );
+        auto type = ( typeDefiner ? this->typeDefiner->resolve_type(resCtx) : this->typeDefNode->resolve_type(six, resCtx) );
         if (!type)
             return nullptr;
         else if (auto declEnt = this->get_declaration(six)) {
@@ -481,10 +496,10 @@ protected:
 
 public:
     TxTypeExprWrapperNode(const yy::location& parseLocation, TxTypeDefiner* typeDefiner)
-        : TxTypeExpressionNode(parseLocation), typeDefiner(typeDefiner), typeExpr()  { }
+        : TxTypeExpressionNode(parseLocation), typeDefiner(typeDefiner), typeDefNode()  { }
 
-    TxTypeExprWrapperNode(TxTypeExpressionNode* typeExpr)
-        : TxTypeExpressionNode(typeExpr->parseLocation), typeDefiner(), typeExpr(typeExpr)  { }
+    TxTypeExprWrapperNode(TxTypeDefiningNode* typeDefNode)
+        : TxTypeExpressionNode(typeDefNode->parseLocation), typeDefiner(), typeDefNode(typeDefNode)  { }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 };
@@ -645,7 +660,7 @@ protected:
                 else if (type->is_modifiable())
                     // if initialization expression is modifiable type, and modifiable not explicitly specified,
                     // lose modifiable attribute (modifiability must be explicit)
-                    type = type->get_base_type();
+                    type = type->get_semantic_base_type();
             }
         }
 
@@ -684,11 +699,11 @@ public:
             this->initExpression->set_field_def_node(this);
     }
 
-    void symbol_declaration_pass_local_field(TxSpecializationIndex six, LexicalContext& lexContext, bool create_local_scope) {
+    void symbol_declaration_pass_local_field(TxSpecializationIndex six, LexicalContext& lexContext, bool create_local_scope,
+                                             TxDeclarationFlags declFlags=TXD_NONE) {
         auto outerCtx = lexContext;  // prevents init expr from referring to this field
         if (create_local_scope)
             lexContext.scope(lexContext.scope()->create_code_block_scope());
-        TxDeclarationFlags declFlags = TXD_NONE;
         this->declName = this->fieldName;
         this->get_spec(six)->declaration = lexContext.scope()->declare_field(this->declName, this->get_spec_field_def(six),
                                                                             declFlags, TXS_STACK, TxIdentifier(""));
@@ -780,6 +795,10 @@ public:
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override;
 
+    virtual const TxFieldDeclaration* get_declaration(TxSpecializationIndex six) const override {
+        return this->field->get_declaration(six);
+    }
+
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual std::string to_string() const {
@@ -814,6 +833,10 @@ public:
         if (this->typeParamDecls)
             for (auto paramDecl : *this->typeParamDecls)
                 paramDecl->symbol_resolution_pass(six, resCtx);
+    }
+
+    virtual const TxTypeDeclaration* get_declaration(TxSpecializationIndex six) const override {
+        return this->typeExpression->get_declaration(six);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -870,14 +893,20 @@ public:
             if (this->body)
                 this->body->symbol_resolution_pass(six, resCtx);
             this->encountered_error_count += ctx.package()->driver().end_exp_err(this->parseLocation);
-            if (    ( this->expected_error_count <  0 && this->encountered_error_count == 0 )
-                 || ( this->expected_error_count >= 0 && this->expected_error_count != this->encountered_error_count ) ) {
-                CERROR(this, "COMPILER TEST FAIL: Expected " << this->expected_error_count
-                             << " compilation errors but encountered " << this->encountered_error_count);
+            if ( this->expected_error_count <  0 ) {
+                if ( this->encountered_error_count == 0 )
+                    CERROR(this, "COMPILER TEST FAIL: Expected one or more compilation errors but encountered " << this->encountered_error_count);
             }
+            else if ( this->expected_error_count != this->encountered_error_count )
+                CERROR(this, "COMPILER TEST FAIL: Expected " << this->expected_error_count
+                              << " compilation errors but encountered " << this->encountered_error_count);
         }
         else if (this->body)
             this->body->symbol_resolution_pass(six, resCtx);
+    }
+
+    virtual const TxEntityDeclaration* get_declaration(TxSpecializationIndex six) const override {
+        return body->get_declaration(six);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }

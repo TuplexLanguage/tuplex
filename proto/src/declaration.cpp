@@ -7,7 +7,7 @@
 
 
 bool TxEntityDeclaration::in_exp_err_block() const {
-    return (this->declFlags & TXD_EXPERRBLOCK) || this->symbol->in_exp_err_block();
+    return (this->declFlags & TXD_EXPERRBLOCK) || (this->symbol && this->symbol->in_exp_err_block());
 }
 
 std::string TxEntityDeclaration::to_string() const {

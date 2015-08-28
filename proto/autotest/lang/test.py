@@ -1,4 +1,4 @@
-from os import listdir
+from os import listdir, chdir
 from os.path import dirname, abspath, isfile, join
 from subprocess import call
 import sys
@@ -8,7 +8,10 @@ def run_python( file ):
     run_cmd( "python " + file )
 
 def run_cmd( cmdline, expected_ret_code=0 ):
-    print "\033[90mRunning: '%s'\033[0m" % cmdline
+    if expected_ret_code:
+        print "\033[90mRunning: '%s' \t(expecting %s ret code)\033[0m" % ( cmdline, expected_ret_code )
+    else:
+        print "\033[90mRunning: '%s'\033[0m" % ( cmdline, )
     try:
         retcode = call( cmdline, shell=True )
         if retcode < 0:
@@ -23,6 +26,9 @@ def run_cmd( cmdline, expected_ret_code=0 ):
         print >>sys.stderr, "Execution failed:", e 
         raise
 
+
+current_script_dir = dirname( abspath( __file__ ) )
+chdir( current_script_dir )
 
 run_cmd( """echo "module my" | txc -quiet -nojit -nobc 2>/dev/null""" )
 run_cmd( """echo "module tx" | txc -quiet -nojit -nobc 2>/dev/null""", 2 )        # illegal namespace for user code
@@ -67,6 +73,7 @@ source_files = [
     
     "genericstest.tx",
     "genericstest2.tx",
+    "sequenceiftest.tx",
 ]
 
 for src in source_files:

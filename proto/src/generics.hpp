@@ -5,8 +5,15 @@
 
 
 class TxType;
+class TxEntityDeclaration;
 class TxTypeDefiner;
 class TxExpressionNode;
+
+
+enum MetaType { TXB_TYPE, TXB_VALUE };
+
+
+MetaType meta_type_of(const TxEntityDeclaration* declaration);
 
 
 /** Represents a type parameter of a generic type.
@@ -24,34 +31,33 @@ class TxExpressionNode;
  * matching the type parameters.
  */
 class TxTypeParam : public Printable {  // FUTURE: add constraints
-public:
-    enum MetaType { TXB_TYPE, TXB_VALUE };
-
 private:
     MetaType metaType;
-    std::string typeParamName;
-    TxTypeDefiner* constraintTypeDefiner;
+//    std::string typeParamName;
+//    TxTypeDefiner* constraintTypeDefiner;
+    const TxEntityDeclaration* decl;
 
 public:
-    TxTypeParam(MetaType metaType, const std::string& typeParamName, TxTypeDefiner* constraintTypeDefiner)
-            : metaType(metaType), typeParamName(typeParamName), constraintTypeDefiner(constraintTypeDefiner)  {
-        ASSERT(metaType==TXB_TYPE || constraintTypeDefiner, "VALUE type parameter's type is NULL");
-        ASSERT(metaType==TXB_VALUE || constraintTypeDefiner, "TYPE type parameter's constraint type is NULL");
-    }
+//    TxTypeParam(MetaType metaType, const std::string& typeParamName, TxTypeDefiner* constraintTypeDefiner)
+//            : metaType(metaType), typeParamName(typeParamName), constraintTypeDefiner(constraintTypeDefiner)  {
+//        ASSERT(metaType==TXB_TYPE || constraintTypeDefiner, "VALUE type parameter's type is NULL");
+//        ASSERT(metaType==TXB_VALUE || constraintTypeDefiner, "TYPE type parameter's constraint type is NULL");
+//    }
+    TxTypeParam(const TxEntityDeclaration* decl);
+//            : metaType(meta_type_of(decl)), decl(decl) {
+//        ASSERT(decl->get_decl_flags() & TXD_GENPARAM, "Declaration is not a generic parameter declaration: " << decl);
+//    }
 
     inline MetaType meta_type() const { return metaType; }
-    inline const std::string& param_name() const { return typeParamName; }
+    const std::string param_name() const;
 
-    inline bool has_constraint_type_definer() const { return this->constraintTypeDefiner; }
+    //inline bool has_constraint_type_definer() const { return this->constraintTypeDefiner; }
 
     /** Gets the type definer that represents the constraint type (if TYPE) or data type (if VALUE) of this parameter. */
-    inline TxTypeDefiner* get_constraint_type_definer() const {
-        ASSERT(this->has_constraint_type_definer(), "This type parameter '" << this->typeParamName << "' has no constraint type definer set");
-        return this->constraintTypeDefiner;
-    }
+    TxTypeDefiner* get_constraint_type_definer() const;
 
     inline virtual bool operator==(const TxTypeParam& other) const {
-        return (this->typeParamName == other.typeParamName && this->metaType == other.metaType);
+        return (this->decl == other.decl);
     }
     inline virtual bool operator!=(const TxTypeParam& other) const {
         return ! this->operator==(other);
@@ -75,11 +81,11 @@ public:
  */
 class TxGenericBinding : public Printable {
     const std::string typeParamName;
-    const TxTypeParam::MetaType metaType;
+    const MetaType metaType;
     TxTypeDefiner* typeDefiner;
     TxExpressionNode* valueDefiner;
 
-    TxGenericBinding(const std::string& typeParamName, TxTypeParam::MetaType metaType,
+    TxGenericBinding(const std::string& typeParamName, MetaType metaType,
                      TxTypeDefiner* typeDefiner, TxExpressionNode* valueDefiner)
         : typeParamName(typeParamName), metaType(metaType), typeDefiner(typeDefiner), valueDefiner(valueDefiner)  { }
 
@@ -89,15 +95,15 @@ public:
 
     inline const std::string& param_name()    const { return typeParamName; }
 
-    inline TxTypeParam::MetaType meta_type()    const { return metaType; }
+    inline MetaType meta_type()    const { return metaType; }
 
     inline TxTypeDefiner& type_definer()  const {
-        ASSERT(metaType==TxTypeParam::MetaType::TXB_TYPE, "Type parameter binding metatype is VALUE, not TYPE: " << this->to_string());
+        ASSERT(metaType==MetaType::TXB_TYPE, "Type parameter binding metatype is VALUE, not TYPE: " << this->to_string());
         return *this->typeDefiner;
     }
 
     inline TxExpressionNode& value_definer() const {
-        ASSERT(metaType==TxTypeParam::MetaType::TXB_VALUE, "Type parameter binding metatype is TYPE, not VALUE: " << this->to_string());
+        ASSERT(metaType==MetaType::TXB_VALUE, "Type parameter binding metatype is TYPE, not VALUE: " << this->to_string());
         return *this->valueDefiner;
     }
 

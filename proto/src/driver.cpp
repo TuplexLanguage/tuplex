@@ -18,11 +18,13 @@ extern int yy_flex_debug;
 
 
 TxDriver::TxDriver(const TxOptions& options)
-        : LOG(Logger::get("DRIVER")), options(options), package(new TxPackage(*this))  {
+        : LOG(Logger::get("DRIVER")), options(options)  {
     if (options.sourceSearchPaths.empty())
         this->LOG.config("Tuplex source search path is empty");
     else for (auto pathItem : options.sourceSearchPaths)
         this->LOG.config("Tuplex source search path item: '%s'", pathItem.c_str());
+
+    this->package = new TxPackage(*this);
 }
 
 TxDriver::~TxDriver() {

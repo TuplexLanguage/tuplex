@@ -237,6 +237,7 @@ const TxType* LlvmGenerationContext::lookup_builtin(BuiltinTypeId id) {
 
 
 void LlvmGenerationContext::initialize_builtins() {
+    this->initialize_basic_llvm_types();
     this->initialize_meta_type_data();
     this->initialize_builtin_functions();
     this->initialize_external_functions();
@@ -254,6 +255,9 @@ void LlvmGenerationContext::initialize_builtins() {
 //    ReturnInst::Create(context.llvmContext, eb);
 //    return initFunc;
 //}
+
+void LlvmGenerationContext::initialize_basic_llvm_types() {
+}
 
 void LlvmGenerationContext::initialize_meta_type_data() {
     /* This is a possible future C declaration equivalent of the constructed runtime type data:
@@ -587,7 +591,7 @@ Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
     ASSERT(txType, "NULL txType provided to getLlvmType()");
     if (txType->get_type_class() != TXTC_REFERENCE && txType->is_same_instance_type())
         // same data type as base type
-        return this->get_llvm_type(txType->get_base_data_type());
+        return this->get_llvm_type(txType->get_base_type());
 
     // note: we do map abstract types (e.g. reference targets)
 

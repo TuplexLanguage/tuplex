@@ -10,25 +10,25 @@
 
 class TxArrayType : public TxType {
     TxArrayType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                const std::vector<TxTypeSpecialization>& interfaces,
-                const std::vector<TxTypeParam>& typeParams=std::vector<TxTypeParam>())
-            : TxType(TXTC_ARRAY, declaration, baseTypeSpec, interfaces, typeParams)  { }
+                const std::vector<TxTypeSpecialization>& interfaces)
+            : TxType(TXTC_ARRAY, declaration, baseTypeSpec, interfaces)  { }
 
 protected:
     virtual TxArrayType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                               const std::vector<TxTypeSpecialization>& interfaces,
-                                               const std::vector<TxTypeParam>& typeParams) const override {
+                                               const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (! dynamic_cast<const TxArrayType*>(baseTypeSpec.type))
             throw std::logic_error("Specified a base type for TxArrayType that was not a TxArrayType: " + baseTypeSpec.type->to_string());
-        return new TxArrayType(declaration, baseTypeSpec, interfaces, typeParams);
+        return new TxArrayType(declaration, baseTypeSpec, interfaces);
     };
 
 public:
     /** Creates the Array base type (no element type nor length specified). Only one such instance should exist. */
-    TxArrayType(const TxTypeDeclaration* declaration, const TxType* anyType, TxTypeDefiner* anyTypeDefiner, TxTypeDefiner* uintTypeDefiner)
-            : TxType(TXTC_ARRAY, declaration, TxTypeSpecialization(anyType), std::vector<TxTypeSpecialization>(),
-                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE,  "E", anyTypeDefiner),
-                                                 TxTypeParam(TxTypeParam::TXB_VALUE, "L", uintTypeDefiner) } ) ) { }
+    TxArrayType(const TxTypeDeclaration* declaration, const TxType* anyType)
+            : TxType(TXTC_ARRAY, declaration, TxTypeSpecialization(anyType)) { }
+//    TxArrayType(const TxTypeDeclaration* declaration, const TxType* anyType, TxTypeDefiner* anyTypeDefiner, TxTypeDefiner* uintTypeDefiner)
+//            : TxType(TXTC_ARRAY, declaration, TxTypeSpecialization(anyType), std::vector<TxTypeSpecialization>(),
+//                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE,  "E", anyTypeDefiner),
+//                                                 TxTypeParam(TxTypeParam::TXB_VALUE, "L", uintTypeDefiner) } ) ) { }
 
 
     /** Returns nullptr if unbound. */
@@ -58,23 +58,24 @@ private:
 
 class TxReferenceType : public TxType {
     TxReferenceType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                    const std::vector<TxTypeParam>& typeParams)
-            : TxType(TXTC_REFERENCE, declaration, baseTypeSpec, std::vector<TxTypeSpecialization>(), typeParams)  { }
+                    const std::vector<TxTypeSpecialization>& interfaces)
+            : TxType(TXTC_REFERENCE, declaration, baseTypeSpec, interfaces)  { }
 
 protected:
     virtual TxReferenceType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                   const std::vector<TxTypeSpecialization>& interfaces,
-                                                   const std::vector<TxTypeParam>& typeParams) const override {
+                                                   const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (! dynamic_cast<const TxReferenceType*>(baseTypeSpec.type))
             throw std::logic_error("Specified a base type for TxReferenceType that was not a TxReferenceType: " + baseTypeSpec.type->to_string());
-        return new TxReferenceType(declaration, baseTypeSpec, typeParams);
+        return new TxReferenceType(declaration, baseTypeSpec, interfaces);
     };
 
 public:
     /** Creates the Reference base type (no target type specified). Only one such instance should exist. */
-    TxReferenceType(const TxTypeDeclaration* declaration, const TxType* anyType, TxTypeDefiner* anyTypeDefiner)
-            : TxType(TXTC_REFERENCE, declaration, TxTypeSpecialization(anyType), std::vector<TxTypeSpecialization>(),
-                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE, "T", anyTypeDefiner) } ) ) { }
+    TxReferenceType(const TxTypeDeclaration* declaration, const TxType* anyType)
+            : TxType(TXTC_REFERENCE, declaration, TxTypeSpecialization(anyType)) { }
+//    TxReferenceType(const TxTypeDeclaration* declaration, const TxType* anyType, TxTypeDefiner* anyTypeDefiner)
+//            : TxType(TXTC_REFERENCE, declaration, TxTypeSpecialization(anyType), std::vector<TxTypeSpecialization>(),
+//                     std::vector<TxTypeParam>( { TxTypeParam(TxTypeParam::TXB_TYPE, "T", anyTypeDefiner) } ) ) { }
 
 
     /** Returns the target type of this reference type, or nullptr if it failed to resolve. */
@@ -110,19 +111,18 @@ class TxFunctionType : public TxType {
     /** Indicates whether functions of this type may modify its closure when run. */
     const bool modifiableClosure;
 
-    TxFunctionType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, const std::vector<TxTypeParam>& typeParams,
+    TxFunctionType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                    const std::vector<const TxType*>& argumentTypes, const TxType* returnType=nullptr,
                    bool modifiableClosure=false)
-            : TxType(TXTC_FUNCTION, declaration, baseTypeSpec, std::vector<TxTypeSpecialization>(), typeParams),
+            : TxType(TXTC_FUNCTION, declaration, baseTypeSpec, std::vector<TxTypeSpecialization>()),
               modifiableClosure(modifiableClosure), argumentTypes(argumentTypes), returnType(returnType)  { }
 
 protected:
     // TODO: review, is this used?
     virtual TxFunctionType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                  const std::vector<TxTypeSpecialization>& interfaces,
-                                                  const std::vector<TxTypeParam>& typeParams) const override {
+                                                  const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (auto funcBaseType = dynamic_cast<const TxFunctionType*>(baseTypeSpec.type))
-            return new TxFunctionType(declaration, baseTypeSpec, typeParams, funcBaseType->argumentTypes,
+            return new TxFunctionType(declaration, baseTypeSpec, funcBaseType->argumentTypes,
                                       funcBaseType->returnType, funcBaseType->modifiableClosure);
         throw std::logic_error("Specified a base type for TxFunctionType that was not a TxFunctionType: " + baseTypeSpec.type->to_string());
     };
@@ -175,7 +175,7 @@ public:
     virtual void accept(TxTypeVisitor& visitor) const override { visitor.visit(*this); }
 
 protected:
-    virtual void self_string(std::stringstream& str, bool brief, bool skipFirstName) const override {
+    virtual void self_string(std::stringstream& str, bool brief, bool skipFirstName, bool skipImplicitNames) const override {
         str << "func(";
         if (! this->argumentTypes.empty()) {
             auto ai = this->argumentTypes.cbegin();
@@ -223,15 +223,14 @@ class TxTupleType : public TxType {
     const bool abstract = false;
 
     TxTupleType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                const std::vector<TxTypeSpecialization>& interfaces, const std::vector<TxTypeParam>& typeParams, bool _mutable=false)
-            : TxType(TXTC_TUPLE, declaration, baseTypeSpec, interfaces, typeParams), _mutable(_mutable)  { }
+                const std::vector<TxTypeSpecialization>& interfaces, bool _mutable=false)
+            : TxType(TXTC_TUPLE, declaration, baseTypeSpec, interfaces), _mutable(_mutable)  { }
 
 protected:
     virtual TxTupleType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                               const std::vector<TxTypeSpecialization>& interfaces,
-                                               const std::vector<TxTypeParam>& typeParams) const override {
+                                               const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (auto tupleBaseType = dynamic_cast<const TxTupleType*>(baseTypeSpec.type))
-            return new TxTupleType(declaration, baseTypeSpec, interfaces, typeParams, tupleBaseType->_mutable);
+            return new TxTupleType(declaration, baseTypeSpec, interfaces, tupleBaseType->_mutable);
         throw std::logic_error("Specified a base type for TxTupleType that was not a TxTupleType: " + baseTypeSpec.type->to_string());
     };
 
@@ -259,15 +258,14 @@ public:
 /** Interfaces are intrinsically abstract types. */
 class TxInterfaceType : public TxType {
     TxInterfaceType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                    const std::vector<TxTypeSpecialization>& interfaces, const std::vector<TxTypeParam>& typeParams)
-            : TxType(TXTC_INTERFACE, declaration, baseTypeSpec, interfaces, typeParams)  { }
+                    const std::vector<TxTypeSpecialization>& interfaces)
+            : TxType(TXTC_INTERFACE, declaration, baseTypeSpec, interfaces)  { }
 
 protected:
     virtual TxInterfaceType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                   const std::vector<TxTypeSpecialization>& interfaces,
-                                                   const std::vector<TxTypeParam>& typeParams) const override {
+                                                   const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (dynamic_cast<const TxInterfaceType*>(baseTypeSpec.type))
-            return new TxInterfaceType(declaration, baseTypeSpec, interfaces, typeParams);
+            return new TxInterfaceType(declaration, baseTypeSpec, interfaces);
         throw std::logic_error("Specified a base type for TxInterfaceType that was not a TxInterfaceType: " + baseTypeSpec.type->to_string());
     };
 
@@ -292,17 +290,16 @@ class TxInterfaceAdapterType : public TxType {
     const TxType* adaptedType;
 
     TxInterfaceAdapterType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                           const std::vector<TxTypeSpecialization>& interfaces, const std::vector<TxTypeParam>& typeParams,
+                           const std::vector<TxTypeSpecialization>& interfaces,
                            const TxType* adaptedType)
-            : TxType(TXTC_INTERFACEADAPTER, declaration, baseTypeSpec, interfaces, typeParams), adaptedType(adaptedType)  { }
+            : TxType(TXTC_INTERFACEADAPTER, declaration, baseTypeSpec, interfaces), adaptedType(adaptedType)  { }
 
 protected:
     virtual TxInterfaceAdapterType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                          const std::vector<TxTypeSpecialization>& interfaces,
-                                                          const std::vector<TxTypeParam>& typeParams) const override {
+                                                          const std::vector<TxTypeSpecialization>& interfaces) const override {
         // Note: Only 'modifiable' and perhaps reference target binding is allowed.
         if (dynamic_cast<const TxInterfaceAdapterType*>(baseTypeSpec.type))
-            return new TxInterfaceAdapterType(declaration, baseTypeSpec, interfaces, typeParams, this->adaptedType);
+            return new TxInterfaceAdapterType(declaration, baseTypeSpec, interfaces, this->adaptedType);
         throw std::logic_error("Specified a base type for TxInterfaceAdapterType that was not a TxInterfaceAdapterType: " + baseTypeSpec.type->to_string());
     }
 

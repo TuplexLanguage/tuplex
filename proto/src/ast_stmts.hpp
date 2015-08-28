@@ -105,9 +105,10 @@ public:
         auto returnDecl = lookup_field(this->context(six).scope(), TxIdentifier("$return"));
         if (this->expr) {
             this->expr->symbol_resolution_pass(six, resCtx);
-            if (returnDecl)
-                this->expr = validate_wrap_convert(six, resCtx, this->expr,
-                                                   returnDecl->get_definer()->resolve_field(resCtx)->get_type());
+            if (returnDecl) {
+                if (auto field = returnDecl->get_definer()->resolve_field(resCtx))
+                    this->expr = validate_wrap_convert(six, resCtx, this->expr, field->get_type());
+            }
             else
                 CERROR(this, "Return statement has value expression although function has no return type");
         }
@@ -372,11 +373,13 @@ public:
             ctx.package()->driver().begin_exp_err(this->parseLocation);
             this->body->symbol_resolution_pass(six, resCtx);
             this->encountered_error_count += ctx.package()->driver().end_exp_err(this->parseLocation);
-            if (    ( this->expected_error_count <  0 && this->encountered_error_count == 0 )
-                 || ( this->expected_error_count >= 0 && this->expected_error_count != this->encountered_error_count ) ) {
-                CERROR(this, "COMPILER TEST FAIL: Expected " << this->expected_error_count
-                             << " compilation errors but encountered " << this->encountered_error_count);
+            if ( this->expected_error_count <  0 ) {
+                if ( this->encountered_error_count == 0 )
+                    CERROR(this, "COMPILER TEST FAIL: Expected one or more compilation errors but encountered " << this->encountered_error_count);
             }
+            else if ( this->expected_error_count != this->encountered_error_count )
+                CERROR(this, "COMPILER TEST FAIL: Expected " << this->expected_error_count
+                              << " compilation errors but encountered " << this->encountered_error_count);
         }
         else
             this->body->symbol_resolution_pass(six, resCtx);

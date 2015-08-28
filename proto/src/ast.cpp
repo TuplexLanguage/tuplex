@@ -110,7 +110,7 @@ void TxFieldDeclNode::symbol_resolution_pass(TxSpecializationIndex six, Resoluti
 
         if (this->field->initExpression) {
             if (storage == TXS_INSTANCE) {
-                if (this->field->get_source_field_name() != "tx#Array#L")  // hackish...
+                if (! (this->field->get_declaration(six)->get_decl_flags() & TXD_GENBINDING))  // hackish... skips tx.Array.L
                     CWARNING(this, "Not yet supported: Inline initializer for instance fields (initialize within constructor instead): " << this->field->get_source_field_name());
             }
         }
@@ -176,12 +176,13 @@ static TxExpressionNode* inner_validate_wrap_convert(TxSpecializationIndex six, 
         if (auto reqRefTargetType = reqRefType->target_type()) {
             if (originalType->is_a(*reqRefTargetType)) {
                 if (reqRefTargetType->is_modifiable()) {
-                    if (!originalType->is_modifiable())
-                        CERROR(originalExpr, "Cannot convert reference with non-mod-target to one with mod target: "
-                               << originalType << " -> " << requiredType);
-                    else
+                    if (originalType->is_modifiable())
                         CERROR(originalExpr, "Cannot implicitly convert to reference with modifiable target: "
-                                << originalType << " -> " << requiredType);
+                               << originalType << " -> " << requiredType);
+                    // is_a() will return false for this case:
+                    //else
+                    //    CERROR(originalExpr, "Cannot convert reference with non-mod-target to one with mod target: "
+                    //           << originalType << " -> " << requiredType);
                     return originalExpr;
                 }
                 else {
@@ -198,15 +199,16 @@ static TxExpressionNode* inner_validate_wrap_convert(TxSpecializationIndex six, 
     // implicit dereferencing ('^') operation:
     if (auto origRefType = dynamic_cast<const TxReferenceType*>(originalType)) {
         if (auto origRefTargetType = origRefType->target_type()) {
-            if (origRefTargetType->is_a(*requiredType)) {
+            if (origRefTargetType->auto_converts_to(*requiredType)) {
                 // wrap originalExpr with a dereference node
                 //std::cerr << "Adding implicit '^' to: " << originalExpr << std::endl;
                 auto derefNode = new TxReferenceDerefNode(originalExpr->parseLocation, originalExpr);
                 derefNode->set_context(six, originalExpr->context(six));  // in lieu of symbol_declaration_pass()
-                if (auto newExpr = inner_wrap_conversion(six, resCtx, derefNode, origRefTargetType, requiredType, _explicit))
+                if (auto newExpr = inner_wrap_conversion(six, resCtx, derefNode, origRefTargetType, requiredType, _explicit)) {
                     if (newExpr != derefNode)
                         return newExpr;
-                return new TxExprWrapperNode(derefNode, six);
+                    return new TxExprWrapperNode(derefNode, six);
+                }
             }
         }
     }
@@ -260,21 +262,22 @@ TxSuiteNode::TxSuiteNode(const yy::location& parseLocation, std::vector<TxStatem
 
 
 
-std::vector<TxTypeParam>* TxTypeExpressionNode::makeDeclTypeParams(TxSpecializationIndex six) {
-    const std::vector<TxDeclarationNode*>* typeParamDeclNodes = this->getTypeParamDeclNodes(six);
+std::vector<TxTypeParam>* TxTypeExpressionNode::make_decl_type_params(TxSpecializationIndex six) {
+    const std::vector<TxDeclarationNode*>* typeParamDeclNodes = this->get_type_param_decl_nodes(six);
     if (! typeParamDeclNodes)
         return nullptr;
     auto paramsVec = new std::vector<TxTypeParam>();
     for (auto declNode : *typeParamDeclNodes) {
         if (declNode->get_decl_flags() & TXD_GENPARAM) {
-            //std::cout << "param decl is a GENPARAM: " << declNode << std::endl;
-            if (auto typeDeclNode = dynamic_cast<TxTypeDeclNode*>(declNode))
-                paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_TYPE, typeDeclNode->typeName, typeDeclNode->typeExpression->get_type_definer(six)));
-            else if (auto valueDeclNode = dynamic_cast<TxFieldDeclNode*>(declNode))
-                paramsVec->push_back(TxTypeParam(TxTypeParam::MetaType::TXB_VALUE, valueDeclNode->field->get_decl_field_name(), valueDeclNode->field->get_field_definer(six)));
+            std::cerr << "param decl is a GENPARAM: " << declNode << std::endl;
+            paramsVec->emplace_back(declNode->get_declaration(six));
         }
-//        else
-//            std::cout << "param decl is NOT a GENPARAM: " << declNode << std::endl;
+        else if (declNode->get_decl_flags() & TXD_GENBINDING) {
+            std::cerr << "param decl is a GENBINDING: " << declNode << std::endl;
+        }
+//        else if (declNode->get_declaration(six)->get_unique_name() != "$GenericBase")
+//            // this "injected" declarations mechanism currently not intended for other than generic parameters/bindings
+//            this->LOGGER().warning("Type param declaration is neither GENPARAM or GENBINDING: %s", declNode->to_string().c_str());
     }
     return paramsVec;
 }
@@ -304,19 +307,19 @@ void TxTypeExpressionNode::symbol_declaration_pass(TxSpecializationIndex six, Le
 
     TxTypeDeclaration* declaration = nullptr;
     if (! designatedTypeName.empty()) {
-        declaration = lexContext.scope()->declare_type(designatedTypeName, this->get_type_definer(six), declFlags);
-        this->LOGGER().debug("%s: Declaring type %-16s: %s", this->parse_loc_string().c_str(), designatedTypeName.c_str(),
-                             declaration->to_string().c_str());
-        if (! declaration)
-            CERROR(this, "Failed to declare type " << designatedTypeName);
-        else
+        if ( (declaration = lexContext.scope()->declare_type(designatedTypeName, this->get_type_definer(six), declFlags)) ) {
+            this->LOGGER().debug("%s: Declaring type %-16s: %s", this->parse_loc_string().c_str(), designatedTypeName.c_str(),
+                                 declaration->to_string().c_str());
             this->get_spec(six)->declaration = declaration;
+        }
+        else
+            CERROR(this, "Failed to declare type " << designatedTypeName);
     }
     LexicalContext typeCtx(lexContext, declaration ? declaration->get_symbol() : lexContext.scope());
 
     // declare type parameters within type declaration's scope, and before rest of type expression is processed:
     if (typeParamDeclNodes) {
-        this->setTypeParamDeclNodes(six, typeParamDeclNodes);
+        this->set_type_param_decl_nodes(six, typeParamDeclNodes);
         for (auto paramDeclNode : *typeParamDeclNodes) {
             paramDeclNode->symbol_declaration_pass(six, typeCtx);
         }
@@ -425,14 +428,11 @@ const TxType* TxPredefinedTypeNode::define_generic_specialization_type(TxSpecial
         return nullptr;
     }
     auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
-    std::vector<TxGenericBinding> bindings; // e.g. { TxTypeBinding("E", elemType), TxTypeBinding("L", length) }
+    std::vector<TxGenericBinding> bindings;
     for (size_t i = 0; i < this->typeArgs->size(); i++) {
         bindings.push_back(this->typeArgs->at(i)->make_binding(six, baseTypeName, baseType->type_params().at(i)));
     }
-    TxTypeSpecialization specialization(baseType, bindings);
-    auto declTypeParams = makeDeclTypeParams(six);
-    auto noInterf = std::vector<TxTypeSpecialization>();
-    return this->types(six).get_type_specialization(this->get_declaration(six), specialization, noInterf, declTypeParams);
+    return this->types(six).get_type_specialization(this->get_declaration(six), TxTypeSpecialization(baseType), {}, &bindings);
 }
 
 

@@ -50,13 +50,18 @@ class TypeRegistry {
 
     void add_type(TxType* type);
 
-    void initializeBuiltinSymbols();
     void declare_conversion_constructor(BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId);
     void declare_tx_functions(TxModule* module);
 
     void add_builtin_abstract(TxModule* module, TxTypeClass typeClass, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId);
     void add_builtin_integer(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size, bool sign);
     void add_builtin_floating(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size);
+
+    /** Makes a new type specialization and registers it with this registry. */
+    TxType* make_specialized_type(const TxTypeDeclaration* declaration,
+                                  const TxTypeSpecialization& specialization,
+                                  const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>());
+    friend class TxBuiltinTypeDefiningNode;  // may access make_specialized_type()
 
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
     const TxInterfaceAdapterType* inner_get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);
@@ -66,8 +71,10 @@ public:
     static TxType const * const Any;
 
     TypeRegistry(TxPackage& package) : package(package) {
-        this->initializeBuiltinSymbols();
     }
+
+    /** to be invoked immediately after object construction */
+    void initializeBuiltinSymbols();
 
     /** to be invoked after the whole package's source has been processed, before code generation */
     void register_types();
@@ -94,6 +101,7 @@ public:
      */
     TxType* get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
                                     const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
+                                    const std::vector<TxGenericBinding>* bindings=nullptr,
                                     const std::vector<TxTypeParam>* typeParams=nullptr, bool _mutable=false);
 
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
@@ -101,7 +109,6 @@ public:
 
     const TxReferenceType* get_reference_type(const TxTypeDeclaration* declaration, TxGenericBinding targetTypeBinding,
                                               const TxIdentifier* dataspace=nullptr);
-    //const TxReferenceType* get_reference_type(const TxTypeDeclaration* declaration, TxEntityDefiner* targetType);
 
     const TxArrayType* get_array_type(const TxTypeDeclaration* declaration, TxGenericBinding elemTypeBinding, TxGenericBinding lengthBinding);
     const TxArrayType* get_array_type(const TxTypeDeclaration* declaration, TxGenericBinding elemTypeBinding);
@@ -111,15 +118,6 @@ public:
     const TxFunctionType* get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, const TxType* returnType, bool mod=false);
     const TxFunctionType* get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, bool mod=false);
     const TxConstructorType* get_constructor_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, TxTypeDeclaration* constructedObjTypeDecl);
-
-//    /** Creates a new tuple type that does not extend another data type or interface.
-//     * "mut" of tuple means it is not immutable, i.e. its instances may be declared modifiable. */
-//    const TxTupleType* get_tuple_type(const TxTypeDeclaration* declaration, bool mut=false, std::string* errorMsg=nullptr);
-//
-//    /** Creates a new tuple type that is an extension to other types.
-//     * "mut" of tuple means it is not immutable, i.e. its instances may be declared modifiable. */
-//    const TxTupleType* get_tuple_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseType,
-//                                      bool mut=false, std::string* errorMsg=nullptr);
 
 
     /** Returns a read-only iterator that points to the first type. */

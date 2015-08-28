@@ -45,8 +45,8 @@ public interface Updateable<E derives Ref> derives Sequenceable<E> {
 
 
 
-public interface Sequencer<E derives Ref> derives Interface /* Sequenceable<E> */ {
-    public sequencer()->Ref<~Sequencer<E>> { return self; }
+public interface Sequencer<E derives Ref> derives /*Interface*/ Sequenceable<E> {
+    public override sequencer()->Ref<~Sequencer<E>> { return self; }
 
     public abstract hasNext()->Bool;  ## needed since sequences may contain NULL
     public abstract next()->E;  ## (panics upon out-of-bounds)

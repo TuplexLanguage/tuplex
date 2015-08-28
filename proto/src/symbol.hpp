@@ -375,6 +375,20 @@ public:
 
 
 
+inline std::string hashify(const std::string str) {
+    std::string hname(str);
+    std::replace(hname.begin(), hname.end(), '.', '#');
+    return hname;
+}
+
+inline std::string dehashify(const std::string str) {
+    std::string hname(str);
+    std::replace(hname.begin(), hname.end(), '#', '.');
+    return hname;
+}
+
+
+
 // TODO: investigate if these need ever be called with longer than a plain name:
 
 /** like lookup_symbol() but doesn't do search of first name segment */

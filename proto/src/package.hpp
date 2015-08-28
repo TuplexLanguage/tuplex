@@ -22,6 +22,7 @@ public:
     TxPackage(TxDriver& driver)
             : TxModule(nullptr, "", false), _driver(driver), mainFunc() {
         this->typeRegistry = new TypeRegistry(*this);
+        this->typeRegistry->initializeBuiltinSymbols();
     }
 
 

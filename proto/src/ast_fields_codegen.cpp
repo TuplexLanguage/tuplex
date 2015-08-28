@@ -4,17 +4,6 @@
 using namespace llvm;
 
 
-/** Convenience function that returns true if type is a pointer whose destination should be
- * directly loaded / stored when accessed. */
-static bool access_via_load_store(const Type* type) {
-    // FIXME: This confuses 'void*' (i8*), which shouldn't be loaded, with pointer to i8. Can we name/unique voidT to avoid this?
-    bool ret = (type->isPointerTy() && type->getPointerElementType()->isSingleValueType());
-    //bool ret = (type->isPointerTy() && type->getPointerElementType()->isFirstClassType());
-    //std::cout << "access_via_load_store(): " << ret << ": type: " << type << std::endl;
-    return ret;
-}
-
-
 static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
                                            const TxType* staticBaseType, Value* runtimeBaseTypeIdV,
                                            Type* expectedValueType, const TxField* fieldEntity) {
@@ -59,7 +48,6 @@ static Value* instance_method_value_code_gen(LlvmGenerationContext& context, Gen
     }
     else
         funcPtrV = virtual_field_value_code_gen(context, scope, staticBaseType, runtimeBaseTypeIdV, lambdaT->getElementType(0), fieldEntity);
-    //std::cout << "funcPtrV: " << funcPtrV << std::endl;
     ASSERT(funcPtrV->getType()->getPointerElementType()->isFunctionTy() , "Expected funcPtrV to be pointer-to-function type but was: " << funcPtrV->getType());
     ASSERT(baseValue->getType()->isPointerTy(), "Expected baseValue to be of pointer type but was: " << baseValue->getType());
 
@@ -188,13 +176,19 @@ Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     context.LOG.trace("%-48s", this->to_string().c_str());
     Value* value = this->code_gen_address(context, scope, true);
 
-    // Only function/complex pointers and non-modifiable temporaries don't require a load instruction:
-    if ( value && access_via_load_store(value->getType()) ) {
-        if (scope)
-            value = scope->builder->CreateLoad(value);
-        else {
-           // in global scope we apparently don't want to load
+    if ( value && scope ) {  // (in global scope we don't load)
+        auto valT = value->getType();
+        // function and complex (non-single-valued) pointers don't require a load instruction,
+        // except if a Ref type
+        if ( valT->isPointerTy()
+             && ( this->get_type(0)->get_type_class() == TXTC_REFERENCE
+                  || valT->getPointerElementType()->isSingleValueType() ) ) {
+            //std::cerr << "access_via_load_store():  TRUE: " << valT << std::endl;
+            value = scope->builder->CreateLoad( value );
         }
+        //else  std::cerr << "access_via_load_store(): FALSE: " << valT << std::endl;
+        // There is a risk that this confuses 'void*' (i8*), which shouldn't be loaded, with pointer
+        // to i8, which should. Unfortunately non-struct types can't be unique'd by naming in LLVM.
     }
     //std::cerr << "skipping LOAD for " << value << std::endl;
     return value;

@@ -1,4 +1,4 @@
-from os import listdir, chdir
+from os import listdir
 from os.path import dirname, abspath, isfile, join
 from subprocess import call
 import sys
@@ -37,5 +37,4 @@ for dir in dirs:
     dir_path = join( current_script_dir, dir )
     test_script = join( dir_path, "test.py" )
     if isfile( test_script ):
-        chdir( dir_path )
         run_python( test_script )
