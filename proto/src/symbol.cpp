@@ -326,15 +326,53 @@ bool TxEntitySymbol::add_field(TxFieldDeclaration* fieldDeclaration) {
     return true;
 }
 
+static TxScopeSymbol* search_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
+
+static const TxEntityDeclaration* get_symbols_declaration(TxEntitySymbol* entitySymbol) {
+    TxEntityDeclaration* decl = entitySymbol->get_type_decl();
+    if (! decl) {
+        if (! entitySymbol->is_overloaded())
+            decl = entitySymbol->get_first_field_decl();
+        else  // overloaded field, can't match
+            return nullptr;
+    }
+    return decl;
+}
+
 TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
     // overrides in order to handle instance members
-    //std::cout << "In '" << this->get_full_name() << "': get_member_symbol(" << name << ")" << std::endl;
     // (if this symbol is a type, static member lookup of the type takes precedence if overloaded)
+
+    if (name.find_first_of('#') != std::string::npos) {
+        auto fullName = dehashify(name);
+        //std::cerr << "LOOKING FOR " << name << "=" << fullName << " in " << this->get_full_name() << std::endl;
+        //if (auto boundSym = lookup_member(this, this, TxIdentifier(fullName)))
+        if (auto hashedSym = search_symbol(this, TxIdentifier(fullName))) {  // FUTURE: review if this may breach visibility
+            //std::cerr << "FOUND " << hashedSym << std::endl;
+            if (auto hashedEntSym = dynamic_cast<TxEntitySymbol*>(hashedSym)) {
+                if (auto hashedDecl = get_symbols_declaration(hashedEntSym)) {
+                    if (hashedDecl->get_decl_flags() & TXD_GENPARAM) {
+                        if (auto thisDecl = get_symbols_declaration(this)) {
+                            if (auto thisType = thisDecl->get_definer()->get_type()) {
+                                if (auto bindingDecl = thisType->lookup_param_binding(hashedDecl)) {
+                                    this->LOGGER().note("Resolved %-16s = %-16s to binding\t%s", name.c_str(),
+                                                        hashedSym->get_full_name().to_string().c_str(), bindingDecl->to_string().c_str());
+                                    return bindingDecl->get_symbol();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return hashedSym;
+        }
+    }
+
     if (this->get_type_decl())
         return this->TxScopeSymbol::get_member_symbol(name);
     else if (! this->is_overloaded()) {
         // this symbol represents a distinct field; look up its instance members
-        if (auto type = this->get_first_field_decl()->get_definer()->attempt_get_type()) {
+        if (auto type = this->get_first_field_decl()->get_definer()->attempt_get_type()) {  // FIXME: review if this should be get_type() / resolve_type()
             if (auto member = type->lookup_inherited_instance_member(name))
                 return member;
         }
@@ -476,7 +514,7 @@ static TxScopeSymbol* inner_lookup_member(TxScopeSymbol* vantageScope, TxScopeSy
     //std::cout << "From '" << scope->get_full_name() << "': lookup_member(" << ident << ")" << std::endl;
     if (auto member = scope->get_member_symbol(ident.segment(0))) {
         // if the identified member is a type parameter/alias, attempt to resolve it by substituting it for its binding:
-        member = member->resolve_generic(vantageScope, scope);
+        //member = member->resolve_generic(vantageScope, scope);
 
         if (ident.is_plain())
             return member;

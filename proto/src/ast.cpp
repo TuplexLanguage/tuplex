@@ -269,11 +269,11 @@ std::vector<TxTypeParam>* TxTypeExpressionNode::make_decl_type_params(TxSpeciali
     auto paramsVec = new std::vector<TxTypeParam>();
     for (auto declNode : *typeParamDeclNodes) {
         if (declNode->get_decl_flags() & TXD_GENPARAM) {
-            std::cerr << "param decl is a GENPARAM: " << declNode << std::endl;
+            //std::cerr << "param decl is a GENPARAM: " << declNode << std::endl;
             paramsVec->emplace_back(declNode->get_declaration(six));
         }
         else if (declNode->get_decl_flags() & TXD_GENBINDING) {
-            std::cerr << "param decl is a GENBINDING: " << declNode << std::endl;
+            //std::cerr << "param decl is a GENBINDING: " << declNode << std::endl;
         }
 //        else if (declNode->get_declaration(six)->get_unique_name() != "$GenericBase")
 //            // this "injected" declarations mechanism currently not intended for other than generic parameters/bindings
