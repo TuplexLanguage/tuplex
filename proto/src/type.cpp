@@ -193,7 +193,7 @@ void TxType::prepare_type_members() {
     ASSERT(! this->prepared, "Can't prepare type more than once: " << this);
     this->prepared = true;
 
-    const bool expErrWholeType = ( this->get_declaration() && ( this->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK ) );
+    const bool expErrWholeType = ( this->get_decl_flags() & TXD_EXPERRBLOCK );
     if (expErrWholeType)
         this->get_driver()->begin_exp_err(this->get_declaration()->get_definer()->get_parse_location());
 
@@ -538,19 +538,6 @@ const TxEntityDeclaration* TxType::lookup_param_binding(const TxEntityDeclaratio
     }
     return nullptr;
 }
-//const TxGenericBinding* TxType::resolve_param_binding(const std::string& paramName) const {
-//    // note: does not check for transitive modifiability
-//    ASSERT(paramName.find_last_of('#') == std::string::npos, "Non-plain type parameter name provided: " << paramName);
-//    if (this->has_type_param(paramName))
-//        return nullptr;  // type parameter is unbound  // TODO: return constraint base type instead
-//    else if (auto baseType = this->get_semantic_base_type()) {
-//        if (this->baseTypeSpec.has_binding(paramName))
-//            return &this->baseTypeSpec.get_binding(paramName);
-//        return baseType->resolve_param_binding(paramName);
-//    }
-//    else
-//        return nullptr;  // no such type parameter name in type specialization hierarchy
-//}
 
 
 bool TxType::inner_equals(const TxType& otherType) const {
@@ -769,52 +756,6 @@ void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName,
     }
 }
 
-/*
-void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName) const {
-    if (this->is_modifiable())
-        str << "MOD ";
-    TxEntitySymbol* explSymbol = nullptr;
-    if (! skipFirstName)
-        if (auto explDecl = this->get_declaration())
-            explSymbol = explDecl->get_symbol();
-    if (brief && explSymbol) {
-        str << explSymbol->get_full_name();
-        if (this->is_generic())
-            str << type_params_string(this->type_params());
-    }
-    else if (this->has_base_type()) {
-        bool separator = false;
-        if (explSymbol) {
-            str << explSymbol->get_full_name();
-            if (this->is_generic())
-                str << type_params_string(this->type_params());
-            separator = true;
-        }
-        //else if (!this->is_pure_specialization() || this->is_generic() || typeid(*this) != typeid(*baseTypeSpec.type)) {
-        else if (this->is_generic() || typeid(*this) != typeid(*baseTypeSpec.type)) {
-            str << typeid(*this).name();
-            if (this->is_generic())
-                str << type_params_string(this->type_params());
-            separator = true;
-        }
-
-        if (! this->get_bindings().empty()) {
-            type_bindings_string(str, this->baseTypeSpec, this->get_bindings());
-            separator = true;
-        }
-        if (separator)
-            str << " : ";
-        else if (skipFirstName)
-            str << ": ";
-        this->baseTypeSpec.type->self_string(str, true, false);  // set 'brief' to false to print entire type chain
-    }
-    else if (explSymbol)
-        str << explSymbol->get_full_name();
-    else
-        str << typeid(*this).name();
-}
-*/
-
 
 
 /*=== ArrayType and ReferenceType implementation ===*/
@@ -901,91 +842,20 @@ const TxType* TxArrayType::element_type() const {
     LOGGER().note("Unbound element type for array type %s", this->to_string().c_str());
     ASSERT(this->is_generic(), "Unbound element type for NON-GENERIC array type " << this);
     return this->get_root_any_type();  // we know the basic constraint type for element is Any
-    /*
-    if (! type) {
-        const TxGenericBinding* binding = this->resolve_param_binding("E");
-        if (binding && binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
-            type = binding->type_definer().resolve_type(resCtx);
-        }
-    }
-
-    if (type) {
-        if (! this->is_modifiable()) {  // TODO: review, uncertain if this has effect
-            // non-modifiability transitively applies to TYPE type parameters (NOTE: except for references)
-            LOGGER().debug("transitive non-modifiability for array %s", this->to_string().c_str());
-            return type->is_modifiable() ? type->get_semantic_base_type() : type;
-        }
-        return type;
-    }
-    LOGGER().warning("NULL element type for array %s", this->to_string().c_str());
-    return nullptr;  // no such type parameter name in type specialization hierarchy
-    */
 }
 
 
 const TxType* TxReferenceType::target_type() const {
-    std::string declstr = (this->get_declaration() ? this->get_declaration()->get_unique_full_name() : "nodecl");
+    //std::string declstr = (this->get_declaration() ? this->get_declaration()->get_unique_full_name() : "nodecl");
     //std::cerr << "getting target type of " << declstr << ": " << this << std::endl;
     if (auto paramDecl = this->lookup_type_param_binding("tx.Ref.T")) {
         ResolutionContext resCtx;
         if (auto type = paramDecl->get_definer()->resolve_type(resCtx))
             return type;
     }
-    if (this->get_base_type()->get_type_class() != TXTC_ANY)
-        LOGGER().warning("Unbound target type for reference type %s", this->to_string().c_str());
+    LOGGER().debug("Unbound target type for reference type %s", this->to_string().c_str());
     ASSERT(this->is_generic(), "Unbound target type for NON-GENERIC reference type " << this);
     return this->get_root_any_type();  // we know the basic constraint type for ref target is Any
-    /*
-    // special resolution implementation for the tx#Ref#T member - this forces resolution of the reference target type
-    const std::string targetMemName = "tx#Ref#T";
-    for ( const TxType* type = this; type; type = type->get_base_type() ) {
-        if (auto decl = type->get_declaration()) {
-            //LOGGER().note("Looking up tx#Ref#T in type %s", decl->get_symbol()->get_full_name().to_string().c_str());
-            if (auto member = lookup_member(decl->get_symbol(), decl->get_symbol(), targetMemName)) {
-                TxTypeDeclaration* typeDecl = nullptr;
-                if (auto memberEnt = dynamic_cast<TxEntitySymbol*>(member)) {
-                    ASSERT(memberEnt->get_type_decl(), "expected symbol to represent a type declaration: " << member->to_string());
-                    typeDecl = memberEnt->get_type_decl();
-                }
-                else if (auto memberAlias = dynamic_cast<TxAliasSymbol*>(member)) {
-                    LOGGER().note("Substituting alias %s with %s", memberAlias->get_full_name().to_string().c_str(),
-                                  memberAlias->get_aliased_declaration()->to_string().c_str());
-                    typeDecl = dynamic_cast<TxTypeDeclaration*>(memberAlias->get_aliased_declaration());
-                }
-                else
-                    CERROR(this, "Ref target '" << targetMemName << "' is not an entity or alias: " << member);
-
-                if (typeDecl) {
-                    ResolutionContext resCtx;
-                    if (auto ttype = typeDecl->get_definer()->resolve_type(resCtx)) {
-                        //LOGGER().note("Resolved target type of reference type %s to %s", this->to_string().c_str(), ttype->to_string().c_str());
-                        return ttype;
-                    }
-                    else
-                        LOGGER().alert("Failed to resolve target type of reference type %s", this->to_string().c_str());
-                }
-                break;
-            }
-        }
-    }
-    //const TxType* ttype = this->resolve_param_type(resCtx, "tx#Ref#T", true);
-
-    const TxType* ttype = nullptr;
-    auto binding = this->resolve_param_binding("T");
-    if (binding && binding->meta_type() == TxTypeParam::MetaType::TXB_TYPE) {
-        ResolutionContext resCtx;
-        ttype = binding->type_definer().resolve_type(resCtx);
-        if (ttype)
-            LOGGER().debug("Resolved target type of reference type to %s", ttype->to_string().c_str());
-        else
-            LOGGER().alert("Failed to resolve target type for reference type %s", this->to_string().c_str());
-    }
-    else {
-        LOGGER().debug("Unbound target type for reference type %s", this->to_string().c_str());
-        ttype = this->get_root_any_type();  // we know the basic constraint type for ref target is Any
-    }
-    return ttype;
-    */
 }
 
 

@@ -307,7 +307,8 @@ void TxTypeExpressionNode::symbol_declaration_pass(TxSpecializationIndex six, Le
 
     TxTypeDeclaration* declaration = nullptr;
     if (! designatedTypeName.empty()) {
-        if ( (declaration = lexContext.scope()->declare_type(designatedTypeName, this->get_type_definer(six), declFlags)) ) {
+        TxDeclarationFlags tmpFlags = declFlags | lexContext.decl_flags();
+        if ( (declaration = lexContext.scope()->declare_type(designatedTypeName, this->get_type_definer(six), tmpFlags)) ) {
             this->LOGGER().debug("%s: Declaring type %-16s: %s", this->parse_loc_string().c_str(), designatedTypeName.c_str(),
                                  declaration->to_string().c_str());
             this->get_spec(six)->declaration = declaration;
@@ -432,7 +433,7 @@ const TxType* TxPredefinedTypeNode::define_generic_specialization_type(TxSpecial
     for (size_t i = 0; i < this->typeArgs->size(); i++) {
         bindings.push_back(this->typeArgs->at(i)->make_binding(six, baseTypeName, baseType->type_params().at(i)));
     }
-    return this->types(six).get_type_specialization(this->get_declaration(six), TxTypeSpecialization(baseType), {}, &bindings);
+    return this->types(six).get_type_specialization(this->get_declaration(six), baseType, {}, &bindings);
 }
 
 

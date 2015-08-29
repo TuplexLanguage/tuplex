@@ -19,28 +19,31 @@ class TxExpressionNode;
 class LexicalContext : public Printable {
     TxScopeSymbol* _scope;
     TxTypeDeclaration* constructedObjTypeDecl;
+    TxDeclarationFlags ctxFlags;  // currently only used for TXD_EXPERRBLOCK
 
     static TxModule* get_module(TxScopeSymbol* scope);
 
 public:
     /** Constructs an "uninitialized" lexical context. */
-    LexicalContext() : _scope(), constructedObjTypeDecl()  { }
+    LexicalContext() : _scope(), constructedObjTypeDecl(), ctxFlags()  { }
 
     /** Copy constructor. */
     LexicalContext(const LexicalContext& context)
-        : _scope(context._scope), constructedObjTypeDecl(context.constructedObjTypeDecl) { }
+        : _scope(context._scope), constructedObjTypeDecl(context.constructedObjTypeDecl), ctxFlags(context.ctxFlags) { }
 
     /** Constructs a lexical context for the provided module.
      * (A module context does not require a parent context.) */
-    LexicalContext(TxModule* module) : _scope((TxScopeSymbol*)module), constructedObjTypeDecl()  {
+    LexicalContext(TxModule* module) : _scope((TxScopeSymbol*)module), constructedObjTypeDecl(), ctxFlags()  {
         ASSERT(module, "module is NULL");
     }
 
     /** Constructs a lexical context that is a sub-context of the provided context.
      * The provided scope must be the same or a sub-scope of the parent's scope. */
-    LexicalContext(const LexicalContext& parentContext, TxScopeSymbol* scope)
-            : _scope(scope), constructedObjTypeDecl(parentContext.constructedObjTypeDecl)  {
+    LexicalContext(const LexicalContext& parentContext, TxScopeSymbol* scope, bool experrScope=false)
+            : _scope(scope), constructedObjTypeDecl(parentContext.constructedObjTypeDecl), ctxFlags(parentContext.ctxFlags)  {
         ASSERT(scope, "scope is NULL");
+        if (experrScope)
+            this->ctxFlags = TXD_EXPERRBLOCK;
     }
 
     inline TxScopeSymbol* scope() const { return this->_scope; }
@@ -58,6 +61,9 @@ public:
     inline TxModule* module() const { return get_module(this->_scope); }
 
     inline TxPackage* package() const { return this->_scope->get_root_scope(); }
+
+    /** Returns declaration flags that shall be added to declarations within this context. */
+    inline TxDeclarationFlags decl_flags() const { return this->ctxFlags; }
 
     /** If non-null, this context is within a constructor and the declaration for the constructed object type is returned. */
     inline TxTypeDeclaration* get_constructed() { return this->constructedObjTypeDecl; }

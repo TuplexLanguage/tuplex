@@ -23,6 +23,11 @@ static const BuiltinTypeId SCALAR_TYPE_IDS[] = {
         DOUBLE,
 };
 
+
+/** the flags that may be inherited when specializing a type */
+static const TxDeclarationFlags DECL_FLAG_FILTER = TXD_STATIC | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_FINAL | TXD_EXPERRBLOCK;
+
+
 /*--- private classes providing indirection for fetching the built-in type objects ---*/
 
 class TxBuiltinTypeDefiningNode final : public TxTypeExpressionNode {
@@ -52,7 +57,7 @@ public:
 };
 
 
-class TxBuiltinTypeDefiner final : public TxTypeDefiner {  // FIXME: remove/replace this
+class TxBuiltinTypeDefiner final : public TxTypeDefiner {  // TODO: remove/replace this
 public:
     const TxType* type;
 
@@ -397,12 +402,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
         this->staticTypes.push_back(biType);
 
         this->builtinModTypes[id] = nullptr;  // prevents read from uninitialized value
-        auto modNode = new TxModifiableTypeNode(NULL_LOC, new TxPredefinedTypeNode(NULL_LOC, this->builtinTypes[id]->plainName));
-        auto & ctx = this->builtinTypes[id]->get_node()->context(0);
-        modNode->symbol_declaration_pass(0, ctx, ctx, TXD_PUBLIC | TXD_IMPLICIT, "$~"+this->builtinTypes[id]->plainName, nullptr);
-        ResolutionContext resCtx;
-        modNode->symbol_resolution_pass(0, resCtx);
-        this->builtinModTypes[id] = modNode->get_type(0);
+        this->builtinModTypes[id] = this->get_modifiable_type(nullptr, biType);
         ASSERT(this->builtinModTypes[id], "NULL mod builtin type: " << biType);
     }
 
@@ -533,6 +533,8 @@ TxType* TypeRegistry::make_specialized_type(const TxTypeDeclaration* declaration
 
 const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declaration, const TxType* type) {
     // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
+    while (type->is_empty_derivation() && !type->is_explicit_nongen_declaration())
+        type = type->get_base_type();
     ASSERT(!type->is_modifiable(), "Can't make a modifiable specialization of a modifiable type: " << type);
     if (type->is_builtin()) {
         ASSERT(type->get_type_id() != UINT32_MAX, "builtin type doesn't have type id set: " << type);
@@ -540,8 +542,6 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
             return mtype;
         // if not set, then this is run during initialization and a modifiable of a built-in type is being created
     }
-    while (type->is_empty_derivation() && !type->is_explicit_nongen_declaration())
-        type = type->get_base_type();
 
     if (! declaration) {
         std::string prefix = ( type->get_declaration()->get_decl_flags() & TXD_IMPLICIT ? "~" : "$~" );
@@ -559,8 +559,8 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
             name = ctx.scope()->make_unique_name(name);
         }
         auto modNode = new TxModifiableTypeNode(NULL_LOC, new TxPredefinedTypeNode(NULL_LOC, type->get_declaration()->get_unique_name()));
-        //LexicalContext ctx(type->get_declaration()->get_symbol()->get_outer());
-        modNode->symbol_declaration_pass(0, ctx, ctx, type->get_declaration()->get_decl_flags() | TXD_IMPLICIT, name, nullptr);
+        TxDeclarationFlags newDeclFlags = ( type->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT;
+        modNode->symbol_declaration_pass(0, ctx, ctx, newDeclFlags, name, nullptr);
         ResolutionContext resCtx;
         modNode->symbol_resolution_pass(0, resCtx);
         return modNode->get_type(0);
@@ -608,15 +608,15 @@ static std::string encode_type_name(const TxType* type) {
 }
 
 
-static const TxType* get_existing_type(const TxTypeSpecialization& specialization, const std::vector<TxGenericBinding>* bindings,
+static const TxType* get_existing_type(const TxType* baseType, const std::vector<TxGenericBinding>* bindings,
                                        TxScopeSymbol* baseScope, const std::string& newBaseName,
                                        ResolutionContext& resCtx) {
-    if (bindings->size() == specialization.type->type_params().size()) {
+    if (bindings->size() == baseType->type_params().size()) {
         // if generic type specialization is equivalent to the generic base type, reuse it:
-        //std::cerr << "existingBaseType    0: " << specialization.type << std::endl;
+        //std::cerr << "existingBaseType    0: " << baseType << std::endl;
         bool matchOK = true;
         for (auto & binding : *bindings) {
-            auto & param = specialization.type->get_type_param(binding.param_name());
+            auto & param = baseType->get_type_param(binding.param_name());
             if (binding.meta_type() == MetaType::TXB_TYPE) {
                 auto bindingType = binding.type_definer().get_type();
                 auto constraintType = param.get_constraint_type_definer()->resolve_type(resCtx);
@@ -625,14 +625,14 @@ static const TxType* get_existing_type(const TxTypeSpecialization& specializatio
                     continue;
             }
             else {  // MetaType::TXB_VALUE
-                //if (auto fieldDecl = memberSymbol->get_first_field_decl())  { }  // TODO
+                // VALUE parameters don't have "defaults"
             }
             matchOK = false;
             break;
         }
         if (matchOK) {
-            baseScope->LOGGER().note("new specialization equal to preexisting one, reusing: %s", specialization.type->to_string().c_str());
-            return specialization.type;
+            baseScope->LOGGER().debug("new specialization equal to the generic base type, reusing: %s", baseType->to_string().c_str());
+            return baseType;
         }
     }
 
@@ -647,27 +647,29 @@ static const TxType* get_existing_type(const TxTypeSpecialization& specializatio
                 existingGenBaseType = existingGenBaseType->get_semantic_base_type();
                 //std::cerr << "existingGenBaseType 3: " << existingGenBaseType << std::endl;
             }
-            if (*existingGenBaseType == *specialization.type
+            if (*existingGenBaseType == *baseType
                     && existingBaseType->type_params().empty()) {
                 bool matchOK = true;
                 for (auto & binding : *bindings) {
                     if (auto memberSymbol = dynamic_cast<TxEntitySymbol*>(existingBaseSymbol->get_member_symbol(binding.param_name()))) {
                         if (binding.meta_type() == MetaType::TXB_TYPE) {
-                            const TxType* membType = memberSymbol->get_type_decl()->get_definer()->resolve_type(resCtx);
-                            if (! membType)
+                            if (const TxType* membType = memberSymbol->get_type_decl()->get_definer()->resolve_type(resCtx)) {
+                                if (*membType == *binding.type_definer().get_type())
+                                    continue;
+                            }
+                            else
                                 baseScope->LOGGER().warning("NULL type for member symbol %s", memberSymbol->get_type_decl()->to_string().c_str());
-                            else if (*membType == *binding.type_definer().get_type())
-                                continue;
                         }
                         else {  // MetaType::TXB_VALUE
-                            //if (auto fieldDecl = memberSymbol->get_first_field_decl())  { }  // TODO
+                            //if (auto fieldDecl = memberSymbol->get_first_field_decl())
+                            //    continue;  // FIXME: once Array.L properly implemented, existence of the VALUE binding is sufficient
                         }
                     }
                     matchOK = false;
                     break;
                 }
                 if (matchOK) {
-                    baseScope->LOGGER().note("new specialization equal to preexisting one, reusing: %s", existingBaseType->to_string().c_str());
+                    baseScope->LOGGER().debug("new specialization equal to preexisting one, reusing: %s", existingBaseType->to_string().c_str());
                     return existingBaseType;
                 }
             }
@@ -676,22 +678,21 @@ static const TxType* get_existing_type(const TxTypeSpecialization& specializatio
     return nullptr;
 }
 
-TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
+TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declaration, const TxType* baseType,
                                               const std::vector<TxTypeSpecialization>& interfaces,
                                               const std::vector<TxGenericBinding>* bindings,
                                               const std::vector<TxTypeParam>* typeParams, bool _mutable) {
     // Note: type specialization is never applied to a modifiable-specialization (legal only on generic base type)
     // Note: A non-parameterized type (without any declared type parameters) is not necessarily non-generic:
     //       It may have members that refer to generic parameters declared in an outer scope.
-    ASSERT(!specialization.type->is_modifiable(), "Can't specialize a 'modifiable' base type: " << specialization);
-    ASSERT(!specialization.modifiable, "Can't specify 'modifiable' in a type parameter specialization: " << specialization);
+    ASSERT(!baseType->is_modifiable(), "Can't specialize a 'modifiable' base type: " << baseType);
 
-    const TxParseOrigin* pOrigin = (declaration ? static_cast<const TxParseOrigin*>(declaration->get_definer()) : specialization.type);
+    const TxParseOrigin* pOrigin = (declaration ? static_cast<const TxParseOrigin*>(declaration->get_definer()) : baseType);
 
-    if (specialization.type->get_declaration() && (specialization.type->get_declaration()->get_decl_flags() & TXD_GENPARAM)) {
+    if (baseType->get_decl_flags() & TXD_GENPARAM) {
         // only empty derivation allowed from generic type parameter
         if (! (bindings->empty() && interfaces.empty() && (!typeParams || typeParams->empty()))) {
-            CERROR(pOrigin, "Can't derive from generic type parameter " << specialization.type);
+            CERROR(pOrigin, "Can't derive from generic type parameter " << baseType);
             return nullptr;
         }
     }
@@ -709,12 +710,21 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
         ASSERT(declaration, "expected type that binds base type's parameters to be named (declared) but was not");
         this->package.LOGGER().debug("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
-                                     declaration->get_unique_full_name().c_str(), specialization.type->to_string().c_str());
+                                     declaration->get_unique_full_name().c_str(), baseType->to_string().c_str());
 
-        auto baseDecl = specialization.type->get_declaration();
-        ASSERT(baseDecl, "base type has no declaration: " << specialization.type);
+        auto baseDecl = baseType->get_declaration();
+        ASSERT(baseDecl, "base type has no declaration: " << baseType);
+
         std::stringstream newBaseTypeName;
-        newBaseTypeName << "$" << baseDecl->get_unique_name() << "<";
+        TxDeclarationFlags newDeclFlags;
+        if (declaration->get_decl_flags() & TXD_EXPERRBLOCK) {
+            newBaseTypeName << "$EE$" << baseDecl->get_unique_name() << "<";
+            newDeclFlags = ( baseDecl->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT | TXD_EXPERRBLOCK;
+        }
+        else {
+            newBaseTypeName << "$" << baseDecl->get_unique_name() << "<";
+            newDeclFlags = ( baseDecl->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT;
+        }
 
         // make new parameter declarations that resolve to the bindings:
         auto bindingDeclNodes = new std::vector<TxDeclarationNode*>();
@@ -755,11 +765,11 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
         // if equivalent specialized type already exists then reuse it, otherwise create new one:
         auto baseScope = baseDecl->get_symbol()->get_outer();
-        const TxType* specializedBaseType = get_existing_type(specialization, bindings, baseScope, newBaseTypeNameStr, resCtx);
+        const TxType* specializedBaseType = get_existing_type(baseType, bindings, baseScope, newBaseTypeNameStr, resCtx);
         if (! specializedBaseType) {
             {   // pass on the generic base type to the new specialization via member named $GenericBase:
                 auto & parseLoc = declaration->get_definer()->get_parse_location();
-                auto typeExpr = new TxTypeExprWrapperNode(parseLoc, new TxTypeWrapperDef(specialization.type));
+                auto typeExpr = new TxTypeExprWrapperNode(parseLoc, new TxTypeWrapperDef(baseType));
                 auto declNode = new TxTypeDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, "$GenericBase", nullptr, typeExpr);
                 bindingDeclNodes->push_back(declNode);
             }
@@ -770,18 +780,17 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
             LexicalContext baseContext = LexicalContext(baseTypeExpr->context(0));
             ASSERT(baseContext.scope() == baseScope, "Unexpected lexical scope: " << baseContext.scope() << " != " << baseScope);
 
-            newBaseTypeNameStr = baseScope->make_unique_name(newBaseTypeNameStr, true);
-            //std::cerr << "specializing base " << newBaseName << ": " << specialization.type << std::endl;
-            baseTypeExpr->symbol_declaration_pass(newSix, baseContext, baseContext, TXD_PUBLIC | TXD_IMPLICIT, newBaseTypeNameStr, bindingDeclNodes);
+            newBaseTypeNameStr = baseContext.scope()->make_unique_name(newBaseTypeNameStr, true);
+            //std::cerr << "specializing base " << newBaseName << ": " << baseType << std::endl;
+            baseTypeExpr->symbol_declaration_pass(newSix, baseContext, baseContext, newDeclFlags, newBaseTypeNameStr, bindingDeclNodes);
             baseTypeExpr->symbol_resolution_pass(newSix, resCtx);
             specializedBaseType = baseTypeExpr->resolve_type(newSix, resCtx);
         }
 
-        TxTypeSpecialization newSpec(specializedBaseType);
-        return this->make_specialized_type(declaration, newSpec, interfaces);
+        return this->make_specialized_type(declaration, TxTypeSpecialization(specializedBaseType, false, true), interfaces);
     }
     else {
-        return this->make_specialized_type(declaration, specialization, interfaces);
+        return this->make_specialized_type(declaration, TxTypeSpecialization(baseType), interfaces);
     }
 }
 
@@ -810,6 +819,7 @@ const TxInterfaceAdapterType* TypeRegistry::inner_get_interface_adapter(const Tx
 
     //std::cerr << "Creating interface adapter:\n\tfrom " << adaptedType << "\n\tto   " << interfaceType << std::endl;
     auto typeDefiner = new TxBuiltinTypeDefiner();
+    // TODO: combine flags from adapted and adaptee types, including TXD_EXPERRBLOCK
     auto typeDecl = scope->declare_type(adapterName, typeDefiner, TXD_PUBLIC | TXD_IMPLICIT);
     {   // override the adaptee type id virtual field member:
         const TxType* fieldType = this->get_builtin_type(UINT);
@@ -846,8 +856,7 @@ const TxReferenceType* TypeRegistry::get_reference_type(const TxTypeDeclaration*
                                                         const TxIdentifier* dataspace) {
 //    std::vector<TxGenericBinding> bindings( { TxGenericBinding::make_type_binding("T", targetTypeDefiner) } );
     std::vector<TxGenericBinding> bindings( { targetTypeBinding } );
-    TxTypeSpecialization specialization(this->builtinTypes[REFERENCE]->get_type());
-    return static_cast<const TxReferenceType*>(this->get_type_specialization(declaration, specialization, {}, &bindings));
+    return static_cast<const TxReferenceType*>(this->get_type_specialization(declaration, this->builtinTypes[REFERENCE]->get_type(), {}, &bindings));
 }
 
 
@@ -857,15 +866,13 @@ const TxArrayType* TypeRegistry::get_array_type(const TxTypeDeclaration* declara
 //    std::vector<TxGenericBinding> bindings( { TxGenericBinding::make_type_binding("E", elemTypeDefiner),
 //                                              TxGenericBinding::make_value_binding("L", lengthDefiner) } );
     std::vector<TxGenericBinding> bindings( { elemTypeBinding, lengthBinding } );
-    TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type());
-    return static_cast<const TxArrayType*>(this->get_type_specialization(declaration, specialization, {}, &bindings));
+    return static_cast<const TxArrayType*>(this->get_type_specialization(declaration, this->builtinTypes[ARRAY]->get_type(), {}, &bindings));
 }
 
 const TxArrayType* TypeRegistry::get_array_type(const TxTypeDeclaration* declaration, TxGenericBinding elemTypeBinding) {
 //    std::vector<TxGenericBinding> bindings( { TxGenericBinding::make_type_binding("E", elemTypeDefiner) } );
     std::vector<TxGenericBinding> bindings( { elemTypeBinding } );
-    TxTypeSpecialization specialization(this->builtinTypes[ARRAY]->get_type());
-    return static_cast<const TxArrayType*>(this->get_type_specialization(declaration, specialization, {}, &bindings));
+    return static_cast<const TxArrayType*>(this->get_type_specialization(declaration, this->builtinTypes[ARRAY]->get_type(), {}, &bindings));
 }
 
 

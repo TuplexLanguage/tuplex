@@ -170,51 +170,6 @@ public:
 
     virtual TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) { return this; }
 
-//    /** Resolves a symbol from the vantage point of this scope.
-//     * This is the main symbol lookup entry point and implements the language's
-//     * namespace lookup and visibility rules.
-//     */
-//    virtual TxSymbolScope* start_lookup_symbol(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
-//
-//    /** Performs a downward lookup of the a member, member's member, and so on, within this symbol scope.
-//     * (The head segment of the identifier is matched against the direct members of this symbol scope.)
-//     * Performs an exact match - aliases are not considered and if a symbol along the path is overloaded
-//     * it is not resolved.
-//     */
-//    virtual TxSymbolScope* lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
-//
-//
-//    /** Wrapper around lookup_symbol that only matches against type symbols.
-//     * (This implicitly handles overloaded symbols since no more than a single type can be assigned
-//     * to a given symbol.)
-//     */
-//    TxTypeEntity* lookup_type(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
-//    inline TxTypeEntity* lookup_type(ResolutionContext& resCtx, const TxIdentifier& ident) {
-//        std::vector<TxSymbolScope*> tmpPath;  return this->lookup_type(resCtx, tmpPath, ident);
-//    }
-//
-//    virtual TxSymbolScope* resolve_generic(TxSymbolScope* vantageScope) { return this; }
-//
-//
-//    /** Wrapper around lookup_symbol that only matches against type symbols.
-//     * (This implicitly handles overloaded symbols since no more than a single type can be assigned
-//     * to a given symbol.)
-//     */
-//    TxTypeDeclaration* lookup_type(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident);
-//    inline TxTypeDeclaration* lookup_type(ResolutionContext& resCtx, const TxIdentifier& ident) {
-//        std::vector<TxSymbolScope*> tmpPath;  return this->lookup_type(resCtx, tmpPath, ident);
-//    }
-//
-//    /** Wrapper around lookup_symbol that only matches against field symbols.
-//     * It also implements the language's field symbol overloading capability;
-//     * type parameters must be provided in order to resolve an overloaded symbol.
-//     */
-//    TxFieldDeclaration* lookup_field(ResolutionContext& resCtx, std::vector<TxSymbolScope*>& path, const TxIdentifier& ident,
-//                                     const std::vector<const TxType*>* typeParameters = nullptr);
-//    inline TxFieldDeclaration* lookup_field(ResolutionContext& resCtx, const TxIdentifier& ident,
-//                                            const std::vector<const TxType*>* typeParameters = nullptr) {
-//        std::vector<TxSymbolScope*> tmpPath;  return this->lookup_field(resCtx, tmpPath, ident, typeParameters);
-//    }
 
 
     /** Returns a read-only, order-of-declaration iterator that points to the first declared symbol name. */

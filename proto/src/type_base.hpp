@@ -135,18 +135,6 @@ Bar$xyz is the     "base data type" for Foo$xyz
 It's the base data type that the vtable mechanics use.
 For semantic inheritance mechanics, the generic base type is used.
  */
-// FIXME: ensure the following symbol declaration semantics:
-/*
-Bar.R           Any     (GENPARAM decl)
-Foo.S           Any     (GENPARAM decl)
-Foo.Bar#R       S       (type expression which here = S)
-
-Bar$Long.R      Long    (specialization decl)
-Foo$Long.S      Long    (specialization decl)
-Foo$Long.Bar#R  S       (type expression which here = S)
-
-Mud.Foo#S       Long    (type expression which here = Long)
-*/
 class TxTypeSpecialization : public Printable {
 public:
     TxType const * const type;
@@ -157,6 +145,12 @@ public:
     /** Only legal to use by the Any type. */
     TxTypeSpecialization()
             : type(), modifiable(), empty()  { }
+
+    /** Copies another TxTypeSpecialization but with a different base type. */
+    TxTypeSpecialization(const TxTypeSpecialization& other, const TxType* baseType)
+            : type(baseType), modifiable(other.modifiable), empty(other.empty)  {
+        ASSERT(baseType, "NULL baseType");
+    }
 
     TxTypeSpecialization(const TxType* baseType, bool modifiable=false, bool empty=false)
             : type(baseType), modifiable(modifiable), empty(empty)  {

@@ -356,7 +356,7 @@ public:
           encountered_error_count(prev_encountered_errors), body(body)  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
-        LexicalContext experrBlockContext(lexContext, lexContext.scope()->create_code_block_scope("EE", true));
+        LexicalContext experrBlockContext(lexContext, lexContext.scope()->create_code_block_scope("EE", true), true);
         this->set_context(six, experrBlockContext);
         if (six == 0) {
             experrBlockContext.package()->driver().begin_exp_err(this->parseLocation);

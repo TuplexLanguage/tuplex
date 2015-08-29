@@ -355,8 +355,8 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
                         if (auto thisDecl = get_symbols_declaration(this)) {
                             if (auto thisType = thisDecl->get_definer()->get_type()) {
                                 if (auto bindingDecl = thisType->lookup_param_binding(hashedDecl)) {
-                                    this->LOGGER().note("Resolved %-16s = %-16s to binding\t%s", name.c_str(),
-                                                        hashedSym->get_full_name().to_string().c_str(), bindingDecl->to_string().c_str());
+                                    this->LOGGER().debug("Resolved %-16s = %-16s to binding\t%s", name.c_str(),
+                                                         hashedSym->get_full_name().to_string().c_str(), bindingDecl->to_string().c_str());
                                     return bindingDecl->get_symbol();
                                 }
                             }

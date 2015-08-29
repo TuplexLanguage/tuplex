@@ -95,11 +95,9 @@ public:
     const TxType* get_empty_specialization(const TxTypeDeclaration* declaration, const TxType* type);
 
     /** Gets a specialization of a base type.
-     * Any type parameters of the base type that aren't bound in the provided specialization
-     * will automatically be redeclared in the specialized type.
      * Note: Added / overridden members will not be initialized, the caller must invoke prepare_type_members() to do that.
      */
-    TxType* get_type_specialization(const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization,
+    TxType* get_type_specialization(const TxTypeDeclaration* declaration, const TxType* baseType,
                                     const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
                                     const std::vector<TxGenericBinding>* bindings=nullptr,
                                     const std::vector<TxTypeParam>* typeParams=nullptr, bool _mutable=false);

@@ -110,6 +110,7 @@ public:
 class TxSpecializableNode : public TxNode {
     TxSpecializationPass firstSpec;
     std::vector<TxSpecializationPass*> specializations;
+    TxDriver* driver = nullptr;
 
 protected:
     inline const TxSpecializationPass* get_spec(TxSpecializationIndex six) const {
@@ -141,6 +142,7 @@ public:
     inline void set_context(TxSpecializationIndex six, const LexicalContext& context) {
         ASSERT(!this->is_context_set(six), "lexicalContext already initialized for s-ix " << six << " in " << this->to_string());
         this->get_spec(six)->lexContext = context;
+        this->driver = &context.package()->driver();
         //std::cerr << "Set context for s-ix " << six << " in " << this->to_string() << std::endl;
     }
 
@@ -153,7 +155,7 @@ public:
     }
 
     virtual TxDriver* get_driver() const override {
-        return ( this->is_context_set(0) ? &this->context(0).package()->driver() : nullptr );
+        return this->driver;
     }
 };
 
@@ -214,7 +216,7 @@ public:
         : TxSpecializableNode(parseLocation), declFlags(declFlags) { }
 
     inline TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
-    inline void set_decl_flags(TxDeclarationFlags declFlags) { this->declFlags = declFlags; }
+    //inline void set_decl_flags(TxDeclarationFlags declFlags) { this->declFlags = declFlags; }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
 
@@ -701,27 +703,29 @@ public:
 
     void symbol_declaration_pass_local_field(TxSpecializationIndex six, LexicalContext& lexContext, bool create_local_scope,
                                              TxDeclarationFlags declFlags=TXD_NONE) {
-        auto outerCtx = lexContext;  // prevents init expr from referring to this field
+        LexicalContext outerCtx(lexContext);  // prevents init expr from referring to this field
         if (create_local_scope)
             lexContext.scope(lexContext.scope()->create_code_block_scope());
         this->declName = this->fieldName;
+        TxDeclarationFlags tmpFlags = declFlags | lexContext.decl_flags();
         this->get_spec(six)->declaration = lexContext.scope()->declare_field(this->declName, this->get_spec_field_def(six),
-                                                                            declFlags, TXS_STACK, TxIdentifier(""));
+                                                                             tmpFlags, TXS_STACK, TxIdentifier(""));
         this->symbol_declaration_pass(six, outerCtx, lexContext, declFlags);
     }
 
     void symbol_declaration_pass_nonlocal_field(TxSpecializationIndex six, LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                                 TxFieldStorage storage, const TxIdentifier& dataspace) {
+        TxDeclarationFlags tmpFlags = declFlags | lexContext.decl_flags();
         if (this->fieldName != "self")
             this->declName = this->fieldName;
         else {
             // handle constructor declaration
             this->declName = "$init";
-            declFlags = declFlags | TXD_CONSTRUCTOR;
+            tmpFlags = tmpFlags | TXD_CONSTRUCTOR;
         }
 
         this->get_spec(six)->declaration = lexContext.scope()->declare_field(this->declName, this->get_spec_field_def(six),
-                                                                            declFlags, storage, dataspace);
+                                                                             tmpFlags, storage, dataspace);
         this->symbol_declaration_pass(six, lexContext, lexContext, declFlags);
     }
 
@@ -869,20 +873,21 @@ public:
     TxExpErrDeclNode(const yy::location& parseLocation, int expected_error_count, int prev_encountered_errors, TxDeclarationNode* body)
         : TxDeclarationNode(parseLocation, (body ? body->get_decl_flags() : TXD_NONE) | TXD_EXPERRBLOCK),
           expected_error_count(expected_error_count), encountered_error_count(prev_encountered_errors), body(body)  {
-        if (body)
-            body->set_decl_flags(this->declFlags);
+        //if (body)
+        //    body->set_decl_flags(this->declFlags);
     }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
-        this->set_context(six, lexContext);
+        LexicalContext experrBlockContext(lexContext, lexContext.scope(), true);
+        this->set_context(six, experrBlockContext);
         if (this->body) {
             if (six == 0) {
-                lexContext.package()->driver().begin_exp_err(this->parseLocation);
-                this->body->symbol_declaration_pass(six, lexContext);
-                this->encountered_error_count += lexContext.package()->driver().end_exp_err(this->parseLocation);
+                experrBlockContext.package()->driver().begin_exp_err(this->parseLocation);
+                this->body->symbol_declaration_pass(six, experrBlockContext);
+                this->encountered_error_count += experrBlockContext.package()->driver().end_exp_err(this->parseLocation);
             }
             else
-                this->body->symbol_declaration_pass(six, lexContext);
+                this->body->symbol_declaration_pass(six, experrBlockContext);
         }
     }
 

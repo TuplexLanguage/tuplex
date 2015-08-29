@@ -331,10 +331,9 @@ protected:
             }
         }
 
-        TxTypeSpecialization specialization(baseObjType);
         std::vector<TxGenericBinding> bindings;
         auto declTypeParams = make_decl_type_params(six);
-        auto type = this->types().get_type_specialization(declaration, specialization, interfaces, &bindings, declTypeParams, this->_mutable);
+        auto type = this->types().get_type_specialization(declaration, baseObjType, interfaces, &bindings, declTypeParams, this->_mutable);
         return type;
     }
 
