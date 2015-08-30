@@ -3,7 +3,7 @@
 #include "ast_base.hpp"
 #include "ast_fields.hpp"
 #include "ast_types.hpp"
-#include "ast_conversion.hpp"
+#include "ast_conv.hpp"
 
 
 extern llvm::Value* gen_get_struct_member(LlvmGenerationContext& context, GenScope* scope, llvm::Value* structV, unsigned ix);
