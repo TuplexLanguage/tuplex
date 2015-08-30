@@ -108,6 +108,7 @@ add_executable(txc
         main.cpp
         context.cpp
         ast.cpp
+        ast_conversion.cpp
         ast_lit.cpp
         generics.cpp
         type.cpp
