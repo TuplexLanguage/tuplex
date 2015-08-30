@@ -6,51 +6,6 @@
 
 /** Represents a binding for a type parameter. Can be either a Type or a Value parameter binding. */
 class TxTypeArgumentNode : public TxSpecializableNode {
-//    std::string paramDeclName;
-//    TxTypeDeclNode* typeDeclNode;
-//    TxFieldDeclNode* fieldDeclNode;
-//    bool bound = false;  // during development: checks invocation order
-//
-//    /** To be called after symbol_declaration_pass() and before symbol_resolution_pass(). */
-//    void setup_declarations(const TxIdentifier& fullBaseTypeName, const TxEntityDeclaration* paramDecl) {
-//        std::string declName = hashify( TxIdentifier(fullBaseTypeName, paramDecl->get_unique_name()).to_string() );
-//        if (! this->paramDeclName.empty()) {
-//            // the declaration nodes have already been set up in the initial generic pass
-//            if (declName != this->paramDeclName)
-//                // can happen if the parameterized type itself is a type parameter; this would change the full name;
-//                // unsupported (may cause structural differences between specializations)
-//                CERROR(this, "Specialization of generic type parameter does not result in same parameter name: " << declName << "!=" << this->paramDeclName);
-//            return;
-//        }
-//
-//        LOGGER().debug("%s: TxTypeArgumentNode binding %s", this->parse_loc_string().c_str(), declName.c_str());
-//        ASSERT(!this->bound, "make_binding() called more than once for " << this);
-//        this->bound = true;
-//        this->paramDeclName = declName;
-//        if (this->typeExprNode) {
-//            if (meta_type_of(paramDecl) != TXB_TYPE)
-//                CERROR(this, "Provided a TYPE argument to VALUE parameter " << declName);
-//            // Shall be below the parent, like so:
-//            // $local.main$.$0.d$type.tx#Ref#T.tx#Array#E
-//            this->typeDeclNode = new TxTypeDeclNode(this->typeExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT,
-//                                                    declName, nullptr, this->typeExprNode);
-//        }
-//        else {
-//            ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
-//            if (meta_type_of(paramDecl) != TXB_VALUE)
-//                CERROR(this, "Provided a TYPE argument to VALUE parameter " << declName);
-//            // FIXME: Since this is an instance field rather than 'static' type, this needs to be handled as an assignment
-//            // if this expression's value to the base type's 'parameter field'.
-//            // This assignment (which needs the 'super' reference) should perhaps be placed in an implicit
-//            // pre-constructor initialization function (which is needed long-term anyway).
-//            // The pre-constructor's arguments should be the VALUE parameters of the type.
-//            auto fieldDef = new TxFieldDefNode(this->valueExprNode->parseLocation, declName, this->valueExprNode, false,
-//                                               static_cast<const TxFieldDeclaration*>(paramDecl)->get_definer());
-//            // (passes the param's type-definer to the field def, so that proper type checking is done)
-//            this->fieldDeclNode = new TxFieldDeclNode(this->valueExprNode->parseLocation, TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
-//        }
-//    }
-
 public:
     TxTypeExpressionNode* typeExprNode;
     TxExpressionNode* valueExprNode;

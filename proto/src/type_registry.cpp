@@ -559,13 +559,14 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
     if (! declaration) {
         std::string prefix = ( type->get_declaration()->get_decl_flags() & TXD_IMPLICIT ? "~" : "~$" );
         std::string name = prefix + type->get_declaration()->get_unique_name();
-        auto & ctx = type->get_declaration()->get_definer()->get_node()->context(0);
+        auto & ctx = type->get_declaration()->get_definer()->get_node()->context(0);  // FIXME: when wrong s-ix -> wrong context!
         if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(ctx.scope()->get_member_symbol(name))) {
             if (auto typeDecl = entitySymbol->get_type_decl()) {
                 ResolutionContext resCtx;
                 if (auto existingType = typeDecl->get_definer()->resolve_type(resCtx)) {
                     if (existingType->is_modifiable() && *existingType->get_base_type() == *type)
                         return existingType;
+                    //std::cerr << "existing: " << existingType << "  new: " << type << std::endl;
                 }
             }
             type->LOGGER().warning("Name collision when trying to declare implicit MOD type, preexisting symbol: %s", entitySymbol->to_string().c_str());

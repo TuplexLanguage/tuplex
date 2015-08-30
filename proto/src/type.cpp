@@ -89,11 +89,11 @@ void TxType::prepare_type() {
                 if (auto typeDecl = entitySym->get_type_decl()) {
                     if (typeDecl->get_decl_flags() & TXD_GENPARAM) {
                         this->params.emplace_back( typeDecl );
-                        //std::cerr << "FOUND GENPARAM: " << typeDecl << std::endl;
+                        //std::cerr << "FOUND TYPE GENPARAM: " << typeDecl << std::endl;
                     }
                     else if (typeDecl->get_decl_flags() & TXD_GENBINDING) {
                         this->bindings.emplace_back( typeDecl );
-                        //std::cerr << "FOUND GENBINDING: " << typeDecl << std::endl;
+                        //std::cerr << "FOUND TYPE GENBINDING: " << typeDecl << std::endl;
                     }
                 }
 
@@ -105,10 +105,14 @@ void TxType::prepare_type() {
                     else
                         hasExplicitFieldMembers = true;
 
-                    if (fieldDecl->get_decl_flags() & TXD_GENPARAM)
+                    if (fieldDecl->get_decl_flags() & TXD_GENPARAM) {
+                        //std::cerr << "FOUND VALUE GENPARAM: " << typeDecl << std::endl;
                         this->params.emplace_back( fieldDecl );
-                    else if (fieldDecl->get_decl_flags() & TXD_GENBINDING)
+                    }
+                    else if (fieldDecl->get_decl_flags() & TXD_GENBINDING) {
+                        //std::cerr << "FOUND VALUE GENBINDING: " << typeDecl << std::endl;
                         this->bindings.emplace_back( fieldDecl );
+                    }
 
                     switch (fieldDecl->get_storage()) {
                     case TXS_INSTANCE:
@@ -166,6 +170,39 @@ void TxType::prepare_type() {
                 }
             }
         }
+
+        { // validate the type parameter bindings
+            auto basetype = this->get_semantic_base_type();
+            ResolutionContext resCtx;
+            for (auto & bindingDecl : this->get_bindings()) {
+                auto pname = bindingDecl->get_unique_name();
+                if (auto paramDecl = basetype->get_type_param_decl( pname )) {
+                    if (meta_type_of(bindingDecl) != meta_type_of(paramDecl))
+                        CERROR(bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " of wrong meta-type (TYPE vs VALUE)");
+
+                    auto constraintType = paramDecl->get_definer()->resolve_type(resCtx);
+                    auto boundType = bindingDecl->get_definer()->resolve_type(resCtx);
+                    ASSERT(constraintType, "NULL constraint type for param " << paramDecl << " of " << basetype);
+                    ASSERT(boundType,      "NULL binding type for param " << paramDecl << " of " << basetype);
+                    //std::cerr << this << ": Constraint type for param " << paramDecl << ": " << "checking bound type "
+                    //          << boundType << "\tagainst constraint type " << constraintType << std::endl;
+
+                    if (meta_type_of(bindingDecl) == MetaType::TXB_VALUE) {
+                        this->nonRefBindings = true;
+                    }
+                    else {  // TxTypeParam::MetaType::TXB_TYPE
+                        if (! boundType->is_a(*constraintType))
+                            // TODO: do this also for TXB_VALUE, but array type expression needs auto-conversion support for that to work
+                            CERROR(bindingDecl->get_definer(), "Bound type " << boundType << " for type parameter " << paramDecl
+                                                               << " is not a derivation of contraint type " << constraintType);
+                        if (constraintType->get_type_class() != TXTC_REFERENCE)
+                            this->nonRefBindings = true;
+                    }
+                }
+                else
+                    CERROR(bindingDecl->get_definer(), "No type parameter of " << basetype << " matches provided binding " << bindingDecl->get_unique_name());
+            }
+        }
     }
     else {
         bool madeConcrete = !this->is_generic() && this->get_semantic_base_type() && this->get_semantic_base_type()->is_generic();
@@ -217,36 +254,36 @@ void TxType::prepare_type_members() {
                 this->nonRefParameters = true;
     }
 
-    // resolve and validate type parameter bindings
-    auto basetype = this->get_semantic_base_type();
-    for (auto & bindingDecl : this->get_bindings()) {
-        auto pname = bindingDecl->get_unique_name();
-        if (auto paramDecl = basetype->get_type_param_decl( pname )) {
-            // validate metatype and constraints
-            if (meta_type_of(bindingDecl) != meta_type_of(paramDecl))
-                CERROR(bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " of wrong meta-type (TYPE vs VALUE)");
-
-            if (meta_type_of(bindingDecl) == MetaType::TXB_VALUE) {
-                // TODO: check: VALUE parameters can not be of modifiable type
-                this->nonRefBindings = true;
-            }
-            else {  // TxTypeParam::MetaType::TXB_TYPE
-                auto constraintType = paramDecl->get_definer()->resolve_type(resCtx);
-                auto boundType = bindingDecl->get_definer()->resolve_type(resCtx);
-                ASSERT(constraintType, "NULL constraint type for param " << paramDecl << " of " << basetype);
-                ASSERT(boundType,      "NULL binding for param " << paramDecl << " of " << basetype);
-                //std::cerr << this << ": Constraint type for param " << paramDecl << ": " << "checking bound type "
-                //          << boundType << "\tagainst constraint type " << constraintType << std::endl;
-                if (! boundType->is_a(*constraintType))
-                    CERROR(bindingDecl->get_definer(), "Bound type " << boundType << " for type parameter " << paramDecl
-                                                       << " is not a derivation of contraint type " << constraintType);
-                if (constraintType->get_type_class() != TXTC_REFERENCE)
-                    this->nonRefBindings = true;
-            }
-        }
-        else
-            CERROR(bindingDecl->get_definer(), "No type parameter of " << basetype << " matches provided binding " << bindingDecl->get_unique_name());
-    }
+// resolving type parameter bindings from here shouldn't be necessary
+//    auto basetype = this->get_semantic_base_type();
+//    for (auto & bindingDecl : this->get_bindings()) {
+//        auto pname = bindingDecl->get_unique_name();
+//        if (auto paramDecl = basetype->get_type_param_decl( pname )) {
+//            // validate metatype and constraints
+//            if (meta_type_of(bindingDecl) != meta_type_of(paramDecl))
+//                CERROR(bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " of wrong meta-type (TYPE vs VALUE)");
+//
+//            if (meta_type_of(bindingDecl) == MetaType::TXB_VALUE) {
+//                // TO DO: check: VALUE parameters can not be of modifiable type
+//                this->nonRefBindings = true;
+//            }
+//            else {  // TxTypeParam::MetaType::TXB_TYPE
+//                auto constraintType = paramDecl->get_definer()->resolve_type(resCtx);
+//                auto boundType = bindingDecl->get_definer()->resolve_type(resCtx);
+//                ASSERT(constraintType, "NULL constraint type for param " << paramDecl << " of " << basetype);
+//                ASSERT(boundType,      "NULL binding for param " << paramDecl << " of " << basetype);
+//                //std::cerr << this << ": Constraint type for param " << paramDecl << ": " << "checking bound type "
+//                //          << boundType << "\tagainst constraint type " << constraintType << std::endl;
+//                if (! boundType->is_a(*constraintType))
+//                    CERROR(bindingDecl->get_definer(), "Bound type " << boundType << " for type parameter " << paramDecl
+//                                                       << " is not a derivation of contraint type " << constraintType);
+//                if (constraintType->get_type_class() != TXTC_REFERENCE)
+//                    this->nonRefBindings = true;
+//            }
+//        }
+//        else
+//            CERROR(bindingDecl->get_definer(), "No type parameter of " << basetype << " matches provided binding " << bindingDecl->get_unique_name());
+//    }
 
 
     // copy base type's virtual and instance field tuples (to which fields may be added / overridden):

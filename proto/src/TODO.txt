@@ -47,22 +47,18 @@ Change function header syntax from 'func' to ()-> - DONE
 
 Implement syntactic sugar for automatic reference dereferencing (implicit '^') - DONE
 
-Refactor TxType instantiation - multi-pass so that "cyclic" references possible
+Refactor TxType instantiation - multi-pass so that "cyclic" references possible - DONE
+
+Fix instantiation of ref-constrained type parameters (they should get unique names like other specializations) - DONE
+
+Fix / revise TYPE parameter declaration ("hashed" binding members) - DONE
+
+Refactor expression conversion wrapping so that each specialization-index has an independent conversion evaluation
+
+Proper support for VALUE bindings, and implement correct Array type handling
 
 Implement implicit static initializer function for types' static members and static code
 Implement implicit instance initializer function for types' instance members' inlined initializers
-
-Fix instantiation of ref-constrained type parameters - they should get unique names,
-  which means that ref targets must be partly resolved (producing e.g. my.AType$tx#Ref$Int above)
-
-Fix / revise TYPE parameter declaration. See inheritance doc in TxTypeSpecialization. From genericstest2.tx:
-    ----P--I--- my.RInt.tx#Ref#T                                 TYPE      = tx.Int
-    ----------- my.ATypeRInt                                     TYPE      = my.AType$tx#Ref  ## is =, should not contain members right?
-    ----P--I--- my.ATypeRInt.my#AType#S                          TYPE      = my.RInt          ## should be "moved" to my.AType$tx#Ref ?
-    
-    ----P--I--- my.AType$tx#Ref                                  TYPE      : tx.Tuple
-    ----P--I--- my.AType$tx#Ref.S                                TYPE      = my.ATypeRInt.my#AType#S  ## this seems circular...
-    ----P--I--- my.AType$tx#Ref.$GenericBase                     TYPE      = my.AType<TYPE S>
 
 Make fields be "bindings to entities" rather than "entities", in order to fix multi-instantiation in e.g:
   stackObj := AType();  ## allocates twice & copies! 

@@ -463,32 +463,30 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol(TxSpecializationIndex six, Resol
     std::vector<TxScopeSymbol*> tmpPath;
     if (this->baseExpr) {
         // baseExpr may or may not refer to a type (e.g. modules don't)
-        auto baseType = this->baseExpr->resolve_type(six, resCtx);  // (must be resolved before lookups via its symbol)
+        auto baseType = this->baseExpr->resolve_type(six, resCtx);
 
         if (auto baseRefType = dynamic_cast<const TxReferenceType*>(baseType)) {
             // implicit dereferencing ('^') operation:
             if (auto baseRefTargetType = baseRefType->target_type()) {
-                //std::cerr << "Adding implicit '^' to: " << this->baseExpr << std::endl;
+                //std::cerr << "Adding implicit '^' to: " << this->baseExpr << "  six=" << six << std::endl;
+                ASSERT(six == 0, "implicit dereferencing more than once on: " << this);
                 auto derefNode = new TxReferenceDerefNode(this->baseExpr->parseLocation, this->baseExpr);
                 derefNode->set_context(six, this->baseExpr->context(six));  // in lieu of symbol_declaration_pass()
-                ASSERT(! dynamic_cast<const TxExprWrapperNode*>(this->baseExpr), "implicit dereferencing more than once on: " << this);
-                auto wrapperNode = new TxExprWrapperNode(derefNode, six);
-                wrapperNode->symbol_declaration_pass(six, this->baseExpr->context(six));
-                wrapperNode->symbol_resolution_pass(six, resCtx);
-                this->baseExpr = wrapperNode;
+                derefNode->symbol_resolution_pass(six, resCtx);
+                this->baseExpr = derefNode;
                 baseType = baseRefTargetType;
             }
         }
 
         TxScopeSymbol* vantageScope = this->context(six).scope();
-        if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
+        if (baseType) {
+            // base is a value expression
+            symbol = baseType->lookup_inherited_instance_member(vantageScope, this->symbolName);
+        }
+        else if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
             if (auto baseSymbol = baseSymbolNode->resolve_symbol(six, resCtx)) {
                 symbol = lookup_member(vantageScope, baseSymbol, this->symbolName);
             }
-        }
-        else if (baseType) {
-            // non-name (i.e. computed) value expression
-            symbol = baseType->lookup_inherited_instance_member(vantageScope, this->symbolName);
         }
     }
     else {
