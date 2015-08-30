@@ -346,19 +346,7 @@ public:
     inline TxTypeDefiner* get_type_definer(TxSpecializationIndex six) { return this->get_spec_type_def(six); }
 
     /** Returns the type (as specific as can be known) of the value this expression produces. */
-    virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) override final {
-        auto spec = this->get_spec(six);
-        if (!spec->type && !spec->hasResolved) {
-            LOGGER().trace("resolving type of %s (s-ix %u)", this->to_string().c_str(), six);
-            ASSERT(!spec->startedRslv, "Recursive invocation of resolve_type() of " << this);
-            spec->startedRslv = true;
-            spec->type = this->define_type(six, resCtx);
-            spec->hasResolved = true;
-//            if (spec->type && !spec->type->is_prepared())
-//                const_cast<TxType*>(spec->type)->prepare_type_members();
-        }
-        return spec->type;
-    }
+    virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) override final;
 
     virtual const TxType* attempt_get_type(TxSpecializationIndex six) const override final { return this->get_spec(six)->type; }
     virtual const TxType* get_type        (TxSpecializationIndex six) const override final {

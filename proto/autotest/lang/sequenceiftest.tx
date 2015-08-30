@@ -45,7 +45,7 @@ type SingleRef<S derives Ref> derives Tuple, Sequenceable<S> {
 
 main()->Int {
     myint : Int = 5;
-    singleton := new SingleRef<Int>( myint );
+    singleton := new SingleRef<Ref<Int>>( myint );
     seq := singleton.sequencer();
     assert seq.hasNext();
     elem := seq.next();

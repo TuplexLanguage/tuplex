@@ -1,5 +1,7 @@
 #pragma once
 
+#include <queue>
+
 #include "tx_lang_defs.hpp"
 #include "type.hpp"
 
@@ -36,6 +38,7 @@ enum BuiltinTypeId : int {
 class TxPackage;
 class TxModule;
 class BuiltinTypeRecord;
+class TxTypeExpressionNode;
 
 
 class TypeRegistry {
@@ -43,8 +46,14 @@ class TypeRegistry {
     BuiltinTypeRecord* builtinTypes[BuiltinTypeId_COUNT];
     const TxType* builtinModTypes[BuiltinTypeId_COUNT];
 
-    /** all the static types, i.e. all types with distinct static data type (and thus distinct TypeId) */
-    std::vector<TxType*> createdTypes;
+    typedef struct {
+        TxTypeExpressionNode* node;
+        TxSpecializationIndex six;
+    } EnqueuedSpecialization;
+    std::queue<EnqueuedSpecialization> enqueuedSpecializations;
+
+    /** all the types created */
+    std::vector<TxType*>* createdTypes;
     /** all the static types, i.e. all types with distinct static data type (and thus distinct TypeId) */
     std::vector<const TxType*> staticTypes;
 
@@ -71,10 +80,14 @@ public:
     static TxType const * const Any;
 
     TypeRegistry(TxPackage& package) : package(package) {
+        this->createdTypes = new std::vector<TxType*>();
     }
 
     /** to be invoked immediately after object construction */
     void initializeBuiltinSymbols();
+
+    /** to be invoked after the resolution pass has been run on package's source, and before type registration */
+    void enqueued_resolution_pass();
 
     /** to be invoked after the whole package's source has been processed, before code generation */
     void register_types();

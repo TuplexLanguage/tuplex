@@ -353,10 +353,10 @@ public:
     bool is_concrete() const;
 
     /** Returns true if this type has the same vtable as its base type. */
-    inline bool is_same_vtable_type() const { return !this->modifiesVTable; }
+    inline bool is_same_vtable_type() const { return this->has_base_type() && !this->modifiesVTable; }
 
     /** Returns true if this type has the same instance data type as its base type. */
-    inline bool is_same_instance_type() const { return !this->extendsInstanceDatatype; }
+    inline bool is_same_instance_type() const { return this->has_base_type() && !this->extendsInstanceDatatype; }
 
     /** Returns true if this type is an empty derivation of a base type,
      * i.e. does not specialize any type parameters of the base type, nor modifiable,

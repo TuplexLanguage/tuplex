@@ -50,6 +50,28 @@ std::string TxNode::parse_loc_string() const {
 }
 
 
+
+int definition_nest_level = 0;
+
+const TxType* TxTypeDefiningNode::resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) {
+    auto spec = this->get_spec(six);
+    if (!spec->type && !spec->hasResolved) {
+        LOGGER().trace("resolving type of %s (s-ix %u)", this->to_string().c_str(), six);
+        //fprintf(stderr, "%*s{%*s %s - %s (s-ix %u)\n", definition_nest_level, "", 21-definition_nest_level, "",
+        //        this->parse_loc_string().c_str(), this->to_string().c_str(), six);
+        //definition_nest_level += 2;
+        ASSERT(!spec->startedRslv, "Recursive invocation of resolve_type() of " << this);
+        spec->startedRslv = true;
+        spec->type = this->define_type(six, resCtx);
+        spec->hasResolved = true;
+        //definition_nest_level -= 2;
+        //fprintf(stderr, "%*s}\n", definition_nest_level, "");
+    }
+    return spec->type;
+}
+
+
+
 void TxFieldDeclNode::symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) {
     this->set_context(six, lexContext);
 
@@ -235,8 +257,10 @@ TxExpressionNode* validate_wrap_convert(TxSpecializationIndex six, ResolutionCon
     auto exprNode = inner_validate_wrap_convert(six, resCtx, originalExpr, requiredType, _explicit);
     if (exprNode != originalExpr) {
         originalExpr->LOGGER().trace("Wrapping conversion to type %s around %s", requiredType->to_string(true).c_str(), originalExpr->to_string().c_str());
-        exprNode->symbol_declaration_pass(six, originalExpr->context(six));
-        exprNode->symbol_resolution_pass(six, resCtx);
+        for (TxSpecializationIndex s = 0; s < originalExpr->next_spec_index(); s++) {
+            exprNode->symbol_declaration_pass(s, originalExpr->context(s));
+            exprNode->symbol_resolution_pass(s, resCtx);
+        }
     }
     return exprNode;
 }
@@ -248,6 +272,39 @@ TxExpressionNode* validate_wrap_assignment(TxSpecializationIndex six, Resolution
     // if assignee is a reference:
     // TODO: check dataspace rules
     return validate_wrap_convert(six, resCtx, rValueExpr, requiredType);
+}
+
+
+
+/** Returns true if the two types are mutually "equivalent".
+ * Note, does not take explicit naming into account. */
+// FIXME: possibly revise together with is_equivalent_derivation()
+static bool equivalent_interface_target_types(const TxType* typeA, const TxType* typeB) {
+    while (typeA->is_same_vtable_type())
+        typeA = typeA->get_semantic_base_type();
+    while (typeB->is_same_vtable_type())
+        typeB = typeB->get_semantic_base_type();
+    return (*typeA == *typeB);
+}
+
+const TxType* TxReferenceConvNode::define_type(TxSpecializationIndex six, ResolutionContext& resCtx) {
+    auto resultTargetType = static_cast<const TxReferenceType*>(this->resultType)->target_type();
+    if (resultTargetType && resultTargetType->get_type_class() == TXTC_INTERFACE) {
+        auto origType = static_cast<const TxReferenceType*>(this->expr->resolve_type(six, resCtx));
+        auto origTargetType = origType->target_type();
+        if (! equivalent_interface_target_types(resultTargetType, origTargetType)) {
+            // create / retrieve interface adapter type
+            //std::cerr << "Converting interface reference to adapter:\n\tfrom & " << origTargetType << "\n\tto   & " << resultTargetType << std::endl;
+            this->adapterType = this->types().get_interface_adapter(resultTargetType, origTargetType);
+
+            // create reference type to the adapter type  TODO: delegate this to TypeRegistry
+            auto implTypeName = this->context(six).scope()->make_unique_name("$type");
+            auto typeDecl = this->context(six).scope()->declare_type(implTypeName, this->get_type_definer(six), TXD_PUBLIC | TXD_IMPLICIT);
+            auto adapterDefiner = new TxTypeWrapperDef(adapterType);
+            return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", adapterDefiner));
+        }
+    }
+    return TxConversionNode::define_type(six, resCtx);  // returns the required resultType
 }
 
 

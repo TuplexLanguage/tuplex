@@ -127,6 +127,8 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
     for (auto parsedAST : this->parsedASTs)
         parsedAST->symbol_resolution_pass(resCtx);
 
+    this->package->types().enqueued_resolution_pass();
+
     this->package->types().register_types();
 
     bool symValid = this->package->symbol_validation_pass();

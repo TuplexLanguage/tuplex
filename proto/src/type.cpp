@@ -87,10 +87,14 @@ void TxType::prepare_type() {
         for (auto symname = typeDeclNamespace->symbol_names_cbegin(); symname != typeDeclNamespace->symbol_names_cend(); symname++) {
             if (auto entitySym = dynamic_cast<TxEntitySymbol*>(typeDeclNamespace->get_member_symbol(*symname))) {
                 if (auto typeDecl = entitySym->get_type_decl()) {
-                    if (typeDecl->get_decl_flags() & TXD_GENPARAM)
+                    if (typeDecl->get_decl_flags() & TXD_GENPARAM) {
                         this->params.emplace_back( typeDecl );
-                    else if (typeDecl->get_decl_flags() & TXD_GENBINDING)
+                        //std::cerr << "FOUND GENPARAM: " << typeDecl << std::endl;
+                    }
+                    else if (typeDecl->get_decl_flags() & TXD_GENBINDING) {
                         this->bindings.emplace_back( typeDecl );
+                        //std::cerr << "FOUND GENBINDING: " << typeDecl << std::endl;
+                    }
                 }
 
                 for (auto fieldDeclI = entitySym->fields_cbegin(); fieldDeclI != entitySym->fields_cend(); fieldDeclI++) {
@@ -138,9 +142,14 @@ void TxType::prepare_type() {
                 this->pureDerivation = true;
             }
             else if (! this->is_builtin() && ! this->is_modifiable() && this->interfaces.empty() && this->params.empty()) {
-                this->emptyDerivation = true;
-                if (! this->baseTypeSpec.empty)
-                    LOGGER().alert("Type without field members not pre-specified as empty: %s", this->to_string().c_str());
+                if (this->get_type_class() == TXTC_FUNCTION) {
+                    // do something?
+                }
+                else {
+                    this->emptyDerivation = true;
+                    if (! this->baseTypeSpec.empty)
+                        LOGGER().alert("Type without field members not pre-specified as empty: %s", this->to_string().c_str());
+                }
             }
         }
 
@@ -149,9 +158,11 @@ void TxType::prepare_type() {
         if (this->has_base_type() && !this->emptyDerivation && !this->is_modifiable()) {
             for (auto & paramDecl : this->get_base_type()->type_params()) {
                 if (! this->get_binding(paramDecl->get_unique_name())) {
-                    //CERROR(this, "Missing binding or redeclaration of base type's type parameter " << paramDecl->get_unique_name());
-                    this->params.emplace_back(paramDecl);
-                    LOGGER().note("Inheriting type parameter %s in type %s", paramDecl->get_unique_full_name().c_str(), this->to_string().c_str());
+                    if (! this->has_type_param(paramDecl->get_unique_name())) {
+                        //CERROR(this, "Missing binding or redeclaration of base type's type parameter " << paramDecl->get_unique_name());
+                        this->params.emplace_back(paramDecl);
+                        LOGGER().note("Inheriting type parameter %s in type %s", paramDecl->get_unique_full_name().c_str(), this->to_string().c_str());
+                    }
                 }
             }
         }
@@ -552,9 +563,9 @@ bool TxType::operator==(const TxType& other) const {
     // skips empty type derivations that aren't explicitly declared
     const TxType* thisType = this;
     const TxType* otherType = &other;
-    while (!thisType->get_explicit_declaration() && thisType->is_empty_derivation())
+    while (!thisType->is_explicit_nongen_declaration() && thisType->is_empty_derivation())
         thisType = thisType->get_semantic_base_type();
-    while (!otherType->get_explicit_declaration() && otherType->is_empty_derivation())
+    while (!otherType->is_explicit_nongen_declaration() && otherType->is_empty_derivation())
         otherType = otherType->get_semantic_base_type();
     return thisType->inner_equals(*otherType);
 }
@@ -566,7 +577,7 @@ bool TxType::is_assignable_to(const TxType& destination) const {
     do {
         if (*thisType == destination)
             return true;
-        if (this->is_same_instance_type())
+        if (thisType->is_same_instance_type())
             thisType = thisType->get_semantic_base_type();
         else
             return false;
@@ -711,6 +722,8 @@ static void type_bindings_string(std::stringstream& str, const std::vector<TxEnt
     for (auto b : bindings) {
         if (ix++)  str << ",";
         //str << b->get_unique_full_name();
+        ResolutionContext resCtx;
+        b->get_definer()->resolve_type(resCtx);
         str << b->get_definer()->get_type()->to_string(true, true);
     }
     str << ">";
@@ -752,7 +765,7 @@ void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName,
         if (! this->get_bindings().empty())
             type_bindings_string(str, this->get_bindings());
 
-        this->get_base_type()->self_string(str, true, false, skipImplicitNames);  // set 'brief' to false to print entire type chain
+        this->get_base_type()->self_string(str, false, false, skipImplicitNames);  // set 'brief' to false to print entire type chain
     }
 }
 

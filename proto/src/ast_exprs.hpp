@@ -95,40 +95,10 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
-
-/** Returns true if the two types are mutually "equivalent".
- * Note, does not take explicit naming into account. */
-// FIXME: possibly revise together with is_equivalent_derivation()
-static bool equivalent_interface_target_types(const TxType* typeA, const TxType* typeB) {
-    while (typeA->is_same_vtable_type())
-        typeA = typeA->get_semantic_base_type();
-    while (typeB->is_same_vtable_type())
-        typeB = typeB->get_semantic_base_type();
-    return (*typeA == *typeB);
-}
-
 class TxReferenceConvNode : public TxConversionNode {
     const TxType* adapterType = nullptr;
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        auto resultTargetType = static_cast<const TxReferenceType*>(this->resultType)->target_type();
-        if (resultTargetType && resultTargetType->get_type_class() == TXTC_INTERFACE) {
-            auto origType = static_cast<const TxReferenceType*>(this->expr->resolve_type(six, resCtx));
-            auto origTargetType = origType->target_type();
-            if (! equivalent_interface_target_types(resultTargetType, origTargetType)) {
-                // create / retrieve interface adapter type
-                //std::cerr << "Converting interface reference to adapter:\n\tfrom & " << origTargetType << "\n\tto   & " << resultTargetType << std::endl;
-                this->adapterType = this->types().get_interface_adapter(resultTargetType, origTargetType);
-
-                // create reference type to the adapter type  TODO: delegate this to TypeRegistry
-                auto implTypeName = this->context(six).scope()->make_unique_name("$type");
-                auto typeDecl = this->context(six).scope()->declare_type(implTypeName, this->get_type_definer(six), TXD_PUBLIC | TXD_IMPLICIT);
-                auto adapterDefiner = new TxTypeWrapperDef(adapterType);
-                return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", adapterDefiner));
-            }
-        }
-        return TxConversionNode::define_type(six, resCtx);  // returns the required resultType
-    }
+    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override;
 
 public:
     TxReferenceConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxReferenceType* resultType)
