@@ -556,8 +556,7 @@ TxTypeDeclaration* lookup_type(TxScopeSymbol* vantageScope, const TxIdentifier& 
 
 TxFieldDeclaration* lookup_field(TxScopeSymbol* vantageScope, const TxIdentifier& ident,
                                  const std::vector<const TxType*>* typeParameters) {
-    ResolutionContext resCtx;
-    return resolve_field_lookup(resCtx, lookup_symbol(vantageScope, ident), typeParameters);
+    return resolve_field_lookup(lookup_symbol(vantageScope, ident), typeParameters);
 }
 
 
@@ -591,8 +590,7 @@ static bool arg_type_matches(const TxType *expectedType, const TxType* providedT
 }
 
 
-TxFieldDeclaration* resolve_field_lookup(ResolutionContext& resCtx, TxScopeSymbol* symbol,
-                                         const std::vector<const TxType*>* typeParameters) {
+TxFieldDeclaration* resolve_field_lookup(TxScopeSymbol* symbol, const std::vector<const TxType*>* typeParameters) {
     if (auto entitySymbol = dynamic_cast<const TxEntitySymbol*>(symbol)) {
         if (entitySymbol->field_count() == 1) {
             return *entitySymbol->fields_cbegin();
@@ -601,7 +599,7 @@ TxFieldDeclaration* resolve_field_lookup(ResolutionContext& resCtx, TxScopeSymbo
             std::vector<TxFieldDeclaration*> matches;
             for (auto fieldCandidateI = entitySymbol->fields_cbegin();
                       fieldCandidateI != entitySymbol->fields_cend(); fieldCandidateI++) {
-                auto fieldCandidate = (*fieldCandidateI)->get_definer()->resolve_field(resCtx);
+                auto fieldCandidate = (*fieldCandidateI)->get_definer()->resolve_field();
                 auto fieldCandidateType = fieldCandidate->get_type();
                 if (auto candidateFuncType = dynamic_cast<const TxFunctionType*>(fieldCandidateType)) {
                     symbol->LOGGER().debug("Candidate function: %s", candidateFuncType->to_string().c_str());

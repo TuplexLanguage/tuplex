@@ -39,11 +39,11 @@ public:
         }
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) {
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) {
         if (this->typeExprNode)
-            this->typeExprNode->symbol_resolution_pass(six, resCtx);
+            this->typeExprNode->symbol_resolution_pass(six);
         else
-            this->valueExprNode->symbol_resolution_pass(six, resCtx);
+            this->valueExprNode->symbol_resolution_pass(six);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -71,9 +71,9 @@ type Field<E,C,L> derives Array<Ref<Abstr<E,C>>,L> {
 
  */
 class TxPredefinedTypeNode : public TxTypeExpressionNode {
-    const TxType* define_identified_type(TxSpecializationIndex six, ResolutionContext& resCtx);
+    const TxType* define_identified_type(TxSpecializationIndex six);
 
-    const TxType* define_generic_specialization_type(TxSpecializationIndex six, ResolutionContext& resCtx);
+    const TxType* define_generic_specialization_type(TxSpecializationIndex six);
 
 protected:
     virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
@@ -83,12 +83,12 @@ protected:
         }
     }
 
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
         const TxType* type;
         if (!this->typeArgs->empty())
-            type = this->define_generic_specialization_type(six, resCtx);
+            type = this->define_generic_specialization_type(six);
         else
-            type = this->define_identified_type(six, resCtx);
+            type = this->define_identified_type(six);
         if (! type)
             CERROR(this, "Unknown type: " << this->identNode->ident << " (from " << this->context(six).scope() << ")");
         return type;
@@ -120,10 +120,10 @@ public:
                                          const std::string designatedTypeName,
                                          const std::vector<TxDeclarationNode*>* typeParamDeclNodes) override;
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        TxTypeExpressionNode::symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        TxTypeExpressionNode::symbol_resolution_pass(six);
         for (TxTypeArgumentNode* ta : *this->typeArgs)
-            ta->symbol_resolution_pass(six, resCtx);
+            ta->symbol_resolution_pass(six);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -158,7 +158,7 @@ protected:
         this->targetTypeNode->symbol_declaration_pass(six, defContext, lexContext);
     }
 
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
         auto baseType = this->types().get_builtin_type(REFERENCE);
         auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
         TxGenericBinding binding = this->targetTypeNode->make_binding(six, baseTypeName, baseType->get_type_param_decl("T"));
@@ -176,9 +176,9 @@ public:
         : TxBuiltinTypeSpecNode(parseLocation), dataspace(dataspace),
           targetTypeNode(new TxTypeArgumentNode(targetType))  { }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        TxBuiltinTypeSpecNode::symbol_resolution_pass(six, resCtx);
-        this->targetTypeNode->symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        TxBuiltinTypeSpecNode::symbol_resolution_pass(six);
+        this->targetTypeNode->symbol_resolution_pass(six);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -191,7 +191,7 @@ protected:
     virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
                                                      LexicalContext& lexContext, TxDeclarationFlags declFlags) override;
 
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
         auto baseType = this->types().get_builtin_type(ARRAY);
         auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
         TxGenericBinding elementBinding = this->elementTypeNode->make_binding(six, baseTypeName, baseType->get_type_param_decl("E"));
@@ -212,11 +212,11 @@ public:
           elementTypeNode(new TxTypeArgumentNode(elementType)),
           lengthNode(lengthExpr ? new TxTypeArgumentNode(lengthExpr) : nullptr)  { }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        TxBuiltinTypeSpecNode::symbol_resolution_pass(six, resCtx);
-        this->elementTypeNode->symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        TxBuiltinTypeSpecNode::symbol_resolution_pass(six);
+        this->elementTypeNode->symbol_resolution_pass(six);
         if (this->lengthNode) {
-            this->lengthNode->symbol_resolution_pass(six, resCtx);
+            this->lengthNode->symbol_resolution_pass(six);
             //if (! this->lengthNode->valueExprNode->is_statically_constant())
             //    CERROR(this, "Non-constant array length specifier not yet supported.");
         }
@@ -261,7 +261,7 @@ protected:
 //        }
     }
 
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
         auto declaration = this->get_declaration(six);
         ASSERT(declaration, "No declaration for derived type " << *this);
 
@@ -272,7 +272,7 @@ protected:
         else {
             interfaces.reserve(this->baseTypes->size()-1);
             for (size_t i = 0; i < this->baseTypes->size(); i++) {
-                if (auto baseType = this->baseTypes->at(i)->resolve_type(six, resCtx)) {
+                if (auto baseType = this->baseTypes->at(i)->resolve_type(six)) {
                     if (i == 0)
                         baseObjType = baseType;
                     else {
@@ -306,17 +306,17 @@ public:
         this->init_implicit_types();
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        TxTypeExpressionNode::symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        TxTypeExpressionNode::symbol_resolution_pass(six);
         for (auto type : *this->baseTypes) {
-            type->symbol_resolution_pass(six, resCtx);
+            type->symbol_resolution_pass(six);
         }
 
-        this->selfRefTypeNode->symbol_resolution_pass(six, resCtx);
-        this->superRefTypeNode->symbol_resolution_pass(six, resCtx);
+        this->selfRefTypeNode->symbol_resolution_pass(six);
+        this->superRefTypeNode->symbol_resolution_pass(six);
 
         for (auto member : *this->members) {
-            member->symbol_resolution_pass(six, resCtx);
+            member->symbol_resolution_pass(six);
             // TODO: can't put immutable instance member in non-immutable type (except via reference)
             //       (OR: disable whole-object-assignment)
         }
@@ -346,14 +346,14 @@ protected:
             this->returnField->symbol_declaration_pass_functype_arg(six, lexContext);
     }
 
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
         std::vector<const TxType*> argumentTypes;
         for (auto argDefNode : *this->arguments)
-            argumentTypes.push_back(argDefNode->resolve_type(six, resCtx));
+            argumentTypes.push_back(argDefNode->resolve_type(six));
         if (this->context(six).get_constructed())
             return this->types().get_constructor_type(this->get_declaration(six), argumentTypes, this->context(six).get_constructed());
         else if (this->returnField)
-            return this->types().get_function_type(this->get_declaration(six), argumentTypes, this->returnField->resolve_type(six, resCtx), modifiable);
+            return this->types().get_function_type(this->get_declaration(six), argumentTypes, this->returnField->resolve_type(six), modifiable);
         else
             return this->types().get_function_type(this->get_declaration(six), argumentTypes, modifiable);
     }
@@ -380,12 +380,12 @@ public:
             this->returnField->symbol_declaration_pass_local_field(six, lexContext, false, TXD_IMPLICIT);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        TxTypeExpressionNode::symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        TxTypeExpressionNode::symbol_resolution_pass(six);
         for (auto argDef : *this->arguments)
-            argDef->symbol_resolution_pass(six, resCtx);
+            argDef->symbol_resolution_pass(six);
         if (this->returnField)
-            this->returnField->symbol_resolution_pass(six, resCtx);
+            this->returnField->symbol_resolution_pass(six);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -399,8 +399,8 @@ protected:
         this->baseType->symbol_declaration_pass(six, defContext, lexContext, declFlags, "", nullptr);
     }
 
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        if (auto bType = this->baseType->resolve_type(six, resCtx)) {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
+        if (auto bType = this->baseType->resolve_type(six)) {
             if (bType->is_modifiable()) {
                 CERROR(this, "'modifiable' specified more than once for type: " << bType);
                 return bType;
@@ -422,9 +422,9 @@ public:
                                          const std::string designatedTypeName,
                                          const std::vector<TxDeclarationNode*>* typeParamDeclNodes) override;
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        TxTypeExpressionNode::symbol_resolution_pass(six, resCtx);
-        this->baseType->symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        TxTypeExpressionNode::symbol_resolution_pass(six);
+        this->baseType->symbol_resolution_pass(six);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -434,12 +434,12 @@ public:
  * This node should not have TxModifiableTypeNode as parent, and vice versa. */
 class TxMaybeModTypeNode : public TxModifiableTypeNode {
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
         // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
         if (this->isModifiable)
-            return TxModifiableTypeNode::define_type(six, resCtx);
+            return TxModifiableTypeNode::define_type(six);
         else
-            return this->baseType->resolve_type(six, resCtx);
+            return this->baseType->resolve_type(six);
     }
 
 public:

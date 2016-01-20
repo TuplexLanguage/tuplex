@@ -4,8 +4,7 @@
 
 // FUTURE: factor out the 'explicit' code path into separate function
 // FUTURE: rework together with overloaded function resolution
-static TxExpressionNode* inner_wrap_conversion(TxSpecializationIndex six, ResolutionContext& resCtx,
-                                               TxExpressionNode* originalExpr, const TxType* originalType,
+static TxExpressionNode* inner_wrap_conversion(TxExpressionNode* originalExpr, const TxType* originalType,
                                                const TxType* requiredType, bool _explicit) {
     if (originalType == requiredType) // TODO: test with:  || *originalType == *requiredType)
         return originalExpr;
@@ -27,15 +26,15 @@ static TxExpressionNode* inner_wrap_conversion(TxSpecializationIndex six, Resolu
     return nullptr;
 }
 
-static TxExpressionNode* inner_validate_wrap_convert(TxSpecializationIndex six, ResolutionContext& resCtx,
+static TxExpressionNode* inner_validate_wrap_convert(TxSpecializationIndex six,
                                                      TxExpressionNode* originalExpr,
                                                      const TxType* requiredType, bool _explicit) {
-    // Note: Symbol table pass and semantic pass are not run on the created wrapper nodes.
-    auto originalType = originalExpr->resolve_type(six, resCtx);
+    // Note: Symbol declaration and resolution passes are not run on the created wrapper nodes.
+    auto originalType = originalExpr->resolve_type(six);
     if (! originalType)
         return originalExpr;
 
-    if (auto newExpr = inner_wrap_conversion(six, resCtx, originalExpr, originalType, requiredType, _explicit))
+    if (auto newExpr = inner_wrap_conversion(originalExpr, originalType, requiredType, _explicit))
         return newExpr;
 
     // implicit reference-to ('&') operation:
@@ -71,7 +70,7 @@ static TxExpressionNode* inner_validate_wrap_convert(TxSpecializationIndex six, 
                 //std::cerr << "Adding implicit '^' to: " << originalExpr << std::endl;
                 auto derefNode = new TxReferenceDerefNode(originalExpr->parseLocation, originalExpr);
                 derefNode->set_context(six, originalExpr->context(six));  // in lieu of symbol_declaration_pass()
-                if (auto newExpr = inner_wrap_conversion(six, resCtx, derefNode, origRefTargetType, requiredType, _explicit)) {
+                if (auto newExpr = inner_wrap_conversion(derefNode, origRefTargetType, requiredType, _explicit)) {
                     if (newExpr != derefNode)
                         return newExpr;
                     return new TxExprWrapperNode(derefNode, six);
@@ -85,38 +84,38 @@ static TxExpressionNode* inner_validate_wrap_convert(TxSpecializationIndex six, 
     return originalExpr;
 }
 
-TxExpressionNode* validate_wrap_convert(TxSpecializationIndex six, ResolutionContext& resCtx, TxExpressionNode* originalExpr,
+TxExpressionNode* validate_wrap_convert(TxSpecializationIndex six, TxExpressionNode* originalExpr,
                                         const TxType* requiredType, bool _explicit) {
     if (six != 0) {
         // TODO: refactor
         TxExpressionNode* fromExpr = originalExpr;
         if (auto convNode = dynamic_cast<TxConversionNode*>(originalExpr))
             fromExpr = convNode->expr;  // pass-through conversion added in s-ix 0
-        if (auto originalType = fromExpr->resolve_type(six, resCtx)) {
+        if (auto originalType = fromExpr->resolve_type(six)) {
             if (! (originalType == requiredType || _explicit || originalType->auto_converts_to(*requiredType)))
                 CERROR(fromExpr, "Can't auto-convert value (s-ix " << six << ")\n\tFrom: " << originalType << " \t@" << originalType->get_parse_location()
                                      << "\n\tTo:   " << requiredType << " \t@" << requiredType->get_parse_location());
         }
         return originalExpr;
     }
-    auto exprNode = inner_validate_wrap_convert(six, resCtx, originalExpr, requiredType, _explicit);
+    auto exprNode = inner_validate_wrap_convert(six, originalExpr, requiredType, _explicit);
     if (exprNode != originalExpr) {
         originalExpr->LOGGER().trace("Wrapping conversion to type %s around %s", requiredType->to_string(true).c_str(), originalExpr->to_string().c_str());
         for (TxSpecializationIndex s = 0; s < originalExpr->next_spec_index(); s++) {
             exprNode->symbol_declaration_pass(s, originalExpr->context(s));
-            exprNode->symbol_resolution_pass(s, resCtx);
+            exprNode->symbol_resolution_pass(s);
         }
     }
     return exprNode;
 }
 
-TxExpressionNode* validate_wrap_assignment(TxSpecializationIndex six, ResolutionContext& resCtx, TxExpressionNode* rValueExpr, const TxType* requiredType) {
+TxExpressionNode* validate_wrap_assignment(TxSpecializationIndex six, TxExpressionNode* rValueExpr, const TxType* requiredType) {
     if (! requiredType->is_concrete())
         // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
         CERROR(rValueExpr, "Assignee is not a concrete type (size potentially unknown): " << requiredType);
     // if assignee is a reference:
     // TODO: check dataspace rules
-    return validate_wrap_convert(six, resCtx, rValueExpr, requiredType);
+    return validate_wrap_convert(six, rValueExpr, requiredType);
 }
 
 
@@ -131,10 +130,10 @@ static bool equivalent_interface_target_types(const TxType* typeA, const TxType*
     return (*typeA == *typeB);
 }
 
-const TxType* TxReferenceConvNode::define_type(TxSpecializationIndex six, ResolutionContext& resCtx) {
+const TxType* TxReferenceConvNode::define_type(TxSpecializationIndex six) {
     auto resultTargetType = static_cast<const TxReferenceType*>(this->resultType)->target_type();
     if (resultTargetType && resultTargetType->get_type_class() == TXTC_INTERFACE) {
-        auto origType = static_cast<const TxReferenceType*>(this->expr->resolve_type(six, resCtx));
+        auto origType = static_cast<const TxReferenceType*>(this->expr->resolve_type(six));
         auto origTargetType = origType->target_type();
         if (! equivalent_interface_target_types(resultTargetType, origTargetType)) {
             // create / retrieve interface adapter type
@@ -148,5 +147,5 @@ const TxType* TxReferenceConvNode::define_type(TxSpecializationIndex six, Resolu
             return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", adapterDefiner));
         }
     }
-    return TxConversionNode::define_type(six, resCtx);  // returns the required resultType
+    return TxConversionNode::define_type(six);  // returns the required resultType
 }

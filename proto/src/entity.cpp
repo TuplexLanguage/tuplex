@@ -4,8 +4,8 @@
 
 
 
-const TxType* TxFieldDefiner::resolve_type(ResolutionContext& resCtx) {
-    if (auto field = this->resolve_field(resCtx))
+const TxType* TxFieldDefiner::resolve_type() {
+    if (auto field = this->resolve_field())
         return field->get_type();
     return nullptr;
 }

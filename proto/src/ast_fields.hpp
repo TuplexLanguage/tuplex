@@ -4,11 +4,11 @@
 
 
 class TxFieldValueNode : public TxExpressionNode {
-    TxScopeSymbol* resolve_symbol(TxSpecializationIndex six, ResolutionContext& resCtx);
-    const TxEntityDeclaration* resolve_decl(TxSpecializationIndex six, ResolutionContext& resCtx);
+    TxScopeSymbol* resolve_symbol(TxSpecializationIndex six);
+    const TxEntityDeclaration* resolve_decl(TxSpecializationIndex six);
 
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override;
+    virtual const TxType* define_type(TxSpecializationIndex six) override;
 
 public:
     TxExpressionNode* baseExpr;
@@ -35,11 +35,11 @@ public:
             this->baseExpr->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        TxExpressionNode::symbol_resolution_pass(six);
         // not invoking baseExpr->symbol_resolution_pass() since that is only done via define_type()
         //if (this->baseExpr)
-        //    this->baseExpr->symbol_resolution_pass(six, resCtx);
+        //    this->baseExpr->symbol_resolution_pass(six);
         if (auto typeDecl = dynamic_cast<const TxTypeDeclaration*>(this->get_spec(six)->declaration))
             CERROR(this, "'" << get_full_identifier() << "' resolved to a type, not a field: " << typeDecl);
     }

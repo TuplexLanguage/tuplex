@@ -36,7 +36,7 @@ protected:
     virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
                                                      LexicalContext& lexContext, TxDeclarationFlags declFlags) override { }
 
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
         if (six == 0)
             return baseType;
         else
@@ -67,7 +67,7 @@ public:
     virtual TxDriver* get_driver() const override { return &this->type->get_declaration()->get_symbol()->get_root_scope()->driver(); }
     virtual const yy::location& get_parse_location() const override { return NULL_LOC; }
 
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
+    virtual const TxType* resolve_type() override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
     virtual TxTypeDefiningNode* get_node() const override { ASSERT(false, "unexpected invocation"); return nullptr; }
@@ -84,7 +84,7 @@ public:
     virtual const yy::location& get_parse_location() const override { return NULL_LOC; }
 
     virtual const TxExpressionNode* get_init_expression() const override { return nullptr; }
-    virtual const TxField* resolve_field(ResolutionContext& resCtx) override { return this->field; }
+    virtual const TxField* resolve_field() override { return this->field; }
     virtual const TxField* get_field() const override { return this->field; }
     virtual const TxType* get_type() const override { return this->field->get_type(); }
     virtual const TxType* attempt_get_type() const override { return this->field->get_type(); }
@@ -113,8 +113,7 @@ public:
     }
 
     void symbol_resolution_pass() {
-        ResolutionContext resCtx;
-        this->node->symbol_resolution_pass(0, resCtx);
+        this->node->symbol_resolution_pass(0);
     }
 
 //    void set_declaration(const TxTypeDeclaration* declaration) {
@@ -126,7 +125,7 @@ public:
     virtual TxDriver* get_driver() const override { return this->node->get_driver(); }
     virtual const yy::location& get_parse_location() const override { return this->node->get_parse_location(); }
 
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->get_type(); }
+    virtual const TxType* resolve_type() override { return this->get_type(); }
     virtual const TxType* attempt_get_type() const override { return this->get_type(); }
     virtual const TxType* get_type() const override { return this->node->get_type(0); }
 
@@ -439,8 +438,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
         auto refTypeNode = new TxReferenceTypeNode(NULL_LOC, nullptr, new TxPredefinedTypeNode(NULL_LOC, "tx.UByte"));
         LexicalContext ctx(txCfuncModule);
         refTypeNode->symbol_declaration_pass(0, ctx, ctx, TXD_PUBLIC | TXD_IMPLICIT, "puts$argtype", nullptr);
-        ResolutionContext resCtx;
-        refTypeNode->symbol_resolution_pass(0, resCtx);
+        refTypeNode->symbol_resolution_pass(0);
         auto ubyteRefType = refTypeNode->get_type(0);
 
         const TxType* returnType = this->builtinTypes[INT]->get_type();
@@ -478,10 +476,9 @@ void TypeRegistry::declare_conversion_constructor(BuiltinTypeId fromTypeId, Buil
 
 
 void TypeRegistry::enqueued_resolution_pass() {
-    ResolutionContext resCtx;
     while (! this->enqueuedSpecializations.empty()) {
         auto & enqSpec = this->enqueuedSpecializations.front();
-        enqSpec.node->symbol_resolution_pass(enqSpec.six, resCtx);
+        enqSpec.node->symbol_resolution_pass(enqSpec.six);
         this->enqueuedSpecializations.pop();
     }
 }
@@ -562,8 +559,7 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
         auto & ctx = type->get_declaration()->get_definer()->get_node()->context(0);  // FIXME: when wrong s-ix -> wrong context!
         if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(ctx.scope()->get_member_symbol(name))) {
             if (auto typeDecl = entitySymbol->get_type_decl()) {
-                ResolutionContext resCtx;
-                if (auto existingType = typeDecl->get_definer()->resolve_type(resCtx)) {
+                if (auto existingType = typeDecl->get_definer()->resolve_type()) {
                     if (existingType->is_modifiable() && *existingType->get_base_type() == *type)
                         return existingType;
                     //std::cerr << "existing: " << existingType << "  new: " << type << std::endl;
@@ -575,8 +571,7 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
         auto modNode = new TxModifiableTypeNode(NULL_LOC, new TxPredefinedTypeNode(NULL_LOC, type->get_declaration()->get_unique_name()));
         TxDeclarationFlags newDeclFlags = ( type->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT;
         modNode->symbol_declaration_pass(0, ctx, ctx, newDeclFlags, name, nullptr);
-        ResolutionContext resCtx;
-        modNode->symbol_resolution_pass(0, resCtx);
+        modNode->symbol_resolution_pass(0);
         return modNode->get_type(0);
     }
 
@@ -625,8 +620,7 @@ static std::string encode_type_name(const TxType* type) {
 
 
 static const TxType* get_existing_type(const TxType* baseType, const std::vector<TxGenericBinding>* bindings,
-                                       TxScopeSymbol* baseScope, const std::string& newBaseName,
-                                       ResolutionContext& resCtx) {
+                                       TxScopeSymbol* baseScope, const std::string& newBaseName) {
     if (bindings->size() == baseType->type_params().size()) {
         // if generic type specialization is equivalent to the generic base type, reuse it:
         //std::cerr << "existingBaseType    0: " << baseType << std::endl;
@@ -635,7 +629,7 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
             auto & param = baseType->get_type_param(binding.param_name());
             if (binding.meta_type() == MetaType::TXB_TYPE) {
                 auto bindingType = binding.type_definer().get_type();
-                auto constraintType = param.get_constraint_type_definer()->resolve_type(resCtx);
+                auto constraintType = param.get_constraint_type_definer()->resolve_type();
                 ASSERT(constraintType, "NULL constraint type for type parameter " << param);
                 if (*constraintType == *bindingType)
                     continue;
@@ -655,7 +649,7 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
     // if name already exists and specialization is equal, reuse it:
     if (auto existingBaseSymbol = dynamic_cast<TxEntitySymbol*>(baseScope->get_member_symbol(newBaseName))) {
         if (auto typeDecl = existingBaseSymbol->get_type_decl()) {
-            auto existingBaseType = typeDecl->get_definer()->resolve_type(resCtx);
+            auto existingBaseType = typeDecl->get_definer()->resolve_type();
             //std::cerr << "existingBaseType    1: " << existingBaseType << std::endl;
             auto existingGenBaseType = existingBaseType->get_semantic_base_type();
             //std::cerr << "existingGenBaseType 2: " << existingGenBaseType << std::endl;
@@ -669,7 +663,7 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
                 for (auto & binding : *bindings) {
                     if (auto memberSymbol = dynamic_cast<TxEntitySymbol*>(existingBaseSymbol->get_member_symbol(binding.param_name()))) {
                         if (binding.meta_type() == MetaType::TXB_TYPE) {
-                            if (const TxType* membType = memberSymbol->get_type_decl()->get_definer()->resolve_type(resCtx)) {
+                            if (const TxType* membType = memberSymbol->get_type_decl()->get_definer()->resolve_type()) {
                                 //std::cerr << "COMPARING: " << membType << " AND " << binding.type_definer().get_type() << std::endl;
                                 if (*membType == *binding.type_definer().get_type())
                                     continue;
@@ -752,7 +746,6 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
         // make new parameter declarations that resolve to the bindings:
         auto bindingDeclNodes = new std::vector<TxDeclarationNode*>();
-        ResolutionContext resCtx;
         unsigned bindCount = 0;
         for (auto & binding : *bindings) {
             if (bindCount++)  newBaseTypeName << ",";
@@ -760,7 +753,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
             if (binding.meta_type() == MetaType::TXB_TYPE) {
                 TxTypeDefiner* bdefiner;
                 // we want to bypass empty, implicit derivations:
-                auto btype = binding.type_definer().resolve_type(resCtx);
+                auto btype = binding.type_definer().resolve_type();
                 if (! btype)
                     return nullptr;  // specialization fails if a binding fails resolve
                 while (btype->is_empty_derivation() && !btype->is_explicit_nongen_declaration())
@@ -791,7 +784,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
         // if equivalent specialized type already exists then reuse it, otherwise create new one:
         auto baseScope = baseDecl->get_symbol()->get_outer();
-        const TxType* specializedBaseType = get_existing_type(baseType, bindings, baseScope, newBaseTypeNameStr, resCtx);
+        const TxType* specializedBaseType = get_existing_type(baseType, bindings, baseScope, newBaseTypeNameStr);
         if (! specializedBaseType) {
             {   // pass on the generic base type to the new specialization via member named $GenericBase:
                 auto & parseLoc = declaration->get_definer()->get_parse_location();
@@ -812,9 +805,9 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
             // Invoking the resolution pass here can cause infinite recursion
             // (since the same source text construct may be recursively reprocessed),
             // so we enqueue this "specialization pass" for later processing.
-            //baseTypeExpr->symbol_resolution_pass(newSix, resCtx);
+            //baseTypeExpr->symbol_resolution_pass(newSix);
             this->enqueuedSpecializations.emplace( EnqueuedSpecialization{ baseTypeExpr, newSix } );
-            specializedBaseType = baseTypeExpr->resolve_type(newSix, resCtx);
+            specializedBaseType = baseTypeExpr->resolve_type(newSix);
         }
 
         return this->make_specialized_type(declaration, TxTypeSpecialization(specializedBaseType, false, true), interfaces);
@@ -840,8 +833,7 @@ const TxInterfaceAdapterType* TypeRegistry::inner_get_interface_adapter(const Tx
 
     if (auto existingAdapterSymbol = dynamic_cast<TxEntitySymbol*>(scope->get_member_symbol(adapterName))) {
         if (auto typeDecl = existingAdapterSymbol->get_type_decl()) {
-            ResolutionContext resCtx;
-            auto adapterType = static_cast<const TxInterfaceAdapterType*>(typeDecl->get_definer()->resolve_type(resCtx));
+            auto adapterType = static_cast<const TxInterfaceAdapterType*>(typeDecl->get_definer()->resolve_type());
             std::cerr << "Getting existing interface adapter: " << adapterType << std::endl;
             return adapterType;
         }

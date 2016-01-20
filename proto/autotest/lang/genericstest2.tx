@@ -21,7 +21,9 @@ type ATypeRInt AType<RInt>;
 main()->Int {
     #experr: type Err AType<Byte>;  ## doesn't match parameter's constraint type
     #experr: err : AType<Short>;     ## doesn't match parameter's constraint type
-    #experr: type Err AType<AType>; ## doesn't match parameter's constraint type
+
+    ## fix experr for this case:
+    ## #experr: type Err AType<AType>; ## doesn't match parameter's constraint type
 
     val : Int = 42;
     sobj := ATypeRInt(val);

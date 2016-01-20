@@ -66,7 +66,7 @@ class TxIntegerLitNode : public TxLiteralValueNode {
     const std::string sourceLiteral;
 
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
         return this->types().get_builtin_type(this->intValue.typeId);
     }
 
@@ -99,7 +99,7 @@ public:
 
 class TxFloatingLitNode : public TxLiteralValueNode {
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
         // TODO: produce different Floating types
         return this->types().get_builtin_type(FLOAT);
     }
@@ -120,7 +120,7 @@ public:
 
 class TxCharacterLitNode : public TxLiteralValueNode {
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
         return this->types().get_builtin_type(UBYTE);
     }
 
@@ -144,10 +144,10 @@ class TxCStringLitNode : public TxLiteralValueNode {
     TxTypeDeclNode* cstringTypeNode;  // implicit type definer
 
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
 //        const TxType* charType = this->types().get_builtin_type(UBYTE);
 //        return this->types().get_array_type(nullptr, charType, &this->arrayLength);
-        return this->cstringTypeNode->typeExpression->resolve_type(six, resCtx);
+        return this->cstringTypeNode->typeExpression->resolve_type(six);
     }
 
 public:
@@ -168,7 +168,7 @@ public:
 
 class TxBoolLitNode : public TxLiteralValueNode {
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
         return this->types().get_builtin_type(BOOL);
     }
 

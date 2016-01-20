@@ -9,8 +9,8 @@ class TxLambdaExprNode : public TxExpressionNode {
     TxFieldDefNode* superRefNode = nullptr;
 
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        return this->funcTypeNode->resolve_type(six, resCtx);  // function header
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
+        return this->funcTypeNode->resolve_type(six);  // function header
     }
 
 public:
@@ -72,14 +72,14 @@ public:
         this->suite->symbol_declaration_pass_no_subscope(six, funcLexContext);  // function body
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        TxExpressionNode::symbol_resolution_pass(six);
         if (this->selfRefNode) {
-            this->selfRefNode->symbol_resolution_pass(six, resCtx);
-            this->superRefNode->symbol_resolution_pass(six, resCtx);
+            this->selfRefNode->symbol_resolution_pass(six);
+            this->superRefNode->symbol_resolution_pass(six);
         }
-        this->funcTypeNode->symbol_resolution_pass(six, resCtx);  // function header
-        this->suite->symbol_resolution_pass(six, resCtx);  // function body
+        this->funcTypeNode->symbol_resolution_pass(six);  // function header
+        this->suite->symbol_resolution_pass(six);  // function body
 
         if (this->funcTypeNode->returnField) {
             // verify that body always ends with explicit return statement

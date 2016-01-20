@@ -8,7 +8,6 @@ class TxTypeDefiningNode;
 class TxExpressionNode;
 class TxType;
 class TxField;
-class ResolutionContext;
 
 
 /** Proxy interface that provides a layer of indirection to a type reference.
@@ -35,7 +34,7 @@ public:
     /** Returns a type if this type definer "is ready" (has a defined type), otherwise NULL. */
     virtual const TxType* attempt_get_type() const = 0;
 
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) = 0;
+    virtual const TxType* resolve_type() = 0;
 };
 
 class TxTypeDefiner : public TxEntityDefiner {
@@ -51,10 +50,10 @@ public:
      */
     virtual const TxExpressionNode* get_init_expression() const = 0;
 
-    virtual const TxField* resolve_field(ResolutionContext& resCtx) = 0;
+    virtual const TxField* resolve_field() = 0;
 
     virtual const TxField* get_field() const = 0;
 
 
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override;
+    virtual const TxType* resolve_type() override;
 };

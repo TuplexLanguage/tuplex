@@ -109,7 +109,7 @@ class TxSpecializableTypeDefiner : public virtual TxParseOrigin {
 public:
     virtual ~TxSpecializableTypeDefiner() = default;
 
-    virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
+    virtual const TxType* resolve_type(TxSpecializationIndex six) = 0;
 
     virtual const TxType* attempt_get_type(TxSpecializationIndex six) const = 0;
 
@@ -122,7 +122,7 @@ class TxSpecializableFieldDefiner : public TxSpecializableTypeDefiner {
 public:
     virtual const TxExpressionNode* get_init_expression() const = 0;
 
-    virtual const TxField* resolve_field(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
+    virtual const TxField* resolve_field(TxSpecializationIndex six) = 0;
 
     virtual const TxField* get_field(TxSpecializationIndex six) const = 0;
 };
@@ -140,7 +140,7 @@ public:
     virtual TxDriver* get_driver() const override { return specDefiner->get_driver(); }
     virtual const yy::location& get_parse_location() const override { return specDefiner->get_parse_location(); }
 
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return specDefiner->resolve_type(six, resCtx); }
+    virtual const TxType* resolve_type() override { return specDefiner->resolve_type(six); }
 
     virtual const TxType* attempt_get_type() const override { return specDefiner->attempt_get_type(six); }
 
@@ -164,11 +164,11 @@ public:
 
     virtual const TxExpressionNode* get_init_expression() const override { return specDefiner->get_init_expression(); }
 
-    virtual const TxField* resolve_field(ResolutionContext& resCtx) override { return specDefiner->resolve_field(six, resCtx); }
+    virtual const TxField* resolve_field() override { return specDefiner->resolve_field(six); }
 
     virtual const TxField* get_field() const override { return specDefiner->get_field(six); }
 
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return specDefiner->resolve_type(six, resCtx); }
+    virtual const TxType* resolve_type() override { return specDefiner->resolve_type(six); }
 
     virtual const TxType* attempt_get_type() const override { return specDefiner->attempt_get_type(six); }
 

@@ -123,9 +123,8 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
 
     /*--- perform resolution pass ---*/
 
-    ResolutionContext resCtx;
     for (auto parsedAST : this->parsedASTs)
-        parsedAST->symbol_resolution_pass(resCtx);
+        parsedAST->symbol_resolution_pass();
 
     this->package->types().enqueued_resolution_pass();
 
@@ -261,8 +260,7 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
 
     bool mainGenerated = false;
     if (auto funcDecl = this->package->getMainFunc()) {
-        ResolutionContext dummyCtx;
-        auto funcField = funcDecl->get_definer()->resolve_field(dummyCtx);
+        auto funcField = funcDecl->get_definer()->resolve_field();
         if (auto funcType = dynamic_cast<const TxFunctionType*>(funcField->get_type())) {
             if ( funcType->returnType && ! funcType->returnType->is_a( *this->package->types().get_builtin_type(INTEGER) ) )
                 this->LOG.error("main() method had invalid return type: %s", funcType->returnType->to_string().c_str());

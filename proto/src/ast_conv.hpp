@@ -5,9 +5,9 @@
 
 class TxConversionNode : public TxExpressionNode {
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
         // FIXME: type equality logic
-        //auto type = expr->resolve_type(six, resCtx);
+        //auto type = expr->resolve_type(six);
         //ASSERT(type && (*type) == (*this->resultType), "Mismatching types in " << this << ": \n" << type << " != \n" << this->resultType);
         return this->resultType;
     }
@@ -28,9 +28,9 @@ public:
             this->expr->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        TxExpressionNode::symbol_resolution_pass(six, resCtx);
-        this->expr->symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        TxExpressionNode::symbol_resolution_pass(six);
+        this->expr->symbol_resolution_pass(six);
     }
 
     virtual bool is_statically_constant() const override { return this->expr->is_statically_constant(); }
@@ -62,8 +62,8 @@ public:
     TxScalarConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxScalarType* resultType)
         : TxConversionNode(parseLocation, expr, resultType), constProxy()  { }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        TxConversionNode::symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        TxConversionNode::symbol_resolution_pass(six);
         if (auto originalConstant = this->expr->get_static_constant_proxy())
             this->constProxy.init(this, originalConstant);
     }
@@ -85,7 +85,7 @@ public:
 class TxReferenceConvNode : public TxConversionNode {
     const TxType* adapterType = nullptr;
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override;
+    virtual const TxType* define_type(TxSpecializationIndex six) override;
 
 public:
     TxReferenceConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxReferenceType* resultType)

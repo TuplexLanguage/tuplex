@@ -18,10 +18,6 @@ class TxTypeDeclaration;
 class TxFieldDeclaration;
 
 
-class ResolutionContext {
-};
-
-
 /** Represents a Tuplex symbol and namespace/scope.
  * For example package (global namespace), modules, entities, code blocks.
  * A symbol has a unique qualified name, an outer (parent) scope (unless root),
@@ -290,8 +286,8 @@ public:
     inline std::vector<TxFieldDeclaration*>::const_iterator fields_cend() const noexcept { return this->fieldDeclarations.cend(); }
 
 
-//    virtual const TxType* resolve_symbol_type(ResolutionContext& resCtx) override {
-//        return this->typeDefiner ? this->typeDefiner->resolve_symbol_type(resCtx) : nullptr;
+//    virtual const TxType* resolve_symbol_type() override {
+//        return this->typeDefiner ? this->typeDefiner->resolve_symbol_type() : nullptr;
 //    }
 //
 //    virtual const TxType* get_type() const override {
@@ -357,4 +353,4 @@ TxFieldDeclaration* lookup_field(TxScopeSymbol* vantageScope, const TxIdentifier
                                  const std::vector<const TxType*>* typeParameters = nullptr);
 
 /** Attempts to resolve an identified symbol, that is potentially overloaded, as a field using the provided type parameters. */
-TxFieldDeclaration* resolve_field_lookup(ResolutionContext& resCtx, TxScopeSymbol* symbol, const std::vector<const TxType*>* typeParameters);
+TxFieldDeclaration* resolve_field_lookup(TxScopeSymbol* symbol, const std::vector<const TxType*>* typeParameters);

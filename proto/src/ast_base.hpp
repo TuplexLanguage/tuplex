@@ -200,7 +200,7 @@ public:
         module->register_import(identNode->ident);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
+    virtual void symbol_resolution_pass() {
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
@@ -220,7 +220,7 @@ public:
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) = 0;
 
     virtual const TxEntityDeclaration* get_declaration(TxSpecializationIndex six) const = 0;
 };
@@ -259,18 +259,18 @@ public:
         }
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
+    virtual void symbol_resolution_pass() {
         if (this->imports) {
             for (auto elem : *this->imports)
-                elem->symbol_resolution_pass(resCtx);
+                elem->symbol_resolution_pass();
         }
         if (this->members) {
             for (auto elem : *this->members)
-                elem->symbol_resolution_pass(0, resCtx);
+                elem->symbol_resolution_pass(0);
         }
         if (this->subModules) {
             for (auto mod : *this->subModules)
-                mod->symbol_resolution_pass(resCtx);
+                mod->symbol_resolution_pass();
         }
     }
 
@@ -294,9 +294,9 @@ public:
             mod->symbol_declaration_pass(package);
     }
 
-    virtual void symbol_resolution_pass(ResolutionContext& resCtx) {
+    virtual void symbol_resolution_pass() {
         for (auto mod : this->modules)
-            mod->symbol_resolution_pass(resCtx);
+            mod->symbol_resolution_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -308,7 +308,7 @@ class TxStatementNode : public TxSpecializableNode {
 public:
     TxStatementNode(const yy::location& parseLocation) : TxSpecializableNode(parseLocation) { }
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) = 0;
 
     /** Returns true if this statement / compound statement *may* end with a break or continue statement. */
     virtual bool may_end_with_non_return_stmt() const { return false; }
@@ -338,7 +338,7 @@ protected:
      * The implementation should only traverse the minimum nodes needed to define the type
      * (e.g. not require the actual target type of a reference to be defined).
      * This should only be invoked once, from the TxTypeDefiningNode class. */
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
+    virtual const TxType* define_type(TxSpecializationIndex six) = 0;
 
 public:
     TxTypeDefiningNode(const yy::location& parseLocation) : TxSpecializableNode(parseLocation) { }
@@ -346,7 +346,7 @@ public:
     inline TxTypeDefiner* get_type_definer(TxSpecializationIndex six) { return this->get_spec_type_def(six); }
 
     /** Returns the type (as specific as can be known) of the value this expression produces. */
-    virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) override final;
+    virtual const TxType* resolve_type(TxSpecializationIndex six) override final;
 
     virtual const TxType* attempt_get_type(TxSpecializationIndex six) const override final { return this->get_spec(six)->type; }
     virtual const TxType* get_type        (TxSpecializationIndex six) const override final {
@@ -366,7 +366,7 @@ protected:
 
     /** Defines the field of this node, constructing/obtaining the TxField instance.
      * This should only be invoked once, from the TxFieldDefiningNode class. */
-    virtual const TxField* define_field(TxSpecializationIndex six, ResolutionContext& resCtx) = 0;
+    virtual const TxField* define_field(TxSpecializationIndex six) = 0;
 
 public:
     TxFieldDefiningNode(const yy::location& parseLocation) : TxSpecializableNode(parseLocation) { }
@@ -374,20 +374,20 @@ public:
     TxFieldDefiner* get_field_definer(TxSpecializationIndex six) { return this->get_spec_field_def(six); }
 
     /** Returns the type (as specific as can be known) of the value this expression produces. */
-    virtual const TxField* resolve_field(TxSpecializationIndex six, ResolutionContext& resCtx) override final {
+    virtual const TxField* resolve_field(TxSpecializationIndex six) override final {
         auto spec = this->get_spec(six);
         if (!spec->field && !spec->hasResolved) {
             LOGGER().trace("resolving field of %s (s-ix %u)", this->to_string().c_str(), six);
             ASSERT(!spec->startedRslv, "Recursive invocation of resolve_field() of " << this);
             spec->startedRslv = true;
-            spec->field = this->define_field(six, resCtx);
+            spec->field = this->define_field(six);
             spec->hasResolved = true;
         }
         return spec->field;
     }
 
-    virtual const TxType* resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) override final {
-        this->resolve_field(six, resCtx);
+    virtual const TxType* resolve_type(TxSpecializationIndex six) override final {
+        this->resolve_field(six);
         return this->get_spec(six)->type;
     }
 
@@ -451,13 +451,13 @@ public:
                                          TxDeclarationFlags declFlags, const std::string designatedTypeName,
                                          const std::vector<TxDeclarationNode*>* typeParamDeclNodes);
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) {
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) {
         if (auto typeParamDeclNodes = this->get_type_param_decl_nodes(six)) {
             for (auto paramDeclNode : *typeParamDeclNodes) {
-                paramDeclNode->symbol_resolution_pass(six, resCtx);
+                paramDeclNode->symbol_resolution_pass(six);
             }
         }
-        this->resolve_type(six, resCtx);
+        this->resolve_type(six);
     }
 };
 
@@ -472,8 +472,8 @@ protected:
     virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
                                                      LexicalContext& lexContext, TxDeclarationFlags declFlags) override { }
 
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        auto type = ( typeDefiner ? this->typeDefiner->resolve_type(resCtx) : this->typeDefNode->resolve_type(six, resCtx) );
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
+        auto type = ( typeDefiner ? this->typeDefiner->resolve_type() : this->typeDefNode->resolve_type(six) );
         if (!type)
             return nullptr;
         else if (auto declEnt = this->get_declaration(six)) {
@@ -519,8 +519,8 @@ public:
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) {
-        this->resolve_type(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) {
+        this->resolve_type(six);
     }
 
     /** Returns true if this expression is a constant expression that can be evaluated at compile time. */
@@ -553,8 +553,8 @@ class TxExprWrapperNode : public TxExpressionNode {
     TxExpressionNode* const expr;
     TxSpecializationIndex const six;
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        return this->expr->resolve_type(this->six, resCtx);
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
+        return this->expr->resolve_type(this->six);
     }
 
 public:
@@ -588,9 +588,8 @@ public:
  *
  * Assumes that originalExpr symbol registration pass has already run.
  * Will run symbol registration and symbol resolution passes on any inserted nodes.
- * Does not run the semantic pass on inserted nodes.
  */
-TxExpressionNode* validate_wrap_convert(TxSpecializationIndex six, ResolutionContext& resCtx, TxExpressionNode* originalExpr,
+TxExpressionNode* validate_wrap_convert(TxSpecializationIndex six, TxExpressionNode* originalExpr,
                                         const TxType* requiredType, bool _explicit=false);
 
 /** Checks that an rvalue expression of an assignment or argument to a function call
@@ -599,9 +598,8 @@ TxExpressionNode* validate_wrap_convert(TxSpecializationIndex six, ResolutionCon
  *
  * Assumes that originalExpr symbol registration pass has already run.
  * Will run symbol registration and symbol resolution passes on any inserted nodes.
- * Does not run the semantic pass on inserted nodes.
  */
-TxExpressionNode* validate_wrap_assignment(TxSpecializationIndex six, ResolutionContext& resCtx, TxExpressionNode* rValueExpr,
+TxExpressionNode* validate_wrap_assignment(TxSpecializationIndex six, TxExpressionNode* rValueExpr,
                                            const TxType* requiredType);
 
 
@@ -631,17 +629,17 @@ class TxFieldDefNode : public TxFieldDefiningNode {
     };
 
 protected:
-    virtual const TxField* define_field(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual const TxField* define_field(TxSpecializationIndex six) override {
         LOGGER().trace("resolving type of %s (s-ix %u)", this->to_string().c_str(), six);
         const TxType* type;
         if (this->typeExpression) {
-            type = this->typeExpression->resolve_type(six, resCtx);
+            type = this->typeExpression->resolve_type(six);
         }
         else if (this->typeDefiner) {
-            type = this->typeDefiner->resolve_type(resCtx);
+            type = this->typeDefiner->resolve_type();
         }
         else {
-            type = this->initExpression->resolve_type(six, resCtx);
+            type = this->initExpression->resolve_type(six);
             if (type) {
                 if (this->modifiable) {
                     if (! type->is_modifiable())
@@ -721,16 +719,16 @@ public:
         this->symbol_declaration_pass(six, lexContext, lexContext, TXD_NONE);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) {
-        this->resolve_field(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) {
+        this->resolve_field(six);
         if (this->typeExpression) {
-            this->typeExpression->symbol_resolution_pass(six, resCtx);
+            this->typeExpression->symbol_resolution_pass(six);
         }
         if (this->initExpression) {
-            this->initExpression->symbol_resolution_pass(six, resCtx);
+            this->initExpression->symbol_resolution_pass(six);
             auto spec = this->get_spec(six);
             if ((this->typeExpression || this->typeDefiner) && spec->type)
-                this->initExpression = validate_wrap_convert(six, resCtx, this->initExpression, spec->type);
+                this->initExpression = validate_wrap_convert(six, this->initExpression, spec->type);
             if (spec->field && spec->field->is_statically_constant())
                     if (! this->initExpression->is_statically_constant())
                         CERROR(this, "Non-constant initializer for constant global/static field.");
@@ -785,7 +783,7 @@ public:
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override;
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override;
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override;
 
     virtual const TxFieldDeclaration* get_declaration(TxSpecializationIndex six) const override {
         return this->field->get_declaration(six);
@@ -820,11 +818,11 @@ public:
     }
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& defContext, LexicalContext& lexContext);
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        this->typeExpression->symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        this->typeExpression->symbol_resolution_pass(six);
         if (this->typeParamDecls)
             for (auto paramDecl : *this->typeParamDecls)
-                paramDecl->symbol_resolution_pass(six, resCtx);
+                paramDecl->symbol_resolution_pass(six);
     }
 
     virtual const TxTypeDeclaration* get_declaration(TxSpecializationIndex six) const override {
@@ -845,8 +843,8 @@ public:
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) {
-        this->resolve_type(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) {
+        this->resolve_type(six);
     }
 };
 
@@ -879,12 +877,12 @@ public:
         }
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
         auto ctx = this->context(six);
         if (six == 0) {
             ctx.package()->driver().begin_exp_err(this->parseLocation);
             if (this->body)
-                this->body->symbol_resolution_pass(six, resCtx);
+                this->body->symbol_resolution_pass(six);
             this->encountered_error_count += ctx.package()->driver().end_exp_err(this->parseLocation);
             if ( this->expected_error_count <  0 ) {
                 if ( this->encountered_error_count == 0 )
@@ -895,7 +893,7 @@ public:
                               << " compilation errors but encountered " << this->encountered_error_count);
         }
         else if (this->body)
-            this->body->symbol_resolution_pass(six, resCtx);
+            this->body->symbol_resolution_pass(six);
     }
 
     virtual const TxEntityDeclaration* get_declaration(TxSpecializationIndex six) const override {

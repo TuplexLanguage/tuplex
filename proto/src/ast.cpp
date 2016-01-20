@@ -53,7 +53,7 @@ std::string TxNode::parse_loc_string() const {
 
 int definition_nest_level = 0;
 
-const TxType* TxTypeDefiningNode::resolve_type(TxSpecializationIndex six, ResolutionContext& resCtx) {
+const TxType* TxTypeDefiningNode::resolve_type(TxSpecializationIndex six) {
     auto spec = this->get_spec(six);
     if (!spec->type && !spec->hasResolved) {
         LOGGER().trace("resolving type of %s (s-ix %u)", this->to_string().c_str(), six);
@@ -62,7 +62,7 @@ const TxType* TxTypeDefiningNode::resolve_type(TxSpecializationIndex six, Resolu
         //definition_nest_level += 2;
         ASSERT(!spec->startedRslv, "Recursive invocation of resolve_type() of " << this);
         spec->startedRslv = true;
-        spec->type = this->define_type(six, resCtx);
+        spec->type = this->define_type(six);
         spec->hasResolved = true;
         //definition_nest_level -= 2;
         //fprintf(stderr, "%*s}\n", definition_nest_level, "");
@@ -120,8 +120,8 @@ void TxFieldDeclNode::symbol_declaration_pass(TxSpecializationIndex six, Lexical
     this->field->symbol_declaration_pass_nonlocal_field(six, lexContext, this->declFlags, storage, TxIdentifier(""));
 }
 
-void TxFieldDeclNode::symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) {
-    this->field->symbol_resolution_pass(six, resCtx);
+void TxFieldDeclNode::symbol_resolution_pass(TxSpecializationIndex six) {
+    this->field->symbol_resolution_pass(six);
 
     if (auto type = this->field->get_type(six)) {
         auto storage = this->field->get_declaration(six)->get_storage();
@@ -295,10 +295,10 @@ void TxPredefinedTypeNode::symbol_declaration_pass(TxSpecializationIndex six, Le
 }
 
 
-const TxType* TxPredefinedTypeNode::define_identified_type(TxSpecializationIndex six, ResolutionContext& resCtx) {
+const TxType* TxPredefinedTypeNode::define_identified_type(TxSpecializationIndex six) {
     // note: looking up in defContext ("outer" context) to avoid conflation with generic base types' inherited entities
     if (auto identifiedTypeDecl = lookup_type(this->get_spec(six)->defContext.scope(), this->identNode->ident)) {
-        auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type(resCtx);
+        auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type();
         if (!identifiedType)
             return nullptr;
         else if (auto declEnt = this->get_declaration(six)) {
@@ -323,9 +323,9 @@ const TxType* TxPredefinedTypeNode::define_identified_type(TxSpecializationIndex
     return nullptr;
 }
 
-const TxType* TxPredefinedTypeNode::define_generic_specialization_type(TxSpecializationIndex six, ResolutionContext& resCtx) {
+const TxType* TxPredefinedTypeNode::define_generic_specialization_type(TxSpecializationIndex six) {
     auto baseTypeDecl = lookup_type(this->context(six).scope(), this->identNode->ident);
-    const TxType* baseType = baseTypeDecl ? baseTypeDecl->get_definer()->resolve_type(resCtx) : nullptr;
+    const TxType* baseType = baseTypeDecl ? baseTypeDecl->get_definer()->resolve_type() : nullptr;
     if (! baseType) {
         CERROR(this, "Unknown type: " << this->identNode->ident << " (from " << this->context(six).scope() << ")");
         return nullptr;
@@ -458,12 +458,12 @@ TxAssertStmtNode::TxAssertStmtNode(const yy::location& parseLocation, TxExpressi
 
 
 
-TxScopeSymbol* TxFieldValueNode::resolve_symbol(TxSpecializationIndex six, ResolutionContext& resCtx) {
+TxScopeSymbol* TxFieldValueNode::resolve_symbol(TxSpecializationIndex six) {
     TxScopeSymbol* symbol = nullptr;
     std::vector<TxScopeSymbol*> tmpPath;
     if (this->baseExpr) {
         // baseExpr may or may not refer to a type (e.g. modules don't)
-        auto baseType = this->baseExpr->resolve_type(six, resCtx);
+        auto baseType = this->baseExpr->resolve_type(six);
 
         if (auto baseRefType = dynamic_cast<const TxReferenceType*>(baseType)) {
             // implicit dereferencing ('^') operation:
@@ -472,7 +472,7 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol(TxSpecializationIndex six, Resol
                 ASSERT(six == 0, "implicit dereferencing more than once on: " << this);
                 auto derefNode = new TxReferenceDerefNode(this->baseExpr->parseLocation, this->baseExpr);
                 derefNode->set_context(six, this->baseExpr->context(six));  // in lieu of symbol_declaration_pass()
-                derefNode->symbol_resolution_pass(six, resCtx);
+                derefNode->symbol_resolution_pass(six);
                 this->baseExpr = derefNode;
                 baseType = baseRefTargetType;
             }
@@ -484,7 +484,7 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol(TxSpecializationIndex six, Resol
             symbol = baseType->lookup_inherited_instance_member(vantageScope, this->symbolName);
         }
         else if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
-            if (auto baseSymbol = baseSymbolNode->resolve_symbol(six, resCtx)) {
+            if (auto baseSymbol = baseSymbolNode->resolve_symbol(six)) {
                 symbol = lookup_member(vantageScope, baseSymbol, this->symbolName);
             }
         }
@@ -495,15 +495,15 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol(TxSpecializationIndex six, Resol
     return symbol;
 }
 
-const TxEntityDeclaration* TxFieldValueNode::resolve_decl(TxSpecializationIndex six, ResolutionContext& resCtx) {
+const TxEntityDeclaration* TxFieldValueNode::resolve_decl(TxSpecializationIndex six) {
     auto spec = this->get_spec(six);
     if (spec->declaration)
         return spec->declaration;
-    if (auto symbol = this->resolve_symbol(six, resCtx)) {
+    if (auto symbol = this->resolve_symbol(six)) {
         if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(symbol)) {
             // if symbol can be resolved to actual field, then do so
             if (entitySymbol->field_count()) {
-                if (auto fieldDecl = resolve_field_lookup(resCtx, entitySymbol, spec->appliedFuncArgTypes)) {
+                if (auto fieldDecl = resolve_field_lookup(entitySymbol, spec->appliedFuncArgTypes)) {
                     if (fieldDecl->get_storage() == TXS_INSTANCE || fieldDecl->get_storage() == TXS_INSTANCEMETHOD) {
                         if (!this->baseExpr) {
                             CERROR(this, "Instance member field referenced without instance base: " << this->get_full_identifier());
@@ -522,9 +522,9 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl(TxSpecializationIndex 
             // if symbol is a type, and arguments are applied, and they match a constructor, the resolve to that constructor
             if (auto typeDecl = entitySymbol->get_type_decl()) {
                 if (spec->appliedFuncArgTypes) {
-                    if (auto allocType = typeDecl->get_definer()->resolve_type(resCtx)) {
+                    if (auto allocType = typeDecl->get_definer()->resolve_type()) {
                         if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member("$init"))  // (constructors aren't inherited)
-                            if (auto constructorDecl = resolve_field_lookup(resCtx, constructorSymbol, spec->appliedFuncArgTypes)) {
+                            if (auto constructorDecl = resolve_field_lookup(constructorSymbol, spec->appliedFuncArgTypes)) {
                                 ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
                                 //std::cerr << "resolving field to constructor: " << this << ": " << constructorDecl << std::endl;
                                 spec->declaration = constructorDecl;
@@ -551,32 +551,32 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl(TxSpecializationIndex 
     return nullptr;
 }
 
-const TxType* TxFieldValueNode::define_type(TxSpecializationIndex six, ResolutionContext& resCtx) {
-    if (auto decl = this->resolve_decl(six, resCtx)) {
+const TxType* TxFieldValueNode::define_type(TxSpecializationIndex six) {
+    if (auto decl = this->resolve_decl(six)) {
         if (auto fieldDecl = dynamic_cast<const TxFieldDeclaration*>(decl)) {
-            if (auto field = fieldDecl->get_definer()->resolve_field(resCtx)) {
+            if (auto field = fieldDecl->get_definer()->resolve_field()) {
                 this->get_spec(six)->field = field;
                 return field->get_type();
             }
         }
         else
-            return static_cast<const TxTypeDeclaration*>(decl)->get_definer()->resolve_type(resCtx);
+            return static_cast<const TxTypeDeclaration*>(decl)->get_definer()->resolve_type();
     }
     return nullptr;
 }
 
 
 
-const TxType* TxConstructorCalleeExprNode::define_type(TxSpecializationIndex six, ResolutionContext& resCtx) {
+const TxType* TxConstructorCalleeExprNode::define_type(TxSpecializationIndex six) {
     auto spec = this->get_spec(six);
     ASSERT(spec->appliedFuncArgTypes, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized");
-    if (auto allocType = this->objectExpr->resolve_type(six, resCtx)) {
+    if (auto allocType = this->objectExpr->resolve_type(six)) {
         // find the constructor
         if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member("$init")) {  // (constructors aren't inherited)
-            if (auto constructorDecl = resolve_field_lookup(resCtx, constructorSymbol, spec->appliedFuncArgTypes)) {
+            if (auto constructorDecl = resolve_field_lookup(constructorSymbol, spec->appliedFuncArgTypes)) {
                 ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
                 spec->declaration = constructorDecl;
-                if (auto constructorField = constructorDecl->get_definer()->resolve_field(resCtx))
+                if (auto constructorField = constructorDecl->get_definer()->resolve_field())
                     return constructorField->get_type();
             }
         }
@@ -592,9 +592,9 @@ const TxType* TxConstructorCalleeExprNode::define_type(TxSpecializationIndex six
 }
 
 
-const TxType* TxFunctionCallNode::define_type(TxSpecializationIndex six, ResolutionContext& resCtx) {
-    this->register_callee_signature(six, resCtx);
-    auto calleeType = this->callee->resolve_type(six, resCtx);
+const TxType* TxFunctionCallNode::define_type(TxSpecializationIndex six) {
+    this->register_callee_signature(six);
+    auto calleeType = this->callee->resolve_type(six);
     if (!calleeType)
         return nullptr;
     auto funcType = dynamic_cast<const TxFunctionType*>(calleeType);
@@ -614,7 +614,7 @@ const TxType* TxFunctionCallNode::define_type(TxSpecializationIndex six, Resolut
                 constructorCallee->set_context(six, this->context(six));
                 constructorCallee->set_applied_func_arg_types(six, this->callee->get_applied_func_arg_types(six));
 
-                if (auto constrCalleeType = constructorCallee->resolve_type(six, resCtx)) {
+                if (auto constrCalleeType = constructorCallee->resolve_type(six)) {
                     this->callee = constructorCallee;
                     calleeType = constrCalleeType;
                     funcType = dynamic_cast<const TxFunctionType*>(constrCalleeType);
@@ -630,7 +630,7 @@ const TxType* TxFunctionCallNode::define_type(TxSpecializationIndex six, Resolut
 
     if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {
         // "inline" function call by replacing with conversion expression
-        this->get_spec(six)->inlinedExpression = validate_wrap_convert(six, resCtx, this->argsExprList->front(), inlineFunc->returnType, true);
+        this->get_spec(six)->inlinedExpression = validate_wrap_convert(six, this->argsExprList->front(), inlineFunc->returnType, true);
         return inlineFunc->returnType;
     }
 
@@ -643,7 +643,7 @@ const TxType* TxFunctionCallNode::define_type(TxSpecializationIndex six, Resolut
     auto argExprI = this->argsExprList->begin();
     for (auto argDef : funcType->argumentTypes) {
         // note: similar rules to assignment
-        *argExprI = validate_wrap_assignment(six, resCtx, *argExprI, argDef);
+        *argExprI = validate_wrap_assignment(six, *argExprI, argDef);
         argExprI++;
     }
 
@@ -653,9 +653,9 @@ const TxType* TxFunctionCallNode::define_type(TxSpecializationIndex six, Resolut
             auto objectDefiner = constructorType->get_constructed_type_decl()->get_definer();
             auto inlinedExpression = new TxStackConstructorNode(this, objectDefiner);
             inlinedExpression->symbol_declaration_pass(six, this->context(six));
-            inlinedExpression->symbol_resolution_pass(six, resCtx);
+            inlinedExpression->symbol_resolution_pass(six);
             this->get_spec(six)->inlinedExpression = inlinedExpression;
-            return objectDefiner->resolve_type(resCtx);
+            return objectDefiner->resolve_type();
         }
     }
 

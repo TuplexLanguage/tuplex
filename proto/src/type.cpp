@@ -75,8 +75,7 @@ void TxType::prepare_type() {
         // determine generic base type, if any:
         if (auto entitySym = dynamic_cast<TxEntitySymbol*>(typeDeclNamespace->get_member_symbol("$GenericBase"))) {
             if (auto typeDecl = entitySym->get_type_decl()) {
-                ResolutionContext resCtx;
-                this->genericBaseType = typeDecl->get_definer()->resolve_type(resCtx);
+                this->genericBaseType = typeDecl->get_definer()->resolve_type();
                 //LOGGER().alert("Generic base type of %s is %s", entitySym->get_full_name().to_string().c_str(), this->genericBaseType->to_string().c_str());
             }
         }
@@ -173,15 +172,14 @@ void TxType::prepare_type() {
 
         { // validate the type parameter bindings
             auto basetype = this->get_semantic_base_type();
-            ResolutionContext resCtx;
             for (auto & bindingDecl : this->get_bindings()) {
                 auto pname = bindingDecl->get_unique_name();
                 if (auto paramDecl = basetype->get_type_param_decl( pname )) {
                     if (meta_type_of(bindingDecl) != meta_type_of(paramDecl))
                         CERROR(bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " of wrong meta-type (TYPE vs VALUE)");
 
-                    auto constraintType = paramDecl->get_definer()->resolve_type(resCtx);
-                    auto boundType = bindingDecl->get_definer()->resolve_type(resCtx);
+                    auto constraintType = paramDecl->get_definer()->resolve_type();
+                    auto boundType = bindingDecl->get_definer()->resolve_type();
                     ASSERT(constraintType, "NULL constraint type for param " << paramDecl << " of " << basetype);
                     ASSERT(boundType,      "NULL binding type for param " << paramDecl << " of " << basetype);
                     //std::cerr << this << ": Constraint type for param " << paramDecl << ": " << "checking bound type "
@@ -246,9 +244,8 @@ void TxType::prepare_type_members() {
         this->get_driver()->begin_exp_err(this->get_declaration()->get_definer()->get_parse_location());
 
     // resolve and validate type parameters
-    ResolutionContext resCtx;
     for (auto & paramDecl : this->params) {
-        auto constraintType = paramDecl->get_definer()->resolve_type(resCtx);
+        auto constraintType = paramDecl->get_definer()->resolve_type();
         if (dynamic_cast<TxFieldDeclaration*>(paramDecl))
             if (constraintType->get_type_class() != TXTC_REFERENCE)
                 this->nonRefParameters = true;
@@ -268,8 +265,8 @@ void TxType::prepare_type_members() {
 //                this->nonRefBindings = true;
 //            }
 //            else {  // TxTypeParam::MetaType::TXB_TYPE
-//                auto constraintType = paramDecl->get_definer()->resolve_type(resCtx);
-//                auto boundType = bindingDecl->get_definer()->resolve_type(resCtx);
+//                auto constraintType = paramDecl->get_definer()->resolve_type();
+//                auto boundType = bindingDecl->get_definer()->resolve_type();
 //                ASSERT(constraintType, "NULL constraint type for param " << paramDecl << " of " << basetype);
 //                ASSERT(boundType,      "NULL binding for param " << paramDecl << " of " << basetype);
 //                //std::cerr << this << ": Constraint type for param " << paramDecl << ": " << "checking bound type "
@@ -313,7 +310,7 @@ void TxType::prepare_type_members() {
 //                if (typeDecl->get_decl_flags() & TXD_EXPERRBLOCK)
 //                    this->get_driver()->begin_exp_err(typeDecl->get_definer()->get_parse_location());
 //
-//                typeDecl->get_definer()->get_type(); //resolve_type(resCtx);
+//                typeDecl->get_definer()->get_type(); //resolve_type();
 //
 //                if (typeDecl->get_decl_flags() & TXD_EXPERRBLOCK) {
 //                    /*int encountered_error_count =*/ this->get_driver()->end_exp_err(typeDecl->get_definer()->get_parse_location());
@@ -329,7 +326,7 @@ void TxType::prepare_type_members() {
             if (expErrField)
                 this->get_driver()->begin_exp_err(fieldDecl->get_definer()->get_parse_location());
 
-            if (auto field = fieldDecl->get_definer()->resolve_field(resCtx)) {
+            if (auto field = fieldDecl->get_definer()->resolve_field()) {
                 // validate type:
                 if (auto fieldType = field->get_type()) {
                     if (! fieldType->is_concrete()) {
@@ -759,8 +756,7 @@ static void type_bindings_string(std::stringstream& str, const std::vector<TxEnt
     for (auto b : bindings) {
         if (ix++)  str << ",";
         //str << b->get_unique_full_name();
-        ResolutionContext resCtx;
-        b->get_definer()->resolve_type(resCtx);
+        b->get_definer()->resolve_type();
         str << b->get_definer()->get_type()->to_string(true, true);
     }
     str << ">";
@@ -885,8 +881,7 @@ const TxExpressionNode* TxArrayType::length() const {
 
 const TxType* TxArrayType::element_type() const {
     if (auto paramDecl = this->lookup_type_param_binding("tx.Array.E")) {
-        ResolutionContext resCtx;
-        if (auto type = paramDecl->get_definer()->resolve_type(resCtx))
+        if (auto type = paramDecl->get_definer()->resolve_type())
             return type;
     }
     LOGGER().note("Unbound element type for array type %s", this->to_string().c_str());
@@ -899,8 +894,7 @@ const TxType* TxReferenceType::target_type() const {
     //std::string declstr = (this->get_declaration() ? this->get_declaration()->get_unique_full_name() : "nodecl");
     //std::cerr << "getting target type of " << declstr << ": " << this << std::endl;
     if (auto paramDecl = this->lookup_type_param_binding("tx.Ref.T")) {
-        ResolutionContext resCtx;
-        if (auto type = paramDecl->get_definer()->resolve_type(resCtx))
+        if (auto type = paramDecl->get_definer()->resolve_type())
             return type;
     }
     LOGGER().debug("Unbound target type for reference type %s", this->to_string().c_str());

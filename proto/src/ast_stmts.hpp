@@ -18,8 +18,8 @@ public:
         this->set_context(six, this->field->context(six));
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        this->field->symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        this->field->symbol_resolution_pass(six);
         if (! field->initExpression) {
             // TODO: instead check that TXS_STACK fields are initialized before first use
             //CWARNING(this, "Local field without initializer: " << this->field->get_source_field_name());
@@ -48,8 +48,8 @@ public:
         this->set_context(six, this->typeDecl->context(six));
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        this->typeDecl->symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        this->typeDecl->symbol_resolution_pass(six);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -67,8 +67,8 @@ public:
         ((TxExpressionNode*)this->call)->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        ((TxExpressionNode*)this->call)->symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        ((TxExpressionNode*)this->call)->symbol_resolution_pass(six);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -81,7 +81,7 @@ protected:
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);
     }
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override { }
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override { }
 
     virtual bool ends_with_terminal_stmt() const override final { return true; }
 };
@@ -99,15 +99,15 @@ public:
             this->expr->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
         // TODO: Fix so that this won't find false positive using outer function's $return typeDecl
         // TODO: Illegal to return reference to STACK dataspace
         auto returnDecl = lookup_field(this->context(six).scope(), TxIdentifier("$return"));
         if (this->expr) {
-            this->expr->symbol_resolution_pass(six, resCtx);
+            this->expr->symbol_resolution_pass(six);
             if (returnDecl) {
-                if (auto field = returnDecl->get_definer()->resolve_field(resCtx))
-                    this->expr = validate_wrap_convert(six, resCtx, this->expr, field->get_type());
+                if (auto field = returnDecl->get_definer()->resolve_field())
+                    this->expr = validate_wrap_convert(six, this->expr, field->get_type());
             }
             else
                 CERROR(this, "Return statement has value expression although function has no return type");
@@ -157,12 +157,12 @@ public:
         this->symbol_declaration_pass_no_subscope(six, suiteContext);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
         TxStatementNode* prev_stmt = nullptr;
         for (auto stmt : *this->suite) {
             if (prev_stmt && prev_stmt->ends_with_terminal_stmt())
                 CERROR(stmt, "This statement is unreachable.");
-            stmt->symbol_resolution_pass(six, resCtx);
+            stmt->symbol_resolution_pass(six);
             prev_stmt = stmt;
         }
     }
@@ -202,8 +202,8 @@ public:
         this->body->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        this->body->symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        this->body->symbol_resolution_pass(six);
     }
 
     virtual bool may_end_with_non_return_stmt() const override {
@@ -238,12 +238,12 @@ public:
             this->elseClause->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        this->cond->symbol_resolution_pass(six, resCtx);
-        this->cond = validate_wrap_convert(six, resCtx, this->cond, this->types().get_builtin_type(BOOL));
-        this->body->symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        this->cond->symbol_resolution_pass(six);
+        this->cond = validate_wrap_convert(six, this->cond, this->types().get_builtin_type(BOOL));
+        this->body->symbol_resolution_pass(six);
         if (this->elseClause)
-            this->elseClause->symbol_resolution_pass(six, resCtx);
+            this->elseClause->symbol_resolution_pass(six);
     }
 
     virtual bool ends_with_return_stmt() const override {
@@ -302,10 +302,10 @@ public:
         this->rvalue->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        this->lvalue->symbol_resolution_pass(six, resCtx);
-        this->rvalue->symbol_resolution_pass(six, resCtx);
-        auto ltype = this->lvalue->resolve_type(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        this->lvalue->symbol_resolution_pass(six);
+        this->rvalue->symbol_resolution_pass(six);
+        auto ltype = this->lvalue->resolve_type(six);
         if (! ltype)
             return;  // (error message should have been emitted by lvalue node)
         if (! ltype->is_modifiable()) {
@@ -317,7 +317,7 @@ public:
             // it would in this regard behave differently than other aggregate objects.
         }
         // note: similar rules to passing function arg
-        this->rvalue = validate_wrap_assignment(six, resCtx, this->rvalue, ltype);
+        this->rvalue = validate_wrap_assignment(six, this->rvalue, ltype);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -336,8 +336,8 @@ public:
         this->ifStmt->symbol_declaration_pass(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
-        this->ifStmt->symbol_resolution_pass(six, resCtx);
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        this->ifStmt->symbol_resolution_pass(six);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -367,11 +367,11 @@ public:
             this->body->symbol_declaration_pass(six, experrBlockContext);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
         auto ctx = this->context(six);
         if (six == 0) {
             ctx.package()->driver().begin_exp_err(this->parseLocation);
-            this->body->symbol_resolution_pass(six, resCtx);
+            this->body->symbol_resolution_pass(six);
             this->encountered_error_count += ctx.package()->driver().end_exp_err(this->parseLocation);
             if ( this->expected_error_count <  0 ) {
                 if ( this->encountered_error_count == 0 )
@@ -382,7 +382,7 @@ public:
                               << " compilation errors but encountered " << this->encountered_error_count);
         }
         else
-            this->body->symbol_resolution_pass(six, resCtx);
+            this->body->symbol_resolution_pass(six);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
@@ -397,7 +397,7 @@ public:
         this->set_context(six, lexContext);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six, ResolutionContext& resCtx) override {
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }

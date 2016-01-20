@@ -465,7 +465,7 @@ void LlvmGenerationContext::initialize_external_functions() {
 
 
 ///** Looks up a field declaration. If the symbol is overloaded, returns its first field declaration. */
-//static const TxField* lookup_field_simple(TxScopeSymbol* scope, ResolutionContext& resCtx, const TxIdentifier& ident) {
+//static const TxField* lookup_field_simple(TxScopeSymbol* scope, const TxIdentifier& ident) {
 //    TxScopeSymbol* symbol = lookup_symbol(scope, ident);
 //    if (auto entSym = dynamic_cast<TxEntitySymbol*>(symbol))
 //        return entSym->get_first_field_decl()->get_field_definer()->get_field();

@@ -18,7 +18,6 @@
 
 
 class TxType;
-class ResolutionContext;
 
 /* forward declarations pertaining to LLVM code generation */
 class LlvmGenerationContext;
@@ -574,7 +573,7 @@ public:
     TxTypeWrapperDef(const TxType* type) : type(type)  { ASSERT(type, "NULL type"); ASSERT(type->get_declaration(), "NULL type declaration");}
     virtual TxDriver* get_driver() const override { return this->type->get_driver(); }
     virtual const yy::location& get_parse_location() const override { return this->type->get_parse_location(); }
-    virtual const TxType* resolve_type(ResolutionContext& resCtx) override { return this->type; }
+    virtual const TxType* resolve_type() override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
     virtual TxTypeDefiningNode* get_node() const override { return this->type->get_declaration()->get_definer()->get_node(); }
