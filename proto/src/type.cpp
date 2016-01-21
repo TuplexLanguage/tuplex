@@ -138,9 +138,6 @@ void TxType::prepare_type() {
         }
 
         if (! hasExplicitFieldMembers) {
-            if (hasImplicitFieldMembers) {
-                //LOGGER().alert("Type with only implicit field members: %s", this->to_string().c_str());
-            }
             if (! this->bindings.empty()) {
                 this->pureDerivation = true;
             }
@@ -150,7 +147,10 @@ void TxType::prepare_type() {
                 }
                 else {
                     this->emptyDerivation = true;
-                    if (! this->baseTypeSpec.empty)
+                    if (hasImplicitFieldMembers) {
+                        LOGGER().note("Type with only implicit field members: %s", this->to_string().c_str());
+                    }
+                    else if (! this->baseTypeSpec.empty)
                         LOGGER().alert("Type without field members not pre-specified as empty: %s", this->to_string().c_str());
                 }
             }

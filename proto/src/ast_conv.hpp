@@ -3,6 +3,7 @@
 #include "ast_base.hpp"
 
 
+/** A specific conversion of an expression to a resulting type. */
 class TxConversionNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type(TxSpecializationIndex six) override {
@@ -35,6 +36,65 @@ public:
 
     virtual bool is_statically_constant() const override { return this->expr->is_statically_constant(); }
 };
+
+
+/** A generic conversion node which can hold a specific conversion node for each specialization index. */
+class TxGenericConversionNode : public TxExpressionNode {
+    std::vector<TxExpressionNode*> specificConvs;
+
+protected:
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
+        auto expr = this->get_spec_expression(six);
+        return expr->resolve_type(six);
+    }
+
+public:
+    TxExpressionNode* const originalExpr;
+
+    TxGenericConversionNode(TxExpressionNode* originalExpr)
+            : TxExpressionNode(originalExpr->parseLocation), originalExpr(originalExpr) {
+        ASSERT(originalExpr, "NULL originalExpr");
+    }
+
+    void insert_conversion(TxSpecializationIndex six, const TxType* resultType, bool _explicit=false);
+
+    TxExpressionNode* get_spec_expression(TxSpecializationIndex six) const {
+        if (this->specificConvs.size() > six) {
+            if (auto expr = this->specificConvs.at(six))
+                return expr;
+        }
+        return this->originalExpr;
+    }
+
+    virtual bool has_predefined_type() const override { return false; }
+
+    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
+        this->set_context(six, lexContext);
+        auto expr = this->get_spec_expression(six);
+        if (! expr->is_context_set(six))
+            expr->symbol_declaration_pass(six, lexContext);
+    }
+
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        TxExpressionNode::symbol_resolution_pass(six);
+        auto expr = this->get_spec_expression(six);
+        expr->symbol_resolution_pass(six);
+    }
+
+    virtual bool is_statically_constant() const override {
+        // make this method six-dependent?
+        return this->get_spec_expression(0)->is_statically_constant();
+    }
+
+    virtual const TxConstantProxy* get_static_constant_proxy() const override {
+        // TODO: make this method six-dependent?
+        return this->get_spec_expression(0)->get_static_constant_proxy();
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+};
+
+
 
 class TxScalarConvNode : public TxConversionNode {
     class ScalarConvConstantProxy : public TxConstantProxy {

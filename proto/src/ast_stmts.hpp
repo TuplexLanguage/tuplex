@@ -90,8 +90,10 @@ class TxReturnStmtNode : public TxTerminalStmtNode {
 public:
     TxExpressionNode* expr;
 
+    TxReturnStmtNode(const yy::location& parseLocation)
+        : TxTerminalStmtNode(parseLocation), expr() { }
     TxReturnStmtNode(const yy::location& parseLocation, TxExpressionNode* expr)
-        : TxTerminalStmtNode(parseLocation), expr(expr) { }
+        : TxTerminalStmtNode(parseLocation), expr(make_generic_conversion_node(expr)) { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);
@@ -102,18 +104,17 @@ public:
     virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
         // TODO: Fix so that this won't find false positive using outer function's $return typeDecl
         // TODO: Illegal to return reference to STACK dataspace
-        auto returnDecl = lookup_field(this->context(six).scope(), TxIdentifier("$return"));
-        if (this->expr) {
-            this->expr->symbol_resolution_pass(six);
-            if (returnDecl) {
+        if (auto returnDecl = lookup_field(this->context(six).scope(), TxIdentifier("$return"))) {
+            if (this->expr) {
                 if (auto field = returnDecl->get_definer()->resolve_field())
-                    this->expr = validate_wrap_convert(six, this->expr, field->get_type());
+                    insert_conversion(this->expr, six, field->get_type());
+                this->expr->symbol_resolution_pass(six);
             }
             else
-                CERROR(this, "Return statement has value expression although function has no return type");
+                CERROR(this, "Return statement has no value expression although function returns " << returnDecl);
         }
-        else if (returnDecl)
-            CERROR(this, "Return statement has no value expression although function returns " << returnDecl);
+        else if (this->expr)
+            CERROR(this, "Return statement has value expression although function has no return type");
     }
 
     virtual bool ends_with_return_stmt() const override { return true; }
@@ -228,7 +229,7 @@ protected:
 public:
     TxCondCompoundStmtNode(const yy::location& parseLocation, TxExpressionNode* cond, TxStatementNode* body,
                            TxElseClauseNode* elseClause=nullptr)
-        : TxStatementNode(parseLocation), cond(cond), body(body), elseClause(elseClause)  { }
+        : TxStatementNode(parseLocation), cond(make_generic_conversion_node(cond)), body(body), elseClause(elseClause)  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);
@@ -239,8 +240,8 @@ public:
     }
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        insert_conversion(this->cond, six, this->types(six).get_builtin_type(BOOL));
         this->cond->symbol_resolution_pass(six);
-        this->cond = validate_wrap_convert(six, this->cond, this->types().get_builtin_type(BOOL));
         this->body->symbol_resolution_pass(six);
         if (this->elseClause)
             this->elseClause->symbol_resolution_pass(six);
@@ -294,7 +295,7 @@ public:
     TxExpressionNode* rvalue;
 
     TxAssignStmtNode(const yy::location& parseLocation, TxAssigneeNode* lvalue, TxExpressionNode* rvalue)
-        : TxStatementNode(parseLocation), lvalue(lvalue), rvalue(rvalue)  { }
+        : TxStatementNode(parseLocation), lvalue(lvalue), rvalue(make_generic_conversion_node(rvalue))  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);
@@ -304,7 +305,6 @@ public:
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
         this->lvalue->symbol_resolution_pass(six);
-        this->rvalue->symbol_resolution_pass(six);
         auto ltype = this->lvalue->resolve_type(six);
         if (! ltype)
             return;  // (error message should have been emitted by lvalue node)
@@ -316,8 +316,16 @@ public:
             // We could add custom check to prevent that scenario for Arrays, but then
             // it would in this regard behave differently than other aggregate objects.
         }
+
         // note: similar rules to passing function arg
-        this->rvalue = validate_wrap_assignment(six, this->rvalue, ltype);
+        if (! ltype->is_concrete())
+            // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
+            CERROR(this->lvalue, "Assignee is not a concrete type (size potentially unknown): " << ltype);
+        // if assignee is a reference:
+        // TODO: check dataspace rules
+
+        insert_conversion(this->rvalue, six, ltype);
+        this->rvalue->symbol_resolution_pass(six);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

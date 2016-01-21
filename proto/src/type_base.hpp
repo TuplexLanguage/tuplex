@@ -577,4 +577,5 @@ public:
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
     virtual TxTypeDefiningNode* get_node() const override { return this->type->get_declaration()->get_definer()->get_node(); }
+    virtual TxSpecializationIndex get_six() const override { return this->type->get_declaration()->get_definer()->get_six(); }
 };

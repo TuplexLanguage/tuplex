@@ -563,8 +563,6 @@ TxFieldDeclaration* lookup_field(TxScopeSymbol* vantageScope, const TxIdentifier
 
 static bool arg_type_matches(const TxType *expectedType, const TxType* providedType) {
     // mimics behavior of inner_validate_wrap_convert()   FUTURE: merge code
-    if (providedType == expectedType)
-        return true;
     if (providedType->auto_converts_to(*expectedType))
         return true;
     if (auto refType = dynamic_cast<const TxReferenceType*>(expectedType)) {
@@ -605,14 +603,20 @@ TxFieldDeclaration* resolve_field_lookup(TxScopeSymbol* symbol, const std::vecto
                     symbol->LOGGER().debug("Candidate function: %s", candidateFuncType->to_string().c_str());
                     if (candidateFuncType->argumentTypes.size() == typeParameters->size()) {
                         auto typeParamI = typeParameters->cbegin();
+                        bool exactMatch = true;
                         for (auto argDef : candidateFuncType->argumentTypes) {
-                            if (! arg_type_matches(argDef, *typeParamI)) {
-                                symbol->LOGGER().debug("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
-                                                       (*typeParamI)->to_string(true).c_str(), argDef->to_string(true).c_str());
-                                goto NEXT_CANDIDATE;
+                            if (argDef != *typeParamI) {
+                                exactMatch = false;
+                                if (! arg_type_matches(argDef, *typeParamI)) {
+                                    symbol->LOGGER().debug("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
+                                                           (*typeParamI)->to_string(true).c_str(), argDef->to_string(true).c_str());
+                                    goto NEXT_CANDIDATE;
+                                }
                             }
                             typeParamI++;
                         }
+                        if (exactMatch)
+                            return *fieldCandidateI;
                         matches.push_back(*fieldCandidateI);
                     }
                 }

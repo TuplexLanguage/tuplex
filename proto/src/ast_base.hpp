@@ -126,7 +126,7 @@ protected:
     }
 
 
-    inline TypeRegistry& types(TxSpecializationIndex six=0) { return this->context(six).package()->types(); }
+    inline TypeRegistry& types(TxSpecializationIndex six) { return this->context(six).package()->types(); }
 
 public:
     TxSpecializableNode(const yy::location& parseLocation) : TxNode(parseLocation), specializations({ &this->firstSpec }) { }
@@ -583,24 +583,11 @@ public:
 };
 
 
-/** Checks that an expression has a type that matches the required type, and wraps
- * a value & type conversion node around it if permitted and necessary.
- *
- * Assumes that originalExpr symbol registration pass has already run.
- * Will run symbol registration and symbol resolution passes on any inserted nodes.
- */
-TxExpressionNode* validate_wrap_convert(TxSpecializationIndex six, TxExpressionNode* originalExpr,
-                                        const TxType* requiredType, bool _explicit=false);
+/** wrapper for class declaration order reasons... */
+TxExpressionNode* make_generic_conversion_node(TxExpressionNode*);
 
-/** Checks that an rvalue expression of an assignment or argument to a function call
- * has a type that matches the required type,
- * and wraps a value & type conversion node around it if permitted and necessary.
- *
- * Assumes that originalExpr symbol registration pass has already run.
- * Will run symbol registration and symbol resolution passes on any inserted nodes.
- */
-TxExpressionNode* validate_wrap_assignment(TxSpecializationIndex six, TxExpressionNode* rValueExpr,
-                                           const TxType* requiredType);
+/** wrapper for class declaration order reasons... */
+void insert_conversion(TxExpressionNode* genericExprNode, TxSpecializationIndex six, const TxType* resultType, bool _explicit=false);
 
 
 class TxFieldDefNode : public TxFieldDefiningNode {
@@ -643,7 +630,7 @@ protected:
             if (type) {
                 if (this->modifiable) {
                     if (! type->is_modifiable())
-                        type = this->types().get_modifiable_type(nullptr, type);
+                        type = this->types(six).get_modifiable_type(nullptr, type);
                 }
                 else if (type->is_modifiable())
                     // if initialization expression is modifiable type, and modifiable not explicitly specified,
@@ -674,17 +661,23 @@ public:
                    TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression)
             : TxFieldDefiningNode(parseLocation), fieldName(fieldName), modifiable(false), typeDefiner() {
         this->typeExpression = typeExpression;
-        this->initExpression = initExpression;
-        if (this->initExpression)
-            this->initExpression->set_field_def_node(this);
+        if (initExpression) {
+            initExpression->set_field_def_node(this);
+            this->initExpression = make_generic_conversion_node(initExpression);
+        }
+        else
+            this->initExpression = nullptr;
     }
     TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
                    TxExpressionNode* initExpression, bool modifiable=false, TxTypeDefiner* typeDefiner=nullptr)
             : TxFieldDefiningNode(parseLocation), fieldName(fieldName), modifiable(modifiable), typeDefiner(typeDefiner) {
         this->typeExpression = nullptr;
-        this->initExpression = initExpression;
-        if (this->initExpression)
-            this->initExpression->set_field_def_node(this);
+        if (initExpression) {
+            initExpression->set_field_def_node(this);
+            this->initExpression = make_generic_conversion_node(initExpression);
+        }
+        else
+            this->initExpression = nullptr;
     }
 
     void symbol_declaration_pass_local_field(TxSpecializationIndex six, LexicalContext& lexContext, bool create_local_scope,
@@ -725,10 +718,10 @@ public:
             this->typeExpression->symbol_resolution_pass(six);
         }
         if (this->initExpression) {
-            this->initExpression->symbol_resolution_pass(six);
             auto spec = this->get_spec(six);
             if ((this->typeExpression || this->typeDefiner) && spec->type)
-                this->initExpression = validate_wrap_convert(six, this->initExpression, spec->type);
+                insert_conversion(this->initExpression, six, spec->type);
+            this->initExpression->symbol_resolution_pass(six);
             if (spec->field && spec->field->is_statically_constant())
                     if (! this->initExpression->is_statically_constant())
                         CERROR(this, "Non-constant initializer for constant global/static field.");

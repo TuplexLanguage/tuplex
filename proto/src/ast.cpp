@@ -84,9 +84,14 @@ void TxFieldDeclNode::symbol_declaration_pass(TxSpecializationIndex six, Lexical
     TxFieldStorage storage;
     if (this->isMethodSyntax && lexContext.outer_type()) {
         // Note: instance method storage is handled specially (technically the function pointer is a static field)
-        auto lambdaExpr = static_cast<TxLambdaExprNode*>(field->initExpression);
+
+        TxLambdaExprNode* lambdaExpr = nullptr;
+        if (auto initExpr = dynamic_cast<TxGenericConversionNode*>(field->initExpression))
+            lambdaExpr = dynamic_cast<TxLambdaExprNode*>(initExpr->originalExpr);
+
         if (!lambdaExpr && !(this->declFlags & TXD_ABSTRACT))
             CERROR(this, "Missing modifier 'abstract' for method that has no body");
+
         if (this->declFlags & TXD_STATIC) {
             storage = TXS_STATIC;
         }
@@ -628,32 +633,18 @@ const TxType* TxFunctionCallNode::define_type(TxSpecializationIndex six) {
         }
     }
 
-    if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(calleeType)) {
+    if (/*auto inlineCalleeType =*/ dynamic_cast<const TxBuiltinConversionFunctionType*>(funcType)) {
         // "inline" function call by replacing with conversion expression
-        this->get_spec(six)->inlinedExpression = validate_wrap_convert(six, this->argsExprList->front(), inlineFunc->returnType, true);
-        return inlineFunc->returnType;
+        // note: actual conversion set in symbol_resolution_pass()
+        this->get_spec(six)->inlinedExpression = this->argsExprList->front();
     }
-
-    // verify matching function signature:
-    if (funcType->argumentTypes.size() != this->argsExprList->size()) {
-        CERROR(this, "Callee of function call expression has mismatching argument count: " << calleeType);
-        return nullptr;
-    }
-    // (regular function call, not inlined expression)
-    auto argExprI = this->argsExprList->begin();
-    for (auto argDef : funcType->argumentTypes) {
-        // note: similar rules to assignment
-        *argExprI = validate_wrap_assignment(six, *argExprI, argDef);
-        argExprI++;
-    }
-
-    if (auto constructorType = dynamic_cast<const TxConstructorType*>(calleeType)) {
+    else if (auto constructorType = dynamic_cast<const TxConstructorType*>(funcType)) {
         // inline code for stack allocation and constructor invocation
         if (! dynamic_cast<TxConstructorCalleeExprNode*>(this->callee)) {  // (prevents infinite recursion)
             auto objectDefiner = constructorType->get_constructed_type_decl()->get_definer();
             auto inlinedExpression = new TxStackConstructorNode(this, objectDefiner);
             inlinedExpression->symbol_declaration_pass(six, this->context(six));
-            inlinedExpression->symbol_resolution_pass(six);
+            //inlinedExpression->symbol_resolution_pass(six);
             this->get_spec(six)->inlinedExpression = inlinedExpression;
             return objectDefiner->resolve_type();
         }

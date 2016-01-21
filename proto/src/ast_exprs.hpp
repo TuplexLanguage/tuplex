@@ -26,7 +26,7 @@ protected:
         if (auto refType = dynamic_cast<const TxReferenceType*>(opType)) {
             if (refType->is_generic())
                 // FUTURE: return constraint type if present
-                return this->types().get_builtin_type(ANY);
+                return this->types(six).get_builtin_type(ANY);
             return refType->target_type();
         }
         CERROR(this, "Operand is not a reference and can't be dereferenced: " << opType);
@@ -71,7 +71,7 @@ protected:
                 return elemType;
             else
                 // FUTURE: return constraint type if present
-                return this->types().get_builtin_type(ANY);
+                return this->types(six).get_builtin_type(ANY);
         }
         if (opType)
             CERROR(this, "Operand is not an array and can't be subscripted: " << opType);
@@ -82,7 +82,7 @@ public:
     TxExpressionNode* array;
     TxExpressionNode* subscript;
     TxElemDerefNode(const yy::location& parseLocation, TxExpressionNode* operand, TxExpressionNode* subscript)
-        : TxExpressionNode(parseLocation), array(operand), subscript(subscript)  { }
+        : TxExpressionNode(parseLocation), array(operand), subscript(make_generic_conversion_node(subscript))  { }
 
     virtual bool has_predefined_type() const override { return this->array->has_predefined_type(); }
 
@@ -95,8 +95,8 @@ public:
     virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
         TxExpressionNode::symbol_resolution_pass(six);
         this->array->symbol_resolution_pass(six);
+        insert_conversion(this->subscript, six, this->types(six).get_builtin_type(LONG));
         this->subscript->symbol_resolution_pass(six);
-        this->subscript = validate_wrap_convert(six, this->subscript, this->types().get_builtin_type(LONG));
     }
 
     virtual bool is_statically_constant() const {
@@ -113,7 +113,7 @@ protected:
     virtual const TxType* define_type(TxSpecializationIndex six) override {
         auto implTypeName = this->context(six).scope()->make_unique_name("$type");
         auto typeDecl = this->context(six).scope()->declare_type(implTypeName, this->get_type_definer(six), TXD_PUBLIC | TXD_IMPLICIT);
-        return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->target->get_type_definer(six)));
+        return this->types(six).get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->target->get_type_definer(six)));
     }
 
 public:
@@ -180,14 +180,14 @@ protected:
                         // wrap rhs with cast instruction node
                         this->rhs = new TxScalarConvNode(this->rhs->parseLocation, this->rhs, scalar_ltype);
                         this->rhs->symbol_declaration_pass(six, this->context(six));
-                        this->rhs->symbol_resolution_pass(six);
+                        //this->rhs->symbol_resolution_pass(six);
                         arithResultType = scalar_ltype;
                     }
                     else if (scalar_ltype->auto_converts_to(*scalar_rtype)) {
                         // wrap lhs with cast instruction node
                         this->lhs = new TxScalarConvNode(this->lhs->parseLocation, this->lhs, scalar_rtype);
                         this->lhs->symbol_declaration_pass(six, this->context(six));
-                        this->lhs->symbol_resolution_pass(six);
+                        //this->lhs->symbol_resolution_pass(six);
                         arithResultType = scalar_rtype;
                     }
                 }
@@ -231,7 +231,7 @@ protected:
             return arithResultType;
         }
         else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
-            return this->types().get_builtin_type(BOOL);
+            return this->types(six).get_builtin_type(BOOL);
         }
     }
 
@@ -324,7 +324,7 @@ public:
 class TxUnaryLogicalNotNode : public TxOperatorValueNode {
 protected:
     virtual const TxType* define_type(TxSpecializationIndex six) override {
-        return this->types().get_builtin_type(BOOL);
+        return this->types(six).get_builtin_type(BOOL);
     }
 
 public:
@@ -382,7 +382,10 @@ public:
     std::vector<TxExpressionNode*>* argsExprList;
 
     TxFunctionCallNode(const yy::location& parseLocation, TxExpressionNode* callee, std::vector<TxExpressionNode*>* argsExprList)
-        : TxExpressionNode(parseLocation), callee(callee), argsExprList(argsExprList) { }
+        : TxExpressionNode(parseLocation), callee(callee), argsExprList(argsExprList) {
+        for (auto argExprI = this->argsExprList->begin(); argExprI != this->argsExprList->end(); argExprI++)
+            *argExprI = make_generic_conversion_node(*argExprI);
+    }
 
     virtual bool has_predefined_type() const override { return true; }
 
@@ -399,8 +402,38 @@ public:
     virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
         TxExpressionNode::symbol_resolution_pass(six);
         callee->symbol_resolution_pass(six);
+
+        if (auto funcType = dynamic_cast<const TxFunctionType*>(this->callee->resolve_type(six))) {
+            // verify matching function signature:
+            if (funcType->argumentTypes.size() != this->argsExprList->size()) {
+                CERROR(this, "Callee of function call expression has mismatching argument count: " << funcType);
+            }
+            else if (auto inlineConverter = dynamic_cast<const TxBuiltinConversionFunctionType*>(funcType)) {
+                // "inline" function call by replacing with conversion expression to function result type (not required arg type)
+                insert_conversion(this->argsExprList->front(), six, inlineConverter->returnType, true);
+            }
+            else {
+                auto argExprI = this->argsExprList->begin();
+                for (auto argDefType : funcType->argumentTypes) {
+                    // note: similar rules to assignment
+                    if (! argDefType->is_concrete())  // move this to lambda expression?
+                        // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
+                        CERROR(*argExprI, "Function argument is not a concrete type (size potentially unknown): " << argDefType);
+                    // if function arg is a reference:
+                    // TODO: check dataspace rules
+
+                    insert_conversion(*argExprI, six, argDefType);
+                    //*argExprI = validate_wrap_assignment(six, *argExprI, argDefType);
+                    argExprI++;
+                }
+            }
+        }
+
         for (auto argExpr : *this->argsExprList)
             argExpr->symbol_resolution_pass(six);
+
+        if (auto inlinedExpression = this->get_spec(six)->inlinedExpression)
+            inlinedExpression->symbol_resolution_pass(six);
     }
 
     virtual bool is_statically_constant() const override {
@@ -520,10 +553,10 @@ public:
 
         this->constructorCall->symbol_resolution_pass(six);
 
-        if (auto inlineFunc = dynamic_cast<const TxBuiltinConversionFunctionType*>(this->constructor->get_type(six))) {
+        if (dynamic_cast<const TxBuiltinConversionFunctionType*>(this->constructor->get_type(six))) {
             // "inline" initialization by replacing with conversion expression
-            this->get_spec(six)->inlinedExpression = validate_wrap_convert(six, this->constructorCall->argsExprList->front(),
-                                                                           inlineFunc->returnType, true);
+            // note: conversion already inserted by function call node
+            this->get_spec(six)->inlinedExpression = this->constructorCall->argsExprList->front();
         }
     }
 
@@ -539,7 +572,7 @@ protected:
         // new constructor returns the constructed object by reference
         auto implTypeName = this->context(six).scope()->make_unique_name("$type");
         auto typeDecl = this->context(six).scope()->declare_type(implTypeName, this->get_type_definer(six), TXD_PUBLIC | TXD_IMPLICIT);
-        return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->typeExpr->get_type_definer(six)));
+        return this->types(six).get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->typeExpr->get_type_definer(six)));
     }
 
 public:
@@ -626,7 +659,7 @@ protected:
         if (auto refType = dynamic_cast<const TxReferenceType*>(opType)) {
             if (refType->is_generic())
                 // FUTURE: return constraint type if present
-                return this->types().get_builtin_type(ANY);
+                return this->types(six).get_builtin_type(ANY);
             return refType->target_type();
         }
         CERROR(this, "Operand is not a reference and can't be dereferenced: " << opType);
@@ -658,13 +691,12 @@ class TxElemAssigneeNode : public TxAssigneeNode {
 protected:
     virtual const TxType* define_type(TxSpecializationIndex six) override {
         auto opType = this->array->resolve_type(six);
-        subscript = validate_wrap_convert(six, subscript, this->types().get_builtin_type(LONG));
         if (auto arrayType = dynamic_cast<const TxArrayType*>(opType)) {
             if (auto elemType = arrayType->element_type())
                 return elemType;
             else
                 // FUTURE: return constraint type if present
-                return this->types().get_builtin_type(ANY);  // (not modifiable)
+                return this->types(six).get_builtin_type(ANY);  // (not modifiable)
         }
         // operand type is unknown / not an array and can't be subscripted
         CERROR(this, "Can't subscript non-array expression.");
@@ -675,7 +707,7 @@ public:
     TxExpressionNode* array;
     TxExpressionNode* subscript;
     TxElemAssigneeNode(const yy::location& parseLocation, TxExpressionNode* array, TxExpressionNode* subscript)
-        : TxAssigneeNode(parseLocation), array(array), subscript(subscript)  { }
+        : TxAssigneeNode(parseLocation), array(array), subscript(make_generic_conversion_node(subscript))  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);
@@ -686,6 +718,7 @@ public:
     virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
         TxAssigneeNode::symbol_resolution_pass(six);
         array->symbol_resolution_pass(six);
+        insert_conversion(this->subscript, six, this->types(six).get_builtin_type(LONG));
         subscript->symbol_resolution_pass(six);
     }
 

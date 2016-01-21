@@ -208,30 +208,36 @@ Value* gen_lambda(LlvmGenerationContext& context, GenScope* scope, Type* lambdaT
 Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     Value* ptrV = nullptr;
-    if (auto fieldNode = dynamic_cast<TxFieldValueNode*>(this->target)) {
+    TxExpressionNode* targetNode = this->target;
+    if (auto genConvNode = dynamic_cast<TxGenericConversionNode*>(targetNode)) {
+        targetNode = genConvNode->get_spec_expression(0);
+    }
+
+    if (auto fieldNode = dynamic_cast<TxFieldValueNode*>(targetNode)) {
         ptrV = fieldNode->code_gen_address(context, scope);
     }
-    else if (auto elemNode = dynamic_cast<TxElemDerefNode*>(this->target)) {
+    else if (auto elemNode = dynamic_cast<TxElemDerefNode*>(targetNode)) {
         ptrV = elemNode->code_gen_address(context, scope);
     }
-    else if (this->target->is_statically_constant()) {
+    else if (targetNode->is_statically_constant()) {
         // experimental, automatically allocates space for literals, used for e.g. string literals
-        auto targetVal = target->code_gen(context, scope);
+        auto targetVal = targetNode->code_gen(context, scope);
         if (auto constInitializer = dyn_cast<Constant>(targetVal))
             ptrV = new GlobalVariable(context.llvmModule, constInitializer->getType(), true,
                                          GlobalValue::InternalLinkage, constInitializer);
         else {
-            context.LOG.error("Target expression supposed to be statically constant but isn't: %s", ::to_string(targetVal).c_str());
+            context.LOG.error("%s: Ref target expression supposed to be statically constant but isn't: %s",
+                              this->parse_loc_string().c_str(), ::to_string(targetVal).c_str());
             return nullptr;
         }
     }
     else {
-        ASSERT(false, "Can't construct reference to expression of type: " << *this->target);
+        ASSERT(false, "Can't construct reference to expression of type: " << *targetNode);
         return nullptr;
     }
 
     // the reference gets the statically known target type id
-    auto tidV = ConstantInt::get(Type::getInt32Ty(context.llvmContext), this->target->get_type(0)->get_type_id());
+    auto tidV = ConstantInt::get(Type::getInt32Ty(context.llvmContext), targetNode->get_type(0)->get_type_id());
 
     // box the pointer:
     auto refT = this->get_type(0)->make_llvm_type(context);

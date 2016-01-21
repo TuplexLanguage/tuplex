@@ -147,6 +147,7 @@ public:
     virtual const TxType* get_type() const override { return specDefiner->get_type(six); }
 
     virtual TxTypeDefiningNode* get_node() const override;
+    virtual TxSpecializationIndex get_six() const override { return this->six; }
 };
 
 

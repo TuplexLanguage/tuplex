@@ -595,7 +595,7 @@ else_clause     : KW_ELSE statement  { $$ = new TxElseClauseNode(@1, $2); } ;
 
 
 return_stmt : KW_RETURN expr  { $$ = new TxReturnStmtNode(@1, $2); }
-            | KW_RETURN       { $$ = new TxReturnStmtNode(@1, NULL); }
+            | KW_RETURN       { $$ = new TxReturnStmtNode(@1); }
             ;
 
 break_stmt     : KW_BREAK     { $$ = new TxBreakStmtNode(@1); }  ;

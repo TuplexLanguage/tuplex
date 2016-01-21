@@ -67,7 +67,7 @@ class TxIntegerLitNode : public TxLiteralValueNode {
 
 protected:
     virtual const TxType* define_type(TxSpecializationIndex six) override {
-        return this->types().get_builtin_type(this->intValue.typeId);
+        return this->types(six).get_builtin_type(this->intValue.typeId);
     }
 
 public:
@@ -88,7 +88,7 @@ public:
         if (this->intValue.radix < 2 || this->intValue.radix > 36)
             CERROR(this, "Radix outside valid range [2,36]: " << this->intValue.radix);
         else if (this->intValue.outOfRange)
-            CERROR(this, "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->types().get_builtin_type(this->intValue.typeId));
+            CERROR(this, "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->types(six).get_builtin_type(this->intValue.typeId));
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override { return &this->intConstProxy; }
@@ -101,7 +101,7 @@ class TxFloatingLitNode : public TxLiteralValueNode {
 protected:
     virtual const TxType* define_type(TxSpecializationIndex six) override {
         // TODO: produce different Floating types
-        return this->types().get_builtin_type(FLOAT);
+        return this->types(six).get_builtin_type(FLOAT);
     }
 
 public:
@@ -121,7 +121,7 @@ public:
 class TxCharacterLitNode : public TxLiteralValueNode {
 protected:
     virtual const TxType* define_type(TxSpecializationIndex six) override {
-        return this->types().get_builtin_type(UBYTE);
+        return this->types(six).get_builtin_type(UBYTE);
     }
 
 public:
@@ -145,8 +145,8 @@ class TxCStringLitNode : public TxLiteralValueNode {
 
 protected:
     virtual const TxType* define_type(TxSpecializationIndex six) override {
-//        const TxType* charType = this->types().get_builtin_type(UBYTE);
-//        return this->types().get_array_type(nullptr, charType, &this->arrayLength);
+//        const TxType* charType = this->types(six).get_builtin_type(UBYTE);
+//        return this->types(six).get_array_type(nullptr, charType, &this->arrayLength);
         return this->cstringTypeNode->typeExpression->resolve_type(six);
     }
 
@@ -169,7 +169,7 @@ public:
 class TxBoolLitNode : public TxLiteralValueNode {
 protected:
     virtual const TxType* define_type(TxSpecializationIndex six) override {
-        return this->types().get_builtin_type(BOOL);
+        return this->types(six).get_builtin_type(BOOL);
     }
 
 public:

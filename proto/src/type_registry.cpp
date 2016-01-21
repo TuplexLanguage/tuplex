@@ -23,6 +23,17 @@ static const BuiltinTypeId SCALAR_TYPE_IDS[] = {
         DOUBLE,
 };
 
+//static const BuiltinTypeId INTEGER_TYPE_IDS[] = {
+//        BYTE,
+//        SHORT,
+//        INT,
+//        LONG,
+//        UBYTE,
+//        USHORT,
+//        UINT,
+//        ULONG,
+//};
+
 
 /** the flags that may be inherited when specializing a type */
 static const TxDeclarationFlags DECL_FLAG_FILTER = TXD_STATIC | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_FINAL | TXD_EXPERRBLOCK;
@@ -71,6 +82,7 @@ public:
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
     virtual TxTypeDefiningNode* get_node() const override { ASSERT(false, "unexpected invocation"); return nullptr; }
+    virtual TxSpecializationIndex get_six() const override { ASSERT(false, "unexpected invocation"); return 0; }
 };
 
 class TxBuiltinFieldDefiner final : public TxFieldDefiner {
@@ -130,6 +142,7 @@ public:
     virtual const TxType* get_type() const override { return this->node->get_type(0); }
 
     virtual TxTypeExpressionNode* get_node() const override { return this->node; }
+    virtual TxSpecializationIndex get_six() const override { return 0; }
 };
 
 
@@ -410,6 +423,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
         for (auto toTypeId : SCALAR_TYPE_IDS) {
             declare_conversion_constructor(fromTypeId, toTypeId);
         }
+        declare_conversion_constructor(fromTypeId, BOOL);
     }
     declare_conversion_constructor(BOOL, BOOL);
 
@@ -556,7 +570,8 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
     if (! declaration) {
         std::string prefix = ( type->get_declaration()->get_decl_flags() & TXD_IMPLICIT ? "~" : "~$" );
         std::string name = prefix + type->get_declaration()->get_unique_name();
-        auto & ctx = type->get_declaration()->get_definer()->get_node()->context(0);  // FIXME: when wrong s-ix -> wrong context!
+        auto typeDefiner = type->get_declaration()->get_definer();
+        auto & ctx = typeDefiner->get_node()->context(typeDefiner->get_six());
         if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(ctx.scope()->get_member_symbol(name))) {
             if (auto typeDecl = entitySymbol->get_type_decl()) {
                 if (auto existingType = typeDecl->get_definer()->resolve_type()) {

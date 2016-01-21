@@ -5,6 +5,11 @@
 using namespace llvm;
 
 
+Value* TxGenericConversionNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    return this->get_spec_expression(0)->code_gen(context, scope);
+}
+
+
 Value* TxBoolConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->resultType->to_string().c_str());
     auto origValue = this->expr->code_gen(context, scope);

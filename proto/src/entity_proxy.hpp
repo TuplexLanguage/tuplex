@@ -8,6 +8,7 @@ class TxTypeDefiningNode;
 class TxExpressionNode;
 class TxType;
 class TxField;
+typedef unsigned TxSpecializationIndex;
 
 
 /** Proxy interface that provides a layer of indirection to a type reference.
@@ -41,6 +42,9 @@ class TxTypeDefiner : public TxEntityDefiner {
 public:
     /** Returns the node defining the type. */
     virtual TxTypeDefiningNode* get_node() const = 0;
+
+    /** Returns the specialization index for which the node defined the type. */
+    virtual TxSpecializationIndex get_six() const = 0;
 };
 
 class TxFieldDefiner : public TxEntityDefiner {

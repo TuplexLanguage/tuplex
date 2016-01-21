@@ -159,12 +159,12 @@ protected:
     }
 
     virtual const TxType* define_type(TxSpecializationIndex six) override {
-        auto baseType = this->types().get_builtin_type(REFERENCE);
+        auto baseType = this->types(six).get_builtin_type(REFERENCE);
         auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
         TxGenericBinding binding = this->targetTypeNode->make_binding(six, baseTypeName, baseType->get_type_param_decl("T"));
         const TxIdentifier* dataspace = (this->dataspace ? &this->dataspace->ident : nullptr);
         //cwarning("Dataspace: %s", (this->dataspace ? this->dataspace->ident.to_string().c_str() : "NULL"));
-        return this->types().get_reference_type(this->get_declaration(six), binding, dataspace);
+        return this->types(six).get_reference_type(this->get_declaration(six), binding, dataspace);
     }
 
 public:
@@ -192,15 +192,15 @@ protected:
                                                      LexicalContext& lexContext, TxDeclarationFlags declFlags) override;
 
     virtual const TxType* define_type(TxSpecializationIndex six) override {
-        auto baseType = this->types().get_builtin_type(ARRAY);
+        auto baseType = this->types(six).get_builtin_type(ARRAY);
         auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
         TxGenericBinding elementBinding = this->elementTypeNode->make_binding(six, baseTypeName, baseType->get_type_param_decl("E"));
         if (this->lengthNode) {
             TxGenericBinding lengthBinding = this->lengthNode->make_binding(six, baseTypeName, baseType->get_type_param_decl("L"));
-            return this->types().get_array_type(this->get_declaration(six), elementBinding, lengthBinding);
+            return this->types(six).get_array_type(this->get_declaration(six), elementBinding, lengthBinding);
         }
         else
-            return this->types().get_array_type(this->get_declaration(six), elementBinding);
+            return this->types(six).get_array_type(this->get_declaration(six), elementBinding);
     }
 
 public:
@@ -268,7 +268,7 @@ protected:
         const TxType* baseObjType = nullptr;
         std::vector<TxTypeSpecialization> interfaces;
         if (this->baseTypes->empty())
-            baseObjType = this->types().get_builtin_type(TUPLE);
+            baseObjType = this->types(six).get_builtin_type(TUPLE);
         else {
             interfaces.reserve(this->baseTypes->size()-1);
             for (size_t i = 0; i < this->baseTypes->size(); i++) {
@@ -287,7 +287,7 @@ protected:
         }
 
         auto declTypeParams = make_decl_type_params(six);
-        auto type = this->types().get_type_specialization(declaration, baseObjType, interfaces, nullptr, declTypeParams, this->_mutable);
+        auto type = this->types(six).get_type_specialization(declaration, baseObjType, interfaces, nullptr, declTypeParams, this->_mutable);
         return type;
     }
 
@@ -351,11 +351,11 @@ protected:
         for (auto argDefNode : *this->arguments)
             argumentTypes.push_back(argDefNode->resolve_type(six));
         if (this->context(six).get_constructed())
-            return this->types().get_constructor_type(this->get_declaration(six), argumentTypes, this->context(six).get_constructed());
+            return this->types(six).get_constructor_type(this->get_declaration(six), argumentTypes, this->context(six).get_constructed());
         else if (this->returnField)
-            return this->types().get_function_type(this->get_declaration(six), argumentTypes, this->returnField->resolve_type(six), modifiable);
+            return this->types(six).get_function_type(this->get_declaration(six), argumentTypes, this->returnField->resolve_type(six), modifiable);
         else
-            return this->types().get_function_type(this->get_declaration(six), argumentTypes, modifiable);
+            return this->types(six).get_function_type(this->get_declaration(six), argumentTypes, modifiable);
     }
 
 public:
