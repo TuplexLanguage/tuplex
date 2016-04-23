@@ -71,29 +71,10 @@ public:
 
     inline const TxType* get_type() const { return this->type; }
 
-    /** Gets the storage "index" of this field within its data tuple.
+    /** Gets the storage "index" of this field within its declaration scope's data tuple.
      * This field must not have global or stack storage class.
-     * (This should maybe be moved elsewhere as it is specific to low-level code generation.)
      */
-    int get_storage_index() const;
-
-    /** Gets the storage "index" of this field within its data tuple.
-     * This field must have instance storage class.
-     * (This should maybe be moved elsewhere as it is specific to low-level code generation.)
-     */
-    int get_instance_field_index() const;
-
-    /** Gets the storage "index" of this field within its data tuple.
-     * This field must have static virtual storage class.
-     * (This should maybe be moved elsewhere as it is specific to low-level code generation.)
-     */
-    int get_virtual_field_index() const;
-
-    /** Gets the storage "index" of this field within its data tuple.
-     *  This field must have static non-virtual storage class.
-     * (This should maybe be moved elsewhere as it is specific to low-level code generation.)
-     */
-    int get_static_field_index() const;
+    int get_decl_storage_index() const;
 
     /** Returns true if this field is statically constant. */
     bool is_statically_constant() const;

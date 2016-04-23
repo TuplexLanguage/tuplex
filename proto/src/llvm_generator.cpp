@@ -479,7 +479,7 @@ void LlvmGenerationContext::generate_runtime_data() {
         if (auto entity = txType->get_symbol()) {
             std::string vtableName(entity->get_full_name().to_string() + "$vtable");
             if (auto vtableV = dyn_cast<GlobalVariable>(this->lookup_llvm_value(vtableName))) {
-                this->LOG.debug("Populating vtable initializer for %s", vtableName.c_str());
+                this->LOG.debug("Populating vtable initializer for %s", txType->to_string().c_str());//vtableName.c_str());
                 std::vector<Constant*> initMembers;
                 auto virtualFields = txType->get_virtual_fields();
                 initMembers.resize(virtualFields.get_field_count());
@@ -516,7 +516,12 @@ void LlvmGenerationContext::generate_runtime_data() {
                             //std::cerr << "inserting virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                             fieldName = actualFieldEnt->get_declaration()->get_unique_full_name();
                         }
-                        llvmField = cast<Constant>(this->lookup_llvm_value(fieldName));
+                        auto llvmValue = this->lookup_llvm_value(fieldName);
+                        if (! llvmValue) {
+                            ASSERT(false, "llvm value not found for field name: " << fieldName);
+                            //goto SKIPPED_VTABLE;
+                        }
+                        llvmField = cast<Constant>(llvmValue);
                     }
                     //std::cerr << "inserting field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                     auto ix = field.second;
@@ -525,6 +530,7 @@ void LlvmGenerationContext::generate_runtime_data() {
                 Constant* initializer = ConstantStruct::getAnon(this->llvmContext, initMembers);
                 vtableV->setInitializer(initializer);
                 //std::cerr << "initializing " << vtableV << " with " << initializer << std::endl;
+                //SKIPPED_VTABLE:  ;
             }
             else
                 this->LOG.error("No vtable found for %s", vtableName.c_str());

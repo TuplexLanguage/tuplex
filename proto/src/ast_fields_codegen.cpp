@@ -16,7 +16,7 @@ static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenSc
     }
 
     // get the virtual field:
-    auto fieldIx = fieldEntity->get_virtual_field_index();
+    uint32_t fieldIx = staticBaseType->get_virtual_fields().get_field_index(fieldEntity->get_unique_name());
     //std::cerr << "(static type id " << staticBaseType->get_type_id() << ") Getting TXS_VIRTUAL ix " << fieldIx << " value off LLVM base value: " << vtableBase << std::endl;
     Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
                      ConstantInt::get(Type::getInt32Ty(context.llvmContext), fieldIx) };
@@ -142,7 +142,9 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
             if (! baseValue)
                 return nullptr;
 
-            auto fieldIx = fieldEntity->get_instance_field_index();
+            auto staticBaseType = baseExpr->get_type(0);
+            uint32_t fieldIx = staticBaseType->get_instance_fields().get_field_index(fieldEntity->get_unique_name());
+            //auto fieldIx = fieldEntity->get_instance_field_index();
             //std::cerr << "Getting TXS_INSTANCE ix " << fieldIx << " value off LLVM base value: " << baseValue << std::endl;
             Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
                              ConstantInt::get(Type::getInt32Ty(context.llvmContext), fieldIx) };

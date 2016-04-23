@@ -63,10 +63,10 @@ public:
     /** the fields */
     std::vector<const TxField*> fields;
 
-    /** Adds a field to this tuple. If the field name already exists, it will be shadowed by the new field. */
-    void add_field(const std::string& name, const TxField* field) {
+    /** Adds a field to this tuple. If the field name already exists, the old will be shadowed by the new field. */
+    void add_field(const TxField* field) {
         //std::cerr << "Adding field " << name << " at index " << this->fields.size() << ": " << field << std::endl;
-        this->fieldMap[name] = this->fields.size();  // (inserts new or overwrites existing entry)
+        this->fieldMap[field->get_unique_name()] = this->fields.size();  // (inserts new or overwrites existing entry)
         this->fields.push_back(field);
     }
 
@@ -76,6 +76,11 @@ public:
         //std::cerr << "Overriding field " << name << " at index " << index << ": " << field << std::endl;
         this->fields[index] = field;
     }
+
+    /** Adds the fields from an interface that are not already present to this tuple.
+     * (If a field name already exists it will not be added, i.e. neither shadowed or overridden.)
+     * @return true if at least one field was added. */
+    bool add_interface_fields(const DataTupleDefinition& interfaceFields);
 
     inline bool has_field(const std::string& name) const { return this->fieldMap.count(name); }
 
@@ -96,6 +101,8 @@ public:
     }
 
     inline uint32_t get_field_count() const { return this->fields.size(); }
+
+    void dump() const;
 };
 
 
@@ -314,6 +321,26 @@ public:
      * which defines a distinct instance data type.
      * This is used to bypass same-instance-type derivations (e.g. empty/mod. specializations). */
     const TxType* get_instance_base_type() const;
+
+
+    /** Returns true if this type is a reinterpreted specialization, i.e. reinterpreted source
+     * with a specialization index greater than zero.
+     */
+    bool is_reinterpreted() const;
+
+    /** Returns true if this type is a reinterpreted specialization, i.e. reinterpreted source
+     * with at least one parameter binding and a specialization index greater than zero.
+     * Note: There are reinterpreted types for which this is false: Types that in themselves are not
+     * specializations of a generic base type, but are a member of another type that is being reinterpreted.
+     */
+    inline bool is_reinterpreted_specialization() const { return this->genericBaseType; }
+
+    /** Returns true if this type is a reinterpreted specialization that is also equivalent to its base type,
+     * i.e. no non-ref-constrained type parameters were bound.
+     * Note: There are reinterpreted types for which this is false: Types that in themselves are not
+     * specializations of a generic base type, but are a member of another type that is being reinterpreted.
+     */
+    bool is_equivalent_reinterpreted_specialization() const;
 
 
     /** Returns the type class this type belongs to. */

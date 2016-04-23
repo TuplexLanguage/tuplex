@@ -457,7 +457,7 @@ std::string TxEntitySymbol::description_string() const {
             return "TYPE      -undef-";
     else if (this->field_count()) {
         if (auto field = this->get_first_field_decl()->get_definer()->get_field()) {
-            auto storageIx = (field->get_decl_flags() & TXD_CONSTRUCTOR ? -1 : field->get_storage_index());
+            auto storageIx = (field->get_decl_flags() & TXD_CONSTRUCTOR ? -1 : field->get_decl_storage_index());
             std::string storageIxString = ( storageIx >= 0 ? std::string("[") + std::to_string(storageIx) + "] " : std::string("    ") );
             return "FIELD " + storageIxString + field->get_type()->to_string(true);
         }

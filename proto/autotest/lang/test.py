@@ -70,6 +70,7 @@ source_files = [
     "recursivetypetest.tx",
     "constructiontest.tx",
     "interfacetest.tx",
+    "nestedtypestest.tx",
     
     "genericstest.tx",
     "genericstest2.tx",

@@ -29,7 +29,7 @@ const TxType* TxField::get_outer_type() const {
     return typeDecl->get_definer()->get_type();  // assumes already resolved
 }
 
-int TxField::get_storage_index() const {
+int TxField::get_decl_storage_index() const {
     switch (this->get_storage()) {
     case TXS_STATIC:
         return this->get_outer_type()->get_static_fields().get_field_index(this->get_unique_name());
@@ -44,33 +44,6 @@ int TxField::get_storage_index() const {
         return -1;
     }
 }
-
-int TxField::get_instance_field_index() const {
-    ASSERT(this->get_storage() == TXS_INSTANCE, "Only fields of instance storage class have an instance field index: " << *this);
-    auto typeDecl = this->get_outer_type_decl();
-    ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_symbol()->get_outer());
-    auto type = typeDecl->get_definer()->get_type();  // assumes already resolved
-    return type->get_instance_fields().get_field_index(this->get_unique_name());
-}
-
-int TxField::get_virtual_field_index() const {
-    ASSERT(this->get_storage() == TXS_VIRTUAL || this->get_storage() == TXS_INSTANCEMETHOD,
-           "Only fields of static virtual storage class have an virtual field index: " << *this);
-    auto typeDecl = this->get_outer_type_decl();
-    ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_symbol()->get_outer());
-    auto type = typeDecl->get_definer()->get_type();  // assumes already resolved
-    ASSERT(! (this->get_decl_flags() & TXD_CONSTRUCTOR), "constructor does not have an instance method index: " << this);
-    return type->get_virtual_fields().get_field_index(this->get_unique_name());
-}
-
-int TxField::get_static_field_index() const {
-    ASSERT(this->get_storage() == TXS_STATIC, "Only fields of static non-virtual storage class have a static field index: " << *this);
-    auto typeDecl = this->get_outer_type_decl();
-    ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_symbol()->get_outer());
-    auto type = typeDecl->get_definer()->get_type();  // assumes already resolved
-    return type->get_static_fields().get_field_index(this->get_unique_name());
-}
-
 
 bool TxField::is_statically_constant() const {
     bool genericParamBinding = (this->get_unique_name().find_last_of('#') != std::string::npos);

@@ -49,8 +49,9 @@ type ConcreteType derives Tuple {
 type CompA derives Interface {
     public abstract get_value()->Int;
 
-    ## "mixin" or default-implementations currently not supported:
-    #experr 0: public concrete_method()->Int { return 2; }
+    ## "mixin" or default-implementation interface methods:
+    public mixin_method_1()->Int { return 1; }
+    public mixin_method_2()->Int { return 2; }
 
     #experr 0: ifField : Int;
 }
@@ -66,17 +67,28 @@ type Type derives Tuple, CompA {
 
     self(f : Int) { self.fld = f; }
 
-    public get_value()->Int {
+    public override get_value()->Int {
+        assert self.mixin_method_1() == 1;
+        ##assert super.mixin_method_2() == 2;  ## TODO: support referring to interfaces via 'super'
         return self.fld;
+    }
+
+    public override mixin_method_2()->Int {
+        return 3;
     }
 
     #experr 0: public abstract abstr_method()->Int;  ## Type isn't declared abstract
 }
 
+## TODO: extensive interface adapter tests (including interface adapter modifiability)
 
 main()->Int {
     t := Type(42);
     r : &CompA = &t;
     assert r.get_value() == 42;
+    assert r.mixin_method_1() == 1;
+    assert t.mixin_method_1() == 1;
+    assert r.mixin_method_2() == 3;
+    assert t.mixin_method_2() == 3;
     return 0;
 }

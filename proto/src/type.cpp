@@ -13,6 +13,31 @@ bool TxConstantProxy::operator==(const TxConstantProxy& other) const {
 }
 
 
+bool DataTupleDefinition::add_interface_fields(const DataTupleDefinition& interfaceFields) {
+    bool added = false;
+    for (auto & f : interfaceFields.fields) {
+        if (f->get_unique_name() == "$adTypeId")
+            continue;
+        if (! this->has_field(f->get_unique_name())) {
+            this->add_field(f);
+            added = true;
+            //std::cerr << "** adding non-existing interface field " << f->get_unique_name() << std::endl;
+        }
+        //else
+        //    std::cerr << "** not adding existing interface field " << f->get_unique_name() << std::endl;
+    }
+    return added;
+}
+
+void DataTupleDefinition::dump() const {
+    unsigned ix = 0;
+    for (auto & f : this->fields) {
+        fprintf(stderr, "%-2d: %20s: %s\n", ix, f->get_unique_name().c_str(), f->get_type()->to_string().c_str());
+        ix++;
+    }
+}
+
+
 
 /*=== TxTypeSpecialization implementation ===*/
 
@@ -145,6 +170,8 @@ void TxType::prepare_type() {
                 if (this->get_type_class() == TXTC_FUNCTION) {
                     // do something?
                 }
+                else if (this->get_type_class() == TXTC_INTERFACEADAPTER) {
+                }
                 else {
                     this->emptyDerivation = true;
                     if (hasImplicitFieldMembers) {
@@ -214,10 +241,9 @@ void TxType::prepare_type() {
     if (this->is_modifiable()) {
         // a modifiable type is a usage form of its base type, and doesn't affect the instance nor the vtable type
     }
-    else if (! this->get_bindings().empty()) {
+    else if (this->nonRefBindings) {
         // Binding of a base type parameter implies reinterpretation of its members and thus
-        // the chance of modified instance / vtable types.
-        // FUTURE: at least distinguish between binding ref-constrained parameters and others
+        // the chance of modified instance / vtable types (for non-ref-constrained parameters).
         this->extendsInstanceDatatype = true;
         this->modifiesVTable = true;
     }
@@ -289,6 +315,12 @@ void TxType::prepare_type_members() {
         this->virtualFields = baseType->virtualFields;
         this->instanceFields = baseType->instanceFields;
     }
+    for (auto & interfSpec : this->interfaces) {
+        if (this->virtualFields.add_interface_fields( interfSpec.type->virtualFields ))
+            this->modifiesVTable = true;
+    }
+    //std::cerr << "Inherited virtual fields of " << this << std::endl;
+    //this->virtualFields.dump();
 
     if (! this->get_declaration()) {
         return;
@@ -358,7 +390,7 @@ void TxType::prepare_type_members() {
                     if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
                         CERROR(field, "Can't declare an instance field as abstract: " << field);
                     if (! expErrField)
-                        this->instanceFields.add_field(field->get_unique_name(), field);
+                        this->instanceFields.add_field(field);
                     break;
                 case TXS_VIRTUAL:
                 case TXS_INSTANCEMETHOD:
@@ -388,7 +420,7 @@ void TxType::prepare_type_members() {
                         if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
                             CWARNING(field, "Field doesn't override but is declared 'override': " << field);
                         if (! expErrField)
-                            this->virtualFields.add_field(field->get_unique_name(), field);
+                            this->virtualFields.add_field(field);
                     }
                     LOGGER().debug("Adding/overriding virtual field %-40s  %s  %u", field->to_string().c_str(),
                                    field->get_type()->to_string(true).c_str(), this->virtualFields.get_field_count());
@@ -400,7 +432,7 @@ void TxType::prepare_type_members() {
                     if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
                         CWARNING(field, "Field doesn't override but is declared 'override': " << field);
                     if (! expErrField)
-                        this->staticFields.add_field(field->get_unique_name(), field);
+                        this->staticFields.add_field(field);
                 }
             }
 
@@ -431,6 +463,28 @@ const TxTypeDeclaration* TxType::get_explicit_declaration() const {
 bool TxType::is_explicit_nongen_declaration() const {
     return (this->get_declaration() && !(this->get_declaration()->get_decl_flags() & (TXD_IMPLICIT | TXD_GENPARAM | TXD_GENBINDING)));
 }
+
+
+bool TxType::is_reinterpreted() const {
+    //if (this->typeClass == TXTC_INTERFACEADAPTER)
+    //    return this->baseTypeSpec.type->is_reinterpreted();
+    return ( this->get_declaration()
+             && this->get_declaration()->get_definer()->get_six() > 0 );
+}
+
+bool TxType::is_equivalent_reinterpreted_specialization() const {
+    if (this->typeClass == TXTC_REFERENCE)
+        return false;  // FIXME
+    else if (this->typeClass == TXTC_ARRAY)
+        return false;  // FIXME
+    //else if (this->typeClass == TXTC_INTERFACEADAPTER)
+    //    return this->baseTypeSpec.type->is_equivalent_reinterpreted_specialization();
+    else if (this->genericBaseType)
+        return !this->genericBaseType->nonRefParameters;
+    else
+        return (this->get_declaration() && this->get_declaration()->get_definer()->get_six() > 0 );
+}
+
 
 bool TxType::is_concrete() const {
     // A concrete type is not abstract, nor usually generic (references may be concrete while generic).
@@ -474,23 +528,28 @@ bool TxType::is_empty_derivation() const {
 
 bool TxType::is_equivalent_derivation() const {
     ASSERT(this->prepared, "Can't determine specialization degree of unprepared type: " << this);
-    return ( this->baseTypeSpec.modifiable
+    bool oldCond = ( this->baseTypeSpec.modifiable
              || ( this->has_base_type()
                   && !this->is_builtin()  // being built-in implies that it is more specialized than base class
                   && typeid(*this) == typeid(*this->baseTypeSpec.type)
                   && !this->nonRefBindings
-                  && ( ( this->genericBaseType && !this->genericBaseType->nonRefParameters )
-                       || ( !this->extendsInstanceDatatype && !this->modifiesVTable ) ) ) );
+                  && ( !this->extendsInstanceDatatype && !this->modifiesVTable ) ) );
+    bool newCond = this->is_same_vtable_type() && this->is_same_instance_type();
+    ASSERT(oldCond == newCond, "Unexpected is_equivalent_derivation() condition difference: old=" << oldCond << " != new=" << newCond);
+    return newCond;
 }
 
 bool TxType::is_virtual_derivation() const {
     ASSERT(this->prepared, "Can't determine specialization degree of unprepared type: " << this);
-    return ( this->baseTypeSpec.modifiable
+    bool oldCond = ( this->baseTypeSpec.modifiable
              || ( this->has_base_type()
                   && !this->is_builtin()  // being built-in implies that it is more specialized than base class
                   && typeid(*this) == typeid(*this->baseTypeSpec.type)
                   && !this->nonRefBindings
                   && !this->extendsInstanceDatatype ) );
+    bool newCond = this->is_same_instance_type();
+    ASSERT(oldCond == newCond, "Unexpected is_virtual_derivation() condition difference: old=" << oldCond << " != new=" << newCond);
+    return newCond;
 }
 
 bool TxType::is_statically_sized() const {
@@ -529,6 +588,10 @@ TxEntitySymbol* TxType::lookup_inherited_instance_member(TxScopeSymbol* vantageS
     for (const TxType* type = this; type; type = type->get_base_type()) {
         if (auto memberEnt = type->get_instance_member(vantageScope, name))
             return memberEnt;
+        for (auto & interfSpec : type->interfaces) {
+            if (auto memberEnt = interfSpec.type->lookup_inherited_instance_member(vantageScope, name))
+                return memberEnt;
+        }
     }
     return nullptr;
 }
@@ -905,6 +968,10 @@ const TxType* TxReferenceType::target_type() const {
 
 
 void TxInterfaceAdapterType::prepare_type_members() {
+    if (! this->is_modifiable()) {
+        this->modifiesVTable = true;
+    }
+
     TxType::prepare_type_members();
 
     LOGGER().debug("preparing adapter for %s to interface %s", this->adaptedType->to_string().c_str(), this->get_semantic_base_type()->to_string().c_str());
@@ -929,6 +996,4 @@ void TxInterfaceAdapterType::prepare_type_members() {
             this->virtualFields.override_field(f.first, targetField);
         }
     }
-
-    this->modifiesVTable = true;
 }

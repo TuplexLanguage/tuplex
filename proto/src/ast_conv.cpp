@@ -171,6 +171,7 @@ const TxType* TxReferenceConvNode::define_type(TxSpecializationIndex six) {
             // create / retrieve interface adapter type
             //std::cerr << "Converting interface reference to adapter:\n\tfrom & " << origTargetType << "\n\tto   & " << resultTargetType << std::endl;
             this->adapterType = this->types(six).get_interface_adapter(resultTargetType, origTargetType);
+            ASSERT(this->adapterType->get_type_class() == TXTC_INTERFACEADAPTER, "Not an interface adapter type: " << this->adapterType);
 
             // create reference type to the adapter type  TODO: delegate this to TypeRegistry
             auto implTypeName = this->context(six).scope()->make_unique_name("$type");

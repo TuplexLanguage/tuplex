@@ -194,7 +194,8 @@ Value* gen_ref(LlvmGenerationContext& context, GenScope* scope, Type* refT, Valu
 Value* gen_lambda(LlvmGenerationContext& context, GenScope* scope, Type* lambdaT, Value* funcV, Value* closureRefV) {
     if (scope) {
         Value* lambdaV = UndefValue::get(lambdaT);
-        lambdaV = scope->builder->CreateInsertValue(lambdaV, funcV, 0);
+        auto castFuncV = scope->builder->CreatePointerCast(funcV, lambdaT->getStructElementType(0));
+        lambdaV = scope->builder->CreateInsertValue(lambdaV, castFuncV, 0);
         lambdaV = scope->builder->CreateInsertValue(lambdaV, closureRefV, 1);
         return lambdaV;
     }

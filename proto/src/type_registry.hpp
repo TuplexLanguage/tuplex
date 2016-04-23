@@ -37,13 +37,13 @@ enum BuiltinTypeId : int {
 
 class TxPackage;
 class TxModule;
-class BuiltinTypeRecord;
+class TxBuiltinTypeDefiner;
 class TxTypeExpressionNode;
 
 
 class TypeRegistry {
     TxPackage& package;
-    BuiltinTypeRecord* builtinTypes[BuiltinTypeId_COUNT];
+    TxBuiltinTypeDefiner* builtinTypes[BuiltinTypeId_COUNT];
     const TxType* builtinModTypes[BuiltinTypeId_COUNT];
 
     typedef struct {
@@ -70,7 +70,7 @@ class TypeRegistry {
     TxType* make_specialized_type(const TxTypeDeclaration* declaration,
                                   const TxTypeSpecialization& specialization,
                                   const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>());
-    friend class TxBuiltinTypeDefiningNode;  // may access make_specialized_type()
+    friend class TxImplicitTypeDefiningNode;  // may access make_specialized_type()
 
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
     const TxInterfaceAdapterType* inner_get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);

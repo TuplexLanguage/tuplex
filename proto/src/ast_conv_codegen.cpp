@@ -108,8 +108,9 @@ Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* s
             context.LOG.error("In reference conversion, LLVM type not found for result type %s", this->resultType->to_string().c_str());
             return origValue;  // should we return null instead?
         }
-        //std::cerr << "Ref conversion from " << this->expr->get_type(0) << "  to Ref to  " << refTargetType << " = " << refT << std::endl;
         uint32_t adapterTypeId = (this->adapterType ? this->adapterType->get_type_id() : UINT32_MAX);
+        //std::cerr << "Ref conversion\n from " << this->expr->get_type(0) << "\n   to " << this->resultType << " = " << refT
+        //          << "\n adapterTypeId=" << adapterTypeId << std::endl;
         return TxReferenceType::gen_ref_conversion(context, scope, origValue, refT, adapterTypeId);
     }
 //    // from array:

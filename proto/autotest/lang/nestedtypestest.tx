@@ -1,0 +1,64 @@
+## Similar to sequence interface test but without generics
+
+public interface Sequenceable derives Interface {
+    public abstract sequencer()->Ref<~Sequencer>;
+}
+
+public interface Sequencer derives Sequenceable {
+    public override sequencer()->Ref<~Sequencer> { return self; }
+
+    public abstract emptyFunc();
+    public abstract hasNext()->Bool;
+    public abstract next()->Int;
+}
+
+type SingleRef derives Tuple, Sequenceable {
+
+    type SingleSeq derives Tuple, Sequencer {
+        element : Int;
+        done : ~Bool;
+
+        self( element : Int ) {
+            self.element = element;
+            self.done = FALSE;
+        }
+        public override emptyFunc() {
+        }
+        public override hasNext()->Bool {
+            return !self.done;
+        }
+        public override next()->Int {
+            if (self.done)
+                panic := TRUE;  ## TODO: panic
+            self.done = TRUE;
+            return self.element;
+        }
+    }
+
+    element : Int;
+    
+    self( element : Int ) {
+        self.element = element;
+    }
+
+    public override sequencer()->Ref<~Sequencer> {
+        el : Int = self.element;
+        seq := new ~SingleSeq( el );
+        seq.emptyFunc();
+        return seq;
+    }
+}
+
+
+main()->Int {
+    myint : Int = 5;
+    singleton := new SingleRef( myint );
+    seq := singleton.sequencer();
+    seq.emptyFunc();
+    hn := seq.hasNext();
+    elem := seq.next();
+    assert 5 == elem;
+    assert !seq.hasNext();
+
+    return 0;
+}
