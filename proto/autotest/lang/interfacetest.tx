@@ -87,6 +87,8 @@ type Type derives Tuple, IntfA {
 ## must declare abstract if missing concrete members
 #experr 0: type IncompleteType derives Tuple, IntfA {
 }
+abstract type AbstrIncomplType derives Tuple, IntfA {
+}
 
 
 main()->Int {

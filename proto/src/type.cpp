@@ -427,7 +427,6 @@ void TxType::prepare_type_members() {
                     break;
                 default:
                     ASSERT(fieldDecl->get_storage() == TXS_STATIC, "Invalid storage class " << fieldDecl->get_storage() << " for field member " << *field);
-                    std::cerr << "STATIC field: " << fieldDecl << std::endl;
                     if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
                         CERROR(field, "Can't declare a non-virtual field as abstract: " << field);
                     if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
