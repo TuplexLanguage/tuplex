@@ -26,10 +26,11 @@ main()->Int {
     ## #experr: type Err AType<AType>; ## doesn't match parameter's constraint type
 
     val : Int = 42;
+    aobj : ATypeRInt;
     sobj := ATypeRInt(val);
     hobj := new ATypeRInt(val);
     s1 : sobj.S;
-    ##s2 : sobj.my#AType#S;  ## FIXME: fix bug where sobj type is my.AType<tx#Ref> rather than my.ATypeRInt
+    ##s2 : sobj.my#AType#S;  ## FIXME: fix bug where sobj type is my.AType<tx#Ref> rather than my.ATypeRInt (because inherited constructor?)
     ##s2 : hobj^.S;  ## type expr doesn't handle ^
 
     assert sobj.getref()^ == 42;
