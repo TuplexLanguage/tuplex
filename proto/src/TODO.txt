@@ -53,17 +53,26 @@ Fix instantiation of ref-constrained type parameters (they should get unique nam
 
 Fix / revise TYPE parameter declaration ("hashed" binding members) - DONE
 
-Refactor expression conversion wrapping so that each specialization-index has an independent conversion evaluation
+Refactor expression conversion wrapping so that each specialization-index has an independent conversion evaluation - DONE
 
 Proper support for VALUE bindings, and implement correct Array type handling
+
+String datatype
+
+Range typeclass
+
+for-loops
+
+Proper mutability handling:
+ - in compound expressions, e.g. mut.immut.mut.immut ...
+ - mutating and non-mutating methods
+ - review inheritance and mutability (including interface adapters)
 
 Implement implicit static initializer function for types' static members and static code
 Implement implicit instance initializer function for types' instance members' inlined initializers
 
 Make fields be "bindings to entities" rather than "entities", in order to fix multi-instantiation in e.g:
   stackObj := AType();  ## allocates twice & copies! 
-
-String datatype
 
 Type reflection, at least for autotesting, some ideas:
     assert static_type(var) == static_type(Ref<Parent>)
@@ -74,10 +83,6 @@ Type reflection, at least for autotesting, some ideas:
 Type conversions (with if statements)
 
 Dataspace syntax support, continued
-
-Range typeclass
-
-for-loops
 
 break and continue out of nested loops
 

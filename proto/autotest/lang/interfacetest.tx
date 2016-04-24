@@ -53,7 +53,8 @@ type IntfA derives Interface {
     public mixin_method_1()->Int { return 1; }
     public mixin_method_2()->Int { return 2; }
 
-    #experr 0: ifField : Int;  ## interface can't have instance members
+    #experr 0: instField : Int;  ## interface can't have instance members
+    public static ifField : Int = 17;
 }
 
 /* future syntax?
@@ -94,6 +95,8 @@ abstract type AbstrIncomplType derives Tuple, IntfA {
 main()->Int {
     t := Type(42);
     r : &IntfA = &t;
+    assert t.ifField == 17;
+    assert r.ifField == 17;
     assert r.get_value() == 42;
     assert r.mixin_method_1() == 1;
     assert t.mixin_method_1() == 1;

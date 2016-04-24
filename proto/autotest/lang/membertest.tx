@@ -2,6 +2,7 @@
 type CompoundType mod derives Tuple {
     public static SFIELD := -1;
     static SFIELD2 := 2.73;
+    field0 : Long;
     field1 : ~Long;
     field2 : ~Float;
     protected field3 : [20]Int;
@@ -65,7 +66,12 @@ testfunc() {
         #experr 2: bad : tx.unknown;
     }
 
+    ro_obj : CompoundType;
+    #experr: ro_obj.field0 = 133;  ## non-mutable instance field
+    ## FIXME: #experr: ro_obj.field1 = 133;  ## can't change mutable field of non-mutable object
+
     obj : ~CompoundType;
+    #experr: obj.SFIELD = 133;  ## non-mutable static field
     obj.field1 = 133;
     obj.field2 = CompoundType.SFIELD2 * 10.;
     assert obj.field1 == 133;

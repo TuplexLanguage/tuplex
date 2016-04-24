@@ -51,5 +51,5 @@ main() {
     #experr 2: v : lacking;
     #experr 2: v := missing;
     #experr 1: v := Int;
-    #experr 1: v := Tuple;
+    #experr 2: v := Tuple;
 }
