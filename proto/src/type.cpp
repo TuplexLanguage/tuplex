@@ -189,9 +189,11 @@ void TxType::prepare_type() {
             for (auto & paramDecl : this->get_base_type()->type_params()) {
                 if (! this->get_binding(paramDecl->get_unique_name())) {
                     if (! this->has_type_param(paramDecl->get_unique_name())) {
-                        //CERROR(this, "Missing binding or redeclaration of base type's type parameter " << paramDecl->get_unique_name());
                         this->params.emplace_back(paramDecl);
-                        LOGGER().note("Inheriting type parameter %s in type %s", paramDecl->get_unique_full_name().c_str(), this->to_string().c_str());
+                        if (this->get_type_class() != TXTC_INTERFACEADAPTER) {
+                            //CERROR(this, "Missing binding or redeclaration of base type's type parameter " << paramDecl->get_unique_name());
+                            LOGGER().note("Inheriting type parameter %s in type %s", paramDecl->get_unique_full_name().c_str(), this->to_string().c_str());
+                        }
                     }
                 }
             }
@@ -446,18 +448,12 @@ void TxType::prepare_type_members() {
     if (! this->is_abstract() && ! this->is_modifiable() && this->get_type_class() != TXTC_INTERFACEADAPTER) {
         // check that all abstract members of base types & interfaces are implemented:
         auto virtualFields = this->get_virtual_fields();
-        bool err = false;
         for (auto & field : virtualFields.fieldMap) {
             auto actualFieldEnt = virtualFields.get_field(field.second);
             if (actualFieldEnt->get_decl_flags() & TXD_ABSTRACT) {
                 CERROR(this, "Concrete type " << this->to_string(true) << " doesn't implement abstract member " << actualFieldEnt);
-                err = true;
             }
         }
-//        if (err) {
-//            std::cerr << "missing concrete member(s) in " << this << ":" << std::endl;
-//            this->virtualFields.dump();
-//        }
     }
 
     if (expErrWholeType) {
