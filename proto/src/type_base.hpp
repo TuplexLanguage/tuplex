@@ -232,7 +232,6 @@ protected:
     // data layout:
     DataTupleDefinition staticFields;
     DataTupleDefinition virtualFields;
-    DataTupleDefinition instanceMethods;
     DataTupleDefinition instanceFields;
 
     /** Only to be used for Any type. */
@@ -366,7 +365,7 @@ public:
     virtual bool is_final() const { return false; }
 
     /** Returns true if this type is declared abstract. */
-    virtual bool is_abstract() const { return true; }
+    virtual bool is_abstract() const;
 
     /** Returns true if this type is generic (i.e. has unbound type parameters).
      * Note that a non-generic type may still have members that refer to unbound type parameters of an outer scope

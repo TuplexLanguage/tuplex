@@ -87,16 +87,12 @@ public:
 
 class TxImplicitTypeDefiner : public TxTypeDefiner {
     TxImplicitTypeDefiningNode* node;
-    const TxDeclarationFlags declFlags;
     const std::string plainName;
-
-protected:
-    TxImplicitTypeDefiner(TxDeclarationFlags declFlags, const std::string plainName)
-        : node(new TxImplicitTypeDefiningNode()), declFlags(declFlags), plainName(plainName) { }
+    const TxDeclarationFlags declFlags;
 
 public:
-    TxImplicitTypeDefiner(const std::string plainName)
-        : node(new TxImplicitTypeDefiningNode()), declFlags(TXD_PUBLIC | TXD_IMPLICIT), plainName(plainName) { }
+    TxImplicitTypeDefiner(const std::string plainName, TxDeclarationFlags declFlags=(TXD_PUBLIC | TXD_IMPLICIT))
+        : node(new TxImplicitTypeDefiningNode()), plainName(plainName), declFlags(declFlags) { }
 
     void symbol_declaration_pass(LexicalContext& ctx, const std::vector<TxDeclarationNode*>* typeParamDeclNodes=nullptr) {
         this->node->symbol_declaration_pass(0, ctx, ctx, this->declFlags, this->plainName, typeParamDeclNodes);
@@ -131,8 +127,8 @@ class TxBuiltinTypeDefiner final : public TxImplicitTypeDefiner {
 public:
     const BuiltinTypeId id;
 
-    TxBuiltinTypeDefiner(std::string plainName, BuiltinTypeId id)
-        : TxImplicitTypeDefiner(TXD_PUBLIC | TXD_BUILTIN, plainName), id(id)  { }
+    TxBuiltinTypeDefiner(std::string plainName, BuiltinTypeId id, TxDeclarationFlags declFlags)
+        : TxImplicitTypeDefiner(plainName, declFlags), id(id)  { }
 };
 
 
@@ -202,7 +198,7 @@ void TypeRegistry::declare_tx_functions(TxModule* module) {
 
 
 void TypeRegistry::add_builtin_abstract(TxModule* module, TxTypeClass typeClass, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId) {
-    auto definer = new TxBuiltinTypeDefiner( plainName, id );
+    auto definer = new TxBuiltinTypeDefiner( plainName, id, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT );
     definer->symbol_declaration_pass(module);
     auto type = new TxBuiltinBaseType( typeClass, definer->get_declaration(), this->builtinTypes[parentId]->get_type());
     type->prepare_type_members();
@@ -213,7 +209,7 @@ void TypeRegistry::add_builtin_abstract(TxModule* module, TxTypeClass typeClass,
 
 void TypeRegistry::add_builtin_integer(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId,
                                        int size, bool sign) {
-    auto definer = new TxBuiltinTypeDefiner( plainName, id );
+    auto definer = new TxBuiltinTypeDefiner( plainName, id, TXD_PUBLIC | TXD_BUILTIN );
     definer->symbol_declaration_pass(module);
     auto type = new TxIntegerType( definer->get_declaration(), this->builtinTypes[parentId]->get_type(), size, sign);
     type->prepare_type_members();
@@ -223,7 +219,7 @@ void TypeRegistry::add_builtin_integer(TxModule* module, BuiltinTypeId id, std::
 }
 
 void TypeRegistry::add_builtin_floating(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size) {
-    auto definer = new TxBuiltinTypeDefiner( plainName, id );
+    auto definer = new TxBuiltinTypeDefiner( plainName, id, TXD_PUBLIC | TXD_BUILTIN );
     definer->symbol_declaration_pass(module);
     auto type = new TxFloatingType( definer->get_declaration(), this->builtinTypes[parentId]->get_type(), size );
     type->prepare_type_members();
@@ -238,7 +234,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // create the Any root type:
     {
-        auto definer = new TxBuiltinTypeDefiner( "Any", ANY );
+        auto definer = new TxBuiltinTypeDefiner( "Any", ANY, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT );
         definer->symbol_declaration_pass(module);
         auto type = new TxAnyType( definer->get_declaration() );
         type->prepare_type_members();
@@ -273,7 +269,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // create the boolean type:
     {
-        auto definer = new TxBuiltinTypeDefiner( "Bool", BOOL );
+        auto definer = new TxBuiltinTypeDefiner( "Bool", BOOL, TXD_PUBLIC | TXD_BUILTIN );
         definer->symbol_declaration_pass(module);
         auto type = new TxBoolType(definer->get_declaration(), this->builtinTypes[ELEMENTARY]->get_type() );
         type->prepare_type_members();
@@ -284,7 +280,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // create the function base type:
     {
-        auto definer = new TxBuiltinTypeDefiner( "Function", FUNCTION );
+        auto definer = new TxBuiltinTypeDefiner( "Function", FUNCTION, TXD_PUBLIC | TXD_BUILTIN );
         definer->symbol_declaration_pass(module);
         auto type = new TxBuiltinBaseType(TXTC_FUNCTION, definer->get_declaration(), this->builtinTypes[ANY]->get_type() );
         type->prepare_type_members();
@@ -295,7 +291,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // create the reference base type:
     {
-        auto definer = new TxBuiltinTypeDefiner( "Ref", REFERENCE );
+        auto definer = new TxBuiltinTypeDefiner( "Ref", REFERENCE, TXD_PUBLIC | TXD_BUILTIN );
         //auto typeDecl = module->declare_type(definer->plainName, definer, TXD_PUBLIC | TXD_BUILTIN );
 
         //auto elemTypeDefiner = this->builtinTypes[ANY];
@@ -315,7 +311,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // create the array base type:
     {
-        auto definer = new TxBuiltinTypeDefiner( "Array", ARRAY );
+        auto definer = new TxBuiltinTypeDefiner( "Array", ARRAY, TXD_PUBLIC | TXD_BUILTIN );
         //auto typeDecl = module->declare_type( definer->plainName, definer, TXD_PUBLIC | TXD_BUILTIN );
 
         //auto elemTypeDefiner = this->builtinTypes[ANY];
@@ -342,7 +338,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // create the tuple base type:
     {
-        auto definer = new TxBuiltinTypeDefiner( "Tuple", TUPLE );
+        auto definer = new TxBuiltinTypeDefiner( "Tuple", TUPLE, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT );
         definer->symbol_declaration_pass(module);
         auto type = new TxTupleType(definer->get_declaration(), this->builtinTypes[ANY]->get_type(), true );
         type->prepare_type_members();
@@ -353,7 +349,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // create the interface base type:
     {
-        auto definer = new TxBuiltinTypeDefiner( "Interface", INTERFACE );
+        auto definer = new TxBuiltinTypeDefiner( "Interface", INTERFACE, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT );
         definer->symbol_declaration_pass(module);
         {   // declare the adaptee type id virtual field member, which is abstract here but concrete in adapter subtypes:
             const TxType* fieldType = this->get_builtin_type(UINT);

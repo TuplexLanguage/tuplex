@@ -32,7 +32,7 @@ bool DataTupleDefinition::add_interface_fields(const DataTupleDefinition& interf
 void DataTupleDefinition::dump() const {
     unsigned ix = 0;
     for (auto & f : this->fields) {
-        fprintf(stderr, "%-2d: %20s: %s\n", ix, f->get_unique_name().c_str(), f->get_type()->to_string().c_str());
+        fprintf(stderr, "%-2d: %20s: %s\n", ix, f->get_unique_name().c_str(), f->to_string().c_str());
         ix++;
     }
 }
@@ -427,6 +427,7 @@ void TxType::prepare_type_members() {
                     break;
                 default:
                     ASSERT(fieldDecl->get_storage() == TXS_STATIC, "Invalid storage class " << fieldDecl->get_storage() << " for field member " << *field);
+                    std::cerr << "STATIC field: " << fieldDecl << std::endl;
                     if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
                         CERROR(field, "Can't declare a non-virtual field as abstract: " << field);
                     if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
@@ -443,8 +444,21 @@ void TxType::prepare_type_members() {
         }
     }
 
-    if (! (this->get_declaration()->get_decl_flags() & TXD_ABSTRACT)) {
-        // FIXME: check that all abstract members of base types & interfaces are implemented
+    if (! this->is_abstract() && ! this->is_modifiable() && this->get_type_class() != TXTC_INTERFACEADAPTER) {
+        // check that all abstract members of base types & interfaces are implemented:
+        auto virtualFields = this->get_virtual_fields();
+        bool err = false;
+        for (auto & field : virtualFields.fieldMap) {
+            auto actualFieldEnt = virtualFields.get_field(field.second);
+            if (actualFieldEnt->get_decl_flags() & TXD_ABSTRACT) {
+                CERROR(this, "Concrete type " << this->to_string(true) << " doesn't implement abstract member " << actualFieldEnt);
+                err = true;
+            }
+        }
+//        if (err) {
+//            std::cerr << "missing concrete member(s) in " << this << ":" << std::endl;
+//            this->virtualFields.dump();
+//        }
     }
 
     if (expErrWholeType) {
@@ -485,6 +499,9 @@ bool TxType::is_equivalent_reinterpreted_specialization() const {
         return (this->get_declaration() && this->get_declaration()->get_definer()->get_six() > 0 );
 }
 
+bool TxType::is_abstract() const {
+    return this->get_nearest_declaration()->get_decl_flags() & TXD_ABSTRACT;
+}
 
 bool TxType::is_concrete() const {
     // A concrete type is not abstract, nor usually generic (references may be concrete while generic).

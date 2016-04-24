@@ -46,23 +46,23 @@ type ConcreteType derives Tuple {
 
 ## interface tests
 
-type CompA derives Interface {
+type IntfA derives Interface {
     public abstract get_value()->Int;
 
     ## "mixin" or default-implementation interface methods:
     public mixin_method_1()->Int { return 1; }
     public mixin_method_2()->Int { return 2; }
 
-    #experr 0: ifField : Int;
+    #experr 0: ifField : Int;  ## interface can't have instance members
 }
 
 /* future syntax?
-interface CompB {
+interface IntfA {
     public abstract get_value()->Int;
 }
 */
 
-type Type derives Tuple, CompA {
+type Type derives Tuple, IntfA {
     fld : Int;
 
     self(f : Int) { self.fld = f; }
@@ -80,11 +80,18 @@ type Type derives Tuple, CompA {
     #experr 0: public abstract abstr_method()->Int;  ## Type isn't declared abstract
 }
 
-## TODO: extensive interface adapter tests (including interface adapter modifiability)
+## can't inherit object type in 2nd position
+#experr: type EType derives IntfA, Tuple {
+}
+
+## must declare abstract if missing concrete members
+#experr 0: type IncompleteType derives Tuple, IntfA {
+}
+
 
 main()->Int {
     t := Type(42);
-    r : &CompA = &t;
+    r : &IntfA = &t;
     assert r.get_value() == 42;
     assert r.mixin_method_1() == 1;
     assert t.mixin_method_1() == 1;

@@ -38,7 +38,7 @@ public:
     const TxExpressionNode* length() const;
 
 
-    virtual bool is_abstract() const { return false; }
+    //virtual bool is_abstract() const { return false; }
 
     virtual bool is_statically_sized() const override;
 
@@ -82,7 +82,7 @@ public:
     const TxType* target_type() const;
 
     virtual bool is_final() const { return true; }
-    virtual bool is_abstract() const { return false; }
+    //virtual bool is_abstract() const { return false; }
 
     /** Returns true if this type is concrete (i.e. can be directly instanced).
      * A concrete type is not abstract, nor usually generic (references may be concrete while generic). */
@@ -140,7 +140,7 @@ public:
 
     virtual bool modifiable_closure() const { return this->modifiableClosure; }
 
-    virtual bool is_abstract() const override { return false; }
+    //virtual bool is_abstract() const override { return false; }
 
     inline virtual bool operator==(const TxType& other) const override {
         if (auto otherF = dynamic_cast<const TxFunctionType*>(&other)) {
@@ -220,7 +220,6 @@ public:
 class TxTupleType : public TxType {
     // Indicates if this type is *not* immutable, in which case its instances may be declared modifiable.
     const bool _mutable;
-    const bool abstract = false;
 
     TxTupleType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                 const std::vector<TxTypeSpecialization>& interfaces, bool _mutable=false)
@@ -239,8 +238,6 @@ public:
             : TxType(TXTC_TUPLE, declaration, TxTypeSpecialization(baseType)), _mutable(_mutable)  {
         ASSERT(declaration, "NULL declaration");
     }
-
-    virtual bool is_abstract() const override { return this->abstract; }
 
     virtual bool is_immutable() const override { return !this->_mutable; }
 
@@ -274,6 +271,10 @@ public:
             : TxType(TXTC_INTERFACE, declaration, TxTypeSpecialization(baseType)) {
         ASSERT(declaration, "NULL declaration");
     }
+
+    // special case (lets user skip 'abstract' keyword in interface declarations)
+    // TODO: make TXD_ABSTRACT flag be automatically set for all interfaces?
+    virtual bool is_abstract() const override { return true; }
 
     // TODO: allow interfaces with proper is-a relationship to auto-convert (via adapter)
 

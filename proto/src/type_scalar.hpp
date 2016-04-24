@@ -17,7 +17,7 @@ public:
         : TxType(TXTC_ELEMENTARY, declaration, baseTypeSpec) { }
 
     virtual bool is_final() const override { return true; }
-    virtual bool is_abstract() const override { return false; }
+    //virtual bool is_abstract() const override { return false; }
 
     inline virtual bool operator==(const TxType& other) const override {
         return ( typeid(*this) == typeid(other) );
@@ -45,7 +45,7 @@ protected:
 public:
     virtual uint64_t size() const { return this->_size; }
     virtual bool is_final() const override { return true; }
-    virtual bool is_abstract() const override { return false; }
+    //virtual bool is_abstract() const override { return false; }
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
