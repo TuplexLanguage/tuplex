@@ -35,7 +35,8 @@ public:
         else {
             ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
             this->valueExprNode->symbol_declaration_pass(six, this->context(six));
-            return TxGenericBinding::make_value_binding(paramDecl->get_unique_name(), this->valueExprNode->get_value_definer(six));
+            auto valueDefiner = new TxExprWrapperNode(this->valueExprNode, six);
+            return TxGenericBinding::make_value_binding(paramDecl->get_unique_name(), valueDefiner);
         }
     }
 

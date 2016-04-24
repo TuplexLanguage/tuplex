@@ -615,6 +615,10 @@ public:
         return this->typeExpr->has_predefined_type();
     }
 
+    virtual bool is_stack_allocation_expression() const override {
+        return !this->get_spec(0)->inlinedExpression;  // performs stack allocation unless this is an inlined value expression
+    }
+
     // virtual bool is_statically_constant() const override { return true; }  // TODO: review
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

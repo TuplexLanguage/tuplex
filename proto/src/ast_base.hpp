@@ -506,8 +506,6 @@ protected:
 public:
     TxExpressionNode(const yy::location& parseLocation) : TxTypeDefiningNode(parseLocation) { }
 
-    TxExpressionNode* get_value_definer(TxSpecializationIndex six);
-
     /** Injected by field definition if known and applicable. */
     virtual void set_field_def_node(const TxFieldDefNode* fieldDefNode) {
         this->fieldDefNode = fieldDefNode;
@@ -522,6 +520,12 @@ public:
     virtual void symbol_resolution_pass(TxSpecializationIndex six) {
         this->resolve_type(six);
     }
+
+    /** Returns true if this expression is a stack allocation expression,
+     * i.e. its result is in newly allocated stack space, and the allocation's type is the type of this expression.
+     * Note that sub-expressions may perform allocations without this expression being an allocation. */
+    // TODO: review combinatorial expressions that maybe should return true if any of their sub-expressions return true
+    virtual bool is_stack_allocation_expression() const { return false; }
 
     /** Returns true if this expression is a constant expression that can be evaluated at compile time. */
     virtual bool is_statically_constant() const { return false; }

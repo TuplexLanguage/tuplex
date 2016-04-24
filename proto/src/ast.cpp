@@ -157,11 +157,6 @@ void TxFieldDeclNode::symbol_resolution_pass(TxSpecializationIndex six) {
 }
 
 
-TxExpressionNode* TxExpressionNode::get_value_definer(TxSpecializationIndex six) {
-    return new TxExprWrapperNode(this, six);
-}
-
-
 
 TxSuiteNode::TxSuiteNode(const yy::location& parseLocation)
         : TxStatementNode(parseLocation), suite(new std::vector<TxStatementNode*>())  {
@@ -446,7 +441,7 @@ TxAssertStmtNode::TxAssertStmtNode(const yy::location& parseLocation, TxExpressi
     //msg << ": " << customMessage;    // TODO: supported custom assert message
     std::string assertFailedMsg = "c\"" + msg.str() + "\"";
     auto msgExpr = new TxCStringLitNode(pLoc, assertFailedMsg);
-    auto convStrExpr = new TxReferenceToNode(pLoc, new TxElemDerefNode(pLoc, msgExpr, new TxIntegerLitNode(pLoc, (uint64_t)0)));
+    auto convStrExpr = new TxReferenceToNode(pLoc, new TxElemDerefNode(pLoc, msgExpr, new TxIntegerLitNode(pLoc, (uint64_t)0, false)));
     auto putsCallee = new TxFieldValueNode(pLoc, nullptr, "tx.c.puts");
     auto putsCallExpr = new TxFunctionCallNode( pLoc, putsCallee, new std::vector<TxExpressionNode*>( { convStrExpr } ) );
     TxStatementNode* putsStmt = new TxCallStmtNode(pLoc, putsCallExpr);
@@ -633,7 +628,12 @@ const TxType* TxFunctionCallNode::define_type(TxSpecializationIndex six) {
         }
     }
 
-    if (/*auto inlineCalleeType =*/ dynamic_cast<const TxBuiltinConversionFunctionType*>(funcType)) {
+    if (auto inlineCalleeType = dynamic_cast<const TxBuiltinDefaultConstructorType*>(funcType)) {
+        // "inline" function call by replacing with conversion expression
+        // note: actual conversion set in symbol_resolution_pass()
+        this->get_spec(six)->inlinedExpression = inlineCalleeType->get_default_init_value_expr();
+    }
+    else if (/*auto inlineCalleeType =*/ dynamic_cast<const TxBuiltinConversionFunctionType*>(funcType)) {
         // "inline" function call by replacing with conversion expression
         // note: actual conversion set in symbol_resolution_pass()
         this->get_spec(six)->inlinedExpression = this->argsExprList->front();

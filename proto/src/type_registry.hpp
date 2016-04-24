@@ -59,6 +59,7 @@ class TypeRegistry {
 
     void add_type(TxType* type);
 
+    void declare_default_constructor(LexicalContext& ctx, BuiltinTypeId typeId, TxExpressionNode* initValueExpr);
     void declare_conversion_constructor(BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId);
     void declare_tx_functions(TxModule* module);
 

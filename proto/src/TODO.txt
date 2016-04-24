@@ -55,10 +55,14 @@ Fix / revise TYPE parameter declaration ("hashed" binding members) - DONE
 
 Refactor expression conversion wrapping so that each specialization-index has an independent conversion evaluation - DONE
 
-Make fields be "bindings to entities" rather than "entities", in order to fix multi-instantiation in e.g:
+Make fields be "bindings to entities" rather than "entities" - SORT-OF-DONE
+ - in order to fix multi-instantiation in e.g:
   stackObj := AType();  ## allocates twice & copies! 
 
-Implicit zero / default constructor initializer for stack fields without explicit initializers
+==>> Implicit default constructor initializer for stack fields without explicit initializers:
+  Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const
+        // TODO: invoke default constructor
+
 
 Proper support for VALUE bindings, and implement correct Array type handling
 
@@ -100,12 +104,13 @@ Full dataspaces support
 
 Shared objects
 
+Implicit constructors: if no constructor specified, automatically generate constructors:
+ - default (zero arguments) constructor if base type and all members without inlined initializers allow default construction
+ - "full" constructor if base type allows default construction and one argument for each member (?)
+ 
+Constructor initialization validation check: That each constructor properly initializes all members (without inlined initializers)
+
 Generic type instance fields support (with Any contraint type)
  - To support declaring instance fields of dynamically resolved type by value (not just reference)
-
-Make TxType be fully defined upon construction (during type resolution pass)
- - Means base types are fully resolved by subtype construction
- - Static (vtable) and instance field layouts can be done upon construction
- - Target (LLVM) type construction could also be done right away
 
 Enum typeclass

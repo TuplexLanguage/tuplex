@@ -393,6 +393,21 @@ void TypeRegistry::initializeBuiltinSymbols() {
         ASSERT(this->builtinModTypes[id], "NULL mod builtin type: " << biType);
     }
 
+    // default constructors for elementary, concrete built-ins:
+    LexicalContext ctx(module);
+    declare_default_constructor(ctx, BOOL,   new TxBoolLitNode(NULL_LOC, false));
+    declare_default_constructor(ctx, BYTE,   new TxIntegerLitNode(NULL_LOC, 0, true,  BYTE));
+    declare_default_constructor(ctx, SHORT,  new TxIntegerLitNode(NULL_LOC, 0, true,  SHORT));
+    declare_default_constructor(ctx, INT,    new TxIntegerLitNode(NULL_LOC, 0, true,  INT));
+    declare_default_constructor(ctx, LONG,   new TxIntegerLitNode(NULL_LOC, 0, true,  LONG));
+    declare_default_constructor(ctx, UBYTE,  new TxIntegerLitNode(NULL_LOC, 0, false, UBYTE));
+    declare_default_constructor(ctx, USHORT, new TxIntegerLitNode(NULL_LOC, 0, false, USHORT));
+    declare_default_constructor(ctx, UINT,   new TxIntegerLitNode(NULL_LOC, 0, false, UINT));
+    declare_default_constructor(ctx, ULONG,  new TxIntegerLitNode(NULL_LOC, 0, false, ULONG));
+    declare_default_constructor(ctx, HALF,   new TxFloatingLitNode(NULL_LOC, HALF));
+    declare_default_constructor(ctx, FLOAT,  new TxFloatingLitNode(NULL_LOC, FLOAT));
+    declare_default_constructor(ctx, DOUBLE, new TxFloatingLitNode(NULL_LOC, DOUBLE));
+
     // scalar conversion-constructor functions:
     for (auto fromTypeId : SCALAR_TYPE_IDS) {
         for (auto toTypeId : SCALAR_TYPE_IDS) {
@@ -444,14 +459,21 @@ void TypeRegistry::initializeBuiltinSymbols() {
     }
 }
 
-void TypeRegistry::declare_conversion_constructor(BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId) {
-//    // global-scope converter function:
-//    TxBuiltinDeclProxy* fieldDefiner = new TxBuiltinDeclProxy(this->builtinTypes[toTypeId]->plainName);
-//    module->declare_field(fieldDefiner->name, fieldDefiner, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
-//    fieldDefiner->type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
-//                                                             this->builtinTypes[fromTypeId]->get_type(),
-//                                                             this->builtinTypes[toTypeId]->get_type());
+void TypeRegistry::declare_default_constructor(LexicalContext& ctx, BuiltinTypeId toTypeId, TxExpressionNode* initValueExpr) {
+    initValueExpr->symbol_declaration_pass(0, ctx);
 
+    // constructors for built-in elementary types are really inline conversion expressions
+    auto typeDecl = this->builtinTypes[toTypeId]->get_declaration();
+    auto constructorDefiner = new TxBuiltinFieldDefiner();
+    auto constructorDecl = typeDecl->get_symbol()->declare_field("$init", constructorDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_CONSTRUCTOR, TXS_INSTANCEMETHOD, TxIdentifier(""));
+    auto type = new TxBuiltinDefaultConstructorType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
+                                                    this->builtinTypes[toTypeId]->get_type(),
+                                                    initValueExpr);
+    type->prepare_type_members();
+    constructorDefiner->field = new TxField(constructorDecl, type);
+}
+
+void TypeRegistry::declare_conversion_constructor(BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId) {
     // constructors for built-in elementary types are really inline conversion expressions
     auto typeDecl = this->builtinTypes[toTypeId]->get_declaration();
     auto constructorDefiner = new TxBuiltinFieldDefiner();

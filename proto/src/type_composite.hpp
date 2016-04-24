@@ -208,6 +208,17 @@ public:
         : TxFunctionType(declaration, baseType, argumentTypes, returnType) { }
 };
 
+class TxBuiltinDefaultConstructorType : public TxBuiltinFunctionType {
+    TxExpressionNode* initValueExpr;
+public:
+    TxBuiltinDefaultConstructorType(const TxTypeDeclaration* declaration, const TxType* baseType,
+                                    const TxType* returnType, TxExpressionNode* initValueExpr)
+        : TxBuiltinFunctionType(declaration, baseType, std::vector<const TxType*>{ }, returnType),
+          initValueExpr(initValueExpr)  { }
+
+    TxExpressionNode* get_default_init_value_expr() const { return initValueExpr; }
+};
+
 class TxBuiltinConversionFunctionType : public TxBuiltinFunctionType {
 public:
     TxBuiltinConversionFunctionType(const TxTypeDeclaration* declaration, const TxType* baseType, const TxType* argumentType,
