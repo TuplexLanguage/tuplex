@@ -6,8 +6,7 @@
 TxModule::TxModule(TxModule* parent, const std::string& name, bool declared)
         : TxScopeSymbol(parent, name), declared(declared) {
     if (parent) {  // if not the root package
-        if (! dynamic_cast<TxModule*>(parent))
-            throw std::logic_error("Illegal to declare a module under a non-module parent: " + this->get_full_name().to_string());
+        ASSERT(dynamic_cast<TxModule*>(parent), "Illegal to declare a module under a non-module parent: " << this->get_full_name());
         // FUTURE: disallow tx... namespace declarations in "user mode"
         //if (moduleNamespace.begins_with(BUILTIN_NS))
         //    parser_error(this->parseLocation, "Illegal namespace name, must not begin with \"" BUILTIN_NS "\"");
@@ -164,7 +163,8 @@ bool TxModule::import_symbol(const TxIdentifier& identifier) {
         return false;
     else if (identifier.name() == "*") {
         for (auto siter = otherModule->symbols_cbegin(); siter != otherModule->symbols_cend(); siter++)
-            if (siter->first.find_first_of('$') == std::string::npos)  // if not an internal name
+            if (siter->first[0] != '~'  // not a modifiable derivation
+                    && siter->first.find_first_of('$') == std::string::npos)  // not an internal name
                 this->use_symbol(otherModule, siter->first);
         return true;
     }

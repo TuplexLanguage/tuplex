@@ -373,7 +373,7 @@ public:
 
     TxFieldDefiner* get_field_definer(TxSpecializationIndex six) { return this->get_spec_field_def(six); }
 
-    /** Returns the type (as specific as can be known) of the value this expression produces. */
+    /** Resolves the type and returns the field entity of this field-defining node. */
     virtual const TxField* resolve_field(TxSpecializationIndex six) override final {
         auto spec = this->get_spec(six);
         if (!spec->field && !spec->hasResolved) {
@@ -386,6 +386,7 @@ public:
         return spec->field;
     }
 
+    /** Returns the type (as specific as can be known) of the value this field-defining node produces. */
     virtual const TxType* resolve_type(TxSpecializationIndex six) override final {
         this->resolve_field(six);
         return this->get_spec(six)->type;
@@ -669,8 +670,10 @@ public:
             initExpression->set_field_def_node(this);
             this->initExpression = make_generic_conversion_node(initExpression);
         }
-        else
+        else {
+            ASSERT(typeExpression, "At least one of typeExpression and initExpression must be specified");
             this->initExpression = nullptr;
+        }
     }
     TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
                    TxExpressionNode* initExpression, bool modifiable=false, TxTypeDefiner* typeDefiner=nullptr)
@@ -680,8 +683,10 @@ public:
             initExpression->set_field_def_node(this);
             this->initExpression = make_generic_conversion_node(initExpression);
         }
-        else
+        else {
+            ASSERT(typeDefiner, "At least one of typeDefiner and initExpression must be specified");
             this->initExpression = nullptr;
+        }
     }
 
     void symbol_declaration_pass_local_field(TxSpecializationIndex six, LexicalContext& lexContext, bool create_local_scope,

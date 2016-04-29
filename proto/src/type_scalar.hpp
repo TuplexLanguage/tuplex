@@ -34,11 +34,6 @@ class TxScalarType : public TxType {
 protected:
     const uint64_t _size;
 
-//    virtual TxScalarType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-//                                                const std::vector<TxTypeSpecialization>& interfaces) const override {
-//        throw std::logic_error("Can't specialize type " + this->to_string());
-//    };
-
     TxScalarType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, uint64_t size)
         : TxType(TXTC_ELEMENTARY, declaration, baseTypeSpec), _size(size) { }
 

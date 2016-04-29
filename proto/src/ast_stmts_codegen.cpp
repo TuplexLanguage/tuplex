@@ -143,7 +143,7 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     }
     else {
         fieldVal = txType->gen_alloca(context, scope, declaration->get_symbol()->get_name());
-        // TODO: invoke default constructor
+        // We don't automatically invoke default constructor (in future, a code flow validator should check that initialized before first use)
     }
     context.register_llvm_value(uniqueName, fieldVal);
     return fieldVal;

@@ -36,7 +36,7 @@ static const BuiltinTypeId SCALAR_TYPE_IDS[] = {
 
 
 /** the flags that may be inherited when specializing a type */
-static const TxDeclarationFlags DECL_FLAG_FILTER = TXD_STATIC | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_FINAL | TXD_EXPERRBLOCK;
+static const TxDeclarationFlags DECL_FLAG_FILTER = TXD_STATIC | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_FINAL | TXD_IMPLICIT | TXD_EXPERRBLOCK;
 
 
 /*--- private classes providing indirection for fetching the built-in type objects ---*/
@@ -510,30 +510,24 @@ void TypeRegistry::register_types() {
         }
         else {
             type->prepare_type_members();
-            // Types that are distinct in instance data type, or vtable, get their own type id and vtable.
+            // Types that are distinct in instance data type, or vtable, get distinct runtime type id and vtable.
             if (type->get_type_class() == TXTC_FUNCTION)
                 continue;
             if (type->is_equivalent_derivation()) {
-                //std::cerr << "Not registering equivalent derivation: " << type << std::endl;
+                //std::cerr << "Not registering distinct runtime type id for equivalent derivation: " << type << std::endl;
                 continue;
             }
-//            if (type->is_equivalent_reinterpreted_specialization()) {
-//                ASSERT(type->is_reinterpreted(), "is_equivalent_reinterpreted_specialization() TRUE but not is_reinterpreted()");
-//                std::cerr << "Not registering reinterpreted equivalent specialization: " << type << std::endl;
-//                continue;
-//            }
-            if (type->get_type_class() != TXTC_REFERENCE && type->get_type_class() != TXTC_ARRAY) {
-                if (type->is_reinterpreted()) {
-                    //std::cerr << "Not registering reinterpreted type: " << type << std::endl;
-                    continue;
-                }
+            // As long as we only generate actual code for six 0, don't register distinct runtime type id for reinterpreted types:
+            if (type->is_reinterpreted()) {
+                //std::cerr << "Not registering distinct runtime type id for reinterpreted type: " << type << std::endl;
+                continue;
             }
             //if (type->get_declaration())
             //    std::cerr << "with six=" << type->get_declaration()->get_definer()->get_six() << ": registering type " << type << std::endl;
             type->runtimeTypeId = this->staticTypes.size();
         }
         this->staticTypes.push_back(type);
-        //std::cerr << "Registering: " << type << " with id " << type->runtimeTypeId << std::endl;
+        //std::cerr << "Registering: " << type << " with distinct runtime type id " << type->runtimeTypeId << std::endl;
     }
     ASSERT(this->createdTypes->empty(), "'Extra' types were created while register_types() was running");
     //for (auto type : *this->createdTypes)
@@ -578,7 +572,7 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
     }
 
     if (! declaration) {
-        std::string prefix = ( type->get_declaration()->get_decl_flags() & TXD_IMPLICIT ? "~" : "~$" );
+        std::string prefix = "~";
         std::string name = prefix + type->get_declaration()->get_unique_name();
         TxScopeSymbol* scope = type->get_declaration()->get_symbol()->get_outer();
         if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(scope->get_member_symbol(name))) {
@@ -596,7 +590,7 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
         auto typeDefiner = type->get_declaration()->get_definer();
         auto & ctx = typeDefiner->get_node()->context(typeDefiner->get_six());
         auto modNode = new TxModifiableTypeNode(NULL_LOC, new TxPredefinedTypeNode(NULL_LOC, type->get_declaration()->get_unique_name()));
-        TxDeclarationFlags newDeclFlags = ( type->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT;
+        TxDeclarationFlags newDeclFlags = ( type->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
         modNode->symbol_declaration_pass(0, ctx, ctx, newDeclFlags, name, nullptr);
         modNode->symbol_resolution_pass(0);
         return modNode->get_type(0);
@@ -684,13 +678,13 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
                 existingGenBaseType = existingGenBaseType->get_semantic_base_type();
                 //std::cerr << "existingGenBaseType 3: " << existingGenBaseType << std::endl;
             }
-            if (*existingGenBaseType == *baseType
-                    && existingBaseType->type_params().empty()) {
+            if (*existingGenBaseType == *baseType) {
                 bool matchOK = true;
                 for (auto & binding : *bindings) {
-                    if (auto memberSymbol = dynamic_cast<TxEntitySymbol*>(existingBaseSymbol->get_member_symbol(binding.param_name()))) {
+                    if (auto existingBinding = existingBaseType->get_binding(binding.param_name())) {
+                        //std::cerr << "found existing binding: " << existingBinding << std::endl;
                         if (binding.meta_type() == MetaType::TXB_TYPE) {
-                            if (const TxType* membType = memberSymbol->get_type_decl()->get_definer()->resolve_type()) {
+                            if (const TxType* membType = existingBinding->get_definer()->resolve_type()) {
                                 //std::cerr << "COMPARING: " << membType << " AND " << binding.type_definer().get_type() << std::endl;
                                 if (*membType == *binding.type_definer().get_type())
                                     continue;
@@ -698,11 +692,27 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
                                 //    std::cerr << "BINDING MISMATCH: " << membType << " != " << binding.type_definer().get_type() << std::endl;
                             }
                             else
-                                baseScope->LOGGER().warning("NULL type for member symbol %s", memberSymbol->get_type_decl()->to_string().c_str());
+                                baseScope->LOGGER().warning("NULL type for member symbol %s", existingBinding->get_symbol()->to_string().c_str());
                         }
                         else {  // MetaType::TXB_VALUE
-                            //if (auto fieldDecl = memberSymbol->get_first_field_decl())
-                            //    continue;  // FIXME: once Array.L properly implemented, existence of the VALUE binding is sufficient
+                            // (For now, statically constant VALUE specializations with diff. values don't share the same static type.)
+                            auto existingFieldDefiner = dynamic_cast<TxFieldDefiner*>(existingBinding->get_definer());
+                            ASSERT(existingFieldDefiner, "definer of existing binding " << existingBinding << " is not a TxFieldDefiner");
+                            uint32_t newValue = 0;  // zero means dynamically specified value
+                            uint32_t existingValue = 0;
+                            if (auto newConstantValueProxy = binding.value_definer().get_static_constant_proxy()) {
+                                // new binding has statically constant value
+                                newValue = newConstantValueProxy->get_value_UInt();
+                            }
+                            if (auto existingInitializer = existingFieldDefiner->get_init_expression()) {
+                                if (auto existingConstantValueProxy = existingInitializer->get_static_constant_proxy()) {
+                                    // existing binding has statically constant value
+                                    existingValue = existingConstantValueProxy->get_value_UInt();
+                                }
+                            }
+                            // dynamic VALUE specializations get distinct compile time types, which hold the specific VALUE expressions
+                            if (newValue != 0 && newValue == existingValue)
+                                continue;
                         }
                     }
                     //std::cerr << "NOT ACCEPTING PRE-EXISTING TYPE " << existingBaseType << " SINCE " << std::endl;
@@ -714,6 +724,7 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
                     return existingBaseType;
                 }
             }
+            baseScope->LOGGER().debug("Found existing but mismatching type with sought name: %s", typeDecl->to_string().c_str());
         }
     }
     return nullptr;
@@ -764,7 +775,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
         TxDeclarationFlags newDeclFlags;
         if (declaration->get_decl_flags() & TXD_EXPERRBLOCK) {
             newBaseTypeName << "$EE$" << baseDecl->get_unique_name() << "<";
-            newDeclFlags = ( baseDecl->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT | TXD_EXPERRBLOCK;
+            newDeclFlags = ( baseDecl->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_EXPERRBLOCK | TXD_IMPLICIT;
         }
         else {
             newBaseTypeName << "$" << baseDecl->get_unique_name() << "<";
@@ -796,14 +807,25 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
                                        binding.param_name().c_str(), typeExpr->to_string().c_str());
             }
             else {
+                //binding.value_definer().resolve_type();
+                auto param = baseType->get_type_param(binding.param_name());
+                TxTypeDefiner* paramTypeDef = param.get_constraint_type_definer();
+                // implementation note: binding's value expression not necessarily 'resolved' at this point
+                if (auto bindingValueProxy = binding.value_definer().get_static_constant_proxy()) {
+                    uint32_t bindingValue = bindingValueProxy->get_value_UInt();
+                    newBaseTypeName << bindingValue;  // statically known value
+                }
+                else {
+                    newBaseTypeName << "$VALUE";  // dynamic value
+                    // implementation note: a distinct compile time type is registered which holds this specific dynamic value expression
+                }
+
                 auto & parseLoc = binding.value_definer().get_parse_location();
-                auto fieldDef = new TxFieldDefNode(parseLoc, binding.param_name(), nullptr, &binding.value_definer());
-                auto declNode = new TxFieldDeclNode(parseLoc, TXD_PUBLIC | TXD_GENBINDING, fieldDef);
+                auto fieldDef = new TxFieldDefNode(parseLoc, "$" + binding.param_name(), &binding.value_definer(), false, paramTypeDef);
+                auto declNode = new TxFieldDeclNode(parseLoc, TXD_PUBLIC | TXD_GENBINDING | TXD_IMPLICIT, fieldDef);
                 bindingDeclNodes->push_back(declNode);
                 package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
                                        binding.param_name().c_str(), binding.value_definer().to_string().c_str());
-
-                newBaseTypeName << "$VALUE";
             }
         }
         newBaseTypeName << ">";

@@ -140,11 +140,11 @@ void TxType::prepare_type() {
 
                     switch (fieldDecl->get_storage()) {
                     case TXS_INSTANCE:
-                        if (fieldDecl->get_decl_flags() & TXD_GENBINDING)
-                            // FIXME: make VALUE type params be declared as instance members in generic base type,
-                            // so that they are not "extensions" to the specialized subtypes, and remove this '#' test
-                            break;
-                        this->extendsInstanceDatatype = true;
+                        // Note: VALUE bindings are only declared as instance members in generic base type,
+                        // so that they are not "extensions" to the specialized subtypes.
+                        if (! (fieldDecl->get_decl_flags() & TXD_GENBINDING)) {
+                            this->extendsInstanceDatatype = true;
+                        }
                         break;
                     case TXS_INSTANCEMETHOD:
                         if (fieldDecl->get_decl_flags() & TXD_CONSTRUCTOR)
@@ -192,7 +192,7 @@ void TxType::prepare_type() {
                         this->params.emplace_back(paramDecl);
                         if (this->get_type_class() != TXTC_INTERFACEADAPTER) {
                             //CERROR(this, "Missing binding or redeclaration of base type's type parameter " << paramDecl->get_unique_name());
-                            LOGGER().note("Inheriting type parameter %s in type %s", paramDecl->get_unique_full_name().c_str(), this->to_string().c_str());
+                            LOGGER().note("Implicitly inheriting (redeclaring) type parameter %s in type %s", paramDecl->get_unique_full_name().c_str(), this->to_string().c_str());
                         }
                     }
                 }
@@ -203,6 +203,8 @@ void TxType::prepare_type() {
             auto basetype = this->get_semantic_base_type();
             for (auto & bindingDecl : this->get_bindings()) {
                 auto pname = bindingDecl->get_unique_name();
+                if (pname[0] == '$')
+                    pname = pname.substr(1);  // skip leading '$' for VALUE bindings
                 if (auto paramDecl = basetype->get_type_param_decl( pname )) {
                     if (meta_type_of(bindingDecl) != meta_type_of(paramDecl))
                         CERROR(bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " of wrong meta-type (TYPE vs VALUE)");
@@ -391,7 +393,9 @@ void TxType::prepare_type_members() {
                                    field->get_type()->to_string(true).c_str(), this->instanceFields.get_field_count());
                     if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
                         CERROR(field, "Can't declare an instance field as abstract: " << field);
-                    if (! expErrField)
+                    if (fieldDecl->get_decl_flags() & TXD_GENBINDING)
+                        LOGGER().debug("Skipping layout of GENBINDING instance field: %s", field->to_string().c_str());
+                    else if (! expErrField)
                         this->instanceFields.add_field(field);
                     break;
                 case TXS_VIRTUAL:
@@ -475,8 +479,6 @@ bool TxType::is_explicit_nongen_declaration() const {
 
 
 bool TxType::is_reinterpreted() const {
-    //if (this->typeClass == TXTC_INTERFACEADAPTER)
-    //    return this->baseTypeSpec.type->is_reinterpreted();
     return ( this->get_declaration()
              && this->get_declaration()->get_definer()->get_six() > 0 );
 }
@@ -486,8 +488,6 @@ bool TxType::is_equivalent_reinterpreted_specialization() const {
         return false;  // FIXME
     else if (this->typeClass == TXTC_ARRAY)
         return false;  // FIXME
-    //else if (this->typeClass == TXTC_INTERFACEADAPTER)
-    //    return this->baseTypeSpec.type->is_equivalent_reinterpreted_specialization();
     else if (this->genericBaseType)
         return !this->genericBaseType->nonRefParameters;
     else
@@ -620,13 +620,12 @@ static TxEntitySymbol* lookup_inherited_binding(const TxType* type, const std::s
     TxIdentifier ident( fullParamName );
     auto parentName = ident.parent().to_string();
     auto paramName = ident.name();
-    TxScopeSymbol* vantageScope = type->get_nearest_declaration()->get_symbol();
     const TxType* semBaseType = type->get_semantic_base_type();
     while (semBaseType) {
         if (get_type_param_decl(semBaseType->type_params(), fullParamName)) {
-            // baseType is the (nearest) type that declares the sought parameter
-            if (auto memberEnt = type->get_instance_member(vantageScope, paramName))
-                return memberEnt;
+            // semBaseType is the (nearest) type that declares the sought parameter
+            if (auto binding = type->get_binding(paramName))
+                return binding->get_symbol();
         }
         else if (semBaseType->get_declaration() && semBaseType->get_declaration()->get_unique_full_name() == parentName)
             type->LOGGER().warning("Type parameter %s apparently unbound", fullParamName.c_str());
@@ -947,16 +946,16 @@ bool TxArrayType::is_statically_sized() const {
 
 
 const TxExpressionNode* TxArrayType::length() const {
-    if (auto paramDecl = this->lookup_value_param_binding("tx.Array.L")) {
-        return paramDecl->get_definer()->get_init_expression();
+    if (auto bindingDecl = this->lookup_value_param_binding("tx.Array.L")) {
+        return bindingDecl->get_definer()->get_init_expression();
     }
     LOGGER().note("Unbound length for array type %s", this->to_string().c_str());
     return nullptr;
 }
 
 const TxType* TxArrayType::element_type() const {
-    if (auto paramDecl = this->lookup_type_param_binding("tx.Array.E")) {
-        if (auto type = paramDecl->get_definer()->resolve_type())
+    if (auto bindingDecl = this->lookup_type_param_binding("tx.Array.E")) {
+        if (auto type = bindingDecl->get_definer()->resolve_type())
             return type;
     }
     LOGGER().note("Unbound element type for array type %s", this->to_string().c_str());

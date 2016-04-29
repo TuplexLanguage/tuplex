@@ -246,37 +246,8 @@ void TxScopeSymbol::dump_symbols() const {
         if (auto submod = dynamic_cast<const TxModule*>(symbol))
             subModules.push_back(submod);
         else if (this->get_full_name() != builtinNamespace || this->get_root_scope()->driver().get_options().dump_tx_symbols) {
-            try {
-                printf("%-14s %-48s %s\n", symbol->declaration_string().c_str(), symbol->get_full_name().to_string().c_str(),
-                       symbol->description_string().c_str());
-                /*
-                if (auto ent = dynamic_cast<const TxFieldEntity*>(symbol)) {
-                    std::string typestr; // = (type && type->entity()) ? type->entity()->get_full_name().to_string() : "nulltype/Void";
-                    if (const TxType* type = ent->get_type())
-                        if (type->entity())
-                            typestr = type->entity()->get_full_name().to_string();
-                        else
-                            typestr = type->to_string();
-                    else
-                        typestr = "nulltype/Void";
-                    printf("%-64s %s\n", symbol->to_string().c_str(), typestr.c_str());
-                }
-                else if (auto ent = dynamic_cast<const TxTypeEntity*>(symbol)) {
-                    const TxType* type = ent->get_type();
-                    std::string typestr = type ? type->to_string() : "nulltype/Void";
-                    printf("%-64s %s\n", symbol->to_string().c_str(), typestr.c_str());
-                }
-                else
-                    printf("%s\n", symbol->to_string().c_str());
-                */
-//                else if (dynamic_cast<const TxOverloadedEntity*>(symbol))
-//                    printf("<overloaded>     %s\n", symbol->get_full_name().to_string().c_str());
-//                else
-//                    printf("<scope>          %s\n", symbol->to_string().c_str());
-            }
-            catch (std::logic_error& e) {
-                printf(">>> Caught logic_error while printing symbol '%s': %s\n", this->get_full_name().to_string().c_str(), e.what());
-            }
+            printf("%-14s %-48s %s\n", symbol->declaration_string().c_str(), symbol->get_full_name().to_string().c_str(),
+                   symbol->description_string().c_str());
             symbol->dump_symbols();
         }
     }
@@ -389,13 +360,13 @@ bool TxEntitySymbol::validate_symbol() const {
 
     if (this->typeDeclaration) {
         valid &= this->typeDeclaration->validate();
-        ASSERT(internalName == !!(this->typeDeclaration->get_decl_flags() & (TXD_IMPLICIT | TXD_CONSTRUCTOR)),
+        ASSERT(!internalName || (this->typeDeclaration->get_decl_flags() & (TXD_IMPLICIT | TXD_CONSTRUCTOR)),
                "Mismatch between name format and IMPLICIT flag for " << this->typeDeclaration);
     }
 
     for (auto fieldDeclI = this->fields_cbegin(); fieldDeclI != this->fields_cend(); fieldDeclI++) {
         valid &= (*fieldDeclI)->validate();
-        ASSERT(internalName == !!((*fieldDeclI)->get_decl_flags() & (TXD_IMPLICIT | TXD_CONSTRUCTOR)),
+        ASSERT(!internalName || ((*fieldDeclI)->get_decl_flags() & (TXD_IMPLICIT | TXD_CONSTRUCTOR)),
                "Mismatch between name format and IMPLICIT flag for " << (*fieldDeclI));
 
         auto type = (*fieldDeclI)->get_definer()->get_type();
@@ -457,7 +428,9 @@ std::string TxEntitySymbol::description_string() const {
             return "TYPE      -undef-";
     else if (this->field_count()) {
         if (auto field = this->get_first_field_decl()->get_definer()->get_field()) {
-            auto storageIx = (field->get_decl_flags() & TXD_CONSTRUCTOR ? -1 : field->get_decl_storage_index());
+            int storageIx = -1;
+            if (! (field->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_GENBINDING)))
+                storageIx = field->get_decl_storage_index();
             std::string storageIxString = ( storageIx >= 0 ? std::string("[") + std::to_string(storageIx) + "] " : std::string("    ") );
             return "FIELD " + storageIxString + field->get_type()->to_string(true);
         }

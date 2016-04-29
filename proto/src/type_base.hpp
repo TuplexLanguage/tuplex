@@ -198,11 +198,9 @@ class TxType : public TxEntity {
     uint32_t runtimeTypeId = UINT32_MAX;
 
     /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
-    //std::vector<TxTypeParam> params;
     std::vector<TxEntityDeclaration*> params;
 
     /** Bindings of the base type's type parameters. Should not be accessed directly, use type_bindings() accessor instead. */
-    //std::vector<TxGenericBinding> bindings;
     std::vector<TxEntityDeclaration*> bindings;
 
     const TxTypeSpecialization baseTypeSpec;  // including bindings for all type parameters of base type
@@ -545,7 +543,8 @@ public:
      * (Note - this does not search ancestors' bound parameters.) */
     const TxEntityDeclaration* get_binding(const std::string& plainName) const {
         for (auto b : this->get_bindings())
-            if (b->get_unique_name() == plainName)
+            if (b->get_unique_name() == plainName
+                    || (b->get_unique_name()[0] == '$' && b->get_unique_name().compare(1, std::string::npos, plainName) == 0))
                 return b;
         return nullptr;
     }
