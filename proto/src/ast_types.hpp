@@ -25,20 +25,7 @@ public:
 
     /** Creates, registers and returns a newly created TxTypeBinding.
      * To be called after symbol_declaration_pass() and before symbol_resolution_pass(). */
-    TxGenericBinding make_binding(TxSpecializationIndex six, const TxIdentifier& fullBaseTypeName, const TxEntityDeclaration* paramDecl) {
-        //this->setup_declarations(fullBaseTypeName, paramDecl);
-        if (this->typeExprNode) {
-            auto spec = this->get_spec(six);
-            this->typeExprNode->symbol_declaration_pass(six, spec->defContext, spec->lexContext, TXD_PUBLIC, "", nullptr);
-            return TxGenericBinding::make_type_binding(paramDecl->get_unique_name(), this->typeExprNode->get_type_definer(six));
-        }
-        else {
-            ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
-            this->valueExprNode->symbol_declaration_pass(six, this->context(six));
-            auto valueDefiner = new TxExprWrapperNode(this->valueExprNode, six);
-            return TxGenericBinding::make_value_binding(paramDecl->get_unique_name(), valueDefiner);
-        }
-    }
+    TxGenericBinding make_binding(TxSpecializationIndex six, const TxIdentifier& fullBaseTypeName, const TxEntityDeclaration* paramDecl);
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six) {
         if (this->typeExprNode)
@@ -287,8 +274,7 @@ protected:
             }
         }
 
-        auto declTypeParams = make_decl_type_params(six);
-        auto type = this->types(six).get_type_specialization(declaration, baseObjType, interfaces, nullptr, declTypeParams, this->_mutable);
+        auto type = this->types(six).get_type_specialization(declaration, baseObjType, interfaces, nullptr, this->_mutable);
         return type;
     }
 

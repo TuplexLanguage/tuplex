@@ -168,27 +168,6 @@ TxSuiteNode::TxSuiteNode(const yy::location& parseLocation, std::vector<TxStatem
 
 
 
-std::vector<TxTypeParam>* TxTypeExpressionNode::make_decl_type_params(TxSpecializationIndex six) {
-    const std::vector<TxDeclarationNode*>* typeParamDeclNodes = this->get_type_param_decl_nodes(six);
-    if (! typeParamDeclNodes)
-        return nullptr;
-    auto paramsVec = new std::vector<TxTypeParam>();
-    for (auto declNode : *typeParamDeclNodes) {
-        if (declNode->get_decl_flags() & TXD_GENPARAM) {
-            //std::cerr << "param decl is a GENPARAM: " << declNode << std::endl;
-            paramsVec->emplace_back(declNode->get_declaration(six));
-        }
-        else if (declNode->get_decl_flags() & TXD_GENBINDING) {
-            //std::cerr << "param decl is a GENBINDING: " << declNode << std::endl;
-        }
-//        else if (declNode->get_declaration(six)->get_unique_name() != "$GenericBase")
-//            // this "injected" declarations mechanism currently not intended for other than generic parameters/bindings
-//            this->LOGGER().warning("Type param declaration is neither GENPARAM or GENBINDING: %s", declNode->to_string().c_str());
-    }
-    return paramsVec;
-}
-
-
 void TxTypeDeclNode::symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& defContext, LexicalContext& lexContext) {
     this->set_context(six, lexContext);
     // Note: does not invoke symbol_declaration_pass() on typeParamDecls, that is delegated to typeExpression
@@ -262,6 +241,7 @@ void TxPredefinedTypeNode::symbol_declaration_pass(TxSpecializationIndex six, Le
         //     type Subtype<A> Type<A>  ## Legal since A is subnode of decl's type expression
         //     type Subtype<A> A        ## Illegal since A is top node of decl's type expression
         //std::cerr << "early lookup of " << this->identNode->ident << " under " << lexContext.scope() << std::endl;
+        this->LOGGER().note("%s: Early lookup of '%s'", this->parse_loc_string().c_str(), this->identNode->ident.to_string().c_str());
         if (auto identifiedTypeDecl = lookup_type(lexContext.scope(), this->identNode->ident)) {
             if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
                 if (typeParamDeclNodes && !typeParamDeclNodes->empty()) {
@@ -292,6 +272,23 @@ void TxPredefinedTypeNode::symbol_declaration_pass(TxSpecializationIndex six, Le
 //        std::cerr << "skipped early lookup of " << this->identNode->ident << " under " << lexContext.scope() << std::endl;
 
     TxTypeExpressionNode::symbol_declaration_pass(six, defContext, lexContext, declFlags, typeName, typeParamDeclNodes);
+}
+
+
+TxGenericBinding TxTypeArgumentNode::make_binding(TxSpecializationIndex six, const TxIdentifier& fullBaseTypeName,
+                                                  const TxEntityDeclaration* paramDecl) {
+    //std::cerr << "making binding " << paramDecl->get_unique_name() << " for " << fullBaseTypeName << " at " << this->parse_loc_string() << std::endl;
+    if (this->typeExprNode) {
+        auto spec = this->get_spec(six);
+        this->typeExprNode->symbol_declaration_pass(six, spec->defContext, spec->lexContext, TXD_PUBLIC, "", nullptr);
+        return TxGenericBinding::make_type_binding(paramDecl->get_unique_name(), this->typeExprNode->get_type_definer(six));
+    }
+    else {
+        ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
+        this->valueExprNode->symbol_declaration_pass(six, this->context(six));
+        auto valueDefiner = new TxExprWrapperNode(this->valueExprNode, six);
+        return TxGenericBinding::make_value_binding(paramDecl->get_unique_name(), valueDefiner);
+    }
 }
 
 

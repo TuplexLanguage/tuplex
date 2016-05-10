@@ -513,14 +513,6 @@ public:
         return false;
     }
 
-    /** Gets a TxTypeParam for a type parameter of this type. (Note - this does not search ancestors' bound parameters.) */
-    const TxTypeParam get_type_param(const std::string& plainParamName) const {
-        for (auto & paramDecl : this->type_params())
-            if (plainParamName == paramDecl->get_unique_name())
-                return TxTypeParam(paramDecl);
-        throw std::out_of_range("No such unbound type parameter in " + this->to_string() + ": " + plainParamName);
-    }
-
     /** Gets the declaration of a type parameter of this type. (Note - this does not search ancestors' bound parameters.) */
     const TxEntityDeclaration* get_type_param_decl(const std::string& plainParamName) const {
         for (auto & paramDecl : this->type_params()) {

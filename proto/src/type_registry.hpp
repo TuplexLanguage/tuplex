@@ -113,8 +113,7 @@ public:
      */
     TxType* get_type_specialization(const TxTypeDeclaration* declaration, const TxType* baseType,
                                     const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
-                                    const std::vector<TxGenericBinding>* bindings=nullptr,
-                                    const std::vector<TxTypeParam>* typeParams=nullptr, bool _mutable=false);
+                                    const std::vector<TxGenericBinding>* bindings=nullptr, bool _mutable=false);
 
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
     const TxType* get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);

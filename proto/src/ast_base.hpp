@@ -425,9 +425,6 @@ protected:
         return ( six < this->typeParamDeclNodes.size() ? this->typeParamDeclNodes.at(six) : nullptr );
     }
 
-    /** returns a newly allocated TxTypeParam vector with this type expression's GENPARAM type parameter declaration nodes */
-    std::vector<TxTypeParam>* make_decl_type_params(TxSpecializationIndex six);
-
     virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
                                                      LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
 

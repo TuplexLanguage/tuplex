@@ -184,15 +184,16 @@ void TxType::prepare_type() {
         }
 
         // if this is not an empty nor a modifiable derivation, verify that all parameters of base type are either bound, or redeclared:
-        // (current approach is to inherit, i.e. automatically redeclare, the base type's parameters that have not been bound)
+        // Note: The base type's parameters that have not been bound should normally be automatically redeclared by the type registry.
         if (this->has_base_type() && !this->emptyDerivation && !this->is_modifiable()) {
-            for (auto & paramDecl : this->get_base_type()->type_params()) {
+            for (auto & paramDecl : this->get_semantic_base_type()->type_params()) {
                 if (! this->get_binding(paramDecl->get_unique_name())) {
                     if (! this->has_type_param(paramDecl->get_unique_name())) {
-                        this->params.emplace_back(paramDecl);
+                        //this->params.emplace_back(paramDecl);
                         if (this->get_type_class() != TXTC_INTERFACEADAPTER) {
-                            //CERROR(this, "Missing binding or redeclaration of base type's type parameter " << paramDecl->get_unique_name());
-                            LOGGER().note("Implicitly inheriting (redeclaring) type parameter %s in type %s", paramDecl->get_unique_full_name().c_str(), this->to_string().c_str());
+                            CERROR(this, "Missing binding or redeclaration of base type's type parameter "
+                                   << paramDecl->get_unique_name() << " in " << this);
+                            //LOGGER().note("Implicitly inheriting (redeclaring) type parameter %s in type %s", paramDecl->get_unique_full_name().c_str(), this->to_string().c_str());
                         }
                     }
                 }
