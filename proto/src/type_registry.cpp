@@ -646,8 +646,11 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
                 auto bindingType = binding.type_definer().get_type();
                 auto constraintType = paramDecl->get_definer()->resolve_type();
                 ASSERT(constraintType, "NULL constraint type for type parameter " << paramDecl);
-                if (*constraintType == *bindingType)
-                    continue;
+                if (! (bindingType->get_declaration() && (bindingType->get_declaration()->get_decl_flags() & TXD_GENPARAM))) {
+                    // (if binding is itself a type parameter (due to redeclaring a type parameter), we consider it an explicit unique type)
+                    if (*constraintType == *bindingType)
+                        continue;
+                }
             }
             else {  // MetaType::TXB_VALUE
                 // VALUE parameters don't have "defaults"

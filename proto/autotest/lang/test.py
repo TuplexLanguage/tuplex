@@ -75,6 +75,7 @@ source_files = [
     
     "genericstest.tx",
     "genericstest2.tx",
+    "genericstest3.tx",
     "sequenceiftest.tx",
 ]
 

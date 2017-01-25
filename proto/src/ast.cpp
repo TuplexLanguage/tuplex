@@ -241,7 +241,7 @@ void TxPredefinedTypeNode::symbol_declaration_pass(TxSpecializationIndex six, Le
         //     type Subtype<A> Type<A>  ## Legal since A is subnode of decl's type expression
         //     type Subtype<A> A        ## Illegal since A is top node of decl's type expression
         //std::cerr << "early lookup of " << this->identNode->ident << " under " << lexContext.scope() << std::endl;
-        this->LOGGER().note("%s: Early lookup of '%s'", this->parse_loc_string().c_str(), this->identNode->ident.to_string().c_str());
+        this->LOGGER().debug("%s: Early lookup of '%s'", this->parse_loc_string().c_str(), this->identNode->ident.to_string().c_str());
         if (auto identifiedTypeDecl = lookup_type(lexContext.scope(), this->identNode->ident)) {
             if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
                 if (typeParamDeclNodes && !typeParamDeclNodes->empty()) {
@@ -255,7 +255,7 @@ void TxPredefinedTypeNode::symbol_declaration_pass(TxSpecializationIndex six, Le
                 this->set_context(six, lexContext);
                 auto declaredAlias = lexContext.scope()->declare_alias(typeName, TXD_PUBLIC | TXD_IMPLICIT, identifiedTypeDecl);
                 if (declaredAlias) {
-                    this->LOGGER().debug("%s: Declared '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
+                    this->LOGGER().alert("%s: Declared '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
                                          declaredAlias->get_full_name().to_string().c_str(),
                                          identifiedTypeDecl->to_string().c_str());
                     this->get_spec(six)->declaration = identifiedTypeDecl;  // Or should this be the alias entity?
