@@ -313,6 +313,39 @@ public:
 };
 
 
+/**
+ * Custom AST node needed to resolve to a type's super type. */
+class TxSuperTypeNode : public TxTypeExpressionNode {
+protected:
+    virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
+                                                     LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
+        this->derivedTypeNode->symbol_declaration_pass(six, defContext, lexContext, declFlags, "", nullptr);
+    }
+
+    virtual const TxType* define_type(TxSpecializationIndex six) override {
+        if (auto dType = this->derivedTypeNode->resolve_type(six)) {
+            if (dType->has_base_type())
+                return dType->get_semantic_base_type();
+            CERROR(this, "Can't refer to 'super type' of a type that has no base type: " << dType);
+        }
+        return nullptr;
+    }
+
+public:
+    TxTypeExpressionNode* derivedTypeNode;
+
+    TxSuperTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* derivedTypeNode)
+        : TxTypeExpressionNode(parseLocation), derivedTypeNode(derivedTypeNode)  { }
+
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
+        TxTypeExpressionNode::symbol_resolution_pass(six);
+        this->derivedTypeNode->symbol_resolution_pass(six);
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+};
+
+
 class TxFunctionTypeNode : public TxTypeExpressionNode {
     // Note: the field names aren't part of a function's formal type definition
 

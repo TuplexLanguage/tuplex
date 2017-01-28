@@ -33,6 +33,10 @@ class TxGenericBinding : public Printable {
         : typeParamName(typeParamName), metaType(metaType), typeDefiner(typeDefiner), valueDefiner(valueDefiner)  { }
 
 public:
+    /** Constructs a copy of a TXB_TYPE binding but with a different type definer. */
+    TxGenericBinding(const TxGenericBinding& original, TxTypeDefiner* newTypeDefiner)
+        : typeParamName(original.typeParamName), metaType(original.metaType), typeDefiner(newTypeDefiner), valueDefiner(nullptr)  { }
+
     static TxGenericBinding make_type_binding(const std::string& typeParamName, TxTypeDefiner* typeDefiner);
     static TxGenericBinding make_value_binding(const std::string& typeParamName, TxExpressionNode* valueDefiner);
 

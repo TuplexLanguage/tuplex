@@ -365,9 +365,7 @@ void TxDerivedTypeNode::init_implicit_types() {
     const std::string selfTypeName = "$Self";
     this->selfRefTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_IMPLICIT, selfTypeName, nullptr, selfRefTypeExprN);
 
-    TxTypeExpressionNode* superTypeExprN = this->baseTypes->empty()
-                                       ? new TxPredefinedTypeNode(this->parseLocation, "tx.Tuple")
-                                       : static_cast<TxTypeExpressionNode*>(new TxTypeExprWrapperNode(this->baseTypes->at(0)));
+    TxTypeExpressionNode* superTypeExprN = new TxSuperTypeNode(this->parseLocation, new TxTypeExprWrapperNode(this));
     auto superRefTypeExprN = new TxReferenceTypeNode(this->parseLocation, nullptr,
                                                      new TxModifiableTypeNode(this->parseLocation, superTypeExprN));
     const std::string superTypeName = "$Super";

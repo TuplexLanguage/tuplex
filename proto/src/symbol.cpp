@@ -176,7 +176,7 @@ TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName, TxEn
     else {
         entitySymbol = new TxEntitySymbol(this, plainName);
         this->declare_symbol(entitySymbol);
-        this->LOGGER().trace("    Declared   %-32s %s", entitySymbol->get_full_name().to_string().c_str(), entitySymbol->to_string().c_str());
+        this->LOGGER().trace("    Declared   %s", entitySymbol->to_string().c_str());
 
         // register possible main() function:
         if (plainName == "main") {

@@ -81,8 +81,8 @@ void TxType::prepare_type_validation() const {
             // also validate any anonymous base types (otherwise their validate() won't be called)
             this->baseTypeSpec.type->validate();
 
-        if (this->baseTypeSpec.type->is_empty_derivation() && !this->baseTypeSpec.type->is_explicit_nongen_declaration()) {
-            ASSERT(! (this->is_empty_derivation() && !this->is_explicit_nongen_declaration()),
+        if (this->baseTypeSpec.type->is_empty_derivation() && !this->baseTypeSpec.type->get_explicit_declaration()) {
+            ASSERT(! (this->is_empty_derivation() && !this->get_explicit_declaration()),
                    "anonymous or implicit, empty types may not be derived except as another anonymous or implicit, empty type: " << this);
         }
     }
@@ -419,7 +419,8 @@ void TxType::prepare_type_members() {
                         if (overriddenField->get_decl_flags() & TXD_FINAL)
                             CERROR(field, "Can't override a base type field that is declared 'final': " << field);
                         if (! (field->get_type()->is_assignable_to(*overriddenField->get_type())))
-                            CERROR(field, "Overriding member's type may not override overridden member's type: " << field->get_type());
+                            CERROR(field, "Overriding member's type " << field->get_type() << std::endl
+                                    << "   not assignable to overridden member's type " << overriddenField->get_type());
                         if (! expErrField)
                             this->virtualFields.override_field(field->get_unique_name(), field);
                     }
@@ -825,17 +826,17 @@ static void type_params_string(std::stringstream& str, const std::vector<TxEntit
     str << ">";
 }
 
-static void type_bindings_string(std::stringstream& str, const std::vector<TxEntityDeclaration*>& bindings) {
-    str << "<";
-    int ix = 0;
-    for (auto b : bindings) {
-        if (ix++)  str << ",";
-        //str << b->get_unique_full_name();
-        b->get_definer()->resolve_type();
-        str << b->get_definer()->get_type()->to_string(true, true);
-    }
-    str << ">";
-}
+//static void type_bindings_string(std::stringstream& str, const std::vector<TxEntityDeclaration*>& bindings) {
+//    str << "<";
+//    int ix = 0;
+//    for (auto b : bindings) {
+//        if (ix++)  str << ",";
+//        str << b->get_unique_full_name();
+//        //b->get_definer()->resolve_type();
+//        //str << b->get_definer()->get_type()->to_string(true, true);
+//    }
+//    str << ">";
+//}
 
 std::string TxType::to_string(bool brief, bool skipFirstName, bool skipImplicitNames) const {
     std::stringstream str;
@@ -870,8 +871,8 @@ void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName,
     if (this->has_base_type() && (!brief || skipFirstName)) {
         str << (this->is_empty_derivation() ? " = " : " : ");
 
-        if (! this->get_bindings().empty())
-            type_bindings_string(str, this->get_bindings());
+        //if (! this->get_bindings().empty())
+        //    type_bindings_string(str, this->get_bindings());
 
         this->get_base_type()->self_string(str, false, false, skipImplicitNames);  // set 'brief' to false to print entire type chain
     }

@@ -47,6 +47,13 @@ Value* TxDerivedTypeNode::code_gen(LlvmGenerationContext& context, GenScope* sco
 }
 
 
+Value* TxSuperTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s", this->to_string().c_str());
+    this->derivedTypeNode->code_gen(context, scope);
+    return nullptr;
+}
+
+
 Value* TxFunctionTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     for (auto argDef : *this->arguments)

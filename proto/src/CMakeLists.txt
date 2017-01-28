@@ -134,6 +134,7 @@ add_executable(txc
 # -std=c++11
 # -std=c++1y
 # -fexceptions -fcxx-exceptions 
+# -fprofile-arcs -ftest-coverage
 #SET (CMAKE_C_COMPILER             "/usr/bin/clang")
 SET (CMAKE_C_COMPILER             "/usr/bin/gcc")
 SET (CMAKE_C_FLAGS                "-Wall -std=c99")

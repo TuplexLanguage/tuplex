@@ -129,9 +129,9 @@ IntValue::IntValue(const std::string& sourceLiteral, bool hasRadix, BuiltinTypeI
                 this->outOfRange = true;
             errno = 0;
             this->_signed = true;
-            if      (this->value.u64 >= INT8_MIN)   this->typeId = BYTE;
-            else if (this->value.u64 >= INT16_MIN)  this->typeId = SHORT;
-            else if (this->value.u64 >= INT32_MIN)  this->typeId = INT;
+            if      (this->value.i64 >= INT8_MIN)   this->typeId = BYTE;
+            else if (this->value.i64 >= INT16_MIN)  this->typeId = SHORT;
+            else if (this->value.i64 >= INT32_MIN)  this->typeId = INT;
             else                                    this->typeId = LONG;
         }
         else {

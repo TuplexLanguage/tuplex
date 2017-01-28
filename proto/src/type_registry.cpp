@@ -488,6 +488,7 @@ void TypeRegistry::declare_conversion_constructor(BuiltinTypeId fromTypeId, Buil
 
 void TypeRegistry::enqueued_resolution_pass() {
     while (! this->enqueuedSpecializations.empty()) {
+        //std::cerr << "Nof enqueued specializations: " << this->enqueuedSpecializations.size() << std::endl;
         auto & enqSpec = this->enqueuedSpecializations.front();
         enqSpec.node->symbol_resolution_pass(enqSpec.six);
         this->enqueuedSpecializations.pop();
@@ -561,7 +562,7 @@ TxType* TypeRegistry::make_specialized_type(const TxTypeDeclaration* declaration
 
 const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declaration, const TxType* type) {
     // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
-    while (type->is_empty_derivation() && !type->is_explicit_nongen_declaration())
+    while (type->is_empty_derivation() && !type->get_explicit_declaration())  //!type->is_explicit_nongen_declaration())
         type = type->get_base_type();
     ASSERT(!type->is_modifiable(), "Can't make a modifiable specialization of a modifiable type: " << type);
     if (type->is_builtin()) {
@@ -601,7 +602,7 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
 
 const TxType* TypeRegistry::get_empty_specialization(const TxTypeDeclaration* declaration, const TxType* type) {
     //std::cerr << "MAKING EMPTY TYPE: " << declaration->to_string() << std::endl;
-    while (type->is_empty_derivation() && !type->is_explicit_nongen_declaration())
+    while (type->is_empty_derivation() && !type->get_explicit_declaration())  //!type->is_explicit_nongen_declaration())
         type = type->get_base_type();
     return this->make_specialized_type(declaration, TxTypeSpecialization(type, false, true));
 }
@@ -646,11 +647,19 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
                 auto bindingType = binding.type_definer().get_type();
                 auto constraintType = paramDecl->get_definer()->resolve_type();
                 ASSERT(constraintType, "NULL constraint type for type parameter " << paramDecl);
-                if (! (bindingType->get_declaration() && (bindingType->get_declaration()->get_decl_flags() & TXD_GENPARAM))) {
-                    // (if binding is itself a type parameter (due to redeclaring a type parameter), we consider it an explicit unique type)
-                    if (*constraintType == *bindingType)
-                        continue;
+                //baseScope->LOGGER().trace("bindingType decl:    %s", bindingType->get_declaration()->to_string().c_str());
+                //baseScope->LOGGER().trace("constraintType decl: %s", constraintType->get_declaration()->to_string().c_str());
+                if (auto bindingDecl = bindingType->get_declaration()) {
+                    if (bindingDecl == constraintType->get_declaration())
+                        continue;  // binding refers to "itself" (its parameter declaration)
+                    if (! (bindingDecl->get_decl_flags() & TXD_GENPARAM)) {
+                        // (if binding is to another type parameter it is an explicit unique type)
+                        if (*constraintType == *bindingType)
+                            continue;
+                    }
                 }
+                else if (*constraintType == *bindingType)
+                    continue;
             }
             else {  // MetaType::TXB_VALUE
                 // VALUE parameters don't have "defaults"
@@ -760,7 +769,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
     bool hasBindings = (bindings && !bindings->empty());
 
-    while (baseType->is_empty_derivation() && !baseType->is_explicit_nongen_declaration())
+    while (baseType->is_empty_derivation() && !baseType->get_explicit_declaration())  //!baseType->is_explicit_nongen_declaration())
         baseType = baseType->get_base_type();
 
     if (baseType->get_decl_flags() & TXD_GENPARAM) {
@@ -801,6 +810,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
         // make new parameter declarations that resolve to the bindings:
         auto bindingDeclNodes = new std::vector<TxDeclarationNode*>();
+        std::vector<TxGenericBinding> newBindings;
         unsigned bindCount = 0;
         for (auto & binding : *bindings) {
             if (bindCount++)  newBaseTypeName << ",";
@@ -810,12 +820,23 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
                 auto btype = binding.type_definer().resolve_type();
                 if (! btype)
                     return nullptr;  // specialization fails if a binding fails resolve
-                while (btype->is_empty_derivation() && !btype->get_explicit_declaration()) //!btype->is_explicit_nongen_declaration())
+                auto origBType = btype;
+                while (btype->is_empty_derivation()
+                        && ( (! btype->get_declaration())
+                             || (btype->get_declaration()->get_decl_flags() & (TXD_IMPLICIT | TXD_GENBINDING) ) ) ) {
+                    // if no declaration or implicit declaration, or
+                    // if binding refers to a previous binding (i.e. in surrounding scope), fold it
+                    //std::cerr << "###### skipping bindingType to base type: " << btype << std::endl;
                     btype = btype->get_base_type();
+                }
 
                 newBaseTypeName << encode_type_name(btype);
 
                 bindingDeclNodes->push_back(make_type_param_decl_node(binding.param_name(), TXD_GENBINDING, btype));
+                if (btype != origBType)
+                    newBindings.emplace_back(binding, new TxTypeWrapperDef(btype));
+                else
+                    newBindings.emplace_back(binding);
                 package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
                                        binding.param_name().c_str(), btype->to_string().c_str());
             }
@@ -832,6 +853,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
                 auto paramDecl = baseType->get_type_param_decl(binding.param_name());
                 bindingDeclNodes->push_back(make_type_param_decl_node("$" + binding.param_name(), TXD_GENBINDING, paramDecl, &binding.value_definer()));
+                newBindings.emplace_back(binding);
                 package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
                                        binding.param_name().c_str(), binding.value_definer().to_string().c_str());
             }
@@ -841,10 +863,10 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
         // if equivalent specialized type already exists then reuse it, otherwise create new one:
         auto baseScope = baseDecl->get_symbol()->get_outer();
-        const TxType* specializedBaseType = get_existing_type(baseType, bindings, baseScope, newBaseTypeNameStr);
+        const TxType* specializedBaseType = get_existing_type(baseType, &newBindings, baseScope, newBaseTypeNameStr);
         if (! specializedBaseType) {
             // If any parameter is not bound, the parameter is redeclared (inherited) as still-unbound type parameter:
-            for (auto unboundParamDecl : get_unbound_type_parameters(baseType, bindings)) {
+            for (auto unboundParamDecl : get_unbound_type_parameters(baseType, &newBindings)) {
                 package.LOGGER().note("Implicitly inheriting (redeclaring) type parameter %s in type %s",
                                       unboundParamDecl->get_unique_full_name().c_str(), newBaseTypeNameStr.c_str());
                 if (auto typeDecl = dynamic_cast<const TxTypeDeclaration*>(unboundParamDecl)) {
@@ -878,6 +900,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
             // (since the same source text construct may be recursively reprocessed),
             // so we enqueue this "specialization pass" for later processing.
             //baseTypeExpr->symbol_resolution_pass(newSix);
+            //std::cerr << "enqueuing specialization " << newBaseTypeNameStr << "  " << baseTypeExpr << std::endl;
             this->enqueuedSpecializations.emplace( EnqueuedSpecialization{ baseTypeExpr, newSix } );
             specializedBaseType = baseTypeExpr->resolve_type(newSix);
         }
