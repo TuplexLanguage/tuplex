@@ -422,20 +422,20 @@ std::string TxEntitySymbol::description_string() const {
         return "-overloaded-";
     else if (this->typeDeclaration)
         if (auto type = this->typeDeclaration->get_definer()->attempt_get_type()) {
-            return "TYPE      " + type->to_string(false, true);
+            return "\tTYPE      " + type->to_string(false, true);
         }
         else
-            return "TYPE      -undef-";
+            return "\tTYPE      -undef-";
     else if (this->field_count()) {
         if (auto field = this->get_first_field_decl()->get_definer()->get_field()) {
             int storageIx = -1;
             if (! (field->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_GENBINDING)))
                 storageIx = field->get_decl_storage_index();
             std::string storageIxString = ( storageIx >= 0 ? std::string("[") + std::to_string(storageIx) + "] " : std::string("    ") );
-            return "FIELD " + storageIxString + field->get_type()->to_string(true);
+            return "\tFIELD " + storageIxString + field->get_type()->to_string(true);
         }
         else
-            return "FIELD     -undef-";
+            return "\tFIELD     -undef-";
     }
     else  // declaration not yet assigned to this entity symbol
         return "-undef entity-";
