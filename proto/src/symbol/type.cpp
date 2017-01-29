@@ -1,4 +1,5 @@
-#include "logging.hpp"
+#include "util/logging.hpp"
+
 #include "tx_error.hpp"
 
 #include "type.hpp"
@@ -586,7 +587,6 @@ TxEntitySymbol* TxType::get_instance_member(TxScopeSymbol* vantageScope, const s
             if (auto memberEnt = dynamic_cast<TxEntitySymbol*>(member))
                 return memberEnt;
             else
-                // FIXME: handle alias??
                 LOGGER().warning("Looked-up member is not an entity: %s",  member->to_string().c_str());
         }
     }

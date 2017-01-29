@@ -1,5 +1,6 @@
+#include "util/assert.hpp"
+
 #include "tx_lang_defs.hpp"
-#include "assert.hpp"
 #include "package.hpp"
 #include "entity.hpp"
 #include "declaration.hpp"
@@ -210,17 +211,6 @@ TxFieldDeclaration* TxScopeSymbol::declare_field(const std::string& plainName, T
     return nullptr;
 }
 
-TxAliasSymbol* TxScopeSymbol::declare_alias(const std::string& plainName, TxDeclarationFlags declFlags, TxEntityDeclaration* aliasedDeclaration) {
-    if (auto prev_symbol = this->get_symbol(plainName)) {
-        CERROR(&this->get_root_scope()->driver(), "Failed to declare alias symbol, can't overload alias with other declarations under same symbol " << prev_symbol);
-        return nullptr;
-    }
-    auto symbol = new TxAliasSymbol(this, plainName, declFlags, aliasedDeclaration);
-    this->declare_symbol(symbol);
-    this->LOGGER().trace("    Declared   %-32s %s", symbol->get_full_name().to_string().c_str(), symbol->to_string().c_str());
-    return symbol;
-}
-
 
 
 bool TxScopeSymbol::symbol_validation_pass() const {
@@ -258,18 +248,6 @@ void TxScopeSymbol::dump_symbols() const {
             //printf("<module>       %s\n", mod->to_string().c_str());
     }
 }
-
-
-
-/*=== TxAliasSymbol implementation ===*/
-
-TxScopeSymbol* TxAliasSymbol::get_aliased_symbol() const {
-    return this->aliasedDeclaration->get_symbol();
-}
-
-std::string TxAliasSymbol::description_string() const {
-    return "alias " + this->aliasedDeclaration->get_unique_full_name();
-};
 
 
 
@@ -447,70 +425,61 @@ std::string TxEntitySymbol::description_string() const {
 
 static TxScopeSymbol* search_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
 
-TxScopeSymbol* TxAliasSymbol::resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) {
-    LOGGER().note("Substituting alias %s with %s", this->get_full_name().to_string().c_str(),
-                  this->get_aliased_symbol()->to_string().c_str());
-    return this->get_aliased_symbol()->resolve_generic(vantageScope, scope);
-}
-
-TxScopeSymbol* TxEntitySymbol::resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) {
-    if (this->is_overloaded())
-        return this;
-    if (this->get_distinct_decl()->get_decl_flags() & TXD_GENPARAM) {
-        std::string bindingName = this->get_full_name().to_string();
-        std::replace(bindingName.begin(), bindingName.end(), '.', '#');
-        this->LOGGER().debug("Trying to resolve generic parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), scope->get_full_name().to_string().c_str());
-        if (auto boundSym = search_symbol(scope, bindingName)) {
-            // #-ified symbol is bound
-            this->LOGGER().note("Substituting generic parameter %s with %s", this->get_full_name().to_string().c_str(), boundSym->to_string().c_str());
-            return boundSym->resolve_generic(vantageScope, scope);
-        }
-        else {
-            // #-ified symbol is unbound
-            // unbound symbols are not resolved against, unless they're defined by an outer or parent scope -
-            // meaning they're type parameters pertaining to the current lexical context
-            if (scope->get_full_name().begins_with(this->get_outer()->get_full_name()))
-                this->LOGGER().debug("Scope (%s) of unbound generic parameter %s encompasses scope %s (so OK)",
-                                     this->get_outer()->get_full_name().to_string().c_str(),
-                                     bindingName.c_str(), scope->get_full_name().to_string().c_str());
-            else
-                this->LOGGER().warning("Scope (%s) of unbound generic parameter %s DOESN'T encompass scope %s",
-                                       this->get_outer()->get_full_name().to_string().c_str(),
-                                       bindingName.c_str(), scope->get_full_name().to_string().c_str());
-        }
-    }
-    return this;
-}
+//TxScopeSymbol* TxEntitySymbol::resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) {
+//    if (this->is_overloaded())
+//        return this;
+//    if (this->get_distinct_decl()->get_decl_flags() & TXD_GENPARAM) {
+//        std::string bindingName = this->get_full_name().to_string();
+//        std::replace(bindingName.begin(), bindingName.end(), '.', '#');
+//        this->LOGGER().debug("Trying to resolve generic parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), scope->get_full_name().to_string().c_str());
+//        if (auto boundSym = search_symbol(scope, bindingName)) {
+//            // #-ified symbol is bound
+//            this->LOGGER().note("Substituting generic parameter %s with %s", this->get_full_name().to_string().c_str(), boundSym->to_string().c_str());
+//            return boundSym->resolve_generic(vantageScope, scope);
+//        }
+//        else {
+//            // #-ified symbol is unbound
+//            // unbound symbols are not resolved against, unless they're defined by an outer or parent scope -
+//            // meaning they're type parameters pertaining to the current lexical context
+//            if (scope->get_full_name().begins_with(this->get_outer()->get_full_name()))
+//                this->LOGGER().debug("Scope (%s) of unbound generic parameter %s encompasses scope %s (so OK)",
+//                                     this->get_outer()->get_full_name().to_string().c_str(),
+//                                     bindingName.c_str(), scope->get_full_name().to_string().c_str());
+//            else
+//                this->LOGGER().warning("Scope (%s) of unbound generic parameter %s DOESN'T encompass scope %s",
+//                                       this->get_outer()->get_full_name().to_string().c_str(),
+//                                       bindingName.c_str(), scope->get_full_name().to_string().c_str());
+//        }
+//    }
+//    return this;
+//}
 
 
-static TxScopeSymbol* inner_lookup_member(TxScopeSymbol* vantageScope, TxScopeSymbol* scope, const TxIdentifier& ident) {
+static TxScopeSymbol* inner_lookup_member(TxScopeSymbol* scope, const TxIdentifier& ident) {
     //std::cout << "From '" << scope->get_full_name() << "': lookup_member(" << ident << ")" << std::endl;
     if (auto member = scope->get_member_symbol(ident.segment(0))) {
-        // if the identified member is a type parameter/alias, attempt to resolve it by substituting it for its binding:
-        //member = member->resolve_generic(vantageScope, scope);
-
         if (ident.is_plain())
             return member;
         else
-            return inner_lookup_member(vantageScope, member, TxIdentifier(ident, 1));
+            return inner_lookup_member(member, TxIdentifier(ident, 1));
     }
     return nullptr;
 }
 
 static TxScopeSymbol* search_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident) {
     for (auto scope = vantageScope; scope; scope = scope->get_outer()) {
-        if (auto symbol = inner_lookup_member(vantageScope, scope, ident))
+        if (auto symbol = inner_lookup_member(scope, ident))
             return symbol;
         if (dynamic_cast<TxModule*>(scope))
             // if member lookup within a module fails, skip parent modules and do global lookup via root namespace (package)
-            return inner_lookup_member(vantageScope, scope->get_root_scope(), ident);
+            return inner_lookup_member(scope->get_root_scope(), ident);
     }
     return nullptr;
 }
 
 
 TxScopeSymbol* lookup_member(TxScopeSymbol* vantageScope, TxScopeSymbol* scope, const TxIdentifier& ident) {
-    auto symbol = inner_lookup_member(vantageScope, scope, ident);
+    auto symbol = inner_lookup_member(scope, ident);
     // TODO: implement visibility check
     return symbol;
 }

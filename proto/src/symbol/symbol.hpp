@@ -2,7 +2,8 @@
 
 #include <unordered_map>
 
-#include "logging.hpp"
+#include "util/logging.hpp"
+
 #include "identifier.hpp"
 #include "tx_declaration_flags.hpp"
 #include "tx_field_storage.hpp"
@@ -11,7 +12,6 @@
 
 
 class TxPackage;
-class TxAliasSymbol;
 class TxEntitySymbol;
 class TxEntityDeclaration;
 class TxTypeDeclaration;
@@ -37,7 +37,7 @@ class TxFieldDeclaration;
  *
  * 2. Aliasing: If the leading name segment is an alias, perform the alias substitution
  * and continue with the next step, global matching.
- * (Thus, aliasing can never shadow fields accessed via their plain names.)
+ * (Since second step, aliasing can never shadow fields accessed via their plain names.)
  *
  * 3. Global matching: Attempt to match the name as a fully qualified name within global scope.
  *
@@ -87,11 +87,11 @@ private:
     TxScopeSymbol* add_symbol(TxScopeSymbol* symbol);
 
 protected:
-    virtual bool has_symbol(const std::string& name) const;
+    virtual bool has_symbol(const std::string& name) const final;
 
-    virtual const TxScopeSymbol* get_symbol(const std::string& name) const;
+    virtual const TxScopeSymbol* get_symbol(const std::string& name) const final;
 
-    virtual inline TxScopeSymbol* get_symbol(const std::string& name) {
+    virtual inline TxScopeSymbol* get_symbol(const std::string& name) final {
         return const_cast<TxScopeSymbol*>(static_cast<const TxScopeSymbol *>(this)->get_symbol(name));
     }
 
@@ -155,8 +155,6 @@ public:
                                               TxDeclarationFlags declFlags, TxFieldStorage storage,
                                               const TxIdentifier& dataspace);
 
-    virtual TxAliasSymbol* declare_alias(const std::string& plainName, TxDeclarationFlags declFlags, TxEntityDeclaration* aliasedDeclaration);
-
 
 
     /** Gets a symbol from this namespace. */
@@ -164,7 +162,7 @@ public:
         return this->get_symbol(name);
     }
 
-    virtual TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) { return this; }
+//    virtual TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) { return this; }
 
 
 
@@ -216,36 +214,6 @@ public:
 
 
 
-/** Represents a symbol that is an alias for another entity symbol. */
-class TxAliasSymbol : public TxScopeSymbol {
-    const TxDeclarationFlags declFlags;
-    TxEntityDeclaration* aliasedDeclaration;
-
-protected:
-    virtual bool declare_symbol(TxScopeSymbol* symbol) override {
-        ASSERT(false, "Can't add member symbol (" << symbol << ") directly to an alias symbol: " << this->get_full_name());
-        return false;
-    }
-
-public:
-    TxAliasSymbol(TxScopeSymbol* parentScope, const std::string& name, TxDeclarationFlags declFlags, TxEntityDeclaration* aliasedDeclaration)
-            : TxScopeSymbol(parentScope, name), declFlags(declFlags), aliasedDeclaration(aliasedDeclaration) { }
-
-    TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
-
-    //const TxIdentifier& get_aliased_name() const { return this->aliasedDeclaration->get_symbol()->get_full_name(); }
-
-    TxEntityDeclaration* get_aliased_declaration() const { return this->aliasedDeclaration; }
-
-    TxScopeSymbol* get_aliased_symbol() const;
-
-    TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) override;
-
-    virtual std::string description_string() const override;
-};
-
-
-
 /** A symbol that represents an entity (several if overloaded). */
 class TxEntitySymbol : public TxScopeSymbol {
     TxTypeDeclaration* typeDeclaration;
@@ -286,18 +254,9 @@ public:
     inline std::vector<TxFieldDeclaration*>::const_iterator fields_cend() const noexcept { return this->fieldDeclarations.cend(); }
 
 
-//    virtual const TxType* resolve_symbol_type() override {
-//        return this->typeDefiner ? this->typeDefiner->resolve_symbol_type() : nullptr;
-//    }
-//
-//    virtual const TxType* get_type() const override {
-//        return this->typeDefiner ? this->typeDefiner->get_type() : nullptr;
-//    }
-
-
     virtual TxScopeSymbol* get_member_symbol(const std::string& name) override;
 
-    TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) override;
+//    TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) override;
 
 //    virtual TxSymbolScope* lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) override {
 //        // for now: match against this overloaded symbol's type entity, if present, otherwise fail

@@ -1,6 +1,6 @@
 #include "declaration.hpp"
 
-#include "assert.hpp"
+#include "util/assert.hpp"
 #include "entity.hpp"
 #include "symbol.hpp"
 #include "type.hpp"

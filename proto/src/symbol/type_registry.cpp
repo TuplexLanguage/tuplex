@@ -1,7 +1,8 @@
+#include "util/assert.hpp"
+
 #include "tx_lang_defs.hpp"
 #include "type_registry.hpp"
 
-#include "assert.hpp"
 #include "package.hpp"
 #include "entity.hpp"
 #include "llvm_generator.hpp"

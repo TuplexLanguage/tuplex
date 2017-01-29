@@ -11,9 +11,7 @@ WS          [ \t]
 #include <climits>
 #include <cstdlib>
 #include <string>
-#include "driver.hpp"
 
-#include "ast.hpp"
 #include "parser.hpp"
 
 typedef yy::TxParser::token token;

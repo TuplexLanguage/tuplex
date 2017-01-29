@@ -1,8 +1,10 @@
 #pragma once
 
+#include "util/logging.hpp"
+
 #include "driver.hpp"
-#include "logging.hpp"
 #include "tx_error.hpp"
+
 #include "type_registry.hpp"
 #include "module.hpp"
 

@@ -4,8 +4,8 @@
 #include <vector>
 #include <algorithm>
 
-#include "assert.hpp"
-#include "printable.hpp"
+#include "util/assert.hpp"
+#include "util/printable.hpp"
 
 
 class TxIdentifier : public Printable {

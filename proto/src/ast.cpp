@@ -234,42 +234,42 @@ void TxPredefinedTypeNode::symbol_declaration_pass(TxSpecializationIndex six, Le
     else
         typeName = designatedTypeName;
 
-    if (! typeName.empty()) {
-        // If this type node is named (declared), perform early type name lookup
-        // to capture generic type parameter referral, in which case the new entity will be an alias for it.
-        // Note: Early lookup does not match the type parameters declared in this node, only prior ones:
-        //     type Subtype<A> Type<A>  ## Legal since A is subnode of decl's type expression
-        //     type Subtype<A> A        ## Illegal since A is top node of decl's type expression
-        //std::cerr << "early lookup of " << this->identNode->ident << " under " << lexContext.scope() << std::endl;
-        this->LOGGER().debug("%s: Early lookup of '%s'", this->parse_loc_string().c_str(), this->identNode->ident.to_string().c_str());
-        if (auto identifiedTypeDecl = lookup_type(lexContext.scope(), this->identNode->ident)) {
-            if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
-                if (typeParamDeclNodes && !typeParamDeclNodes->empty()) {
-                    CERROR(this, "Type parameters can't be declared on top of generic type parameter " << this->identNode->ident);
-                    /* This might be desirable in future (or maybe not). E.g:
-                       type Subtype<A derives Array> {
-                          A<Int,5> field
-                       }  */
-                }
-
-                this->set_context(six, lexContext);
-                auto declaredAlias = lexContext.scope()->declare_alias(typeName, TXD_PUBLIC | TXD_IMPLICIT, identifiedTypeDecl);
-                if (declaredAlias) {
-                    this->LOGGER().alert("%s: Declared '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
-                                         declaredAlias->get_full_name().to_string().c_str(),
-                                         identifiedTypeDecl->to_string().c_str());
-                    this->get_spec(six)->declaration = identifiedTypeDecl;  // Or should this be the alias entity?
-                }
-                else
-                    CERROR(this, "Failed to declare alias " << typeName.c_str());
-                LexicalContext typeCtx(lexContext, declaredAlias ? declaredAlias : lexContext.scope());
-                this->symbol_declaration_pass_descendants(six, defContext, typeCtx, declFlags);
-                return;
-            }
-        }
-    }
-//    else
-//        std::cerr << "skipped early lookup of " << this->identNode->ident << " under " << lexContext.scope() << std::endl;
+//    if (! typeName.empty()) {
+//        // If this type node is named (declared), perform early type name lookup
+//        // to capture generic type parameter referral, in which case the new entity will be an alias for it.
+//        // Note: Early lookup does not match the type parameters declared in this node, only prior ones:
+//        //     type Subtype<A> Type<A>  ## Legal since A is subnode of decl's type expression
+//        //     type Subtype<A> A        ## Illegal since A is top node of decl's type expression
+//        //std::cerr << "early lookup of " << this->identNode->ident << " under " << lexContext.scope() << std::endl;
+//        this->LOGGER().debug("%s: Early lookup of '%s'", this->parse_loc_string().c_str(), this->identNode->ident.to_string().c_str());
+//        if (auto identifiedTypeDecl = lookup_type(lexContext.scope(), this->identNode->ident)) {
+//            if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
+//                if (typeParamDeclNodes && !typeParamDeclNodes->empty()) {
+//                    CERROR(this, "Type parameters can't be declared on top of generic type parameter " << this->identNode->ident);
+//                    /* This might be desirable in future (or maybe not). E.g:
+//                       type Subtype<A derives Array> {
+//                          A<Int,5> field
+//                       }  */
+//                }
+//
+//                this->set_context(six, lexContext);
+//                auto declaredAlias = lexContext.scope()->declare_alias(typeName, TXD_PUBLIC | TXD_IMPLICIT, identifiedTypeDecl);
+//                if (declaredAlias) {
+//                    this->LOGGER().alert("%s: Declared '%s' as alias for GENPARAM %s", this->parse_loc_string().c_str(),
+//                                         declaredAlias->get_full_name().to_string().c_str(),
+//                                         identifiedTypeDecl->to_string().c_str());
+//                    this->get_spec(six)->declaration = identifiedTypeDecl;  // Or should this be the alias entity?
+//                }
+//                else
+//                    CERROR(this, "Failed to declare alias " << typeName.c_str());
+//                LexicalContext typeCtx(lexContext, declaredAlias ? declaredAlias : lexContext.scope());
+//                this->symbol_declaration_pass_descendants(six, defContext, typeCtx, declFlags);
+//                return;
+//            }
+//        }
+//    }
+////    else
+////        std::cerr << "skipped early lookup of " << this->identNode->ident << " under " << lexContext.scope() << std::endl;
 
     TxTypeExpressionNode::symbol_declaration_pass(six, defContext, lexContext, declFlags, typeName, typeParamDeclNodes);
 }

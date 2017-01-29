@@ -2,9 +2,10 @@
 #include <string.h>
 #include <iostream>
 
+#include "util/logging.hpp"
+#include "util/files_env.hpp"
+
 #include "driver.hpp"
-#include "logging.hpp"
-#include "files_env.hpp"
 
 #include "TuplexConfig.h"
 

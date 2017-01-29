@@ -1,5 +1,5 @@
 #include "context.hpp"
-#include "module.hpp"
+#include "symbol/module.hpp"
 #include "ast_base.hpp"
 
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "assert.hpp"
-#include "printable.hpp"
+#include "util/assert.hpp"
+#include "util/printable.hpp"
 
 
 class TxType;

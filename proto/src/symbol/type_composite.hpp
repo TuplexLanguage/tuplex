@@ -2,8 +2,9 @@
 
 #include <algorithm>
 
+#include "util/logging.hpp"
+
 #include "context.hpp"
-#include "logging.hpp"
 
 #include "type_base.hpp"
 

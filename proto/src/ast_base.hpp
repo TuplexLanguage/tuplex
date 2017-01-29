@@ -3,18 +3,19 @@
 #include <typeinfo>
 #include <vector>
 
-#include "assert.hpp"
-#include "context.hpp"
-#include "logging.hpp"
-#include "tx_error.hpp"
+#include "util/assert.hpp"
+#include "util/logging.hpp"
 
+#include "context.hpp"
+#include "tx_error.hpp"
 #include "tx_operations.hpp"
 #include "identifier.hpp"
-#include "package.hpp"
-#include "module.hpp"
-#include "entity.hpp"
 #include "driver.hpp"
 #include "location.hh"
+
+#include "symbol/package.hpp"
+#include "symbol/module.hpp"
+#include "symbol/entity.hpp"
 
 
 /* forward declarations pertaining to LLVM code generation */
@@ -167,15 +168,13 @@ bool validateFieldName(TxSpecializableNode* node, TxDeclarationFlags declFlags, 
 
 class TxIdentifierNode : public TxNonSpecializableNode {
 public:
-    enum IdentifierClass { UNSPECIFIED, MODULE_ID, IMPORT_ID, TYPE_ID, FIELD_ID, DATASPACE_ID };
-    const IdentifierClass idClass;
     const TxIdentifier ident;
 
-    TxIdentifierNode(const yy::location& parseLocation, const TxIdentifier* ident, IdentifierClass identifierClass=UNSPECIFIED)
-        : TxNonSpecializableNode(parseLocation), idClass(identifierClass), ident(*ident)  { }
+    TxIdentifierNode(const yy::location& parseLocation, const TxIdentifier* ident)
+        : TxNonSpecializableNode(parseLocation), ident(*ident)  { }
 
     TxIdentifierNode(const yy::location& parseLocation, const TxIdentifier& ident)
-        : TxNonSpecializableNode(parseLocation), idClass(UNSPECIFIED), ident(ident)  { }
+        : TxNonSpecializableNode(parseLocation), ident(ident)  { }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 

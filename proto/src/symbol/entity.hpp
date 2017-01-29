@@ -2,7 +2,8 @@
 
 #include <unordered_map>
 
-#include "assert.hpp"
+#include "util/assert.hpp"
+
 #include "tx_lang_defs.hpp"
 #include "identifier.hpp"
 

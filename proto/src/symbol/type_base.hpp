@@ -6,14 +6,13 @@
 #include <algorithm>
 #include <cstdlib>
 
-#include "assert.hpp"
-#include "printable.hpp"
+#include "util/assert.hpp"
+#include "util/printable.hpp"
 
 #include "identifier.hpp"
-
-#include "type_visitor.hpp"
 #include "generics.hpp"
 
+#include "type_visitor.hpp"
 #include "entity.hpp"
 
 
@@ -118,7 +117,7 @@ public:
  * 2. Empty extension - modifiable is false, pass-through type parameters
  * 3. Type parameter specialization - modifiable is false, one or more bindings are set
  *
- * 2 is used for type aliases, and for derived types that don't bind type parameters.
+ * 2 is used for explicitly unique'd subtypes, and derived types that don't bind type parameters.
  * 3 is used for specializing generic types, including derived types (that extend with additional members).
 
 

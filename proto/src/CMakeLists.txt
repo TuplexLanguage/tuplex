@@ -22,6 +22,9 @@ configure_file (
   "${BUILD_OUTPUT_PATH}/TuplexConfig.h"
   )
 
+# add_subdirectory (util)
+
+
 # add to the search path for include files so that we will find TuplexConfig.h
 include_directories("${BUILD_OUTPUT_PATH}")
 
@@ -99,26 +102,28 @@ execute_process(COMMAND llvm-config --ldflags OUTPUT_VARIABLE LLVM_LD_FLAGS OUTP
 add_executable(txc
     ${FLEX_TxLexer_OUTPUTS}
     ${BISON_TxParser_OUTPUTS}
-        files_env.cpp
-        logging.cpp
+        util/files_env.cpp
+        util/logging.cpp
+
+        symbol/symbol.cpp
+        symbol/type.cpp
+        symbol/package.cpp
+        symbol/module.cpp
+        symbol/declaration.cpp
+        symbol/entity.cpp
+        symbol/type_registry.cpp
+        symbol/type_codegen.cpp
+
         tx_operations.cpp
         tx_error.cpp
         identifier.cpp
         driver.cpp
         main.cpp
         context.cpp
+        generics.cpp
         ast.cpp
         ast_conv.cpp
         ast_lit.cpp
-        generics.cpp
-        type.cpp
-        package.cpp
-        module.cpp
-        symbol.cpp
-        declaration.cpp
-        entity.cpp
-        type_registry.cpp
-        type_codegen.cpp
         ast_base_codegen.cpp
         ast_exprs_codegen.cpp
         ast_conv_codegen.cpp
@@ -135,6 +140,7 @@ add_executable(txc
 # -std=c++1y
 # -fexceptions -fcxx-exceptions 
 # -fprofile-arcs -ftest-coverage
+# -Wno-deprecated-register
 #SET (CMAKE_C_COMPILER             "/usr/bin/clang")
 SET (CMAKE_C_COMPILER             "/usr/bin/gcc")
 SET (CMAKE_C_FLAGS                "-Wall -std=c99")
@@ -145,7 +151,7 @@ SET (CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 
 #SET (CMAKE_CXX_COMPILER             "/usr/bin/clang++")
 SET (CMAKE_CXX_COMPILER             "/usr/bin/gcc")
-SET (CMAKE_CXX_FLAGS                "-Wall -Wno-deprecated-register -std=c++11 -pthread")
+SET (CMAKE_CXX_FLAGS                "-Wall -std=c++11 -pthread")
 SET (CMAKE_CXX_FLAGS_DEBUG          "-g")
 SET (CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
 SET (CMAKE_CXX_FLAGS_RELEASE        "-O4 -DNDEBUG")

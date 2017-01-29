@@ -1,10 +1,11 @@
 #include <cstdlib>
 #include <string>
 
-#include "driver.hpp"
-#include "assert.hpp"
-#include "files_env.hpp"
+#include "util/assert.hpp"
+#include "util/files_env.hpp"
 #include "tinydir/tinydir.h"
+
+#include "driver.hpp"
 
 #include "tx_lang_defs.hpp"
 #include "llvm_generator.hpp"

@@ -1,8 +1,9 @@
-#include "logging.hpp"
+#include "util/logging.hpp"
 
 #include "generics.hpp"
-#include "type_base.hpp"
 #include "ast.hpp"
+
+#include "symbol/type_base.hpp"
 
 
 MetaType meta_type_of(const TxEntityDeclaration* declaration) {

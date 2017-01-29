@@ -1,9 +1,9 @@
 #pragma once
 
-#include "assert.hpp"
+#include "util/assert.hpp"
 
 
-#include "symbol.hpp"
+#include "symbol/symbol.hpp"
 
 class TxModule;
 class TxPackage;

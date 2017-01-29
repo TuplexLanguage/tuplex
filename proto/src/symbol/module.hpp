@@ -3,8 +3,8 @@
 #include <vector>
 #include <unordered_map>
 
-#include "assert.hpp"
-#include "logging.hpp"
+#include "util/assert.hpp"
+#include "util/logging.hpp"
 
 #include "identifier.hpp"
 #include "symbol.hpp"
