@@ -9,7 +9,7 @@
 //%define parse.assert
 
 // Pass the parsing context to yylex() and yyparse()
-%param { TxDriver& driver }
+%param { TxParserContext* context }
 %locations  // populates YYLTYPE
 
 
@@ -18,7 +18,6 @@
 {
 #include <string>
 #include "ast.hpp"
-class TxDriver;
 
 struct TxModuleMembers {
     std::vector<TxDeclarationNode*> declarations;
@@ -33,7 +32,7 @@ struct TxModuleMembers {
   yy::TxParser::token_type                         \
   yylex (yy::TxParser::semantic_type* yylval,      \
          yy::TxParser::location_type* yylloc,      \
-         TxDriver& driver)
+         TxParserContext* context)
 // declare yylex for the parser's sake
 YY_DECL;
 }
@@ -42,8 +41,8 @@ YY_DECL;
 #include "tx_lang_defs.hpp"
 #include "tx_operations.hpp"
 
-#define BEGIN_TXEXPERR(loc) driver.begin_exp_err(loc);
-#define END_TXEXPERR(loc)   driver.end_exp_err(loc);
+#define BEGIN_TXEXPERR(loc) context->begin_exp_err(loc);
+#define END_TXEXPERR(loc)   context->end_exp_err(loc);
 #define TX_SYNTAX_ERROR     { yyerrok; }
 %}
 
@@ -52,7 +51,7 @@ YY_DECL;
 {
     // Initialize the initial location.
     // Afterward new locations are computed relatively to the previous locations: the file name will be propagated.
-    @$.begin.filename = @$.end.filename = driver.current_input_filepath();
+    @$.begin.filename = @$.end.filename = context->current_input_filepath();
 };
 
 
@@ -176,8 +175,8 @@ parsing_unit : opt_module_decl
                opt_import_stmts
                opt_module_members
                    { $$ = new TxParsingUnitNode(@2, new TxModuleNode(@1, $1, $2, &$3->declarations, &$3->modules));
-                     driver.validate_module_name($1->ident);
-                     driver.parsingUnit = $$;
+                     context->validate_module_name($1->ident);
+                     context->parsingUnit = $$;
                    }
     ;
 
@@ -201,7 +200,7 @@ module_members : member_declaration
 sub_module : KW_MODULE compound_identifier
                LBRACE  opt_import_stmts  opt_module_members  RBRACE
                  { $$ = new TxModuleNode(@1, $2, $4, &$5->declarations, &$5->modules);
-                   driver.validate_module_name($2->ident);
+                   context->validate_module_name($2->ident);
                  }
     ;
 
@@ -239,8 +238,8 @@ import_statements  : import_statement
 import_statement   : KW_IMPORT compound_identifier opt_sc
                         { $$ = new TxImportNode(@1, $2);
                           if ($2->ident.is_qualified())
-                              if (! driver.add_import($2->ident.parent()))
-                                  driver.cerror(@1, "Failed to import module (source not found): " + $2->ident.parent().to_string()); }
+                              if (! context->add_import($2->ident.parent()))
+                                  context->cerror(@1, "Failed to import module (source not found): " + $2->ident.parent().to_string()); }
                    | KW_IMPORT error opt_sc  { $$ = NULL; }
                    ;
 
@@ -630,5 +629,5 @@ assignee_expr  // expressions capable of (but not guaranteed) to produce an lval
 %%
 
 void yy::TxParser::error (const location_type& l, const std::string& m) {
-    driver.cerror (l, m);
+    context->cerror (l, m);
 }

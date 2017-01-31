@@ -35,8 +35,6 @@ TxDriver::~TxDriver() {
 
 
 int TxDriver::scan_begin(const std::string &filePath) {
-    // FUTURE: make parser not save *pointer* to filename, necessitating this leaky snippet:
-    this->currentInputFilename = new std::string(filePath);
     yy_flex_debug = this->options.debug_lexer;
     if (filePath.empty() || filePath == "-")
         yyin = stdin;
@@ -53,8 +51,8 @@ void TxDriver::scan_end() {
 }
 
 
-int TxDriver::parse(const std::string &filePath) {
-    int ret = scan_begin(filePath);
+int TxDriver::parse(TxParserContext& parserContext) {
+    int ret = scan_begin(*parserContext.current_input_filepath());
     if (ret) {
         return ret;
     }
@@ -62,7 +60,7 @@ int TxDriver::parse(const std::string &filePath) {
     //if (this->options.only_scan)  // currently unsupported
     //    return test_scanner();
 
-    yy::TxParser parser(*this);
+    yy::TxParser parser(&parserContext);
     parser.set_debug_level(this->options.debug_parser);
     ret = parser.parse();
 
@@ -83,9 +81,11 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
     /*--- parse all source filed (during parsing, files are added to the queue as the are imported) ---*/
 
     while (! this->sourceFileQueue.empty()) {
+        TxIdentifier moduleName = this->sourceFileQueue.front().first;  // note, may be empty
         std::string nextFilePath = this->sourceFileQueue.front().second;
         if (! this->parsedSourceFiles.count(nextFilePath)) {
-            int ret = this->parse(nextFilePath);
+            TxParserContext parserContext(*this, moduleName, nextFilePath);
+            int ret = this->parse(parserContext);
             if (ret) {
                 if (ret == 1)  // syntax error
                     LOG.fatal("Exiting due to unrecovered syntax error");
@@ -93,10 +93,9 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
                     LOG.fatal("Exiting due to out of memory");
                 return ret;
             }
-            ASSERT(this->parsingUnit, "parsingUnit not set by parser");
-            this->parsedASTs.push_back(this->parsingUnit);
-            this->parsedSourceFiles.emplace(nextFilePath, this->parsingUnit);
-            this->parsingUnit = nullptr;
+            ASSERT(parserContext.parsingUnit, "parsingUnit not set by parser");
+            this->parsedASTs.push_back(parserContext.parsingUnit);
+            this->parsedSourceFiles.emplace(nextFilePath, parserContext.parsingUnit);
         }
         this->sourceFileQueue.pop_front();
     }
@@ -113,7 +112,7 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
     /*--- perform declaration pass ---*/
 
     for (auto parsedAST : this->parsedASTs)
-        parsedAST->symbol_declaration_pass(this->package);
+        semanticTrees.push_back( parsedAST->symbol_declaration_pass(this->package) );
 
     this->package->prepare_modules();  // (prepares the declared imports)
 
@@ -124,8 +123,8 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
 
     /*--- perform resolution pass ---*/
 
-    for (auto parsedAST : this->parsedASTs)
-        parsedAST->symbol_resolution_pass();
+    for (auto semTree : semanticTrees)
+        semTree->symbol_resolution_pass();
 
     this->package->types().enqueued_resolution_pass();
 
@@ -160,21 +159,6 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
         return 3;
 
     return 0;
-}
-
-
-bool TxDriver::validate_module_name(const TxIdentifier& moduleName) {
-    if (moduleName.to_string() == LOCAL_NS) {
-        if (! this->parsedSourceFiles.empty()) {
-            this->cerror("Only the first source file may have unspecified module name (implicit module " + std::string(LOCAL_NS) + ")");
-            return false;
-        }
-    }
-    auto res = moduleName.begins_with(this->sourceFileQueue.front().first);
-    if (! res)
-        this->cerror("Source contains module '" + moduleName.to_string() + "', not '"
-                    + this->sourceFileQueue.front().first.to_string() + "' as expected.");
-    return res;
 }
 
 
@@ -245,16 +229,11 @@ void TxDriver::add_source_file(const TxIdentifier& moduleName, const std::string
 }
 
 
-std::string* TxDriver::current_input_filepath() {
-    return this->currentInputFilename;
-}
-
-
 int TxDriver::llvm_compile(const std::string& outputFileName) {
     LlvmGenerationContext genContext(*this->package);
 
-    for (auto parsedAST : this->parsedASTs) {
-        genContext.generate_code(*parsedAST);
+    for (auto semTree : this->semanticTrees) {
+        genContext.generate_code(*semTree);
     }
 
     genContext.generate_runtime_data();
@@ -349,7 +328,10 @@ void TxDriver::emit_comp_warning(char const *msg) {
 
 void TxDriver::begin_exp_err(const yy::location& loc) {
     if (this->exp_err) {
-        this->cerror(loc, "Nested EXPECTED ERROR blocks not supported");
+        //this->cerror(loc, "Nested EXPECTED ERROR blocks not supported");
+        char buf[512];
+        format_location_message(buf, 512, loc, "Nested EXPECTED ERROR blocks not supported");
+        this->emit_comp_error(buf);
         return;
     }
     //puts("EXPERR {");
@@ -359,7 +341,10 @@ void TxDriver::begin_exp_err(const yy::location& loc) {
 
 int TxDriver::end_exp_err(const yy::location& loc) {
     if (!this->exp_err) {
-        this->cerror(loc, "EXPECTED ERROR block end doesn't match a corresponding begin");
+        //this->cerror(loc, "EXPECTED ERROR block end doesn't match a corresponding begin");
+        char buf[512];
+        format_location_message(buf, 512, loc, "EXPECTED ERROR block end doesn't match a corresponding begin");
+        this->emit_comp_error(buf);
         return 0;
     }
     //puts("} EXPERR");
@@ -417,5 +402,73 @@ void TxDriver::cwarning(const yy::location& loc, const std::string& msg) {
 }
 
 void TxDriver::cwarning(const std::string& msg) {
+    this->cwarning(yy::location(NULL, 0, 0), "%s", msg.c_str());
+}
+
+
+
+bool TxParserContext::validate_module_name(const TxIdentifier& moduleName) {
+    if (moduleName.to_string() == LOCAL_NS) {
+        if (! this->_driver.parsedSourceFiles.empty()) {
+            this->cerror("Only the first source file may have unspecified module name (implicit module " + std::string(LOCAL_NS) + ")");
+            return false;
+        }
+    }
+    auto res = moduleName.begins_with(this->_moduleName);
+    if (! res)
+        this->cerror("Source contains module '" + moduleName.to_string() + "', not '"
+                     + this->_moduleName.to_string() + "' as expected.");
+    return res;
+}
+
+
+void TxParserContext::begin_exp_err(const yy::location& loc) {
+    this->_driver.begin_exp_err(loc);
+}
+
+int TxParserContext::end_exp_err(const yy::location& loc) {
+    return this->_driver.end_exp_err(loc);
+}
+
+bool TxParserContext::is_exp_err() {
+    return this->_driver.is_exp_err();
+}
+
+void TxParserContext::cerror(const yy::location& loc, char const *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    char buf[512];
+    vsnprintf(buf, 512, fmt, ap);
+    va_end(ap);
+    this->cerror(loc, std::string(buf));
+}
+
+void TxParserContext::cerror(const yy::location& loc, const std::string& msg) {
+    char buf[512];
+    format_location_message(buf, 512, loc, msg.c_str());
+    this->_driver.emit_comp_error(buf);
+}
+
+void TxParserContext::cerror(const std::string& msg)
+{
+    this->cerror(yy::location(NULL, 0, 0), "%s", msg.c_str());
+}
+
+void TxParserContext::cwarning(const yy::location& loc, char const *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    char buf[512];
+    vsnprintf(buf, 512, fmt, ap);
+    va_end(ap);
+    this->cwarning(loc, std::string(buf));
+}
+
+void TxParserContext::cwarning(const yy::location& loc, const std::string& msg) {
+    char buf[512];
+    format_location_message(buf, 512, loc, msg.c_str());
+    this->_driver.emit_comp_warning(buf);
+}
+
+void TxParserContext::cwarning(const std::string& msg) {
     this->cwarning(yy::location(NULL, 0, 0), "%s", msg.c_str());
 }

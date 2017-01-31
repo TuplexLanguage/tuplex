@@ -64,48 +64,80 @@ public:
         return this->parseLocation;
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
-
     virtual std::string to_string() const override;
 
     std::string parse_loc_string() const;
 
     unsigned get_node_id() const { return this->nodeId; }
 
+    virtual TxDriver* get_driver() const override {  // TODO: refactor
+        return nullptr;
+    }
+
     inline Logger& LOGGER() const { return this->LOG; }
 };
 
 
-class TxNonSpecializableNode : public TxNode {
-    LexicalContext lexContext;
-
+/** Represents a 'semantic' node, i.e. a context-dependent interpretation of a literal node.
+ */
+class TxSemNode {
 protected:
-    void set_context(const LexicalContext& context) {
-        ASSERT(!this->is_context_set(), "lexicalContext already initialized in " << this->to_string());
-        this->lexContext = context;
-    }
-    /** Sets the lexical context of this node to the current context of the module. */
-    void set_context(TxModule* module) {
-        this->set_context(LexicalContext(module));
-    }
+    LexicalContext _lexCtx;
+
+    /** Copy constructor. */
+    TxSemNode(const TxSemNode& snode) : _lexCtx(snode._lexCtx) { }
+
+    virtual ~TxSemNode() = default;
 
 public:
-    TxNonSpecializableNode(const yy::location& parseLocation) : TxNode(parseLocation), lexContext() { }
+    TxSemNode(const LexicalContext& lexCtx) : _lexCtx(lexCtx) { }
 
-    inline bool is_context_set() const { return this->lexContext.scope(); }
+    //inline TxNode* lit_node() const { return this->_litNode; }
 
     inline const LexicalContext& context() const {
-        ASSERT(this->is_context_set(), "lexicalContext not initialized in " << this->to_string());
-        return this->lexContext;
+        return this->_lexCtx;
     }
     inline LexicalContext& context() {
-        return const_cast<LexicalContext&>(static_cast<const TxNonSpecializableNode *>(this)->context());
+        return const_cast<LexicalContext&>(static_cast<const TxSemNode *>(this)->context());
     }
 
-    virtual TxDriver* get_driver() const override {
-        return ( this->is_context_set() ? &this->context().package()->driver() : nullptr );
-    }
+
+    virtual void symbol_resolution_pass() = 0;
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
 };
+
+
+//class TxNonSpecializableNode : public TxNode {
+//    LexicalContext lexContext;
+//
+//protected:
+//    void set_context(const LexicalContext& context) {
+//        ASSERT(!this->is_context_set(), "lexicalContext already initialized in " << this->to_string());
+//        this->lexContext = context;
+//    }
+//    /** Sets the lexical context of this node to the current context of the module. */
+//    void set_context(TxModule* module) {
+//        this->set_context(LexicalContext(module));
+//    }
+//
+//public:
+//    TxNonSpecializableNode(const yy::location& parseLocation) : TxNode(parseLocation), lexContext() { }
+//
+//    inline bool is_context_set() const { return this->lexContext.scope(); }
+//
+//    inline const LexicalContext& context() const {
+//        ASSERT(this->is_context_set(), "lexicalContext not initialized in " << this->to_string());
+//        return this->lexContext;
+//    }
+//    inline LexicalContext& context() {
+//        return const_cast<LexicalContext&>(static_cast<const TxNonSpecializableNode *>(this)->context());
+//    }
+//
+//    virtual TxDriver* get_driver() const override {
+//        return ( this->is_context_set() ? &this->context().package()->driver() : nullptr );
+//    }
+//};
 
 
 class TxSpecializableNode : public TxNode {
@@ -158,6 +190,8 @@ public:
     virtual TxDriver* get_driver() const override {
         return this->driver;
     }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
 };
 
 
@@ -166,43 +200,36 @@ bool validateTypeName (TxSpecializableNode* node, TxDeclarationFlags declFlags, 
 bool validateFieldName(TxSpecializableNode* node, TxDeclarationFlags declFlags, const std::string& name);
 
 
-class TxIdentifierNode : public TxNonSpecializableNode {
+class TxIdentifierNode : public TxNode {
 public:
     const TxIdentifier ident;
 
     TxIdentifierNode(const yy::location& parseLocation, const TxIdentifier* ident)
-        : TxNonSpecializableNode(parseLocation), ident(*ident)  { }
+        : TxNode(parseLocation), ident(*ident)  { }
 
     TxIdentifierNode(const yy::location& parseLocation, const TxIdentifier& ident)
-        : TxNonSpecializableNode(parseLocation), ident(ident)  { }
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+        : TxNode(parseLocation), ident(ident)  { }
 
     virtual std::string to_string() const {
-        return TxNonSpecializableNode::to_string() + " '" + this->ident.to_string() + "'";
+        return TxNode::to_string() + " '" + this->ident.to_string() + "'";
     }
 };
 
 
 
-class TxImportNode : public TxNonSpecializableNode {
+class TxImportNode : public TxNode {
 public:
     const TxIdentifierNode* identNode;
 
     TxImportNode(const yy::location& parseLocation, const TxIdentifierNode* identifier)
-        : TxNonSpecializableNode(parseLocation), identNode(identifier)  { }
+        : TxNode(parseLocation), identNode(identifier)  { }
 
     virtual void symbol_declaration_pass(TxModule* module) {
-        this->set_context(module);
+        //this->set_context(module);
         if (! identNode->ident.is_qualified())
             CERROR(this, "can't import unqualified identifier '" << identNode->ident << "'");
         module->register_import(identNode->ident);
     }
-
-    virtual void symbol_resolution_pass() {
-    }
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 };
 
 
@@ -215,7 +242,6 @@ public:
         : TxSpecializableNode(parseLocation), declFlags(declFlags) { }
 
     inline TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
-    //inline void set_decl_flags(TxDeclarationFlags declFlags) { this->declFlags = declFlags; }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
 
@@ -225,77 +251,93 @@ public:
 };
 
 
-class TxModuleNode : public TxNonSpecializableNode {
+class TxModuleNode : public TxNode {
     const TxIdentifierNode* identNode;
     std::vector<TxImportNode*>* imports;
     std::vector<TxDeclarationNode*>* members;
     std::vector<TxModuleNode*>* subModules;
-    TxModule* module;  // set in symbol table pass
+
 public:
+    class SemNode;
+
     TxModuleNode(const yy::location& parseLocation, const TxIdentifierNode* identifier,
                  std::vector<TxImportNode*>* imports, std::vector<TxDeclarationNode*>* members,
                  std::vector<TxModuleNode*>* subModules)
-        : TxNonSpecializableNode(parseLocation), identNode(identifier), imports(imports), members(members),
-          subModules(subModules), module()  {
+        : TxNode(parseLocation), identNode(identifier), imports(imports), members(members), subModules(subModules)  {
         ASSERT(identifier, "NULL identifier");  // (sanity check on parser)
     }
 
-    virtual void symbol_declaration_pass(TxModule* parent) {
-        this->set_context(parent);
-        this->module = parent->declare_module(identNode->ident);
-        if (this->imports) {
-            for (auto elem : *this->imports)
-                elem->symbol_declaration_pass(this->module);
-        }
-        if (this->members) {
-            LexicalContext lexContext(this->module);
-            for (auto elem : *this->members)
-                elem->symbol_declaration_pass(0, lexContext);
-        }
-        if (this->subModules) {
-            for (auto mod : *this->subModules)
-                mod->symbol_declaration_pass(this->module);
-        }
+    virtual SemNode* symbol_declaration_pass(TxModule* parent) {
+        return new SemNode( parent, this );
     }
 
-    virtual void symbol_resolution_pass() {
-        if (this->imports) {
-            for (auto elem : *this->imports)
-                elem->symbol_resolution_pass();
+    class SemNode : public TxSemNode {
+        TxModuleNode* node;
+        TxModule* module;
+        std::vector<TxDeclarationNode*> members;
+        std::vector<TxModuleNode::SemNode*> modules;
+    public:
+        SemNode(TxModule* parent, TxModuleNode* node) : TxSemNode( LexicalContext(parent) ), node(node) {
+            this->module = parent->declare_module(node->identNode->ident);
+
+            if (node->imports) {
+                for (auto imp : *node->imports)
+                    imp->symbol_declaration_pass( this->module );
+            }
+            if (node->members) {
+                LexicalContext subCtx(this->module);
+                for (auto mem : *node->members)
+                {
+                    // TODO: members.push_back( mem->symbol_declaration_pass( 0, subCtx ) );
+                    mem->symbol_declaration_pass( 0, subCtx );
+                    members.push_back( mem );
+                }
+            }
+            if (node->subModules) {
+                for (auto mod : *node->subModules)
+                    modules.push_back( mod->symbol_declaration_pass( this->module ) );
+            }
         }
-        if (this->members) {
-            for (auto elem : *this->members)
-                elem->symbol_resolution_pass(0);
-        }
-        if (this->subModules) {
-            for (auto mod : *this->subModules)
+
+        virtual void symbol_resolution_pass() {
+            for (auto mem : this->members)
+                mem->symbol_resolution_pass(0);
+            for (auto mod : this->modules)
                 mod->symbol_resolution_pass();
         }
-    }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+        virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    };
 };
 
 
 /** Represents a parsing unit, i.e. a given source text input (e.g. source file). */
-class TxParsingUnitNode : public TxNonSpecializableNode {
-    std::vector<TxModuleNode*> modules;
+class TxParsingUnitNode : public TxNode {
+    TxModuleNode* module;
 public:
+    class SemNode;
 
     TxParsingUnitNode(const yy::location& parseLocation, TxModuleNode* module)
-        : TxNonSpecializableNode(parseLocation), modules( { module } )  { }
+        : TxNode( parseLocation ), module( module )  { }
 
-    virtual void symbol_declaration_pass(TxPackage* package) {
-        for (auto mod : this->modules)
-            mod->symbol_declaration_pass(package);
+    virtual SemNode* symbol_declaration_pass(TxPackage* package) {
+        return new SemNode(package, this);
     }
 
-    virtual void symbol_resolution_pass() {
-        for (auto mod : this->modules)
-            mod->symbol_resolution_pass();
-    }
+    class SemNode : public TxSemNode {
+        TxParsingUnitNode* node;
+        TxModuleNode::SemNode* module;
+    public:
+        SemNode(TxPackage* package, TxParsingUnitNode* node) : TxSemNode( LexicalContext(package) ), node(node) {
+            module = node->module->symbol_declaration_pass(package);
+        }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+        virtual void symbol_resolution_pass() {
+            this->module->symbol_resolution_pass();
+        }
+
+        virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    };
 };
 
 
