@@ -321,7 +321,7 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
         return this->TxScopeSymbol::get_member_symbol(name);
     else if (! this->is_overloaded()) {
         // this symbol represents a distinct field; look up its instance members
-        if (auto type = this->get_first_field_decl()->get_definer()->attempt_get_type()) {  // FIXME: review if this should be get_type() / resolve_type()
+        if (auto type = this->get_first_field_decl()->get_definer()->get_type()) {
             if (auto member = type->lookup_inherited_instance_member(name))
                 return member;
         }

@@ -282,11 +282,8 @@ class TxParsingUnitNode : public TxNonSpecializableNode {
     std::vector<TxModuleNode*> modules;
 public:
 
-    TxParsingUnitNode(const yy::location& parseLocation) : TxNonSpecializableNode(parseLocation) { }
-
-    void add_module(TxModuleNode* module) {
-        this->modules.push_back(module);
-    }
+    TxParsingUnitNode(const yy::location& parseLocation, TxModuleNode* module)
+        : TxNonSpecializableNode(parseLocation), modules( { module } )  { }
 
     virtual void symbol_declaration_pass(TxPackage* package) {
         for (auto mod : this->modules)

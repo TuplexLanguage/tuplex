@@ -14,6 +14,42 @@ class TxField;
 class TxExpressionNode;
 
 
+class TxNode;
+/* forward declarations pertaining to LLVM code generation */
+class LlvmGenerationContext;
+class GenScope;
+namespace llvm {
+    class Value;
+}
+
+/** Represents a 'semantic' node, i.e. a context-dependent interpretation of a literal node.
+ */
+class TxSemNode {
+    TxNode* _litNode;
+    TxScopeSymbol* _scope;
+
+protected:
+    virtual ~TxSemNode() = default;
+
+public:
+    TxSemNode(TxNode* litNode, TxScopeSymbol* scope)
+        : _litNode(litNode), _scope(scope) { }
+
+    /** Copy constructor. */
+    TxSemNode(const TxSemNode& snode)
+        : _litNode(snode._litNode), _scope(snode._scope) { }
+
+    inline TxNode* lit_node() const { return this->_litNode; }
+
+    inline TxScopeSymbol* scope() const { return this->_scope; }
+
+
+    virtual void symbol_resolution_pass(TxSpecializationIndex six) = 0;
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
+};
+
+
 /** Represents the lexical source scope of a syntax node / entity.
  */
 class LexicalContext : public Printable {

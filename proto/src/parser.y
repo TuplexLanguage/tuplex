@@ -19,6 +19,11 @@
 #include <string>
 #include "ast.hpp"
 class TxDriver;
+
+struct TxModuleMembers {
+    std::vector<TxDeclarationNode*> declarations;
+    std::vector<TxModuleNode*> modules;
+};
 }
 
 // Tell Flex the lexer's prototype:
@@ -112,8 +117,9 @@ YY_DECL;
 %type <std::vector<TxImportNode*> *> import_statements opt_import_stmts
 %type <TxImportNode *> import_statement
 
-%type <std::vector<TxDeclarationNode*> *> module_members opt_module_members type_body member_list type_param_list
-%type <TxDeclarationNode *> module_member member_declaration experr_decl type_param
+%type <TxModuleMembers*> module_members opt_module_members
+%type <TxDeclarationNode *> member_declaration experr_decl type_param
+%type <std::vector<TxDeclarationNode*> *> type_body member_list type_param_list
 
 %type <std::vector<TxPredefinedTypeNode*> *> opt_base_types predef_type_list
 %type <TxPredefinedTypeNode*> predef_type
@@ -169,19 +175,33 @@ YY_DECL;
 parsing_unit : opt_module_decl
                opt_import_stmts
                opt_module_members
-                   { if (!driver.parsingUnit)  driver.parsingUnit = new TxParsingUnitNode(@2);
-                     $$ = driver.parsingUnit;
+                   { $$ = new TxParsingUnitNode(@2, new TxModuleNode(@1, $1, $2, &$3->declarations, &$3->modules));
                      driver.validate_module_name($1->ident);
-                     driver.parsingUnit->add_module(new TxModuleNode(@1, $1, $2, $3, NULL));
+                     driver.parsingUnit = $$;
                    }
     ;
 
+opt_module_members : %empty { $$ = new TxModuleMembers(); }
+                   | module_members { $$ = $1; } ;
+
+module_members : member_declaration
+                    { $$ = new TxModuleMembers();
+                      $$->declarations.push_back($1); }
+               | sub_module
+                    { $$ = new TxModuleMembers();
+                      $$->modules.push_back($1); }
+               | module_members member_declaration
+                     { $$ = $1;
+                      $$->declarations.push_back($2); }
+               | module_members sub_module
+                     { $$ = $1;
+                      $$->modules.push_back($2); }
+;
+
 sub_module : KW_MODULE compound_identifier
                LBRACE  opt_import_stmts  opt_module_members  RBRACE
-                 { if (!driver.parsingUnit)  driver.parsingUnit = new TxParsingUnitNode(@1);
-                   $$ = new TxModuleNode(@1, $2, $4, $5, NULL);
+                 { $$ = new TxModuleNode(@1, $2, $4, &$5->declarations, &$5->modules);
                    driver.validate_module_name($2->ident);
-                   driver.parsingUnit->add_module($$);
                  }
     ;
 
@@ -224,23 +244,6 @@ import_statement   : KW_IMPORT compound_identifier opt_sc
                    | KW_IMPORT error opt_sc  { $$ = NULL; }
                    ;
 
-
-opt_module_members : %empty { $$ = new std::vector<TxDeclarationNode*>(); }
-                   | module_members { $$ = $1; } ;
-
-module_members : module_member
-                     { $$ = new std::vector<TxDeclarationNode*>();
-                       if ($1 != NULL)
-                           $$->push_back($1); }
-               | module_members module_member
-                     { $$ = $1;
-                       if ($2 != NULL)
-                           $$->push_back($2); }
-;
-
-module_member : member_declaration { $$ = $1; }
-              | sub_module         { $$ = NULL; }
-;
 
 member_declaration
     // field
