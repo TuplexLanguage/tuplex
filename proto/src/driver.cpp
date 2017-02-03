@@ -112,7 +112,7 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
     /*--- perform declaration pass ---*/
 
     for (auto parsedAST : this->parsedASTs)
-        semanticTrees.push_back( parsedAST->symbol_declaration_pass(this->package) );
+        parsedAST->symbol_declaration_pass(this->package);
 
     this->package->prepare_modules();  // (prepares the declared imports)
 
@@ -123,8 +123,8 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
 
     /*--- perform resolution pass ---*/
 
-    for (auto semTree : semanticTrees)
-        semTree->symbol_resolution_pass();
+    for (auto parsedAST : this->parsedASTs)
+        parsedAST->symbol_resolution_pass();
 
     this->package->types().enqueued_resolution_pass();
 
@@ -232,8 +232,8 @@ void TxDriver::add_source_file(const TxIdentifier& moduleName, const std::string
 int TxDriver::llvm_compile(const std::string& outputFileName) {
     LlvmGenerationContext genContext(*this->package);
 
-    for (auto semTree : this->semanticTrees) {
-        genContext.generate_code(*semTree);
+    for (auto parsedAST : this->parsedASTs) {
+        genContext.generate_code(*parsedAST);
     }
 
     genContext.generate_runtime_data();

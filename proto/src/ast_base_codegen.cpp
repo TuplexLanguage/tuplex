@@ -27,18 +27,22 @@ inline bool is_complex_pointer(const Type* type) {
 //    return nullptr;
 //}
 
-Value* TxParsingUnitNode::SemNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->node->to_string().c_str());
+Value* TxParsingUnitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s", this->to_string().c_str());
     this->module->code_gen(context, scope);
     return NULL;
 }
 
-Value* TxModuleNode::SemNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->node->to_string().c_str());
-    for (auto mem : this->members)
-        mem->code_gen(context, scope);
-    for (auto mod : this->modules)
-        mod->code_gen(context, scope);
+Value* TxModuleNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s", this->to_string().c_str());
+    if (this->members) {
+        for (auto mem : *this->members)
+            mem->code_gen(context, scope);
+    }
+    if (this->subModules) {
+        for (auto mod : *this->subModules)
+            mod->code_gen(context, scope);
+    }
     return nullptr;
 }
 

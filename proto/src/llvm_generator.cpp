@@ -162,10 +162,10 @@ Function* LlvmGenerationContext::gen_main_function(const std::string userMain, b
 
 
 /* Compile the AST into a module */
-void LlvmGenerationContext::generate_code(const TxSemNode& topSemNode)
+void LlvmGenerationContext::generate_code(const TxParsingUnitNode& topParseNode)
 {
     // emit bytecode for the program
-    topSemNode.code_gen(*this, nullptr);  // (global scope has no block)
+    topParseNode.code_gen(*this, nullptr);  // (global scope has no block)
 }
 
 bool LlvmGenerationContext::generate_main(const std::string& userMainIdent, const TxFunctionType* mainFuncType) {
