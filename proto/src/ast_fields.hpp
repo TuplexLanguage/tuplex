@@ -14,7 +14,7 @@ public:
     TxExpressionNode* baseExpr;
     const std::string symbolName;
 
-    TxFieldValueNode(const yy::location& parseLocation, TxExpressionNode* base, const std::string& memberName)
+    TxFieldValueNode(const TxLocation& parseLocation, TxExpressionNode* base, const std::string& memberName)
         : TxExpressionNode(parseLocation), baseExpr(base), symbolName(memberName) {
     }
 

@@ -21,7 +21,7 @@ bool TxModule::declare_symbol(TxScopeSymbol* symbol) {
     if (! this->declared) {
         // only modules allowed within namespace of non-declared "module"
         if (! dynamic_cast<TxModule*>(symbol)) {
-            CERROR(&this->get_root_scope()->driver(), "Can't add non-module symbol " << symbol
+            CERROR(this->get_root_scope()->types().get_builtin_location(), "Can't add non-module symbol " << symbol
                    << " to undeclared namespace " << this->get_full_name());
             return false;
         }
@@ -36,12 +36,12 @@ TxModule* TxModule::declare_module(const TxIdentifier& ident, bool builtin) {
         // this is the namespace root - the tuplex package
         if (! builtin) {
             if (ident.begins_with(BUILTIN_NS) && !this->get_root_scope()->driver().get_options().allow_tx)
-                CERROR(&this->get_root_scope()->driver(), "Can't declare or extend built-in namespace from user code: '" << ident << "'");
+                CERROR(this->get_root_scope()->types().get_builtin_location(), "Can't declare or extend built-in namespace from user code: '" << ident << "'");
         }
     }
     else {
         if (ident.begins_with(LOCAL_NS))
-            CERROR(&this->get_root_scope()->driver(), "Can't declare or extend $local namespace under other than the namespace root: '" << this->get_full_name() << "'");
+            CERROR(this->get_root_scope()->types().get_builtin_location(), "Can't declare or extend $local namespace under other than the namespace root: '" << this->get_full_name() << "'");
     }
 
 // currently validated directly from the grammar parse
@@ -57,7 +57,7 @@ TxModule* TxModule::inner_declare_module(const TxIdentifier& ident, bool builtin
     if (ident.is_qualified()) {
         // declare submodule further down the namespace hierarchy (not a direct child of this one)
         if (! (ident.begins_with(this->get_full_name()) && ident.segment_count() > this->get_full_name().segment_count())) {
-            CERROR(&this->get_root_scope()->driver(), "Can't declare module " << ident << " as a submodule of " << this->get_full_name());
+            CERROR(this->get_root_scope()->types().get_builtin_location(), "Can't declare module " << ident << " as a submodule of " << this->get_full_name());
             return nullptr;
         }
         auto subName = TxIdentifier(ident, this->get_full_name().segment_count());
@@ -91,7 +91,7 @@ TxModule* TxModule::inner_declare_module(const TxIdentifier& ident, bool builtin
             return prevMod;
         }
         else {
-            CERROR(&this->get_root_scope()->driver(), "Name collision upon declaring module " << prev->get_full_name());
+            CERROR(this->get_root_scope()->types().get_builtin_location(), "Name collision upon declaring module " << prev->get_full_name());
             return nullptr;
         }
     }
@@ -115,7 +115,7 @@ TxModule* TxModule::lookup_module(const TxIdentifier& fullName) {
             else
                 return module->lookup_module(TxIdentifier(fullName, 1));
         }
-        CERROR(&this->get_root_scope()->driver(), "Symbol is not a Module: " << member);
+        CERROR(this->get_root_scope()->types().get_builtin_location(), "Symbol is not a Module: " << member);
     }
     return nullptr;
 }
@@ -151,7 +151,7 @@ bool TxModule::use_symbol(const TxModule* imported, const std::string& plainName
         }
     }
     else
-        CERROR(&this->get_root_scope()->driver(), "Imported symbol '" << plainName << "' does not exist in module " << imported->get_full_name());
+        CERROR(this->get_root_scope()->types().get_builtin_location(), "Imported symbol '" << plainName << "' does not exist in module " << imported->get_full_name());
     return false;
 }
 
@@ -180,7 +180,7 @@ void TxModule::prepare_modules() {
     this->LOGGER().debug("Preparing module %s", this->get_full_name().to_string().c_str());
     for (auto import : this->registeredImports) {
         if (! this->import_symbol(import))
-            this->get_root_scope()->driver().cerror("Failed to import " + import.to_string());
+            CERROR(this->get_root_scope()->types().get_builtin_location(), "Failed to import " << import.to_string());
     }
     for (auto entry = this->symbols_begin(); entry != this->symbols_end(); entry++) {
         if (auto submod = dynamic_cast<TxModule*>(entry->second))

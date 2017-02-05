@@ -86,17 +86,17 @@ public:
     const TxIdentifierNode* identNode;
     const std::vector<TxTypeArgumentNode*>* const typeArgs;
 
-    TxPredefinedTypeNode(const yy::location& parseLocation, const TxIdentifierNode* identifier,
+    TxPredefinedTypeNode(const TxLocation& parseLocation, const TxIdentifierNode* identifier,
                          const std::vector<TxTypeArgumentNode*>* typeArgs)
             : TxTypeExpressionNode(parseLocation), identNode(identifier), typeArgs(typeArgs)  {
         ASSERT(typeArgs, "NULL typeargs");
     }
 
-    TxPredefinedTypeNode(const yy::location& parseLocation, const TxIdentifierNode* identifier)
+    TxPredefinedTypeNode(const TxLocation& parseLocation, const TxIdentifierNode* identifier)
         : TxTypeExpressionNode(parseLocation), identNode(identifier),
           typeArgs(new std::vector<TxTypeArgumentNode*>())  { }
 
-    TxPredefinedTypeNode(const yy::location& parseLocation, const std::string& identifier)
+    TxPredefinedTypeNode(const TxLocation& parseLocation, const std::string& identifier)
         : TxTypeExpressionNode(parseLocation), identNode(new TxIdentifierNode(parseLocation, identifier)),
           typeArgs(new std::vector<TxTypeArgumentNode*>())  { }
 
@@ -122,7 +122,7 @@ public:
 /** Common superclass for specializations of the built-in types Ref and Array. */
 class TxBuiltinTypeSpecNode : public TxTypeExpressionNode {
 public:
-    TxBuiltinTypeSpecNode(const yy::location& parseLocation) : TxTypeExpressionNode(parseLocation)  { }
+    TxBuiltinTypeSpecNode(const TxLocation& parseLocation) : TxTypeExpressionNode(parseLocation)  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& defContext, LexicalContext& lexContext,
                                          TxDeclarationFlags declFlags, const std::string designatedTypeName,
@@ -159,7 +159,7 @@ public:
     const TxIdentifierNode* dataspace;
     TxTypeArgumentNode* targetTypeNode;
 
-    TxReferenceTypeNode(const yy::location& parseLocation, const TxIdentifierNode* dataspace,
+    TxReferenceTypeNode(const TxLocation& parseLocation, const TxIdentifierNode* dataspace,
                         TxTypeExpressionNode* targetType)
         : TxBuiltinTypeSpecNode(parseLocation), dataspace(dataspace),
           targetTypeNode(new TxTypeArgumentNode(targetType))  { }
@@ -195,7 +195,7 @@ public:
     TxTypeArgumentNode* elementTypeNode;
     TxTypeArgumentNode* lengthNode;
 
-    TxArrayTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* lengthExpr=nullptr)
+    TxArrayTypeNode(const TxLocation& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* lengthExpr=nullptr)
         : TxBuiltinTypeSpecNode(parseLocation),
           elementTypeNode(new TxTypeArgumentNode(elementType)),
           lengthNode(lengthExpr ? new TxTypeArgumentNode(lengthExpr) : nullptr)  { }
@@ -285,7 +285,7 @@ public:
     TxTypeDeclNode* selfRefTypeNode = nullptr;
     TxTypeDeclNode* superRefTypeNode = nullptr;
 
-    TxDerivedTypeNode(const yy::location& parseLocation, const bool _mutable,
+    TxDerivedTypeNode(const TxLocation& parseLocation, const bool _mutable,
                       std::vector<TxPredefinedTypeNode*>* baseTypes,
                       std::vector<TxDeclarationNode*>* members)
             : TxTypeExpressionNode(parseLocation), _mutable(_mutable),
@@ -334,7 +334,7 @@ protected:
 public:
     TxTypeExpressionNode* derivedTypeNode;
 
-    TxSuperTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* derivedTypeNode)
+    TxSuperTypeNode(const TxLocation& parseLocation, TxTypeExpressionNode* derivedTypeNode)
         : TxTypeExpressionNode(parseLocation), derivedTypeNode(derivedTypeNode)  { }
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
@@ -385,7 +385,7 @@ public:
     TxFieldDefNode* returnField;
     // FUTURE: raised exceptions
 
-    TxFunctionTypeNode(const yy::location& parseLocation, const bool modifiable,
+    TxFunctionTypeNode(const TxLocation& parseLocation, const bool modifiable,
                        std::vector<TxFieldDefNode*>* arguments,
                        TxTypeExpressionNode* returnType)
         : TxTypeExpressionNode(parseLocation), modifiable(modifiable),
@@ -435,7 +435,7 @@ protected:
 
 public:
     TxTypeExpressionNode* baseType;
-    TxModifiableTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
+    TxModifiableTypeNode(const TxLocation& parseLocation, TxTypeExpressionNode* baseType)
         : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags,
@@ -465,7 +465,7 @@ protected:
 public:
     bool isModifiable = false;
 
-    TxMaybeModTypeNode(const yy::location& parseLocation, TxTypeExpressionNode* baseType)
+    TxMaybeModTypeNode(const TxLocation& parseLocation, TxTypeExpressionNode* baseType)
         : TxModifiableTypeNode(parseLocation, baseType) { }
 
     virtual bool has_predefined_type() const override;

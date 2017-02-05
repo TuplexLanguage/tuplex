@@ -158,11 +158,11 @@ void TxFieldDeclNode::symbol_resolution_pass(TxSpecializationIndex six) {
 
 
 
-TxSuiteNode::TxSuiteNode(const yy::location& parseLocation)
+TxSuiteNode::TxSuiteNode(const TxLocation& parseLocation)
         : TxStatementNode(parseLocation), suite(new std::vector<TxStatementNode*>())  {
 }
 
-TxSuiteNode::TxSuiteNode(const yy::location& parseLocation, std::vector<TxStatementNode*>* suite)
+TxSuiteNode::TxSuiteNode(const TxLocation& parseLocation, std::vector<TxStatementNode*>* suite)
         : TxStatementNode(parseLocation), suite(suite)  {
 }
 
@@ -418,13 +418,13 @@ void TxMaybeModTypeNode::symbol_declaration_pass(TxSpecializationIndex six, Lexi
 }
 
 
-TxAssertStmtNode::TxAssertStmtNode(const yy::location& parseLocation, TxExpressionNode* expr)
+TxAssertStmtNode::TxAssertStmtNode(const TxLocation& parseLocation, TxExpressionNode* expr)
         : TxStatementNode(parseLocation), expr(expr)  {
     auto invertedCond = new TxUnaryLogicalNotNode(expr->parseLocation, expr);
 
     // print assert failed message:
     /* example C assert failed message:
-    txc: /home/christer/proj/workspace/proto/src/ast.cpp:515: TxAssertStmtNode::TxAssertStmtNode(const yy::location&, TxExpressionNode*): Assertion `!this->expr' failed.
+    txc: /home/christer/proj/workspace/proto/src/ast.cpp:515: TxAssertStmtNode::TxAssertStmtNode(const TxLocation&, TxExpressionNode*): Assertion `!this->expr' failed.
     */
     auto & pLoc = parseLocation;
     std::stringstream msg;

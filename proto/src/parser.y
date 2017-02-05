@@ -10,13 +10,16 @@
 
 // Pass the parsing context to yylex() and yyparse()
 %param { TxParserContext* context }
-%locations  // populates YYLTYPE
+
+//%locations  // populates YYLTYPE
+%define api.location.type {TxLocation}
 
 
 // what YYSTYPE and YYLTYPE require:
 %code requires
 {
 #include <string>
+#include "location.hpp"
 #include "ast.hpp"
 
 struct TxModuleMembers {
@@ -44,6 +47,22 @@ YY_DECL;
 #define BEGIN_TXEXPERR(loc) context->begin_exp_err(loc);
 #define END_TXEXPERR(loc)   context->end_exp_err(loc);
 #define TX_SYNTAX_ERROR     { yyerrok; }
+
+// modified YYLLOC_DEFAULT to ensure full location state copying:
+#define YYLLOC_DEFAULT(Current, Rhs, N)                               \
+    do                                                                  \
+      if (N)                                                            \
+        {                                                               \
+          (Current).begin  = YYRHSLOC (Rhs, 1).begin;                   \
+          (Current).end    = YYRHSLOC (Rhs, N).end;                     \
+          (Current).parserCtx = YYRHSLOC (Rhs, 1).parserCtx;            \
+        }                                                               \
+      else                                                              \
+        {                                                               \
+          (Current).begin = (Current).end = YYRHSLOC (Rhs, 0).end;      \
+          (Current).parserCtx = YYRHSLOC (Rhs, 0).parserCtx;            \
+        }                                                               \
+    while (/*CONSTCOND*/ false)
 %}
 
 
@@ -52,6 +71,7 @@ YY_DECL;
     // Initialize the initial location.
     // Afterward new locations are computed relatively to the previous locations: the file name will be propagated.
     @$.begin.filename = @$.end.filename = context->current_input_filepath();
+    @$.parserCtx = context;
 };
 
 
@@ -175,7 +195,7 @@ parsing_unit : opt_module_decl
                opt_import_stmts
                opt_module_members
                    { $$ = new TxParsingUnitNode(@2, new TxModuleNode(@1, $1, $2, &$3->declarations, &$3->modules));
-                     context->validate_module_name($1->ident);
+                     context->validate_module_name(@1, $1->ident);
                      context->parsingUnit = $$;
                    }
     ;
@@ -200,7 +220,7 @@ module_members : member_declaration
 sub_module : KW_MODULE compound_identifier
                LBRACE  opt_import_stmts  opt_module_members  RBRACE
                  { $$ = new TxModuleNode(@1, $2, $4, &$5->declarations, &$5->modules);
-                   context->validate_module_name($2->ident);
+                   context->validate_module_name(@2, $2->ident);
                  }
     ;
 

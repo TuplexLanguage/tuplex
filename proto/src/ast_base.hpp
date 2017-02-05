@@ -11,7 +11,7 @@
 #include "tx_operations.hpp"
 #include "identifier.hpp"
 #include "driver.hpp"
-#include "location.hh"
+#include "location.hpp"
 
 #include "symbol/package.hpp"
 #include "symbol/module.hpp"
@@ -53,28 +53,31 @@ class TxNode : public virtual TxParseOrigin, public Printable {
     const unsigned nodeId;
 
 protected:
-    TxNode(const yy::location& parseLocation) : nodeId(nextNodeId++), parseLocation(parseLocation) { }
+    TxNode(const TxLocation& parseLocation) : nodeId(nextNodeId++), parseLocation(parseLocation) { }
 
     virtual ~TxNode() = default;
 
 public:
-    const yy::location parseLocation;
+    const TxLocation parseLocation;
 
-    virtual const yy::location& get_parse_location() const override {
+    virtual const TxLocation& get_parse_location() const override final {
         return this->parseLocation;
     }
 
+    virtual TxDriver* get_driver() const override final {
+        return this->parseLocation.parserCtx->get_driver();
+    }
+
+    inline unsigned get_node_id() const { return this->nodeId; }
+
+
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
+
 
     virtual std::string to_string() const override;
 
     std::string parse_loc_string() const;
 
-    unsigned get_node_id() const { return this->nodeId; }
-
-    virtual TxDriver* get_driver() const override {  // TODO: refactor
-        return nullptr;
-    }
 
     inline Logger& LOGGER() const { return this->LOG; }
 };
@@ -124,7 +127,7 @@ public:
 //    }
 //
 //public:
-//    TxNonSpecializableNode(const yy::location& parseLocation) : TxNode(parseLocation), lexContext() { }
+//    TxNonSpecializableNode(const TxLocation& parseLocation) : TxNode(parseLocation), lexContext() { }
 //
 //    inline bool is_context_set() const { return this->lexContext.scope(); }
 //
@@ -145,7 +148,6 @@ public:
 class TxSpecializableNode : public TxNode {
     TxSpecializationPass firstSpec;
     std::vector<TxSpecializationPass*> specializations;
-    TxDriver* driver = nullptr;
 
 protected:
     inline const TxSpecializationPass* get_spec(TxSpecializationIndex six) const {
@@ -164,7 +166,7 @@ protected:
     inline TypeRegistry& types(TxSpecializationIndex six) { return this->context(six).package()->types(); }
 
 public:
-    TxSpecializableNode(const yy::location& parseLocation) : TxNode(parseLocation), specializations({ &this->firstSpec }) { }
+    TxSpecializableNode(const TxLocation& parseLocation) : TxNode(parseLocation), specializations({ &this->firstSpec }) { }
 
     TxSpecializationIndex next_spec_index() const {
         return this->specializations.size();
@@ -177,7 +179,6 @@ public:
     inline void set_context(TxSpecializationIndex six, const LexicalContext& context) {
         ASSERT(!this->is_context_set(six), "lexicalContext already initialized for s-ix " << six << " in " << this->to_string());
         this->get_spec(six)->lexContext = context;
-        this->driver = &context.package()->driver();
         //std::cerr << "Set context for s-ix " << six << " in " << this->to_string() << std::endl;
     }
 
@@ -187,10 +188,6 @@ public:
     }
     inline LexicalContext& context(TxSpecializationIndex six) {
         return const_cast<LexicalContext&>(static_cast<const TxSpecializableNode *>(this)->context(six));
-    }
-
-    virtual TxDriver* get_driver() const override {
-        return this->driver;
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
@@ -206,10 +203,10 @@ class TxIdentifierNode : public TxNode {
 public:
     const TxIdentifier ident;
 
-    TxIdentifierNode(const yy::location& parseLocation, const TxIdentifier* ident)
+    TxIdentifierNode(const TxLocation& parseLocation, const TxIdentifier* ident)
         : TxNode(parseLocation), ident(*ident)  { }
 
-    TxIdentifierNode(const yy::location& parseLocation, const TxIdentifier& ident)
+    TxIdentifierNode(const TxLocation& parseLocation, const TxIdentifier& ident)
         : TxNode(parseLocation), ident(ident)  { }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
@@ -225,7 +222,7 @@ class TxImportNode : public TxNode {
 public:
     const TxIdentifierNode* identNode;
 
-    TxImportNode(const yy::location& parseLocation, const TxIdentifierNode* identifier)
+    TxImportNode(const TxLocation& parseLocation, const TxIdentifierNode* identifier)
         : TxNode(parseLocation), identNode(identifier)  { }
 
     virtual void symbol_declaration_pass(TxModule* module) {
@@ -244,7 +241,7 @@ protected:
     TxDeclarationFlags declFlags;
 
 public:
-    TxDeclarationNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags)
+    TxDeclarationNode(const TxLocation& parseLocation, const TxDeclarationFlags declFlags)
         : TxSpecializableNode(parseLocation), declFlags(declFlags) { }
 
     inline TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
@@ -265,7 +262,7 @@ class TxModuleNode : public TxNode {
     TxModule* module = nullptr;
 
 public:
-    TxModuleNode(const yy::location& parseLocation, const TxIdentifierNode* identifier,
+    TxModuleNode(const TxLocation& parseLocation, const TxIdentifierNode* identifier,
                  std::vector<TxImportNode*>* imports, std::vector<TxDeclarationNode*>* members,
                  std::vector<TxModuleNode*>* subModules)
         : TxNode(parseLocation), identNode(identifier), imports(imports), members(members), subModules(subModules)  {
@@ -309,7 +306,7 @@ public:
 class TxParsingUnitNode : public TxNode {
     TxModuleNode* module;
 public:
-    TxParsingUnitNode(const yy::location& parseLocation, TxModuleNode* module)
+    TxParsingUnitNode(const TxLocation& parseLocation, TxModuleNode* module)
         : TxNode( parseLocation ), module( module )  { }
 
     virtual void symbol_declaration_pass(TxPackage* package) {
@@ -327,7 +324,7 @@ public:
 
 class TxStatementNode : public TxSpecializableNode {
 public:
-    TxStatementNode(const yy::location& parseLocation) : TxSpecializableNode(parseLocation) { }
+    TxStatementNode(const TxLocation& parseLocation) : TxSpecializableNode(parseLocation) { }
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
     virtual void symbol_resolution_pass(TxSpecializationIndex six) = 0;
 
@@ -362,7 +359,7 @@ protected:
     virtual const TxType* define_type(TxSpecializationIndex six) = 0;
 
 public:
-    TxTypeDefiningNode(const yy::location& parseLocation) : TxSpecializableNode(parseLocation) { }
+    TxTypeDefiningNode(const TxLocation& parseLocation) : TxSpecializableNode(parseLocation) { }
 
     inline TxTypeDefiner* get_type_definer(TxSpecializationIndex six) { return this->get_spec_type_def(six); }
 
@@ -390,7 +387,7 @@ protected:
     virtual const TxField* define_field(TxSpecializationIndex six) = 0;
 
 public:
-    TxFieldDefiningNode(const yy::location& parseLocation) : TxSpecializableNode(parseLocation) { }
+    TxFieldDefiningNode(const TxLocation& parseLocation) : TxSpecializableNode(parseLocation) { }
 
     TxFieldDefiner* get_field_definer(TxSpecializationIndex six) { return this->get_spec_field_def(six); }
 
@@ -450,7 +447,7 @@ protected:
                                                      LexicalContext& lexContext, TxDeclarationFlags declFlags) = 0;
 
 public:
-    TxTypeExpressionNode(const yy::location& parseLocation) : TxTypeDefiningNode(parseLocation), typeParamDeclNodes(1)  { }
+    TxTypeExpressionNode(const TxLocation& parseLocation) : TxTypeDefiningNode(parseLocation), typeParamDeclNodes(1)  { }
 
     /** Returns true if this type expression is a directly identified type
      * (i.e. a previously declared type, does not construct a new type). */
@@ -504,7 +501,7 @@ protected:
     }
 
 public:
-    TxTypeExprWrapperNode(const yy::location& parseLocation, TxTypeDefiner* typeDefiner)
+    TxTypeExprWrapperNode(const TxLocation& parseLocation, TxTypeDefiner* typeDefiner)
         : TxTypeExpressionNode(parseLocation), typeDefiner(typeDefiner), typeDefNode()  { }
 
     TxTypeExprWrapperNode(TxTypeDefiningNode* typeDefNode)
@@ -523,7 +520,7 @@ protected:
     const TxFieldDefNode* fieldDefNode = nullptr;
 
 public:
-    TxExpressionNode(const yy::location& parseLocation) : TxTypeDefiningNode(parseLocation) { }
+    TxExpressionNode(const TxLocation& parseLocation) : TxTypeDefiningNode(parseLocation) { }
 
     /** Injected by field definition if known and applicable. */
     virtual void set_field_def_node(const TxFieldDefNode* fieldDefNode) {
@@ -680,7 +677,7 @@ public:
     TxTypeExpressionNode* typeExpression;
     TxExpressionNode* initExpression;
 
-    TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
+    TxFieldDefNode(const TxLocation& parseLocation, const std::string& fieldName,
                    TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression)
             : TxFieldDefiningNode(parseLocation), fieldName(fieldName), modifiable(false), typeDefiner() {
         this->typeExpression = typeExpression;
@@ -693,7 +690,7 @@ public:
             this->initExpression = nullptr;
         }
     }
-    TxFieldDefNode(const yy::location& parseLocation, const std::string& fieldName,
+    TxFieldDefNode(const TxLocation& parseLocation, const std::string& fieldName,
                    TxExpressionNode* initExpression, bool modifiable=false, TxTypeDefiner* typeDefiner=nullptr)
             : TxFieldDefiningNode(parseLocation), fieldName(fieldName), modifiable(modifiable), typeDefiner(typeDefiner) {
         this->typeExpression = nullptr;
@@ -797,7 +794,7 @@ class TxFieldDeclNode : public TxDeclarationNode {
 public:
     TxFieldDefNode* field;
 
-    TxFieldDeclNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags, TxFieldDefNode* field,
+    TxFieldDeclNode(const TxLocation& parseLocation, const TxDeclarationFlags declFlags, TxFieldDefNode* field,
                     bool isMethodSyntax=false)
             : TxDeclarationNode(parseLocation, declFlags), isMethodSyntax(isMethodSyntax), field(field) { }
 
@@ -825,7 +822,7 @@ public:
     const std::vector<TxDeclarationNode*>* typeParamDecls;
     TxTypeExpressionNode* typeExpression;
 
-    TxTypeDeclNode(const yy::location& parseLocation, const TxDeclarationFlags declFlags,
+    TxTypeDeclNode(const TxLocation& parseLocation, const TxDeclarationFlags declFlags,
                    const std::string typeName, const std::vector<TxDeclarationNode*>* typeParamDecls,
                    TxTypeExpressionNode* typeExpression, bool interfaceKW=false)
         : TxDeclarationNode(parseLocation, declFlags),
@@ -859,7 +856,7 @@ public:
 
 class TxAssigneeNode : public TxTypeDefiningNode {
 public:
-    TxAssigneeNode(const yy::location& parseLocation) : TxTypeDefiningNode(parseLocation) { }
+    TxAssigneeNode(const TxLocation& parseLocation) : TxTypeDefiningNode(parseLocation) { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) = 0;
 
@@ -876,7 +873,7 @@ class TxExpErrDeclNode : public TxDeclarationNode {
 public:
     TxDeclarationNode* body;
 
-    TxExpErrDeclNode(const yy::location& parseLocation, int expected_error_count, int prev_encountered_errors, TxDeclarationNode* body)
+    TxExpErrDeclNode(const TxLocation& parseLocation, int expected_error_count, int prev_encountered_errors, TxDeclarationNode* body)
         : TxDeclarationNode(parseLocation, (body ? body->get_decl_flags() : TXD_NONE) | TXD_EXPERRBLOCK),
           expected_error_count(expected_error_count), encountered_error_count(prev_encountered_errors), body(body)  {
         //if (body)

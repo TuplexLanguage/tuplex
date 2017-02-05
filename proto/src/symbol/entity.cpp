@@ -15,14 +15,6 @@ const TxType* TxFieldDefiner::resolve_type() {
 Logger& TxEntity::LOG = Logger::get("ENTITY");
 
 
-TxDriver* TxEntity::get_driver() const {
-    return (this->declaration ? &this->declaration->get_symbol()->get_root_scope()->driver() : nullptr);
-}
-const yy::location& TxEntity::get_parse_location() const {
-    return (this->declaration ? this->declaration->get_definer()->get_parse_location() : NULL_LOC);
-}
-
-
 const TxType* TxField::get_outer_type() const {
     auto typeDecl = this->get_outer_type_decl();
     ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_symbol()->get_outer());

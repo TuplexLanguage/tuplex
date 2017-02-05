@@ -56,6 +56,12 @@ std::string TxTypeSpecialization::to_string() const { return "specialization of 
 
 /*=== TxType implementation ===*/
 
+const TxLocation& TxType::get_parse_location() const {
+    return (this->get_declaration() ? this->get_declaration()->get_definer()->get_parse_location()
+                                    : this->get_nearest_declaration()->get_symbol()->get_root_scope()->types().get_builtin_location());
+}
+
+
 void TxType::prepare_type_validation() const {
     //std::cerr << "validating type " << this << std::endl;
     if (this->baseTypeSpec.type) {

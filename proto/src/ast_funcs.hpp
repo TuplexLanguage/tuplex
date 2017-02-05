@@ -18,7 +18,7 @@ public:
     TxSuiteNode* suite;
     const bool isMethodSyntax;
 
-    TxLambdaExprNode(const yy::location& parseLocation, TxFunctionTypeNode* funcTypeNode, TxSuiteNode* suite,
+    TxLambdaExprNode(const TxLocation& parseLocation, TxFunctionTypeNode* funcTypeNode, TxSuiteNode* suite,
                      bool isMethodSyntax=false)
             : TxExpressionNode(parseLocation), funcTypeNode(funcTypeNode), suite(suite), isMethodSyntax(isMethodSyntax) {
     }

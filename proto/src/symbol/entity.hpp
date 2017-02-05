@@ -15,7 +15,7 @@ class TxConstantProxy;
 
 
 /** Represents the definition of a type or a field. */
-class TxEntity : public TxTypeProxy, public TxParseOrigin, public Printable {
+class TxEntity : public TxTypeProxy, public virtual TxParseOrigin, public Printable {
     static Logger& LOG;
 
     const TxEntityDeclaration* declaration;
@@ -26,9 +26,6 @@ protected:
 
 public:
     inline Logger& LOGGER() const { return this->LOG; }
-
-    virtual TxDriver* get_driver() const override;
-    virtual const yy::location& get_parse_location() const override;
 
     virtual inline const TxEntityDeclaration* get_declaration() const { return this->declaration; }
 
@@ -62,6 +59,14 @@ public:
             : TxEntity(declaration), type(type) {
         ASSERT(declaration, "Fields must be named (have non-null declaration)");
         ASSERT(type, "NULL type for field " << declaration);
+    }
+
+    const TxLocation& get_parse_location() const {
+        return this->get_declaration()->get_definer()->get_parse_location();
+    }
+
+    virtual TxDriver* get_driver() const override {
+        return this->get_declaration()->get_definer()->get_driver();
     }
 
     virtual inline const TxFieldDeclaration* get_declaration() const override {

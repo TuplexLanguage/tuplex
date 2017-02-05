@@ -10,7 +10,7 @@ class TxFieldStmtNode : public TxStatementNode {
 public:
     TxFieldDefNode* field;
 
-    TxFieldStmtNode(const yy::location& parseLocation, TxFieldDefNode* field)
+    TxFieldStmtNode(const TxLocation& parseLocation, TxFieldDefNode* field)
         : TxStatementNode(parseLocation), field(field) { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
@@ -34,10 +34,10 @@ class TxTypeStmtNode : public TxStatementNode {
 public:
     TxTypeDeclNode* const typeDecl;
 
-    TxTypeStmtNode(const yy::location& parseLocation, TxTypeDeclNode* typeDecl)
+    TxTypeStmtNode(const TxLocation& parseLocation, TxTypeDeclNode* typeDecl)
         : TxStatementNode(parseLocation), typeDecl(typeDecl) { }
 
-    TxTypeStmtNode(const yy::location& parseLocation, const std::string typeName,
+    TxTypeStmtNode(const TxLocation& parseLocation, const std::string typeName,
                    const std::vector<TxDeclarationNode*>* typeParamDecls, TxTypeExpressionNode* typeExpression, bool interfaceKW=false)
         : TxTypeStmtNode(parseLocation,
                          new TxTypeDeclNode(parseLocation, TXD_NONE, typeName, typeParamDecls, typeExpression, interfaceKW))
@@ -59,7 +59,7 @@ class TxCallStmtNode : public TxStatementNode {  // function call without assign
 public:
     TxFunctionCallNode* call;
 
-    TxCallStmtNode(const yy::location& parseLocation, TxFunctionCallNode* call)
+    TxCallStmtNode(const TxLocation& parseLocation, TxFunctionCallNode* call)
         : TxStatementNode(parseLocation), call(call) { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
@@ -76,7 +76,7 @@ public:
 
 class TxTerminalStmtNode : public TxStatementNode {
 protected:
-    TxTerminalStmtNode(const yy::location& parseLocation) : TxStatementNode(parseLocation)  { }
+    TxTerminalStmtNode(const TxLocation& parseLocation) : TxStatementNode(parseLocation)  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);
@@ -90,9 +90,9 @@ class TxReturnStmtNode : public TxTerminalStmtNode {
 public:
     TxExpressionNode* expr;
 
-    TxReturnStmtNode(const yy::location& parseLocation)
+    TxReturnStmtNode(const TxLocation& parseLocation)
         : TxTerminalStmtNode(parseLocation), expr() { }
-    TxReturnStmtNode(const yy::location& parseLocation, TxExpressionNode* expr)
+    TxReturnStmtNode(const TxLocation& parseLocation, TxExpressionNode* expr)
         : TxTerminalStmtNode(parseLocation), expr(make_generic_conversion_node(expr)) { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
@@ -124,7 +124,7 @@ public:
 
 class TxBreakStmtNode : public TxTerminalStmtNode {
 public:
-    TxBreakStmtNode(const yy::location& parseLocation) : TxTerminalStmtNode(parseLocation)  { }
+    TxBreakStmtNode(const TxLocation& parseLocation) : TxTerminalStmtNode(parseLocation)  { }
 
     virtual bool may_end_with_non_return_stmt() const override { return true; }
 
@@ -133,7 +133,7 @@ public:
 
 class TxContinueStmtNode : public TxTerminalStmtNode {
 public:
-    TxContinueStmtNode(const yy::location& parseLocation) : TxTerminalStmtNode(parseLocation)  { }
+    TxContinueStmtNode(const TxLocation& parseLocation) : TxTerminalStmtNode(parseLocation)  { }
 
     virtual bool may_end_with_non_return_stmt() const override { return true; }
 
@@ -145,8 +145,8 @@ class TxSuiteNode : public TxStatementNode {
 public:
     std::vector<TxStatementNode*>* suite;
 
-    TxSuiteNode(const yy::location& parseLocation);
-    TxSuiteNode(const yy::location& parseLocation, std::vector<TxStatementNode*>* suite);
+    TxSuiteNode(const TxLocation& parseLocation);
+    TxSuiteNode(const TxLocation& parseLocation, std::vector<TxStatementNode*>* suite);
 
     virtual void symbol_declaration_pass_no_subscope(TxSpecializationIndex six, LexicalContext& lexContext) {
         this->set_context(six, lexContext);
@@ -195,7 +195,7 @@ class TxElseClauseNode : public TxStatementNode {
 public:
     TxStatementNode* body;
 
-    TxElseClauseNode(const yy::location& parseLocation, TxStatementNode* suite)
+    TxElseClauseNode(const TxLocation& parseLocation, TxStatementNode* suite)
         : TxStatementNode(parseLocation), body(suite)  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
@@ -227,7 +227,7 @@ protected:
     TxElseClauseNode* elseClause;
 
 public:
-    TxCondCompoundStmtNode(const yy::location& parseLocation, TxExpressionNode* cond, TxStatementNode* body,
+    TxCondCompoundStmtNode(const TxLocation& parseLocation, TxExpressionNode* cond, TxStatementNode* body,
                            TxElseClauseNode* elseClause=nullptr)
         : TxStatementNode(parseLocation), cond(make_generic_conversion_node(cond)), body(body), elseClause(elseClause)  { }
 
@@ -254,7 +254,7 @@ public:
 
 class TxIfStmtNode : public TxCondCompoundStmtNode {
 public:
-    TxIfStmtNode(const yy::location& parseLocation, TxExpressionNode* cond, TxStatementNode* suite,
+    TxIfStmtNode(const TxLocation& parseLocation, TxExpressionNode* cond, TxStatementNode* suite,
                  TxElseClauseNode* elseClause=nullptr)
         : TxCondCompoundStmtNode(parseLocation, cond, suite, elseClause)  { }
 
@@ -270,7 +270,7 @@ public:
 
 class TxWhileStmtNode : public TxCondCompoundStmtNode {
 public:
-    TxWhileStmtNode(const yy::location& parseLocation, TxExpressionNode* cond, TxStatementNode* suite,
+    TxWhileStmtNode(const TxLocation& parseLocation, TxExpressionNode* cond, TxStatementNode* suite,
                     TxElseClauseNode* elseClause=nullptr)
         : TxCondCompoundStmtNode(parseLocation, cond, suite, elseClause)  { }
 
@@ -294,7 +294,7 @@ public:
     TxAssigneeNode* lvalue;
     TxExpressionNode* rvalue;
 
-    TxAssignStmtNode(const yy::location& parseLocation, TxAssigneeNode* lvalue, TxExpressionNode* rvalue)
+    TxAssignStmtNode(const TxLocation& parseLocation, TxAssigneeNode* lvalue, TxExpressionNode* rvalue)
         : TxStatementNode(parseLocation), lvalue(lvalue), rvalue(make_generic_conversion_node(rvalue))  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
@@ -337,7 +337,7 @@ class TxAssertStmtNode : public TxStatementNode {
     TxExpressionNode* expr;
     TxStatementNode* ifStmt;
 public:
-    TxAssertStmtNode(const yy::location& parseLocation, TxExpressionNode* expr);
+    TxAssertStmtNode(const TxLocation& parseLocation, TxExpressionNode* expr);
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);
@@ -359,7 +359,7 @@ class TxExpErrStmtNode : public TxStatementNode {
 public:
     TxStatementNode* body;
 
-    TxExpErrStmtNode(const yy::location& parseLocation, int expected_error_count, int prev_encountered_errors, TxStatementNode* body)
+    TxExpErrStmtNode(const TxLocation& parseLocation, int expected_error_count, int prev_encountered_errors, TxStatementNode* body)
         : TxStatementNode(parseLocation), expected_error_count(expected_error_count),
           encountered_error_count(prev_encountered_errors), body(body)  { }
 
@@ -399,7 +399,7 @@ public:
 
 class TxNoOpStmtNode : public TxStatementNode {
 public:
-    TxNoOpStmtNode(const yy::location& parseLocation) : TxStatementNode(parseLocation) {}
+    TxNoOpStmtNode(const TxLocation& parseLocation) : TxStatementNode(parseLocation) {}
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
         this->set_context(six, lexContext);

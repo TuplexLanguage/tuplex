@@ -280,7 +280,7 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
 
 
 
-static void format_location_message(char *buf, size_t bufSize, const yy::location& parseLocation, char const *msg) {
+static void format_location_message(char *buf, size_t bufSize, const TxLocation& parseLocation, char const *msg) {
     auto filename = parseLocation.begin.filename ? parseLocation.begin.filename->c_str() : "";
     if (parseLocation.begin.line == parseLocation.end.line) {
         int lcol = (parseLocation.end.column > parseLocation.begin.column) ? parseLocation.end.column : parseLocation.end.column;
@@ -296,17 +296,17 @@ static void format_location_message(char *buf, size_t bufSize, const yy::locatio
 
 static Logger& CLOG = Logger::get("COMPILER");
 
-void TxDriver::emit_comp_error(const yy::location& loc, const std::string& msg) {
-    char buf[512];
-    format_location_message(buf, 512, loc, msg.c_str());
-    CLOG.error("%s", buf);
-}
-
-void TxDriver::emit_comp_warning(const yy::location& loc, const std::string& msg) {
-    char buf[512];
-    format_location_message(buf, 512, loc, msg.c_str());
-    CLOG.warning("%s", buf);
-}
+//void TxDriver::emit_comp_error(const TxLocation& loc, const std::string& msg) {
+//    char buf[512];
+//    format_location_message(buf, 512, loc, msg.c_str());
+//    CLOG.error("%s", buf);
+//}
+//
+//void TxDriver::emit_comp_warning(const TxLocation& loc, const std::string& msg) {
+//    char buf[512];
+//    format_location_message(buf, 512, loc, msg.c_str());
+//    CLOG.warning("%s", buf);
+//}
 
 
 void TxDriver::emit_comp_error(char const *msg) {
@@ -326,7 +326,7 @@ void TxDriver::emit_comp_warning(char const *msg) {
 }
 
 
-void TxDriver::begin_exp_err(const yy::location& loc) {
+void TxDriver::begin_exp_err(const TxLocation& loc) {
     if (this->exp_err) {
         //this->cerror(loc, "Nested EXPECTED ERROR blocks not supported");
         char buf[512];
@@ -339,7 +339,7 @@ void TxDriver::begin_exp_err(const yy::location& loc) {
     this->exp_err_count = 0;
 }
 
-int TxDriver::end_exp_err(const yy::location& loc) {
+int TxDriver::end_exp_err(const TxLocation& loc) {
     if (!this->exp_err) {
         //this->cerror(loc, "EXPECTED ERROR block end doesn't match a corresponding begin");
         char buf[512];
@@ -366,7 +366,7 @@ int  TxDriver::get_warning_count() {
 }
 
 
-void TxDriver::cerror(const yy::location& loc, char const *fmt, ...) {
+void TxDriver::cerror(const TxLocation& loc, char const *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     char buf[512];
@@ -375,18 +375,13 @@ void TxDriver::cerror(const yy::location& loc, char const *fmt, ...) {
     this->cerror(loc, std::string(buf));
 }
 
-void TxDriver::cerror(const yy::location& loc, const std::string& msg) {
+void TxDriver::cerror(const TxLocation& loc, const std::string& msg) {
     char buf[512];
     format_location_message(buf, 512, loc, msg.c_str());
     this->emit_comp_error(buf);
 }
 
-void TxDriver::cerror(const std::string& msg)
-{
-    this->cerror(yy::location(NULL, 0, 0), "%s", msg.c_str());
-}
-
-void TxDriver::cwarning(const yy::location& loc, char const *fmt, ...) {
+void TxDriver::cwarning(const TxLocation& loc, char const *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     char buf[512];
@@ -395,38 +390,34 @@ void TxDriver::cwarning(const yy::location& loc, char const *fmt, ...) {
     this->cwarning(loc, std::string(buf));
 }
 
-void TxDriver::cwarning(const yy::location& loc, const std::string& msg) {
+void TxDriver::cwarning(const TxLocation& loc, const std::string& msg) {
     char buf[512];
     format_location_message(buf, 512, loc, msg.c_str());
     this->emit_comp_warning(buf);
 }
 
-void TxDriver::cwarning(const std::string& msg) {
-    this->cwarning(yy::location(NULL, 0, 0), "%s", msg.c_str());
-}
 
 
-
-bool TxParserContext::validate_module_name(const TxIdentifier& moduleName) {
+bool TxParserContext::validate_module_name(const TxLocation& loc, const TxIdentifier& moduleName) {
     if (moduleName.to_string() == LOCAL_NS) {
         if (! this->_driver.parsedSourceFiles.empty()) {
-            this->cerror("Only the first source file may have unspecified module name (implicit module " + std::string(LOCAL_NS) + ")");
+            this->cerror(loc, "Only the first source file may have unspecified module name (implicit module " + std::string(LOCAL_NS) + ")");
             return false;
         }
     }
     auto res = moduleName.begins_with(this->_moduleName);
     if (! res)
-        this->cerror("Source contains module '" + moduleName.to_string() + "', not '"
+        this->cerror(loc, "Source contains module '" + moduleName.to_string() + "', not '"
                      + this->_moduleName.to_string() + "' as expected.");
     return res;
 }
 
 
-void TxParserContext::begin_exp_err(const yy::location& loc) {
+void TxParserContext::begin_exp_err(const TxLocation& loc) {
     this->_driver.begin_exp_err(loc);
 }
 
-int TxParserContext::end_exp_err(const yy::location& loc) {
+int TxParserContext::end_exp_err(const TxLocation& loc) {
     return this->_driver.end_exp_err(loc);
 }
 
@@ -434,7 +425,7 @@ bool TxParserContext::is_exp_err() {
     return this->_driver.is_exp_err();
 }
 
-void TxParserContext::cerror(const yy::location& loc, char const *fmt, ...) {
+void TxParserContext::cerror(const TxLocation& loc, char const *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     char buf[512];
@@ -443,18 +434,13 @@ void TxParserContext::cerror(const yy::location& loc, char const *fmt, ...) {
     this->cerror(loc, std::string(buf));
 }
 
-void TxParserContext::cerror(const yy::location& loc, const std::string& msg) {
+void TxParserContext::cerror(const TxLocation& loc, const std::string& msg) {
     char buf[512];
     format_location_message(buf, 512, loc, msg.c_str());
     this->_driver.emit_comp_error(buf);
 }
 
-void TxParserContext::cerror(const std::string& msg)
-{
-    this->cerror(yy::location(NULL, 0, 0), "%s", msg.c_str());
-}
-
-void TxParserContext::cwarning(const yy::location& loc, char const *fmt, ...) {
+void TxParserContext::cwarning(const TxLocation& loc, char const *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     char buf[512];
@@ -463,12 +449,8 @@ void TxParserContext::cwarning(const yy::location& loc, char const *fmt, ...) {
     this->cwarning(loc, std::string(buf));
 }
 
-void TxParserContext::cwarning(const yy::location& loc, const std::string& msg) {
+void TxParserContext::cwarning(const TxLocation& loc, const std::string& msg) {
     char buf[512];
     format_location_message(buf, 512, loc, msg.c_str());
     this->_driver.emit_comp_warning(buf);
-}
-
-void TxParserContext::cwarning(const std::string& msg) {
-    this->cwarning(yy::location(NULL, 0, 0), "%s", msg.c_str());
 }

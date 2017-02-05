@@ -11,7 +11,7 @@ bool is_unsigned_out_of_range(const uint64_t u64, const BuiltinTypeId typeId);
 
 class TxLiteralValueNode : public TxExpressionNode {
 public:
-    TxLiteralValueNode(const yy::location& parseLocation)
+    TxLiteralValueNode(const TxLocation& parseLocation)
         : TxExpressionNode(parseLocation) { }
 
     virtual bool has_predefined_type() const override final { return true; }
@@ -71,15 +71,15 @@ protected:
     }
 
 public:
-    TxIntegerLitNode(const yy::location& parseLocation, const std::string& sourceLiteral, bool hasRadix)
+    TxIntegerLitNode(const TxLocation& parseLocation, const std::string& sourceLiteral, bool hasRadix)
             : TxLiteralValueNode(parseLocation), intConstProxy(this),
               intValue(sourceLiteral, hasRadix), sourceLiteral(sourceLiteral)  { }
 
-    TxIntegerLitNode(const yy::location& parseLocation, int64_t i64value, bool _signed, BuiltinTypeId typeId=(BuiltinTypeId)0)
+    TxIntegerLitNode(const TxLocation& parseLocation, int64_t i64value, bool _signed, BuiltinTypeId typeId=(BuiltinTypeId)0)
             : TxLiteralValueNode(parseLocation), intConstProxy(this),
               intValue(i64value, typeId, _signed), sourceLiteral("")  { }
 
-//    TxIntegerLitNode(const yy::location& parseLocation, uint64_t u64value, BuiltinTypeId typeId=(BuiltinTypeId)0)
+//    TxIntegerLitNode(const TxLocation& parseLocation, uint64_t u64value, BuiltinTypeId typeId=(BuiltinTypeId)0)
 //            : TxLiteralValueNode(parseLocation), intConstProxy(this),
 //              intValue(u64value, typeId), sourceLiteral("")  { }
 
@@ -108,12 +108,12 @@ protected:
     }
 
 public:
-    TxFloatingLitNode(const yy::location& parseLocation, const std::string& literal)
+    TxFloatingLitNode(const TxLocation& parseLocation, const std::string& literal)
         : TxLiteralValueNode(parseLocation), typeId(FLOAT), literal(literal), value(atof(literal.c_str())) {
         // TODO: produce different Floating types
     }
 
-    TxFloatingLitNode(const yy::location& parseLocation, BuiltinTypeId typeId=FLOAT)
+    TxFloatingLitNode(const TxLocation& parseLocation, BuiltinTypeId typeId=FLOAT)
         : TxLiteralValueNode(parseLocation), typeId(typeId), literal("0"), value(0) { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
@@ -133,7 +133,7 @@ protected:
 public:
     const std::string literal;
     const char value;  // TODO: unicode support
-    TxCharacterLitNode(const yy::location& parseLocation, const std::string& literal)
+    TxCharacterLitNode(const TxLocation& parseLocation, const std::string& literal)
         : TxLiteralValueNode(parseLocation), literal(literal), value(literal.at(1)) { }
     // TODO: properly parse char literal
 
@@ -160,7 +160,7 @@ public:
     const std::string literal;
     const std::string value;
 
-    TxCStringLitNode(const yy::location& parseLocation, const std::string& literal)
+    TxCStringLitNode(const TxLocation& parseLocation, const std::string& literal)
         : TxLiteralValueNode(parseLocation), arrayLength(literal.length()-2), cstringTypeNode(),
           literal(literal), value(literal, 2, literal.length()-3) { }
     // TODO: properly parse string literal
@@ -181,7 +181,7 @@ protected:
 public:
     const bool value;
 
-    TxBoolLitNode(const yy::location& parseLocation, bool value)
+    TxBoolLitNode(const TxLocation& parseLocation, bool value)
         : TxLiteralValueNode(parseLocation), value(value)  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {

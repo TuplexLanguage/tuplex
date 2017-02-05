@@ -147,7 +147,7 @@ public:
         : specDefiner(specDefiner), six(six)  { }
 
     virtual TxDriver* get_driver() const override { return specDefiner->get_driver(); }
-    virtual const yy::location& get_parse_location() const override { return specDefiner->get_parse_location(); }
+    virtual const TxLocation& get_parse_location() const override { return specDefiner->get_parse_location(); }
 
     virtual const TxType* resolve_type() override { return specDefiner->resolve_type(six); }
 
@@ -170,7 +170,7 @@ public:
         : specDefiner(specDefiner), six(six)  { }
 
     virtual TxDriver* get_driver() const override { return specDefiner->get_driver(); }
-    virtual const yy::location& get_parse_location() const override { return specDefiner->get_parse_location(); }
+    virtual const TxLocation& get_parse_location() const override { return specDefiner->get_parse_location(); }
 
     virtual const TxExpressionNode* get_init_expression() const override { return specDefiner->get_init_expression(); }
 

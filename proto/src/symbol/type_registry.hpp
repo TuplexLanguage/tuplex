@@ -2,6 +2,7 @@
 
 #include <queue>
 
+#include "location.hpp"
 #include "tx_lang_defs.hpp"
 #include "type.hpp"
 
@@ -46,6 +47,9 @@ class TypeRegistry {
     TxBuiltinTypeDefiner* builtinTypes[BuiltinTypeId_COUNT];
     const TxType* builtinModTypes[BuiltinTypeId_COUNT];
 
+    /** parse location used for built-in constructs without actual source code */
+    const TxLocation builtinLocation;
+
     typedef struct {
         TxTypeExpressionNode* node;
         TxSpecializationIndex six;
@@ -80,9 +84,11 @@ public:
     /** The root type. All variables / fields / interfaces / objects are instances of this type. */
     static TxType const * const Any;
 
-    TypeRegistry(TxPackage& package) : package(package) {
-        this->createdTypes = new std::vector<TxType*>();
-    }
+    TypeRegistry(TxPackage& package);
+
+    TxDriver* get_driver() const;
+
+    inline const TxLocation& get_builtin_location() const { return this->builtinLocation; }
 
     /** to be invoked immediately after object construction */
     void initializeBuiltinSymbols();

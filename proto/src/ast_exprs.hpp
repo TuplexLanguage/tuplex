@@ -35,7 +35,7 @@ protected:
 
 public:
     TxExpressionNode* reference;
-    TxReferenceDerefNode(const yy::location& parseLocation, TxExpressionNode* operand)
+    TxReferenceDerefNode(const TxLocation& parseLocation, TxExpressionNode* operand)
         : TxExpressionNode(parseLocation), reference(operand) { }
 
     virtual bool has_predefined_type() const override { return this->reference->has_predefined_type(); }
@@ -81,7 +81,7 @@ protected:
 public:
     TxExpressionNode* array;
     TxExpressionNode* subscript;
-    TxElemDerefNode(const yy::location& parseLocation, TxExpressionNode* operand, TxExpressionNode* subscript)
+    TxElemDerefNode(const TxLocation& parseLocation, TxExpressionNode* operand, TxExpressionNode* subscript)
         : TxExpressionNode(parseLocation), array(operand), subscript(make_generic_conversion_node(subscript))  { }
 
     virtual bool has_predefined_type() const override { return this->array->has_predefined_type(); }
@@ -119,7 +119,7 @@ protected:
 public:
     TxExpressionNode* target;
 
-    TxReferenceToNode(const yy::location& parseLocation, TxExpressionNode* target)
+    TxReferenceToNode(const TxLocation& parseLocation, TxExpressionNode* target)
         : TxExpressionNode(parseLocation), target(target) { }
 
     virtual bool has_predefined_type() const override { return false; }  // (this expr constructs new type)
@@ -160,7 +160,7 @@ public:
 
 class TxOperatorValueNode : public TxExpressionNode {
 public:
-    TxOperatorValueNode(const yy::location& parseLocation)
+    TxOperatorValueNode(const TxLocation& parseLocation)
         : TxExpressionNode(parseLocation) { }
 
     virtual bool has_predefined_type() const override { return true; }
@@ -241,7 +241,7 @@ public:
     TxExpressionNode* rhs;
     const int op_class;
 
-    TxBinaryOperatorNode(const yy::location& parseLocation, TxExpressionNode* lhs, const TxOperation op, TxExpressionNode* rhs)
+    TxBinaryOperatorNode(const TxLocation& parseLocation, TxExpressionNode* lhs, const TxOperation op, TxExpressionNode* rhs)
             : TxOperatorValueNode(parseLocation), op(op), lhs(lhs), rhs(rhs), op_class(get_op_class(op))  {
         ASSERT(is_valid(op), "Invalid operator value: " << (int)op);
     }
@@ -301,7 +301,7 @@ protected:
 
 public:
     TxExpressionNode* operand;
-    TxUnaryMinusNode(const yy::location& parseLocation, TxExpressionNode* operand)
+    TxUnaryMinusNode(const TxLocation& parseLocation, TxExpressionNode* operand)
         : TxOperatorValueNode(parseLocation), operand(operand) { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
@@ -329,7 +329,7 @@ protected:
 
 public:
     TxExpressionNode* operand;
-    TxUnaryLogicalNotNode(const yy::location& parseLocation, TxExpressionNode* operand)
+    TxUnaryLogicalNotNode(const TxLocation& parseLocation, TxExpressionNode* operand)
         : TxOperatorValueNode(parseLocation), operand(operand) { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
@@ -381,7 +381,7 @@ public:
     TxExpressionNode* callee;
     std::vector<TxExpressionNode*>* argsExprList;
 
-    TxFunctionCallNode(const yy::location& parseLocation, TxExpressionNode* callee, std::vector<TxExpressionNode*>* argsExprList)
+    TxFunctionCallNode(const TxLocation& parseLocation, TxExpressionNode* callee, std::vector<TxExpressionNode*>* argsExprList)
         : TxExpressionNode(parseLocation), callee(callee), argsExprList(argsExprList) {
         for (auto argExprI = this->argsExprList->begin(); argExprI != this->argsExprList->end(); argExprI++)
             *argExprI = make_generic_conversion_node(*argExprI);
@@ -469,7 +469,7 @@ protected:
     virtual const TxType* define_type(TxSpecializationIndex six) override;
 
 public:
-    TxConstructorCalleeExprNode(const yy::location& parseLocation, TxExpressionNode* objectExpr)
+    TxConstructorCalleeExprNode(const TxLocation& parseLocation, TxExpressionNode* objectExpr)
             : TxExpressionNode(parseLocation), objectExpr(objectExpr) { }
 
     virtual bool has_predefined_type() const override { return true; }
@@ -499,7 +499,7 @@ protected:
         return this->objTypeExpr->resolve_type(six);
     }
 
-    TxMemAllocNode(const yy::location& parseLocation, TxTypeExpressionNode* objTypeExpr)
+    TxMemAllocNode(const TxLocation& parseLocation, TxTypeExpressionNode* objTypeExpr)
             : TxExpressionNode(parseLocation), objTypeExpr(objTypeExpr) { }
 
 public:
@@ -510,14 +510,14 @@ public:
 
 class TxHeapAllocNode : public TxMemAllocNode {
 public:
-    TxHeapAllocNode(const yy::location& parseLocation, TxTypeExpressionNode* objTypeExpr)
+    TxHeapAllocNode(const TxLocation& parseLocation, TxTypeExpressionNode* objTypeExpr)
             : TxMemAllocNode(parseLocation, objTypeExpr) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxStackAllocNode : public TxMemAllocNode {
 public:
-    TxStackAllocNode(const yy::location& parseLocation, TxTypeExpressionNode* objTypeExpr)
+    TxStackAllocNode(const TxLocation& parseLocation, TxTypeExpressionNode* objTypeExpr)
             : TxMemAllocNode(parseLocation, objTypeExpr) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
@@ -534,7 +534,7 @@ protected:
     /** Gets the type of the allocated object. Should not be called before resolution. */
     virtual const TxType* get_object_type(TxSpecializationIndex six) const = 0;
 
-    TxMakeObjectNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr)
+    TxMakeObjectNode(const TxLocation& parseLocation, TxTypeExpressionNode* typeExpr)
             : TxExpressionNode(parseLocation), typeExpr(typeExpr) { }
 
 public:
@@ -576,7 +576,7 @@ protected:
     }
 
 public:
-    TxNewExprNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList)
+    TxNewExprNode(const TxLocation& parseLocation, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList)
             : TxMakeObjectNode(parseLocation, typeExpr) {
         this->constructor = new TxConstructorCalleeExprNode(parseLocation, new TxHeapAllocNode(parseLocation, typeExpr));
         this->constructorCall = new TxFunctionCallNode(parseLocation, this->constructor, argsExprList);
@@ -599,7 +599,7 @@ protected:
 
 public:
     /** produced by the expression syntax: <...type-expr...>(...constructor-args...) */
-    TxStackConstructorNode(const yy::location& parseLocation, TxTypeExpressionNode* typeExpr,
+    TxStackConstructorNode(const TxLocation& parseLocation, TxTypeExpressionNode* typeExpr,
                            std::vector<TxExpressionNode*>* argsExprList)
             : TxMakeObjectNode(parseLocation, typeExpr) {
         this->constructor = new TxConstructorCalleeExprNode(parseLocation, new TxStackAllocNode(parseLocation, typeExpr));
@@ -636,7 +636,7 @@ protected:
 
 public:
     TxFieldValueNode* field;
-    TxFieldAssigneeNode(const yy::location& parseLocation, TxFieldValueNode* field)
+    TxFieldAssigneeNode(const TxLocation& parseLocation, TxFieldValueNode* field)
         : TxAssigneeNode(parseLocation), field(field) { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
@@ -672,7 +672,7 @@ protected:
 
 public:
     TxExpressionNode* operand;
-    TxDerefAssigneeNode(const yy::location& parseLocation, TxExpressionNode* operand)
+    TxDerefAssigneeNode(const TxLocation& parseLocation, TxExpressionNode* operand)
         : TxAssigneeNode(parseLocation), operand(operand) { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
@@ -710,7 +710,7 @@ protected:
 public:
     TxExpressionNode* array;
     TxExpressionNode* subscript;
-    TxElemAssigneeNode(const yy::location& parseLocation, TxExpressionNode* array, TxExpressionNode* subscript)
+    TxElemAssigneeNode(const TxLocation& parseLocation, TxExpressionNode* array, TxExpressionNode* subscript)
         : TxAssigneeNode(parseLocation), array(array), subscript(make_generic_conversion_node(subscript))  { }
 
     virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {

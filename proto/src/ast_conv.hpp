@@ -16,7 +16,7 @@ public:
     TxExpressionNode* expr;
     TxType const * const resultType;
 
-    TxConversionNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* resultType)
+    TxConversionNode(const TxLocation& parseLocation, TxExpressionNode* expr, const TxType* resultType)
             : TxExpressionNode(parseLocation), expr(expr), resultType(resultType) {
         ASSERT(resultType, "NULL resultType");
     }
@@ -119,7 +119,7 @@ class TxScalarConvNode : public TxConversionNode {
 
     ScalarConvConstantProxy constProxy;
 public:
-    TxScalarConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxScalarType* resultType)
+    TxScalarConvNode(const TxLocation& parseLocation, TxExpressionNode* expr, const TxScalarType* resultType)
         : TxConversionNode(parseLocation, expr, resultType), constProxy()  { }
 
     virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
@@ -137,7 +137,7 @@ public:
 
 class TxBoolConvNode : public TxConversionNode {
 public:
-    TxBoolConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxBoolType* resultType)
+    TxBoolConvNode(const TxLocation& parseLocation, TxExpressionNode* expr, const TxBoolType* resultType)
         : TxConversionNode(parseLocation, expr, resultType) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
@@ -148,7 +148,7 @@ protected:
     virtual const TxType* define_type(TxSpecializationIndex six) override;
 
 public:
-    TxReferenceConvNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxReferenceType* resultType)
+    TxReferenceConvNode(const TxLocation& parseLocation, TxExpressionNode* expr, const TxReferenceType* resultType)
         : TxConversionNode(parseLocation, expr, resultType) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
@@ -156,7 +156,7 @@ public:
 /** Casts (not converts) between object specializations (across type parameters and inheritance). */
 class TxObjSpecCastNode : public TxConversionNode {
 public:
-    TxObjSpecCastNode(const yy::location& parseLocation, TxExpressionNode* expr, const TxType* resultType)
+    TxObjSpecCastNode(const TxLocation& parseLocation, TxExpressionNode* expr, const TxType* resultType)
         : TxConversionNode(parseLocation, expr, resultType) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };

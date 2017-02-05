@@ -7,6 +7,7 @@
 
 #include "util/logging.hpp"
 
+#include "location.hpp"
 #include "identifier.hpp"
 
 namespace yy {
@@ -125,24 +126,19 @@ public:
      */
     bool add_import(const TxIdentifier& moduleName);
 
+    // FUTURE: Move the error handling to TxParserContext.
     // Compilation error handling.
-    void begin_exp_err(const yy::location& loc);
-    int    end_exp_err(const yy::location& loc);
+    void begin_exp_err(const TxLocation& loc);
+    int    end_exp_err(const TxLocation& loc);
     bool    is_exp_err();
 
     int  get_error_count();
     int  get_warning_count();
 
-    void cerror(const yy::location& loc, char const *fmt, ...);
-    void cerror(const yy::location& loc, const std::string& msg);
-    void cerror(const std::string& msg);
-    void cwarning(const yy::location& loc, char const *fmt, ...);
-    void cwarning(const yy::location& loc, const std::string& msg);
-    void cwarning(const std::string& msg);
-
-    // fall-back for when driver instance is not reachable */
-    static void emit_comp_error(const yy::location& loc, const std::string& msg);
-    static void emit_comp_warning(const yy::location& loc, const std::string& msg);
+    void cerror(const TxLocation& loc, char const *fmt, ...);
+    void cerror(const TxLocation& loc, const std::string& msg);
+    void cwarning(const TxLocation& loc, char const *fmt, ...);
+    void cwarning(const TxLocation& loc, const std::string& msg);
 };
 
 
@@ -166,7 +162,7 @@ public:
         this->_currentInputFilename = new std::string(filePath);
     }
 
-    //TxDriver& driver() const { return this->_driver; }
+    inline TxDriver* get_driver() const { return &this->_driver; }
 
     /** The path of the file currently being parsed.
      * Used later to pass the file path to the location tracker. */
@@ -175,7 +171,7 @@ public:
     }
 
     /** Checks that the module name is valid in relation to the currently parsed source file and its file name/path. */
-    bool validate_module_name(const TxIdentifier& moduleName);
+    bool validate_module_name(const TxLocation& loc, const TxIdentifier& moduleName);
 
     /** Add a module to the currently compiling package.
      * The Tuplex source path will be searched for the module's source.
@@ -185,15 +181,13 @@ public:
         return this->_driver.add_import(moduleName);
     }
 
-    void cerror(const yy::location& loc, char const *fmt, ...);
-    void cerror(const yy::location& loc, const std::string& msg);
-    void cerror(const std::string& msg);
-    void cwarning(const yy::location& loc, char const *fmt, ...);
-    void cwarning(const yy::location& loc, const std::string& msg);
-    void cwarning(const std::string& msg);
+    void cerror(const TxLocation& loc, char const *fmt, ...);
+    void cerror(const TxLocation& loc, const std::string& msg);
+    void cwarning(const TxLocation& loc, char const *fmt, ...);
+    void cwarning(const TxLocation& loc, const std::string& msg);
 
     // Compilation error handling.
-    void begin_exp_err(const yy::location& loc);
-    int    end_exp_err(const yy::location& loc);
+    void begin_exp_err(const TxLocation& loc);
+    int    end_exp_err(const TxLocation& loc);
     bool    is_exp_err();
 };

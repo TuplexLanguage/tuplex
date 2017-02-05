@@ -262,6 +262,11 @@ protected:
 public:
     virtual ~TxType() = default;
 
+    virtual const TxLocation& get_parse_location() const override;
+
+    virtual TxDriver* get_driver() const override {
+        return this->get_nearest_declaration()->get_definer()->get_driver();
+    }
 
     virtual bool validate() const override { return true; }
 
@@ -588,7 +593,7 @@ class TxTypeWrapperDef : public TxTypeDefiner {
 public:
     TxTypeWrapperDef(const TxType* type) : type(type)  { ASSERT(type, "NULL type"); ASSERT(type->get_declaration(), "NULL type declaration");}
     virtual TxDriver* get_driver() const override { return this->type->get_driver(); }
-    virtual const yy::location& get_parse_location() const override { return this->type->get_parse_location(); }
+    virtual const TxLocation& get_parse_location() const override { return this->type->get_parse_location(); }
     virtual const TxType* resolve_type() override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
