@@ -14,6 +14,8 @@ public:
     TxLiteralValueNode(const TxLocation& parseLocation)
         : TxExpressionNode(parseLocation) { }
 
+    virtual TxLiteralValueNode* make_ast_copy() const override = 0;
+
     virtual bool has_predefined_type() const override final { return true; }
 
     virtual bool is_statically_constant() const override final { return true; }
@@ -50,7 +52,7 @@ class TxIntegerLitNode : public TxLiteralValueNode {
         TxIntegerLitNode* intNode;
     public:
         IntConstantProxy(TxIntegerLitNode* intNode) : intNode(intNode) { }
-        virtual const TxType* get_type() const override { return intNode->get_type(0); }
+        virtual const TxType* get_type() const override { return intNode->get_type(); }
         virtual uint32_t get_value_UInt() const override { return intNode->intValue.get_value_UInt(); }
 //        virtual bool operator==(const TxConstantProxy& other) const override {
 //            if (auto otherInt = dynamic_cast<const IntConstantProxy*>(&other)) {
@@ -65,9 +67,12 @@ class TxIntegerLitNode : public TxLiteralValueNode {
     IntValue intValue;
     const std::string sourceLiteral;
 
+    TxIntegerLitNode(const TxIntegerLitNode& orig)
+        : TxLiteralValueNode(orig.parseLocation), intConstProxy(this), intValue(orig.intValue), sourceLiteral(orig.sourceLiteral) { }
+
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six) override {
-        return this->types(six).get_builtin_type(this->intValue.typeId);
+    virtual const TxType* define_type() override {
+        return this->types().get_builtin_type(this->intValue.typeId);
     }
 
 public:
@@ -83,12 +88,16 @@ public:
 //            : TxLiteralValueNode(parseLocation), intConstProxy(this),
 //              intValue(u64value, typeId), sourceLiteral("")  { }
 
-    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
-        this->set_context(six, lexContext);
+    virtual TxIntegerLitNode* make_ast_copy() const override {
+        return new TxIntegerLitNode( *this );
+    }
+
+    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+        this->set_context( lexContext);
         if (this->intValue.radix < 2 || this->intValue.radix > 36)
             CERROR(this, "Radix outside valid range [2,36]: " << this->intValue.radix);
         else if (this->intValue.outOfRange)
-            CERROR(this, "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->types(six).get_builtin_type(this->intValue.typeId));
+            CERROR(this, "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->types().get_builtin_type(this->intValue.typeId));
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override { return &this->intConstProxy; }
@@ -103,8 +112,8 @@ class TxFloatingLitNode : public TxLiteralValueNode {
     const double value;
 
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six) override {
-        return this->types(six).get_builtin_type(this->typeId);
+    virtual const TxType* define_type() override {
+        return this->types().get_builtin_type(this->typeId);
     }
 
 public:
@@ -116,8 +125,12 @@ public:
     TxFloatingLitNode(const TxLocation& parseLocation, BuiltinTypeId typeId=FLOAT)
         : TxLiteralValueNode(parseLocation), typeId(typeId), literal("0"), value(0) { }
 
-    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
-        this->set_context(six, lexContext);
+    virtual TxFloatingLitNode* make_ast_copy() const override {
+        return new TxFloatingLitNode( *this );
+    }
+
+    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+        this->set_context( lexContext);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -126,19 +139,24 @@ public:
 
 class TxCharacterLitNode : public TxLiteralValueNode {
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six) override {
-        return this->types(six).get_builtin_type(UBYTE);
+    virtual const TxType* define_type() override {
+        return this->types().get_builtin_type(UBYTE);
     }
 
 public:
     const std::string literal;
     const char value;  // TODO: unicode support
+
     TxCharacterLitNode(const TxLocation& parseLocation, const std::string& literal)
         : TxLiteralValueNode(parseLocation), literal(literal), value(literal.at(1)) { }
     // TODO: properly parse char literal
 
-    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
-        this->set_context(six, lexContext);
+    virtual TxCharacterLitNode* make_ast_copy() const override {
+        return new TxCharacterLitNode( *this );
+    }
+
+    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+        this->set_context( lexContext);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -147,13 +165,13 @@ public:
 
 class TxCStringLitNode : public TxLiteralValueNode {
     const size_t arrayLength;  // note: array length includes the null terminator
-    TxTypeDeclNode* cstringTypeNode;  // implicit type definer
+    TxTypeDeclNode* cstringTypeNode;  // implicit type definer  // FIXME: refactor
 
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six) override {
-//        const TxType* charType = this->types(six).get_builtin_type(UBYTE);
-//        return this->types(six).get_array_type(nullptr, charType, &this->arrayLength);
-        return this->cstringTypeNode->typeExpression->resolve_type(six);
+    virtual const TxType* define_type() override {
+//        const TxType* charType = this->types().get_builtin_type(UBYTE);
+//        return this->types().get_array_type(nullptr, charType, &this->arrayLength);
+        return this->cstringTypeNode->typeExpression->resolve_type();
     }
 
 public:
@@ -165,7 +183,11 @@ public:
           literal(literal), value(literal, 2, literal.length()-3) { }
     // TODO: properly parse string literal
 
-    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override;
+    virtual TxCStringLitNode* make_ast_copy() const override {
+        return new TxCStringLitNode( *this );
+    }
+
+    virtual void symbol_declaration_pass( LexicalContext& lexContext) override;
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
@@ -174,8 +196,8 @@ public:
 
 class TxBoolLitNode : public TxLiteralValueNode {
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six) override {
-        return this->types(six).get_builtin_type(BOOL);
+    virtual const TxType* define_type() override {
+        return this->types().get_builtin_type(BOOL);
     }
 
 public:
@@ -184,8 +206,12 @@ public:
     TxBoolLitNode(const TxLocation& parseLocation, bool value)
         : TxLiteralValueNode(parseLocation), value(value)  { }
 
-    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
-        this->set_context(six, lexContext);
+    virtual TxBoolLitNode* make_ast_copy() const override {
+        return new TxBoolLitNode( *this );
+    }
+
+    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+        this->set_context( lexContext);
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

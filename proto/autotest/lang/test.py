@@ -80,4 +80,4 @@ source_files = [
 ]
 
 for src in source_files:
-    run_cmd( """txc -quiet -jit -nobc %s""" % ( src, ) )
+    run_cmd( """txc -vquiet -jit -nobc %s""" % ( src, ) )

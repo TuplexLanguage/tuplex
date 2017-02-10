@@ -318,11 +318,11 @@ field_type_def : NAME COLON type_expression
 ;
 
 field_assignment_def : NAME COLON type_expression EQUAL expr
-                           { $$ = new TxFieldDefNode(@1, $1, $3, $5); }
+                           { $$ = new TxFieldDefNode(@1, $1, $3,      $5); }
                      | NAME COLEQUAL expr
-                           { $$ = new TxFieldDefNode(@1, $1, $3); }
+                           { $$ = new TxFieldDefNode(@1, $1, nullptr, $3); }
                      | TILDE NAME COLEQUAL expr
-                           { $$ = new TxFieldDefNode(@1, $2, $4, true); }
+                           { $$ = new TxFieldDefNode(@1, $2, nullptr, $4, true); }
                      // TODO |   assignee_pattern COLEQUAL expr
 ;
 

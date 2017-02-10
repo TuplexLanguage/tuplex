@@ -6,9 +6,9 @@
 /** A specific conversion of an expression to a resulting type. */
 class TxConversionNode : public TxExpressionNode {
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six) override {
+    virtual const TxType* define_type() override {
         // FIXME: type equality logic
-        //auto type = expr->resolve_type(six);
+        //auto type = expr->resolve_type();
         //ASSERT(type && (*type) == (*this->resultType), "Mismatching types in " << this << ": \n" << type << " != \n" << this->resultType);
         return this->resultType;
     }
@@ -16,82 +16,30 @@ public:
     TxExpressionNode* expr;
     TxType const * const resultType;
 
-    TxConversionNode(const TxLocation& parseLocation, TxExpressionNode* expr, const TxType* resultType)
-            : TxExpressionNode(parseLocation), expr(expr), resultType(resultType) {
+    TxConversionNode( TxExpressionNode* expr, const TxType* resultType )
+            : TxExpressionNode(expr->parseLocation), expr(expr), resultType(resultType) {
         ASSERT(resultType, "NULL resultType");
+    }
+
+    virtual TxConversionNode* make_ast_copy() const override {
+        ASSERT(false, "Can't make AST copy of a TxConversionNode: " << this);
+        return nullptr;
     }
 
     virtual bool has_predefined_type() const override { return this->resultType->get_symbol(); }
 
-    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
-        this->set_context(six, lexContext);
-        if (! this->expr->is_context_set(six))
-            this->expr->symbol_declaration_pass(six, lexContext);
+    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+        this->set_context( lexContext);
+        if (! this->expr->is_context_set())
+            this->expr->symbol_declaration_pass( lexContext);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
-        TxExpressionNode::symbol_resolution_pass(six);
-        this->expr->symbol_resolution_pass(six);
+    virtual void symbol_resolution_pass() override {
+        TxExpressionNode::symbol_resolution_pass();
+        this->expr->symbol_resolution_pass();
     }
 
     virtual bool is_statically_constant() const override { return this->expr->is_statically_constant(); }
-};
-
-
-/** A generic conversion node which can hold a specific conversion node for each specialization index. */
-class TxGenericConversionNode : public TxExpressionNode {
-    std::vector<TxExpressionNode*> specificConvs;
-
-protected:
-    virtual const TxType* define_type(TxSpecializationIndex six) override {
-        auto expr = this->get_spec_expression(six);
-        return expr->resolve_type(six);
-    }
-
-public:
-    TxExpressionNode* const originalExpr;
-
-    TxGenericConversionNode(TxExpressionNode* originalExpr)
-            : TxExpressionNode(originalExpr->parseLocation), originalExpr(originalExpr) {
-        ASSERT(originalExpr, "NULL originalExpr");
-    }
-
-    void insert_conversion(TxSpecializationIndex six, const TxType* resultType, bool _explicit=false);
-
-    TxExpressionNode* get_spec_expression(TxSpecializationIndex six) const {
-        if (this->specificConvs.size() > six) {
-            if (auto expr = this->specificConvs.at(six))
-                return expr;
-        }
-        return this->originalExpr;
-    }
-
-    virtual bool has_predefined_type() const override { return false; }
-
-    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
-        this->set_context(six, lexContext);
-        auto expr = this->get_spec_expression(six);
-        if (! expr->is_context_set(six))
-            expr->symbol_declaration_pass(six, lexContext);
-    }
-
-    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
-        TxExpressionNode::symbol_resolution_pass(six);
-        auto expr = this->get_spec_expression(six);
-        expr->symbol_resolution_pass(six);
-    }
-
-    virtual bool is_statically_constant() const override {
-        // make this method six-dependent?
-        return this->get_spec_expression(0)->is_statically_constant();
-    }
-
-    virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        // TODO: make this method six-dependent?
-        return this->get_spec_expression(0)->get_static_constant_proxy();
-    }
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
 };
 
 
@@ -119,11 +67,11 @@ class TxScalarConvNode : public TxConversionNode {
 
     ScalarConvConstantProxy constProxy;
 public:
-    TxScalarConvNode(const TxLocation& parseLocation, TxExpressionNode* expr, const TxScalarType* resultType)
-        : TxConversionNode(parseLocation, expr, resultType), constProxy()  { }
+    TxScalarConvNode( TxExpressionNode* expr, const TxScalarType* resultType )
+        : TxConversionNode( expr, resultType ), constProxy()  { }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
-        TxConversionNode::symbol_resolution_pass(six);
+    virtual void symbol_resolution_pass() override {
+        TxConversionNode::symbol_resolution_pass();
         if (auto originalConstant = this->expr->get_static_constant_proxy())
             this->constProxy.init(this, originalConstant);
     }
@@ -137,26 +85,37 @@ public:
 
 class TxBoolConvNode : public TxConversionNode {
 public:
-    TxBoolConvNode(const TxLocation& parseLocation, TxExpressionNode* expr, const TxBoolType* resultType)
-        : TxConversionNode(parseLocation, expr, resultType) { }
+    TxBoolConvNode( TxExpressionNode* expr, const TxBoolType* resultType )
+        : TxConversionNode( expr, resultType ) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxReferenceConvNode : public TxConversionNode {
     const TxType* adapterType = nullptr;
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six) override;
+    virtual const TxType* define_type() override;
 
 public:
-    TxReferenceConvNode(const TxLocation& parseLocation, TxExpressionNode* expr, const TxReferenceType* resultType)
-        : TxConversionNode(parseLocation, expr, resultType) { }
+    TxReferenceConvNode( TxExpressionNode* expr, const TxReferenceType* resultType )
+        : TxConversionNode( expr, resultType ) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 /** Casts (not converts) between object specializations (across type parameters and inheritance). */
 class TxObjSpecCastNode : public TxConversionNode {
 public:
-    TxObjSpecCastNode(const TxLocation& parseLocation, TxExpressionNode* expr, const TxType* resultType)
-        : TxConversionNode(parseLocation, expr, resultType) { }
+    TxObjSpecCastNode( TxExpressionNode* expr, const TxType* resultType )
+        : TxConversionNode( expr, resultType ) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+};
+
+
+/** A non-conversion "placeholder conversion". */
+class TxNoConversionNode : public TxConversionNode {
+public:
+    TxNoConversionNode( TxExpressionNode* expr, const TxType* resultType )
+        : TxConversionNode( expr, resultType ) { }
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override {
+        return this->expr->code_gen( context, scope );
+    }
 };

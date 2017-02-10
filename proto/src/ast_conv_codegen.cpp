@@ -5,8 +5,8 @@
 using namespace llvm;
 
 
-Value* TxGenericConversionNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    return this->get_spec_expression(0)->code_gen(context, scope);
+Value* TxMaybeConversionNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    return this->get_spec_expression()->code_gen(context, scope);
 }
 
 
@@ -50,14 +50,14 @@ Value* TxScalarConvNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     }
     // FUTURE: manually determine cast instruction
     bool srcSigned = false, dstSigned = false;
-    if (auto intType = dynamic_cast<const TxIntegerType*>(this->expr->get_type(0)))
+    if (auto intType = dynamic_cast<const TxIntegerType*>(this->expr->get_type()))
         if (intType->sign)
             srcSigned = true;
     if (auto intType = dynamic_cast<const TxIntegerType*>(this->resultType))
         if (intType->sign)
             dstSigned = true;
     Instruction::CastOps cop = CastInst::getCastOpcode(origValue, srcSigned, targetLlvmType, dstSigned);
-    ASSERT(cop, "No CastOps code found for cast from " << this->expr->get_type(0) << " to " << this->resultType);
+    ASSERT(cop, "No CastOps code found for cast from " << this->expr->get_type() << " to " << this->resultType);
     if (!scope) {
         ASSERT(this->is_statically_constant(), "Non-statically-constant expression in global scope: " << this);
         context.LOG.debug("non-local scope cast -> %s", this->resultType->to_string().c_str());
@@ -102,7 +102,7 @@ Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* s
         return NULL;
 
     // from another reference:
-    if (dynamic_cast<const TxReferenceType*>(this->expr->get_type(0))) {
+    if (dynamic_cast<const TxReferenceType*>(this->expr->get_type())) {
         auto refT = context.get_llvm_type(this->resultType);
         if (! refT) {
             context.LOG.error("In reference conversion, LLVM type not found for result type %s", this->resultType->to_string().c_str());
@@ -128,8 +128,8 @@ Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* s
 //            return scope->builder->CreateInBoundsGEP(origValue, ixs);
 //        }
 //    }
-    ASSERT(this->expr->get_type(0), "NULL type in " << this);
-    context.LOG.error("%s to-reference conversion not supported", this->expr->get_type(0)->to_string().c_str());
+    ASSERT(this->expr->get_type(), "NULL type in " << this);
+    context.LOG.error("%s to-reference conversion not supported", this->expr->get_type()->to_string().c_str());
     return origValue;
 }
 

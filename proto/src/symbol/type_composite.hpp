@@ -135,7 +135,9 @@ public:
     TxFunctionType(const TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*>& argumentTypes,
                    const TxType* returnType=nullptr, bool modifiableClosure=false)
         : TxType(TXTC_FUNCTION, declaration, TxTypeSpecialization(baseType)),
-          modifiableClosure(modifiableClosure), argumentTypes(argumentTypes), returnType(returnType)  { }
+          modifiableClosure(modifiableClosure), argumentTypes(argumentTypes), returnType(returnType)  {
+        ASSERT(argumentTypes.size() == 0 || argumentTypes.at(0), "NULL arg type");
+    }
 
     bool hasReturnValue() const  { return this->returnType != nullptr; }
 

@@ -57,7 +57,7 @@ Value* TxTypeDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope)
 
 static Value* make_constant_nonlocal_field(LlvmGenerationContext& context, GenScope* scope,
                                            TxFieldDefNode* field, Type* llvmType) {
-    auto uniqueName = field->get_declaration(0)->get_unique_full_name();
+    auto uniqueName = field->get_declaration()->get_unique_full_name();
     Constant* constantInitializer = nullptr;
     if (field->initExpression) {
         if (field->initExpression->is_statically_constant()) {
@@ -99,9 +99,9 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     context.LOG.trace("%-48s", this->to_string().c_str());
     if (this->field->typeExpression)
         this->field->typeExpression->code_gen(context, scope);
-    auto fieldDecl = this->field->get_declaration(0);
+    auto fieldDecl = this->field->get_declaration();
     auto uniqueName = fieldDecl->get_unique_full_name();
-    auto txType = this->field->get_type(0);
+    auto txType = this->field->get_type();
     Type* llvmType = context.get_llvm_type(txType);
 
     Value* fieldVal = nullptr;
@@ -161,5 +161,5 @@ Value* TxFieldDefNode::code_gen(LlvmGenerationContext& context, GenScope* scope)
 
 
 Value* TxExpressionNode::code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
-    return this->get_type(0)->gen_typeid(context, scope);
+    return this->get_type()->gen_typeid(context, scope);
 }

@@ -28,8 +28,8 @@ const char* LEVEL_NAMES[] {
     "ERROR",
     "WARN",
     "ALERT",
-    "INFO",
     "NOTE",
+    "INFO",
     "CONFG",
     "DEBUG",
     "TRACE",
@@ -42,8 +42,8 @@ static const char* LEVEL_COLORS[] = {
         "\e[0;91m",
         "\e[0;93m",
         "\e[0;33m",
-        "\e[0;32m",  // INFO
         "\e[0;92m",
+        "\e[0;32m",  // INFO
         "\e[0;94m",
         "\e[0;95m",
         "\e[0;35m",

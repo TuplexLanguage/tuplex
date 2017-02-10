@@ -45,14 +45,14 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 
     // FUTURE: if this is a lambda within a code-block, define the implicit closure object here
 
-    //FunctionType *ftype = cast<FunctionType>(context.get_llvm_type(this->funcTypeNode->get_type(0)));
-    StructType *lambdaT = cast<StructType>(context.get_llvm_type(this->funcTypeNode->get_type(0)));
+    //FunctionType *ftype = cast<FunctionType>(context.get_llvm_type(this->funcTypeNode->get_type()));
+    StructType *lambdaT = cast<StructType>(context.get_llvm_type(this->funcTypeNode->get_type()));
     FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
-    ASSERT(funcT, "Couldn't get LLVM type for function type " << this->funcTypeNode->get_type(0));
+    ASSERT(funcT, "Couldn't get LLVM type for function type " << this->funcTypeNode->get_type());
 
     std::string funcName;
     if (this->fieldDefNode) {
-        auto declaration = this->fieldDefNode->get_declaration(0);
+        auto declaration = this->fieldDefNode->get_declaration();
         if (declaration->get_decl_flags() & TXD_CONSTRUCTOR)
             funcName = declaration->get_unique_full_name();
         else
@@ -61,7 +61,7 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     else
         funcName = "$func";  // anonymous function
 
-    context.LOG.debug("Creating function: %s", funcName.c_str());
+    context.LOG.info("Creating function: %s", funcName.c_str());
     Function *function = cast<Function>(context.llvmModule.getOrInsertFunction(funcName, funcT));
     // function->setLinkage(GlobalValue::InternalLinkage);  TODO (can cause LLVM to rename function)
     //Function *function = Function::Create(ftype, GlobalValue::InternalLinkage, funcName.c_str(), &context.llvmModule);
@@ -74,19 +74,19 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 
     // name the concrete args (and self, if present) and allocate them on the stack:
     Function::arg_iterator fArgI = function->arg_begin();
-    if (this->selfRefNode) {
+    if (this->is_instance_method()) {
         // (both self and super refer to the same object, but with different ref types)
         {
             this->selfRefNode->typeExpression->code_gen(context, &fscope);
-            auto selfT = context.get_llvm_type(this->selfRefNode->get_type(0));
+            auto selfT = context.get_llvm_type(this->selfRefNode->get_type());
             auto convSelfV = TxReferenceType::gen_ref_conversion(context, &fscope, fArgI, selfT);
-            gen_local_field(context, &fscope, this->selfRefNode->get_field(0), convSelfV);
+            gen_local_field(context, &fscope, this->selfRefNode->get_field(), convSelfV);
         }
         {
             this->superRefNode->typeExpression->code_gen(context, &fscope);
-            auto superT = context.get_llvm_type(this->superRefNode->get_type(0));
+            auto superT = context.get_llvm_type(this->superRefNode->get_type());
             auto convSuperV = TxReferenceType::gen_ref_conversion(context, &fscope, fArgI, superT);
-            gen_local_field(context, &fscope, this->superRefNode->get_field(0), convSuperV);
+            gen_local_field(context, &fscope, this->superRefNode->get_field(), convSuperV);
         }
     }
     fArgI++;
@@ -95,7 +95,7 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
          fArgI++, argDefI++)
     {
         (*argDefI)->typeExpression->code_gen(context, &fscope);
-        gen_local_field(context, &fscope, (*argDefI)->get_field(0), fArgI);
+        gen_local_field(context, &fscope, (*argDefI)->get_field(), fArgI);
     }
 
     this->suite->code_gen(context, &fscope);
@@ -118,10 +118,10 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     context.LOG.trace("%-48s", this->to_string().c_str());
     if (this->field->typeExpression)
         this->field->typeExpression->code_gen(context, scope);
-    auto declaration = this->field->get_declaration(0);
+    auto declaration = this->field->get_declaration();
     auto uniqueName = declaration->get_unique_full_name();
     ASSERT (declaration->get_storage() == TXS_STACK, "TxFieldStmtNode can only apply to TX_STACK storage fields: " << uniqueName);
-    auto txType = this->field->get_type(0);
+    auto txType = this->field->get_type();
 
     // If init expression does a stack allocation of this field's type (instance-equivalent type),
     // this field shall bind to that allocation.
@@ -131,7 +131,7 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     if (this->field->initExpression) {
         if (this->field->initExpression->is_stack_allocation_expression()
             && (!this->field->typeExpression
-                || this->field->initExpression->get_type(0)->is_assignable_to(*txType))) {
+                || this->field->initExpression->get_type()->is_assignable_to(*txType))) {
             fieldVal = this->field->initExpression->code_gen(context, scope);
         }
         else {
@@ -291,7 +291,7 @@ Value* TxReturnStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scop
         if (! exprV)
             return nullptr;
         // TODO: this is hackish, can we find systematic solution?
-        auto expectedT = context.get_llvm_type(this->expr->get_type(0));
+        auto expectedT = context.get_llvm_type(this->expr->get_type());
         if (exprV->getType() == expectedT)
             return scope->builder->CreateRet(exprV);
         else if (exprV->getType()->isPointerTy() && exprV->getType()->getPointerElementType() == expectedT) {

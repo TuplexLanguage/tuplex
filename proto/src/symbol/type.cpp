@@ -453,7 +453,7 @@ void TxType::prepare_type_members() {
 
             if (expErrField) {
                 /*int encountered_error_count =*/ this->get_driver()->end_exp_err(fieldDecl->get_definer()->get_parse_location());
-                // FIXME: include in expected error count
+                // TODO: include in expected error count
             }
         }
     }
@@ -471,7 +471,7 @@ void TxType::prepare_type_members() {
 
     if (expErrWholeType) {
         /*int encountered_error_count =*/ this->get_driver()->end_exp_err(this->get_declaration()->get_definer()->get_parse_location());
-        // FIXME: include in expected error count
+        // TODO: include in expected error count
     }
 }
 
@@ -487,21 +487,21 @@ bool TxType::is_explicit_nongen_declaration() const {
 }
 
 
-bool TxType::is_reinterpreted() const {
-    return ( this->get_declaration()
-             && this->get_declaration()->get_definer()->get_six() > 0 );
-}
-
-bool TxType::is_equivalent_reinterpreted_specialization() const {
-    if (this->typeClass == TXTC_REFERENCE)
-        return false;  // FIXME
-    else if (this->typeClass == TXTC_ARRAY)
-        return false;  // FIXME
-    else if (this->genericBaseType)
-        return !this->genericBaseType->nonRefParameters;
-    else
-        return (this->get_declaration() && this->get_declaration()->get_definer()->get_six() > 0 );
-}
+//bool TxType::is_reinterpreted() const {
+//    return ( this->get_declaration()
+//             && this->get_declaration()->get_definer()->get_six() > 0 );
+//}
+//
+//bool TxType::is_equivalent_reinterpreted_specialization() const {
+//    if (this->typeClass == TXTC_REFERENCE)
+//        return false;  // FIX ME
+//    else if (this->typeClass == TXTC_ARRAY)
+//        return false;  // FIX ME
+//    else if (this->genericBaseType)
+//        return !this->genericBaseType->nonRefParameters;
+//    else
+//        return (this->get_declaration() && this->get_declaration()->get_definer()->get_six() > 0 );
+//}
 
 bool TxType::is_abstract() const {
     return this->get_nearest_declaration()->get_decl_flags() & TXD_ABSTRACT;

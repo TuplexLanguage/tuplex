@@ -324,17 +324,17 @@ public:
     const TxType* get_instance_base_type() const;
 
 
-    /** Returns true if this type is a reinterpreted specialization, i.e. reinterpreted source
-     * with a specialization index greater than zero.
-     */
-    bool is_reinterpreted() const;
-
-    /** Returns true if this type is a reinterpreted specialization, i.e. reinterpreted source
-     * with at least one parameter binding and a specialization index greater than zero.
-     * Note: There are reinterpreted types for which this is false: Types that in themselves are not
-     * specializations of a generic base type, but are a member of another type that is being reinterpreted.
-     */
-    inline bool is_reinterpreted_specialization() const { return this->genericBaseType; }
+//    /** Returns true if this type is a reinterpreted specialization, i.e. reinterpreted source
+//     * with a specialization index greater than zero.
+//     */
+//    bool is_reinterpreted() const;
+//
+//    /** Returns true if this type is a reinterpreted specialization, i.e. reinterpreted source
+//     * with at least one parameter binding and a specialization index greater than zero.
+//     * Note: There are reinterpreted types for which this is false: Types that in themselves are not
+//     * specializations of a generic base type, but are a member of another type that is being reinterpreted.
+//     */
+//    inline bool is_reinterpreted_specialization() const { return this->genericBaseType; }
 
     /** Returns true if this type is a reinterpreted specialization that is also equivalent to its base type,
      * i.e. no non-ref-constrained type parameters were bound.
@@ -597,6 +597,6 @@ public:
     virtual const TxType* resolve_type() override { return this->type; }
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type() const override { return this->type; }
-    virtual TxTypeDefiningNode* get_node() const override { return this->type->get_declaration()->get_definer()->get_node(); }
-    virtual TxSpecializationIndex get_six() const override { return this->type->get_declaration()->get_definer()->get_six(); }
+    virtual TxTypeDefiningNode* get_node() override { return this->type->get_declaration()->get_definer()->get_node(); }
+    //virtual TxSpecializationIndex get_six() const override { return this->type->get_declaration()->get_definer()->get_six(); }
 };

@@ -12,6 +12,6 @@ TxModule* LexicalContext::get_module(TxScopeSymbol* scope) {
 }
 
 
-TxTypeDefiningNode* TxSpecializationTypeDefiner::get_node() const {
-    return static_cast<TxTypeDefiningNode*>(this->specDefiner);  // FUTURE: maybe change type of member instead
-}
+//TxTypeDefiningNode* TxSpecializationTypeDefiner::get_node() const {
+//    return static_cast<TxTypeDefiningNode*>(this->specDefiner);  // FUTURE: maybe change type of member instead
+//}

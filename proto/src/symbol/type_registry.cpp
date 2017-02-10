@@ -60,20 +60,32 @@ public:
 
 
 class TxImplicitTypeDefiningNode final : public TxTypeExpressionNode {
+    const TxImplicitTypeDefiningNode* originalNode;
     const TxType* baseType;
-protected:
-    virtual void symbol_declaration_pass_descendants(TxSpecializationIndex six, LexicalContext& defContext,
-                                                     LexicalContext& lexContext, TxDeclarationFlags declFlags) override { }
 
-    virtual const TxType* define_type(TxSpecializationIndex six) override {
-        if (six == 0)
-            return baseType;
-        else
-            return this->types(six).make_specialized_type(this->get_declaration(six), TxTypeSpecialization(baseType), {});
+    TxImplicitTypeDefiningNode( const TxImplicitTypeDefiningNode* original )
+            : TxTypeExpressionNode(original->parseLocation), originalNode(original), baseType() { }
+
+protected:
+    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext,
+                                                      TxDeclarationFlags declFlags ) override { }
+
+    virtual const TxType* define_type() override {
+        if (this->originalNode) {
+            ASSERT(!this->baseType, "type already set");
+            this->baseType = this->types().make_specialized_type(this->get_declaration(), TxTypeSpecialization(this->originalNode->baseType), {});
+        }
+        return this->baseType;
     }
 
 public:
-    TxImplicitTypeDefiningNode(const TxLocation& parseLocation) : TxTypeExpressionNode(parseLocation), baseType() { }
+    TxImplicitTypeDefiningNode( const TxLocation& parseLocation )
+            : TxTypeExpressionNode(parseLocation), originalNode(), baseType() { }
+
+    /** Creates a copy of this node and all its descendants for purpose of generic specialization. */
+    virtual TxImplicitTypeDefiningNode* make_ast_copy() const override {
+        return new TxImplicitTypeDefiningNode( this );
+    }
 
     void set_type(const TxType* type) {
         ASSERT(!this->baseType, "type already set");
@@ -95,7 +107,7 @@ public:
         : node(new TxImplicitTypeDefiningNode(parseLocation)), plainName(plainName), declFlags(declFlags) { }
 
     void symbol_declaration_pass(LexicalContext& ctx, const std::vector<TxDeclarationNode*>* typeParamDeclNodes=nullptr) {
-        this->node->symbol_declaration_pass(0, ctx, ctx, this->declFlags, this->plainName, typeParamDeclNodes);
+        this->node->symbol_declaration_pass(ctx, ctx, this->declFlags, this->plainName, typeParamDeclNodes);
     }
     void symbol_declaration_pass(TxModule* module, const std::vector<TxDeclarationNode*>* typeParamDeclNodes=nullptr) {
         LexicalContext ctx(module);
@@ -107,20 +119,19 @@ public:
     }
 
     void symbol_resolution_pass() {
-        this->node->symbol_resolution_pass(0);
+        this->node->symbol_resolution_pass();
     }
 
-    const TxTypeDeclaration* get_declaration() const { return this->node->get_declaration(0); }
+    const TxTypeDeclaration* get_declaration() const { return this->node->get_declaration(); }
 
     virtual TxDriver* get_driver() const override { return this->node->get_driver(); }
     virtual const TxLocation& get_parse_location() const override { return this->node->get_parse_location(); }
 
     virtual const TxType* resolve_type() override { return this->get_type(); }
     virtual const TxType* attempt_get_type() const override { return this->get_type(); }
-    virtual const TxType* get_type() const override { return this->node->get_type(0); }
+    virtual const TxType* get_type() const override { return this->node->get_type(); }
 
-    virtual TxTypeExpressionNode* get_node() const override { return this->node; }
-    virtual TxSpecializationIndex get_six() const override { return 0; }
+    virtual TxTypeExpressionNode* get_node() override { return this->node; }
 };
 
 class TxBuiltinTypeDefiner final : public TxImplicitTypeDefiner {
@@ -331,7 +342,8 @@ void TypeRegistry::initializeBuiltinSymbols() {
         //auto lengthDecl = typeDecl->get_symbol()->declare_field( "L", lengthDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_GENPARAM, TXS_INSTANCE, TxIdentifier() );
         //lengthDefiner->field = new TxField(lengthDecl, this->builtinTypes[UINT]->get_type());
         auto anyType = new TxPredefinedTypeNode(this->builtinLocation, "tx.Any");
-        auto lenFieldDef = new TxFieldDefNode(this->builtinLocation, "L", nullptr, false, this->builtinTypes[UINT]);
+        auto lTypeNode = new TxTypeExprWrapperNode(this->builtinLocation, this->builtinTypes[UINT]);
+        auto lenFieldDef = new TxFieldDefNode(this->builtinLocation, "L", lTypeNode, nullptr, false);
         auto paramNodes = new std::vector<TxDeclarationNode*>( { new TxTypeDeclNode(this->builtinLocation, TXD_PUBLIC | TXD_GENPARAM,
                                                                                     "E", nullptr, anyType),
                                                                  new TxFieldDeclNode(this->builtinLocation, TXD_PUBLIC | TXD_GENPARAM,
@@ -451,9 +463,9 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
         auto refTypeNode = new TxReferenceTypeNode(this->builtinLocation, nullptr, new TxPredefinedTypeNode(this->builtinLocation, "tx.UByte"));
         LexicalContext ctx(txCfuncModule);
-        refTypeNode->symbol_declaration_pass(0, ctx, ctx, TXD_PUBLIC | TXD_IMPLICIT, "puts$argtype", nullptr);
-        refTypeNode->symbol_resolution_pass(0);
-        auto ubyteRefType = refTypeNode->get_type(0);
+        refTypeNode->symbol_declaration_pass( ctx, ctx, TXD_PUBLIC | TXD_IMPLICIT, "puts$argtype", nullptr );
+        refTypeNode->symbol_resolution_pass();
+        auto ubyteRefType = refTypeNode->get_type();
 
         const TxType* returnType = this->builtinTypes[INT]->get_type();
 
@@ -470,7 +482,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 }
 
 void TypeRegistry::declare_default_constructor(LexicalContext& ctx, BuiltinTypeId toTypeId, TxExpressionNode* initValueExpr) {
-    initValueExpr->symbol_declaration_pass(0, ctx);
+    initValueExpr->symbol_declaration_pass( ctx );
 
     // constructors for built-in elementary types are really inline conversion expressions
     auto typeDecl = this->builtinTypes[toTypeId]->get_declaration();
@@ -500,7 +512,7 @@ void TypeRegistry::enqueued_resolution_pass() {
     while (! this->enqueuedSpecializations.empty()) {
         //std::cerr << "Nof enqueued specializations: " << this->enqueuedSpecializations.size() << std::endl;
         auto & enqSpec = this->enqueuedSpecializations.front();
-        enqSpec.node->symbol_resolution_pass(enqSpec.six);
+        enqSpec.node->symbol_resolution_pass();
         this->enqueuedSpecializations.pop();
     }
 }
@@ -528,11 +540,11 @@ void TypeRegistry::register_types() {
                 //std::cerr << "Not registering distinct runtime type id for equivalent derivation: " << type << std::endl;
                 continue;
             }
-            // As long as we only generate actual code for six 0, don't register distinct runtime type id for reinterpreted types:
-            if (type->is_reinterpreted()) {
-                //std::cerr << "Not registering distinct runtime type id for reinterpreted type: " << type << std::endl;
-                continue;
-            }
+//            // As long as we only generate actual code for six 0, don't register distinct runtime type id for reinterpreted types:
+//            if (type->is_reinterpreted()) {
+//                //std::cerr << "Not registering distinct runtime type id for reinterpreted type: " << type << std::endl;
+//                continue;
+//            }
             //if (type->get_declaration())
             //    std::cerr << "with six=" << type->get_declaration()->get_definer()->get_six() << ": registering type " << type << std::endl;
             type->runtimeTypeId = this->staticTypes.size();
@@ -599,12 +611,12 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
         }
 
         auto typeDefiner = type->get_declaration()->get_definer();
-        auto & ctx = typeDefiner->get_node()->context(typeDefiner->get_six());
+        auto & ctx = typeDefiner->get_node()->context();
         auto modNode = new TxModifiableTypeNode(this->builtinLocation, new TxPredefinedTypeNode(this->builtinLocation, type->get_declaration()->get_unique_name()));
         TxDeclarationFlags newDeclFlags = ( type->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
-        modNode->symbol_declaration_pass(0, ctx, ctx, newDeclFlags, name, nullptr);
-        modNode->symbol_resolution_pass(0);
-        return modNode->get_type(0);
+        modNode->symbol_declaration_pass( ctx, ctx, newDeclFlags, name, nullptr );
+        modNode->symbol_resolution_pass();
+        return modNode->get_type();
     }
 
     return this->make_specialized_type(declaration, TxTypeSpecialization(type, true));
@@ -761,7 +773,8 @@ static TxDeclarationNode* make_type_param_decl_node(const std::string& paramName
                                                     TxExpressionNode* valueDefiner=nullptr) {
     TxTypeDefiner* paramTypeDef = static_cast<const TxTypeDeclaration*>(paramDecl)->get_definer();  // FIXME: wrong decl type??
     auto & parseLoc = (valueDefiner ? valueDefiner->get_parse_location() : paramDecl->get_definer()->get_parse_location());
-    auto fieldDef = new TxFieldDefNode(parseLoc, paramName, valueDefiner, false, paramTypeDef);
+    auto paramTypeNode = new TxTypeExprWrapperNode( parseLoc, paramTypeDef );
+    auto fieldDef = new TxFieldDefNode(parseLoc, paramName, paramTypeNode, valueDefiner, false);
     auto declNode = new TxFieldDeclNode(parseLoc, flags | TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
     return declNode;
 }
@@ -898,21 +911,23 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
             }
 
             // process new specialization of the base type:
-            auto baseTypeExpr = static_cast<TxTypeExpressionNode*>(baseDecl->get_definer()->get_node());
-            TxSpecializationIndex newSix = baseTypeExpr->next_spec_index();
-            LexicalContext baseContext = LexicalContext(baseTypeExpr->context(0));
+            auto baseTypeExpr = static_cast<TxTypeExpressionNode*>( baseDecl->get_definer()->get_node() );
+            //TxSpecializationIndex newSix = baseTypeExpr->next_spec_index();
+            LexicalContext baseContext = LexicalContext( baseTypeExpr->context() );
             ASSERT(baseContext.scope() == baseScope, "Unexpected lexical scope: " << baseContext.scope() << " != " << baseScope);
 
             newBaseTypeNameStr = baseContext.scope()->make_unique_name(newBaseTypeNameStr, true);
             //std::cerr << "specializing base " << newBaseName << ": " << baseType << std::endl;
-            baseTypeExpr->symbol_declaration_pass(newSix, baseContext, baseContext, newDeclFlags, newBaseTypeNameStr, bindingDeclNodes);
+            auto newBaseTypeExpr = baseTypeExpr->make_ast_copy();
+            newBaseTypeExpr->symbol_declaration_pass( baseContext, baseContext, newDeclFlags, newBaseTypeNameStr, bindingDeclNodes );
+
             // Invoking the resolution pass here can cause infinite recursion
             // (since the same source text construct may be recursively reprocessed),
             // so we enqueue this "specialization pass" for later processing.
             //baseTypeExpr->symbol_resolution_pass(newSix);
             //std::cerr << "enqueuing specialization " << newBaseTypeNameStr << "  " << baseTypeExpr << std::endl;
-            this->enqueuedSpecializations.emplace( EnqueuedSpecialization{ baseTypeExpr, newSix } );
-            specializedBaseType = baseTypeExpr->resolve_type(newSix);
+            this->enqueuedSpecializations.emplace( EnqueuedSpecialization{ newBaseTypeExpr } );
+            specializedBaseType = newBaseTypeExpr->resolve_type();
         }
         // TODO: else bindingDeclNodes thrown away...
 
@@ -933,18 +948,18 @@ const TxInterfaceAdapterType* TypeRegistry::inner_get_interface_adapter(const Tx
     while (adaptedType->is_empty_derivation() && !adaptedType->is_explicit_nongen_declaration())
         adaptedType = adaptedType->get_base_type();
 
-    // (for now) we want to bypass equivalent reinterpretations:
-    // FIXME: experimental: is this correct when only one of these is reinterpreted?
-    while (interfaceType->is_equivalent_reinterpreted_specialization()) {
-        auto tmpType = interfaceType->get_declaration()->get_definer()->get_node()->get_type(0);
-        //std::cerr << "**** reverted from reinterpreted i/f type " << interfaceType << " to " << tmpType << std::endl;
-        interfaceType = tmpType;
-    }
-    while (adaptedType->is_equivalent_reinterpreted_specialization()) {
-        auto tmpType = adaptedType->get_declaration()->get_definer()->get_node()->get_type(0);
-        //std::cerr << "**** reverted from reinterpreted obj type " << adaptedType << " to " << tmpType << std::endl;
-        adaptedType = tmpType;
-    }
+//    // (for now) we want to bypass equivalent reinterpretations:
+//    // FIXME: experimental: is this correct when only one of these is reinterpreted?
+//    while (interfaceType->is_equivalent_reinterpreted_specialization()) {
+//        auto tmpType = interfaceType->get_declaration()->get_definer()->get_node()->get_type();
+//        //std::cerr << "**** reverted from reinterpreted i/f type " << interfaceType << " to " << tmpType << std::endl;
+//        interfaceType = tmpType;
+//    }
+//    while (adaptedType->is_equivalent_reinterpreted_specialization()) {
+//        auto tmpType = adaptedType->get_declaration()->get_definer()->get_node()->get_type();
+//        //std::cerr << "**** reverted from reinterpreted obj type " << adaptedType << " to " << tmpType << std::endl;
+//        adaptedType = tmpType;
+//    }
 
     auto ifDecl = interfaceType->get_declaration();
     auto scope = ifDecl->get_symbol()->get_outer();
@@ -964,7 +979,7 @@ const TxInterfaceAdapterType* TypeRegistry::inner_get_interface_adapter(const Tx
     auto adapterDefiner = new TxImplicitTypeDefiner( this->builtinLocation, adapterName );
     {
         auto ifDefiner = ifDecl->get_definer();
-        auto & ctx = ifDefiner->get_node()->context(ifDefiner->get_six());
+        auto & ctx = ifDefiner->get_node()->context();
         adapterDefiner->symbol_declaration_pass(ctx);
     }
     //auto typeDecl = scope->declare_type(adapterName, adapterDefiner, TXD_PUBLIC | TXD_IMPLICIT);

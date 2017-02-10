@@ -52,7 +52,7 @@ class TypeRegistry {
 
     typedef struct {
         TxTypeExpressionNode* node;
-        TxSpecializationIndex six;
+        //TxSpecializationIndex six;
     } EnqueuedSpecialization;
     std::queue<EnqueuedSpecialization> enqueuedSpecializations;
 

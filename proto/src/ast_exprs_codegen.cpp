@@ -41,7 +41,7 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
     unsigned llvm_op;
     bool float_operation = false;
     if (op_class == TXOC_ARITHMETIC) {
-        auto resultType = this->get_type(0);
+        auto resultType = this->get_type();
         if (auto intType = dynamic_cast<const TxIntegerType*>(resultType)) {
             llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
         }
@@ -54,11 +54,11 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
         }
     }
     else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
-        if (dynamic_cast<const TxFloatingType*>(this->lhs->get_type(0))) {
+        if (dynamic_cast<const TxFloatingType*>(this->lhs->get_type())) {
             llvm_op = OP_MAPPING[this->op].l_f_op;
             float_operation = true;
         }
-        else if (auto intType = dynamic_cast<const TxIntegerType*>(this->lhs->get_type(0))) {
+        else if (auto intType = dynamic_cast<const TxIntegerType*>(this->lhs->get_type())) {
             llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
         }
         else {  // Bool or Ref operands
@@ -89,7 +89,7 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
             }
             else {
                 ASSERT(CmpInst::isIntPredicate(cmp_pred), "Not a valid LLVM Int comparison predicate: " << llvm_op);
-                if (this->lhs->get_type(0)->get_type_class() == TXTC_REFERENCE) {
+                if (this->lhs->get_type()->get_type_class() == TXTC_REFERENCE) {
                     // both operands are references, compare their pointer values
                     lval = gen_get_ref_pointer(context, scope, lval);
                     rval = gen_get_ref_pointer(context, scope, rval);
@@ -106,7 +106,7 @@ Value* TxUnaryMinusNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     auto operand = this->operand->code_gen(context, scope);
     if (! operand)
         return NULL;
-    auto opType = this->get_type(0);
+    auto opType = this->get_type();
     if (dynamic_cast<const TxIntegerType*>(opType)) {
         if (this->is_statically_constant() && !scope)
             return ConstantExpr::getNeg(cast<Constant>(operand));
@@ -210,8 +210,8 @@ Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* sco
     context.LOG.trace("%-48s", this->to_string().c_str());
     Value* ptrV = nullptr;
     TxExpressionNode* targetNode = this->target;
-    if (auto genConvNode = dynamic_cast<TxGenericConversionNode*>(targetNode)) {
-        targetNode = genConvNode->get_spec_expression(0);
+    if (auto genConvNode = dynamic_cast<TxMaybeConversionNode*>(targetNode)) {
+        targetNode = genConvNode->get_spec_expression();
     }
 
     if (auto fieldNode = dynamic_cast<TxFieldValueNode*>(targetNode)) {
@@ -238,10 +238,10 @@ Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* sco
     }
 
     // the reference gets the statically known target type id
-    auto tidV = ConstantInt::get(Type::getInt32Ty(context.llvmContext), targetNode->get_type(0)->get_type_id());
+    auto tidV = ConstantInt::get(Type::getInt32Ty(context.llvmContext), targetNode->get_type()->get_type_id());
 
     // box the pointer:
-    auto refT = this->get_type(0)->make_llvm_type(context);
+    auto refT = this->get_type()->make_llvm_type(context);
     return gen_ref(context, scope, refT, ptrV, tidV);
 }
 
@@ -436,10 +436,10 @@ Value* TxDerefAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* s
 
 Value* TxFunctionCallNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    if (auto inlExp = this->get_spec(0)->inlinedExpression) {
+    if (auto inlExp = this->inlinedExpression)
         return inlExp->code_gen(context, scope);
-    }
-    return this->gen_call(context, scope);
+    else
+        return this->gen_call(context, scope);
 }
 
 Value* TxFunctionCallNode::gen_call(LlvmGenerationContext& context, GenScope* scope) const {
@@ -474,14 +474,14 @@ Value* TxFunctionCallNode::gen_call(LlvmGenerationContext& context, GenScope* sc
 
 Value* TxConstructorCalleeExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     Value* funcPtrV = this->gen_func_ptr(context, scope);
-    auto allocType = this->objectExpr->get_type(0);
+    auto allocType = this->objectExpr->get_type();
     if (! allocType)
         return nullptr;
     Constant* instanceTypeIdV = allocType->gen_typeid(context, scope);
     // construct the lambda object:
     auto closureRefT = context.get_voidRefT();
     auto closureRefV = gen_ref(context, scope, closureRefT, this->gen_obj_ptr(context, scope), instanceTypeIdV);
-    auto lambdaT = cast<StructType>(context.get_llvm_type(this->get_type(0)));
+    auto lambdaT = cast<StructType>(context.get_llvm_type(this->get_type()));
     return gen_lambda(context, scope, lambdaT, funcPtrV, closureRefV);
 }
 
@@ -498,9 +498,10 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
     context.LOG.trace("%-48s", this->to_string().c_str());
     // find the constructor
     // (constructors aren't inherited, but we bypass pure specializations to find the code-generated constructor)
-    auto uniqueName = this->get_spec(0)->declaration->get_unique_name();
-    const TxType* allocType = this->objectExpr->get_type(0);
+    auto uniqueName = this->declaration->get_unique_name();
+    const TxType* allocType = this->objectExpr->get_type();
 
+// FIXME: review if equivalent super type is sufficient
     // as we don't (yet) generate code for specializations, we'll find the actual constructor in the top generic base type:
     while (allocType->is_pure_specialization())
         allocType = allocType->get_semantic_base_type();
@@ -509,13 +510,13 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
 
     Value* funcPtrV = context.lookup_llvm_value(uniqueFullName);
     if (! funcPtrV) {
-        if (auto txType = this->get_type(0)) {
+        if (auto txType = this->get_type()) {
             // forward declaration situation
             if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
                 context.LOG.note("Forward-declaring constructor function %s: %s", uniqueFullName.c_str(), txFuncType->to_string().c_str());
                 StructType *lambdaT = cast<StructType>(context.get_llvm_type(txFuncType));
                 FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
-                auto funcName = uniqueFullName; // + "$func";
+                auto funcName = uniqueFullName;
                 funcPtrV = context.llvmModule.getOrInsertFunction(funcName, funcT);
             }
             else
@@ -527,26 +528,26 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
 
 
 Value* TxHeapAllocNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    Type* objT = context.get_llvm_type(this->get_type(0));
+    Type* objT = context.get_llvm_type(this->get_type());
     return context.gen_malloc(scope, objT);
 }
 
 Value* TxStackAllocNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    return this->get_type(0)->gen_alloca(context, scope);
+    return this->get_type()->gen_alloca(context, scope);
 }
 
 
 Value* TxMakeObjectNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     this->typeExpr->code_gen(context, scope);
 
-    Type* objT = context.get_llvm_type(this->get_object_type(0));
+    Type* objT = context.get_llvm_type(this->get_object_type());
     if (!objT)
         return nullptr;
 
-    Value* objAllocV = this->constructor->gen_obj_ptr(context, scope);
+    Value* objAllocV = static_cast<TxConstructorCalleeExprNode*>( this->constructorCall->callee )->gen_obj_ptr(context, scope);
 
     // initialize the object
-    if (auto inlExp = this->get_spec(0)->inlinedExpression) {
+    if (auto inlExp = this->inlinedExpression) {
         auto initValue = inlExp->code_gen(context, scope);
         ASSERT(scope, "new expression not supported in global/static scope: " << this->parse_loc_string());
         scope->builder->CreateStore(initValue, objAllocV);
@@ -560,11 +561,11 @@ Value* TxMakeObjectNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 Value* TxNewExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     // new constructor returns the constructed object by reference
     context.LOG.trace("%-48s", this->to_string().c_str());
-    Type* objRefT = context.get_llvm_type(this->get_type(0));
+    Type* objRefT = context.get_llvm_type(this->get_type());
     if (!objRefT)
         return nullptr;
     Value* objAllocV = TxMakeObjectNode::code_gen(context, scope);
-    Constant* objTypeIdV = this->get_object_type(0)->gen_typeid(context, scope);
+    Constant* objTypeIdV = this->get_object_type()->gen_typeid(context, scope);
     auto objRefV = gen_ref(context, scope, objRefT, objAllocV, objTypeIdV);
     return objRefV;
 }
@@ -572,7 +573,7 @@ Value* TxNewExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) 
 Value* TxStackConstructorNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     // stack constructor returns the constructed object by value, not by reference
     context.LOG.trace("%-48s", this->to_string().c_str());
-    if (auto inlExp = this->get_spec(0)->inlinedExpression) {
+    if (auto inlExp = this->inlinedExpression) {
         // if inlined, the stack constructor doesn't need to actually allocate storage on stack
         // (the receiver of this expression value might do this, if it needs to)
         return inlExp->code_gen(context, scope);

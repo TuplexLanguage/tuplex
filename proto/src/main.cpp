@@ -36,7 +36,8 @@ int main(int argc, char **argv)
                 printf("  %-22s %s\n", "-version", "Print version and exit");
                 printf("  %-22s %s\n", "-v  | -verbose", "Verbose logging");
                 printf("  %-22s %s\n", "-vv | -veryverbose", "Very verbose logging");
-                printf("  %-22s %s\n", "-quiet", "Quiet, only log warnings and errors");
+                printf("  %-22s %s\n", "-quiet", "Quiet, only log notes, alerts, warnings and errors");
+                printf("  %-22s %s\n", "-vquiet", "Very quiet, only log warnings and errors");
                 printf("  %-22s %s\n", "-nocol", "Disable color encoding in console output");
                 printf("  %-22s %s\n", "-ds", "Dump symbol table");
                 printf("  %-22s %s\n", "-dstx", "Dump full symbol table including built-in symbols");
@@ -61,6 +62,8 @@ int main(int argc, char **argv)
             else if (! strcmp(argv[a], "-vv") || ! strcmp(argv[a], "-veryverbose"))
                 Logger::set_global_threshold(ALL);
             else if (! strcmp(argv[a], "-quiet"))
+                Logger::set_global_threshold(NOTE);
+            else if (! strcmp(argv[a], "-vquiet"))
                 Logger::set_global_threshold(WARN);
             else if (! strcmp(argv[a], "-nocol"))
                 Logger::set_colors_enabled(false);

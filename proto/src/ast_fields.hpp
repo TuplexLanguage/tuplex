@@ -4,18 +4,29 @@
 
 
 class TxFieldValueNode : public TxExpressionNode {
-    TxScopeSymbol* resolve_symbol(TxSpecializationIndex six);
-    const TxEntityDeclaration* resolve_decl(TxSpecializationIndex six);
+    const TxField* field = nullptr;
+    const TxEntityDeclaration* declaration = nullptr;
+
+    TxScopeSymbol* resolve_symbol();
+    const TxEntityDeclaration* resolve_decl();
 
 protected:
-    virtual const TxType* define_type(TxSpecializationIndex six) override;
+    virtual const TxType* define_type() override;
 
 public:
     TxExpressionNode* baseExpr;
     const std::string symbolName;
 
+    /** Creates a new TxFieldValueNode.
+     * @param base is the base expression (preceding expression adjoined with the '.' operator), or NULL if none
+     * @param member is the specified literal field name
+     */
     TxFieldValueNode(const TxLocation& parseLocation, TxExpressionNode* base, const std::string& memberName)
         : TxExpressionNode(parseLocation), baseExpr(base), symbolName(memberName) {
+    }
+
+    virtual TxFieldValueNode* make_ast_copy() const override {
+        return new TxFieldValueNode( this->parseLocation, ( this->baseExpr ? this->baseExpr->make_ast_copy() : nullptr ), this->symbolName );
     }
 
     /** Returns the full identifier (dot-separated full name) as specified in the program text,
@@ -29,24 +40,24 @@ public:
 
     virtual bool has_predefined_type() const override { return true; }
 
-    virtual void symbol_declaration_pass(TxSpecializationIndex six, LexicalContext& lexContext) override {
-        this->set_context(six, lexContext);
+    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+        this->set_context( lexContext);
         if (this->baseExpr)
-            this->baseExpr->symbol_declaration_pass(six, lexContext);
+            this->baseExpr->symbol_declaration_pass( lexContext);
     }
 
-    virtual void symbol_resolution_pass(TxSpecializationIndex six) override {
-        TxExpressionNode::symbol_resolution_pass(six);
+    virtual void symbol_resolution_pass() override {
+        TxExpressionNode::symbol_resolution_pass();
         // not invoking baseExpr->symbol_resolution_pass() since that is only done via define_type()
         //if (this->baseExpr)
         //    this->baseExpr->symbol_resolution_pass(six);
-        if (auto typeDecl = dynamic_cast<const TxTypeDeclaration*>(this->get_spec(six)->declaration))
+        if (auto typeDecl = dynamic_cast<const TxTypeDeclaration*>(this->declaration))
             CERROR(this, "'" << get_full_identifier() << "' resolved to a type, not a field: " << typeDecl);
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
         this->LOGGER().trace("Getting static constant proxy for field %s", this->symbolName.c_str());
-        if (auto field = this->get_field(0))
+        if (auto field = this->get_field())
             if (auto constProxy = field->get_static_constant_proxy()) {
                 this->LOGGER().debug("Returning static constant proxy for field %s", field->get_symbol()->get_full_name().to_string().c_str());
                 return constProxy;
@@ -55,15 +66,15 @@ public:
     }
 
     virtual bool is_statically_constant() const override {
-        if (auto field = this->get_field(0))
+        if (auto field = this->get_field())
             return field->is_statically_constant();
         return false;
     }
 
     // should not be called before symbol is resolved:
-    inline const TxField* get_field(TxSpecializationIndex six) const { return this->get_spec(six)->field; }
-    inline const TxFieldDeclaration* get_field_declaration(TxSpecializationIndex six) const {
-        return dynamic_cast<const TxFieldDeclaration*>(this->get_spec(six)->declaration);
+    inline const TxField* get_field() const { return this->field; }
+    inline const TxFieldDeclaration* get_field_declaration() const {
+        return dynamic_cast<const TxFieldDeclaration*>(this->declaration);
     }
 
 
