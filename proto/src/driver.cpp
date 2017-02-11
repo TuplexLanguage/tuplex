@@ -232,8 +232,15 @@ void TxDriver::add_source_file(const TxIdentifier& moduleName, const std::string
 int TxDriver::llvm_compile(const std::string& outputFileName) {
     LlvmGenerationContext genContext(*this->package);
 
+    // emit bytecode for the program:
+
     for (auto parsedAST : this->parsedASTs) {
-        genContext.generate_code(*parsedAST);
+        genContext.generate_code( parsedAST );
+    }
+
+    for (auto specNode : this->package->types().get_enqueued_specializations()) {
+        LOG.note("Generating code for enqueued specialization: %s", specNode->get_declaration()->to_string().c_str());
+        genContext.generate_code( specNode );
     }
 
     genContext.generate_runtime_data();
@@ -249,6 +256,7 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
         }
     }
     LOG.info("+ LLVM code generated (not yet written)");
+
 
     if (this->options.dump_ir)
         genContext.print_IR();

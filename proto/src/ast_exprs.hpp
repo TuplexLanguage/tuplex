@@ -262,6 +262,7 @@ public:
     }
 
     virtual TxBinaryOperatorNode* make_ast_copy() const override {
+        // FIXME: operands may be TxConversionNodes
         return new TxBinaryOperatorNode( this->parseLocation, this->lhs->make_ast_copy(), this->op, this->rhs->make_ast_copy() );
     }
 
@@ -324,6 +325,7 @@ public:
         : TxOperatorValueNode(parseLocation), operand(operand) { }
 
     virtual TxUnaryMinusNode* make_ast_copy() const override {
+        // FIXME: operands may be TxConversionNodes
         return new TxUnaryMinusNode( this->parseLocation, this->operand->make_ast_copy() );
     }
 

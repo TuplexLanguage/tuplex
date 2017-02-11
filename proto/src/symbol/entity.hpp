@@ -34,10 +34,6 @@ public:
 
     virtual TxDriver* get_driver() const override;
 
-//    TxEntityDefiningNode* get_definer() const {
-//        return (this->declaration ? this->declaration->get_definer() : nullptr);
-//    }
-
     TxScopeSymbol* get_symbol() const {
         return (this->declaration ? this->declaration->get_symbol() : nullptr);
     }
@@ -73,10 +69,6 @@ public:
         return static_cast<const TxFieldDeclaration*>(TxEntity::get_declaration());
     }
 
-//    virtual TxFieldDefiningNode* get_definer() const override {
-//        return static_cast<TxFieldDefiningNode*>(TxEntity::get_definer());
-//    }
-
     inline TxFieldStorage get_storage() const { return this->get_declaration()->get_storage(); }
 
     inline const TxType* get_type() const { return this->type; }
@@ -94,11 +86,6 @@ public:
      * In future, this should return non-null for all expressions for which is_statically_constant() returns true.
      */
     virtual const TxConstantProxy* get_static_constant_proxy() const;
-
-//    /** Returns true if this field is a binding for a generic base type's type parameter. */
-//    bool is_generic_param_binding() const {
-//        return (this->get_name().find_last_of('#') != std::string::npos);
-//    }
 
     bool is_modifiable() const;
 

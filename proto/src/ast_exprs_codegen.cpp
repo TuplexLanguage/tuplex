@@ -159,6 +159,8 @@ Value* gen_get_struct_member(LlvmGenerationContext& context, GenScope* scope, Va
         ASSERT(structV->getType()->isStructTy(), "expected value to be a struct: " << structV);
         memberV = ( scope ? scope->builder->CreateExtractValue(structV, ix)
                           : ExtractValueInst::Create(structV, ix) );
+        //std::cerr << "gen_get_struct_member(), structV: " << structV << "   ix: " << ix << std::endl;
+        //std::cerr << "                         memberV: " << memberV << std::endl;
     }
     return memberV;
 }
@@ -501,9 +503,8 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
     auto uniqueName = this->declaration->get_unique_name();
     const TxType* allocType = this->objectExpr->get_type();
 
-// FIXME: review if equivalent super type is sufficient
-    // as we don't (yet) generate code for specializations, we'll find the actual constructor in the top generic base type:
-    while (allocType->is_pure_specialization())
+    // as we don't generate code for equivalent specializations:
+    while (allocType->is_equivalent_derivation())
         allocType = allocType->get_semantic_base_type();
     auto uniqueFullName = allocType->get_declaration()->get_unique_full_name() + "." + uniqueName;
     //std::cerr << "Code-generated constructor name: " << uniqueFullName << " (from: " << this->get_spec(0).declaration->get_unique_full_name() << ")" << std::endl;

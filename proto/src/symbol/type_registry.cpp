@@ -536,11 +536,10 @@ void TypeRegistry::declare_conversion_constructor(BuiltinTypeId fromTypeId, Buil
 
 
 void TypeRegistry::enqueued_resolution_pass() {
-    while (! this->enqueuedSpecializations.empty()) {
+    // Note: Queue can be appended to during processing.
+    for (unsigned i = 0; i != this->enqueuedSpecializations.size(); i++) {
         //std::cerr << "Nof enqueued specializations: " << this->enqueuedSpecializations.size() << std::endl;
-        auto & enqSpec = this->enqueuedSpecializations.front();
-        enqSpec.node->symbol_resolution_pass();
-        this->enqueuedSpecializations.pop();
+        this->enqueuedSpecializations.at(i)->symbol_resolution_pass();
     }
 }
 
@@ -948,9 +947,8 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
             // Invoking the resolution pass here can cause infinite recursion
             // (since the same source text construct may be recursively reprocessed),
             // so we enqueue this "specialization pass" for later processing.
-            //baseTypeExpr->symbol_resolution_pass(newSix);
             //std::cerr << "enqueuing specialization " << newBaseTypeNameStr << "  " << baseTypeExpr << std::endl;
-            this->enqueuedSpecializations.emplace( EnqueuedSpecialization{ newBaseTypeExpr } );
+            this->enqueuedSpecializations.emplace_back( newBaseTypeExpr );
             specializedBaseType = newBaseTypeExpr->resolve_type();
         }
         // TODO: else bindingDeclNodes thrown away...

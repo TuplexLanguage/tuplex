@@ -269,10 +269,6 @@ public:
     virtual bool validate() const override { return true; }
 
 
-//    /** Gets self. Implements the TxTypeProxy interface. */
-//    virtual const TxType* get_type() const override { return this; }
-
-
     inline bool is_prepared() const { return this->prepared; }
 
     /** Prepares this type's members, including data layout. Called after object construction has completed. */
@@ -288,10 +284,6 @@ public:
     virtual inline const TxTypeDeclaration* get_declaration() const override final {
         return static_cast<const TxTypeDeclaration*>(TxEntity::get_declaration());
     }
-
-//    virtual TxTypeDefiningNode* get_definer() const override {
-//        return static_cast<TxTypeDefiningNode*>(TxEntity::get_definer());
-//    }
 
     const TxTypeDeclaration* get_explicit_declaration() const;
 

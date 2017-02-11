@@ -317,7 +317,7 @@ public:
         : TxCondCompoundStmtNode(parseLocation, cond, body, elseClause)  { }
 
     virtual TxIfStmtNode* make_ast_copy() const override {
-        return new TxIfStmtNode( this->parseLocation, this->cond->originalExpr, this->body->make_ast_copy(),
+        return new TxIfStmtNode( this->parseLocation, this->cond->originalExpr->make_ast_copy(), this->body->make_ast_copy(),
                                  ( this->elseClause ? this->elseClause->make_ast_copy() : nullptr ) );
     }
 
@@ -338,7 +338,7 @@ public:
         : TxCondCompoundStmtNode(parseLocation, cond, body, elseClause)  { }
 
     virtual TxWhileStmtNode* make_ast_copy() const override {
-        return new TxWhileStmtNode( this->parseLocation, this->cond->originalExpr, this->body->make_ast_copy(),
+        return new TxWhileStmtNode( this->parseLocation, this->cond->originalExpr->make_ast_copy(), this->body->make_ast_copy(),
                                     ( this->elseClause ? this->elseClause->make_ast_copy() : nullptr ) );
     }
 

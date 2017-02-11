@@ -21,7 +21,7 @@ static Value* code_gen_4_multiple(LlvmGenerationContext& context, GenScope* scop
 
 StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
     if (! this->get_symbol()) {
-        context.LOG.error("No entity for type %s - can't perform vtable LLVM type mapping", this->to_string().c_str());
+        context.LOG.error("No symbol declared for type %s - can't perform vtable LLVM type mapping", this->to_string().c_str());
         return nullptr;
     }
     context.LOG.debug("Mapping vtable of type %s: %s", this->get_declaration()->get_unique_full_name().c_str(), this->to_string(true).c_str());
@@ -52,7 +52,7 @@ StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
 Function* TxType::get_type_user_init_func(LlvmGenerationContext& context) const {
     auto entity = this->get_symbol();
     if (! entity) {
-        context.LOG.error("No entity for type %s - can't create type init func", this->to_string().c_str());
+        context.LOG.error("No symbol declared for type %s - can't create type init func", this->to_string().c_str());
         return nullptr;
     }
     std::string funcName(entity->get_full_name().to_string() + ".$tuinit");

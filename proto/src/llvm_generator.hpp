@@ -92,7 +92,8 @@ public:
 
 
     /** Generate the LLVM code for the provided parsing unit. */
-    void generate_code(const TxParsingUnitNode& topParseNode);
+    void generate_code( const TxParsingUnitNode* topParseNode );
+    void generate_code( const TxTypeExpressionNode* typeExprNode );
 
     void generate_runtime_data();
 

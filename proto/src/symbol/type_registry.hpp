@@ -1,6 +1,6 @@
 #pragma once
 
-#include <queue>
+#include <vector>
 
 #include "location.hpp"
 #include "tx_lang_defs.hpp"
@@ -50,11 +50,7 @@ class TypeRegistry {
     /** parse location used for built-in constructs without actual source code */
     const TxLocation builtinLocation;
 
-    typedef struct {
-        TxTypeExpressionNode* node;
-        //TxSpecializationIndex six;
-    } EnqueuedSpecialization;
-    std::queue<EnqueuedSpecialization> enqueuedSpecializations;
+    std::vector<TxTypeExpressionNode*> enqueuedSpecializations;
 
     /** all the types created */
     std::vector<TxType*>* createdTypes;
@@ -95,6 +91,8 @@ public:
 
     /** to be invoked after the resolution pass has been run on package's source, and before type registration */
     void enqueued_resolution_pass();
+
+    const std::vector<TxTypeExpressionNode*>& get_enqueued_specializations() const { return this->enqueuedSpecializations; }
 
     /** to be invoked after the whole package's source has been processed, before code generation */
     void register_types();
