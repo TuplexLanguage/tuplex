@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ast_base.hpp"
+#include "ast_declbase.hpp"
 
 
 /** A specific conversion of an expression to a resulting type. */

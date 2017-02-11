@@ -4,6 +4,8 @@
 
 #include "package.hpp"
 #include "entity.hpp"
+#include "ast.hpp"
+
 #include "llvm_generator.hpp"
 
 
@@ -41,21 +43,37 @@ static const TxDeclarationFlags DECL_FLAG_FILTER = TXD_STATIC | TXD_PUBLIC | TXD
 
 /*--- private classes providing indirection for fetching the built-in type objects ---*/
 
-class TxBuiltinFieldDefiner final : public TxFieldDefiner {
+class TxBuiltinFieldDefNode final : public TxFieldDefiningNode {
+    const TxField* builtinField;
+
+protected:
+    virtual const TxType* define_type() override {
+        return this->builtinField->get_type();
+    }
+
+    virtual const TxField* define_field() override {
+        return this->builtinField;
+    }
+
 public:
-    const TxField* field;
 
-    TxBuiltinFieldDefiner() : field() { }
-    TxBuiltinFieldDefiner(const TxField* field) : field(field) { }
+    TxBuiltinFieldDefNode( const TxLocation& parseLocation ) : TxFieldDefiningNode( parseLocation ), builtinField() { }
 
-    virtual TxDriver* get_driver() const override { return this->field->get_driver(); }
-    virtual const TxLocation& get_parse_location() const override { return this->field->get_parse_location(); }
+    virtual TxFieldDefiningNode* make_ast_copy() const override {
+        ASSERT( false, "Can't make AST copy of a TxBuiltinFieldDefNode: " << this);
+        return nullptr;
+    }
 
-    virtual const TxExpressionNode* get_init_expression() const override { return nullptr; }
-    virtual const TxField* resolve_field() override { return this->field; }
-    virtual const TxField* get_field() const override { return this->field; }
-    virtual const TxType* get_type() const override { return this->field->get_type(); }
-    virtual const TxType* attempt_get_type() const override { return this->field->get_type(); }
+    void set_field(const TxField* field) {
+        this->builtinField = field;
+        this->resolve_field();  // auto-resolves
+    }
+
+    virtual const TxExpressionNode* get_init_expression() const { return nullptr; }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override {
+        return nullptr;
+    }
 };
 
 
@@ -97,49 +115,59 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 };
 
-class TxImplicitTypeDefiner : public TxTypeDefiner {
-    TxImplicitTypeDefiningNode* node;
-    const std::string plainName;
-    const TxDeclarationFlags declFlags;
+class TxImplicitTypeDeclNode : public TxTypeDeclNode {
+//    TxImplicitTypeDefiningNode* node;
+//    const std::string plainName;
+//    const TxDeclarationFlags declFlags;
 
 public:
-    TxImplicitTypeDefiner(const TxLocation& parseLocation, const std::string plainName, TxDeclarationFlags declFlags=(TXD_PUBLIC | TXD_IMPLICIT))
-        : node(new TxImplicitTypeDefiningNode(parseLocation)), plainName(plainName), declFlags(declFlags) { }
-
-    void symbol_declaration_pass(LexicalContext& ctx, const std::vector<TxDeclarationNode*>* typeParamDeclNodes=nullptr) {
-        this->node->symbol_declaration_pass(ctx, ctx, this->declFlags, this->plainName, typeParamDeclNodes);
-    }
-    void symbol_declaration_pass(TxModule* module, const std::vector<TxDeclarationNode*>* typeParamDeclNodes=nullptr) {
-        LexicalContext ctx(module);
-        this->symbol_declaration_pass(ctx, typeParamDeclNodes);
-    }
+    TxImplicitTypeDeclNode( const TxLocation& parseLocation, const std::string plainName, TxDeclarationFlags declFlags=(TXD_PUBLIC | TXD_IMPLICIT),
+                            const std::vector<TxDeclarationNode*>* typeParamDeclNodes=nullptr )
+        //: node(new TxImplicitTypeDefiningNode(parseLocation)), plainName(plainName), declFlags(declFlags) { }
+        : TxTypeDeclNode( parseLocation, declFlags, plainName, typeParamDeclNodes, new TxImplicitTypeDefiningNode(parseLocation) ) { }
 
     void set_type(const TxType* type) {
-        this->node->set_type(type);
+        static_cast<TxImplicitTypeDefiningNode*>(this->typeExpression)->set_type(type);
     }
 
-    void symbol_resolution_pass() {
-        this->node->symbol_resolution_pass();
-    }
+    const TxType* get_type() const { return this->typeExpression->get_type(); }
 
-    const TxTypeDeclaration* get_declaration() const { return this->node->get_declaration(); }
+//    void symbol_declaration_pass( TxModule* module ) {
+//        LexicalContext ctx( module );
+//        this->TxTypeDeclNode::symbol_declaration_pass( ctx );
+//    }
 
-    virtual TxDriver* get_driver() const override { return this->node->get_driver(); }
-    virtual const TxLocation& get_parse_location() const override { return this->node->get_parse_location(); }
-
-    virtual const TxType* resolve_type() override { return this->get_type(); }
-    virtual const TxType* attempt_get_type() const override { return this->get_type(); }
-    virtual const TxType* get_type() const override { return this->node->get_type(); }
-
-    virtual TxTypeExpressionNode* get_node() override { return this->node; }
+//    void symbol_declaration_pass(LexicalContext& ctx, const std::vector<TxDeclarationNode*>* typeParamDeclNodes=nullptr) {
+//        this->node->symbol_declaration_pass(ctx, ctx, this->declFlags, this->plainName, typeParamDeclNodes);
+//    }
+//    void symbol_declaration_pass(TxModule* module, const std::vector<TxDeclarationNode*>* typeParamDeclNodes=nullptr) {
+//        LexicalContext ctx(module);
+//        this->symbol_declaration_pass(ctx, typeParamDeclNodes);
+//    }
+//
+//    void symbol_resolution_pass() {
+//        this->node->symbol_resolution_pass();
+//    }
+//
+//    const TxTypeDeclaration* get_declaration() const { return this->node->get_declaration(); }
+//
+//    virtual TxDriver* get_driver() const override { return this->node->get_driver(); }
+//    virtual const TxLocation& get_parse_location() const override { return this->node->get_parse_location(); }
+//
+//    virtual const TxType* resolve_type() override { return this->get_type(); }
+//    virtual const TxType* attempt_get_type() const override { return this->get_type(); }
+//    virtual const TxType* get_type() const override { return this->node->get_type(); }
+//
+//    virtual TxTypeExpressionNode* get_node() override { return this->node; }
 };
 
-class TxBuiltinTypeDefiner final : public TxImplicitTypeDefiner {
+class TxBuiltinTypeDeclNode final : public TxImplicitTypeDeclNode {
 public:
     const BuiltinTypeId id;
 
-    TxBuiltinTypeDefiner(const TxLocation& parseLocation, std::string plainName, BuiltinTypeId id, TxDeclarationFlags declFlags)
-        : TxImplicitTypeDefiner(parseLocation, plainName, declFlags), id(id)  { }
+    TxBuiltinTypeDeclNode( const TxLocation& parseLocation, std::string plainName, BuiltinTypeId id, TxDeclarationFlags declFlags,
+                           const std::vector<TxDeclarationNode*>* typeParamDeclNodes=nullptr )
+        : TxImplicitTypeDeclNode(parseLocation, plainName, declFlags, typeParamDeclNodes), id(id)  { }
 };
 
 
@@ -210,17 +238,18 @@ TxDriver* TypeRegistry::get_driver() const {
 void TypeRegistry::declare_tx_functions(TxModule* module) {
     // public _address( r : Ref ) ULong
     std::vector<const TxType*> argumentTypes( { this->builtinTypes[REFERENCE]->get_type() } );
-    auto funcTypeDef = new TxBuiltinFieldDefiner();
+    auto funcTypeDef = new TxBuiltinFieldDefNode( this->builtinLocation );
     auto funcDecl = module->declare_field("_address", funcTypeDef, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
     auto type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(), argumentTypes,
                                    this->builtinTypes[ULONG]->get_type());
-    funcTypeDef->field = new TxField(funcDecl, type);
+    funcTypeDef->set_field( new TxField(funcDecl, type) );
 }
 
 
 void TypeRegistry::add_builtin_abstract(TxModule* module, TxTypeClass typeClass, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId) {
-    auto definer = new TxBuiltinTypeDefiner( this->builtinLocation, plainName, id, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT );
-    definer->symbol_declaration_pass(module);
+    auto definer = new TxBuiltinTypeDeclNode( this->builtinLocation, plainName, id, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT );
+    LexicalContext lexCtx( module );
+    definer->symbol_declaration_pass( lexCtx );
     auto type = new TxBuiltinBaseType( typeClass, definer->get_declaration(), this->builtinTypes[parentId]->get_type());
     type->prepare_type_members();
     definer->set_type( type );
@@ -230,8 +259,9 @@ void TypeRegistry::add_builtin_abstract(TxModule* module, TxTypeClass typeClass,
 
 void TypeRegistry::add_builtin_integer(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId,
                                        int size, bool sign) {
-    auto definer = new TxBuiltinTypeDefiner( this->builtinLocation, plainName, id, TXD_PUBLIC | TXD_BUILTIN );
-    definer->symbol_declaration_pass(module);
+    auto definer = new TxBuiltinTypeDeclNode( this->builtinLocation, plainName, id, TXD_PUBLIC | TXD_BUILTIN );
+    LexicalContext lexCtx( module );
+    definer->symbol_declaration_pass( lexCtx );
     auto type = new TxIntegerType( definer->get_declaration(), this->builtinTypes[parentId]->get_type(), size, sign);
     type->prepare_type_members();
     definer->set_type( type );
@@ -240,8 +270,9 @@ void TypeRegistry::add_builtin_integer(TxModule* module, BuiltinTypeId id, std::
 }
 
 void TypeRegistry::add_builtin_floating(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size) {
-    auto definer = new TxBuiltinTypeDefiner( this->builtinLocation, plainName, id, TXD_PUBLIC | TXD_BUILTIN );
-    definer->symbol_declaration_pass(module);
+    auto definer = new TxBuiltinTypeDeclNode( this->builtinLocation, plainName, id, TXD_PUBLIC | TXD_BUILTIN );
+    LexicalContext lexCtx( module );
+    definer->symbol_declaration_pass( lexCtx );
     auto type = new TxFloatingType( definer->get_declaration(), this->builtinTypes[parentId]->get_type(), size );
     type->prepare_type_members();
     definer->set_type( type );
@@ -252,11 +283,13 @@ void TypeRegistry::add_builtin_floating(TxModule* module, BuiltinTypeId id, std:
 /** Initializes the built-in symbols. */
 void TypeRegistry::initializeBuiltinSymbols() {
     auto module = this->package.declare_module(* new TxIdentifier(BUILTIN_NS), true);
+    LexicalContext moduleCtx(module);
 
     // create the Any root type:
     {
-        auto definer = new TxBuiltinTypeDefiner( this->builtinLocation, "Any", ANY, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT );
-        definer->symbol_declaration_pass(module);
+        auto definer = new TxBuiltinTypeDeclNode( this->builtinLocation, "Any", ANY, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT );
+        LexicalContext lexCtx( module );
+        definer->symbol_declaration_pass( lexCtx );
         auto type = new TxAnyType( definer->get_declaration() );
         type->prepare_type_members();
         definer->set_type( type );
@@ -290,8 +323,8 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // create the boolean type:
     {
-        auto definer = new TxBuiltinTypeDefiner( this->builtinLocation, "Bool", BOOL, TXD_PUBLIC | TXD_BUILTIN );
-        definer->symbol_declaration_pass(module);
+        auto definer = new TxBuiltinTypeDeclNode( this->builtinLocation, "Bool", BOOL, TXD_PUBLIC | TXD_BUILTIN );
+        definer->symbol_declaration_pass( moduleCtx );
         auto type = new TxBoolType(definer->get_declaration(), this->builtinTypes[ELEMENTARY]->get_type() );
         type->prepare_type_members();
         definer->set_type( type );
@@ -301,8 +334,8 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // create the function base type:
     {
-        auto definer = new TxBuiltinTypeDefiner( this->builtinLocation, "Function", FUNCTION, TXD_PUBLIC | TXD_BUILTIN );
-        definer->symbol_declaration_pass(module);
+        auto definer = new TxBuiltinTypeDeclNode( this->builtinLocation, "Function", FUNCTION, TXD_PUBLIC | TXD_BUILTIN );
+        definer->symbol_declaration_pass( moduleCtx );
         auto type = new TxBuiltinBaseType(TXTC_FUNCTION, definer->get_declaration(), this->builtinTypes[ANY]->get_type() );
         type->prepare_type_members();
         definer->set_type( type );
@@ -312,15 +345,13 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // create the reference base type:
     {
-        auto definer = new TxBuiltinTypeDefiner( this->builtinLocation, "Ref", REFERENCE, TXD_PUBLIC | TXD_BUILTIN );
-        //auto typeDecl = module->declare_type(definer->plainName, definer, TXD_PUBLIC | TXD_BUILTIN );
-
         //auto elemTypeDefiner = this->builtinTypes[ANY];
         //typeDecl->get_symbol()->declare_type( "T", elemTypeDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_GENPARAM );
         auto anyType = new TxPredefinedTypeNode(this->builtinLocation, "tx.Any");
         auto paramNodes = new std::vector<TxDeclarationNode*>( { new TxTypeDeclNode(this->builtinLocation, TXD_PUBLIC | TXD_GENPARAM,
                                                                                     "T", nullptr, anyType) } );
-        definer->symbol_declaration_pass(module, paramNodes);
+        auto definer = new TxBuiltinTypeDeclNode( this->builtinLocation, "Ref", REFERENCE, TXD_PUBLIC | TXD_BUILTIN, paramNodes );
+        definer->symbol_declaration_pass( moduleCtx );
 
         auto type = new TxReferenceType(definer->get_declaration(), this->builtinTypes[ANY]->get_type());
         definer->set_type( type );
@@ -332,23 +363,20 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // create the array base type:
     {
-        auto definer = new TxBuiltinTypeDefiner( this->builtinLocation, "Array", ARRAY, TXD_PUBLIC | TXD_BUILTIN );
-        //auto typeDecl = module->declare_type( definer->plainName, definer, TXD_PUBLIC | TXD_BUILTIN );
-
         //auto elemTypeDefiner = this->builtinTypes[ANY];
         //typeDecl->get_symbol()->declare_type( "E", elemTypeDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_GENPARAM );
-
         //auto lengthDefiner = new TxBuiltinFieldDefiner();
         //auto lengthDecl = typeDecl->get_symbol()->declare_field( "L", lengthDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_GENPARAM, TXS_INSTANCE, TxIdentifier() );
-        //lengthDefiner->field = new TxField(lengthDecl, this->builtinTypes[UINT]->get_type());
+        //lengthDefiner->set_field( new TxField(lengthDecl, this->builtinTypes[UINT]->get_type()) );
         auto anyType = new TxPredefinedTypeNode(this->builtinLocation, "tx.Any");
-        auto lTypeNode = new TxTypeExprWrapperNode(this->builtinLocation, this->builtinTypes[UINT]);
+        auto lTypeNode = new TxTypeDeclWrapperNode( this->builtinTypes[UINT]->get_declaration() );
         auto lenFieldDef = new TxFieldDefNode(this->builtinLocation, "L", lTypeNode, nullptr, false);
         auto paramNodes = new std::vector<TxDeclarationNode*>( { new TxTypeDeclNode(this->builtinLocation, TXD_PUBLIC | TXD_GENPARAM,
                                                                                     "E", nullptr, anyType),
                                                                  new TxFieldDeclNode(this->builtinLocation, TXD_PUBLIC | TXD_GENPARAM,
                                                                                      lenFieldDef) } );
-        definer->symbol_declaration_pass(module, paramNodes);
+        auto definer = new TxBuiltinTypeDeclNode( this->builtinLocation, "Array", ARRAY, TXD_PUBLIC | TXD_BUILTIN, paramNodes );
+        definer->symbol_declaration_pass( moduleCtx );
 
         auto type = new TxArrayType(definer->get_declaration(), this->builtinTypes[ANY]->get_type());
         definer->set_type( type );
@@ -360,8 +388,8 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // create the tuple base type:
     {
-        auto definer = new TxBuiltinTypeDefiner( this->builtinLocation, "Tuple", TUPLE, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT );
-        definer->symbol_declaration_pass(module);
+        auto definer = new TxBuiltinTypeDeclNode( this->builtinLocation, "Tuple", TUPLE, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT );
+        definer->symbol_declaration_pass( moduleCtx );
         auto type = new TxTupleType(definer->get_declaration(), this->builtinTypes[ANY]->get_type(), true );
         type->prepare_type_members();
         definer->set_type( type );
@@ -371,14 +399,14 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
     // create the interface base type:
     {
-        auto definer = new TxBuiltinTypeDefiner( this->builtinLocation, "Interface", INTERFACE, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT );
-        definer->symbol_declaration_pass(module);
+        auto definer = new TxBuiltinTypeDeclNode( this->builtinLocation, "Interface", INTERFACE, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT );
+        definer->symbol_declaration_pass( moduleCtx );
         {   // declare the adaptee type id virtual field member, which is abstract here but concrete in adapter subtypes:
             const TxType* fieldType = this->get_builtin_type(UINT);
-            auto fieldDef = new TxBuiltinFieldDefiner();
+            auto fieldDef = new TxBuiltinFieldDefNode( this->builtinLocation );
             auto fieldDecl = definer->get_declaration()->get_symbol()->declare_field(
                     "$adTypeId", fieldDef, TXD_PUBLIC | TXD_BUILTIN | TXD_STATIC | TXD_ABSTRACT | TXD_IMPLICIT, TXS_STATIC, "");
-            fieldDef->field = new TxField(fieldDecl, fieldType);
+            fieldDef->set_field( new TxField(fieldDecl, fieldType) );
         }
         auto type = new TxInterfaceType(definer->get_declaration(), this->builtinTypes[ANY]->get_type());
         type->prepare_type_members();
@@ -416,19 +444,18 @@ void TypeRegistry::initializeBuiltinSymbols() {
     }
 
     // default constructors for elementary, concrete built-ins:
-    LexicalContext ctx(module);
-    declare_default_constructor(ctx, BOOL,   new TxBoolLitNode(this->builtinLocation, false));
-    declare_default_constructor(ctx, BYTE,   new TxIntegerLitNode(this->builtinLocation, 0, true,  BYTE));
-    declare_default_constructor(ctx, SHORT,  new TxIntegerLitNode(this->builtinLocation, 0, true,  SHORT));
-    declare_default_constructor(ctx, INT,    new TxIntegerLitNode(this->builtinLocation, 0, true,  INT));
-    declare_default_constructor(ctx, LONG,   new TxIntegerLitNode(this->builtinLocation, 0, true,  LONG));
-    declare_default_constructor(ctx, UBYTE,  new TxIntegerLitNode(this->builtinLocation, 0, false, UBYTE));
-    declare_default_constructor(ctx, USHORT, new TxIntegerLitNode(this->builtinLocation, 0, false, USHORT));
-    declare_default_constructor(ctx, UINT,   new TxIntegerLitNode(this->builtinLocation, 0, false, UINT));
-    declare_default_constructor(ctx, ULONG,  new TxIntegerLitNode(this->builtinLocation, 0, false, ULONG));
-    declare_default_constructor(ctx, HALF,   new TxFloatingLitNode(this->builtinLocation, HALF));
-    declare_default_constructor(ctx, FLOAT,  new TxFloatingLitNode(this->builtinLocation, FLOAT));
-    declare_default_constructor(ctx, DOUBLE, new TxFloatingLitNode(this->builtinLocation, DOUBLE));
+    declare_default_constructor(moduleCtx, BOOL,   new TxBoolLitNode(this->builtinLocation, false));
+    declare_default_constructor(moduleCtx, BYTE,   new TxIntegerLitNode(this->builtinLocation, 0, true,  BYTE));
+    declare_default_constructor(moduleCtx, SHORT,  new TxIntegerLitNode(this->builtinLocation, 0, true,  SHORT));
+    declare_default_constructor(moduleCtx, INT,    new TxIntegerLitNode(this->builtinLocation, 0, true,  INT));
+    declare_default_constructor(moduleCtx, LONG,   new TxIntegerLitNode(this->builtinLocation, 0, true,  LONG));
+    declare_default_constructor(moduleCtx, UBYTE,  new TxIntegerLitNode(this->builtinLocation, 0, false, UBYTE));
+    declare_default_constructor(moduleCtx, USHORT, new TxIntegerLitNode(this->builtinLocation, 0, false, USHORT));
+    declare_default_constructor(moduleCtx, UINT,   new TxIntegerLitNode(this->builtinLocation, 0, false, UINT));
+    declare_default_constructor(moduleCtx, ULONG,  new TxIntegerLitNode(this->builtinLocation, 0, false, ULONG));
+    declare_default_constructor(moduleCtx, HALF,   new TxFloatingLitNode(this->builtinLocation, HALF));
+    declare_default_constructor(moduleCtx, FLOAT,  new TxFloatingLitNode(this->builtinLocation, FLOAT));
+    declare_default_constructor(moduleCtx, DOUBLE, new TxFloatingLitNode(this->builtinLocation, DOUBLE));
 
     // scalar conversion-constructor functions:
     for (auto fromTypeId : SCALAR_TYPE_IDS) {
@@ -458,7 +485,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 //        auto charBinding = TxGenericBinding::make_type_binding("T", this->builtinTypes[UBYTE]);
 //        ubyteRefDef->type = this->get_reference_type(ubyteRefDecl, charBinding);
 
-        auto c_puts_func_type_def = new TxBuiltinFieldDefiner();
+        auto c_puts_func_type_def = new TxBuiltinFieldDefNode( this->builtinLocation );
         auto c_puts_decl = txCfuncModule->declare_field("puts", c_puts_func_type_def, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
 
         auto refTypeNode = new TxReferenceTypeNode(this->builtinLocation, nullptr, new TxPredefinedTypeNode(this->builtinLocation, "tx.UByte"));
@@ -470,14 +497,14 @@ void TypeRegistry::initializeBuiltinSymbols() {
         const TxType* returnType = this->builtinTypes[INT]->get_type();
 
         auto type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(), { ubyteRefType }, returnType);
-        c_puts_func_type_def->field = new TxField(c_puts_decl, type);
+        c_puts_func_type_def->set_field( new TxField(c_puts_decl, type) );
     }
     {  // declare tx.c.abort:
         std::vector<const TxType*> argumentTypes( {} );
-        auto c_abort_func_type_def = new TxBuiltinFieldDefiner();
+        auto c_abort_func_type_def = new TxBuiltinFieldDefNode( this->builtinLocation );
         auto c_abort_decl = txCfuncModule->declare_field("abort", c_abort_func_type_def, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
         auto type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(), argumentTypes);
-        c_abort_func_type_def->field = new TxField(c_abort_decl, type);
+        c_abort_func_type_def->set_field( new TxField(c_abort_decl, type) );
     }
 }
 
@@ -486,25 +513,25 @@ void TypeRegistry::declare_default_constructor(LexicalContext& ctx, BuiltinTypeI
 
     // constructors for built-in elementary types are really inline conversion expressions
     auto typeDecl = this->builtinTypes[toTypeId]->get_declaration();
-    auto constructorDefiner = new TxBuiltinFieldDefiner();
+    auto constructorDefiner = new TxBuiltinFieldDefNode( this->builtinLocation );
     auto constructorDecl = typeDecl->get_symbol()->declare_field("$init", constructorDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_CONSTRUCTOR, TXS_INSTANCEMETHOD, TxIdentifier(""));
     auto type = new TxBuiltinDefaultConstructorType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
                                                     this->builtinTypes[toTypeId]->get_type(),
                                                     initValueExpr);
     type->prepare_type_members();
-    constructorDefiner->field = new TxField(constructorDecl, type);
+    constructorDefiner->set_field( new TxField(constructorDecl, type) );
 }
 
 void TypeRegistry::declare_conversion_constructor(BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId) {
     // constructors for built-in elementary types are really inline conversion expressions
     auto typeDecl = this->builtinTypes[toTypeId]->get_declaration();
-    auto constructorDefiner = new TxBuiltinFieldDefiner();
+    auto constructorDefiner = new TxBuiltinFieldDefNode( this->builtinLocation );
     auto constructorDecl = typeDecl->get_symbol()->declare_field("$init", constructorDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_CONSTRUCTOR, TXS_INSTANCEMETHOD, TxIdentifier(""));
     auto type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->get_type(),
                                                     this->builtinTypes[fromTypeId]->get_type(),
                                                     this->builtinTypes[toTypeId]->get_type());
     type->prepare_type_members();
-    constructorDefiner->field = new TxField(constructorDecl, type);
+    constructorDefiner->set_field( new TxField(constructorDecl, type) );
 }
 
 
@@ -560,10 +587,6 @@ void TypeRegistry::register_types() {
 }
 
 
-const TxTypeDefiner* TypeRegistry::get_builtin_type_def(const BuiltinTypeId id) const {
-    return this->builtinTypes[id];
-}
-
 const TxType* TypeRegistry::get_builtin_type(const BuiltinTypeId id, bool mod) const {
     return mod ? this->builtinModTypes[id] : this->builtinTypes[id]->get_type();
 }
@@ -611,7 +634,7 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
         }
 
         auto typeDefiner = type->get_declaration()->get_definer();
-        auto & ctx = typeDefiner->get_node()->context();
+        auto & ctx = typeDefiner->context();
         auto modNode = new TxModifiableTypeNode(this->builtinLocation, new TxPredefinedTypeNode(this->builtinLocation, type->get_declaration()->get_unique_name()));
         TxDeclarationFlags newDeclFlags = ( type->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
         modNode->symbol_declaration_pass( ctx, ctx, newDeclFlags, name, nullptr );
@@ -666,22 +689,24 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
         for (auto & binding : *bindings) {
             auto paramDecl = baseType->get_type_param_decl(binding.param_name());
             if (binding.meta_type() == MetaType::TXB_TYPE) {
-                auto bindingType = binding.type_definer().get_type();
-                auto constraintType = paramDecl->get_definer()->resolve_type();
-                ASSERT(constraintType, "NULL constraint type for type parameter " << paramDecl);
-                //baseScope->LOGGER().trace("bindingType decl:    %s", bindingType->get_declaration()->to_string().c_str());
-                //baseScope->LOGGER().trace("constraintType decl: %s", constraintType->get_declaration()->to_string().c_str());
-                if (auto bindingDecl = bindingType->get_declaration()) {
-                    if (bindingDecl == constraintType->get_declaration())
-                        continue;  // binding refers to "itself" (its parameter declaration)
-                    if (! (bindingDecl->get_decl_flags() & TXD_GENPARAM)) {
-                        // (if binding is to another type parameter it is an explicit unique type)
-                        if (*constraintType == *bindingType)
-                            continue;
+                if (auto typeParamDecl = dynamic_cast<const TxTypeDeclaration*>(paramDecl)) {
+                    auto bindingType = binding.type_definer().get_type();
+                    auto constraintType = typeParamDecl->get_definer()->resolve_type();
+                    ASSERT(constraintType, "NULL constraint type for type parameter " << typeParamDecl);
+                    //baseScope->LOGGER().trace("bindingType decl:    %s", bindingType->get_declaration()->to_string().c_str());
+                    //baseScope->LOGGER().trace("constraintType decl: %s", constraintType->get_declaration()->to_string().c_str());
+                    if (auto bindingDecl = bindingType->get_declaration()) {
+                        if (bindingDecl == constraintType->get_declaration())
+                            continue;  // binding refers to "itself" (its parameter declaration)
+                        if (! (bindingDecl->get_decl_flags() & TXD_GENPARAM)) {
+                            // (if binding is to another type parameter it is an explicit unique type)
+                            if (*constraintType == *bindingType)
+                                continue;
+                        }
                     }
+                    else if (*constraintType == *bindingType)
+                        continue;
                 }
-                else if (*constraintType == *bindingType)
-                    continue;
             }
             else {  // MetaType::TXB_VALUE
                 // VALUE parameters don't have "defaults"
@@ -712,7 +737,7 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
                     if (auto existingBinding = existingBaseType->get_binding(binding.param_name())) {
                         //std::cerr << "found existing binding: " << existingBinding << std::endl;
                         if (binding.meta_type() == MetaType::TXB_TYPE) {
-                            if (const TxType* membType = existingBinding->get_definer()->resolve_type()) {
+                            if (const TxType* membType = static_cast<const TxTypeDeclaration*>(existingBinding)->get_definer()->resolve_type()) {
                                 //std::cerr << "COMPARING: " << membType << " AND " << binding.type_definer().get_type() << std::endl;
                                 if (*membType == *binding.type_definer().get_type())
                                     continue;
@@ -724,8 +749,7 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
                         }
                         else {  // MetaType::TXB_VALUE
                             // (For now, statically constant VALUE specializations with diff. values don't share the same static type.)
-                            auto existingFieldDefiner = dynamic_cast<TxFieldDefiner*>(existingBinding->get_definer());
-                            ASSERT(existingFieldDefiner, "definer of existing binding " << existingBinding << " is not a TxFieldDefiner");
+                            auto existingFieldDefiner = static_cast<const TxFieldDeclaration*>(existingBinding)->get_definer();
                             uint32_t newValue = 0;  // zero means dynamically specified value
                             uint32_t existingValue = 0;
                             if (auto newConstantValueProxy = binding.value_definer().get_static_constant_proxy()) {
@@ -759,21 +783,18 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
 }
 
 
-/** both for bindings and param redeclarations */
-static TxDeclarationNode* make_type_param_decl_node(const std::string& paramName, TxDeclarationFlags flags, const TxType* type) {
-    auto & parseLoc = type->get_parse_location();
-    TxTypeDefiner* bdefiner = new TxTypeWrapperDef(type);
-    auto typeExpr = new TxTypeExprWrapperNode(parseLoc, bdefiner);
+/** Makes a TYPE type parameter declaration node (both for bindings and param redeclarations). */
+static TxDeclarationNode* make_type_type_param_decl_node( const TxLocation& parseLoc, const std::string& paramName, TxDeclarationFlags flags,
+                                                          const TxTypeDeclaration* typeDecl ) {
+    auto typeExpr = new TxTypeDeclWrapperNode( typeDecl );
     auto declNode = new TxTypeDeclNode(parseLoc, flags | TXD_PUBLIC , paramName, nullptr, typeExpr);
     return declNode;
 }
 
-/** both for bindings and param redeclarations */
-static TxDeclarationNode* make_type_param_decl_node(const std::string& paramName, TxDeclarationFlags flags, const TxEntityDeclaration* paramDecl,
-                                                    TxExpressionNode* valueDefiner=nullptr) {
-    TxTypeDefiner* paramTypeDef = static_cast<const TxTypeDeclaration*>(paramDecl)->get_definer();  // FIXME: wrong decl type??
-    auto & parseLoc = (valueDefiner ? valueDefiner->get_parse_location() : paramDecl->get_definer()->get_parse_location());
-    auto paramTypeNode = new TxTypeExprWrapperNode( parseLoc, paramTypeDef );
+/** Makes a VALUE type parameter declaration node (both for bindings and param redeclarations). */
+static TxDeclarationNode* make_value_type_param_decl_node( const TxLocation& parseLoc, const std::string& paramName, TxDeclarationFlags flags,
+                                                           const TxEntityDeclaration* paramValueTypeDecl, TxExpressionNode* valueDefiner=nullptr) {
+    auto paramTypeNode = new TxTypeDeclWrapperNode( paramValueTypeDecl );
     auto fieldDef = new TxFieldDefNode(parseLoc, paramName, paramTypeNode, valueDefiner, false);
     auto declNode = new TxFieldDeclNode(parseLoc, flags | TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
     return declNode;
@@ -855,11 +876,12 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
 
                 newBaseTypeName << encode_type_name(btype);
 
-                bindingDeclNodes->push_back(make_type_param_decl_node(binding.param_name(), TXD_GENBINDING, btype));
+                bindingDeclNodes->push_back( make_type_type_param_decl_node( binding.get_parse_location(), binding.param_name(),
+                                                                             TXD_GENBINDING, btype->get_declaration() ) );
                 if (btype != origBType)
-                    newBindings.emplace_back(binding, new TxTypeWrapperDef(btype));
+                    newBindings.emplace_back( binding, btype->get_declaration()->get_definer() ); //new TxTypeWrapperNode(btype));
                 else
-                    newBindings.emplace_back(binding);
+                    newBindings.emplace_back( binding );
                 package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
                                        binding.param_name().c_str(), btype->to_string().c_str());
             }
@@ -875,7 +897,8 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
                 }
 
                 auto paramDecl = baseType->get_type_param_decl(binding.param_name());
-                bindingDeclNodes->push_back(make_type_param_decl_node("$" + binding.param_name(), TXD_GENBINDING, paramDecl, &binding.value_definer()));
+                bindingDeclNodes->push_back( make_value_type_param_decl_node( binding.get_parse_location(), "$" + binding.param_name(),
+                                                                              TXD_GENBINDING, paramDecl, &binding.value_definer() ) );
                 newBindings.emplace_back(binding);
                 package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
                                        binding.param_name().c_str(), binding.value_definer().to_string().c_str());
@@ -893,25 +916,26 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
                 package.LOGGER().note("Implicitly inheriting (redeclaring) type parameter %s in type %s",
                                       unboundParamDecl->get_unique_full_name().c_str(), newBaseTypeNameStr.c_str());
                 if (auto typeDecl = dynamic_cast<const TxTypeDeclaration*>(unboundParamDecl)) {
-                    bindingDeclNodes->push_back(make_type_param_decl_node(typeDecl->get_unique_name(), TXD_GENPARAM,
-                                                                          typeDecl->get_definer()->get_type()));
+                    bindingDeclNodes->push_back( make_type_type_param_decl_node( pOrigin->get_parse_location(), typeDecl->get_unique_name(),
+                                                                                 TXD_GENPARAM, typeDecl ) );
                 }
                 else {
                     auto fieldDecl = static_cast<const TxFieldDeclaration*>(unboundParamDecl);
                     auto paramDecl = baseType->get_type_param_decl(fieldDecl->get_unique_name());
-                    bindingDeclNodes->push_back(make_type_param_decl_node(fieldDecl->get_unique_name(), TXD_GENPARAM, paramDecl));
+                    bindingDeclNodes->push_back( make_value_type_param_decl_node( pOrigin->get_parse_location(), fieldDecl->get_unique_name(),
+                                                                                  TXD_GENPARAM, paramDecl ) );
                 }
             }
 
             {   // pass on the generic base type to the new specialization via member named $GenericBase:
-                auto & parseLoc = declaration->get_definer()->get_parse_location();
-                auto typeExpr = new TxTypeExprWrapperNode(parseLoc, new TxTypeWrapperDef(baseType));
-                auto declNode = new TxTypeDeclNode(parseLoc, TXD_PUBLIC | TXD_IMPLICIT, "$GenericBase", nullptr, typeExpr);
-                bindingDeclNodes->push_back(declNode);
+                auto baseTypeExpr = new TxTypeDeclWrapperNode( baseDecl );
+                auto declNode = new TxTypeDeclNode( pOrigin->get_parse_location(), TXD_PUBLIC | TXD_IMPLICIT, "$GenericBase", nullptr, baseTypeExpr );
+                bindingDeclNodes->push_back( declNode );
             }
 
             // process new specialization of the base type:
-            auto baseTypeExpr = static_cast<TxTypeExpressionNode*>( baseDecl->get_definer()->get_node() );
+            auto baseTypeExpr = dynamic_cast<TxTypeExpressionNode*>( baseDecl->get_definer() );
+            ASSERT(baseTypeExpr, "baseTypeExpression not a TxTypeExpressionNode: " << baseDecl->get_definer());
             //TxSpecializationIndex newSix = baseTypeExpr->next_spec_index();
             LexicalContext baseContext = LexicalContext( baseTypeExpr->context() );
             ASSERT(baseContext.scope() == baseScope, "Unexpected lexical scope: " << baseContext.scope() << " != " << baseScope);
@@ -976,10 +1000,10 @@ const TxInterfaceAdapterType* TypeRegistry::inner_get_interface_adapter(const Tx
     //std::cerr << "Creating interface adapter: " << adapterName << "\n\tfrom " << adaptedType << "\n\tto   " << interfaceType << std::endl;
     // TODO: combine flags from adapted and adaptee types, including TXD_EXPERRBLOCK
 
-    auto adapterDefiner = new TxImplicitTypeDefiner( this->builtinLocation, adapterName );
+    auto adapterDefiner = new TxImplicitTypeDeclNode( this->builtinLocation, adapterName );
     {
         auto ifDefiner = ifDecl->get_definer();
-        auto & ctx = ifDefiner->get_node()->context();
+        auto & ctx = ifDefiner->context();
         adapterDefiner->symbol_declaration_pass(ctx);
     }
     //auto typeDecl = scope->declare_type(adapterName, adapterDefiner, TXD_PUBLIC | TXD_IMPLICIT);
@@ -987,9 +1011,9 @@ const TxInterfaceAdapterType* TypeRegistry::inner_get_interface_adapter(const Tx
 
     {   // override the adaptee type id virtual field member:
         const TxType* fieldType = this->get_builtin_type(UINT);
-        auto fieldDef = new TxBuiltinFieldDefiner();
+        auto fieldDef = new TxBuiltinFieldDefNode( this->builtinLocation );
         auto fieldDecl = typeDecl->get_symbol()->declare_field("$adTypeId", fieldDef, TXD_PUBLIC | TXD_STATIC | TXD_OVERRIDE | TXD_IMPLICIT, TXS_STATIC, "");
-        fieldDef->field = new TxField(fieldDecl, fieldType);
+        fieldDef->set_field( new TxField(fieldDecl, fieldType) );
     }
 
     auto adapterType = new TxInterfaceAdapterType(typeDecl, interfaceType, adaptedType);

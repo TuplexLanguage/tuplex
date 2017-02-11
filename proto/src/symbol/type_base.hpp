@@ -264,15 +264,13 @@ public:
 
     virtual const TxLocation& get_parse_location() const override;
 
-    virtual TxDriver* get_driver() const override {
-        return this->get_nearest_declaration()->get_definer()->get_driver();
-    }
+    virtual TxDriver* get_driver() const override;
 
     virtual bool validate() const override { return true; }
 
 
-    /** Gets self. Implements the TxTypeProxy interface. */
-    virtual const TxType* get_type() const override { return this; }
+//    /** Gets self. Implements the TxTypeProxy interface. */
+//    virtual const TxType* get_type() const override { return this; }
 
 
     inline bool is_prepared() const { return this->prepared; }
@@ -290,6 +288,10 @@ public:
     virtual inline const TxTypeDeclaration* get_declaration() const override final {
         return static_cast<const TxTypeDeclaration*>(TxEntity::get_declaration());
     }
+
+//    virtual TxTypeDefiningNode* get_definer() const override {
+//        return static_cast<TxTypeDefiningNode*>(TxEntity::get_definer());
+//    }
 
     const TxTypeDeclaration* get_explicit_declaration() const;
 
@@ -583,20 +585,4 @@ public:
 
 protected:
     virtual void self_string(std::stringstream& str, bool brief, bool skipFirstName, bool skipImplicitNames) const;
-};
-
-
-
-/** Wraps a TxType as a TxTypeDefiner, can be used for const TxType -> non-const TxTypeDefiner conversion. */
-class TxTypeWrapperDef : public TxTypeDefiner {
-    const TxType* type;
-public:
-    TxTypeWrapperDef(const TxType* type) : type(type)  { ASSERT(type, "NULL type"); ASSERT(type->get_declaration(), "NULL type declaration");}
-    virtual TxDriver* get_driver() const override { return this->type->get_driver(); }
-    virtual const TxLocation& get_parse_location() const override { return this->type->get_parse_location(); }
-    virtual const TxType* resolve_type() override { return this->type; }
-    virtual const TxType* attempt_get_type() const override { return this->type; }
-    virtual const TxType* get_type() const override { return this->type; }
-    virtual TxTypeDefiningNode* get_node() override { return this->type->get_declaration()->get_definer()->get_node(); }
-    //virtual TxSpecializationIndex get_six() const override { return this->type->get_declaration()->get_definer()->get_six(); }
 };

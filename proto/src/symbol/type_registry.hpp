@@ -38,13 +38,13 @@ enum BuiltinTypeId : int {
 
 class TxPackage;
 class TxModule;
-class TxBuiltinTypeDefiner;
+class TxBuiltinTypeDeclNode;
 class TxTypeExpressionNode;
 
 
 class TypeRegistry {
     TxPackage& package;
-    TxBuiltinTypeDefiner* builtinTypes[BuiltinTypeId_COUNT];
+    TxBuiltinTypeDeclNode* builtinTypes[BuiltinTypeId_COUNT];
     const TxType* builtinModTypes[BuiltinTypeId_COUNT];
 
     /** parse location used for built-in constructs without actual source code */
@@ -99,8 +99,6 @@ public:
     /** to be invoked after the whole package's source has been processed, before code generation */
     void register_types();
 
-
-    const TxTypeDefiner* get_builtin_type_def(const BuiltinTypeId id) const;
 
     const TxType* get_builtin_type(const BuiltinTypeId id, bool mod=false) const;
 

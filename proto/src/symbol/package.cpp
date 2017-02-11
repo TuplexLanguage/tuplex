@@ -1,5 +1,15 @@
 #include "package.hpp"
+
 #include "entity.hpp"
+#include "type_registry.hpp"
+
+
+TxPackage::TxPackage(TxDriver& driver)
+        : TxModule(nullptr, "", false), _driver(driver), mainFunc() {
+    this->typeRegistry = new TypeRegistry(*this);
+    this->typeRegistry->initializeBuiltinSymbols();
+}
+
 
 void TxPackage::registerMainFunc(const TxEntitySymbol* mainFunc) {
     if (! this->mainFunc) {
@@ -8,4 +18,15 @@ void TxPackage::registerMainFunc(const TxEntitySymbol* mainFunc) {
     }
     else
         this->LOGGER().debug("User main function already set, skipping %s", mainFunc->to_string().c_str());
+}
+
+const TxFieldDeclaration* TxPackage::getMainFunc() const {
+    if (this->mainFunc) {
+        if (this->mainFunc->field_count() == 1)
+            return this->mainFunc->get_first_field_decl();
+        else if (this->mainFunc->is_overloaded())
+            CWARNING(this->mainFunc->get_first_field_decl()->get_definer(),
+                     "main() function symbol is overloaded: " << this->mainFunc);
+    }
+    return nullptr;
 }

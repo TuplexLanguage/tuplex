@@ -3,10 +3,8 @@
 #include "identifier.hpp"
 #include "tx_declaration_flags.hpp"
 #include "tx_field_storage.hpp"
-#include "entity_proxy.hpp"
 
-
-class TxEntitySymbol;
+#include "ast_base.hpp"
 
 
 // (types are implicitly static)
@@ -34,7 +32,7 @@ public:
 
     bool in_exp_err_block() const;
 
-    virtual TxEntityDefiner* get_definer() const = 0;
+    virtual TxEntityDefiningNode* get_definer() const = 0;
 
     virtual bool validate() const = 0;
 
@@ -54,7 +52,7 @@ public:
 };
 
 class TxFieldDeclaration : public TxEntityDeclaration {
-    TxFieldDefiner* const fieldDefiner;
+    TxFieldDefiningNode* const fieldDefiner;
     const TxFieldStorage storage;
     const TxIdentifier dataspace;
 
@@ -71,14 +69,14 @@ class TxFieldDeclaration : public TxEntityDeclaration {
     unsigned get_overload_index() const;
 
 public:
-    TxFieldDeclaration(TxEntitySymbol* symbol, TxDeclarationFlags declFlags, TxFieldDefiner* fieldDefiner,
+    TxFieldDeclaration(TxEntitySymbol* symbol, TxDeclarationFlags declFlags, TxFieldDefiningNode* fieldDefiner,
                        TxFieldStorage storage, const TxIdentifier& dataspace)
             : TxEntityDeclaration(symbol, declFlags), fieldDefiner(fieldDefiner),
               storage(determine_storage(storage, declFlags)), dataspace(dataspace)  {
         ASSERT((declFlags | LEGAL_FIELD_DECL_FLAGS) == LEGAL_FIELD_DECL_FLAGS, "Illegal field declFlags: " << declFlags);
     }
 
-    virtual TxFieldDefiner* get_definer() const override { return this->fieldDefiner; }
+    virtual TxFieldDefiningNode* get_definer() const override { return this->fieldDefiner; }
 
     inline TxFieldStorage get_storage() const { return this->storage; }
 
@@ -91,15 +89,15 @@ public:
 };
 
 class TxTypeDeclaration : public TxEntityDeclaration {
-    TxTypeDefiner* const typeDefiner;
+    TxTypeDefiningNode* const typeDefiner;
 
 public:
-    TxTypeDeclaration(TxEntitySymbol* symbol, TxDeclarationFlags declFlags, TxTypeDefiner* typeDefiner)
+    TxTypeDeclaration(TxEntitySymbol* symbol, TxDeclarationFlags declFlags, TxTypeDefiningNode* typeDefiner)
             : TxEntityDeclaration(symbol, declFlags), typeDefiner(typeDefiner)  {
         ASSERT((declFlags | LEGAL_TYPE_DECL_FLAGS) == LEGAL_TYPE_DECL_FLAGS, "Illegal type declFlags: " << declFlags);
     }
 
-    virtual TxTypeDefiner* get_definer() const override { return this->typeDefiner; }
+    virtual TxTypeDefiningNode* get_definer() const override { return this->typeDefiner; }
 
     virtual bool validate() const override;
 

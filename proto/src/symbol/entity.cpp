@@ -1,18 +1,20 @@
 #include "entity.hpp"
 
-#include "ast_base.hpp"
-
-
-
-const TxType* TxFieldDefiner::resolve_type() {
-    if (auto field = this->resolve_field())
-        return field->get_type();
-    return nullptr;
-}
-
+#include "ast.hpp"
 
 
 Logger& TxEntity::LOG = Logger::get("ENTITY");
+
+
+const TxLocation& TxEntity::get_parse_location() const {
+    ASSERT(this->declaration, "NULL declaration in " << this);
+    return this->declaration->get_definer()->get_parse_location();
+}
+
+TxDriver* TxEntity::get_driver() const {
+    return (this->declaration ? this->declaration->get_definer()->get_driver() : nullptr);
+}
+
 
 
 const TxType* TxField::get_outer_type() const {

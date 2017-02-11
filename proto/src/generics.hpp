@@ -6,8 +6,9 @@
 
 class TxType;
 class TxEntityDeclaration;
-class TxTypeDefiner;
+class TxTypeDefiningNode;
 class TxExpressionNode;
+class TxLocation;
 
 
 enum MetaType { TXB_TYPE, TXB_VALUE };
@@ -25,26 +26,28 @@ MetaType meta_type_of(const TxEntityDeclaration* declaration);
 class TxGenericBinding : public Printable {
     const std::string typeParamName;
     const MetaType metaType;
-    TxTypeDefiner* typeDefiner;
+    TxTypeDefiningNode* typeDefiner;
     TxExpressionNode* valueDefiner;
 
-    TxGenericBinding(const std::string& typeParamName, MetaType metaType,
-                     TxTypeDefiner* typeDefiner, TxExpressionNode* valueDefiner)
+    TxGenericBinding( const std::string& typeParamName, MetaType metaType,
+                      TxTypeDefiningNode* typeDefiner, TxExpressionNode* valueDefiner )
         : typeParamName(typeParamName), metaType(metaType), typeDefiner(typeDefiner), valueDefiner(valueDefiner)  { }
 
 public:
     /** Constructs a copy of a TXB_TYPE binding but with a different type definer. */
-    TxGenericBinding(const TxGenericBinding& original, TxTypeDefiner* newTypeDefiner)
-        : typeParamName(original.typeParamName), metaType(original.metaType), typeDefiner(newTypeDefiner), valueDefiner(nullptr)  { }
+    TxGenericBinding( const TxGenericBinding& original, TxTypeDefiningNode* newTypeDefiner )
+            : typeParamName(original.typeParamName), metaType(original.metaType), typeDefiner(newTypeDefiner), valueDefiner(nullptr)  {
+        ASSERT(metaType==MetaType::TXB_TYPE, "Type parameter binding metatype is VALUE, not TYPE: " << this->to_string());
+    }
 
-    static TxGenericBinding make_type_binding(const std::string& typeParamName, TxTypeDefiner* typeDefiner);
+    static TxGenericBinding make_type_binding(const std::string& typeParamName, TxTypeDefiningNode* typeDefiner);
     static TxGenericBinding make_value_binding(const std::string& typeParamName, TxExpressionNode* valueDefiner);
 
     inline const std::string& param_name()    const { return typeParamName; }
 
     inline MetaType meta_type()    const { return metaType; }
 
-    inline TxTypeDefiner& type_definer()  const {
+    inline TxTypeDefiningNode& type_definer()  const {
         ASSERT(metaType==MetaType::TXB_TYPE, "Type parameter binding metatype is VALUE, not TYPE: " << this->to_string());
         return *this->typeDefiner;
     }
@@ -53,6 +56,8 @@ public:
         ASSERT(metaType==MetaType::TXB_VALUE, "Type parameter binding metatype is TYPE, not VALUE: " << this->to_string());
         return *this->valueDefiner;
     }
+
+    const TxLocation& get_parse_location() const;
 
     std::string to_string() const;
 };

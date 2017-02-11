@@ -4,6 +4,30 @@
 #include "ast_exprs.hpp"
 
 
+
+class TxStatementNode : public TxNode {
+public:
+    TxStatementNode(const TxLocation& parseLocation) : TxNode(parseLocation) { }
+
+    virtual TxStatementNode* make_ast_copy() const override = 0;
+
+    virtual void symbol_declaration_pass( LexicalContext& lexContext) = 0;
+    virtual void symbol_resolution_pass() = 0;
+
+    /** Returns true if this statement / compound statement *may* end with a break or continue statement. */
+    virtual bool may_end_with_non_return_stmt() const { return false; }
+
+    /** Returns true if this statement / compound statement always ends with an explicit terminal statement
+     * (return, break, continue).
+     * This means that any successor statement in the same suite will never be reached. */
+    virtual bool ends_with_terminal_stmt() const { return false; }
+
+    /** Returns true if this statement / compound statement always ends with an explicit return statement. */
+    virtual bool ends_with_return_stmt() const { return false; }
+};
+
+
+
 /** Local field declaration */
 class TxFieldStmtNode : public TxStatementNode {
 public:

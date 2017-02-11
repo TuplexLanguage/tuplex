@@ -61,6 +61,10 @@ const TxLocation& TxType::get_parse_location() const {
                                     : this->get_nearest_declaration()->get_symbol()->get_root_scope()->types().get_builtin_location());
 }
 
+TxDriver* TxType::get_driver() const {
+    return this->get_nearest_declaration()->get_definer()->get_driver();
+}
+
 
 void TxType::prepare_type_validation() const {
     //std::cerr << "validating type " << this << std::endl;

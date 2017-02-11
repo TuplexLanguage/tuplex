@@ -1,11 +1,11 @@
 #pragma once
 
-#include "ast_base.hpp"
+#include "ast_declbase.hpp"
 
 
-bool is_signed_out_of_range(const int64_t i64, const BuiltinTypeId typeId);
-
-bool is_unsigned_out_of_range(const uint64_t u64, const BuiltinTypeId typeId);
+//bool is_signed_out_of_range(const int64_t i64, const BuiltinTypeId typeId);
+//
+//bool is_unsigned_out_of_range(const uint64_t u64, const BuiltinTypeId typeId);
 
 
 

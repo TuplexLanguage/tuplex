@@ -15,19 +15,28 @@ class TxConstantProxy;
 
 
 /** Represents the definition of a type or a field. */
-class TxEntity : public TxTypeProxy, public virtual TxParseOrigin, public Printable {
+class TxEntity : public virtual TxParseOrigin, public Printable {
     static Logger& LOG;
 
     const TxEntityDeclaration* declaration;
 
 protected:
-    TxEntity(const TxEntityDeclaration* declaration)
-        : declaration(declaration)  { }
+    TxEntity(const TxEntityDeclaration* declaration) : declaration(declaration)  {
+        // TODO: Make all entities have a declaration. ASSERT(declaration, "Assumed non-null declaration but was null");
+    }
 
 public:
     inline Logger& LOGGER() const { return this->LOG; }
 
     virtual inline const TxEntityDeclaration* get_declaration() const { return this->declaration; }
+
+    virtual const TxLocation& get_parse_location() const override;
+
+    virtual TxDriver* get_driver() const override;
+
+//    TxEntityDefiningNode* get_definer() const {
+//        return (this->declaration ? this->declaration->get_definer() : nullptr);
+//    }
 
     TxScopeSymbol* get_symbol() const {
         return (this->declaration ? this->declaration->get_symbol() : nullptr);
@@ -36,7 +45,6 @@ public:
     TxDeclarationFlags get_decl_flags() const {
         return (this->declaration ? this->declaration->get_decl_flags() : TXD_NONE);
     }
-
     virtual bool validate() const = 0;
 };
 
@@ -61,17 +69,13 @@ public:
         ASSERT(type, "NULL type for field " << declaration);
     }
 
-    const TxLocation& get_parse_location() const {
-        return this->get_declaration()->get_definer()->get_parse_location();
-    }
-
-    virtual TxDriver* get_driver() const override {
-        return this->get_declaration()->get_definer()->get_driver();
-    }
-
     virtual inline const TxFieldDeclaration* get_declaration() const override {
         return static_cast<const TxFieldDeclaration*>(TxEntity::get_declaration());
     }
+
+//    virtual TxFieldDefiningNode* get_definer() const override {
+//        return static_cast<TxFieldDefiningNode*>(TxEntity::get_definer());
+//    }
 
     inline TxFieldStorage get_storage() const { return this->get_declaration()->get_storage(); }
 

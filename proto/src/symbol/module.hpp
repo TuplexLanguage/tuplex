@@ -8,10 +8,7 @@
 
 #include "identifier.hpp"
 #include "symbol.hpp"
-#include "type.hpp"
 
-
-class TxPackage;
 
 
 /** Represents a Tuplex Module.

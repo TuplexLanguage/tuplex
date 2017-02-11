@@ -6,6 +6,9 @@
 #include "declaration.hpp"
 #include "symbol.hpp"
 
+#include "type.hpp"
+#include "ast_base.hpp"
+
 
 /*=== TxScopeSymbol implementation ===*/
 
@@ -151,7 +154,7 @@ TxDistinctEntity* TxSymbolScope::overload_entity(TxDistinctEntity* entity, TxSym
 }
 */
 
-TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName, TxEntityDefiner* definer) {
+TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName, TxNode* definingNode) {
     // TODO: guard against using reserved keywords (including "tx")
 
 // TODO: disabled to prevent error conditions when symbol pass is only partially completed;
@@ -170,7 +173,7 @@ TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName, TxEn
     if (auto symbol = this->get_symbol(plainName)) {
         entitySymbol = dynamic_cast<TxEntitySymbol*>(symbol);
         if (! entitySymbol) {
-            CERROR(definer, "Failed to declare entity symbol, can't overload entities and non-entities under same symbol: " << symbol);
+            CERROR(definingNode, "Failed to declare entity symbol, can't overload entities and non-entities under same symbol: " << symbol);
             return nullptr;
         }
     }
@@ -190,7 +193,7 @@ TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName, TxEn
     return entitySymbol;
 }
 
-TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxTypeDefiner* typeDefiner,
+TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxTypeDefiningNode* typeDefiner,
                                                TxDeclarationFlags declFlags) {
     if (TxEntitySymbol* entitySymbol = this->declare_entity(plainName, typeDefiner)) {
         auto typeDeclaration = new TxTypeDeclaration(entitySymbol, declFlags, typeDefiner);
@@ -200,7 +203,7 @@ TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxT
     return nullptr;
 }
 
-TxFieldDeclaration* TxScopeSymbol::declare_field(const std::string& plainName, TxFieldDefiner* fieldDefiner,
+TxFieldDeclaration* TxScopeSymbol::declare_field(const std::string& plainName, TxFieldDefiningNode* fieldDefiner,
                                                  TxDeclarationFlags declFlags, TxFieldStorage storage,
                                                  const TxIdentifier& dataspace) {
     if (TxEntitySymbol* entitySymbol = this->declare_entity(plainName, fieldDefiner)) {
@@ -293,14 +296,14 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
     // (if this symbol is a type, static member lookup of the type takes precedence if overloaded)
 
     if (name.find_first_of('#') != std::string::npos) {
+        // sought name is a hashified, fully qualified name (e.g. my#SType#E)
         auto fullName = dehashify(name);
-        //std::cerr << "LOOKING FOR " << name << "=" << fullName << " in " << this->get_full_name() << std::endl;
-        //if (auto boundSym = lookup_member(this, this, TxIdentifier(fullName)))
         if (auto hashedSym = search_symbol(this, TxIdentifier(fullName))) {  // FUTURE: review if this may breach visibility
-            //std::cerr << "FOUND " << hashedSym << std::endl;
             if (auto hashedEntSym = dynamic_cast<TxEntitySymbol*>(hashedSym)) {
                 if (auto hashedDecl = get_symbols_declaration(hashedEntSym)) {
                     if (hashedDecl->get_decl_flags() & TXD_GENPARAM) {
+                        // symbol distinctly (non-overloaded) refers to a GENPARAM
+                        // Resolves e.g:  my#SType#E = my.SType.E  to binding  -P---- ---B--  my.$SType<tx#~Float,tx#~Double>.E
                         if (auto thisDecl = get_symbols_declaration(this)) {
                             if (auto thisType = thisDecl->get_definer()->get_type()) {
                                 if (auto bindingDecl = thisType->lookup_param_binding(hashedDecl)) {

@@ -582,8 +582,7 @@ void TxFunctionCallNode::symbol_resolution_pass() {
     else if (auto constructorType = dynamic_cast<const TxConstructorType*>(this->funcType)) {
         // inline code for stack allocation and constructor invocation
         if (! dynamic_cast<TxConstructorCalleeExprNode*>( this->callee )) {  // (prevents infinite recursion)
-            auto objectDefiner = constructorType->get_constructed_type_decl()->get_definer();
-            this->inlinedExpression = new TxStackConstructorNode( this, objectDefiner );
+            this->inlinedExpression = new TxStackConstructorNode( this, constructorType->get_constructed_type_decl() );
             this->inlinedExpression->symbol_declaration_pass( this->context());
         }
         if (this->isSelfSuperConstructorInvocation) {

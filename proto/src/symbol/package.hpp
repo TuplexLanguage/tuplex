@@ -5,10 +5,10 @@
 #include "driver.hpp"
 #include "tx_error.hpp"
 
-#include "type_registry.hpp"
 #include "module.hpp"
 
 
+class TypeRegistry;
 
 
 /** A Tuplex package represents a Tuplex compilation unit.
@@ -21,11 +21,7 @@ class TxPackage : public TxModule {
     const TxEntitySymbol* mainFunc;
 
 public:
-    TxPackage(TxDriver& driver)
-            : TxModule(nullptr, "", false), _driver(driver), mainFunc() {
-        this->typeRegistry = new TypeRegistry(*this);
-        this->typeRegistry->initializeBuiltinSymbols();
-    }
+    TxPackage(TxDriver& driver);
 
 
     inline TxDriver& driver() const {
@@ -40,16 +36,7 @@ public:
 
     void registerMainFunc(const TxEntitySymbol* mainFunc);
 
-    const TxFieldDeclaration* getMainFunc() const {
-        if (this->mainFunc) {
-            if (this->mainFunc->field_count() == 1)
-                return this->mainFunc->get_first_field_decl();
-            else if (this->mainFunc->is_overloaded())
-                CWARNING(this->mainFunc->get_first_field_decl()->get_definer(),
-                         "main() function symbol is overloaded: " << this->mainFunc);
-        }
-        return nullptr;
-    }
+    const TxFieldDeclaration* getMainFunc() const;
 
 
     virtual std::string description_string() const override {

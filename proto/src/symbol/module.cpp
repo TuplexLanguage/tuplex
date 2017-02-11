@@ -1,6 +1,8 @@
 #include "module.hpp"
+
 #include "package.hpp"
 #include "entity.hpp"
+#include "type_registry.hpp"
 
 
 TxModule::TxModule(TxModule* parent, const std::string& name, bool declared)

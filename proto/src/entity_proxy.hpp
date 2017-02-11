@@ -1,5 +1,7 @@
 #pragma once
 
+#error This header no longer in use
+
 #include "util/assert.hpp"
 #include "tx_error.hpp"
 

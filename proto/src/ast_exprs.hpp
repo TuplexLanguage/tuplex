@@ -1,6 +1,7 @@
 #pragma once
 
-#include "ast_base.hpp"
+#include "ast_declbase.hpp"
+#include "ast_wrappers.hpp"
 #include "ast_fields.hpp"
 #include "ast_types.hpp"
 #include "ast_conv.hpp"
@@ -637,9 +638,9 @@ public:
                                            argsExprList ) ) {
     }
 
-    TxStackConstructorNode(TxFunctionCallNode* originalCall, TxTypeDefiner* typeDefiner)
-            : TxStackConstructorNode(originalCall->parseLocation, new TxTypeExprWrapperNode(originalCall->parseLocation, typeDefiner),
-                                     originalCall->origArgsExprList) {
+    TxStackConstructorNode( TxFunctionCallNode* originalCall, TxTypeDeclaration* typeDecl )
+            : TxStackConstructorNode( originalCall->parseLocation, new TxTypeDeclWrapperNode( typeDecl ),
+                                      originalCall->origArgsExprList ) {
     }
 
     virtual TxStackConstructorNode* make_ast_copy() const override {

@@ -11,7 +11,7 @@ MetaType meta_type_of(const TxEntityDeclaration* declaration) {
 }
 
 
-TxGenericBinding TxGenericBinding::make_type_binding(const std::string& paramName, TxTypeDefiner* typeDefiner) {
+TxGenericBinding TxGenericBinding::make_type_binding(const std::string& paramName, TxTypeDefiningNode* typeDefiner) {
     return TxGenericBinding(paramName, MetaType::TXB_TYPE, typeDefiner, nullptr);
 }
 
@@ -28,6 +28,11 @@ static inline std::string type_arg_to_string(const TxType* type) {
     }
     else
         return "n/r";
+}
+
+const TxLocation& TxGenericBinding::get_parse_location() const {
+    return ( metaType == MetaType::TXB_TYPE ? this->typeDefiner->get_parse_location()
+                                            : this->valueDefiner->get_parse_location() );
 }
 
 std::string TxGenericBinding::to_string() const {

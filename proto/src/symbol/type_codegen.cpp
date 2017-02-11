@@ -135,7 +135,7 @@ Type* TxArrayType::make_llvm_type(LlvmGenerationContext& context) const {
     }
     Type* elemType = context.get_llvm_type(txElemType);
     if (! elemType) {
-        context.LOG.error("No LLVM type mapping for array element type: %s", txElemType->get_type()->to_string().c_str());
+        context.LOG.error("No LLVM type mapping for array element type: %s", txElemType->to_string().c_str());
         return nullptr;
     }
 

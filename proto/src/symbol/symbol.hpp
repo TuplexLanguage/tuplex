@@ -8,14 +8,16 @@
 #include "tx_declaration_flags.hpp"
 #include "tx_field_storage.hpp"
 
-#include "entity_proxy.hpp"
-
 
 class TxPackage;
 class TxEntitySymbol;
 class TxEntityDeclaration;
 class TxTypeDeclaration;
 class TxFieldDeclaration;
+class TxType;
+class TxNode;
+class TxTypeDefiningNode;
+class TxFieldDefiningNode;
 
 
 /** Represents a Tuplex symbol and namespace/scope.
@@ -102,7 +104,7 @@ protected:
     virtual bool declare_symbol(TxScopeSymbol* symbol);
 
     /** Prepares an entity declaration (adding to an existing or a newly created entity symbol within this scope). */
-    virtual TxEntitySymbol* declare_entity(const std::string& plainName, TxEntityDefiner* definer);
+    virtual TxEntitySymbol* declare_entity(const std::string& plainName, TxNode* definingNode);
 
     //virtual TxDistinctEntity* overload_entity(TxDistinctEntity* entity, TxSymbolScope* prevSymbol);
 
@@ -148,10 +150,10 @@ public:
 
     /*--- symbol table handling  ---*/
 
-    virtual TxTypeDeclaration* declare_type(const std::string& plainName, TxTypeDefiner* typeDefiner,
+    virtual TxTypeDeclaration* declare_type(const std::string& plainName, TxTypeDefiningNode* typeDefiner,
                                             TxDeclarationFlags declFlags);
 
-    virtual TxFieldDeclaration* declare_field(const std::string& plainName, TxFieldDefiner* fieldDefiner,
+    virtual TxFieldDeclaration* declare_field(const std::string& plainName, TxFieldDefiningNode* fieldDefiner,
                                               TxDeclarationFlags declFlags, TxFieldStorage storage,
                                               const TxIdentifier& dataspace);
 
