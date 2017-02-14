@@ -72,11 +72,12 @@ std::string TxNode::parse_loc_string() const {
 
 
 
-void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext) {
+void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) {
     this->set_context( lexContext);
+    TxDeclarationFlags flags = (isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags);
 
     if (field->initExpression) {
-        if (this->declFlags & TXD_ABSTRACT)
+        if (flags & TXD_ABSTRACT)
             CERROR(this, "'abstract' is invalid modifier for field / method that has an initializer / body: " << field->initExpression);
     }
 
@@ -89,10 +90,10 @@ void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext) {
         if (auto initExpr = dynamic_cast<TxMaybeConversionNode*>(field->initExpression))
             lambdaExpr = dynamic_cast<TxLambdaExprNode*>(initExpr->originalExpr);
 
-        if (!lambdaExpr && !(this->declFlags & TXD_ABSTRACT))
+        if (!lambdaExpr && !(flags & TXD_ABSTRACT))
             CERROR(this, "Missing modifier 'abstract' for method that has no body");
 
-        if (this->declFlags & TXD_STATIC) {
+        if (flags & TXD_STATIC) {
             storage = TXS_STATIC;
         }
         else {
@@ -102,27 +103,27 @@ void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext) {
         }
     }
     else if (dynamic_cast<TxModule*>(lexContext.scope())) {  // if in global scope
-        if (this->declFlags & TXD_STATIC)
+        if (flags & TXD_STATIC)
             CERROR(this, "'static' is invalid modifier for module scope field " << this->field->get_source_field_name());
-        if (this->declFlags & TXD_FINAL)
+        if (flags & TXD_FINAL)
             CERROR(this, "'final' is invalid modifier for module scope field " << this->field->get_source_field_name());
-        if (this->declFlags & TXD_OVERRIDE)
+        if (flags & TXD_OVERRIDE)
             CERROR(this, "'override' is invalid modifier for module scope field " << this->field->get_source_field_name());
-        if (this->declFlags & TXD_ABSTRACT)
+        if (flags & TXD_ABSTRACT)
             CERROR(this, "'abstract' is invalid modifier for module scope field " << this->field->get_source_field_name());
         storage = TXS_GLOBAL;
     }
     else {
-        if (this->declFlags & TXD_ABSTRACT) {
-            if (! (this->declFlags & TXD_STATIC))
+        if (flags & TXD_ABSTRACT) {
+            if (! (flags & TXD_STATIC))
                 CERROR(this, "'abstract' fields must also be declared 'static': " << this->field->get_source_field_name());
-            if (! (this->declFlags & (TXD_PROTECTED | TXD_PUBLIC)))
+            if (! (flags & (TXD_PROTECTED | TXD_PUBLIC)))
                 CERROR(this, "'abstract' fields cannot be private (since private are non-virtual): " << this->field->get_source_field_name());
         }
-        storage = (this->declFlags & TXD_STATIC) ? TXS_STATIC : TXS_INSTANCE;
+        storage = (flags & TXD_STATIC) ? TXS_STATIC : TXS_INSTANCE;
     }
 
-    this->field->symbol_declaration_pass_nonlocal_field( lexContext, this->declFlags, storage, TxIdentifier("") );
+    this->field->symbol_declaration_pass_nonlocal_field( lexContext, flags, storage, TxIdentifier("") );
 }
 
 void TxFieldDeclNode::symbol_resolution_pass() {
@@ -158,10 +159,11 @@ void TxFieldDeclNode::symbol_resolution_pass() {
 
 
 
-void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext) {
+void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, bool isExpErrorDecl ) {
     this->set_context( lexContext);
     // Note: does not invoke symbol_declaration_pass() on typeParamDecls, that is delegated to typeExpression
-    this->typeExpression->symbol_declaration_pass( defContext, lexContext, this->declFlags, this->typeName, this->typeParamDecls);
+    TxDeclarationFlags flags = (isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags);
+    this->typeExpression->symbol_declaration_pass( defContext, lexContext, flags, this->typeName, this->typeParamDecls);
 }
 
 
@@ -182,8 +184,7 @@ void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& defContext, 
 
     TxTypeDeclaration* declaration = nullptr;
     if (! designatedTypeName.empty()) {
-        TxDeclarationFlags tmpFlags = declFlags | lexContext.decl_flags();
-        if ( (declaration = lexContext.scope()->declare_type(designatedTypeName, this, tmpFlags)) ) {
+        if ( (declaration = lexContext.scope()->declare_type(designatedTypeName, this, declFlags)) ) {
             this->LOGGER().debug("%s: Declaring type %-16s: %s", this->parse_loc_string().c_str(), designatedTypeName.c_str(),
                                  declaration->to_string().c_str());
             this->declaration = declaration;

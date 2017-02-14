@@ -7,7 +7,9 @@
 
 
 bool TxEntityDeclaration::in_exp_err_block() const {
-    return (this->declFlags & TXD_EXPERRBLOCK) || (this->symbol && this->symbol->in_exp_err_block());
+//    if (((this->declFlags & TXD_EXPERRBLOCK)!=0) != this->symbol->in_exp_err_block())
+//        std::cerr << "EXPERR: mismatching status of decl and scope for " << this << std::endl;
+    return (this->declFlags & TXD_EXPERRBLOCK); // || this->symbol->in_exp_err_block();
 }
 
 std::string TxEntityDeclaration::to_string() const {

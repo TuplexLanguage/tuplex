@@ -61,8 +61,8 @@ const TxLocation& TxType::get_parse_location() const {
                                     : this->get_nearest_declaration()->get_symbol()->get_root_scope()->types().get_builtin_location());
 }
 
-TxDriver* TxType::get_driver() const {
-    return this->get_nearest_declaration()->get_definer()->get_driver();
+TxParserContext* TxType::get_parser_context() const {
+    return this->get_nearest_declaration()->get_definer()->get_parse_location().parserCtx;
 }
 
 
@@ -281,9 +281,18 @@ void TxType::prepare_type_members() {
     ASSERT(! this->prepared, "Can't prepare type more than once: " << this);
     this->prepared = true;
 
-    const bool expErrWholeType = ( this->get_decl_flags() & TXD_EXPERRBLOCK );
-    if (expErrWholeType)
-        this->get_driver()->begin_exp_err(this->get_declaration()->get_definer()->get_parse_location());
+    ExpectedErrorContext* expErrWholeType = nullptr;
+    if (this->get_decl_flags() & TXD_EXPERRBLOCK) {
+        expErrWholeType = this->get_declaration()->get_definer()->context().exp_err_ctx();
+        ASSERT(expErrWholeType, "TXD_EXPERRBLOCK flag set but type definer has no ExpErr context: " << this->get_declaration());
+        this->get_parser_context()->begin_exp_err(this->get_declaration()->get_definer()->get_parse_location());
+    }
+//    ExpectedErrorContext* expErrWholeType = (this->get_declaration() ? this->get_declaration()->get_definer()->context().exp_err_ctx() : nullptr);
+//    ASSERT( ( expErrWholeType != nullptr ) == ( ( this->get_decl_flags() & TXD_EXPERRBLOCK ) != 0 ),
+//            "Type ExpErr ctx status doesn't match type's ExpErr declaration flag status: " << this->get_declaration());
+//    if (expErrWholeType) {
+//        this->get_parser_context()->begin_exp_err(this->get_declaration()->get_definer()->get_parse_location());
+//    }
 
     // resolve and validate type parameters
     for (auto & paramDecl : this->params) {
@@ -370,9 +379,21 @@ void TxType::prepare_type_members() {
         for (auto fieldDeclI = entitySym->fields_cbegin(); fieldDeclI != entitySym->fields_cend(); fieldDeclI++) {
             auto fieldDecl = *fieldDeclI;
 
-            const bool expErrField = ( !expErrWholeType && ( fieldDecl->get_decl_flags() & TXD_EXPERRBLOCK ) );
-            if (expErrField)
-                this->get_driver()->begin_exp_err(fieldDecl->get_definer()->get_parse_location());
+            ExpectedErrorContext* expErrField = nullptr;
+            if (fieldDecl->get_decl_flags() & TXD_EXPERRBLOCK) {
+                expErrField = fieldDecl->get_definer()->context().exp_err_ctx();
+                ASSERT(expErrField, "TXD_EXPERRBLOCK flag set but field definer has no ExpErr context: " << fieldDecl);
+                this->get_parser_context()->begin_exp_err(fieldDecl->get_definer()->get_parse_location());
+            }
+//            ExpectedErrorContext* expErrField = fieldDecl->get_definer()->context().exp_err_ctx();
+//            ASSERT( ( expErrField != nullptr ) == ( ( fieldDecl->get_decl_flags() & TXD_EXPERRBLOCK ) != 0 ),
+//                    "Field ExpErr ctx status doesn't match field's ExpErr declaration flag status: " << fieldDecl);
+//            if (expErrField) {
+//                if (expErrWholeType)
+//                    LOGGER().alert( "ExpErr field within an ExpErr type: %s", fieldDecl->to_string().c_str() );  // TODO: support nested ExpErrs
+//                else
+//                    this->get_parser_context()->begin_exp_err(fieldDecl->get_definer()->get_parse_location());
+//            }
 
             if (auto field = fieldDecl->get_definer()->resolve_field()) {
                 // validate type:
@@ -407,7 +428,7 @@ void TxType::prepare_type_members() {
                         CERROR(field, "Can't declare an instance field as abstract: " << field);
                     if (fieldDecl->get_decl_flags() & TXD_GENBINDING)
                         LOGGER().debug("Skipping layout of GENBINDING instance field: %s", field->to_string().c_str());
-                    else if (! expErrField)
+                    else if (!expErrField || expErrWholeType)
                         this->instanceFields.add_field(field);
                     break;
                 case TXS_VIRTUAL:
@@ -432,13 +453,13 @@ void TxType::prepare_type_members() {
                         if (! (field->get_type()->is_assignable_to(*overriddenField->get_type())))
                             CERROR(field, "Overriding member's type " << field->get_type() << std::endl
                                     << "   not assignable to overridden member's type " << overriddenField->get_type());
-                        if (! expErrField)
+                        if (! expErrField || expErrWholeType)
                             this->virtualFields.override_field(field->get_unique_name(), field);
                     }
                     else {
                         if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
                             CWARNING(field, "Field doesn't override but is declared 'override': " << field);
-                        if (! expErrField)
+                        if (! expErrField || expErrWholeType)
                             this->virtualFields.add_field(field);
                     }
                     LOGGER().debug("Adding/overriding virtual field %-40s  %s  %u", field->to_string().c_str(),
@@ -450,14 +471,14 @@ void TxType::prepare_type_members() {
                         CERROR(field, "Can't declare a non-virtual field as abstract: " << field);
                     if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
                         CWARNING(field, "Field doesn't override but is declared 'override': " << field);
-                    if (! expErrField)
+                    if (! expErrField || expErrWholeType)
                         this->staticFields.add_field(field);
                 }
             }
 
-            if (expErrField) {
-                /*int encountered_error_count =*/ this->get_driver()->end_exp_err(fieldDecl->get_definer()->get_parse_location());
-                // TODO: include in expected error count
+            if (expErrField && !expErrWholeType) {
+                int encountered_error_count = this->get_parser_context()->end_exp_err(fieldDecl->get_definer()->get_parse_location());
+                expErrField->encountered_error_count += encountered_error_count;
             }
         }
     }
@@ -474,8 +495,8 @@ void TxType::prepare_type_members() {
     }
 
     if (expErrWholeType) {
-        /*int encountered_error_count =*/ this->get_driver()->end_exp_err(this->get_declaration()->get_definer()->get_parse_location());
-        // TODO: include in expected error count
+        int encountered_error_count = this->get_parser_context()->end_exp_err(this->get_declaration()->get_definer()->get_parse_location());
+        expErrWholeType->encountered_error_count += encountered_error_count;
     }
 }
 

@@ -84,14 +84,16 @@ public:
     inline bool has_field(const std::string& name) const { return this->fieldMap.count(name); }
 
     inline uint32_t get_field_index(const std::string& name) const {
-        if (!this->fieldMap.count(name))
-            std::cerr << "can't find field " << name << std::endl;
+        if (!this->fieldMap.count(name)) {
+            // can happen for EXPERR fields when dumping symbol table (their symbol is registered but aren't placed in the field table)
+            std::cerr << "Error, can't find field in data tuple definition with field name: " << name << std::endl;
+            return UINT32_MAX;
+        }
         return this->fieldMap.at(name);
     }
 
     inline const TxField* get_field(const std::string& name) const {
-        if (!this->fieldMap.count(name))
-            std::cerr << "can't find field " << name << std::endl;
+        ASSERT(this->fieldMap.count(name), "Can't find field name '" << name << "' in data tuple table"); // a more informative err msg than the exception thrown by next line
         return this->fields.at(this->fieldMap.at(name));
     }
 
@@ -264,7 +266,7 @@ public:
 
     virtual const TxLocation& get_parse_location() const override;
 
-    virtual TxDriver* get_driver() const override;
+    virtual TxParserContext* get_parser_context() const;
 
     virtual bool validate() const override { return true; }
 

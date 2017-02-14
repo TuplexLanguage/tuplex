@@ -22,7 +22,7 @@ TxScopeSymbol::TxScopeSymbol(TxScopeSymbol* parent, const std::string& name)
         ASSERT(!name.empty() && name.find_first_of('.') == std::string::npos, "Non-plain name specified for non-root scope: '" << name << "'");
         this->fullName = TxIdentifier(this->outer->get_full_name(), this->name);
         this->root = parent->get_root_scope();
-        this->inExpErrBlock = parent->inExpErrBlock;
+        //this->inExpErrBlock = parent->inExpErrBlock;
     }
     else {
         ASSERT(name.empty(), "Non-empty name specified for parent-less root scope: " << name);
@@ -43,11 +43,11 @@ std::string TxScopeSymbol::make_unique_name(const std::string& baseName, bool su
 }
 
 
-TxScopeSymbol* TxScopeSymbol::create_code_block_scope(const std::string& plainName, bool isExpErrBlock) {
+TxScopeSymbol* TxScopeSymbol::create_code_block_scope(const std::string& plainName) {
     std::string baseName = plainName + '$';
     std::string uniqueName = this->make_unique_name(baseName);
     TxScopeSymbol* scope = new TxScopeSymbol(this, uniqueName);
-    scope->inExpErrBlock |= isExpErrBlock;
+    //scope->inExpErrBlock |= isExpErrBlock;
     bool success = this->declare_symbol(scope);
     ASSERT(success, "failed to insert duplicate subscope name '" << baseName << "." << uniqueName << "'");
     this->LOGGER().trace("-->            %s", scope->get_full_name().to_string().c_str());

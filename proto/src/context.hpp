@@ -17,37 +17,70 @@ namespace llvm {
 }
 
 
+struct ExpectedErrorContext {
+    const int expected_error_count;
+    const int prev_encountered_errors;
+    int encountered_error_count;
+
+    ExpectedErrorContext( int expected_error_count, int prev_encountered_errors, int encountered_error_count )
+       : expected_error_count(expected_error_count),
+         prev_encountered_errors(prev_encountered_errors),
+         encountered_error_count(encountered_error_count) { }
+};
+
+
 /** Represents the lexical source scope of a syntax node / entity.
  */
 class LexicalContext : public Printable {
     TxScopeSymbol* _scope;
     TxTypeDeclaration* constructedObjTypeDecl;
-    TxDeclarationFlags ctxFlags;  // currently only used for TXD_EXPERRBLOCK
+    bool reinterpretation;  // true if this is a reinterpretation (specialization) of an AST
+    ExpectedErrorContext* expErrCtx;
+
+    // FUTURE: Maybe represent/refer to the closest surrounding statement here, which is not equivalent to scope
+    //         (a scope can have several statements, a statement may create subscopes).
+    //         This might make multi-context handling (defContext / lexContext) and declaration flag handling cleaner.
 
     static TxModule* get_module(TxScopeSymbol* scope);
 
 public:
     /** Constructs an "uninitialized" lexical context. */
-    LexicalContext() : _scope(), constructedObjTypeDecl(), ctxFlags()  { }
+    LexicalContext() //= default;
+        : _scope(), constructedObjTypeDecl(), reinterpretation(), expErrCtx()  { }
 
     /** Copy constructor. */
-    LexicalContext(const LexicalContext& context)
-        : _scope(context._scope), constructedObjTypeDecl(context.constructedObjTypeDecl), ctxFlags(context.ctxFlags) { }
+    LexicalContext( const LexicalContext& context ) = default;
+//        : _scope(context._scope), constructedObjTypeDecl(context.constructedObjTypeDecl),
+//          reinterpretation(context.reinterpretation), expErrCtx(context.expErrCtx) { }
 
     /** Constructs a lexical context for the provided module.
      * (A module context does not require a parent context.) */
-    LexicalContext(TxModule* module) : _scope((TxScopeSymbol*)module), constructedObjTypeDecl(), ctxFlags()  {
+    LexicalContext( TxModule* module )
+        : _scope((TxScopeSymbol*)module), constructedObjTypeDecl(), reinterpretation(), expErrCtx()  {
         ASSERT(module, "module is NULL");
     }
 
     /** Constructs a lexical context that is a sub-context of the provided context.
-     * The provided scope must be the same or a sub-scope of the parent's scope. */
-    LexicalContext(const LexicalContext& parentContext, TxScopeSymbol* scope, bool experrScope=false)
-            : _scope(scope), constructedObjTypeDecl(parentContext.constructedObjTypeDecl), ctxFlags(parentContext.ctxFlags)  {
+     * The provided scope must be the same or a sub-scope of the parent's scope.
+     * This initializes the contextual (inherited) declaration flags. */
+    LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope )
+            : _scope(scope), constructedObjTypeDecl(parentContext.constructedObjTypeDecl),
+              reinterpretation(parentContext.reinterpretation), expErrCtx(parentContext.expErrCtx)  {
         ASSERT(scope, "scope is NULL");
-        if (experrScope)
-            this->ctxFlags = TXD_EXPERRBLOCK;
     }
+
+    /** Constructs a lexical context that is a sub-context of the provided context, and is an expected-error context.
+     * The provided scope must be the same or a sub-scope of the parent's scope. */
+    LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope, ExpectedErrorContext* expErrCtx )
+            : _scope(scope), constructedObjTypeDecl(parentContext.constructedObjTypeDecl),
+              reinterpretation(parentContext.reinterpretation), expErrCtx(expErrCtx)  {
+        ASSERT(scope, "scope is NULL");
+    }
+
+    /** Constructs a lexical context that represents a reinterpretation of a lexical unit. */
+    LexicalContext( TxScopeSymbol* scope, ExpectedErrorContext* expErrCtx )
+        : _scope(scope), constructedObjTypeDecl(), reinterpretation(true), expErrCtx(expErrCtx) { }
+
 
     inline TxScopeSymbol* scope() const { return this->_scope; }
 
@@ -65,8 +98,12 @@ public:
 
     inline TxPackage* package() const { return this->_scope->get_root_scope(); }
 
-    /** Returns declaration flags that shall be added to declarations within this context. */
-    inline TxDeclarationFlags decl_flags() const { return this->ctxFlags; }
+    /** Returns true if this is within a reinterpretation (specialization) of an AST. */
+    inline bool is_reinterpretation() const { return ( this->reinterpretation ); }
+
+    /** Returns the ExpectedErrorContext if this context is within an expected-error declaration / statement / block,
+     * otherwise nullptr. */
+    inline ExpectedErrorContext* exp_err_ctx() const { return expErrCtx; }
 
     /** If non-null, this context is within a constructor and the declaration for the constructed object type is returned. */
     inline TxTypeDeclaration* get_constructed() { return this->constructedObjTypeDecl; }

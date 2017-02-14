@@ -174,7 +174,7 @@ class TxFieldDefNode : public TxFieldDefiningNode {
 
     void symbol_declaration_pass( LexicalContext& outerContext, LexicalContext& innerContext, TxDeclarationFlags declFlags) {
         this->set_context( outerContext);
-        auto typeDeclFlags = (declFlags & (TXD_PUBLIC | TXD_PROTECTED)) | TXD_IMPLICIT;
+        auto typeDeclFlags = (declFlags & (TXD_PUBLIC | TXD_PROTECTED | TXD_EXPERRBLOCK)) | TXD_IMPLICIT;
         if (this->typeExpression) {
             // unless the type expression is a directly named type, declare implicit type entity for this field's type:
             std::string implTypeName = ( this->typeExpression->has_predefined_type() ? "" : this->get_decl_field_name() + "$type" );
@@ -256,23 +256,22 @@ public:
         if (create_local_scope)
             lexContext.scope(lexContext.scope()->create_code_block_scope());
         this->declName = this->fieldName;
-        TxDeclarationFlags tmpFlags = declFlags | lexContext.decl_flags();
-        this->declaration = lexContext.scope()->declare_field(this->declName, this, tmpFlags, TXS_STACK, TxIdentifier(""));
+        this->declaration = lexContext.scope()->declare_field(this->declName, this, declFlags, TXS_STACK, TxIdentifier(""));
         this->symbol_declaration_pass( outerCtx, lexContext, declFlags);
     }
 
     void symbol_declaration_pass_nonlocal_field( LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                                  TxFieldStorage storage, const TxIdentifier& dataspace ) {
-        TxDeclarationFlags tmpFlags = declFlags | lexContext.decl_flags();
+        TxDeclarationFlags fieldFlags = declFlags;
         if (this->fieldName != "self")
             this->declName = this->fieldName;
         else {
             // handle constructor declaration
             this->declName = "$init";
-            tmpFlags = tmpFlags | TXD_CONSTRUCTOR;
+            fieldFlags = fieldFlags | TXD_CONSTRUCTOR;
         }
 
-        this->declaration = lexContext.scope()->declare_field(this->declName, this, tmpFlags, storage, dataspace);
+        this->declaration = lexContext.scope()->declare_field(this->declName, this, fieldFlags, storage, dataspace);
         this->symbol_declaration_pass( lexContext, lexContext, declFlags);
     }
 
@@ -346,7 +345,7 @@ public:
         return new TxFieldDeclNode( this->parseLocation, this->declFlags, this->field->make_ast_copy(), this->isMethodSyntax );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override;
+    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) override;
 
     virtual void symbol_resolution_pass() override;
 
@@ -384,10 +383,10 @@ public:
                                    this->typeExpression->make_ast_copy(), this->interfaceKW);
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->symbol_declaration_pass( lexContext, lexContext);
+    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl=false ) override {
+        this->symbol_declaration_pass( lexContext, lexContext, isExpErrorDecl );
     }
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext);
+    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, bool isExpErrorDecl=false );
 
     virtual void symbol_resolution_pass() override {
         this->typeExpression->symbol_resolution_pass();
@@ -424,50 +423,51 @@ public:
 
 
 class TxExpErrDeclNode : public TxDeclarationNode {
-    const int expected_error_count;
-    const int prev_encountered_errors;
-    int encountered_error_count;
+    ExpectedErrorContext expErrCtx;
+
 public:
     TxDeclarationNode* body;
 
     TxExpErrDeclNode(const TxLocation& parseLocation, int expected_error_count, int prev_encountered_errors, TxDeclarationNode* body)
         : TxDeclarationNode(parseLocation, (body ? body->get_decl_flags() : TXD_NONE) | TXD_EXPERRBLOCK),
-          expected_error_count(expected_error_count), prev_encountered_errors(prev_encountered_errors),
-          encountered_error_count(prev_encountered_errors), body(body)  {
+          expErrCtx( expected_error_count, prev_encountered_errors, prev_encountered_errors ), body(body)  {
     }
 
     virtual TxExpErrDeclNode* make_ast_copy() const override {
-        return new TxExpErrDeclNode( this->parseLocation, this->expected_error_count, this->prev_encountered_errors, this->body->make_ast_copy() );
+        return new TxExpErrDeclNode( this->parseLocation, this->expErrCtx.expected_error_count, this->expErrCtx.prev_encountered_errors,
+                                     this->body->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        LexicalContext experrBlockContext(lexContext, lexContext.scope(), true);
-        this->set_context( experrBlockContext);
+    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) override {
+        this->set_context( LexicalContext( lexContext, lexContext.scope(), &expErrCtx ) );
+        if (isExpErrorDecl)
+            CERROR(this, "Can't next Expected Error constructs in a declaration");
         if (this->body) {
-            if (true /*this->is_original_node()*/) {
-                experrBlockContext.package()->driver().begin_exp_err(this->parseLocation);
-                this->body->symbol_declaration_pass( experrBlockContext);
-                this->encountered_error_count += experrBlockContext.package()->driver().end_exp_err(this->parseLocation);
+            if (! this->context().is_reinterpretation()) {
+                this->get_parse_location().parserCtx->begin_exp_err(this->parseLocation);
+                this->body->symbol_declaration_pass( this->context(), true );
+                this->expErrCtx.encountered_error_count += this->get_parse_location().parserCtx->end_exp_err(this->parseLocation);
             }
             else
-                this->body->symbol_declaration_pass( experrBlockContext);
+                this->body->symbol_declaration_pass( this->context(), true );
         }
     }
 
     virtual void symbol_resolution_pass() override {
         auto ctx = this->context();
-        if (true /*this->is_original_node()*/) {
-            ctx.package()->driver().begin_exp_err(this->parseLocation);
+        if (! ctx.is_reinterpretation()) {
+            this->get_parse_location().parserCtx->begin_exp_err(this->parseLocation);
             if (this->body)
                 this->body->symbol_resolution_pass();
-            this->encountered_error_count += ctx.package()->driver().end_exp_err(this->parseLocation);
-            if ( this->expected_error_count <  0 ) {
-                if ( this->encountered_error_count == 0 )
-                    CERROR(this, "COMPILER TEST FAIL: Expected one or more compilation errors but encountered " << this->encountered_error_count);
+            this->expErrCtx.encountered_error_count += this->get_parse_location().parserCtx->end_exp_err(this->parseLocation);
+            if ( this->expErrCtx.expected_error_count <  0 ) {
+                if ( this->expErrCtx.encountered_error_count == 0 )
+                    CERROR(this, "COMPILER TEST FAIL: Expected one or more compilation errors but encountered "
+                                 << this->expErrCtx.encountered_error_count);
             }
-            else if ( this->expected_error_count != this->encountered_error_count )
-                CERROR(this, "COMPILER TEST FAIL: Expected " << this->expected_error_count
-                              << " compilation errors but encountered " << this->encountered_error_count);
+            else if ( this->expErrCtx.expected_error_count != this->expErrCtx.encountered_error_count )
+                CERROR(this, "COMPILER TEST FAIL: Expected " << this->expErrCtx.expected_error_count
+                              << " compilation errors but encountered " << this->expErrCtx.encountered_error_count);
         }
         else if (this->body)
             this->body->symbol_resolution_pass();

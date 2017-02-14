@@ -11,7 +11,6 @@ class TxParseOrigin {
 public:
     virtual ~TxParseOrigin() = default;
 
-    virtual TxDriver* get_driver() const = 0;
     virtual const TxLocation& get_parse_location() const = 0;
 };
 

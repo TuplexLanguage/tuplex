@@ -143,8 +143,9 @@ const TxType* TxReferenceConvNode::define_type() {
 
             // create reference type to the adapter type  TODO: delegate this to TypeRegistry
             auto implTypeName = this->context().scope()->make_unique_name("$type");
-            auto typeDecl = this->context().scope()->declare_type(implTypeName, this, TXD_PUBLIC | TXD_IMPLICIT);
-            auto adapterDefiner = new TxTypeDeclWrapperNode( adapterType->get_declaration() );
+            TxDeclarationFlags tmpFlags = TXD_PUBLIC | TXD_IMPLICIT;
+            auto typeDecl = this->context().scope()->declare_type(implTypeName, this, tmpFlags);
+            auto adapterDefiner = new TxTypeDeclWrapperNode( this->parseLocation, adapterType->get_declaration() );
             return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", adapterDefiner));
         }
     }

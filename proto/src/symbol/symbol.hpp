@@ -74,8 +74,8 @@ private:
     /** The root (outer-most) scope which is the TxPackage (equal to this if this is the root scope). */
     TxPackage* root;
 
-    /** true if this scope is within an expected-error block */
-    bool inExpErrBlock;
+//    /** true if this scope is within an expected-error block */
+//    bool inExpErrBlock;
 
     /** This scope's member symbols. The identifier keys are the symbols' plain names within this namespace. */
     SymbolMap symbols;
@@ -133,8 +133,8 @@ public:
     /** Gets the top-most outer scope of this symbol, which is the root "package" scope. */
     inline TxPackage* get_root_scope() const { return this->root; }
 
-    /** true if this scope is within an expected-error block */
-    inline bool in_exp_err_block() const { return this->inExpErrBlock; }
+//    /** true if this scope is within an expected-error block */
+//    inline bool in_exp_err_block() const { return this->inExpErrBlock; }
 
 
     /*--- lexical scope tracking ---*/
@@ -145,7 +145,7 @@ public:
      */
     std::string make_unique_name(const std::string& baseName, bool suppressZeroSuffix=false) const;
 
-    TxScopeSymbol* create_code_block_scope(const std::string& plainName = "", bool isExpErrBlock=false);
+    TxScopeSymbol* create_code_block_scope( const std::string& plainName = "" ); //, bool isExpErrBlock=false);
 
 
     /*--- symbol table handling  ---*/

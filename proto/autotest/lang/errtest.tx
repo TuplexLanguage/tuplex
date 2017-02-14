@@ -13,6 +13,14 @@ CONSTANT := 42;
     static BAR := 7  ## missing semicolon
 }
 
+type MyType3 derives Tuple {
+    static good := 14;
+    #experr 1: static FOO : Int = 2.73;  ## bad type conversion
+    #experr 1: static BAR := 7  ## missing semicolon
+    static missed := 17;
+    static found := 18;
+}
+
 #experr: bad_func1();
 
 #experr: bad_func2() {

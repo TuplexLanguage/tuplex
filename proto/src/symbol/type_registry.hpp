@@ -82,8 +82,6 @@ public:
 
     TypeRegistry(TxPackage& package);
 
-    TxDriver* get_driver() const;
-
     inline const TxLocation& get_builtin_location() const { return this->builtinLocation; }
 
     /** to be invoked immediately after object construction */

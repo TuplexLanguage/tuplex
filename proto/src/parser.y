@@ -205,15 +205,15 @@ opt_module_members : %empty { $$ = new TxModuleMembers(); }
 
 module_members : member_declaration
                     { $$ = new TxModuleMembers();
-                      $$->declarations.push_back($1); }
+                      if ($1)  $$->declarations.push_back($1); }
                | sub_module
                     { $$ = new TxModuleMembers();
                       $$->modules.push_back($1); }
                | module_members member_declaration
-                     { $$ = $1;
-                      $$->declarations.push_back($2); }
+                    { $$ = $1;
+                      if ($2)  $$->declarations.push_back($2); }
                | module_members sub_module
-                     { $$ = $1;
+                    { $$ = $1;
                       $$->modules.push_back($2); }
 ;
 

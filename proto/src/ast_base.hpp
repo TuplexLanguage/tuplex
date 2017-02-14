@@ -68,7 +68,6 @@ class TxNode : public virtual TxParseOrigin, public Printable {
     static unsigned nextNodeId;
 
     const unsigned nodeId;
-    //TxNode const * const originalNode;
 
     LexicalContext lexContext;
 
@@ -91,14 +90,7 @@ public:
         return this->parseLocation;
     }
 
-    virtual TxDriver* get_driver() const override final {
-        return this->parseLocation.parserCtx->get_driver();
-    }
-
     inline unsigned get_node_id() const { return this->nodeId; }
-
-//    /** Returns nullptr if this node is the original copy (constructed from first lexical source parse). */
-//    inline const TxNode* original_node() const { return this->originalNode; }
 
     /** Creates a copy of this node and all its descendants for purpose of generic specialization. */
     virtual TxNode* make_ast_copy() const = 0;
@@ -190,7 +182,7 @@ public:
 
     inline TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) = 0;
+    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl=false ) = 0;
 
     virtual void symbol_resolution_pass() = 0;
 

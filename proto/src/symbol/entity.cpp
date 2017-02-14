@@ -11,10 +11,6 @@ const TxLocation& TxEntity::get_parse_location() const {
     return this->declaration->get_definer()->get_parse_location();
 }
 
-TxDriver* TxEntity::get_driver() const {
-    return (this->declaration ? this->declaration->get_definer()->get_driver() : nullptr);
-}
-
 
 
 const TxType* TxField::get_outer_type() const {

@@ -20,17 +20,20 @@ class TxEntityDeclaration : public Printable {
     TxEntitySymbol* const symbol;
     const TxDeclarationFlags declFlags;
 
+protected:
+    bool in_exp_err_block() const;
+
 public:
     TxEntityDeclaration(TxEntitySymbol* symbol, TxDeclarationFlags declFlags)
-        : symbol(symbol), declFlags(declFlags)  { }
+            : symbol(symbol), declFlags(declFlags)  {
+        ASSERT(symbol, "NULL symbol");
+    }
 
     virtual ~TxEntityDeclaration() = default;
 
     inline TxEntitySymbol* get_symbol() const { return this->symbol; }
 
     inline TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
-
-    bool in_exp_err_block() const;
 
     virtual TxEntityDefiningNode* get_definer() const = 0;
 

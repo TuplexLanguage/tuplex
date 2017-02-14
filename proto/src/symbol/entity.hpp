@@ -32,8 +32,6 @@ public:
 
     virtual const TxLocation& get_parse_location() const override;
 
-    virtual TxDriver* get_driver() const override;
-
     TxScopeSymbol* get_symbol() const {
         return (this->declaration ? this->declaration->get_symbol() : nullptr);
     }

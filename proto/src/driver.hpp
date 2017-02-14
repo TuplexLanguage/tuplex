@@ -51,11 +51,6 @@ class TxDriver {
     /** the currently compiled tuplex package */
     TxPackage* package = nullptr;
 
-    /** true if within an EXPERR block */
-    bool exp_err = false;
-    /** number or errors encountered within an EXPERR block */
-    int exp_err_count = 0;
-
     /** number of compilation errors */
     int error_count = 0;
     /** number of compilation warnings */
@@ -64,9 +59,8 @@ class TxDriver {
     /** The queue of source files to parse in this compilation. */
     std::deque< std::pair<TxIdentifier,std::string> > sourceFileQueue;
 
-    /** The ASTs of the source files already parsed, in parse order.
-     * The value is the top level root node of the AST. */
-    std::vector<TxParsingUnitNode*> parsedASTs;
+    /** The parsing units for the source files already parsed, in parse order. */
+    std::vector<TxParserContext*> parsedASTs;
 
     /** The source files already parsed.
      * The value is the top level root node of the AST. */
@@ -93,8 +87,11 @@ class TxDriver {
      */
     void add_source_file(const TxIdentifier& moduleName, const std::string &filePath);
 
-    void emit_comp_error(char const *msg);
-    void emit_comp_warning(char const *msg);
+    /** Add a module to the currently compiling package.
+     * The Tuplex source path will be searched for the module's source.
+     * @return true if the module's source was found (does not indicate whether parse and compilation succeeded)
+     */
+    bool add_import(const TxIdentifier& moduleName);
 
     friend class TxParserContext;
 
@@ -116,34 +113,12 @@ public:
      * @return 0 on success
      */
     int compile(const std::vector<std::string>& startSourceFiles, const std::string& outputFileName);
-
-
-    // TODO: Move most / all of the following methods to TxParserContext:
-
-    /** Add a module to the currently compiling package.
-     * The Tuplex source path will be searched for the module's source.
-     * @return true if the module's source was found (does not indicate whether parse and compilation succeeded)
-     */
-    bool add_import(const TxIdentifier& moduleName);
-
-    // FUTURE: Move the error handling to TxParserContext.
-    // Compilation error handling.
-    void begin_exp_err(const TxLocation& loc);
-    int    end_exp_err(const TxLocation& loc);
-    bool    is_exp_err();
-
-    int  get_error_count();
-    int  get_warning_count();
-
-    void cerror(const TxLocation& loc, char const *fmt, ...);
-    void cerror(const TxLocation& loc, const std::string& msg);
-    void cwarning(const TxLocation& loc, char const *fmt, ...);
-    void cwarning(const TxLocation& loc, const std::string& msg);
 };
 
 
 /** Represents the processing of a parsing unit.
- * Acts as a proxy towards TxDriver, in future this may be used
+ * When a driver compiles a package it consists of one or more parsing units.
+ * Also acts as a proxy towards TxDriver, in future this may be used
  * to enable parallel compilation of parsing units.
  */
 class TxParserContext {
@@ -151,6 +126,14 @@ class TxParserContext {
     TxIdentifier _moduleName;  // note, may be empty
     /** used for parse error messages */
     std::string* _currentInputFilename = nullptr;
+
+    /** true if within an EXPERR block */
+    bool exp_err = false;
+    /** number or errors encountered within an EXPERR block */
+    int exp_err_count = 0;
+
+    void emit_comp_error(char const *msg);
+    void emit_comp_warning(char const *msg);
 
 public:
     /** set directly by parser */
@@ -180,6 +163,9 @@ public:
     bool add_import(const TxIdentifier& moduleName) {
         return this->_driver.add_import(moduleName);
     }
+
+
+    // Compilation error handling.
 
     void cerror(const TxLocation& loc, char const *fmt, ...);
     void cerror(const TxLocation& loc, const std::string& msg);

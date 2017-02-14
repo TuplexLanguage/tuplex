@@ -123,7 +123,8 @@ class TxReferenceToNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type() override {
         auto implTypeName = this->context().scope()->make_unique_name("$type");
-        auto typeDecl = this->context().scope()->declare_type(implTypeName, this, TXD_PUBLIC | TXD_IMPLICIT);
+        TxDeclarationFlags tmpFlags = TXD_PUBLIC | TXD_IMPLICIT;
+        auto typeDecl = this->context().scope()->declare_type(implTypeName, this, tmpFlags);
         return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->target));
     }
 
@@ -598,7 +599,8 @@ protected:
     virtual const TxType* define_type() override {
         // new constructor returns the constructed object by reference
         auto implTypeName = this->context().scope()->make_unique_name("$type");
-        auto typeDecl = this->context().scope()->declare_type(implTypeName, this, TXD_PUBLIC | TXD_IMPLICIT);
+        TxDeclarationFlags tmpFlags = TXD_PUBLIC | TXD_IMPLICIT;
+        auto typeDecl = this->context().scope()->declare_type( implTypeName, this, tmpFlags );
         return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->typeExpr));
     }
 
@@ -641,7 +643,7 @@ public:
     }
 
     TxStackConstructorNode( TxFunctionCallNode* originalCall, TxTypeDeclaration* typeDecl )
-            : TxStackConstructorNode( originalCall->parseLocation, new TxTypeDeclWrapperNode( typeDecl ),
+            : TxStackConstructorNode( originalCall->parseLocation, new TxTypeDeclWrapperNode( originalCall->parseLocation, typeDecl ),
                                       originalCall->origArgsExprList ) {
     }
 

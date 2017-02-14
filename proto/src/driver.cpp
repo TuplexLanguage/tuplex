@@ -84,8 +84,8 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
         TxIdentifier moduleName = this->sourceFileQueue.front().first;  // note, may be empty
         std::string nextFilePath = this->sourceFileQueue.front().second;
         if (! this->parsedSourceFiles.count(nextFilePath)) {
-            TxParserContext parserContext(*this, moduleName, nextFilePath);
-            int ret = this->parse(parserContext);
+            TxParserContext* parserContext = new TxParserContext(*this, moduleName, nextFilePath);
+            int ret = this->parse(*parserContext);
             if (ret) {
                 if (ret == 1)  // syntax error
                     LOG.fatal("Exiting due to unrecovered syntax error");
@@ -93,9 +93,9 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
                     LOG.fatal("Exiting due to out of memory");
                 return ret;
             }
-            ASSERT(parserContext.parsingUnit, "parsingUnit not set by parser");
-            this->parsedASTs.push_back(parserContext.parsingUnit);
-            this->parsedSourceFiles.emplace(nextFilePath, parserContext.parsingUnit);
+            ASSERT(parserContext->parsingUnit, "parsingUnit not set by parser");
+            this->parsedASTs.push_back(parserContext);
+            this->parsedSourceFiles.emplace(nextFilePath, parserContext->parsingUnit);
         }
         this->sourceFileQueue.pop_front();
     }
@@ -111,8 +111,9 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
 
     /*--- perform declaration pass ---*/
 
-    for (auto parsedAST : this->parsedASTs)
-        parsedAST->symbol_declaration_pass(this->package);
+    for (auto parserContext : this->parsedASTs) {
+        parserContext->parsingUnit->symbol_declaration_pass(this->package);
+    }
 
     this->package->prepare_modules();  // (prepares the declared imports)
 
@@ -123,8 +124,9 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
 
     /*--- perform resolution pass ---*/
 
-    for (auto parsedAST : this->parsedASTs)
-        parsedAST->symbol_resolution_pass();
+    for (auto parserContext : this->parsedASTs) {
+        parserContext->parsingUnit->symbol_resolution_pass();
+    }
 
     this->package->types().enqueued_resolution_pass();
 
@@ -234,12 +236,12 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
 
     // emit bytecode for the program:
 
-    for (auto parsedAST : this->parsedASTs) {
-        genContext.generate_code( parsedAST );
+    for (auto parserContext : this->parsedASTs) {
+        genContext.generate_code( parserContext->parsingUnit );
     }
 
     for (auto specNode : this->package->types().get_enqueued_specializations()) {
-        LOG.note("Generating code for enqueued specialization: %s", specNode->get_declaration()->to_string().c_str());
+        LOG.info("Generating code for enqueued specialization: %s", specNode->get_declaration()->to_string().c_str());
         genContext.generate_code( specNode );
     }
 
@@ -302,108 +304,10 @@ static void format_location_message(char *buf, size_t bufSize, const TxLocation&
 }
 
 
+
+/******* TxParserContext implementation *******/
+
 static Logger& CLOG = Logger::get("COMPILER");
-
-//void TxDriver::emit_comp_error(const TxLocation& loc, const std::string& msg) {
-//    char buf[512];
-//    format_location_message(buf, 512, loc, msg.c_str());
-//    CLOG.error("%s", buf);
-//}
-//
-//void TxDriver::emit_comp_warning(const TxLocation& loc, const std::string& msg) {
-//    char buf[512];
-//    format_location_message(buf, 512, loc, msg.c_str());
-//    CLOG.warning("%s", buf);
-//}
-
-
-void TxDriver::emit_comp_error(char const *msg) {
-    if (this->exp_err) {
-        this->exp_err_count++;
-        CLOG.info("EXPECTED CERROR: %s", msg);
-    }
-    else {
-        this->error_count++;
-        CLOG.error("%s", msg);
-    }
-}
-
-void TxDriver::emit_comp_warning(char const *msg) {
-    this->warning_count++;
-    CLOG.warning("%s", msg);
-}
-
-
-void TxDriver::begin_exp_err(const TxLocation& loc) {
-    if (this->exp_err) {
-        //this->cerror(loc, "Nested EXPECTED ERROR blocks not supported");
-        char buf[512];
-        format_location_message(buf, 512, loc, "Nested EXPECTED ERROR blocks not supported");
-        this->emit_comp_error(buf);
-        return;
-    }
-    //puts("EXPERR {");
-    this->exp_err = true;
-    this->exp_err_count = 0;
-}
-
-int TxDriver::end_exp_err(const TxLocation& loc) {
-    if (!this->exp_err) {
-        //this->cerror(loc, "EXPECTED ERROR block end doesn't match a corresponding begin");
-        char buf[512];
-        format_location_message(buf, 512, loc, "EXPECTED ERROR block end doesn't match a corresponding begin");
-        this->emit_comp_error(buf);
-        return 0;
-    }
-    //puts("} EXPERR");
-    this->exp_err = false;
-    return this->exp_err_count;
-}
-
-bool TxDriver::is_exp_err() {
-    return this->exp_err;
-}
-
-
-int  TxDriver::get_error_count() {
-    return this->error_count;
-}
-
-int  TxDriver::get_warning_count() {
-    return this->warning_count;
-}
-
-
-void TxDriver::cerror(const TxLocation& loc, char const *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-    char buf[512];
-    vsnprintf(buf, 512, fmt, ap);
-    va_end(ap);
-    this->cerror(loc, std::string(buf));
-}
-
-void TxDriver::cerror(const TxLocation& loc, const std::string& msg) {
-    char buf[512];
-    format_location_message(buf, 512, loc, msg.c_str());
-    this->emit_comp_error(buf);
-}
-
-void TxDriver::cwarning(const TxLocation& loc, char const *fmt, ...) {
-    va_list ap;
-    va_start(ap, fmt);
-    char buf[512];
-    vsnprintf(buf, 512, fmt, ap);
-    va_end(ap);
-    this->cwarning(loc, std::string(buf));
-}
-
-void TxDriver::cwarning(const TxLocation& loc, const std::string& msg) {
-    char buf[512];
-    format_location_message(buf, 512, loc, msg.c_str());
-    this->emit_comp_warning(buf);
-}
-
 
 
 bool TxParserContext::validate_module_name(const TxLocation& loc, const TxIdentifier& moduleName) {
@@ -421,17 +325,53 @@ bool TxParserContext::validate_module_name(const TxLocation& loc, const TxIdenti
 }
 
 
+void TxParserContext::emit_comp_error(char const *msg) {
+    if (this->exp_err) {
+        this->exp_err_count++;
+        CLOG.info("EXPECTED CERROR: %s", msg);
+    }
+    else {
+        this->_driver.error_count++;
+        CLOG.error("%s", msg);
+    }
+}
+
+void TxParserContext::emit_comp_warning(char const *msg) {
+    this->_driver.warning_count++;
+    CLOG.warning("%s", msg);
+}
+
+
 void TxParserContext::begin_exp_err(const TxLocation& loc) {
-    this->_driver.begin_exp_err(loc);
+    if (this->exp_err) {
+        //this->cerror(loc, "Nested EXPECTED ERROR blocks not supported");
+        char buf[512];
+        format_location_message(buf, 512, loc, "Nested EXPECTED ERROR blocks not supported");
+        this->emit_comp_error(buf);
+        return;
+    }
+    //std::cerr << "EXPERR {  " << loc << std::endl;
+    this->exp_err = true;
+    this->exp_err_count = 0;
 }
 
 int TxParserContext::end_exp_err(const TxLocation& loc) {
-    return this->_driver.end_exp_err(loc);
+    if (!this->exp_err) {
+        //this->cerror(loc, "EXPECTED ERROR block end doesn't match a corresponding begin");
+        char buf[512];
+        format_location_message(buf, 512, loc, "EXPECTED ERROR block end doesn't match a corresponding begin");
+        this->emit_comp_error(buf);
+        return 0;
+    }
+    //std::cerr << "} EXPERR  " << loc << std::endl;
+    this->exp_err = false;
+    return this->exp_err_count;
 }
 
 bool TxParserContext::is_exp_err() {
-    return this->_driver.is_exp_err();
+    return this->exp_err;
 }
+
 
 void TxParserContext::cerror(const TxLocation& loc, char const *fmt, ...) {
     va_list ap;
@@ -445,7 +385,7 @@ void TxParserContext::cerror(const TxLocation& loc, char const *fmt, ...) {
 void TxParserContext::cerror(const TxLocation& loc, const std::string& msg) {
     char buf[512];
     format_location_message(buf, 512, loc, msg.c_str());
-    this->_driver.emit_comp_error(buf);
+    this->emit_comp_error(buf);
 }
 
 void TxParserContext::cwarning(const TxLocation& loc, char const *fmt, ...) {
@@ -460,5 +400,5 @@ void TxParserContext::cwarning(const TxLocation& loc, char const *fmt, ...) {
 void TxParserContext::cwarning(const TxLocation& loc, const std::string& msg) {
     char buf[512];
     format_location_message(buf, 512, loc, msg.c_str());
-    this->_driver.emit_comp_warning(buf);
+    this->emit_comp_warning(buf);
 }

@@ -63,11 +63,11 @@ protected:
     }
 
 public:
-    TxTypeDeclWrapperNode( const TxEntityDeclaration* typeDecl )
-        : TxTypeExpressionNode( typeDecl->get_definer()->get_parse_location() ), typeDecl( typeDecl )  { }
+    TxTypeDeclWrapperNode( const TxLocation& parseLocation, const TxEntityDeclaration* typeDecl )
+        : TxTypeExpressionNode( parseLocation ), typeDecl( typeDecl )  { }
 
     virtual TxTypeDeclWrapperNode* make_ast_copy() const override {
-        return new TxTypeDeclWrapperNode( this->typeDecl );
+        return new TxTypeDeclWrapperNode( this->parseLocation, this->typeDecl );
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
