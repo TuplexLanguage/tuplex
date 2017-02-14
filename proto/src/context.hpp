@@ -77,9 +77,9 @@ public:
         ASSERT(scope, "scope is NULL");
     }
 
-    /** Constructs a lexical context that represents a reinterpretation of a lexical unit. */
-    LexicalContext( TxScopeSymbol* scope, ExpectedErrorContext* expErrCtx )
-        : _scope(scope), constructedObjTypeDecl(), reinterpretation(true), expErrCtx(expErrCtx) { }
+    /** Constructs a new lexical context for a given scope, and that may represent a reinterpretation of a lexical unit. */
+    LexicalContext( TxScopeSymbol* scope, ExpectedErrorContext* expErrCtx, bool reinterpretation )
+        : _scope(scope), constructedObjTypeDecl(), reinterpretation(reinterpretation), expErrCtx(expErrCtx) { }
 
 
     inline TxScopeSymbol* scope() const { return this->_scope; }

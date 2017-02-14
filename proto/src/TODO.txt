@@ -59,6 +59,8 @@ Make fields be "bindings to entities" rather than "entities" - SORT-OF-DONE
  - in order to fix multi-instantiation in e.g:
   stackObj := AType();  ## allocates twice & copies! 
 
+assert checking of types and full names (for autotesting declarations)
+
 Make VALUE type parameters proper instance fields and ensure they're correctly initialized
 
 Autotests for conversions and default constructions for elementary types

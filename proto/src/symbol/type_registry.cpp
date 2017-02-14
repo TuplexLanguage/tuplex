@@ -903,7 +903,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
             auto baseTypeExpr = dynamic_cast<TxTypeExpressionNode*>( baseDecl->get_definer() );
             ASSERT(baseTypeExpr, "baseTypeExpression not a TxTypeExpressionNode: " << baseDecl->get_definer());
             ASSERT(baseTypeExpr->context().scope() == baseScope, "Unexpected lexical scope: " << baseTypeExpr->context().scope() << " != " << baseScope);
-            LexicalContext newBaseContext = LexicalContext( baseScope, declaration->get_definer()->context().exp_err_ctx() );
+            LexicalContext newBaseContext = LexicalContext( baseScope, declaration->get_definer()->context().exp_err_ctx(), true );
 
             newBaseTypeNameStr = newBaseContext.scope()->make_unique_name(newBaseTypeNameStr, true);
             auto newBaseTypeExpr = baseTypeExpr->make_ast_copy();
