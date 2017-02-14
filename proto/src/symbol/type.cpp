@@ -287,12 +287,6 @@ void TxType::prepare_type_members() {
         ASSERT(expErrWholeType, "TXD_EXPERRBLOCK flag set but type definer has no ExpErr context: " << this->get_declaration());
         this->get_parser_context()->begin_exp_err(this->get_declaration()->get_definer()->get_parse_location());
     }
-//    ExpectedErrorContext* expErrWholeType = (this->get_declaration() ? this->get_declaration()->get_definer()->context().exp_err_ctx() : nullptr);
-//    ASSERT( ( expErrWholeType != nullptr ) == ( ( this->get_decl_flags() & TXD_EXPERRBLOCK ) != 0 ),
-//            "Type ExpErr ctx status doesn't match type's ExpErr declaration flag status: " << this->get_declaration());
-//    if (expErrWholeType) {
-//        this->get_parser_context()->begin_exp_err(this->get_declaration()->get_definer()->get_parse_location());
-//    }
 
     // resolve and validate type parameters
     for (auto & paramDecl : this->params) {
@@ -385,15 +379,6 @@ void TxType::prepare_type_members() {
                 ASSERT(expErrField, "TXD_EXPERRBLOCK flag set but field definer has no ExpErr context: " << fieldDecl);
                 this->get_parser_context()->begin_exp_err(fieldDecl->get_definer()->get_parse_location());
             }
-//            ExpectedErrorContext* expErrField = fieldDecl->get_definer()->context().exp_err_ctx();
-//            ASSERT( ( expErrField != nullptr ) == ( ( fieldDecl->get_decl_flags() & TXD_EXPERRBLOCK ) != 0 ),
-//                    "Field ExpErr ctx status doesn't match field's ExpErr declaration flag status: " << fieldDecl);
-//            if (expErrField) {
-//                if (expErrWholeType)
-//                    LOGGER().alert( "ExpErr field within an ExpErr type: %s", fieldDecl->to_string().c_str() );  // TODO: support nested ExpErrs
-//                else
-//                    this->get_parser_context()->begin_exp_err(fieldDecl->get_definer()->get_parse_location());
-//            }
 
             if (auto field = fieldDecl->get_definer()->resolve_field()) {
                 // validate type:
