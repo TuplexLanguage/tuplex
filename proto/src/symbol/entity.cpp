@@ -13,26 +13,25 @@ const TxLocation& TxEntity::get_parse_location() const {
 
 
 
-const TxType* TxField::get_outer_type() const {
-    auto typeDecl = this->get_outer_type_decl();
-    ASSERT(typeDecl, "Field's scope is not a type: " << *this->get_symbol()->get_outer());
-    return typeDecl->get_definer()->get_type();  // assumes already resolved
-}
-
 int TxField::get_decl_storage_index() const {
-    switch (this->get_storage()) {
-    case TXS_STATIC:
-        return this->get_outer_type()->get_static_fields().get_field_index(this->get_unique_name());
-    case TXS_VIRTUAL:
-    case TXS_INSTANCEMETHOD:
-        ASSERT(! (this->get_decl_flags() & TXD_CONSTRUCTOR), "constructor does not have an instance method index: " << this);
-        return this->get_outer_type()->get_virtual_fields().get_field_index(this->get_unique_name());
-    case TXS_INSTANCE:
-        return this->get_outer_type()->get_instance_fields().get_field_index(this->get_unique_name());
-    default:
-        //ASSERT(false, "Only fields of static/virtual/instancemethod/instance storage classes have a storage index: " << *this);
-        return -1;
+    if (auto typeDecl = this->get_outer_type_decl()) {
+        if (auto outerType = typeDecl->get_definer()->get_type()) {  // assumes already resolved
+            switch (this->get_storage()) {
+            case TXS_STATIC:
+                return outerType->get_static_fields().get_field_index(this->get_unique_name());
+            case TXS_VIRTUAL:
+            case TXS_INSTANCEMETHOD:
+                ASSERT(! (this->get_decl_flags() & TXD_CONSTRUCTOR), "constructor does not have an instance method index: " << this);
+                return outerType->get_virtual_fields().get_field_index(this->get_unique_name());
+            case TXS_INSTANCE:
+                return outerType->get_instance_fields().get_field_index(this->get_unique_name());
+            default:
+                //ASSERT(false, "Only fields of static/virtual/instancemethod/instance storage classes have a storage index: " << *this);
+                return -1;
+            }
+        }
     }
+    return -1;
 }
 
 bool TxField::is_statically_constant() const {

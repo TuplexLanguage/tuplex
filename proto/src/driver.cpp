@@ -344,10 +344,10 @@ void TxParserContext::emit_comp_warning(char const *msg) {
 
 void TxParserContext::begin_exp_err(const TxLocation& loc) {
     if (this->exp_err) {
-        //this->cerror(loc, "Nested EXPECTED ERROR blocks not supported");
         char buf[512];
         format_location_message(buf, 512, loc, "Nested EXPECTED ERROR blocks not supported");
-        this->emit_comp_error(buf);
+        this->_driver.error_count++;
+        CLOG.error("%s", buf);
         return;
     }
     //std::cerr << "EXPERR {  " << loc << std::endl;
@@ -357,10 +357,10 @@ void TxParserContext::begin_exp_err(const TxLocation& loc) {
 
 int TxParserContext::end_exp_err(const TxLocation& loc) {
     if (!this->exp_err) {
-        //this->cerror(loc, "EXPECTED ERROR block end doesn't match a corresponding begin");
         char buf[512];
         format_location_message(buf, 512, loc, "EXPECTED ERROR block end doesn't match a corresponding begin");
-        this->emit_comp_error(buf);
+        this->_driver.error_count++;
+        CLOG.error("%s", buf);
         return 0;
     }
     //std::cerr << "} EXPERR  " << loc << std::endl;

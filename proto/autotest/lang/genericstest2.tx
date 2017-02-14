@@ -1,6 +1,6 @@
 module my
 
-## tests specialization of ref-bound generic type
+## tests specializations of ref-bound generic type
 
 type AType<S derives Ref> mod derives Tuple {
     public memref : S;
@@ -17,6 +17,9 @@ type AType<S derives Ref> mod derives Tuple {
 type RInt Ref<Int>;
 
 type ATypeRInt AType<RInt>;
+
+#experr: type BadAType derives AType<Float> {
+}
 
 main()->Int {
     #experr: type Err AType<Byte>;  ## doesn't match parameter's constraint type

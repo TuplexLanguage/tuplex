@@ -54,8 +54,6 @@ class TxField : public TxEntity {
         return nullptr;
     }
 
-    const TxType* get_outer_type() const;
-
 public:
     TxField(const TxFieldDeclaration* declaration, const TxType* type)
             : TxEntity(declaration), type(type) {

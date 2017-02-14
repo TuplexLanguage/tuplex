@@ -46,7 +46,6 @@ bool TxTypeSpecialization::operator==(const TxTypeSpecialization& other) const {
     return ( this->type == other.type
              || ( this->type && other.type && *this->type == *other.type) )
            //&& *this->dataspace == *other.dataspace
-           && this->empty == other.empty
            && this->modifiable == other.modifiable;
 }
 
@@ -188,8 +187,6 @@ void TxType::prepare_type() {
                     if (hasImplicitFieldMembers) {
                         LOGGER().note("Type with only implicit field members: %s", this->to_string().c_str());
                     }
-                    else if (! this->baseTypeSpec.empty)
-                        LOGGER().alert("Type without field members not pre-specified as empty: %s", this->to_string().c_str());
                 }
             }
         }

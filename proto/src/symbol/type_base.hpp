@@ -146,33 +146,25 @@ class TxTypeSpecialization : public Printable {
 public:
     TxType const * const type;
     const bool modifiable;
-    const bool empty;
     //TxIdentifier const * const dataspace;  // only set for reference specializations
 
     /** Only legal to use by the Any type. */
     TxTypeSpecialization()
-            : type(), modifiable(), empty()  { }
+            : type(), modifiable()  { }
 
     /** Copies another TxTypeSpecialization but with a different base type. */
     TxTypeSpecialization(const TxTypeSpecialization& other, const TxType* baseType)
-            : type(baseType), modifiable(other.modifiable), empty(other.empty)  {
+            : type(baseType), modifiable(other.modifiable)  {
         ASSERT(baseType, "NULL baseType");
     }
 
-    TxTypeSpecialization(const TxType* baseType, bool modifiable=false, bool empty=false)
-            : type(baseType), modifiable(modifiable), empty(empty)  {
+    TxTypeSpecialization(const TxType* baseType, bool modifiable=false)
+            : type(baseType), modifiable(modifiable)  {
         ASSERT(baseType, "NULL baseType");
-        ASSERT(!(modifiable && empty), "Type specialization can't be both modifiable and empty: " << baseType);
     }
 
-//    TxTypeSpecialization(const TxType* baseType, const TxIdentifier* dataspace=nullptr)
-//            : type(baseType), modifiable(false), empty(false), dataspace(dataspace)  {
-//        ASSERT(baseType, "NULL baseType");
-//    }
-
-    TxTypeSpecialization(const TxType* baseType, //const std::vector<TxGenericBinding>& baseBindings,
-                         const TxIdentifier* dataspace)
-            : type(baseType), modifiable(false), empty(false)  {
+    TxTypeSpecialization(const TxType* baseType, const TxIdentifier* dataspace)
+            : type(baseType), modifiable(false)  {
         ASSERT(baseType, "NULL baseType");
     }
 

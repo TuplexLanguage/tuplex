@@ -612,7 +612,7 @@ const TxType* TypeRegistry::get_empty_specialization(const TxTypeDeclaration* de
     //std::cerr << "MAKING EMPTY TYPE: " << declaration->to_string() << std::endl;
     while (type->is_empty_derivation() && !type->get_explicit_declaration())  //!type->is_explicit_nongen_declaration())
         type = type->get_base_type();
-    return this->make_specialized_type(declaration, TxTypeSpecialization(type, false, true));
+    return this->make_specialized_type(declaration, TxTypeSpecialization(type, false));
 }
 
 
@@ -918,7 +918,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
         }
         // TODO: else bindingDeclNodes thrown away...
 
-        return this->make_specialized_type(declaration, TxTypeSpecialization(specializedBaseType, false, true), interfaces);
+        return this->make_specialized_type(declaration, TxTypeSpecialization(specializedBaseType), interfaces);
     }
     else {
         return this->make_specialized_type(declaration, TxTypeSpecialization(baseType), interfaces);

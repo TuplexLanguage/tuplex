@@ -247,13 +247,13 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
     void init_implicit_types();
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext,
-                                                     LexicalContext& lexContext, TxDeclarationFlags declFlags) override {
+    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext,
+                                                      TxDeclarationFlags declFlags ) override {
         for (auto baseType : *this->baseTypes)
             baseType->symbol_declaration_pass( defContext, lexContext, declFlags, "", nullptr);
 
-        this->selfRefTypeNode->symbol_declaration_pass( lexContext);
-        this->superRefTypeNode->symbol_declaration_pass( lexContext);
+        this->selfRefTypeNode->symbol_declaration_pass( lexContext, (declFlags & TXD_EXPERRBLOCK) );
+        this->superRefTypeNode->symbol_declaration_pass( lexContext, (declFlags & TXD_EXPERRBLOCK) );
 
         for (auto member : *this->members)
             member->symbol_declaration_pass( lexContext);

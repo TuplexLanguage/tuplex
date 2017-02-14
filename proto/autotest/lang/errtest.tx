@@ -1,19 +1,26 @@
 module my
 
+## Tests #experr handling in non-generic usage
+
 CONSTANT := 42;
 
 #experr: bad tokens;
 
 #experr: CONSTANT2 : Int = 3.14;  ## bad type conversion
 
-#experr: type MyType UnknownType;
+#experr: type BadType1 UnknownType;
 
-#experr 2: type MyType2 derives Tuple {
+#experr 2: type BadType2 derives Tuple {
     static FOO : Int = 2.73;  ## bad type conversion
     static BAR := 7  ## missing semicolon
 }
 
-type MyType3 derives Tuple {
+#experr 1: type BadType3 derives UnknownType {
+    static good := 21;
+    static found := 22;
+}
+
+type OkType derives Tuple {
     static good := 14;
     #experr 1: static FOO : Int = 2.73;  ## bad type conversion
     #experr 1: static BAR := 7  ## missing semicolon
