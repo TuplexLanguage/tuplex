@@ -47,7 +47,7 @@ public:
     virtual bool has_predefined_type() const override { return false; }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        std::string funcName = this->fieldDefNode ? this->fieldDefNode->get_decl_field_name() : "";
+        std::string funcName = this->fieldDefNode ? this->fieldDefNode->get_declared_name() : "";
         LexicalContext funcLexContext(lexContext, lexContext.scope()->create_code_block_scope(funcName));
         this->set_context( funcLexContext);
 

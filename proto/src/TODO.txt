@@ -59,9 +59,18 @@ Make fields be "bindings to entities" rather than "entities" - SORT-OF-DONE
  - in order to fix multi-instantiation in e.g:
   stackObj := AType();  ## allocates twice & copies! 
 
+Proper recursive expression checking
+ - fields
+ - types
+
 Support arbitrary (as long as non-recursive) static declaration order
 
-assert checking of types and full names (for autotesting declarations)
+Type reflection, at least for autotesting, some ideas:
+    assert static_type(var) == static_type(Ref<Parent>)
+    assert type(var^) == type(Child)
+    #exptype( var, Ref<Parent> )  ## compilation test, no code generated
+    #exptype( var, "$local.Foo.$type" )  ## compilation test, no code generated
+
 
 Make VALUE type parameters proper instance fields and ensure they're correctly initialized
 
@@ -86,12 +95,6 @@ Proper mutability handling:
 Implement implicit instance initializer function for types' instance members' inlined initializers
 
 Implement implicit static initializer function for types' static members and static code?
-
-Type reflection, at least for autotesting, some ideas:
-    assert static_type(var) == static_type(Ref<Parent>)
-    assert type(var^) == type(Child)
-    #exptype( var, Ref<Parent> )  ## compilation test, no code generated
-    #exptype( var, "$local.Foo.$type" )  ## compilation test, no code generated
 
 Type conversions (with if statements)
 
@@ -124,3 +127,5 @@ Generic type instance fields support (with Any contraint type)
  - To support declaring instance fields of dynamically resolved type by value (not just reference)
 
 Enum typeclass
+
+Support non-constant static initializers (i.e. executed before main())

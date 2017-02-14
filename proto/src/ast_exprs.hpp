@@ -684,6 +684,10 @@ public:
         return new TxFieldAssigneeNode( this->parseLocation, this->field->make_ast_copy() );
     }
 
+    virtual std::string get_declared_name() const override {
+        return field->get_declared_name();
+    }
+
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
         this->set_context( lexContext);
         field->symbol_declaration_pass( lexContext);

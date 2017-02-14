@@ -22,6 +22,10 @@ public:
 
     virtual TxTypeExpressionNode* make_ast_copy() const override = 0;
 
+    virtual std::string get_declared_name() const override {
+        return ( this->get_declaration() ? this->get_declaration()->get_unique_name() : "" );
+    }
+
     /** Returns true if this type expression is a directly identified type
      * (i.e. a previously declared type, does not construct a new type). */
     virtual bool has_predefined_type() const { return false; }
@@ -78,6 +82,8 @@ public:
     virtual void symbol_resolution_pass() {
         this->resolve_type();
     }
+
+    virtual std::string get_declared_name() const override;
 
     /** Returns true if this expression is a stack allocation expression,
      * i.e. its result is in newly allocated stack space, and the allocation's type is the type of this expression.
@@ -177,7 +183,7 @@ class TxFieldDefNode : public TxFieldDefiningNode {
         auto typeDeclFlags = (declFlags & (TXD_PUBLIC | TXD_PROTECTED | TXD_EXPERRBLOCK)) | TXD_IMPLICIT;
         if (this->typeExpression) {
             // unless the type expression is a directly named type, declare implicit type entity for this field's type:
-            std::string implTypeName = ( this->typeExpression->has_predefined_type() ? "" : this->get_decl_field_name() + "$type" );
+            std::string implTypeName = ( this->typeExpression->has_predefined_type() ? "" : this->get_declared_name() + "$type" );
             this->typeExpression->symbol_declaration_pass( innerContext, innerContext, typeDeclFlags, implTypeName, nullptr);
         }
         if (this->initExpression) {
@@ -194,7 +200,7 @@ class TxFieldDefNode : public TxFieldDefiningNode {
 
 protected:
     virtual const TxType* define_type() override {
-        LOGGER().trace("resolving type of %s", this->to_string().c_str());
+        LOGGER().trace("defining  type  of %s", this->to_string().c_str());
         const TxType* type;
         if (this->typeExpression) {
             type = this->typeExpression->resolve_type();
@@ -212,13 +218,11 @@ protected:
                     type = type->get_semantic_base_type();
             }
         }
-        if (! type)
-            CERROR(this, "No type defined for field");
         return type;
     }
 
     virtual const TxField* define_field() override {
-        LOGGER().trace("resolving field of %s", this->to_string().c_str());
+        LOGGER().trace("defining  field of %s", this->to_string().c_str());
         ASSERT(this->attempt_get_type(), "Expected non-NULL type in " << this);
         if (this->declaration)
             return new TxField(this->declaration, this->attempt_get_type());
@@ -280,28 +284,38 @@ public:
     }
 
     virtual void symbol_resolution_pass() {
-        this->resolve_field();
-        if (this->typeExpression) {
-            this->typeExpression->symbol_resolution_pass();
-        }
-        auto field = this->get_field();
-        if (this->initExpression) {
-            if (this->typeExpression && field)
-                this->initExpression->insert_conversion( field->get_type() );
-            this->initExpression->symbol_resolution_pass();
-            if (field && field->is_statically_constant())
-                    if (! this->initExpression->is_statically_constant())
-                        CERROR(this, "Non-constant initializer for constant global/static field.");
-        }
+        if (auto field = this->resolve_field()) {
+            if (this->initExpression) {
+                if (this->typeExpression) {
+                    this->typeExpression->symbol_resolution_pass();
+                    this->initExpression->insert_conversion( field->get_type() );
+                }
+                this->initExpression->symbol_resolution_pass();
+                if (field->is_statically_constant() && ! this->initExpression->is_statically_constant())
+                    CERROR(this, "Non-constant initializer for constant global/static field.");
+            }
+            else {  // if initExpression is null then typeExpression is set
+                this->typeExpression->symbol_resolution_pass();
+            }
 
-        if (field) {
             if (! field->get_type()->is_concrete())
                 CERROR(this, "Field type is not concrete (size potentially unknown): " << field->get_type());
-            if (this->get_decl_field_name() == "$init") {
+            if (this->get_declared_name() == "$init") {
                 if (this->get_declaration()->get_storage() != TXS_INSTANCEMETHOD)
                     CERROR(this, "Illegal declaration name for non-constructor member: " << this->fieldName);
                 // TODO: check that constructor function type has void return value
             }
+        }
+        else {
+            if (! this->get_type())
+                CERROR(this, "Failed to resolve field " << this->get_source_name(););
+            if (this->initExpression) {
+                if (this->typeExpression)
+                    this->typeExpression->symbol_resolution_pass();
+                this->initExpression->symbol_resolution_pass();
+            }
+            else  // if initExpression is null then typeExpression is set
+                this->typeExpression->symbol_resolution_pass();
         }
     }
 
@@ -309,13 +323,13 @@ public:
         return this->initExpression;
     }
 
-    /** Gets the plain name of this field as defined in the source text. */
-    inline const std::string& get_source_field_name() const {
+    /** Gets the plain name of this field as stated in the source text. */
+    virtual const std::string& get_source_name() const {
         return this->fieldName;
     }
 
     /** Gets the plain name of this field as actually declared in the symbol table. */
-    inline const std::string& get_decl_field_name() const {
+    virtual std::string get_declared_name() const override {
         return this->declName;
     }
 
@@ -327,7 +341,7 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual std::string to_string() const override {
-        return TxFieldDefiningNode::to_string() + " '" + this->get_source_field_name() + "'";
+        return TxFieldDefiningNode::to_string() + " '" + this->get_source_name() + "'";
     }
 };
 
@@ -356,7 +370,7 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual std::string to_string() const {
-        return TxDeclarationNode::to_string() + " '" + this->field->get_source_field_name() + "'";
+        return TxDeclarationNode::to_string() + " '" + this->field->get_source_name() + "'";
     }
 };
 
@@ -410,6 +424,10 @@ public:
 class TxAssigneeNode : public TxTypeDefiningNode {
 public:
     TxAssigneeNode(const TxLocation& parseLocation) : TxTypeDefiningNode(parseLocation) { }
+
+    virtual std::string get_declared_name() const override {
+        return "";
+    }
 
     virtual TxAssigneeNode* make_ast_copy() const override = 0;
 

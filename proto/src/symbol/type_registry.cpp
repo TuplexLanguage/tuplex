@@ -64,6 +64,10 @@ public:
         return nullptr;
     }
 
+    virtual std::string get_declared_name() const override {
+        return this->builtinField->get_unique_name();
+    }
+
     void set_field(const TxField* field) {
         this->builtinField = field;
         this->resolve_field();  // auto-resolves

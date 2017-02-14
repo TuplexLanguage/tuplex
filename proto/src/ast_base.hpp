@@ -276,6 +276,9 @@ public:
 
     virtual TxEntityDefiningNode* make_ast_copy() const override = 0;
 
+    /** Gets the plain declaration name of this entity if declared, otherwise the empty string is returned. */
+    virtual std::string get_declared_name() const = 0;
+
     /** Returns the type (as specific as can be known) of the value this node produces/uses. */
     virtual const TxType* resolve_type    ()       = 0;
     virtual const TxType* attempt_get_type() const = 0;
@@ -303,8 +306,12 @@ public:
     /** Returns the type (as specific as can be known) of the value this node produces/uses. */
     virtual const TxType* resolve_type() override final {
         if (!this->type && !this->hasResolved) {
-            LOGGER().trace("resolving type of %s", this->to_string().c_str());
-            ASSERT(!this->startedRslv, "Recursive invocation of resolve_type() of " << this);
+            LOGGER().trace("resolving type  of %s", this->to_string().c_str());
+            //ASSERT(!this->startedRslv, "Recursive invocation of resolve_type() of " << this);
+            if (this->startedRslv) {
+                CERROR(this, "Recursive definition of type " << this->get_declared_name());
+                return nullptr;
+            }
             this->startedRslv = true;
             this->type = this->define_type();
             this->hasResolved = true;
@@ -346,7 +353,11 @@ public:
     virtual const TxField* resolve_field() final {
         if (!this->field && !this->hasResolved) {
             LOGGER().trace("resolving field of %s", this->to_string().c_str());
-            ASSERT(!this->startedRslv, "Recursive invocation of resolve_field() of " << this);
+            //ASSERT(!this->startedRslv, "Recursive invocation of resolve_field() of " << this);
+            if (this->startedRslv) {
+                CERROR(this, "Recursive definition of field " << this->get_declared_name());
+                return nullptr;
+            }
             this->startedRslv = true;
             this->type = this->define_type();
             if (this->type)

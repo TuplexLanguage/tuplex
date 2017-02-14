@@ -51,24 +51,9 @@ std::string TxNode::parse_loc_string() const {
 
 
 
-//int definition_nest_level = 0;
-//
-//const TxType* TxTypeDefiningNode::resolve_type() {
-//    auto spec = this->get_spec(six);
-//    if (!spec->type && !spec->hasResolved) {
-//        LOGGER().trace("resolving type of %s (s-ix %u)", this->to_string().c_str(), six);
-//        //fprintf(stderr, "%*s{%*s %s - %s (s-ix %u)\n", definition_nest_level, "", 21-definition_nest_level, "",
-//        //        this->parse_loc_string().c_str(), this->to_string().c_str(), six);
-//        //definition_nest_level += 2;
-//        ASSERT(!spec->startedRslv, "Recursive invocation of resolve_type() of " << this);
-//        spec->startedRslv = true;
-//        spec->type = this->define_type();
-//        spec->hasResolved = true;
-//        //definition_nest_level -= 2;
-//        //fprintf(stderr, "%*s}\n", definition_nest_level, "");
-//    }
-//    return spec->type;
-//}
+std::string TxExpressionNode::get_declared_name() const {
+    return ( fieldDefNode ? fieldDefNode->get_declared_name() : "" );
+}
 
 
 
@@ -104,21 +89,21 @@ void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool 
     }
     else if (dynamic_cast<TxModule*>(lexContext.scope())) {  // if in global scope
         if (flags & TXD_STATIC)
-            CERROR(this, "'static' is invalid modifier for module scope field " << this->field->get_source_field_name());
+            CERROR(this, "'static' is invalid modifier for module scope field " << this->field->get_source_name());
         if (flags & TXD_FINAL)
-            CERROR(this, "'final' is invalid modifier for module scope field " << this->field->get_source_field_name());
+            CERROR(this, "'final' is invalid modifier for module scope field " << this->field->get_source_name());
         if (flags & TXD_OVERRIDE)
-            CERROR(this, "'override' is invalid modifier for module scope field " << this->field->get_source_field_name());
+            CERROR(this, "'override' is invalid modifier for module scope field " << this->field->get_source_name());
         if (flags & TXD_ABSTRACT)
-            CERROR(this, "'abstract' is invalid modifier for module scope field " << this->field->get_source_field_name());
+            CERROR(this, "'abstract' is invalid modifier for module scope field " << this->field->get_source_name());
         storage = TXS_GLOBAL;
     }
     else {
         if (flags & TXD_ABSTRACT) {
             if (! (flags & TXD_STATIC))
-                CERROR(this, "'abstract' fields must also be declared 'static': " << this->field->get_source_field_name());
+                CERROR(this, "'abstract' fields must also be declared 'static': " << this->field->get_source_name());
             if (! (flags & (TXD_PROTECTED | TXD_PUBLIC)))
-                CERROR(this, "'abstract' fields cannot be private (since private are non-virtual): " << this->field->get_source_field_name());
+                CERROR(this, "'abstract' fields cannot be private (since private are non-virtual): " << this->field->get_source_name());
         }
         storage = (flags & TXD_STATIC) ? TXS_STATIC : TXS_INSTANCE;
     }
@@ -133,23 +118,23 @@ void TxFieldDeclNode::symbol_resolution_pass() {
         auto storage = this->field->get_declaration()->get_storage();
         if (type->is_modifiable()) {
             if (storage == TXS_GLOBAL)
-                CERROR(this, "Global fields may not be modifiable: " << field->get_source_field_name().c_str());
+                CERROR(this, "Global fields may not be modifiable: " << field->get_source_name().c_str());
         }
 
         if (this->field->initExpression) {
             if (storage == TXS_INSTANCE) {
                 if (! (this->field->get_declaration()->get_decl_flags() & TXD_GENBINDING))  // hackish... skips tx.Array.L
-                    CWARNING(this, "Not yet supported: Inline initializer for instance fields (initialize within constructor instead): " << this->field->get_source_field_name());
+                    CWARNING(this, "Not yet supported: Inline initializer for instance fields (initialize within constructor instead): " << this->field->get_source_name());
             }
         }
         else {
             if (storage == TXS_GLOBAL || storage == TXS_STATIC) {
                 if (! (this->field->get_declaration()->get_decl_flags() & TXD_GENPARAM))
-                    CERROR(this, "Global/static fields must have an initializer: " << this->field->get_source_field_name());
+                    CERROR(this, "Global/static fields must have an initializer: " << this->field->get_source_name());
             }
             else if (storage == TXS_VIRTUAL || storage == TXS_INSTANCEMETHOD) {
                 if (! (this->field->get_declaration()->get_decl_flags() & TXD_ABSTRACT))
-                    CERROR(this, "Non-abstract virtual fields/methods must have an initializer: " << this->field->get_source_field_name());
+                    CERROR(this, "Non-abstract virtual fields/methods must have an initializer: " << this->field->get_source_name());
             }
             // Note: TXS_STACK is not declared via this node
             // FUTURE: ensure TXS_INSTANCE fields are initialized either here or in every constructor

@@ -9,7 +9,7 @@ FIELDA := FIELDB;
 FIELDB := CONSTANT;
 
 ## TODO: support for constant initializer *expressions* with reverse lexical order dependency
-##FIELDC := FIELDD + 3;
+FIELDC := FIELDD + 3;
 FIELDD := CONSTANT + 2;
 
 ## currently function calls (including pure ones) are regarded as non-statically-constant:
@@ -19,10 +19,10 @@ square( a : Int )->Int {
     return a * a;
 }
 
-/* TODO: controlled error message upon recursive definition
-REC1 := REC2;
-REC2 := REC1;
-*/
+## check controlled error message upon recursive definition
+#experr: REC1 := REC2;
+#experr: REC2 := REC1;
+
 
 main() {
     assert CONSTANT + CONSTANT_EXPR == 18;
