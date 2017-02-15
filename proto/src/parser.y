@@ -294,7 +294,7 @@ experr_decl : KW_EXPERR COLON
             ;
 
 
-declaration_flags : opt_visibility opt_static opt_abstract opt_override opt_final  { $$ = ($1 | $2 | $3 | $4); } ;
+declaration_flags : opt_visibility opt_static opt_abstract opt_override opt_final  { $$ = ($1 | $2 | $3 | $4 | $5); } ;
 
 opt_visibility : %empty        { $$ = TXD_NONE; }
                | KW_PUBLIC     { $$ = TXD_PUBLIC; }

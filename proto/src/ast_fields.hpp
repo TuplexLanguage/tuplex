@@ -66,6 +66,7 @@ public:
     }
 
     virtual bool is_statically_constant() const override {
+        //std::cerr << "is_statically_constant() in " << this << std::endl;
         if (auto field = this->get_field())
             return field->is_statically_constant();
         return false;

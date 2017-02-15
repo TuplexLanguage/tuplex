@@ -204,6 +204,9 @@ protected:
         const TxType* type;
         if (this->typeExpression) {
             type = this->typeExpression->resolve_type();
+            // also resolve initExpression from here, which guards against recursive field value initialization:
+            if (this->initExpression)
+                this->initExpression->resolve_type();
         }
         else {
             type = this->initExpression->resolve_type();
@@ -291,8 +294,16 @@ public:
                     this->initExpression->insert_conversion( field->get_type() );
                 }
                 this->initExpression->symbol_resolution_pass();
-                if (field->is_statically_constant() && ! this->initExpression->is_statically_constant())
-                    CERROR(this, "Non-constant initializer for constant global/static field.");
+
+                auto storage = field->get_storage();
+                if ( storage == TXS_GLOBAL
+                     || ( ( storage == TXS_STATIC || storage == TXS_VIRTUAL )
+                          && ! field->get_type()->is_modifiable() ) ) {
+                    // field is expected to have a statically constant initializer
+                    // (Note: When static initializers in types are supported, static/virtual fields' initialization may be deferred.)
+                    if (! this->initExpression->is_statically_constant())
+                        CERROR(this, "Non-constant initializer for constant global/static/virtual field" << this->fieldName);
+                }
             }
             else {  // if initExpression is null then typeExpression is set
                 this->typeExpression->symbol_resolution_pass();

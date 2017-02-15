@@ -4,12 +4,32 @@ CONSTANT_EXPR : tx.Int = -3+4;
 
 COPY := CONSTANT;
 
+#experr 1: NONINITED : Int;
+
+
+## globals may not be modifiable:
+#experr 1: ~NONCONSTA := 8;
+#experr 1: ~NONCONSTB : Int = 8;  ## (syntax error)
+#experr 1: NONCONSTC : ~Int = 8;
+#experr 1: NONCONSTD : mod Int = 8;
+
+
+public PUBLIC_FIELD := 5;
+protected PROTECTED_FIELD := 5;
+
+#experr 1: static   TOO_STATIC   : Int = 5;
+#experr 1: override TOO_OVERRIDE : Int = 5;
+#experr 1: final    TOO_FINAL    : Int = 5;
+#experr 1: abstract TOO_ABSTRACT;
+#experr 2: abstract TOO_ABSTRACT_INIT := 5;
+
+
 ## evaluation dependency in reverse lexical order:
 FIELDA := FIELDB;
 FIELDB := CONSTANT;
 
 ## TODO: support for constant initializer *expressions* with reverse lexical order dependency
-FIELDC := FIELDD + 3;
+##FIELDC := FIELDD + 3;
 FIELDD := CONSTANT + 2;
 
 ## currently function calls (including pure ones) are regarded as non-statically-constant:
@@ -19,9 +39,40 @@ square( a : Int )->Int {
     return a * a;
 }
 
+
 ## check controlled error message upon recursive definition
+
+## type resolution recursion:
 #experr: REC1 := REC2;
 #experr: REC2 := REC1;
+
+## initializer recursion:
+#experr: REC3 : Int = REC4;
+#experr: REC4 : Int = REC3;
+
+#experr: REC5 := REC6;
+#experr: REC6 : Int = REC5;
+
+#experr: REC7 : Int = REC8;
+#experr: REC8 := REC7;
+
+
+## corresponding test for static type members:
+type Compound {
+    static OK : Int = 4;
+
+    #experr: static RECA := RECB;
+    #experr: static RECB := RECA;
+
+    #experr: static RECC : Int = RECD;
+    #experr: static RECD : Int = RECC;
+
+    #experr: static RECE := RECF;
+    #experr: static RECF : Int = RECE;
+
+    #experr: static RECG : Int = RECH;
+    #experr: static RECH := RECG;
+}
 
 
 main() {
@@ -31,4 +82,5 @@ main() {
     assert FIELDB == 17;
     ##assert FIELDC == 22;
     assert FIELDD == 19;
+    assert Compound.OK == 4;
 }
