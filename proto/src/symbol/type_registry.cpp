@@ -802,12 +802,21 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
         // re-base it on new non-generic specialization of the base type:
         // (this replaces the type parameter bindings with direct declarations within the new type)
 
-        ASSERT(declaration, "expected type that binds base type's parameters to be named (declared) but was not");
+        //ASSERT(declaration, "expected type that binds base type's parameters to be named (declared) but was not");
+        if (! declaration) {  // can happen due to previous errors
+            this->package.LOGGER().alert("Specialization of generic base type %s lacking a declaration", baseType->to_string().c_str());
+            return nullptr;
+        }
         this->package.LOGGER().debug("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
                                      declaration->get_unique_full_name().c_str(), baseType->to_string().c_str());
 
         auto baseDecl = baseType->get_declaration();
         ASSERT(baseDecl, "base type has no declaration: " << baseType);
+
+        if (baseType->get_type_class() == TXTC_REFERENCE) {
+            //this->package.LOGGER().note("Specializing a reference and resolving binding's target type: %s", bindings->at(0).to_string().c_str());
+            // TODO: Support recursive type definition by reference (CRTP) (e.g. type Bar Foo< Ref<Bar> >)
+        }
 
         std::stringstream newBaseTypeName;
         TxDeclarationFlags newDeclFlags;
