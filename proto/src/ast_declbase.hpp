@@ -261,7 +261,7 @@ public:
     void symbol_declaration_pass_local_field( LexicalContext& lexContext, bool create_local_scope, TxDeclarationFlags declFlags=TXD_NONE ) {
         LexicalContext outerCtx(lexContext);  // prevents init expr from referring to this field
         if (create_local_scope)
-            lexContext.scope(lexContext.scope()->create_code_block_scope());
+            lexContext.scope( lexContext.scope()->create_code_block_scope( *this ) );
         this->declName = this->fieldName;
         this->declaration = lexContext.scope()->declare_field(this->declName, this, declFlags, TXS_STACK, TxIdentifier(""));
         this->symbol_declaration_pass( outerCtx, lexContext, declFlags);
@@ -452,30 +452,29 @@ public:
 
 
 class TxExpErrDeclNode : public TxDeclarationNode {
-    ExpectedErrorContext expErrCtx;
+    ExpectedErrorClause* expError;
 
 public:
     TxDeclarationNode* body;
 
-    TxExpErrDeclNode(const TxLocation& parseLocation, int expected_error_count, int prev_encountered_errors, TxDeclarationNode* body)
-        : TxDeclarationNode(parseLocation, (body ? body->get_decl_flags() : TXD_NONE) | TXD_EXPERRBLOCK),
-          expErrCtx( expected_error_count, prev_encountered_errors, prev_encountered_errors ), body(body)  {
+    TxExpErrDeclNode( const TxLocation& parseLocation, ExpectedErrorClause* expError, TxDeclarationNode* body )
+        : TxDeclarationNode( parseLocation, (body ? body->get_decl_flags() : TXD_NONE) | TXD_EXPERRBLOCK),
+          expError( expError ), body( body )  {
     }
 
     virtual TxExpErrDeclNode* make_ast_copy() const override {
-        return new TxExpErrDeclNode( this->parseLocation, this->expErrCtx.expected_error_count, this->expErrCtx.prev_encountered_errors,
-                                     this->body->make_ast_copy() );
+        return new TxExpErrDeclNode( this->parseLocation, nullptr, this->body->make_ast_copy() );
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) override {
-        this->set_context( LexicalContext( lexContext, lexContext.scope(), &expErrCtx ) );
+        this->set_context( LexicalContext( lexContext, lexContext.scope(), expError ) );
         if (isExpErrorDecl)
             CERROR(this, "Can't next Expected Error constructs in a declaration");
         if (this->body) {
             if (! this->context().is_reinterpretation()) {
-                this->get_parse_location().parserCtx->begin_exp_err(this->parseLocation);
+                this->get_parse_location().parserCtx->begin_exp_err( this );
                 this->body->symbol_declaration_pass( this->context(), true );
-                this->expErrCtx.encountered_error_count += this->get_parse_location().parserCtx->end_exp_err(this->parseLocation);
+                this->get_parse_location().parserCtx->end_exp_err( this->parseLocation );
             }
             else
                 this->body->symbol_declaration_pass( this->context(), true );
@@ -485,18 +484,12 @@ public:
     virtual void symbol_resolution_pass() override {
         auto ctx = this->context();
         if (! ctx.is_reinterpretation()) {
-            this->get_parse_location().parserCtx->begin_exp_err(this->parseLocation);
-            if (this->body)
+            if (this->body) {
+                this->get_parse_location().parserCtx->begin_exp_err( this );
                 this->body->symbol_resolution_pass();
-            this->expErrCtx.encountered_error_count += this->get_parse_location().parserCtx->end_exp_err(this->parseLocation);
-            if ( this->expErrCtx.expected_error_count <  0 ) {
-                if ( this->expErrCtx.encountered_error_count == 0 )
-                    CERROR(this, "COMPILER TEST FAIL: Expected one or more compilation errors but encountered "
-                                 << this->expErrCtx.encountered_error_count);
+                this->get_parse_location().parserCtx->end_exp_err( this->parseLocation );
             }
-            else if ( this->expErrCtx.expected_error_count != this->expErrCtx.encountered_error_count )
-                CERROR(this, "COMPILER TEST FAIL: Expected " << this->expErrCtx.expected_error_count
-                              << " compilation errors but encountered " << this->expErrCtx.encountered_error_count);
+            finalize_expected_error_clause( this );
         }
         else if (this->body)
             this->body->symbol_resolution_pass();

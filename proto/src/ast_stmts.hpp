@@ -206,7 +206,7 @@ public:
             stmt->symbol_declaration_pass( lexContext);
     }
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt=false ) override {
-        LexicalContext suiteContext(lexContext, lexContext.scope()->create_code_block_scope());
+        LexicalContext suiteContext( lexContext, lexContext.scope()->create_code_block_scope( *this ) );
         this->symbol_declaration_pass_no_subscope( suiteContext );
     }
 
@@ -430,27 +430,26 @@ public:
 
 
 class TxExpErrStmtNode : public TxStatementNode {
-    ExpectedErrorContext expErrCtx;
+    ExpectedErrorClause* expError;
 
 public:
     TxStatementNode* body;
 
-    TxExpErrStmtNode(const TxLocation& parseLocation, int expected_error_count, int prev_encountered_errors, TxStatementNode* body)
-        : TxStatementNode(parseLocation), expErrCtx( expected_error_count, prev_encountered_errors, prev_encountered_errors ), body(body)  { }
+    TxExpErrStmtNode( const TxLocation& parseLocation, ExpectedErrorClause* expError, TxStatementNode* body )
+        : TxStatementNode( parseLocation ), expError( expError ), body( body )  { }
 
     virtual TxExpErrStmtNode* make_ast_copy() const override {
-        return new TxExpErrStmtNode( this->parseLocation, this->expErrCtx.expected_error_count, this->expErrCtx.prev_encountered_errors,
-                                     this->body->make_ast_copy() );
+        return new TxExpErrStmtNode( this->parseLocation, nullptr, this->body->make_ast_copy() );
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt=false ) override {
-        this->set_context( LexicalContext( lexContext, lexContext.scope()->create_code_block_scope("EE"), &expErrCtx ) );
+        this->set_context( LexicalContext( lexContext, lexContext.scope()->create_code_block_scope( *this, "EE"), expError ) );
         if (isExpErrorStmt)
             CERROR(this, "Can't next Expected Error constructs in a statement");
         if (! this->context().is_reinterpretation()) {
-            this->get_parse_location().parserCtx->begin_exp_err(this->parseLocation);
+            this->get_parse_location().parserCtx->begin_exp_err( this );
             this->body->symbol_declaration_pass( this->context(), true );
-            this->expErrCtx.encountered_error_count += this->get_parse_location().parserCtx->end_exp_err(this->parseLocation);
+            this->get_parse_location().parserCtx->end_exp_err( this->parseLocation );
         }
         else
             this->body->symbol_declaration_pass( this->context(), true );
@@ -459,16 +458,10 @@ public:
     virtual void symbol_resolution_pass() override {
         auto ctx = this->context();
         if (! ctx.is_reinterpretation()) {
-            this->get_parse_location().parserCtx->begin_exp_err(this->parseLocation);
+            this->get_parse_location().parserCtx->begin_exp_err( this );
             this->body->symbol_resolution_pass();
-            this->expErrCtx.encountered_error_count += this->get_parse_location().parserCtx->end_exp_err(this->parseLocation);
-            if ( this->expErrCtx.expected_error_count <  0 ) {
-                if ( this->expErrCtx.encountered_error_count == 0 )
-                    CERROR(this, "COMPILER TEST FAIL: Expected one or more compilation errors but encountered " << this->expErrCtx.encountered_error_count);
-            }
-            else if ( this->expErrCtx.expected_error_count != this->expErrCtx.encountered_error_count )
-                CERROR(this, "COMPILER TEST FAIL: Expected " << this->expErrCtx.expected_error_count
-                              << " compilation errors but encountered " << this->expErrCtx.encountered_error_count);
+            this->get_parse_location().parserCtx->end_exp_err( this->parseLocation );
+            finalize_expected_error_clause( this );
         }
         else
             this->body->symbol_resolution_pass();

@@ -11,6 +11,10 @@ const TxLocation& TxEntity::get_parse_location() const {
     return this->declaration->get_definer()->get_parse_location();
 }
 
+ExpectedErrorClause* TxEntity::exp_err_ctx() const {
+    ASSERT(this->declaration, "NULL declaration in " << this);
+    return this->declaration->get_definer()->exp_err_ctx();
+}
 
 
 int TxField::get_decl_storage_index() const {

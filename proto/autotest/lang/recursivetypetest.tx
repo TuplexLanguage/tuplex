@@ -1,3 +1,4 @@
+## Test valid and invalid recursive type definitions
 
 type Node derives Tuple {
     parent : Ref<Node>;
@@ -25,7 +26,13 @@ type Node derives Tuple {
 }
 
 
-## data recursion via reference OK
+## guard against recursive type definitions:
+
+#experr: type First Secnd;
+#experr: type Secnd First;
+
+
+## data recursion via reference is OK:
 
 type A {
     bref : &B;
@@ -43,12 +50,27 @@ type AA {
 }
 type BB {
     aaref : &AA;
-    ## FIXME #experr: aaobj : AA;
+    aaobj : AA;
 }
 
 type CC {
-    ## FIXME #experr: ccobj : CC;
+    ccobj : CC;
 }
+
+
+## generic type can't specify itself as a base type's type parameter (except via reference):
+
+type GenType<T> {
+    member : T;
+}
+
+type SpecTypeOk    GenType<Ref<SpecTypeOk>>;
+
+#experr: type SpecTypeErr   GenType<SpecTypeErr>;
+
+#experr: type SpecTypeErrA  GenType<SpecTypeErrB>;
+#experr: type SpecTypeErrB  GenType<SpecTypeErrA>;
+
 
 
 main()->Int {

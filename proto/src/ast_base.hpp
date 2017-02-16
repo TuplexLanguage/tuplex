@@ -90,6 +90,10 @@ public:
         return this->parseLocation;
     }
 
+    virtual ExpectedErrorClause* exp_err_ctx() const override {
+        return this->lexContext.exp_error();
+    }
+
     inline unsigned get_node_id() const { return this->nodeId; }
 
     /** Creates a copy of this node and all its descendants for purpose of generic specialization. */
@@ -163,7 +167,7 @@ public:
         this->set_context(LexicalContext(module));
         if (! identNode->ident.is_qualified())
             CERROR(this, "can't import unqualified identifier '" << identNode->ident << "'");
-        module->register_import(identNode->ident);
+        module->register_import( *this, identNode->ident );
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
@@ -213,7 +217,7 @@ public:
     }
 
     virtual void symbol_declaration_pass(TxModule* parent) {
-        this->module = parent->declare_module(this->identNode->ident);
+        this->module = parent->declare_module( *this, this->identNode->ident );
 
         if (this->imports) {
             for (auto imp : *this->imports)

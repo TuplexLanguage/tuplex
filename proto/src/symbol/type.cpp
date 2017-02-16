@@ -57,7 +57,11 @@ std::string TxTypeSpecialization::to_string() const { return "specialization of 
 
 const TxLocation& TxType::get_parse_location() const {
     return (this->get_declaration() ? this->get_declaration()->get_definer()->get_parse_location()
-                                    : this->get_nearest_declaration()->get_symbol()->get_root_scope()->types().get_builtin_location());
+                                    : this->get_nearest_declaration()->get_symbol()->get_root_scope()->root_origin().get_parse_location());
+}
+
+ExpectedErrorClause* TxType::exp_err_ctx() const {
+    return (this->get_declaration() ? this->get_declaration()->get_definer()->exp_err_ctx() : nullptr);
 }
 
 TxParserContext* TxType::get_parser_context() const {
@@ -278,11 +282,11 @@ void TxType::prepare_type_members() {
     ASSERT(! this->prepared, "Can't prepare type more than once: " << this);
     this->prepared = true;
 
-    ExpectedErrorContext* expErrWholeType = nullptr;
+    ExpectedErrorClause* expErrWholeType = nullptr;
     if (this->get_decl_flags() & TXD_EXPERRBLOCK) {
-        expErrWholeType = this->get_declaration()->get_definer()->context().exp_err_ctx();
+        expErrWholeType = this->get_declaration()->get_definer()->context().exp_error();
         ASSERT(expErrWholeType, "TXD_EXPERRBLOCK flag set but type definer has no ExpErr context: " << this->get_declaration());
-        this->get_parser_context()->begin_exp_err(this->get_declaration()->get_definer()->get_parse_location());
+        this->get_parser_context()->begin_exp_err( this->get_declaration()->get_definer() );
     }
 
     // resolve and validate type parameters
@@ -370,11 +374,11 @@ void TxType::prepare_type_members() {
         for (auto fieldDeclI = entitySym->fields_cbegin(); fieldDeclI != entitySym->fields_cend(); fieldDeclI++) {
             auto fieldDecl = *fieldDeclI;
 
-            ExpectedErrorContext* expErrField = nullptr;
+            ExpectedErrorClause* expErrField = nullptr;
             if (fieldDecl->get_decl_flags() & TXD_EXPERRBLOCK) {
-                expErrField = fieldDecl->get_definer()->context().exp_err_ctx();
+                expErrField = fieldDecl->get_definer()->context().exp_error();
                 ASSERT(expErrField, "TXD_EXPERRBLOCK flag set but field definer has no ExpErr context: " << fieldDecl);
-                this->get_parser_context()->begin_exp_err(fieldDecl->get_definer()->get_parse_location());
+                this->get_parser_context()->begin_exp_err( fieldDecl->get_definer() );
             }
 
             if (auto field = fieldDecl->get_definer()->resolve_field()) {
@@ -459,8 +463,7 @@ void TxType::prepare_type_members() {
             }
 
             if (expErrField && !expErrWholeType) {
-                int encountered_error_count = this->get_parser_context()->end_exp_err(fieldDecl->get_definer()->get_parse_location());
-                expErrField->encountered_error_count += encountered_error_count;
+                this->get_parser_context()->end_exp_err(fieldDecl->get_definer()->get_parse_location());
             }
         }
     }
@@ -477,8 +480,7 @@ void TxType::prepare_type_members() {
     }
 
     if (expErrWholeType) {
-        int encountered_error_count = this->get_parser_context()->end_exp_err(this->get_declaration()->get_definer()->get_parse_location());
-        expErrWholeType->encountered_error_count += encountered_error_count;
+        this->get_parser_context()->end_exp_err(this->get_declaration()->get_definer()->get_parse_location());
     }
 }
 

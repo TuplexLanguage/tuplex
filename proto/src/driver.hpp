@@ -9,6 +9,8 @@
 
 #include "location.hpp"
 #include "identifier.hpp"
+#include "tx_error.hpp"
+
 
 namespace yy {
     class location;
@@ -46,6 +48,12 @@ class TxDriver {
 
     const TxOptions options;
 
+
+    /** Parser context representing the built-in constructs without actual source code. */
+    TxParserContext* builtinParserContext;
+
+    /** parse location used for built-in constructs without actual source code */
+    TxParseOrigin* builtinOrigin;
 
     /*--- these members reflect the current compilation state ---*/
     /** the currently compiled tuplex package */
@@ -128,12 +136,13 @@ class TxParserContext {
     std::string* _currentInputFilename = nullptr;
 
     /** true if within an EXPERR block */
-    bool exp_err = false;
-    /** number or errors encountered within an EXPERR block */
-    int exp_err_count = 0;
+    ExpectedErrorClause* expError = nullptr;
+    ///** number or errors encountered within an EXPERR block */
+    //int exp_err_count = 0;
 
-    void emit_comp_error(char const *msg);
-    void emit_comp_warning(char const *msg);
+    void emit_comp_error( char const *msg, ExpectedErrorClause* expErrorContext );
+    void emit_comp_warning( char const *msg );
+    void emit_comp_info( char const *msg );
 
 public:
     /** set directly by parser */
@@ -154,7 +163,7 @@ public:
     }
 
     /** Checks that the module name is valid in relation to the currently parsed source file and its file name/path. */
-    bool validate_module_name(const TxLocation& loc, const TxIdentifier& moduleName);
+    bool validate_module_name(const TxParseOrigin* origin, const TxIdentifier& moduleName);
 
     /** Add a module to the currently compiling package.
      * The Tuplex source path will be searched for the module's source.
@@ -166,14 +175,15 @@ public:
 
 
     // Compilation error handling.
+    void cerror(const TxParseOrigin* origin, const std::string& msg);
+    void cwarning(const TxParseOrigin* origin, const std::string& msg);
+    void cinfo(const TxLocation& loc, const std::string& msg);
 
-    void cerror(const TxLocation& loc, char const *fmt, ...);
+    /** should only be used when ParseOrigin is not available */
     void cerror(const TxLocation& loc, const std::string& msg);
-    void cwarning(const TxLocation& loc, char const *fmt, ...);
-    void cwarning(const TxLocation& loc, const std::string& msg);
 
     // Compilation error handling.
-    void begin_exp_err(const TxLocation& loc);
-    int    end_exp_err(const TxLocation& loc);
-    bool    is_exp_err();
+    void begin_exp_err( const TxParseOrigin* origin );
+    void begin_exp_err( const TxLocation& loc, ExpectedErrorClause* expError );
+    ExpectedErrorClause* end_exp_err( const TxLocation& loc );
 };

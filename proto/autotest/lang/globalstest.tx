@@ -1,3 +1,5 @@
+## Test global fields
+
 CONSTANT : tx.Int = 17;
 
 CONSTANT_EXPR : tx.Int = -3+4;

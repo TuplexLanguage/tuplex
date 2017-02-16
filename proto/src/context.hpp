@@ -2,6 +2,8 @@
 
 #include "util/assert.hpp"
 
+#include "tx_error.hpp"
+
 #include "symbol/symbol.hpp"
 
 class TxModule;
@@ -17,25 +19,13 @@ namespace llvm {
 }
 
 
-struct ExpectedErrorContext {
-    const int expected_error_count;
-    const int prev_encountered_errors;
-    int encountered_error_count;
-
-    ExpectedErrorContext( int expected_error_count, int prev_encountered_errors, int encountered_error_count )
-       : expected_error_count(expected_error_count),
-         prev_encountered_errors(prev_encountered_errors),
-         encountered_error_count(encountered_error_count) { }
-};
-
-
 /** Represents the lexical source scope of a syntax node / entity.
  */
 class LexicalContext : public Printable {
     TxScopeSymbol* _scope;
     TxTypeDeclaration* constructedObjTypeDecl;
     bool reinterpretation;  // true if this is a reinterpretation (specialization) of an AST
-    ExpectedErrorContext* expErrCtx;
+    ExpectedErrorClause* expErrCtx;
 
     // FUTURE: Maybe represent/refer to the closest surrounding statement here, which is not equivalent to scope
     //         (a scope can have several statements, a statement may create subscopes).
@@ -71,14 +61,14 @@ public:
 
     /** Constructs a lexical context that is a sub-context of the provided context, and is an expected-error context.
      * The provided scope must be the same or a sub-scope of the parent's scope. */
-    LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope, ExpectedErrorContext* expErrCtx )
+    LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope, ExpectedErrorClause* expErrCtx )
             : _scope(scope), constructedObjTypeDecl(parentContext.constructedObjTypeDecl),
               reinterpretation(parentContext.reinterpretation), expErrCtx(expErrCtx)  {
         ASSERT(scope, "scope is NULL");
     }
 
     /** Constructs a new lexical context for a given scope, and that may represent a reinterpretation of a lexical unit. */
-    LexicalContext( TxScopeSymbol* scope, ExpectedErrorContext* expErrCtx, bool reinterpretation )
+    LexicalContext( TxScopeSymbol* scope, ExpectedErrorClause* expErrCtx, bool reinterpretation )
         : _scope(scope), constructedObjTypeDecl(), reinterpretation(reinterpretation), expErrCtx(expErrCtx) { }
 
 
@@ -101,9 +91,9 @@ public:
     /** Returns true if this is within a reinterpretation (specialization) of an AST. */
     inline bool is_reinterpretation() const { return ( this->reinterpretation ); }
 
-    /** Returns the ExpectedErrorContext if this context is within an expected-error declaration / statement / block,
+    /** Returns the ExpectedErrorClause if this context is within an expected-error declaration / statement / block,
      * otherwise nullptr. */
-    inline ExpectedErrorContext* exp_err_ctx() const { return expErrCtx; }
+    inline ExpectedErrorClause* exp_error() const { return expErrCtx; }
 
     /** If non-null, this context is within a constructor and the declaration for the constructed object type is returned. */
     inline TxTypeDeclaration* get_constructed() { return this->constructedObjTypeDecl; }

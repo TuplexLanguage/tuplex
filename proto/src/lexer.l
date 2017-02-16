@@ -189,7 +189,7 @@ extern "C" int yywrap() { return 0; }
 c\"(\\.|[^\\"])*\"      { yylval->build(std::string (yytext)); return token::LIT_CSTRING; }
 
 
-.                       { context->cerror (*yylloc, "invalid character");
+.                       { parserCtx->cerror (*yylloc, "invalid character");
                           yyterminate(); }
 
 %%

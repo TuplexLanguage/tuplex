@@ -197,7 +197,8 @@ static void declare_any_members(const TxTypeDeclaration* anyDecl) {
 
 
 TypeRegistry::TypeRegistry(TxPackage& package)
-        : package(package), builtinLocation(nullptr, 0, 0, new TxParserContext(package.driver(), TxIdentifier(""), "")) {
+        : package(package), builtinLocation( package.root_origin().get_parse_location() ) {
+          //builtinLocation(nullptr, 0, 0, new TxParserContext(package.driver(), TxIdentifier(""), "")) {
     this->createdTypes = new std::vector<TxType*>();
 }
 
@@ -249,7 +250,7 @@ void TypeRegistry::add_builtin_floating(TxModule* module, BuiltinTypeId id, std:
 
 /** Initializes the built-in symbols. */
 void TypeRegistry::initializeBuiltinSymbols() {
-    auto module = this->package.declare_module(* new TxIdentifier(BUILTIN_NS), true);
+    auto module = this->package.declare_module( this->package.root_origin(), * new TxIdentifier(BUILTIN_NS), true );
     LexicalContext moduleCtx(module);
 
     // create the Any root type:
@@ -445,7 +446,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 //    TxBuiltinTypeDefiner* strProd = new TxBuiltinTypeDefiner(strRec);
 //    builtinModule->declareType(strProd->name, TXD_PUBLIC, false, *strProd);
 
-    auto txCfuncModule = this->package.declare_module(TxIdentifier(BUILTIN_NS ".c"), true);
+    auto txCfuncModule = this->package.declare_module( this->package.root_origin(), TxIdentifier(BUILTIN_NS ".c"), true);
     {   // declare tx.c.puts:
 //        auto implTypeName = "UByte$Ref";
 //        auto ubyteRefDef = new TxBuiltinTypeDefiner();
@@ -907,7 +908,7 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
             auto baseTypeExpr = dynamic_cast<TxTypeExpressionNode*>( baseDecl->get_definer() );
             ASSERT(baseTypeExpr, "baseTypeExpression not a TxTypeExpressionNode: " << baseDecl->get_definer());
             ASSERT(baseTypeExpr->context().scope() == baseScope, "Unexpected lexical scope: " << baseTypeExpr->context().scope() << " != " << baseScope);
-            LexicalContext newBaseContext = LexicalContext( baseScope, declaration->get_definer()->context().exp_err_ctx(), true );
+            LexicalContext newBaseContext = LexicalContext( baseScope, declaration->get_definer()->context().exp_error(), true );
 
             newBaseTypeNameStr = newBaseContext.scope()->make_unique_name(newBaseTypeNameStr, true);
             auto newBaseTypeExpr = baseTypeExpr->make_ast_copy();

@@ -5,13 +5,32 @@
 
 #include "location.hpp"
 
-class TxDriver;
+
+struct ExpectedErrorClause {
+    const int expected_error_count;
+    const int prev_encountered_errors;
+    int encountered_error_count;
+
+    ExpectedErrorClause( int expected_error_count )
+       : expected_error_count( expected_error_count ),
+         prev_encountered_errors(0), encountered_error_count(0) { }
+
+    ExpectedErrorClause( int expected_error_count, int prev_encountered_errors, int encountered_error_count )
+       : expected_error_count(expected_error_count),
+         prev_encountered_errors(prev_encountered_errors),
+         encountered_error_count(encountered_error_count) { }
+};
+
 
 class TxParseOrigin {
 public:
     virtual ~TxParseOrigin() = default;
 
+    /** Returns the parse location of this parse origin. */
     virtual const TxLocation& get_parse_location() const = 0;
+
+    /** Returns the expected-error clause of this parse origin, or null if none. */
+    virtual ExpectedErrorClause* exp_err_ctx() const = 0;
 };
 
 
@@ -21,11 +40,14 @@ void cerror(const TxParseOrigin* origin, const std::string& msg);
 /** Emits a compiler warning message including the source code origin where it likely occurred. */
 void cwarning(const TxParseOrigin* origin, const std::string& msg);
 
-/** Emits a compiler error message. */
-void cerror(const TxLocation& location, const std::string& msg);
+/** Emits a compiler error message including the source code origin where it likely occurred. */
+void cerror(const TxParseOrigin& origin, const std::string& msg);
 
-/** Emits a compiler warning message. */
-void cwarning(const TxLocation& location, const std::string& msg);
+/** Emits a compiler warning message including the source code origin where it likely occurred. */
+void cwarning(const TxParseOrigin& origin, const std::string& msg);
+
+
+void finalize_expected_error_clause( const TxParseOrigin* origin );
 
 
 #ifndef NO_CERRORS

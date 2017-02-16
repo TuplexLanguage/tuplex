@@ -21,13 +21,15 @@ class TxPackage : public TxModule {
     const TxEntitySymbol* mainFunc;
 
 public:
-    TxPackage(TxDriver& driver);
+    TxPackage( TxDriver& driver, const TxParseOrigin& rootOrigin );
 
 
     inline TxDriver& driver() const {
         return this->_driver;
     }
 
+    /** Gets the "root parse origin", corresponding to the package scope (the namespace root). */
+    inline const TxParseOrigin& root_origin() const { return this->origin; }
 
     inline const TypeRegistry& types() const { return *this->typeRegistry; }
     inline TypeRegistry& types() {

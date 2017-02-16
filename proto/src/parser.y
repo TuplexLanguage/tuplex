@@ -9,7 +9,7 @@
 //%define parse.assert
 
 // Pass the parsing context to yylex() and yyparse()
-%param { TxParserContext* context }
+%param { TxParserContext* parserCtx }
 
 //%locations  // populates YYLTYPE
 %define api.location.type {TxLocation}
@@ -35,7 +35,7 @@ struct TxModuleMembers {
   yy::TxParser::token_type                         \
   yylex (yy::TxParser::semantic_type* yylval,      \
          yy::TxParser::location_type* yylloc,      \
-         TxParserContext* context)
+         TxParserContext* parserCtx)
 // declare yylex for the parser's sake
 YY_DECL;
 }
@@ -43,9 +43,10 @@ YY_DECL;
 %{
 #include "tx_lang_defs.hpp"
 #include "tx_operations.hpp"
+#include "tx_error.hpp"
 
-#define BEGIN_TXEXPERR(loc) context->begin_exp_err(loc);
-#define END_TXEXPERR(loc)   context->end_exp_err(loc);
+#define BEGIN_TXEXPERR(loc, expError) parserCtx->begin_exp_err(loc, expError)
+#define END_TXEXPERR(loc)             parserCtx->end_exp_err(loc)
 #define TX_SYNTAX_ERROR     { yyerrok; }
 
 // modified YYLLOC_DEFAULT to ensure full location state copying:
@@ -70,8 +71,8 @@ YY_DECL;
 {
     // Initialize the initial location.
     // Afterward new locations are computed relatively to the previous locations: the file name will be propagated.
-    @$.begin.filename = @$.end.filename = context->current_input_filepath();
-    @$.parserCtx = context;
+    @$.begin.filename = @$.end.filename = parserCtx->current_input_filepath();
+    @$.parserCtx = parserCtx;
 };
 
 
@@ -194,9 +195,10 @@ YY_DECL;
 parsing_unit : opt_module_decl
                opt_import_stmts
                opt_module_members
-                   { $$ = new TxParsingUnitNode(@2, new TxModuleNode(@1, $1, $2, &$3->declarations, &$3->modules));
-                     context->validate_module_name(@1, $1->ident);
-                     context->parsingUnit = $$;
+                   { auto module = new TxModuleNode(@1, $1, $2, &$3->declarations, &$3->modules);
+                     $$ = new TxParsingUnitNode(@2, module);
+                     parserCtx->validate_module_name(module, $1->ident);
+                     parserCtx->parsingUnit = $$;
                    }
     ;
 
@@ -220,7 +222,7 @@ module_members : member_declaration
 sub_module : KW_MODULE compound_identifier
                LBRACE  opt_import_stmts  opt_module_members  RBRACE
                  { $$ = new TxModuleNode(@1, $2, $4, &$5->declarations, &$5->modules);
-                   context->validate_module_name(@2, $2->ident);
+                   parserCtx->validate_module_name($$, $2->ident);
                  }
     ;
 
@@ -258,8 +260,8 @@ import_statements  : import_statement
 import_statement   : KW_IMPORT compound_identifier opt_sc
                         { $$ = new TxImportNode(@1, $2);
                           if ($2->ident.is_qualified())
-                              if (! context->add_import($2->ident.parent()))
-                                  context->cerror(@1, "Failed to import module (source not found): " + $2->ident.parent().to_string()); }
+                              if (! parserCtx->add_import($2->ident.parent()))
+                                  parserCtx->cerror(@1, "Failed to import module (source not found): " + $2->ident.parent().to_string()); }
                    | KW_IMPORT error opt_sc  { $$ = NULL; }
                    ;
 
@@ -285,12 +287,10 @@ member_declaration
     |   experr_decl      { $$ = $1; }
     ;
 
-experr_decl : KW_EXPERR COLON
-                { BEGIN_TXEXPERR(@1); }  member_declaration
-                    { int enc = END_TXEXPERR(@4); $$ = new TxExpErrDeclNode(@1, -1, enc, $4); }
-            | KW_EXPERR LIT_DEC_INT COLON
-                { BEGIN_TXEXPERR(@1); }  member_declaration
-                    { int enc = END_TXEXPERR(@5); $$ = new TxExpErrDeclNode(@1, std::stoi($2), enc, $5); }
+experr_decl : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(-1)); }
+              member_declaration           { $$ = new TxExpErrDeclNode(@1, END_TXEXPERR(@4), $4); }
+            | KW_EXPERR LIT_DEC_INT COLON  { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(std::stoi($2))); }
+              member_declaration           { $$ = new TxExpErrDeclNode(@1, END_TXEXPERR(@5), $5); }
             ;
 
 
@@ -577,12 +577,10 @@ other_stmt
     |   error SEMICOLON            %prec STMT    { $$ = new TxNoOpStmtNode(@1); TX_SYNTAX_ERROR; }
     ;
 
-experr_stmt : KW_EXPERR COLON
-                { BEGIN_TXEXPERR(@1); }  statement
-                    { int enc = END_TXEXPERR(@4); $$ = new TxExpErrStmtNode(@1, -1, enc, static_cast<TxStatementNode*>($4)); }
-            | KW_EXPERR LIT_DEC_INT COLON
-                { BEGIN_TXEXPERR(@1); }  statement
-                    { int enc = END_TXEXPERR(@5); $$ = new TxExpErrStmtNode(@1, std::stoi($2), enc, $5); }
+experr_stmt : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(-1)); }
+              statement                    { $$ = new TxExpErrStmtNode(@1, END_TXEXPERR(@4), static_cast<TxStatementNode*>($4)); }
+            | KW_EXPERR LIT_DEC_INT COLON  { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(std::stoi($2))); }
+              statement                    { $$ = new TxExpErrStmtNode(@1, END_TXEXPERR(@5), $5); }
             ;
 
 elementary_stmt
@@ -649,5 +647,5 @@ assignee_expr  // expressions capable of (but not guaranteed) to produce an lval
 %%
 
 void yy::TxParser::error (const location_type& l, const std::string& m) {
-    context->cerror (l, m);
+    parserCtx->cerror (l, m);
 }

@@ -258,6 +258,8 @@ public:
 
     virtual const TxLocation& get_parse_location() const override;
 
+    virtual ExpectedErrorClause* exp_err_ctx() const override;
+
     virtual TxParserContext* get_parser_context() const;
 
     virtual bool validate() const override { return true; }

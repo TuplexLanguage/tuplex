@@ -32,6 +32,8 @@ public:
 
     virtual const TxLocation& get_parse_location() const override;
 
+    virtual ExpectedErrorClause* exp_err_ctx() const override;
+
     TxScopeSymbol* get_symbol() const {
         return (this->declaration ? this->declaration->get_symbol() : nullptr);
     }

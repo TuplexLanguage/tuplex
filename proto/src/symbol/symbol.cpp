@@ -43,12 +43,12 @@ std::string TxScopeSymbol::make_unique_name(const std::string& baseName, bool su
 }
 
 
-TxScopeSymbol* TxScopeSymbol::create_code_block_scope(const std::string& plainName) {
+TxScopeSymbol* TxScopeSymbol::create_code_block_scope( const TxParseOrigin& origin, const std::string& plainName ) {
     std::string baseName = plainName + '$';
     std::string uniqueName = this->make_unique_name(baseName);
     TxScopeSymbol* scope = new TxScopeSymbol(this, uniqueName);
     //scope->inExpErrBlock |= isExpErrBlock;
-    bool success = this->declare_symbol(scope);
+    bool success = this->declare_symbol(origin, scope);
     ASSERT(success, "failed to insert duplicate subscope name '" << baseName << "." << uniqueName << "'");
     this->LOGGER().trace("-->            %s", scope->get_full_name().to_string().c_str());
     return scope;
@@ -99,7 +99,7 @@ const TxScopeSymbol* TxScopeSymbol::get_symbol(const std::string& name) const {
 //    return false;
 //}
 
-bool TxScopeSymbol::declare_symbol(TxScopeSymbol* symbol) {
+bool TxScopeSymbol::declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) {
     if (this->has_symbol(symbol->get_name()))
         return false;
     this->add_symbol(symbol);
@@ -179,7 +179,7 @@ TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName, TxNo
     }
     else {
         entitySymbol = new TxEntitySymbol(this, plainName);
-        this->declare_symbol(entitySymbol);
+        this->declare_symbol( *definingNode, entitySymbol );
         this->LOGGER().trace("    Declared   %s", entitySymbol->to_string().c_str());
 
         // register possible main() function:

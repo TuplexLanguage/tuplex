@@ -48,7 +48,7 @@ class TypeRegistry {
     const TxType* builtinModTypes[BuiltinTypeId_COUNT];
 
     /** parse location used for built-in constructs without actual source code */
-    const TxLocation builtinLocation;
+    const TxLocation& builtinLocation;
 
     std::vector<TxTypeExpressionNode*> enqueuedSpecializations;
 
@@ -82,7 +82,8 @@ public:
 
     TypeRegistry(TxPackage& package);
 
-    inline const TxLocation& get_builtin_location() const { return this->builtinLocation; }
+//    /** Gets the parse origin that corresponds to the built-in constructs. */
+//    inline const TxLocation& get_builtin_location() const { return this->builtinLocation; }
 
     /** to be invoked immediately after object construction */
     void initializeBuiltinSymbols();

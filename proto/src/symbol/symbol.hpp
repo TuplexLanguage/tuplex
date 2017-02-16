@@ -7,6 +7,7 @@
 #include "identifier.hpp"
 #include "tx_declaration_flags.hpp"
 #include "tx_field_storage.hpp"
+#include "tx_error.hpp"
 
 
 class TxPackage;
@@ -74,9 +75,6 @@ private:
     /** The root (outer-most) scope which is the TxPackage (equal to this if this is the root scope). */
     TxPackage* root;
 
-//    /** true if this scope is within an expected-error block */
-//    bool inExpErrBlock;
-
     /** This scope's member symbols. The identifier keys are the symbols' plain names within this namespace. */
     SymbolMap symbols;
     /** Internal vector containing this module's symbol names in insertion order. */
@@ -101,7 +99,7 @@ protected:
      * Subclasses may override this method and add additional rules.
      * @return true if successful, false otherwise
      */
-    virtual bool declare_symbol(TxScopeSymbol* symbol);
+    virtual bool declare_symbol(const TxParseOrigin& origin, TxScopeSymbol* symbol);
 
     /** Prepares an entity declaration (adding to an existing or a newly created entity symbol within this scope). */
     virtual TxEntitySymbol* declare_entity(const std::string& plainName, TxNode* definingNode);
@@ -133,9 +131,6 @@ public:
     /** Gets the top-most outer scope of this symbol, which is the root "package" scope. */
     inline TxPackage* get_root_scope() const { return this->root; }
 
-//    /** true if this scope is within an expected-error block */
-//    inline bool in_exp_err_block() const { return this->inExpErrBlock; }
-
 
     /*--- lexical scope tracking ---*/
 
@@ -145,7 +140,7 @@ public:
      */
     std::string make_unique_name(const std::string& baseName, bool suppressZeroSuffix=false) const;
 
-    TxScopeSymbol* create_code_block_scope( const std::string& plainName = "" ); //, bool isExpErrBlock=false);
+    TxScopeSymbol* create_code_block_scope( const TxParseOrigin& origin, const std::string& plainName = "" );
 
 
     /*--- symbol table handling  ---*/
@@ -224,9 +219,9 @@ class TxEntitySymbol : public TxScopeSymbol {
     TxEntityDeclaration* get_distinct_decl() const;
 
 protected:
-    virtual bool declare_symbol(TxScopeSymbol* symbol) override {
+    virtual bool declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) override {
         if (this->typeDeclaration)
-            return TxScopeSymbol::declare_symbol(symbol);
+            return TxScopeSymbol::declare_symbol( origin, symbol );
         else {
             ASSERT(false, "Can't add member symbol (" << symbol << ") to a field symbol: " << this->get_full_name());
             return false;
