@@ -4,6 +4,11 @@ CONSTANT : tx.Int = 17;
 
 CONSTANT_EXPR : tx.Int = -3+4;
 
+CONSTANT_EXPR2 : tx.Int = CONSTANT + 5;
+
+## TODO: support proper constant code generation for statically constant value expressions
+##CONSTANT_EXPR3 : tx.Int = CONSTANT_EXPR2 + 5;
+
 COPY := CONSTANT;
 
 #experr 1: NONINITED : Int;
@@ -31,7 +36,7 @@ FIELDA := FIELDB;
 FIELDB := CONSTANT;
 
 ## TODO: support for constant initializer *expressions* with reverse lexical order dependency
-##FIELDC := FIELDD + 3;
+##FIELDC := FIELDD;
 FIELDD := CONSTANT + 2;
 
 ## currently function calls (including pure ones) are regarded as non-statically-constant:
@@ -79,10 +84,12 @@ type Compound {
 
 main() {
     assert CONSTANT + CONSTANT_EXPR == 18;
+    assert CONSTANT_EXPR2 == 22;
+    ##assert CONSTANT_EXPR3 == 27;
     assert COPY == 17;
     assert FIELDA == 17;
     assert FIELDB == 17;
-    ##assert FIELDC == 22;
+    ##assert FIELDC == 19;
     assert FIELDD == 19;
     assert Compound.OK == 4;
 }

@@ -172,9 +172,14 @@ public:
 };
 
 
+class TxFieldDeclNode;
+
 class TxFieldDefNode : public TxFieldDefiningNode {
     const std::string fieldName;  // the original source field name
     std::string declName = "";  // the declared field name
+
+    /** injected by non-local field declaration if applicable */
+    TxFieldDeclNode* fieldDeclNode = nullptr;
 
     const TxFieldDeclaration* declaration = nullptr;
 
@@ -227,8 +232,14 @@ protected:
     virtual const TxField* define_field() override {
         LOGGER().trace("defining  field of %s", this->to_string().c_str());
         ASSERT(this->attempt_get_type(), "Expected non-NULL type in " << this);
-        if (this->declaration)
-            return new TxField(this->declaration, this->attempt_get_type());
+        if (this->declaration) {
+            if (auto field = new TxField(this->declaration, this->attempt_get_type())) {
+// experimental
+//                if (this->fieldDeclNode && !this->context().exp_error())
+//                    this->context().package()->driver().register_nonlocal_field_usage( this->fieldDeclNode );
+                return field;
+            }
+        }
         // else is not an error - function type's arguments & return type lack field declarations
         return nullptr;
     }
@@ -267,8 +278,9 @@ public:
         this->symbol_declaration_pass( outerCtx, lexContext, declFlags);
     }
 
-    void symbol_declaration_pass_nonlocal_field( LexicalContext& lexContext, TxDeclarationFlags declFlags,
+    void symbol_declaration_pass_nonlocal_field( LexicalContext& lexContext, TxFieldDeclNode* fieldDeclNode, TxDeclarationFlags declFlags,
                                                  TxFieldStorage storage, const TxIdentifier& dataspace ) {
+        this->fieldDeclNode = fieldDeclNode;  // enables support for usage-order code generation of non-local fields
         TxDeclarationFlags fieldFlags = declFlags;
         if (this->fieldName != "self")
             this->declName = this->fieldName;
@@ -359,6 +371,11 @@ public:
 /** Non-local field declaration */
 class TxFieldDeclNode : public TxDeclarationNode {
     const bool isMethodSyntax = false;
+
+// experimental
+//    /** code value generated for this node (supports generation in usage order instead of lexical order) */
+//    mutable llvm::Value* codeGenValue = nullptr;
+
 public:
     TxFieldDefNode* field;
 

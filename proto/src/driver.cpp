@@ -180,6 +180,11 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
 }
 
 
+void TxDriver::register_nonlocal_field_usage( TxFieldDeclNode* fieldDeclNode ) {
+    this->usageOrderedNonlocalFieldDecls.push_back( fieldDeclNode );
+}
+
+
 inline bool begins_with(const std::string& str, const std::string& tail) {
     return str.length() >= tail.length() && ! str.compare(0, tail.length(), tail);
 }
@@ -252,10 +257,18 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
 
     // emit bytecode for the program:
 
+    // first generate non-local fields in usage order (instead of lexical order):
+    for (auto fieldDeclNode : this->usageOrderedNonlocalFieldDecls) {
+        LOG.note("Pre-generating code for non-local field: %s", fieldDeclNode->get_declaration()->to_string().c_str());
+        genContext.generate_code( fieldDeclNode );
+    }
+
+    // generate the code for the program in lexical order:
     for (auto parserContext : this->parsedASTs) {
         genContext.generate_code( parserContext->parsingUnit );
     }
 
+    // generate the code for the type specializations that are defined by reinterpreted source:
     for (auto specNode : this->package->types().get_enqueued_specializations()) {
         LOG.info("Generating code for enqueued specialization: %s", specNode->get_declaration()->to_string().c_str());
         genContext.generate_code( specNode );

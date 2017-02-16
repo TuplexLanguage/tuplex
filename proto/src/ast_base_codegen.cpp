@@ -1,6 +1,7 @@
 #include "ast_base.hpp"
 #include "llvm_generator.hpp"
 
+#include <llvm/Analysis/ConstantFolding.h>
 
 using namespace llvm;
 
@@ -74,6 +75,9 @@ static Value* make_constant_nonlocal_field(LlvmGenerationContext& context, GenSc
                 return GlobalAlias::create(llvmType, 0, GlobalValue::InternalLinkage,
                                            uniqueName, constantInitializer, &context.llvmModule);
             }
+//            else if (auto constantInitExpr = dyn_cast_or_null<ConstantExpr>(initValue)) {
+//                std::cerr << "It's a constant expression: " << constantInitExpr << std::endl;
+//            }
         }
         else
             context.LOG.error("Global/static constant field %s initializer is not a constant expression", uniqueName.c_str());
@@ -96,6 +100,12 @@ static Value* make_constant_nonlocal_field(LlvmGenerationContext& context, GenSc
 }
 
 Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+// experimental
+//    if (this->codeGenValue) {
+//        context.LOG.note("Code already generated for %-48s", this->to_string().c_str());
+//        return this->codeGenValue;
+//    }
+
     context.LOG.trace("%-48s", this->to_string().c_str());
     if (this->field->typeExpression)
         this->field->typeExpression->code_gen(context, scope);
@@ -150,6 +160,8 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     }
     if (fieldVal)
         context.register_llvm_value(fieldVal->getName(), fieldVal);
+
+//    this->codeGenValue = fieldVal;
     return fieldVal;
 }
 

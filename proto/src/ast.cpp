@@ -108,7 +108,7 @@ void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool 
         storage = (flags & TXD_STATIC) ? TXS_STATIC : TXS_INSTANCE;
     }
 
-    this->field->symbol_declaration_pass_nonlocal_field( lexContext, flags, storage, TxIdentifier("") );
+    this->field->symbol_declaration_pass_nonlocal_field( lexContext, this, flags, storage, TxIdentifier("") );
 }
 
 void TxFieldDeclNode::symbol_resolution_pass() {

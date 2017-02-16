@@ -61,9 +61,9 @@ Make fields be "bindings to entities" rather than "entities" - SORT-OF-DONE
 
 Proper recursive expression checking (fields; types) - DONE
 
-Support recursive type definition by reference (CRTP) (e.g. type Bar Foo< Ref<Bar> >)
-
-Support arbitrary (as long as non-recursive) static declaration order
+Review conversion node handling
+ - should be allocated in node constructors (not decl/resolve passes)
+ - check/fix AST copy in BinOp, UnaryOp
 
 Type reflection, at least for autotesting, some ideas:
     assert static_type(var) == static_type(Ref<Parent>)
@@ -73,21 +73,33 @@ Type reflection, at least for autotesting, some ideas:
 
 
 Make VALUE type parameters proper instance fields and ensure they're correctly initialized
+Proper support for VALUE bindings, and implement correct Array type handling
+
+Simple for-loops
+
+Sequence interfaces
+
+String datatype
+
 
 Autotests for conversions and default constructions for elementary types
   - both expression construction, stack field construction, and static construction
 
+Generate function header declarations before lexical-order code generation
+ - should avoid auto-forward-declaring functions
+
+Generate statically constant operations for statically constant value expressions
+ - should also enable arbitrary declaration order of global constants 
+
+Support recursive type definition by reference (CRTP) (e.g. type Bar Foo< Ref<Bar> >)
+
 Dynamic-length arrays tests - bounds checking, copying, etc
-
-Proper support for VALUE bindings, and implement correct Array type handling
-
-String datatype
 
 Syntactic sugar for ref and array types in type arguments (possibly chained), e.g. Subtype<&Int> instead of Subtype<Ref<Int>>
 
 Range typeclass
 
-for-loops
+Advanced for-loops
 
 Proper mutability handling:
  - in compound expressions, e.g. mut.immut.mut.immut ...

@@ -17,6 +17,7 @@ namespace yy {
 }
 class TxPackage;
 class TxParsingUnitNode;
+class TxFieldDeclNode;
 class TxSemNode;
 class TxParserContext;
 
@@ -74,6 +75,8 @@ class TxDriver {
      * The value is the top level root node of the AST. */
     std::unordered_map<std::string, TxParsingUnitNode*> parsedSourceFiles;
 
+    std::vector<TxFieldDeclNode*> usageOrderedNonlocalFieldDecls;
+
 
     // Handling the scanner.
     int scan_begin(const std::string &filePath);
@@ -121,6 +124,9 @@ public:
      * @return 0 on success
      */
     int compile(const std::vector<std::string>& startSourceFiles, const std::string& outputFileName);
+
+
+    void register_nonlocal_field_usage( TxFieldDeclNode* fieldDeclNode );
 };
 
 

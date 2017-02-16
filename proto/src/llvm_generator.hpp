@@ -91,9 +91,8 @@ public:
     llvm::Value* lookup_llvm_value(const std::string& identifier) const;
 
 
-    /** Generate the LLVM code for the provided parsing unit. */
-    void generate_code( const TxParsingUnitNode* topParseNode );
-    void generate_code( const TxTypeExpressionNode* typeExprNode );
+    /** Generate the LLVM code for the provided AST, which must be in global/static scope. */
+    void generate_code( const TxNode* staticScopeNode );
 
     void generate_runtime_data();
 
