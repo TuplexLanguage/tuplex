@@ -91,6 +91,8 @@ public:
     llvm::Value* lookup_llvm_value(const std::string& identifier) const;
 
 
+    void generate_function_declaration( const TxLambdaExprNode* lambdaNode );
+
     /** Generate the LLVM code for the provided AST, which must be in global/static scope. */
     void generate_code( const TxNode* staticScopeNode );
 

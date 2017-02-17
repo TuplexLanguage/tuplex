@@ -97,5 +97,6 @@ public:
     /** Returns true if this expression is a constant expression that can be evaluated at compile time. */
     virtual bool is_statically_constant() const override { return ! this->is_instance_method(); }
 
+    llvm::Function* code_gen_forward_decl(LlvmGenerationContext& context, GenScope* scope) const;
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };

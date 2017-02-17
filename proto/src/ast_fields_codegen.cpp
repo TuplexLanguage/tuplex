@@ -122,13 +122,9 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
         val = context.lookup_llvm_value(fieldEntity->get_declaration()->get_unique_full_name());
         if (! val) {
             // forward declaration situation
-            // Note: Forward declaring doesn't work when other globals (constants) use this value in their constant initializer
-            //       (since they need the initializer value, not the address, of the forward-declared global)
-            context.LOG.alert("Forward-declaring field %s", fieldEntity->get_declaration()->get_unique_full_name().c_str());
+            context.LOG.debug("Forward-declaring field %s", fieldEntity->get_declaration()->get_unique_full_name().c_str());
             Type *fieldT = context.get_llvm_type(fieldEntity->get_type());
             val = context.llvmModule.getOrInsertGlobal(fieldEntity->get_declaration()->get_unique_full_name(), fieldT);
-            //if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType))
-            //    context.LOG.alert("Forward-declaring function object %s", fieldEntity->get_declaration()->get_unique_full_name().c_str());
         }
         break;
 

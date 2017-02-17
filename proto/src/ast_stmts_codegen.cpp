@@ -40,16 +40,7 @@ static Value* gen_local_field(LlvmGenerationContext& context, GenScope* scope, c
 }
 
 
-Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
-
-    // FUTURE: if this is a lambda within a code-block, define the implicit closure object here
-
-    //FunctionType *ftype = cast<FunctionType>(context.get_llvm_type(this->funcTypeNode->get_type()));
-    StructType *lambdaT = cast<StructType>(context.get_llvm_type(this->funcTypeNode->get_type()));
-    FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
-    ASSERT(funcT, "Couldn't get LLVM type for function type " << this->funcTypeNode->get_type());
-
+Function* TxLambdaExprNode::code_gen_forward_decl( LlvmGenerationContext& context, GenScope* scope ) const {
     std::string funcName;
     if (this->fieldDefNode) {
         auto declaration = this->fieldDefNode->get_declaration();
@@ -61,11 +52,28 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     else
         funcName = "$func";  // anonymous function
 
-    context.LOG.info("Creating function: %s", funcName.c_str());
-    Function *function = cast<Function>(context.llvmModule.getOrInsertFunction(funcName, funcT));
+    context.LOG.trace("%-48s  Generating function declaration for %s", this->to_string().c_str(), funcName.c_str());
+
+    //FunctionType *ftype = cast<FunctionType>(context.get_llvm_type(this->funcTypeNode->get_type()));
+    StructType *lambdaT = cast<StructType>(context.get_llvm_type(this->funcTypeNode->get_type()));
+    FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
+    ASSERT(funcT, "Couldn't get LLVM type for function type " << this->funcTypeNode->get_type());
+
+    Function* function = cast<Function>(context.llvmModule.getOrInsertFunction(funcName, funcT));
     // function->setLinkage(GlobalValue::InternalLinkage);  TODO (can cause LLVM to rename function)
     //Function *function = Function::Create(ftype, GlobalValue::InternalLinkage, funcName.c_str(), &context.llvmModule);
     // note: function is of LLVM function pointer type (since it is an LLVM global value)
+    return function;
+}
+
+Value* TxLambdaExprNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+    Function* function = this->code_gen_forward_decl( context, scope );
+    ASSERT(function, "NULL function pointer in " << this);
+    context.LOG.trace("%-48s  Generating function body for %s", this->to_string().c_str(), function->getName());
+
+    // FUTURE: if this is a lambda within a code-block, define the implicit closure object here
+
+    StructType *lambdaT = cast<StructType>(context.get_llvm_type(this->funcTypeNode->get_type()));
 
     // generate the function body:
     BasicBlock *entryBlock = BasicBlock::Create(context.llvmContext, "entry", function);
@@ -101,7 +109,7 @@ Value* TxLambdaExprNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     this->suite->code_gen(context, &fscope);
 
     if (! this->funcTypeNode->returnField && ! fscope.builder->GetInsertBlock()->getTerminator()) {
-        context.LOG.debug("inserting default void return instruction for last block of function %s", funcName.c_str());
+        context.LOG.debug("inserting default void return instruction for last block of function %s", function->getName());
         fscope.builder->CreateRetVoid();
     }
     ASSERT (entryBlock->getTerminator(), "Function entry block has no terminator");

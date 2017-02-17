@@ -163,6 +163,10 @@ Function* LlvmGenerationContext::gen_main_function(const std::string userMain, b
 
 /* Compile the AST into a module */
 
+void LlvmGenerationContext::generate_function_declaration( const TxLambdaExprNode* lambdaNode ) {
+    lambdaNode->code_gen_forward_decl( *this, nullptr );  // (global/static scope has no block)
+}
+
 void LlvmGenerationContext::generate_code( const TxNode* staticScopeNode ) {
     staticScopeNode->code_gen( *this, nullptr );  // (global/static scope has no block)
 }
@@ -224,7 +228,7 @@ Value* LlvmGenerationContext::lookup_llvm_value(const std::string& identifier) c
         return val;
     }
     catch (const std::out_of_range& oor) {
-        this->LOG.note("Unknown LLVM value identifier %s", identifier.c_str());
+        this->LOG.debug("Unknown LLVM value identifier %s", identifier.c_str());
         return nullptr;
     }
 }

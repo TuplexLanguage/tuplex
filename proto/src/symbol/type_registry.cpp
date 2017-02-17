@@ -839,6 +839,14 @@ TxType* TypeRegistry::get_type_specialization(const TxTypeDeclaration* declarati
             if (bindCount++)  newBaseTypeName << ",";
 
             if (binding.meta_type() == MetaType::TXB_TYPE) {
+//                // experimentation with not resolving the bound type:
+//                auto bindingDef = new TxTypeExprWrapperNode( static_cast<TxTypeExpressionNode*>( &binding.type_definer() ) );
+//                auto bindingDecl = new TxTypeDeclNode( binding.get_parse_location(), TXD_GENBINDING | TXD_PUBLIC , binding.param_name(), nullptr, bindingDef );
+//                bindingDeclNodes->push_back( bindingDecl );
+//                newBaseTypeName << bindingDef->get_declared_name();
+//                newBindings.emplace_back( binding );  // (newBindings are identical to bindings unless we want to bypass empty derivations)
+//                continue;
+
                 // we want to bypass empty, implicit derivations:
                 auto btype = binding.type_definer().resolve_type();
                 if (! btype)
