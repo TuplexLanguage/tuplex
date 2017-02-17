@@ -90,7 +90,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
         }
     }
 
-    CERROR(originalExpr, "Can't auto-convert value\n\tFrom: " << originalType << " \t@" << originalType->get_parse_location()
+    CERROR(originalExpr, "Can't auto-convert value\n\tFrom: " << originalType << " \t@" << originalExpr->get_parse_location()
                          << "\n\tTo:   " << requiredType << " \t@" << requiredType->get_parse_location());
     return originalExpr;
 }

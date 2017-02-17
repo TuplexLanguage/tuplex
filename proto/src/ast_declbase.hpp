@@ -145,6 +145,9 @@ public:
         return (this->conversionExpr ? this->conversionExpr : this->originalExpr);
     }
 
+    virtual const TxType* attempt_get_type() const override { return this->get_spec_expression()->attempt_get_type(); }
+    virtual const TxType* get_type        () const override { return this->get_spec_expression()->get_type();         }
+
     virtual bool has_predefined_type() const override { return false; }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {

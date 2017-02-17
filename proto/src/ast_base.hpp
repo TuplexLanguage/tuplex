@@ -323,8 +323,8 @@ public:
         return this->type;
     }
 
-    virtual const TxType* attempt_get_type() const override final { return this->type; }
-    virtual const TxType* get_type        () const override final {
+    virtual const TxType* attempt_get_type() const override { return this->type; }
+    virtual const TxType* get_type        () const override {
         ASSERT(this->hasResolved, "entity definer not resolved: " << this); return this->type; }
 };
 
