@@ -6,45 +6,73 @@
 
 /** Represents a binding for a type parameter. Can be either a Type or a Value parameter binding. */
 class TxTypeArgumentNode : public TxNode {
+protected:
     LexicalContext defContext;
 
+    TxTypeArgumentNode( const TxLocation& parseLocation ) : TxNode(parseLocation) { }
+
 public:
-    TxTypeExpressionNode* typeExprNode;
-    TxExpressionNode* valueExprNode;
-
-    TxTypeArgumentNode(TxTypeExpressionNode* typeExprNode)
-        : TxNode(typeExprNode->parseLocation),
-          typeExprNode(typeExprNode), valueExprNode() { }
-
-    TxTypeArgumentNode(TxExpressionNode* valueExprNode)
-        : TxNode(valueExprNode->parseLocation),
-          typeExprNode(), valueExprNode(valueExprNode) { }
-
-    virtual TxTypeArgumentNode* make_ast_copy() const override {
-        if (this->typeExprNode)
-            return new TxTypeArgumentNode( this->typeExprNode->make_ast_copy() );
-        else
-            return new TxTypeArgumentNode( this->valueExprNode->make_ast_copy() );
-    }
+    virtual TxTypeArgumentNode* make_ast_copy() const override = 0;
 
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext) {
         this->defContext = defContext;
-        this->set_context( lexContext);
+        this->set_context( lexContext );
+    }
+
+    virtual void symbol_resolution_pass() = 0;
+
+    /** Creates, registers and returns a newly created TxTypeBinding.
+     * To be called after symbol_declaration_pass() and before symbol_resolution_pass(). */
+    virtual TxGenericBinding make_binding( const TxIdentifier& fullBaseTypeName, const TxEntityDeclaration* paramDecl ) = 0;
+};
+
+
+class TxTypeTypeArgumentNode : public TxTypeArgumentNode {
+public:
+    TxTypeExpressionNode* typeExprNode;
+
+    TxTypeTypeArgumentNode( TxTypeExpressionNode* typeExprNode )
+        : TxTypeArgumentNode(typeExprNode->parseLocation), typeExprNode(typeExprNode) { }
+
+    virtual TxTypeTypeArgumentNode* make_ast_copy() const override {
+        return new TxTypeTypeArgumentNode( this->typeExprNode->make_ast_copy() );
     }
 
     /** Creates, registers and returns a newly created TxTypeBinding.
      * To be called after symbol_declaration_pass() and before symbol_resolution_pass(). */
-    TxGenericBinding make_binding( const TxIdentifier& fullBaseTypeName, const TxEntityDeclaration* paramDecl );
+    virtual TxGenericBinding make_binding( const TxIdentifier& fullBaseTypeName, const TxEntityDeclaration* paramDecl ) override;
 
-    virtual void symbol_resolution_pass() {
-        if (this->typeExprNode)
-            this->typeExprNode->symbol_resolution_pass();
-        else
-            this->valueExprNode->symbol_resolution_pass();
+    virtual void symbol_resolution_pass() override {
+        this->typeExprNode->symbol_resolution_pass();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
+
+
+class TxValueTypeArgumentNode : public TxTypeArgumentNode {
+public:
+    TxExpressionNode* valueExprNode;
+
+    TxValueTypeArgumentNode( TxExpressionNode* valueExprNode )
+        : TxTypeArgumentNode(valueExprNode->parseLocation), valueExprNode(valueExprNode) { }
+
+    virtual TxValueTypeArgumentNode* make_ast_copy() const override {
+        return new TxValueTypeArgumentNode( this->valueExprNode->make_ast_copy() );
+    }
+
+    /** Creates, registers and returns a newly created TxTypeBinding.
+     * To be called after symbol_declaration_pass() and before symbol_resolution_pass(). */
+    virtual TxGenericBinding make_binding( const TxIdentifier& fullBaseTypeName, const TxEntityDeclaration* paramDecl ) override;
+
+    virtual void symbol_resolution_pass() override {
+        this->valueExprNode->symbol_resolution_pass();
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+};
+
+
 
 /** Represents a directly named, predefined type, or a pure specialization of a predefined generic type
  * (binding one or more type parameters).
@@ -155,7 +183,7 @@ public:
 /**
  * Custom AST node needed to handle dataspaces. */
 class TxReferenceTypeNode : public TxBuiltinTypeSpecNode {
-    TxReferenceTypeNode( const TxLocation& parseLocation, const TxIdentifierNode* dataspace, TxTypeArgumentNode* targetTypeArg )
+    TxReferenceTypeNode( const TxLocation& parseLocation, const TxIdentifierNode* dataspace, TxTypeTypeArgumentNode* targetTypeArg )
         : TxBuiltinTypeSpecNode(parseLocation), dataspace(dataspace), targetTypeNode(targetTypeArg)  { }
 
 protected:
@@ -175,10 +203,10 @@ protected:
 
 public:
     const TxIdentifierNode* dataspace;
-    TxTypeArgumentNode* targetTypeNode;
+    TxTypeTypeArgumentNode* targetTypeNode;
 
     TxReferenceTypeNode(const TxLocation& parseLocation, const TxIdentifierNode* dataspace, TxTypeExpressionNode* targetType)
-        : TxReferenceTypeNode(parseLocation, dataspace, new TxTypeArgumentNode(targetType) )  { }
+        : TxReferenceTypeNode(parseLocation, dataspace, new TxTypeTypeArgumentNode(targetType) )  { }
 
     virtual TxReferenceTypeNode* make_ast_copy() const override {
         const TxIdentifierNode* ds = ( this->dataspace ? this->dataspace->make_ast_copy() : nullptr );
@@ -196,12 +224,11 @@ public:
 /**
  * Custom AST node needed to provide syntactic sugar for modifiable declaration. */
 class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
-    TxArrayTypeNode(const TxLocation& parseLocation, TxTypeArgumentNode* elementTypeArg, TxTypeArgumentNode* lengthExprArg)
+    TxArrayTypeNode(const TxLocation& parseLocation, TxTypeTypeArgumentNode* elementTypeArg, TxValueTypeArgumentNode* lengthExprArg)
         : TxBuiltinTypeSpecNode(parseLocation), elementTypeNode(elementTypeArg), lengthNode(lengthExprArg) { }
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext,
-                                                     LexicalContext& lexContext, TxDeclarationFlags declFlags) override;
+    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags) override;
 
     virtual const TxType* define_type() override {
         auto baseType = this->types().get_builtin_type(ARRAY);
@@ -216,15 +243,15 @@ protected:
     }
 
 public:
-    TxTypeArgumentNode* elementTypeNode;
-    TxTypeArgumentNode* lengthNode;
+    TxTypeTypeArgumentNode* elementTypeNode;
+    TxValueTypeArgumentNode* lengthNode;
 
     TxArrayTypeNode(const TxLocation& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* lengthExpr=nullptr)
-        : TxArrayTypeNode( parseLocation, new TxTypeArgumentNode(elementType), (lengthExpr ? new TxTypeArgumentNode(lengthExpr) : nullptr) ) { }
+        : TxArrayTypeNode( parseLocation, new TxTypeTypeArgumentNode(elementType), (lengthExpr ? new TxValueTypeArgumentNode(lengthExpr) : nullptr) ) { }
 
     virtual TxArrayTypeNode* make_ast_copy() const override {
-        TxTypeArgumentNode* ln = ( this->lengthNode ? this->lengthNode->make_ast_copy() : nullptr );
-        return new TxArrayTypeNode( this->parseLocation, ln, this->elementTypeNode->make_ast_copy() );
+        return new TxArrayTypeNode( this->parseLocation, this->elementTypeNode->make_ast_copy(),
+                                    ( this->lengthNode ? this->lengthNode->make_ast_copy() : nullptr ) );
     }
 
     virtual void symbol_resolution_pass() override {

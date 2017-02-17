@@ -5,12 +5,14 @@
 using namespace llvm;
 
 
-Value* TxTypeArgumentNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxTypeTypeArgumentNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
-    if (this->typeExprNode)
-        return this->typeExprNode->code_gen(context, scope);
-    else
-        return this->valueExprNode->code_gen(context, scope);
+    return this->typeExprNode->code_gen(context, scope);
+}
+
+Value* TxValueTypeArgumentNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s", this->to_string().c_str());
+    return this->valueExprNode->code_gen(context, scope);
 }
 
 Value* TxPredefinedTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {

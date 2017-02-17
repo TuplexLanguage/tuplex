@@ -214,18 +214,18 @@ void TxPredefinedTypeNode::symbol_declaration_pass( LexicalContext& defContext,
 }
 
 
-TxGenericBinding TxTypeArgumentNode::make_binding( const TxIdentifier& fullBaseTypeName, const TxEntityDeclaration* paramDecl ) {
+TxGenericBinding TxTypeTypeArgumentNode::make_binding( const TxIdentifier& fullBaseTypeName, const TxEntityDeclaration* paramDecl ) {
     //std::cerr << "making binding " << paramDecl->get_unique_name() << " for " << fullBaseTypeName << " at " << this->parse_loc_string() << std::endl;
-    if (this->typeExprNode) {
-        this->typeExprNode->symbol_declaration_pass( this->defContext, this->context(), TXD_PUBLIC, "", nullptr);
-        return TxGenericBinding::make_type_binding(paramDecl->get_unique_name(), this->typeExprNode);
-    }
-    else {
-        ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
-        this->valueExprNode->symbol_declaration_pass( this->context());
-        //auto valueDefiner = new TxExprWrapperNode(this->valueExprNode, six);
-        return TxGenericBinding::make_value_binding(paramDecl->get_unique_name(), this->valueExprNode);
-    }
+    this->typeExprNode->symbol_declaration_pass( this->defContext, this->context(), TXD_PUBLIC, "", nullptr );
+    return TxGenericBinding::make_type_binding( paramDecl->get_unique_name(), this->typeExprNode );
+}
+
+TxGenericBinding TxValueTypeArgumentNode::make_binding( const TxIdentifier& fullBaseTypeName, const TxEntityDeclaration* paramDecl ) {
+    //std::cerr << "making binding " << paramDecl->get_unique_name() << " for " << fullBaseTypeName << " at " << this->parse_loc_string() << std::endl;
+    ASSERT(this->valueExprNode, "Value expression not set in VALUE type parameter " << this);
+    this->valueExprNode->symbol_declaration_pass( this->context() );
+    //auto valueDefiner = new TxExprWrapperNode(this->valueExprNode, six);
+    return TxGenericBinding::make_value_binding( paramDecl->get_unique_name(), this->valueExprNode );
 }
 
 
