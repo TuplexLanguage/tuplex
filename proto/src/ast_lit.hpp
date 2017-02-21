@@ -165,13 +165,11 @@ public:
 
 class TxCStringLitNode : public TxLiteralValueNode {
     const size_t arrayLength;  // note: array length includes the null terminator
-    TxTypeDeclNode* cstringTypeNode;  // implicit type definer  // FIXME: refactor
+    TxTypeExpressionNode* cstringTypeNode;  // implicit type definer
 
 protected:
     virtual const TxType* define_type() override {
-//        const TxType* charType = this->types().get_builtin_type(UBYTE);
-//        return this->types().get_array_type(nullptr, charType, &this->arrayLength);
-        return this->cstringTypeNode->typeExpression->resolve_type();
+        return this->cstringTypeNode->resolve_type();
     }
 
 public:

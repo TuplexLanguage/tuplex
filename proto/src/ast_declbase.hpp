@@ -48,7 +48,7 @@ public:
      * The definition context is used for named types lookups, to avoid conflation with names of the sub-expressions.
      */
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
-                                          TxDeclarationFlags declFlags, const std::string designatedTypeName,
+                                          const TxTypeDeclaration* owningDeclaration,
                                           const std::vector<TxDeclarationNode*>* typeParamDeclNodes );
 
     virtual void symbol_resolution_pass() {
@@ -197,22 +197,10 @@ class TxFieldDefNode : public TxFieldDefiningNode {
 
     void symbol_declaration_pass( LexicalContext& outerContext, LexicalContext& innerContext, TxDeclarationFlags declFlags) {
         this->set_context( outerContext);
-        auto typeDeclFlags = (declFlags & (TXD_PUBLIC | TXD_PROTECTED | TXD_EXPERRBLOCK)) | TXD_IMPLICIT;
-        if (this->typeExpression) {
-            // unless the type expression is a directly named type, declare implicit type entity for this field's type:
-            std::string implTypeName = ( this->typeExpression->has_predefined_type() ? "" : this->get_declared_name() + "$type" );
-            this->typeExpression->symbol_declaration_pass( innerContext, innerContext, typeDeclFlags, implTypeName, nullptr);
-        }
-        if (this->initExpression) {
-// TODO: delegate this to the expression nodes
-//            if (!this->typeExpression && !this->initExpression->has_predefined_type()) {
-//                // declare implicit type entity for this field's type:
-//                TxTypeEntity* typeEntity = lexContext.scope()->declare_type(implTypeName, this->typeExpression, typeDeclFlags);
-//                if (!typeEntity)
-//                    CERROR(this, "Failed to declare implicit type %s for field %s", implTypeName.c_str(), this->fieldName.c_str());
-//            }
+        if (this->typeExpression)
+            this->typeExpression->symbol_declaration_pass( innerContext, innerContext, nullptr, nullptr);
+        if (this->initExpression)
             this->initExpression->symbol_declaration_pass( outerContext);
-        }
     };
 
 protected:
@@ -246,9 +234,6 @@ protected:
         ASSERT(this->attempt_get_type(), "Expected non-NULL type in " << this);
         if (this->declaration) {
             if (auto field = new TxField(this->declaration, this->attempt_get_type())) {
-// experimental
-//                if (this->fieldDeclNode && !this->context().exp_error())
-//                    this->context().package()->driver().register_nonlocal_field_usage( this->fieldDeclNode );
                 return field;
             }
         }
@@ -417,6 +402,8 @@ public:
 
 /** Non-local type declaration */
 class TxTypeDeclNode : public TxDeclarationNode {
+    const TxTypeDeclaration* declaration = nullptr;
+
 public:
     const std::string typeName;
     const bool interfaceKW;

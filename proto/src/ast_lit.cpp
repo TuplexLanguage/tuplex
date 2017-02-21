@@ -203,12 +203,11 @@ void TxCStringLitNode::symbol_declaration_pass( LexicalContext& lexContext) {
     this->set_context( lexContext);
 
     // (for now) Create AST to declare the implicit type of this c-string literal:
-    std::string typeName = this->context().scope()->make_unique_name("$type");
     TxTypeExpressionNode* elemTypeExpr = new TxIdentifiedTypeNode(this->parseLocation, "tx.UByte");
     TxExpressionNode* lengthExpr = new TxIntegerLitNode(this->parseLocation, literal.length()-2, false, UINT);
     TxTypeExpressionNode* typeExpr = new TxArrayTypeNode(this->parseLocation, elemTypeExpr, lengthExpr);
-    this->cstringTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_PUBLIC | TXD_IMPLICIT, typeName, nullptr, typeExpr);
-    this->cstringTypeNode->symbol_declaration_pass( lexContext);
+    this->cstringTypeNode = typeExpr;
+    this->cstringTypeNode->symbol_declaration_pass( lexContext, lexContext, nullptr, nullptr );
 }
 
 

@@ -270,7 +270,10 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
 
     // generate the code for the type specializations that are defined by reinterpreted source:
     for (auto specNode : this->package->types().get_enqueued_specializations()) {
-        LOG.info("Generating code for enqueued specialization: %s", specNode->get_declaration()->to_string().c_str());
+        if (!specNode->get_declaration())
+            LOG.info("Generating code for enqueued specialization without declaration: %s", specNode->to_string().c_str());
+        else
+            LOG.info("Generating code for enqueued specialization: %s", specNode->get_declaration()->to_string().c_str());
         genContext.generate_code( specNode );
     }
 

@@ -122,10 +122,10 @@ public:
 class TxReferenceToNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type() override {
-        auto implTypeName = this->context().scope()->make_unique_name("$type");
-        TxDeclarationFlags tmpFlags = TXD_PUBLIC | TXD_IMPLICIT;
-        auto typeDecl = this->context().scope()->declare_type(implTypeName, this, tmpFlags);
-        return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->target));
+//        auto implTypeName = this->context().scope()->make_unique_name("$type");
+//        TxDeclarationFlags tmpFlags = TXD_PUBLIC | TXD_IMPLICIT;
+//        auto typeDecl = this->context().scope()->declare_type(implTypeName, this, tmpFlags);
+        return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", this->target), nullptr, this->exp_err_ctx());
     }
 
 public:
@@ -568,10 +568,7 @@ protected:
 public:
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
         this->set_context( lexContext);
-        auto typeDeclFlags = TXD_PUBLIC | TXD_IMPLICIT;
-        // unless the type expression is a directly named type, declare implicit type:
-        auto implTypeName = ( this->typeExpr->has_predefined_type() ? "" : lexContext.scope()->make_unique_name("$type") );
-        this->typeExpr->symbol_declaration_pass( lexContext, lexContext, typeDeclFlags, implTypeName, nullptr);
+        this->typeExpr->symbol_declaration_pass( lexContext, lexContext, nullptr, nullptr);
         this->constructorCall->symbol_declaration_pass( lexContext);
     }
 
@@ -598,10 +595,7 @@ protected:
 
     virtual const TxType* define_type() override {
         // new constructor returns the constructed object by reference
-        auto implTypeName = this->context().scope()->make_unique_name("$type");
-        TxDeclarationFlags tmpFlags = TXD_PUBLIC | TXD_IMPLICIT;
-        auto typeDecl = this->context().scope()->declare_type( implTypeName, this, tmpFlags );
-        return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", this->typeExpr));
+        return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", this->typeExpr), nullptr, this->exp_err_ctx());
     }
 
 public:

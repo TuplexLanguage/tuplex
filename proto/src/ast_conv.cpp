@@ -141,12 +141,9 @@ const TxType* TxReferenceConvNode::define_type() {
             this->adapterType = this->types().get_interface_adapter(resultTargetType, origTargetType);
             ASSERT(this->adapterType->get_type_class() == TXTC_INTERFACEADAPTER, "Not an interface adapter type: " << this->adapterType);
 
-            // create reference type to the adapter type  TODO: delegate this to TypeRegistry
-            auto implTypeName = this->context().scope()->make_unique_name("$type");
-            TxDeclarationFlags tmpFlags = TXD_PUBLIC | TXD_IMPLICIT;
-            auto typeDecl = this->context().scope()->declare_type(implTypeName, this, tmpFlags);
+            // create reference type to the adapter type
             auto adapterDefiner = new TxTypeDeclWrapperNode( this->parseLocation, adapterType->get_declaration() );
-            return this->types().get_reference_type(typeDecl, TxGenericBinding::make_type_binding("T", adapterDefiner));
+            return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", adapterDefiner), nullptr, this->exp_err_ctx());
         }
     }
     return TxConversionNode::define_type();  // returns the required resultType

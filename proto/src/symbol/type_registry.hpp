@@ -112,18 +112,20 @@ public:
     /** Gets a specialization of a base type.
      * Note: Added / overridden members will not be initialized, the caller must invoke prepare_type_members() to do that.
      */
-    TxType* get_type_specialization(const TxTypeDeclaration* declaration, const TxType* baseType,
-                                    const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
-                                    const std::vector<TxGenericBinding>* bindings=nullptr, bool _mutable=false);
+    const TxType* get_type_specialization( const TxTypeDeclaration* declaration, const TxType* baseType,
+                                           const std::vector<TxGenericBinding>* bindings,
+                                           ExpectedErrorClause* expError = nullptr,
+                                           const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>(),
+                                           bool _mutable=false);
 
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
     const TxType* get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);
 
-    const TxReferenceType* get_reference_type(const TxTypeDeclaration* declaration, TxGenericBinding targetTypeBinding,
-                                              const TxIdentifier* dataspace=nullptr);
+    const TxReferenceType* get_reference_type( const TxTypeDeclaration* declaration, TxGenericBinding targetTypeBinding,
+                                               const TxIdentifier* dataspace, ExpectedErrorClause* expErr );
 
-    const TxArrayType* get_array_type(const TxTypeDeclaration* declaration, TxGenericBinding elemTypeBinding, TxGenericBinding lengthBinding);
-    const TxArrayType* get_array_type(const TxTypeDeclaration* declaration, TxGenericBinding elemTypeBinding);
+    const TxArrayType* get_array_type( const TxTypeDeclaration* declaration, TxGenericBinding elemTypeBinding, TxGenericBinding lengthBinding, ExpectedErrorClause* expErr );
+    const TxArrayType* get_array_type( const TxTypeDeclaration* declaration, TxGenericBinding elemTypeBinding, ExpectedErrorClause* expErr );
 
     // "mod" of function refers to whether functions of this type may modify its closure when run.
     // Note: "mod" of args not part of the function type (though concrete function may mod-ify its stack arg copies).

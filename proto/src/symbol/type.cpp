@@ -734,8 +734,8 @@ static void print_hierarchy(const TxType* type)
 
 bool TxType::is_a(const TxType& other) const {
     //std::cerr << *this << "  IS-A\n" << other << std::endl;
-    ASSERT(! this->genericBaseType, "Invoked is_a() on concrete specialization type: " << this);
-    ASSERT(! other.genericBaseType, "Invoked is_a() with other being a concrete specialization type: " << this);
+//    ASSERT(! this->genericBaseType, "Invoked is_a() on concrete specialization type: " << this);
+//    ASSERT(! other.genericBaseType, "Invoked is_a() with other being a concrete specialization type: " << this);
 
     const TxType* thisType = this;
     const TxType* otherType = &other;

@@ -148,36 +148,25 @@ void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, Lexica
     this->set_context( lexContext);
     // Note: does not invoke symbol_declaration_pass() on typeParamDecls, that is delegated to typeExpression
     TxDeclarationFlags flags = (isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags);
-    this->typeExpression->symbol_declaration_pass( defContext, lexContext, flags, this->typeName, this->typeParamDecls);
+    this->declaration = lexContext.scope()->declare_type( this->typeName, this->typeExpression, flags );
+    if (this->declaration) {
+        this->LOGGER().debug("%s: Declared type %-16s: %s", this->parse_loc_string().c_str(), this->typeName.c_str(),
+                             declaration->to_string().c_str());
+    }
+    else
+        CERROR(this, "Failed to declare type " << this->typeName);
+
+    this->typeExpression->symbol_declaration_pass( defContext, lexContext, this->declaration, this->typeParamDecls);
 }
 
 
 void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
-                                                   TxDeclarationFlags declFlags, const std::string designatedTypeName,
-                                                   const std::vector<TxDeclarationNode*>* typeParamDeclNodes) {
-    // Each node in a type expression has the option of declaring an entity (i.e. creating a name for)
-    // any of its constituent type expressions.
-    // Type entities are at minimum needed for:
-    //  - explicit type declarations/extensions
-    //  - adding members (since members are namespace symbols) - only done in explicit type extensions
-    //  - specializations that bind generic type parameters (e.g. Ref<Ref<Int>>)
-    //  - using fields in type expressions (resolving to the field's type) (not terribly important)
-    // Note: Implicitly declared types should have the same visibility as the type/field they are for.
-
+                                                    const TxTypeDeclaration* owningDeclaration,
+                                                    const std::vector<TxDeclarationNode*>* typeParamDeclNodes ) {
     // The context of this node represents its outer scope. This node's entity, if any, represents its inner scope.
     this->set_context( lexContext);
-
-    TxTypeDeclaration* declaration = nullptr;
-    if (! designatedTypeName.empty()) {
-        if ( (declaration = lexContext.scope()->declare_type(designatedTypeName, this, declFlags)) ) {
-            this->LOGGER().debug("%s: Declaring type %-16s: %s", this->parse_loc_string().c_str(), designatedTypeName.c_str(),
-                                 declaration->to_string().c_str());
-            this->declaration = declaration;
-        }
-        else
-            CERROR(this, "Failed to declare type " << designatedTypeName);
-    }
-    LexicalContext typeCtx(lexContext, declaration ? declaration->get_symbol() : lexContext.scope());
+    LexicalContext typeCtx(lexContext, owningDeclaration ? owningDeclaration->get_symbol() : lexContext.scope());
+    this->declaration = owningDeclaration;
 
     // declare type parameters within type declaration's scope, and before rest of type expression is processed:
     if (typeParamDeclNodes) {
@@ -186,36 +175,17 @@ void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& defContext, 
             paramDeclNode->symbol_declaration_pass( typeCtx);
         }
 
-        // if type parameters have been declared, rest of type expression has this lexCtx also as its defCtx:
-        this->symbol_declaration_pass_descendants( typeCtx, typeCtx, declFlags );
+        // if type parameters have been declared, rest of type expression has this typeCtx also as its defCtx:
+        this->symbol_declaration_pass_descendants( typeCtx, typeCtx, TXD_NONE );
     }
     else
-        this->symbol_declaration_pass_descendants( defContext, typeCtx, declFlags );
-}
-
-
-void TxGenSpecializationTypeNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
-                                                           TxDeclarationFlags declFlags, const std::string designatedTypeName,
-                                                           const std::vector<TxDeclarationNode*>* typeParamDeclNodes ) {
-    //std::cout << this->parse_loc_string() << ": defContext: " << defContext.scope()->get_full_name() << "   " << "lexContext: " << lexContext.scope()->get_full_name() << std::endl;
-    this->defContext = defContext;
-
-    std::string typeName;
-    if (designatedTypeName.empty()) {
-        // ensure generic type specializations always have a declared type (handles e.g. Ref<Ref<Int>>)
-        typeName = "$type";
-        declFlags = declFlags | TXD_IMPLICIT;
-    }
-    else
-        typeName = designatedTypeName;
-
-    TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, declFlags, typeName, typeParamDeclNodes);
+        this->symbol_declaration_pass_descendants( defContext, typeCtx, TXD_NONE );
 }
 
 
 TxGenericBinding TxTypeTypeArgumentNode::make_binding( const TxIdentifier& fullBaseTypeName, const TxEntityDeclaration* paramDecl ) {
     //std::cerr << "making binding " << paramDecl->get_unique_name() << " for " << fullBaseTypeName << " at " << this->parse_loc_string() << std::endl;
-    this->typeExprNode->symbol_declaration_pass( this->defContext, this->context(), TXD_PUBLIC, "", nullptr );
+    this->typeExprNode->symbol_declaration_pass( this->defContext, this->context(), nullptr, nullptr );
     return TxGenericBinding::make_type_binding( paramDecl->get_unique_name(), this->typeExprNode );
 }
 
@@ -272,7 +242,7 @@ const TxType* TxGenSpecializationTypeNode::define_generic_specialization_type() 
     for (size_t i = 0; i < this->typeArgs->size(); i++) {
         bindings.push_back(this->typeArgs->at(i)->make_binding( baseTypeName, baseType->type_params().at(i)) );
     }
-    return this->types().get_type_specialization(this->get_declaration(), baseType, {}, &bindings);
+    return this->types().get_type_specialization(this->get_declaration(), baseType, &bindings, this->exp_err_ctx());
 }
 
 
@@ -309,8 +279,8 @@ void TxDerivedTypeNode::init_implicit_types() {
 }
 
 
-void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags,
-                                                   const std::string designatedTypeName, const std::vector<TxDeclarationNode*>* typeParamDeclNodes) {
+void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
+        const TxTypeDeclaration* owningDeclaration, const std::vector<TxDeclarationNode*>* typeParamDeclNodes) {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType)) {
         if (auto maybeModElem = dynamic_cast<TxMaybeModTypeNode*>(arrayBaseType->elementTypeNode->typeExprNode)) {
@@ -320,7 +290,7 @@ void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& defContext, 
         }
     }
 
-    TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, declFlags, designatedTypeName, typeParamDeclNodes);
+    TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, owningDeclaration, typeParamDeclNodes);
 }
 
 
@@ -333,8 +303,8 @@ bool TxMaybeModTypeNode::has_predefined_type() const {
     return this->baseType->has_predefined_type();
 }
 
-void TxMaybeModTypeNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags,
-                                                 const std::string designatedTypeName, const std::vector<TxDeclarationNode*>* typeParamDeclNodes) {
+void TxMaybeModTypeNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
+        const TxTypeDeclaration* owningDeclaration, const std::vector<TxDeclarationNode*>* typeParamDeclNodes) {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if (! this->is_modifiable()) {
         if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType))
@@ -345,11 +315,11 @@ void TxMaybeModTypeNode::symbol_declaration_pass( LexicalContext& defContext, Le
     }
 
     if (this->is_modifiable())
-        TxModifiableTypeNode::symbol_declaration_pass( defContext, lexContext, declFlags, designatedTypeName, typeParamDeclNodes);
+        TxModifiableTypeNode::symbol_declaration_pass( defContext, lexContext, owningDeclaration, typeParamDeclNodes);
     else {
         // "pass through" entity declaration to the underlying type
         this->set_context( lexContext);
-        this->baseType->symbol_declaration_pass( defContext, lexContext, declFlags, designatedTypeName, typeParamDeclNodes);
+        this->baseType->symbol_declaration_pass( defContext, lexContext, owningDeclaration, typeParamDeclNodes);
     }
 }
 
