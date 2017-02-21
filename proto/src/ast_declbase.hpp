@@ -10,8 +10,6 @@
  */
 class TxTypeExpressionNode : public TxTypeDefiningNode {
     const TxTypeDeclaration* declaration = nullptr;
-    /** if parent node is a type declaration that declares type parameters, these will be set by it */
-    const std::vector<TxDeclarationNode*>* typeParamDeclNodes = nullptr;
 
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& defContext,
@@ -48,15 +46,9 @@ public:
      * The definition context is used for named types lookups, to avoid conflation with names of the sub-expressions.
      */
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
-                                          const TxTypeDeclaration* owningDeclaration,
-                                          const std::vector<TxDeclarationNode*>* typeParamDeclNodes );
+                                          const TxTypeDeclaration* owningDeclaration );
 
     virtual void symbol_resolution_pass() {
-        if (typeParamDeclNodes) {
-            for (auto paramDeclNode : *typeParamDeclNodes) {
-                paramDeclNode->symbol_resolution_pass();
-            }
-        }
         this->resolve_type();
     }
 };
@@ -198,9 +190,9 @@ class TxFieldDefNode : public TxFieldDefiningNode {
     void symbol_declaration_pass( LexicalContext& outerContext, LexicalContext& innerContext, TxDeclarationFlags declFlags) {
         this->set_context( outerContext);
         if (this->typeExpression)
-            this->typeExpression->symbol_declaration_pass( innerContext, innerContext, nullptr, nullptr);
+            this->typeExpression->symbol_declaration_pass( innerContext, innerContext, nullptr );
         if (this->initExpression)
-            this->initExpression->symbol_declaration_pass( outerContext);
+            this->initExpression->symbol_declaration_pass( outerContext );
     };
 
 protected:
@@ -430,10 +422,10 @@ public:
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, bool isExpErrorDecl=false );
 
     virtual void symbol_resolution_pass() override {
-        this->typeExpression->symbol_resolution_pass();
         if (this->typeParamDecls)
             for (auto paramDecl : *this->typeParamDecls)
                 paramDecl->symbol_resolution_pass();
+        this->typeExpression->symbol_resolution_pass();
     }
 
     virtual const TxTypeDeclaration* get_declaration() const override {

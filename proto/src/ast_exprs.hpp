@@ -568,7 +568,7 @@ protected:
 public:
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
         this->set_context( lexContext);
-        this->typeExpr->symbol_declaration_pass( lexContext, lexContext, nullptr, nullptr);
+        this->typeExpr->symbol_declaration_pass( lexContext, lexContext, nullptr );
         this->constructorCall->symbol_declaration_pass( lexContext);
     }
 

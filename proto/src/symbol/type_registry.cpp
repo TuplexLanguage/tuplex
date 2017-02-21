@@ -463,7 +463,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
 
         auto refTypeNode = new TxReferenceTypeNode(this->builtinLocation, nullptr, new TxIdentifiedTypeNode(this->builtinLocation, "tx.UByte"));
         LexicalContext ctx(txCfuncModule);
-        refTypeNode->symbol_declaration_pass( ctx, ctx, nullptr, nullptr );
+        refTypeNode->symbol_declaration_pass( ctx, ctx, nullptr );
         //refTypeNode->symbol_declaration_pass( ctx, ctx, TXD_PUBLIC | TXD_IMPLICIT, "puts$argtype", nullptr );
         refTypeNode->symbol_resolution_pass();
         auto ubyteRefType = refTypeNode->get_type();
@@ -927,7 +927,6 @@ const TxType* TypeRegistry::get_type_specialization( const TxTypeDeclaration* de
             auto baseTypeExpr = dynamic_cast<TxTypeExpressionNode*>( baseDecl->get_definer() );
             ASSERT(baseTypeExpr, "baseTypeExpression not a TxTypeExpressionNode: " << baseDecl->get_definer());
             ASSERT(baseTypeExpr->context().scope() == baseScope, "Unexpected lexical scope: " << baseTypeExpr->context().scope() << " != " << baseScope);
-            //auto expError = ( declaration ? declaration->get_definer()->context().exp_error() : nullptr );
             LexicalContext newBaseContext = LexicalContext( baseScope, expError, true );
 
             newBaseTypeNameStr = newBaseContext.scope()->make_unique_name(newBaseTypeNameStr, true);

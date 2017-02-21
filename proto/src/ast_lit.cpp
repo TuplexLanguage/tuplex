@@ -207,7 +207,7 @@ void TxCStringLitNode::symbol_declaration_pass( LexicalContext& lexContext) {
     TxExpressionNode* lengthExpr = new TxIntegerLitNode(this->parseLocation, literal.length()-2, false, UINT);
     TxTypeExpressionNode* typeExpr = new TxArrayTypeNode(this->parseLocation, elemTypeExpr, lengthExpr);
     this->cstringTypeNode = typeExpr;
-    this->cstringTypeNode->symbol_declaration_pass( lexContext, lexContext, nullptr, nullptr );
+    this->cstringTypeNode->symbol_declaration_pass( lexContext, lexContext, nullptr );
 }
 
 
