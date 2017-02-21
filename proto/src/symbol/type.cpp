@@ -530,15 +530,15 @@ bool TxType::is_concrete() const {
     return true;
 }
 
-bool TxType::is_pure_specialization() const {
-    ASSERT(this->prepared, "Can't determine specialization degree of unprepared type: " << this);
-    return ( this->baseTypeSpec.modifiable
-             || ( this->has_base_type()
-                  && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
-                  && typeid(*this) == typeid(*this->baseTypeSpec.type)
-                  && ( this->genericBaseType
-                       || ( !this->extendsInstanceDatatype && !this->modifiesVTable ) ) ) );
-}
+//bool TxType::is_pure_specialization() const {
+//    ASSERT(this->prepared, "Can't determine specialization degree of unprepared type: " << this);
+//    return ( this->baseTypeSpec.modifiable
+//             || ( this->has_base_type()
+//                  && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
+//                  && typeid(*this) == typeid(*this->baseTypeSpec.type)
+//                  && ( this->genericBaseType
+//                       || ( !this->extendsInstanceDatatype && !this->modifiesVTable ) ) ) );
+//}
 
 bool TxType::is_empty_derivation() const {
     return this->emptyDerivation;

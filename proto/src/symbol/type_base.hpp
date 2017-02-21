@@ -394,20 +394,20 @@ public:
      */
     bool is_equivalent_derivation() const;
 
-    /** Returns true if this type is a pure specialization of a base type,
-     * i.e. does not extend the base type with any definitions, or interfaces,
-     * besides type parameter bindings and the modifiable attribute.
-     * Such a type is a *direct usage form* of the base type.
-     *
-     * Note that a pure specialization may still be non-concrete (generic and/or abstract),
-     * and that it isn't necessarily the same data type as the base type.
-     *
-     * Technically, pure specialization types are created when only specializing a base type
-     * with type parameter bindings and/or the modifiable attribute.
-     *
-     * (Returns false for Any which has no base type.)
-     */
-    bool is_pure_specialization() const;
+//    /** Returns true if this type is a pure specialization of a base type,
+//     * i.e. does not extend the base type with any definitions, or interfaces,
+//     * besides type parameter bindings and the modifiable attribute.
+//     * Such a type is a *direct usage form* of the base type.
+//     *
+//     * Note that a pure specialization may still be non-concrete (generic and/or abstract),
+//     * and that it isn't necessarily the same data type as the base type.
+//     *
+//     * Technically, pure specialization types are created when only specializing a base type
+//     * with type parameter bindings and/or the modifiable attribute.
+//     *
+//     * (Returns false for Any which has no base type.)
+//     */
+//    bool is_pure_specialization() const;
 
     /** Returns true if this type is a virtual derivation of a base type,
      * i.e. is effectively the same *instance data type* as the base type.

@@ -23,10 +23,10 @@ public:
             : TxExpressionNode(parseLocation), funcTypeNode(funcTypeNode), suite(suite), isMethodSyntax(isMethodSyntax) {
         if (isMethodSyntax) {
             // 'self' reference:
-            auto selfRefTypeExprN = new TxPredefinedTypeNode(this->parseLocation, "$Self");
+            auto selfRefTypeExprN = new TxIdentifiedTypeNode(this->parseLocation, "$Self");
             this->selfRefNode = new TxFieldDefNode(this->parseLocation, "self", selfRefTypeExprN, nullptr);
             // 'super' reference
-            auto superRefTypeExprN = new TxPredefinedTypeNode(this->parseLocation, "$Super");
+            auto superRefTypeExprN = new TxIdentifiedTypeNode(this->parseLocation, "$Super");
             this->superRefNode = new TxFieldDefNode(this->parseLocation, "super", superRefTypeExprN, nullptr);
         }
     }

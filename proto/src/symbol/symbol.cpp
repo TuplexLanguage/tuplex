@@ -7,7 +7,7 @@
 #include "symbol.hpp"
 
 #include "type.hpp"
-#include "ast_base.hpp"
+#include "ast_declbase.hpp"
 
 
 /*=== TxScopeSymbol implementation ===*/
@@ -403,7 +403,10 @@ std::string TxEntitySymbol::description_string() const {
         return "-overloaded-";
     else if (this->typeDeclaration)  // non-overloaded type name
         if (auto type = this->typeDeclaration->get_definer()->attempt_get_type()) {
-            return "\tTYPE      " + type->to_string(false, true);
+            if (auto typeExpr = dynamic_cast<TxTypeExpressionNode*>( this->typeDeclaration->get_definer() ))
+                return "\tTYPE      ( " + typeExpr->get_auto_type_name() + " )  " + type->to_string(false, true);
+            else
+                return "\tTYPE      NOT A TYPE EXPRESSION NODE!  " + type->to_string(false, true);
         }
         else
             return "\tTYPE      -undef-";

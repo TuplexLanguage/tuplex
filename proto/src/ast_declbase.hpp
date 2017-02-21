@@ -26,6 +26,15 @@ public:
         return ( this->get_declaration() ? this->get_declaration()->get_unique_name() : "" );
     }
 
+    std::string get_type_name() const {
+        if (this->get_declaration())
+            return this->get_declaration()->get_unique_name();
+        else
+            return this->get_auto_type_name();
+    }
+
+    virtual std::string get_auto_type_name() const = 0;
+
     /** Returns true if this type expression is a directly identified type
      * (i.e. a previously declared type, does not construct a new type). */
     virtual bool has_predefined_type() const { return false; }

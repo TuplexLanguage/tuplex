@@ -15,10 +15,15 @@ Value* TxValueTypeArgumentNode::code_gen(LlvmGenerationContext& context, GenScop
     return this->valueExprNode->code_gen(context, scope);
 }
 
-Value* TxPredefinedTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxGenSpecializationTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     context.LOG.trace("%-48s", this->to_string().c_str());
     for (TxTypeArgumentNode* ta : *this->typeArgs)
         ta->code_gen(context, scope);
+    return nullptr;
+}
+
+Value* TxIdentifiedTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    context.LOG.trace("%-48s", this->to_string().c_str());
     return nullptr;
 }
 

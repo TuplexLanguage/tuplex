@@ -194,15 +194,14 @@ void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& defContext, 
 }
 
 
-void TxPredefinedTypeNode::symbol_declaration_pass( LexicalContext& defContext,
-                                                   LexicalContext& lexContext, TxDeclarationFlags declFlags,
-                                                   const std::string designatedTypeName,
-                                                   const std::vector<TxDeclarationNode*>* typeParamDeclNodes) {
+void TxGenSpecializationTypeNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
+                                                           TxDeclarationFlags declFlags, const std::string designatedTypeName,
+                                                           const std::vector<TxDeclarationNode*>* typeParamDeclNodes ) {
     //std::cout << this->parse_loc_string() << ": defContext: " << defContext.scope()->get_full_name() << "   " << "lexContext: " << lexContext.scope()->get_full_name() << std::endl;
     this->defContext = defContext;
 
     std::string typeName;
-    if (designatedTypeName.empty() && !this->typeArgs->empty()) {
+    if (designatedTypeName.empty()) {
         // ensure generic type specializations always have a declared type (handles e.g. Ref<Ref<Int>>)
         typeName = "$type";
         declFlags = declFlags | TXD_IMPLICIT;
@@ -229,7 +228,7 @@ TxGenericBinding TxValueTypeArgumentNode::make_binding( const TxIdentifier& full
 }
 
 
-const TxType* TxPredefinedTypeNode::define_identified_type() {
+const TxType* TxIdentifiedTypeNode::define_identified_type() {
     // note: looking up in defContext ("outer" context) to avoid conflation with generic base types' inherited entities
     if (auto identifiedTypeDecl = lookup_type(this->defContext.scope(), this->identNode->ident)) {
         auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type();
@@ -257,8 +256,8 @@ const TxType* TxPredefinedTypeNode::define_identified_type() {
     return nullptr;
 }
 
-const TxType* TxPredefinedTypeNode::define_generic_specialization_type() {
-    auto baseTypeDecl = lookup_type(this->context().scope(), this->identNode->ident);
+const TxType* TxGenSpecializationTypeNode::define_generic_specialization_type() {
+    auto baseTypeDecl = lookup_type( this->context().scope(), this->identNode->ident );
     const TxType* baseType = baseTypeDecl ? baseTypeDecl->get_definer()->resolve_type() : nullptr;
     if (! baseType) {
         CERROR(this, "Unknown type: " << this->identNode->ident << " (from " << this->context().scope() << ")");
@@ -317,7 +316,7 @@ void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& defContext, 
         if (auto maybeModElem = dynamic_cast<TxMaybeModTypeNode*>(arrayBaseType->elementTypeNode->typeExprNode)) {
             // (can this spuriously add Modifiable node to predeclared modifiable type, generating error?)
             lexContext.scope()->LOGGER().debug("Implicitly declaring Array Element modifiable at %s", this->to_string().c_str());
-            maybeModElem->isModifiable = true;
+            maybeModElem->set_modifiable( true );
         }
     }
 
@@ -326,7 +325,7 @@ void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& defContext, 
 
 
 bool TxMaybeModTypeNode::has_predefined_type() const {
-    if (this->isModifiable)
+    if (this->is_modifiable())
         return false;
     if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType))
         if (typeid(*arrayBaseType->elementTypeNode->typeExprNode) == typeid(TxModifiableTypeNode))
@@ -337,15 +336,15 @@ bool TxMaybeModTypeNode::has_predefined_type() const {
 void TxMaybeModTypeNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags,
                                                  const std::string designatedTypeName, const std::vector<TxDeclarationNode*>* typeParamDeclNodes) {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
-    if (! this->isModifiable) {
+    if (! this->is_modifiable()) {
         if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType))
             if (typeid(*arrayBaseType->elementTypeNode->typeExprNode) == typeid(TxModifiableTypeNode)) {
                 lexContext.scope()->LOGGER().debug("Implicitly declaring Array modifiable at %s", this->to_string().c_str());
-                this->isModifiable = true;
+                this->set_modifiable( true );
             }
     }
 
-    if (this->isModifiable)
+    if (this->is_modifiable())
         TxModifiableTypeNode::symbol_declaration_pass( defContext, lexContext, declFlags, designatedTypeName, typeParamDeclNodes);
     else {
         // "pass through" entity declaration to the underlying type

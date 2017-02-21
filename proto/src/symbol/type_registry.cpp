@@ -109,6 +109,10 @@ public:
         return new TxImplicitTypeDefiningNode( this );
     }
 
+    virtual std::string get_auto_type_name() const override {
+        return this->get_declared_name();
+    }
+
     void set_type(const TxType* type) {
         ASSERT(!this->baseType, "type already set");
         this->baseType = type;
@@ -315,7 +319,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
     {
         //auto elemTypeDefiner = this->builtinTypes[ANY];
         //typeDecl->get_symbol()->declare_type( "T", elemTypeDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_GENPARAM );
-        auto anyType = new TxPredefinedTypeNode(this->builtinLocation, "tx.Any");
+        auto anyType = new TxIdentifiedTypeNode(this->builtinLocation, "tx.Any");
         auto paramNodes = new std::vector<TxDeclarationNode*>( { new TxTypeDeclNode(this->builtinLocation, TXD_PUBLIC | TXD_GENPARAM,
                                                                                     "T", nullptr, anyType) } );
         auto definer = new TxBuiltinTypeDeclNode( this->builtinLocation, "Ref", REFERENCE, TXD_PUBLIC | TXD_BUILTIN, paramNodes );
@@ -336,7 +340,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
         //auto lengthDefiner = new TxBuiltinFieldDefiner();
         //auto lengthDecl = typeDecl->get_symbol()->declare_field( "L", lengthDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_GENPARAM, TXS_INSTANCE, TxIdentifier() );
         //lengthDefiner->set_field( new TxField(lengthDecl, this->builtinTypes[UINT]->get_type()) );
-        auto anyType = new TxPredefinedTypeNode(this->builtinLocation, "tx.Any");
+        auto anyType = new TxIdentifiedTypeNode(this->builtinLocation, "tx.Any");
         auto lTypeNode = new TxTypeDeclWrapperNode( this->builtinLocation, this->builtinTypes[UINT]->get_declaration() );
         auto lenFieldDef = new TxFieldDefNode(this->builtinLocation, "L", lTypeNode, nullptr, false);
         auto paramNodes = new std::vector<TxDeclarationNode*>( { new TxTypeDeclNode(this->builtinLocation, TXD_PUBLIC | TXD_GENPARAM,
@@ -457,7 +461,7 @@ void TypeRegistry::initializeBuiltinSymbols() {
         auto c_puts_func_type_def = new TxBuiltinFieldDefNode( this->builtinLocation );
         auto c_puts_decl = txCfuncModule->declare_field("puts", c_puts_func_type_def, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
 
-        auto refTypeNode = new TxReferenceTypeNode(this->builtinLocation, nullptr, new TxPredefinedTypeNode(this->builtinLocation, "tx.UByte"));
+        auto refTypeNode = new TxReferenceTypeNode(this->builtinLocation, nullptr, new TxIdentifiedTypeNode(this->builtinLocation, "tx.UByte"));
         LexicalContext ctx(txCfuncModule);
         refTypeNode->symbol_declaration_pass( ctx, ctx, TXD_PUBLIC | TXD_IMPLICIT, "puts$argtype", nullptr );
         refTypeNode->symbol_resolution_pass();
@@ -603,7 +607,7 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
 
         auto typeDefiner = type->get_declaration()->get_definer();
         auto & ctx = typeDefiner->context();
-        auto modNode = new TxModifiableTypeNode(this->builtinLocation, new TxPredefinedTypeNode(this->builtinLocation, type->get_declaration()->get_unique_name()));
+        auto modNode = new TxModifiableTypeNode(this->builtinLocation, new TxIdentifiedTypeNode(this->builtinLocation, type->get_declaration()->get_unique_name()));
         TxDeclarationFlags newDeclFlags = ( type->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
         modNode->symbol_declaration_pass( ctx, ctx, newDeclFlags, name, nullptr );
         modNode->symbol_resolution_pass();

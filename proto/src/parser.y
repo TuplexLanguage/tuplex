@@ -141,8 +141,8 @@ YY_DECL;
 %type <TxDeclarationNode *> member_declaration experr_decl type_param
 %type <std::vector<TxDeclarationNode*> *> type_body member_list type_param_list
 
-%type <std::vector<TxPredefinedTypeNode*> *> opt_base_types predef_type_list
-%type <TxPredefinedTypeNode*> predef_type
+%type <std::vector<TxTypeExpressionNode*> *> opt_base_types predef_type_list
+%type <TxTypeExpressionNode*> predef_type
 
 %type <TxTypeArgumentNode *> type_arg
 %type <std::vector<TxTypeArgumentNode*> *> type_arg_list
@@ -332,7 +332,8 @@ field_assignment_def : NAME COLON type_expression EQUAL expr
 type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->push_back($1); }
                 | type_param_list COMMA type_param  { $$ = $1; $$->push_back($3); }
                 ;
-type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, new TxPredefinedTypeNode(@1, new TxIdentifierNode(@1, new TxIdentifier("tx.Any")))); }
+type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
+                                                  new TxIdentifiedTypeNode(@1, new TxIdentifierNode(@1, new TxIdentifier("tx.Any")))); }
                 | NAME KW_DERIVES predef_type { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
                 | field_type_def  { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1); }
                 ;
@@ -365,18 +366,18 @@ member_list : member_declaration
                            $$->push_back($2); }
             ;
 
-opt_base_types  : %empty    { $$ = new std::vector<TxPredefinedTypeNode*>(); }
+opt_base_types  : %empty    { $$ = new std::vector<TxTypeExpressionNode*>(); }
                 | KW_DERIVES predef_type_list  { $$ = $2; }
                 // (all but the first must be interface types)
                 ;
 
-predef_type_list: predef_type  { $$ = new std::vector<TxPredefinedTypeNode*>();  $$->push_back($1); }
+predef_type_list: predef_type  { $$ = new std::vector<TxTypeExpressionNode*>();  $$->push_back($1); }
                 | predef_type_list COMMA predef_type  { $$ = $1;  $$->push_back($3); }
                 ;
 
-predef_type     : compound_identifier                      { $$ = new TxPredefinedTypeNode(@1, $1); }
-                | compound_identifier LT GT  { $$ = new TxPredefinedTypeNode(@1, $1, new std::vector<TxTypeArgumentNode*>()); }
-                | compound_identifier LT type_arg_list GT  { $$ = new TxPredefinedTypeNode(@1, $1, $3); }
+predef_type     : compound_identifier                      { $$ = new TxIdentifiedTypeNode(@1, $1); }
+                | compound_identifier LT GT                { $$ = new TxGenSpecializationTypeNode(@1, $1, new std::vector<TxTypeArgumentNode*>()); }
+                | compound_identifier LT type_arg_list GT  { $$ = new TxGenSpecializationTypeNode(@1, $1, $3); }
                 ;
 
 type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->push_back($1); }

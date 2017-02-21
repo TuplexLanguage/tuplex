@@ -11,13 +11,13 @@
  * Only used for very special cases, currently only for $Self and $Super definitions.
  */
 class TxTypeExprWrapperNode : public TxTypeExpressionNode {
-    TxTypeDefiningNode* const typeDefNode;
+    TxTypeExpressionNode* const typeExprNode;
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext,
                                                       TxDeclarationFlags declFlags ) override { }
 
     virtual const TxType* define_type() override {
-        auto type = this->typeDefNode->resolve_type();
+        auto type = this->typeExprNode->resolve_type();
         if (!type)
             return nullptr;
         else if (auto declEnt = this->get_declaration()) {
@@ -29,16 +29,20 @@ protected:
     }
 
 public:
-    TxTypeExprWrapperNode( TxTypeDefiningNode* typeDefNode )
-        : TxTypeExpressionNode( typeDefNode->parseLocation ), typeDefNode(typeDefNode)  { }
+    TxTypeExprWrapperNode( TxTypeExpressionNode* typeExprNode )
+        : TxTypeExpressionNode( typeExprNode->parseLocation ), typeExprNode(typeExprNode)  { }
 
     virtual TxTypeExprWrapperNode* make_ast_copy() const override {
         // since declaration and resolution passes aren't forwarded, the wrapped type definition doesn't need copying
-        return new TxTypeExprWrapperNode( this->typeDefNode );
+        return new TxTypeExprWrapperNode( this->typeExprNode );
+    }
+
+    virtual std::string get_auto_type_name() const override {
+        return this->typeExprNode->get_auto_type_name();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override {
-        return this->typeDefNode->code_gen( context, scope );
+        return this->typeExprNode->code_gen( context, scope );
     }
 };
 
@@ -68,6 +72,10 @@ public:
 
     virtual TxTypeDeclWrapperNode* make_ast_copy() const override {
         return new TxTypeDeclWrapperNode( this->parseLocation, this->typeDecl );
+    }
+
+    virtual std::string get_auto_type_name() const override {
+        return hashify( this->typeDecl->get_unique_full_name() );
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
