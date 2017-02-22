@@ -249,7 +249,7 @@ protected:
         TxGenericBinding binding = this->targetTypeNode->make_binding( "T" );
         const TxIdentifier* dataspace = (this->dataspace ? &this->dataspace->ident : nullptr);
         //cwarning("Dataspace: %s", (this->dataspace ? this->dataspace->ident.to_string().c_str() : "NULL"));
-        return this->types().get_reference_type(this->get_declaration(), binding, dataspace, this->exp_err_ctx());
+        return this->types().get_reference_type( this, binding, dataspace );
     }
 
 public:
@@ -291,10 +291,10 @@ protected:
         TxGenericBinding elementBinding = this->elementTypeNode->make_binding( "E" );
         if (this->lengthNode) {
             TxGenericBinding lengthBinding = this->lengthNode->make_binding( "L" );
-            return this->types().get_array_type(this->get_declaration(), elementBinding, lengthBinding, this->exp_err_ctx());
+            return this->types().get_array_type( this, elementBinding, lengthBinding );
         }
         else
-            return this->types().get_array_type(this->get_declaration(), elementBinding, this->exp_err_ctx());
+            return this->types().get_array_type( this, elementBinding );
     }
 
 public:
@@ -390,7 +390,7 @@ protected:
             }
         }
 
-        auto type = this->types().get_type_specialization(declaration, baseObjType, nullptr, this->exp_err_ctx(), interfaces, this->_mutable);
+        auto type = this->types().get_type_derivation( declaration, baseObjType, interfaces, this->_mutable );
         return type;
     }
 

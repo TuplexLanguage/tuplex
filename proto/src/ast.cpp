@@ -237,7 +237,7 @@ const TxType* TxGenSpecializationTypeNode::define_generic_specialization_type() 
     for (size_t i = 0; i < this->typeArgs->size(); i++) {
         bindings.push_back(this->typeArgs->at(i)->make_binding( baseType->type_params().at(i)->get_unique_name() ) );
     }
-    return this->types().get_type_specialization(this->get_declaration(), baseType, &bindings, this->exp_err_ctx());
+    return this->types().get_type_specialization( this, baseType, &bindings );
 }
 
 

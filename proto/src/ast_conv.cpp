@@ -143,7 +143,7 @@ const TxType* TxReferenceConvNode::define_type() {
 
             // create reference type to the adapter type
             auto adapterDefiner = new TxTypeDeclWrapperNode( this->parseLocation, adapterType->get_declaration() );
-            return this->types().get_reference_type(nullptr, TxGenericBinding::make_type_binding("T", adapterDefiner), nullptr, this->exp_err_ctx());
+            return this->types().get_reference_type( this, TxGenericBinding::make_type_binding("T", adapterDefiner), nullptr );
         }
     }
     return TxConversionNode::define_type();  // returns the required resultType
