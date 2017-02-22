@@ -181,7 +181,7 @@ void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& defContext, 
     this->set_context( lexContext );
     this->declaration = owningDeclaration;
     LexicalContext typeCtx(lexContext, ( owningDeclaration ? owningDeclaration->get_symbol() : lexContext.scope() ) );
-    this->symbol_declaration_pass_descendants( defContext, typeCtx, TXD_NONE );
+    this->symbol_declaration_pass_descendants( defContext, typeCtx );
 }
 
 
@@ -242,7 +242,7 @@ const TxType* TxGenSpecializationTypeNode::define_generic_specialization_type() 
 
 
 
-void TxArrayTypeNode::symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext, TxDeclarationFlags declFlags) {
+void TxArrayTypeNode::symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) {
     this->elementTypeNode->symbol_declaration_pass( defContext, lexContext);
 // If we're to implicitly define a binding the Array.L parameter, we must also fix so that such implicit bindings
 // get a corresponding type parameter declaration in the outer type entity.

@@ -12,8 +12,7 @@ class TxTypeExpressionNode : public TxTypeDefiningNode {
     const TxTypeDeclaration* declaration = nullptr;
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext,
-                                                      LexicalContext& lexContext, TxDeclarationFlags declFlags ) = 0;
+    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) = 0;
 
 public:
     TxTypeExpressionNode(const TxLocation& parseLocation) : TxTypeDefiningNode(parseLocation) { }

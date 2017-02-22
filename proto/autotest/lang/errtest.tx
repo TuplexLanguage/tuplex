@@ -11,6 +11,10 @@ CONSTANT := 42;
 #experr: type BadType1 UnknownType;
 
 #experr 2: type BadType2 derives Tuple {
+    instfield : Float;
+    public self( f : Float ) {
+        self.instfield = f;
+    }
     static FOO : Int = 2.73;  ## bad type conversion
     static BAR := 7  ## missing semicolon
 }
@@ -21,6 +25,11 @@ CONSTANT := 42;
 }
 
 type OkType derives Tuple {
+    instfield : Float;
+    public self( f : Float ) {
+        #experr: super();
+        self.instfield = f;
+    }
     static good := 14;
     #experr 1: static FOO : Int = 2.73;  ## bad type conversion
     #experr 1: static BAR := 7  ## missing semicolon

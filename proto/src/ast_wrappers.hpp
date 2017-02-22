@@ -13,8 +13,7 @@
 class TxTypeExprWrapperNode : public TxTypeExpressionNode {
     TxTypeExpressionNode* const typeExprNode;
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext,
-                                                      TxDeclarationFlags declFlags ) override { }
+    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override { }
 
     virtual const TxType* define_type() override {
         auto type = this->typeExprNode->resolve_type();
@@ -51,8 +50,7 @@ public:
 class TxTypeDeclWrapperNode : public TxTypeExpressionNode {
     TxEntityDeclaration const * const typeDecl;
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext,
-                                                      TxDeclarationFlags declFlags ) override { }
+    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override { }
 
     virtual const TxType* define_type() override {
         auto type = this->typeDecl->get_definer()->resolve_type();

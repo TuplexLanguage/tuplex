@@ -89,8 +89,7 @@ class TxImplicitTypeDefiningNode final : public TxTypeExpressionNode {
             : TxTypeExpressionNode(original->parseLocation), originalNode(original), baseType() { }
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext,
-                                                      TxDeclarationFlags declFlags ) override { }
+    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override { }
 
     virtual const TxType* define_type() override {
         if (this->originalNode) {
