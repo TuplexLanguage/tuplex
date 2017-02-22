@@ -390,7 +390,7 @@ protected:
             }
         }
 
-        auto type = this->types().get_type_derivation( declaration, baseObjType, interfaces, this->_mutable );
+        auto type = this->types().get_type_derivation( this, baseObjType, interfaces, this->_mutable );
         return type;
     }
 

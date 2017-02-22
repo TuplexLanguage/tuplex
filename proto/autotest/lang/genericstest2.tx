@@ -4,6 +4,8 @@ module my
 
 type AType<S derives Ref> mod derives Tuple {
     public memref : S;
+    public type GenAlias S;
+    public type GenRef Ref<S>;
 
     public self(s : S) {
         self.memref = s;

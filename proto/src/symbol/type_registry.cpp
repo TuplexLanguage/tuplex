@@ -618,6 +618,11 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
 
 const TxType* TypeRegistry::get_empty_specialization(const TxTypeDeclaration* declaration, const TxType* type) {
     //std::cerr << "MAKING EMPTY TYPE: " << declaration->to_string() << std::endl;
+    ASSERT(!type->is_modifiable(), "Can't specialize a 'modifiable' base type: " << type);
+    if (type->is_modifiable()) {
+        CERROR(declaration->get_definer(), "Can't declare specialization / alias of a modifiable type: "<< type);
+        return nullptr;
+    }
     while (type->is_empty_derivation() && !type->get_explicit_declaration())  //!type->is_explicit_nongen_declaration())
         type = type->get_base_type();
     return this->make_specialized_type(declaration, TxTypeSpecialization(type, false));
@@ -747,7 +752,7 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
                     return existingBaseType;
                 }
             }
-            baseScope->LOGGER().debug("Found existing but mismatching type with sought name: %s", typeDecl->to_string().c_str());
+            baseScope->LOGGER().warning("Found existing but mismatching type with sought name: %s", typeDecl->to_string().c_str());
         }
     }
     return nullptr;
@@ -940,9 +945,9 @@ const TxType* TypeRegistry::get_type_specialization( const TxTypeDefiningNode* d
 }
 
 
-const TxType* TypeRegistry::get_type_derivation( const TxTypeDeclaration* declaration, const TxType* baseType,
+const TxType* TypeRegistry::get_type_derivation( const TxTypeExpressionNode* definer, const TxType* baseType,
                                                  const std::vector<TxTypeSpecialization>& interfaces, bool _mutable ) {
-    ASSERT(declaration, "NULL declaration");
+    ASSERT(definer->get_declaration(), "NULL declaration in " << definer);
     ASSERT(!baseType->is_modifiable(), "Can't specialize a 'modifiable' base type: " << baseType);
 
     while (baseType->is_empty_derivation() && !baseType->get_explicit_declaration())
@@ -951,14 +956,14 @@ const TxType* TypeRegistry::get_type_derivation( const TxTypeDeclaration* declar
     if (baseType->get_decl_flags() & (TXD_GENPARAM | TXD_GENBINDING)) {
         // only empty derivation allowed from generic type parameter
         if (!interfaces.empty()) {
-            CERROR(declaration->get_definer(), "Can't specialize a generic type parameter: " << baseType);
+            CERROR(definer, "Can't specialize a generic type parameter: " << baseType);
             return nullptr;
         }
     }
 
     // TODO: pass _mutable flag to type extensions
 
-    return this->make_specialized_type(declaration, TxTypeSpecialization(baseType), interfaces);
+    return this->make_specialized_type(definer->get_declaration(), TxTypeSpecialization(baseType), interfaces);
 }
 
 

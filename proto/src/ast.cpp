@@ -196,27 +196,13 @@ TxGenericBinding TxValueTypeArgumentNode::make_binding( const std::string& param
 
 const TxType* TxIdentifiedTypeNode::define_identified_type() {
     if (auto identifiedTypeDecl = lookup_type(this->context().scope(), this->identNode->ident)) {
-        auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type();
-        if (!identifiedType)
-            return nullptr;
-        else if (auto declEnt = this->get_declaration()) {
-            if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
-                // refers to unbound generic type parameter, which is ok within the type declaring the parameter
-                LOGGER().debug("%s: '%s' in %s refers to unbound generic type parameter %s", this->parse_loc_string().c_str(),
-                               this->identNode->ident.to_string().c_str(), this->defContext.scope()->get_full_name().to_string().c_str(), identifiedTypeDecl->to_string().c_str());
-                return identifiedType;
-            }
-            else if (!identifiedType->is_modifiable()){
+        if (auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type()) {
+            if (auto declEnt = this->get_declaration()) {
                 // create empty specialization (uniquely named but identical type)
                 return this->types().get_empty_specialization(declEnt, identifiedType);
             }
+            return identifiedType;
         }
-//        else if (identifiedTypeDecl->get_decl_flags() & TXD_GENPARAM) {
-//            // Happens if source (e.g. member) refers specifically to an unbound type parameter
-//            // (should we let this be an alias for the generic type parameter, and if so, how?)
-//            CWARNING(this, "'" << this->identNode->ident << "' refers to unbound generic type parameter " << identifiedTypeDecl);
-//        }
-        return identifiedType;
     }
     return nullptr;
 }

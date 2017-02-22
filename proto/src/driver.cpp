@@ -412,6 +412,10 @@ ExpectedErrorClause* TxParserContext::end_exp_err( const TxLocation& loc ) {
 
 }
 
+bool TxParserContext::in_exp_err() const {
+    return this->expError;
+}
+
 
 //void TxParserContext::cerror(const TxLocation& loc, char const *fmt, ...) {
 //    va_list ap;

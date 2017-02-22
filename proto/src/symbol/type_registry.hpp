@@ -114,7 +114,7 @@ public:
                                            const std::vector<TxGenericBinding>* bindings );
 
     /** Makes a new derivation of a base type and a set of interfaces. */
-    const TxType* get_type_derivation( const TxTypeDeclaration* declaration, const TxType* baseType,
+    const TxType* get_type_derivation( const TxTypeExpressionNode* definer, const TxType* baseType,
                                        const std::vector<TxTypeSpecialization>& interfaces, bool _mutable );
 
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */

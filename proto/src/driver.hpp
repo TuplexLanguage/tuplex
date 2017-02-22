@@ -192,4 +192,5 @@ public:
     void begin_exp_err( const TxParseOrigin* origin );
     void begin_exp_err( const TxLocation& loc, ExpectedErrorClause* expError );
     ExpectedErrorClause* end_exp_err( const TxLocation& loc );
+    bool in_exp_err() const;
 };
