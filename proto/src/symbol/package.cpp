@@ -2,12 +2,14 @@
 
 #include "entity.hpp"
 #include "type_registry.hpp"
+#include "builtin/builtin_types.hpp"
 
 
 TxPackage::TxPackage( TxDriver& driver, const TxParseOrigin& rootOrigin )
         : TxModule(nullptr, "", rootOrigin, false), _driver(driver), mainFunc() {
-    this->typeRegistry = new TypeRegistry(*this);
-    this->typeRegistry->initializeBuiltinSymbols();
+    this->typeRegistry = new TypeRegistry( *this );
+    this->builtinTypes = new BuiltinTypes( *this->typeRegistry );
+    this->builtinTypes->initializeBuiltinSymbols();
 }
 
 

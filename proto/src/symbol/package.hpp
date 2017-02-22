@@ -9,6 +9,7 @@
 
 
 class TypeRegistry;
+class BuiltinTypes;
 
 
 /** A Tuplex package represents a Tuplex compilation unit.
@@ -18,6 +19,7 @@ class TypeRegistry;
 class TxPackage : public TxModule {
     TxDriver& _driver;
     TypeRegistry* typeRegistry;
+    BuiltinTypes* builtinTypes;
     const TxEntitySymbol* mainFunc;
 
 public:
@@ -35,6 +37,8 @@ public:
     inline TypeRegistry& types() {
         return const_cast<TypeRegistry&>(static_cast<const TxPackage *>(this)->types());
     }
+
+    BuiltinTypes* builtin_types() const { return this->builtinTypes; }
 
     void registerMainFunc(const TxEntitySymbol* mainFunc);
 

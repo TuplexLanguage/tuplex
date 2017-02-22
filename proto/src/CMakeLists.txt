@@ -114,6 +114,8 @@ add_executable(txc
         symbol/type_registry.cpp
         symbol/type_codegen.cpp
 
+        builtin/builtin_types.cpp
+
         tx_operations.cpp
         tx_error.cpp
         identifier.cpp

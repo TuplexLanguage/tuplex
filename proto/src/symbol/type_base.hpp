@@ -245,6 +245,7 @@ protected:
                                           const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>()) const = 0;
 
     friend class TypeRegistry;  // allows access for registry's type construction
+    friend class BuiltinTypes;
 
     /** Gets the Any root type. */
     inline const TxType* get_root_any_type() const {
