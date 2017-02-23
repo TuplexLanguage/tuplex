@@ -118,8 +118,6 @@ type Field<E,C,L> derives Array<Ref<Abstr<E,C>>,L> {
 
  */
 class TxGenSpecializationTypeNode : public TxTypeExpressionNode {
-    LexicalContext defContext;
-
     const TxType* define_generic_specialization_type();
 
 protected:
@@ -151,7 +149,7 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override {
-        auto identifiedTypeDecl = lookup_type( this->defContext.scope(), this->identNode->ident );
+        auto identifiedTypeDecl = lookup_type( this->context().scope(), this->identNode->ident );
         std::string name = ( identifiedTypeDecl ? hashify( identifiedTypeDecl->get_unique_full_name() ) : "$UNKNOWN" );
         int ix = 0;
         for (TxTypeArgumentNode* ta : *this->typeArgs) {
@@ -164,12 +162,6 @@ public:
 
     virtual bool has_predefined_type() const override { return false; }
 
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
-                                          const TxTypeDeclaration* owningDeclaration ) override {
-        this->defContext = defContext;
-        TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, owningDeclaration );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
         for (TxTypeArgumentNode* ta : *this->typeArgs)
@@ -181,8 +173,6 @@ public:
 
 
 class TxIdentifiedTypeNode : public TxTypeExpressionNode {
-    LexicalContext defContext;
-
     const TxType* define_identified_type();
 
 protected:
@@ -210,17 +200,11 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override {
-        auto identifiedTypeDecl = lookup_type( this->defContext.scope(), this->identNode->ident );
+        auto identifiedTypeDecl = lookup_type( this->context().scope(), this->identNode->ident );
         return ( identifiedTypeDecl ? hashify( identifiedTypeDecl->get_unique_full_name() ) : "$UNKNOWN" );
     }
 
     virtual bool has_predefined_type() const override { return true; }
-
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
-                                          const TxTypeDeclaration* owningDeclaration ) override {
-        this->defContext = defContext;
-        TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, owningDeclaration );
-    }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };

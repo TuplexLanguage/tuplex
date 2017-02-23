@@ -211,9 +211,10 @@ class TxType : public TxEntity {
     /** false until prepare_type_members() has completed (after that this object should be considered immutable) */
     bool prepared = false;
 
-    /** Prepares / initializes this type. Called from constructor. */
-    void prepare_type();
-    void prepare_type_validation() const;
+    /** Initializes this type. Called from constructor. */
+    void initialize_type();
+    /** Performs basic validation, called from initializer. */
+    void validate_type() const;
 
 protected:
     bool extendsInstanceDatatype = false;
@@ -229,14 +230,14 @@ protected:
     TxType(TxTypeClass typeClass, const TxTypeDeclaration* declaration)
             : TxEntity(declaration), typeClass(typeClass), builtin(declaration && (declaration->get_decl_flags() & TXD_BUILTIN)),
               baseTypeSpec(), interfaces()  {
-        this->prepare_type();
+        this->initialize_type();
     }
 
     TxType(TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
            const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>())
             : TxEntity(declaration), typeClass(typeClass), builtin(declaration && (declaration->get_decl_flags() & TXD_BUILTIN)),
               baseTypeSpec(baseTypeSpec), interfaces(interfaces) {
-        this->prepare_type();
+        this->initialize_type();
     }
 
     /** Creates a specialization of this type. To be used by the type registry. */
@@ -246,6 +247,7 @@ protected:
 
     friend class TypeRegistry;  // allows access for registry's type construction
     friend class BuiltinTypes;
+    friend class TxBuiltinTypeDefiningNode;
 
     /** Gets the Any root type. */
     inline const TxType* get_root_any_type() const {
@@ -273,7 +275,8 @@ public:
 
     /** Gets the runtime type id of this type. (Equivalent specializations return their base type's id.) */
     inline uint32_t get_type_id() const {
-        ASSERT(this->prepared, "Can't get runtime type id of unprepared type: " << this);
+        //ASSERT(this->prepared, "Can't get runtime type id of unprepared type: " << this);
+        ASSERT(this->runtimeTypeId != UINT32_MAX || this->is_equivalent_derivation(), "Type id not set for " << this);
         return ( this->runtimeTypeId == UINT32_MAX ? this->get_semantic_base_type()->get_type_id() : this->runtimeTypeId );
     }
 

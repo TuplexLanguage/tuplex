@@ -43,17 +43,16 @@ void TypeRegistry::add_type(TxType* type) {
     this->createdTypes->push_back(type);
 }
 
-void TypeRegistry::register_types() {
+void TypeRegistry::prepare_types() {
     auto createdTypes = this->createdTypes;
     this->createdTypes = new std::vector<TxType*>();
     for (auto type : *createdTypes) {
-        //std::cerr << "Created type: " << type << std::endl;
+        //std::cerr << "Preparing type: " << type << std::endl;
+        type->prepare_type_members();
         if (type->is_builtin()) {
-            ASSERT(type->is_prepared(), "Unprepared builtin type: " << type);
-            ASSERT(type->runtimeTypeId != UINT32_MAX, "builtin type doesn't have type id set: " << type);
+            ASSERT(type->runtimeTypeId == this->staticTypes.size(), "preparing built-in type in wrong order / id: " << type->runtimeTypeId << ": " << type);
         }
         else {
-            type->prepare_type_members();
             // Types that are distinct in instance data type, or vtable, get distinct runtime type id and vtable.
             if (type->get_type_class() == TXTC_FUNCTION)
                 continue;
@@ -61,17 +60,10 @@ void TypeRegistry::register_types() {
                 //std::cerr << "Not registering distinct runtime type id for equivalent derivation: " << type << std::endl;
                 continue;
             }
-//            // As long as we only generate actual code for six 0, don't register distinct runtime type id for reinterpreted types:
-//            if (type->is_reinterpreted()) {
-//                //std::cerr << "Not registering distinct runtime type id for reinterpreted type: " << type << std::endl;
-//                continue;
-//            }
-            //if (type->get_declaration())
-            //    std::cerr << "with six=" << type->get_declaration()->get_definer()->get_six() << ": registering type " << type << std::endl;
             type->runtimeTypeId = this->staticTypes.size();
         }
         this->staticTypes.push_back(type);
-        //std::cerr << "Registering: " << type << " with distinct runtime type id " << type->runtimeTypeId << std::endl;
+        //std::cerr << "Registering static type " << type << " with distinct runtime type id " << type->runtimeTypeId << std::endl;
     }
     ASSERT(this->createdTypes->empty(), "'Extra' types were created while register_types() was running");
     //for (auto type : *this->createdTypes)
@@ -81,9 +73,9 @@ void TypeRegistry::register_types() {
 }
 
 
-const TxType* TypeRegistry::get_builtin_type(const BuiltinTypeId id, bool mod) const {
-    return this->package.builtin_types()->get_builtin_type( id, mod );
-//    return mod ? this->builtinModTypes[id] : this->builtinTypes[id]->get_type();
+const TxType* TypeRegistry::get_builtin_type(const BuiltinTypeId id, bool mod) {
+    auto biType = this->package.builtin_types()->get_builtin_type( id );
+    return ( mod ? this->get_modifiable_type( nullptr, biType ) : biType );
 }
 
 
@@ -103,12 +95,6 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
     while (type->is_empty_derivation() && !type->get_explicit_declaration())  //!type->is_explicit_nongen_declaration())
         type = type->get_base_type();
     ASSERT(!type->is_modifiable(), "Can't make a modifiable specialization of a modifiable type: " << type);
-    if (type->is_builtin()) {
-        ASSERT(type->get_type_id() != UINT32_MAX, "builtin type doesn't have type id set: " << type);
-        if (auto mtype = this->get_builtin_type( static_cast<BuiltinTypeId>(type->get_type_id()), true ))
-            return mtype;
-        // if not set, then this is run during initialization and a modifiable of a built-in type is being created
-    }
 
     if (! declaration) {
         std::string prefix = "~";
@@ -126,11 +112,12 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
             name = scope->make_unique_name(name);
         }
 
+        const TxLocation& loc = ( declaration ? declaration->get_definer()->get_parse_location() : type->get_parse_location() );
         auto typeDefiner = type->get_declaration()->get_definer();
         auto & ctx = typeDefiner->context();
-        auto modNode = new TxModifiableTypeNode(this->get_builtin_location(), new TxIdentifiedTypeNode(this->get_builtin_location(), type->get_declaration()->get_unique_name()));
+        auto modNode = new TxModifiableTypeNode(loc, new TxIdentifiedTypeNode(loc, type->get_declaration()->get_unique_name()));
         TxDeclarationFlags newDeclFlags = ( type->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
-        auto modDeclNode = new TxTypeDeclNode(this->get_builtin_location(), newDeclFlags, name, nullptr, modNode);
+        auto modDeclNode = new TxTypeDeclNode(loc, newDeclFlags, name, nullptr, modNode);
         modDeclNode->symbol_declaration_pass( ctx, ctx );
         modDeclNode->symbol_resolution_pass();
         return modNode->get_type();

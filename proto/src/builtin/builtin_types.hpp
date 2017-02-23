@@ -19,7 +19,6 @@ class BuiltinTypes {
     const TxLocation& builtinLocation;
 
     TxTypeDeclNode* builtinTypes[BuiltinTypeId_COUNT];
-    const TxType* builtinModTypes[BuiltinTypeId_COUNT];
 
     void declare_default_constructor(LexicalContext& ctx, BuiltinTypeId typeId, TxExpressionNode* initValueExpr);
     void declare_conversion_constructor(BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId);
@@ -46,7 +45,7 @@ public:
 
     const TxLocation& get_builtin_location() const { return this->builtinLocation; }
 
-    const TxType* get_builtin_type(const BuiltinTypeId id, bool mod=false) const;
+    const TxType* get_builtin_type( const BuiltinTypeId id ) const;
 
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
     // TODO: move to TypeRegistry?

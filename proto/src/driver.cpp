@@ -160,7 +160,7 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
 
     this->package->types().enqueued_resolution_pass();
 
-    this->package->types().register_types();
+    this->package->types().prepare_types();
 
     bool symValid = this->package->symbol_validation_pass();
 

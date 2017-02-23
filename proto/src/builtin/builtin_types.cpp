@@ -226,11 +226,6 @@ protected:
             decl->symbol_declaration_pass( lexContext, false );
     }
 
-    /** Makes a new type specialization and registers it with this registry. */
-    TxType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& specialization ) {
-        return this->types().make_specialized_type( declaration, specialization );
-    }
-
     virtual const TxType* define_type() override final {
         if (this->original) {  // true when this is a reinterpreted copy
             // Note: This applies to Ref and Array specializations and deviates from reinterpretation of user types:
@@ -238,15 +233,18 @@ protected:
             //   instead they will have the generic base type's parent as their base type.
             //   Here that would be  this->baseTypeNode->resolve_type()  instead of  this->original->get_type() .
             //   That would however not work with the current type class implementation (TxReferenceType and TxArrayType).
-            return this->make_specialized_type( this->get_declaration(), TxTypeSpecialization( this->original->get_type() ) );
+            return this->types().make_specialized_type( this->get_declaration(), TxTypeSpecialization( this->original->get_type() ) );
         }
         else {
             auto type = this->define_builtin_type();
+            //type->prepare_type_members();
+            type->runtimeTypeId = builtinTypeId;
+            this->types().add_type( type );
             return type;
         }
     }
 
-    virtual const TxType* define_builtin_type() = 0;
+    virtual TxType* define_builtin_type() = 0;
 
 public:
     TxBuiltinTypeDefiningNode( const TxLocation& parseLocation, BuiltinTypeId builtinTypeId,
@@ -278,7 +276,7 @@ public:
 
 class TxAnyTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual const TxType* define_builtin_type() override {
+    virtual TxType* define_builtin_type() override {
         return new TxAnyType( this->get_declaration() );
     }
 
@@ -290,7 +288,7 @@ public:
 
 class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual const TxType* define_builtin_type() override {
+    virtual TxType* define_builtin_type() override {
         auto baseType = this->baseTypeNode->resolve_type();
         return new TxBuiltinBaseType( this->typeClass, this->get_declaration(), baseType );
     }
@@ -304,7 +302,7 @@ public:
 
 class TxIntegerTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual const TxType* define_builtin_type() override {
+    virtual TxType* define_builtin_type() override {
         auto baseType = this->baseTypeNode->resolve_type();
         return new TxIntegerType( this->get_declaration(), baseType, this->size, this->sign);
     }
@@ -319,7 +317,7 @@ public:
 
 class TxFloatingTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual const TxType* define_builtin_type() override {
+    virtual TxType* define_builtin_type() override {
         auto baseType = this->baseTypeNode->resolve_type();
         return new TxFloatingType( this->get_declaration(), baseType, this->size );
     }
@@ -333,7 +331,7 @@ public:
 
 class TxBoolTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual const TxType* define_builtin_type() override {
+    virtual TxType* define_builtin_type() override {
         auto baseType = this->baseTypeNode->resolve_type();
         return new TxBoolType( this->get_declaration(), baseType );
     }
@@ -346,7 +344,7 @@ public:
 
 class TxTupleTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual const TxType* define_builtin_type() override {
+    virtual TxType* define_builtin_type() override {
         auto baseType = this->baseTypeNode->resolve_type();
         return new TxTupleType( this->get_declaration(), baseType, true );
     }
@@ -359,7 +357,7 @@ public:
 
 class TxInterfaceTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual const TxType* define_builtin_type() override {
+    virtual TxType* define_builtin_type() override {
         auto baseType = this->baseTypeNode->resolve_type();
         return new TxInterfaceType( this->get_declaration(), baseType );
     }
@@ -375,7 +373,7 @@ class TxRefTypeDefNode final : public TxBuiltinTypeDefiningNode {
                         TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes )
         : TxBuiltinTypeDefiningNode( parseLocation, original, baseTypeNode, declNodes )  { }
 protected:
-    virtual const TxType* define_builtin_type() override {
+    virtual TxType* define_builtin_type() override {
         auto baseType = this->baseTypeNode->resolve_type();
         return new TxReferenceType( this->get_declaration(), baseType );
     }
@@ -395,7 +393,7 @@ class TxArrayTypeDefNode final : public TxBuiltinTypeDefiningNode {
                         TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes )
         : TxBuiltinTypeDefiningNode( parseLocation, original, baseTypeNode, declNodes )  { }
 protected:
-    virtual const TxType* define_builtin_type() override {
+    virtual TxType* define_builtin_type() override {
         auto baseType = this->baseTypeNode->resolve_type();
         return new TxArrayType( this->get_declaration(), baseType );
     }
@@ -415,7 +413,7 @@ protected:
     TxTypeExpressionNode* returnTypeNode;
     TxExpressionNode* initExprNode;
 
-    virtual const TxType* define_builtin_type() override {
+    virtual TxType* define_builtin_type() override {
         // hackish but works since they don't really declare anything:
         this->returnTypeNode->symbol_declaration_pass( this->context(), this->context(), nullptr );
         this->initExprNode->symbol_declaration_pass( this->context() );
@@ -829,20 +827,12 @@ void BuiltinTypes::initializeBuiltinSymbols() {
 ////    }
 
 
-    // register the built-in types and create modifiable specializations of them:
+    // create modifiable specializations of the builtin types:
     for (unsigned id = 0; id < BuiltinTypeId_COUNT; id++) {
         // verify that all built-in types are initialized:
         ASSERT(this->builtinTypes[id], "Uninitialized built-in type! id=" << id);
-        auto biType = const_cast<TxType*>(this->builtinTypes[id]->typeExpression->resolve_type());
-        ASSERT(id == this->registry.staticTypes.size(), "registering built-in type in wrong order / id: " << id);
-        biType->prepare_type_members();
-        //ASSERT(biType->is_prepared(), "built-in type not prepared: " << biType);
-        biType->runtimeTypeId = id;
-        this->registry.staticTypes.push_back(biType);
-
-        this->builtinModTypes[id] = nullptr;  // prevents read from uninitialized value
-        this->builtinModTypes[id] = this->registry.get_modifiable_type(nullptr, biType);
-        ASSERT(this->builtinModTypes[id], "NULL mod builtin type: " << biType);
+        // FIXME: remove when initializeBuiltinSymbols() no longer creates entities needing this:
+        this->builtinTypes[id]->typeExpression->resolve_type();
     }
 
     auto module = this->registry.get_package().lookup_module("tx");
@@ -949,8 +939,8 @@ BuiltinTypes::BuiltinTypes( TypeRegistry& registry )
 }
 
 
-const TxType* BuiltinTypes::get_builtin_type( const BuiltinTypeId id, bool mod ) const {
-    return mod ? this->builtinModTypes[id] : this->builtinTypes[id]->typeExpression->get_type();
+const TxType* BuiltinTypes::get_builtin_type( const BuiltinTypeId id ) const {
+    return this->builtinTypes[id]->typeExpression->get_type();
 }
 
 

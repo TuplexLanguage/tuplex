@@ -50,9 +50,6 @@ extern std::string encode_type_name(const TxType* type);
 class TypeRegistry {
     TxPackage& package;
 
-//    TxBuiltinTypeDeclNode* builtinTypes[BuiltinTypeId_COUNT];
-//    const TxType* builtinModTypes[BuiltinTypeId_COUNT];
-
 //    /** parse location used for built-in constructs without actual source code */
 //    const TxLocation& builtinLocation;
     const TxLocation& get_builtin_location() const;
@@ -98,11 +95,12 @@ public:
 
     const std::vector<TxTypeDeclNode*>& get_enqueued_specializations() const { return this->enqueuedSpecializations; }
 
-    /** to be invoked after the whole package's source has been processed, before code generation */
-    void register_types();
+    /** to be invoked after the whole package's source has been processed, before code generation.
+     * This will perform some type validation, perform data layout, and assign runtime type ids. */
+    void prepare_types();
 
 
-    const TxType* get_builtin_type(const BuiltinTypeId id, bool mod=false) const;
+    const TxType* get_builtin_type(const BuiltinTypeId id, bool mod=false);
 
 
     /*--- retrievers for derived types ---*/

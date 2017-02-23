@@ -69,7 +69,7 @@ TxParserContext* TxType::get_parser_context() const {
 }
 
 
-void TxType::prepare_type_validation() const {
+void TxType::validate_type() const {
     //std::cerr << "validating type " << this << std::endl;
     if (this->baseTypeSpec.type) {
         if (this->baseTypeSpec.type->is_modifiable())
@@ -106,8 +106,8 @@ void TxType::prepare_type_validation() const {
 }
 
 
-void TxType::prepare_type() {
-    LOGGER().debug("Preparing type %s", this->to_string().c_str());
+void TxType::initialize_type() {
+    LOGGER().debug("Initializing type %s", this->to_string().c_str());
 
     if (this->get_declaration()) {
         auto typeDeclNamespace = this->get_declaration()->get_symbol();
@@ -273,7 +273,7 @@ void TxType::prepare_type() {
         this->extendsInstanceDatatype = true;
     }
 
-    this->prepare_type_validation();
+    this->validate_type();
 }
 
 void TxType::prepare_type_members() {
