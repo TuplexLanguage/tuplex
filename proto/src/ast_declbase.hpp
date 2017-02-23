@@ -14,6 +14,11 @@ class TxTypeExpressionNode : public TxTypeDefiningNode {
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) = 0;
 
+    void set_declaration( const TxTypeDeclaration* declaration ) {
+        ASSERT(!this->declaration, "Declaration already set in " << this << ": " << this->declaration);
+        this->declaration = declaration;
+    }
+
 public:
     TxTypeExpressionNode(const TxLocation& parseLocation) : TxTypeDefiningNode(parseLocation) { }
 

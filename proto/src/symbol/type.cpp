@@ -87,7 +87,12 @@ void TxType::validate_type() const {
             if (! this->interfaces.empty())
                 CERROR(this, "'modifiable' specialization cannot add any interface base types");
         }
-
+        else {
+            ASSERT(this->baseTypeSpec.type->runtimeTypeId == ANY
+                   || (this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseTypeSpec.type->get_type_class() == TXTC_INTERFACE)
+                   || this->get_type_class() == this->baseTypeSpec.type->get_type_class(),
+                   "Specialized type's type class " << this << " not valid with base type's type class " << this->baseTypeSpec.type->get_type_class());
+        }
 //        if (this->dataspace && this->baseTypeSpec.type->get_type_class() != TXTC_REFERENCE)
 //            CERROR(this, "Specified dataspace for non-reference base type " << this->baseTypeSpec.type);
 

@@ -523,6 +523,19 @@ public:
             argField->symbol_declaration_pass_local_field( lexContext, false );
         if (this->returnField)
             this->returnField->symbol_declaration_pass_local_field( lexContext, false, TXD_IMPLICIT );
+
+// experiment with implicit func type declarations
+//        ASSERT(!this->get_declaration(), "Unexpected declaration in " << this);
+//        //TxDeclarationFlags flags = (isExpErrorDecl ? TXD_IMPLICIT | TXD_EXPERRBLOCK : TXD_IMPLICIT);
+//        std::string typeName = "$ftype";
+//        auto declaration = this->context().scope()->declare_type( typeName, this, TXD_IMPLICIT );
+//        if (! declaration) {
+//            CERROR(this, "Failed to declare type " << typeName);
+//            return;
+//        }
+//        this->set_declaration( declaration );
+//        this->LOGGER().note("%s: Declared type %-16s: %s", this->parse_loc_string().c_str(), typeName.c_str(),
+//                             declaration->to_string().c_str());
     }
 
     virtual void symbol_resolution_pass() override {

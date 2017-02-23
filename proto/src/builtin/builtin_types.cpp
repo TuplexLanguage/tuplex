@@ -462,12 +462,12 @@ TxTypeDeclNode* BuiltinTypes::make_builtin_floating( BuiltinTypeId id, std::stri
 //    // the function body created here is just a dummy, will not get invoked
 //    //auto funcArgs = new std::vector<TxFieldDefNode*>( { new TxFieldDefNode( this->builtinLocation, "arg", new TxIdentifiedTypeNode( this->builtinLocation, toTypeName ), nullptr ) } );
 //    auto funcTypeNode = new TxFunctionTypeNode( this->builtinLocation, false, new std::vector<TxFieldDefNode*>(), new TxIdentifiedTypeNode( this->builtinLocation, toTypeName ) );
-//    auto constructorBody = new TxLambdaExprNode( this->builtinLocation, funcTypeNode, new TxSuiteNode( this->builtinLocation ), true );
+//    auto constructorBody = new TxLambdaExprNode( this->builtinLocation, funcTypeNode, new TxSuiteNode( this->builtinLocation ) );
 //
 //    auto constructorType = new TxDefConstructorTypeDefNode( this->builtinLocation, new TxIdentifiedTypeNode( this->builtinLocation, "Function" ),
 //                                                            new TxIdentifiedTypeNode( this->builtinLocation, toTypeName ), initValueExpr, {} );
 //    auto constructorField = new TxFieldDefNode( this->builtinLocation, "$init", constructorType, constructorBody );
-//    auto constructorDecl = new TxFieldDeclNode( this->builtinLocation, TXD_PUBLIC | TXD_BUILTIN | TXD_CONSTRUCTOR, constructorField, true );
+//    auto constructorDecl = new TxFieldDeclNode( this->builtinLocation, TXD_PUBLIC | TXD_BUILTIN | TXD_CONSTRUCTOR, constructorField );
 //    return constructorDecl;
 //}
 
@@ -583,7 +583,7 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     // create the boolean type:
     //auto boolDefConstr = make_default_constructor( "Bool", new TxBoolLitNode( this->builtinLocation, false ) );
     this->builtinTypes[BOOL] = new TxTypeDeclNode( this->builtinLocation, TXD_PUBLIC | TXD_BUILTIN, "Bool", nullptr,
-            new TxBoolTypeDefNode( this->builtinLocation, new TxIdentifiedTypeNode( this->builtinLocation, "Elementary" ), {} ) );
+            new TxBoolTypeDefNode( this->builtinLocation, new TxIdentifiedTypeNode( this->builtinLocation, "Elementary" ), { /*boolDefConstr*/ } ) );
 
     // create the function base type:
     this->builtinTypes[FUNCTION] = new TxTypeDeclNode( this->builtinLocation, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Function", nullptr,
@@ -827,11 +827,10 @@ void BuiltinTypes::initializeBuiltinSymbols() {
 ////    }
 
 
-    // create modifiable specializations of the builtin types:
+    // FIXME: remove when initializeBuiltinSymbols() no longer creates entities needing these to be pre-resolved:
     for (unsigned id = 0; id < BuiltinTypeId_COUNT; id++) {
         // verify that all built-in types are initialized:
         ASSERT(this->builtinTypes[id], "Uninitialized built-in type! id=" << id);
-        // FIXME: remove when initializeBuiltinSymbols() no longer creates entities needing this:
         this->builtinTypes[id]->typeExpression->resolve_type();
     }
 

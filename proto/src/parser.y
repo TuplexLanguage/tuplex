@@ -452,7 +452,7 @@ lambda_expr : function_header suite  { $$ = new TxLambdaExprNode(@1, $1, $2); } 
 
 function_header : params_def DASHGT type_expression
                   { $$ = new TxFunctionTypeNode(@1, false, $1, $3); }
-                | params_def //DASHGT
+                | params_def
                   { $$ = new TxFunctionTypeNode(@1, false, $1, NULL); }
                 ;
 
