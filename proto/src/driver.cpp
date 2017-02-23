@@ -1,16 +1,19 @@
 #include <cstdlib>
 #include <string>
 
+#include "tinydir/tinydir.h"
+
 #include "util/assert.hpp"
 #include "util/files_env.hpp"
-#include "tinydir/tinydir.h"
 
 #include "driver.hpp"
 
 #include "tx_lang_defs.hpp"
+#include "parser.hpp"
+#include "builtin/builtin_types.hpp"
+
 #include "llvm_generator.hpp"
 
-#include "parser.hpp"
 
 
 extern FILE * yyin;
@@ -87,6 +90,15 @@ int TxDriver::parse(TxParserContext& parserContext) {
 
 int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const std::string& outputFileName) {
     ASSERT(this->parsedSourceFiles.empty(), "Can only run driver instance once");
+
+    /*--- parse built-in module(s) ---*/
+    {
+        TxParserContext* parserContext = new TxParserContext(*this, TxIdentifier("tx"), "");
+        parserContext->parsingUnit = this->package->builtin_types()->createTxModuleAST();
+        this->parsedASTs.push_back(parserContext);
+    }
+
+
     if (startSourceFiles.empty()) {
         this->LOG.fatal("No source specified.");
         return 1;
@@ -130,6 +142,8 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
     for (auto parserContext : this->parsedASTs) {
         parserContext->parsingUnit->symbol_declaration_pass(this->package);
     }
+
+    this->package->builtin_types()->initializeBuiltinSymbols();  // FIXME: to be removed
 
     this->package->prepare_modules();  // (prepares the declared imports)
 
@@ -193,8 +207,12 @@ inline bool ends_with(const std::string& str, const std::string& tail) {
 }
 
 bool TxDriver::add_import(const TxIdentifier& moduleName) {
-    if (this->package->lookup_module(moduleName)) {  // so we won't search for built-in modules' sources
+    if (this->package->lookup_module(moduleName)) {
         this->LOG.debug("Skipping import of previously imported module: %s", moduleName.to_string().c_str());
+        return true;
+    }
+    if (moduleName.begins_with( BUILTIN_NS )) {  // so we won't search for built-in modules' sources
+        this->LOG.debug("Skipping import of built-in namespace: %s", moduleName.to_string().c_str());
         return true;
     }
     // TODO: guard against or handle circular imports

@@ -95,6 +95,9 @@ protected:
         return const_cast<TxScopeSymbol*>(static_cast<const TxScopeSymbol *>(this)->get_symbol(name));
     }
 
+    /** Gets a const vector containing this module's symbol names in insertion order. */
+    const std::vector<std::string>& get_ordered_symbol_names() const { return this->symbolNames; }
+
     /** Declares a new symbol in this scope. Its name must be unique.
      * Subclasses may override this method and add additional rules.
      * @return true if successful, false otherwise
@@ -181,7 +184,7 @@ public:
 
     /*--- symbol resolution, validation and debugging ---*/
 
-    bool symbol_validation_pass() const;
+    virtual bool symbol_validation_pass() const;
 
     /** Validates this scope symbol.
      * Checks that this symbol is valid and consistent.

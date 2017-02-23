@@ -33,7 +33,7 @@ bool TxModule::declare_symbol(const TxParseOrigin& origin, TxScopeSymbol* symbol
 
 
 TxModule* TxModule::declare_module(const TxParseOrigin& origin, const TxIdentifier& ident, bool builtin) {
-    //this->LOGGER().debug("Declaring module %s at %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());
+    this->LOGGER().debug("Declaring module %s", ident.to_string().c_str());
     if (! this->get_outer()) {
         // this is the namespace root - the tuplex package
         if (! builtin) {
@@ -184,14 +184,20 @@ void TxModule::prepare_modules() {
         if (! this->import_symbol( import.origin, import.name ))
             CERROR(import.origin, "Failed to import " << import.name);
     }
-    for (auto entry = this->symbols_begin(); entry != this->symbols_end(); entry++) {
-        if (auto submod = dynamic_cast<TxModule*>(entry->second))
+    for (auto & symName : this->get_ordered_symbol_names() ) {
+        auto symbol = this->get_symbol( symName );
+        if (auto submod = dynamic_cast<TxModule*>( symbol ))
             submod->prepare_modules();
     }
 }
 
 
 /*--- validation and debugging ---*/
+
+bool TxModule::symbol_validation_pass() const {
+    this->LOGGER().debug("Validating module %s", this->get_full_name().to_string().c_str());
+    return TxScopeSymbol::symbol_validation_pass();
+}
 
 /** Prints all the symbols of this scope and its descendants to stdout. */
 void TxModule::dump_symbols() const {

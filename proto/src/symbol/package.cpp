@@ -9,7 +9,6 @@ TxPackage::TxPackage( TxDriver& driver, const TxParseOrigin& rootOrigin )
         : TxModule(nullptr, "", rootOrigin, false), _driver(driver), mainFunc() {
     this->typeRegistry = new TypeRegistry( *this );
     this->builtinTypes = new BuiltinTypes( *this->typeRegistry );
-    this->builtinTypes->initializeBuiltinSymbols();
 }
 
 

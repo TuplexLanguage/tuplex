@@ -257,12 +257,8 @@ import_statements  : import_statement
                      { $$ = $1; if ($2) $$->push_back($2); }
                    ;
 
-import_statement   : KW_IMPORT compound_identifier opt_sc
-                        { $$ = new TxImportNode(@1, $2);
-                          if ($2->ident.is_qualified())
-                              if (! parserCtx->add_import($2->ident.parent()))
-                                  parserCtx->cerror(@1, "Failed to import module (source not found): " + $2->ident.parent().to_string()); }
-                   | KW_IMPORT error opt_sc  { $$ = NULL; }
+import_statement   : KW_IMPORT compound_identifier opt_sc  { $$ = new TxImportNode(@1, $2); }
+                   | KW_IMPORT error opt_sc                { $$ = NULL; }
                    ;
 
 

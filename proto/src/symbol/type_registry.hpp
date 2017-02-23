@@ -7,7 +7,7 @@
 #include "type.hpp"
 
 
-enum BuiltinTypeId : int {  // TODO: move this to other header?
+enum BuiltinTypeId : uint32_t {  // TODO: move this to other header?
     ANY,
     ELEMENTARY,
     SCALAR,
@@ -32,7 +32,8 @@ enum BuiltinTypeId : int {  // TODO: move this to other header?
     FUNCTION,
     TUPLE,
     INTERFACE,
-    BuiltinTypeId_COUNT
+    BuiltinTypeId_COUNT,
+    TXBTID_NOTSET = UINT32_MAX
 };
 
 
@@ -40,6 +41,7 @@ class TxPackage;
 class TxModule;
 class TxBuiltinTypeDeclNode;
 class TxTypeExpressionNode;
+class TxTypeDeclNode;
 
 
 extern std::string encode_type_name(const TxType* type);
@@ -55,7 +57,7 @@ class TypeRegistry {
 //    const TxLocation& builtinLocation;
     const TxLocation& get_builtin_location() const;
 
-    std::vector<TxTypeExpressionNode*> enqueuedSpecializations;
+    std::vector<TxTypeDeclNode*> enqueuedSpecializations;
 
     /** all the types created */
     std::vector<TxType*>* createdTypes;
@@ -77,6 +79,7 @@ class TypeRegistry {
                                   const TxTypeSpecialization& specialization,
                                   const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>());
     friend class TxImplicitTypeDefiningNode;  // may access make_specialized_type()
+    friend class TxBuiltinTypeDefiningNode;  // may access make_specialized_type()
     friend class BuiltinTypes;  // TODO: temporary
 
 //    /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
@@ -93,7 +96,7 @@ public:
     /** to be invoked after the resolution pass has been run on package's source, and before type registration */
     void enqueued_resolution_pass();
 
-    const std::vector<TxTypeExpressionNode*>& get_enqueued_specializations() const { return this->enqueuedSpecializations; }
+    const std::vector<TxTypeDeclNode*>& get_enqueued_specializations() const { return this->enqueuedSpecializations; }
 
     /** to be invoked after the whole package's source has been processed, before code generation */
     void register_types();

@@ -23,7 +23,7 @@ protected:
     };
 
 public:
-    /** Creates the Array base type (no element type nor length specified). Only one such instance should exist. */
+    /** Creates the Array base type. Only one such instance should exist. */
     TxArrayType(const TxTypeDeclaration* declaration, const TxType* anyType)
             : TxType(TXTC_ARRAY, declaration, TxTypeSpecialization(anyType)) { }
 
@@ -67,7 +67,7 @@ protected:
     };
 
 public:
-    /** Creates the Reference base type (no target type specified). Only one such instance should exist. */
+    /** Creates the Reference base type. Only one such instance should exist. */
     TxReferenceType(const TxTypeDeclaration* declaration, const TxType* anyType)
             : TxType(TXTC_REFERENCE, declaration, TxTypeSpecialization(anyType)) { }
 
@@ -131,6 +131,9 @@ public:
           modifiableClosure(modifiableClosure), argumentTypes(argumentTypes), returnType(returnType)  {
         ASSERT(argumentTypes.size() == 0 || argumentTypes.at(0), "NULL arg type");
     }
+
+    /** Returns false. Functions types are never 'abstract' (except the abstract base type for all functions). */
+    virtual bool is_abstract() const override { return false; }
 
     bool hasReturnValue() const  { return this->returnType != nullptr; }
 

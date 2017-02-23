@@ -159,14 +159,20 @@ public:
     const TxIdentifierNode* identNode;
 
     TxImportNode(const TxLocation& parseLocation, const TxIdentifierNode* identifier)
-        : TxNode(parseLocation), identNode(identifier)  { }
+        : TxNode(parseLocation), identNode(identifier)  {
+        // imports need to be added to the parser context upon AST creation, so that they will be parsed before the declaration pass:
+        if (! identNode->ident.is_qualified())
+            CERROR(this, "can't import unqualified identifier '" << identNode->ident << "'");
+        else {
+            if (! this->parseLocation.parserCtx->add_import( identNode->ident.parent() ))
+                CERROR(this, "Failed to import module (source not found): " << identNode->ident.parent());
+        }
+    }
 
     virtual TxImportNode* make_ast_copy() const override { return new TxImportNode(this->parseLocation, this->identNode->make_ast_copy()); }
 
     virtual void symbol_declaration_pass(TxModule* module) {
         this->set_context(LexicalContext(module));
-        if (! identNode->ident.is_qualified())
-            CERROR(this, "can't import unqualified identifier '" << identNode->ident << "'");
         module->register_import( *this, identNode->ident );
     }
 
@@ -199,13 +205,14 @@ class TxModuleNode : public TxNode {
     std::vector<TxImportNode*>* imports;
     std::vector<TxDeclarationNode*>* members;
     std::vector<TxModuleNode*>* subModules;
+    bool builtin;
     TxModule* module = nullptr;
 
 public:
-    TxModuleNode(const TxLocation& parseLocation, const TxIdentifierNode* identifier,
-                 std::vector<TxImportNode*>* imports, std::vector<TxDeclarationNode*>* members,
-                 std::vector<TxModuleNode*>* subModules)
-        : TxNode(parseLocation), identNode(identifier), imports(imports), members(members), subModules(subModules)  {
+    TxModuleNode( const TxLocation& parseLocation, const TxIdentifierNode* identifier,
+                  std::vector<TxImportNode*>* imports, std::vector<TxDeclarationNode*>* members,
+                  std::vector<TxModuleNode*>* subModules, bool builtin=false )
+        : TxNode(parseLocation), identNode(identifier), imports(imports), members(members), subModules(subModules), builtin(builtin)  {
         ASSERT(identifier, "NULL identifier");  // (sanity check on parser)
     }
 
@@ -213,11 +220,11 @@ public:
         return new TxModuleNode( this->parseLocation, this->identNode->make_ast_copy(),
                                  make_node_vec_copy( imports ),
                                  make_node_vec_copy( members ),
-                                 make_node_vec_copy( subModules ) );
+                                 make_node_vec_copy( subModules ), builtin );
     }
 
     virtual void symbol_declaration_pass(TxModule* parent) {
-        this->module = parent->declare_module( *this, this->identNode->ident );
+        this->module = parent->declare_module( *this, this->identNode->ident, this->builtin );
 
         if (this->imports) {
             for (auto imp : *this->imports)

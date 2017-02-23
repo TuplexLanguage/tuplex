@@ -32,13 +32,14 @@ void TypeRegistry::enqueued_resolution_pass() {
     // Note: Queue can be appended to during processing.
     for (unsigned i = 0; i != this->enqueuedSpecializations.size(); i++) {
         //std::cerr << "Nof enqueued specializations: " << this->enqueuedSpecializations.size() << std::endl;
-        this->enqueuedSpecializations.at(i)->symbol_resolution_pass();
+        auto specDecl = this->enqueuedSpecializations.at(i);
+        this->package.LOGGER().debug("Resolving enqueued specialization: %s", specDecl->to_string().c_str());
+        specDecl->symbol_resolution_pass();
     }
 }
 
 
 void TypeRegistry::add_type(TxType* type) {
-    //std::cerr << "Adding type: " << type << std::endl;
     this->createdTypes->push_back(type);
 }
 
@@ -46,6 +47,7 @@ void TypeRegistry::register_types() {
     auto createdTypes = this->createdTypes;
     this->createdTypes = new std::vector<TxType*>();
     for (auto type : *createdTypes) {
+        //std::cerr << "Created type: " << type << std::endl;
         if (type->is_builtin()) {
             ASSERT(type->is_prepared(), "Unprepared builtin type: " << type);
             ASSERT(type->runtimeTypeId != UINT32_MAX, "builtin type doesn't have type id set: " << type);
@@ -453,8 +455,8 @@ const TxType* TypeRegistry::get_type_specialization( const TxTypeDefiningNode* d
         // Invoking the resolution pass here can cause infinite recursion
         // (since the same source text construct may be recursively reprocessed),
         // so we enqueue this "specialization pass" for later processing.
-        //std::cerr << "enqueuing specialization " << newBaseTypeNameStr << "  " << baseTypeExpr << std::endl;
-        this->enqueuedSpecializations.emplace_back( newBaseTypeExpr );
+        //std::cerr << "enqueuing specialization " << newBaseTypeNameStr << "  " << newBaseTypeDecl << std::endl;
+        this->enqueuedSpecializations.emplace_back( newBaseTypeDecl );
         specializedBaseType = newBaseTypeExpr->resolve_type();
     }
     // TODO: else bindingDeclNodes thrown away...

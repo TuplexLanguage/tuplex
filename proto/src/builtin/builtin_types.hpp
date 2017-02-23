@@ -8,7 +8,7 @@
 
 class TypeRegistry;
 class TxModule;
-class TxBuiltinTypeDeclNode;
+class TxTypeDeclNode;
 class TxInterfaceAdapterType;
 
 
@@ -18,7 +18,7 @@ class BuiltinTypes {
     /** parse location used for built-in constructs without actual source code */
     const TxLocation& builtinLocation;
 
-    TxBuiltinTypeDeclNode* builtinTypes[BuiltinTypeId_COUNT];
+    TxTypeDeclNode* builtinTypes[BuiltinTypeId_COUNT];
     const TxType* builtinModTypes[BuiltinTypeId_COUNT];
 
     void declare_default_constructor(LexicalContext& ctx, BuiltinTypeId typeId, TxExpressionNode* initValueExpr);
@@ -29,13 +29,22 @@ class BuiltinTypes {
     void add_builtin_integer(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size, bool sign);
     void add_builtin_floating(TxModule* module, BuiltinTypeId id, std::string plainName, BuiltinTypeId parentId, int size);
 
+    TxTypeDeclNode* make_builtin_abstract( TxTypeClass typeClass, BuiltinTypeId id, std::string plainName, std::string parentName ) const;
+    TxTypeDeclNode* make_builtin_integer ( BuiltinTypeId id, std::string plainName, std::string parentName, int size, bool sign ) const;
+    TxTypeDeclNode* make_builtin_floating( BuiltinTypeId id, std::string plainName, std::string parentName, int size ) const;
+
+    TxFieldDeclNode* make_default_constructor( const std::string& toTypeName, TxExpressionNode* initValueExpr ) const;
+
 public:
     BuiltinTypes( TypeRegistry& registry );
 
-    const TxLocation& get_builtin_location() const { return this->builtinLocation; }
 
-    /** to be invoked immediately after object construction */
-    void initializeBuiltinSymbols();
+    TxParsingUnitNode* createTxModuleAST();
+
+    void initializeBuiltinSymbols();  // FIXME: remove
+
+
+    const TxLocation& get_builtin_location() const { return this->builtinLocation; }
 
     const TxType* get_builtin_type(const BuiltinTypeId id, bool mod=false) const;
 

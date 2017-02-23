@@ -82,6 +82,8 @@ public:
 
     /*--- validation and debugging ---*/
 
+    virtual bool symbol_validation_pass() const override;
+
     virtual void dump_symbols() const override;
 
 
