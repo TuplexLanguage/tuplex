@@ -332,35 +332,74 @@ TxAssertStmtNode::TxAssertStmtNode(const TxLocation& parseLocation, TxExpression
 
 
 
-static bool arg_type_matches( const TxType *expectedType, const TxType* providedType ) {
-    // mimics behavior of inner_validate_wrap_convert()   FUTURE: merge code
-    if (providedType->auto_converts_to(*expectedType))
-        return true;
-    if (auto refType = dynamic_cast<const TxReferenceType*>(expectedType)) {
-        auto refTargetType = refType->target_type();
-        if (refTargetType && providedType->is_a(*refTargetType)) {
-            if (! refTargetType->is_modifiable()) {
-                // originalExpr will be auto-wrapped with a reference-to node
-                return true;
-            }
-//            else {
-//                if (!originalType->is_modifiable())
-//                    LOGGER().debug("Cannot convert reference with non-mod-target to one with mod target: %s -> %s",
-//                                   originalType->to_string().c_str(), requiredType->to_string().c_str());
-//                else
-//                    LOGGER().debug("Cannot implicitly convert to reference with modifiable target: %s -> %s",
-//                                   originalType->to_string().c_str(), requiredType->to_string().c_str());
+//static bool arg_type_matches( const TxType *expectedType, const TxType* providedType ) {
+//    // mimics behavior of inner_validate_wrap_convert()   FUTURE: merge code
+//    if (providedType->auto_converts_to(*expectedType))
+//        return true;
+//    if (auto refType = dynamic_cast<const TxReferenceType*>(expectedType)) {
+//        auto refTargetType = refType->target_type();
+//        if (refTargetType && providedType->is_a(*refTargetType)) {
+//            if (! refTargetType->is_modifiable()) {
+//                // originalExpr will be auto-wrapped with a reference-to node
+//                return true;
 //            }
+////            else {
+////                if (!originalType->is_modifiable())
+////                    LOGGER().debug("Cannot convert reference with non-mod-target to one with mod target: %s -> %s",
+////                                   originalType->to_string().c_str(), requiredType->to_string().c_str());
+////                else
+////                    LOGGER().debug("Cannot implicitly convert to reference with modifiable target: %s -> %s",
+////                                   originalType->to_string().c_str(), requiredType->to_string().c_str());
+////            }
+//        }
+//    }
+////    LOGGER().debug("Can't auto-convert value\n\tFrom: %80s\n\tTo:   %80s",
+////                   originalType->to_string().c_str(), requiredType->to_string().c_str());
+//    return false;
+//}
+
+static int get_reinterpretation_degree( const TxType *expectedType, const TxType* providedType ) {
+    if (*expectedType == *providedType) {
+        //std::cerr << "Types equal: " << expectedType << "   ==   " << providedType << std::endl;
+        return 0;
+    }
+
+    // TODO: check if provided type is equivalent to expected type
+
+    if (providedType->auto_converts_to(*expectedType))
+        return 2;
+
+    if (auto refType = dynamic_cast<const TxReferenceType*>( expectedType )) {
+        if (auto refTargetType = refType->target_type()) {
+            if (providedType->is_a( *refTargetType )) {
+                if (! refTargetType->is_modifiable())
+                    return 3;  // originalExpr will be auto-wrapped with a reference-to node
+            }
         }
     }
-//    LOGGER().debug("Can't auto-convert value\n\tFrom: %80s\n\tTo:   %80s",
-//                   originalType->to_string().c_str(), requiredType->to_string().c_str());
-    return false;
+
+    return -1;  // does not match
 }
 
 
-/** Attempts to resolve an identified entity symbol, that is potentially overloaded, to a specific field using the provided arguments' types. */
-static TxFieldDeclaration* resolve_field( TxEntitySymbol* entitySymbol, const std::vector<TxMaybeConversionNode*>* arguments ) {
+/** Attempts to resolve an identified entity symbol, that is potentially overloaded,
+ * to a specific field by matching with the provided arguments' types.
+ * The closest matching, valid field is picked. If no field matched, NULL is returned.
+ * If a field was matched, and implicit conversions were needed for any arguments,
+ * those conversions are inserted for those arguments within this call.
+ *
+ * All included fields that have the matching number of arguments and compatible argument types are candidates.
+ * Candidate selection is done by counting the number and degree of argument reinterpretations necessary to match it.
+ * (A single 2nd degree reinterpretation is "further away" than many 1st degree reinterpretations.)
+ *
+ * Degrees of reinterpretation (to be thought of as degrees of "distance"):
+ * 0: Argument and receiver have the exact same type
+ * 1: Argument and receiver have equivalent types (according to narrowing/widening type rules)
+ * 2: Argument can be implicitly converted to the receiver's type (e.g. Int -> Long)
+ * 3: Argument can be transformed via implicit operation to the receiver's type (e.g. implicit referencing)
+ */
+static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntitySymbol* entitySymbol,
+                                          const std::vector<TxMaybeConversionNode*>* arguments ) {
     if (! arguments) {
         if (entitySymbol->field_count() == 1)
             return entitySymbol->get_first_field_decl();
@@ -369,44 +408,113 @@ static TxFieldDeclaration* resolve_field( TxEntitySymbol* entitySymbol, const st
         return nullptr;
     }
 
-    std::vector<TxFieldDeclaration*> matches;
+    if (entitySymbol->field_count() == 0)
+        return nullptr;
+
+    // prepare vector of provided arguments' original types:
+    std::vector<const TxType*> argTypes( arguments->size() );
+    std::transform( arguments->cbegin(), arguments->cend(), argTypes.begin(),
+                    []( TxMaybeConversionNode* n ) -> const TxType*  {  return n->resolve_type();  } );
+
+    struct Candidate {
+        uint64_t reinterpretations;
+        TxFieldDeclaration* fieldDecl;
+        Candidate( uint64_t reinterpretations, TxFieldDeclaration* fieldDecl ) : reinterpretations(reinterpretations), fieldDecl(fieldDecl) {}
+    };
+    std::vector<Candidate> candidates;
+
     for (auto fieldCandidateI = entitySymbol->fields_cbegin();
               fieldCandidateI != entitySymbol->fields_cend(); fieldCandidateI++) {
-        auto fieldCandidate = (*fieldCandidateI)->get_definer()->resolve_field();
-        auto fieldCandidateType = fieldCandidate->get_type();
-        if (auto candidateFuncType = dynamic_cast<const TxFunctionType*>(fieldCandidateType)) {
-            entitySymbol->LOGGER().debug("Candidate function: %s", candidateFuncType->to_string().c_str());
-            if (candidateFuncType->argumentTypes.size() == arguments->size()) {
-                auto argI = arguments->cbegin();
-                bool exactMatch = true;
-                for (auto argDef : candidateFuncType->argumentTypes) {
-                    auto argType = (*argI)->resolve_type();
-                    if (argDef != argType) {
-                        exactMatch = false;
-                        if (! arg_type_matches(argDef, argType)) {
-                            entitySymbol->LOGGER().debug("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
-                                                         argType->to_string(true).c_str(), argDef->to_string(true).c_str());
+        if (auto field = (*fieldCandidateI)->get_definer()->resolve_field()) {
+
+            // first screen the fields that are of function type and take the correct number of arguments:
+            if (auto funcType = dynamic_cast<const TxFunctionType*>( field->get_type() )) {
+                if (funcType->argumentTypes.size() == arguments->size()) {
+                    //entitySymbol->LOGGER().trace("Candidate function: %s", funcType->to_string().c_str());
+
+                    uint16_t reint[4] = { 0, 0, 0, 0 };
+                    auto argTypeI = argTypes.cbegin();
+                    for (auto argDef : funcType->argumentTypes) {
+                        auto argType = *argTypeI;
+                        int degree = get_reinterpretation_degree( argDef, argType );
+                        if (degree < 0) {
+                            //entitySymbol->LOGGER().trace("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
+                            //                             argType->to_string(true).c_str(), argDef->to_string(true).c_str());
                             goto NEXT_CANDIDATE;
                         }
+                        reint[ degree ]++;
+                        argTypeI++;
                     }
-                    argI++;
+                    candidates.emplace_back( ( ((uint64_t)reint[3])<<48 | ((uint64_t)reint[2])<<32 | ((uint64_t)reint[1])<<16 | reint[0] ), *fieldCandidateI );
+                    entitySymbol->LOGGER().debug("Arguments match for %s: %-32s: %d, %d, %d, %d", field->to_string().c_str(), funcType->to_string().c_str(),
+                                                 reint[0], reint[1], reint[2], reint[3] );
                 }
-                if (exactMatch)
-                    return *fieldCandidateI;
-                matches.push_back(*fieldCandidateI);
             }
         }
-        //else
-        //    std::cerr << "Callee of function call expression is not a function type: " << fieldCandidateType << std::endl;
+
         NEXT_CANDIDATE:
         ;
     }
-    if (! matches.empty()) {
-        // TODO: get best match instead of first match
-        return matches.front();
+
+    if (! candidates.empty()) {
+        // pick closest match
+        const Candidate* closest = &candidates.front();
+        bool ambiguous = false;
+        for ( auto candidateI = ++candidates.cbegin(); candidateI != candidates.cend(); candidateI++ ) {
+            const Candidate* candidate = &(*candidateI);
+
+//            if ( candidate->reinterpretations[3] < closest->reinterpretations[3]
+//                 || ( candidate->reinterpretations[3] == closest->reinterpretations[3]
+//                      &&
+//                      ( candidate->reinterpretations[2] < closest->reinterpretations[2]
+//                        || ( candidate->reinterpretations[2] == closest->reinterpretations[2]
+//                             &&
+//                             ( candidate->reinterpretations[1] <= closest->reinterpretations[1] )  // closer-or-equal
+//                           )
+//                      )
+//                    )
+//               ) {
+            if (candidate->reinterpretations <= closest->reinterpretations) {
+                // check if identically close match, which is an ambiguity error unless a closer match is found later on:
+//                if (   candidate->reinterpretations[3] == closest->reinterpretations[3]
+//                    || candidate->reinterpretations[2] == closest->reinterpretations[2]
+//                    || candidate->reinterpretations[1] == closest->reinterpretations[1] )
+                if (candidate->reinterpretations == closest->reinterpretations
+                        && (candidate->reinterpretations & ~0xFFFF)) {
+                    // if all arguments match exactly we currently don't treat it as an ambiguity error, we just pick the first one found
+                    // FUTURE: pick the narrowest match
+                    ambiguous = true;
+//                    uint16_t *reint = (uint16_t*)&candidate->reinterpretations;
+//                    CWARNING(origin, "Ambiguous function call to " << entitySymbol->get_full_name() << ": "
+//                             << candidate->fieldDecl->get_definer()->get_type() << ", multiple signatures match equally well "
+//                             << "[ " << reint[0] << ", " << reint[1] << ", " << reint[2] << ", " << reint[3] << " ]");
+                }
+                else {
+                    closest = candidate;
+                    ambiguous = false;
+                }
+            }
+        }
+
+        if (ambiguous) {
+            uint16_t *reint = (uint16_t*)&closest->reinterpretations;
+            CERROR(origin, "Ambiguous function call to " << entitySymbol->get_full_name() << ": "
+                   << closest->fieldDecl->get_definer()->get_type() << ", multiple signatures match equally well "
+                   << "[ " << reint[0] << ", " << reint[1] << ", " << reint[2] << ", " << reint[3] << " ]");
+        }
+
+        // apply implicit reinterpretations on arguments:
+        auto funcType = static_cast<const TxFunctionType*>( closest->fieldDecl->get_definer()->get_type() );
+        auto argExprI = arguments->begin();
+        for (auto argDefType : funcType->argumentTypes) {
+            //(*argExprI)->insert_conversion( argDefType );  // FIXME
+            argExprI++;
+        }
+
+        return closest->fieldDecl;
     }
-    if (entitySymbol->field_count())
-        entitySymbol->LOGGER().note("Type parameters do not match any candidate of %s", entitySymbol->to_string().c_str());
+
+    entitySymbol->LOGGER().debug("Arguments do not match any overloaded candidate of %s", entitySymbol->to_string().c_str());
     return nullptr;
 }
 
@@ -455,7 +563,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
         if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(symbol)) {
             // if symbol can be resolved to actual field, then do so
             if (entitySymbol->field_count()) {
-                if (auto fieldDecl = resolve_field(entitySymbol, this->appliedFuncArgs)) {
+                if (auto fieldDecl = resolve_field( *this, entitySymbol, this->appliedFuncArgs )) {
                     if (fieldDecl->get_storage() == TXS_INSTANCE || fieldDecl->get_storage() == TXS_INSTANCEMETHOD) {
                         if (!this->baseExpr) {
                             CERROR(this, "Instance member field referenced without instance base: " << this->get_full_identifier());
@@ -476,7 +584,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                 if (this->appliedFuncArgs) {
                     if (auto allocType = typeDecl->get_definer()->resolve_type()) {
                         if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member("$init"))  // (constructors aren't inherited)
-                            if (auto constructorDecl = resolve_field(constructorSymbol, this->appliedFuncArgs)) {
+                            if (auto constructorDecl = resolve_field( *this, constructorSymbol, this->appliedFuncArgs )) {
                                 ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
                                 //std::cerr << "resolving field to constructor: " << this << ": " << constructorDecl << std::endl;
                                 this->declaration = constructorDecl;
@@ -524,7 +632,7 @@ const TxType* TxConstructorCalleeExprNode::define_type() {
     if (auto allocType = this->objectExpr->resolve_type()) {
         // find the constructor
         if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member("$init")) {  // (constructors aren't inherited)
-            if (auto constructorDecl = resolve_field(constructorSymbol, this->appliedFuncArgs)) {
+            if (auto constructorDecl = resolve_field( *this, constructorSymbol, this->appliedFuncArgs)) {
                 ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
                 this->declaration = constructorDecl;
                 if (auto constructorField = constructorDecl->get_definer()->resolve_field())
@@ -625,6 +733,7 @@ void TxFunctionCallNode::symbol_resolution_pass() {
 
     callee->symbol_resolution_pass();
 
+    // FIXME: refactor or remove the following:
     if (auto funcType = dynamic_cast<const TxFunctionType*>(this->callee->resolve_type())) {
         // verify matching function signature:
         if (funcType->argumentTypes.size() != this->argsExprList->size()) {
@@ -634,13 +743,13 @@ void TxFunctionCallNode::symbol_resolution_pass() {
             auto argExprI = this->argsExprList->begin();
             for (auto argDefType : funcType->argumentTypes) {
                 // note: similar rules to assignment
-                if (! argDefType->is_concrete())  // move this to lambda expression?
+                if (! argDefType->is_concrete())  // FIXME: move this check to lambda expression
                     // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
                     CERROR(*argExprI, "Function argument is not a concrete type (size potentially unknown): " << argDefType);
                 // if function arg is a reference:
                 // TODO: check dataspace rules
 
-                (*argExprI)->insert_conversion( argDefType );
+                (*argExprI)->insert_conversion( argDefType );  // FIXME: move to resolve_field()
                 argExprI++;
             }
         }
