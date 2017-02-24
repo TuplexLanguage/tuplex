@@ -308,8 +308,4 @@ TxScopeSymbol* lookup_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& id
 
 TxTypeDeclaration* lookup_type(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
 
-TxFieldDeclaration* lookup_field(TxScopeSymbol* vantageScope, const TxIdentifier& ident,
-                                 const std::vector<const TxType*>* typeParameters = nullptr);
-
-/** Attempts to resolve an identified symbol, that is potentially overloaded, as a field using the provided type parameters. */
-TxFieldDeclaration* resolve_field_lookup(TxScopeSymbol* symbol, const std::vector<const TxType*>* typeParameters);
+TxFieldDeclaration* lookup_field(TxScopeSymbol* vantageScope, const TxIdentifier& ident);

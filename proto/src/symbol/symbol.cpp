@@ -503,93 +503,15 @@ TxTypeDeclaration* lookup_type(TxScopeSymbol* vantageScope, const TxIdentifier& 
     return nullptr;
 }
 
-TxFieldDeclaration* lookup_field(TxScopeSymbol* vantageScope, const TxIdentifier& ident,
-                                 const std::vector<const TxType*>* typeParameters) {
-    return resolve_field_lookup(lookup_symbol(vantageScope, ident), typeParameters);
-}
-
-
-
-static bool arg_type_matches(const TxType *expectedType, const TxType* providedType) {
-    // mimics behavior of inner_validate_wrap_convert()   FUTURE: merge code
-    if (providedType->auto_converts_to(*expectedType))
-        return true;
-    if (auto refType = dynamic_cast<const TxReferenceType*>(expectedType)) {
-        auto refTargetType = refType->target_type();
-        if (refTargetType && providedType->is_a(*refTargetType)) {
-            if (! refTargetType->is_modifiable()) {
-                // originalExpr will be auto-wrapped with a reference-to node
-                return true;
-            }
-//            else {
-//                if (!originalType->is_modifiable())
-//                    LOGGER().debug("Cannot convert reference with non-mod-target to one with mod target: %s -> %s",
-//                                   originalType->to_string().c_str(), requiredType->to_string().c_str());
-//                else
-//                    LOGGER().debug("Cannot implicitly convert to reference with modifiable target: %s -> %s",
-//                                   originalType->to_string().c_str(), requiredType->to_string().c_str());
-//            }
-        }
-    }
-//    LOGGER().debug("Can't auto-convert value\n\tFrom: %80s\n\tTo:   %80s",
-//                   originalType->to_string().c_str(), requiredType->to_string().c_str());
-    return false;
-}
-
-
-TxFieldDeclaration* resolve_field_lookup(TxScopeSymbol* symbol, const std::vector<const TxType*>* typeParameters) {
-    if (auto entitySymbol = dynamic_cast<const TxEntitySymbol*>(symbol)) {
+TxFieldDeclaration* lookup_field( TxScopeSymbol* vantageScope, const TxIdentifier& ident ) {
+    if (auto entitySymbol = dynamic_cast<const TxEntitySymbol*>( lookup_symbol( vantageScope, ident ) )) {
         if (entitySymbol->field_count() == 1) {
-            return *entitySymbol->fields_cbegin();
+            return entitySymbol->get_first_field_decl();
         }
-        if (typeParameters) {
-            std::vector<TxFieldDeclaration*> matches;
-            for (auto fieldCandidateI = entitySymbol->fields_cbegin();
-                      fieldCandidateI != entitySymbol->fields_cend(); fieldCandidateI++) {
-                auto fieldCandidate = (*fieldCandidateI)->get_definer()->resolve_field();
-                auto fieldCandidateType = fieldCandidate->get_type();
-                if (auto candidateFuncType = dynamic_cast<const TxFunctionType*>(fieldCandidateType)) {
-                    symbol->LOGGER().debug("Candidate function: %s", candidateFuncType->to_string().c_str());
-                    if (candidateFuncType->argumentTypes.size() == typeParameters->size()) {
-                        auto typeParamI = typeParameters->cbegin();
-                        bool exactMatch = true;
-                        for (auto argDef : candidateFuncType->argumentTypes) {
-                            if (argDef != *typeParamI) {
-                                exactMatch = false;
-                                if (! arg_type_matches(argDef, *typeParamI)) {
-                                    symbol->LOGGER().debug("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
-                                                           (*typeParamI)->to_string(true).c_str(), argDef->to_string(true).c_str());
-                                    goto NEXT_CANDIDATE;
-                                }
-                            }
-                            typeParamI++;
-                        }
-                        if (exactMatch)
-                            return *fieldCandidateI;
-                        matches.push_back(*fieldCandidateI);
-                    }
-                }
-                //else
-                //    std::cerr << "Callee of function call expression is not a function type: " << fieldCandidateType << std::endl;
-                NEXT_CANDIDATE:
-                ;
-            }
-            if (! matches.empty()) {
-                // TODO: get best match instead of first match
-                return matches.front();
-            }
-            if (entitySymbol->field_count()) {
-                symbol->LOGGER().note("Type parameters do not match any candidate of %s", symbol->to_string().c_str());
-                return nullptr;
-            }
-        }
-        else if (entitySymbol->field_count() > 1) {
-            symbol->LOGGER().note("%s must be matched using type parameters", symbol->to_string().c_str());
+        if (entitySymbol->field_count() > 1) {
+            entitySymbol->LOGGER().note("%s must be matched using type parameters", entitySymbol->to_string().c_str());
             return nullptr;
         }
     }
-    // name is unknown, or a type
-    if (symbol)
-        symbol->LOGGER().note("%s is not a field", symbol->to_string().c_str());
     return nullptr;
 }

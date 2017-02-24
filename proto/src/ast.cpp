@@ -331,6 +331,94 @@ TxAssertStmtNode::TxAssertStmtNode(const TxLocation& parseLocation, TxExpression
 
 
 
+
+static bool arg_type_matches(const TxType *expectedType, const TxType* providedType) {
+    // mimics behavior of inner_validate_wrap_convert()   FUTURE: merge code
+    if (providedType->auto_converts_to(*expectedType))
+        return true;
+    if (auto refType = dynamic_cast<const TxReferenceType*>(expectedType)) {
+        auto refTargetType = refType->target_type();
+        if (refTargetType && providedType->is_a(*refTargetType)) {
+            if (! refTargetType->is_modifiable()) {
+                // originalExpr will be auto-wrapped with a reference-to node
+                return true;
+            }
+//            else {
+//                if (!originalType->is_modifiable())
+//                    LOGGER().debug("Cannot convert reference with non-mod-target to one with mod target: %s -> %s",
+//                                   originalType->to_string().c_str(), requiredType->to_string().c_str());
+//                else
+//                    LOGGER().debug("Cannot implicitly convert to reference with modifiable target: %s -> %s",
+//                                   originalType->to_string().c_str(), requiredType->to_string().c_str());
+//            }
+        }
+    }
+//    LOGGER().debug("Can't auto-convert value\n\tFrom: %80s\n\tTo:   %80s",
+//                   originalType->to_string().c_str(), requiredType->to_string().c_str());
+    return false;
+}
+
+
+/** Attempts to resolve an identified symbol, that is potentially overloaded, as a field using the provided type parameters. */
+TxFieldDeclaration* resolve_field_lookup(TxScopeSymbol* symbol, const std::vector<const TxType*>* typeParameters) {
+    if (auto entitySymbol = dynamic_cast<const TxEntitySymbol*>(symbol)) {
+        if (entitySymbol->field_count() == 1) {
+            return *entitySymbol->fields_cbegin();
+        }
+        if (typeParameters) {
+            std::vector<TxFieldDeclaration*> matches;
+            for (auto fieldCandidateI = entitySymbol->fields_cbegin();
+                      fieldCandidateI != entitySymbol->fields_cend(); fieldCandidateI++) {
+                auto fieldCandidate = (*fieldCandidateI)->get_definer()->resolve_field();
+                auto fieldCandidateType = fieldCandidate->get_type();
+                if (auto candidateFuncType = dynamic_cast<const TxFunctionType*>(fieldCandidateType)) {
+                    symbol->LOGGER().debug("Candidate function: %s", candidateFuncType->to_string().c_str());
+                    if (candidateFuncType->argumentTypes.size() == typeParameters->size()) {
+                        auto typeParamI = typeParameters->cbegin();
+                        bool exactMatch = true;
+                        for (auto argDef : candidateFuncType->argumentTypes) {
+                            if (argDef != *typeParamI) {
+                                exactMatch = false;
+                                if (! arg_type_matches(argDef, *typeParamI)) {
+                                    symbol->LOGGER().debug("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
+                                                           (*typeParamI)->to_string(true).c_str(), argDef->to_string(true).c_str());
+                                    goto NEXT_CANDIDATE;
+                                }
+                            }
+                            typeParamI++;
+                        }
+                        if (exactMatch)
+                            return *fieldCandidateI;
+                        matches.push_back(*fieldCandidateI);
+                    }
+                }
+                //else
+                //    std::cerr << "Callee of function call expression is not a function type: " << fieldCandidateType << std::endl;
+                NEXT_CANDIDATE:
+                ;
+            }
+            if (! matches.empty()) {
+                // TODO: get best match instead of first match
+                return matches.front();
+            }
+            if (entitySymbol->field_count()) {
+                symbol->LOGGER().note("Type parameters do not match any candidate of %s", symbol->to_string().c_str());
+                return nullptr;
+            }
+        }
+        else if (entitySymbol->field_count() > 1) {
+            symbol->LOGGER().note("%s must be matched using type parameters", symbol->to_string().c_str());
+            return nullptr;
+        }
+    }
+    // name is unknown, or a type
+    if (symbol)
+        symbol->LOGGER().note("%s is not a field", symbol->to_string().c_str());
+    return nullptr;
+}
+
+
+
 TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
     TxScopeSymbol* symbol = nullptr;
     std::vector<TxScopeSymbol*> tmpPath;
@@ -476,10 +564,28 @@ void TxFunctionCallNode::prepare_self_super_invocations() {
 }
 
 const TxType* TxFunctionCallNode::define_type() {
-    this->register_callee_signature();
+    // Prepare for resolving possible function overloading by registering actual function signature with
+    // the callee node, BEFORE the callee node type is resolved.
+    ASSERT (!callee->get_applied_func_arg_types(), "callee already has applied func arg types: " << callee);
+    std::vector<const TxType*>* appliedArgTypes = new std::vector<const TxType*>();
+    for (auto argExpr : *this->argsExprList) {
+        if (auto argType = argExpr->resolve_type())
+            appliedArgTypes->push_back(argType);
+        else {
+            delete appliedArgTypes;
+            appliedArgTypes = nullptr;
+            break;
+        }
+    }
+    callee->set_applied_func_arg_types(appliedArgTypes);
+
+    // TODO: The resolution here shall resolve to the function signature that *closest* matches the argument types,
+    //       but also takes automatic (implicit) type conversions into account (if needed).
+    //       The automatic type conversions thus considered shall then be applied upon function invocation.
     auto calleeType = this->callee->resolve_type();
     if (!calleeType)
         return nullptr;
+
     this->funcType = dynamic_cast<const TxFunctionType*>(calleeType);
     if (! this->funcType) {
         CERROR(this, "Callee of function call expression is not of function type: " << calleeType);
@@ -507,7 +613,7 @@ void TxFunctionCallNode::symbol_resolution_pass() {
         this->inlinedExpression = this->argsExprList->front();
     }
     else if (auto constructorType = dynamic_cast<const TxConstructorType*>(this->funcType)) {
-        // inline code for stack allocation and constructor invocation
+        // inline code for stack allocation and constructor invocation, which in turn will invoke this constructor
         if (! dynamic_cast<TxConstructorCalleeExprNode*>( this->callee )) {  // (prevents infinite recursion)
             this->inlinedExpression = new TxStackConstructorNode( this, constructorType->get_constructed_type_decl() );
             this->inlinedExpression->symbol_declaration_pass( this->context());

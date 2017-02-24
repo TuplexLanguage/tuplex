@@ -392,23 +392,6 @@ class TxFunctionCallNode : public TxExpressionNode {
 
     void prepare_self_super_invocations();
 
-    /** resolve possible function overloading by registering actual function signature with callee node */
-    void register_callee_signature() const {
-        ASSERT (!callee->get_applied_func_arg_types(), "callee already has applied func arg types: " << callee);
-        std::vector<const TxType*>* appliedArgTypes = new std::vector<const TxType*>();
-        for (auto argExpr : *this->argsExprList) {
-            if (auto argType = argExpr->resolve_type())
-                appliedArgTypes->push_back(argType);
-            else {
-                delete appliedArgTypes;
-                appliedArgTypes = nullptr;
-                break;
-            }
-        }
-        if (appliedArgTypes)
-            callee->set_applied_func_arg_types(appliedArgTypes);
-    }
-
 protected:
     virtual const TxType* define_type() override;
 

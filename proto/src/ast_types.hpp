@@ -490,11 +490,9 @@ protected:
     }
 
 public:
-    //const TxNamespaceIdentNode* dataspace;
     const bool modifiable;
     std::vector<TxFieldDefNode*>* arguments;
     TxFieldDefNode* returnField;
-    // FUTURE: raised exceptions
 
     TxFunctionTypeNode(const TxLocation& parseLocation, const bool modifiable,
                        std::vector<TxFieldDefNode*>* arguments,
