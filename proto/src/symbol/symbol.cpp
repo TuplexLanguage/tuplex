@@ -505,13 +505,10 @@ TxTypeDeclaration* lookup_type(TxScopeSymbol* vantageScope, const TxIdentifier& 
 
 TxFieldDeclaration* lookup_field( TxScopeSymbol* vantageScope, const TxIdentifier& ident ) {
     if (auto entitySymbol = dynamic_cast<const TxEntitySymbol*>( lookup_symbol( vantageScope, ident ) )) {
-        if (entitySymbol->field_count() == 1) {
+        if (entitySymbol->field_count() == 1)
             return entitySymbol->get_first_field_decl();
-        }
-        if (entitySymbol->field_count() > 1) {
+        if (entitySymbol->field_count() > 1)
             entitySymbol->LOGGER().note("%s must be matched using type parameters", entitySymbol->to_string().c_str());
-            return nullptr;
-        }
     }
     return nullptr;
 }

@@ -55,6 +55,7 @@ public:
 
 
 class TxFieldDefNode;
+class TxMaybeConversionNode;
 
 class TxExpressionNode : public TxTypeDefiningNode {
 protected:
@@ -62,7 +63,7 @@ protected:
     const TxFieldDefNode* fieldDefNode = nullptr;
 
     /** injected by outer expression if applicable */
-    std::vector<const TxType*>* appliedFuncArgTypes = nullptr;
+    std::vector<TxMaybeConversionNode*>* appliedFuncArgs = nullptr;
 
 public:
     TxExpressionNode(const TxLocation& parseLocation) : TxTypeDefiningNode(parseLocation) { }
@@ -99,11 +100,11 @@ public:
         return nullptr;
     }
 
-    virtual std::vector<const TxType*>* get_applied_func_arg_types() {
-        return this->appliedFuncArgTypes;
+    virtual const std::vector<TxMaybeConversionNode*>* get_applied_func_args() {
+        return this->appliedFuncArgs;
     }
-    virtual void set_applied_func_arg_types( std::vector<const TxType*>* appliedFuncArgTypes ) {
-        this->appliedFuncArgTypes = appliedFuncArgTypes;
+    virtual void set_applied_func_args( std::vector<TxMaybeConversionNode*>* appliedFuncArgs ) {
+        this->appliedFuncArgs = appliedFuncArgs;
     }
 
     /** Generates code that produces the type id (as opposed to the value) of this expression. */

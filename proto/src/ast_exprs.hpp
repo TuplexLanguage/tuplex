@@ -159,8 +159,11 @@ public:
         return this->target->is_statically_constant();  // trying again
     }
 
-    virtual void set_applied_func_arg_types( std::vector<const TxType*>* appliedTypeParameters ) override {
-        this->target->set_applied_func_arg_types( appliedTypeParameters );
+    virtual const std::vector<TxMaybeConversionNode*>* get_applied_func_args() override {
+        return this->target->get_applied_func_args();
+    }
+    virtual void set_applied_func_args( std::vector<TxMaybeConversionNode*>* appliedTypeParameters ) override {
+        this->target->set_applied_func_args( appliedTypeParameters );
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
