@@ -123,8 +123,6 @@ public:
         this->baseType = type;
     }
 
-    virtual bool has_predefined_type() const override { return true; }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 };
 
@@ -260,8 +258,6 @@ public:
     virtual std::string get_auto_type_name() const override final {
         return this->get_declared_name();
     }
-
-    virtual bool has_predefined_type() const override final { return true; }
 
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();

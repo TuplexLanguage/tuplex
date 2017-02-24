@@ -26,8 +26,6 @@ public:
         return nullptr;
     }
 
-    virtual bool has_predefined_type() const override { return this->resultType->get_symbol(); }
-
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
         this->set_context( lexContext);
         if (! this->expr->is_context_set())

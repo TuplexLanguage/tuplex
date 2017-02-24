@@ -43,8 +43,6 @@ public:
         return new TxReferenceDerefNode( this->parseLocation, this->reference->make_ast_copy() );
     }
 
-    virtual bool has_predefined_type() const override { return this->reference->has_predefined_type(); }
-
     virtual void symbol_declaration_pass( LexicalContext& lexContext) {
         this->set_context( lexContext);
         reference->symbol_declaration_pass( lexContext);
@@ -95,8 +93,6 @@ public:
                                     this->subscript->originalExpr->make_ast_copy() );
     }
 
-    virtual bool has_predefined_type() const override { return this->array->has_predefined_type(); }
-
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
         this->set_context( lexContext);
         this->array->symbol_declaration_pass( lexContext);
@@ -138,8 +134,6 @@ public:
         return new TxReferenceToNode( this->parseLocation, this->target->make_ast_copy() );
     }
 
-    virtual bool has_predefined_type() const override { return false; }  // (this expr constructs new type)
-
     virtual void symbol_declaration_pass( LexicalContext& lexContext) {
         this->set_context( lexContext);
         target->symbol_declaration_pass( lexContext);
@@ -178,8 +172,6 @@ class TxOperatorValueNode : public TxExpressionNode {
 public:
     TxOperatorValueNode(const TxLocation& parseLocation)
         : TxExpressionNode(parseLocation) { }
-
-    virtual bool has_predefined_type() const override { return true; }
 };
 
 class TxBinaryOperatorNode : public TxOperatorValueNode {
@@ -434,8 +426,6 @@ public:
         return new TxFunctionCallNode( this->parseLocation, this->callee->make_ast_copy(), make_node_vec_copy( this->origArgsExprList ) );
     }
 
-    virtual bool has_predefined_type() const override { return true; }
-
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
         this->set_context( lexContext);
         this->callee->symbol_declaration_pass( lexContext);
@@ -489,7 +479,6 @@ public:
         return new TxConstructorCalleeExprNode( this->parseLocation, this->objectExpr->make_ast_copy() );
     }
 
-    virtual bool has_predefined_type() const override { return true; }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
         this->set_context( lexContext);
@@ -522,7 +511,6 @@ protected:
 public:
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override { this->set_context( lexContext); }
     virtual void symbol_resolution_pass() override { }
-    virtual bool has_predefined_type() const override { return false; }  // for now
 };
 
 class TxHeapAllocNode : public TxMemAllocNode {
@@ -611,8 +599,6 @@ public:
                                   make_node_vec_copy( this->constructorCall->origArgsExprList ) );
     }
 
-    virtual bool has_predefined_type() const override { return this->typeExpr->has_predefined_type(); }
-
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -644,10 +630,6 @@ public:
     virtual TxStackConstructorNode* make_ast_copy() const override {
         return new TxStackConstructorNode( this->parseLocation, this->typeExpr->make_ast_copy(),
                                            make_node_vec_copy( this->constructorCall->origArgsExprList ) );
-    }
-
-    virtual bool has_predefined_type() const override {
-        return this->typeExpr->has_predefined_type();
     }
 
     virtual bool is_stack_allocation_expression() const override {

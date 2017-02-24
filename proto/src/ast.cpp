@@ -275,15 +275,6 @@ void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& defContext, 
 }
 
 
-bool TxMaybeModTypeNode::has_predefined_type() const {
-    if (this->is_modifiable())
-        return false;
-    if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType))
-        if (typeid(*arrayBaseType->elementTypeNode->typeExprNode) == typeid(TxModifiableTypeNode))
-            return false;
-    return this->baseType->has_predefined_type();
-}
-
 void TxMaybeModTypeNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
                                                   const TxTypeDeclaration* owningDeclaration) {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT

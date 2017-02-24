@@ -37,10 +37,6 @@ public:
 
     virtual std::string get_auto_type_name() const = 0;
 
-    /** Returns true if this type expression is a directly identified type
-     * (i.e. a previously declared type, does not construct a new type). */
-    virtual bool has_predefined_type() const { return false; }
-
     /** Gets the type declaration of this type expression, if any. */
     inline const TxTypeDeclaration* get_declaration() const { return this->declaration; }
 
@@ -77,10 +73,6 @@ public:
     virtual void set_field_def_node(const TxFieldDefNode* fieldDefNode) {
         this->fieldDefNode = fieldDefNode;
     }
-
-    /** Returns true if this value expression is of a directly identified type
-     * (i.e. does not construct a new type), e.g. value literals and directly identified fields. */
-    virtual bool has_predefined_type() const = 0;
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) = 0;
 
@@ -152,8 +144,6 @@ public:
 
     virtual const TxType* attempt_get_type() const override { return this->get_spec_expression()->attempt_get_type(); }
     virtual const TxType* get_type        () const override { return this->get_spec_expression()->get_type();         }
-
-    virtual bool has_predefined_type() const override { return false; }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
         this->set_context( lexContext);

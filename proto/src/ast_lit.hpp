@@ -16,8 +16,6 @@ public:
 
     virtual TxLiteralValueNode* make_ast_copy() const override = 0;
 
-    virtual bool has_predefined_type() const override final { return true; }
-
     virtual bool is_statically_constant() const override final { return true; }
 };
 

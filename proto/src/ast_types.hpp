@@ -160,8 +160,6 @@ public:
         return name;
     }
 
-    virtual bool has_predefined_type() const override { return false; }
-
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
         for (TxTypeArgumentNode* ta : *this->typeArgs)
@@ -203,8 +201,6 @@ public:
         auto identifiedTypeDecl = lookup_type( this->context().scope(), this->identNode->ident );
         return ( identifiedTypeDecl ? hashify( identifiedTypeDecl->get_unique_full_name() ) : "$UNKNOWN" );
     }
-
-    virtual bool has_predefined_type() const override { return true; }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
@@ -619,8 +615,6 @@ public:
     virtual std::string get_auto_type_name() const override {
         return ( this->is_modifiable() ? "~" + this->baseType->get_auto_type_name() : this->baseType->get_auto_type_name() );
     }
-
-    virtual bool has_predefined_type() const override;
 
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
                                           const TxTypeDeclaration* owningDeclaration ) override;

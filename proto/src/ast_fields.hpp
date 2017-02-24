@@ -38,8 +38,6 @@ public:
             return TxIdentifier(this->symbolName);
     }
 
-    virtual bool has_predefined_type() const override { return true; }
-
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
         this->set_context( lexContext);
         if (this->baseExpr)
