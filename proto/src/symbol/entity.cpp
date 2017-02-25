@@ -17,6 +17,44 @@ ExpectedErrorClause* TxEntity::exp_err_ctx() const {
 }
 
 
+
+TxField* TxField::make_field( const TxFieldDeclaration* fieldDeclaration, const TxType* fieldType ) {
+    ASSERT(fieldDeclaration, "Fields must be named (have non-null declaration)");
+    ASSERT(fieldType, "NULL type for field " << fieldDeclaration);
+    auto symbol = fieldDeclaration->get_symbol();
+    if (auto funcType = dynamic_cast<const TxFunctionType*>(fieldType)) {
+        // check that no two signatures are exactly equal
+        for (auto prevFieldDeclI = symbol->fields_cbegin(); prevFieldDeclI != symbol->fields_cend(); prevFieldDeclI++) {
+            if ((*prevFieldDeclI) == fieldDeclaration)
+                continue;
+            // we only check against the previous fields that have already been resolved at this point:
+            if (auto prevFieldType = (*prevFieldDeclI)->get_definer()->attempt_get_type()) {
+                if (auto prevFuncType = dynamic_cast<const TxFunctionType*>(prevFieldType)) {
+                    if (funcType->argumentTypes.size() == prevFuncType->argumentTypes.size()
+                        && equal( funcType->argumentTypes.begin(), funcType->argumentTypes.end(), prevFuncType->argumentTypes.begin(),
+                                  [](const TxType* t1, const TxType* t2) { return *t1 == *t2; } ) ) {
+                        CERROR(fieldDeclaration->get_definer(), "Can't overload two functions with identical argument types:\n\t"
+                                << symbol->get_full_name() << ": " << funcType);
+                        return nullptr;
+                    }
+                }
+                else {
+                    CERROR(fieldDeclaration->get_definer(), "Can't overload symbol that has a non-function " << (*prevFieldDeclI) << " of type "
+                           << prevFieldType);
+                    return nullptr;
+                }
+            }
+        }
+    }
+    else if (symbol->field_count() > 1) {
+        CERROR(fieldDeclaration->get_definer(), "Can't overload symbol with non-function " << fieldDeclaration << " of type " << fieldType);
+        return nullptr;
+    }
+
+    return new TxField( fieldDeclaration, fieldType );
+}
+
+
 int TxField::get_decl_storage_index() const {
     if (auto typeDecl = this->get_outer_type_decl()) {
         if (auto outerType = typeDecl->get_definer()->get_type()) {  // assumes already resolved

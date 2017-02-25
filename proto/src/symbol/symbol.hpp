@@ -107,8 +107,6 @@ protected:
     /** Prepares an entity declaration (adding to an existing or a newly created entity symbol within this scope). */
     virtual TxEntitySymbol* declare_entity(const std::string& plainName, TxNode* definingNode);
 
-    //virtual TxDistinctEntity* overload_entity(TxDistinctEntity* entity, TxSymbolScope* prevSymbol);
-
     /** Looks up a symbol via this scope. */
     //virtual TxScopeSymbol* lookup_symbol(std::vector<TxScopeSymbol*>& path, const TxIdentifier& ident);
 
@@ -182,16 +180,6 @@ public:
     inline SymbolMap::const_iterator symbols_cend()   const { return this->symbols.cend(); }
 
 
-    /*--- symbol resolution, validation and debugging ---*/
-
-    virtual bool symbol_validation_pass() const;
-
-    /** Validates this scope symbol.
-     * Checks that this symbol is valid and consistent.
-     * This includes name collision and overloading checks.
-     * To be overridden by subclasses for specific checks (they must also invoke super implementation).
-     */
-    virtual bool validate_symbol() const;
 
     /** Prints all the symbols of this scope and its descendants to stdout. */
     virtual void dump_symbols() const;
@@ -269,8 +257,6 @@ public:
 //        this->LOGGER().warning("Attempted to lookup member %s in overloaded fields symbol %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());
 //        return nullptr;
 //    }
-
-    virtual bool validate_symbol() const override;
 
     virtual void dump_symbols() const override;
 

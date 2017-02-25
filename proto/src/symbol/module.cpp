@@ -192,12 +192,6 @@ void TxModule::prepare_modules() {
 }
 
 
-/*--- validation and debugging ---*/
-
-bool TxModule::symbol_validation_pass() const {
-    this->LOGGER().debug("Validating module %s", this->get_full_name().to_string().c_str());
-    return TxScopeSymbol::symbol_validation_pass();
-}
 
 /** Prints all the symbols of this scope and its descendants to stdout. */
 void TxModule::dump_symbols() const {

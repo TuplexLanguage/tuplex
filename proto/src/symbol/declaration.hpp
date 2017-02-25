@@ -20,9 +20,6 @@ class TxEntityDeclaration : public Printable {
     TxEntitySymbol* const symbol;
     const TxDeclarationFlags declFlags;
 
-protected:
-    bool in_exp_err_block() const;
-
 public:
     TxEntityDeclaration(TxEntitySymbol* symbol, TxDeclarationFlags declFlags)
             : symbol(symbol), declFlags(declFlags)  {
@@ -36,8 +33,6 @@ public:
     inline TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
 
     virtual TxEntityDefiningNode* get_definer() const = 0;
-
-    virtual bool validate() const = 0;
 
     /** Returns a globally unique full name for this declaration.
      * This will augment the "fully qualified name" for overloaded symbols.
@@ -85,8 +80,6 @@ public:
 
     inline const TxIdentifier& get_dataspace() const { return this->dataspace; }
 
-    virtual bool validate() const override;
-
     virtual std::string get_unique_full_name() const override;
     virtual std::string get_unique_name() const override;
 };
@@ -101,8 +94,6 @@ public:
     }
 
     virtual TxTypeDefiningNode* get_definer() const override { return this->typeDefiner; }
-
-    virtual bool validate() const override;
 
     virtual std::string get_unique_full_name() const override;
     virtual std::string get_unique_name() const override;

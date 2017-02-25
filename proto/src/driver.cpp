@@ -162,9 +162,7 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
 
     this->package->types().prepare_types();
 
-    bool symValid = this->package->symbol_validation_pass();
-
-    if (symValid && error_count == prev_error_count)
+    if (error_count == prev_error_count)
         LOG.info("+ Resolution pass OK");
 
     if (this->options.dump_symbol_table) {
@@ -173,11 +171,8 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
         std::cout << "END SYMBOL TABLE DUMP\n";
     }
 
-    if (! (symValid && error_count == prev_error_count)) {
-        if (error_count == prev_error_count)
-            LOG.warning("- Resolution pass completed with 0 errors, but symbol validation failed");
-        else
-            LOG.error("- Resolution pass completed, %d errors", error_count-prev_error_count);
+    if (error_count != prev_error_count) {
+        LOG.error("- Resolution pass completed, %d errors", error_count-prev_error_count);
     }
 
     if (error_count)

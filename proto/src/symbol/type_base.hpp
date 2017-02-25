@@ -265,8 +265,6 @@ public:
 
     virtual TxParserContext* get_parser_context() const;
 
-    virtual bool validate() const override { return true; }
-
 
     inline bool is_prepared() const { return this->prepared; }
 

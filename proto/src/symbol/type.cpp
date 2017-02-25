@@ -96,10 +96,6 @@ void TxType::validate_type() const {
 //        if (this->dataspace && this->baseTypeSpec.type->get_type_class() != TXTC_REFERENCE)
 //            CERROR(this, "Specified dataspace for non-reference base type " << this->baseTypeSpec.type);
 
-        if (! this->baseTypeSpec.type->get_declaration())
-            // also validate any anonymous base types (otherwise their validate() won't be called)
-            this->baseTypeSpec.type->validate();
-
         if (this->baseTypeSpec.type->is_empty_derivation() && !this->baseTypeSpec.type->get_explicit_declaration()) {
             ASSERT(! (this->is_empty_derivation() && !this->get_explicit_declaration()),
                    "anonymous or implicit, empty types may not be derived except as another anonymous or implicit, empty type: " << this);

@@ -415,13 +415,10 @@ static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntityS
     std::vector<const TxType*> argTypes( arguments->size() );
     std::transform( arguments->cbegin(), arguments->cend(), argTypes.begin(),
                     []( TxMaybeConversionNode* n ) -> const TxType*  {  return n->resolve_type();  } );
+    // should we check for a null-resolved arg here?
 
-    struct Candidate {
-        uint64_t reinterpretations;
-        TxFieldDeclaration* fieldDecl;
-        Candidate( uint64_t reinterpretations, TxFieldDeclaration* fieldDecl ) : reinterpretations(reinterpretations), fieldDecl(fieldDecl) {}
-    };
-    std::vector<Candidate> candidates;
+    TxFieldDeclaration* closestDecl = nullptr;
+    uint64_t closestReint = UINT64_MAX;
 
     for (auto fieldCandidateI = entitySymbol->fields_cbegin();
               fieldCandidateI != entitySymbol->fields_cend(); fieldCandidateI++) {
@@ -432,6 +429,7 @@ static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntityS
                 if (funcType->argumentTypes.size() == arguments->size()) {
                     //entitySymbol->LOGGER().trace("Candidate function: %s", funcType->to_string().c_str());
 
+                    // next check that the argument types match, and how close they match:
                     uint16_t reint[4] = { 0, 0, 0, 0 };
                     auto argTypeI = argTypes.cbegin();
                     for (auto argDef : funcType->argumentTypes) {
@@ -445,9 +443,24 @@ static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntityS
                         reint[ degree ]++;
                         argTypeI++;
                     }
-                    candidates.emplace_back( ( ((uint64_t)reint[3])<<48 | ((uint64_t)reint[2])<<32 | ((uint64_t)reint[1])<<16 | reint[0] ), *fieldCandidateI );
+
                     entitySymbol->LOGGER().debug("Arguments match for %s: %-32s: %d, %d, %d, %d", field->to_string().c_str(), funcType->to_string().c_str(),
                                                  reint[0], reint[1], reint[2], reint[3] );
+                    uint64_t candReint = ( ((uint64_t)reint[3])<<48 | ((uint64_t)reint[2])<<32 | ((uint64_t)reint[1])<<16 | reint[0] );
+                    if (candReint <= closestReint) {
+                        if (candReint == closestReint) {
+                            // Note, multiple functions with the exact same signature is checked elsewhere.
+                            // If arguments for multiple "equal" top candidates are matched via reinterpretation, we just pick the first one found.
+                            // TODO: Pick the narrowest match, not the first found match
+                            //CWARNING(origin, "Ambiguous function call to " << entitySymbol->get_full_name() << ": "
+                            //         << field->get_type() << ", multiple signatures match equally well "
+                            //         << "[ " << reint[0] << ", " << reint[1] << ", " << reint[2] << ", " << reint[3] << " ]");
+                        }
+                        else {
+                            closestDecl = *fieldCandidateI;
+                            closestReint = candReint;
+                        }
+                    }
                 }
             }
         }
@@ -456,62 +469,16 @@ static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntityS
         ;
     }
 
-    if (! candidates.empty()) {
-        // pick closest match
-        const Candidate* closest = &candidates.front();
-        bool ambiguous = false;
-        for ( auto candidateI = ++candidates.cbegin(); candidateI != candidates.cend(); candidateI++ ) {
-            const Candidate* candidate = &(*candidateI);
+    if (closestDecl) {
+//        // apply implicit reinterpretations on arguments:
+//        auto funcType = static_cast<const TxFunctionType*>( closestDecl->get_definer()->get_type() );
+//        auto argExprI = arguments->begin();
+//        for (auto argDefType : funcType->argumentTypes) {
+//            (*argExprI)->insert_conversion( argDefType );  // FIXME
+//            argExprI++;
+//        }
 
-//            if ( candidate->reinterpretations[3] < closest->reinterpretations[3]
-//                 || ( candidate->reinterpretations[3] == closest->reinterpretations[3]
-//                      &&
-//                      ( candidate->reinterpretations[2] < closest->reinterpretations[2]
-//                        || ( candidate->reinterpretations[2] == closest->reinterpretations[2]
-//                             &&
-//                             ( candidate->reinterpretations[1] <= closest->reinterpretations[1] )  // closer-or-equal
-//                           )
-//                      )
-//                    )
-//               ) {
-            if (candidate->reinterpretations <= closest->reinterpretations) {
-                // check if identically close match, which is an ambiguity error unless a closer match is found later on:
-//                if (   candidate->reinterpretations[3] == closest->reinterpretations[3]
-//                    || candidate->reinterpretations[2] == closest->reinterpretations[2]
-//                    || candidate->reinterpretations[1] == closest->reinterpretations[1] )
-                if (candidate->reinterpretations == closest->reinterpretations
-                        && (candidate->reinterpretations & ~0xFFFF)) {
-                    // if all arguments match exactly we currently don't treat it as an ambiguity error, we just pick the first one found
-                    // FUTURE: pick the narrowest match
-                    ambiguous = true;
-//                    uint16_t *reint = (uint16_t*)&candidate->reinterpretations;
-//                    CWARNING(origin, "Ambiguous function call to " << entitySymbol->get_full_name() << ": "
-//                             << candidate->fieldDecl->get_definer()->get_type() << ", multiple signatures match equally well "
-//                             << "[ " << reint[0] << ", " << reint[1] << ", " << reint[2] << ", " << reint[3] << " ]");
-                }
-                else {
-                    closest = candidate;
-                    ambiguous = false;
-                }
-            }
-        }
-
-        if (ambiguous) {
-            uint16_t *reint = (uint16_t*)&closest->reinterpretations;
-            CERROR(origin, "Ambiguous function call to " << entitySymbol->get_full_name() << ": "
-                   << closest->fieldDecl->get_definer()->get_type() << ", multiple signatures match equally well "
-                   << "[ " << reint[0] << ", " << reint[1] << ", " << reint[2] << ", " << reint[3] << " ]");
-        }
-
-        // apply implicit reinterpretations on arguments:
-        auto funcType = static_cast<const TxFunctionType*>( closest->fieldDecl->get_definer()->get_type() );
-        auto argExprI = arguments->begin();
-        for (auto argDefType : funcType->argumentTypes) {
-            //(*argExprI)->insert_conversion( argDefType );  // FIXME
-            argExprI++;
-        }
-
-        return closest->fieldDecl;
+        return closestDecl;
     }
 
     entitySymbol->LOGGER().debug("Arguments do not match any overloaded candidate of %s", entitySymbol->to_string().c_str());

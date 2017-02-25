@@ -220,7 +220,7 @@ protected:
         LOGGER().trace("defining  field of %s", this->to_string().c_str());
         ASSERT(this->attempt_get_type(), "Expected non-NULL type in " << this);
         if (this->declaration) {
-            if (auto field = new TxField(this->declaration, this->attempt_get_type())) {
+            if (auto field = TxField::make_field( this->declaration, this->attempt_get_type() )) {
                 return field;
             }
         }

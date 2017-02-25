@@ -479,7 +479,7 @@ void BuiltinTypes::declare_default_constructor(LexicalContext& ctx, BuiltinTypeI
                                                     this->builtinTypes[toTypeId]->typeExpression->get_type(),
                                                     initValueExpr);
     type->prepare_type_members();
-    constructorDefiner->set_field( new TxField(constructorDecl, type) );
+    constructorDefiner->set_field( TxField::make_field(constructorDecl, type) );
 }
 
 void BuiltinTypes::declare_conversion_constructor(BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId) {
@@ -491,7 +491,7 @@ void BuiltinTypes::declare_conversion_constructor(BuiltinTypeId fromTypeId, Buil
                                                     this->builtinTypes[fromTypeId]->typeExpression->get_type(),
                                                     this->builtinTypes[toTypeId]->typeExpression->get_type());
     type->prepare_type_members();
-    constructorDefiner->set_field( new TxField(constructorDecl, type) );
+    constructorDefiner->set_field( TxField::make_field(constructorDecl, type) );
 }
 
 
@@ -504,7 +504,7 @@ void BuiltinTypes::declare_tx_functions(TxModule* module) {
 //    auto funcDecl = module->declare_field("_address", funcTypeDef, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
 //    auto type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->typeExpression->get_type(), argumentTypes,
 //                                   this->builtinTypes[ULONG]->typeExpression->get_type());
-//    funcTypeDef->set_field( new TxField(funcDecl, type) );
+//    funcTypeDef->set_field( TxField::make_field(funcDecl, type) );
 }
 
 
@@ -761,7 +761,7 @@ void BuiltinTypes::initializeBuiltinSymbols() {
 //        //typeDecl->get_symbol()->declare_type( "E", elemTypeDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_GENPARAM );
 //        //auto lengthDefiner = new TxBuiltinFieldDefiner();
 //        //auto lengthDecl = typeDecl->get_symbol()->declare_field( "L", lengthDefiner, TXD_PUBLIC | TXD_BUILTIN | TXD_GENPARAM, TXS_INSTANCE, TxIdentifier() );
-//        //lengthDefiner->set_field( new TxField(lengthDecl, this->builtinTypes[UINT]->typeExpression->get_type()) );
+//        //lengthDefiner->set_field( TxField::make_field(lengthDecl, this->builtinTypes[UINT]->typeExpression->get_type()) );
 //        auto anyType = new TxIdentifiedTypeNode(this->builtinLocation, "tx.Any");
 //        auto lTypeNode = new TxTypeDeclWrapperNode( this->builtinLocation, this->builtinTypes[UINT]->get_declaration() );
 //        auto lenFieldDef = new TxFieldDefNode(this->builtinLocation, "L", lTypeNode, nullptr, false);
@@ -801,7 +801,7 @@ void BuiltinTypes::initializeBuiltinSymbols() {
 //            fieldDef->set_context(moduleCtx);  // FIXME: refactor so that declaration pass is run on builtin nodes
 //            auto fieldDecl = definer->get_declaration()->get_symbol()->declare_field(
 //                    "$adTypeId", fieldDef, TXD_PUBLIC | TXD_BUILTIN | TXD_STATIC | TXD_ABSTRACT | TXD_IMPLICIT, TXS_STATIC, "");
-//            fieldDef->set_field( new TxField(fieldDecl, fieldType) );
+//            fieldDef->set_field( TxField::make_field(fieldDecl, fieldType) );
 //        }
 //        auto type = new TxInterfaceType(definer->get_declaration(), this->builtinTypes[ANY]->typeExpression->get_type());
 //        type->prepare_type_members();
@@ -887,14 +887,14 @@ void BuiltinTypes::initializeBuiltinSymbols() {
         const TxType* returnType = this->builtinTypes[INT]->typeExpression->resolve_type();
 
         auto type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->typeExpression->resolve_type(), { ubyteRefType }, returnType);
-        c_puts_func_type_def->set_field( new TxField(c_puts_decl, type) );
+        c_puts_func_type_def->set_field( TxField::make_field(c_puts_decl, type) );
     }
     {  // declare tx.c.abort:
         std::vector<const TxType*> argumentTypes( {} );
         auto c_abort_func_type_def = new TxBuiltinFieldDefNode( this->builtinLocation );
         auto c_abort_decl = txCfuncModule->declare_field("abort", c_abort_func_type_def, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
         auto type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->typeExpression->resolve_type(), argumentTypes);
-        c_abort_func_type_def->set_field( new TxField(c_abort_decl, type) );
+        c_abort_func_type_def->set_field( TxField::make_field(c_abort_decl, type) );
     }
 }
 
@@ -909,7 +909,7 @@ void BuiltinTypes::initializeBuiltinSymbols() {
 //                                                    this->builtinTypes[toTypeId]->typeExpression->get_type(),
 //                                                    initValueExpr);
 //    type->prepare_type_members();
-//    constructorDefiner->set_field( new TxField(constructorDecl, type) );
+//    constructorDefiner->set_field( TxField::make_field(constructorDecl, type) );
 //}
 //
 //void BuiltinTypes::declare_conversion_constructor(BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId) {
@@ -921,7 +921,7 @@ void BuiltinTypes::initializeBuiltinSymbols() {
 //                                                    this->builtinTypes[fromTypeId]->typeExpression->get_type(),
 //                                                    this->builtinTypes[toTypeId]->typeExpression->get_type());
 //    type->prepare_type_members();
-//    constructorDefiner->set_field( new TxField(constructorDecl, type) );
+//    constructorDefiner->set_field( TxField::make_field(constructorDecl, type) );
 //}
 
 
@@ -990,7 +990,7 @@ const TxInterfaceAdapterType* BuiltinTypes::inner_get_interface_adapter(const Tx
         auto fieldDef = new TxBuiltinFieldDefNode( this->get_builtin_location() );
         fieldDef->set_context( adapterDefiner->context() );  // FIXME: refactor so that declaration pass is run on builtin nodes
         auto fieldDecl = typeDecl->get_symbol()->declare_field("$adTypeId", fieldDef, TXD_PUBLIC | TXD_STATIC | TXD_OVERRIDE | TXD_IMPLICIT, TXS_STATIC, "");
-        fieldDef->set_field( new TxField(fieldDecl, fieldType) );
+        fieldDef->set_field( TxField::make_field(fieldDecl, fieldType) );
     }
 
     auto adapterType = new TxInterfaceAdapterType(typeDecl, interfaceType, adaptedType);

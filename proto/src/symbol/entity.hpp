@@ -41,7 +41,6 @@ public:
     TxDeclarationFlags get_decl_flags() const {
         return (this->declaration ? this->declaration->get_decl_flags() : TXD_NONE);
     }
-    virtual bool validate() const = 0;
 };
 
 
@@ -50,6 +49,12 @@ public:
 class TxField : public TxEntity {
     const TxType* type;
 
+    TxField( const TxFieldDeclaration* declaration, const TxType* type )
+            : TxEntity(declaration), type(type) {
+//        ASSERT(declaration, "Fields must be named (have non-null declaration)");
+//        ASSERT(type, "NULL type for field " << declaration);
+    }
+
     const TxTypeDeclaration* get_outer_type_decl() const {
         if (auto outerEntity = dynamic_cast<TxEntitySymbol*>(get_symbol()->get_outer()))
             return outerEntity->get_type_decl();
@@ -57,11 +62,9 @@ class TxField : public TxEntity {
     }
 
 public:
-    TxField(const TxFieldDeclaration* declaration, const TxType* type)
-            : TxEntity(declaration), type(type) {
-        ASSERT(declaration, "Fields must be named (have non-null declaration)");
-        ASSERT(type, "NULL type for field " << declaration);
-    }
+    /** Constructs a new field after applying some validation checks. If validation fails, null is returned. */
+    static TxField* make_field( const TxFieldDeclaration* declaration, const TxType* type );
+
 
     virtual inline const TxFieldDeclaration* get_declaration() const override {
         return static_cast<const TxFieldDeclaration*>(TxEntity::get_declaration());
@@ -90,8 +93,6 @@ public:
     inline const std::string get_unique_name() const {
         return this->get_declaration()->get_unique_name();
     }
-
-    virtual bool validate() const override { return true; }
 
     virtual std::string to_string() const {
         return std::string("FIELD ") + ::to_string(this->get_decl_flags()) + " " + this->get_symbol()->get_full_name().to_string();

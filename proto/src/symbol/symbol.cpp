@@ -193,8 +193,17 @@ TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName, TxNo
     return entitySymbol;
 }
 
+
+static inline bool is_internal_name( const std::string& name ) {
+    return ( name.find_first_of('$') != std::string::npos );
+}
+
+
 TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxTypeDefiningNode* typeDefiner,
                                                TxDeclarationFlags declFlags) {
+    ASSERT(!is_internal_name(plainName) || (declFlags & (TXD_IMPLICIT | TXD_CONSTRUCTOR)),
+           "Mismatch between name format and IMPLICIT flag for type declaration " << plainName);
+
     if (TxEntitySymbol* entitySymbol = this->declare_entity(plainName, typeDefiner)) {
         auto typeDeclaration = new TxTypeDeclaration(entitySymbol, declFlags, typeDefiner);
         if (entitySymbol->add_type(typeDeclaration))
@@ -206,6 +215,9 @@ TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxT
 TxFieldDeclaration* TxScopeSymbol::declare_field(const std::string& plainName, TxFieldDefiningNode* fieldDefiner,
                                                  TxDeclarationFlags declFlags, TxFieldStorage storage,
                                                  const TxIdentifier& dataspace) {
+    ASSERT(!is_internal_name(plainName) || (declFlags & (TXD_IMPLICIT | TXD_CONSTRUCTOR)),
+           "Mismatch between name format and IMPLICIT flag for field declaration " << plainName);
+
     if (TxEntitySymbol* entitySymbol = this->declare_entity(plainName, fieldDefiner)) {
         auto fieldDeclaration = new TxFieldDeclaration(entitySymbol, declFlags, fieldDefiner, storage, dataspace);
         if (entitySymbol->add_field(fieldDeclaration))
@@ -215,21 +227,6 @@ TxFieldDeclaration* TxScopeSymbol::declare_field(const std::string& plainName, T
 }
 
 
-
-bool TxScopeSymbol::symbol_validation_pass() const {
-//    if (!this->fullName.begins_with(BUILTIN_NS))
-//        this->LOGGER().debug("Validating symbol %s", this->fullName.to_string().c_str());
-    bool valid = this->validate_symbol();
-    if (! valid)
-        this->LOGGER().debug("Failed symbol validity test: %s", this->fullName.to_string().c_str());
-    for (auto entry : this->symbols)
-        valid &= entry.second->symbol_validation_pass();
-    return valid;
-}
-
-bool TxScopeSymbol::validate_symbol() const {
-    return true;
-}
 
 void TxScopeSymbol::dump_symbols() const {
     const TxIdentifier builtinNamespace(BUILTIN_NS);
@@ -334,47 +331,7 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
     return nullptr;
 }
 
-bool TxEntitySymbol::validate_symbol() const {
-    bool valid = true;
 
-    bool internalName = (this->get_name().find_first_of('$') != std::string::npos);
-
-    if (this->typeDeclaration) {
-        valid &= this->typeDeclaration->validate();
-        ASSERT(!internalName || (this->typeDeclaration->get_decl_flags() & (TXD_IMPLICIT | TXD_CONSTRUCTOR)),
-               "Mismatch between name format and IMPLICIT flag for " << this->typeDeclaration);
-    }
-
-    for (auto fieldDeclI = this->fields_cbegin(); fieldDeclI != this->fields_cend(); fieldDeclI++) {
-        valid &= (*fieldDeclI)->validate();
-        ASSERT(!internalName || ((*fieldDeclI)->get_decl_flags() & (TXD_IMPLICIT | TXD_CONSTRUCTOR)),
-               "Mismatch between name format and IMPLICIT flag for " << (*fieldDeclI));
-
-        auto type = (*fieldDeclI)->get_definer()->get_type();
-        if (auto funcType = dynamic_cast<const TxFunctionType*>(type)) {
-            // check that no two signatures are exactly equal
-            for (auto prevFieldDeclI = this->fields_cbegin(); prevFieldDeclI != fieldDeclI; prevFieldDeclI++) {
-                auto prevFuncType = static_cast<const TxFunctionType*>((*prevFieldDeclI)->get_definer()->get_type());
-                if (funcType->argumentTypes.size() == prevFuncType->argumentTypes.size()
-                    && equal( funcType->argumentTypes.begin(), funcType->argumentTypes.end(), prevFuncType->argumentTypes.begin(),
-                              [](const TxType* t1, const TxType* t2) { return *t1 == *t2; } ) ) {
-                    CERROR((*fieldDeclI)->get_definer(), "Can't overload two functions with identical argument types: \n\t"
-                            << this->get_full_name() << ": " << funcType << "\n\t" << this->get_full_name() << ": " << prevFuncType);
-                    valid = false;
-                    break;
-                }
-            }
-        }
-        else if (this->field_count() > 1) {
-            // only fields of function type may be overloaded
-            CERROR((*fieldDeclI)->get_definer(), "Can't overload symbol with non-function " << (*fieldDeclI) << " of type "
-                   << (type ? type->to_string().c_str() : "NULL"));
-            valid = false;
-        }
-    }
-
-    return valid;
-}
 
 void TxEntitySymbol::dump_symbols() const {
     TxScopeSymbol::dump_symbols();

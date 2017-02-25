@@ -59,7 +59,12 @@ Make fields be "bindings to entities" rather than "entities" - SORT-OF-DONE
  - in order to fix multi-instantiation in e.g:
   stackObj := AType();  ## allocates twice & copies! 
 
+Generic type instance fields support (with Any contraint type) - DONE
+ - To support declaring instance fields of dynamically resolved type by value (not just reference)
+
 Proper recursive expression checking (fields; types) - DONE
+
+Remove validation pass (move checks to resolution pass) - DONE
 
 Review conversion node handling
  - should be allocated in node constructors (not decl/resolve passes)
@@ -136,9 +141,6 @@ Implicit constructors: if no constructor specified, automatically generate const
  - "full" constructor if base type allows default construction and one argument for each member (?)
  
 Constructor initialization validation check: That each constructor properly initializes all members (without inlined initializers)
-
-Generic type instance fields support (with Any contraint type)
- - To support declaring instance fields of dynamically resolved type by value (not just reference)
 
 Enum typeclass
 
