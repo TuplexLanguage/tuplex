@@ -188,6 +188,7 @@ protected:
     }
 };
 
+
 class TxConstructorType : public TxFunctionType {
     TxTypeDeclaration* objTypeDeclaration;
 public:
@@ -200,29 +201,40 @@ public:
     }
 };
 
-class TxBuiltinFunctionType : public TxFunctionType {
+
+class TxMaybeConversionNode;
+
+class TxInlineFunctionType : public TxFunctionType {
 public:
-    TxBuiltinFunctionType(const TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*> argumentTypes,
+    TxInlineFunctionType(const TxTypeDeclaration* declaration, const TxType* baseType, const std::vector<const TxType*> argumentTypes,
                           const TxType* returnType)
         : TxFunctionType(declaration, baseType, argumentTypes, returnType) { }
+
+    /** Factory method that produces the TxExpressionNode to replace the function call with.
+     * Note that the argument expressions will have run the resolution pass before this call, but not calleeExpr. */
+    virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const = 0;
 };
 
-class TxBuiltinDefaultConstructorType : public TxBuiltinFunctionType {
+class TxBuiltinDefaultConstructorType : public TxInlineFunctionType {
     TxExpressionNode* initValueExpr;
 public:
     TxBuiltinDefaultConstructorType(const TxTypeDeclaration* declaration, const TxType* baseType,
                                     const TxType* returnType, TxExpressionNode* initValueExpr)
-        : TxBuiltinFunctionType(declaration, baseType, std::vector<const TxType*>{ }, returnType),
+        : TxInlineFunctionType(declaration, baseType, std::vector<const TxType*>{ }, returnType),
           initValueExpr(initValueExpr)  { }
 
-    TxExpressionNode* get_default_init_value_expr() const { return initValueExpr; }
+    virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override {
+        return initValueExpr;
+    }
 };
 
-class TxBuiltinConversionFunctionType : public TxBuiltinFunctionType {
+class TxBuiltinConversionFunctionType : public TxInlineFunctionType {
 public:
     TxBuiltinConversionFunctionType(const TxTypeDeclaration* declaration, const TxType* baseType, const TxType* argumentType,
                                     const TxType* returnType)
-        : TxBuiltinFunctionType(declaration, baseType, std::vector<const TxType*>{ argumentType }, returnType) { }
+        : TxInlineFunctionType(declaration, baseType, std::vector<const TxType*>{ argumentType }, returnType) { }
+
+    virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;
 };
 
 

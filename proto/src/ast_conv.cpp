@@ -96,7 +96,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
 }
 
 
-static TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType* resultType, bool _explicit ) {
+TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType* resultType, bool _explicit ) {
     auto exprNode = inner_validate_wrap_convert( originalExpr, resultType, _explicit );
     if (exprNode != originalExpr) {
         originalExpr->LOGGER().trace("Wrapping conversion to type %s around %s", resultType->to_string(true).c_str(), originalExpr->to_string().c_str());

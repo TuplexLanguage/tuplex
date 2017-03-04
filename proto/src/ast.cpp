@@ -364,7 +364,7 @@ static int get_reinterpretation_degree( const TxType *expectedType, const TxType
         return 0;
     }
 
-    // TODO: check if provided type is equivalent to expected type
+    // TODO: check if provided type is narrower than the expected type
 
     if (providedType->auto_converts_to(*expectedType))
         return 2;
@@ -373,7 +373,7 @@ static int get_reinterpretation_degree( const TxType *expectedType, const TxType
         if (auto refTargetType = refType->target_type()) {
             if (providedType->is_a( *refTargetType )) {
                 if (! refTargetType->is_modifiable())
-                    return 3;  // originalExpr will be auto-wrapped with a reference-to node
+                    return 3;  // expression will be auto-wrapped with a reference-to node
             }
         }
     }
@@ -397,6 +397,8 @@ static int get_reinterpretation_degree( const TxType *expectedType, const TxType
  * 1: Argument and receiver have equivalent types (according to narrowing/widening type rules)
  * 2: Argument can be implicitly converted to the receiver's type (e.g. Int -> Long)
  * 3: Argument can be transformed via implicit operation to the receiver's type (e.g. implicit referencing)
+ *
+ * Note: This function doesn't generate compiler errors; if no match is found null is returned.
  */
 static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntitySymbol* entitySymbol,
                                           const std::vector<TxMaybeConversionNode*>* arguments ) {
@@ -632,24 +634,13 @@ void TxFunctionCallNode::prepare_self_super_invocations() {
 }
 
 const TxType* TxFunctionCallNode::define_type() {
+    // The resolution here shall resolve to the function signature that *closest* matches the argument types,
+    // but also takes automatic (implicit) type conversions into account (if needed).
+    // The automatic type conversions thus considered shall then be applied upon function invocation.
     // Prepare for resolving possible function overloading by registering actual function signature with
-    // the callee node, BEFORE the callee node type is resolved.
+    // the callee node, BEFORE the callee node type is resolved:
     ASSERT (!callee->get_applied_func_args(), "callee already has applied func arg types: " << callee);
-//    std::vector<const TxType*>* appliedArgTypes = new std::vector<const TxType*>();
-//    for (auto argExpr : *this->argsExprList) {
-//        if (auto argType = argExpr->resolve_type())
-//            appliedArgTypes->push_back(argType);
-//        else {
-//            delete appliedArgTypes;
-//            appliedArgTypes = nullptr;
-//            break;
-//        }
-//    }
     callee->set_applied_func_args( this->argsExprList );
-
-    // TODO: The resolution here shall resolve to the function signature that *closest* matches the argument types,
-    //       but also takes automatic (implicit) type conversions into account (if needed).
-    //       The automatic type conversions thus considered shall then be applied upon function invocation.
     auto calleeType = this->callee->resolve_type();
     if (!calleeType)
         return nullptr;
@@ -671,25 +662,20 @@ const TxType* TxFunctionCallNode::define_type() {
 void TxFunctionCallNode::symbol_resolution_pass() {
     TxExpressionNode::symbol_resolution_pass();
 
-    if (auto inlineCalleeType = dynamic_cast<const TxBuiltinDefaultConstructorType*>(this->funcType)) {
-        // "inline" function call by replacing with conversion expression
-        this->inlinedExpression = inlineCalleeType->get_default_init_value_expr();
-    }
-    else if (/*auto inlineCalleeType =*/ dynamic_cast<const TxBuiltinConversionFunctionType*>(this->funcType)) {
-        // "inline" function call by replacing with conversion expression
-        this->argsExprList->front()->insert_conversion( this->funcType->returnType, true );
-        this->inlinedExpression = this->argsExprList->front();
+    if (auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>(this->funcType)) {
+        this->inlinedExpression = inlineCalleeType->make_inline_expr( this->callee, this->argsExprList );
     }
     else if (auto constructorType = dynamic_cast<const TxConstructorType*>(this->funcType)) {
-        // inline code for stack allocation and constructor invocation, which in turn will invoke this constructor
-        if (! dynamic_cast<TxConstructorCalleeExprNode*>( this->callee )) {  // (prevents infinite recursion)
-            this->inlinedExpression = new TxStackConstructorNode( this, constructorType->get_constructed_type_decl() );
-            this->inlinedExpression->symbol_declaration_pass( this->context());
-        }
         if (this->isSelfSuperConstructorInvocation) {
             if (! this->context().get_constructed())
                 CERROR(this, "self() / super() constructor may only be invoked from within the type's other constructors");
             // TODO: shall only be legal as first statement within constructor body
+        }
+
+        // inline code for stack allocation and constructor invocation, which in turn will invoke this constructor
+        if (! dynamic_cast<TxConstructorCalleeExprNode*>( this->callee )) {  // (prevents infinite recursion)
+            this->inlinedExpression = new TxStackConstructorNode( this, constructorType->get_constructed_type_decl() );
+            this->inlinedExpression->symbol_declaration_pass( this->context());
         }
     }
 
@@ -698,11 +684,8 @@ void TxFunctionCallNode::symbol_resolution_pass() {
         return;
     }
 
-    callee->symbol_resolution_pass();
-
-    // FIXME: refactor or remove the following:
+    // Verify matching function signature, and apply implicit conversions if needed:
     if (auto funcType = dynamic_cast<const TxFunctionType*>(this->callee->resolve_type())) {
-        // verify matching function signature:
         if (funcType->argumentTypes.size() != this->argsExprList->size()) {
             CERROR(this, "Callee of function call expression has mismatching argument count: " << funcType);
         }
@@ -710,18 +693,14 @@ void TxFunctionCallNode::symbol_resolution_pass() {
             auto argExprI = this->argsExprList->begin();
             for (auto argDefType : funcType->argumentTypes) {
                 // note: similar rules to assignment
-                if (! argDefType->is_concrete())  // FIXME: move this check to lambda expression
-                    // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
-                    CERROR(*argExprI, "Function argument is not a concrete type (size potentially unknown): " << argDefType);
-                // if function arg is a reference:
-                // TODO: check dataspace rules
-
-                (*argExprI)->insert_conversion( argDefType );  // FIXME: move to resolve_field()
+                // TODO: check dataspace rules if function arg is a reference
+                (*argExprI)->insert_conversion( argDefType );  // generates compilation error upon mismatch
                 argExprI++;
             }
         }
     }
 
+    callee->symbol_resolution_pass();
     for (auto argExpr : *this->argsExprList)
         argExpr->symbol_resolution_pass();
 }

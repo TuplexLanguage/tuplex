@@ -3,6 +3,11 @@
 #include "ast_declbase.hpp"
 
 
+
+/** Wraps the provided original expression with a new conversion expression node if necessary. */
+TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType* resultType, bool _explicit );
+
+
 /** A specific conversion of an expression to a resulting type. */
 class TxConversionNode : public TxExpressionNode {
 protected:
