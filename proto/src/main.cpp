@@ -39,6 +39,7 @@ int main(int argc, char **argv)
                 printf("  %-22s %s\n", "-quiet", "Quiet, only log notes, alerts, warnings and errors");
                 printf("  %-22s %s\n", "-vquiet", "Very quiet, only log warnings and errors");
                 printf("  %-22s %s\n", "-nocol", "Disable color encoding in console output");
+                printf("  %-22s %s\n", "-da", "Dump AST");
                 printf("  %-22s %s\n", "-ds", "Dump symbol table");
                 printf("  %-22s %s\n", "-dstx", "Dump full symbol table including built-in symbols");
                 printf("  %-22s %s\n", "-di", "Dump intermediate representation (LLVM IR)");
@@ -67,6 +68,8 @@ int main(int argc, char **argv)
                 Logger::set_global_threshold(WARN);
             else if (! strcmp(argv[a], "-nocol"))
                 Logger::set_colors_enabled(false);
+            else if (! strcmp(argv[a], "-da"))
+                options.dump_ast = true;
             else if (! strcmp(argv[a], "-ds"))
                 options.dump_symbol_table = true;
             else if (! strcmp(argv[a], "-dstx"))

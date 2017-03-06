@@ -34,7 +34,7 @@ unsigned TxNode::nextNodeId = 0;
 
 std::string TxNode::to_string() const {
     char buf[256];
-    snprintf(buf, 256, "%-24s %3u : %-11s", typeid(*this).name(), this->get_node_id(), this->parse_loc_string().c_str());
+    snprintf( buf, 256, "%-11s %4u %-24s", this->parse_loc_string().c_str(), this->get_node_id(), typeid(*this).name() );
     return std::string(buf);
 }
 
@@ -47,6 +47,18 @@ std::string TxNode::parse_loc_string() const {
     else
         snprintf(buf, 128, "%2d.%2d-%2d.%2d", parseLocation.begin.line, parseLocation.begin.column, parseLocation.end.line, parseLocation.end.column);
     return std::string(buf);
+}
+
+
+void TxNode::visit_ast( AstVisitor visitor, const AstParent& parent, const std::string& role, void* context ) const {
+    visitor( this, parent, role, context );
+    const AstParent thisParent( parent, this );
+    this->visit_descendants( visitor, thisParent, role, context );
+}
+
+void TxNode::visit_ast( AstVisitor visitor, void* context ) const {
+    const AstParent parent( this );
+    this->visit_ast( visitor, parent, "", context );
 }
 
 

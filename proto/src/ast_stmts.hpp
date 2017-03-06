@@ -54,6 +54,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->field->visit_ast( visitor, thisAsParent, "fielddecl", context );
+    }
 };
 
 /** Local type declaration */
@@ -83,6 +87,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->typeDecl->visit_ast( visitor, thisAsParent, "typedecl", context );
+    }
 };
 
 class TxCallStmtNode : public TxStatementNode {  // function call without assigning return value (if any)
@@ -106,6 +114,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->call->visit_ast( visitor, thisAsParent, "call", context );
+    }
 };
 
 class TxTerminalStmtNode : public TxStatementNode {
@@ -158,6 +170,10 @@ public:
     virtual bool ends_with_return_stmt() const override { return true; }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->expr->visit_ast( visitor, thisAsParent, "value", context );
+    }
 };
 
 class TxBreakStmtNode : public TxTerminalStmtNode {
@@ -171,6 +187,8 @@ public:
     virtual bool may_end_with_non_return_stmt() const override { return true; }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {}
 };
 
 class TxContinueStmtNode : public TxTerminalStmtNode {
@@ -184,6 +202,8 @@ public:
     virtual bool may_end_with_non_return_stmt() const override { return true; }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {}
 };
 
 
@@ -240,6 +260,11 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        for (auto stmt : *this->suite)
+            stmt->visit_ast( visitor, thisAsParent, "stmt", context );
+    }
 };
 
 
@@ -274,6 +299,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->body->visit_ast( visitor, thisAsParent, "body", context );
+    }
 };
 
 class TxCondCompoundStmtNode : public TxStatementNode {
@@ -307,6 +336,12 @@ public:
 
     virtual bool ends_with_return_stmt() const override {
         return ( this->body->ends_with_return_stmt() && this->elseClause && this->elseClause->ends_with_return_stmt() );
+    }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->cond->visit_ast( visitor, thisAsParent, "condition", context );
+        this->body->visit_ast( visitor, thisAsParent, "true", context );
+        this->cond->visit_ast( visitor, thisAsParent, "else", context );
     }
 };
 
@@ -401,6 +436,11 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->lvalue->visit_ast( visitor, thisAsParent, "lvalue", context );
+        this->rvalue->visit_ast( visitor, thisAsParent, "rvalue", context );
+    }
 };
 
 
@@ -425,6 +465,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->ifStmt->visit_ast( visitor, thisAsParent, "ifstmt", context );
+    }
 };
 
 
@@ -468,6 +512,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->body->visit_ast( visitor, thisAsParent, "stmt", context );
+    }
 };
 
 
@@ -487,4 +535,6 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {}
 };

@@ -53,6 +53,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->typeExprNode->visit_ast( visitor, thisAsParent, "type", context );
+    }
 };
 
 
@@ -92,6 +96,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->valueExprNode->visit_ast( visitor, thisAsParent, "value", context );
+    }
 };
 
 
@@ -167,6 +175,11 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        for (auto typeArg : *this->typeArgs)
+            typeArg->visit_ast( visitor, thisAsParent, "typearg", context );
+    }
 };
 
 
@@ -203,6 +216,8 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {}
 };
 
 
@@ -254,6 +269,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->targetTypeNode->visit_ast( visitor, thisAsParent, "target", context );
+    }
 };
 
 /**
@@ -307,6 +326,12 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->elementTypeNode->visit_ast( visitor, thisAsParent, "elementtype", context );
+        if (this->lengthNode)
+            this->lengthNode->visit_ast( visitor, thisAsParent, "length", context );
+    }
 };
 
 
@@ -415,6 +440,17 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        for (auto type : *this->baseTypes)
+            type->visit_ast( visitor, thisAsParent, "basetype", context );
+
+        this->selfRefTypeNode->visit_ast( visitor, thisAsParent, "selfreftype", context );
+        this->superRefTypeNode->visit_ast( visitor, thisAsParent, "superreftype", context );
+
+        for (auto member : *this->members)
+            member->visit_ast( visitor, thisAsParent, "member", context );
+    }
 };
 
 
@@ -455,6 +491,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->derivedTypeNode->visit_ast( visitor, thisAsParent, "derivedtype", context );
+    }
 };
 
 
@@ -550,6 +590,13 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        for (auto argField : *this->arguments)
+            argField->visit_ast( visitor, thisAsParent, "arg", context );
+        if (this->returnField)
+            this->returnField->visit_ast( visitor, thisAsParent, "return", context );
+    }
 };
 
 
@@ -575,6 +622,7 @@ protected:
 
 public:
     TxTypeExpressionNode* baseType;
+
     TxModifiableTypeNode(const TxLocation& parseLocation, TxTypeExpressionNode* baseType)
         : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
 
@@ -595,6 +643,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->baseType->visit_ast( visitor, thisAsParent, "basetype", context );
+    }
 };
 
 /** A potentially modifiable type expression, depending on syntactic sugar rules.

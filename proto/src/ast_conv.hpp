@@ -43,6 +43,10 @@ public:
     }
 
     virtual bool is_statically_constant() const override { return this->expr->is_statically_constant(); }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->expr->visit_ast( visitor, thisAsParent, "convertee", context );
+    }
 };
 
 

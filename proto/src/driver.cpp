@@ -165,6 +165,21 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
     if (error_count == prev_error_count)
         LOG.info("+ Resolution pass OK");
 
+    if (this->options.dump_ast) {
+        auto visitor = []( const TxNode* node, const AstParent& parent, const std::string& role, void* ctx ) {
+            char buf[256];
+            snprintf( buf, 256, "%*s%s", parent.depth*2, "", role.c_str() );
+            printf( "%-40s %s\n", buf, node->to_string().c_str() );
+            //std::cout << std::string( parent.depth*2, ' ' ) << role << " " << node->to_string() << std::endl;
+        };
+
+        for (auto parserContext : this->parsedASTs) {
+            std::cout << "AST DUMP FOR '" << parserContext->to_string() << "':\n";
+            parserContext->parsingUnit->visit_ast( visitor, nullptr );
+            std::cout << "END AST DUMP\n";
+        }
+    }
+
     if (this->options.dump_symbol_table) {
         std::cout << "SYMBOL TABLE DUMP:\n";
         this->package->dump_symbols();
@@ -461,4 +476,9 @@ void TxParserContext::cinfo(const TxLocation& loc, const std::string& msg) {
     char buf[512];
     format_location_message(buf, 512, loc, msg.c_str());
     this->emit_comp_info(buf);
+}
+
+
+std::string TxParserContext::to_string() const {
+    return ( this->_moduleName.is_empty() ? *this->current_input_filepath() : this->_moduleName.to_string() );
 }

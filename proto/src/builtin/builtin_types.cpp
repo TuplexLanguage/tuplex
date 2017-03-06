@@ -84,6 +84,8 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override {
         return nullptr;
     }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {}
 };
 
 
@@ -124,6 +126,11 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        if (this->originalNode)
+            this->originalNode->visit_ast( visitor, thisAsParent, "originalnode", context );
+    }
 };
 
 class TxImplicitTypeDeclNode : public TxTypeDeclNode {
@@ -266,6 +273,13 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        if (this->baseTypeNode)
+            this->baseTypeNode->visit_ast( visitor, thisAsParent, "basetype", context );
+        for (auto decl : this->declNodes)
+            decl->visit_ast( visitor, thisAsParent, "decl", context );
+    }
 };
 
 
@@ -424,6 +438,11 @@ public:
                                  TxTypeExpressionNode* returnTypeNode, TxExpressionNode* initExprNode,
                                  const std::vector<TxDeclarationNode*>& declNodes )
         : TxBuiltinTypeDefiningNode( parseLocation, TXBTID_NOTSET, baseTypeNode, declNodes ), returnTypeNode( returnTypeNode ), initExprNode( initExprNode )  { }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->returnTypeNode->visit_ast( visitor, thisAsParent, "returntype", context );
+        this->initExprNode->visit_ast( visitor, thisAsParent, "initializer", context );
+    }
 };
 
 

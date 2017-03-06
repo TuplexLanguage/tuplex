@@ -2,6 +2,7 @@
 
 #include <typeinfo>
 #include <vector>
+#include <functional>
 
 #include "util/assert.hpp"
 #include "util/logging.hpp"
@@ -62,6 +63,18 @@ public:
 };
 
 
+struct AstParent {
+    const AstParent* parent;
+    const TxNode* node;
+    unsigned depth;  // 0 if parent is null
+    AstParent( const TxNode* node ) : parent(), node(node), depth() {}
+    AstParent( const AstParent& parent, const TxNode* node ) : parent(&parent), node(node), depth(parent.depth+1) {}
+};
+
+/** type of the AST visitor callable */
+typedef std::function<void( const TxNode* node, const AstParent& parent, const std::string& role, void* context )> AstVisitor;
+
+
 
 class TxNode : public virtual TxParseOrigin, public Printable {
     static Logger& LOG;
@@ -119,6 +132,15 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
 
 
+
+    virtual void visit_ast( AstVisitor visitor, void* context ) const;
+
+    virtual void visit_ast( AstVisitor visitor, const AstParent& parent, const std::string& role, void* context ) const;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const = 0;
+
+
+
     virtual std::string to_string() const override;
 
     std::string parse_loc_string() const;
@@ -150,6 +172,8 @@ public:
     virtual std::string to_string() const {
         return TxNode::to_string() + " '" + this->ident.to_string() + "'";
     }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {};
 };
 
 
@@ -177,6 +201,8 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {};
 };
 
 
@@ -253,6 +279,22 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        if (this->imports) {
+            for (auto imp : *this->imports)
+                imp->visit_ast( visitor, thisAsParent, "import", context );
+        }
+        if (this->members) {
+            LexicalContext subCtx(this->module);
+            for (auto mem : *this->members)
+                mem->visit_ast( visitor, thisAsParent, "member", context );
+        }
+        if (this->subModules) {
+            for (auto mod : *this->subModules)
+                mod->visit_ast( visitor, thisAsParent, "module", context );
+        }
+    }
 };
 
 
@@ -277,6 +319,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->module->visit_ast( visitor, thisAsParent, "module", context );
+    }
 };
 
 

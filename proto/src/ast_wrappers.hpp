@@ -43,6 +43,10 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override {
         return this->typeExprNode->code_gen( context, scope );
     }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        //this->typeExprNode->visit_ast( visitor, thisAsParent, "wrappedtypenode", context );
+    }
 };
 
 
@@ -77,4 +81,7 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {}
 };

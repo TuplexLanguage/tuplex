@@ -62,6 +62,10 @@ public:
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
     virtual llvm::Value* code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->reference->visit_ast( visitor, thisAsParent, "ref", context );
+    }
 };
 
 
@@ -112,6 +116,11 @@ public:
 
     virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const;
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->array->visit_ast( visitor, thisAsParent, "array", context );
+        this->subscript->visit_ast( visitor, thisAsParent, "subscript", context );
+    }
 };
 
 
@@ -167,6 +176,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->target->visit_ast( visitor, thisAsParent, "target", context );
+    }
 };
 
 
@@ -279,6 +292,11 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->lhs->visit_ast( visitor, thisAsParent, "lhs", context );
+        this->rhs->visit_ast( visitor, thisAsParent, "rhs", context );
+    }
 };
 
 class TxUnaryMinusNode : public TxOperatorValueNode {
@@ -340,6 +358,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->operand->visit_ast( visitor, thisAsParent, "operand", context );
+    }
 };
 
 class TxUnaryLogicalNotNode : public TxOperatorValueNode {
@@ -377,6 +399,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->operand->visit_ast( visitor, thisAsParent, "operand", context );
+    }
 };
 
 
@@ -440,6 +466,12 @@ public:
 
     llvm::Value* gen_call(LlvmGenerationContext& context, GenScope* scope) const;
     llvm::Value* gen_call(LlvmGenerationContext& context, GenScope* scope, llvm::Value* functionPtrV, llvm::Value* closureRefV) const;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->callee->visit_ast( visitor, thisAsParent, "callee", context );
+        for (auto arg : *this->argsExprList)
+            arg->visit_ast( visitor, thisAsParent, "arg", context );
+    }
 };
 
 
@@ -477,6 +509,10 @@ public:
 
     /** @return an object pointer (not a lambda value) */
     virtual llvm::Value* gen_obj_ptr(LlvmGenerationContext& context, GenScope* scope) const;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->objectExpr->visit_ast( visitor, thisAsParent, "objectexpr", context );
+    }
 };
 
 
@@ -497,6 +533,10 @@ protected:
 public:
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override { this->set_context( lexContext); }
     virtual void symbol_resolution_pass() override { }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->objTypeExpr->visit_ast( visitor, thisAsParent, "type", context );
+    }
 };
 
 class TxHeapAllocNode : public TxMemAllocNode {
@@ -560,6 +600,14 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->typeExpr->visit_ast( visitor, thisAsParent, "type", context );
+        if (this->inlinedExpression)
+            this->inlinedExpression->visit_ast( visitor, thisAsParent, "inlinedexpr", context );
+        else
+            this->constructorCall->visit_ast( visitor, thisAsParent, "call", context );
+    }
 };
 
 /** Makes a new object in newly allocated heap memory and returns it by reference. */
@@ -665,6 +713,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->field->visit_ast( visitor, thisAsParent, "field", context );
+    }
 };
 
 class TxDerefAssigneeNode : public TxAssigneeNode {
@@ -704,6 +756,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->operand->visit_ast( visitor, thisAsParent, "operand", context );
+    }
 };
 
 class TxElemAssigneeNode : public TxAssigneeNode {
@@ -747,4 +803,9 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->array->visit_ast( visitor, thisAsParent, "array", context );
+        this->subscript->visit_ast( visitor, thisAsParent, "subscript", context );
+    }
 };

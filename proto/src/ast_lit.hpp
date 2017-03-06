@@ -17,6 +17,8 @@ public:
     virtual TxLiteralValueNode* make_ast_copy() const override = 0;
 
     virtual bool is_statically_constant() const override final { return true; }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {}
 };
 
 

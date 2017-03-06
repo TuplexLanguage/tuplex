@@ -28,6 +28,7 @@ public:
     bool only_parse = false;
     bool debug_lexer = false;
     bool debug_parser = false;
+    bool dump_ast = false;
     bool dump_symbol_table = false;
     bool dump_tx_symbols = false;
     bool dump_ir = false;
@@ -160,11 +161,14 @@ public:
         this->_currentInputFilename = new std::string(filePath);
     }
 
+    virtual ~TxParserContext() = default;
+
+
     inline TxDriver* get_driver() const { return &this->_driver; }
 
     /** The path of the file currently being parsed.
      * Used later to pass the file path to the location tracker. */
-    std::string* current_input_filepath() {
+    std::string* current_input_filepath() const {
         return this->_currentInputFilename;
     }
 
@@ -193,4 +197,6 @@ public:
     void begin_exp_err( const TxLocation& loc, ExpectedErrorClause* expError );
     ExpectedErrorClause* end_exp_err( const TxLocation& loc );
     bool in_exp_err() const;
+
+    virtual std::string to_string() const;
 };

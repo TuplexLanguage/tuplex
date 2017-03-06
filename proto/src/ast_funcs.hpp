@@ -97,4 +97,13 @@ public:
 
     llvm::Function* code_gen_forward_decl(LlvmGenerationContext& context, GenScope* scope) const;
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->funcTypeNode->visit_ast( visitor, thisAsParent, "functype", context );
+        if (this->selfRefNode) {
+            this->selfRefNode->visit_ast( visitor, thisAsParent, "selfref", context );
+            this->superRefNode->visit_ast( visitor, thisAsParent, "superref", context );
+        }
+        this->suite->visit_ast( visitor, thisAsParent, "suite", context );
+    }
 };

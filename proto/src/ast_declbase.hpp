@@ -168,6 +168,13 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        if (this->conversionExpr)
+            this->conversionExpr->visit_ast( visitor, thisAsParent, "convertee", context );
+        else
+            this->originalExpr->visit_ast( visitor, thisAsParent, "unconverted", context );
+    }
 };
 
 
@@ -347,6 +354,13 @@ public:
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        if (this->typeExpression)
+            this->typeExpression->visit_ast( visitor, thisAsParent, "type", context );
+        if (this->initExpression)
+            this->initExpression->visit_ast( visitor, thisAsParent, "initializer", context );
+    }
+
     virtual std::string to_string() const override {
         return TxFieldDefiningNode::to_string() + " '" + this->get_source_name() + "'";
     }
@@ -380,6 +394,10 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->field->visit_ast( visitor, thisAsParent, "field", context );
+    }
 
     virtual std::string to_string() const {
         return TxDeclarationNode::to_string() + " '" + this->field->get_source_name() + "'";
@@ -428,6 +446,13 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        if (this->typeParamDecls)
+            for (auto decl : *this->typeParamDecls)
+                decl->visit_ast( visitor, thisAsParent, "type-param", context );
+        this->typeExpression->visit_ast( visitor, thisAsParent, "type", context );
+    }
 
     virtual std::string to_string() const {
         return TxDeclarationNode::to_string() + " '" + this->typeName + "'";
@@ -503,4 +528,8 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->body->visit_ast( visitor, thisAsParent, "decl", context );
+    }
 };
