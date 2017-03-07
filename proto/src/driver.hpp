@@ -173,7 +173,7 @@ public:
     }
 
     /** Checks that the module name is valid in relation to the currently parsed source file and its file name/path. */
-    bool validate_module_name(const TxParseOrigin* origin, const TxIdentifier& moduleName);
+    bool validate_module_name(const TxParseOrigin* origin, const TxIdentifier* moduleName);
 
     /** Add a module to the currently compiling package.
      * The Tuplex source path will be searched for the module's source.

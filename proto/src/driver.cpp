@@ -370,16 +370,16 @@ static void format_location_message(char *buf, size_t bufSize, const TxLocation&
 static Logger& CLOG = Logger::get("COMPILER");
 
 
-bool TxParserContext::validate_module_name(const TxParseOrigin* origin, const TxIdentifier& moduleName) {
-    if (moduleName.to_string() == LOCAL_NS) {
+bool TxParserContext::validate_module_name( const TxParseOrigin* origin, const TxIdentifier* moduleName ) {
+    if (moduleName->to_string() == LOCAL_NS) {
         if (! this->_driver.parsedSourceFiles.empty()) {
             this->cerror(origin, "Only the first source file may have unspecified module name (implicit module " + std::string(LOCAL_NS) + ")");
             return false;
         }
     }
-    auto res = moduleName.begins_with(this->_moduleName);
+    auto res = moduleName->begins_with(this->_moduleName);
     if (! res)
-        this->cerror(origin, "Source contains module '" + moduleName.to_string() + "', not '"
+        this->cerror(origin, "Source contains module '" + moduleName->to_string() + "', not '"
                      + this->_moduleName.to_string() + "' as expected.");
     return res;
 }

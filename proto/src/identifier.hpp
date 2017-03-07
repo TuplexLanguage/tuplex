@@ -185,6 +185,17 @@ public:
     }
 
 
+    inline int compare( const TxIdentifier& other ) const {
+        return this->ns.compare( other.ns );
+    }
+    inline int compare( const std::string& other ) const {
+        return this->ns.compare( other );
+    }
+    inline int compare(const char* other) const {
+        return this->ns.compare( other );
+    }
+
+
     inline bool operator==(const TxIdentifier& other) const {
         return this->to_string() == other.to_string();
     }
@@ -202,18 +213,15 @@ public:
     }
 
 
-    inline virtual std::string to_string() const {
+    inline virtual std::string to_string() const override {
         return this->ns;
+    }
+
+    inline const char* c_str() const {
+        return this->ns.c_str();
     }
 };
 
-
-///** Concatenation operator. */
-//inline TxIdentifier operator+(const TxIdentifier& lhs, const TxIdentifier& rhs) {
-//    TxIdentifier ident(lhs);
-//    ident.appendIdent(rhs);
-//    return ident;
-//}
 
 
 namespace std {

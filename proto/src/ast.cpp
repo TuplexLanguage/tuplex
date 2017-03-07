@@ -33,8 +33,10 @@ Logger& TxNode::LOG = Logger::get("AST");
 unsigned TxNode::nextNodeId = 0;
 
 std::string TxNode::to_string() const {
+    auto ident = this->get_identifier();
     char buf[256];
-    snprintf( buf, 256, "%-11s %4u %-24s", this->parse_loc_string().c_str(), this->get_node_id(), typeid(*this).name() );
+    snprintf( buf, 256, "%-11s %4u %-24s %s", this->parse_loc_string().c_str(), this->get_node_id(), typeid(*this).name(),
+              ( ident ? ident->c_str() : "" ) );
     return std::string(buf);
 }
 
@@ -42,10 +44,10 @@ std::string TxNode::parse_loc_string() const {
     char buf[128];
     if (parseLocation.begin.line == parseLocation.end.line) {
         int lcol = (parseLocation.end.column > parseLocation.begin.column) ? parseLocation.end.column : parseLocation.end.column;
-        snprintf(buf, 128, "%2d.%2d-%2d", parseLocation.begin.line, parseLocation.begin.column, lcol);
+        snprintf(buf, 128, "%3d.%d-%d", parseLocation.begin.line, parseLocation.begin.column, lcol);
     }
     else
-        snprintf(buf, 128, "%2d.%2d-%2d.%2d", parseLocation.begin.line, parseLocation.begin.column, parseLocation.end.line, parseLocation.end.column);
+        snprintf(buf, 128, "%3d.%d-%d.%d", parseLocation.begin.line, parseLocation.begin.column, parseLocation.end.line, parseLocation.end.column);
     return std::string(buf);
 }
 
@@ -160,12 +162,12 @@ void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, Lexica
     this->set_context( lexContext );
     // Note: does not invoke symbol_declaration_pass() on typeParamDecls, that is delegated to typeExpression
     TxDeclarationFlags flags = (isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags);
-    this->declaration = lexContext.scope()->declare_type( this->typeName, this->typeExpression, flags );
+    this->declaration = lexContext.scope()->declare_type( this->typeName->to_string(), this->typeExpression, flags );
     if (! this->declaration) {
         CERROR(this, "Failed to declare type " << this->typeName);
         return;
     }
-    this->LOGGER().debug("%s: Declared type %-16s: %s", this->parse_loc_string().c_str(), this->typeName.c_str(),
+    this->LOGGER().debug("%s: Declared type %-16s: %s", this->parse_loc_string().c_str(), this->typeName->to_string().c_str(),
                          declaration->to_string().c_str());
 
     // The context of this node represents its outer scope.
@@ -207,7 +209,7 @@ TxGenericBinding TxValueTypeArgumentNode::make_binding( const std::string& param
 
 
 const TxType* TxIdentifiedTypeNode::define_identified_type() {
-    if (auto identifiedTypeDecl = lookup_type(this->context().scope(), this->identNode->ident)) {
+    if (auto identifiedTypeDecl = lookup_type(this->context().scope(), *this->ident)) {
         if (auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type()) {
             if (auto declEnt = this->get_declaration()) {
                 // create empty specialization (uniquely named but identical type)
@@ -220,14 +222,14 @@ const TxType* TxIdentifiedTypeNode::define_identified_type() {
 }
 
 const TxType* TxGenSpecializationTypeNode::define_generic_specialization_type() {
-    auto baseTypeDecl = lookup_type( this->context().scope(), this->identNode->ident );
+    auto baseTypeDecl = lookup_type( this->context().scope(), *this->ident );
     const TxType* baseType = baseTypeDecl ? baseTypeDecl->get_definer()->resolve_type() : nullptr;
     if (! baseType) {
-        CERROR(this, "Unknown type: " << this->identNode->ident << " (from " << this->context().scope() << ")");
+        CERROR(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
         return nullptr;
     }
     if (baseType->type_params().size() < this->typeArgs->size()) {
-        CERROR(this, "Too many generic type arguments specified for type " << identNode->ident);
+        CERROR(this, "Too many generic type arguments specified for type " << this->ident);
         return nullptr;
     }
     auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();

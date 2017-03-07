@@ -141,6 +141,9 @@ public:
 
 
 
+    /** Returns the identifier owned by this node, if any, otherwise null. */
+    virtual const TxIdentifier* get_identifier() const { return nullptr; }
+
     virtual std::string to_string() const override;
 
     std::string parse_loc_string() const;
@@ -155,54 +158,34 @@ bool validateTypeName (TxNode* node, TxDeclarationFlags declFlags, const std::st
 bool validateFieldName(TxNode* node, TxDeclarationFlags declFlags, const std::string& name);
 
 
-class TxIdentifierNode : public TxNode {
-public:
-    const TxIdentifier ident;
-
-    TxIdentifierNode(const TxLocation& parseLocation, const TxIdentifier* ident)
-        : TxNode(parseLocation), ident(*ident)  { }
-
-    TxIdentifierNode(const TxLocation& parseLocation, const TxIdentifier& ident)
-        : TxNode(parseLocation), ident(ident)  { }
-
-    virtual TxIdentifierNode* make_ast_copy() const override { return new TxIdentifierNode(this->parseLocation, this->ident); }
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
-
-    virtual std::string to_string() const {
-        return TxNode::to_string() + " '" + this->ident.to_string() + "'";
-    }
-
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {};
-};
-
-
 
 class TxImportNode : public TxNode {
 public:
-    const TxIdentifierNode* identNode;
+    const TxIdentifier* ident;
 
-    TxImportNode(const TxLocation& parseLocation, const TxIdentifierNode* identifier)
-        : TxNode(parseLocation), identNode(identifier)  {
+    TxImportNode( const TxLocation& parseLocation, const TxIdentifier* identifier )
+        : TxNode(parseLocation), ident(identifier)  {
         // imports need to be added to the parser context upon AST creation, so that they will be parsed before the declaration pass:
-        if (! identNode->ident.is_qualified())
-            CERROR(this, "can't import unqualified identifier '" << identNode->ident << "'");
+        if (! this->ident->is_qualified())
+            CERROR(this, "can't import unqualified identifier '" << this->ident << "'");
         else {
-            if (! this->parseLocation.parserCtx->add_import( identNode->ident.parent() ))
-                CERROR(this, "Failed to import module (source not found): " << identNode->ident.parent());
+            if (! this->parseLocation.parserCtx->add_import( this->ident->parent() ))
+                CERROR(this, "Failed to import module (source not found): " << this->ident->parent());
         }
     }
 
-    virtual TxImportNode* make_ast_copy() const override { return new TxImportNode(this->parseLocation, this->identNode->make_ast_copy()); }
+    virtual TxImportNode* make_ast_copy() const override { return new TxImportNode( this->parseLocation, this->ident ); }
 
-    virtual void symbol_declaration_pass(TxModule* module) {
+    virtual void symbol_declaration_pass( TxModule* module ) {
         this->set_context(LexicalContext(module));
-        module->register_import( *this, identNode->ident );
+        module->register_import( *this, *this->ident );
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {};
+
+    virtual const TxIdentifier* get_identifier() const override { return this->ident; }
 };
 
 
@@ -227,7 +210,7 @@ public:
 
 
 class TxModuleNode : public TxNode {
-    const TxIdentifierNode* identNode;
+    const TxIdentifier* ident;
     std::vector<TxImportNode*>* imports;
     std::vector<TxDeclarationNode*>* members;
     std::vector<TxModuleNode*>* subModules;
@@ -235,22 +218,22 @@ class TxModuleNode : public TxNode {
     TxModule* module = nullptr;
 
 public:
-    TxModuleNode( const TxLocation& parseLocation, const TxIdentifierNode* identifier,
+    TxModuleNode( const TxLocation& parseLocation, const TxIdentifier* identifier,
                   std::vector<TxImportNode*>* imports, std::vector<TxDeclarationNode*>* members,
                   std::vector<TxModuleNode*>* subModules, bool builtin=false )
-        : TxNode(parseLocation), identNode(identifier), imports(imports), members(members), subModules(subModules), builtin(builtin)  {
+        : TxNode(parseLocation), ident(identifier), imports(imports), members(members), subModules(subModules), builtin(builtin)  {
         ASSERT(identifier, "NULL identifier");  // (sanity check on parser)
     }
 
     virtual TxModuleNode* make_ast_copy() const override {
-        return new TxModuleNode( this->parseLocation, this->identNode->make_ast_copy(),
+        return new TxModuleNode( this->parseLocation, this->ident,
                                  make_node_vec_copy( imports ),
                                  make_node_vec_copy( members ),
                                  make_node_vec_copy( subModules ), builtin );
     }
 
     virtual void symbol_declaration_pass(TxModule* parent) {
-        this->module = parent->declare_module( *this, this->identNode->ident, this->builtin );
+        this->module = parent->declare_module( *this, *this->ident, this->builtin );
 
         if (this->imports) {
             for (auto imp : *this->imports)
@@ -295,6 +278,8 @@ public:
                 mod->visit_ast( visitor, thisAsParent, "module", context );
         }
     }
+
+    virtual const TxIdentifier* get_identifier() const override { return this->ident; }
 };
 
 

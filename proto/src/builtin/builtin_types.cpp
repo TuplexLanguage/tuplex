@@ -682,10 +682,10 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
             std::cerr << "not yet coded builtin type id: " << id << std::endl;
     }
 
-    subModules->push_back( new TxModuleNode( this->builtinLocation, new TxIdentifierNode(this->builtinLocation, "c"),
+    subModules->push_back( new TxModuleNode( this->builtinLocation, new TxIdentifier("c"),
                                              nullptr, nullptr, nullptr, true ) );
 
-    auto module = new TxModuleNode( this->builtinLocation, new TxIdentifierNode(this->builtinLocation, BUILTIN_NS),
+    auto module = new TxModuleNode( this->builtinLocation, new TxIdentifier(BUILTIN_NS),
                                     imports, members, subModules, true );
     auto parsingUnit = new TxParsingUnitNode( this->builtinLocation, module );
     return parsingUnit;

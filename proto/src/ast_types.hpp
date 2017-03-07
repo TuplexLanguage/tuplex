@@ -138,26 +138,26 @@ protected:
     virtual const TxType* define_type() override {
         const TxType* type = this->define_generic_specialization_type();
         if (! type)
-            CERROR(this, "Unknown type: " << this->identNode->ident << " (from " << this->context().scope() << ")");
+            CERROR(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
         return type;
     }
 
 public:
-    const TxIdentifierNode* identNode;
+    const TxIdentifier* ident;
     const std::vector<TxTypeArgumentNode*>* const typeArgs;
 
-    TxGenSpecializationTypeNode( const TxLocation& parseLocation, const TxIdentifierNode* identifier,
+    TxGenSpecializationTypeNode( const TxLocation& parseLocation, const TxIdentifier* identifier,
                                  const std::vector<TxTypeArgumentNode*>* typeArgs )
-            : TxTypeExpressionNode(parseLocation), identNode(identifier), typeArgs(typeArgs)  {
+            : TxTypeExpressionNode(parseLocation), ident(identifier), typeArgs(typeArgs)  {
         ASSERT(typeArgs && !typeArgs->empty(), "NULL or empty typeargs");
     }
 
     virtual TxGenSpecializationTypeNode* make_ast_copy() const override {
-        return new TxGenSpecializationTypeNode( this->parseLocation, this->identNode->make_ast_copy(), make_node_vec_copy( this->typeArgs ) );
+        return new TxGenSpecializationTypeNode( this->parseLocation, this->ident, make_node_vec_copy( this->typeArgs ) );
     }
 
     virtual std::string get_auto_type_name() const override {
-        auto identifiedTypeDecl = lookup_type( this->context().scope(), this->identNode->ident );
+        auto identifiedTypeDecl = lookup_type( this->context().scope(), *this->ident );
         std::string name = ( identifiedTypeDecl ? hashify( identifiedTypeDecl->get_unique_full_name() ) : "$UNKNOWN" );
         int ix = 0;
         for (TxTypeArgumentNode* ta : *this->typeArgs) {
@@ -180,6 +180,8 @@ public:
         for (auto typeArg : *this->typeArgs)
             typeArg->visit_ast( visitor, thisAsParent, "typearg", context );
     }
+
+    virtual const TxIdentifier* get_identifier() const override { return this->ident; }
 };
 
 
@@ -193,31 +195,33 @@ protected:
     virtual const TxType* define_type() override {
         const TxType* type = this->define_identified_type();
         if (! type)
-            CERROR(this, "Unknown type: " << this->identNode->ident << " (from " << this->context().scope() << ")");
+            CERROR(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
         return type;
     }
 
 public:
-    const TxIdentifierNode* identNode;
+    const TxIdentifier* ident;
 
-    TxIdentifiedTypeNode(const TxLocation& parseLocation, const TxIdentifierNode* identifier)
-        : TxTypeExpressionNode(parseLocation), identNode(identifier)  { }
+    TxIdentifiedTypeNode( const TxLocation& parseLocation, const TxIdentifier* identifier )
+        : TxTypeExpressionNode( parseLocation ), ident( identifier )  { }
 
-    TxIdentifiedTypeNode(const TxLocation& parseLocation, const std::string& identifier)
-        : TxTypeExpressionNode(parseLocation), identNode(new TxIdentifierNode(parseLocation, identifier))  { }
+    TxIdentifiedTypeNode( const TxLocation& parseLocation, const std::string& identifier)
+        : TxTypeExpressionNode( parseLocation ), ident( new TxIdentifier( identifier ) )  { }
 
     virtual TxIdentifiedTypeNode* make_ast_copy() const override {
-        return new TxIdentifiedTypeNode( this->parseLocation, this->identNode->make_ast_copy() );
+        return new TxIdentifiedTypeNode( this->parseLocation, this->ident );
     }
 
     virtual std::string get_auto_type_name() const override {
-        auto identifiedTypeDecl = lookup_type( this->context().scope(), this->identNode->ident );
+        auto identifiedTypeDecl = lookup_type( this->context().scope(), *this->ident );
         return ( identifiedTypeDecl ? hashify( identifiedTypeDecl->get_unique_full_name() ) : "$UNKNOWN" );
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {}
+
+    virtual const TxIdentifier* get_identifier() const override { return this->ident; }
 };
 
 
@@ -230,7 +234,7 @@ public:
 /**
  * Custom AST node needed to handle dataspaces. */
 class TxReferenceTypeNode : public TxBuiltinTypeSpecNode {
-    TxReferenceTypeNode( const TxLocation& parseLocation, const TxIdentifierNode* dataspace, TxTypeTypeArgumentNode* targetTypeArg )
+    TxReferenceTypeNode( const TxLocation& parseLocation, const TxIdentifier* dataspace, TxTypeTypeArgumentNode* targetTypeArg )
         : TxBuiltinTypeSpecNode(parseLocation), dataspace(dataspace), targetTypeNode(targetTypeArg)  { }
 
 protected:
@@ -242,21 +246,18 @@ protected:
         auto baseType = this->types().get_builtin_type(REFERENCE);
         auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
         TxGenericBinding binding = this->targetTypeNode->make_binding( "T" );
-        const TxIdentifier* dataspace = (this->dataspace ? &this->dataspace->ident : nullptr);
-        //cwarning("Dataspace: %s", (this->dataspace ? this->dataspace->ident.to_string().c_str() : "NULL"));
-        return this->types().get_reference_type( this, binding, dataspace );
+        return this->types().get_reference_type( this, binding, this->dataspace );
     }
 
 public:
-    const TxIdentifierNode* dataspace;
+    const TxIdentifier* dataspace;
     TxTypeTypeArgumentNode* targetTypeNode;
 
-    TxReferenceTypeNode(const TxLocation& parseLocation, const TxIdentifierNode* dataspace, TxTypeExpressionNode* targetType)
+    TxReferenceTypeNode(const TxLocation& parseLocation, const TxIdentifier* dataspace, TxTypeExpressionNode* targetType)
         : TxReferenceTypeNode(parseLocation, dataspace, new TxTypeTypeArgumentNode(targetType) )  { }
 
     virtual TxReferenceTypeNode* make_ast_copy() const override {
-        const TxIdentifierNode* ds = ( this->dataspace ? this->dataspace->make_ast_copy() : nullptr );
-        return new TxReferenceTypeNode( this->parseLocation, ds, this->targetTypeNode->make_ast_copy() );
+        return new TxReferenceTypeNode( this->parseLocation, this->dataspace, this->targetTypeNode->make_ast_copy() );
     }
 
     virtual std::string get_auto_type_name() const override {

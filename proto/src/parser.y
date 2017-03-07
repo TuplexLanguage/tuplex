@@ -126,10 +126,8 @@ YY_DECL;
  */
 %type <TxDeclarationFlags> declaration_flags opt_visibility opt_static opt_abstract opt_override opt_final
 %type <bool> opt_modifiable type_or_if
-%type <TxIdentifier*> identifier
-
-%type <TxIdentifierNode*> compound_identifier
-%type <TxIdentifierNode*> module_declaration opt_module_decl opt_dataspace
+%type <TxIdentifier*> identifier compound_identifier opt_dataspace
+%type <TxIdentifier*> opt_module_decl 
 
 %type <TxParsingUnitNode*> parsing_unit
 %type <TxModuleNode*> sub_module
@@ -195,9 +193,9 @@ YY_DECL;
 parsing_unit : opt_module_decl
                opt_import_stmts
                opt_module_members
-                   { auto module = new TxModuleNode(@1, $1, $2, &$3->declarations, &$3->modules);
-                     $$ = new TxParsingUnitNode(@2, module);
-                     parserCtx->validate_module_name(module, $1->ident);
+                   { auto module = new TxModuleNode( @1, $1, $2, &$3->declarations, &$3->modules );
+                     $$ = new TxParsingUnitNode( @2, module );
+                     parserCtx->validate_module_name( module, $1 );
                      parserCtx->parsingUnit = $$;
                    }
     ;
@@ -221,8 +219,8 @@ module_members : member_declaration
 
 sub_module : KW_MODULE compound_identifier
                LBRACE  opt_import_stmts  opt_module_members  RBRACE
-                 { $$ = new TxModuleNode(@1, $2, $4, &$5->declarations, &$5->modules);
-                   parserCtx->validate_module_name($$, $2->ident);
+                 { $$ = new TxModuleNode( @1, $2, $4, &$5->declarations, &$5->modules );
+                   parserCtx->validate_module_name( $$, $2 );
                  }
     ;
 
@@ -237,16 +235,14 @@ identifier : NAME                     { $$ = new TxIdentifier($1); }
            | identifier DOT ASTERISK  { $$ = $1; $$->append("*"); }
            ;
 
-compound_identifier : identifier  %prec EXPR  { $$ = new TxIdentifierNode(@1, $1); } ;
+compound_identifier : identifier  %prec EXPR  { $$ = $1; } ;
 
 
 
 opt_sc : %empty | SEMICOLON ;
 
-opt_module_decl    : %empty %prec STMT { $$ = new TxIdentifierNode(@$, new TxIdentifier(LOCAL_NS)); }
-                   | module_declaration { $$ = $1; } ;
-
-module_declaration : KW_MODULE compound_identifier opt_sc { $$ = $2; } ;
+opt_module_decl    : %empty %prec STMT { $$ = new TxIdentifier( LOCAL_NS ); }
+                   | KW_MODULE compound_identifier opt_sc { $$ = $2; } ;
 
 opt_import_stmts   : %empty { $$ = new std::vector<TxImportNode*>(); }
                    | import_statements { $$ = $1; } ;
@@ -329,7 +325,7 @@ type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->
                 | type_param_list COMMA type_param  { $$ = $1; $$->push_back($3); }
                 ;
 type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
-                                                  new TxIdentifiedTypeNode(@1, new TxIdentifierNode(@1, new TxIdentifier("tx.Any")))); }
+                                                  new TxIdentifiedTypeNode(@1, "tx.Any")); }
                 | NAME KW_DERIVES predef_type { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
                 | field_type_def  { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1); }
                 ;

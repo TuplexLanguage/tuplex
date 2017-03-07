@@ -181,8 +181,7 @@ public:
 class TxFieldDeclNode;
 
 class TxFieldDefNode : public TxFieldDefiningNode {
-    const std::string fieldName;  // the original source field name
-    std::string declName = "";  // the declared field name
+    std::string declName = "";  // the actually declared field name
 
     /** injected by non-local field declaration if applicable */
     TxFieldDeclNode* fieldDeclNode = nullptr;
@@ -236,13 +235,14 @@ protected:
     }
 
 public:
+    const TxIdentifier* fieldName;
     const bool modifiable;  // true if field name explicitly declared modifiable
     TxTypeExpressionNode* typeExpression;
     TxMaybeConversionNode* initExpression;
 
     TxFieldDefNode(const TxLocation& parseLocation, const std::string& fieldName,
                    TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression, bool modifiable=false)
-            : TxFieldDefiningNode(parseLocation), fieldName(fieldName), modifiable(modifiable) {
+            : TxFieldDefiningNode(parseLocation), fieldName(new TxIdentifier(fieldName)), modifiable(modifiable) {
         this->typeExpression = typeExpression;
         if (initExpression) {
             initExpression->set_field_def_node(this);
@@ -257,14 +257,14 @@ public:
     virtual TxFieldDefNode* make_ast_copy() const override {
         TxTypeExpressionNode* typeExpr = ( this->typeExpression ? this->typeExpression->make_ast_copy() : nullptr );
         TxExpressionNode*     initExpr = ( this->initExpression ? this->initExpression->originalExpr->make_ast_copy() : nullptr );
-        return new TxFieldDefNode( this->parseLocation, this->fieldName, typeExpr, initExpr, this->modifiable );
+        return new TxFieldDefNode( this->parseLocation, this->fieldName->to_string(), typeExpr, initExpr, this->modifiable );
     }
 
     void symbol_declaration_pass_local_field( LexicalContext& lexContext, bool create_local_scope, TxDeclarationFlags declFlags=TXD_NONE ) {
         LexicalContext outerCtx(lexContext);  // prevents init expr from referring to this field
         if (create_local_scope)
             lexContext.scope( lexContext.scope()->create_code_block_scope( *this ) );
-        this->declName = this->fieldName;
+        this->declName = this->fieldName->to_string();
         this->declaration = lexContext.scope()->declare_field(this->declName, this, declFlags, TXS_STACK, TxIdentifier(""));
         this->symbol_declaration_pass( outerCtx, lexContext, declFlags);
     }
@@ -273,8 +273,8 @@ public:
                                                  TxFieldStorage storage, const TxIdentifier& dataspace ) {
         this->fieldDeclNode = fieldDeclNode;  // enables support for usage-order code generation of non-local fields
         TxDeclarationFlags fieldFlags = declFlags;
-        if (this->fieldName != "self")
-            this->declName = this->fieldName;
+        if (*this->fieldName != "self")
+            this->declName = this->fieldName->to_string();
         else {
             // handle constructor declaration
             this->declName = "$init";
@@ -338,8 +338,8 @@ public:
     }
 
     /** Gets the plain name of this field as stated in the source text. */
-    virtual const std::string& get_source_name() const {
-        return this->fieldName;
+    virtual const std::string get_source_name() const {
+        return this->fieldName->to_string();
     }
 
     /** Gets the plain name of this field as actually declared in the symbol table. */
@@ -361,9 +361,7 @@ public:
             this->initExpression->visit_ast( visitor, thisAsParent, "initializer", context );
     }
 
-    virtual std::string to_string() const override {
-        return TxFieldDefiningNode::to_string() + " '" + this->get_source_name() + "'";
-    }
+    virtual const TxIdentifier* get_identifier() const override { return this->fieldName; }
 };
 
 /** Non-local field declaration */
@@ -398,10 +396,6 @@ public:
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->field->visit_ast( visitor, thisAsParent, "field", context );
     }
-
-    virtual std::string to_string() const {
-        return TxDeclarationNode::to_string() + " '" + this->field->get_source_name() + "'";
-    }
 };
 
 
@@ -410,21 +404,21 @@ class TxTypeDeclNode : public TxDeclarationNode {
     const TxTypeDeclaration* declaration = nullptr;
 
 public:
-    const std::string typeName;
+    const TxIdentifier* typeName;
     const bool interfaceKW;
     const std::vector<TxDeclarationNode*>* typeParamDecls;
     TxTypeExpressionNode* typeExpression;
 
     TxTypeDeclNode(const TxLocation& parseLocation, const TxDeclarationFlags declFlags,
-                   const std::string typeName, const std::vector<TxDeclarationNode*>* typeParamDecls,
+                   const std::string& typeName, const std::vector<TxDeclarationNode*>* typeParamDecls,
                    TxTypeExpressionNode* typeExpression, bool interfaceKW=false)
         : TxDeclarationNode(parseLocation, declFlags),
-          typeName(typeName), interfaceKW(interfaceKW), typeParamDecls(typeParamDecls), typeExpression(typeExpression) {
+          typeName(new TxIdentifier(typeName)), interfaceKW(interfaceKW), typeParamDecls(typeParamDecls), typeExpression(typeExpression) {
         validateTypeName(this, declFlags, typeName);
     }
 
     virtual TxTypeDeclNode* make_ast_copy() const override {
-        return new TxTypeDeclNode( this->parseLocation, this->declFlags, this->typeName,
+        return new TxTypeDeclNode( this->parseLocation, this->declFlags, this->typeName->to_string(),
                                    make_node_vec_copy( this->typeParamDecls ),
                                    this->typeExpression->make_ast_copy(), this->interfaceKW);
     }
@@ -454,9 +448,7 @@ public:
         this->typeExpression->visit_ast( visitor, thisAsParent, "type", context );
     }
 
-    virtual std::string to_string() const {
-        return TxDeclarationNode::to_string() + " '" + this->typeName + "'";
-    }
+    virtual const TxIdentifier* get_identifier() const override { return this->typeName; }
 };
 
 
