@@ -491,7 +491,7 @@ public:
     }
 
     virtual TxExpErrDeclNode* make_ast_copy() const override {
-        return new TxExpErrDeclNode( this->parseLocation, nullptr, this->body->make_ast_copy() );
+        return new TxExpErrDeclNode( this->parseLocation, nullptr, ( this->body ? this->body->make_ast_copy() : nullptr ) );
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) override {
@@ -524,12 +524,13 @@ public:
     }
 
     virtual const TxEntityDeclaration* get_declaration() const override {
-        return body->get_declaration();
+        return ( this->body ? this->body->get_declaration() : nullptr );
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        this->body->visit_ast( visitor, thisAsParent, "decl", context );
+        if (this->body)
+            this->body->visit_ast( visitor, thisAsParent, "decl", context );
     }
 };
