@@ -22,7 +22,7 @@ TxGenericBinding TxGenericBinding::make_value_binding(const std::string& paramNa
 static inline std::string type_arg_to_string(const TxType* type) {
     if (type) {
         if (type->get_declaration())
-            return type->to_string(true);
+            return type->str(true);
         else
             return type_arg_to_string(type->get_semantic_base_type());
     }
@@ -35,7 +35,7 @@ const TxLocation& TxGenericBinding::get_parse_location() const {
                                             : this->valueDefiner->get_parse_location() );
 }
 
-std::string TxGenericBinding::to_string() const {
+std::string TxGenericBinding::str() const {
     return this->typeParamName + "=" + ( this->metaType==MetaType::TXB_TYPE
                                                 ? type_arg_to_string(this->type_definer().attempt_get_type())
                                                 : "expr" );  // this->value_expr().to_string()

@@ -27,7 +27,7 @@ static TxExpressionNode* inner_wrap_conversion(TxExpressionNode* originalExpr, c
             return originalExpr;  // or do we actually need to do something here?
 
         originalExpr->LOGGER().error("Type supposedly auto-converts but no conversion logic available:  %s => %s",
-                                     originalType->to_string().c_str(), requiredType->to_string().c_str());
+                                     originalType->str().c_str(), requiredType->str().c_str());
     }
     return nullptr;
 }
@@ -99,7 +99,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
 TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType* resultType, bool _explicit ) {
     auto exprNode = inner_validate_wrap_convert( originalExpr, resultType, _explicit );
     if (exprNode != originalExpr) {
-        originalExpr->LOGGER().trace("Wrapping conversion to type %s around %s", resultType->to_string(true).c_str(), originalExpr->to_string().c_str());
+        originalExpr->LOGGER().trace("Wrapping conversion to type %s around %s", resultType->str(true).c_str(), originalExpr->str().c_str());
         exprNode->symbol_declaration_pass( originalExpr->context() );
     }
     return exprNode;

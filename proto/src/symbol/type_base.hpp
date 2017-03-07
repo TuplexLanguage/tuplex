@@ -174,7 +174,7 @@ public:
         return ! this->operator==(other);
     }
 
-    std::string to_string() const;
+    std::string str() const;
 };
 
 
@@ -570,8 +570,8 @@ public:
 
     /*--- to string methods ---*/
 
-    virtual std::string to_string() const override final { return this->to_string(false); }
-    virtual std::string to_string(bool brief, bool skipFirstName=false, bool skipImplicitNames=false) const final;
+    virtual std::string str() const override final { return this->str(false); }
+    virtual std::string str(bool brief, bool skipFirstName=false, bool skipImplicitNames=false) const final;
 
 protected:
     virtual void self_string(std::stringstream& str, bool brief, bool skipFirstName, bool skipImplicitNames) const;

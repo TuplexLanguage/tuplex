@@ -197,23 +197,23 @@ public:
 
 
     inline bool operator==(const TxIdentifier& other) const {
-        return this->to_string() == other.to_string();
+        return this->str() == other.str();
     }
 
     inline bool operator!=(const TxIdentifier& other) const {
-        return this->to_string() != other.to_string();
+        return this->str() != other.str();
     }
 
     inline bool operator<(const TxIdentifier& other) const {
-        return this->to_string() < other.to_string();
+        return this->str() < other.str();
     }
 
     inline bool operator<=(const TxIdentifier& other) const {
-        return this->to_string() <= other.to_string();
+        return this->str() <= other.str();
     }
 
 
-    inline virtual std::string to_string() const override {
+    inline virtual std::string str() const override {
         return this->ns;
     }
 
@@ -231,7 +231,7 @@ namespace std {
             using std::hash;
             using std::string;
             // Compute individual hash values and combine them using XOR and bit shifting:
-            return ( hash<string>()(k.to_string()) );
+            return ( hash<string>()(k.str()) );
         }
     };
 }

@@ -136,7 +136,7 @@ public:
  * Also acts as a proxy towards TxDriver, in future this may be used
  * to enable parallel compilation of parsing units.
  */
-class TxParserContext {
+class TxParserContext : public Printable {
     TxDriver& _driver;
     TxIdentifier _moduleName;  // note, may be empty
     /** used for parse error messages */
@@ -198,5 +198,5 @@ public:
     ExpectedErrorClause* end_exp_err( const TxLocation& loc );
     bool in_exp_err() const;
 
-    virtual std::string to_string() const;
+    virtual std::string str() const override;
 };

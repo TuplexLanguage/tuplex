@@ -29,13 +29,13 @@ inline bool is_complex_pointer(const Type* type) {
 //}
 
 Value* TxParsingUnitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     this->module->code_gen(context, scope);
     return NULL;
 }
 
 Value* TxModuleNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     if (this->members) {
         for (auto mem : *this->members)
             mem->code_gen(context, scope);
@@ -48,7 +48,7 @@ Value* TxModuleNode::code_gen(LlvmGenerationContext& context, GenScope* scope) c
 }
 
 Value* TxTypeDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     return this->typeExpression->code_gen(context, scope);
 }
 //Value* TxTypeExpressionNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
@@ -106,7 +106,7 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
 //        return this->codeGenValue;
 //    }
 
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     if (this->field->typeExpression)
         this->field->typeExpression->code_gen(context, scope);
     auto fieldDecl = this->field->get_declaration();

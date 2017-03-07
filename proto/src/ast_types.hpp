@@ -125,7 +125,7 @@ type Field<E,C,L> derives Array<Ref<Abstr<E,C>>,L> {
 }
 
  */
-class TxGenSpecializationTypeNode : public TxTypeExpressionNode {
+class TxGenSpecTypeNode : public TxTypeExpressionNode {
     const TxType* define_generic_specialization_type();
 
 protected:
@@ -146,14 +146,14 @@ public:
     const TxIdentifier* ident;
     const std::vector<TxTypeArgumentNode*>* const typeArgs;
 
-    TxGenSpecializationTypeNode( const TxLocation& parseLocation, const TxIdentifier* identifier,
+    TxGenSpecTypeNode( const TxLocation& parseLocation, const TxIdentifier* identifier,
                                  const std::vector<TxTypeArgumentNode*>* typeArgs )
             : TxTypeExpressionNode(parseLocation), ident(identifier), typeArgs(typeArgs)  {
         ASSERT(typeArgs && !typeArgs->empty(), "NULL or empty typeargs");
     }
 
-    virtual TxGenSpecializationTypeNode* make_ast_copy() const override {
-        return new TxGenSpecializationTypeNode( this->parseLocation, this->ident, make_node_vec_copy( this->typeArgs ) );
+    virtual TxGenSpecTypeNode* make_ast_copy() const override {
+        return new TxGenSpecTypeNode( this->parseLocation, this->ident, make_node_vec_copy( this->typeArgs ) );
     }
 
     virtual std::string get_auto_type_name() const override {

@@ -46,7 +46,7 @@ public:
      */
     virtual std::string get_unique_name() const = 0;
 
-    virtual std::string to_string() const override;
+    virtual std::string str() const override;
 };
 
 class TxFieldDeclaration : public TxEntityDeclaration {

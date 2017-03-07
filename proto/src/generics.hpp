@@ -37,7 +37,7 @@ public:
     /** Constructs a copy of a TXB_TYPE binding but with a different type definer. */
     TxGenericBinding( const TxGenericBinding& original, TxTypeDefiningNode* newTypeDefiner )
             : typeParamName(original.typeParamName), metaType(original.metaType), typeDefiner(newTypeDefiner), valueDefiner(nullptr)  {
-        ASSERT(metaType==MetaType::TXB_TYPE, "Type parameter binding metatype is VALUE, not TYPE: " << this->to_string());
+        ASSERT(metaType==MetaType::TXB_TYPE, "Type parameter binding metatype is VALUE, not TYPE: " << this->str());
     }
 
     static TxGenericBinding make_type_binding(const std::string& typeParamName, TxTypeDefiningNode* typeDefiner);
@@ -48,18 +48,18 @@ public:
     inline MetaType meta_type()    const { return metaType; }
 
     inline TxTypeDefiningNode& type_definer()  const {
-        ASSERT(metaType==MetaType::TXB_TYPE, "Type parameter binding metatype is VALUE, not TYPE: " << this->to_string());
+        ASSERT(metaType==MetaType::TXB_TYPE, "Type parameter binding metatype is VALUE, not TYPE: " << this->str());
         return *this->typeDefiner;
     }
 
     inline TxExpressionNode& value_definer() const {
-        ASSERT(metaType==MetaType::TXB_VALUE, "Type parameter binding metatype is TYPE, not VALUE: " << this->to_string());
+        ASSERT(metaType==MetaType::TXB_VALUE, "Type parameter binding metatype is TYPE, not VALUE: " << this->str());
         return *this->valueDefiner;
     }
 
     const TxLocation& get_parse_location() const;
 
-    std::string to_string() const;
+    std::string str() const;
 };
 
 //bool operator==(const TxGenericBinding& b1, const TxGenericBinding& b2);

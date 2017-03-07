@@ -337,12 +337,6 @@ public:
     virtual bool ends_with_return_stmt() const override {
         return ( this->body->ends_with_return_stmt() && this->elseClause && this->elseClause->ends_with_return_stmt() );
     }
-
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        this->cond->visit_ast( visitor, thisAsParent, "condition", context );
-        this->body->visit_ast( visitor, thisAsParent, "true", context );
-        this->cond->visit_ast( visitor, thisAsParent, "else", context );
-    }
 };
 
 class TxIfStmtNode : public TxCondCompoundStmtNode {
@@ -364,6 +358,12 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->cond->visit_ast( visitor, thisAsParent, "condition", context );
+        this->body->visit_ast( visitor, thisAsParent, "then", context );
+        this->cond->visit_ast( visitor, thisAsParent, "else", context );
+    }
 };
 
 class TxWhileStmtNode : public TxCondCompoundStmtNode {
@@ -388,6 +388,12 @@ public:
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->cond->visit_ast( visitor, thisAsParent, "condition", context );
+        this->body->visit_ast( visitor, thisAsParent, "loop", context );
+        this->cond->visit_ast( visitor, thisAsParent, "else", context );
+    }
 };
 
 

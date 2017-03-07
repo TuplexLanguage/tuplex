@@ -15,10 +15,10 @@ TxPackage::TxPackage( TxDriver& driver, const TxParseOrigin& rootOrigin )
 void TxPackage::registerMainFunc(const TxEntitySymbol* mainFunc) {
     if (! this->mainFunc) {
         this->mainFunc = mainFunc;
-        this->LOGGER().debug("Set user main function: %s", mainFunc->to_string().c_str());
+        this->LOGGER().debug("Set user main function: %s", mainFunc->str().c_str());
     }
     else
-        this->LOGGER().debug("User main function already set, skipping %s", mainFunc->to_string().c_str());
+        this->LOGGER().debug("User main function already set, skipping %s", mainFunc->str().c_str());
 }
 
 const TxFieldDeclaration* TxPackage::getMainFunc() const {

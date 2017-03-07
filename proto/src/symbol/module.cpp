@@ -12,7 +12,7 @@ TxModule::TxModule(TxModule* parent, const std::string& name, const TxParseOrigi
         // FUTURE: disallow tx... namespace declarations in "user mode"
         //if (moduleNamespace.begins_with(BUILTIN_NS))
         //    parser_error(this->parseLocation, "Illegal namespace name, must not begin with \"" BUILTIN_NS "\"");
-        if (this->get_full_name().to_string() != BUILTIN_NS) {
+        if (this->get_full_name().str() != BUILTIN_NS) {
             this->import_symbol(origin, TxIdentifier(BUILTIN_NS ".*"));
         }
     }
@@ -33,7 +33,7 @@ bool TxModule::declare_symbol(const TxParseOrigin& origin, TxScopeSymbol* symbol
 
 
 TxModule* TxModule::declare_module(const TxParseOrigin& origin, const TxIdentifier& ident, bool builtin) {
-    this->LOGGER().debug("Declaring module %s", ident.to_string().c_str());
+    this->LOGGER().debug("Declaring module %s", ident.str().c_str());
     if (! this->get_outer()) {
         // this is the namespace root - the tuplex package
         if (! builtin) {
@@ -81,15 +81,15 @@ TxModule* TxModule::inner_declare_module(const TxParseOrigin& origin, const TxId
     }
 
     // declare submodule that is direct child of this one
-    std::string name = ident.to_string();
+    std::string name = ident.str();
     if (auto prev = this->get_symbol(name)) {
         if (auto prevMod = dynamic_cast<TxModule*>(prev)) {
             if (! prevMod->is_declared()) {
                 prevMod->set_declared();
-                this->LOGGER().debug("Declared module %s", prevMod->get_full_name().to_string().c_str());
+                this->LOGGER().debug("Declared module %s", prevMod->get_full_name().str().c_str());
             }
             else
-                this->LOGGER().debug("Continued declaration of module %s", prev->get_full_name().to_string().c_str());
+                this->LOGGER().debug("Continued declaration of module %s", prev->get_full_name().str().c_str());
             return prevMod;
         }
         else {
@@ -100,7 +100,7 @@ TxModule* TxModule::inner_declare_module(const TxParseOrigin& origin, const TxId
     else {
         auto module = new TxModule(this, name, origin, true);
         if (this->declare_symbol(origin, module)) {
-            this->LOGGER().debug("Declared module %s", module->get_full_name().to_string().c_str());
+            this->LOGGER().debug("Declared module %s", module->get_full_name().str().c_str());
             return module;
         }
         delete module;
@@ -148,7 +148,7 @@ bool TxModule::use_symbol(const TxParseOrigin& origin, const TxModule* imported,
         if (! dynamic_cast<const TxModule*>(symbol)) {  // if not a submodule name
             auto result = this->usedNames.emplace(plainName, symbol->get_full_name());
             if (! symbol->get_full_name().begins_with(BUILTIN_NS))
-                this->LOGGER().debug("Imported symbol %-16s %s", plainName.c_str(), symbol->get_full_name().to_string().c_str());
+                this->LOGGER().debug("Imported symbol %-16s %s", plainName.c_str(), symbol->get_full_name().str().c_str());
             return result.second;
         }
     }
@@ -179,7 +179,7 @@ void TxModule::register_import(const TxParseOrigin& origin, const TxIdentifier& 
 }
 
 void TxModule::prepare_modules() {
-    this->LOGGER().debug("Preparing module %s", this->get_full_name().to_string().c_str());
+    this->LOGGER().debug("Preparing module %s", this->get_full_name().str().c_str());
     for (auto & import : this->registeredImports) {
         if (! this->import_symbol( import.origin, import.name ))
             CERROR(import.origin, "Failed to import " << import.name);
@@ -197,7 +197,7 @@ void TxModule::prepare_modules() {
 void TxModule::dump_symbols() const {
     const TxIdentifier builtinNamespace(BUILTIN_NS);
     if (this->is_declared() && this->get_full_name() != builtinNamespace) {
-        printf("=== symbols of '%s' ===\n", this->get_full_name().to_string().c_str());
+        printf("=== symbols of '%s' ===\n", this->get_full_name().str().c_str());
         {
             bool headerprinted = false;
             for (auto & pair : this->usedNames) {
@@ -206,7 +206,7 @@ void TxModule::dump_symbols() const {
                         printf("--- aliases ---\n");
                         headerprinted = true;
                     }
-                    printf("%-14s %s\n", pair.first.c_str(), pair.second.to_string().c_str());
+                    printf("%-14s %s\n", pair.first.c_str(), pair.second.str().c_str());
                 }
             }
         }

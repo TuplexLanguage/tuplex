@@ -90,7 +90,7 @@ protected:
     virtual ~TxNode() = default;
 
     void set_context(LexicalContext&& context) {
-        ASSERT(!this->is_context_set(), "lexicalContext already initialized in " << this->to_string());
+        ASSERT(!this->is_context_set(), "lexicalContext already initialized in " << this->str());
         this->lexContext = context;
     }
 
@@ -116,12 +116,12 @@ public:
     inline bool is_context_set() const { return this->lexContext.scope(); }
 
     void set_context(const LexicalContext& context) {
-        ASSERT(!this->is_context_set(), "lexicalContext already initialized in " << this->to_string());
+        ASSERT(!this->is_context_set(), "lexicalContext already initialized in " << this->str());
         this->lexContext = context;
     }
 
     inline const LexicalContext& context() const {
-        ASSERT(this->is_context_set(), "lexicalContext not initialized in " << this->to_string());
+        ASSERT(this->is_context_set(), "lexicalContext not initialized in " << this->str());
         return this->lexContext;
     }
     inline LexicalContext& context() {
@@ -144,7 +144,7 @@ public:
     /** Returns the identifier owned by this node, if any, otherwise null. */
     virtual const TxIdentifier* get_identifier() const { return nullptr; }
 
-    virtual std::string to_string() const override;
+    virtual std::string str() const override;
 
     std::string parse_loc_string() const;
 
@@ -348,7 +348,7 @@ public:
     /** Returns the type (as specific as can be known) of the value this node produces/uses. */
     virtual const TxType* resolve_type() override final {
         if (!this->type && !this->hasResolved) {
-            LOGGER().trace("resolving type  of %s", this->to_string().c_str());
+            LOGGER().trace("resolving type  of %s", this->str().c_str());
             //ASSERT(!this->startedRslv, "Recursive invocation of resolve_type() of " << this);
             if (this->startedRslv) {
                 CERROR(this, "Recursive definition of type " << this->get_declared_name());
@@ -394,7 +394,7 @@ public:
     /** Resolves the type and returns the field entity of this field-defining node. */
     virtual const TxField* resolve_field() final {
         if (!this->field && !this->hasResolved) {
-            LOGGER().trace("resolving field of %s", this->to_string().c_str());
+            LOGGER().trace("resolving field of %s", this->str().c_str());
             //ASSERT(!this->startedRslv, "Recursive invocation of resolve_field() of " << this);
             if (this->startedRslv) {
                 CERROR(this, "Recursive definition of field " << this->get_declared_name());

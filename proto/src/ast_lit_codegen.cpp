@@ -6,13 +6,13 @@ using namespace llvm;
 
 
 Value* TxBoolLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s\t%s", this->to_string().c_str(), std::to_string(this->value).c_str());
+    context.LOG.trace("%-48s\t%s", this->str().c_str(), std::to_string(this->value).c_str());
     return ( this->value ? ConstantInt::getTrue(context.llvmContext) : ConstantInt::getFalse(context.llvmContext) );
 }
 
 
 Value* TxCStringLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s\t\"%s\"", this->to_string().c_str(), this->value.c_str());
+    context.LOG.trace("%-48s\t\"%s\"", this->str().c_str(), this->value.c_str());
     //auto type = context.get_llvm_type(this->get_type());
     std::vector<Constant*> members {
         ConstantInt::get(context.llvmContext, APInt(32, this->arrayLength)),
@@ -24,14 +24,14 @@ Value* TxCStringLitNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 
 
 Value* TxCharacterLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s\t'%c' == %d", this->to_string().c_str(), this->value, this->value);
+    context.LOG.trace("%-48s\t'%c' == %d", this->str().c_str(), this->value, this->value);
     auto value = ConstantInt::get(context.llvmContext, APInt(8, this->value, false));
     return value;
 }
 
 
 Value* TxIntegerLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s\t%ld", this->to_string().c_str(), this->intValue.value.i64);
+    context.LOG.trace("%-48s\t%ld", this->str().c_str(), this->intValue.value.i64);
     switch (this->intValue.typeId) {
     case BYTE:
         return ConstantInt::get(IntegerType::getInt8Ty(context.llvmContext), this->intValue.value.i64, true);
@@ -67,7 +67,7 @@ Constant* TxIntegerLitNode::IntConstantProxy::code_gen(LlvmGenerationContext& co
 
 
 Value* TxFloatingLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s\t%f", this->to_string().c_str(), this->value);
+    context.LOG.trace("%-48s\t%f", this->str().c_str(), this->value);
     Type* type = context.get_llvm_type(this->get_type());
     ASSERT (type, "Could not get Type for TxFloatingLitNode " << context.get_llvm_type(this->get_type()));
     auto value = ConstantFP::get(type, this->literal);

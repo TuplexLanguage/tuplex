@@ -481,9 +481,9 @@ void LlvmGenerationContext::generate_runtime_data() {
         auto txType = *txTypeI;
         ASSERT(txType->is_prepared(), "Non-prepared type: " << txType);
         if (auto entity = txType->get_symbol()) {
-            std::string vtableName(entity->get_full_name().to_string() + "$vtable");
+            std::string vtableName(entity->get_full_name().str() + "$vtable");
             if (auto vtableV = dyn_cast<GlobalVariable>(this->lookup_llvm_value(vtableName))) {
-                this->LOG.debug("Populating vtable initializer for %s", txType->to_string().c_str());//vtableName.c_str());
+                this->LOG.debug("Populating vtable initializer for %s", txType->str().c_str());//vtableName.c_str());
                 std::vector<Constant*> initMembers;
                 auto virtualFields = txType->get_virtual_fields();
                 initMembers.resize(virtualFields.get_field_count());
@@ -540,7 +540,7 @@ void LlvmGenerationContext::generate_runtime_data() {
                 this->LOG.error("No vtable found for %s", vtableName.c_str());
         }
         else
-            this->LOG.warning("No symbol for registered type %s", txType->to_string().c_str());
+            this->LOG.warning("No symbol for registered type %s", txType->str().c_str());
     }
 }
 
@@ -612,16 +612,16 @@ Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
 	Type* llvmType = txType->make_llvm_type(*this);
 	if (llvmType) {
 	    this->llvmTypeMapping.emplace(txType, llvmType);
-	    this->LOG.debug("Made LLVM type mapping for type %s: %s", txType->to_string(true).c_str(), to_string(llvmType).c_str());
+	    this->LOG.debug("Made LLVM type mapping for type %s: %s", txType->str(true).c_str(), to_string(llvmType).c_str());
 	}
 	else
-		this->LOG.error("No LLVM type mapping for type: %s", txType->to_string().c_str());
+		this->LOG.error("No LLVM type mapping for type: %s", txType->str().c_str());
 
 	Type* llvmTypeBody = txType->make_llvm_type_body(*this, llvmType);
 	if (llvmTypeBody != llvmType) {
 	    // replace header with full type definition in mapping
         this->llvmTypeMapping[txType] = llvmTypeBody;
-        this->LOG.note("replaced LLVM type mapping for type %s: %s", txType->to_string(true).c_str(), to_string(llvmTypeBody).c_str());
+        this->LOG.note("replaced LLVM type mapping for type %s: %s", txType->str(true).c_str(), to_string(llvmTypeBody).c_str());
 	}
 
 	return llvmType;

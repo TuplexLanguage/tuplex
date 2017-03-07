@@ -11,7 +11,7 @@ static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenSc
     Value* vtableBase = context.gen_get_vtable(scope, staticBaseType, runtimeBaseTypeIdV);
     //std::cerr << "vtableBase: " << vtableBase << "  for field=" << fieldEntity << std::endl;
     if (! vtableBase) {
-        context.LOG.error("No vtable obtained for %s", staticBaseType->to_string().c_str());
+        context.LOG.error("No vtable obtained for %s", staticBaseType->str().c_str());
         return nullptr;
     }
 
@@ -94,7 +94,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
             val = instance_method_value_code_gen(context, scope, baseExpr->get_type(), runtimeBaseTypeIdV, fieldEntity, baseValue, nonvirtualLookup);
         }
         else {
-            context.LOG.error("Can't access instance method without base value/expression: %s", fieldEntity->to_string().c_str());
+            context.LOG.error("Can't access instance method without base value/expression: %s", fieldEntity->str().c_str());
             return nullptr;
         }
         break;
@@ -115,7 +115,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
         if (foldStatics) {
             if (auto constProxy = fieldEntity->get_static_constant_proxy()) {
                 val = constProxy->code_gen(context, scope);
-                context.LOG.debug("Generating field value code for statically constant fieldEntity %s: %s", fieldEntity->to_string().c_str(), ::to_string(val).c_str());
+                context.LOG.debug("Generating field value code for statically constant fieldEntity %s: %s", fieldEntity->str().c_str(), ::to_string(val).c_str());
                 break;
             }
         }
@@ -171,7 +171,7 @@ Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenSco
 }
 
 Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     Value* value = this->code_gen_address(context, scope, true);
 
     if ( value && scope ) {  // (in global scope we don't load)

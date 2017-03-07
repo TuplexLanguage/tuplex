@@ -304,7 +304,7 @@ protected:
     virtual const TxType* define_type() override {
         auto type = this->operand->resolve_type();
         if (! dynamic_cast<const TxScalarType*>(type))
-            CERROR(this, "Invalid operand type for unary '-', not of scalar type: " << (type ? type->to_string().c_str() : "NULL"));
+            CERROR(this, "Invalid operand type for unary '-', not of scalar type: " << (type ? type->str().c_str() : "NULL"));
         else if (auto intType = dynamic_cast<const TxIntegerType*>(type))
             if (! intType->is_signed()) {
                 // promote unsigned integers upon negation
@@ -321,7 +321,7 @@ protected:
                     type = this->types().get_builtin_type(LONG, mod);
                     break;
                 case ULONG:
-                    CERROR(this, "Invalid operand type for unary '-': " << (type ? type->to_string().c_str() : "NULL"));
+                    CERROR(this, "Invalid operand type for unary '-': " << (type ? type->str().c_str() : "NULL"));
                     break;
                 default:
                     ASSERT(false, "Unknown unsigned integer type id=" << intType->get_type_id() << ": " << intType);
@@ -391,7 +391,7 @@ public:
         // assume arithmetic, scalar negation:
         if (! dynamic_cast<const TxBoolType*>(type))
             // should we support any auto-conversion to Bool?
-            CERROR(this, "Operand of unary '!' is not of Bool type: " << (type ? type->to_string().c_str() : "NULL"));
+            CERROR(this, "Operand of unary '!' is not of Bool type: " << (type ? type->str().c_str() : "NULL"));
     }
 
     virtual bool is_statically_constant() const override {

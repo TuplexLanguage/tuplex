@@ -195,8 +195,8 @@ public:
 
     virtual std::string description_string() const { return ""; };
 
-    virtual std::string to_string() const {
-        return this->get_full_name().to_string();
+    virtual std::string str() const {
+        return this->get_full_name().str();
     }
 };
 
@@ -264,8 +264,8 @@ public:
 
     virtual std::string description_string() const override;
 
-    virtual std::string to_string() const override {
-        return this->declaration_string() + " " + this->get_full_name().to_string();
+    virtual std::string str() const override {
+        return this->declaration_string() + " " + this->get_full_name().str();
     }
 };
 
@@ -284,8 +284,6 @@ inline std::string dehashify(const std::string str) {
 }
 
 
-
-// TODO: investigate if these need ever be called with longer than a plain name:
 
 /** like lookup_symbol() but doesn't do search of first name segment */
 TxScopeSymbol* lookup_member(TxScopeSymbol* vantageScope, TxScopeSymbol* scope, const TxIdentifier& ident);

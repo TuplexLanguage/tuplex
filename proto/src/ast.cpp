@@ -32,7 +32,7 @@ Logger& TxNode::LOG = Logger::get("AST");
 
 unsigned TxNode::nextNodeId = 0;
 
-std::string TxNode::to_string() const {
+std::string TxNode::str() const {
     auto ident = this->get_identifier();
     char buf[256];
     snprintf( buf, 256, "%-11s %4u %-24s %s", this->parse_loc_string().c_str(), this->get_node_id(), typeid(*this).name(),
@@ -44,10 +44,10 @@ std::string TxNode::parse_loc_string() const {
     char buf[128];
     if (parseLocation.begin.line == parseLocation.end.line) {
         int lcol = (parseLocation.end.column > parseLocation.begin.column) ? parseLocation.end.column : parseLocation.end.column;
-        snprintf(buf, 128, "%3d.%d-%d", parseLocation.begin.line, parseLocation.begin.column, lcol);
+        snprintf(buf, 128, "%3d.%2d-%d", parseLocation.begin.line, parseLocation.begin.column, lcol);
     }
     else
-        snprintf(buf, 128, "%3d.%d-%d.%d", parseLocation.begin.line, parseLocation.begin.column, parseLocation.end.line, parseLocation.end.column);
+        snprintf(buf, 128, "%3d.%2d-%d.%d", parseLocation.begin.line, parseLocation.begin.column, parseLocation.end.line, parseLocation.end.column);
     return std::string(buf);
 }
 
@@ -162,13 +162,13 @@ void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, Lexica
     this->set_context( lexContext );
     // Note: does not invoke symbol_declaration_pass() on typeParamDecls, that is delegated to typeExpression
     TxDeclarationFlags flags = (isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags);
-    this->declaration = lexContext.scope()->declare_type( this->typeName->to_string(), this->typeExpression, flags );
+    this->declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeExpression, flags );
     if (! this->declaration) {
         CERROR(this, "Failed to declare type " << this->typeName);
         return;
     }
-    this->LOGGER().debug("%s: Declared type %-16s: %s", this->parse_loc_string().c_str(), this->typeName->to_string().c_str(),
-                         declaration->to_string().c_str());
+    this->LOGGER().debug("%s: Declared type %-16s: %s", this->parse_loc_string().c_str(), this->typeName->str().c_str(),
+                         declaration->str().c_str());
 
     // The context of this node represents its outer scope.
     // The type expression's created type entity, if any, represents its inner scope.
@@ -221,7 +221,7 @@ const TxType* TxIdentifiedTypeNode::define_identified_type() {
     return nullptr;
 }
 
-const TxType* TxGenSpecializationTypeNode::define_generic_specialization_type() {
+const TxType* TxGenSpecTypeNode::define_generic_specialization_type() {
     auto baseTypeDecl = lookup_type( this->context().scope(), *this->ident );
     const TxType* baseType = baseTypeDecl ? baseTypeDecl->get_definer()->resolve_type() : nullptr;
     if (! baseType) {
@@ -280,7 +280,7 @@ void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& defContext, 
     if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType)) {
         if (auto maybeModElem = dynamic_cast<TxMaybeModTypeNode*>(arrayBaseType->elementTypeNode->typeExprNode)) {
             // (can this spuriously add Modifiable node to predeclared modifiable type, generating error?)
-            lexContext.scope()->LOGGER().debug("Implicitly declaring Array Element modifiable at %s", this->to_string().c_str());
+            lexContext.scope()->LOGGER().debug("Implicitly declaring Array Element modifiable at %s", this->str().c_str());
             maybeModElem->set_modifiable( true );
         }
     }
@@ -295,7 +295,7 @@ void TxMaybeModTypeNode::symbol_declaration_pass( LexicalContext& defContext, Le
     if (! this->is_modifiable()) {
         if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType))
             if (typeid(*arrayBaseType->elementTypeNode->typeExprNode) == typeid(TxModifiableTypeNode)) {
-                lexContext.scope()->LOGGER().debug("Implicitly declaring Array modifiable at %s", this->to_string().c_str());
+                lexContext.scope()->LOGGER().debug("Implicitly declaring Array modifiable at %s", this->str().c_str());
                 this->set_modifiable( true );
             }
     }
@@ -420,7 +420,7 @@ static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntityS
         if (entitySymbol->field_count() == 1)
             return entitySymbol->get_first_field_decl();
         if (entitySymbol->field_count() > 1)
-            entitySymbol->LOGGER().note("%s must be matched using type parameters", entitySymbol->to_string().c_str());
+            entitySymbol->LOGGER().note("%s must be matched using type parameters", entitySymbol->str().c_str());
         return nullptr;
     }
 
@@ -460,7 +460,7 @@ static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntityS
                         argTypeI++;
                     }
 
-                    entitySymbol->LOGGER().debug("Arguments match for %s: %-32s: %d, %d, %d, %d", field->to_string().c_str(), funcType->to_string().c_str(),
+                    entitySymbol->LOGGER().debug("Arguments match for %s: %-32s: %d, %d, %d, %d", field->str().c_str(), funcType->str().c_str(),
                                                  reint[0], reint[1], reint[2], reint[3] );
                     uint64_t candReint = ( ((uint64_t)reint[3])<<48 | ((uint64_t)reint[2])<<32 | ((uint64_t)reint[1])<<16 | reint[0] );
                     if (candReint <= closestReint) {
@@ -497,7 +497,7 @@ static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntityS
         return closestDecl;
     }
 
-    entitySymbol->LOGGER().debug("Arguments do not match any overloaded candidate of %s", entitySymbol->to_string().c_str());
+    entitySymbol->LOGGER().debug("Arguments do not match any overloaded candidate of %s", entitySymbol->str().c_str());
     return nullptr;
 }
 
@@ -525,16 +525,16 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
         TxScopeSymbol* vantageScope = this->context().scope();
         if (baseType) {
             // base is a value expression
-            symbol = baseType->lookup_inherited_instance_member(vantageScope, this->symbolName);
+            symbol = baseType->lookup_inherited_instance_member(vantageScope, this->symbolName->str());
         }
         else if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
             if (auto baseSymbol = baseSymbolNode->resolve_symbol()) {
-                symbol = lookup_member(vantageScope, baseSymbol, this->symbolName);
+                symbol = lookup_member(vantageScope, baseSymbol, *this->symbolName);
             }
         }
     }
     else {
-        symbol = lookup_symbol(this->context().scope(), this->symbolName);
+        symbol = lookup_symbol(this->context().scope(), *this->symbolName);
     }
     return symbol;
 }
@@ -568,7 +568,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                     if (auto allocType = typeDecl->get_definer()->resolve_type()) {
                         if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member("$init"))  // (constructors aren't inherited)
                             if (auto constructorDecl = resolve_field( *this, constructorSymbol, this->appliedFuncArgs )) {
-                                ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
+                                ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->str());
                                 //std::cerr << "resolving field to constructor: " << this << ": " << constructorDecl << std::endl;
                                 this->declaration = constructorDecl;
                                 return this->declaration;
@@ -616,7 +616,7 @@ const TxType* TxConstructorCalleeExprNode::define_type() {
         // find the constructor
         if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member("$init")) {  // (constructors aren't inherited)
             if (auto constructorDecl = resolve_field( *this, constructorSymbol, this->appliedFuncArgs)) {
-                ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->to_string());
+                ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->str());
                 this->declaration = constructorDecl;
                 if (auto constructorField = constructorDecl->get_definer()->resolve_field())
                     return constructorField->get_type();

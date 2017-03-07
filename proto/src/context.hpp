@@ -107,7 +107,7 @@ public:
         return ! this->operator==(other);
     }
 
-    std::string to_string() const {
-        return _scope->to_string();
+    std::string str() const {
+        return _scope->str();
     }
 };

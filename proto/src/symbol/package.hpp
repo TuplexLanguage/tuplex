@@ -48,7 +48,7 @@ public:
     virtual std::string description_string() const override {
         return "package";
     }
-    virtual std::string to_string() const override {
+    virtual std::string str() const override {
         return "package";
     }
 };

@@ -28,7 +28,7 @@ static const OpMapping OP_MAPPING[] = {
 };
 
 Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     auto lval = this->lhs->code_gen(context, scope);
     auto rval = this->rhs->code_gen(context, scope);
     if ((! lval) || (! rval))
@@ -50,7 +50,7 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
             float_operation = true;
         }
         else {
-            ASSERT(false, "Unsupported binary operand type: " << (resultType?resultType->to_string().c_str():"NULL"));
+            ASSERT(false, "Unsupported binary operand type: " << (resultType?resultType->str().c_str():"NULL"));
         }
     }
     else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
@@ -102,7 +102,7 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
 
 
 Value* TxUnaryMinusNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     auto operand = this->operand->code_gen(context, scope);
     if (! operand)
         return NULL;
@@ -120,13 +120,13 @@ Value* TxUnaryMinusNode::code_gen(LlvmGenerationContext& context, GenScope* scop
             return scope->builder->CreateFNeg(operand);
     }
     else {
-        context.LOG.error("Invalid unary minus operand type: %s", opType->to_string().c_str());
+        context.LOG.error("Invalid unary minus operand type: %s", opType->str().c_str());
         return NULL;
     }
 }
 
 Value* TxUnaryLogicalNotNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     auto operand = this->operand->code_gen(context, scope);
     if (! operand)
         return NULL;
@@ -209,7 +209,7 @@ Value* gen_lambda(LlvmGenerationContext& context, GenScope* scope, Type* lambdaT
 
 
 Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     Value* ptrV = nullptr;
     TxExpressionNode* targetNode = this->target;
     if (auto genConvNode = dynamic_cast<TxMaybeConversionNode*>(targetNode)) {
@@ -250,7 +250,7 @@ Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* sco
 
 
 Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     if (! this->refExprValue) {
         this->refExprValue = this->reference->code_gen(context, scope);
         if (! this->refExprValue)
@@ -275,7 +275,7 @@ Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* 
 
 Value* TxReferenceDerefNode::code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
     // dynamic by reading the reference's target type id
-    context.LOG.trace("%-48s TypeID", this->to_string().c_str());
+    context.LOG.trace("%-48s TypeID", this->str().c_str());
     if (! this->refExprValue) {
         this->refExprValue = this->reference->code_gen(context, scope);
         if (! this->refExprValue)
@@ -346,7 +346,7 @@ Value* TxElemDerefNode::code_gen_address(LlvmGenerationContext& context, GenScop
 }
 
 Value* TxElemDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     auto arrayV = this->array->code_gen(context, scope);
     auto subscriptV = this->subscript->code_gen(context, scope);
     if (! arrayV || ! subscriptV)
@@ -404,7 +404,7 @@ Value* TxElemDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope
 }
 
 Value* TxElemAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     auto arrayval = this->array->code_gen(context, scope);
     auto subscriptval = this->subscript->code_gen(context, scope);
     if (! arrayval || ! subscriptval)
@@ -422,12 +422,12 @@ Value* TxElemAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* sc
 
 
 Value* TxFieldAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     return this->field->code_gen_address(context, scope);
 }
 
 Value* TxDerefAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     auto refval = this->operand->code_gen(context, scope);
     if (! refval)
         return NULL;
@@ -437,7 +437,7 @@ Value* TxDerefAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* s
 
 
 Value* TxFunctionCallNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     if (auto inlExp = this->inlinedExpression)
         return inlExp->code_gen(context, scope);
     else
@@ -497,7 +497,7 @@ Value* TxConstructorCalleeExprNode::gen_obj_ptr(LlvmGenerationContext& context, 
 
 Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context, GenScope* scope) const {
     // constructors are similar to instance methods, but they are not virtual (and not in vtable)
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
 
     // find the constructor
     // (constructors aren't inherited, but we bypass equivalent specializations to find the code-generated constructor)
@@ -513,14 +513,14 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
         if (auto txType = this->get_type()) {
             // forward declaration situation
             if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
-                context.LOG.debug("Forward-declaring constructor function %s: %s", uniqueFullName.c_str(), txFuncType->to_string().c_str());
+                context.LOG.debug("Forward-declaring constructor function %s: %s", uniqueFullName.c_str(), txFuncType->str().c_str());
                 StructType *lambdaT = cast<StructType>(context.get_llvm_type(txFuncType));
                 FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
                 auto funcName = uniqueFullName;
                 funcPtrV = context.llvmModule.getOrInsertFunction(funcName, funcT);
             }
             else
-                context.LOG.error("No LLVM type defined for %s", txType->to_string().c_str());
+                context.LOG.error("No LLVM type defined for %s", txType->str().c_str());
         }
     }
     return funcPtrV;
@@ -560,7 +560,7 @@ Value* TxMakeObjectNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 
 Value* TxNewExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     // new constructor returns the constructed object by reference
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     Type* objRefT = context.get_llvm_type(this->get_type());
     if (!objRefT)
         return nullptr;
@@ -572,7 +572,7 @@ Value* TxNewExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) 
 
 Value* TxStackConstructorNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     // stack constructor returns the constructed object by value, not by reference
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     if (auto inlExp = this->inlinedExpression) {
         // if inlined, the stack constructor doesn't need to actually allocate storage on stack
         // (the receiver of this expression value might do this, if it needs to)

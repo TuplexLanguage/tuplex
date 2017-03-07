@@ -11,7 +11,7 @@ Value* TxMaybeConversionNode::code_gen(LlvmGenerationContext& context, GenScope*
 
 
 Value* TxBoolConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->resultType->to_string().c_str());
+    context.LOG.trace("%-48s -> %s", this->str().c_str(), this->resultType->str().c_str());
     auto origValue = this->expr->code_gen(context, scope);
     if (! origValue)
         return NULL;
@@ -23,14 +23,14 @@ Value* TxBoolConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope)
     //ASSERT(cop, "No CastOps code found for cast from " << this->expr->get_type(0) << " to " << this->resultType);
     if (!scope) {
         ASSERT(this->is_statically_constant(), "Non-statically-constant expression in global scope: " << this);
-        context.LOG.debug("non-local scope cast -> %s", this->resultType->to_string().c_str());
+        context.LOG.debug("non-local scope cast -> %s", this->resultType->str().c_str());
         if (origValue->getType()->isIntegerTy())
             return ConstantExpr::getICmp(ICmpInst::ICMP_NE, cast<Constant>(origValue), ConstantInt::get(origValue->getType(), 0));
         ASSERT(origValue->getType()->isFloatingPointTy(), "Expected floating point type but was: " << origValue->getType());
         return ConstantExpr::getFCmp(FCmpInst::FCMP_UNE, cast<Constant>(origValue), ConstantFP::get(origValue->getType(), 0));
     }
     else {
-        context.LOG.debug("local scope cast -> %s", this->resultType->to_string().c_str());
+        context.LOG.debug("local scope cast -> %s", this->resultType->str().c_str());
         if (origValue->getType()->isIntegerTy())
             return scope->builder->CreateICmpNE(origValue, ConstantInt::get(origValue->getType(), 0));
         ASSERT(origValue->getType()->isFloatingPointTy(), "Expected floating point type but was: " << origValue->getType());
@@ -39,13 +39,13 @@ Value* TxBoolConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope)
 }
 
 Value* TxScalarConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->resultType->to_string().c_str());
+    context.LOG.trace("%-48s -> %s", this->str().c_str(), this->resultType->str().c_str());
     auto origValue = this->expr->code_gen(context, scope);
     if (! origValue)
         return NULL;
     auto targetLlvmType = context.get_llvm_type(this->resultType);
     if (! targetLlvmType) {
-        context.LOG.error("In scalar cast, no target LLVM type found for %s", this->resultType->to_string().c_str());
+        context.LOG.error("In scalar cast, no target LLVM type found for %s", this->resultType->str().c_str());
         return origValue;  // should we return null instead?
     }
     // FUTURE: manually determine cast instruction
@@ -60,11 +60,11 @@ Value* TxScalarConvNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     ASSERT(cop, "No CastOps code found for cast from " << this->expr->get_type() << " to " << this->resultType);
     if (!scope) {
         ASSERT(this->is_statically_constant(), "Non-statically-constant expression in global scope: " << this);
-        context.LOG.debug("non-local scope cast -> %s", this->resultType->to_string().c_str());
+        context.LOG.debug("non-local scope cast -> %s", this->resultType->str().c_str());
         return ConstantExpr::getCast(cop, cast<Constant>(origValue), targetLlvmType);
     }
     else {
-        context.LOG.debug("local scope cast -> %s", this->resultType->to_string().c_str());
+        context.LOG.debug("local scope cast -> %s", this->resultType->str().c_str());
         return scope->builder->CreateCast(cop, origValue, targetLlvmType, "");
     }
 /* for reference, copied from Instruction.def:
@@ -86,7 +86,7 @@ HANDLE_CAST_INST(45, AddrSpaceCast, AddrSpaceCastInst)  // addrspace cast
 
 
 Constant* TxScalarConvNode::ScalarConvConstantProxy::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s -> %s", typeid(*this).name(), this->convNode->resultType->to_string().c_str());
+    context.LOG.trace("%-48s -> %s", typeid(*this).name(), this->convNode->resultType->str().c_str());
     auto value = this->convNode->code_gen(context, scope);
     if (auto constant = dyn_cast<Constant>(value))
         return constant;
@@ -96,7 +96,7 @@ Constant* TxScalarConvNode::ScalarConvConstantProxy::code_gen(LlvmGenerationCont
 
 
 Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->resultType->to_string().c_str());
+    context.LOG.trace("%-48s -> %s", this->str().c_str(), this->resultType->str().c_str());
     auto origValue = this->expr->code_gen(context, scope);
     if (! origValue)
         return NULL;
@@ -105,7 +105,7 @@ Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* s
     if (dynamic_cast<const TxReferenceType*>(this->expr->get_type())) {
         auto refT = context.get_llvm_type(this->resultType);
         if (! refT) {
-            context.LOG.error("In reference conversion, LLVM type not found for result type %s", this->resultType->to_string().c_str());
+            context.LOG.error("In reference conversion, LLVM type not found for result type %s", this->resultType->str().c_str());
             return origValue;  // should we return null instead?
         }
         uint32_t adapterTypeId = (this->adapterType ? this->adapterType->get_type_id() : UINT32_MAX);
@@ -129,13 +129,13 @@ Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* s
 //        }
 //    }
     ASSERT(this->expr->get_type(), "NULL type in " << this);
-    context.LOG.error("%s to-reference conversion not supported", this->expr->get_type()->to_string().c_str());
+    context.LOG.error("%s to-reference conversion not supported", this->expr->get_type()->str().c_str());
     return origValue;
 }
 
 
 Value* TxObjSpecCastNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s -> %s", this->to_string().c_str(), this->resultType->to_string().c_str());
+    context.LOG.trace("%-48s -> %s", this->str().c_str(), this->resultType->str().c_str());
     // this is a semantic conversion; it doesn't actually do anything
     return this->expr->code_gen(context, scope);
 }

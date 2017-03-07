@@ -165,7 +165,7 @@ class TxAnyType final : public TxType {
     TxType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                   const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (! dynamic_cast<const TxAnyType*>(baseTypeSpec.type))
-            throw std::logic_error("Specified a base type for TxAnyType that was not a TxAnyType: " + baseTypeSpec.type->to_string());
+            throw std::logic_error("Specified a base type for TxAnyType that was not a TxAnyType: " + baseTypeSpec.type->str());
         return new TxAnyType(declaration, baseTypeSpec);
     }
 
@@ -174,7 +174,7 @@ public:
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
         //ASSERT(false, "Can't contruct LLVM type for abstract type " << this->to_string());
-        context.LOG.debug("LLVM type for abstract type %s is VOID", this->to_string().c_str());
+        context.LOG.debug("LLVM type for abstract type %s is VOID", this->str().c_str());
         return context.get_voidT();
     }
 };
@@ -185,7 +185,7 @@ class TxBuiltinBaseType final : public TxType {
     TxType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                   const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (! dynamic_cast<const TxBuiltinBaseType*>(baseTypeSpec.type))
-            throw std::logic_error("Specified a base type for TxBuiltinBaseType that was not a TxBuiltinBaseType: " + baseTypeSpec.type->to_string());
+            throw std::logic_error("Specified a base type for TxBuiltinBaseType that was not a TxBuiltinBaseType: " + baseTypeSpec.type->str());
         return new TxBuiltinBaseType(baseTypeSpec.type->get_type_class(), declaration, baseTypeSpec);
     }
 
@@ -197,7 +197,7 @@ public:
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
         //ASSERT(false, "Can't contruct LLVM type for abstract type " << this->to_string());
-        context.LOG.debug("LLVM type for abstract type %s is VOID", this->to_string().c_str());
+        context.LOG.debug("LLVM type for abstract type %s is VOID", this->str().c_str());
         return context.get_voidT();
     }
 };

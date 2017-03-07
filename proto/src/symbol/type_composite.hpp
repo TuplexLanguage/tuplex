@@ -18,7 +18,7 @@ protected:
     virtual TxArrayType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (! dynamic_cast<const TxArrayType*>(baseTypeSpec.type))
-            throw std::logic_error("Specified a base type for TxArrayType that was not a TxArrayType: " + baseTypeSpec.type->to_string());
+            throw std::logic_error("Specified a base type for TxArrayType that was not a TxArrayType: " + baseTypeSpec.type->str());
         return new TxArrayType(declaration, baseTypeSpec, interfaces);
     };
 
@@ -62,7 +62,7 @@ protected:
     virtual TxReferenceType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                    const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (! dynamic_cast<const TxReferenceType*>(baseTypeSpec.type))
-            throw std::logic_error("Specified a base type for TxReferenceType that was not a TxReferenceType: " + baseTypeSpec.type->to_string());
+            throw std::logic_error("Specified a base type for TxReferenceType that was not a TxReferenceType: " + baseTypeSpec.type->str());
         return new TxReferenceType(declaration, baseTypeSpec, interfaces);
     };
 
@@ -118,7 +118,7 @@ protected:
         if (auto funcBaseType = dynamic_cast<const TxFunctionType*>(baseTypeSpec.type))
             return new TxFunctionType(declaration, baseTypeSpec, funcBaseType->argumentTypes,
                                       funcBaseType->returnType, funcBaseType->modifiableClosure);
-        throw std::logic_error("Specified a base type for TxFunctionType that was not a TxFunctionType: " + baseTypeSpec.type->to_string());
+        throw std::logic_error("Specified a base type for TxFunctionType that was not a TxFunctionType: " + baseTypeSpec.type->str());
     };
 
 public:
@@ -178,13 +178,13 @@ protected:
         str << "func(";
         if (! this->argumentTypes.empty()) {
             auto ai = this->argumentTypes.cbegin();
-            str << (*ai)->to_string(true);
+            str << (*ai)->str(true);
             for (ai++; ai != this->argumentTypes.cend(); ai++)
-                str << ", " << (*ai)->to_string(true);
+                str << ", " << (*ai)->str(true);
         }
         str << ")";
         if (this->returnType)
-            str << " -> " << this->returnType->to_string(true);
+            str << " -> " << this->returnType->str(true);
     }
 };
 
@@ -252,7 +252,7 @@ protected:
                                                const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (auto tupleBaseType = dynamic_cast<const TxTupleType*>(baseTypeSpec.type))
             return new TxTupleType(declaration, baseTypeSpec, interfaces, tupleBaseType->_mutable);
-        throw std::logic_error("Specified a base type for TxTupleType that was not a TxTupleType: " + baseTypeSpec.type->to_string());
+        throw std::logic_error("Specified a base type for TxTupleType that was not a TxTupleType: " + baseTypeSpec.type->str());
     };
 
 public:
@@ -285,7 +285,7 @@ protected:
                                                    const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (dynamic_cast<const TxInterfaceType*>(baseTypeSpec.type))
             return new TxInterfaceType(declaration, baseTypeSpec, interfaces);
-        throw std::logic_error("Specified a base type for TxInterfaceType that was not a TxInterfaceType: " + baseTypeSpec.type->to_string());
+        throw std::logic_error("Specified a base type for TxInterfaceType that was not a TxInterfaceType: " + baseTypeSpec.type->str());
     };
 
 public:
@@ -323,7 +323,7 @@ protected:
         // Note: Only 'modifiable' and perhaps reference target binding is allowed.
         if (dynamic_cast<const TxInterfaceAdapterType*>(baseTypeSpec.type))
             return new TxInterfaceAdapterType(declaration, baseTypeSpec, interfaces, this->adaptedType);
-        throw std::logic_error("Specified a base type for TxInterfaceAdapterType that was not a TxInterfaceAdapterType: " + baseTypeSpec.type->to_string());
+        throw std::logic_error("Specified a base type for TxInterfaceAdapterType that was not a TxInterfaceAdapterType: " + baseTypeSpec.type->str());
     }
 
 public:

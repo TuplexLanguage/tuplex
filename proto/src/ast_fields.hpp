@@ -15,27 +15,27 @@ protected:
 
 public:
     TxExpressionNode* baseExpr;
-    const std::string symbolName;
+    const TxIdentifier* symbolName;
 
     /** Creates a new TxFieldValueNode.
      * @param base is the base expression (preceding expression adjoined with the '.' operator), or NULL if none
      * @param member is the specified literal field name
      */
-    TxFieldValueNode(const TxLocation& parseLocation, TxExpressionNode* base, const std::string& memberName)
-        : TxExpressionNode(parseLocation), baseExpr(base), symbolName(memberName) {
+    TxFieldValueNode( const TxLocation& parseLocation, TxExpressionNode* base, const std::string& memberName )
+        : TxExpressionNode(parseLocation), baseExpr(base), symbolName( new TxIdentifier( memberName ) ) {
     }
 
     virtual TxFieldValueNode* make_ast_copy() const override {
-        return new TxFieldValueNode( this->parseLocation, ( this->baseExpr ? this->baseExpr->make_ast_copy() : nullptr ), this->symbolName );
+        return new TxFieldValueNode( this->parseLocation, ( this->baseExpr ? this->baseExpr->make_ast_copy() : nullptr ), this->symbolName->str() );
     }
 
     /** Returns the full identifier (dot-separated full name) as specified in the program text,
      * up to and including this name. */
     TxIdentifier get_full_identifier() const {
         if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr))
-            return TxIdentifier(baseSymbolNode->get_full_identifier(), this->symbolName);
+            return TxIdentifier(baseSymbolNode->get_full_identifier(), this->symbolName->str());
         else
-            return TxIdentifier(this->symbolName);
+            return *this->symbolName;
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
@@ -54,10 +54,10 @@ public:
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        this->LOGGER().trace("Getting static constant proxy for field %s", this->symbolName.c_str());
+        this->LOGGER().trace("Getting static constant proxy for field %s", this->symbolName->c_str());
         if (auto field = this->get_field())
             if (auto constProxy = field->get_static_constant_proxy()) {
-                this->LOGGER().debug("Returning static constant proxy for field %s", field->get_symbol()->get_full_name().to_string().c_str());
+                this->LOGGER().debug("Returning static constant proxy for field %s", field->get_symbol()->get_full_name().str().c_str());
                 return constProxy;
             }
         return nullptr;
@@ -85,4 +85,6 @@ public:
         if (this->baseExpr)
             this->baseExpr->visit_ast( visitor, thisAsParent, "base", context );
     }
+
+    virtual const TxIdentifier* get_identifier() const override { return this->symbolName; }
 };

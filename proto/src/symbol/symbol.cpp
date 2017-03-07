@@ -50,7 +50,7 @@ TxScopeSymbol* TxScopeSymbol::create_code_block_scope( const TxParseOrigin& orig
     //scope->inExpErrBlock |= isExpErrBlock;
     bool success = this->declare_symbol(origin, scope);
     ASSERT(success, "failed to insert duplicate subscope name '" << baseName << "." << uniqueName << "'");
-    this->LOGGER().trace("-->            %s", scope->get_full_name().to_string().c_str());
+    this->LOGGER().trace("-->            %s", scope->get_full_name().str().c_str());
     return scope;
 }
 
@@ -180,7 +180,7 @@ TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName, TxNo
     else {
         entitySymbol = new TxEntitySymbol(this, plainName);
         this->declare_symbol( *definingNode, entitySymbol );
-        this->LOGGER().trace("    Declared   %s", entitySymbol->to_string().c_str());
+        this->LOGGER().trace("    Declared   %s", entitySymbol->str().c_str());
 
         // register possible main() function:
         if (plainName == "main") {
@@ -236,7 +236,7 @@ void TxScopeSymbol::dump_symbols() const {
         if (auto submod = dynamic_cast<const TxModule*>(symbol))
             subModules.push_back(submod);
         else if (this->get_full_name() != builtinNamespace || this->get_root_scope()->driver().get_options().dump_tx_symbols) {
-            printf("%-14s %-48s %s\n", symbol->declaration_string().c_str(), symbol->get_full_name().to_string().c_str(),
+            printf("%-14s %-48s %s\n", symbol->declaration_string().c_str(), symbol->get_full_name().str().c_str(),
                    symbol->description_string().c_str());
             symbol->dump_symbols();
         }
@@ -254,7 +254,7 @@ void TxScopeSymbol::dump_symbols() const {
 /*=== TxEntitySymbol implementation ===*/
 
 TxEntityDeclaration* TxEntitySymbol::get_distinct_decl() const {
-    ASSERT(!this->is_overloaded(), "Can't get 'distinct' declaration of an overloaded entity: " << this->to_string());
+    ASSERT(!this->is_overloaded(), "Can't get 'distinct' declaration of an overloaded entity: " << this->str());
     if (this->typeDeclaration)
         return this->typeDeclaration;
     else
@@ -305,7 +305,7 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
                             if (auto thisType = thisDecl->get_definer()->get_type()) {
                                 if (auto bindingDecl = thisType->lookup_param_binding(hashedDecl)) {
                                     this->LOGGER().debug("Resolved %-16s = %-16s to binding\t%s", name.c_str(),
-                                                         hashedSym->get_full_name().to_string().c_str(), bindingDecl->to_string().c_str());
+                                                         hashedSym->get_full_name().str().c_str(), bindingDecl->str().c_str());
                                     return bindingDecl->get_symbol();
                                 }
                             }
@@ -326,7 +326,7 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
                 return member;
         }
         else
-            this->LOGGER().warning("Type not resolved of %s", this->to_string().c_str());
+            this->LOGGER().warning("Type not resolved of %s", this->str().c_str());
     }
     return nullptr;
 }
@@ -339,7 +339,7 @@ void TxEntitySymbol::dump_symbols() const {
         for (auto fieldDecl : this->fieldDeclarations) {
             printf("%-11s %-48s FIELD  %s\n", ::to_string(fieldDecl->get_decl_flags()).c_str(),
                    fieldDecl->get_unique_full_name().c_str(),
-                   fieldDecl->get_definer()->get_type()->to_string().c_str());
+                   fieldDecl->get_definer()->get_type()->str().c_str());
         }
     }
 }
@@ -361,9 +361,9 @@ std::string TxEntitySymbol::description_string() const {
     else if (this->typeDeclaration)  // non-overloaded type name
         if (auto type = this->typeDeclaration->get_definer()->attempt_get_type()) {
             if (auto typeExpr = dynamic_cast<TxTypeExpressionNode*>( this->typeDeclaration->get_definer() ))
-                return "\tTYPE      ( " + typeExpr->get_auto_type_name() + " )  " + type->to_string(false, true);
+                return "\tTYPE      ( " + typeExpr->get_auto_type_name() + " )  " + type->str(false, true);
             else
-                return "\tTYPE      NOT A TYPE EXPRESSION NODE!  " + type->to_string(false, true);
+                return "\tTYPE      NOT A TYPE EXPRESSION NODE!  " + type->str(false, true);
         }
         else
             return "\tTYPE      -undef-";
@@ -374,7 +374,7 @@ std::string TxEntitySymbol::description_string() const {
                 if (! (field->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_GENBINDING)))
                     storageIx = field->get_decl_storage_index();
                 std::string storageIxString = ( storageIx >= 0 ? std::string("[") + std::to_string(storageIx) + "] " : std::string("    ") );
-                return "\tFIELD " + storageIxString + type->to_string(true);
+                return "\tFIELD " + storageIxString + type->str(true);
             }
         }
         return "\tFIELD     -undef-";
@@ -465,7 +465,7 @@ TxFieldDeclaration* lookup_field( TxScopeSymbol* vantageScope, const TxIdentifie
         if (entitySymbol->field_count() == 1)
             return entitySymbol->get_first_field_decl();
         if (entitySymbol->field_count() > 1)
-            entitySymbol->LOGGER().note("%s must be matched using type parameters", entitySymbol->to_string().c_str());
+            entitySymbol->LOGGER().note("%s must be matched using type parameters", entitySymbol->str().c_str());
     }
     return nullptr;
 }

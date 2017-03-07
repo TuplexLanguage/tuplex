@@ -9,7 +9,7 @@ protected:
                                               const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (dynamic_cast<const TxBoolType*>(baseTypeSpec.type))
             return new TxBoolType(declaration, baseTypeSpec);
-        throw std::logic_error("Specified a base type for TxBoolType that was not a TxBoolType: " + baseTypeSpec.type->to_string());
+        throw std::logic_error("Specified a base type for TxBoolType that was not a TxBoolType: " + baseTypeSpec.type->str());
     };
 
 public:
@@ -51,7 +51,7 @@ protected:
                                                  const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (const TxIntegerType* intType = dynamic_cast<const TxIntegerType*>(baseTypeSpec.type))
             return new TxIntegerType(declaration, baseTypeSpec, intType->size(), intType->sign);
-        throw std::logic_error("Specified a base type for TxIntegerType that was not a TxIntegerType: " + baseTypeSpec.type->to_string());
+        throw std::logic_error("Specified a base type for TxIntegerType that was not a TxIntegerType: " + baseTypeSpec.type->str());
     };
 
     TxIntegerType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, int size, bool sign)
@@ -91,7 +91,7 @@ protected:
                                                   const std::vector<TxTypeSpecialization>& interfaces) const override {
         if (const TxFloatingType* floatType = dynamic_cast<const TxFloatingType*>(baseTypeSpec.type))
             return new TxFloatingType(declaration, baseTypeSpec, floatType->size());
-        throw std::logic_error("Specified a base type for TxFloatingType that was not a TxFloatingType: " + baseTypeSpec.type->to_string());
+        throw std::logic_error("Specified a base type for TxFloatingType that was not a TxFloatingType: " + baseTypeSpec.type->str());
     };
 
     TxFloatingType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, int size)

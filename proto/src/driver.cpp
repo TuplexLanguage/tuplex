@@ -169,14 +169,14 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
         auto visitor = []( const TxNode* node, const AstParent& parent, const std::string& role, void* ctx ) {
             char buf[256];
             snprintf( buf, 256, "%*s%s", parent.depth*2, "", role.c_str() );
-            printf( "%-40s %s\n", buf, node->to_string().c_str() );
+            printf( "%-50s %s\n", buf, node->str().c_str() );
             //std::cout << std::string( parent.depth*2, ' ' ) << role << " " << node->to_string() << std::endl;
         };
 
         for (auto parserContext : this->parsedASTs) {
-            std::cout << "AST DUMP FOR '" << parserContext->to_string() << "':\n";
+            std::cout << "AST DUMP " << parserContext << ":" << std::endl;
             parserContext->parsingUnit->visit_ast( visitor, nullptr );
-            std::cout << "END AST DUMP\n";
+            std::cout << "END AST DUMP " << parserContext << std::endl;
         }
     }
 
@@ -218,15 +218,15 @@ inline bool ends_with(const std::string& str, const std::string& tail) {
 
 bool TxDriver::add_import(const TxIdentifier& moduleName) {
     if (this->package->lookup_module(moduleName)) {
-        this->LOG.debug("Skipping import of previously imported module: %s", moduleName.to_string().c_str());
+        this->LOG.debug("Skipping import of previously imported module: %s", moduleName.str().c_str());
         return true;
     }
     if (moduleName.begins_with( BUILTIN_NS )) {  // so we won't search for built-in modules' sources
-        this->LOG.debug("Skipping import of built-in namespace: %s", moduleName.to_string().c_str());
+        this->LOG.debug("Skipping import of built-in namespace: %s", moduleName.str().c_str());
         return true;
     }
     // TODO: guard against or handle circular imports
-    const std::string moduleFileName = moduleName.to_string() + ".tx";
+    const std::string moduleFileName = moduleName.str() + ".tx";
     for (auto pathItem : this->options.sourceSearchPaths) {
         if (file_status(pathItem) == 2) {
             // path item exists and is a directory
@@ -287,7 +287,7 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
 
     // first generate non-local fields in usage order (instead of lexical order):
     for (auto fieldDeclNode : this->usageOrderedNonlocalFieldDecls) {
-        LOG.note("Pre-generating code for non-local field: %s", fieldDeclNode->get_declaration()->to_string().c_str());
+        LOG.note("Pre-generating code for non-local field: %s", fieldDeclNode->get_declaration()->str().c_str());
         genContext.generate_code( fieldDeclNode );
     }
 
@@ -299,9 +299,9 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
     // generate the code for the type specializations that are defined by reinterpreted source:
     for (auto specNode : this->package->types().get_enqueued_specializations()) {
         if (!specNode->get_declaration())
-            LOG.info("Generating code for enqueued specialization without declaration: %s", specNode->to_string().c_str());
+            LOG.info("Generating code for enqueued specialization without declaration: %s", specNode->str().c_str());
         else
-            LOG.info("Generating code for enqueued specialization: %s", specNode->get_declaration()->to_string().c_str());
+            LOG.info("Generating code for enqueued specialization: %s", specNode->get_declaration()->str().c_str());
         genContext.generate_code( specNode );
     }
 
@@ -312,7 +312,7 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
         auto funcField = funcDecl->get_definer()->resolve_field();
         if (auto funcType = dynamic_cast<const TxFunctionType*>(funcField->get_type())) {
             if ( funcType->returnType && ! funcType->returnType->is_a( *this->package->types().get_builtin_type(INTEGER) ) )
-                this->LOG.error("main() method had invalid return type: %s", funcType->returnType->to_string().c_str());
+                this->LOG.error("main() method had invalid return type: %s", funcType->returnType->str().c_str());
             else if ((mainGenerated = genContext.generate_main(funcDecl->get_unique_full_name(), funcType)))
                 this->LOG.debug("Created program entry for user method %s", funcDecl->get_unique_full_name().c_str());
         }
@@ -371,7 +371,7 @@ static Logger& CLOG = Logger::get("COMPILER");
 
 
 bool TxParserContext::validate_module_name( const TxParseOrigin* origin, const TxIdentifier* moduleName ) {
-    if (moduleName->to_string() == LOCAL_NS) {
+    if (moduleName->str() == LOCAL_NS) {
         if (! this->_driver.parsedSourceFiles.empty()) {
             this->cerror(origin, "Only the first source file may have unspecified module name (implicit module " + std::string(LOCAL_NS) + ")");
             return false;
@@ -379,8 +379,8 @@ bool TxParserContext::validate_module_name( const TxParseOrigin* origin, const T
     }
     auto res = moduleName->begins_with(this->_moduleName);
     if (! res)
-        this->cerror(origin, "Source contains module '" + moduleName->to_string() + "', not '"
-                     + this->_moduleName.to_string() + "' as expected.");
+        this->cerror(origin, "Source contains module '" + moduleName->str() + "', not '"
+                     + this->_moduleName.str() + "' as expected.");
     return res;
 }
 
@@ -479,6 +479,6 @@ void TxParserContext::cinfo(const TxLocation& loc, const std::string& msg) {
 }
 
 
-std::string TxParserContext::to_string() const {
-    return ( this->_moduleName.is_empty() ? *this->current_input_filepath() : this->_moduleName.to_string() );
+std::string TxParserContext::str() const {
+    return std::string("ParserContext file '") + *this->current_input_filepath() + "'";
 }

@@ -52,7 +52,7 @@ Function* TxLambdaExprNode::code_gen_forward_decl( LlvmGenerationContext& contex
     else
         funcName = "$func";  // anonymous function
 
-    context.LOG.trace("%-48s  Generating function declaration for %s", this->to_string().c_str(), funcName.c_str());
+    context.LOG.trace("%-48s  Generating function declaration for %s", this->str().c_str(), funcName.c_str());
 
     //FunctionType *ftype = cast<FunctionType>(context.get_llvm_type(this->funcTypeNode->get_type()));
     StructType *lambdaT = cast<StructType>(context.get_llvm_type(this->funcTypeNode->get_type()));
@@ -69,7 +69,7 @@ Function* TxLambdaExprNode::code_gen_forward_decl( LlvmGenerationContext& contex
 Value* TxLambdaExprNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     Function* function = this->code_gen_forward_decl( context, scope );
     ASSERT(function, "NULL function pointer in " << this);
-    context.LOG.trace("%-48s  Generating function body for %s", this->to_string().c_str(), function->getName());
+    context.LOG.trace("%-48s  Generating function body for %s", this->str().c_str(), function->getName());
 
     // FUTURE: if this is a lambda within a code-block, define the implicit closure object here
 
@@ -123,7 +123,7 @@ Value* TxLambdaExprNode::code_gen( LlvmGenerationContext& context, GenScope* sco
 
 
 Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     if (this->field->typeExpression)
         this->field->typeExpression->code_gen(context, scope);
     auto declaration = this->field->get_declaration();
@@ -158,13 +158,13 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
 }
 
 Value* TxTypeStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     return this->typeDecl->code_gen(context, scope);
 }
 
 
 Value* TxAssignStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     auto rval = this->rvalue->code_gen(context, scope);
     auto lval = this->lvalue->code_gen(context, scope);
     if ((! lval) || (! rval))
@@ -178,7 +178,7 @@ Value* TxAssignStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 
 
 Value* TxAssertStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     if (context.tuplexPackage.driver().get_options().suppress_asserts)
         return nullptr;
     else
@@ -188,7 +188,7 @@ Value* TxAssertStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 
 
 Value* TxSuiteNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
 
 //    auto parentFunc = scope->builder->GetInsertBlock()->getParent();
 //    BasicBlock* suiteBlock = BasicBlock::Create(context.llvmContext,  "suite", parentFunc);
@@ -201,12 +201,12 @@ Value* TxSuiteNode::code_gen(LlvmGenerationContext& context, GenScope* scope) co
 }
 
 Value* TxElseClauseNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     return this->body->code_gen(context, scope);
 }
 
 Value* TxIfStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
 
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
     BasicBlock* trueBlock = BasicBlock::Create(context.llvmContext, "if_true", parentFunc);
@@ -244,7 +244,7 @@ Value* TxIfStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) c
 }
 
 Value* TxWhileStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
 
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
     BasicBlock* condBlock = BasicBlock::Create(context.llvmContext, "while_cond", parentFunc);
@@ -288,12 +288,12 @@ Value* TxWhileStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
 }
 
 Value* TxCallStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     return this->call->code_gen(context, scope);
 }
 
 Value* TxReturnStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     if (this->expr) {
         auto exprV = this->expr->code_gen(context, scope);
         if (! exprV)
@@ -318,11 +318,11 @@ Value* TxReturnStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 }
 
 Value* TxBreakStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     return scope->builder->CreateBr(scope->compStmtStack.top()->breakBlock);
 }
 
 Value* TxContinueStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->to_string().c_str());
+    context.LOG.trace("%-48s", this->str().c_str());
     return scope->builder->CreateBr(scope->compStmtStack.top()->continueBlock);
 }

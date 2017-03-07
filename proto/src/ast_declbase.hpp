@@ -198,7 +198,7 @@ class TxFieldDefNode : public TxFieldDefiningNode {
 
 protected:
     virtual const TxType* define_type() override {
-        LOGGER().trace("defining  type  of %s", this->to_string().c_str());
+        LOGGER().trace("defining  type  of %s", this->str().c_str());
         const TxType* type;
         if (this->typeExpression) {
             type = this->typeExpression->resolve_type();
@@ -223,7 +223,7 @@ protected:
     }
 
     virtual const TxField* define_field() override {
-        LOGGER().trace("defining  field of %s", this->to_string().c_str());
+        LOGGER().trace("defining  field of %s", this->str().c_str());
         ASSERT(this->attempt_get_type(), "Expected non-NULL type in " << this);
         if (this->declaration) {
             if (auto field = TxField::make_field( this->declaration, this->attempt_get_type() )) {
@@ -257,14 +257,14 @@ public:
     virtual TxFieldDefNode* make_ast_copy() const override {
         TxTypeExpressionNode* typeExpr = ( this->typeExpression ? this->typeExpression->make_ast_copy() : nullptr );
         TxExpressionNode*     initExpr = ( this->initExpression ? this->initExpression->originalExpr->make_ast_copy() : nullptr );
-        return new TxFieldDefNode( this->parseLocation, this->fieldName->to_string(), typeExpr, initExpr, this->modifiable );
+        return new TxFieldDefNode( this->parseLocation, this->fieldName->str(), typeExpr, initExpr, this->modifiable );
     }
 
     void symbol_declaration_pass_local_field( LexicalContext& lexContext, bool create_local_scope, TxDeclarationFlags declFlags=TXD_NONE ) {
         LexicalContext outerCtx(lexContext);  // prevents init expr from referring to this field
         if (create_local_scope)
             lexContext.scope( lexContext.scope()->create_code_block_scope( *this ) );
-        this->declName = this->fieldName->to_string();
+        this->declName = this->fieldName->str();
         this->declaration = lexContext.scope()->declare_field(this->declName, this, declFlags, TXS_STACK, TxIdentifier(""));
         this->symbol_declaration_pass( outerCtx, lexContext, declFlags);
     }
@@ -274,7 +274,7 @@ public:
         this->fieldDeclNode = fieldDeclNode;  // enables support for usage-order code generation of non-local fields
         TxDeclarationFlags fieldFlags = declFlags;
         if (*this->fieldName != "self")
-            this->declName = this->fieldName->to_string();
+            this->declName = this->fieldName->str();
         else {
             // handle constructor declaration
             this->declName = "$init";
@@ -339,7 +339,7 @@ public:
 
     /** Gets the plain name of this field as stated in the source text. */
     virtual const std::string get_source_name() const {
-        return this->fieldName->to_string();
+        return this->fieldName->str();
     }
 
     /** Gets the plain name of this field as actually declared in the symbol table. */
@@ -418,7 +418,7 @@ public:
     }
 
     virtual TxTypeDeclNode* make_ast_copy() const override {
-        return new TxTypeDeclNode( this->parseLocation, this->declFlags, this->typeName->to_string(),
+        return new TxTypeDeclNode( this->parseLocation, this->declFlags, this->typeName->str(),
                                    make_node_vec_copy( this->typeParamDecls ),
                                    this->typeExpression->make_ast_copy(), this->interfaceKW);
     }

@@ -33,7 +33,7 @@ void TypeRegistry::enqueued_resolution_pass() {
     for (unsigned i = 0; i != this->enqueuedSpecializations.size(); i++) {
         //std::cerr << "Nof enqueued specializations: " << this->enqueuedSpecializations.size() << std::endl;
         auto specDecl = this->enqueuedSpecializations.at(i);
-        this->package.LOGGER().debug("Resolving enqueued specialization: %s", specDecl->to_string().c_str());
+        this->package.LOGGER().debug("Resolving enqueued specialization: %s", specDecl->str().c_str());
         specDecl->symbol_resolution_pass();
     }
 }
@@ -108,7 +108,7 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
                     //std::cerr << "existing: " << existingType << "  new: " << type << std::endl;
                 }
             }
-            type->LOGGER().warning("Name collision when trying to declare implicit MOD type, preexisting symbol: %s", entitySymbol->to_string().c_str());
+            type->LOGGER().warning("Name collision when trying to declare implicit MOD type, preexisting symbol: %s", entitySymbol->str().c_str());
             name = scope->make_unique_name(name);
         }
 
@@ -201,7 +201,7 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
             break;
         }
         if (matchOK) {
-            baseScope->LOGGER().debug("new specialization equal to the generic base type, reusing: %s", baseType->to_string().c_str());
+            baseScope->LOGGER().debug("new specialization equal to the generic base type, reusing: %s", baseType->str().c_str());
             return baseType;
         }
     }
@@ -231,7 +231,7 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
                                 //    std::cerr << "BINDING MISMATCH: " << membType << " != " << binding.type_definer().get_type() << std::endl;
                             }
                             else
-                                baseScope->LOGGER().warning("NULL type for member symbol %s", existingBinding->get_symbol()->to_string().c_str());
+                                baseScope->LOGGER().warning("NULL type for member symbol %s", existingBinding->get_symbol()->str().c_str());
                         }
                         else {  // MetaType::TXB_VALUE
                             // (For now, statically constant VALUE specializations with diff. values don't share the same static type.)
@@ -258,11 +258,11 @@ static const TxType* get_existing_type(const TxType* baseType, const std::vector
                     break;
                 }
                 if (matchOK) {
-                    baseScope->LOGGER().debug("new specialization equal to preexisting one, reusing: %s", existingBaseType->to_string().c_str());
+                    baseScope->LOGGER().debug("new specialization equal to preexisting one, reusing: %s", existingBaseType->str().c_str());
                     return existingBaseType;
                 }
             }
-            baseScope->LOGGER().warning("Found existing but mismatching type with sought name: %s", typeDecl->to_string().c_str());
+            baseScope->LOGGER().warning("Found existing but mismatching type with sought name: %s", typeDecl->str().c_str());
         }
     }
     return nullptr;
@@ -315,7 +315,7 @@ const TxType* TypeRegistry::get_type_specialization( const TxTypeDefiningNode* d
     // re-base the new type on new non-generic specialization of the base type:
     // (this replaces the type parameter bindings with direct declarations within the new type)
     this->package.LOGGER().debug("Re-basing non-parameterized type %s by specializing its parameterized base type %s",
-                                 (declaration ? declaration->get_unique_full_name().c_str() : "--"), baseType->to_string().c_str());
+                                 (declaration ? declaration->get_unique_full_name().c_str() : "--"), baseType->str().c_str());
 
     auto baseDecl = baseType->get_declaration();
     ASSERT(baseDecl, "base type has no declaration: " << baseType);
@@ -377,7 +377,7 @@ const TxType* TypeRegistry::get_type_specialization( const TxTypeDefiningNode* d
             else
                 newBindings.emplace_back( binding );
             package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
-                                   binding.param_name().c_str(), btype->to_string().c_str());
+                                   binding.param_name().c_str(), btype->str().c_str());
         }
         else {
             // implementation note: binding's value expression not necessarily 'resolved' at this point
@@ -395,7 +395,7 @@ const TxType* TypeRegistry::get_type_specialization( const TxTypeDefiningNode* d
                                                                           TXD_GENBINDING, paramDecl, &binding.value_definer() ) );
             newBindings.emplace_back(binding);
             package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
-                                   binding.param_name().c_str(), binding.value_definer().to_string().c_str());
+                                   binding.param_name().c_str(), binding.value_definer().str().c_str());
         }
     }
     newBaseTypeName << ">";
