@@ -199,14 +199,6 @@ void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& defContext, 
 }
 
 
-TxGenericBinding TxTypeTypeArgumentNode::make_binding( const std::string& paramName ) {
-    return TxGenericBinding::make_type_binding( paramName, this->typeExprNode );
-}
-
-TxGenericBinding TxValueTypeArgumentNode::make_binding( const std::string& paramName ) {
-    return TxGenericBinding::make_value_binding( paramName, this->valueExprNode );
-}
-
 
 const TxType* TxIdentifiedTypeNode::define_identified_type() {
     if (auto identifiedTypeDecl = lookup_type(this->context().scope(), *this->ident)) {
@@ -228,16 +220,9 @@ const TxType* TxGenSpecTypeNode::define_generic_specialization_type() {
         CERROR(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
         return nullptr;
     }
-    if (baseType->type_params().size() < this->typeArgs->size()) {
-        CERROR(this, "Too many generic type arguments specified for type " << this->ident);
-        return nullptr;
-    }
-    auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
-    std::vector<TxGenericBinding> bindings;
-    for (size_t i = 0; i < this->typeArgs->size(); i++) {
-        bindings.push_back(this->typeArgs->at(i)->make_binding( baseType->type_params().at(i)->get_unique_name() ) );
-    }
-    return this->types().get_type_specialization( this, baseType, &bindings );
+    auto tmp = std::vector<const TxTypeArgumentNode*>( this->typeArgs->size() );
+    std::copy( this->typeArgs->cbegin(), this->typeArgs->cend(), tmp.begin() );
+    return this->types().get_type_specialization( this, baseType, &tmp );
 }
 
 

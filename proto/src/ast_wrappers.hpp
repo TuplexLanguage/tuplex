@@ -11,12 +11,12 @@
  * Only used for very special cases, currently only for $Self and $Super definitions.
  */
 class TxTypeExprWrapperNode : public TxTypeExpressionNode {
-    TxTypeExpressionNode* const typeExprNode;
+    TxTypeDefiningNode* const typeDefNode;
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override { }
 
     virtual const TxType* define_type() override {
-        auto type = this->typeExprNode->resolve_type();
+        auto type = this->typeDefNode->resolve_type();
         if (!type)
             return nullptr;
         else if (auto declEnt = this->get_declaration()) {
@@ -28,20 +28,22 @@ protected:
     }
 
 public:
-    TxTypeExprWrapperNode( TxTypeExpressionNode* typeExprNode )
-        : TxTypeExpressionNode( typeExprNode->parseLocation ), typeExprNode(typeExprNode)  { }
+    TxTypeExprWrapperNode( TxTypeDefiningNode* typeExprNode )
+        : TxTypeExpressionNode( typeExprNode->parseLocation ), typeDefNode(typeExprNode)  { }
 
     virtual TxTypeExprWrapperNode* make_ast_copy() const override {
         // since declaration and resolution passes aren't forwarded, the wrapped type definition doesn't need copying
-        return new TxTypeExprWrapperNode( this->typeExprNode );
+        return new TxTypeExprWrapperNode( this->typeDefNode );
     }
 
     virtual std::string get_auto_type_name() const override {
-        return this->typeExprNode->get_auto_type_name();
+        if (auto typeExpr = dynamic_cast<TxTypeExpressionNode*>( this->typeDefNode ))
+            return typeExpr->get_auto_type_name();
+        return "$typedefexpr";
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override {
-        return this->typeExprNode->code_gen( context, scope );
+        return this->typeDefNode->code_gen( context, scope );
     }
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {

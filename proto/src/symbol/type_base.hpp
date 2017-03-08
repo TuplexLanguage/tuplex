@@ -10,7 +10,6 @@
 #include "util/printable.hpp"
 
 #include "identifier.hpp"
-#include "generics.hpp"
 
 #include "type_visitor.hpp"
 #include "entity.hpp"

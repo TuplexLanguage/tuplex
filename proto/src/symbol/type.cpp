@@ -220,9 +220,6 @@ void TxType::initialize_type() {
                 if (pname[0] == '$')
                     pname = pname.substr(1);  // skip leading '$' for VALUE bindings
                 if (auto paramDecl = basetype->get_type_param_decl( pname )) {
-                    if (meta_type_of(bindingDecl) != meta_type_of(paramDecl))
-                        CERROR(bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " of wrong meta-type (TYPE vs VALUE)");
-
                     auto constraintType = paramDecl->get_definer()->resolve_type();
                     auto boundType = bindingDecl->get_definer()->resolve_type();
                     ASSERT(constraintType, "NULL constraint type for param " << paramDecl << " of " << basetype);
@@ -230,16 +227,22 @@ void TxType::initialize_type() {
                     //std::cerr << this << ": Constraint type for param " << paramDecl << ": " << "checking bound type "
                     //          << boundType << "\tagainst constraint type " << constraintType << std::endl;
 
-                    if (meta_type_of(bindingDecl) == MetaType::TXB_VALUE) {
-                        this->nonRefBindings = true;
-                    }
-                    else {  // TxTypeParam::MetaType::TXB_TYPE
+                    if (dynamic_cast<const TxTypeDeclaration*>(paramDecl)) {
+                        if (! dynamic_cast<const TxTypeDeclaration*>(bindingDecl))
+                            CERROR(bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " is not a type: " << bindingDecl);
+
                         if (! boundType->is_a(*constraintType))
-                            // TODO: do this also for TXB_VALUE, but array type expression needs auto-conversion support for that to work
+                            // TODO: do this also for VALUE params, but array type expression needs auto-conversion support for that to work
                             CERROR(bindingDecl->get_definer(), "Bound type " << boundType << " for type parameter " << paramDecl
                                                                << " is not a derivation of contraint type " << constraintType);
                         if (constraintType->get_type_class() != TXTC_REFERENCE)
                             this->nonRefBindings = true;
+                    }
+                    else {
+                        if (! dynamic_cast<const TxFieldDeclaration*>(bindingDecl))
+                            CERROR(bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " is not a field/value: " << bindingDecl);
+
+                        this->nonRefBindings = true;
                     }
                 }
                 else

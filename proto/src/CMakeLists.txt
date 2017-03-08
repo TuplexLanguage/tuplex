@@ -122,7 +122,6 @@ add_executable(txc
         driver.cpp
         main.cpp
         context.cpp
-        generics.cpp
         ast.cpp
         ast_conv.cpp
         ast_lit.cpp

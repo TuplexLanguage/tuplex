@@ -418,32 +418,32 @@ public:
 };
 
 
-class TxDefConstructorTypeDefNode final : public TxBuiltinTypeDefiningNode {  // TODO: WIP
-protected:
-    TxTypeExpressionNode* returnTypeNode;
-    TxExpressionNode* initExprNode;
-
-    virtual TxType* define_builtin_type() override {
-        // hackish but works since they don't really declare anything:
-        this->returnTypeNode->symbol_declaration_pass( this->context(), this->context(), nullptr );
-        this->initExprNode->symbol_declaration_pass( this->context() );
-
-        auto baseType = this->baseTypeNode->resolve_type();
-        auto returnType = this->returnTypeNode->resolve_type();
-        return new TxBuiltinDefaultConstructorType( this->get_declaration(), baseType, returnType, initExprNode );
-    }
-
-public:
-    TxDefConstructorTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
-                                 TxTypeExpressionNode* returnTypeNode, TxExpressionNode* initExprNode,
-                                 const std::vector<TxDeclarationNode*>& declNodes )
-        : TxBuiltinTypeDefiningNode( parseLocation, TXBTID_NOTSET, baseTypeNode, declNodes ), returnTypeNode( returnTypeNode ), initExprNode( initExprNode )  { }
-
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        this->returnTypeNode->visit_ast( visitor, thisAsParent, "returntype", context );
-        this->initExprNode->visit_ast( visitor, thisAsParent, "initializer", context );
-    }
-};
+//class TxDefConstructorTypeDefNode final : public TxBuiltinTypeDefiningNode {  // TODO: WIP
+//protected:
+//    TxTypeExpressionNode* returnTypeNode;
+//    TxExpressionNode* initExprNode;
+//
+//    virtual TxType* define_builtin_type() override {
+//        // hackish but works since they don't really declare anything:
+//        this->returnTypeNode->symbol_declaration_pass( this->context(), this->context(), nullptr );
+//        this->initExprNode->symbol_declaration_pass( this->context() );
+//
+//        auto baseType = this->baseTypeNode->resolve_type();
+//        auto returnType = this->returnTypeNode->resolve_type();
+//        return new TxBuiltinDefaultConstructorType( this->get_declaration(), baseType, returnType, initExprNode );
+//    }
+//
+//public:
+//    TxDefConstructorTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
+//                                 TxTypeExpressionNode* returnTypeNode, TxExpressionNode* initExprNode,
+//                                 const std::vector<TxDeclarationNode*>& declNodes )
+//        : TxBuiltinTypeDefiningNode( parseLocation, TXBTID_NOTSET, baseTypeNode, declNodes ), returnTypeNode( returnTypeNode ), initExprNode( initExprNode )  { }
+//
+//    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+//        this->returnTypeNode->visit_ast( visitor, thisAsParent, "returntype", context );
+//        this->initExprNode->visit_ast( visitor, thisAsParent, "initializer", context );
+//    }
+//};
 
 
 

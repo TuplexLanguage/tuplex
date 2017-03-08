@@ -42,6 +42,9 @@ class TxModule;
 class TxBuiltinTypeDeclNode;
 class TxTypeExpressionNode;
 class TxTypeDeclNode;
+class TxTypeArgumentNode;
+class TxTypeTypeArgumentNode;
+class TxValueTypeArgumentNode;
 
 
 extern std::string encode_type_name(const TxType* type);
@@ -114,7 +117,7 @@ public:
 
     /** Gets/makes a specialization of a generic base type. */
     const TxType* get_type_specialization( const TxTypeDefiningNode* definer, const TxType* baseType,
-                                           const std::vector<TxGenericBinding>* bindings );
+                                           const std::vector<const TxTypeArgumentNode*>* bindings );
 
     /** Makes a new derivation of a base type and a set of interfaces. */
     const TxType* get_type_derivation( const TxTypeExpressionNode* definer, const TxType* baseType,
@@ -123,11 +126,12 @@ public:
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
     const TxType* get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);
 
-    const TxReferenceType* get_reference_type( const TxTypeDefiningNode* definer, TxGenericBinding targetTypeBinding,
+    const TxReferenceType* get_reference_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* targetTypeBinding,
                                                const TxIdentifier* dataspace );
 
-    const TxArrayType* get_array_type( const TxTypeDefiningNode* definer, TxGenericBinding elemTypeBinding, TxGenericBinding lengthBinding );
-    const TxArrayType* get_array_type( const TxTypeDefiningNode* definer, TxGenericBinding elemTypeBinding );
+    const TxArrayType* get_array_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding,
+                                       const TxValueTypeArgumentNode* lengthBinding );
+    const TxArrayType* get_array_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding );
 
     // "mod" of function refers to whether functions of this type may modify its closure when run.
     // Note: "mod" of args not part of the function type (though concrete function may mod-ify its stack arg copies).

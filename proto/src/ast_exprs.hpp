@@ -127,10 +127,9 @@ public:
 class TxReferenceToNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type() override {
-//        auto implTypeName = this->context().scope()->make_unique_name("$type");
-//        TxDeclarationFlags tmpFlags = TXD_PUBLIC | TXD_IMPLICIT;
-//        auto typeDecl = this->context().scope()->declare_type(implTypeName, this, tmpFlags);
-        return this->types().get_reference_type( this, TxGenericBinding::make_type_binding("T", this->target), nullptr );
+        TxTypeExprWrapperNode* targetTypeExpr = new TxTypeExprWrapperNode( this->target );
+        TxTypeTypeArgumentNode* targetTypeNode = new TxTypeTypeArgumentNode( targetTypeExpr );
+        return this->types().get_reference_type( this, targetTypeNode, nullptr );
     }
 
 public:
@@ -604,7 +603,8 @@ protected:
 
     virtual const TxType* define_type() override {
         // new constructor returns the constructed object by reference
-        return this->types().get_reference_type( this, TxGenericBinding::make_type_binding("T", this->typeExpr), nullptr );
+        TxTypeTypeArgumentNode* targetTypeNode = new TxTypeTypeArgumentNode( this->typeExpr );
+        return this->types().get_reference_type( this, targetTypeNode, nullptr );
     }
 
 public:

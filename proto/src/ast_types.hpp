@@ -17,10 +17,6 @@ public:
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext ) = 0;
 
     virtual void symbol_resolution_pass() = 0;
-
-    /** Creates, registers and returns a newly created TxTypeBinding.
-     * To be called after symbol_declaration_pass() and before symbol_resolution_pass(). */
-    virtual TxGenericBinding make_binding( const std::string& paramName ) = 0;
 };
 
 
@@ -38,10 +34,6 @@ public:
     virtual std::string get_auto_type_name() const override {
         return this->typeExprNode->get_auto_type_name();
     }
-
-    /** Creates, registers and returns a newly created TxTypeBinding.
-     * To be called after symbol_declaration_pass() and before symbol_resolution_pass(). */
-    virtual TxGenericBinding make_binding( const std::string& paramName ) override;
 
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext ) override {
         this->set_context( lexContext );
@@ -81,10 +73,6 @@ public:
             // implementation note: a distinct compile time type is registered which holds this specific dynamic value expression
         }
     }
-
-    /** Creates, registers and returns a newly created TxTypeBinding.
-     * To be called after symbol_declaration_pass() and before symbol_resolution_pass(). */
-    virtual TxGenericBinding make_binding( const std::string& paramName ) override;
 
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext ) override {
         this->set_context( lexContext );
@@ -245,8 +233,7 @@ protected:
     virtual const TxType* define_type() override {
         auto baseType = this->types().get_builtin_type(REFERENCE);
         auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
-        TxGenericBinding binding = this->targetTypeNode->make_binding( "T" );
-        return this->types().get_reference_type( this, binding, this->dataspace );
+        return this->types().get_reference_type( this, targetTypeNode, this->dataspace );
     }
 
 public:
@@ -288,13 +275,10 @@ protected:
     virtual const TxType* define_type() override {
         auto baseType = this->types().get_builtin_type(ARRAY);
         auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
-        TxGenericBinding elementBinding = this->elementTypeNode->make_binding( "E" );
-        if (this->lengthNode) {
-            TxGenericBinding lengthBinding = this->lengthNode->make_binding( "L" );
-            return this->types().get_array_type( this, elementBinding, lengthBinding );
-        }
+        if (this->lengthNode)
+            return this->types().get_array_type( this, this->elementTypeNode, this->lengthNode );
         else
-            return this->types().get_array_type( this, elementBinding );
+            return this->types().get_array_type( this, this->elementTypeNode );
     }
 
 public:
