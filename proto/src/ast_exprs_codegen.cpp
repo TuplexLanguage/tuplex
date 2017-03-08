@@ -436,42 +436,47 @@ Value* TxDerefAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* s
 
 
 
-Value* TxFunctionCallNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
-    if (auto inlExp = this->inlinedExpression)
-        return inlExp->code_gen(context, scope);
-    else
-        return this->gen_call(context, scope);
-}
 
-Value* TxFunctionCallNode::gen_call(LlvmGenerationContext& context, GenScope* scope) const {
-    auto lambdaV = this->callee->code_gen(context, scope);
-    if (! lambdaV)
-        return nullptr;
-    //std::cout << "callee: " << lambdaV << std::endl;
-    auto functionPtrV = gen_get_struct_member(context, scope, lambdaV, 0);
-    auto closureRefV = gen_get_struct_member(context, scope, lambdaV, 1);
-    return this->gen_call(context, scope, functionPtrV, closureRefV);
-}
-
-Value* TxFunctionCallNode::gen_call(LlvmGenerationContext& context, GenScope* scope, Value* functionPtrV, Value* closureRefV) const {
+static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, Value* functionPtrV, Value* closureRefV,
+                        const std::string& exprLabel ) {
     std::vector<Value*> args;
     args.push_back(closureRefV);
-    for (auto argDef : *this->argsExprList) {
+    for (auto argDef : *node->argsExprList) {
         args.push_back(argDef->code_gen(context, scope));
     }
 
     context.LOG.debug("Creating function call '%s'", functionPtrV->getName().str().c_str());
-    // pick field's plain name, if available, for the expression value:
-    const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->get_source_name() : "";
     if (scope)
-        return scope->builder->CreateCall(functionPtrV, args, fieldName);
+        return scope->builder->CreateCall(functionPtrV, args, exprLabel);
     else {
         // FUTURE: support calling functions outside of code block (statically constant or instance initialization)
         context.LOG.error("calling functions outside of code block not currently supported");
         return nullptr;
     }
 }
+
+static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, const std::string& exprLabel ) {
+    auto lambdaV = node->callee->code_gen(context, scope);
+    if (! lambdaV)
+        return nullptr;
+    //std::cout << "callee: " << lambdaV << std::endl;
+    auto functionPtrV = gen_get_struct_member(context, scope, lambdaV, 0);
+    auto closureRefV = gen_get_struct_member(context, scope, lambdaV, 1);
+    return gen_call( node, context, scope, functionPtrV, closureRefV, exprLabel );
+}
+
+Value* TxFunctionCallNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+    context.LOG.trace("%-48s", this->str().c_str());
+    if (this->inlinedExpression)
+        return this->inlinedExpression->code_gen( context, scope );
+    else {
+        // pick field's plain name, if available, for the expression value:
+        const std::string fieldName = this->fieldDefNode ? this->fieldDefNode->get_source_name() : "";
+        return gen_call( this, context, scope, fieldName );
+    }
+}
+
+
 
 
 Value* TxConstructorCalleeExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
@@ -537,49 +542,40 @@ Value* TxStackAllocNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 }
 
 
-Value* TxMakeObjectNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    this->typeExpr->code_gen(context, scope);
-
-    Type* objT = context.get_llvm_type(this->get_object_type());
-    if (!objT)
-        return nullptr;
+Value* TxNewConstructionNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    // new constructor returns the constructed object by reference
+    context.LOG.trace("%-48s", this->str().c_str());
 
     Value* objAllocV = static_cast<TxConstructorCalleeExprNode*>( this->constructorCall->callee )->gen_obj_ptr(context, scope);
-
     // initialize the object
-    if (auto inlExp = this->inlinedExpression) {
-        auto initValue = inlExp->code_gen(context, scope);
+    if (this->initializationExpression) {
+        auto initValue = this->initializationExpression->code_gen(context, scope);
         ASSERT(scope, "new expression not supported in global/static scope: " << this->parse_loc_string());
         scope->builder->CreateStore(initValue, objAllocV);
     }
     else {
         this->constructorCall->code_gen(context, scope);
     }
-    return objAllocV;
-}
 
-Value* TxNewExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    // new constructor returns the constructed object by reference
-    context.LOG.trace("%-48s", this->str().c_str());
     Type* objRefT = context.get_llvm_type(this->get_type());
     if (!objRefT)
         return nullptr;
-    Value* objAllocV = TxMakeObjectNode::code_gen(context, scope);
     Constant* objTypeIdV = this->get_object_type()->gen_typeid(context, scope);
     auto objRefV = gen_ref(context, scope, objRefT, objAllocV, objTypeIdV);
     return objRefV;
 }
 
-Value* TxStackConstructorNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxStackConstructionNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     // stack constructor returns the constructed object by value, not by reference
     context.LOG.trace("%-48s", this->str().c_str());
-    if (auto inlExp = this->inlinedExpression) {
+    if (this->initializationExpression) {
         // if inlined, the stack constructor doesn't need to actually allocate storage on stack
         // (the receiver of this expression value might do this, if it needs to)
-        return inlExp->code_gen(context, scope);
+        return this->initializationExpression->code_gen(context, scope);
     }
     else {
-        auto objAllocV = TxMakeObjectNode::code_gen(context, scope);
+        Value* objAllocV = static_cast<TxConstructorCalleeExprNode*>( this->constructorCall->callee )->gen_obj_ptr(context, scope);
+        this->constructorCall->code_gen(context, scope);
         return objAllocV;
     }
 }

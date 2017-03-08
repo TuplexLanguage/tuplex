@@ -634,16 +634,30 @@ const TxType* TxConstructorCalleeExprNode::define_type() {
 }
 
 
-void TxFunctionCallNode::prepare_self_super_invocations() {
+TxFunctionCallNode::TxFunctionCallNode(const TxLocation& parseLocation, TxExpressionNode* callee, const std::vector<TxExpressionNode*>* argsExprList)
+        : TxExpressionNode(parseLocation), callee(callee), origArgsExprList(argsExprList), argsExprList( make_args_vec( argsExprList ) ) {
     if (auto fieldValueNode = dynamic_cast<TxFieldValueNode*>(this->callee)) {
         // handle direct constructor invocation - self() and super()
         auto identifier = fieldValueNode->get_full_identifier();
         if (identifier == "self" || identifier == "super") {
             auto objectDeref = new TxReferenceDerefNode(this->parseLocation, this->callee);
-            auto constructorCallee = new TxConstructorCalleeExprNode(this->parseLocation, objectDeref);
-            this->callee = constructorCallee;
+            this->callee = new TxConstructorCalleeExprNode(this->parseLocation, objectDeref);
             this->isSelfSuperConstructorInvocation = true;
         }
+    }
+}
+
+void TxFunctionCallNode::symbol_declaration_pass( LexicalContext& lexContext) {
+    this->set_context( lexContext);
+    this->callee->symbol_declaration_pass( lexContext);
+    for (auto argExpr : *this->argsExprList) {
+        argExpr->symbol_declaration_pass( lexContext);
+    }
+
+    if (this->isSelfSuperConstructorInvocation) {
+        if (! this->context().get_constructed())
+            CERROR(this, "self() / super() constructor may only be invoked from within the type's other constructors");
+        // TODO: shall only be legal as first statement within constructor body
     }
 }
 
@@ -676,42 +690,41 @@ const TxType* TxFunctionCallNode::define_type() {
 void TxFunctionCallNode::symbol_resolution_pass() {
     TxExpressionNode::symbol_resolution_pass();
 
-    if (auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>(this->funcType)) {
-        this->inlinedExpression = inlineCalleeType->make_inline_expr( this->callee, this->argsExprList );
-    }
-    else if (auto constructorType = dynamic_cast<const TxConstructorType*>(this->funcType)) {
-        if (this->isSelfSuperConstructorInvocation) {
-            if (! this->context().get_constructed())
-                CERROR(this, "self() / super() constructor may only be invoked from within the type's other constructors");
-            // TODO: shall only be legal as first statement within constructor body
-        }
-
-        // inline code for stack allocation and constructor invocation, which in turn will invoke this constructor
+    if (auto constructorType = dynamic_cast<const TxConstructorType*>(this->funcType)) {
+        // Stack construction syntactically looks like a function call, e.g. Int(42)
+        // If the callee is a constructor, we substitute this function call with a stack construction expression:
         if (! dynamic_cast<TxConstructorCalleeExprNode*>( this->callee )) {  // (prevents infinite recursion)
-            this->inlinedExpression = new TxStackConstructorNode( this, constructorType->get_constructed_type_decl() );
+            auto typeDeclNode = new TxTypeDeclWrapperNode( this->parseLocation, constructorType->get_constructed_type_decl() );
+            this->inlinedExpression = new TxStackConstructionNode( this->parseLocation, typeDeclNode, this->origArgsExprList );
             this->inlinedExpression->symbol_declaration_pass( this->context());
+            this->inlinedExpression->symbol_resolution_pass();
+            return;
         }
-    }
-
-    if (this->inlinedExpression) {
-        this->inlinedExpression->symbol_resolution_pass();
-        return;
     }
 
     // Verify matching function signature, and apply implicit conversions if needed:
-    if (auto funcType = dynamic_cast<const TxFunctionType*>(this->callee->resolve_type())) {
-        if (funcType->argumentTypes.size() != this->argsExprList->size()) {
-            CERROR(this, "Callee of function call expression has mismatching argument count: " << funcType);
+    if (this->funcType) {
+        if (this->funcType->argumentTypes.size() != this->argsExprList->size()) {
+            CERROR(this, "Callee of function call expression has mismatching argument count: " << this->funcType);
         }
         else {
             auto argExprI = this->argsExprList->begin();
-            for (auto argDefType : funcType->argumentTypes) {
+            for (auto argDefType : this->funcType->argumentTypes) {
                 // note: similar rules to assignment
                 // TODO: check dataspace rules if function arg is a reference
                 (*argExprI)->insert_conversion( argDefType );  // generates compilation error upon mismatch
                 argExprI++;
             }
         }
+    }
+
+    if (auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>(this->funcType)) {
+        this->inlinedExpression = inlineCalleeType->make_inline_expr( this->callee, this->argsExprList );
+    }
+
+    if (this->inlinedExpression) {
+        this->inlinedExpression->symbol_resolution_pass();
+        return;
     }
 
     callee->symbol_resolution_pass();

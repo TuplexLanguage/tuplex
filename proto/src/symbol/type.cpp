@@ -1031,7 +1031,5 @@ void TxInterfaceAdapterType::prepare_type_members() {
 
 TxExpressionNode* TxBuiltinConversionFunctionType::make_inline_expr( TxExpressionNode* calleeExpr,
                                                                      std::vector<TxMaybeConversionNode*>* argsExprList ) const {
-    argsExprList->front()->insert_conversion( this->returnType, true );
-    return argsExprList->front();
-    //return make_conversion( argsExprList->front(), this->returnType, true );
+    return make_conversion( argsExprList->front(), this->returnType, true );
 }

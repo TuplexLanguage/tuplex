@@ -47,24 +47,25 @@ public:
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
         std::string funcName = this->fieldDefNode ? this->fieldDefNode->get_declared_name() : "";
         LexicalContext funcLexContext( lexContext, lexContext.scope()->create_code_block_scope( *this, funcName ) );
-        this->set_context( funcLexContext);
 
         if (this->is_instance_method()) {
-            // insert implicit local field named 'self', that is a reference to the closure type
-            this->selfRefNode->symbol_declaration_pass_local_field( funcLexContext, false );
-            this->superRefNode->symbol_declaration_pass_local_field( funcLexContext, false );
-
             auto entitySym = dynamic_cast<TxEntitySymbol*>(lexContext.scope());
             if (entitySym && entitySym->get_type_decl()) {  // if in type scope
                 if (this->fieldDefNode->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR) {
+                    // this is a constructor
                     auto constructedObjTypeDecl = entitySym->get_type_decl();
                     funcLexContext.set_constructed(constructedObjTypeDecl);
                 }
             }
             else
                 CERROR(this, "The scope of an instance method must be a type scope");
+
+            this->selfRefNode->symbol_declaration_pass_local_field( funcLexContext, false );
+            this->superRefNode->symbol_declaration_pass_local_field( funcLexContext, false );
         }
         // FUTURE: define implicit closure object when in code block
+
+        this->set_context( funcLexContext);
 
         this->funcTypeNode->symbol_declaration_pass_func_header( funcLexContext );  // function header
         this->suite->symbol_declaration_pass_no_subscope( funcLexContext );  // function body

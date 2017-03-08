@@ -103,7 +103,24 @@ builtin_construction()->Int {
     heapVar^ = 2;
     assert heapVar^ == 2;
 
-    /*
+    stackVar := <Float>(2.71);
+    assert stackVar == 2.71;
+
+    ## default value initialization    
+    stackB := Bool();
+    heapB := new Bool();
+    stackI := Int();
+    heapI := new Int();
+    stackD := Double();
+    heapD := new Double();
+    assert !stackB;
+    assert !heapB^;
+    assert stackI == 0;
+    assert heapI^ == 0;
+    assert stackD == 0.0;
+    assert heapD^ == 0.0;
+
+    /* TODO: value initializer constructors for Ref and Array
     heapRef := <Ref<Scalar>>(heapVar);
     heapRef := <&Scalar>(heapVar);
     heapRef := new Ref<Scalar>(heapVar);

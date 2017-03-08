@@ -368,8 +368,8 @@ predef_type_list: predef_type  { $$ = new std::vector<TxTypeExpressionNode*>(); 
                 ;
 
 predef_type     : compound_identifier                      { $$ = new TxIdentifiedTypeNode(@1, $1); }
-                | compound_identifier LT GT                { $$ = new TxGenSpecializationTypeNode(@1, $1, new std::vector<TxTypeArgumentNode*>()); }
-                | compound_identifier LT type_arg_list GT  { $$ = new TxGenSpecializationTypeNode(@1, $1, $3); }
+                | compound_identifier LT GT                { $$ = new TxGenSpecTypeNode(@1, $1, new std::vector<TxTypeArgumentNode*>()); }
+                | compound_identifier LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@1, $1, $3); }
                 ;
 
 type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->push_back($1); }
@@ -518,8 +518,8 @@ value_literal
         // |       LIT_STRING    { $$ = new TxStringLitNode(@1, $1); }
     ;
 
-make_expr : KW_NEW type_expression call_params { $$ = new TxNewExprNode(@1, $2, $3); }
-          | LT type_expression GT call_params { $$ = new TxStackConstructorNode(@1, $2, $4); }
+make_expr : KW_NEW type_expression call_params { $$ = new TxNewConstructionNode(@1, $2, $3); }
+          | LT type_expression GT call_params { $$ = new TxStackConstructionNode(@1, $2, $4); }  // TODO: review syntax
 ;
 
 call_expr : expr call_params  { $$ = new TxFunctionCallNode(@1, $1, $2); }
