@@ -263,7 +263,7 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override final {
-        return this->get_declared_name();
+        return this->get_declaration()->get_unique_full_name();
     }
 
     virtual void symbol_resolution_pass() override {

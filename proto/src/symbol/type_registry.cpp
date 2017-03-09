@@ -142,10 +142,6 @@ const TxType* TypeRegistry::get_empty_specialization(const TxTypeDeclaration* de
 
 std::string encode_type_name(const TxType* type) {
     std::stringstream boundTypeName;
-    if (type->is_modifiable() && !type->get_declaration()) {
-        boundTypeName << "~";
-        type = type->get_base_type();
-    }
     ASSERT(type->get_declaration(), "Type does not have declaration: " << type);
     boundTypeName << hashify( type->get_declaration()->get_unique_full_name() );
     return boundTypeName.str();
@@ -334,7 +330,7 @@ const TxType* TypeRegistry::get_type_specialization( const TxTypeDefiningNode* d
         newDeclFlags = ( baseDecl->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT | TXD_EXPERRBLOCK;
     }
     else {
-        newBaseTypeName << "$" << baseDecl->get_unique_name() << "<";
+        newBaseTypeName << baseDecl->get_unique_name() << "<";
         newDeclFlags = ( baseDecl->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT;
     }
 
@@ -359,16 +355,21 @@ const TxType* TypeRegistry::get_type_specialization( const TxTypeDefiningNode* d
             auto btype = typeArg->typeExprNode->resolve_type();
             if (! btype)
                 return nullptr;  // specialization fails if a binding fails resolve
-            while (btype->is_empty_derivation()
-                    && ( (! btype->get_declaration())
-                         || (btype->get_declaration()->get_decl_flags() & (TXD_IMPLICIT | TXD_GENBINDING) ) ) ) {
-                // if no declaration or implicit declaration, or
-                // if binding refers to a previous binding (i.e. in surrounding scope), fold it
-                //std::cerr << "###### skipping bindingType to base type: " << btype << std::endl;
-                btype = btype->get_base_type();
-            }
+//            while ( btype->is_empty_derivation()
+//                    && ( btype->get_declaration()->get_decl_flags() & (TXD_IMPLICIT | TXD_GENBINDING) ) ) {
+//                // if implicit declaration or if binding refers to a previous binding (i.e. in surrounding scope), fold it
+//                std::cerr << "###### skipping bindingType to base type: " << btype << std::endl;
+//                btype = btype->get_base_type();
+//            }
 
-            newBaseTypeName << encode_type_name(btype);
+            auto encodedTypeName = encode_type_name(btype);
+//            auto autoTypeName = hashify( typeArg->typeExprNode->get_auto_type_name() );
+//            if (encodedTypeName != autoTypeName)
+//                std::cerr << "Diff bound type names, used: " << encodedTypeName << std::endl
+//                          << "                       auto: " << autoTypeName << std::endl;
+//            else
+//                std::cerr << "Same bound type names:       " << encodedTypeName << std::endl;
+            newBaseTypeName << encodedTypeName;
 
             bindingDeclNodes->push_back( make_type_type_param_decl_node( typeArg->get_parse_location(), paramName,
                                                                          TXD_GENBINDING, btype->get_declaration() ) );

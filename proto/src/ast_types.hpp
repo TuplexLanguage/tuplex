@@ -146,7 +146,7 @@ public:
 
     virtual std::string get_auto_type_name() const override {
         auto identifiedTypeDecl = lookup_type( this->context().scope(), *this->ident );
-        std::string name = ( identifiedTypeDecl ? hashify( identifiedTypeDecl->get_unique_full_name() ) : "$UNKNOWN" );
+        std::string name = ( identifiedTypeDecl ? identifiedTypeDecl->get_unique_full_name() : "$UNKNOWN" );
         int ix = 0;
         for (TxTypeArgumentNode* ta : *this->typeArgs) {
             name += ( (ix++ == 0) ? "<" : "," );
@@ -202,7 +202,7 @@ public:
 
     virtual std::string get_auto_type_name() const override {
         auto identifiedTypeDecl = lookup_type( this->context().scope(), *this->ident );
-        return ( identifiedTypeDecl ? hashify( identifiedTypeDecl->get_unique_full_name() ) : "$UNKNOWN" );
+        return ( identifiedTypeDecl ? identifiedTypeDecl->get_unique_full_name() : "$UNKNOWN" );
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -248,7 +248,7 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override {
-        return "Ref<" + this->targetTypeNode->get_auto_type_name() + ">";
+        return "tx.Ref<" + this->targetTypeNode->get_auto_type_name() + ">";
     }
 
     virtual void symbol_resolution_pass() override {
@@ -295,9 +295,9 @@ public:
 
     virtual std::string get_auto_type_name() const override {
         if (this->lengthNode)
-            return "Array<" + this->elementTypeNode->get_auto_type_name() + "," + this->lengthNode->get_auto_type_name() + ">";
+            return "tx.Array<" + this->elementTypeNode->get_auto_type_name() + "," + this->lengthNode->get_auto_type_name() + ">";
         else
-            return "Array<" + this->elementTypeNode->get_auto_type_name() + ">";
+            return "tx.Array<" + this->elementTypeNode->get_auto_type_name() + ">";
     }
 
     virtual void symbol_resolution_pass() override {
@@ -405,7 +405,7 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override {
-        return this->get_declaration()->get_unique_name();
+        return this->get_declaration()->get_unique_full_name();
     }
 
     virtual void symbol_resolution_pass() override {
@@ -467,7 +467,9 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override {
-        return "$Base";  // TODO: review
+        //std::cerr << "TxSuperTypeNode: " << this->context().scope()->get_full_name().str() << std::endl;
+        return this->context().scope()->get_full_name().str();  // the current scope name ends with $Super
+        // TODO: review
     }
 
     virtual void symbol_resolution_pass() override {
@@ -532,7 +534,7 @@ public:
 
     virtual std::string get_auto_type_name() const override {
         ASSERT(this->get_declaration(), "NULL declaration in TxFunctionTypeNode: " << this);
-        return this->get_declared_name();
+        return this->get_declaration()->get_unique_full_name();
     }
 
     void symbol_declaration_pass_func_header( LexicalContext& lexContext ) {
@@ -616,7 +618,16 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override {
-        return "~" + this->baseType->get_auto_type_name();
+        auto baseName = this->baseType->get_auto_type_name();
+        // prepend ~ to the unqualified name:
+        uint endOfIdent = baseName.find_first_of('<');
+        uint lastDot = baseName.find_last_of('.', endOfIdent);
+        if (lastDot == std::string::npos)
+            return "~" + baseName;
+        else {
+            baseName.insert(lastDot+1, 1, '~');
+            return baseName;
+        }
     }
 
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
@@ -657,7 +668,10 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override {
-        return ( this->is_modifiable() ? "~" + this->baseType->get_auto_type_name() : this->baseType->get_auto_type_name() );
+        if (this->is_modifiable())
+            return TxModifiableTypeNode::get_auto_type_name();
+        else
+            return this->baseType->get_auto_type_name();
     }
 
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,

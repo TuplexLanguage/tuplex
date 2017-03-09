@@ -293,13 +293,13 @@ void TxType::prepare_type_members() {
         this->get_parser_context()->begin_exp_err( this->get_declaration()->get_definer() );
     }
 
-    // resolve and validate type parameters
-    for (auto & paramDecl : this->params) {
-        auto constraintType = paramDecl->get_definer()->resolve_type();
-        if (dynamic_cast<TxFieldDeclaration*>(paramDecl))
-            if (constraintType->get_type_class() != TXTC_REFERENCE)
-                this->nonRefParameters = true;
-    }
+//    // resolve and validate type parameters
+//    for (auto & paramDecl : this->params) {
+//        auto constraintType = paramDecl->get_definer()->resolve_type();
+//        if (dynamic_cast<TxFieldDeclaration*>(paramDecl))
+//            if (constraintType->get_type_class() != TXTC_REFERENCE)
+//                this->nonRefParameters = true;
+//    }
 
 // resolving type parameter bindings from here shouldn't be necessary
 //    auto basetype = this->get_semantic_base_type();

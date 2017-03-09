@@ -39,7 +39,9 @@ public:
     virtual std::string get_auto_type_name() const override {
         if (auto typeExpr = dynamic_cast<TxTypeExpressionNode*>( this->typeDefNode ))
             return typeExpr->get_auto_type_name();
-        return "$typedefexpr";
+        else
+            // attempt to resolve type here - experimental, but perhaps avoids type resolution recursion since only a value expression
+            return this->typeDefNode->resolve_type()->get_declaration()->get_unique_full_name();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override {
@@ -79,7 +81,7 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override {
-        return hashify( this->typeDecl->get_unique_full_name() );
+        return this->typeDecl->get_unique_full_name();
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }

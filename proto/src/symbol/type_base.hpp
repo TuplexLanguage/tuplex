@@ -202,8 +202,8 @@ class TxType : public TxEntity {
      * This also implies a pure specialization, even if extendsInstanceDatatype technically is true. */
     const TxType* genericBaseType = nullptr;
 
-    /** false unless there are TYPE parameters with other than Ref constraint */
-    bool nonRefParameters = false;
+//    /** false unless there are TYPE parameters with other than Ref constraint */
+//    bool nonRefParameters = false;
     /** false unless there are TYPE bindings for parameters with other than Ref constraint */
     bool nonRefBindings = false;
 
@@ -517,12 +517,6 @@ public:
         return nullptr;
     }
 
-
-//    /** Returns true if there are TYPE parameters with other than Ref constraint. */
-//    inline bool has_nonref_parameters() const { return this->nonRefParameters; }
-//
-//    /** Returns true if there are TYPE bindings for base type's parameters with other than Ref constraint. */
-//    inline bool has_nonref_bindings() const { return this->nonRefBindings; }
 
     inline const std::vector<TxEntityDeclaration*>& get_bindings() const { return this->bindings; }
 
