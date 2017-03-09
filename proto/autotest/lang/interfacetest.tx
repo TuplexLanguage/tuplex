@@ -13,7 +13,7 @@ abstract type AbstractType derives Tuple {
     public static foo : Int = 2;
     public static abstract bar : Int;
     #experr 1: public static abstract bad : Int = 3;  ## can't specify initializer for abstract field
-    #experr 2: static abstract mac : Int;             ## 'abstract' fields cannot be private (since private are non-virtual)
+    #experr 3: static abstract mac : Int;             ## 'abstract' fields cannot be private (since private are non-virtual)
     
     public instanceField : Int;
     #experr: public abstract abstrInstanceField : Int;  ## instance fields can't be abstract
@@ -28,14 +28,14 @@ abstract type AbstractType derives Tuple {
 ## a concrete type can't have abstract members:
 type ConcreteType derives Tuple {
     public static foo : Int = 2;
-    #experr 0: public static abstract bar : Int;      ## a concrete type can't have abstract members
-    #experr 1: public static abstract bad : Int = 3;  ## can't specify initializer for abstract field
-    #experr 2: static abstract mac : Int;             ## 'abstract' fields cannot be private (since private are non-virtual)
+    #experr 1: public static abstract bar : Int;      ## a concrete type can't have abstract members
+    #experr 2: public static abstract bad : Int = 3;  ## can't specify initializer for abstract field
+    #experr 3: static abstract mac : Int;             ## 'abstract' fields cannot be private (since private are non-virtual)
 
     public instanceField : Int;
     #experr: public abstract abstrInstanceField : Int;  ## instance fields can't be abstract
 
-    #experr 0: abstract abstr_method()->Int;          ## a concrete type can't have abstract members:
+    #experr 1: abstract abstr_method()->Int;          ## a concrete type can't have abstract members:
 
     #experr: abstract concrete_method()->Int { return 2; }  ## can't specify initializer for abstract field
 
@@ -53,7 +53,7 @@ type IntfA derives Interface {
     public mixin_method_1()->Int { return 1; }
     public mixin_method_2()->Int { return 2; }
 
-    #experr 0: instField : Int;  ## interface can't have instance members
+    #experr 1: instField : Int;  ## interface can't have instance members
     public static ifField : Int = 17;
 }
 
@@ -78,7 +78,7 @@ type Type derives Tuple, IntfA {
         return 3;
     }
 
-    #experr 0: public abstract abstr_method()->Int;  ## Type isn't declared abstract
+    #experr 1: public abstract abstr_method()->Int;  ## Type isn't declared abstract
 }
 
 ## can't inherit object type in 2nd position
@@ -86,7 +86,7 @@ type Type derives Tuple, IntfA {
 }
 
 ## must declare abstract if missing concrete members
-#experr 0: type IncompleteType derives Tuple, IntfA {
+#experr 1: type IncompleteType derives Tuple, IntfA {
 }
 abstract type AbstrIncomplType derives Tuple, IntfA {
 }

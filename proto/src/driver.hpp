@@ -16,9 +16,9 @@ namespace yy {
     class location;
 }
 class TxPackage;
+class TxNode;
 class TxParsingUnitNode;
 class TxFieldDeclNode;
-class TxSemNode;
 class TxParserContext;
 
 
@@ -142,14 +142,15 @@ class TxParserContext : public Printable {
     /** used for parse error messages */
     std::string* _currentInputFilename = nullptr;
 
-    /** true if within an EXPERR block */
+    /** non-null if currently processing within an EXPERR block */
     ExpectedErrorClause* expError = nullptr;
-    ///** number or errors encountered within an EXPERR block */
-    //int exp_err_count = 0;
 
     void emit_comp_error( char const *msg, ExpectedErrorClause* expErrorContext );
     void emit_comp_warning( char const *msg );
     void emit_comp_info( char const *msg );
+
+    /** the expected-error nodes having been parsed */
+    std::vector<TxNode*> expErrorNodes;
 
 public:
     /** set directly by parser */
@@ -182,6 +183,13 @@ public:
     bool add_import(const TxIdentifier& moduleName) {
         return this->_driver.add_import(moduleName);
     }
+
+
+    /** Registers an expected-error node that is being parsed within this context. */
+    void register_exp_err_node( TxNode* expErrNode );
+
+    /** Checks all expected-error nodes of this parser context if the expected errors have occurred. */
+    void finalize_expected_error_clauses();
 
 
     // Compilation error handling.

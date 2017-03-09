@@ -268,7 +268,7 @@ public:
     inline bool is_prepared() const { return this->prepared; }
 
     /** Prepares this type's members, including data layout. Called after object construction has completed. */
-    virtual void prepare_type_members();
+    virtual void prepare_members();
 
     /** Gets the runtime type id of this type. (Equivalent specializations return their base type's id.) */
     inline uint32_t get_type_id() const {

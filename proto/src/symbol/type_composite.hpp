@@ -330,7 +330,7 @@ public:
     TxInterfaceAdapterType(const TxTypeDeclaration* declaration, const TxType* interfaceType, const TxType* adaptedType)
             : TxType(TXTC_INTERFACEADAPTER, declaration, TxTypeSpecialization(interfaceType)), adaptedType(adaptedType)  { }
 
-    virtual void prepare_type_members() override;
+    virtual void prepare_members() override;
 
 //    virtual bool is_abstract() const override { return false; }
 

@@ -20,7 +20,7 @@ type RInt Ref<Int>;
 
 type ATypeRInt AType<RInt>;
 
-#experr: type BadAType derives AType<Float> {
+#experr: type BadAType derives AType<Float> { ## doesn't match parameter's constraint type
 }
 
 main()->Int {

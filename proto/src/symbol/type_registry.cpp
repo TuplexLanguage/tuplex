@@ -48,7 +48,7 @@ void TypeRegistry::prepare_types() {
     this->createdTypes = new std::vector<TxType*>();
     for (auto type : *createdTypes) {
         //std::cerr << "Preparing type: " << type << std::endl;
-        type->prepare_type_members();
+        type->prepare_members();
         if (type->is_builtin()) {
             ASSERT(type->runtimeTypeId == this->staticTypes.size(), "preparing built-in type in wrong order / id: " << type->runtimeTypeId << ": " << type);
         }
@@ -325,7 +325,9 @@ const TxType* TypeRegistry::get_type_specialization( const TxTypeDefiningNode* d
     TxDeclarationFlags newDeclFlags;
     // Note: The same generic type specialization may be produced by multiple statements,
     // both within ExpErr constructs and without. Therefore the type name must distinguish between them.
-    if (declaration && (declaration->get_decl_flags() & TXD_EXPERRBLOCK)) {
+    // Note: Implicit types (without explicit declaration) produced by ExpErr statements are identified by presence of ExpErrCtx.
+    if ( ( declaration && (declaration->get_decl_flags() & TXD_EXPERRBLOCK) )
+         || ( !declaration && definer->exp_err_ctx() ) ) {
         newBaseTypeName << "$EE$" << baseDecl->get_unique_name() << "<";
         newDeclFlags = ( baseDecl->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT | TXD_EXPERRBLOCK;
     }
@@ -389,7 +391,7 @@ const TxType* TypeRegistry::get_type_specialization( const TxTypeDefiningNode* d
                 // implementation note: a distinct compile time type is registered which holds this specific dynamic value expression
             }
 
-            bindingDeclNodes->push_back( make_value_type_param_decl_node( valueArg->get_parse_location(), "$" + paramName,
+            bindingDeclNodes->push_back( make_value_type_param_decl_node( valueArg->get_parse_location(), paramName,
                                                                           TXD_GENBINDING, paramDecl, valueArg->valueExprNode ) );
             package.LOGGER().trace("Re-bound base type %s parameter '%s' with %s", baseDecl->get_unique_full_name().c_str(),
                                    paramName.c_str(), valueArg->valueExprNode->str().c_str());

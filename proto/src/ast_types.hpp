@@ -330,9 +330,8 @@ protected:
         for (auto baseType : *this->baseTypes)
             baseType->symbol_declaration_pass( defContext, lexContext, nullptr );
 
-        bool isExpError = (this->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK);
-        this->selfRefTypeNode->symbol_declaration_pass( lexContext, isExpError );
-        this->superRefTypeNode->symbol_declaration_pass( lexContext, isExpError );
+        this->selfRefTypeNode->symbol_declaration_pass( lexContext );
+        this->superRefTypeNode->symbol_declaration_pass( lexContext );
 
         for (auto member : *this->members)
             member->symbol_declaration_pass( lexContext);

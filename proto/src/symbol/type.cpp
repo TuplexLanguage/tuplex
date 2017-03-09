@@ -213,17 +213,15 @@ void TxType::initialize_type() {
             }
         }
 
-        { // validate the type parameter bindings
+        { // validate the type parameter bindings (as much as we can without resolving this type's bindings at this point)
             auto basetype = this->get_semantic_base_type();
             for (auto & bindingDecl : this->get_bindings()) {
                 auto pname = bindingDecl->get_unique_name();
-                if (pname[0] == '$')
-                    pname = pname.substr(1);  // skip leading '$' for VALUE bindings
                 if (auto paramDecl = basetype->get_type_param_decl( pname )) {
-                    auto constraintType = paramDecl->get_definer()->resolve_type();
-                    auto boundType = bindingDecl->get_definer()->resolve_type();
+                    auto constraintType = paramDecl->get_definer()->get_type();
                     ASSERT(constraintType, "NULL constraint type for param " << paramDecl << " of " << basetype);
-                    ASSERT(boundType,      "NULL binding type for param " << paramDecl << " of " << basetype);
+//                    auto boundType = bindingDecl->get_definer()->resolve_type();
+//                    ASSERT(boundType,      "NULL binding type for param " << paramDecl << " of " << basetype);
                     //std::cerr << this << ": Constraint type for param " << paramDecl << ": " << "checking bound type "
                     //          << boundType << "\tagainst constraint type " << constraintType << std::endl;
 
@@ -231,10 +229,10 @@ void TxType::initialize_type() {
                         if (! dynamic_cast<const TxTypeDeclaration*>(bindingDecl))
                             CERROR(bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " is not a type: " << bindingDecl);
 
-                        if (! boundType->is_a(*constraintType))
-                            // TODO: do this also for VALUE params, but array type expression needs auto-conversion support for that to work
-                            CERROR(bindingDecl->get_definer(), "Bound type " << boundType << " for type parameter " << paramDecl
-                                                               << " is not a derivation of contraint type " << constraintType);
+//                        if (! boundType->is_a(*constraintType))
+//                            // TO DO: do this also for VALUE params, but array type expression needs auto-conversion support for that to work
+//                            CERROR(bindingDecl->get_definer(), "Bound type " << boundType << " for type parameter " << paramDecl
+//                                                               << " is not a derivation of contraint type " << constraintType);
                         if (constraintType->get_type_class() != TXTC_REFERENCE)
                             this->nonRefBindings = true;
                     }
@@ -280,7 +278,7 @@ void TxType::initialize_type() {
     this->validate_type();
 }
 
-void TxType::prepare_type_members() {
+void TxType::prepare_members() {
     LOGGER().debug("Preparing members of type %s", this->str().c_str());
 
     ASSERT(! this->prepared, "Can't prepare type more than once: " << this);
@@ -292,45 +290,6 @@ void TxType::prepare_type_members() {
         ASSERT(expErrWholeType, "TXD_EXPERRBLOCK flag set but type definer has no ExpErr context: " << this->get_declaration());
         this->get_parser_context()->begin_exp_err( this->get_declaration()->get_definer() );
     }
-
-//    // resolve and validate type parameters
-//    for (auto & paramDecl : this->params) {
-//        auto constraintType = paramDecl->get_definer()->resolve_type();
-//        if (dynamic_cast<TxFieldDeclaration*>(paramDecl))
-//            if (constraintType->get_type_class() != TXTC_REFERENCE)
-//                this->nonRefParameters = true;
-//    }
-
-// resolving type parameter bindings from here shouldn't be necessary
-//    auto basetype = this->get_semantic_base_type();
-//    for (auto & bindingDecl : this->get_bindings()) {
-//        auto pname = bindingDecl->get_unique_name();
-//        if (auto paramDecl = basetype->get_type_param_decl( pname )) {
-//            // validate metatype and constraints
-//            if (meta_type_of(bindingDecl) != meta_type_of(paramDecl))
-//                CERROR(bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " of wrong meta-type (TYPE vs VALUE)");
-//
-//            if (meta_type_of(bindingDecl) == MetaType::TXB_VALUE) {
-//                // TO DO: check: VALUE parameters can not be of modifiable type
-//                this->nonRefBindings = true;
-//            }
-//            else {  // TxTypeParam::MetaType::TXB_TYPE
-//                auto constraintType = paramDecl->get_definer()->resolve_type();
-//                auto boundType = bindingDecl->get_definer()->resolve_type();
-//                ASSERT(constraintType, "NULL constraint type for param " << paramDecl << " of " << basetype);
-//                ASSERT(boundType,      "NULL binding for param " << paramDecl << " of " << basetype);
-//                //std::cerr << this << ": Constraint type for param " << paramDecl << ": " << "checking bound type "
-//                //          << boundType << "\tagainst constraint type " << constraintType << std::endl;
-//                if (! boundType->is_a(*constraintType))
-//                    CERROR(bindingDecl->get_definer(), "Bound type " << boundType << " for type parameter " << paramDecl
-//                                                       << " is not a derivation of contraint type " << constraintType);
-//                if (constraintType->get_type_class() != TXTC_REFERENCE)
-//                    this->nonRefBindings = true;
-//            }
-//        }
-//        else
-//            CERROR(bindingDecl->get_definer(), "No type parameter of " << basetype << " matches provided binding " << bindingDecl->get_unique_name());
-//    }
 
 
     // copy base type's virtual and instance field tuples (to which fields may be added / overridden):
@@ -350,6 +309,8 @@ void TxType::prepare_type_members() {
         return;
     }
 
+    auto semBaseType = this->get_semantic_base_type();
+
     // for all the member names declared or redeclared in this type:
     auto typeDeclNamespace = this->get_declaration()->get_symbol();
     for (auto symname = typeDeclNamespace->symbol_names_cbegin(); symname != typeDeclNamespace->symbol_names_cend(); symname++) {
@@ -359,22 +320,35 @@ void TxType::prepare_type_members() {
         if (! entitySym)
             continue;
 
-// resolving type members from here shouldn't be necessary
-//        if (auto typeDecl = entitySym->get_type_decl()) {
-//            if (*symname != "tx#Ref#T") {  // prevents infinite recursion
-//                //LOGGER().alert("resolving member type %s", entitySym->get_full_name().to_string().c_str());
-//                if (typeDecl->get_decl_flags() & TXD_EXPERRBLOCK)
-//                    this->get_driver()->begin_exp_err(typeDecl->get_definer()->get_parse_location());
-//
-//                typeDecl->get_definer()->get_type(); //resolve_type();
-//
-//                if (typeDecl->get_decl_flags() & TXD_EXPERRBLOCK) {
-//                    /*int encountered_error_count =*/ this->get_driver()->end_exp_err(typeDecl->get_definer()->get_parse_location());
-//                    // FIX ME: include in expected error count
-//                }
-//            }
-//        }
+        // prepare type members:
+        if (auto typeDecl = entitySym->get_type_decl()) {
+            ExpectedErrorClause* expErr = nullptr;
+            if (typeDecl->get_decl_flags() & TXD_EXPERRBLOCK) {
+                expErr = typeDecl->get_definer()->context().exp_error();
+                ASSERT(expErr, "TXD_EXPERRBLOCK flag set but type definer has no ExpErr context: " << typeDecl);
+                this->get_parser_context()->begin_exp_err( typeDecl->get_definer() );
+            }
 
+            if (auto type = typeDecl->get_definer()->resolve_type()) {
+                if (typeDecl->get_decl_flags() & TXD_GENBINDING) {
+                    auto bname = typeDecl->get_unique_name();
+                    if (auto paramDecl = semBaseType->get_type_param_decl( bname )) {
+                        auto constraintType = paramDecl->get_definer()->get_type();
+
+                        if (! type->is_a(*constraintType))
+                            // TODO: do this also for VALUE params, but array type expression needs auto-conversion support for that to work
+                            CERROR(typeDecl->get_definer(), "Bound type " << type << " for type parameter " << paramDecl
+                                                            << " is not a derivation of contraint type " << constraintType);
+                    }
+                }
+            }
+
+            if (expErr && !expErrWholeType) {
+                this->get_parser_context()->end_exp_err( typeDecl->get_definer()->get_parse_location() );
+            }
+        }
+
+        // prepare field members:
         for (auto fieldDeclI = entitySym->fields_cbegin(); fieldDeclI != entitySym->fields_cend(); fieldDeclI++) {
             auto fieldDecl = *fieldDeclI;
 
@@ -999,12 +973,12 @@ const TxType* TxReferenceType::target_type() const {
 
 
 
-void TxInterfaceAdapterType::prepare_type_members() {
+void TxInterfaceAdapterType::prepare_members() {
     if (! this->is_modifiable()) {
         this->modifiesVTable = true;
     }
 
-    TxType::prepare_type_members();
+    TxType::prepare_members();
 
     LOGGER().debug("preparing adapter for %s to interface %s", this->adaptedType->str().c_str(), this->get_semantic_base_type()->str().c_str());
     // The virtual fields of the abstract base interface type are overridden to refer to

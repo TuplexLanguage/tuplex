@@ -162,6 +162,10 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
 
     this->package->types().prepare_types();
 
+    for (auto parserContext : this->parsedASTs) {
+        parserContext->finalize_expected_error_clauses();
+    }
+
     if (error_count == prev_error_count)
         LOG.info("+ Resolution pass OK");
 
@@ -442,6 +446,19 @@ ExpectedErrorClause* TxParserContext::end_exp_err( const TxLocation& loc ) {
 
 bool TxParserContext::in_exp_err() const {
     return this->expError;
+}
+
+
+
+void TxParserContext::register_exp_err_node( TxNode* expErrNode ) {
+    this->expErrorNodes.push_back( expErrNode );
+}
+
+void TxParserContext::finalize_expected_error_clauses() {
+    ASSERT(!this->in_exp_err(), "Can't finalize expected error clauses with one still open");
+    for (auto expErrNode : this->expErrorNodes) {
+        finalize_expected_error_clause( expErrNode );
+    }
 }
 
 

@@ -497,6 +497,7 @@ public:
         if (isExpErrorStmt)
             CERROR(this, "Can't next Expected Error constructs in a statement");
         if (! this->context().is_reinterpretation()) {
+            this->get_parse_location().parserCtx->register_exp_err_node( this );
             this->get_parse_location().parserCtx->begin_exp_err( this );
             this->body->symbol_declaration_pass( this->context(), true );
             this->get_parse_location().parserCtx->end_exp_err( this->parseLocation );
@@ -511,7 +512,6 @@ public:
             this->get_parse_location().parserCtx->begin_exp_err( this );
             this->body->symbol_resolution_pass();
             this->get_parse_location().parserCtx->end_exp_err( this->parseLocation );
-            finalize_expected_error_clause( this );
         }
         else
             this->body->symbol_resolution_pass();

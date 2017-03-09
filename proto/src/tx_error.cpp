@@ -22,7 +22,6 @@ void cwarning(const TxParseOrigin& origin, const std::string& msg) {
 
 
 void finalize_expected_error_clause( const TxParseOrigin* origin ) {
-    ASSERT(!origin->get_parse_location().parserCtx->in_exp_err(), "Can't finalize expected error clause until it has been closed: " << origin);
     auto expError = origin->exp_err_ctx();
     // Note: Can't use origin directly in these error messages since origin holds an ExpectedErrorContext.
     if ( expError->expected_error_count <  0 ) {

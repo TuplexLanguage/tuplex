@@ -497,7 +497,7 @@ void BuiltinTypes::declare_default_constructor(LexicalContext& ctx, BuiltinTypeI
     auto type = new TxBuiltinDefaultConstructorType(nullptr, this->builtinTypes[FUNCTION]->typeExpression->get_type(),
                                                     this->builtinTypes[toTypeId]->typeExpression->get_type(),
                                                     initValueExpr);
-    type->prepare_type_members();
+    type->prepare_members();
     constructorDefiner->set_field( TxField::make_field(constructorDecl, type) );
 }
 
@@ -509,7 +509,7 @@ void BuiltinTypes::declare_conversion_constructor(BuiltinTypeId fromTypeId, Buil
     auto type = new TxBuiltinConversionFunctionType(nullptr, this->builtinTypes[FUNCTION]->typeExpression->get_type(),
                                                     this->builtinTypes[fromTypeId]->typeExpression->get_type(),
                                                     this->builtinTypes[toTypeId]->typeExpression->get_type());
-    type->prepare_type_members();
+    type->prepare_members();
     constructorDefiner->set_field( TxField::make_field(constructorDecl, type) );
 }
 
@@ -533,7 +533,7 @@ void BuiltinTypes::add_builtin_abstract(TxModule* module, TxTypeClass typeClass,
     LexicalContext lexCtx( module );
     definer->symbol_declaration_pass( lexCtx );
     auto type = new TxBuiltinBaseType( typeClass, definer->get_declaration(), this->builtinTypes[parentId]->typeExpression->get_type());
-    type->prepare_type_members();
+    type->prepare_members();
     definer->set_type( type );
     definer->symbol_resolution_pass();
     this->builtinTypes[definer->id] = definer;
@@ -545,7 +545,7 @@ void BuiltinTypes::add_builtin_integer(TxModule* module, BuiltinTypeId id, std::
     LexicalContext lexCtx( module );
     definer->symbol_declaration_pass( lexCtx );
     auto type = new TxIntegerType( definer->get_declaration(), this->builtinTypes[parentId]->typeExpression->get_type(), size, sign);
-    type->prepare_type_members();
+    type->prepare_members();
     definer->set_type( type );
     definer->symbol_resolution_pass();
     this->builtinTypes[definer->id] = definer;
@@ -556,7 +556,7 @@ void BuiltinTypes::add_builtin_floating(TxModule* module, BuiltinTypeId id, std:
     LexicalContext lexCtx( module );
     definer->symbol_declaration_pass( lexCtx );
     auto type = new TxFloatingType( definer->get_declaration(), this->builtinTypes[parentId]->typeExpression->get_type(), size );
-    type->prepare_type_members();
+    type->prepare_members();
     definer->set_type( type );
     definer->symbol_resolution_pass();
     this->builtinTypes[definer->id] = definer;
