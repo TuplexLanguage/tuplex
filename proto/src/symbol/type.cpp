@@ -88,7 +88,7 @@ void TxType::validate_type() const {
                 CERROR(this, "'modifiable' specialization cannot add any interface base types");
         }
         else {
-            ASSERT(this->baseTypeSpec.type->runtimeTypeId == ANY
+            ASSERT(this->baseTypeSpec.type->staticTypeId == ANY
                    || (this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseTypeSpec.type->get_type_class() == TXTC_INTERFACE)
                    || this->get_type_class() == this->baseTypeSpec.type->get_type_class(),
                    "Specialized type's type class " << this << " not valid with base type's type class " << this->baseTypeSpec.type->get_type_class());
@@ -218,7 +218,7 @@ void TxType::initialize_type() {
             for (auto & bindingDecl : this->get_bindings()) {
                 auto pname = bindingDecl->get_unique_name();
                 if (auto paramDecl = basetype->get_type_param_decl( pname )) {
-                    auto constraintType = paramDecl->get_definer()->get_type();
+                    auto constraintType = paramDecl->get_definer()->resolve_type();
                     ASSERT(constraintType, "NULL constraint type for param " << paramDecl << " of " << basetype);
 //                    auto boundType = bindingDecl->get_definer()->resolve_type();
 //                    ASSERT(boundType,      "NULL binding type for param " << paramDecl << " of " << basetype);

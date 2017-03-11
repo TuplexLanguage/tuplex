@@ -76,6 +76,7 @@ public:
 
     void set_field(const TxField* field) {
         this->builtinField = field;
+        this->set_context( LexicalContext( field->get_symbol()->get_outer(), nullptr, false ) );  // emulate declaration pass
         this->resolve_field();  // auto-resolves
     }
 
@@ -243,7 +244,7 @@ protected:
         else {
             auto type = this->define_builtin_type();
             //type->prepare_type_members();
-            type->runtimeTypeId = builtinTypeId;
+            type->staticTypeId = builtinTypeId;
             this->types().add_type( type );
             return type;
         }
@@ -1007,7 +1008,6 @@ const TxInterfaceAdapterType* BuiltinTypes::inner_get_interface_adapter(const Tx
     {   // override the adaptee type id virtual field member:
         const TxType* fieldType = this->get_builtin_type( UINT );
         auto fieldDef = new TxBuiltinFieldDefNode( this->get_builtin_location() );
-        fieldDef->set_context( adapterDefiner->context() );  // FIXME: refactor so that declaration pass is run on builtin nodes
         auto fieldDecl = typeDecl->get_symbol()->declare_field("$adTypeId", fieldDef, TXD_PUBLIC | TXD_STATIC | TXD_OVERRIDE | TXD_IMPLICIT, TXS_STATIC, "");
         fieldDef->set_field( TxField::make_field(fieldDecl, fieldType) );
     }

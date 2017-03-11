@@ -69,8 +69,8 @@ type GenType<T> {
 #experr: type SpecTypeErrA  GenType<SpecTypeErrB>;
 #experr: type SpecTypeErrB  GenType<SpecTypeErrA>;
 
-/* TODO: Support recursive type definition by reference (needed to support CRTP)
-// (See TypeRegistry::get_type_specialization())
+
+## ok with recursive type definition via reference (needed to support CRTP):
 type SpecTypeOk    GenType<Ref<SpecTypeOk>>;
 
 type ARef Ref<BRef>;
@@ -78,7 +78,7 @@ type BRef Ref<ARef>;
 
 type CRef &DRef;
 type DRef &CRef;
-*/
+
 
 main()->Int {
     root   := new Node();

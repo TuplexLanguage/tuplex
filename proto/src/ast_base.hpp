@@ -94,7 +94,7 @@ protected:
         this->lexContext = context;
     }
 
-    inline TypeRegistry& types() { return this->lexContext.package()->types(); }
+    inline TypeRegistry& types() { return this->context().package()->types(); }
 
 public:
     const TxLocation parseLocation;
@@ -330,7 +330,7 @@ public:
 
 class TxTypeDefiningNode : public TxEntityDefiningNode {
     const TxType* type = nullptr;
-    bool startedRslv = false;  // during development - guard against recursive resolution
+    bool startedRslv = false;  // guard against recursive resolution
     bool hasResolved = false;  // to prevent multiple identical error messages
 
 protected:
@@ -347,6 +347,7 @@ public:
 
     /** Returns the type (as specific as can be known) of the value this node produces/uses. */
     virtual const TxType* resolve_type() override final {
+        ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
         if (!this->type && !this->hasResolved) {
             LOGGER().trace("resolving type  of %s", this->str().c_str());
             //ASSERT(!this->startedRslv, "Recursive invocation of resolve_type() of " << this);
@@ -372,7 +373,7 @@ class TxExpressionNode;
 class TxFieldDefiningNode : public TxEntityDefiningNode {
     const TxType* type = nullptr;
     const TxField* field = nullptr;
-    bool startedRslv = false;  // during development - guard against recursive resolution
+    bool startedRslv = false;  // guard against recursive resolution
     bool hasResolved = false;  // to prevent multiple identical error messages
 
 protected:
@@ -393,9 +394,9 @@ public:
 
     /** Resolves the type and returns the field entity of this field-defining node. */
     virtual const TxField* resolve_field() final {
+        ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
         if (!this->field && !this->hasResolved) {
             LOGGER().trace("resolving field of %s", this->str().c_str());
-            //ASSERT(!this->startedRslv, "Recursive invocation of resolve_field() of " << this);
             if (this->startedRslv) {
                 CERROR(this, "Recursive definition of field " << this->get_declared_name());
                 return nullptr;

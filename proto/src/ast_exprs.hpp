@@ -45,7 +45,9 @@ public:
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) {
         this->set_context( lexContext);
-        reference->symbol_declaration_pass( lexContext);
+        // when this is is used as an implicit conversion node the reference node may have already run declaration pass:
+        if (! this->reference->is_context_set())
+            this->reference->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -125,18 +127,20 @@ public:
 
 
 class TxReferenceToNode : public TxExpressionNode {
+    TxTypeTypeArgumentNode* targetTypeNode;
 protected:
     virtual const TxType* define_type() override {
-        TxTypeExprWrapperNode* targetTypeExpr = new TxTypeExprWrapperNode( this->target );
-        TxTypeTypeArgumentNode* targetTypeNode = new TxTypeTypeArgumentNode( targetTypeExpr );
-        return this->types().get_reference_type( this, targetTypeNode, nullptr );
+        return this->types().get_reference_type( this, this->targetTypeNode, nullptr );
     }
 
 public:
     TxExpressionNode* target;
 
     TxReferenceToNode(const TxLocation& parseLocation, TxExpressionNode* target)
-        : TxExpressionNode(parseLocation), target(target) { }
+            : TxExpressionNode(parseLocation), target(target) {
+        TxTypeExprWrapperNode* targetTypeExpr = new TxTypeExprWrapperNode( this->target );
+        this->targetTypeNode = new TxTypeTypeArgumentNode( targetTypeExpr );
+    }
 
     virtual TxReferenceToNode* make_ast_copy() const override {
         return new TxReferenceToNode( this->parseLocation, this->target->make_ast_copy() );
@@ -144,7 +148,10 @@ public:
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) {
         this->set_context( lexContext);
-        target->symbol_declaration_pass( lexContext);
+        // when this is is used as an implicit conversion node the target node may have already run declaration pass:
+        if (! this->target->is_context_set())
+            this->target->symbol_declaration_pass( lexContext );
+        this->targetTypeNode->symbol_declaration_pass( lexContext, lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -598,13 +605,14 @@ public:
 
 /** Makes a new object in newly allocated heap memory and returns it by reference. */
 class TxNewConstructionNode : public TxMakeObjectNode {
+    TxTypeTypeArgumentNode* targetTypeNode;
+
 protected:
     virtual const TxType* get_object_type() const override { return this->typeExpr->get_type(); }
 
     virtual const TxType* define_type() override {
         // new constructor returns the constructed object by reference
-        TxTypeTypeArgumentNode* targetTypeNode = new TxTypeTypeArgumentNode( this->typeExpr );
-        return this->types().get_reference_type( this, targetTypeNode, nullptr );
+        return this->types().get_reference_type( this, this->targetTypeNode, nullptr );
     }
 
 public:
@@ -613,11 +621,17 @@ public:
                                 new TxFunctionCallNode(parseLocation,
                                                        new TxConstructorCalleeExprNode(parseLocation, new TxHeapAllocNode(parseLocation, typeExpr)),
                                                        argsExprList ) ) {
+        targetTypeNode = new TxTypeTypeArgumentNode( this->typeExpr );
     }
 
     virtual TxNewConstructionNode* make_ast_copy() const override {
         return new TxNewConstructionNode( this->parseLocation, this->typeExpr->make_ast_copy(),
                                   make_node_vec_copy( this->constructorCall->origArgsExprList ) );
+    }
+
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+        TxMakeObjectNode::symbol_declaration_pass( lexContext );
+        targetTypeNode->set_context( lexContext );  // emulate declaration pass
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

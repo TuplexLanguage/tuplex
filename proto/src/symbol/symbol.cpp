@@ -360,10 +360,10 @@ std::string TxEntitySymbol::description_string() const {
         return "-overloaded-";
     else if (this->typeDeclaration)  // non-overloaded type name
         if (auto type = this->typeDeclaration->get_definer()->attempt_get_type()) {
-            if (auto typeExpr = dynamic_cast<TxTypeExpressionNode*>( this->typeDeclaration->get_definer() ))
-                return "\tTYPE      ( " + typeExpr->get_auto_type_name() + " )  " + type->str(false, true);
+            if (type->get_declaration() == this->typeDeclaration)
+                return "\tTYPE      " + type->str( false, false );
             else
-                return "\tTYPE      NOT A TYPE EXPRESSION NODE!  " + type->str(false, true);
+                return "\tALIAS     " + type->str( false, false );
         }
         else
             return "\tTYPE      -undef-";

@@ -140,10 +140,10 @@ public:
     const TxConstructorType* get_constructor_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, TxTypeDeclaration* constructedObjTypeDecl);
 
 
-    /** Returns a read-only iterator that points to the first type. */
-    inline std::vector<const TxType*>::const_iterator types_cbegin() const { return this->staticTypes.cbegin(); }
-    /** Returns a read-only iterator that points to one past the last type. */
-    inline std::vector<const TxType*>::const_iterator types_cend()   const { return this->staticTypes.cend(); }
+    /** Returns a read-only iterator that points to the first static type (with unique compile-time id). */
+    inline std::vector<const TxType*>::const_iterator static_types_cbegin() const { return this->staticTypes.cbegin(); }
+    /** Returns a read-only iterator that points to one past the last static type. */
+    inline std::vector<const TxType*>::const_iterator static_types_cend()   const { return this->staticTypes.cend(); }
 
-    inline uint32_t get_type_count() const { return this->staticTypes.size(); }
+    inline uint32_t get_static_type_count() const { return this->staticTypes.size(); }
 };

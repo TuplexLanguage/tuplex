@@ -40,8 +40,6 @@ public:
 
     /** Copy constructor. */
     LexicalContext( const LexicalContext& context ) = default;
-//        : _scope(context._scope), constructedObjTypeDecl(context.constructedObjTypeDecl),
-//          reinterpretation(context.reinterpretation), expErrCtx(context.expErrCtx) { }
 
     /** Constructs a lexical context for the provided module.
      * (A module context does not require a parent context.) */

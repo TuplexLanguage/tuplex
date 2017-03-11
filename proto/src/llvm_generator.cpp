@@ -297,9 +297,8 @@ void LlvmGenerationContext::initialize_meta_type_data() {
     StructType* metaType = StructType::get(this->llvmContext, memberTypes);
 
     // create static meta type data:
-    uint32_t typeCount = 0;
     std::vector<Constant*> metaTypes;
-    for (auto txType = this->tuplexPackage.types().types_cbegin(); txType != this->tuplexPackage.types().types_cend(); txType++) {
+    for (auto txType = this->tuplexPackage.types().static_types_cbegin(); txType != this->tuplexPackage.types().static_types_cend(); txType++) {
 //        auto utinitF = (*txType)->get_type_user_init_func(*this);
 //        if (! utinitF->getEntryBlock().getTerminator()) {
 //            // inserting default void return instruction for entry block of function
@@ -308,14 +307,14 @@ void LlvmGenerationContext::initialize_meta_type_data() {
         auto vtableT = (*txType)->make_vtable_type(*this);
         if (!vtableT)
             continue;
-        //std::cerr << "vtable type for " << (*txType) << " (id " << (*txType)->get_type_id() << "): " << vtableT << std::endl;
-        this->llvmVTableTypeMapping.emplace((*txType)->get_type_id(), vtableT);
+        auto typeId = (*txType)->get_type_id();
+        //std::cerr << "vtable type for " << (*txType) << " (id " << typeId << "): " << vtableT << std::endl;
+        this->llvmVTableTypeMapping.emplace( typeId, vtableT );
         std::string vtableName((*txType)->get_declaration()->get_unique_full_name() + "$vtable");
         GlobalVariable* vtableV = new GlobalVariable(this->llvmModule, vtableT, true, GlobalValue::ExternalLinkage,
                                                      nullptr, vtableName);
         this->register_llvm_value(vtableV->getName(), vtableV);
 
-        auto typeId = typeCount;
         std::vector<Constant*> members {
             ConstantInt::get(int32T, typeId),
             ConstantExpr::getBitCast(vtableV, emptyStructPtrT),
@@ -326,10 +325,9 @@ void LlvmGenerationContext::initialize_meta_type_data() {
         // register the constant typeId values for later inclusion in the initialization code:
         std::string typeIdName((*txType)->get_declaration()->get_unique_full_name() + ".$typeid");
         this->register_llvm_value(typeIdName, ConstantInt::get(int32T, typeId));
-
-        typeCount++;
     }
-    auto mtArrayType = ArrayType::get(metaType, typeCount);
+    auto typeCount = this->tuplexPackage.types().get_static_type_count();
+    auto mtArrayType = ArrayType::get( metaType, typeCount );
     auto mtArrayInit = ConstantArray::get(mtArrayType, metaTypes);
 
     Value* typeCountV = new GlobalVariable(this->llvmModule, int32T, true, GlobalValue::ExternalLinkage,
@@ -477,7 +475,7 @@ void LlvmGenerationContext::initialize_external_functions() {
 //}
 
 void LlvmGenerationContext::generate_runtime_data() {
-    for (auto txTypeI = this->tuplexPackage.types().types_cbegin(); txTypeI != this->tuplexPackage.types().types_cend(); txTypeI++) {
+    for (auto txTypeI = this->tuplexPackage.types().static_types_cbegin(); txTypeI != this->tuplexPackage.types().static_types_cend(); txTypeI++) {
         auto txType = *txTypeI;
         ASSERT(txType->is_prepared(), "Non-prepared type: " << txType);
         if (auto entity = txType->get_symbol()) {
@@ -523,7 +521,6 @@ void LlvmGenerationContext::generate_runtime_data() {
                         auto llvmValue = this->lookup_llvm_value(fieldName);
                         if (! llvmValue) {
                             ASSERT(false, "llvm value not found for field name: " << fieldName);
-                            //goto SKIPPED_VTABLE;
                         }
                         llvmField = cast<Constant>(llvmValue);
                     }
@@ -534,7 +531,6 @@ void LlvmGenerationContext::generate_runtime_data() {
                 Constant* initializer = ConstantStruct::getAnon(this->llvmContext, initMembers);
                 vtableV->setInitializer(initializer);
                 //std::cerr << "initializing " << vtableV << " with " << initializer << std::endl;
-                //SKIPPED_VTABLE:  ;
             }
             else
                 this->LOG.error("No vtable found for %s", vtableName.c_str());

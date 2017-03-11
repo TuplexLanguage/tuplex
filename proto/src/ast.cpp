@@ -162,8 +162,8 @@ void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, Lexica
     this->set_context( lexContext );
     // Note: does not invoke symbol_declaration_pass() on typeParamDecls, that is delegated to typeExpression
     TxDeclarationFlags flags = (isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags);
-    this->declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeExpression, flags );
-    if (! this->declaration) {
+    TxTypeDeclaration* declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeExpression, flags );
+    if (! declaration) {
         CERROR(this, "Failed to declare type " << this->typeName);
         return;
     }
@@ -172,7 +172,7 @@ void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, Lexica
 
     // The context of this node represents its outer scope.
     // The type expression's created type entity, if any, represents its inner scope.
-    LexicalContext typeCtx(lexContext, this->declaration->get_symbol());
+    LexicalContext typeCtx(lexContext, declaration->get_symbol());
 
     // declare type parameters within type declaration's scope, and before rest of type expression is processed:
     if (this->typeParamDecls) {
@@ -181,10 +181,10 @@ void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, Lexica
         }
 
         // if type parameters have been declared, rest of type expression has this typeCtx also as its defCtx:
-        this->typeExpression->symbol_declaration_pass( lexContext, lexContext, this->declaration );
+        this->typeExpression->symbol_declaration_pass( lexContext, lexContext, declaration );
     }
     else
-        this->typeExpression->symbol_declaration_pass( defContext, lexContext, this->declaration );
+        this->typeExpression->symbol_declaration_pass( defContext, lexContext, declaration );
 }
 
 
@@ -202,11 +202,14 @@ void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& defContext, 
 
 const TxType* TxIdentifiedTypeNode::define_identified_type() {
     if (auto identifiedTypeDecl = lookup_type(this->context().scope(), *this->ident)) {
+//        if (this->get_node_id() == 516) //(*this->ident == "S")
+//            std::cerr << this << std::endl;
         if (auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type()) {
             if (auto declEnt = this->get_declaration()) {
                 // create empty specialization (uniquely named but identical type)
                 return this->types().get_empty_specialization(declEnt, identifiedType);
             }
+//            std::cerr << this << " resolves to " << identifiedType << std::endl;
             return identifiedType;
         }
     }
@@ -251,7 +254,12 @@ void TxDerivedTypeNode::init_implicit_types() {
     const std::string selfTypeName = "$Self";
     this->selfRefTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_IMPLICIT, selfTypeName, nullptr, selfRefTypeExprN);
 
-    TxTypeExpressionNode* superTypeExprN = new TxSuperTypeNode(this->parseLocation, new TxTypeExprWrapperNode(this));
+    TxTypeExpressionNode* superTypeExprN;
+    if (this->baseTypes->empty())
+        superTypeExprN = new TxIdentifiedTypeNode( this->parseLocation, "tx.Tuple" );
+    else
+        superTypeExprN = new TxTypeExprWrapperNode( this->baseTypes->at(0) );
+    //TxTypeExpressionNode* superTypeExprN = new TxSuperTypeNode(this->parseLocation, new TxTypeExprWrapperNode(this));
     auto superRefTypeExprN = new TxReferenceTypeNode(this->parseLocation, nullptr,
                                                      new TxModifiableTypeNode(this->parseLocation, superTypeExprN));
     const std::string superTypeName = "$Super";

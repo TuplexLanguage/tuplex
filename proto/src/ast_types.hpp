@@ -619,14 +619,20 @@ public:
     virtual std::string get_auto_type_name() const override {
         auto baseName = this->baseType->get_auto_type_name();
         // prepend ~ to the unqualified name:
-        uint endOfIdent = baseName.find_first_of('<');
-        uint lastDot = baseName.find_last_of('.', endOfIdent);
-        if (lastDot == std::string::npos)
-            return "~" + baseName;
-        else {
-            baseName.insert(lastDot+1, 1, '~');
-            return baseName;
+        // (names can be complex such as foo.bar<mac<asp>>.arc<lap>)
+        unsigned nest = 0;
+        for (unsigned i = baseName.size(); i > 0; i--) {
+            char c = baseName.at(i-1);
+            if (c == '>')
+                nest++;
+            else if (c == '<')
+                nest--;
+            else if (c == '.' && nest == 0) {
+                baseName.insert(i, 1, '~');
+                return baseName;
+            }
         }
+        return "~" + baseName;
     }
 
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
@@ -675,6 +681,10 @@ public:
 
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
                                           const TxTypeDeclaration* owningDeclaration ) override;
+
+    virtual const TxTypeDeclaration* get_declaration() const override {
+        return ( this->is_modifiable() ? TxModifiableTypeNode::get_declaration() : baseType->get_declaration() );
+    }
 
     inline bool is_modifiable() const { return this->isModifiable; }
 

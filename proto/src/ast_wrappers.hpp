@@ -11,23 +11,16 @@
  * Only used for very special cases, currently only for $Self and $Super definitions.
  */
 class TxTypeExprWrapperNode : public TxTypeExpressionNode {
-    TxTypeDefiningNode* const typeDefNode;
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override { }
 
     virtual const TxType* define_type() override {
-        auto type = this->typeDefNode->resolve_type();
-        if (!type)
-            return nullptr;
-        else if (auto declEnt = this->get_declaration()) {
-            // if there is a declaration, create empty specialization (uniquely named but identical type)
-            if (! type->is_modifiable())
-                return this->types().get_empty_specialization(declEnt, type);
-        }
-        return type;
+        return this->typeDefNode->resolve_type();
     }
 
 public:
+    TxTypeDefiningNode* const typeDefNode;
+
     TxTypeExprWrapperNode( TxTypeDefiningNode* typeExprNode )
         : TxTypeExpressionNode( typeExprNode->parseLocation ), typeDefNode(typeExprNode)  { }
 
@@ -49,27 +42,20 @@ public:
     }
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        //this->typeExprNode->visit_ast( visitor, thisAsParent, "wrappedtypenode", context );
+        // Traversal does not proceed to the wrapped node from here since it should be visited via its original AST location.
     }
 };
 
 
-/** Wraps a TxEntityDeclaration as a TxTypeExpressionNode. */
+/** Wraps a TxEntityDeclaration as a TxTypeExpressionNode.
+ * If this wrapper is used to declare a type name, that name will effectively be a type alias. */
 class TxTypeDeclWrapperNode : public TxTypeExpressionNode {
     TxEntityDeclaration const * const typeDecl;
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override { }
 
     virtual const TxType* define_type() override {
-        auto type = this->typeDecl->get_definer()->resolve_type();
-        if (!type)
-            return nullptr;
-        else if (auto declEnt = this->get_declaration()) {
-            // if there is a declaration, create empty specialization (uniquely named but identical type)
-            if (! type->is_modifiable())
-                return this->types().get_empty_specialization(declEnt, type);
-        }
-        return type;
+        return this->typeDecl->get_definer()->resolve_type();
     }
 
 public:
@@ -82,6 +68,10 @@ public:
 
     virtual std::string get_auto_type_name() const override {
         return this->typeDecl->get_unique_full_name();
+    }
+
+    const TxEntityDeclaration* get_wrapped_declaration() const {
+        return this->typeDecl;
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }

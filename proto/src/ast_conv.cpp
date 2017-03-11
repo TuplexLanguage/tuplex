@@ -36,7 +36,7 @@ static TxExpressionNode* inner_wrap_conversion(TxExpressionNode* originalExpr, c
  * a value & type conversion node around it if permitted and necessary.
  *
  * Assumes that originalExpr symbol registration pass has already run.
- * Will run symbol registration and symbol resolution passes on any inserted nodes.
+ * Will not run symbol declaration / resolution passes on any inserted nodes.
  */
 static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* originalExpr,
                                                       const TxType* requiredType, bool _explicit ) {
@@ -66,7 +66,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                     // wrap originalExpr with a reference-to node
                     //std::cerr << "Adding implicit '&' to: " << originalExpr << std::endl;
                     auto refToNode = new TxReferenceToNode(originalExpr->parseLocation, originalExpr);
-                    refToNode->set_context( originalExpr->context());  // in lieu of symbol_declaration_pass()
+                    //refToNode->symbol_declaration_pass( originalExpr->context() );
                     return new TxReferenceConvNode( refToNode, reqRefType );
                 }
             }
@@ -80,11 +80,11 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                 // wrap originalExpr with a dereference node
                 //std::cerr << "Adding implicit '^' to: " << originalExpr << std::endl;
                 auto derefNode = new TxReferenceDerefNode(originalExpr->parseLocation, originalExpr);
-                derefNode->set_context( originalExpr->context());  // in lieu of symbol_declaration_pass()
+                //derefNode->symbol_declaration_pass( originalExpr->context());
                 if (auto newExpr = inner_wrap_conversion(derefNode, origRefTargetType, requiredType, _explicit)) {
                     if (newExpr != derefNode)
                         return newExpr;
-                    return new TxNoConversionNode( derefNode, origRefTargetType ); //new TxExprWrapperNode( derefNode );
+                    return new TxNoConversionNode( derefNode, origRefTargetType );
                 }
             }
         }
@@ -141,9 +141,10 @@ const TxType* TxReferenceConvNode::define_type() {
             this->adapterType = this->types().get_interface_adapter(resultTargetType, origTargetType);
             ASSERT(this->adapterType->get_type_class() == TXTC_INTERFACEADAPTER, "Not an interface adapter type: " << this->adapterType);
 
-            // create reference type to the adapter type
+            // create reference type to the adapter type  TODO: review if node creation can be moved to constructor / declaration pass
             auto adapterDefiner = new TxTypeDeclWrapperNode( this->parseLocation, adapterType->get_declaration() );
             TxTypeTypeArgumentNode* targetTypeNode = new TxTypeTypeArgumentNode( adapterDefiner );
+            targetTypeNode->symbol_declaration_pass( this->context(), this->context());
             return this->types().get_reference_type( this, targetTypeNode, nullptr );
         }
     }

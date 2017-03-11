@@ -14,11 +14,6 @@ class TxTypeExpressionNode : public TxTypeDefiningNode {
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) = 0;
 
-    void set_declaration( const TxTypeDeclaration* declaration ) {
-        ASSERT(!this->declaration, "Declaration already set in " << this << ": " << this->declaration);
-        this->declaration = declaration;
-    }
-
 public:
     TxTypeExpressionNode(const TxLocation& parseLocation) : TxTypeDefiningNode(parseLocation) { }
 
@@ -38,7 +33,7 @@ public:
     virtual std::string get_auto_type_name() const = 0;
 
     /** Gets the type declaration of this type expression, if any. */
-    inline const TxTypeDeclaration* get_declaration() const { return this->declaration; }
+    virtual const TxTypeDeclaration* get_declaration() const { return this->declaration; }
 
     /** Performs the symbol declaration pass for this type expression.
      * Type expressions evaluate within a "definition context", representing their "outer" scope,
@@ -143,8 +138,8 @@ public:
         return (this->conversionExpr ? this->conversionExpr : this->originalExpr);
     }
 
-    virtual const TxType* attempt_get_type() const override { return this->get_spec_expression()->attempt_get_type(); }
-    virtual const TxType* get_type        () const override { return this->get_spec_expression()->get_type();         }
+//    virtual const TxType* attempt_get_type() const override { return this->get_spec_expression()->attempt_get_type(); }
+//    virtual const TxType* get_type        () const override { return this->get_spec_expression()->get_type();         }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
         this->set_context( lexContext);
@@ -401,8 +396,6 @@ public:
 
 /** Non-local type declaration */
 class TxTypeDeclNode : public TxDeclarationNode {
-    const TxTypeDeclaration* declaration = nullptr;
-
 public:
     const TxIdentifier* typeName;
     const bool interfaceKW;

@@ -186,8 +186,8 @@ class TxType : public TxEntity {
     /** true if this is a built-in type */
     const bool builtin;
 
-    /** The runtime type id of this type, if it is a distinct runtime type (not an equivalent specialization). */
-    uint32_t runtimeTypeId = UINT32_MAX;
+    /** The static type id of this type, if it is defined at compile time and a distinct type (not an equivalent specialization). */
+    uint32_t staticTypeId = UINT32_MAX;
 
     /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
     std::vector<TxEntityDeclaration*> params;
@@ -273,8 +273,8 @@ public:
     /** Gets the runtime type id of this type. (Equivalent specializations return their base type's id.) */
     inline uint32_t get_type_id() const {
         //ASSERT(this->prepared, "Can't get runtime type id of unprepared type: " << this);
-        ASSERT(this->runtimeTypeId != UINT32_MAX || this->is_equivalent_derivation(), "Type id not set for " << this);
-        return ( this->runtimeTypeId == UINT32_MAX ? this->get_semantic_base_type()->get_type_id() : this->runtimeTypeId );
+        ASSERT(this->staticTypeId != UINT32_MAX || this->is_equivalent_derivation(), "Type id not set for " << this);
+        return ( this->staticTypeId == UINT32_MAX ? this->get_semantic_base_type()->get_type_id() : this->staticTypeId );
     }
 
 
