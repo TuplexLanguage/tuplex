@@ -28,7 +28,7 @@ bool validateFieldName(TxNode* node, TxDeclarationFlags declFlags, const std::st
 
 
 
-Logger& TxNode::LOG = Logger::get("AST");
+Logger& TxNode::_LOG = Logger::get("AST");
 
 unsigned TxNode::nextNodeId = 0;
 

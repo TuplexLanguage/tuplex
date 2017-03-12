@@ -355,8 +355,7 @@ protected:
     }
 
     virtual const TxType* define_type() override {
-        auto declaration = this->get_declaration();
-        ASSERT(declaration, "No declaration for derived type " << *this);
+        ASSERT(this->get_declaration(), "No declaration for derived type " << *this);
 
         const TxType* baseObjType = nullptr;
         std::vector<TxTypeSpecialization> interfaces;

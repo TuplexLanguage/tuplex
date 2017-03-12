@@ -11,7 +11,7 @@ static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenSc
     Value* vtableBase = context.gen_get_vtable(scope, staticBaseType, runtimeBaseTypeIdV);
     //std::cerr << "vtableBase: " << vtableBase << "  for field=" << fieldEntity << std::endl;
     if (! vtableBase) {
-        context.LOG.error("No vtable obtained for %s", staticBaseType->str().c_str());
+        LOG(context.LOGGER(), ERROR, "No vtable obtained for " << staticBaseType);
         return nullptr;
     }
 
@@ -84,7 +84,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
 
     bool nonvirtualLookup = is_non_virtual_lookup(baseExpr);  // true for super.foo lookups
 
-    Value* val;
+    Value* val = nullptr;
     switch (fieldEntity->get_storage()) {
     case TXS_INSTANCEMETHOD:
         if (baseExpr) {
@@ -94,7 +94,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
             val = instance_method_value_code_gen(context, scope, baseExpr->get_type(), runtimeBaseTypeIdV, fieldEntity, baseValue, nonvirtualLookup);
         }
         else {
-            context.LOG.error("Can't access instance method without base value/expression: %s", fieldEntity->str().c_str());
+            LOG(context.LOGGER(), ERROR, "Can't access instance method without base value/expression: " << fieldEntity);
             return nullptr;
         }
         break;
@@ -115,14 +115,14 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
         if (foldStatics) {
             if (auto constProxy = fieldEntity->get_static_constant_proxy()) {
                 val = constProxy->code_gen(context, scope);
-                context.LOG.debug("Generating field value code for statically constant fieldEntity %s: %s", fieldEntity->str().c_str(), ::to_string(val).c_str());
+                LOG_DEBUG(context.LOGGER(), "Generating field value code for statically constant fieldEntity " << fieldEntity << ": " << ::to_string(val));
                 break;
             }
         }
         val = context.lookup_llvm_value(fieldEntity->get_declaration()->get_unique_full_name());
         if (! val) {
             // forward declaration situation
-            context.LOG.debug("Forward-declaring field %s", fieldEntity->get_declaration()->get_unique_full_name().c_str());
+            LOG_DEBUG(context.LOGGER(), "Forward-declaring field " << fieldEntity->get_declaration()->get_unique_full_name());
             Type *fieldT = context.get_llvm_type(fieldEntity->get_type());
             val = context.llvmModule.getOrInsertGlobal(fieldEntity->get_declaration()->get_unique_full_name(), fieldT);
         }
@@ -131,7 +131,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
     case TXS_INSTANCE:
         {
             if (! baseExpr) {
-                context.LOG.error("Attempted to dereference TXS_INSTANCE field but no base expression provided (identifier %s)", fieldEntity->get_declaration()->get_unique_full_name().c_str());
+                LOG(context.LOGGER(), ERROR, "Attempted to dereference TXS_INSTANCE field but no base expression provided; identifier=" << fieldEntity->get_declaration()->get_unique_full_name());
                 return nullptr;
             }
             auto baseValue = baseExpr->code_gen(context, scope);
@@ -156,7 +156,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
         break;
 
     case TXS_NOSTORAGE:
-        context.LOG.error("TXS_NOSTORAGE specified for field: %s", fieldEntity->get_declaration()->get_unique_full_name().c_str());
+        LOG(context.LOGGER(), ERROR, "TXS_NOSTORAGE specified for field: " << fieldEntity->get_declaration()->get_unique_full_name());
         return nullptr;
     }
     return val;
@@ -171,7 +171,7 @@ Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenSco
 }
 
 Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     Value* value = this->code_gen_address(context, scope, true);
 
     if ( value && scope ) {  // (in global scope we don't load)

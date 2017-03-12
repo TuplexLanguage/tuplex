@@ -50,6 +50,7 @@ TxScopeSymbol* TxScopeSymbol::create_code_block_scope( const TxParseOrigin& orig
     //scope->inExpErrBlock |= isExpErrBlock;
     bool success = this->declare_symbol(origin, scope);
     ASSERT(success, "failed to insert duplicate subscope name '" << baseName << "." << uniqueName << "'");
+    (void)success;   // suppresses unused variable warning in release mode
     this->LOGGER().trace("-->            %s", scope->get_full_name().str().c_str());
     return scope;
 }

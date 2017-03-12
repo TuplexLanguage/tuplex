@@ -19,6 +19,7 @@ unsigned TxFieldDeclaration::get_overload_index() const {
         if ((*iter) == this)
             return i;
     ASSERT(false, "could not find this field decl within its symbol: " << this->str());
+    return 0;
 }
 
 std::string TxFieldDeclaration::get_unique_full_name() const {

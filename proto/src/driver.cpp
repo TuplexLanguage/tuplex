@@ -35,14 +35,14 @@ public:
 
 
 TxDriver::TxDriver(const TxOptions& options)
-        : LOG(Logger::get("DRIVER")), options(options),
+        : _LOG(Logger::get("DRIVER")), options(options),
           builtinParserContext( new TxParserContext( *this, TxIdentifier(""), "" ) ),
           builtinOrigin( new TxBuiltinParseOrigin( this->builtinParserContext ) )
 {
     if (options.sourceSearchPaths.empty())
-        this->LOG.config("Tuplex source search path is empty");
+        this->_LOG.config("Tuplex source search path is empty");
     else for (auto pathItem : options.sourceSearchPaths)
-        this->LOG.config("Tuplex source search path item: '%s'", pathItem.c_str());
+        this->_LOG.config("Tuplex source search path item: '%s'", pathItem.c_str());
 
     this->package = new TxPackage( *this, *this->builtinOrigin );
 }
@@ -58,10 +58,10 @@ int TxDriver::scan_begin(const std::string &filePath) {
     if (filePath.empty() || filePath == "-")
         yyin = stdin;
     else if (!(yyin = fopen(filePath.c_str(), "r"))) {
-        LOG.error("Could not open source file '%s': %s", filePath.c_str(), strerror(errno));
+        _LOG.error("Could not open source file '%s': %s", filePath.c_str(), strerror(errno));
         return 1;
     }
-    LOG.info("+ Opened file for parsing: '%s'", filePath.c_str());
+    _LOG.info("+ Opened file for parsing: '%s'", filePath.c_str());
     return 0;
 }
 
@@ -100,7 +100,7 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
 
 
     if (startSourceFiles.empty()) {
-        this->LOG.fatal("No source specified.");
+        this->_LOG.fatal("No source specified.");
         return 1;
     }
     for (auto startFile : startSourceFiles)
@@ -116,9 +116,9 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
             int ret = this->parse(*parserContext);
             if (ret) {
                 if (ret == 1)  // syntax error
-                    LOG.fatal("Exiting due to unrecovered syntax error");
+                    _LOG.fatal("Exiting due to unrecovered syntax error");
                 else  // ret == 2, out of memory
-                    LOG.fatal("Exiting due to out of memory");
+                    _LOG.fatal("Exiting due to out of memory");
                 return ret;
             }
             ASSERT(parserContext->parsingUnit, "parsingUnit not set by parser");
@@ -129,9 +129,9 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
     }
 
     if (error_count)
-        LOG.error("- Grammar parse completed, %d errors", error_count);
+        _LOG.error("- Grammar parse completed, %d errors", error_count);
     else
-        LOG.info("+ Grammar parse OK");
+        _LOG.info("+ Grammar parse OK");
     if (this->options.only_parse)
         return error_count;
     int prev_error_count = error_count;
@@ -148,9 +148,9 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
     this->package->prepare_modules();  // (prepares the declared imports)
 
     if (error_count != prev_error_count)
-        LOG.error("- Declaration pass completed, %d errors", error_count-prev_error_count);
+        _LOG.error("- Declaration pass completed, %d errors", error_count-prev_error_count);
     else
-        LOG.info("+ Declaration pass OK");
+        _LOG.info("+ Declaration pass OK");
 
     /*--- perform resolution pass ---*/
 
@@ -167,7 +167,7 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
     }
 
     if (error_count == prev_error_count)
-        LOG.info("+ Resolution pass OK");
+        _LOG.info("+ Resolution pass OK");
 
     if (this->options.dump_ast) {
         auto visitor = []( const TxNode* node, const AstParent& parent, const std::string& role, void* ctx ) {
@@ -191,7 +191,7 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
     }
 
     if (error_count != prev_error_count) {
-        LOG.error("- Resolution pass completed, %d errors", error_count-prev_error_count);
+        _LOG.error("- Resolution pass completed, %d errors", error_count-prev_error_count);
     }
 
     if (error_count)
@@ -222,11 +222,11 @@ inline bool ends_with(const std::string& str, const std::string& tail) {
 
 bool TxDriver::add_import(const TxIdentifier& moduleName) {
     if (this->package->lookup_module(moduleName)) {
-        this->LOG.debug("Skipping import of previously imported module: %s", moduleName.str().c_str());
+        this->_LOG.debug("Skipping import of previously imported module: %s", moduleName.str().c_str());
         return true;
     }
     if (moduleName.begins_with( BUILTIN_NS )) {  // so we won't search for built-in modules' sources
-        this->LOG.debug("Skipping import of built-in namespace: %s", moduleName.str().c_str());
+        this->_LOG.debug("Skipping import of built-in namespace: %s", moduleName.str().c_str());
         return true;
     }
     // TODO: guard against or handle circular imports
@@ -273,12 +273,12 @@ int TxDriver::add_all_in_dir(const TxIdentifier& moduleName, const std::string &
         tinydir_next(&dir);
     }
     tinydir_close(&dir);
-    this->LOG.debug("Added %d source files to compilation from directory '%s'", addCount, dirPath.c_str());
+    this->_LOG.debug("Added %d source files to compilation from directory '%s'", addCount, dirPath.c_str());
     return addCount;
 }
 
 void TxDriver::add_source_file(const TxIdentifier& moduleName, const std::string &filePath) {
-    this->LOG.debug("Adding source file to compilation: '%s'", filePath.c_str());
+    this->_LOG.debug("Adding source file to compilation: '%s'", filePath.c_str());
     // TODO: verify that the source file actually contains the specified module
     this->sourceFileQueue.push_back( std::pair<TxIdentifier,std::string>(moduleName, filePath) );
 }
@@ -291,7 +291,7 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
 
     // first generate non-local fields in usage order (instead of lexical order):
     for (auto fieldDeclNode : this->usageOrderedNonlocalFieldDecls) {
-        LOG.note("Pre-generating code for non-local field: %s", fieldDeclNode->get_declaration()->str().c_str());
+        _LOG.note("Pre-generating code for non-local field: %s", fieldDeclNode->get_declaration()->str().c_str());
         genContext.generate_code( fieldDeclNode );
     }
 
@@ -304,10 +304,10 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
     for (auto specNode : this->package->types().get_enqueued_specializations()) {
         ASSERT(specNode->get_declaration(), "Can't generate code for enqueued specialization without declaration: " << specNode);
         if (specNode->get_decl_flags() & TXD_EXPERRBLOCK) {
-            LOG.info("Skipping code generation for enqueued ExpErr specialization: %s", specNode->get_declaration()->str().c_str());
+            _LOG.info("Skipping code generation for enqueued ExpErr specialization: %s", specNode->get_declaration()->str().c_str());
             continue;
         }
-        LOG.info("Generating code for enqueued specialization: %s", specNode->get_declaration()->str().c_str());
+        _LOG.info("Generating code for enqueued specialization: %s", specNode->get_declaration()->str().c_str());
         genContext.generate_code( specNode );
     }
 
@@ -318,12 +318,12 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
         auto funcField = funcDecl->get_definer()->resolve_field();
         if (auto funcType = dynamic_cast<const TxFunctionType*>(funcField->get_type())) {
             if ( funcType->returnType && ! funcType->returnType->is_a( *this->package->types().get_builtin_type(INTEGER) ) )
-                this->LOG.error("main() method had invalid return type: %s", funcType->returnType->str().c_str());
+                this->_LOG.error("main() method had invalid return type: %s", funcType->returnType->str().c_str());
             else if ((mainGenerated = genContext.generate_main(funcDecl->get_unique_full_name(), funcType)))
-                this->LOG.debug("Created program entry for user method %s", funcDecl->get_unique_full_name().c_str());
+                this->_LOG.debug("Created program entry for user method %s", funcDecl->get_unique_full_name().c_str());
         }
     }
-    LOG.info("+ LLVM code generated (not yet written)");
+    _LOG.info("+ LLVM code generated (not yet written)");
 
 
     if (this->options.dump_ir)
@@ -335,12 +335,12 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
         if (retCode)
             return retCode;
         else
-            LOG.info("+ LLVM code verification OK");
+            _LOG.info("+ LLVM code verification OK");
     }
 
     if (this->options.run_jit) {
         if (! mainGenerated)
-            this->LOG.error("Can't run program, no main() method found.");
+            this->_LOG.error("Can't run program, no main() method found.");
         else {
             genContext.run_code();
         }
@@ -348,7 +348,7 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
 
     if (! this->options.no_bc_output) {
         retCode = genContext.write_bitcode(outputFileName);
-        LOG.info("+ Wrote bitcode file '%s'", outputFileName.c_str());
+        _LOG.info("+ Wrote bitcode file '%s'", outputFileName.c_str());
     }
 
     return retCode;

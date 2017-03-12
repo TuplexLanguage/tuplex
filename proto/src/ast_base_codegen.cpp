@@ -23,19 +23,14 @@ inline bool is_complex_pointer(const Type* type) {
 }
 
 
-//Value* TxNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-//    context.LOG.error("Invoked empty codeGen() on %s", this->to_string().c_str());
-//    return nullptr;
-//}
-
 Value* TxParsingUnitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     this->module->code_gen(context, scope);
     return NULL;
 }
 
 Value* TxModuleNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     if (this->members) {
         for (auto mem : *this->members)
             mem->code_gen(context, scope);
@@ -48,12 +43,9 @@ Value* TxModuleNode::code_gen(LlvmGenerationContext& context, GenScope* scope) c
 }
 
 Value* TxTypeDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     return this->typeExpression->code_gen(context, scope);
 }
-//Value* TxTypeExpressionNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-//    return nullptr;  // default does nothing
-//}
 
 
 static Value* make_constant_nonlocal_field(LlvmGenerationContext& context, GenScope* scope,
@@ -65,10 +57,9 @@ static Value* make_constant_nonlocal_field(LlvmGenerationContext& context, GenSc
             auto initValue = field->initExpression->code_gen(context, scope);
             constantInitializer = dyn_cast_or_null<Constant>(initValue);
             if (! constantInitializer)
-                context.LOG.error("Global field %s initializer is not constant: %s",
-                                  uniqueName.c_str(), to_string(initValue).c_str());
+                LOG(context.LOGGER(), ERROR, "Global field " << uniqueName << " initializer is not constant: " << to_string(initValue));
             else if (is_complex_pointer(constantInitializer->getType())) {
-                context.LOG.note("Global field %s with complex ptr constant initializer", uniqueName.c_str());
+                context.LOGGER()->note("Global field %s with complex ptr constant initializer", uniqueName.c_str());
                 //return constantInitializer;
                 ASSERT(! context.llvmModule.getNamedGlobal(uniqueName),
                        "Can't declare llvm alias since global variable with same name already declared: " << uniqueName);
@@ -80,10 +71,10 @@ static Value* make_constant_nonlocal_field(LlvmGenerationContext& context, GenSc
 //            }
         }
         else
-            context.LOG.error("Global/static constant field %s initializer is not a constant expression", uniqueName.c_str());
+            LOG(context.LOGGER(), ERROR, "Global/static constant field " << uniqueName << " initializer is not a constant expression");
     }
     else
-        context.LOG.error("Global/static constant field %s does not have an initializer", uniqueName.c_str());
+        LOG(context.LOGGER(), ERROR, "Global/static constant field " << uniqueName << " does not have an initializer");
 
     // handle case when there has been a "forward-declaration" of this field:
     Constant* maybe = context.llvmModule.getOrInsertGlobal(uniqueName, llvmType);
@@ -106,7 +97,7 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
 //        return this->codeGenValue;
 //    }
 
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     if (this->field->typeExpression)
         this->field->typeExpression->code_gen(context, scope);
     auto fieldDecl = this->field->get_declaration();
@@ -117,12 +108,12 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     Value* fieldVal = nullptr;
     switch (fieldDecl->get_storage()) {
     case TXS_NOSTORAGE:
-        context.LOG.error("TXS_NOSTORAGE specified for field: %s", uniqueName.c_str());
+        LOG(context.LOGGER(), ERROR, "TXS_NOSTORAGE specified for field: " << uniqueName);
         break;
 
     case TXS_INSTANCEMETHOD:
         if (! (fieldDecl->get_decl_flags() & TXD_ABSTRACT)) {
-            ASSERT(this->field->initExpression, "instance method does not have an initializer/definition: " << uniqueName.c_str());
+            ASSERT(this->field->initExpression, "instance method does not have an initializer/definition: " << uniqueName);
             auto initLambdaV = cast<ConstantStruct>(this->field->initExpression->code_gen(context, scope));
             auto funcPtrV = initLambdaV->getAggregateElement((unsigned)0);
             //std::cout << "initLambdaV: " << initLambdaV << std::endl;
@@ -143,7 +134,7 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
             if (this->field->initExpression && !this->field->initExpression->is_statically_constant()) {
                 // TODO
                 auto lvl = Level::WARN; //( entity->is_generic_param_binding() ? Level::DEBUG : Level::WARN );
-                context.LOG.log(lvl, "Skipping codegen for global/static constant field %s whose initializer is not a constant expression", uniqueName.c_str());
+                context.LOGGER()->log(lvl, "Skipping codegen for global/static constant field %s whose initializer is not a constant expression", uniqueName.c_str());
             }
             else
                 fieldVal = make_constant_nonlocal_field(context, scope, this->field, llvmType);
@@ -155,7 +146,7 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
         break;
 
     case TXS_STACK:
-        context.LOG.error("TxFieldDeclNode can not apply to TXS_STACK storage fields: %s", uniqueName.c_str());
+        LOG(context.LOGGER(), ERROR, "TxFieldDeclNode can not apply to TXS_STACK storage fields: " << uniqueName);
         break;
     }
     if (fieldVal)
@@ -168,6 +159,7 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
 Value* TxFieldDefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     // (note that this is doesn't *declare* the field since that operation is context-sensitive;
     // the parent node does that)
+    TRACE_CODEGEN(this, context);
     return nullptr;  // passive node
 }
 

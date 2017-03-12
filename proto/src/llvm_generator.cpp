@@ -153,7 +153,7 @@ Function* LlvmGenerationContext::gen_main_function(const std::string userMain, b
         }
     }
     else {
-        this->LOG.error("LLVM function not found for name: %s", userMain.c_str());
+        this->LOGGER()->error("LLVM function not found for name: %s", userMain.c_str());
         ReturnInst::Create(this->llvmModule.getContext(), ConstantInt::get(this->llvmModule.getContext(), APInt(32, 0, true)), bb);
     }
 
@@ -183,7 +183,7 @@ int LlvmGenerationContext::verify_code() {
     raw_string_ostream ostr(errInfo);
     bool ret = verifyModule(this->llvmModule, &ostr);
     if (ret) {
-        this->LOG.error("LLVM code verification failed: %s", errInfo.c_str());
+        this->LOGGER()->error("LLVM code verification failed: %s", errInfo.c_str());
         return 1;
     }
     else
@@ -192,7 +192,7 @@ int LlvmGenerationContext::verify_code() {
 
 void LlvmGenerationContext::print_IR() {
     // TODO: support writing to a .ll file
-    this->LOG.info("Printing LLVM bytecode...");
+    this->LOGGER()->info("Printing LLVM bytecode...");
     PrintModulePass printPass(outs());
     ModulePassManager pm;
     pm.addPass(printPass);
@@ -201,7 +201,7 @@ void LlvmGenerationContext::print_IR() {
 }
 
 int LlvmGenerationContext::write_bitcode(const std::string& filepath) {
-    this->LOG.debug("Writing LLVM bitcode file '%s'", filepath.c_str());
+    LOG_DEBUG(this->LOGGER(), "Writing LLVM bitcode file '" << filepath << "'");
     std::string errInfo;
     raw_fd_ostream ostream(filepath.c_str(), errInfo, sys::fs::F_RW);
     if (errInfo.empty()) {
@@ -209,7 +209,7 @@ int LlvmGenerationContext::write_bitcode(const std::string& filepath) {
         return 0;
     }
     else {
-        this->LOG.error("Failed to open bitcode output file for writing: %s", errInfo.c_str());
+        this->LOGGER()->error("Failed to open bitcode output file for writing: %s", errInfo.c_str());
         return 1;
     }
 }
@@ -217,18 +217,18 @@ int LlvmGenerationContext::write_bitcode(const std::string& filepath) {
 
 void LlvmGenerationContext::register_llvm_value(const std::string& identifier, Value* val) {
     if (identifier.compare(0, strlen(BUILTIN_NS), BUILTIN_NS) != 0)
-        this->LOG.debug("Registering LLVM value %s : %s", identifier.c_str(), to_string(val->getType()).c_str());
+        LOG_DEBUG(this->LOGGER(), "Registering LLVM value " << identifier << " : " << to_string(val->getType()));
     this->llvmSymbolTable.emplace(identifier, val);
 }
 
 Value* LlvmGenerationContext::lookup_llvm_value(const std::string& identifier) const {
     try {
         Value* val = this->llvmSymbolTable.at(identifier);
-        this->LOG.debug("Looked up LLVM value %s", identifier.c_str());
+        LOG_TRACE(this->LOGGER(), "Looked up LLVM value " << identifier);
         return val;
     }
     catch (const std::out_of_range& oor) {
-        this->LOG.debug("Unknown LLVM value identifier %s", identifier.c_str());
+        LOG_DEBUG(this->LOGGER(), "Unknown LLVM value identifier " << identifier);
         return nullptr;
     }
 }
@@ -481,7 +481,7 @@ void LlvmGenerationContext::generate_runtime_data() {
         if (auto entity = txType->get_symbol()) {
             std::string vtableName(entity->get_full_name().str() + "$vtable");
             if (auto vtableV = dyn_cast<GlobalVariable>(this->lookup_llvm_value(vtableName))) {
-                this->LOG.debug("Populating vtable initializer for %s", txType->str().c_str());//vtableName.c_str());
+                LOG_DEBUG(this->LOGGER(), "Populating vtable initializer for " << txType);
                 std::vector<Constant*> initMembers;
                 auto virtualFields = txType->get_virtual_fields();
                 initMembers.resize(virtualFields.get_field_count());
@@ -533,10 +533,10 @@ void LlvmGenerationContext::generate_runtime_data() {
                 //std::cerr << "initializing " << vtableV << " with " << initializer << std::endl;
             }
             else
-                this->LOG.error("No vtable found for %s", vtableName.c_str());
+                this->LOGGER()->error("No vtable found for %s", vtableName.c_str());
         }
         else
-            this->LOG.warning("No symbol for registered type %s", txType->str().c_str());
+            this->LOGGER()->warning("No symbol for registered type %s", txType->str().c_str());
     }
 }
 
@@ -608,16 +608,16 @@ Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
 	Type* llvmType = txType->make_llvm_type(*this);
 	if (llvmType) {
 	    this->llvmTypeMapping.emplace(txType, llvmType);
-	    this->LOG.debug("Made LLVM type mapping for type %s: %s", txType->str(true).c_str(), to_string(llvmType).c_str());
+	    LOG_DEBUG(this->LOGGER(), "Made LLVM type mapping for type " << txType->str(true) << ": " << to_string(llvmType));
 	}
 	else
-		this->LOG.error("No LLVM type mapping for type: %s", txType->str().c_str());
+		this->LOGGER()->error("No LLVM type mapping for type: %s", txType->str().c_str());
 
 	Type* llvmTypeBody = txType->make_llvm_type_body(*this, llvmType);
 	if (llvmTypeBody != llvmType) {
 	    // replace header with full type definition in mapping
         this->llvmTypeMapping[txType] = llvmTypeBody;
-        this->LOG.note("replaced LLVM type mapping for type %s: %s", txType->str(true).c_str(), to_string(llvmTypeBody).c_str());
+        this->LOGGER()->note("replaced LLVM type mapping for type %s: %s", txType->str(true).c_str(), to_string(llvmTypeBody).c_str());
 	}
 
 	return llvmType;

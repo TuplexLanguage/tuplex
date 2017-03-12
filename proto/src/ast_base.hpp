@@ -77,7 +77,7 @@ typedef std::function<void( const TxNode* node, const AstParent& parent, const s
 
 
 class TxNode : public virtual TxParseOrigin, public Printable {
-    static Logger& LOG;
+    static Logger& _LOG;
     static unsigned nextNodeId;
 
     const unsigned nodeId;
@@ -149,7 +149,7 @@ public:
     std::string parse_loc_string() const;
 
 
-    inline Logger& LOGGER() const { return this->LOG; }
+    inline Logger& LOGGER() const { return this->_LOG; }
 };
 
 

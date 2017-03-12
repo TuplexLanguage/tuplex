@@ -8,21 +8,21 @@
 
 /* Executes the AST by running the main function */
 int LlvmGenerationContext::run_code() {
-    this->LOG.info("Running code...");
+    this->LOGGER()->info("Running code...");
     llvm::InitializeNativeTarget();
     bool forceInterpreter = false;  // true - run interpreter; false - JIT
     std::string errorString;
     llvm::ExecutionEngine* ee = llvm::ExecutionEngine::create(&this->llvmModule, forceInterpreter, &errorString);
     if (! ee) {
-        this->LOG.error("Failed to create LLVM ExecutionEngine with error message: %s", errorString.c_str());
+        this->LOGGER()->error("Failed to create LLVM ExecutionEngine with error message: %s", errorString.c_str());
         return -1;
     }
     std::vector<llvm::GenericValue> noargs;
     llvm::GenericValue v = ee->runFunction(this->entryFunction, noargs);
     int64_t retVal = v.IntVal.getSExtValue();
     if (forceInterpreter)
-        this->LOG.info("Code was run in interpreter mode, return value: %d", retVal);
+        this->LOGGER()->info("Code was run in interpreter mode, return value: %d", retVal);
     else
-        this->LOG.info("Code was run in JIT mode, return value: %d", retVal);
+        this->LOGGER()->info("Code was run in JIT mode, return value: %d", retVal);
     return (int) retVal;
 }

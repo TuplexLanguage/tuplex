@@ -249,8 +249,8 @@ void TxType::initialize_type() {
         }
     }
     else {
-        bool madeConcrete = !this->is_generic() && this->get_semantic_base_type() && this->get_semantic_base_type()->is_generic();
-        ASSERT(! madeConcrete, "Type is concrete specialization of generic base type, but unnamed (undeclared): " << this  << "   sem.basetype: " << this->get_semantic_base_type());
+        ASSERT(! (!this->is_generic() && this->get_semantic_base_type() && this->get_semantic_base_type()->is_generic()),
+               "Type is concrete specialization of generic base type, but unnamed (undeclared): " << this  << "   sem.basetype: " << this->get_semantic_base_type());
         if (this->get_type_class() != TXTC_FUNCTION)
             LOGGER().alert("No declaration for non-func type (nearest decl: %s)\t%s", this->get_nearest_declaration()->str().c_str(),
                            this->str().c_str());

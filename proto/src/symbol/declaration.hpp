@@ -24,6 +24,8 @@ public:
     TxEntityDeclaration(TxEntitySymbol* symbol, TxDeclarationFlags declFlags)
             : symbol(symbol), declFlags(declFlags)  {
         ASSERT(symbol, "NULL symbol");
+        (void)LEGAL_TYPE_DECL_FLAGS;   // suppresses unused variable warning in release mode
+        (void)LEGAL_FIELD_DECL_FLAGS;  // suppresses unused variable warning in release mode
     }
 
     virtual ~TxEntityDeclaration() = default;

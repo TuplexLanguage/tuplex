@@ -175,7 +175,7 @@ public:
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
         //ASSERT(false, "Can't contruct LLVM type for abstract type " << this->to_string());
-        context.LOG.debug("LLVM type for abstract type %s is VOID", this->str().c_str());
+        LOG_DEBUG(context.LOGGER(), "LLVM type for abstract type " << this << " is VOID");
         return context.get_voidT();
     }
 };
@@ -198,7 +198,7 @@ public:
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
         //ASSERT(false, "Can't contruct LLVM type for abstract type " << this->to_string());
-        context.LOG.debug("LLVM type for abstract type %s is VOID", this->str().c_str());
+        LOG_DEBUG(context.LOGGER(), "LLVM type for abstract type " << this << " is VOID");
         return context.get_voidT();
     }
 };

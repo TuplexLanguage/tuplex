@@ -13,6 +13,8 @@
 
 
 #include "ast.hpp"
+#include "tx_logging.hpp"
+
 
 class CompoundStatementScope {
 public:
@@ -36,6 +38,8 @@ public:
  * and has a 1-1 relationship to an LLVM Module.
  */
 class LlvmGenerationContext {
+    Logger& _LOGGER = Logger::get("LLVMGEN");
+
     llvm::Function* entryFunction = nullptr;
     std::map<const std::string, llvm::Value*> llvmSymbolTable;
     std::map<const TxType*, llvm::Type*> llvmTypeMapping;
@@ -56,8 +60,6 @@ class LlvmGenerationContext {
     llvm::Function* gen_main_function(const std::string userMain, bool hasIntReturnValue);
 
 public:
-    Logger& LOG = Logger::get("LLVMGEN");
-
     TxPackage& tuplexPackage;
 
 	llvm::LLVMContext& llvmContext;
@@ -125,6 +127,9 @@ public:
 
     /** Returns the program's return code. */
     int run_code();
+
+
+    inline Logger* LOGGER() const { return &this->_LOGGER; }
 };
 
 

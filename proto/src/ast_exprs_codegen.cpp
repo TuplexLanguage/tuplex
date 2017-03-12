@@ -28,7 +28,7 @@ static const OpMapping OP_MAPPING[] = {
 };
 
 Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     auto lval = this->lhs->code_gen(context, scope);
     auto rval = this->rhs->code_gen(context, scope);
     if ((! lval) || (! rval))
@@ -51,6 +51,7 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
         }
         else {
             ASSERT(false, "Unsupported binary operand type: " << (resultType?resultType->str().c_str():"NULL"));
+            llvm_op = 0;
         }
     }
     else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
@@ -102,7 +103,7 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
 
 
 Value* TxUnaryMinusNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     auto operand = this->operand->code_gen(context, scope);
     if (! operand)
         return NULL;
@@ -120,13 +121,13 @@ Value* TxUnaryMinusNode::code_gen(LlvmGenerationContext& context, GenScope* scop
             return scope->builder->CreateFNeg(operand);
     }
     else {
-        context.LOG.error("Invalid unary minus operand type: %s", opType->str().c_str());
+        LOG(context.LOGGER(), ERROR, "Invalid unary minus operand type: " << opType);
         return NULL;
     }
 }
 
 Value* TxUnaryLogicalNotNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     auto operand = this->operand->code_gen(context, scope);
     if (! operand)
         return NULL;
@@ -142,6 +143,7 @@ Value* gen_get_struct_member(LlvmGenerationContext& context, GenScope* scope, Va
     Value* memberV;
     if (auto structPtrV = dyn_cast<PointerType>(structV->getType())) {  // address of struct
         ASSERT(structPtrV->getPointerElementType()->isStructTy(), "expected pointer element to be a struct: " << structV);
+        (void)structPtrV;   // suppresses unused variable warning in release mode
         if (scope) {
             auto memberA = scope->builder->CreateStructGEP(structV, ix);
             memberV = scope->builder->CreateLoad(memberA);
@@ -188,6 +190,7 @@ Value* gen_ref(LlvmGenerationContext& context, GenScope* scope, Type* refT, Valu
     }
     else {
         ASSERT(false, "Not yet supported to construct reference to global: " << ptrV);  // TODO
+        return nullptr;
     }
 }
 
@@ -203,13 +206,14 @@ Value* gen_lambda(LlvmGenerationContext& context, GenScope* scope, Type* lambdaT
     }
     else {
         ASSERT(false, "Not yet supported to construct global lambda");  // TODO
+        return nullptr;
     }
 }
 
 
 
 Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     Value* ptrV = nullptr;
     TxExpressionNode* targetNode = this->target;
     if (auto genConvNode = dynamic_cast<TxMaybeConversionNode*>(targetNode)) {
@@ -229,8 +233,7 @@ Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* sco
             ptrV = new GlobalVariable(context.llvmModule, constInitializer->getType(), true,
                                          GlobalValue::InternalLinkage, constInitializer);
         else {
-            context.LOG.error("%s: Ref target expression supposed to be statically constant but isn't: %s",
-                              this->parse_loc_string().c_str(), ::to_string(targetVal).c_str());
+            LOG(context.LOGGER(), ERROR, this << ": Ref target expression supposed to be statically constant but isn't: " << ::to_string(targetVal));
             return nullptr;
         }
     }
@@ -250,7 +253,7 @@ Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* sco
 
 
 Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     if (! this->refExprValue) {
         this->refExprValue = this->reference->code_gen(context, scope);
         if (! this->refExprValue)
@@ -275,7 +278,7 @@ Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* 
 
 Value* TxReferenceDerefNode::code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
     // dynamic by reading the reference's target type id
-    context.LOG.trace("%-48s TypeID", this->str().c_str());
+    TRACE_CODEGEN(this, context, " TypeID");
     if (! this->refExprValue) {
         this->refExprValue = this->reference->code_gen(context, scope);
         if (! this->refExprValue)
@@ -337,7 +340,7 @@ Value* TxElemDerefNode::code_gen_address(LlvmGenerationContext& context, GenScop
             arrayV = arrayA;
         }
         else {
-            context.LOG.error("Can't dereference non-constant array from global scope");
+            LOG(context.LOGGER(), ERROR, "Can't dereference non-constant array from global scope");
             return NULL;
         }
     }
@@ -346,7 +349,7 @@ Value* TxElemDerefNode::code_gen_address(LlvmGenerationContext& context, GenScop
 }
 
 Value* TxElemDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     auto arrayV = this->array->code_gen(context, scope);
     auto subscriptV = this->subscript->code_gen(context, scope);
     if (! arrayV || ! subscriptV)
@@ -373,7 +376,7 @@ Value* TxElemDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope
             arrayV = arrayA;
         }
         else {
-            context.LOG.error("Can't dereference non-constant array from global scope");
+            LOG(context.LOGGER(), ERROR, "Can't dereference non-constant array from global scope");
             return NULL;
         }
     }
@@ -404,7 +407,7 @@ Value* TxElemDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope
 }
 
 Value* TxElemAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     auto arrayval = this->array->code_gen(context, scope);
     auto subscriptval = this->subscript->code_gen(context, scope);
     if (! arrayval || ! subscriptval)
@@ -422,12 +425,12 @@ Value* TxElemAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* sc
 
 
 Value* TxFieldAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     return this->field->code_gen_address(context, scope);
 }
 
 Value* TxDerefAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     auto refval = this->operand->code_gen(context, scope);
     if (! refval)
         return NULL;
@@ -445,12 +448,12 @@ static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& c
         args.push_back(argDef->code_gen(context, scope));
     }
 
-    context.LOG.debug("Creating function call '%s'", functionPtrV->getName().str().c_str());
+    LOG_DEBUG(context.LOGGER(), "Creating function call \"" << functionPtrV->getName().str() << '"');
     if (scope)
         return scope->builder->CreateCall(functionPtrV, args, exprLabel);
     else {
         // FUTURE: support calling functions outside of code block (statically constant or instance initialization)
-        context.LOG.error("calling functions outside of code block not currently supported");
+        LOG(context.LOGGER(), ERROR, "calling functions outside of code block not currently supported");
         return nullptr;
     }
 }
@@ -466,7 +469,7 @@ static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& c
 }
 
 Value* TxFunctionCallNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     if (this->inlinedExpression)
         return this->inlinedExpression->code_gen( context, scope );
     else {
@@ -480,6 +483,7 @@ Value* TxFunctionCallNode::code_gen( LlvmGenerationContext& context, GenScope* s
 
 
 Value* TxConstructorCalleeExprNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    TRACE_CODEGEN(this, context);
     Value* funcPtrV = this->gen_func_ptr(context, scope);
     auto allocType = this->objectExpr->get_type();
     if (! allocType)
@@ -502,7 +506,6 @@ Value* TxConstructorCalleeExprNode::gen_obj_ptr(LlvmGenerationContext& context, 
 
 Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context, GenScope* scope) const {
     // constructors are similar to instance methods, but they are not virtual (and not in vtable)
-    context.LOG.trace("%-48s", this->str().c_str());
 
     // find the constructor
     // (constructors aren't inherited, but we bypass equivalent specializations to find the code-generated constructor)
@@ -518,14 +521,14 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
         if (auto txType = this->get_type()) {
             // forward declaration situation
             if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
-                context.LOG.debug("Forward-declaring constructor function %s: %s", uniqueFullName.c_str(), txFuncType->str().c_str());
+                LOG_DEBUG(context.LOGGER(), "Forward-declaring constructor function " << uniqueFullName << ": " << txFuncType);
                 StructType *lambdaT = cast<StructType>(context.get_llvm_type(txFuncType));
                 FunctionType *funcT = cast<FunctionType>(cast<PointerType>(lambdaT->getElementType(0))->getPointerElementType());
                 auto funcName = uniqueFullName;
                 funcPtrV = context.llvmModule.getOrInsertFunction(funcName, funcT);
             }
             else
-                context.LOG.error("No LLVM type defined for %s", txType->str().c_str());
+                LOG(context.LOGGER(), ERROR, "No LLVM type defined for " << txType);
         }
     }
     return funcPtrV;
@@ -533,18 +536,20 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
 
 
 Value* TxHeapAllocNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    TRACE_CODEGEN(this, context);
     Type* objT = context.get_llvm_type(this->get_type());
     return context.gen_malloc(scope, objT);
 }
 
 Value* TxStackAllocNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    TRACE_CODEGEN(this, context);
     return this->get_type()->gen_alloca(context, scope);
 }
 
 
 Value* TxNewConstructionNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     // new constructor returns the constructed object by reference
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
 
     Value* objAllocV = static_cast<TxConstructorCalleeExprNode*>( this->constructorCall->callee )->gen_obj_ptr(context, scope);
     // initialize the object
@@ -567,7 +572,7 @@ Value* TxNewConstructionNode::code_gen(LlvmGenerationContext& context, GenScope*
 
 Value* TxStackConstructionNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     // stack constructor returns the constructed object by value, not by reference
-    context.LOG.trace("%-48s", this->str().c_str());
+    TRACE_CODEGEN(this, context);
     if (this->initializationExpression) {
         // if inlined, the stack constructor doesn't need to actually allocate storage on stack
         // (the receiver of this expression value might do this, if it needs to)

@@ -46,7 +46,7 @@ public:
  * A TxDriver instance is not reentrant in the sense that it only performs a single compilation.
  */
 class TxDriver {
-    Logger& LOG;
+    Logger& _LOG;
 
     const TxOptions options;
 
