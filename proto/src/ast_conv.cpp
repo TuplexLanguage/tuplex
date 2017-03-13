@@ -26,8 +26,8 @@ static TxExpressionNode* inner_wrap_conversion(TxExpressionNode* originalExpr, c
         if (dynamic_cast<const TxFunctionType*>(requiredType))
             return originalExpr;  // or do we actually need to do something here?
 
-        originalExpr->LOGGER().error("Type supposedly auto-converts but no conversion logic available:  %s => %s",
-                                     originalType->str().c_str(), requiredType->str().c_str());
+        LOG(originalExpr->LOGGER(), ERROR, "Type supposedly auto-converts but no conversion logic available:  "
+                                           << originalType << " => " << requiredType);
     }
     return nullptr;
 }
@@ -99,7 +99,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
 TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType* resultType, bool _explicit ) {
     auto exprNode = inner_validate_wrap_convert( originalExpr, resultType, _explicit );
     if (exprNode != originalExpr) {
-        originalExpr->LOGGER().trace("Wrapping conversion to type %s around %s", resultType->str(true).c_str(), originalExpr->str().c_str());
+        LOG_TRACE(originalExpr->LOGGER(), "Wrapping conversion to type " << resultType->str(true) << " around " << originalExpr);
         exprNode->symbol_declaration_pass( originalExpr->context() );
     }
     return exprNode;
@@ -110,7 +110,7 @@ void TxMaybeConversionNode::insert_conversion( const TxType* resultType, bool _e
     ASSERT(this->originalExpr->is_context_set(), "declaration pass not yet run on originalExpr");
 
     if (this->conversionExpr) {
-        LOGGER().alert("%s: Skipping overwrite previously inserted conversion node", this->parse_loc_string().c_str());
+        LOG(this->LOGGER(), ALERT, this << ": Skipping overwrite previously inserted conversion node");
         return;
     }
     //ASSERT(!this->specificConvs.at(six), this->parse_loc_string() << ": Can't overwrite previously inserted conversion node for six=" << six);

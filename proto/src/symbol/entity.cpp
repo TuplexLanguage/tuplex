@@ -3,7 +3,7 @@
 #include "ast.hpp"
 
 
-Logger& TxEntity::LOG = Logger::get("ENTITY");
+Logger& TxEntity::_LOG = Logger::get("ENTITY");
 
 
 const TxLocation& TxEntity::get_parse_location() const {

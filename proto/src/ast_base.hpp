@@ -5,8 +5,8 @@
 #include <functional>
 
 #include "util/assert.hpp"
-#include "util/logging.hpp"
 
+#include "tx_logging.hpp"
 #include "tx_error.hpp"
 #include "tx_operations.hpp"
 #include "location.hpp"
@@ -149,7 +149,7 @@ public:
     std::string parse_loc_string() const;
 
 
-    inline Logger& LOGGER() const { return this->_LOG; }
+    inline Logger* LOGGER() const { return &this->_LOG; }
 };
 
 
@@ -349,7 +349,7 @@ public:
     virtual const TxType* resolve_type() override final {
         ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
         if (!this->type && !this->hasResolved) {
-            LOGGER().trace("resolving type  of %s", this->str().c_str());
+            LOG_TRACE(this->LOGGER(), "resolving type  of " << this);
             //ASSERT(!this->startedRslv, "Recursive invocation of resolve_type() of " << this);
             if (this->startedRslv) {
                 CERROR(this, "Recursive definition of type " << this->get_declared_name());
@@ -396,7 +396,7 @@ public:
     virtual const TxField* resolve_field() final {
         ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
         if (!this->field && !this->hasResolved) {
-            LOGGER().trace("resolving field of %s", this->str().c_str());
+            LOG_TRACE(this->LOGGER(), "resolving field of " << this);
             if (this->startedRslv) {
                 CERROR(this, "Recursive definition of field " << this->get_declared_name());
                 return nullptr;

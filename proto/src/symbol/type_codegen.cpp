@@ -24,7 +24,7 @@ StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
         LOG(context.LOGGER(), ERROR, "No symbol declared for type " << this << " - can't perform vtable LLVM type mapping");
         return nullptr;
     }
-    LOG_DEBUG(context.LOGGER(), "Mapping vtable of type " << this->get_declaration()->get_unique_full_name() << ": " << this->str(true));
+    LOG_TRACE(context.LOGGER(), "Mapping vtable of type " << this->get_declaration()->get_unique_full_name() << ": " << this->str(true));
     std::vector<Type*> members;
     for (auto memberTxField : this->get_virtual_fields().fields) {
         auto memberTxType = memberTxField->get_type();
@@ -34,7 +34,7 @@ StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
         else if (memberTxField->get_unique_name() != "$adTypeId")  // $adTypeId is direct value, not a pointer to separate global
             lMemberType = PointerType::getUnqual(lMemberType);
         members.push_back(lMemberType);
-        LOG_DEBUG(context.LOGGER(), "Mapping virtual member type " << memberTxType << " to: " << ::to_string(lMemberType));
+        LOG_TRACE(context.LOGGER(), "Mapping virtual member type " << memberTxType << " to: " << ::to_string(lMemberType));
     }
     // (create() could be used to get named struct types)
     //StructType* vtableT = StructType::create(context.llvmContext, members, this->get_declaration()->get_unique_full_name() + "$VTable");
@@ -321,13 +321,13 @@ Type* TxTupleType::make_llvm_type(LlvmGenerationContext& context) const {
 }
 
 Type* TxTupleType::make_llvm_type_body(LlvmGenerationContext& context, Type* header) const {
-    LOG_DEBUG(context.LOGGER(), "Mapping tuple type " << this->get_symbol()->get_full_name() << ": " << this->str(true));
+    LOG_TRACE(context.LOGGER(), "Mapping tuple type " << this->get_symbol()->get_full_name() << ": " << this->str(true));
     std::vector<Type*> fieldTypes;
     for (auto memberTxField : this->get_instance_fields().fields) {
         auto memberTxType = memberTxField->get_type();
         auto memberLlvmType = context.get_llvm_type(memberTxType);
         fieldTypes.push_back(memberLlvmType);
-        LOG_DEBUG(context.LOGGER(), "Mapping member type " << memberTxType << " to " << ::to_string(memberLlvmType));
+        LOG_TRACE(context.LOGGER(), "Mapping member type " << memberTxType << " to " << ::to_string(memberLlvmType));
     }
     StructType* sType = cast<StructType>(header);
     sType->setBody(fieldTypes);

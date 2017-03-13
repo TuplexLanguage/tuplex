@@ -2,6 +2,7 @@
 
 #include "type_registry.hpp"
 
+#include "tx_logging.hpp"
 #include "package.hpp"
 #include "entity.hpp"
 #include "ast.hpp"
@@ -110,7 +111,7 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
                     //std::cerr << "existing: " << existingType << "  new: " << type << std::endl;
                 }
             }
-            type->LOGGER().warning("Name collision when trying to declare implicit MOD type, preexisting symbol: %s", entitySymbol->str().c_str());
+            LOG(type->LOGGER(), WARN, "Name collision when trying to declare implicit MOD type, preexisting symbol: " << entitySymbol);
             name = scope->make_unique_name(name);
         }
 

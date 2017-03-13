@@ -16,7 +16,7 @@ class TxConstantProxy;
 
 /** Represents the definition of a type or a field. */
 class TxEntity : public virtual TxParseOrigin, public Printable {
-    static Logger& LOG;
+    static Logger& _LOG;
 
     const TxEntityDeclaration* declaration;
 
@@ -26,7 +26,7 @@ protected:
     }
 
 public:
-    inline Logger& LOGGER() const { return this->LOG; }
+    inline Logger* LOGGER() const { return &this->_LOG; }
 
     virtual inline const TxEntityDeclaration* get_declaration() const { return this->declaration; }
 

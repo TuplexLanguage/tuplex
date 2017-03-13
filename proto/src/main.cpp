@@ -24,6 +24,13 @@ int main(int argc, char **argv)
     std::string outputFileName;
     bool separateJobs = false;
 
+#ifndef NDEBUG
+    // development mode default options:
+    options.run_verifier = true;
+    options.run_jit = true;
+    options.no_bc_output = true;
+#endif
+
     for (int a = 1; a < argc; a++) {
         if (argv[a][0] == '-' && argv[a][1]) {
             if (! strcmp(argv[a], "-version")) {
@@ -45,10 +52,12 @@ int main(int argc, char **argv)
                 printf("  %-22s %s\n", "-di", "Dump intermediate representation (LLVM IR)");
                 printf("  %-22s %s\n", "-dl", "Print debugging output from lexer (token scanner)");
                 printf("  %-22s %s\n", "-dy", "Print debugging output from grammar parser");
-                printf("  %-22s %s\n", "-nover", "Disable verifying generated code after successful compilation");
-                printf("  %-22s %s\n", "-nojit", "Disable running program in JIT mode after successful compilation");
+                printf("  %-22s %s\n", "-nover", "Disable verifying generated code after successful compilation (default if release build)");
+                printf("  %-22s %s\n", "-ver", "Run generated code verifier after successful compilation");
+                printf("  %-22s %s\n", "-nojit", "Disable running program in JIT mode after successful compilation (default if release build)");
                 printf("  %-22s %s\n", "-jit", "Run program in JIT mode after successful compilation");
                 printf("  %-22s %s\n", "-nobc", "Don't output bitcode (and if also running in JIT mode, exit with program's return code)");
+                printf("  %-22s %s\n", "-bc", "Output bitcode file (default if release build)");
                 printf("  %-22s %s\n", "-onlyparse", "Stop after grammar parse");
                 printf("  %-22s %s\n", "-sepjobs", "Compile each command line source file as a separate compilation job");
                 printf("  %-22s %s\n", "-cnoassert", "Suppress code generation for assert statements");
@@ -88,6 +97,8 @@ int main(int argc, char **argv)
                 options.run_jit = true;
             else if (! strcmp(argv[a], "-nobc"))
                 options.no_bc_output = true;
+            else if (! strcmp(argv[a], "-bc"))
+                options.no_bc_output = false;
             else if (! strcmp(argv[a], "-onlyparse"))
                 options.only_parse = true;
             else if (! strcmp(argv[a], "-sepjobs"))

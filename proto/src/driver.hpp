@@ -32,8 +32,8 @@ public:
     bool dump_symbol_table = false;
     bool dump_tx_symbols = false;
     bool dump_ir = false;
-    bool run_verifier = true;
-    bool run_jit = true;
+    bool run_verifier = false;
+    bool run_jit = false;
     bool no_bc_output = false;
     bool suppress_asserts = false;
     bool allow_tx = false;

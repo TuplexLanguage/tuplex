@@ -193,7 +193,7 @@ class TxFieldDefNode : public TxFieldDefiningNode {
 
 protected:
     virtual const TxType* define_type() override {
-        LOGGER().trace("defining  type  of %s", this->str().c_str());
+        LOG_TRACE(this->LOGGER(), "defining  type  of " << this);
         const TxType* type;
         if (this->typeExpression) {
             type = this->typeExpression->resolve_type();
@@ -218,7 +218,7 @@ protected:
     }
 
     virtual const TxField* define_field() override {
-        LOGGER().trace("defining  field of %s", this->str().c_str());
+        LOG_TRACE(this->LOGGER(), "defining  field of " << this);
         ASSERT(this->attempt_get_type(), "Expected non-NULL type in " << this);
         if (this->declaration) {
             if (auto field = TxField::make_field( this->declaration, this->attempt_get_type() )) {

@@ -167,8 +167,7 @@ void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, Lexica
         CERROR(this, "Failed to declare type " << this->typeName);
         return;
     }
-    this->LOGGER().debug("%s: Declared type %-16s: %s", this->parse_loc_string().c_str(), this->typeName->str().c_str(),
-                         declaration->str().c_str());
+    LOG_TRACE(this->LOGGER(), this << ": Declared type " << declaration);
 
     // The context of this node represents its outer scope.
     // The type expression's created type entity, if any, represents its inner scope.

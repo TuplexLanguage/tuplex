@@ -108,7 +108,7 @@ void TxType::validate_type() const {
 
 
 void TxType::initialize_type() {
-    LOGGER().debug("Initializing type %s", this->str().c_str());
+    LOG_TRACE(this->LOGGER(), "Initializing type " << this);
 
     if (this->get_declaration()) {
         auto typeDeclNamespace = this->get_declaration()->get_symbol();
@@ -116,7 +116,6 @@ void TxType::initialize_type() {
         if (auto entitySym = dynamic_cast<TxEntitySymbol*>(typeDeclNamespace->get_member_symbol("$GenericBase"))) {
             if (auto typeDecl = entitySym->get_type_decl()) {
                 this->genericBaseType = typeDecl->get_definer()->resolve_type();
-                //LOGGER().alert("Generic base type of %s is %s", entitySym->get_full_name().to_string().c_str(), this->genericBaseType->to_string().c_str());
             }
         }
 
@@ -190,7 +189,7 @@ void TxType::initialize_type() {
                 else {
                     this->emptyDerivation = true;
                     if (hasImplicitFieldMembers) {
-                        LOGGER().note("Type with only implicit field members: %s", this->str().c_str());
+                        LOG(this->LOGGER(), NOTE, "Type with only implicit field members: " << this);
                     }
                 }
             }
@@ -206,7 +205,7 @@ void TxType::initialize_type() {
                         if (this->get_type_class() != TXTC_INTERFACEADAPTER) {
                             CERROR(this, "Missing binding or redeclaration of base type's type parameter "
                                    << paramDecl->get_unique_name() << " in " << this);
-                            //LOGGER().note("Implicitly inheriting (redeclaring) type parameter %s in type %s", paramDecl->get_unique_full_name().c_str(), this->to_string().c_str());
+                            //LOG(this->LOGGER(), NOTE, "Implicitly inheriting (redeclaring) type parameter %s in type %s", paramDecl->get_unique_full_name().c_str(), this->to_string().c_str());
                         }
                     }
                 }
@@ -252,8 +251,7 @@ void TxType::initialize_type() {
         ASSERT(! (!this->is_generic() && this->get_semantic_base_type() && this->get_semantic_base_type()->is_generic()),
                "Type is concrete specialization of generic base type, but unnamed (undeclared): " << this  << "   sem.basetype: " << this->get_semantic_base_type());
         if (this->get_type_class() != TXTC_FUNCTION)
-            LOGGER().alert("No declaration for non-func type (nearest decl: %s)\t%s", this->get_nearest_declaration()->str().c_str(),
-                           this->str().c_str());
+            LOG(this->LOGGER(), ALERT, "No declaration for non-func type (nearest decl: " << this->get_nearest_declaration() << ")\t" << this);
     }
 
     // determine datatype change:
@@ -279,7 +277,7 @@ void TxType::initialize_type() {
 }
 
 void TxType::prepare_members() {
-    LOGGER().debug("Preparing members of type %s", this->str().c_str());
+    LOG_TRACE(this->LOGGER(), "Preparing members of type " << this);
 
     ASSERT(! this->prepared, "Can't prepare type more than once: " << this);
     this->prepared = true;
@@ -386,12 +384,12 @@ void TxType::prepare_members() {
                 // layout:
                 switch (fieldDecl->get_storage()) {
                 case TXS_INSTANCE:
-                    LOGGER().debug("Laying out instance field %-40s  %s  %u", field->str().c_str(),
-                                   field->get_type()->str(true).c_str(), this->instanceFields.get_field_count());
+                    this->LOGGER()->debug("Laying out instance field %-40s  %s  %u", field->str().c_str(),
+                                          field->get_type()->str(true).c_str(), this->instanceFields.get_field_count());
                     if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
                         CERROR(field, "Can't declare an instance field as abstract: " << field);
                     if (fieldDecl->get_decl_flags() & TXD_GENBINDING)
-                        LOGGER().debug("Skipping layout of GENBINDING instance field: %s", field->str().c_str());
+                        LOG_DEBUG(this->LOGGER(), "Skipping layout of GENBINDING instance field: " << field);
                     else if (!expErrField || expErrWholeType)
                         this->instanceFields.add_field(field);
                     break;
@@ -426,8 +424,8 @@ void TxType::prepare_members() {
                         if (! expErrField || expErrWholeType)
                             this->virtualFields.add_field(field);
                     }
-                    LOGGER().debug("Adding/overriding virtual field %-40s  %s  %u", field->str().c_str(),
-                                   field->get_type()->str(true).c_str(), this->virtualFields.get_field_count());
+                    this->LOGGER()->debug("Adding/overriding virtual field %-40s  %s  %u", field->str().c_str(),
+                                          field->get_type()->str(true).c_str(), this->virtualFields.get_field_count());
                     break;
                 default:
                     ASSERT(fieldDecl->get_storage() == TXS_STATIC, "Invalid storage class " << fieldDecl->get_storage() << " for field member " << *field);
@@ -580,7 +578,7 @@ TxEntitySymbol* TxType::get_instance_member(TxScopeSymbol* vantageScope, const s
             if (auto memberEnt = dynamic_cast<TxEntitySymbol*>(member))
                 return memberEnt;
             else
-                LOGGER().warning("Looked-up member is not an entity: %s",  member->str().c_str());
+                LOG(this->LOGGER(), WARN, "Looked-up member is not an entity: " << member);
         }
     }
     return nullptr;
@@ -623,7 +621,7 @@ static TxEntitySymbol* lookup_inherited_binding(const TxType* type, const std::s
                 return binding->get_symbol();
         }
         else if (semBaseType->get_declaration() && semBaseType->get_declaration()->get_unique_full_name() == parentName)
-            type->LOGGER().warning("Type parameter %s apparently unbound", fullParamName.c_str());
+            LOG(type->LOGGER(), WARN, "Type parameter apparently unbound: " << fullParamName);
 
         type = type->get_base_type();
         semBaseType = type->get_semantic_base_type();
@@ -944,7 +942,7 @@ const TxExpressionNode* TxArrayType::length() const {
     if (auto bindingDecl = this->lookup_value_param_binding("tx.Array.L")) {
         return bindingDecl->get_definer()->get_init_expression();
     }
-    LOGGER().note("Unbound length for array type %s", this->str().c_str());
+    LOG(this->LOGGER(), NOTE, "Unbound length for array type " << this);
     return nullptr;
 }
 
@@ -953,7 +951,7 @@ const TxType* TxArrayType::element_type() const {
         if (auto type = bindingDecl->get_definer()->resolve_type())
             return type;
     }
-    LOGGER().note("Unbound element type for array type %s", this->str().c_str());
+    LOG(this->LOGGER(), NOTE, "Unbound element type for array type " << this);
     ASSERT(this->is_generic(), "Unbound element type for NON-GENERIC array type " << this);
     return this->get_root_any_type();  // we know the basic constraint type for element is Any
 }
@@ -966,7 +964,7 @@ const TxType* TxReferenceType::target_type() const {
         if (auto type = paramDecl->get_definer()->resolve_type())
             return type;
     }
-    LOGGER().debug("Unbound target type for reference type %s", this->str().c_str());
+    LOG_DEBUG(this->LOGGER(), "Unbound target type for reference type " << this);
     ASSERT(this->is_generic(), "Unbound target type for NON-GENERIC reference type " << this);
     return this->get_root_any_type();  // we know the basic constraint type for ref target is Any
 }
@@ -980,7 +978,7 @@ void TxInterfaceAdapterType::prepare_members() {
 
     TxType::prepare_members();
 
-    LOGGER().debug("preparing adapter for %s to interface %s", this->adaptedType->str().c_str(), this->get_semantic_base_type()->str().c_str());
+    LOG_DEBUG(this->LOGGER(), "preparing adapter for " << this->adaptedType << " to interface " << this->get_semantic_base_type());
     // The virtual fields of the abstract base interface type are overridden to refer to
     // the correspondingly named fields of the adapted type.
 
@@ -993,8 +991,7 @@ void TxInterfaceAdapterType::prepare_members() {
             if (protoField->get_decl_flags() & TXD_ABSTRACT)
                 CERROR(this, "Adapted type " << this->adaptedType << " does not define virtual field " << f.first);
             else  // default implementation (mixin)
-                LOGGER().note("Adapted type %s gets interface's default impl for field %s",
-                              this->adaptedType->str().c_str(), protoField->str().c_str());
+                LOG(this->LOGGER(), NOTE, "Adapted type " << this->adaptedType << " gets interface's default impl for field " << protoField);
         }
         else {
             auto targetField = adapteeVirtualFields.get_field(f.first);

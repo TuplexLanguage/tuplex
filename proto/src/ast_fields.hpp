@@ -54,10 +54,8 @@ public:
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        this->LOGGER().trace("Getting static constant proxy for field %s", this->symbolName->c_str());
         if (auto field = this->get_field())
             if (auto constProxy = field->get_static_constant_proxy()) {
-                this->LOGGER().debug("Returning static constant proxy for field %s", field->get_symbol()->get_full_name().str().c_str());
                 return constProxy;
             }
         return nullptr;
