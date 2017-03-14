@@ -19,17 +19,6 @@ public:
 
     virtual TxTypeExpressionNode* make_ast_copy() const override = 0;
 
-    virtual std::string get_declared_name() const override {
-        return ( this->get_declaration() ? this->get_declaration()->get_unique_name() : "" );
-    }
-
-    std::string get_type_name() const {
-        if (this->get_declaration())
-            return this->get_declaration()->get_unique_name();
-        else
-            return this->get_auto_type_name();
-    }
-
     virtual std::string get_auto_type_name() const = 0;
 
     /** Gets the type declaration of this type expression, if any. */
@@ -75,8 +64,6 @@ public:
     virtual void symbol_resolution_pass() {
         this->resolve_type();
     }
-
-    virtual std::string get_declared_name() const override;
 
     /** Returns true if this expression is a stack allocation expression,
      * i.e. its result is in newly allocated stack space, and the allocation's type is the type of this expression.
@@ -176,8 +163,6 @@ public:
 class TxFieldDeclNode;
 
 class TxFieldDefNode : public TxFieldDefiningNode {
-    std::string declName = "";  // the actually declared field name
-
     /** injected by non-local field declaration if applicable */
     TxFieldDeclNode* fieldDeclNode = nullptr;
 
@@ -259,8 +244,7 @@ public:
         LexicalContext outerCtx(lexContext);  // prevents init expr from referring to this field
         if (create_local_scope)
             lexContext.scope( lexContext.scope()->create_code_block_scope( *this ) );
-        this->declName = this->fieldName->str();
-        this->declaration = lexContext.scope()->declare_field(this->declName, this, declFlags, TXS_STACK, TxIdentifier(""));
+        this->declaration = lexContext.scope()->declare_field(this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier(""));
         this->symbol_declaration_pass( outerCtx, lexContext, declFlags);
     }
 
@@ -268,15 +252,14 @@ public:
                                                  TxFieldStorage storage, const TxIdentifier& dataspace ) {
         this->fieldDeclNode = fieldDeclNode;  // enables support for usage-order code generation of non-local fields
         TxDeclarationFlags fieldFlags = declFlags;
-        if (*this->fieldName != "self")
-            this->declName = this->fieldName->str();
-        else {
+        std::string declName = this->fieldName->str();
+        if (*this->fieldName == "self") {
             // handle constructor declaration
-            this->declName = "$init";
+            declName = "$init";
             fieldFlags = fieldFlags | TXD_CONSTRUCTOR;
         }
 
-        this->declaration = lexContext.scope()->declare_field(this->declName, this, fieldFlags, storage, dataspace);
+        this->declaration = lexContext.scope()->declare_field(declName, this, fieldFlags, storage, dataspace);
         this->symbol_declaration_pass( lexContext, lexContext, declFlags);
     }
 
@@ -309,7 +292,7 @@ public:
 
             if (! field->get_type()->is_concrete())
                 CERROR(this, "Field type is not concrete (size potentially unknown): " << field->get_type());
-            if (this->get_declared_name() == "$init") {
+            if (this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR) {
                 if (this->get_declaration()->get_storage() != TXS_INSTANCEMETHOD)
                     CERROR(this, "Illegal declaration name for non-constructor member: " << this->fieldName);
                 // TODO: check that constructor function type has void return value
@@ -317,7 +300,7 @@ public:
         }
         else {
             if (! this->get_type())
-                CERROR(this, "Failed to resolve field " << this->get_source_name(););
+                CERROR(this, "Failed to resolve field " << this->get_identifier());
             if (this->initExpression) {
                 if (this->typeExpression)
                     this->typeExpression->symbol_resolution_pass();
@@ -330,16 +313,6 @@ public:
 
     virtual const TxExpressionNode* get_init_expression() const {
         return this->initExpression;
-    }
-
-    /** Gets the plain name of this field as stated in the source text. */
-    virtual const std::string get_source_name() const {
-        return this->fieldName->str();
-    }
-
-    /** Gets the plain name of this field as actually declared in the symbol table. */
-    virtual std::string get_declared_name() const override {
-        return this->declName;
     }
 
     const TxFieldDeclaration* get_declaration() const {
@@ -448,10 +421,6 @@ public:
 class TxAssigneeNode : public TxTypeDefiningNode {
 public:
     TxAssigneeNode(const TxLocation& parseLocation) : TxTypeDefiningNode(parseLocation) { }
-
-    virtual std::string get_declared_name() const override {
-        return "";
-    }
 
     virtual TxAssigneeNode* make_ast_copy() const override = 0;
 

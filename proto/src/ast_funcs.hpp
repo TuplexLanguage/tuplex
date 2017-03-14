@@ -45,7 +45,8 @@ public:
     inline bool is_instance_method() const { return this->instanceMethod; }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        std::string funcName = this->fieldDefNode ? this->fieldDefNode->get_declared_name() : "";
+        std::string funcName = (this->fieldDefNode && this->fieldDefNode->get_declaration()) ?
+                                    this->fieldDefNode->get_declaration()->get_unique_name() : "";
         LexicalContext funcLexContext( lexContext, lexContext.scope()->create_code_block_scope( *this, funcName ) );
 
         if (this->is_instance_method()) {

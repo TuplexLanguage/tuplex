@@ -69,7 +69,6 @@ Implement "development mode" in compiler, if disabled then:
  - no jit by default - DONE
  - no compiler assertions - DONE
  - no trace logging invocations - MOSTLY DONE (Symbol logging remains)
- - TX assertions are fatal (in dev mode they shall only produce error messages)
 
 Make fields be "bindings to entities" rather than "entities" - SORT-OF-DONE
  - in order to fix multi-instantiation in e.g:

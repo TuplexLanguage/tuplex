@@ -70,10 +70,6 @@ public:
         return nullptr;
     }
 
-    virtual std::string get_declared_name() const override {
-        return this->builtinField->get_unique_name();
-    }
-
     void set_field(const TxField* field) {
         this->builtinField = field;
         this->set_context( LexicalContext( field->get_symbol()->get_outer(), nullptr, false ) );  // emulate declaration pass
@@ -118,7 +114,7 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override {
-        return this->get_declared_name();
+        return (this->get_declaration() ? this->get_declaration()->get_unique_full_name() : "");
     }
 
     void set_type(const TxType* type) {

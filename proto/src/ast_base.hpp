@@ -318,9 +318,6 @@ public:
 
     virtual TxEntityDefiningNode* make_ast_copy() const override = 0;
 
-    /** Gets the plain declaration name of this entity if declared, otherwise the empty string is returned. */
-    virtual std::string get_declared_name() const = 0;
-
     /** Returns the type (as specific as can be known) of the value this node produces/uses. */
     virtual const TxType* resolve_type    ()       = 0;
     virtual const TxType* attempt_get_type() const = 0;
@@ -352,7 +349,7 @@ public:
             LOG_TRACE(this->LOGGER(), "resolving type  of " << this);
             //ASSERT(!this->startedRslv, "Recursive invocation of resolve_type() of " << this);
             if (this->startedRslv) {
-                CERROR(this, "Recursive definition of type " << this->get_declared_name());
+                CERROR(this, "Recursive definition of type '" << this->get_identifier() << "'");
                 return nullptr;
             }
             this->startedRslv = true;
@@ -398,7 +395,7 @@ public:
         if (!this->field && !this->hasResolved) {
             LOG_TRACE(this->LOGGER(), "resolving field of " << this);
             if (this->startedRslv) {
-                CERROR(this, "Recursive definition of field " << this->get_declared_name());
+                CERROR(this, "Recursive definition of field '" << this->get_identifier() << "'");
                 return nullptr;
             }
             this->startedRslv = true;
