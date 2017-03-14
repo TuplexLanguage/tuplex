@@ -443,6 +443,13 @@ public:
 
     virtual void symbol_resolution_pass() override;
 
+
+    virtual bool is_stack_allocation_expression() const override {
+        if (this->inlinedExpression)
+            return this->inlinedExpression->is_stack_allocation_expression();
+        return false;
+    }
+
     virtual bool is_statically_constant() const override {
         if (this->inlinedExpression)
             return this->inlinedExpression->is_statically_constant();
@@ -454,6 +461,7 @@ public:
             return this->inlinedExpression->get_static_constant_proxy();
         return nullptr;
     }
+
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 

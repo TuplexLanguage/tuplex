@@ -141,6 +141,10 @@ public:
         expr->symbol_resolution_pass();
     }
 
+    virtual bool is_stack_allocation_expression() const override {
+        return this->get_spec_expression()->is_stack_allocation_expression();
+    }
+
     virtual bool is_statically_constant() const override {
         return this->get_spec_expression()->is_statically_constant();
     }

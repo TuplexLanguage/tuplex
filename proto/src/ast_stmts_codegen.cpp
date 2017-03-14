@@ -132,13 +132,10 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
 
     // If init expression does a stack allocation of this field's type (instance-equivalent type),
     // this field shall bind to that allocation.
-    // (If no explicit type is specified, the init expression will of course have the same type.)
 
     Value* fieldVal; // = txType->gen_alloca(context, scope, declaration->get_symbol()->get_name());
     if (this->field->initExpression) {
-        if (this->field->initExpression->is_stack_allocation_expression()
-            && (!this->field->typeExpression
-                || this->field->initExpression->get_type()->is_assignable_to(*txType))) {
+        if (this->field->initExpression->is_stack_allocation_expression()) {
             fieldVal = this->field->initExpression->code_gen(context, scope);
         }
         else {
