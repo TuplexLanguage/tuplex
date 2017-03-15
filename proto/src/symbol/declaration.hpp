@@ -13,7 +13,7 @@ const TxDeclarationFlags LEGAL_TYPE_DECL_FLAGS
           | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM | TXD_GENBINDING | TXD_EXPERRBLOCK;
 const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS
         = TXD_STATIC | TXD_FINAL | TXD_OVERRIDE | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT
-          | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM | TXD_GENBINDING | TXD_CONSTRUCTOR | TXD_EXPERRBLOCK;
+          | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM | TXD_GENBINDING | TXD_CONSTRUCTOR | TXD_INITIALIZER | TXD_EXPERRBLOCK;
 
 
 class TxEntityDeclaration : public Printable {
@@ -56,23 +56,13 @@ class TxFieldDeclaration : public TxEntityDeclaration {
     const TxFieldStorage storage;
     const TxIdentifier dataspace;
 
-    static inline TxFieldStorage determine_storage(TxFieldStorage storage, TxDeclarationFlags declFlags) {
-        if ( storage == TXS_STATIC
-             && ( declFlags & (TXD_PUBLIC | TXD_PROTECTED) )  // private fields are non-virtual
-             // if final but doesn't override, its effectively non-virtual:
-             && ( ( declFlags & (TXD_OVERRIDE | TXD_FINAL)) != TXD_FINAL ) )
-            return TXS_VIRTUAL;
-        else
-            return storage;
-    }
-
     unsigned get_overload_index() const;
 
 public:
     TxFieldDeclaration(TxEntitySymbol* symbol, TxDeclarationFlags declFlags, TxFieldDefiningNode* fieldDefiner,
                        TxFieldStorage storage, const TxIdentifier& dataspace)
             : TxEntityDeclaration(symbol, declFlags), fieldDefiner(fieldDefiner),
-              storage(determine_storage(storage, declFlags)), dataspace(dataspace)  {
+              storage(storage), dataspace(dataspace)  {
         ASSERT((declFlags | LEGAL_FIELD_DECL_FLAGS) == LEGAL_FIELD_DECL_FLAGS, "Illegal field declFlags: " << declFlags);
     }
 

@@ -589,7 +589,7 @@ TxEntitySymbol* TxType::lookup_inherited_instance_member(const std::string& name
 }
 
 TxEntitySymbol* TxType::lookup_inherited_instance_member(TxScopeSymbol* vantageScope, const std::string& name) const {
-    ASSERT(name != "$init", "Can't look up constructors as *inherited* members; in: " << this);
+    ASSERT(name != CONSTR_IDENT, "Can't look up constructors as *inherited* members; in: " << this);
     for (const TxType* type = this; type; type = type->get_base_type()) {
         if (auto memberEnt = type->get_instance_member(vantageScope, name))
             return memberEnt;

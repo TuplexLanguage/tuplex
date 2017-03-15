@@ -202,7 +202,7 @@ static inline bool is_internal_name( const std::string& name ) {
 
 TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxTypeDefiningNode* typeDefiner,
                                                TxDeclarationFlags declFlags) {
-    ASSERT(!is_internal_name(plainName) || (declFlags & (TXD_IMPLICIT | TXD_CONSTRUCTOR)),
+    ASSERT(!is_internal_name(plainName) || (declFlags & (TXD_IMPLICIT | TXD_CONSTRUCTOR | TXD_INITIALIZER)),
            "Mismatch between name format and IMPLICIT flag for type declaration " << plainName);
 
     if (TxEntitySymbol* entitySymbol = this->declare_entity(plainName, typeDefiner)) {
@@ -216,7 +216,7 @@ TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxT
 TxFieldDeclaration* TxScopeSymbol::declare_field(const std::string& plainName, TxFieldDefiningNode* fieldDefiner,
                                                  TxDeclarationFlags declFlags, TxFieldStorage storage,
                                                  const TxIdentifier& dataspace) {
-    ASSERT(!is_internal_name(plainName) || (declFlags & (TXD_IMPLICIT | TXD_CONSTRUCTOR)),
+    ASSERT(!is_internal_name(plainName) || (declFlags & (TXD_IMPLICIT | TXD_CONSTRUCTOR | TXD_INITIALIZER)),
            "Mismatch between name format and IMPLICIT flag for field declaration " << plainName);
 
     if (TxEntitySymbol* entitySymbol = this->declare_entity(plainName, fieldDefiner)) {

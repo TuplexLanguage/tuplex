@@ -36,9 +36,12 @@ public:
     }
 
     void set_instance_method(bool flag) {
-        if (flag && !this->isMethodSyntax)
+        if (flag && !this->isMethodSyntax) {
             CERROR(this, "Function definition was expected to have instance method syntax");
-        this->instanceMethod = flag;
+            this->instanceMethod = false;
+        }
+        else
+            this->instanceMethod = flag;
     }
 
     /** Returns true if this lambda expression is an instance method (with a runtime-provided 'self' argument). */

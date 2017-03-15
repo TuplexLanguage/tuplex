@@ -74,7 +74,6 @@ void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool 
             CERROR(this, "'abstract' is invalid modifier for field / method that has an initializer / body: " << field->initExpression);
     }
 
-    // Note: TXS_STATIC is set here, and may later be changed to TXS_VIRTUAL depending on context.
     TxFieldStorage storage;
     if (this->isMethodSyntax && lexContext.outer_type()) {
         // Note: instance method storage is handled specially (technically the function pointer is a static field)
@@ -116,6 +115,14 @@ void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool 
         storage = (flags & TXD_STATIC) ? TXS_STATIC : TXS_INSTANCE;
     }
 
+    // TXS_STATIC may be changed to TXS_VIRTUAL depending on context:
+    if ( storage == TXS_STATIC
+         && ( declFlags & (TXD_PUBLIC | TXD_PROTECTED) )          // private fields are non-virtual
+         && !( declFlags & (TXD_CONSTRUCTOR | TXD_INITIALIZER) )  // constructors/initializers are non-virtual
+         && ( ( declFlags & (TXD_OVERRIDE | TXD_FINAL)) != TXD_FINAL ) ) { // if final but doesn't override, its effectively non-virtual
+        storage = TXS_VIRTUAL;
+    }
+
     this->field->symbol_declaration_pass_nonlocal_field( lexContext, this, flags, storage, TxIdentifier("") );
 }
 
@@ -137,7 +144,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
         }
         else {
             if (storage == TXS_GLOBAL || storage == TXS_STATIC) {
-                if (! (this->field->get_declaration()->get_decl_flags() & TXD_GENPARAM))
+                if (! (this->field->get_declaration()->get_decl_flags() & (TXD_GENPARAM | TXD_CONSTRUCTOR | TXD_INITIALIZER)))
                     CERROR(this, "Global/static fields must have an initializer: " << this->field->get_identifier());
             }
             else if (storage == TXS_VIRTUAL || storage == TXS_INSTANCEMETHOD) {
@@ -212,10 +219,8 @@ const TxType* TxIdentifiedTypeNode::define_identified_type() {
 const TxType* TxGenSpecTypeNode::define_generic_specialization_type() {
     auto baseTypeDecl = lookup_type( this->context().scope(), *this->ident );
     const TxType* baseType = baseTypeDecl ? baseTypeDecl->get_definer()->resolve_type() : nullptr;
-    if (! baseType) {
-        CERROR(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
+    if (! baseType)
         return nullptr;
-    }
     auto tmp = std::vector<const TxTypeArgumentNode*>( this->typeArgs->size() );
     std::copy( this->typeArgs->cbegin(), this->typeArgs->cend(), tmp.begin() );
     return this->types().get_type_specialization( this, baseType, &tmp );
@@ -414,10 +419,13 @@ static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntityS
         return nullptr;
 
     // prepare vector of provided arguments' original types:
-    std::vector<const TxType*> argTypes( arguments->size() );
-    std::transform( arguments->cbegin(), arguments->cend(), argTypes.begin(),
-                    []( TxMaybeConversionNode* n ) -> const TxType*  {  return n->resolve_type();  } );
-    // should we check for a null-resolved arg here?
+    std::vector<const TxType*> argTypes;
+    for ( auto argNode : *arguments ) {
+        auto argType = argNode->resolve_type();
+        if (! argType)
+            return nullptr;
+        argTypes.push_back( argType );
+    }
 
     TxFieldDeclaration* closestDecl = nullptr;
     uint64_t closestReint = UINT64_MAX;
@@ -552,9 +560,10 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
             if (auto typeDecl = entitySymbol->get_type_decl()) {
                 if (this->appliedFuncArgs) {
                     if (auto allocType = typeDecl->get_definer()->resolve_type()) {
-                        if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member("$init"))  // (constructors aren't inherited)
+                        if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member(CONSTR_IDENT))  // (constructors aren't inherited)
                             if (auto constructorDecl = resolve_field( *this, constructorSymbol, this->appliedFuncArgs )) {
-                                ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->str());
+                                ASSERT(constructorDecl->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_INITIALIZER),
+                                        "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->str());
                                 //std::cerr << "resolving field to constructor: " << this << ": " << constructorDecl << std::endl;
                                 this->declaration = constructorDecl;
                                 return this->declaration;
@@ -600,9 +609,10 @@ const TxType* TxConstructorCalleeExprNode::define_type() {
     ASSERT(this->appliedFuncArgs, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized");
     if (auto allocType = this->objectExpr->resolve_type()) {
         // find the constructor
-        if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member("$init")) {  // (constructors aren't inherited)
+        if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member(CONSTR_IDENT)) {  // (constructors aren't inherited)
             if (auto constructorDecl = resolve_field( *this, constructorSymbol, this->appliedFuncArgs)) {
-                ASSERT(constructorDecl->get_decl_flags() & TXD_CONSTRUCTOR, "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->str());
+                ASSERT(constructorDecl->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_INITIALIZER),
+                        "field named $init is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str());
                 this->declaration = constructorDecl;
                 if (auto constructorField = constructorDecl->get_definer()->resolve_field())
                     return constructorField->get_type();

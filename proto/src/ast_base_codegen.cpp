@@ -128,7 +128,7 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
 
     case TXS_VIRTUAL:
     case TXS_STATIC:
-        if (! (fieldDecl->get_decl_flags() & TXD_ABSTRACT)) {
+        if (! (fieldDecl->get_decl_flags() & (TXD_ABSTRACT | TXD_INITIALIZER))) {
             //if (txType->is_modifiable())
             //    context.LOG.error("modifiable TXS_STATIC fields not yet implemented: %s", uniqueName.c_str());
             if (this->field->initExpression && !this->field->initExpression->is_statically_constant()) {

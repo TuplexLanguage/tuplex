@@ -340,7 +340,7 @@ protected:
 //        for (auto member : *this->members) {
 //            member->symbol_declaration_pass( lexContext);
 //            if (auto fieldMember = dynamic_cast<TxFieldDeclNode*>(member)) {
-//                if (fieldMember->field->get_field_name() == "$init")
+//                if (fieldMember->field->get_field_name() == CONSTR_IDENT)
 //                    explicitConstructor = true;
 //            }
 //        }
@@ -515,6 +515,7 @@ protected:
     }
 
 public:
+    /** Indicates whether functions of this type may modify its closure when run. */
     const bool modifiable;
     std::vector<TxFieldDefNode*>* arguments;
     TxFieldDefNode* returnField;

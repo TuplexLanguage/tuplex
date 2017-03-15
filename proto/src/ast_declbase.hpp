@@ -259,8 +259,10 @@ public:
         std::string declName = this->fieldName->str();
         if (*this->fieldName == "self") {
             // handle constructor declaration
-            declName = "$init";
+            declName = CONSTR_IDENT;
             fieldFlags = fieldFlags | TXD_CONSTRUCTOR;
+            if (storage != TXS_INSTANCEMETHOD)
+                CERROR(this, "Illegal declaration name for non-constructor member: " << this->fieldName);
         }
 
         this->declaration = lexContext.scope()->declare_field(declName, this, fieldFlags, storage, dataspace);
@@ -297,8 +299,6 @@ public:
             if (! field->get_type()->is_concrete())
                 CERROR(this, "Field type is not concrete (size potentially unknown): " << field->get_type());
             if (this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR) {
-                if (this->get_declaration()->get_storage() != TXS_INSTANCEMETHOD)
-                    CERROR(this, "Illegal declaration name for non-constructor member: " << this->fieldName);
                 // TODO: check that constructor function type has void return value
             }
         }

@@ -48,7 +48,7 @@ int main(int argc, char **argv)
                 printf("  %-22s %s\n", "-nocol", "Disable color encoding in console output");
                 printf("  %-22s %s\n", "-da", "Dump AST");
                 printf("  %-22s %s\n", "-ds", "Dump symbol table");
-                printf("  %-22s %s\n", "-dstx", "Dump full symbol table including built-in symbols");
+                printf("  %-22s %s\n", "-dsx", "Dump full symbol table including built-in symbols");
                 printf("  %-22s %s\n", "-di", "Dump intermediate representation (LLVM IR)");
                 printf("  %-22s %s\n", "-dl", "Print debugging output from lexer (token scanner)");
                 printf("  %-22s %s\n", "-dy", "Print debugging output from grammar parser");
@@ -81,7 +81,7 @@ int main(int argc, char **argv)
                 options.dump_ast = true;
             else if (! strcmp(argv[a], "-ds"))
                 options.dump_symbol_table = true;
-            else if (! strcmp(argv[a], "-dstx"))
+            else if (! strcmp(argv[a], "-dsx"))
                 options.dump_symbol_table = options.dump_tx_symbols = true;
             else if (! strcmp(argv[a], "-di"))
                 options.dump_ir = true;
@@ -122,7 +122,7 @@ int main(int argc, char **argv)
                 outputFileName = argv[a];
             }
             else {
-                LOG.error("Unknown option '%s'", argv[a]);
+                LOG.error("No such option '%s' (use -h or -help to print command line usage)", argv[a]);
                 return 1;  // exits
             }
         }
