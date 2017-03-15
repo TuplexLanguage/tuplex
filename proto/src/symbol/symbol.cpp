@@ -83,22 +83,8 @@ const TxScopeSymbol* TxScopeSymbol::get_symbol(const std::string& name) const {
     return this->symbols.count(name) ? this->symbols.at(name) : nullptr;
 }
 
-//std::vector<const TxIdentifier*> TxScopeSymbol::get_symbol_full_names() const {
-//    std::vector<const TxIdentifier*> symNames;
-//    for(auto & sym : this->symbols)
-//        symNames.push_back(&sym.second->get_full_name());
-//    return symNames;
-//}
-
 
 /*--- symbol table handling ---*/
-
-//static inline bool is_stack_field(const TxScopeSymbol* entity) {
-//    if (auto fieldEnt = dynamic_cast<const TxFieldEntity*>(entity))
-//        if (fieldEnt->get_storage() == TXS_STACK)
-//            return true;
-//    return false;
-//}
 
 bool TxScopeSymbol::declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) {
     if (this->has_symbol(symbol->get_name()))
@@ -106,54 +92,6 @@ bool TxScopeSymbol::declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* 
     this->add_symbol(symbol);
     return true;
 }
-
-/*
-TxDistinctEntity* TxSymbolScope::overload_entity(TxDistinctEntity* entity, TxSymbolScope* prevSymbol) {
-    TxDistinctEntity* specificEntity = nullptr;
-    // Note: We don't guard against all illegal collisions here (since type-dependent and types not yet known).
-    if (is_stack_field(entity)) {
-        // this->LOGGER().error("Can't overload local fields: %s", entity->to_string().c_str());
-    }
-    else if (auto firstEntity = dynamic_cast<TxDistinctEntity*>(prevSymbol)) {
-        // second entity with same qualified name, symbol is hereby overloaded
-        if (is_stack_field(firstEntity))
-            this->LOGGER().error("Can't overload local fields: %s", entity->to_string().c_str());
-        auto groupEntity = new TxOverloadedEntity(firstEntity);
-        std::string uniqueName(entity->get_name() + "$1");
-        specificEntity = entity->make_copy(uniqueName);
-        if (groupEntity->add(specificEntity))
-            this->add_symbol(groupEntity);
-        else {
-            // overload failed
-            delete groupEntity; delete specificEntity;
-            specificEntity = nullptr;
-        }
-    }
-    else if (auto groupEntity = dynamic_cast<TxOverloadedEntity*>(prevSymbol)) {
-        // symbol already overloaded, add this entity
-        std::string uniqueName(groupEntity->get_name() + "$" + std::to_string(groupEntity->count()));
-        specificEntity = entity->make_copy(uniqueName);
-        if (! groupEntity->add(specificEntity)) {
-            // overload failed
-            delete specificEntity;
-            specificEntity = nullptr;
-        }
-    }
-
-    if (specificEntity) {
-        // also register overloaded entity in symbol table under unique name:
-        auto success = this->declare_symbol(specificEntity);
-        ASSERT(success, "Internal error, assigned internal name for overloaded entity is not unique: " << specificEntity->get_full_name());
-        if (! entity->get_full_name().begins_with(BUILTIN_NS))
-            this->LOGGER().debug("    Overloaded %-32s %s", entity->get_full_name().to_string().c_str(), specificEntity->to_string().c_str());
-        return specificEntity;
-    }
-    else {
-        this->LOGGER().error("Symbol name already exists and can't be overloaded: %s", entity->to_string().c_str());
-        return nullptr;
-    }
-}
-*/
 
 TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName, TxNode* definingNode) {
     // TODO: guard against using reserved keywords (including "tx")
@@ -237,17 +175,18 @@ void TxScopeSymbol::dump_symbols() const {
         if (auto submod = dynamic_cast<const TxModule*>(symbol))
             subModules.push_back(submod);
         else if (this->get_full_name() != builtinNamespace || this->get_root_scope()->driver().get_options().dump_tx_symbols) {
-            printf("%-14s %-48s %s\n", symbol->declaration_string().c_str(), symbol->get_full_name().str().c_str(),
-                   symbol->description_string().c_str());
+            printf("%s %s\n", symbol->declaration_string().c_str(), symbol->description_string().c_str());
             symbol->dump_symbols();
         }
     }
     if (! subModules.empty()) {
-        //printf("--- submodules ---\n");
         for (auto mod : subModules)
             mod->dump_symbols();
-            //printf("<module>       %s\n", mod->to_string().c_str());
     }
+}
+
+std::string TxScopeSymbol::description_string() const {
+    return "                          " + this->get_full_name().str();
 }
 
 
@@ -334,13 +273,36 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
 
 
 
+static std::string field_description( TxFieldDeclaration* fieldDecl ) {
+    if (auto field = fieldDecl->get_definer()->get_field()) {
+        if (auto type = field->get_type()) {
+            char buf[512];
+
+            int storageIx = -1;
+            if (! (field->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_INITIALIZER | TXD_GENBINDING)))
+                storageIx = field->get_decl_storage_index();
+            if (storageIx >= 0)
+            //std::string storageIxString = ( storageIx >= 0 ? std::string("[") + std::to_string(storageIx) + "] " : std::string("    ") );
+            //return "FIELD " + storageIxString + this->get_full_name().str() + " " + type->str(true);
+                snprintf( buf, 512, "FIELD [%2d]  %-48s : %s",
+                          storageIx,
+                          fieldDecl->get_unique_full_name().c_str(),
+                          type->str().c_str() );
+            else
+                snprintf( buf, 512, "FIELD       %-48s : %s",
+                          fieldDecl->get_unique_full_name().c_str(),
+                          type->str().c_str() );
+            return std::string( buf );
+        }
+    }
+    return "FIELD       -undef-";
+}
+
 void TxEntitySymbol::dump_symbols() const {
     TxScopeSymbol::dump_symbols();
     if (this->is_overloaded()) {
         for (auto fieldDecl : this->fieldDeclarations) {
-            printf("%-11s %-48s FIELD  %s\n", ::to_string(fieldDecl->get_decl_flags()).c_str(),
-                   fieldDecl->get_unique_full_name().c_str(),
-                   fieldDecl->get_definer()->get_type()->str().c_str());
+            printf("%s %s\n", to_string( fieldDecl->get_decl_flags() ).c_str(), field_description( fieldDecl ).c_str() );
         }
     }
 }
@@ -358,27 +320,31 @@ std::string TxEntitySymbol::declaration_string() const {
 
 std::string TxEntitySymbol::description_string() const {
     if (this->is_overloaded())
-        return "-overloaded-";
+        return "   overloaded symbol      " + this->get_full_name().str();
     else if (this->typeDeclaration)  // non-overloaded type name
         if (auto type = this->typeDeclaration->get_definer()->attempt_get_type()) {
             if (type->get_declaration() == this->typeDeclaration)
-                return "\tTYPE      " + type->str( false, false );
-            else
-                return "\tALIAS     " + type->str( false, false );
-        }
-        else
-            return "\tTYPE      -undef-";
-    else if (this->field_count()) {  // non-overloaded field name
-        if (auto field = this->get_first_field_decl()->get_definer()->get_field()) {
-            if (auto type = field->get_type()) {
-                int storageIx = -1;
-                if (! (field->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_GENBINDING)))
-                    storageIx = field->get_decl_storage_index();
-                std::string storageIxString = ( storageIx >= 0 ? std::string("[") + std::to_string(storageIx) + "] " : std::string("    ") );
-                return "\tFIELD " + storageIxString + type->str(true);
+                return "TYPE        " + type->str( false );
+            else {
+                auto name = this->typeDeclaration->get_unique_full_name();
+                name.resize(48, ' ');
+                return "TYPE ALIAS  " + name + " = " + type->str( false );
             }
         }
-        return "\tFIELD     -undef-";
+        else
+            return "TYPE        -undef-";
+    else if (this->field_count()) {  // non-overloaded field name
+        return field_description( this->get_first_field_decl() );
+//        if (auto field = this->get_first_field_decl()->get_definer()->get_field()) {
+//            if (auto type = field->get_type()) {
+//                int storageIx = -1;
+//                if (! (field->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_GENBINDING)))
+//                    storageIx = field->get_decl_storage_index();
+//                std::string storageIxString = ( storageIx >= 0 ? std::string("[") + std::to_string(storageIx) + "] " : std::string("    ") );
+//                return "FIELD " + storageIxString + this->get_full_name().str() + " " + type->str(true);
+//            }
+//        }
+//        return "FIELD     -undef-";
     }
     else  // declaration not yet assigned to this entity symbol
         return "-undef entity-";
@@ -389,35 +355,6 @@ std::string TxEntitySymbol::description_string() const {
 /*=== symbol table lookup functions ===*/
 
 static TxScopeSymbol* search_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
-
-//TxScopeSymbol* TxEntitySymbol::resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) {
-//    if (this->is_overloaded())
-//        return this;
-//    if (this->get_distinct_decl()->get_decl_flags() & TXD_GENPARAM) {
-//        std::string bindingName = this->get_full_name().to_string();
-//        std::replace(bindingName.begin(), bindingName.end(), '.', '#');
-//        this->LOGGER().debug("Trying to resolve generic parameter %s = %s from %s", this->get_full_name().to_string().c_str(), bindingName.c_str(), scope->get_full_name().to_string().c_str());
-//        if (auto boundSym = search_symbol(scope, bindingName)) {
-//            // #-ified symbol is bound
-//            this->LOGGER().note("Substituting generic parameter %s with %s", this->get_full_name().to_string().c_str(), boundSym->to_string().c_str());
-//            return boundSym->resolve_generic(vantageScope, scope);
-//        }
-//        else {
-//            // #-ified symbol is unbound
-//            // unbound symbols are not resolved against, unless they're defined by an outer or parent scope -
-//            // meaning they're type parameters pertaining to the current lexical context
-//            if (scope->get_full_name().begins_with(this->get_outer()->get_full_name()))
-//                this->LOGGER().debug("Scope (%s) of unbound generic parameter %s encompasses scope %s (so OK)",
-//                                     this->get_outer()->get_full_name().to_string().c_str(),
-//                                     bindingName.c_str(), scope->get_full_name().to_string().c_str());
-//            else
-//                this->LOGGER().warning("Scope (%s) of unbound generic parameter %s DOESN'T encompass scope %s",
-//                                       this->get_outer()->get_full_name().to_string().c_str(),
-//                                       bindingName.c_str(), scope->get_full_name().to_string().c_str());
-//        }
-//    }
-//    return this;
-//}
 
 
 static TxScopeSymbol* inner_lookup_member(TxScopeSymbol* scope, const TxIdentifier& ident) {

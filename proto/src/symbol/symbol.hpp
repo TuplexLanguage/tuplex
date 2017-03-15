@@ -181,19 +181,20 @@ public:
 
 
 
-    /** Prints all the symbols of this scope and its descendants to stdout. */
-    virtual void dump_symbols() const;
-
-
     virtual bool operator==(const TxScopeSymbol& other) const {
         return this->get_full_name() == other.get_full_name();
     }
     inline bool operator!=(const TxScopeSymbol& other) const  { return ! this->operator ==(other); }
 
 
+
+    /** Prints all the symbols of this scope and its descendants to stdout. */
+    virtual void dump_symbols() const;
+
+
     virtual std::string declaration_string() const { return ""; }
 
-    virtual std::string description_string() const { return ""; };
+    virtual std::string description_string() const;
 
     virtual std::string str() const {
         return this->get_full_name().str();

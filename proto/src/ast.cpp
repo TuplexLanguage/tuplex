@@ -118,7 +118,7 @@ void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool 
     // TXS_STATIC may be changed to TXS_VIRTUAL depending on context:
     if ( storage == TXS_STATIC
          && ( declFlags & (TXD_PUBLIC | TXD_PROTECTED) )          // private fields are non-virtual
-         && !( declFlags & (TXD_CONSTRUCTOR | TXD_INITIALIZER) )  // constructors/initializers are non-virtual
+         && !( declFlags & TXD_INITIALIZER )                      // initializers are static
          && ( ( declFlags & (TXD_OVERRIDE | TXD_FINAL)) != TXD_FINAL ) ) { // if final but doesn't override, its effectively non-virtual
         storage = TXS_VIRTUAL;
     }

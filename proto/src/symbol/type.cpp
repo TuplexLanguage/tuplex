@@ -395,6 +395,7 @@ void TxType::prepare_members() {
                     break;
                 case TXS_VIRTUAL:
                 case TXS_INSTANCEMETHOD:
+                    ASSERT(! (fieldDecl->get_decl_flags() & TXD_INITIALIZER), "initializers can't be virtual/instance method: " << fieldDecl);
                     if (fieldDecl->get_decl_flags() & TXD_CONSTRUCTOR)
                         break;  // skip, constructors aren't virtual
 
@@ -429,6 +430,9 @@ void TxType::prepare_members() {
                     break;
                 default:
                     ASSERT(fieldDecl->get_storage() == TXS_STATIC, "Invalid storage class " << fieldDecl->get_storage() << " for field member " << *field);
+                    if (fieldDecl->get_decl_flags() & TXD_INITIALIZER)
+                        break;  // skip, initializers are inlined and not actually added as static functions
+
                     if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
                         CERROR(field, "Can't declare a non-virtual field as abstract: " << field);
                     if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
