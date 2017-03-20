@@ -200,30 +200,32 @@ void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& defContext, 
 
 
 
-const TxType* TxIdentifiedTypeNode::define_identified_type() {
+const TxType* TxIdentifiedTypeNode::define_type() {
     if (auto identifiedTypeDecl = lookup_type(this->context().scope(), *this->ident)) {
-//        if (this->get_node_id() == 516) //(*this->ident == "S")
-//            std::cerr << this << std::endl;
         if (auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type()) {
             if (auto declEnt = this->get_declaration()) {
                 // create empty specialization (uniquely named but identical type)
                 return this->types().get_empty_specialization(declEnt, identifiedType);
             }
-//            std::cerr << this << " resolves to " << identifiedType << std::endl;
             return identifiedType;
         }
     }
+    else
+        CERROR(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
     return nullptr;
 }
 
-const TxType* TxGenSpecTypeNode::define_generic_specialization_type() {
-    auto baseTypeDecl = lookup_type( this->context().scope(), *this->ident );
-    const TxType* baseType = baseTypeDecl ? baseTypeDecl->get_definer()->resolve_type() : nullptr;
-    if (! baseType)
-        return nullptr;
-    auto tmp = std::vector<const TxTypeArgumentNode*>( this->typeArgs->size() );
-    std::copy( this->typeArgs->cbegin(), this->typeArgs->cend(), tmp.begin() );
-    return this->types().get_type_specialization( this, baseType, &tmp );
+const TxType* TxGenSpecTypeNode::define_type() {
+    if (auto baseTypeDecl = lookup_type( this->context().scope(), *this->ident )) {
+        if (auto baseType = baseTypeDecl->get_definer()->resolve_type()) {
+            auto tmp = std::vector<const TxTypeArgumentNode*>( this->typeArgs->size() );
+            std::copy( this->typeArgs->cbegin(), this->typeArgs->cend(), tmp.begin() );
+            return this->types().get_type_specialization( this, baseType, &tmp );
+        }
+    }
+    else
+        CERROR(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
+    return nullptr;
 }
 
 

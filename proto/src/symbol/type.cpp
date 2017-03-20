@@ -846,17 +846,17 @@ bool TxType::derives_interface(const TxType* otherType) const {
 //    str << ">";
 //}
 
-//static void type_bindings_string(std::stringstream& str, const std::vector<TxEntityDeclaration*>& bindings) {
-//    str << "<";
-//    int ix = 0;
-//    for (auto b : bindings) {
-//        if (ix++)  str << ",";
-//        str << b->get_unique_full_name();
-//        //b->get_definer()->resolve_type();
-//        //str << b->get_definer()->get_type()->to_string(true, true);
-//    }
-//    str << ">";
-//}
+static void type_bindings_string(std::stringstream& str, const std::vector<TxEntityDeclaration*>& bindings) {
+    str << "<";
+    int ix = 0;
+    for (auto b : bindings) {
+        if (ix++)  str << ",";
+        str << b->get_unique_full_name();
+        //b->get_definer()->resolve_type();
+        //str << b->get_definer()->get_type()->to_string(true, true);
+    }
+    str << ">";
+}
 
 std::string TxType::str(bool brief, bool skipFirstName) const {
     std::stringstream str;
@@ -890,8 +890,8 @@ void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName)
     if (this->has_base_type() && (!brief || skipFirstName)) {
         str << (this->is_empty_derivation() ? " = " : " : ");
 
-        //if (! this->get_bindings().empty())
-        //    type_bindings_string(str, this->get_bindings());
+        if (! this->get_bindings().empty())
+            type_bindings_string(str, this->get_bindings());
 
         this->get_base_type()->self_string(str, false, false);  // set 'brief' to false to print entire type chain
     }

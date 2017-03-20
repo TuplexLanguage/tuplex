@@ -114,8 +114,6 @@ type Field<E,C,L> derives Array<Ref<Abstr<E,C>>,L> {
 
  */
 class TxGenSpecTypeNode : public TxTypeExpressionNode {
-    const TxType* define_generic_specialization_type();
-
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
         for (TxTypeArgumentNode* tp : *this->typeArgs) {
@@ -123,12 +121,7 @@ protected:
         }
     }
 
-    virtual const TxType* define_type() override {
-        const TxType* type = this->define_generic_specialization_type();
-        if (! type)
-            CERROR(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
-        return type;
-    }
+    virtual const TxType* define_type() override;
 
 public:
     const TxIdentifier* ident;
@@ -174,18 +167,11 @@ public:
 
 
 class TxIdentifiedTypeNode : public TxTypeExpressionNode {
-    const TxType* define_identified_type();
-
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
     }
 
-    virtual const TxType* define_type() override {
-        const TxType* type = this->define_identified_type();
-        if (! type)
-            CERROR(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
-        return type;
-    }
+    virtual const TxType* define_type() override;
 
 public:
     const TxIdentifier* ident;
