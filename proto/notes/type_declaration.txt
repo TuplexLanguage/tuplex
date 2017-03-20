@@ -26,9 +26,10 @@ Question: Can we avoid (and do we want to avoid) implicitly named, empty type sp
 
 Probably yes, given that all types except tx.Any are derived from a base type, and extend the base type
 in exactly one of these ways:
- A) empty (alias)
+ A) empty
  B) modifiable (prepend with ~)
  C) bind type parameters (append with < 'type names' >)
+ D) define a function signature
 
 A) can only be explicitly named types (including generic params and bindings).
 

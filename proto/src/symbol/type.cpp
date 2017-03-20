@@ -276,11 +276,24 @@ void TxType::initialize_type() {
     this->validate_type();
 }
 
-void TxType::prepare_members() {
-    LOG_TRACE(this->LOGGER(), "Preparing members of type " << this);
 
-    ASSERT(! this->prepared, "Can't prepare type more than once: " << this);
-    this->prepared = true;
+
+bool TxType::prepare_members() {
+    if (!this->hasPrepared) {
+        if (this->startedPrepare) {
+            return true;
+        }
+        this->startedPrepare = true;
+        bool rec = this->inner_prepare_members();
+        this->hasPrepared = true;
+        return rec;
+    }
+    return false;
+}
+
+bool TxType::inner_prepare_members() {
+    LOG(this->LOGGER(), TRACE, "Preparing members of type " << this);
+    bool recursionError = false;
 
     ExpectedErrorClause* expErrWholeType = nullptr;
     if (this->get_decl_flags() & TXD_EXPERRBLOCK) {
@@ -293,10 +306,14 @@ void TxType::prepare_members() {
     // copy base type's virtual and instance field tuples (to which fields may be added / overridden):
     auto baseType = this->get_base_type();
     if (baseType) {
+        //ASSERT(baseType->is_prepared(), "Base type " << baseType << " not prepared before sub type " << this);
+        recursionError = const_cast<TxType*>( baseType )->prepare_members();
         this->virtualFields = baseType->virtualFields;
         this->instanceFields = baseType->instanceFields;
     }
     for (auto & interfSpec : this->interfaces) {
+        //ASSERT(interfSpec.type->is_prepared(), "Base i/f " << interfSpec.type << " not prepared before sub type " << this);
+        recursionError |= const_cast<TxType*>( baseType )->prepare_members();
         if (this->virtualFields.add_interface_fields( interfSpec.type->virtualFields ))
             this->modifiesVTable = true;
     }
@@ -304,7 +321,7 @@ void TxType::prepare_members() {
     //this->virtualFields.dump();
 
     if (! this->get_declaration()) {
-        return;
+        return recursionError;
     }
 
     auto semBaseType = this->get_semantic_base_type();
@@ -388,6 +405,12 @@ void TxType::prepare_members() {
                                           field->get_type()->str(true).c_str(), this->instanceFields.get_field_count());
                     if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
                         CERROR(field, "Can't declare an instance field as abstract: " << field);
+
+                    // recursively prepare instance member fields' types so that we identify recursive data type definitions:
+                    //std::cerr << "Recursing into " << field << "  of type " << field->get_type() << std::endl;
+                    if (const_cast<TxType*>( field->get_type() )->prepare_members())
+                        CERROR(field, "Recursive data type via field " << field->get_declaration()->get_unique_full_name());
+
                     if (fieldDecl->get_decl_flags() & TXD_GENBINDING)
                         LOG_DEBUG(this->LOGGER(), "Skipping layout of GENBINDING instance field: " << field);
                     else if (!expErrField || expErrWholeType)
@@ -462,6 +485,8 @@ void TxType::prepare_members() {
     if (expErrWholeType) {
         this->get_parser_context()->end_exp_err(this->get_declaration()->get_definer()->get_parse_location());
     }
+
+    return recursionError;
 }
 
 
@@ -537,7 +562,7 @@ bool TxType::is_empty_derivation() const {
 }
 
 bool TxType::is_equivalent_derivation() const {
-    ASSERT(this->prepared, "Can't determine specialization degree of unprepared type: " << this);
+    ASSERT(this->hasPrepared, "Can't determine specialization degree of unprepared type: " << this);
     bool oldCond = ( this->baseTypeSpec.modifiable
              || ( this->has_base_type()
                   && !this->is_builtin()  // being built-in implies that it is more specialized than base class
@@ -550,7 +575,7 @@ bool TxType::is_equivalent_derivation() const {
 }
 
 bool TxType::is_virtual_derivation() const {
-    ASSERT(this->prepared, "Can't determine specialization degree of unprepared type: " << this);
+    ASSERT(this->hasPrepared, "Can't determine specialization degree of unprepared type: " << this);
     bool oldCond = ( this->baseTypeSpec.modifiable
              || ( this->has_base_type()
                   && !this->is_builtin()  // being built-in implies that it is more specialized than base class
@@ -811,15 +836,15 @@ bool TxType::derives_interface(const TxType* otherType) const {
 }
 
 
-static void type_params_string(std::stringstream& str, const std::vector<TxEntityDeclaration*>& params) {
-    str << "<";
-    int ix = 0;
-    for (auto & p : params) {
-        if (ix++)  str << ",";
-        str << p->get_unique_name();
-    }
-    str << ">";
-}
+//static void type_params_string(std::stringstream& str, const std::vector<TxEntityDeclaration*>& params) {
+//    str << "<";
+//    int ix = 0;
+//    for (auto & p : params) {
+//        if (ix++)  str << ",";
+//        str << p->get_unique_name();
+//    }
+//    str << ">";
+//}
 
 //static void type_bindings_string(std::stringstream& str, const std::vector<TxEntityDeclaration*>& bindings) {
 //    str << "<";
@@ -833,7 +858,7 @@ static void type_params_string(std::stringstream& str, const std::vector<TxEntit
 //    str << ">";
 //}
 
-std::string TxType::str(bool brief, bool skipFirstName, bool skipImplicitNames) const {
+std::string TxType::str(bool brief, bool skipFirstName) const {
     std::stringstream str;
     if (this->get_type_class() == TXTC_INTERFACE)
         str << "i/f ";
@@ -843,25 +868,24 @@ std::string TxType::str(bool brief, bool skipFirstName, bool skipImplicitNames) 
         str << "ABSTRACT ";
     if (this->is_immutable())
         str << "IMMUTABLE ";
-    this->self_string(str, brief, skipFirstName, skipImplicitNames);
+    this->self_string(str, brief, skipFirstName);
     return str.str();
 }
 
-void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName, bool skipImplicitNames) const {
+void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName) const {
     if (this->is_modifiable())
         str << "MOD ";
 
     if (! skipFirstName) {
         if (auto decl = this->get_declaration()) {
-            if (! (skipImplicitNames && (decl->get_decl_flags() & TXD_IMPLICIT)))
-                str << decl->get_unique_full_name();
+            str << decl->get_unique_full_name();
         }
         else
             str << "unnamed";
     }
 
-    if (! this->params.empty())
-        type_params_string(str, this->params);
+    //if (! this->params.empty())
+    //    type_params_string(str, this->params);
 
     if (this->has_base_type() && (!brief || skipFirstName)) {
         str << (this->is_empty_derivation() ? " = " : " : ");
@@ -869,7 +893,7 @@ void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName,
         //if (! this->get_bindings().empty())
         //    type_bindings_string(str, this->get_bindings());
 
-        this->get_base_type()->self_string(str, false, false, skipImplicitNames);  // set 'brief' to false to print entire type chain
+        this->get_base_type()->self_string(str, false, false);  // set 'brief' to false to print entire type chain
     }
 }
 
@@ -968,19 +992,21 @@ const TxType* TxReferenceType::target_type() const {
         if (auto type = paramDecl->get_definer()->resolve_type())
             return type;
     }
-    LOG_DEBUG(this->LOGGER(), "Unbound target type for reference type " << this);
-    ASSERT(this->is_generic(), "Unbound target type for NON-GENERIC reference type " << this);
+    else {
+        LOG_DEBUG(this->LOGGER(), "Unbound target type for reference type " << this);
+        ASSERT(this->is_generic(), "Unbound target type for NON-GENERIC reference type " << this);
+    }
     return this->get_root_any_type();  // we know the basic constraint type for ref target is Any
 }
 
 
 
-void TxInterfaceAdapterType::prepare_members() {
+bool TxInterfaceAdapterType::inner_prepare_members() {
     if (! this->is_modifiable()) {
         this->modifiesVTable = true;
     }
 
-    TxType::prepare_members();
+    bool rec = TxType::inner_prepare_members();
 
     LOG_DEBUG(this->LOGGER(), "preparing adapter for " << this->adaptedType << " to interface " << this->get_semantic_base_type());
     // The virtual fields of the abstract base interface type are overridden to refer to
@@ -1003,6 +1029,8 @@ void TxInterfaceAdapterType::prepare_members() {
             this->virtualFields.override_field(f.first, targetField);
         }
     }
+
+    return rec;
 }
 
 

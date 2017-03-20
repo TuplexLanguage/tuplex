@@ -1,0 +1,380 @@
+
+- Dataspaces are kept separate (no cross-references) via static analysis.
+
+- Each dataspace has a top/root object, from which the other objects of that dataspace can be reached.
+
+- Global fields belong to the immutable global data space (contains only immutable data).
+
+- Entities of immutable types that can contain no references and are allocated on the heap are always (?) assignable to multiple dataspaces, i.e. implicitly shareable.
+
+- Class fields belong to the current thread dataspace (each thread has one).
+
+- Object fields belong to the object's dataspace (preserving the dataspace's object graph containment).
+
+- Exception: class / object fields declared ROOT, i.e. constituting the *single* reference to the root of another dataspace. This is the only way for a heap object to reference another dataspace.
+
+- ROOT variables/arguments/fields can only be assigned references guaranteed to be non-duplicated. The right-hand-side of such an assignment must thus be an expression that:
+ * evaluates to a reference of the proper type
+ * guarantees that no other reference refers to the same object
+   - invocation of a routine that declares a ROOT return type (e.g. "new" operator)
+   - return <expr>  where <expr> produces a "virgin" reference
+   - return <ref>   where <ref> is a ROOT ref from stack space (produces a "virgin" reference to the caller)
+   - swap with <ref>  where <ref> is a type compatible and modifiable ROOT reference
+
+- Dereferencing a ROOT reference (accessing, working with the dataspace), and operations involving re-assigning/swapping the ROOT reference itself must be mutually exclusive. I.e. either a dataspace's contents are being accessed, or the dataspace as a whole (a "black box") is being shifted around (or deallocated). This is necessary so that dataspaces are guaranteed to be kept isolated.
+ * Idea: A ROOT reference can only be manipulated/accessed (for either reassignment or content access) via a non-reentrant lock ("with" scope).
+
+- A root object can be held by a guard object which synchronizes access to the dataspace.
+
+- Guard objects may be referenced any number of times by other dataspaces and threads.
+
+- The usual program flow is (probably) within a single dataspace.
+
+- Typical routines operate within / on a single dataspace.
+
+- A routine's side-effects / modifications of state may only occur within the dataspaces of
+the routine's closure and of its modifiable parameters. Notes:
+ * pure functions: have no modifiable closure or parameters, only their return values' dataspaces may be affected
+ * methods: the method's "closure" is equal to its object (its self reference)
+ * lambda: the lambda's closure (up-variables) must belong to the same dataspace as the lambda object itself (this implies that any given lambda definition may only enclose up-variables from a single dataspace)
+
+- A reference is declared for a specific dataspace (or unknown dataspaces, which implies "distinct from all other dataspaces"). A reference may only be reassigned if it can be statically guaranteed that the new value refers to the same dataspace (or is again an unknown dataspace).
+
+
+Dataspace examples:
+mod Vector aa			# not a reference - inlined object - i.e. same dataspace as parent scope
+mod ref Vector aa		# default dataspace - target in same dataspace as referencing entity (parent scope)
+mod A ref Vector aa			# named dataspace - target in dataspace A
+mod ?.ROOT ref Vector aa	# target a root object of a distinct, unspecified/arbitrary dataspace
+mod A.ROOT ref Vector aa	# target the root object of dataspace A
+mod ? ref Vector aa			# target in a distinct, unspecified/arbitrary dataspace
+# (only stack variables can use the last reference form in practice)
+
+
+ To support preservation of "naked" dataspaces, i.e. without guard objects:
+
+- ?.ROOT & foo and A.ROOT & foo constitute a root reference, i.e. to the root object of a dataspace.
+
+- If a routine declares a .ROOT ref parameter, it captures that reference (compilation error otherwise)
+
+- A stack variable .ROOT ref may only be assigned to a heap reference (object/class field), or passed in a capturing invocation, once.
+
+- A heap .ROOT ref field cannot be assigned to another ROOT ref (prevents reference duplication).
+
+- However a heap .ROOT ref field can be assigned to (captured by) a normal dataspace reference (e.g. A ref foo).
+
+- Only special field types can "lose" a root reference: Identity collections, guard objects (any other?)
+  (In principle: Any object that can "null" a reference in a syntactically controlled way.)
+TODO: details on how this works syntactically
+
+TODO: For complex types with "reference chains", can we "parametrize" the dataspace names for those references?
+
+
+Using unnamed and named dataspaces:
+
+?.ROOT & Vector v0 = func()
+? & Double elem1 = & v0.x
+? & Double elem2 = & v0.y
+elem1 = elem2  ## Illegal! Since at least one of them refers to an unknown dataspace.
+
+A.ROOT & Vector vA = v0      ## create a new reference creating local name for the dataspace
+							 ## Note: Only legal if dataspace name A is new (unique) in this scope.
+A & Double elem1 = & vA.x
+A & Double elem2 = & vA.y
+elem1 = elem2  ## Legal!
+
+
+
+
+??? Entities of types that can contain no references and are allocated on the heap are intrinsically potential root objects:
+- Atoms
+- Tuples with no references
+- Arrays of Atoms or Tuples with no references
+- Vector
+
+
+Shared queue example
+====================
+
+## General queue implementation:
+public Queue<E> = mod Class
+{
+	mod elements = List<?.ROOT ref E>()
+
+	public
+	Void mod push( .ROOT ref E elem ) {
+		elements.append( elem )
+	}
+
+	public
+	.ROOT ref E mod pull() {
+		return elements.remove(0)
+	}
+}
+
+
+## set up shared queue object for passing Vector4D objects:
+sharedQueue := new mod Queue<*.ROOT ref mod Vector4D>()
+MyClass.mySharedQueue := new Guard( sharedQueue )
+
+## interacting with the shared queue, from any thread:
+with MyClass.mySharedQueue as mod queue:
+	vec := ?.ROOT new mod Vector4D()
+	vec.set( 4, 3, 2, 1 )
+	statistics.addSample( vec )	# side effects but doesn't capture vec since doesn't declare .ROOT param
+	queue.push( vec )			# assumed to capture vec since parameter type is ROOT::
+	this.foo := vec  # COMPILATION ERROR
+	queue.push( vec )  # COMPILATION ERROR
+	so = new Guard( vec )  # COMPILATION ERROR
+
+	?.ROOT ref mod otherVec := queue.pull()
+	this.rotation := otherVec  # this object can capture and absorb ROOT objects into its own dataspace
+
+
+
+
+Initialization
+--------------
+
+&Dataspace<&SceneGraph> sgds = new Dataspace( new SceneGraph() )
+
+## or
+
+&Dataspace<&SceneGraph> sgds = new Dataspace()
+sgds.set( new Dataspace( new SceneGraph() ) )
+
+## or
+
+ROOT & SceneGraph factoryFunction() {
+	ROOT & Scenegraph newSg = new SceneGraph()
+	
+	## DATASPACE SCOPE STATEMENT THAT ASSIGNS LOCAL DATASPACE NAME AND "LOCKS" ROOT REF FOR CONTENT ACCESS:
+	## Note that this is a purely syntactical construct that reassigns the source label within a scope.
+	dataspace newSg as A {
+		newSg.initializeFrom( stdin )
+		newSg.foo()
+	}
+	
+	return newSg  ## stack ROOT reference so ok
+}
+&Dataspace<&SceneGraph> sgds = new Dataspace( factoryFunction() )
+
+## or
+
+ROOT & { ~SceneGraph, Null } sg = new SceneGraph()
+&Dataspace<&SceneGraph> sgds = new Dataspace()
+sgds.swap(&sg)
+
+
+
+
+Experimental:  TODO
+
+Maybe<T> = ~ { ROOT & T, Null } {
+	public Boolean isNull() {
+		return Null.isinstance( self )
+	}
+}
+
+Dataspace<T> = Tuple {
+	& ~Lock lock = new Lock()
+	~Maybe<T> rootObject
+
+	Dataspace(ROOT & T rootObj) {
+		## NEEDED: A WAY TO CAPTURE / CONSUME ROOT REFERENCES PASSED AS PARAMS LIKE IN HERE
+		self.rootObject = rootObj  ## how can this be made legal (looks like ref duplication)?
+		self.rootObject = unbind( rootObj )  ## rootObj label unbound after this expression
+		## Note: capture can only be done within an unconditional scope / sub-scope of where the label was declared.
+		## Or: runtime code is added that ensures unbind is only run once on a label, raising an Exception if not (MultipleUnbindException)
+	}
+
+	Void capture(ROOT & T rootObj) {
+		self.rootObject = rootObj  ## how can this be made legal (looks like ref duplication)?
+	}
+
+	ROOT & { T, Null } extract() {
+		~ ROOT & { T, Null } tmp = &NULL
+		swap self.rootObject, tmp
+		return tmp
+	}
+
+	__enter__() {
+		lock.acquire()
+		return self.rootObject
+	}
+
+	__exit__() {
+		lock.release()
+	}
+}
+
+
+Experimental 2:
+
+type Maybe<T> mod union { T, Null } {
+	public hasValue() Boolean {
+		return not (self is Null)
+	}
+}
+
+type Root< T is Ref > mod Maybe<ROOT T> {
+	public mod take() Maybe<ROOT T> {
+		val : mod Maybe<ROOT T> = NULL
+		self, val = val, self
+		return val
+	}
+
+	public mod give( val : Maybe<ROOT T> ) {
+		self = val
+	}
+
+	public mod swap( val : Maybe<ROOT T> ) Maybe<ROOT T> {
+		ret : Maybe<ROOT T>
+		self, ret = val, self
+		return ret
+	}
+}
+
+type Usable<T> interface {  ## a resource that is usable in scoped way ('with')
+	public abstract begin_use() T raises Exception
+	public abstract end_use() raises Exception
+}
+
+type UsableRoot< T is Ref > Tuple, Usable<ROOT T> {
+	rootRef : ROOT T  ## immutable
+
+	public self( r : ROOT T ) {
+		self.rootRef = r
+	}
+	public destructor() ROOT T {
+		return self.rootRef
+	}
+
+##		if self.in_use():
+##			raise ConcurrentUseException("Can't transfer root reference while it is in use.")
+
+	public in_use() Boolean {
+		return self.useCount > 0
+	}
+
+	public begin_use() ROOT T {
+		self.useCount += 1
+		return self.rootRef  ## how does this convert from ROOT to ?
+	}
+	public end_use() {
+		self.useCount -= 1
+	}
+
+	## TODO: how prevent that self is modified (the ROOT reference transferred) while in this scope?
+	## PROBLEM: a dataspace can only be operated on while current scope / outer scope holds
+	## (and doesn't lose) "master" root reference.
+	## How guarantee current/outer scope doesn't lose it while operating on it?
+
+	##public use( callable : mod func<E>( resource : Maybe<? T> ) raises E ) raises E {
+	##	callable( self )
+	##}
+}
+
+NEW RULES:
+
+- A static or heap field may only reference an object within the same dataspace or a dataspace ROOT object.
+  (Static global fields are within the "immutable global" dataspace.)
+  (Static fields are within the "static thread-local" dataspace.)
+
+- A stack variable may reference an object within a separate, named or anonymous ('?'), dataspace.
+  - A named dataspace reference can of course only be reassigned to another object within the same dataspace.
+  - An anonymous dataspace reference ('?') cannot be reassigned to since the new value can't be guaranteed to be the same dataspace (prevents scope mingling).
+  - An anonymous reference can be assigned to a (new, uniquely) named stack variable reference (including function call parameters).
+    (Which is automatically guaranteed to not have wider scope than the anonymous original reference.)
+  - An reference can be only be returned from a function if it belongs to the function's default dataspace or one of the function's parameters' dataspaces (must also be declared as such).
+
+- A ROOT reference may not be duplicated. It can only be copied once while preserving the ROOT status, and in a statement it is also destroyed/unbound or overwritten in:
+  - A stack variable root reference being returned (preserves ROOT status)
+  - A heap field root reference being returned from the field's object's destructor
+  - A modifiable root reference that is reassigned in the same statement (preserves ROOT status)
+  - Exception: A non-modifiable root reference can be locally copied
+
+  - If such a ROOT reference assignment is made to a static/heap reference the ROOT-referenced dataspace is absorbed within the assignee's dataspace (ROOT status is lost).
+
+- A pure ROOT reference:
+  - If modifiable it is non-usable (since usage legality shall be driven by static type, not runtime checks with risk of exception): It can't be used/dereferenced, it can only be held and released (deleted / transferred).
+  - If non-modifiable it is usable since no code path can modify it while it is in use.
+
+- A union { ROOT & T, ? & T } can be 'used' as ? & T:
+  (Which is automatically guaranteed to not have wider scope than the original ROOT reference.)
+  yield <ROOT T> ## illegal
+  yield <union { ROOT & T, ? & T }> -> ? & T
+  Note: The original union field also becomes of ? & T type for the duration of the yield,
+  so that other references to that field may not access it as a root (in effect preventing it
+  from being transferred).
+  - (A ROOT reference can't be transferred while in use. If it's possible to attempt that in runtime, ConcurrentUseException shall be raised.)
+  
+
+- ?? A ROOT reference cannot be assigned to an anonymous or (new, uniquely) named stack variable reference since the original ROOT reference may be transferred while the new stack reference is still valid.
+
+
+Desired patterns:
+
+ROOT &T new T()
+
+ROOT &T receive()
+
+push(ROOT &T obj)
+ROOT &T pop()
+
+with rootRef as ( obj : A & mod T ):
+	obj.setResult( obj.data().sorted() )
+	obj.foo();
+
+elementRootRef = delete rootContainer
+
+
+Note on anonymous dataspaces in unions:
+
+usableV : mod union { ROOT & Vector, ? & Vector } = new Vector()  ## compiler error
+## ? ref can't be modifiable, and can hence not be part of a modifiable union!
+## If non-mod ? is permitted.
+
+
+
+The most difficult problem has been:
+How have a root reference which can (with condition checking) be both usable and movable??
+
+
+v : mod union { ROOT & Vector, Null } = new Vector()  ## canonical way of declaring a usable and movable root ref
+u : mod union { UNIQ & Vector, Null } = new Vector()  ## canonical way of declaring a movable root ref
+
+ROOT ref is implicitly unique when it has value and is not currently in use.
+ROOT ref is (usable as) ? ref (within closed scope) when it is has value (may currently be either in use or unique).
+ROOT ref is only modifiable when it is not in use (i.e. unique).
+
+if v is ROOT & Vector {
+  ## v has value, and may or may not be in current use
+}
+
+if v is ? & Vector {
+  ## v already in use (can be copied to a (? & Vector) again)
+}
+
+if v is (usableV : ? & Vector) {
+  ## usableV usable within this suite (v is flagged as in-use if it wasn't already)
+}
+
+if v is ( movableV : ROOT & Vector )  ## compiler error if v is modifiable, since unique root references can't be copied
+
+if v is UNIQ & Vector {
+  ## root ref has value and is unique (not in use), swap is possible
+  ## note that a statement in this suite may invoke code that uses v, but that will be scoped and hence have ceased using v when statement ends
+
+  ## note that a statement in this suite may invoke code that (prematurely) transfers v (if it is modifiable)
+  w, v = v, w
+  w, v = (v if not is (? & Vector) else NULL), (w if not is (? & Vector) else NULL)
+}
+
+
+u : mod union { UNIQ & Vector, Null } = new Vector()  ## ref can't be "used" since declared UNIQ
+## ref has value and is always unique (not in use), swap is always possible
+u, v = v, u
+if v is UNIQ & Vector {
+  ## ref has value
+}

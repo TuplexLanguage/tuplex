@@ -77,6 +77,7 @@ source_files = [
     "genericstest2.tx",
     "genericstest3.tx",
     "sequenceiftest.tx",
+    "rangeiftest.tx"
 ]
 
 for src in source_files:

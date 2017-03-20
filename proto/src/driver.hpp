@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <deque>
+#include <stack>
 #include <unordered_map>
 
 #include "util/logging.hpp"
@@ -142,8 +143,9 @@ class TxParserContext : public Printable {
     /** used for parse error messages */
     std::string* _currentInputFilename = nullptr;
 
-    /** non-null if currently processing within an EXPERR block */
-    ExpectedErrorClause* expError = nullptr;
+    /** non-empty if currently processing within an EXPERR block */
+    std::stack<ExpectedErrorClause*> expErrorStack;
+//    ExpectedErrorClause* expError = nullptr;
 
     void emit_comp_error( char const *msg, ExpectedErrorClause* expErrorContext );
     void emit_comp_warning( char const *msg );

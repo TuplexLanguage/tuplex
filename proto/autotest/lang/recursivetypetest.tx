@@ -50,27 +50,33 @@ type AA {
 }
 type BB {
     aaref : &AA;
-    aaobj : AA;
+    #experr: aaobj : AA;
 }
 
 type CC {
-    ccobj : CC;
+    #experr: ccobj : CC;
 }
 
 
-## generic type can't specify itself as a base type's type parameter (except via reference):
+## generic type can specify itself as a base type's type parameter, but instance members must be checked against recursive type definition:
 
 type GenType<T> {
     member : T;
 }
 
 #experr: type SpecTypeErr   GenType<SpecTypeErr>;
+/* upon reinterpretation becomes:
+type SpecTypeErr {
+    member : SpecTypeErr;
+}
+*/
 
-#experr: type SpecTypeErrA  GenType<SpecTypeErrB>;
-#experr: type SpecTypeErrB  GenType<SpecTypeErrA>;
+## since these are mutually recursive, one of them will report the error:
+#experr 0: type SpecTypeErrA  GenType<SpecTypeErrB>;
+#experr 1: type SpecTypeErrB  GenType<SpecTypeErrA>;
 
 
-## ok with recursive type definition via reference (needed to support CRTP):
+## ok with recursive type definition via reference:
 type SpecTypeOk    GenType<Ref<SpecTypeOk>>;
 
 type ARef Ref<BRef>;
@@ -78,6 +84,19 @@ type BRef Ref<ARef>;
 
 type CRef &DRef;
 type DRef &CRef;
+
+
+## ok with recursive type definition via non-reference and not containing itself (needed to support CRTP):
+
+abstract type SequenceType<T> {
+    abstract get_successor() -> T;
+}
+
+type MyNumber derives SequenceType<MyNumber> {
+    num : Int;
+    self ( n : Int ) { self.num = n; }
+    override get_successor() -> MyNumber { return MyNumber( self.num + 1 ); }
+}
 
 
 main()->Int {

@@ -564,14 +564,17 @@ public:
             argField->symbol_resolution_pass();
             if (auto argType = argField->get_type()) {
                 if (! argType->is_concrete())
-                    CERROR(argField, "Function argument is not a concrete type (size potentially unknown): " << argType);
+                    if ( ! ( argType->get_declaration() && ( argType->get_declaration()->get_decl_flags() & TXD_GENPARAM ) ) )
+                        CERROR(argField, "Function argument type is not a concrete type (size potentially unknown): "
+                                << argField->get_identifier() << " : " << argType);
             }
         }
         if (this->returnField) {
             this->returnField->symbol_resolution_pass();
             if (auto retType = this->returnField->get_type())
                 if (! retType->is_concrete())
-                    CERROR(returnField, "Function return type is not a concrete type (size potentially unknown): " << retType);
+                    if ( ! ( retType->get_declaration() && ( retType->get_declaration()->get_decl_flags() & TXD_GENPARAM ) ) )
+                        CERROR(returnField, "Function return type is not a concrete type (size potentially unknown): " << retType);
         }
     }
 

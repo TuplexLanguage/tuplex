@@ -1,0 +1,16 @@
+
+public interface Comparable< E > derives Interface {
+    public abstract compare( other : E ) -> Int;
+}
+
+public interface Enumerable< E derives Enumerable > derives Comparable< E > {
+
+    public static abstract value( ordinal: ULong ) -> E;
+
+    public abstract ordinal() -> ULong;
+}
+
+
+main() -> Int {
+    return 0;
+}

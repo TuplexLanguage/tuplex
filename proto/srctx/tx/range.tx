@@ -1,0 +1,63 @@
+module txtmp
+
+
+public interface Comparable< E > derives Interface {
+    public abstract compare( other : E ) -> Int;
+}
+
+
+## TODO: should be < E derives Enumerable >
+public interface Enumerable< E derives Enumerable > derives Comparable< E > {
+    /** returns the last (highest) ordinal for this type */
+    public static abstract last_ordinal() -> ULong;
+
+    /** returns the value for the specified ordinal (panics upon out-of-bounds) */
+    public static abstract value( ordinal: ULong ) -> E;
+
+    /** returns the ordinal for this value */
+    public abstract ordinal() -> ULong;
+
+/*
+    public next() -> E {
+        return self.next( 1 );
+    }
+
+    public next( step : ULong ) -> E {
+        nextOrd := self.ordinal() + step;
+        if nextOrd <= E.last_ordinal()
+            return E.value( nextOrd );
+        else
+            ## FUTURE: panic / exception
+            return E.value( E.last_ordinal() );
+    }
+
+
+    public static first() -> E {
+        return E.value( 0 );
+    }
+
+    public static last() -> E {
+        return E.value( E.last_ordinal() );
+    }
+*/
+}
+
+
+/** A range between two values of an Enumerable type. */
+/*
+public Range< E derives Enumberable > derives Tuple {
+    public start : E;
+    public end   : E;
+    public step  : ULong;
+
+    public self( first : E, last : E, step : ULong ) {
+        self.first = first;
+        self.last = last;
+        self.step = step;
+    }
+
+    public sequencer() ~Iterator<E>   { return ERangeIterator(first, last, step) }
+    public count() ULong              { return (last - first + 1) / step }
+    public at(index : ULong) Opt<E>   { r := first + index * step; return ( r<=last ? r : NULL ) }
+}
+*/

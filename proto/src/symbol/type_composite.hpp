@@ -174,7 +174,7 @@ public:
     virtual void accept(TxTypeVisitor& visitor) const override { visitor.visit(*this); }
 
 protected:
-    virtual void self_string(std::stringstream& str, bool brief, bool skipFirstName, bool skipImplicitNames) const override {
+    virtual void self_string(std::stringstream& str, bool brief, bool skipFirstName) const override {
         str << "func(";
         if (! this->argumentTypes.empty()) {
             auto ai = this->argumentTypes.cbegin();
@@ -326,11 +326,11 @@ protected:
         throw std::logic_error("Specified a base type for TxInterfaceAdapterType that was not a TxInterfaceAdapterType: " + baseTypeSpec.type->str());
     }
 
+    virtual bool inner_prepare_members() override;
+
 public:
     TxInterfaceAdapterType(const TxTypeDeclaration* declaration, const TxType* interfaceType, const TxType* adaptedType)
             : TxType(TXTC_INTERFACEADAPTER, declaration, TxTypeSpecialization(interfaceType)), adaptedType(adaptedType)  { }
-
-    virtual void prepare_members() override;
 
 //    virtual bool is_abstract() const override { return false; }
 

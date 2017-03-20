@@ -417,37 +417,27 @@ void TxParserContext::begin_exp_err( const TxParseOrigin* origin ) {
 }
 
 void TxParserContext::begin_exp_err( const TxLocation& loc, ExpectedErrorClause* expError ) {
-    if (this->expError) {
-        char buf[512];
-        format_location_message(buf, 512, loc, "Nested EXPECTED ERROR blocks not supported");
-        this->_driver.error_count++;
-        CLOG.error("%s", buf);
-        return;
-    }
-    this->expError = expError;
+//    if (this->expError) {
+//        char buf[512];
+//        format_location_message(buf, 512, loc, "Nested EXPECTED ERROR blocks not supported");
+//        this->_driver.error_count++;
+//        CLOG.error("%s", buf);
+//        return;
+//    }
+    this->expErrorStack.push( expError );
     //std::cerr << "EXPERR {  " << loc << std::endl;
-    //this->exp_err_count = 0;
 }
 
 ExpectedErrorClause* TxParserContext::end_exp_err( const TxLocation& loc ) {
-    if (! this->expError) {
-        char buf[512];
-        format_location_message(buf, 512, loc, "EXPECTED ERROR block end doesn't match a corresponding begin");
-        this->_driver.error_count++;
-        CLOG.error("%s", buf);
-        return nullptr;
-    }
-    ExpectedErrorClause* currentExpErr = this->expError;
-    this->expError = nullptr;
-    return currentExpErr;
+    ASSERT(!this->expErrorStack.empty(), "EXPECTED ERROR block end doesn't match a corresponding begin, loc: " << loc);
+    ExpectedErrorClause* currentExpErr = this->expErrorStack.top();
+    this->expErrorStack.pop();
     //std::cerr << "} EXPERR  " << loc << std::endl;
-//    this->exp_err = false;
-//    return this->exp_err_count;
-
+    return currentExpErr;
 }
 
 bool TxParserContext::in_exp_err() const {
-    return this->expError;
+    return !this->expErrorStack.empty();
 }
 
 
@@ -476,7 +466,7 @@ void TxParserContext::finalize_expected_error_clauses() {
 void TxParserContext::cerror(const TxLocation& loc, const std::string& msg) {
     char buf[512];
     format_location_message(buf, 512, loc, msg.c_str());
-    this->emit_comp_error( buf, this->expError );
+    this->emit_comp_error( buf, ( this->expErrorStack.empty() ? nullptr : this->expErrorStack.top() ) );
 }
 
 void TxParserContext::cerror(const TxParseOrigin* origin, const std::string& msg) {
