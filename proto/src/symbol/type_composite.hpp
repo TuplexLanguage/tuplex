@@ -174,7 +174,7 @@ public:
     virtual void accept(TxTypeVisitor& visitor) const override { visitor.visit(*this); }
 
 protected:
-    virtual void self_string(std::stringstream& str, bool brief, bool skipFirstName) const override {
+    virtual void self_string( std::stringstream& str, bool brief ) const override {
         str << "func(";
         if (! this->argumentTypes.empty()) {
             auto ai = this->argumentTypes.cbegin();

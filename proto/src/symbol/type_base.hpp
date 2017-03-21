@@ -151,19 +151,8 @@ public:
     TxTypeSpecialization()
             : type(), modifiable()  { }
 
-    /** Copies another TxTypeSpecialization but with a different base type. */
-    TxTypeSpecialization(const TxTypeSpecialization& other, const TxType* baseType)
-            : type(baseType), modifiable(other.modifiable)  {
-        ASSERT(baseType, "NULL baseType");
-    }
-
     TxTypeSpecialization(const TxType* baseType, bool modifiable=false)
             : type(baseType), modifiable(modifiable)  {
-        ASSERT(baseType, "NULL baseType");
-    }
-
-    TxTypeSpecialization(const TxType* baseType, const TxIdentifier* dataspace)
-            : type(baseType), modifiable(false)  {
         ASSERT(baseType, "NULL baseType");
     }
 
@@ -572,8 +561,8 @@ public:
     /*--- to string methods ---*/
 
     virtual std::string str() const override final { return this->str(false); }
-    virtual std::string str(bool brief, bool skipFirstName=false) const final;
+    virtual std::string str( bool brief ) const final;
 
 protected:
-    virtual void self_string(std::stringstream& str, bool brief, bool skipFirstName) const;
+    virtual void self_string( std::stringstream& str, bool brief ) const;
 };

@@ -55,6 +55,32 @@ std::string TxTypeSpecialization::str() const { return "specialization of " + th
 
 /*=== TxType implementation ===*/
 
+//void TxType::rewire( const TxType* newBaseType ) {
+//    ASSERT(this->typeClass == newBaseType->typeClass, "Mismatching type classes: " << this->typeClass << " != " << newBaseType->typeClass);
+//    ASSERT(!this->builtin, "can't be built-in");
+//    ASSERT(this->interfaces.empty(), "can't implement interfaces");
+//    ASSERT(this->staticTypeId == UINT32_MAX, "can't have a set staticTypeId: " << this->staticTypeId);
+//    ASSERT(this->params.empty(), "can't have type parameters");
+//    ASSERT(!this->baseTypeSpec.modifiable, "can't be modifiable");
+//    ASSERT(this->genericBaseType == newBaseType->get_semantic_base_type(), "mismatching generic base types: "
+//            << this->genericBaseType << " != " << newBaseType->get_semantic_base_type());
+//    ASSERT(this->virtualFields.fields.empty(), "non-empty virtual fields");
+//    ASSERT(this->staticFields.fields.empty(), "non-empty static fields");
+//    ASSERT(this->instanceFields.fields.empty(), "non-empty instance fields");
+//
+//    this->bindings.clear();
+//
+//    const_cast<TxTypeSpecialization*>( &this->baseTypeSpec )->type = newBaseType;
+//    this->genericBaseType = nullptr;
+//
+//    nonRefBindings = false;
+//    extendsInstanceDatatype = false;
+//    modifiesVTable = false;
+//    emptyDerivation = true;
+//    pureDerivation = false;
+//}
+
+
 const TxLocation& TxType::get_parse_location() const {
     return (this->get_declaration() ? this->get_declaration()->get_definer()->get_parse_location()
                                     : this->get_nearest_declaration()->get_symbol()->get_root_scope()->root_origin().get_parse_location());
@@ -851,14 +877,15 @@ static void type_bindings_string(std::stringstream& str, const std::vector<TxEnt
     int ix = 0;
     for (auto b : bindings) {
         if (ix++)  str << ",";
-        str << b->get_unique_full_name();
-        //b->get_definer()->resolve_type();
-        //str << b->get_definer()->get_type()->to_string(true, true);
+        if (auto btype = b->get_definer()->attempt_get_type())
+            str << btype->str( true );
+        else
+            str << b->get_unique_full_name();
     }
     str << ">";
 }
 
-std::string TxType::str(bool brief, bool skipFirstName) const {
+std::string TxType::str( bool brief ) const {
     std::stringstream str;
     if (this->get_type_class() == TXTC_INTERFACE)
         str << "i/f ";
@@ -868,32 +895,29 @@ std::string TxType::str(bool brief, bool skipFirstName) const {
         str << "ABSTRACT ";
     if (this->is_immutable())
         str << "IMMUTABLE ";
-    this->self_string(str, brief, skipFirstName);
+    this->self_string( str, brief );
     return str.str();
 }
 
-void TxType::self_string(std::stringstream& str, bool brief, bool skipFirstName) const {
+void TxType::self_string( std::stringstream& str, bool brief ) const {
     if (this->is_modifiable())
         str << "MOD ";
 
-    if (! skipFirstName) {
-        if (auto decl = this->get_declaration()) {
-            str << decl->get_unique_full_name();
-        }
-        else
-            str << "unnamed";
+    if (auto decl = this->get_declaration()) {
+        str << decl->get_unique_full_name();
     }
+    else
+        str << "unnamed";
 
     //if (! this->params.empty())
     //    type_params_string(str, this->params);
+    if (! this->get_bindings().empty())
+        type_bindings_string(str, this->get_bindings());
 
-    if (this->has_base_type() && (!brief || skipFirstName)) {
+    if (this->has_base_type() && !brief) {
         str << (this->is_empty_derivation() ? " = " : " : ");
 
-        if (! this->get_bindings().empty())
-            type_bindings_string(str, this->get_bindings());
-
-        this->get_base_type()->self_string(str, false, false);  // set 'brief' to false to print entire type chain
+        this->get_semantic_base_type()->self_string( str, false );  // set 'brief' to false to print entire type chain
     }
 }
 
