@@ -305,7 +305,7 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
             _LOG.info("Skipping code generation for enqueued ExpErr specialization: %s", specNode->get_declaration()->str().c_str());
             continue;
         }
-        _LOG.info("Generating code for enqueued specialization: %s", specNode->get_declaration()->str().c_str());
+        _LOG.debug("Generating code for enqueued specialization: %s", specNode->get_declaration()->str().c_str());
         genContext.generate_code( specNode );
     }
 

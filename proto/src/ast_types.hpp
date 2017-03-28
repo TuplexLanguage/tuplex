@@ -353,11 +353,8 @@ protected:
                 if (auto baseType = this->baseTypes->at(i)->resolve_type()) {
                     if (i == 0)
                         baseObjType = baseType;
-                    else {
-                        if (baseType->get_type_class() != TXTC_INTERFACE)
-                            CERROR(this, "Only the first derived-from type can be a non-interface type: " << baseType);
+                    else
                         interfaces.emplace_back(baseType);
-                    }
                 }
                 else
                     return nullptr;

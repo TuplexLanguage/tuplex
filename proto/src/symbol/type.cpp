@@ -149,6 +149,10 @@ void TxActualType::validate_type() const {
     // TODO: validate interfaces
     // check that generic interfaces can't be implemented multiple times throughout a type hierarchy,
     // unless their type arguments are exactly the same
+    for (auto & interfSpec : this->interfaces) {
+        if (interfSpec.type->get_type_class() != TXTC_INTERFACE)
+            CERROR(this, "Only the first derived-from type can be a non-interface type: " << interfSpec.type);
+    }
 }
 
 

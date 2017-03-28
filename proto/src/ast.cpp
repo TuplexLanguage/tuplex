@@ -458,8 +458,8 @@ static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntityS
                         auto argType = *argTypeI;
                         int degree = get_reinterpretation_degree( argDef, argType );
                         if (degree < 0) {
-                            entitySymbol->LOGGER().info("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
-                                                         argType->str(true).c_str(), argDef->str(true).c_str());
+                            //entitySymbol->LOGGER().info("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
+                            //                             argType->str(true).c_str(), argDef->str(true).c_str());
                             goto NEXT_CANDIDATE;
                         }
                         reint[ degree ]++;
