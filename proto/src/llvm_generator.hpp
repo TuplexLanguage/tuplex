@@ -42,7 +42,7 @@ class LlvmGenerationContext {
 
     llvm::Function* entryFunction = nullptr;
     std::map<const std::string, llvm::Value*> llvmSymbolTable;
-    std::map<const TxType*, llvm::Type*> llvmTypeMapping;
+    std::map<const TxActualType*, llvm::Type*> llvmTypeMapping;
     std::map<uint32_t, llvm::StructType*> llvmVTableTypeMapping;
 
     // some common, basic types:
@@ -85,8 +85,9 @@ public:
     inline llvm::Type* get_voidRefT() const  { return this->voidRefT; }
 
     llvm::Type* get_llvm_type(const TxType* txType);
+    llvm::Type* get_llvm_type(const TxActualType* txType);
 
-    llvm::StructType* get_llvm_vtable_type(const TxType* txType) const;
+    llvm::StructType* get_llvm_vtable_type(const TxActualType* txType) const;
 
     // simple symbol table for llvm values:
     void register_llvm_value(const std::string& identifier, llvm::Value* val);
@@ -102,14 +103,14 @@ public:
 
     /** Create the top level function to call as program entry.
      * (This is the built-in main, which calls the user main function.)  */
-    bool generate_main(const std::string& userMainIdent, const TxFunctionType* mainFuncType);
+    bool generate_main(const std::string& userMainIdent, const TxType* mainFuncType);
 
 
     // "intrinsics":
     llvm::Value* gen_malloc(GenScope* scope, llvm::Type* objT);
 
-    llvm::Value* gen_get_vtable(GenScope* scope, const TxType* statDeclType, llvm::Value* typeIdV) const;
-    llvm::Value* gen_get_vtable(GenScope* scope, const TxType* statDeclType) const;
+    llvm::Value* gen_get_vtable(GenScope* scope, const TxActualType* statDeclType, llvm::Value* typeIdV) const;
+    llvm::Value* gen_get_vtable(GenScope* scope, const TxActualType* statDeclType) const;
 
 
     /** Verfies the generated LLVM code.

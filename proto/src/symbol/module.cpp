@@ -164,10 +164,11 @@ bool TxModule::import_symbol(const TxParseOrigin& origin, const TxIdentifier& id
     if (! otherModule)
         return false;
     else if (identifier.name() == "*") {
-        for (auto siter = otherModule->symbols_cbegin(); siter != otherModule->symbols_cend(); siter++)
-            if (siter->first[0] != '~'  // not a modifiable derivation
-                    && siter->first.find_first_of('$') == std::string::npos)  // not an internal name
-                this->use_symbol(origin, otherModule, siter->first);
+        for (auto & symName : otherModule->get_decl_order_names() ) {
+            if (symName[0] != '~'  // not a modifiable derivation
+                    && symName.find_first_of('$') == std::string::npos)  // not an internal name
+                this->use_symbol(origin, otherModule, symName);
+        }
         return true;
     }
     else
@@ -184,7 +185,7 @@ void TxModule::prepare_modules() {
         if (! this->import_symbol( import.origin, import.name ))
             CERROR(import.origin, "Failed to import " << import.name);
     }
-    for (auto & symName : this->get_ordered_symbol_names() ) {
+    for (auto & symName : this->get_decl_order_names() ) {
         auto symbol = this->get_symbol( symName );
         if (auto submod = dynamic_cast<TxModule*>( symbol ))
             submod->prepare_modules();

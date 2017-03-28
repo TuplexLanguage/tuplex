@@ -19,16 +19,13 @@ static Value* code_gen_4_multiple(LlvmGenerationContext& context, GenScope* scop
 
 
 
-StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
-    if (! this->get_symbol()) {
-        LOG(context.LOGGER(), ERROR, "No symbol declared for type " << this << " - can't perform vtable LLVM type mapping");
-        return nullptr;
-    }
+StructType* TxActualType::make_vtable_type(LlvmGenerationContext& context) const {
+    ASSERT(this->get_declaration(), "No declaration for type " << this << " - can't perform vtable LLVM type mapping");
     LOG_TRACE(context.LOGGER(), "Mapping vtable of type " << this->get_declaration()->get_unique_full_name() << ": " << this->str(true));
     std::vector<Type*> members;
     for (auto memberTxField : this->get_virtual_fields().fields) {
         auto memberTxType = memberTxField->get_type();
-        auto lMemberType = context.get_llvm_type(memberTxType);
+        auto lMemberType = context.get_llvm_type(memberTxType->type());
         if (memberTxField->get_storage() == TXS_INSTANCEMETHOD)
             lMemberType = lMemberType->getStructElementType(0);
         else if (memberTxField->get_unique_name() != "$adTypeId")  // $adTypeId is direct value, not a pointer to separate global
@@ -42,20 +39,16 @@ StructType* TxType::make_vtable_type(LlvmGenerationContext& context) const {
     return vtableT;
 }
 
-//Constant* TxType::code_gen_vtable_size(LlvmGenerationContext& context) const {
+//Constant* TxActualType::code_gen_vtable_size(LlvmGenerationContext& context) const {
 //    Type* llvmType = this->make_vtable_llvm_type(context);
 //    if (! llvmType)
 //        return nullptr;
 //    return ConstantExpr::getSizeOf(llvmType);
 //}
 
-Function* TxType::get_type_user_init_func(LlvmGenerationContext& context) const {
-    auto entity = this->get_symbol();
-    if (! entity) {
-        LOG(context.LOGGER(), ERROR, "No symbol declared for type " << this << " - can't create type init func");
-        return nullptr;
-    }
-    std::string funcName(entity->get_full_name().str() + ".$tuinit");
+Function* TxActualType::get_type_user_init_func(LlvmGenerationContext& context) const {
+    ASSERT(this->get_declaration(), "No declaration for type " << this << " - can't create type init func");
+    std::string funcName(this->get_declaration()->get_unique_full_name() + ".$tuinit");
 
     std::vector<Type*> typeInitFuncArgTypes {
         context.get_voidPtrT()  // void* to type's data
@@ -69,7 +62,7 @@ Function* TxType::get_type_user_init_func(LlvmGenerationContext& context) const 
 
 
 
-Value* TxType::gen_size(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxActualType::gen_size(LlvmGenerationContext& context, GenScope* scope) const {
     ASSERT(this->is_concrete(), "Attempted to codegen size of non-concrete type " << this);
     Type* llvmType = context.get_llvm_type(this);  // (gets the cached LLVM type if previously accessed)
     if (! llvmType)
@@ -77,7 +70,7 @@ Value* TxType::gen_size(LlvmGenerationContext& context, GenScope* scope) const {
     return ConstantExpr::getSizeOf(llvmType);
 }
 
-Value* TxType::gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName) const {
+Value* TxActualType::gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName) const {
     ASSERT(this->is_concrete(), "Attempted to codegen alloca of non-concrete type " << this);
     Type* llvmType = context.get_llvm_type(this);  // (gets the cached LLVM type if previously accessed)
     if (! llvmType)
@@ -85,7 +78,7 @@ Value* TxType::gen_alloca(LlvmGenerationContext& context, GenScope* scope, const
     return scope->builder->CreateAlloca(llvmType, 0, varName);
 }
 
-Constant* TxType::gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
+Constant* TxActualType::gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
     return ConstantInt::get(Type::getInt32Ty(context.llvmContext), this->get_type_id());
 }
 
@@ -321,10 +314,10 @@ Type* TxTupleType::make_llvm_type(LlvmGenerationContext& context) const {
 }
 
 Type* TxTupleType::make_llvm_type_body(LlvmGenerationContext& context, Type* header) const {
-    LOG_TRACE(context.LOGGER(), "Mapping tuple type " << this->get_symbol()->get_full_name() << ": " << this->str(true));
+    LOG_TRACE(context.LOGGER(), "Mapping tuple type " << this->get_declaration()->get_unique_full_name() << ": " << this->str(true));
     std::vector<Type*> fieldTypes;
     for (auto memberTxField : this->get_instance_fields().fields) {
-        auto memberTxType = memberTxField->get_type();
+        auto memberTxType = memberTxField->get_type()->type();
         auto memberLlvmType = context.get_llvm_type(memberTxType);
         fieldTypes.push_back(memberLlvmType);
         LOG_TRACE(context.LOGGER(), "Mapping member type " << memberTxType << " to " << ::to_string(memberLlvmType));

@@ -51,10 +51,10 @@ Value* TxScalarConvNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     }
     // FUTURE: manually determine cast instruction
     bool srcSigned = false, dstSigned = false;
-    if (auto intType = dynamic_cast<const TxIntegerType*>(this->expr->get_type()))
+    if (auto intType = dynamic_cast<const TxIntegerType*>(this->expr->get_type()->type()))
         if (intType->sign)
             srcSigned = true;
-    if (auto intType = dynamic_cast<const TxIntegerType*>(this->resultType))
+    if (auto intType = dynamic_cast<const TxIntegerType*>(this->resultType->type()))
         if (intType->sign)
             dstSigned = true;
     Instruction::CastOps cop = CastInst::getCastOpcode(origValue, srcSigned, targetLlvmType, dstSigned);
@@ -103,7 +103,7 @@ Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* s
         return NULL;
 
     // from another reference:
-    if (dynamic_cast<const TxReferenceType*>(this->expr->get_type())) {
+    if (this->expr->get_type()->get_type_class() == TXTC_REFERENCE) {
         auto refT = context.get_llvm_type(this->resultType);
         if (! refT) {
             LOG(context.LOGGER(), ERROR, "In reference conversion, LLVM type not found for result type " << this->resultType);
@@ -115,7 +115,7 @@ Value* TxReferenceConvNode::code_gen(LlvmGenerationContext& context, GenScope* s
         return TxReferenceType::gen_ref_conversion(context, scope, origValue, refT, adapterTypeId);
     }
 //    // from array:
-//    else if (dynamic_cast<const TxArrayType*>(this->expr->get_type(0))) {
+//    else if (dynamic_cast<const TxArrayType*>(this->expr->get_type()->type())) {
 //        Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
 //                         ConstantInt::get(Type::getInt32Ty(context.llvmContext), 1),
 //                         ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0) };

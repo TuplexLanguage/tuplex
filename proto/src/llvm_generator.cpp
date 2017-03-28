@@ -172,8 +172,8 @@ void LlvmGenerationContext::generate_code( const TxNode* staticScopeNode ) {
 }
 
 
-bool LlvmGenerationContext::generate_main(const std::string& userMainIdent, const TxFunctionType* mainFuncType) {
-    this->entryFunction = this->gen_main_function(userMainIdent, mainFuncType->returnType);
+bool LlvmGenerationContext::generate_main(const std::string& userMainIdent, const TxType* mainFuncType) {
+    this->entryFunction = this->gen_main_function(userMainIdent, mainFuncType->return_type());
     return this->entryFunction;
 }
 
@@ -344,8 +344,8 @@ void LlvmGenerationContext::initialize_builtin_functions() {
         // create function:
         const std::string funcName("tx._address");
         //auto argT = TxReferenceType::make_ref_llvm_type(*this, Type::getInt8Ty(this->llvmContext));
-        auto argT = this->get_llvm_type(this->tuplexPackage.types().get_builtin_type(REFERENCE));
-        auto retT = this->get_llvm_type(this->tuplexPackage.types().get_builtin_type(ULONG));
+        auto argT = this->get_llvm_type(this->tuplexPackage.types().get_builtin_type(REFERENCE)->type());
+        auto retT = this->get_llvm_type(this->tuplexPackage.types().get_builtin_type(ULONG)->type());
         Function *func = cast<Function>(this->llvmModule.getOrInsertFunction(funcName, retT, this->get_voidRefT(), argT, NULL));
         BasicBlock *bb = BasicBlock::Create(this->llvmModule.getContext(), "entry", func);
         IRBuilder<> builder(bb);
@@ -476,10 +476,10 @@ void LlvmGenerationContext::initialize_external_functions() {
 
 void LlvmGenerationContext::generate_runtime_data() {
     for (auto txTypeI = this->tuplexPackage.types().static_types_cbegin(); txTypeI != this->tuplexPackage.types().static_types_cend(); txTypeI++) {
-        auto txType = *txTypeI;
+        const TxActualType* txType = *txTypeI;
         ASSERT(txType->is_prepared(), "Non-prepared type: " << txType);
-        if (auto entity = txType->get_symbol()) {
-            std::string vtableName(entity->get_full_name().str() + "$vtable");
+        if (auto decl = txType->get_declaration()) {
+            std::string vtableName(decl->get_unique_full_name() + "$vtable");
             if (auto vtableV = dyn_cast<GlobalVariable>(this->lookup_llvm_value(vtableName))) {
                 LOG_DEBUG(this->LOGGER(), "Populating vtable initializer for " << txType);
                 std::vector<Constant*> initMembers;
@@ -492,15 +492,15 @@ void LlvmGenerationContext::generate_runtime_data() {
                         //std::cerr << "inserting NULL for abstract virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                         Type* fieldType;
                         if (actualFieldEnt->get_storage() & TXS_INSTANCEMETHOD) {
-                            auto closureType = this->get_llvm_type(actualFieldEnt->get_type());
+                            auto closureType = this->get_llvm_type(actualFieldEnt->get_type()->type());
                             fieldType = closureType->getStructElementType(0);
                         }
                         else if (field.first == "$adTypeId") {
                             ASSERT(txType->get_type_class() == TXTC_INTERFACE, "Expected TxInterfaceType: " << txType);
-                            fieldType = this->get_llvm_type(actualFieldEnt->get_type());
+                            fieldType = this->get_llvm_type(actualFieldEnt->get_type()->type());
                         }
                         else
-                            fieldType = PointerType::getUnqual(this->get_llvm_type(actualFieldEnt->get_type()));
+                            fieldType = PointerType::getUnqual(this->get_llvm_type(actualFieldEnt->get_type()->type()));
                         llvmField = Constant::getNullValue(fieldType);
                     }
                     else {
@@ -553,7 +553,7 @@ llvm::Value* LlvmGenerationContext::gen_malloc(GenScope* scope, llvm::Type* objT
 }
 
 
-Value* LlvmGenerationContext::gen_get_vtable(GenScope* scope, const TxType* statDeclType, Value* runtimeBaseTypeIdV) const {
+Value* LlvmGenerationContext::gen_get_vtable(GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV) const {
     Value* metaTypesV = this->lookup_llvm_value("tx.runtime.META_TYPES");
     Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(this->llvmContext), 0),
                      runtimeBaseTypeIdV,
@@ -580,12 +580,12 @@ Value* LlvmGenerationContext::gen_get_vtable(GenScope* scope, const TxType* stat
     return nullptr;
 }
 
-Value* LlvmGenerationContext::gen_get_vtable(GenScope* scope, const TxType* statDeclType) const {
+Value* LlvmGenerationContext::gen_get_vtable(GenScope* scope, const TxActualType* statDeclType) const {
     return gen_get_vtable(scope, statDeclType, ConstantInt::get(Type::getInt32Ty(this->llvmContext), statDeclType->get_type_id()));
 }
 
 
-StructType* LlvmGenerationContext::get_llvm_vtable_type(const TxType* txType) const {
+StructType* LlvmGenerationContext::get_llvm_vtable_type(const TxActualType* txType) const {
     auto iter = this->llvmVTableTypeMapping.find(txType->get_type_id());
     if (iter != this->llvmVTableTypeMapping.end())
         return iter->second;
@@ -594,6 +594,10 @@ StructType* LlvmGenerationContext::get_llvm_vtable_type(const TxType* txType) co
 
 
 Type* LlvmGenerationContext::get_llvm_type(const TxType* txType) {
+    return this->get_llvm_type( txType->type() );
+}
+
+Type* LlvmGenerationContext::get_llvm_type(const TxActualType* txType) {
     ASSERT(txType, "NULL txType provided to getLlvmType()");
     if (txType->get_type_class() != TXTC_REFERENCE && txType->is_same_instance_type())
         // same data type as base type

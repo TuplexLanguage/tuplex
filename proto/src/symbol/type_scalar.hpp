@@ -3,7 +3,7 @@
 #include "type_base.hpp"
 
 
-class TxBoolType : public TxType {
+class TxBoolType : public TxActualType {
 protected:
     virtual TxBoolType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                               const std::vector<TxTypeSpecialization>& interfaces) const override {
@@ -14,13 +14,13 @@ protected:
 
 public:
     TxBoolType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec)
-        : TxType(TXTC_ELEMENTARY, declaration, baseTypeSpec) { }
+        : TxActualType(TXTC_ELEMENTARY, declaration, baseTypeSpec) { }
 
     virtual bool is_final() const override { return true; }
     //virtual bool is_abstract() const override { return false; }
 
-    inline virtual bool operator==(const TxType& other) const override {
-        return ( typeid(*this) == typeid(other) );
+    inline virtual bool operator==(const TxActualType& other) const override {
+        return ( this == &other );
     }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
@@ -30,17 +30,21 @@ public:
 
 
 
-class TxScalarType : public TxType {
+class TxScalarType : public TxActualType {
 protected:
     const uint64_t _size;
 
     TxScalarType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, uint64_t size)
-        : TxType(TXTC_ELEMENTARY, declaration, baseTypeSpec), _size(size) { }
+        : TxActualType(TXTC_ELEMENTARY, declaration, baseTypeSpec), _size(size) { }
 
 public:
     virtual uint64_t size() const { return this->_size; }
     virtual bool is_final() const override { return true; }
     //virtual bool is_abstract() const override { return false; }
+
+    inline virtual bool operator==(const TxActualType& other) const override final {
+        return ( this == &other );
+    }
 
     virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
@@ -60,7 +64,7 @@ protected:
 public:
     const bool sign;
 
-    TxIntegerType(const TxTypeDeclaration* declaration, const TxType* baseType, int size, bool sign)
+    TxIntegerType(const TxTypeDeclaration* declaration, const TxActualType* baseType, int size, bool sign)
         : TxScalarType(declaration, TxTypeSpecialization(baseType), size), sign(sign) { }
 
 
@@ -68,13 +72,13 @@ public:
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
-    inline virtual bool operator==(const TxType& other) const override {
-        return (typeid(*this) == typeid(other)
-                && this->sign == ((TxIntegerType&)other).sign
-                && this->_size == ((TxIntegerType&)other)._size);
-    }
+//    inline virtual bool operator==(const TxActualType& other) const override {
+//        return (typeid(*this) == typeid(other)
+//                && this->sign == ((TxIntegerType&)other).sign
+//                && this->_size == ((TxIntegerType&)other)._size);
+//    }
 
-    virtual bool auto_converts_to(const TxType& destination) const override {
+    virtual bool auto_converts_to(const TxActualType& destination) const override {
         if (const TxIntegerType* destInt = dynamic_cast<const TxIntegerType*>(&destination)) {
             if (this->sign == destInt->sign)
                 return this->_size <= destInt->_size;
@@ -98,17 +102,17 @@ protected:
         : TxScalarType(declaration, baseTypeSpec, size) { }
 
 public:
-    TxFloatingType(const TxTypeDeclaration* declaration, const TxType* baseType, int size)
+    TxFloatingType(const TxTypeDeclaration* declaration, const TxActualType* baseType, int size)
         : TxScalarType(declaration, TxTypeSpecialization(baseType), size) { }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
 
-    virtual bool operator==(const TxType& other) const override {
-        return (typeid(*this) == typeid(other)
-                && this->_size == ((TxFloatingType&)other)._size);
-    }
+//    virtual bool operator==(const TxActualType& other) const override {
+//        return (typeid(*this) == typeid(other)
+//                && this->_size == ((TxFloatingType&)other)._size);
+//    }
 
-    virtual bool auto_converts_to(const TxType& destination) const override {
+    virtual bool auto_converts_to(const TxActualType& destination) const override {
         if (const TxFloatingType* destFloat = dynamic_cast<const TxFloatingType*>(&destination))
             return this->_size <= destFloat->_size;
         return false;

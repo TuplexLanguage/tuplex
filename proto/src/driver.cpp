@@ -158,9 +158,7 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
         parserContext->parsingUnit->symbol_resolution_pass();
     }
 
-    this->package->types().enqueued_resolution_pass();
-
-    this->package->types().prepare_types();
+    this->package->types().deferred_type_resolution_pass();
 
     for (auto parserContext : this->parsedASTs) {
         parserContext->finalize_expected_error_clauses();
@@ -316,10 +314,11 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
     bool mainGenerated = false;
     if (auto funcDecl = this->package->getMainFunc()) {
         auto funcField = funcDecl->get_definer()->resolve_field();
-        if (auto funcType = dynamic_cast<const TxFunctionType*>(funcField->get_type())) {
-            if ( funcType->returnType && ! funcType->returnType->is_a( *this->package->types().get_builtin_type(INTEGER) ) )
-                this->_LOG.error("main() method had invalid return type: %s", funcType->returnType->str().c_str());
-            else if ((mainGenerated = genContext.generate_main(funcDecl->get_unique_full_name(), funcType)))
+        if (funcField->get_type()->get_type_class() == TXTC_FUNCTION) {
+            auto retType = funcField->get_type()->return_type();
+            if ( retType && ! retType->is_a( *this->package->types().get_builtin_type(INTEGER) ) )
+                this->_LOG.error("main() method had invalid return type: %s", retType->str().c_str());
+            else if ((mainGenerated = genContext.generate_main(funcDecl->get_unique_full_name(), funcField->get_type())))
                 this->_LOG.debug("Created program entry for user method %s", funcDecl->get_unique_full_name().c_str());
         }
     }

@@ -217,8 +217,8 @@ protected:
     }
 
     virtual const TxType* define_type() override {
-        auto baseType = this->types().get_builtin_type(REFERENCE);
-        auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
+//        auto baseType = this->types().get_builtin_type(REFERENCE);
+//        auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
         return this->types().get_reference_type( this, targetTypeNode, this->dataspace );
     }
 
@@ -259,8 +259,8 @@ protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override;
 
     virtual const TxType* define_type() override {
-        auto baseType = this->types().get_builtin_type(ARRAY);
-        auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
+//        auto baseType = this->types().get_builtin_type(ARRAY);
+//        auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
         if (this->lengthNode)
             return this->types().get_array_type( this, this->elementTypeNode, this->lengthNode );
         else
@@ -344,7 +344,7 @@ protected:
         ASSERT(this->get_declaration(), "No declaration for derived type " << *this);
 
         const TxType* baseObjType = nullptr;
-        std::vector<TxTypeSpecialization> interfaces;
+        std::vector<const TxType*> interfaces;
         if (this->baseTypes->empty())
             baseObjType = this->types().get_builtin_type(TUPLE);
         else {
@@ -433,8 +433,8 @@ protected:
 
     virtual const TxType* define_type() override {
         if (auto dType = this->derivedTypeNode->resolve_type()) {
-            if (dType->has_base_type())
-                return dType->get_semantic_base_type();
+            if (auto base = dType->get_semantic_base_type())
+                return base;
             CERROR(this, "Can't refer to 'super type' of a type that has no base type: " << dType);
         }
         return nullptr;
@@ -490,12 +490,20 @@ protected:
 
     virtual const TxType* define_type() override {
         std::vector<const TxType*> argumentTypes;
-        for (auto argDefNode : *this->arguments)
-            argumentTypes.push_back(argDefNode->resolve_type());
+        for (auto argDefNode : *this->arguments) {
+            if (auto argType = argDefNode->resolve_type())
+                argumentTypes.push_back( argType );
+            else
+                return nullptr;
+        }
         if (this->context().get_constructed())
             return this->types().get_constructor_type(this->get_declaration(), argumentTypes, this->context().get_constructed());
-        else if (this->returnField)
-            return this->types().get_function_type(this->get_declaration(), argumentTypes, this->returnField->resolve_type(), modifiable);
+        else if (this->returnField) {
+            if (auto returnType = this->returnField->resolve_type())
+                return this->types().get_function_type(this->get_declaration(), argumentTypes, returnType, modifiable);
+            else
+                return nullptr;
+        }
         else
             return this->types().get_function_type(this->get_declaration(), argumentTypes, modifiable);
     }

@@ -34,7 +34,12 @@ public:
             return typeExpr->get_auto_type_name();
         else
             // attempt to resolve type here - experimental, but perhaps avoids type resolution recursion since only a value expression
-            return this->typeDefNode->resolve_type()->get_declaration()->get_unique_full_name();
+            if (auto decl = this->typeDefNode->resolve_type()->get_declaration())
+                return decl->get_unique_full_name();
+            else {
+                LOG(this->LOGGER(), WARN, "couldn't determine an auto-name for node: " << this->typeDefNode);
+                return "?";
+            }
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override {

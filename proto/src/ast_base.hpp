@@ -343,21 +343,7 @@ public:
     virtual TxTypeDefiningNode* make_ast_copy() const override = 0;
 
     /** Returns the type (as specific as can be known) of the value this node produces/uses. */
-    virtual const TxType* resolve_type() override final {
-        ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
-        if (!this->type && !this->hasResolved) {
-            LOG_TRACE(this->LOGGER(), "resolving type  of " << this);
-            //ASSERT(!this->startedRslv, "Recursive invocation of resolve_type() of " << this);
-            if (this->startedRslv) {
-                CERROR(this, "Recursive definition of type '" << this->get_identifier() << "'");
-                return nullptr;
-            }
-            this->startedRslv = true;
-            this->type = this->define_type();
-            this->hasResolved = true;
-        }
-        return this->type;
-    }
+    virtual const TxType* resolve_type() override final;
 
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type        () const override {
@@ -390,22 +376,7 @@ public:
     virtual TxFieldDefiningNode* make_ast_copy() const override = 0;
 
     /** Resolves the type and returns the field entity of this field-defining node. */
-    virtual const TxField* resolve_field() final {
-        ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
-        if (!this->field && !this->hasResolved) {
-            LOG_TRACE(this->LOGGER(), "resolving field of " << this);
-            if (this->startedRslv) {
-                CERROR(this, "Recursive definition of field '" << this->get_identifier() << "'");
-                return nullptr;
-            }
-            this->startedRslv = true;
-            this->type = this->define_type();
-            if (this->type)
-                this->field = this->define_field();
-            this->hasResolved = true;
-        }
-        return this->field;
-    }
+    virtual const TxField* resolve_field() final;
 
     /** Returns the type (as specific as can be known) of the value this field-defining node produces/uses. */
     virtual const TxType* resolve_type() final {

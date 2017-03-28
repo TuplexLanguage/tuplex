@@ -23,14 +23,14 @@ class TxReferenceDerefNode : public TxExpressionNode {
 
 protected:
     virtual const TxType* define_type() override {
-        auto opType = this->reference->resolve_type();
-        if (auto refType = dynamic_cast<const TxReferenceType*>(opType)) {
+        auto refType = this->reference->resolve_type();
+        if (refType->get_type_class() == TXTC_REFERENCE) {
             if (refType->is_generic())
                 // FUTURE: return constraint type if present
                 return this->types().get_builtin_type(ANY);
             return refType->target_type();
         }
-        CERROR(this, "Operand is not a reference and can't be dereferenced: " << opType);
+        CERROR(this, "Operand is not a reference and can't be dereferenced: " << refType);
         return nullptr;
     }
 
@@ -54,7 +54,7 @@ public:
         TxExpressionNode::symbol_resolution_pass();
         this->reference->symbol_resolution_pass();
 
-        if (! dynamic_cast<const TxReferenceType*>(this->reference->get_type()))
+        if (this->reference->get_type()->get_type_class() != TXTC_REFERENCE)
             CERROR(this, "Can't de-reference non-reference expression.");
     }
 
@@ -75,8 +75,8 @@ class TxElemDerefNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type() override {
         auto opType = this->array->resolve_type();
-        if (auto arrayType = dynamic_cast<const TxArrayType*>(opType)) {
-            if (auto elemType = arrayType->element_type())
+        if (opType->get_type_class() == TXTC_ARRAY) {
+            if (auto elemType = opType->element_type())
                 return elemType;
             else
                 // FUTURE: return constraint type if present
@@ -203,27 +203,27 @@ protected:
         auto rtype = rhs->resolve_type();
 
         const TxType* arithResultType = nullptr;
-        if (auto scalar_ltype = dynamic_cast<const TxScalarType*>(ltype)) {
-            if (auto scalar_rtype = dynamic_cast<const TxScalarType*>(rtype)) {
-                if (scalar_ltype != scalar_rtype) {
-                    if (scalar_rtype->auto_converts_to(*scalar_ltype)) {
+        if (ltype->is_scalar()) {
+            if (rtype->is_scalar()) {
+                if (ltype != rtype) {
+                    if (rtype->auto_converts_to(*ltype)) {
                         // wrap rhs with cast instruction node
-                        this->rhs = new TxScalarConvNode( this->rhs, scalar_ltype );
+                        this->rhs = new TxScalarConvNode( this->rhs, ltype );
                         this->rhs->symbol_declaration_pass( this->context());
                         //this->rhs->symbol_resolution_pass();
-                        arithResultType = scalar_ltype;
+                        arithResultType = ltype;
                     }
-                    else if (scalar_ltype->auto_converts_to(*scalar_rtype)) {
+                    else if (ltype->auto_converts_to(*rtype)) {
                         // wrap lhs with cast instruction node
-                        this->lhs = new TxScalarConvNode( this->lhs, scalar_rtype );
+                        this->lhs = new TxScalarConvNode( this->lhs, rtype );
                         this->lhs->symbol_declaration_pass( this->context());
                         //this->lhs->symbol_resolution_pass();
-                        arithResultType = scalar_rtype;
+                        arithResultType = rtype;
                     }
                 }
                 else
                     // same type, no additional action necessary
-                    arithResultType = scalar_ltype;
+                    arithResultType = ltype;
             }
             if (arithResultType) {
                 if (op_class == TXOC_BOOLEAN)
@@ -234,16 +234,16 @@ protected:
             else
                 return nullptr;
         }
-        else if (dynamic_cast<const TxBoolType*>(ltype)) {
-            if (dynamic_cast<const TxBoolType*>(rtype)) {
+        else if (ltype->is_builtin( BOOL )) {
+            if (rtype->is_builtin( BOOL )) {
                 if (op_class == TXOC_ARITHMETIC)
                     CERROR(this, "Can't perform arithmetic operation on operands of boolean type: " << this->op);
             }
             else
                 CERROR(this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
         }
-        else if (dynamic_cast<const TxReferenceType*>(ltype)) {
-            if (dynamic_cast<const TxReferenceType*>(rtype)) {
+        else if (ltype->get_type_class() == TXTC_REFERENCE) {
+            if (rtype->get_type_class() == TXTC_REFERENCE) {
                 if (op_class != TXOC_EQUALITY)
                     CERROR(this, "Invalid operator for reference operands: " << this->op);
             }
@@ -309,9 +309,9 @@ class TxUnaryMinusNode : public TxOperatorValueNode {
 protected:
     virtual const TxType* define_type() override {
         auto type = this->operand->resolve_type();
-        if (! dynamic_cast<const TxScalarType*>(type))
-            CERROR(this, "Invalid operand type for unary '-', not of scalar type: " << (type ? type->str().c_str() : "NULL"));
-        else if (auto intType = dynamic_cast<const TxIntegerType*>(type))
+        if (! (type && type->is_scalar()))
+            CERROR(this, "Invalid operand type for unary '-', not of scalar type: " << type);
+        else if (auto intType = dynamic_cast<const TxIntegerType*>(type->type()))
             if (! intType->is_signed()) {
                 // promote unsigned integers upon negation
                 // TODO: if operand is an integer literal (or statically constant) and small enough, convert to signed of same width
@@ -332,7 +332,7 @@ protected:
                 default:
                     ASSERT(false, "Unknown unsigned integer type id=" << intType->get_type_id() << ": " << intType);
                 }
-                this->operand = new TxScalarConvNode( this->operand, static_cast<const TxScalarType*>(type) );
+                this->operand = new TxScalarConvNode( this->operand, type );
                 this->operand->symbol_declaration_pass( this->context());
                 this->operand->symbol_resolution_pass();
             }
@@ -395,7 +395,7 @@ public:
         operand->symbol_resolution_pass();
         auto type = operand->get_type();
         // assume arithmetic, scalar negation:
-        if (! dynamic_cast<const TxBoolType*>(type))
+        if (! type->is_builtin( BOOL ))
             // should we support any auto-conversion to Bool?
             CERROR(this, "Operand of unary '!' is not of Bool type: " << (type ? type->str().c_str() : "NULL"));
     }
@@ -414,7 +414,7 @@ public:
 
 
 class TxFunctionCallNode : public TxExpressionNode {
-    const TxFunctionType* funcType = nullptr;
+    const TxType* calleeType = nullptr;
     bool isSelfSuperConstructorInvocation = false;
     TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function/constructor call if non-null
 
@@ -594,11 +594,13 @@ public:
 
         this->constructorCall->symbol_resolution_pass();
 
-        if (auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>(this->constructorCall->callee->get_type())) {
-            // This constructor is an inlineable function that returns the initializer value
-            // (as opposed to a constructor whose code assigns value to the object's members).
-            // We replace the constructor call with the initialization expression:
-            this->initializationExpression = inlineCalleeType->make_inline_expr( this->constructorCall->callee, this->constructorCall->argsExprList );
+        if (auto calleeType = this->constructorCall->callee->get_type()) {
+            if (auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>(calleeType->type())) {
+                // This constructor is an inlineable function that returns the initializer value
+                // (as opposed to a constructor whose code assigns value to the object's members).
+                // We replace the constructor call with the initialization expression:
+                this->initializationExpression = inlineCalleeType->make_inline_expr( this->constructorCall->callee, this->constructorCall->argsExprList );
+            }
         }
     }
 
@@ -723,11 +725,11 @@ class TxDerefAssigneeNode : public TxAssigneeNode {
 protected:
     virtual const TxType* define_type() override {
         auto opType = this->operand->resolve_type();
-        if (auto refType = dynamic_cast<const TxReferenceType*>(opType)) {
-            if (refType->is_generic())
+        if (opType->get_type_class() == TXTC_REFERENCE) {
+            if (opType->is_generic())
                 // FUTURE: return constraint type if present
                 return this->types().get_builtin_type(ANY);
-            return refType->target_type();
+            return opType->target_type();
         }
         CERROR(this, "Operand is not a reference and can't be dereferenced: " << opType);
         return nullptr;
@@ -751,7 +753,7 @@ public:
         TxAssigneeNode::symbol_resolution_pass();
         operand->symbol_resolution_pass();
 
-        if (! dynamic_cast<const TxReferenceType*>(this->operand->get_type()))
+        if (this->operand->get_type()->get_type_class() != TXTC_REFERENCE)
             CERROR(this, "Can't de-reference non-reference expression.");
     }
 
@@ -766,8 +768,8 @@ class TxElemAssigneeNode : public TxAssigneeNode {
 protected:
     virtual const TxType* define_type() override {
         auto opType = this->array->resolve_type();
-        if (auto arrayType = dynamic_cast<const TxArrayType*>(opType)) {
-            if (auto elemType = arrayType->element_type())
+        if (opType->get_type_class() == TXTC_ARRAY) {
+            if (auto elemType = opType->element_type())
                 return elemType;
             else
                 // FUTURE: return constraint type if present

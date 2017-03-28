@@ -41,7 +41,7 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
     unsigned llvm_op;
     bool float_operation = false;
     if (op_class == TXOC_ARITHMETIC) {
-        auto resultType = this->get_type();
+        auto resultType = this->get_type()->type();
         if (auto intType = dynamic_cast<const TxIntegerType*>(resultType)) {
             llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
         }
@@ -55,11 +55,11 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
         }
     }
     else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
-        if (dynamic_cast<const TxFloatingType*>(this->lhs->get_type())) {
+        if (dynamic_cast<const TxFloatingType*>(this->lhs->get_type()->type())) {
             llvm_op = OP_MAPPING[this->op].l_f_op;
             float_operation = true;
         }
-        else if (auto intType = dynamic_cast<const TxIntegerType*>(this->lhs->get_type())) {
+        else if (auto intType = dynamic_cast<const TxIntegerType*>(this->lhs->get_type()->type())) {
             llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
         }
         else {  // Bool or Ref operands
@@ -107,7 +107,7 @@ Value* TxUnaryMinusNode::code_gen(LlvmGenerationContext& context, GenScope* scop
     auto operand = this->operand->code_gen(context, scope);
     if (! operand)
         return NULL;
-    auto opType = this->get_type();
+    auto opType = this->get_type()->type();
     if (dynamic_cast<const TxIntegerType*>(opType)) {
         if (this->is_statically_constant() && !scope)
             return ConstantExpr::getNeg(cast<Constant>(operand));
@@ -246,7 +246,7 @@ Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* sco
     auto tidV = ConstantInt::get(Type::getInt32Ty(context.llvmContext), targetNode->get_type()->get_type_id());
 
     // box the pointer:
-    auto refT = this->get_type()->make_llvm_type(context);
+    auto refT = this->get_type()->type()->make_llvm_type(context);
     return gen_ref(context, scope, refT, ptrV, tidV);
 }
 
@@ -488,7 +488,7 @@ Value* TxConstructorCalleeExprNode::code_gen(LlvmGenerationContext& context, Gen
     auto allocType = this->objectExpr->get_type();
     if (! allocType)
         return nullptr;
-    Constant* instanceTypeIdV = allocType->gen_typeid(context, scope);
+    Constant* instanceTypeIdV = allocType->type()->gen_typeid(context, scope);
     // construct the lambda object:
     auto closureRefT = context.get_voidRefT();
     auto closureRefV = gen_ref(context, scope, closureRefT, this->gen_obj_ptr(context, scope), instanceTypeIdV);
@@ -510,7 +510,7 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
     // find the constructor
     // (constructors aren't inherited, but we bypass equivalent specializations to find the code-generated constructor)
     auto uniqueName = this->declaration->get_unique_name();
-    const TxType* allocType = this->objectExpr->get_type();
+    const TxActualType* allocType = this->objectExpr->get_type()->type();
     while (allocType->is_equivalent_derivation())  // as we don't generate code for equivalent specializations
         allocType = allocType->get_semantic_base_type();
     auto uniqueFullName = allocType->get_declaration()->get_unique_full_name() + "." + uniqueName;
@@ -518,7 +518,7 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
 
     Value* funcPtrV = context.lookup_llvm_value(uniqueFullName);
     if (! funcPtrV) {
-        if (auto txType = this->get_type()) {
+        if (auto txType = this->get_type()->type()) {
             // forward declaration situation
             if (auto txFuncType = dynamic_cast<const TxFunctionType*>(txType)) {
                 LOG_DEBUG(context.LOGGER(), "Forward-declaring constructor function " << uniqueFullName << ": " << txFuncType);
@@ -543,7 +543,7 @@ Value* TxHeapAllocNode::code_gen(LlvmGenerationContext& context, GenScope* scope
 
 Value* TxStackAllocNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     TRACE_CODEGEN(this, context);
-    return this->get_type()->gen_alloca(context, scope);
+    return this->get_type()->type()->gen_alloca(context, scope);
 }
 
 
@@ -565,7 +565,7 @@ Value* TxNewConstructionNode::code_gen(LlvmGenerationContext& context, GenScope*
     Type* objRefT = context.get_llvm_type(this->get_type());
     if (!objRefT)
         return nullptr;
-    Constant* objTypeIdV = this->get_object_type()->gen_typeid(context, scope);
+    Constant* objTypeIdV = this->get_object_type()->type()->gen_typeid(context, scope);
     auto objRefV = gen_ref(context, scope, objRefT, objAllocV, objTypeIdV);
     return objRefV;
 }

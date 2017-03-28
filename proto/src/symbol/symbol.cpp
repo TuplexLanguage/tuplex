@@ -58,21 +58,14 @@ TxScopeSymbol* TxScopeSymbol::create_code_block_scope( const TxParseOrigin& orig
 
 /*--- symbol map implementation ---*/
 
-TxScopeSymbol* TxScopeSymbol::add_symbol(TxScopeSymbol* symbol) {
+void TxScopeSymbol::add_symbol(TxScopeSymbol* symbol) {
     ASSERT(symbol->outer==this, "Mismatching symbol parent reference! " << symbol);
     ASSERT((this->outer==NULL && symbol->get_full_name().is_plain()) || symbol->get_full_name().parent()==this->get_full_name(),
             "Symbol qualifier doesn't match parent scope! " << symbol);
     auto result = this->symbols.emplace(symbol->get_name(), symbol);
-    if (! result.second) {
-        // symbol has previously been declared, replace it and return original symbol
-        auto prev = result.first->second;
-        result.first->second = symbol;
-        return prev;
-    }
-    else {
-        this->symbolNames.push_back(symbol->get_name());
-        return nullptr;
-    }
+    ASSERT(result.second, "Failed to insert new symbol (previously inserted?): " << symbol);
+    this->declOrderNames.push_back( symbol->get_name() );
+    this->alphaOrderNames.insert( symbol->get_name() );
 }
 
 bool TxScopeSymbol::has_symbol(const std::string& name) const {
@@ -170,7 +163,7 @@ TxFieldDeclaration* TxScopeSymbol::declare_field(const std::string& plainName, T
 void TxScopeSymbol::dump_symbols() const {
     const TxIdentifier builtinNamespace(BUILTIN_NS);
     std::vector<const TxModule*> subModules;
-    for (auto & symName : this->symbolNames) {
+    for (auto & symName : this->declOrderNames) {
         auto symbol = this->symbols.at(symName);
         if (auto submod = dynamic_cast<const TxModule*>(symbol))
             subModules.push_back(submod);
@@ -324,11 +317,11 @@ std::string TxEntitySymbol::description_string() const {
     else if (this->typeDeclaration)  // non-overloaded type name
         if (auto type = this->typeDeclaration->get_definer()->attempt_get_type()) {
             if (type->get_declaration() == this->typeDeclaration)
-                return "TYPE        " + type->str( false );
+                return "TYPE        " + type->str();
             else {
                 auto name = this->typeDeclaration->get_unique_full_name();
                 name.resize(48, ' ');
-                return "TYPE ALIAS  " + name + " = " + type->str( false );
+                return "TYPE ALIAS  " + name + " = " + type->str();
             }
         }
         else

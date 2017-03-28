@@ -11,19 +11,19 @@ static TxExpressionNode* inner_wrap_conversion(TxExpressionNode* originalExpr, c
     if (_explicit || originalType->auto_converts_to(*requiredType)) {
         // wrap originalExpr with conversion node
 
-        if (auto boolType = dynamic_cast<const TxBoolType*>(requiredType))
-            return new TxBoolConvNode(originalExpr, boolType);
+        if (requiredType->is_builtin( BOOL ))
+            return new TxBoolConvNode(originalExpr, requiredType);
 
-        if (auto scalarType = dynamic_cast<const TxScalarType*>(requiredType))
-            return new TxScalarConvNode(originalExpr, scalarType);
+        if (requiredType->is_scalar())
+            return new TxScalarConvNode(originalExpr, requiredType);
 
-        if (auto refType = dynamic_cast<const TxReferenceType*>(requiredType))
-            return new TxReferenceConvNode(originalExpr, refType);
+        if (requiredType->get_type_class() == TXTC_REFERENCE)
+            return new TxReferenceConvNode(originalExpr, requiredType);
 
-        if (auto arrayType = dynamic_cast<const TxArrayType*>(requiredType))
-            return new TxObjSpecCastNode(originalExpr, arrayType);
+        if (requiredType->get_type_class() == TXTC_ARRAY)
+            return new TxObjSpecCastNode(originalExpr, requiredType);
 
-        if (dynamic_cast<const TxFunctionType*>(requiredType))
+        if (requiredType->get_type_class() == TXTC_FUNCTION)
             return originalExpr;  // or do we actually need to do something here?
 
         LOG(originalExpr->LOGGER(), ERROR, "Type supposedly auto-converts but no conversion logic available:  "
@@ -49,8 +49,8 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
         return newExpr;
 
     // implicit reference-to ('&') operation:
-    if (auto reqRefType = dynamic_cast<const TxReferenceType*>(requiredType)) {
-        if (auto reqRefTargetType = reqRefType->target_type()) {
+    if (requiredType->get_type_class() == TXTC_REFERENCE) {
+        if (auto reqRefTargetType = requiredType->target_type()) {
             if (originalType->is_a(*reqRefTargetType)) {
                 if (reqRefTargetType->is_modifiable()) {
                     if (originalType->is_modifiable())
@@ -67,15 +67,15 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                     //std::cerr << "Adding implicit '&' to: " << originalExpr << std::endl;
                     auto refToNode = new TxReferenceToNode(originalExpr->parseLocation, originalExpr);
                     //refToNode->symbol_declaration_pass( originalExpr->context() );
-                    return new TxReferenceConvNode( refToNode, reqRefType );
+                    return new TxReferenceConvNode( refToNode, requiredType );
                 }
             }
         }
     }
 
     // implicit dereferencing ('^') operation:
-    if (auto origRefType = dynamic_cast<const TxReferenceType*>(originalType)) {
-        if (auto origRefTargetType = origRefType->target_type()) {
+    if (originalType->get_type_class() == TXTC_REFERENCE) {
+        if (auto origRefTargetType = originalType->target_type()) {
             if (origRefTargetType->auto_converts_to(*requiredType)) {
                 // wrap originalExpr with a dereference node
                 //std::cerr << "Adding implicit '^' to: " << originalExpr << std::endl;
@@ -99,7 +99,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
 TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType* resultType, bool _explicit ) {
     auto exprNode = inner_validate_wrap_convert( originalExpr, resultType, _explicit );
     if (exprNode != originalExpr) {
-        LOG_TRACE(originalExpr->LOGGER(), "Wrapping conversion to type " << resultType->str(true) << " around " << originalExpr);
+        LOG_TRACE(originalExpr->LOGGER(), "Wrapping conversion to type " << resultType->str() << " around " << originalExpr);
         exprNode->symbol_declaration_pass( originalExpr->context() );
     }
     return exprNode;
@@ -131,9 +131,9 @@ static bool equivalent_interface_target_types(const TxType* typeA, const TxType*
 }
 
 const TxType* TxReferenceConvNode::define_type() {
-    auto resultTargetType = static_cast<const TxReferenceType*>(this->resultType)->target_type();
+    auto resultTargetType = this->resultType->target_type();
     if (resultTargetType && resultTargetType->get_type_class() == TXTC_INTERFACE) {
-        auto origType = static_cast<const TxReferenceType*>(this->expr->resolve_type());
+        auto origType = this->expr->resolve_type();
         auto origTargetType = origType->target_type();
         if (! equivalent_interface_target_types(resultTargetType, origTargetType)) {
             // create / retrieve interface adapter type

@@ -33,7 +33,7 @@ static Value* do_store(LlvmGenerationContext& context, GenScope* scope, Value* l
 static Value* gen_local_field(LlvmGenerationContext& context, GenScope* scope, const TxField* field, Value* fieldV) {
     fieldV->setName(field->get_unique_name());
     const TxType* txType = field->get_type();
-    auto fieldA = txType->gen_alloca(context, scope, field->get_unique_name() + "_");
+    auto fieldA = txType->type()->gen_alloca(context, scope, field->get_unique_name() + "_");
     do_store(context, scope, fieldA, fieldV);
     context.register_llvm_value(field->get_declaration()->get_unique_full_name(), fieldA);
     return fieldA;
@@ -128,7 +128,7 @@ Value* TxFieldStmtNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     auto declaration = this->field->get_declaration();
     auto uniqueName = declaration->get_unique_full_name();
     ASSERT (declaration->get_storage() == TXS_STACK, "TxFieldStmtNode can only apply to TX_STACK storage fields: " << uniqueName);
-    auto txType = this->field->get_type();
+    auto txType = this->field->get_type()->type();
 
     // If init expression does a stack allocation of this field's type (instance-equivalent type),
     // this field shall bind to that allocation.

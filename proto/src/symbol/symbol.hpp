@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <set>
 
 #include "util/logging.hpp"
 
@@ -78,13 +79,12 @@ private:
     /** This scope's member symbols. The identifier keys are the symbols' plain names within this namespace. */
     SymbolMap symbols;
     /** Internal vector containing this module's symbol names in insertion order. */
-    std::vector<std::string> symbolNames;
+    std::vector<std::string> declOrderNames;
+    /** Internal set containing this module's symbol names in alphabetical order. */
+    std::set<std::string> alphaOrderNames;
 
-    /** Adds a symbol to this scope's namespace.
-     *  If there was already a symbol with that name, it is replaced with the new one
-     *  and the previous one is returned.
-     */
-    TxScopeSymbol* add_symbol(TxScopeSymbol* symbol);
+    /** Adds a symbol to this scope's namespace. */
+    void add_symbol(TxScopeSymbol* symbol);
 
 protected:
     virtual bool has_symbol(const std::string& name) const final;
@@ -96,7 +96,7 @@ protected:
     }
 
     /** Gets a const vector containing this module's symbol names in insertion order. */
-    const std::vector<std::string>& get_ordered_symbol_names() const { return this->symbolNames; }
+    const std::vector<std::string>& get_decl_order_names() const { return this->declOrderNames; }
 
     /** Declares a new symbol in this scope. Its name must be unique.
      * Subclasses may override this method and add additional rules.
@@ -160,24 +160,32 @@ public:
         return this->get_symbol(name);
     }
 
-//    virtual TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) { return this; }
-
 
 
     /** Returns a read-only, order-of-declaration iterator that points to the first declared symbol name. */
-    inline std::vector<std::string>::const_iterator symbol_names_cbegin() const { return this->symbolNames.cbegin(); }
+    inline std::vector<std::string>::const_iterator decl_order_names_cbegin() const { return this->declOrderNames.cbegin(); }
     /** Returns a read-only, order-of-declaration iterator that points to one past the last declared symbol name. */
-    inline std::vector<std::string>::const_iterator symbol_names_cend()   const { return this->symbolNames.cend(); }
+    inline std::vector<std::string>::const_iterator decl_order_names_cend()   const { return this->declOrderNames.cend(); }
 
-    /** Returns a read/write, unordered iterator that points to the first symbol mapping. */
-    inline SymbolMap::iterator symbols_begin() { return this->symbols.begin(); }
-    /** Returns a read/write, unordered iterator that points one past the last symbol mapping. */
-    inline SymbolMap::iterator symbols_end()   { return this->symbols.end(); }
+    /** Returns a read-only, alphabetically ordered iterator that points to the first symbol name. */
+    inline std::set<std::string>::const_iterator alpha_order_names_cbegin() const { return this->alphaOrderNames.cbegin(); }
+    /** Returns a read-only, alphabetically ordered iterator that points to one past the last symbol name. */
+    inline std::set<std::string>::const_iterator alpha_order_names_cend()   const { return this->alphaOrderNames.cend(); }
 
-    /** Returns a read-only, unordered iterator that points to the first symbol mapping. */
-    inline SymbolMap::const_iterator symbols_cbegin() const { return this->symbols.cbegin(); }
-    /** Returns a read-only, unordered iterator that points one past the last symbol mapping. */
-    inline SymbolMap::const_iterator symbols_cend()   const { return this->symbols.cend(); }
+    /** Returns a read-only, alphabetically ordered iterator that points to a lower bound. */
+    inline std::set<std::string>::const_iterator alpha_order_names_lower(const std::string& val) const { return this->alphaOrderNames.lower_bound(val); }
+    /** Returns a read-only, alphabetically ordered iterator that points to an upper bound. */
+    inline std::set<std::string>::const_iterator alpha_order_names_upper(const std::string& val) const { return this->alphaOrderNames.upper_bound(val); }
+
+//    /** Returns a read/write, unordered iterator that points to the first symbol mapping. */
+//    inline SymbolMap::iterator symbols_begin() { return this->symbols.begin(); }
+//    /** Returns a read/write, unordered iterator that points one past the last symbol mapping. */
+//    inline SymbolMap::iterator symbols_end()   { return this->symbols.end(); }
+//
+//    /** Returns a read-only, unordered iterator that points to the first symbol mapping. */
+//    inline SymbolMap::const_iterator symbols_cbegin() const { return this->symbols.cbegin(); }
+//    /** Returns a read-only, unordered iterator that points one past the last symbol mapping. */
+//    inline SymbolMap::const_iterator symbols_cend()   const { return this->symbols.cend(); }
 
 
 

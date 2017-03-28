@@ -65,6 +65,41 @@ void TxNode::visit_ast( AstVisitor visitor, void* context ) const {
 
 
 
+const TxType* TxTypeDefiningNode::resolve_type() {
+//    ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
+    if (!this->type && !this->hasResolved) {
+        LOG_TRACE(this->LOGGER(), "resolving type  of " << this);
+        if (this->startedRslv) {
+            CERROR(this, "Recursive definition of type '" << this->get_identifier() << "'");
+            return nullptr;
+        }
+        this->startedRslv = true;
+        this->type = this->define_type();
+        this->hasResolved = true;
+    }
+    return this->type;
+}
+
+
+const TxField* TxFieldDefiningNode::resolve_field() {
+//    ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
+    if (!this->field && !this->hasResolved) {
+        LOG_TRACE(this->LOGGER(), "resolving field of " << this);
+        if (this->startedRslv) {
+            CERROR(this, "Recursive definition of field '" << this->get_identifier() << "'");
+            return nullptr;
+        }
+        this->startedRslv = true;
+        this->type = this->define_type();
+        if (this->type)
+            this->field = this->define_field();
+        this->hasResolved = true;
+    }
+    return this->field;
+}
+
+
+
 void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) {
     this->set_context( lexContext);
     TxDeclarationFlags flags = (isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags);
@@ -220,7 +255,7 @@ const TxType* TxGenSpecTypeNode::define_type() {
         if (auto baseType = baseTypeDecl->get_definer()->resolve_type()) {
             auto tmp = std::vector<const TxTypeArgumentNode*>( this->typeArgs->size() );
             std::copy( this->typeArgs->cbegin(), this->typeArgs->cend(), tmp.begin() );
-            return this->types().get_type_specialization( this, baseType, &tmp );
+            return this->types().get_type_specialization( this, baseType, tmp );
         }
     }
     else
@@ -339,32 +374,6 @@ TxAssertStmtNode::TxAssertStmtNode(const TxLocation& parseLocation, TxExpression
 
 
 
-//static bool arg_type_matches( const TxType *expectedType, const TxType* providedType ) {
-//    // mimics behavior of inner_validate_wrap_convert()   FUTURE: merge code
-//    if (providedType->auto_converts_to(*expectedType))
-//        return true;
-//    if (auto refType = dynamic_cast<const TxReferenceType*>(expectedType)) {
-//        auto refTargetType = refType->target_type();
-//        if (refTargetType && providedType->is_a(*refTargetType)) {
-//            if (! refTargetType->is_modifiable()) {
-//                // originalExpr will be auto-wrapped with a reference-to node
-//                return true;
-//            }
-////            else {
-////                if (!originalType->is_modifiable())
-////                    LOGGER().debug("Cannot convert reference with non-mod-target to one with mod target: %s -> %s",
-////                                   originalType->to_string().c_str(), requiredType->to_string().c_str());
-////                else
-////                    LOGGER().debug("Cannot implicitly convert to reference with modifiable target: %s -> %s",
-////                                   originalType->to_string().c_str(), requiredType->to_string().c_str());
-////            }
-//        }
-//    }
-////    LOGGER().debug("Can't auto-convert value\n\tFrom: %80s\n\tTo:   %80s",
-////                   originalType->to_string().c_str(), requiredType->to_string().c_str());
-//    return false;
-//}
-
 static int get_reinterpretation_degree( const TxType *expectedType, const TxType* providedType ) {
     if (*expectedType == *providedType) {
         //std::cerr << "Types equal: " << expectedType << "   ==   " << providedType << std::endl;
@@ -376,8 +385,8 @@ static int get_reinterpretation_degree( const TxType *expectedType, const TxType
     if (providedType->auto_converts_to(*expectedType))
         return 2;
 
-    if (auto refType = dynamic_cast<const TxReferenceType*>( expectedType )) {
-        if (auto refTargetType = refType->target_type()) {
+    if (expectedType->get_type_class() == TXTC_REFERENCE) {
+        if (auto refTargetType = expectedType->target_type()) {
             if (providedType->is_a( *refTargetType )) {
                 if (! refTargetType->is_modifiable())
                     return 3;  // expression will be auto-wrapped with a reference-to node
@@ -437,26 +446,27 @@ static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntityS
         if (auto field = (*fieldCandidateI)->get_definer()->resolve_field()) {
 
             // first screen the fields that are of function type and take the correct number of arguments:
-            if (auto funcType = dynamic_cast<const TxFunctionType*>( field->get_type() )) {
-                if (funcType->argumentTypes.size() == arguments->size()) {
+            if (field->get_type()->get_type_class() == TXTC_FUNCTION) {
+                auto candArgTypes = field->get_type()->argument_types();
+                if (candArgTypes.size() == arguments->size()) {
                     //entitySymbol->LOGGER().trace("Candidate function: %s", funcType->to_string().c_str());
 
                     // next check that the argument types match, and how close they match:
                     uint16_t reint[4] = { 0, 0, 0, 0 };
                     auto argTypeI = argTypes.cbegin();
-                    for (auto argDef : funcType->argumentTypes) {
+                    for (auto argDef : candArgTypes) {
                         auto argType = *argTypeI;
                         int degree = get_reinterpretation_degree( argDef, argType );
                         if (degree < 0) {
-                            //entitySymbol->LOGGER().trace("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
-                            //                             argType->to_string(true).c_str(), argDef->to_string(true).c_str());
+                            entitySymbol->LOGGER().info("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
+                                                         argType->str(true).c_str(), argDef->str(true).c_str());
                             goto NEXT_CANDIDATE;
                         }
                         reint[ degree ]++;
                         argTypeI++;
                     }
 
-                    entitySymbol->LOGGER().debug("Arguments match for %s: %-32s: %d, %d, %d, %d", field->str().c_str(), funcType->str().c_str(),
+                    entitySymbol->LOGGER().debug("Arguments match for %s: %-32s: %d, %d, %d, %d", field->str().c_str(), field->get_type()->str().c_str(),
                                                  reint[0], reint[1], reint[2], reint[3] );
                     uint64_t candReint = ( ((uint64_t)reint[3])<<48 | ((uint64_t)reint[2])<<32 | ((uint64_t)reint[1])<<16 | reint[0] );
                     if (candReint <= closestReint) {
@@ -482,14 +492,6 @@ static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntityS
     }
 
     if (closestDecl) {
-//        // apply implicit reinterpretations on arguments:
-//        auto funcType = static_cast<const TxFunctionType*>( closestDecl->get_definer()->get_type() );
-//        auto argExprI = arguments->begin();
-//        for (auto argDefType : funcType->argumentTypes) {
-//            (*argExprI)->insert_conversion( argDefType );  // FIXME
-//            argExprI++;
-//        }
-
         return closestDecl;
     }
 
@@ -506,9 +508,9 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
         // baseExpr may or may not refer to a type (e.g. modules don't)
         auto baseType = this->baseExpr->resolve_type();
 
-        if (auto baseRefType = dynamic_cast<const TxReferenceType*>(baseType)) {
+        if (baseType && baseType->get_type_class() == TXTC_REFERENCE) {
             // implicit dereferencing ('^') operation:
-            if (auto baseRefTargetType = baseRefType->target_type()) {
+            if (auto baseRefTargetType = baseType->target_type()) {
                 //std::cerr << "Adding implicit '^' to: " << this->baseExpr << "  six=" << six << std::endl;
                 auto derefNode = new TxReferenceDerefNode(this->baseExpr->parseLocation, this->baseExpr);
                 derefNode->set_context( this->baseExpr->context());  // in lieu of symbol_declaration_pass()
@@ -580,7 +582,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                 }
             }
             else
-                CERROR(this, "Symbol could not be resolved to a distinct field or type: " << this->get_full_identifier());
+                CERROR(this, "Symbol " << entitySymbol << " could not be resolved to a distinct field or type: " << this->get_full_identifier());
         }
         // not an error
         //else
@@ -665,30 +667,29 @@ const TxType* TxFunctionCallNode::define_type() {
     // The automatic type conversions thus considered shall then be applied upon function invocation.
     // Prepare for resolving possible function overloading by registering actual function signature with
     // the callee node, BEFORE the callee node type is resolved:
-    ASSERT (!callee->get_applied_func_args(), "callee already has applied func arg types: " << callee);
-    callee->set_applied_func_args( this->argsExprList );
-    auto calleeType = this->callee->resolve_type();
-    if (!calleeType)
+    ASSERT (!this->callee->get_applied_func_args(), "callee already has applied func arg types: " << this->callee);
+    this->callee->set_applied_func_args( this->argsExprList );
+    this->calleeType = this->callee->resolve_type();
+    if (!this->calleeType)
         return nullptr;
-
-    this->funcType = dynamic_cast<const TxFunctionType*>(calleeType);
-    if (! this->funcType) {
-        CERROR(this, "Callee of function call expression is not of function type: " << calleeType);
+    if (this->calleeType->get_type_class() != TXTC_FUNCTION) {
+        CERROR(this, "Callee of function call expression is not of function type: " << this->calleeType);
         return nullptr;
     }
-    else if (auto constructorType = dynamic_cast<const TxConstructorType*>(funcType)) {
+    else if (auto constructorType = dynamic_cast<const TxConstructorType*>(this->calleeType->type())) {
         // constructor functions return void but the constructor invocation expression yields the constructed type:
         auto objectDefiner = constructorType->get_constructed_type_decl()->get_definer();
         return objectDefiner->resolve_type();
     }
     else
-        return this->funcType->returnType;
+        return this->calleeType->return_type();
 }
 
 void TxFunctionCallNode::symbol_resolution_pass() {
     TxExpressionNode::symbol_resolution_pass();
 
-    if (auto constructorType = dynamic_cast<const TxConstructorType*>(this->funcType)) {
+    auto actualCalleeType = ( this->calleeType ? this->calleeType->type() : nullptr );
+    if (auto constructorType = dynamic_cast<const TxConstructorType*>( actualCalleeType )) {
         // Stack construction syntactically looks like a function call, e.g. Int(42)
         // If the callee is a constructor, we substitute this function call with a stack construction expression:
         if (! dynamic_cast<TxConstructorCalleeExprNode*>( this->callee )) {  // (prevents infinite recursion)
@@ -701,13 +702,14 @@ void TxFunctionCallNode::symbol_resolution_pass() {
     }
 
     // Verify matching function signature, and apply implicit conversions if needed:
-    if (this->funcType) {
-        if (this->funcType->argumentTypes.size() != this->argsExprList->size()) {
-            CERROR(this, "Callee of function call expression has mismatching argument count: " << this->funcType);
+    if (this->calleeType && this->calleeType->get_type_class() == TXTC_FUNCTION) {
+        auto calleeArgTypes = this->calleeType->argument_types();
+        if (calleeArgTypes.size() != this->argsExprList->size()) {
+            CERROR(this, "Callee of function call expression has mismatching argument count: " << this->calleeType);
         }
         else {
             auto argExprI = this->argsExprList->begin();
-            for (auto argDefType : this->funcType->argumentTypes) {
+            for (auto argDefType : calleeArgTypes) {
                 // note: similar rules to assignment
                 // TODO: check dataspace rules if function arg is a reference
                 (*argExprI)->insert_conversion( argDefType );  // generates compilation error upon mismatch
@@ -716,7 +718,7 @@ void TxFunctionCallNode::symbol_resolution_pass() {
         }
     }
 
-    if (auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>(this->funcType)) {
+    if (auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>( actualCalleeType )) {
         this->inlinedExpression = inlineCalleeType->make_inline_expr( this->callee, this->argsExprList );
     }
 

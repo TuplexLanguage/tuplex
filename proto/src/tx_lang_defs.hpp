@@ -9,5 +9,37 @@
 /** internal identifier for constructors */
 #define CONSTR_IDENT "$constr"
 
-/** internal identifier for initializers */
-#define INIT_IDENT "$init"
+///** internal identifier for initializers */
+//#define INIT_IDENT "$init"
+
+
+#include <stdint.h>
+
+enum BuiltinTypeId : uint32_t {
+    ANY,
+    ELEMENTARY,
+    SCALAR,
+    INTEGER,
+    SIGNED,
+    BYTE,
+    SHORT,
+    INT,
+    LONG,
+    UNSIGNED,
+    UBYTE,
+    USHORT,
+    UINT,
+    ULONG,
+    FLOATINGPOINT,
+    HALF,
+    FLOAT,
+    DOUBLE,
+    BOOL,
+    REFERENCE,
+    ARRAY,
+    FUNCTION,
+    TUPLE,
+    INTERFACE,
+    BuiltinTypeId_COUNT,
+    TXBTID_NOTSET = UINT32_MAX
+};

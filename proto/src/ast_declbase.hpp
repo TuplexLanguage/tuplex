@@ -2,6 +2,7 @@
 
 #include "ast_base.hpp"
 
+#include "symbol/entity_type.hpp"
 #include "symbol/type_registry.hpp"
 
 
@@ -278,7 +279,9 @@ public:
             if (this->initExpression) {
                 if (this->typeExpression) {
                     this->typeExpression->symbol_resolution_pass();
-                    this->initExpression->insert_conversion( field->get_type() );
+                    auto ltype = field->get_type();
+                    auto nonModLType = ( ltype->is_modifiable() ? ltype->get_base_type() : ltype );  // rvalue doesn't need to be modifiable
+                    this->initExpression->insert_conversion( nonModLType );
                 }
                 this->initExpression->symbol_resolution_pass();
 

@@ -22,19 +22,21 @@ TxField* TxField::make_field( const TxFieldDeclaration* fieldDeclaration, const 
     ASSERT(fieldDeclaration, "Fields must be named (have non-null declaration)");
     ASSERT(fieldType, "NULL type for field " << fieldDeclaration);
     auto symbol = fieldDeclaration->get_symbol();
-    if (auto funcType = dynamic_cast<const TxFunctionType*>(fieldType)) {
+    if (fieldType->get_type_class() == TXTC_FUNCTION) {
+        auto funcArgTypes = fieldType->argument_types();
         // check that no two signatures are exactly equal
         for (auto prevFieldDeclI = symbol->fields_cbegin(); prevFieldDeclI != symbol->fields_cend(); prevFieldDeclI++) {
             if ((*prevFieldDeclI) == fieldDeclaration)
                 continue;
             // we only check against the previous fields that have already been resolved at this point:
             if (auto prevFieldType = (*prevFieldDeclI)->get_definer()->attempt_get_type()) {
-                if (auto prevFuncType = dynamic_cast<const TxFunctionType*>(prevFieldType)) {
-                    if (funcType->argumentTypes.size() == prevFuncType->argumentTypes.size()
-                        && equal( funcType->argumentTypes.begin(), funcType->argumentTypes.end(), prevFuncType->argumentTypes.begin(),
+                if (prevFieldType->get_type_class() == TXTC_FUNCTION) {
+                    auto prevFuncArgTypes = prevFieldType->argument_types();
+                    if (funcArgTypes.size() == prevFuncArgTypes.size()
+                        && equal( funcArgTypes.begin(), funcArgTypes.end(), prevFuncArgTypes.begin(),
                                   [](const TxType* t1, const TxType* t2) { return *t1 == *t2; } ) ) {
                         CERROR(fieldDeclaration->get_definer(), "Can't overload two functions with identical argument types:\n\t"
-                                << symbol->get_full_name() << ": " << funcType);
+                                << symbol->get_full_name() << ": " << fieldType);
                         return nullptr;
                     }
                 }
@@ -60,13 +62,13 @@ int TxField::get_decl_storage_index() const {
         if (auto outerType = typeDecl->get_definer()->get_type()) {  // assumes already resolved
             switch (this->get_storage()) {
             case TXS_STATIC:
-                return outerType->get_static_fields().get_field_index(this->get_unique_name());
+                return outerType->type()->get_static_fields().get_field_index(this->get_unique_name());
             case TXS_VIRTUAL:
             case TXS_INSTANCEMETHOD:
                 ASSERT(! (this->get_decl_flags() & TXD_CONSTRUCTOR), "constructor does not have an instance method index: " << this);
-                return outerType->get_virtual_fields().get_field_index(this->get_unique_name());
+                return outerType->type()->get_virtual_fields().get_field_index(this->get_unique_name());
             case TXS_INSTANCE:
-                return outerType->get_instance_fields().get_field_index(this->get_unique_name());
+                return outerType->type()->get_instance_fields().get_field_index(this->get_unique_name());
             default:
                 //ASSERT(false, "Only fields of static/virtual/instancemethod/instance storage classes have a storage index: " << *this);
                 return -1;

@@ -437,7 +437,8 @@ public:
         // if assignee is a reference:
         // TODO: check dataspace rules
 
-        this->rvalue->insert_conversion( ltype );
+        auto nonModLType = ( ltype->is_modifiable() ? ltype->get_base_type() : ltype );  // rvalue doesn't need to be modifiable
+        this->rvalue->insert_conversion( nonModLType );
         this->rvalue->symbol_resolution_pass();
     }
 

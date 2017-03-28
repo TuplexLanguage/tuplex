@@ -94,7 +94,7 @@ public:
         return this->get_declaration()->get_unique_name();
     }
 
-    virtual std::string str() const {
-        return std::string("FIELD ") + ::to_string(this->get_decl_flags()) + " " + this->get_symbol()->get_full_name().str();
+    virtual std::string str() const override {
+        return this->get_declaration()->get_unique_full_name();
     }
 };

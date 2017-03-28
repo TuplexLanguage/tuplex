@@ -39,5 +39,5 @@ public:
 
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
     // TODO: move to TypeRegistry?
-    const TxInterfaceAdapterType* inner_get_interface_adapter( const TxType* interfaceType, const TxType* adaptedType );
+    const TxType* inner_get_interface_adapter( const TxActualType* interfaceType, const TxActualType* adaptedType );
 };

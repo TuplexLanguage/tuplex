@@ -5,7 +5,7 @@ using namespace llvm;
 
 
 static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
-                                           const TxType* staticBaseType, Value* runtimeBaseTypeIdV,
+                                           const TxActualType* staticBaseType, Value* runtimeBaseTypeIdV,
                                            Type* expectedValueType, const TxField* fieldEntity) {
     // retrieve the vtable of the base's actual (runtime) type:
     Value* vtableBase = context.gen_get_vtable(scope, staticBaseType, runtimeBaseTypeIdV);
@@ -38,7 +38,7 @@ static Value* virtual_field_value_code_gen(LlvmGenerationContext& context, GenSc
 }
 
 static Value* instance_method_value_code_gen(LlvmGenerationContext& context, GenScope* scope,
-                                             const TxType* staticBaseType, Value* runtimeBaseTypeIdV, const TxField* fieldEntity,
+                                             const TxActualType* staticBaseType, Value* runtimeBaseTypeIdV, const TxField* fieldEntity,
                                              Value* baseValue, bool nonvirtualLookup) {
     auto lambdaT = cast<StructType>(context.get_llvm_type(fieldEntity->get_type()));
     Value* funcPtrV;
@@ -91,7 +91,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
             // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference
             Value* runtimeBaseTypeIdV = baseExpr->code_gen_typeid(context, scope);  // (static unless reference)
             Value* baseValue = baseExpr->code_gen(context, scope);  // expected to be of pointer type
-            val = instance_method_value_code_gen(context, scope, baseExpr->get_type(), runtimeBaseTypeIdV, fieldEntity, baseValue, nonvirtualLookup);
+            val = instance_method_value_code_gen(context, scope, baseExpr->get_type()->type(), runtimeBaseTypeIdV, fieldEntity, baseValue, nonvirtualLookup);
         }
         else {
             LOG(context.LOGGER(), ERROR, "Can't access instance method without base value/expression: " << fieldEntity);
@@ -102,10 +102,11 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
     case TXS_VIRTUAL:
         if (baseExpr) {
             // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference
-            Value* baseTypeIdV = nonvirtualLookup ? baseExpr->get_type()->gen_typeid(context, scope)  // static
+            auto baseType = baseExpr->get_type()->type();
+            Value* baseTypeIdV = nonvirtualLookup ? baseType->gen_typeid(context, scope)  // static
                                                   : baseExpr->code_gen_typeid(context, scope);  // runtime (static unless reference)
             Type* expectedT = context.get_llvm_type(fieldEntity->get_type());
-            val = virtual_field_value_code_gen(context, scope, baseExpr->get_type(), baseTypeIdV, expectedT, fieldEntity);
+            val = virtual_field_value_code_gen(context, scope, baseType, baseTypeIdV, expectedT, fieldEntity);
             break;
         }
         // no break
@@ -138,7 +139,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
             if (! baseValue)
                 return nullptr;
 
-            auto staticBaseType = baseExpr->get_type();
+            auto staticBaseType = baseExpr->get_type()->type();
             uint32_t fieldIx = staticBaseType->get_instance_fields().get_field_index(fieldEntity->get_unique_name());
             //auto fieldIx = fieldEntity->get_instance_field_index();
             //std::cerr << "Getting TXS_INSTANCE ix " << fieldIx << " value off LLVM base value: " << baseValue << std::endl;

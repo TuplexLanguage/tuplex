@@ -1,7 +1,7 @@
 #pragma once
 
 
-class TxType;
+class TxActualType;
 class TxBoolType;
 class TxScalarType;
 class TxReferenceType;
@@ -13,7 +13,7 @@ class TxInterfaceType;
 class TxTypeVisitor {
 public:
     virtual ~TxTypeVisitor() { }
-    virtual void visit(const TxType& txType) = 0;
+    virtual void visit(const TxActualType& txType) = 0;
     virtual void visit(const TxBoolType& txType) = 0;
     virtual void visit(const TxScalarType& txType) = 0;
     virtual void visit(const TxReferenceType& txType) = 0;

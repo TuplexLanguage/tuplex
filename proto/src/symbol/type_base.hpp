@@ -1,6 +1,6 @@
 #pragma once
 
-#include <typeinfo>
+//#include <typeinfo>
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
@@ -10,12 +10,13 @@
 #include "util/printable.hpp"
 
 #include "identifier.hpp"
+#include "tx_lang_defs.hpp"
 
 #include "type_visitor.hpp"
 #include "entity.hpp"
 
 
-class TxType;
+class TxActualType;
 
 /* forward declarations pertaining to LLVM code generation */
 class LlvmGenerationContext;
@@ -143,7 +144,7 @@ For semantic inheritance mechanics, the generic base type is used.
  */
 class TxTypeSpecialization : public Printable {
 public:
-    TxType const * const type;
+    TxActualType const * const type;
     const bool modifiable;
     //TxIdentifier const * const dataspace;  // only set for reference specializations
 
@@ -151,7 +152,7 @@ public:
     TxTypeSpecialization()
             : type(), modifiable()  { }
 
-    TxTypeSpecialization(const TxType* baseType, bool modifiable=false)
+    TxTypeSpecialization(const TxActualType* baseType, bool modifiable=false)
             : type(baseType), modifiable(modifiable)  {
         ASSERT(baseType, "NULL baseType");
     }
@@ -169,7 +170,9 @@ public:
 
 /** An instance of this class represents a type definition.
  */
-class TxType : public TxEntity {
+class TxActualType : public virtual TxParseOrigin, public Printable {
+    static Logger& _LOG;
+
     /** The type class of this type. */
     const TxTypeClass typeClass;
     /** true if this is a built-in type */
@@ -177,6 +180,8 @@ class TxType : public TxEntity {
 
     /** The static type id of this type, if it is defined at compile time and a distinct type (not an equivalent specialization). */
     uint32_t staticTypeId = UINT32_MAX;
+
+    const TxTypeDeclaration* declaration;
 
     /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
     std::vector<TxEntityDeclaration*> params;
@@ -189,12 +194,15 @@ class TxType : public TxEntity {
 
     /** Set for non-generic specializations of a generic base type.
      * This also implies a pure specialization, even if extendsInstanceDatatype technically is true. */
-    const TxType* genericBaseType = nullptr;
+    const TxActualType* genericBaseType = nullptr;
 
 //    /** false unless there are TYPE parameters with other than Ref constraint */
 //    bool nonRefParameters = false;
     /** false unless there are TYPE bindings for parameters with other than Ref constraint */
     bool nonRefBindings = false;
+
+    /** true when initialize_type() has completed its initializations */
+    bool hasInitialized = false;
 
     /** true after prepare_members() has started - guards against recursive data types */
     bool startedPrepare = false;
@@ -217,21 +225,21 @@ protected:
     DataTupleDefinition instanceFields;
 
     /** Only to be used for Any type. */
-    TxType(TxTypeClass typeClass, const TxTypeDeclaration* declaration)
-            : TxEntity(declaration), typeClass(typeClass), builtin(declaration && (declaration->get_decl_flags() & TXD_BUILTIN)),
-              baseTypeSpec(), interfaces()  {
+    TxActualType(TxTypeClass typeClass, const TxTypeDeclaration* declaration)
+            : typeClass(typeClass), builtin(declaration && (declaration->get_decl_flags() & TXD_BUILTIN)),
+              declaration(declaration), baseTypeSpec(), interfaces()  {
         this->initialize_type();
     }
 
-    TxType(TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+    TxActualType(TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
            const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>())
-            : TxEntity(declaration), typeClass(typeClass), builtin(declaration && (declaration->get_decl_flags() & TXD_BUILTIN)),
-              baseTypeSpec(baseTypeSpec), interfaces(interfaces) {
+            : typeClass(typeClass), builtin(declaration && (declaration->get_decl_flags() & TXD_BUILTIN)),
+              declaration(declaration), baseTypeSpec(baseTypeSpec), interfaces(interfaces) {
         this->initialize_type();
     }
 
     /** Creates a specialization of this type. To be used by the type registry. */
-    virtual TxType* make_specialized_type(const TxTypeDeclaration* declaration,
+    virtual TxActualType* make_specialized_type(const TxTypeDeclaration* declaration,
                                           const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
                                           const std::vector<TxTypeSpecialization>& interfaces=std::vector<TxTypeSpecialization>()) const = 0;
 
@@ -240,7 +248,7 @@ protected:
     friend class TxBuiltinTypeDefiningNode;
 
     /** Gets the Any root type. */
-    inline const TxType* get_root_any_type() const {
+    inline const TxActualType* get_root_any_type() const {
         if (! this->has_base_type())
             return this;
         return this->get_semantic_base_type()->get_root_any_type();
@@ -250,14 +258,23 @@ protected:
      * @return true if a data type recursion has been discovered */
     virtual bool inner_prepare_members();
 
+    virtual TxParserContext* get_parser_context() const;
+
 public:
-    virtual ~TxType() = default;
+    inline Logger* LOGGER() const { return &this->_LOG; }
+
+    virtual ~TxActualType() = default;
+
 
     virtual const TxLocation& get_parse_location() const override;
 
     virtual ExpectedErrorClause* exp_err_ctx() const override;
 
-    virtual TxParserContext* get_parser_context() const;
+
+    const TxType* get_type_entity() const {
+        ASSERT(this->get_declaration(), "Can't get type entity of actual type with no declaration: " << this);
+        return this->get_declaration()->get_definer()->get_type();
+    }
 
 
     inline bool is_prepared() const { return this->hasPrepared; }
@@ -267,7 +284,8 @@ public:
      * @return true if a data type recursion has been discovered */
     virtual bool prepare_members();
 
-    /** Gets the runtime type id of this type. (Equivalent specializations return their base type's id.) */
+    /** Gets the runtime type id of this type. (Equivalent specializations return their base type's id.)
+     * For non-built-in types, this is only valid to call after the type preparation phase. */
     inline uint32_t get_type_id() const {
         //ASSERT(this->prepared, "Can't get runtime type id of unprepared type: " << this);
         ASSERT(this->staticTypeId != UINT32_MAX || this->is_equivalent_derivation(), "Type id not set for " << this);
@@ -275,8 +293,8 @@ public:
     }
 
 
-    virtual inline const TxTypeDeclaration* get_declaration() const override final {
-        return static_cast<const TxTypeDeclaration*>(TxEntity::get_declaration());
+    const TxTypeDeclaration* get_declaration() const {
+        return this->declaration;
     }
 
     const TxTypeDeclaration* get_explicit_declaration() const;
@@ -299,17 +317,20 @@ public:
 
     /** Gets the base type (parent) of this type.
      * ('Any' is the only type that has no base type, in which case null is returned.) */
-    inline const TxType* get_base_type() const { return this->baseTypeSpec.type; }
+    inline const TxActualType* get_base_type() const { return this->baseTypeSpec.type; }
 
     /** Gets the 'semantic' base type (parent) of this type,
      * which is the same as get_base_type() except for generic type specializations
      * in which case the generic base type is returned (instead of the implicitly generated specialization thereof). */
-    inline const TxType* get_semantic_base_type() const { return this->genericBaseType ? this->genericBaseType : this->baseTypeSpec.type; }
+    inline const TxActualType* get_semantic_base_type() const {
+        ASSERT(this->hasInitialized, "Can't get semantic base type of uninitized type " << this);
+        return this->genericBaseType ? this->genericBaseType : this->baseTypeSpec.type;
+    }
 
     /** Gets the "instance base type" of this type, which is either this type, or the closest ancestor type
      * which defines a distinct instance data type.
      * This is used to bypass same-instance-type derivations (e.g. empty/mod. specializations). */
-    const TxType* get_instance_base_type() const;
+    const TxActualType* get_instance_base_type() const;
 
 
 //    /** Returns true if this type is a reinterpreted specialization, i.e. reinterpreted source
@@ -323,20 +344,32 @@ public:
 //     * specializations of a generic base type, but are a member of another type that is being reinterpreted.
 //     */
 //    inline bool is_reinterpreted_specialization() const { return this->genericBaseType; }
-
-    /** Returns true if this type is a reinterpreted specialization that is also equivalent to its base type,
-     * i.e. no non-ref-constrained type parameters were bound.
-     * Note: There are reinterpreted types for which this is false: Types that in themselves are not
-     * specializations of a generic base type, but are a member of another type that is being reinterpreted.
-     */
-    bool is_equivalent_reinterpreted_specialization() const;
+//
+//    /** Returns true if this type is a reinterpreted specialization that is also equivalent to its base type,
+//     * i.e. no non-ref-constrained type parameters were bound.
+//     * Note: There are reinterpreted types for which this is false: Types that in themselves are not
+//     * specializations of a generic base type, but are a member of another type that is being reinterpreted.
+//     */
+//    bool is_equivalent_reinterpreted_specialization() const;
 
 
     /** Returns the type class this type belongs to. */
     inline TxTypeClass get_type_class() const { return this->typeClass; }
 
-    /** Returns true iff this type is a built-in type. */
-    inline bool is_builtin() const { return this->builtin; }
+    /** Returns true if this type is a built-in type. */
+    inline bool is_builtin() const {
+        return ( this->builtin || ( this->is_modifiable() && this->get_base_type()->is_builtin() ) );
+    }
+
+    /** Returns true if this type is the specified built-in type. */
+    inline bool is_builtin( BuiltinTypeId biTypeId ) const {
+        return ( this->staticTypeId == (uint32_t)biTypeId  // Note: static type ids of built-in types are always set
+                || ( this->is_modifiable() && this->get_base_type()->is_builtin( biTypeId ) ) );
+    }
+
+    /** Returns true if this type is a scalar type. */
+    bool is_scalar() const;
+
 
     /** Returns true if this type is modifiable (its instances' contents may be modified after initialization).
      * This can only be the case for pure specializations:
@@ -368,10 +401,16 @@ public:
     bool is_concrete() const;
 
     /** Returns true if this type has the same vtable as its base type. */
-    inline bool is_same_vtable_type() const { return this->has_base_type() && !this->modifiesVTable; }
+    inline bool is_same_vtable_type() const {
+        ASSERT(this->hasInitialized, "Can't determine same vtable type of uninitialized type " << this);
+        return this->has_base_type() && !this->modifiesVTable;
+    }
 
     /** Returns true if this type has the same instance data type as its base type. */
-    inline bool is_same_instance_type() const { return this->has_base_type() && !this->extendsInstanceDatatype; }
+    inline bool is_same_instance_type() const {
+        ASSERT(this->hasInitialized, "Can't determine same instance type of uninitialized type " << this);
+        return this->has_base_type() && !this->extendsInstanceDatatype;
+    }
 
     /** Returns true if this type is an empty derivation of a base type,
      * i.e. does not specialize any type parameters of the base type, nor modifiable,
@@ -427,10 +466,10 @@ public:
 
     /** Returns true iff the two types are equal in the Tuplex language definition sense.
      * Note that named types are non-equal if not same name. */
-    virtual bool operator==(const TxType& other) const;
+    virtual bool operator==(const TxActualType& other) const;
 
     /** Returns true iff the two types are unequal in the Tuplex language definition sense. */
-    inline bool operator!=(const TxType& other) const  { return ! this->operator==(other); }
+    inline bool operator!=(const TxActualType& other) const  { return ! this->operator==(other); }
 
 
     /** Returns true if an instance of this type can implicitly convert to an instance of the destination type.
@@ -439,7 +478,7 @@ public:
      * (For example, an initializer to an unmodifiable field is still valid if assignable to its type.)
      * This is a less strict test than is_assignable, since some types that are not directly assignable
      * may be so after an implicit conversion (e.g. Byte -> Int). */
-    virtual bool auto_converts_to(const TxType& destination) const {
+    virtual bool auto_converts_to(const TxActualType& destination) const {
         return this->is_assignable_to(destination);  // default implementation is equal to assignability
     }
 
@@ -451,21 +490,21 @@ public:
      * For many type classes this is a more strict test than is-a,
      * however for functions, arrays, references and adapters this test concerns data type equivalence and
      * substitutability rather than is-a relationship. */
-    virtual bool is_assignable_to(const TxType& destination) const;
+    virtual bool is_assignable_to(const TxActualType& destination) const;
 
     /** Returns true if the provided type is the same as this, or a specialization of this.
      * Note that true does not guarantee assignability, for example modifiability is not taken into account.
      */
-    bool is_a(const TxType& other) const;
+    bool is_a(const TxActualType& other) const;
 
 private:
-    bool inner_equals(const TxType& otherType) const;
+    bool inner_equals(const TxActualType& otherType) const;
 
     /** Returns the common base type of this and other, if both are pure specializations of it. */
-    const TxType* common_generic_base_type(const TxType& other) const;
+    const TxActualType* common_generic_base_type(const TxActualType& other) const;
 
-    bool derives_object(const TxType* objectType) const;
-    bool derives_interface(const TxType* interfaceType) const;
+    bool derives_object(const TxActualType* objectType) const;
+    bool derives_interface(const TxActualType* interfaceType) const;
 
 public:
     /*--- namespace lookup ---*/
@@ -494,6 +533,7 @@ public:
 
     /** Gets the (unbound) type parameters of this type (this type is a generic type if this is non-empty). */
     const std::vector<TxEntityDeclaration*>& type_params() const {
+        ASSERT(this->hasInitialized, "Can't get type params of uninitized type " << this);
         return ( (this->is_empty_derivation() || this->is_modifiable()) ? this->get_base_type()->type_params() : this->params );
     }
 
@@ -515,7 +555,10 @@ public:
     }
 
 
-    inline const std::vector<TxEntityDeclaration*>& get_bindings() const { return this->bindings; }
+    inline const std::vector<TxEntityDeclaration*>& get_bindings() const {
+        ASSERT(this->hasInitialized, "Can't get bindings of uninitized type " << this);
+        return this->bindings;
+    }
 
     /** Gets the declaration of a type parameter of this type, or null if it doesn't exist.
      * (Note - this does not search ancestors' bound parameters.) */

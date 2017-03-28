@@ -102,7 +102,7 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
         this->field->typeExpression->code_gen(context, scope);
     auto fieldDecl = this->field->get_declaration();
     auto uniqueName = fieldDecl->get_unique_full_name();
-    auto txType = this->field->get_type();
+    auto txType = this->field->get_type()->type();
     Type* llvmType = context.get_llvm_type(txType);
 
     Value* fieldVal = nullptr;
@@ -165,5 +165,5 @@ Value* TxFieldDefNode::code_gen(LlvmGenerationContext& context, GenScope* scope)
 
 
 Value* TxExpressionNode::code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
-    return this->get_type()->gen_typeid(context, scope);
+    return this->get_type()->type()->gen_typeid(context, scope);
 }

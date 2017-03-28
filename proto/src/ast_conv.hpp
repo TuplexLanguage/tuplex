@@ -74,8 +74,8 @@ class TxScalarConvNode : public TxConversionNode {
 
     ScalarConvConstantProxy constProxy;
 public:
-    TxScalarConvNode( TxExpressionNode* expr, const TxScalarType* resultType )
-        : TxConversionNode( expr, resultType ), constProxy()  { }
+    TxScalarConvNode( TxExpressionNode* expr, const TxType* scalarResultType )
+        : TxConversionNode( expr, scalarResultType ), constProxy()  { }
 
     virtual void symbol_resolution_pass() override {
         TxConversionNode::symbol_resolution_pass();
@@ -92,8 +92,8 @@ public:
 
 class TxBoolConvNode : public TxConversionNode {
 public:
-    TxBoolConvNode( TxExpressionNode* expr, const TxBoolType* resultType )
-        : TxConversionNode( expr, resultType ) { }
+    TxBoolConvNode( TxExpressionNode* expr, const TxType* boolResultType )
+        : TxConversionNode( expr, boolResultType ) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
@@ -103,8 +103,8 @@ protected:
     virtual const TxType* define_type() override;
 
 public:
-    TxReferenceConvNode( TxExpressionNode* expr, const TxReferenceType* resultType )
-        : TxConversionNode( expr, resultType ) { }
+    TxReferenceConvNode( TxExpressionNode* expr, const TxType* refResultType )
+        : TxConversionNode( expr, refResultType ) { }
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
