@@ -335,12 +335,8 @@ bool TxActualType::inner_prepare_members() {
     LOG(this->LOGGER(), TRACE, "Preparing members of type " << this);
     bool recursionError = false;
 
-    ExpectedErrorClause* expErrWholeType = nullptr;
-    if ( this->get_declaration() && ( this->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK ) ) {
-        expErrWholeType = this->get_declaration()->get_definer()->context().exp_error();
-        ASSERT(expErrWholeType, "TXD_EXPERRBLOCK flag set but type definer has no ExpErr context: " << this->get_declaration());
-        this->get_parser_context()->begin_exp_err( this->get_declaration()->get_definer() );
-    }
+    bool expErrWholeType = ( this->get_declaration() && ( this->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK ) );
+    ScopedExpErrClause scopedEEWholeType( ( expErrWholeType ? this->get_declaration()->get_definer() : nullptr ), expErrWholeType );
 
 
     // copy base type's virtual and instance field tuples (to which fields may be added / overridden):
@@ -380,14 +376,9 @@ bool TxActualType::inner_prepare_members() {
 
         // prepare type members:
         if (auto typeDecl = entitySym->get_type_decl()) {
-            ExpectedErrorClause* expErr = nullptr;
-            if (typeDecl->get_decl_flags() & TXD_EXPERRBLOCK) {
-                expErr = typeDecl->get_definer()->context().exp_error();
-                ASSERT(expErr, "TXD_EXPERRBLOCK flag set but type definer has no ExpErr context: " << typeDecl);
-                this->get_parser_context()->begin_exp_err( typeDecl->get_definer() );
-            }
+            ScopedExpErrClause expErrClause( typeDecl->get_definer(), ( typeDecl->get_decl_flags() & TXD_EXPERRBLOCK ) );
 
-            if (auto type = typeDecl->get_definer()->resolve_type()) {
+            if (auto type = typeDecl->get_definer()->get_type()) {
                 if (typeDecl->get_decl_flags() & TXD_GENBINDING) {
                     auto bname = typeDecl->get_unique_name();
                     if (auto paramDecl = semBaseType->get_type_param_decl( bname )) {
@@ -400,116 +391,108 @@ bool TxActualType::inner_prepare_members() {
                     }
                 }
             }
-
-            if (expErr && !expErrWholeType) {
-                this->get_parser_context()->end_exp_err( typeDecl->get_definer()->get_parse_location() );
-            }
         }
 
         // prepare field members:
         for (auto fieldDeclI = entitySym->fields_cbegin(); fieldDeclI != entitySym->fields_cend(); fieldDeclI++) {
             auto fieldDecl = *fieldDeclI;
 
-            ExpectedErrorClause* expErrField = nullptr;
-            if (fieldDecl->get_decl_flags() & TXD_EXPERRBLOCK) {
-                expErrField = fieldDecl->get_definer()->context().exp_error();
-                ASSERT(expErrField, "TXD_EXPERRBLOCK flag set but field definer has no ExpErr context: " << fieldDecl);
-                this->get_parser_context()->begin_exp_err( fieldDecl->get_definer() );
+            bool expErrField = ( fieldDecl->get_decl_flags() & TXD_EXPERRBLOCK );
+            ScopedExpErrClause expErrClause( fieldDecl->get_definer(), expErrField );
+            if (expErrField && ! fieldDecl->get_definer()->attempt_get_type()) {
+                LOG_TRACE(this->LOGGER(), "Skipping preparation of EXPERR unresolved field " << fieldDecl);
+                continue;
             }
 
-            if (auto field = fieldDecl->get_definer()->resolve_field()) {
-                // validate type:
-                if (auto fieldType = field->get_type()->type()) {
-                    if (! fieldType->is_concrete()) {
-                        CERROR(field, "Can't declare a field of non-concrete type: " << field << " " << fieldType);
+            auto field = fieldDecl->get_definer()->get_field();
+            // validate type:
+            {
+                auto fieldType = field->get_type()->type();
+                if (! fieldType->is_concrete()) {
+                    CERROR(field, "Can't declare a field of non-concrete type: " << field << " " << fieldType);
+                }
+                else if (fieldDecl->get_storage() == TXS_INSTANCE) {
+                    if (! fieldType->is_statically_sized()) {
+                        CERROR(field, "Instance fields that don't have statically determined size not yet supported: " << field);
                     }
-                    else if (fieldDecl->get_storage() == TXS_INSTANCE) {
-                        if (! fieldType->is_statically_sized()) {
-                            CERROR(field, "Instance fields that don't have statically determined size not yet supported: " << field);
-                        }
-                        else if (! (fieldDecl->get_decl_flags() & (TXD_GENPARAM | TXD_GENBINDING | TXD_IMPLICIT))) {
-                            if (this->get_type_class() != TXTC_TUPLE)
-                                //if (this->get_type_class() != TXTC_INTERFACE)  // (if not error already emitted above)
-                                    CERROR(field, "Can't declare instance member in non-tuple type: " << field);
-                        }
-                    }
-                    else {  // static / virtual
-                        if (! fieldType->is_statically_sized()) {
-                            // since static fields are per generic base type, and not per specialization:
-                            CERROR(field, "Static fields must have statically determined size: " << field);
-                        }
+                    else if (! (fieldDecl->get_decl_flags() & (TXD_GENPARAM | TXD_GENBINDING | TXD_IMPLICIT))) {
+                        if (this->get_type_class() != TXTC_TUPLE)
+                            //if (this->get_type_class() != TXTC_INTERFACE)  // (if not error already emitted above)
+                                CERROR(field, "Can't declare instance member in non-tuple type: " << field);
                     }
                 }
-
-                // layout:
-                switch (fieldDecl->get_storage()) {
-                case TXS_INSTANCE:
-                    this->LOGGER()->debug("Laying out instance field %-40s  %s  %u", field->str().c_str(),
-                                          field->get_type()->str().c_str(), this->instanceFields.get_field_count());
-                    if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
-                        CERROR(field, "Can't declare an instance field as abstract: " << field);
-
-                    // recursively prepare instance member fields' types so that we identify recursive data type definitions:
-                    //std::cerr << "Recursing into " << field << "  of type " << field->get_type() << std::endl;
-                    if (const_cast<TxActualType*>( field->get_type()->type() )->prepare_members())
-                        CERROR(field, "Recursive data type via field " << field->get_declaration()->get_unique_full_name());
-
-                    if (fieldDecl->get_decl_flags() & TXD_GENBINDING)
-                        LOG_DEBUG(this->LOGGER(), "Skipping layout of GENBINDING instance field: " << field);
-                    else if (!expErrField || expErrWholeType)
-                        this->instanceFields.add_field(field);
-                    break;
-                case TXS_VIRTUAL:
-                case TXS_INSTANCEMETHOD:
-                    ASSERT(! (fieldDecl->get_decl_flags() & TXD_INITIALIZER), "initializers can't be virtual/instance method: " << fieldDecl);
-                    if (fieldDecl->get_decl_flags() & TXD_CONSTRUCTOR)
-                        break;  // skip, constructors aren't virtual
-
-                    if (fieldDecl->get_decl_flags() & TXD_ABSTRACT) {
-                        if (this->get_type_class() != TXTC_INTERFACE && !(this->get_declaration()->get_decl_flags() & TXD_ABSTRACT))
-                            CERROR(fieldDecl->get_definer(), "Can't declare abstract member '" << fieldDecl->get_unique_name() << "' in type that is not declared abstract: " << this);
+                else {  // static / virtual
+                    if (! fieldType->is_statically_sized()) {
+                        // since static fields are per generic base type, and not per specialization:
+                        CERROR(field, "Static fields must have statically determined size: " << field);
                     }
-                    // permit this for now
-                    //else if (this->get_type_class() == TXTC_INTERFACE)
-                    //    CERROR(fieldDecl->get_definer(), "Can't declare non-abstract virtual member '" << fieldDecl->get_unique_name() << "' in interface type: " << this);
+                }
+            }
 
-                    if (this->virtualFields.has_field(field->get_unique_name())) {
-                        if (! (fieldDecl->get_decl_flags() & TXD_OVERRIDE))
-                            CWARNING(field, "Field overrides but isn't declared 'override': " << field);
-                        auto overriddenField = this->virtualFields.get_field(field->get_unique_name());
-                        if (overriddenField->get_decl_flags() & TXD_FINAL)
-                            CERROR(field, "Can't override a base type field that is declared 'final': " << field);
-                        if (! (field->get_type()->type()->is_assignable_to(*overriddenField->get_type()->type())))
-                            CERROR(field, "Overriding member's type " << field->get_type() << std::endl
-                                    << "   not assignable to overridden member's type " << overriddenField->get_type());
-                        if (! expErrField || expErrWholeType)
-                            this->virtualFields.override_field(field->get_unique_name(), field);
-                    }
-                    else {
-                        if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
-                            CWARNING(field, "Field doesn't override but is declared 'override': " << field);
-                        if (! expErrField || expErrWholeType)
-                            this->virtualFields.add_field(field);
-                    }
-                    this->LOGGER()->debug("Adding/overriding virtual field %-40s  %s  %u", field->str().c_str(),
-                                          field->get_type()->str().c_str(), this->virtualFields.get_field_count());
-                    break;
-                default:
-                    ASSERT(fieldDecl->get_storage() == TXS_STATIC, "Invalid storage class " << fieldDecl->get_storage() << " for field member " << *field);
-                    if (fieldDecl->get_decl_flags() & TXD_INITIALIZER)
-                        break;  // skip, initializers are inlined and not actually added as static functions
+            // layout:
+            switch (fieldDecl->get_storage()) {
+            case TXS_INSTANCE:
+                this->LOGGER()->debug("Laying out instance field %-40s  %s  %u", field->str().c_str(),
+                                      field->get_type()->str().c_str(), this->instanceFields.get_field_count());
+                if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
+                    CERROR(field, "Can't declare an instance field as abstract: " << field);
 
-                    if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
-                        CERROR(field, "Can't declare a non-virtual field as abstract: " << field);
+                // recursively prepare instance member fields' types so that we identify recursive data type definitions:
+                //std::cerr << "Recursing into " << field << "  of type " << field->get_type() << std::endl;
+                if (const_cast<TxActualType*>( field->get_type()->type() )->prepare_members())
+                    CERROR(field, "Recursive data type via field " << field->get_declaration()->get_unique_full_name());
+
+                if (fieldDecl->get_decl_flags() & TXD_GENBINDING)
+                    LOG_DEBUG(this->LOGGER(), "Skipping layout of GENBINDING instance field: " << field);
+                else if (! expErrField || expErrWholeType)
+                    this->instanceFields.add_field(field);
+                break;
+            case TXS_VIRTUAL:
+            case TXS_INSTANCEMETHOD:
+                ASSERT(! (fieldDecl->get_decl_flags() & TXD_INITIALIZER), "initializers can't be virtual/instance method: " << fieldDecl);
+                if (fieldDecl->get_decl_flags() & TXD_CONSTRUCTOR)
+                    break;  // skip, constructors aren't virtual
+
+                if (fieldDecl->get_decl_flags() & TXD_ABSTRACT) {
+                    if (this->get_type_class() != TXTC_INTERFACE && !(this->get_declaration()->get_decl_flags() & TXD_ABSTRACT))
+                        CERROR(fieldDecl->get_definer(), "Can't declare abstract member '" << fieldDecl->get_unique_name() << "' in type that is not declared abstract: " << this);
+                }
+                // permit this for now
+                //else if (this->get_type_class() == TXTC_INTERFACE)
+                //    CERROR(fieldDecl->get_definer(), "Can't declare non-abstract virtual member '" << fieldDecl->get_unique_name() << "' in interface type: " << this);
+
+                if (this->virtualFields.has_field(field->get_unique_name())) {
+                    if (! (fieldDecl->get_decl_flags() & TXD_OVERRIDE))
+                        CWARNING(field, "Field overrides but isn't declared 'override': " << field);
+                    auto overriddenField = this->virtualFields.get_field(field->get_unique_name());
+                    if (overriddenField->get_decl_flags() & TXD_FINAL)
+                        CERROR(field, "Can't override a base type field that is declared 'final': " << field);
+                    if (! (field->get_type()->type()->is_assignable_to(*overriddenField->get_type()->type())))
+                        CERROR(field, "Overriding member's type " << field->get_type() << std::endl
+                                << "   not assignable to overridden member's type " << overriddenField->get_type());
+                    if (! expErrField || expErrWholeType)
+                        this->virtualFields.override_field(field->get_unique_name(), field);
+                }
+                else {
                     if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
                         CWARNING(field, "Field doesn't override but is declared 'override': " << field);
                     if (! expErrField || expErrWholeType)
-                        this->staticFields.add_field(field);
+                        this->virtualFields.add_field(field);
                 }
-            }
+                this->LOGGER()->debug("Adding/overriding virtual field %-40s  %s  %u", field->str().c_str(),
+                                      field->get_type()->str().c_str(), this->virtualFields.get_field_count());
+                break;
+            default:
+                ASSERT(fieldDecl->get_storage() == TXS_STATIC, "Invalid storage class " << fieldDecl->get_storage() << " for field member " << *field);
+                if (fieldDecl->get_decl_flags() & TXD_INITIALIZER)
+                    break;  // skip, initializers are inlined and not actually added as static functions
 
-            if (expErrField && !expErrWholeType) {
-                this->get_parser_context()->end_exp_err(fieldDecl->get_definer()->get_parse_location());
+                if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
+                    CERROR(field, "Can't declare a non-virtual field as abstract: " << field);
+                if (fieldDecl->get_decl_flags() & TXD_OVERRIDE)
+                    CWARNING(field, "Field doesn't override but is declared 'override': " << field);
+                if (! expErrField || expErrWholeType)
+                    this->staticFields.add_field(field);
             }
         }
     }
@@ -523,10 +506,6 @@ bool TxActualType::inner_prepare_members() {
                 CERROR(this, "Concrete type " << this->str(true) << " doesn't implement abstract member " << actualFieldEnt);
             }
         }
-    }
-
-    if (expErrWholeType) {
-        this->get_parser_context()->end_exp_err(this->get_declaration()->get_definer()->get_parse_location());
     }
 
     return recursionError;
@@ -697,7 +676,7 @@ TxEntitySymbol* TxActualType::lookup_inherited_instance_member(TxScopeSymbol* va
 }
 
 
-static const TxEntityDeclaration* get_type_param_decl(const std::vector<TxEntityDeclaration*>& params, const std::string& fullParamName) {
+static const TxEntityDeclaration* get_type_param_decl(const std::vector<const TxEntityDeclaration*>& params, const std::string& fullParamName) {
     for (auto & paramDecl : params)
         if (fullParamName == paramDecl->get_unique_full_name())
             return paramDecl;
@@ -960,7 +939,7 @@ bool TxActualType::derives_interface(const TxActualType* otherType) const {
 }
 
 
-//static void type_params_string(std::stringstream& str, const std::vector<TxEntityDeclaration*>& params) {
+//static void type_params_string(std::stringstream& str, const std::vector<const TxEntityDeclaration*>& params) {
 //    str << "<";
 //    int ix = 0;
 //    for (auto & p : params) {
@@ -970,7 +949,7 @@ bool TxActualType::derives_interface(const TxActualType* otherType) const {
 //    str << ">";
 //}
 
-static void type_bindings_string(std::stringstream& str, const std::vector<TxEntityDeclaration*>& bindings) {
+static void type_bindings_string(std::stringstream& str, const std::vector<const TxEntityDeclaration*>& bindings) {
     str << "<";
     int ix = 0;
     for (auto b : bindings) {
@@ -1106,8 +1085,7 @@ const TxExpressionNode* TxArrayType::length() const {
 
 const TxActualType* TxArrayType::element_type() const {
     if (auto bindingDecl = this->lookup_type_param_binding("tx.Array.E")) {
-        if (auto type = bindingDecl->get_definer()->resolve_type())
-            return type->type();
+        return bindingDecl->get_definer()->resolve_type()->type();
     }
     LOG(this->LOGGER(), NOTE, "Unbound element type for array type " << this);
     ASSERT(this->is_generic(), "Unbound element type for NON-GENERIC array type " << this);
@@ -1119,8 +1097,7 @@ const TxActualType* TxReferenceType::target_type() const {
     //std::string declstr = (this->get_declaration() ? this->get_declaration()->get_unique_full_name() : "nodecl");
     //std::cerr << "getting target type of " << declstr << ": " << this << std::endl;
     if (auto paramDecl = this->lookup_type_param_binding("tx.Ref.T")) {
-        if (auto type = paramDecl->get_definer()->resolve_type())
-            return type->type();
+        return paramDecl->get_definer()->resolve_type()->type();
     }
     else {
         LOG_DEBUG(this->LOGGER(), "Unbound target type for reference type " << this);
@@ -1162,6 +1139,14 @@ bool TxInterfaceAdapterType::inner_prepare_members() {
 
     return rec;
 }
+
+
+
+TxFunctionType::TxFunctionType( const TxTypeDeclaration* declaration, const TxActualType* baseType,
+                                const std::vector<const TxActualType*>& argumentTypes, bool modifiableClosure )
+    : TxFunctionType( declaration, baseType, argumentTypes,
+                      baseType->get_nearest_declaration()->get_symbol()->get_root_scope()->types().get_builtin_type( VOID )->type(),
+                      modifiableClosure )  { }
 
 
 

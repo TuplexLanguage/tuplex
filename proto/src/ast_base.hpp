@@ -334,7 +334,8 @@ protected:
     /** Defines the type of this expression (as specific as can be known), constructing/obtaining the TxType instance.
      * The implementation should only traverse the minimum nodes needed to define the type
      * (e.g. not require the actual target type of a reference to be defined).
-     * This should only be invoked once, from the TxTypeDefiningNode class. */
+     * This should only be invoked once, from the TxTypeDefiningNode class.
+     * @return a valid type pointer (exception must be thrown upon failure) */
     virtual const TxType* define_type() = 0;
 
 public:
@@ -342,12 +343,13 @@ public:
 
     virtual TxTypeDefiningNode* make_ast_copy() const override = 0;
 
-    /** Returns the type (as specific as can be known) of the value this node produces/uses. */
+    /** Returns the type (as specific as can be known) of the value this node produces/uses.
+     * @return a valid type pointer (exception is thrown upon failure) */
     virtual const TxType* resolve_type() override final;
 
     virtual const TxType* attempt_get_type() const override { return this->type; }
     virtual const TxType* get_type        () const override {
-        ASSERT(this->hasResolved, "entity definer not resolved: " << this); return this->type; }
+        ASSERT(this->type, "entity definer not resolved: " << this); return this->type; }
 };
 
 
@@ -363,7 +365,8 @@ protected:
     /** Defines the type of this field (as specific as can be known), constructing/obtaining the TxType instance.
      * The implementation should only traverse the minimum nodes needed to define the type
      * (e.g. not require the actual target type of a reference to be defined).
-     * This should only be invoked once, from the TxFieldDefiningNode class. */
+     * This should only be invoked once, from the TxFieldDefiningNode class.
+     * @return a valid type pointer (exception must be thrown upon failure) */
     virtual const TxType* define_type() = 0;
 
     /** Defines the field of this node, constructing/obtaining the TxField instance.
@@ -375,10 +378,12 @@ public:
 
     virtual TxFieldDefiningNode* make_ast_copy() const override = 0;
 
-    /** Resolves the type and returns the field entity of this field-defining node. */
+    /** Resolves the type and returns the field entity of this field-defining node.
+     * @return a valid field pointer (exception is thrown upon failure) */
     virtual const TxField* resolve_field() final;
 
-    /** Returns the type (as specific as can be known) of the value this field-defining node produces/uses. */
+    /** Returns the type (as specific as can be known) of the value this field-defining node produces/uses.
+     * @return a valid type pointer (exception is thrown upon failure) */
     virtual const TxType* resolve_type() final {
         this->resolve_field();
         return this->type;
@@ -386,10 +391,10 @@ public:
 
     virtual const TxType*  attempt_get_type() const override final { return this->type; }
     virtual const TxType*  get_type        () const override final {
-        ASSERT(this->hasResolved, "entity definer not resolved: " << this); return this->type; }
+        ASSERT(this->type, "entity definer not resolved: " << this); return this->type; }
 
     virtual const TxField* get_field       () const final {
-        ASSERT(this->hasResolved, "entity definer not resolved: " << this); return this->field; }
+        ASSERT(this->field, "entity definer not resolved: " << this); return this->field; }
 
     virtual const TxExpressionNode* get_init_expression() const = 0;
 };

@@ -62,7 +62,7 @@ class TxField : public TxEntity {
     }
 
 public:
-    /** Constructs a new field after applying some validation checks. If validation fails, null is returned. */
+    /** Constructs a new field after applying some validation checks. If validation fails, resolution exception is thrown. */
     static TxField* make_field( const TxFieldDeclaration* declaration, const TxType* type );
 
 

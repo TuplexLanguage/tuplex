@@ -284,7 +284,7 @@ Type* TxFunctionType::make_llvm_type(LlvmGenerationContext& context) const {
         llvmArgTypes.push_back(context.get_llvm_type(argTxType));
         LOG_DEBUG(context.LOGGER(), "Mapping arg type " << argTxType << " to " << ::to_string(llvmArgTypes.back()));
     }
-    Type* llvmRetType = this->returnType
+    Type* llvmRetType = this->has_return_value()
                         ? context.get_llvm_type(this->returnType)
                         : context.get_voidT();
     FunctionType *funcT = FunctionType::get(llvmRetType, llvmArgTypes, false);

@@ -156,6 +156,11 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     return fieldVal;
 }
 
+Value* TxFieldTypeDefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    TRACE_CODEGEN(this, context);
+    return nullptr;  // passive node
+}
+
 Value* TxFieldDefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     // (note that this is doesn't *declare* the field since that operation is context-sensitive;
     // the parent node does that)

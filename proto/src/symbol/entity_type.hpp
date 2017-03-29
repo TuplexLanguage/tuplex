@@ -182,10 +182,11 @@ public:
      * Returns null if this is not a reference type or if the target type was not resolved.
      */
     const TxType* target_type() const {
-        if (this->get_type_class() == TXTC_REFERENCE)
-            if (auto refType = static_cast<const TxReferenceType*>( this->type() ) )
-                return refType->target_type()->get_type_entity();
-        return nullptr;
+        if (this->get_type_class() == TXTC_REFERENCE) {
+            auto refType = static_cast<const TxReferenceType*>( this->type() );
+            return refType->target_type()->get_type_entity();
+        }
+        THROW_LOGIC("Can't get target_type() of non-reference type: " << this);
     }
 
 
@@ -193,10 +194,11 @@ public:
      * Returns null if this is not an array type or if the element type was not resolved.
      */
     const TxType* element_type() const {
-        if (this->get_type_class() == TXTC_ARRAY)
-            if (auto aType = static_cast<const TxArrayType*>( this->type() ) )
-                return aType->element_type()->get_type_entity();
-        return nullptr;
+        if (this->get_type_class() == TXTC_ARRAY) {
+            auto aType = static_cast<const TxArrayType*>( this->type() );
+            return aType->element_type()->get_type_entity();
+        }
+        THROW_LOGIC("Can't get element_type() of non-array type: " << this);
     }
 
 
@@ -204,25 +206,25 @@ public:
      * Returns an empty vector if this is not a function type or if an argument type was not resolved.
      */
     std::vector<const TxType*> argument_types() const {
-        std::vector<const TxType*> args;
         if (this->get_type_class() == TXTC_FUNCTION) {
-            if (auto funcType = static_cast<const TxFunctionType*>( this->type() ) ) {
-                for ( auto a : funcType->argumentTypes ) {
-                    args.push_back( a->get_type_entity() );
-                }
+            std::vector<const TxType*> args;
+            auto funcType = static_cast<const TxFunctionType*>( this->type() );
+            for ( auto a : funcType->argumentTypes ) {
+                args.push_back( a->get_type_entity() );
             }
+            return args;
         }
-        return args;
+        THROW_LOGIC("Can't get argument_types() of non-function type: " << this);
     }
 
     /** Special case helper method for getting the return type of a function type.
      * Returns null if this is not a function type or if the return type was not resolved.
      */
     const TxType* return_type() const {
-        if (this->get_type_class() == TXTC_FUNCTION)
-            if (auto funcType = static_cast<const TxFunctionType*>( this->type() ) )
-                if (funcType->returnType)
-                    return funcType->returnType->get_type_entity();
-        return nullptr;
+        if (this->get_type_class() == TXTC_FUNCTION) {
+            auto funcType = static_cast<const TxFunctionType*>( this->type() );
+            return funcType->returnType->get_type_entity();
+        }
+        THROW_LOGIC("Can't get return_type() of non-function type: " << this);
     }
 };

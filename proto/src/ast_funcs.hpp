@@ -3,6 +3,65 @@
 // (requires types, expressions, and statements to be included before this)
 
 
+class TxFunctionHeaderNode : public TxTypeExpressionNode {
+    TxFunctionTypeNode* funcTypeNode;
+
+protected:
+    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
+        this->funcTypeNode->symbol_declaration_pass( defContext, lexContext, nullptr );
+        // declare the function args, and the return type if any:
+        for (auto argField : *this->arguments)
+            argField->symbol_declaration_pass_local_field( lexContext, false );
+        if (this->returnField)
+            this->returnField->symbol_declaration_pass_local_field( lexContext, false, TXD_IMPLICIT );
+    }
+
+    virtual const TxType* define_type() override {
+        return this->funcTypeNode->resolve_type();
+    }
+
+public:
+    std::vector<TxFieldDefNode*>* arguments;
+    TxFieldDefNode* returnField;
+
+    TxFunctionHeaderNode( TxFunctionTypeNode* funcTypeNode )
+            : TxTypeExpressionNode( funcTypeNode->parseLocation ), funcTypeNode( funcTypeNode ),
+              arguments( new std::vector<TxFieldDefNode*>() ),
+              returnField( funcTypeNode->returnField ? new TxFieldDefNode( funcTypeNode->returnField->make_ast_copy() ) : nullptr ) {
+        for ( auto arg : *funcTypeNode->arguments )
+            this->arguments->push_back( new TxFieldDefNode( arg->make_ast_copy() ) );
+    }
+
+    virtual TxFunctionHeaderNode* make_ast_copy() const override {
+        return new TxFunctionHeaderNode( this->funcTypeNode->make_ast_copy() );
+    }
+
+    virtual std::string get_auto_type_name() const override {
+        return this->get_declaration()->get_unique_full_name();
+    }
+
+    virtual void symbol_resolution_pass() override {
+        TxTypeExpressionNode::symbol_resolution_pass();
+        this->funcTypeNode->symbol_resolution_pass();
+        for (auto argField : *this->arguments)
+            argField->symbol_resolution_pass();
+        if (this->returnField)
+            this->returnField->symbol_resolution_pass();
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        // (for now, we don't treat funcTypeNode as a visited descendant)
+        for (auto argField : *this->arguments)
+            argField->visit_ast( visitor, thisAsParent, "arg", context );
+        if (this->returnField)
+            this->returnField->visit_ast( visitor, thisAsParent, "return", context );
+    }
+};
+
+
+
 class TxLambdaExprNode : public TxExpressionNode {
     bool instanceMethod = false;
     TxFieldDefNode* selfRefNode = nullptr;
@@ -10,17 +69,20 @@ class TxLambdaExprNode : public TxExpressionNode {
 
 protected:
     virtual const TxType* define_type() override {
-        return this->funcTypeNode->resolve_type();  // function header
+        return this->funcHeaderNode->resolve_type();
     }
 
 public:
-    TxFunctionTypeNode* funcTypeNode;
+    TxFunctionHeaderNode* funcHeaderNode;
     TxSuiteNode* suite;
     const bool isMethodSyntax;
 
-    TxLambdaExprNode(const TxLocation& parseLocation, TxFunctionTypeNode* funcTypeNode, TxSuiteNode* suite,
-                     bool isMethodSyntax=false)
-            : TxExpressionNode(parseLocation), funcTypeNode(funcTypeNode), suite(suite), isMethodSyntax(isMethodSyntax) {
+    TxLambdaExprNode( const TxLocation& parseLocation, TxFunctionTypeNode* funcTypeNode, TxSuiteNode* suite, bool isMethodSyntax=false )
+            : TxLambdaExprNode( parseLocation, new TxFunctionHeaderNode( funcTypeNode ), suite, isMethodSyntax ) {
+    }
+
+    TxLambdaExprNode(const TxLocation& parseLocation, TxFunctionHeaderNode* funcHeaderNode, TxSuiteNode* suite, bool isMethodSyntax=false)
+            : TxExpressionNode( parseLocation ), funcHeaderNode( funcHeaderNode ), suite( suite ), isMethodSyntax( isMethodSyntax ) {
         if (isMethodSyntax) {
             // 'self' reference:
             auto selfRefTypeExprN = new TxIdentifiedTypeNode(this->parseLocation, "$Self");
@@ -32,7 +94,7 @@ public:
     }
 
     virtual TxLambdaExprNode* make_ast_copy() const override {
-        return new TxLambdaExprNode( this->parseLocation, this->funcTypeNode->make_ast_copy(), this->suite->make_ast_copy(), this->isMethodSyntax );
+        return new TxLambdaExprNode( this->parseLocation, this->funcHeaderNode->make_ast_copy(), this->suite->make_ast_copy(), this->isMethodSyntax );
     }
 
     void set_instance_method(bool flag) {
@@ -71,7 +133,7 @@ public:
 
         this->set_context( funcLexContext);
 
-        this->funcTypeNode->symbol_declaration_pass_func_header( funcLexContext );  // function header
+        this->funcHeaderNode->symbol_declaration_pass( funcLexContext, funcLexContext, nullptr );  // function header
         this->suite->symbol_declaration_pass_no_subscope( funcLexContext );  // function body
     }
 
@@ -81,10 +143,10 @@ public:
             this->selfRefNode->symbol_resolution_pass();
             this->superRefNode->symbol_resolution_pass();
         }
-        this->funcTypeNode->symbol_resolution_pass();  // function header
+        this->funcHeaderNode->symbol_resolution_pass();  // function header
         this->suite->symbol_resolution_pass();  // function body
 
-        if (this->funcTypeNode->returnField) {
+        if (this->funcHeaderNode->returnField) {
             // verify that body always ends with explicit return statement
             if (! this->suite->ends_with_return_stmt())
                 CERROR(this, "Function has return value, but not all code paths end with a return statement.");
@@ -104,7 +166,7 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        this->funcTypeNode->visit_ast( visitor, thisAsParent, "functype", context );
+        this->funcHeaderNode->visit_ast( visitor, thisAsParent, "functype", context );
         if (this->selfRefNode) {
             this->selfRefNode->visit_ast( visitor, thisAsParent, "selfref", context );
             this->superRefNode->visit_ast( visitor, thisAsParent, "superref", context );

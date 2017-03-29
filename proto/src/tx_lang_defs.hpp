@@ -17,6 +17,7 @@
 
 enum BuiltinTypeId : uint32_t {
     ANY,
+    VOID,
     ELEMENTARY,
     SCALAR,
     INTEGER,

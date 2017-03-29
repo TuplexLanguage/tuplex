@@ -132,7 +132,7 @@ static bool equivalent_interface_target_types(const TxType* typeA, const TxType*
 
 const TxType* TxReferenceConvNode::define_type() {
     auto resultTargetType = this->resultType->target_type();
-    if (resultTargetType && resultTargetType->get_type_class() == TXTC_INTERFACE) {
+    if (resultTargetType->get_type_class() == TXTC_INTERFACE) {
         auto origType = this->expr->resolve_type();
         auto origTargetType = origType->target_type();
         if (! equivalent_interface_target_types(resultTargetType, origTargetType)) {

@@ -173,7 +173,7 @@ void LlvmGenerationContext::generate_code( const TxNode* staticScopeNode ) {
 
 
 bool LlvmGenerationContext::generate_main(const std::string& userMainIdent, const TxType* mainFuncType) {
-    this->entryFunction = this->gen_main_function(userMainIdent, mainFuncType->return_type());
+    this->entryFunction = this->gen_main_function( userMainIdent, ( mainFuncType->return_type()->get_type_class() != TXTC_VOID ) );
     return this->entryFunction;
 }
 

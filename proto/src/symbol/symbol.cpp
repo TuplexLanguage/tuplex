@@ -131,7 +131,7 @@ static inline bool is_internal_name( const std::string& name ) {
 }
 
 
-TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxTypeDefiningNode* typeDefiner,
+const TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxTypeDefiningNode* typeDefiner,
                                                TxDeclarationFlags declFlags) {
     ASSERT(!is_internal_name(plainName) || (declFlags & (TXD_IMPLICIT | TXD_CONSTRUCTOR | TXD_INITIALIZER)),
            "Mismatch between name format and IMPLICIT flag for type declaration " << plainName);
@@ -144,7 +144,7 @@ TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxT
     return nullptr;
 }
 
-TxFieldDeclaration* TxScopeSymbol::declare_field(const std::string& plainName, TxFieldDefiningNode* fieldDefiner,
+const TxFieldDeclaration* TxScopeSymbol::declare_field(const std::string& plainName, TxFieldDefiningNode* fieldDefiner,
                                                  TxDeclarationFlags declFlags, TxFieldStorage storage,
                                                  const TxIdentifier& dataspace) {
     ASSERT(!is_internal_name(plainName) || (declFlags & (TXD_IMPLICIT | TXD_CONSTRUCTOR | TXD_INITIALIZER)),
@@ -186,7 +186,7 @@ std::string TxScopeSymbol::description_string() const {
 
 /*=== TxEntitySymbol implementation ===*/
 
-TxEntityDeclaration* TxEntitySymbol::get_distinct_decl() const {
+const TxEntityDeclaration* TxEntitySymbol::get_distinct_decl() const {
     ASSERT(!this->is_overloaded(), "Can't get 'distinct' declaration of an overloaded entity: " << this->str());
     if (this->typeDeclaration)
         return this->typeDeclaration;
@@ -211,7 +211,7 @@ bool TxEntitySymbol::add_field(TxFieldDeclaration* fieldDeclaration) {
 static TxScopeSymbol* search_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
 
 static const TxEntityDeclaration* get_symbols_declaration(TxEntitySymbol* entitySymbol) {
-    TxEntityDeclaration* decl = entitySymbol->get_type_decl();
+    const TxEntityDeclaration* decl = entitySymbol->get_type_decl();
     if (! decl) {
         if (! entitySymbol->is_overloaded())
             decl = entitySymbol->get_first_field_decl();
@@ -266,7 +266,7 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
 
 
 
-static std::string field_description( TxFieldDeclaration* fieldDecl ) {
+static std::string field_description( const TxFieldDeclaration* fieldDecl ) {
     if (auto field = fieldDecl->get_definer()->get_field()) {
         if (auto type = field->get_type()) {
             char buf[512];
@@ -385,13 +385,13 @@ TxScopeSymbol* lookup_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& id
     return symbol;
 }
 
-TxTypeDeclaration* lookup_type(TxScopeSymbol* vantageScope, const TxIdentifier& ident) {
+const TxTypeDeclaration* lookup_type(TxScopeSymbol* vantageScope, const TxIdentifier& ident) {
     if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(lookup_symbol(vantageScope, ident)))
         return entitySymbol->get_type_decl();
     return nullptr;
 }
 
-TxFieldDeclaration* lookup_field( TxScopeSymbol* vantageScope, const TxIdentifier& ident ) {
+const TxFieldDeclaration* lookup_field( TxScopeSymbol* vantageScope, const TxIdentifier& ident ) {
     if (auto entitySymbol = dynamic_cast<const TxEntitySymbol*>( lookup_symbol( vantageScope, ident ) )) {
         if (entitySymbol->field_count() == 1)
             return entitySymbol->get_first_field_decl();

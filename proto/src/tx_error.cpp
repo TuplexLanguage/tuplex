@@ -4,6 +4,18 @@
 
 
 
+ScopedExpErrClause::ScopedExpErrClause( TxParseOrigin* origin, bool enabled ) : origin( origin ), enabled( enabled )  {
+    if (this->enabled)
+        origin->get_parse_location().parserCtx->begin_exp_err( origin );
+}
+
+ScopedExpErrClause::~ScopedExpErrClause() {
+    if (this->enabled)
+        origin->get_parse_location().parserCtx->end_exp_err( origin->get_parse_location() );
+}
+
+
+
 void cerror( const TxParseOrigin* origin, const std::string& msg ) {
     origin->get_parse_location().parserCtx->cerror( origin, msg );
 }

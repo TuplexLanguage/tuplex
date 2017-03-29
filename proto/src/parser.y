@@ -145,8 +145,9 @@ YY_DECL;
 %type <TxTypeArgumentNode *> type_arg
 %type <std::vector<TxTypeArgumentNode*> *> type_arg_list
 
-%type <TxFieldDefNode*> field_def field_type_def field_assignment_def method_def
-%type <std::vector<TxFieldDefNode*> *> params_def field_type_list
+%type <TxFieldDefNode*> field_def field_assignment_def method_def
+%type <TxFieldTypeDefNode*> field_type_def
+%type <std::vector<TxFieldTypeDefNode*> *> func_args func_args_list
 
 %type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression
 %type <TxTypeExpressionNode*> reference_type array_type //data_tuple_type
@@ -302,11 +303,12 @@ type_or_if : KW_TYPE        { $$ = false; }
            | KW_INTERFACE   { $$ = true;  }
            ;
 
-field_def : field_type_def { $$ = $1; }
-          | field_assignment_def { $$ = $1; } ;
+field_def : field_type_def { $$ = new TxFieldDefNode($1); }
+          | field_assignment_def { $$ = $1; }
+          ;
 
 field_type_def : NAME COLON type_expression
-                     { $$ = new TxFieldDefNode(@1, $1, $3, NULL); }
+                     { $$ = new TxFieldTypeDefNode(@1, $1, $3); }
 ;
 
 field_assignment_def : NAME COLON type_expression EQUAL expr
@@ -327,7 +329,7 @@ type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->
 type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
                                                   new TxIdentifiedTypeNode(@1, "tx.Any")); }
                 | NAME KW_DERIVES predef_type { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
-                | field_type_def  { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1); }
+                | field_type_def  { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, new TxFieldDefNode($1)); }
                 ;
 
 
@@ -446,24 +448,24 @@ array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
 
 lambda_expr : function_header suite  { $$ = new TxLambdaExprNode(@1, $1, $2); } ;
 
-function_header : params_def DASHGT type_expression
+function_header : func_args DASHGT type_expression
                   { $$ = new TxFunctionTypeNode(@1, false, $1, $3); }
-                | params_def
+                | func_args
                   { $$ = new TxFunctionTypeNode(@1, false, $1, NULL); }
                 ;
 
-params_def : LPAREN field_type_list RPAREN  { $$ = $2; }
-           | LPAREN RPAREN  { $$ = new std::vector<TxFieldDefNode*>(); }
-           ;
+func_args : LPAREN func_args_list RPAREN  { $$ = $2; }
+          | LPAREN RPAREN  { $$ = new std::vector<TxFieldTypeDefNode*>(); }
+          ;
 
-field_type_list : field_type_def
-                      { $$ = new std::vector<TxFieldDefNode*>();
+func_args_list : field_type_def
+                      { $$ = new std::vector<TxFieldTypeDefNode*>();
                         $$->push_back($1); }
-                | field_type_list COMMA field_type_def
+               | func_args_list COMMA field_type_def
                       { $$ = $1;
                         $$->push_back($3); }
-                | error  { $$ = new std::vector<TxFieldDefNode*>(); }
-                ;
+               | error  { $$ = new std::vector<TxFieldTypeDefNode*>(); }
+               ;
 
 
 method_def  : NAME function_header suite

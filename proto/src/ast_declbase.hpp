@@ -165,9 +165,58 @@ public:
 };
 
 
+
+/** Describes a field name and type - however does not declare or define a field entity.
+ * This is used for function arguments and return values, they are not distinct declarations / entities,
+ * rather they are part of the function type definition.
+ */
+class TxFieldTypeDefNode : public TxTypeDefiningNode {
+protected:
+    virtual const TxType* define_type() override {
+        LOG_TRACE(this->LOGGER(), "defining  type  of " << this);
+        return this->typeExpression->resolve_type();
+    }
+
+public:
+    const std::string fieldName;
+    TxTypeExpressionNode* typeExpression;
+
+    TxFieldTypeDefNode( const TxLocation& parseLocation, const std::string& fieldName, TxTypeExpressionNode* typeExpression )
+            : TxTypeDefiningNode(parseLocation), fieldName(fieldName), typeExpression(typeExpression) {
+        ASSERT(typeExpression, "typeExpression must be specified");
+    }
+
+    virtual TxFieldTypeDefNode* make_ast_copy() const override {
+        return new TxFieldTypeDefNode( this->parseLocation, this->fieldName, this->typeExpression->make_ast_copy() );
+    }
+
+    void symbol_declaration_pass( LexicalContext& lexContext ) {
+        this->set_context( lexContext);
+        this->typeExpression->symbol_declaration_pass( lexContext, lexContext, nullptr );
+    }
+
+    virtual void symbol_resolution_pass() {
+        this->resolve_type();
+        this->typeExpression->symbol_resolution_pass();
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        this->typeExpression->visit_ast( visitor, thisAsParent, "type", context );
+    }
+
+    // FIXME virtual const TxIdentifier* get_identifier() const override { return this->fieldName; }
+};
+
+
+
 class TxFieldDeclNode;
 
 class TxFieldDefNode : public TxFieldDefiningNode {
+    /** original field type def node, if constructed with such */
+    TxFieldTypeDefNode* typeDefNode = nullptr;
+
     /** injected by non-local field declaration if applicable */
     TxFieldDeclNode* fieldDeclNode = nullptr;
 
@@ -193,16 +242,14 @@ protected:
         }
         else {
             type = this->initExpression->resolve_type();
-            if (type) {
-                if (this->modifiable) {
-                    if (! type->is_modifiable())
-                        type = this->types().get_modifiable_type(nullptr, type);
-                }
-                else if (type->is_modifiable())
-                    // if initialization expression is modifiable type, and modifiable not explicitly specified,
-                    // lose modifiable attribute (modifiability must be explicit)
-                    type = type->get_semantic_base_type();
+            if (this->modifiable) {
+                if (! type->is_modifiable())
+                    type = this->types().get_modifiable_type(nullptr, type);
             }
+            else if (type->is_modifiable())
+                // if initialization expression is modifiable type, and modifiable not explicitly specified,
+                // lose modifiable attribute (modifiability must be explicit)
+                type = type->get_base_type();
         }
         return type;
     }
@@ -210,13 +257,8 @@ protected:
     virtual const TxField* define_field() override {
         LOG_TRACE(this->LOGGER(), "defining  field of " << this);
         ASSERT(this->attempt_get_type(), "Expected non-NULL type in " << this);
-        if (this->declaration) {
-            if (auto field = TxField::make_field( this->declaration, this->attempt_get_type() )) {
-                return field;
-            }
-        }
-        // else is not an error - function type's arguments & return type lack field declarations
-        return nullptr;
+        // FUTURE: consider if EXPERR decls shouldn't get their field created
+        return TxField::make_field( this->declaration, this->attempt_get_type() );
     }
 
 public:
@@ -224,6 +266,11 @@ public:
     const bool modifiable;  // true if field name explicitly declared modifiable
     TxTypeExpressionNode* typeExpression;
     TxMaybeConversionNode* initExpression;
+
+    TxFieldDefNode( TxFieldTypeDefNode* typeDefNode )
+            : TxFieldDefNode( typeDefNode->parseLocation, typeDefNode->fieldName, typeDefNode->typeExpression, nullptr ) {
+        this->typeDefNode = typeDefNode;
+    }
 
     TxFieldDefNode(const TxLocation& parseLocation, const std::string& fieldName,
                    TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression, bool modifiable=false)
@@ -270,10 +317,6 @@ public:
         this->symbol_declaration_pass( lexContext, lexContext, declFlags);
     }
 
-    void symbol_declaration_pass_functype_arg( LexicalContext& lexContext ) {
-        this->symbol_declaration_pass( lexContext, lexContext, TXD_NONE);
-    }
-
     virtual void symbol_resolution_pass() {
         if (auto field = this->resolve_field()) {
             if (this->initExpression) {
@@ -307,6 +350,7 @@ public:
             }
         }
         else {
+            ASSERT(false, "dead code");
             if (! this->get_type())
                 CERROR(this, "Failed to resolve field " << this->get_identifier());
             if (this->initExpression) {
@@ -406,7 +450,13 @@ public:
         if (this->typeParamDecls)
             for (auto paramDecl : *this->typeParamDecls)
                 paramDecl->symbol_resolution_pass();
-        this->typeExpression->symbol_resolution_pass();
+        try {
+            this->typeExpression->symbol_resolution_pass();
+        }
+        catch (const resolution_error& err) {
+            LOG(this->LOGGER(), DEBUG, "Caught resolution error in " << this->typeExpression << ": " << err);
+            return;
+        }
     }
 
     virtual const TxTypeDeclaration* get_declaration() const override {
@@ -463,9 +513,8 @@ public:
         if (this->body) {
             if (! this->context().is_reinterpretation()) {
                 this->get_parse_location().parserCtx->register_exp_err_node( this );
-                this->get_parse_location().parserCtx->begin_exp_err( this );
+                ScopedExpErrClause scopedEEClause( this );
                 this->body->symbol_declaration_pass( this->context(), true );
-                this->get_parse_location().parserCtx->end_exp_err( this->parseLocation );
             }
             else
                 this->body->symbol_declaration_pass( this->context(), true );
@@ -476,9 +525,8 @@ public:
         auto ctx = this->context();
         if (this->body) {
             if (! ctx.is_reinterpretation()) {
-                this->get_parse_location().parserCtx->begin_exp_err( this );
+                ScopedExpErrClause scopedEEClause( this );
                 this->body->symbol_resolution_pass();
-                this->get_parse_location().parserCtx->end_exp_err( this->parseLocation );
             }
             else
                 this->body->symbol_resolution_pass();

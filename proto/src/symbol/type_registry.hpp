@@ -122,7 +122,7 @@ public:
     // Note: "mod" of args not part of the function type (though concrete function may mod-ify its stack arg copies).
     const TxType* get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, const TxType* returnType, bool mod=false);
     const TxType* get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, bool mod=false);
-    const TxType* get_constructor_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, TxTypeDeclaration* constructedObjTypeDecl);
+    const TxType* get_constructor_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, const TxTypeDeclaration* constructedObjTypeDecl);
 
 
     /** Returns a read-only iterator that points to the first static type (with unique compile-time id). */

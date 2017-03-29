@@ -31,16 +31,25 @@ const TxActualType* TxType::define_type() const {
 }
 
 const TxActualType* TxType::type() const {
-    if (!this->_type && !this->hasResolved) {
-        LOG_TRACE(this->LOGGER(), "resolving type of " << this->definer);
+    if (! this->_type) {
+        if (this->hasResolved) {
+            throw resolution_error( this, "Previous ACTUAL type resolution failed in " + this->str() );
+        }
+        LOG_TRACE(this->LOGGER(), "resolving ACTUAL type of " << this->definer);
+
         if (this->startedRslv) {
-            CERROR(this->definer, "Recursive resolution of type in " << this->definer);
-            return nullptr;
+            CERR_THROWRES(this->definer, "Recursive resolution of ACTUAL type in " << this->definer);
         }
         this->startedRslv = true;
-        this->_type = this->define_type();
-        if (! this->_type)
-            LOG(this->LOGGER(), ERROR, "NULL actual type in " << this->definer);
+        try {
+            this->_type = this->define_type();
+        }
+        catch (const resolution_error& err) {
+            this->hasResolved = true;
+            //LOG(this->LOGGER(), DEBUG, "Caught and re-threw resolution error in " << this->definer << ": " << err);
+            throw;
+        }
+        ASSERT(this->_type, "NULL-resolved ACTUAL type but no exception thrown in " << this->definer);
         this->hasResolved = true;
     }
     return this->_type;

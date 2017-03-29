@@ -11,6 +11,7 @@
 
 std::vector<std::string> BUILTIN_TYPE_NAMES = {
     "Any",
+    "Void",
     "Elementary",
     "Scalar",
     "Integer",
@@ -212,6 +213,37 @@ public:
 
 
 
+/** Single-purpose node that defines the Void type. */
+class TxVoidTypeDefNode final : public TxBuiltinTypeDefiningNode {
+    /** Used solely for the Void type object. */
+    class TxVoidType final : public TxActualType {
+        TxVoidType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+                                          const std::vector<TxTypeSpecialization>& interfaces) const override {
+            throw std::logic_error("Can't specialize Void");
+        }
+
+    public:
+        TxVoidType( const TxTypeDeclaration* declaration ) : TxActualType( TXTC_VOID, declaration ) { }
+
+        virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
+            //ASSERT(false, "Can't contruct LLVM type for Void type " << this->to_string());
+            LOG_DEBUG(context.LOGGER(), "LLVM type for abstract type " << this << " is VOID");
+            return context.get_voidT();
+        }
+    };
+
+protected:
+    virtual TxActualType* define_builtin_type() override {
+        return new TxVoidType( this->get_declaration() );
+    }
+
+public:
+    TxVoidTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes={} )
+        : TxBuiltinTypeDefiningNode( parseLocation, VOID, baseTypeNode, declNodes ) { }
+};
+
+
+
 /** Used to define the built-in types' abstract base types. */
 class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
     /** Used for the built-in types' abstract base types. */
@@ -380,7 +412,7 @@ protected:
 
 public:
     TxDefConstructorTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* returnTypeNode, TxExpressionNode* initExprNode)
-        : TxFunctionTypeNode( parseLocation, false, new std::vector<TxFieldDefNode*>(), returnTypeNode ), initExprNode( initExprNode )  { }
+        : TxFunctionTypeNode( parseLocation, false, new std::vector<TxFieldTypeDefNode*>(), returnTypeNode ), initExprNode( initExprNode )  { }
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->initExprNode->visit_ast( visitor, thisAsParent, "initializer", context );
@@ -397,8 +429,8 @@ protected:
     }
 
 public:
-    TxConvConstructorTypeDefNode( const TxLocation& parseLocation, TxFieldDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
-        : TxFunctionTypeNode( parseLocation, false, new std::vector<TxFieldDefNode*>( { fromTypeArg } ), returnTypeNode )  { }
+    TxConvConstructorTypeDefNode( const TxLocation& parseLocation, TxFieldTypeDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
+        : TxFunctionTypeNode( parseLocation, false, new std::vector<TxFieldTypeDefNode*>( { fromTypeArg } ), returnTypeNode )  { }
 };
 
 
@@ -454,7 +486,7 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
     auto fromTypeNode = new TxIdentifiedTypeNode( loc, BUILTIN_TYPE_NAMES[fromTypeId] );
     return new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
                 new TxFieldDefNode( loc, CONSTR_IDENT,
-                                    new TxConvConstructorTypeDefNode( loc, new TxFieldDefNode( loc, "arg", fromTypeNode, nullptr ), toTypeNode ),
+                                    new TxConvConstructorTypeDefNode( loc, new TxFieldTypeDefNode( loc, "arg", fromTypeNode ), toTypeNode ),
                                     nullptr ),  // no function body, initialization is inlined
                 false );  // not method syntax since elementary types' initializers are inlineable, pure functions
 }
@@ -464,13 +496,22 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
 TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     auto & loc = this->builtinLocation;
 
-    // create the Any root type:
-    auto anyTypeDecl = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Any", nullptr,
-                                           new TxAnyTypeDefNode( loc ) );
-    this->builtinTypes[ANY] = anyTypeDecl;
-    // candidate members of the Any root type:
-    // public static _typeid() UInt
-    // public final _address() ULong
+    { // create the Any root type:
+        auto anyTypeDecl = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Any", nullptr,
+                                               new TxAnyTypeDefNode( loc ) );
+        this->builtinTypes[ANY] = anyTypeDecl;
+        // candidate members of the Any root type:
+        // public static _typeid() UInt
+        // public final _address() ULong
+    }
+
+
+    { // create the Void type:
+        auto voidBaseTypeNode = new TxIdentifiedTypeNode( loc, BUILTIN_TYPE_NAMES[ANY] );
+        auto voidTypeDecl = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Void", nullptr,
+                                                new TxVoidTypeDefNode( loc, voidBaseTypeNode ) );
+        this->builtinTypes[VOID] = voidTypeDecl;
+    }
 
 
     // default initializers for elementary, concrete built-ins:
@@ -676,7 +717,8 @@ void BuiltinTypes::initializeBuiltinSymbols() {
         std::vector<const TxActualType*> argumentTypes( {} );
         auto c_abort_func_type_def = new TxBuiltinFieldDefNode( this->builtinLocation );
         auto c_abort_decl = txCfuncModule->declare_field("abort", c_abort_func_type_def, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
-        auto funcType = new TxFunctionType( nullptr, this->builtinTypes[FUNCTION]->typeExpression->resolve_type()->type(), argumentTypes);
+        auto funcType = new TxFunctionType( nullptr, this->builtinTypes[FUNCTION]->typeExpression->resolve_type()->type(), argumentTypes,
+                                            this->builtinTypes[VOID]->typeExpression->resolve_type()->type() );
         auto type = new TxType( funcType );
         c_abort_func_type_def->set_field( TxField::make_field(c_abort_decl, type) );
     }

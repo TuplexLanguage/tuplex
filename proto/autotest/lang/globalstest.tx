@@ -48,37 +48,38 @@ square( a : Int )->Int {
 
 
 ## check controlled error message upon recursive definition
+## note - only one of the recursing definitions typically produce an error message
 
 ## type resolution recursion:
-#experr: REC1 := REC2;
-#experr: REC2 := REC1;
+#experr 1: REC1 := REC2;
+#experr 0: REC2 := REC1;
 
 ## initializer recursion:
-#experr: REC3 : Int = REC4;
-#experr: REC4 : Int = REC3;
+#experr 1: REC3 : Int = REC4;
+#experr 0: REC4 : Int = REC3;
 
-#experr: REC5 := REC6;
-#experr: REC6 : Int = REC5;
+#experr 1: REC5 := REC6;
+#experr 0: REC6 : Int = REC5;
 
-#experr: REC7 : Int = REC8;
-#experr: REC8 := REC7;
+#experr 1: REC7 : Int = REC8;
+#experr 0: REC8 := REC7;
 
 
 ## corresponding test for static type members:
 type Compound {
     static OK : Int = 4;
 
-    #experr: static RECA := RECB;
-    #experr: static RECB := RECA;
+    #experr 1: static RECA := RECB;
+    #experr 0: static RECB := RECA;
 
-    #experr: static RECC : Int = RECD;
-    #experr: static RECD : Int = RECC;
+    #experr 1: static RECC : Int = RECD;
+    #experr 0: static RECD : Int = RECC;
 
-    #experr: static RECE := RECF;
-    #experr: static RECF : Int = RECE;
+    #experr 1: static RECE := RECF;
+    #experr 0: static RECF : Int = RECE;
 
-    #experr: static RECG : Int = RECH;
-    #experr: static RECH := RECG;
+    #experr 1: static RECG : Int = RECH;
+    #experr 0: static RECH := RECG;
 }
 
 

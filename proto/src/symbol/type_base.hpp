@@ -50,6 +50,8 @@ enum TxTypeClass {
     TXTC_INTERFACE,
     /** The internal, implicit interface adapter types. */
     TXTC_INTERFACEADAPTER,
+    /** The internal Void type (represents the "return type" of functions that do not return a value). */
+    TXTC_VOID,
 };
 
 
@@ -184,10 +186,10 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     const TxTypeDeclaration* declaration;
 
     /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
-    std::vector<TxEntityDeclaration*> params;
+    std::vector<const TxEntityDeclaration*> params;
 
     /** Bindings of the base type's type parameters. Should not be accessed directly, use type_bindings() accessor instead. */
-    std::vector<TxEntityDeclaration*> bindings;
+    std::vector<const TxEntityDeclaration*> bindings;
 
     const TxTypeSpecialization baseTypeSpec;  // including bindings for all type parameters of base type
     const std::vector<TxTypeSpecialization> interfaces;
@@ -532,7 +534,7 @@ public:
     /*--- type parameter handling ---*/
 
     /** Gets the (unbound) type parameters of this type (this type is a generic type if this is non-empty). */
-    const std::vector<TxEntityDeclaration*>& type_params() const {
+    const std::vector<const TxEntityDeclaration*>& type_params() const {
         ASSERT(this->hasInitialized, "Can't get type params of uninitized type " << this);
         return ( (this->is_empty_derivation() || this->is_modifiable()) ? this->get_base_type()->type_params() : this->params );
     }
@@ -555,7 +557,7 @@ public:
     }
 
 
-    inline const std::vector<TxEntityDeclaration*>& get_bindings() const {
+    inline const std::vector<const TxEntityDeclaration*>& get_bindings() const {
         ASSERT(this->hasInitialized, "Can't get bindings of uninitized type " << this);
         return this->bindings;
     }

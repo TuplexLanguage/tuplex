@@ -77,8 +77,8 @@ object_construction()->Int {
     assert heapObj4.field4 == 2.71;
 
     ## constructors aren't inherited:
-    #experr 2: bad1 := BType();  
-    #experr  : bad2 := new BType();  
+    #experr 1: bad1 := BType();  
+    #experr 1: bad2 := new BType();  
 
     return heapObj4.method( 2 );
 }

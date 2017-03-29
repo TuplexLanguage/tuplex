@@ -700,13 +700,13 @@ const TxType* TypeRegistry::get_function_type(const TxTypeDeclaration* declarati
 const TxType* TypeRegistry::get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
                                               bool modifiableClosure) {
     auto funcType = new TxFunctionType( declaration, this->get_builtin_type( FUNCTION )->type(),
-                                        make_actual_arg_types( argumentTypes ), nullptr, modifiableClosure );
+                                        make_actual_arg_types( argumentTypes ), modifiableClosure );
     this->add_type(funcType);
     return new TxType( funcType );
 }
 
 const TxType* TypeRegistry::get_constructor_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
-                                                 TxTypeDeclaration* objectTypeDecl) {
+                                                 const TxTypeDeclaration* objectTypeDecl) {
     auto type = new TxConstructorType( declaration, this->get_builtin_type( FUNCTION )->type(),
                                        make_actual_arg_types( argumentTypes ), objectTypeDecl );
     this->add_type(type);

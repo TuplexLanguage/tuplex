@@ -67,14 +67,25 @@ void TxNode::visit_ast( AstVisitor visitor, void* context ) const {
 
 const TxType* TxTypeDefiningNode::resolve_type() {
 //    ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
-    if (!this->type && !this->hasResolved) {
+    if (! this->type) {
+        if (this->hasResolved) {
+            throw resolution_error( this, "Previous type resolution failed in " + this->str() );
+        }
         LOG_TRACE(this->LOGGER(), "resolving type  of " << this);
+
         if (this->startedRslv) {
-            CERROR(this, "Recursive definition of type '" << this->get_identifier() << "'");
-            return nullptr;
+            CERR_THROWRES(this, "Recursive definition of type '" << this->get_identifier() << "'");
         }
         this->startedRslv = true;
-        this->type = this->define_type();
+        try {
+            this->type = this->define_type();
+        }
+        catch (const resolution_error& err) {
+            this->hasResolved = true;
+            //LOG(this->LOGGER(), DEBUG, "Caught and re-threw resolution error in " << this << ": " << err);
+            throw;
+        }
+        ASSERT(this->type, "NULL-resolved type but no exception thrown in " << this);
         this->hasResolved = true;
     }
     return this->type;
@@ -83,16 +94,26 @@ const TxType* TxTypeDefiningNode::resolve_type() {
 
 const TxField* TxFieldDefiningNode::resolve_field() {
 //    ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
-    if (!this->field && !this->hasResolved) {
+    if (! this->field) {
+        if (this->hasResolved) {
+            throw resolution_error( this, "Previous field resolution failed in " + this->str() );
+        }
         LOG_TRACE(this->LOGGER(), "resolving field of " << this);
+
         if (this->startedRslv) {
-            CERROR(this, "Recursive definition of field '" << this->get_identifier() << "'");
-            return nullptr;
+            CERR_THROWRES(this, "Recursive definition of field '" << this->get_identifier() << "'");
         }
         this->startedRslv = true;
-        this->type = this->define_type();
-        if (this->type)
+        try {
+            this->type = this->define_type();
             this->field = this->define_field();
+        }
+        catch (const resolution_error& err) {
+            this->hasResolved = true;
+            //LOG(this->LOGGER(), DEBUG, "Caught and re-threw resolution error in " << this << ": " << err);
+            throw;
+        }
+        ASSERT(this->type && this->field, "NULL-resolved type/field but no exception thrown in " << this);
         this->hasResolved = true;
     }
     return this->field;
@@ -162,9 +183,16 @@ void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool 
 }
 
 void TxFieldDeclNode::symbol_resolution_pass() {
-    this->field->symbol_resolution_pass();
+    try {
+        this->field->symbol_resolution_pass();
+    }
+    catch (const resolution_error& err) {
+        LOG(this->LOGGER(), DEBUG, "Caught resolution error in " << this->field << ": " << err);
+        return;
+    }
 
-    if (auto type = this->field->get_type()) {
+    {
+        auto type = this->field->get_type();
         auto storage = this->field->get_declaration()->get_storage();
         if (type->is_modifiable()) {
             if (storage == TXS_GLOBAL)
@@ -198,7 +226,7 @@ void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, Lexica
     this->set_context( lexContext );
     // Note: does not invoke symbol_declaration_pass() on typeParamDecls, that is delegated to typeExpression
     TxDeclarationFlags flags = (isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags);
-    TxTypeDeclaration* declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeExpression, flags );
+    auto declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeExpression, flags );
     if (! declaration) {
         CERROR(this, "Failed to declare type " << this->typeName);
         return;
@@ -246,7 +274,7 @@ const TxType* TxIdentifiedTypeNode::define_type() {
         }
     }
     else
-        CERROR(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
+        CERR_THROWRES(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
     return nullptr;
 }
 
@@ -259,7 +287,7 @@ const TxType* TxGenSpecTypeNode::define_type() {
         }
     }
     else
-        CERROR(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
+        CERR_THROWRES(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
     return nullptr;
 }
 
@@ -416,8 +444,8 @@ static int get_reinterpretation_degree( const TxType *expectedType, const TxType
  *
  * Note: This function doesn't generate compiler errors; if no match is found null is returned.
  */
-static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntitySymbol* entitySymbol,
-                                          const std::vector<TxMaybeConversionNode*>* arguments ) {
+static const TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntitySymbol* entitySymbol,
+                                                const std::vector<TxMaybeConversionNode*>* arguments ) {
     if (! arguments) {
         if (entitySymbol->field_count() == 1)
             return entitySymbol->get_first_field_decl();
@@ -438,12 +466,14 @@ static TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntityS
         argTypes.push_back( argType );
     }
 
-    TxFieldDeclaration* closestDecl = nullptr;
+    const TxFieldDeclaration* closestDecl = nullptr;
     uint64_t closestReint = UINT64_MAX;
 
     for (auto fieldCandidateI = entitySymbol->fields_cbegin();
               fieldCandidateI != entitySymbol->fields_cend(); fieldCandidateI++) {
-        if (auto field = (*fieldCandidateI)->get_definer()->resolve_field()) {
+        const TxFieldDeclaration* fieldDecl = (*fieldCandidateI);
+        if (! ( fieldDecl->get_decl_flags() & TXD_EXPERRBLOCK ) ) {
+            auto field = fieldDecl->get_definer()->resolve_field();
 
             // first screen the fields that are of function type and take the correct number of arguments:
             if (field->get_type()->get_type_class() == TXTC_FUNCTION) {
@@ -508,7 +538,7 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
         // baseExpr may or may not refer to a type (e.g. modules don't)
         auto baseType = this->baseExpr->resolve_type();
 
-        if (baseType && baseType->get_type_class() == TXTC_REFERENCE) {
+        if (baseType->get_type_class() == TXTC_REFERENCE) {
             // implicit dereferencing ('^') operation:
             if (auto baseRefTargetType = baseType->target_type()) {
                 //std::cerr << "Adding implicit '^' to: " << this->baseExpr << "  six=" << six << std::endl;
@@ -521,7 +551,7 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
         }
 
         TxScopeSymbol* vantageScope = this->context().scope();
-        if (baseType) {
+        if (baseType->get_type_class() != TXTC_VOID) {
             // base is a value expression
             symbol = baseType->lookup_inherited_instance_member(vantageScope, this->symbolName->str());
         }
@@ -547,12 +577,13 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                 if (auto fieldDecl = resolve_field( *this, entitySymbol, this->appliedFuncArgs )) {
                     if (fieldDecl->get_storage() == TXS_INSTANCE || fieldDecl->get_storage() == TXS_INSTANCEMETHOD) {
                         if (!this->baseExpr) {
-                            CERROR(this, "Instance member field referenced without instance base: " << this->get_full_identifier());
+                            CERR_THROWRES(this, "Instance member field referenced without instance base: " << this->get_full_identifier());
                             return nullptr;
                         }
                         else if (auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>(this->baseExpr)) {
                             if (!baseSymbolNode->get_field()) {
-                                CERROR(this, "Instance member field referenced without instance base: " << this->get_full_identifier());                                return nullptr;
+                                CERR_THROWRES(this, "Instance member field referenced without instance base: " << this->get_full_identifier());
+                                return nullptr;
                             }
                         }
                     }
@@ -573,7 +604,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                                 return this->declaration;
                             }
                     }
-                    CERROR(this, "No matching constructor signature for type symbol: " << this->get_full_identifier());
+                    CERR_THROWRES(this, "No matching constructor signature for type symbol: " << this->get_full_identifier());
                 }
                 else {
                     // resolve this symbol to its type
@@ -582,44 +613,44 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                 }
             }
             else
-                CERROR(this, "Symbol " << entitySymbol << " could not be resolved to a distinct field or type: " << this->get_full_identifier());
+                CERR_THROWRES(this, "Symbol " << entitySymbol << " could not be resolved to a distinct field or type: " << this->get_full_identifier());
         }
         // not an error
         //else
         //    CERROR(this, "Symbol is not a field or type: " << this->get_full_identifier());
     }
     else
-        CERROR(this, "Unknown symbol: '" << this->get_full_identifier() << "'");
+        CERR_THROWRES(this, "Unknown symbol: '" << this->get_full_identifier() << "'");
     return nullptr;
 }
 
 const TxType* TxFieldValueNode::define_type() {
     if (auto decl = this->resolve_decl()) {
         if (auto fieldDecl = dynamic_cast<const TxFieldDeclaration*>(decl)) {
-            if (auto field = fieldDecl->get_definer()->resolve_field()) {
-                this->field = field;
-                return field->get_type();
-            }
+            this->field = fieldDecl->get_definer()->resolve_field();
+            return this->field->get_type();
         }
         else
             return static_cast<const TxTypeDeclaration*>(decl)->get_definer()->resolve_type();
     }
-    return nullptr;
+    // Symbol is not a field or type, return Void as placeholder type
+    return this->types().get_builtin_type( VOID );
 }
 
 
 
 const TxType* TxConstructorCalleeExprNode::define_type() {
     ASSERT(this->appliedFuncArgs, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized");
-    if (auto allocType = this->objectExpr->resolve_type()) {
+    {
+        auto allocType = this->objectExpr->resolve_type();
         // find the constructor
         if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member(CONSTR_IDENT)) {  // (constructors aren't inherited)
             if (auto constructorDecl = resolve_field( *this, constructorSymbol, this->appliedFuncArgs)) {
                 ASSERT(constructorDecl->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_INITIALIZER),
                         "field named $init is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str());
                 this->declaration = constructorDecl;
-                if (auto constructorField = constructorDecl->get_definer()->resolve_field())
-                    return constructorField->get_type();
+                auto constructorField = constructorDecl->get_definer()->resolve_field();
+                return constructorField->get_type();
             }
         }
         if (this->appliedFuncArgs->size() == 0) {
@@ -628,7 +659,7 @@ const TxType* TxConstructorCalleeExprNode::define_type() {
         else if (this->appliedFuncArgs->size() == 1) {
             // TODO: support default assignment constructor
         }
-        CERROR(this, "No matching constructor for type " << allocType);
+        CERR_THROWRES(this, "No matching constructor for type " << allocType);
     }
     return nullptr;
 }
@@ -670,11 +701,8 @@ const TxType* TxFunctionCallNode::define_type() {
     ASSERT (!this->callee->get_applied_func_args(), "callee already has applied func arg types: " << this->callee);
     this->callee->set_applied_func_args( this->argsExprList );
     this->calleeType = this->callee->resolve_type();
-    if (!this->calleeType)
-        return nullptr;
     if (this->calleeType->get_type_class() != TXTC_FUNCTION) {
-        CERROR(this, "Callee of function call expression is not of function type: " << this->calleeType);
-        return nullptr;
+        CERR_THROWRES(this, "Callee of function call expression is not of function type: " << this->calleeType);
     }
     else if (auto constructorType = dynamic_cast<const TxConstructorType*>(this->calleeType->type())) {
         // constructor functions return void but the constructor invocation expression yields the constructed type:

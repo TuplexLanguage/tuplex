@@ -35,21 +35,21 @@ TxField* TxField::make_field( const TxFieldDeclaration* fieldDeclaration, const 
                     if (funcArgTypes.size() == prevFuncArgTypes.size()
                         && equal( funcArgTypes.begin(), funcArgTypes.end(), prevFuncArgTypes.begin(),
                                   [](const TxType* t1, const TxType* t2) { return *t1 == *t2; } ) ) {
-                        CERROR(fieldDeclaration->get_definer(), "Can't overload two functions with identical argument types:\n\t"
-                                << symbol->get_full_name() << ": " << fieldType);
+                        CERR_THROWRES(fieldDeclaration->get_definer(), "Can't overload two functions with identical argument types:\n\t"
+                                      << symbol->get_full_name() << ": " << fieldType);
                         return nullptr;
                     }
                 }
                 else {
-                    CERROR(fieldDeclaration->get_definer(), "Can't overload symbol that has a non-function " << (*prevFieldDeclI) << " of type "
-                           << prevFieldType);
+                    CERR_THROWRES(fieldDeclaration->get_definer(), "Can't overload symbol that has a non-function " << (*prevFieldDeclI) << " of type "
+                                  << prevFieldType);
                     return nullptr;
                 }
             }
         }
     }
     else if (symbol->field_count() > 1) {
-        CERROR(fieldDeclaration->get_definer(), "Can't overload symbol with non-function " << fieldDeclaration << " of type " << fieldType);
+        CERR_THROWRES(fieldDeclaration->get_definer(), "Can't overload symbol with non-function " << fieldDeclaration << " of type " << fieldType);
         return nullptr;
     }
 

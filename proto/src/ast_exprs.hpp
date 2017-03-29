@@ -30,7 +30,7 @@ protected:
                 return this->types().get_builtin_type(ANY);
             return refType->target_type();
         }
-        CERROR(this, "Operand is not a reference and can't be dereferenced: " << refType);
+        CERR_THROWRES(this, "Operand is not a reference and can't be dereferenced: " << refType);
         return nullptr;
     }
 
@@ -83,7 +83,7 @@ protected:
                 return this->types().get_builtin_type(ANY);
         }
         if (opType)
-            CERROR(this, "Operand is not an array and can't be subscripted: " << opType);
+            CERR_THROWRES(this, "Operand is not an array and can't be subscripted: " << opType);
         return nullptr;
     }
 
@@ -229,10 +229,8 @@ protected:
                 if (op_class == TXOC_BOOLEAN)
                     CERROR(this, "Can't perform boolean operation on operands of scalar type: " << ltype);
             }
-            else if (rtype)
-                CERROR(this, "Mismatching scalar operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
             else
-                return nullptr;
+                CERR_THROWRES(this, "Mismatching scalar operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
         }
         else if (ltype->is_builtin( BOOL )) {
             if (rtype->is_builtin( BOOL )) {
@@ -250,14 +248,13 @@ protected:
             else
                 CERROR(this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
         }
-        else if (ltype && rtype) {
-            CERROR(this, "Unsupported operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
-        }
         else
-            return nullptr;
+            CERR_THROWRES(this, "Unsupported operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
 
         if (this->op_class == TXOC_ARITHMETIC) {
             // Note: After analyzing conversions, the lhs will hold the proper resulting type.
+            if (! arithResultType)
+                throw resolution_error( this, "Mismatching arithmetic binary operand types" );
             return arithResultType;
         }
         else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
@@ -310,7 +307,7 @@ protected:
     virtual const TxType* define_type() override {
         auto type = this->operand->resolve_type();
         if (! (type && type->is_scalar()))
-            CERROR(this, "Invalid operand type for unary '-', not of scalar type: " << type);
+            CERR_THROWRES(this, "Invalid operand type for unary '-', not of scalar type: " << type);
         else if (auto intType = dynamic_cast<const TxIntegerType*>(type->type()))
             if (! intType->is_signed()) {
                 // promote unsigned integers upon negation
@@ -731,7 +728,7 @@ protected:
                 return this->types().get_builtin_type(ANY);
             return opType->target_type();
         }
-        CERROR(this, "Operand is not a reference and can't be dereferenced: " << opType);
+        CERR_THROWRES(this, "Operand is not a reference and can't be dereferenced: " << opType);
         return nullptr;
     }
 
@@ -776,7 +773,7 @@ protected:
                 return this->types().get_builtin_type(ANY);  // (not modifiable)
         }
         // operand type is unknown / not an array and can't be subscripted
-        CERROR(this, "Can't subscript non-array expression.");
+        CERR_THROWRES(this, "Can't subscript non-array expression.");
         return nullptr;
     }
 

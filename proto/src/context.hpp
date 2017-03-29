@@ -23,7 +23,7 @@ namespace llvm {
  */
 class LexicalContext : public Printable {
     TxScopeSymbol* _scope;
-    TxTypeDeclaration* constructedObjTypeDecl;
+    const TxTypeDeclaration* constructedObjTypeDecl;
     bool reinterpretation;  // true if this is a reinterpretation (specialization) of an AST
     ExpectedErrorClause* expErrCtx;
 
@@ -76,7 +76,7 @@ public:
 
 
     /** If this scope is a type declaration, return it. */
-    inline TxTypeDeclaration* outer_type() const {
+    inline const TxTypeDeclaration* outer_type() const {
         if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(this->_scope))
             return entitySymbol->get_type_decl();
         return nullptr;
@@ -94,9 +94,9 @@ public:
     inline ExpectedErrorClause* exp_error() const { return expErrCtx; }
 
     /** If non-null, this context is within a constructor and the declaration for the constructed object type is returned. */
-    inline TxTypeDeclaration* get_constructed() { return this->constructedObjTypeDecl; }
+    inline const TxTypeDeclaration* get_constructed() { return this->constructedObjTypeDecl; }
 
-    inline void set_constructed(TxTypeDeclaration* constructedEntity) { this->constructedObjTypeDecl = constructedEntity; }
+    inline void set_constructed(const TxTypeDeclaration* constructedEntity) { this->constructedObjTypeDecl = constructedEntity; }
 
     inline virtual bool operator==(const LexicalContext& other) const {
         return this->_scope == other._scope;

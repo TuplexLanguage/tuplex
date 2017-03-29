@@ -235,7 +235,13 @@ public:
         for (auto stmt : *this->suite) {
             if (prev_stmt && prev_stmt->ends_with_terminal_stmt())
                 CERROR(stmt, "This statement is unreachable.");
-            stmt->symbol_resolution_pass();
+
+            try {
+                stmt->symbol_resolution_pass();
+            }
+            catch (const resolution_error& err) {
+                LOG(this->LOGGER(), DEBUG, "Caught resolution error in " << stmt << ": " << err);
+            }
             prev_stmt = stmt;
         }
     }
@@ -499,9 +505,8 @@ public:
             CERROR(this, "Can't next Expected Error constructs in a statement");
         if (! this->context().is_reinterpretation()) {
             this->get_parse_location().parserCtx->register_exp_err_node( this );
-            this->get_parse_location().parserCtx->begin_exp_err( this );
+            ScopedExpErrClause scopedEEClause( this );
             this->body->symbol_declaration_pass( this->context(), true );
-            this->get_parse_location().parserCtx->end_exp_err( this->parseLocation );
         }
         else
             this->body->symbol_declaration_pass( this->context(), true );
@@ -510,9 +515,8 @@ public:
     virtual void symbol_resolution_pass() override {
         auto ctx = this->context();
         if (! ctx.is_reinterpretation()) {
-            this->get_parse_location().parserCtx->begin_exp_err( this );
+            ScopedExpErrClause scopedEEClause( this );
             this->body->symbol_resolution_pass();
-            this->get_parse_location().parserCtx->end_exp_err( this->parseLocation );
         }
         else
             this->body->symbol_resolution_pass();

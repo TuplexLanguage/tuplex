@@ -146,12 +146,12 @@ public:
 
     /*--- symbol table handling  ---*/
 
-    virtual TxTypeDeclaration* declare_type(const std::string& plainName, TxTypeDefiningNode* typeDefiner,
-                                            TxDeclarationFlags declFlags);
+    virtual const TxTypeDeclaration* declare_type( const std::string& plainName, TxTypeDefiningNode* typeDefiner,
+                                                   TxDeclarationFlags declFlags );
 
-    virtual TxFieldDeclaration* declare_field(const std::string& plainName, TxFieldDefiningNode* fieldDefiner,
-                                              TxDeclarationFlags declFlags, TxFieldStorage storage,
-                                              const TxIdentifier& dataspace);
+    virtual const TxFieldDeclaration* declare_field( const std::string& plainName, TxFieldDefiningNode* fieldDefiner,
+                                                     TxDeclarationFlags declFlags, TxFieldStorage storage,
+                                                     const TxIdentifier& dataspace );
 
 
 
@@ -176,16 +176,6 @@ public:
     inline std::set<std::string>::const_iterator alpha_order_names_lower(const std::string& val) const { return this->alphaOrderNames.lower_bound(val); }
     /** Returns a read-only, alphabetically ordered iterator that points to an upper bound. */
     inline std::set<std::string>::const_iterator alpha_order_names_upper(const std::string& val) const { return this->alphaOrderNames.upper_bound(val); }
-
-//    /** Returns a read/write, unordered iterator that points to the first symbol mapping. */
-//    inline SymbolMap::iterator symbols_begin() { return this->symbols.begin(); }
-//    /** Returns a read/write, unordered iterator that points one past the last symbol mapping. */
-//    inline SymbolMap::iterator symbols_end()   { return this->symbols.end(); }
-//
-//    /** Returns a read-only, unordered iterator that points to the first symbol mapping. */
-//    inline SymbolMap::const_iterator symbols_cbegin() const { return this->symbols.cbegin(); }
-//    /** Returns a read-only, unordered iterator that points one past the last symbol mapping. */
-//    inline SymbolMap::const_iterator symbols_cend()   const { return this->symbols.cend(); }
 
 
 
@@ -213,10 +203,10 @@ public:
 
 /** A symbol that represents an entity (several if overloaded). */
 class TxEntitySymbol : public TxScopeSymbol {
-    TxTypeDeclaration* typeDeclaration;
-    std::vector<TxFieldDeclaration*> fieldDeclarations;
+    const TxTypeDeclaration* typeDeclaration;
+    std::vector<const TxFieldDeclaration*> fieldDeclarations;
 
-    TxEntityDeclaration* get_distinct_decl() const;
+    const TxEntityDeclaration* get_distinct_decl() const;
 
 protected:
     virtual bool declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) override {
@@ -243,29 +233,15 @@ public:
 
     inline size_t count() const { return this->fieldDeclarations.size() + (this->typeDeclaration ? 1 : 0); }
 
-    inline TxTypeDeclaration* get_type_decl() const { return this->typeDeclaration; }
+    inline const TxTypeDeclaration* get_type_decl() const { return this->typeDeclaration; }
 
-    inline TxFieldDeclaration* get_first_field_decl() const { return (this->fieldDeclarations.empty() ? nullptr : this->fieldDeclarations.front()); }
+    inline const TxFieldDeclaration* get_first_field_decl() const { return (this->fieldDeclarations.empty() ? nullptr : this->fieldDeclarations.front()); }
 
-    inline std::vector<TxFieldDeclaration*>::const_iterator fields_cbegin() const noexcept { return this->fieldDeclarations.cbegin(); }
-    inline std::vector<TxFieldDeclaration*>::const_iterator fields_cend() const noexcept { return this->fieldDeclarations.cend(); }
+    inline std::vector<const TxFieldDeclaration*>::const_iterator fields_cbegin() const noexcept { return this->fieldDeclarations.cbegin(); }
+    inline std::vector<const TxFieldDeclaration*>::const_iterator fields_cend() const noexcept { return this->fieldDeclarations.cend(); }
 
 
     virtual TxScopeSymbol* get_member_symbol(const std::string& name) override;
-
-//    TxScopeSymbol* resolve_generic(TxScopeSymbol* vantageScope, TxScopeSymbol* scope) override;
-
-//    virtual TxSymbolScope* lookup_member(std::vector<TxSymbolScope*>& path, const TxIdentifier& ident) override {
-//        // for now: match against this overloaded symbol's type entity, if present, otherwise fail
-//        // (if/when functions can have "members", or non-function fields can be overloaded, this would need to change)
-//        if (this->typeDefiner) {
-//            ASSERT(this == path.back(), "Expected this to equal last entity in path: " << *this << " != " << *path.back());
-//            path[path.size()-1] = this->typeEntity;
-//            return this->typeDefiner->lookup_member(path, ident);
-//        }
-//        this->LOGGER().warning("Attempted to lookup member %s in overloaded fields symbol %s", ident.to_string().c_str(), this->get_full_name().to_string().c_str());
-//        return nullptr;
-//    }
 
     virtual void dump_symbols() const override;
 
@@ -299,6 +275,6 @@ TxScopeSymbol* lookup_member(TxScopeSymbol* vantageScope, TxScopeSymbol* scope, 
 
 TxScopeSymbol* lookup_symbol(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
 
-TxTypeDeclaration* lookup_type(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
+const TxTypeDeclaration* lookup_type(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
 
-TxFieldDeclaration* lookup_field(TxScopeSymbol* vantageScope, const TxIdentifier& ident);
+const TxFieldDeclaration* lookup_field(TxScopeSymbol* vantageScope, const TxIdentifier& ident);

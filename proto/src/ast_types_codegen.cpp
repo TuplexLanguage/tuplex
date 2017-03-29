@@ -54,11 +54,11 @@ Value* TxDerivedTypeNode::code_gen(LlvmGenerationContext& context, GenScope* sco
 }
 
 
-Value* TxSuperTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    TRACE_CODEGEN(this, context);
-    this->derivedTypeNode->code_gen(context, scope);
-    return nullptr;
-}
+//Value* TxSuperTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+//    TRACE_CODEGEN(this, context);
+//    this->derivedTypeNode->code_gen(context, scope);
+//    return nullptr;
+//}
 
 
 Value* TxFunctionTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {

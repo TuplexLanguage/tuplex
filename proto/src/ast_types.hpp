@@ -420,69 +420,70 @@ public:
 };
 
 
-/**
- * Custom AST node needed to resolve to a type's super type. */
-class TxSuperTypeNode : public TxTypeExpressionNode {
-protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
-        this->derivedTypeNode->symbol_declaration_pass( defContext, lexContext, nullptr );
-    }
+///**
+// * Custom AST node needed to resolve to a type's super type. */
+//class TxSuperTypeNode : public TxTypeExpressionNode {
+//protected:
+//    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
+//        this->derivedTypeNode->symbol_declaration_pass( defContext, lexContext, nullptr );
+//    }
+//
+//    virtual const TxType* define_type() override {
+//        if (auto dType = this->derivedTypeNode->resolve_type()) {
+//            if (auto base = dType->get_semantic_base_type())
+//                return base;
+//            CERROR(this, "Can't refer to 'super type' of a type that has no base type: " << dType);
+//        }
+//        return nullptr;
+//    }
+//
+//public:
+//    TxTypeExpressionNode* derivedTypeNode;
+//
+//    TxSuperTypeNode(const TxLocation& parseLocation, TxTypeExpressionNode* derivedTypeNode)
+//        : TxTypeExpressionNode(parseLocation), derivedTypeNode(derivedTypeNode)  { }
+//
+//    virtual TxSuperTypeNode* make_ast_copy() const override {
+//        return new TxSuperTypeNode( this->parseLocation, this->derivedTypeNode->make_ast_copy() );
+//    }
+//
+//    virtual std::string get_auto_type_name() const override {
+//        //std::cerr << "TxSuperTypeNode: " << this->context().scope()->get_full_name().str() << std::endl;
+//        return this->context().scope()->get_full_name().str();  // the current scope name ends with $Super
+//        // TODO: review
+//    }
+//
+//    virtual void symbol_resolution_pass() override {
+//        TxTypeExpressionNode::symbol_resolution_pass();
+//        this->derivedTypeNode->symbol_resolution_pass();
+//    }
+//
+//    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+//
+//    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+//        this->derivedTypeNode->visit_ast( visitor, thisAsParent, "derivedtype", context );
+//    }
+//};
 
-    virtual const TxType* define_type() override {
-        if (auto dType = this->derivedTypeNode->resolve_type()) {
-            if (auto base = dType->get_semantic_base_type())
-                return base;
-            CERROR(this, "Can't refer to 'super type' of a type that has no base type: " << dType);
-        }
-        return nullptr;
-    }
 
-public:
-    TxTypeExpressionNode* derivedTypeNode;
-
-    TxSuperTypeNode(const TxLocation& parseLocation, TxTypeExpressionNode* derivedTypeNode)
-        : TxTypeExpressionNode(parseLocation), derivedTypeNode(derivedTypeNode)  { }
-
-    virtual TxSuperTypeNode* make_ast_copy() const override {
-        return new TxSuperTypeNode( this->parseLocation, this->derivedTypeNode->make_ast_copy() );
-    }
-
-    virtual std::string get_auto_type_name() const override {
-        //std::cerr << "TxSuperTypeNode: " << this->context().scope()->get_full_name().str() << std::endl;
-        return this->context().scope()->get_full_name().str();  // the current scope name ends with $Super
-        // TODO: review
-    }
-
-    virtual void symbol_resolution_pass() override {
-        TxTypeExpressionNode::symbol_resolution_pass();
-        this->derivedTypeNode->symbol_resolution_pass();
-    }
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
-
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        this->derivedTypeNode->visit_ast( visitor, thisAsParent, "derivedtype", context );
-    }
-};
-
-
+/** Defines a function type. */
 class TxFunctionTypeNode : public TxTypeExpressionNode {
     // Note: the field names aren't part of a function's formal type definition
+    // (a function type doesn't declare (create entities for) the function args)
 
-    static TxFieldDefNode* make_return_field(TxTypeExpressionNode* returnType) {
+    static TxFieldTypeDefNode* make_return_field(TxTypeExpressionNode* returnType) {
         if (returnType)
-            return new TxFieldDefNode(returnType->parseLocation, "$return", returnType, nullptr);
+            return new TxFieldTypeDefNode( returnType->parseLocation, "$return", returnType );
         else
             return nullptr;
     }
 
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
-        // (processed as a function type and therefore doesn't declare (create entities for) the function args)
         for (auto argDef : *this->arguments)
-            argDef->symbol_declaration_pass_functype_arg( lexContext );
+            argDef->symbol_declaration_pass( lexContext );
         if (this->returnField)
-            this->returnField->symbol_declaration_pass_functype_arg( lexContext );
+            this->returnField->symbol_declaration_pass( lexContext );
     }
 
     virtual const TxType* define_type() override {
@@ -508,12 +509,12 @@ protected:
 public:
     /** Indicates whether functions of this type may modify its closure when run. */
     const bool modifiable;
-    std::vector<TxFieldDefNode*>* arguments;
-    TxFieldDefNode* returnField;
+    std::vector<TxFieldTypeDefNode*>* arguments;
+    TxFieldTypeDefNode* returnField;
 
-    TxFunctionTypeNode(const TxLocation& parseLocation, const bool modifiable,
-                       std::vector<TxFieldDefNode*>* arguments,
-                       TxTypeExpressionNode* returnType)
+    TxFunctionTypeNode( const TxLocation& parseLocation, const bool modifiable,
+                        std::vector<TxFieldTypeDefNode*>* arguments,
+                        TxTypeExpressionNode* returnType )
         : TxTypeExpressionNode(parseLocation), modifiable(modifiable),
           arguments(arguments), returnField(make_return_field(returnType)) { }
 
@@ -527,45 +528,22 @@ public:
         return this->get_declaration()->get_unique_full_name();
     }
 
-    void symbol_declaration_pass_func_header( LexicalContext& lexContext ) {
-        // (processed as the function instance header, so declare the function args, and the return type if any)
-        this->set_context( lexContext);
-        for (auto argField : *this->arguments)
-            argField->symbol_declaration_pass_local_field( lexContext, false );
-        if (this->returnField)
-            this->returnField->symbol_declaration_pass_local_field( lexContext, false, TXD_IMPLICIT );
-
-// experiment with implicit func type declarations
-//        ASSERT(!this->get_declaration(), "Unexpected declaration in " << this);
-//        //TxDeclarationFlags flags = (isExpErrorDecl ? TXD_IMPLICIT | TXD_EXPERRBLOCK : TXD_IMPLICIT);
-//        std::string typeName = "$ftype";
-//        auto declaration = this->context().scope()->declare_type( typeName, this, TXD_IMPLICIT );
-//        if (! declaration) {
-//            CERROR(this, "Failed to declare type " << typeName);
-//            return;
-//        }
-//        this->set_declaration( declaration );
-//        this->LOGGER().note("%s: Declared type %-16s: %s", this->parse_loc_string().c_str(), typeName.c_str(),
-//                             declaration->to_string().c_str());
-    }
-
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
         for (auto argField : *this->arguments) {
             argField->symbol_resolution_pass();
-            if (auto argType = argField->get_type()) {
-                if (! argType->is_concrete())
-                    if ( ! ( argType->get_declaration() && ( argType->get_declaration()->get_decl_flags() & TXD_GENPARAM ) ) )
-                        CERROR(argField, "Function argument type is not a concrete type (size potentially unknown): "
-                                << argField->get_identifier() << " : " << argType);
-            }
+            auto argType = argField->get_type();
+            if (! argType->is_concrete())
+                if ( ! ( argType->get_declaration() && ( argType->get_declaration()->get_decl_flags() & TXD_GENPARAM ) ) )
+                    CERROR(argField, "Function argument type is not a concrete type (size potentially unknown): "
+                            << argField->get_identifier() << " : " << argType);
         }
         if (this->returnField) {
             this->returnField->symbol_resolution_pass();
-            if (auto retType = this->returnField->get_type())
-                if (! retType->is_concrete())
-                    if ( ! ( retType->get_declaration() && ( retType->get_declaration()->get_decl_flags() & TXD_GENPARAM ) ) )
-                        CERROR(returnField, "Function return type is not a concrete type (size potentially unknown): " << retType);
+            auto retType = this->returnField->get_type();
+            if (! retType->is_concrete())
+                if ( ! ( retType->get_declaration() && ( retType->get_declaration()->get_decl_flags() & TXD_GENPARAM ) ) )
+                    CERROR(returnField, "Function return type is not a concrete type (size potentially unknown): " << retType);
         }
     }
 
@@ -595,7 +573,7 @@ protected:
             else if (! bType->is_immutable())
                 return this->types().get_modifiable_type(this->get_declaration(), bType);
             else
-                CERROR(this, "Can't declare immutable type as modifiable: " << bType);
+                CERR_THROWRES(this, "Can't declare immutable type as modifiable: " << bType);
         }
         return nullptr;
     }

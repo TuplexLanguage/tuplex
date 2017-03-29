@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "location.hpp"
+#include "tx_except.hpp"
 
 
 struct ExpectedErrorClause {
@@ -34,6 +35,16 @@ public:
 };
 
 
+/** Used to ensure proper closing of an exp-err-clause (RAII style). */
+class ScopedExpErrClause {
+    TxParseOrigin* const origin;
+    const bool enabled;
+public:
+    ScopedExpErrClause( TxParseOrigin* origin, bool enabled=true );
+    ~ScopedExpErrClause();
+};
+
+
 /** Emits a compiler error message including the source code origin where it likely occurred. */
 void cerror(const TxParseOrigin* origin, const std::string& msg);
 
@@ -51,6 +62,12 @@ void finalize_expected_error_clause( const TxParseOrigin* origin );
 
 
 #ifndef NO_CERRORS
+#   define CERR_THROWRES(origin, message) \
+    do { \
+        std::stringstream msg;  msg << message; \
+        cerror(origin, msg.str()); \
+        throw resolution_error( origin, msg.str() ); \
+    } while (false)
 #   define CERROR(origin, message) \
     do { \
         std::stringstream msg;  msg << message; \
@@ -62,6 +79,11 @@ void finalize_expected_error_clause( const TxParseOrigin* origin );
         cwarning(origin, msg.str()); \
     } while (false)
 #else
+#   define CERR_THROWRES(origin, message) \
+    do { \
+        std::stringstream msg;  msg << message; \
+        throw resolution_error( origin, msg.str() ); \
+    } while (false)
 #   define CERROR(origin, message) do { } while (false)
 #   define CWARNING(origin, message) do { } while (false)
 #endif

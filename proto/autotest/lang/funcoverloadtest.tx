@@ -23,7 +23,7 @@ other_func(a : Double, b : Double)->Double {
 
 
 main()->Int {
-    #experr 2: func_ref := overloaded_func;
+    #experr 1: func_ref := overloaded_func;
 
     result := overloaded_func( 3, 4 ) + Int( overloaded_func( 1.5, 10 ) );
     assert result == 22;

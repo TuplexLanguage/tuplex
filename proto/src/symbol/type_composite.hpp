@@ -106,7 +106,7 @@ class TxFunctionType : public TxActualType {
     const bool modifiableClosure;
 
     TxFunctionType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                   const std::vector<const TxActualType*>& argumentTypes, const TxActualType* returnType=nullptr,
+                   const std::vector<const TxActualType*>& argumentTypes, const TxActualType* returnType,
                    bool modifiableClosure=false)
             : TxActualType(TXTC_FUNCTION, declaration, baseTypeSpec, std::vector<TxTypeSpecialization>()),
               modifiableClosure(modifiableClosure), argumentTypes(argumentTypes), returnType(returnType)  { }
@@ -125,28 +125,31 @@ public:
     const std::vector<const TxActualType*> argumentTypes;
     TxActualType const * const returnType;
 
-    TxFunctionType(const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*>& argumentTypes,
-                   const TxActualType* returnType=nullptr, bool modifiableClosure=false)
+    /** Creates a function type with no value (Void) return type. */
+    TxFunctionType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*>& argumentTypes,
+                    bool modifiableClosure=false );
+
+    /** Creates a function type with a return type. */
+    TxFunctionType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*>& argumentTypes,
+                    const TxActualType* returnType, bool modifiableClosure=false )
         : TxActualType(TXTC_FUNCTION, declaration, TxTypeSpecialization(baseType)),
           modifiableClosure(modifiableClosure), argumentTypes(argumentTypes), returnType(returnType)  {
         ASSERT(argumentTypes.size() == 0 || argumentTypes.at(0), "NULL arg type");
+        ASSERT(returnType, "NULL return type (must be proper type or Void");
     }
 
     /** Returns false. Functions types are never 'abstract' (except the abstract base type for all functions). */
     virtual bool is_abstract() const override { return false; }
 
-    bool hasReturnValue() const  { return this->returnType != nullptr; }
+    bool has_return_value() const  { return this->returnType->get_type_class() != TXTC_VOID; }
 
     virtual bool modifiable_closure() const { return this->modifiableClosure; }
-
-    //virtual bool is_abstract() const override { return false; }
 
     inline virtual bool operator==(const TxActualType& other) const override {
         if (auto otherF = dynamic_cast<const TxFunctionType*>(&other)) {
             //std::cerr << "EQUAL RETURN TYPES?\n\t" << this->returnType << "\n\t" << otherF->returnType << std::endl;
             return ( ( this->returnType == otherF->returnType
-                       || ( this->returnType != nullptr && otherF->returnType != nullptr
-                            && *this->returnType == *otherF->returnType ) )
+                       || ( *this->returnType == *otherF->returnType ) )
                      && this->argumentTypes.size() == otherF->argumentTypes.size()
                      && std::equal(this->argumentTypes.cbegin(), this->argumentTypes.cend(),
                                    otherF->argumentTypes.cbegin(),
@@ -159,8 +162,7 @@ public:
         if (auto otherF = dynamic_cast<const TxFunctionType*>(&other)) {
             //std::cerr << "ASSIGNABLE RETURN TYPES?\n\t" << this->returnType << "\n\t" << otherF->returnType << std::endl;
             return ( ( this->returnType == otherF->returnType
-                       || ( this->returnType != nullptr && otherF->returnType != nullptr
-                            && this->returnType->is_assignable_to( *otherF->returnType ) ) )
+                       || ( this->returnType->is_assignable_to( *otherF->returnType ) ) )
                      && this->argumentTypes.size() == otherF->argumentTypes.size()
                      && std::equal(this->argumentTypes.cbegin(), this->argumentTypes.cend(),
                                    otherF->argumentTypes.cbegin(),
@@ -183,20 +185,20 @@ protected:
                 str << ", " << (*ai)->str(true);
         }
         str << ")";
-        if (this->returnType)
+        if (this->has_return_value())
             str << " -> " << this->returnType->str(true);
     }
 };
 
 
 class TxConstructorType : public TxFunctionType {
-    TxTypeDeclaration* objTypeDeclaration;
+    const TxTypeDeclaration* objTypeDeclaration;
 public:
-    TxConstructorType(const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*> argumentTypes,
-                      TxTypeDeclaration* objTypeDeclaration)
-        : TxFunctionType(declaration, baseType, argumentTypes, nullptr, true), objTypeDeclaration(objTypeDeclaration) { }
+    TxConstructorType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*> argumentTypes,
+                       const TxTypeDeclaration* objTypeDeclaration )
+        : TxFunctionType(declaration, baseType, argumentTypes, true), objTypeDeclaration(objTypeDeclaration) { }
 
-    TxTypeDeclaration* get_constructed_type_decl() const {
+    const TxTypeDeclaration* get_constructed_type_decl() const {
         return this->objTypeDeclaration;
     }
 };
@@ -206,8 +208,8 @@ class TxMaybeConversionNode;
 
 class TxInlineFunctionType : public TxFunctionType {
 public:
-    TxInlineFunctionType(const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*> argumentTypes,
-                          const TxActualType* returnType)
+    TxInlineFunctionType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*> argumentTypes,
+                          const TxActualType* returnType )
         : TxFunctionType(declaration, baseType, argumentTypes, returnType) { }
 
     /** Factory method that produces the TxExpressionNode to replace the function call with.
