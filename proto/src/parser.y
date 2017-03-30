@@ -106,17 +106,17 @@ YY_DECL;
 
 /* keywords: */
 %token KW_MODULE KW_IMPORT KW_TYPE KW_INTERFACE
-%token KW_PUBLIC KW_PROTECTED KW_STATIC KW_ABSTRACT KW_FINAL KW_OVERRIDE
+%token KW_PUBLIC KW_PROTECTED KW_STATIC KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERN
 %token KW_MODIFIABLE KW_REFERENCE KW_DERIVES
-%token KW_FUNC KW_TUPLE KW_UNION KW_ENUM
 %token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_OR
-%token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE KW_FROM
 %token KW_NULL KW_TRUE KW_FALSE
 %token KW_ASSERT KW_EXPERR
 
 /* keywords reserved but not currently used */
-%token KW_AND KW_XOR KW_NOT KW_BUILTIN KW_LAMBDA KW_CLASS KW_EXTENDS KW_IMPLEMENTS
+%token KW_TUPLE KW_UNION KW_ENUM
+%token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
+%token KW_AND KW_XOR KW_NOT KW_BUILTIN KW_FUNC KW_LAMBDA KW_CLASS KW_EXTENDS KW_IMPLEMENTS
 
  /* literals: */
 %token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
@@ -124,7 +124,7 @@ YY_DECL;
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above.
  */
-%type <TxDeclarationFlags> declaration_flags opt_visibility opt_static opt_abstract opt_override opt_final
+%type <TxDeclarationFlags> declaration_flags opt_visibility opt_extern opt_static opt_abstract opt_override opt_final
 %type <bool> opt_modifiable type_or_if
 %type <TxIdentifier*> identifier compound_identifier opt_dataspace
 %type <TxIdentifier*> opt_module_decl 
@@ -287,12 +287,13 @@ experr_decl : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErro
             ;
 
 
-declaration_flags : opt_visibility opt_static opt_abstract opt_override opt_final  { $$ = ($1 | $2 | $3 | $4 | $5); } ;
+declaration_flags : opt_visibility opt_extern opt_static opt_abstract opt_override opt_final  { $$ = ($1 | $2 | $3 | $4 | $5 | $6); } ;
 
 opt_visibility : %empty        { $$ = TXD_NONE; }
                | KW_PUBLIC     { $$ = TXD_PUBLIC; }
                | KW_PROTECTED  { $$ = TXD_PROTECTED; }
                ;
+opt_extern     : %empty { $$ = TXD_NONE; } | KW_EXTERN   { $$ = TXD_EXTERN;   } ;
 opt_static     : %empty { $$ = TXD_NONE; } | KW_STATIC   { $$ = TXD_STATIC;   } ;
 opt_abstract   : %empty { $$ = TXD_NONE; } | KW_ABSTRACT { $$ = TXD_ABSTRACT; } ;
 opt_override   : %empty { $$ = TXD_NONE; } | KW_OVERRIDE { $$ = TXD_OVERRIDE; } ;

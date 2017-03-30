@@ -20,9 +20,7 @@ class BuiltinTypes {
 
     TxTypeDeclNode* builtinTypes[BuiltinTypeId_COUNT];
 
-//    void declare_default_constructor(LexicalContext& ctx, BuiltinTypeId typeId, TxExpressionNode* initValueExpr);
-//    void declare_conversion_constructor(BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId);
-    void declare_tx_functions(TxModule* module);
+    void declare_tx_functions();
 
 public:
     BuiltinTypes( TypeRegistry& registry );

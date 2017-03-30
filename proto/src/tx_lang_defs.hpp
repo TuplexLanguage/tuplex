@@ -9,8 +9,6 @@
 /** internal identifier for constructors */
 #define CONSTR_IDENT "$constr"
 
-///** internal identifier for initializers */
-//#define INIT_IDENT "$init"
 
 
 #include <stdint.h>

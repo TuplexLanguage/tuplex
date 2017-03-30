@@ -318,48 +318,35 @@ public:
     }
 
     virtual void symbol_resolution_pass() {
-        if (auto field = this->resolve_field()) {
-            if (this->initExpression) {
-                if (this->typeExpression) {
-                    this->typeExpression->symbol_resolution_pass();
-                    auto ltype = field->get_type();
-                    auto nonModLType = ( ltype->is_modifiable() ? ltype->get_base_type() : ltype );  // rvalue doesn't need to be modifiable
-                    this->initExpression->insert_conversion( nonModLType );
-                }
-                this->initExpression->symbol_resolution_pass();
-
-                auto storage = field->get_storage();
-                if ( storage == TXS_GLOBAL
-                     || ( ( storage == TXS_STATIC || storage == TXS_VIRTUAL )
-                          && ! field->get_type()->is_modifiable() ) ) {
-                    // field is expected to have a statically constant initializer
-                    // (Note: When static initializers in types are supported, static/virtual fields' initialization may be deferred.)
-                    if (! this->initExpression->is_statically_constant())
-                        CERROR(this, "Non-constant initializer for constant global/static/virtual field" << this->fieldName);
-                }
-            }
-            else {  // if initExpression is null then typeExpression is set
+        auto field = this->resolve_field();
+        if (this->initExpression) {
+            if (this->typeExpression) {
                 this->typeExpression->symbol_resolution_pass();
+                auto ltype = field->get_type();
+                auto nonModLType = ( ltype->is_modifiable() ? ltype->get_base_type() : ltype );  // rvalue doesn't need to be modifiable
+                this->initExpression->insert_conversion( nonModLType );
             }
+            this->initExpression->symbol_resolution_pass();
 
-            if (! field->get_type()->is_concrete())
-                if ( ! ( field->get_type()->get_declaration() && ( field->get_type()->get_declaration()->get_decl_flags() & TXD_GENPARAM ) ) )
-                    CERROR(this, "Field type is not a concrete type (size potentially unknown): " << this->get_identifier() << " : " << field->get_type());
-            if (this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR) {
-                // TODO: check that constructor function type has void return value
+            auto storage = field->get_storage();
+            if ( storage == TXS_GLOBAL
+                 || ( ( storage == TXS_STATIC || storage == TXS_VIRTUAL )
+                      && ! field->get_type()->is_modifiable() ) ) {
+                // field is expected to have a statically constant initializer
+                // (Note: When static initializers in types are supported, static/virtual fields' initialization may be deferred.)
+                if (! this->initExpression->is_statically_constant())
+                    CERROR(this, "Non-constant initializer for constant global/static/virtual field" << this->fieldName);
             }
         }
-        else {
-            ASSERT(false, "dead code");
-            if (! this->get_type())
-                CERROR(this, "Failed to resolve field " << this->get_identifier());
-            if (this->initExpression) {
-                if (this->typeExpression)
-                    this->typeExpression->symbol_resolution_pass();
-                this->initExpression->symbol_resolution_pass();
-            }
-            else  // if initExpression is null then typeExpression is set
-                this->typeExpression->symbol_resolution_pass();
+        else {  // if initExpression is null then typeExpression is set
+            this->typeExpression->symbol_resolution_pass();
+        }
+
+        if (! field->get_type()->is_concrete())
+            if ( ! ( field->get_type()->get_declaration() && ( field->get_type()->get_declaration()->get_decl_flags() & TXD_GENPARAM ) ) )
+                CERROR(this, "Field type is not a concrete type (size potentially unknown): " << this->get_identifier() << " : " << field->get_type());
+        if (this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR) {
+            // TODO: check that constructor function type has void return value
         }
     }
 

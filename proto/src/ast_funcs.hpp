@@ -8,7 +8,16 @@ class TxFunctionHeaderNode : public TxTypeExpressionNode {
 
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
-        this->funcTypeNode->symbol_declaration_pass( defContext, lexContext, nullptr );
+        // create implicit declaration for the function's type:
+        std::string funcTypeName = "$ftype";
+        auto declaration = lexContext.scope()->declare_type( funcTypeName, this->funcTypeNode, TXD_IMPLICIT );
+        if (! declaration) {
+            CERROR(this, "Failed to declare type " << funcTypeName);
+            return;
+        }
+        LOG(this->LOGGER(), NOTE, this << ": Declared type " << declaration);
+        this->funcTypeNode->symbol_declaration_pass( defContext, lexContext, declaration );
+
         // declare the function args, and the return type if any:
         for (auto argField : *this->arguments)
             argField->symbol_declaration_pass_local_field( lexContext, false );

@@ -121,6 +121,7 @@ extern "C" int yywrap() { return 0; }
 "public"	{ return token::KW_PUBLIC; }
 "protected"	{ return token::KW_PROTECTED; }
 "static"	{ return token::KW_STATIC; }
+"extern"    { return token::KW_EXTERN; }
 "type"		{ return token::KW_TYPE; }
 "class"		{ return token::KW_CLASS; }
 "interface"	{ return token::KW_INTERFACE; }
@@ -129,15 +130,10 @@ extern "C" int yywrap() { return 0; }
 "override"  { return token::KW_OVERRIDE; }
 "mod"		{ return token::KW_MODIFIABLE; }
 "ref"		{ return token::KW_REFERENCE; }
-"extends"	{ return token::KW_EXTENDS; }
-"implements"	{ return token::KW_IMPLEMENTS; }
 "derives"   { return token::KW_DERIVES; }
-"tuple"     { return token::KW_TUPLE; }
-"union"		{ return token::KW_UNION; }
-"enum"		{ return token::KW_ENUM; }
-"func"		{ return token::KW_FUNC; }
-"lambda"    { return token::KW_LAMBDA; }
-"raises"	{ return token::KW_RAISES; }
+
+"assert"    { return token::KW_ASSERT; }
+"#experr"   { return token::KW_EXPERR; }
 
 "while"		{ return token::KW_WHILE; }
 "for"		{ return token::KW_FOR; }
@@ -148,25 +144,32 @@ extern "C" int yywrap() { return 0; }
 "switch"	{ return token::KW_SWITCH; }
 "with"		{ return token::KW_WITH; }
 "as"		{ return token::KW_AS; }
-"try"		{ return token::KW_TRY; }
 "case"		{ return token::KW_CASE; }
 "break"		{ return token::KW_BREAK; }
 "continue"	{ return token::KW_CONTINUE; }
 "return"	{ return token::KW_RETURN; }
-"except"	{ return token::KW_EXCEPT; }
-"finally"	{ return token::KW_FINALLY; }
-"raise"		{ return token::KW_RAISE; }
 "new"		{ return token::KW_NEW; }
 "delete"    { return token::KW_DELETE; }
 "from"		{ return token::KW_FROM; }
 "or"		{ return token::KW_OR; }
-"and"		{ return token::KW_AND; }  // reserved but not currently used
-"xor"		{ return token::KW_XOR; }  // reserved but not currently used
-"not"		{ return token::KW_NOT; }  // reserved but not currently used
-"builtin"	{ return token::KW_BUILTIN; }  // reserved but not currently used
 
-"assert"    { return token::KW_ASSERT; }
-"#experr"   { return token::KW_EXPERR; }
+ /* reserved but not currently used: */
+"and"		{ return token::KW_AND; }
+"xor"		{ return token::KW_XOR; }
+"not"		{ return token::KW_NOT; }
+"builtin"	{ return token::KW_BUILTIN; }
+"extends"   { return token::KW_EXTENDS; }
+"implements" { return token::KW_IMPLEMENTS; }
+"func"      { return token::KW_FUNC; }
+"lambda"    { return token::KW_LAMBDA; }
+"tuple"     { return token::KW_TUPLE; }
+"union"     { return token::KW_UNION; }
+"enum"      { return token::KW_ENUM; }
+"try"       { return token::KW_TRY; }
+"except"    { return token::KW_EXCEPT; }
+"finally"   { return token::KW_FINALLY; }
+"raise"     { return token::KW_RAISE; }
+"raises"    { return token::KW_RAISES; }
 
  /* literals */
 "NULL"                  { return token::KW_NULL; }

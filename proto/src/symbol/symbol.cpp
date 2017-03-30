@@ -179,7 +179,7 @@ void TxScopeSymbol::dump_symbols() const {
 }
 
 std::string TxScopeSymbol::description_string() const {
-    return "                          " + this->get_full_name().str();
+    return "                           " + this->get_full_name().str();
 }
 
 

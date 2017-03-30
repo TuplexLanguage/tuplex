@@ -414,6 +414,22 @@ public:
     TxDefConstructorTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* returnTypeNode, TxExpressionNode* initExprNode)
         : TxFunctionTypeNode( parseLocation, false, new std::vector<TxFieldTypeDefNode*>(), returnTypeNode ), initExprNode( initExprNode )  { }
 
+    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, const TxTypeDeclaration* owningDecl ) override {
+        // overrides in order to create implicit declaration for the function type
+        ASSERT(!owningDecl, "Expected NULL owningDeclaration: " << owningDecl);
+
+        std::string funcTypeName = "$ftype";
+        funcTypeName = lexContext.scope()->make_unique_name( funcTypeName );
+        auto declaration = lexContext.scope()->declare_type( funcTypeName, this, TXD_PUBLIC | TXD_IMPLICIT );
+        if (! declaration) {
+            CERROR(this, "Failed to declare type " << funcTypeName);
+            return;
+        }
+        //LOG(this->LOGGER(), INFO, this << ": Declared type " << declaration);
+
+        TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, declaration );
+    }
+
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->initExprNode->visit_ast( visitor, thisAsParent, "initializer", context );
     }
@@ -431,6 +447,22 @@ protected:
 public:
     TxConvConstructorTypeDefNode( const TxLocation& parseLocation, TxFieldTypeDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
         : TxFunctionTypeNode( parseLocation, false, new std::vector<TxFieldTypeDefNode*>( { fromTypeArg } ), returnTypeNode )  { }
+
+    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, const TxTypeDeclaration* owningDecl ) override {
+        // overrides in order to create implicit declaration for the function type
+        ASSERT(!owningDecl, "Expected NULL owningDeclaration: " << owningDecl);
+
+        std::string funcTypeName = "$ftype";
+        funcTypeName = lexContext.scope()->make_unique_name( funcTypeName );
+        auto declaration = lexContext.scope()->declare_type( funcTypeName, this, TXD_PUBLIC | TXD_IMPLICIT );
+        if (! declaration) {
+            CERROR(this, "Failed to declare type " << funcTypeName);
+            return;
+        }
+        //LOG(this->LOGGER(), INFO, this << ": Declared type " << declaration);
+
+        TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, declaration );
+    }
 };
 
 
@@ -652,80 +684,47 @@ void BuiltinTypes::initializeBuiltinSymbols() {
         this->builtinTypes[id]->typeExpression->resolve_type();
     }
 
-    auto module = this->registry.get_package().lookup_module("tx");
-    LexicalContext moduleCtx( module );
+    declare_tx_functions();
+}
 
-//    // default constructors for elementary, concrete built-ins:
-//    declare_default_constructor(moduleCtx, BOOL,   new TxBoolLitNode(this->builtinLocation, false));
-//    declare_default_constructor(moduleCtx, BYTE,   new TxIntegerLitNode(this->builtinLocation, 0, true,  BYTE));
-//    declare_default_constructor(moduleCtx, SHORT,  new TxIntegerLitNode(this->builtinLocation, 0, true,  SHORT));
-//    declare_default_constructor(moduleCtx, INT,    new TxIntegerLitNode(this->builtinLocation, 0, true,  INT));
-//    declare_default_constructor(moduleCtx, LONG,   new TxIntegerLitNode(this->builtinLocation, 0, true,  LONG));
-//    declare_default_constructor(moduleCtx, UBYTE,  new TxIntegerLitNode(this->builtinLocation, 0, false, UBYTE));
-//    declare_default_constructor(moduleCtx, USHORT, new TxIntegerLitNode(this->builtinLocation, 0, false, USHORT));
-//    declare_default_constructor(moduleCtx, UINT,   new TxIntegerLitNode(this->builtinLocation, 0, false, UINT));
-//    declare_default_constructor(moduleCtx, ULONG,  new TxIntegerLitNode(this->builtinLocation, 0, false, ULONG));
-//    declare_default_constructor(moduleCtx, HALF,   new TxFloatingLitNode(this->builtinLocation, HALF));
-//    declare_default_constructor(moduleCtx, FLOAT,  new TxFloatingLitNode(this->builtinLocation, FLOAT));
-//    declare_default_constructor(moduleCtx, DOUBLE, new TxFloatingLitNode(this->builtinLocation, DOUBLE));
-//
-//    // scalar conversion-constructor functions:
-//    for (auto fromTypeId : SCALAR_TYPE_IDS) {
-//        for (auto toTypeId : SCALAR_TYPE_IDS) {
-//            declare_conversion_constructor(fromTypeId, toTypeId);
-//        }
-//        declare_conversion_constructor(fromTypeId, BOOL);
-//    }
-//    declare_conversion_constructor(BOOL, BOOL);
-
-    declare_tx_functions(module);
-
-//    // built-in global constants:
-//    auto charsType = new TxArrayType("tx.Char"); // BUILTIN_TYPES[CHAR].type);
-//    TxBuiltinTypeDefiner* charsProd = new TxBuiltinTypeDefiner("CharArray", charsType);
-//    auto strRec = BuiltinTypeRecord { STRING, "String", new TxReferenceType("tx.CharArray") };
-//    TxBuiltinTypeDefiner* strProd = new TxBuiltinTypeDefiner(strRec);
-//    builtinModule->declareType(strProd->name, TXD_PUBLIC, false, *strProd);
+void BuiltinTypes::declare_tx_functions() {
 
 //    auto txCfuncModule = this->registry.get_package().declare_module( this->registry.get_package().root_origin(), TxIdentifier(BUILTIN_NS ".c"), true);
     auto txCfuncModule = this->registry.get_package().lookup_module("tx.c");
+    LexicalContext ctx(txCfuncModule);
     {   // declare tx.c.puts:
-//        auto implTypeName = "UByte$Ref";
-//        auto ubyteRefDef = new TxBuiltinTypeDefiner();
-//        auto ubyteRefDecl = txCfuncModule->declare_type(implTypeName, ubyteRefDef, TXD_PUBLIC | TXD_IMPLICIT);
-//        auto charBinding = TxGenericBinding::make_type_binding("T", this->builtinTypes[UBYTE]);
-//        ubyteRefDef->type = this->get_reference_type(ubyteRefDecl, charBinding);
-
-        auto c_puts_func_type_def = new TxBuiltinFieldDefNode( this->builtinLocation );
-        auto c_puts_decl = txCfuncModule->declare_field("puts", c_puts_func_type_def, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
-
         auto refTypeNode = new TxReferenceTypeNode(this->builtinLocation, nullptr, new TxIdentifiedTypeNode(this->builtinLocation, "tx.UByte"));
-        LexicalContext ctx(txCfuncModule);
-        refTypeNode->symbol_declaration_pass( ctx, ctx, nullptr );
-        //refTypeNode->symbol_declaration_pass( ctx, ctx, TXD_PUBLIC | TXD_IMPLICIT, "puts$argtype", nullptr );
-        refTypeNode->symbol_resolution_pass();
-        auto ubyteRefType = refTypeNode->resolve_type();
+        auto argNode = new TxFieldTypeDefNode( this->builtinLocation, "str", refTypeNode );
+        auto c_puts_func_type_def = new TxFunctionTypeNode( this->builtinLocation, false, new std::vector<TxFieldTypeDefNode*>( { argNode } ),
+                                                            new TxIdentifiedTypeNode( this->builtinLocation, "tx.Int" ) );
+        auto c_puts_func_type_decl = new TxTypeDeclNode( this->builtinLocation, TXD_PUBLIC | TXD_IMPLICIT, "puts$func", nullptr,
+                                                         c_puts_func_type_def );
+        c_puts_func_type_decl->symbol_declaration_pass( ctx );
+        c_puts_func_type_decl->symbol_resolution_pass();
 
-        const TxType* returnType = this->builtinTypes[INT]->typeExpression->resolve_type();
-
-        auto funcType = new TxFunctionType( nullptr, this->builtinTypes[FUNCTION]->typeExpression->resolve_type()->type(),
-                                            { ubyteRefType->type() }, returnType->type() );
-        auto type = new TxType( funcType );
-        c_puts_func_type_def->set_field( TxField::make_field(c_puts_decl, type) );
+        auto c_puts_def = new TxBuiltinFieldDefNode( this->builtinLocation );
+        auto c_puts_decl = txCfuncModule->declare_field( "puts", c_puts_def, TXD_PUBLIC, TXS_GLOBAL, TxIdentifier("") );
+        c_puts_def->set_field( TxField::make_field( c_puts_decl, c_puts_func_type_def->resolve_type() ) );
     }
     {  // declare tx.c.abort:
-        std::vector<const TxActualType*> argumentTypes( {} );
-        auto c_abort_func_type_def = new TxBuiltinFieldDefNode( this->builtinLocation );
-        auto c_abort_decl = txCfuncModule->declare_field("abort", c_abort_func_type_def, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
-        auto funcType = new TxFunctionType( nullptr, this->builtinTypes[FUNCTION]->typeExpression->resolve_type()->type(), argumentTypes,
-                                            this->builtinTypes[VOID]->typeExpression->resolve_type()->type() );
-        auto type = new TxType( funcType );
-        c_abort_func_type_def->set_field( TxField::make_field(c_abort_decl, type) );
+//        std::vector<const TxActualType*> argumentTypes( {} );
+//        auto funcType = new TxFunctionType( nullptr, this->builtinTypes[FUNCTION]->typeExpression->resolve_type()->type(), argumentTypes,
+//                                            this->builtinTypes[VOID]->typeExpression->resolve_type()->type() );
+//        auto type = new TxType( funcType );
+        auto c_abort_func_type_def = new TxFunctionTypeNode( this->builtinLocation, false, new std::vector<TxFieldTypeDefNode*>( {} ), nullptr );
+        auto c_abort_func_type_decl = new TxTypeDeclNode( this->builtinLocation, TXD_PUBLIC | TXD_IMPLICIT, "abort$func", nullptr,
+                                                          c_abort_func_type_def );
+        c_abort_func_type_decl->symbol_declaration_pass( ctx );
+        c_abort_func_type_decl->symbol_resolution_pass();
+
+        auto c_abort_def = new TxBuiltinFieldDefNode( this->builtinLocation );
+        auto c_abort_decl = txCfuncModule->declare_field( "abort", c_abort_def, TXD_PUBLIC, TXS_GLOBAL, TxIdentifier("") );
+        c_abort_def->set_field( TxField::make_field( c_abort_decl, c_abort_func_type_def->resolve_type() ) );
     }
-}
 
+//    auto module = this->registry.get_package().lookup_module("tx");
+//    LexicalContext moduleCtx( module );
 
-void BuiltinTypes::declare_tx_functions(TxModule* module) {
     // public _address( r : Ref ) ULong
 // FIXME
 //    std::vector<const TxType*> argumentTypes( { this->builtinTypes[REFERENCE]->typeExpression->get_type() } );

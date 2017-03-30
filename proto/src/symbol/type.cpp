@@ -872,8 +872,8 @@ bool TxActualType::is_a(const TxActualType& other) const {
             if (auto otherBinding = otherType->lookup_param_binding(paramDecl)) {
                 if (auto thisBinding = thisType->lookup_param_binding(paramDecl)) {
                     // check whether both bindings resolve to same type/value:
-                    auto thisBType = thisBinding->get_definer()->get_type();
-                    auto thatBType = otherBinding->get_definer()->get_type();
+                    auto thisBType = thisBinding->get_definer()->resolve_type();
+                    auto thatBType = otherBinding->get_definer()->resolve_type();
                     if (thisBType->is_modifiable() && !thatBType->is_modifiable())
                         thisBType = thisBType->get_base_type();
                     if (typeid(*thisBinding) != typeid(*otherBinding)  // both TYPE or both VALUE declarations
@@ -987,10 +987,10 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
         str << decl->get_unique_full_name();
     }
     else
-        str << "unnamed";
+        str << "-unnamed-";
 
     if (! this->hasInitialized) {
-        str << " (uninitialized)";
+        str << " -uninitialized-";
         return;
     }
 

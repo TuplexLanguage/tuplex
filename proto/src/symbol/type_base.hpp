@@ -534,7 +534,7 @@ public:
     /*--- type parameter handling ---*/
 
     /** Gets the (unbound) type parameters of this type (this type is a generic type if this is non-empty). */
-    const std::vector<const TxEntityDeclaration*>& type_params() const {
+    inline const std::vector<const TxEntityDeclaration*>& type_params() const {
         ASSERT(this->hasInitialized, "Can't get type params of uninitized type " << this);
         return ( (this->is_empty_derivation() || this->is_modifiable()) ? this->get_base_type()->type_params() : this->params );
     }
@@ -562,7 +562,7 @@ public:
         return this->bindings;
     }
 
-    /** Gets the declaration of a type parameter of this type, or null if it doesn't exist.
+    /** Gets the declaration of a type parameter binding of this type, or null if it doesn't exist.
      * (Note - this does not search ancestors' bound parameters.) */
     const TxEntityDeclaration* get_binding(const std::string& plainName) const {
         for (auto b : this->get_bindings())

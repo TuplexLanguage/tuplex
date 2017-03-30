@@ -177,6 +177,11 @@ public:
 
 protected:
     virtual void self_string( std::stringstream& str, bool brief ) const override {
+        if (this->get_declaration())
+            str << this->get_declaration()->get_unique_full_name() << " : ";
+        else
+            str << "-unnamed- : ";
+
         str << "func(";
         if (! this->argumentTypes.empty()) {
             auto ai = this->argumentTypes.cbegin();

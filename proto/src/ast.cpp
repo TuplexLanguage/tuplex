@@ -207,8 +207,10 @@ void TxFieldDeclNode::symbol_resolution_pass() {
         }
         else {
             if (storage == TXS_GLOBAL || storage == TXS_STATIC) {
-                if (! (this->field->get_declaration()->get_decl_flags() & (TXD_GENPARAM | TXD_CONSTRUCTOR | TXD_INITIALIZER)))
+                if (! (this->field->get_declaration()->get_decl_flags() & ( TXD_BUILTIN | TXD_EXTERN))) //(TXD_GENPARAM | TXD_CONSTRUCTOR | TXD_INITIALIZER)))
                     CERROR(this, "Global/static fields must have an initializer: " << this->field->get_identifier());
+//                else
+//                    std::cerr << "accepting without initializer: " << this->field->get_declaration() << std::endl;
             }
             else if (storage == TXS_VIRTUAL || storage == TXS_INSTANCEMETHOD) {
                 if (! (this->field->get_declaration()->get_decl_flags() & TXD_ABSTRACT))
@@ -224,7 +226,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
 
 void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, bool isExpErrorDecl ) {
     this->set_context( lexContext );
-    // Note: does not invoke symbol_declaration_pass() on typeParamDecls, that is delegated to typeExpression
+
     TxDeclarationFlags flags = (isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags);
     auto declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeExpression, flags );
     if (! declaration) {
@@ -265,30 +267,27 @@ void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& defContext, 
 
 const TxType* TxIdentifiedTypeNode::define_type() {
     if (auto identifiedTypeDecl = lookup_type(this->context().scope(), *this->ident)) {
-        if (auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type()) {
-            if (auto declEnt = this->get_declaration()) {
-                // create empty specialization (uniquely named but identical type)
-                return this->types().get_empty_specialization(declEnt, identifiedType);
-            }
-            return identifiedType;
+        auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type();
+        if (auto declEnt = this->get_declaration()) {
+            // create empty specialization (uniquely named but identical type)
+            return this->types().get_empty_specialization(declEnt, identifiedType);
         }
+        return identifiedType;
     }
     else
         CERR_THROWRES(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
-    return nullptr;
 }
 
 const TxType* TxGenSpecTypeNode::define_type() {
     if (auto baseTypeDecl = lookup_type( this->context().scope(), *this->ident )) {
-        if (auto baseType = baseTypeDecl->get_definer()->resolve_type()) {
-            auto tmp = std::vector<const TxTypeArgumentNode*>( this->typeArgs->size() );
-            std::copy( this->typeArgs->cbegin(), this->typeArgs->cend(), tmp.begin() );
-            return this->types().get_type_specialization( this, baseType, tmp );
-        }
+        auto baseType = baseTypeDecl->get_definer()->resolve_type();
+        // copy vector because of const conversion:
+        auto tmp = std::vector<const TxTypeArgumentNode*>( this->typeArgs->size() );
+        std::copy( this->typeArgs->cbegin(), this->typeArgs->cend(), tmp.begin() );
+        return this->types().get_type_specialization( this, baseType, tmp );
     }
     else
         CERR_THROWRES(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
-    return nullptr;
 }
 
 

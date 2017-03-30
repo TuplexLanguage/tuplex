@@ -184,6 +184,9 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
 
     if (this->options.dump_symbol_table) {
         std::cout << "SYMBOL TABLE DUMP:\n";
+        std::cout << "Declaration flags legend: " << (TxDeclarationFlags)0xFFFF << std::endl;
+        std::cout << "Public  pRotected  Static  eXtern  Abstract  Final  Override    "
+                  << "Built-in  Implicit  Genparam  genBinding  Constructor  Initializer  Expected-error" << std::endl;
         this->package->dump_symbols();
         std::cout << "END SYMBOL TABLE DUMP\n";
     }

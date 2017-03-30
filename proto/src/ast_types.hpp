@@ -472,10 +472,7 @@ class TxFunctionTypeNode : public TxTypeExpressionNode {
     // (a function type doesn't declare (create entities for) the function args)
 
     static TxFieldTypeDefNode* make_return_field(TxTypeExpressionNode* returnType) {
-        if (returnType)
-            return new TxFieldTypeDefNode( returnType->parseLocation, "$return", returnType );
-        else
-            return nullptr;
+        return ( returnType ? new TxFieldTypeDefNode( returnType->parseLocation, "$return", returnType ) : nullptr );
     }
 
 protected:
@@ -489,19 +486,12 @@ protected:
     virtual const TxType* define_type() override {
         std::vector<const TxType*> argumentTypes;
         for (auto argDefNode : *this->arguments) {
-            if (auto argType = argDefNode->resolve_type())
-                argumentTypes.push_back( argType );
-            else
-                return nullptr;
+            argumentTypes.push_back( argDefNode->resolve_type() );
         }
         if (this->context().get_constructed())
             return this->types().get_constructor_type(this->get_declaration(), argumentTypes, this->context().get_constructed());
-        else if (this->returnField) {
-            if (auto returnType = this->returnField->resolve_type())
-                return this->types().get_function_type(this->get_declaration(), argumentTypes, returnType, modifiable);
-            else
-                return nullptr;
-        }
+        else if (this->returnField)
+            return this->types().get_function_type(this->get_declaration(), argumentTypes, this->returnField->resolve_type(), modifiable);
         else
             return this->types().get_function_type(this->get_declaration(), argumentTypes, modifiable);
     }
