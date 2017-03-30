@@ -58,11 +58,21 @@ class TypeRegistry {
 
     const TxActualType* get_actual_empty_specialization( const TxTypeDeclaration* declaration, const TxActualType* type );
 
+    const TxActualType* get_actual_type_derivation( const TxTypeExpressionNode* definer, const TxActualType* baseType,
+                                                    const std::vector<const TxType*>& interfaces, bool _mutable );
+
+
     const TxActualType* get_actual_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
                                                         const std::vector<const TxTypeArgumentNode*>* bindings );
 
-    const TxActualType* get_actual_type_derivation( const TxTypeExpressionNode* definer, const TxActualType* baseType,
-                                                    const std::vector<const TxType*>& interfaces, bool _mutable );
+    const TxActualType* get_inner_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
+                                                       const std::vector<const TxTypeArgumentNode*>* bindings,
+                                                       bool isExpErrType );
+
+    const TxActualType* make_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
+                                                  const std::vector<const TxTypeArgumentNode*>* bindings,
+                                                  bool isExpErrType, const std::string& newBaseTypeNameStr );
+
 
     void resolve_deferred_types();
 
