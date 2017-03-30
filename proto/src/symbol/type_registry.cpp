@@ -147,10 +147,10 @@ const TxType* TypeRegistry::get_builtin_type(const BuiltinTypeId id, bool mod) {
 
 
 
-TxActualType* TypeRegistry::make_specialized_type( const TxTypeDeclaration* declaration,
-                                                   const TxActualType* baseType,
-                                                   const std::vector<const TxType*>& interfaces,
-                                                   bool modifiable ) {
+TxActualType* TypeRegistry::make_actual_type( const TxTypeDeclaration* declaration,
+                                              const TxActualType* baseType,
+                                              const std::vector<const TxType*>& interfaces,
+                                              bool modifiable ) {
     std::vector<TxTypeSpecialization> interfaceSpecializations;
     for (auto in : interfaces)
         interfaceSpecializations.emplace_back( in->type() );
@@ -161,12 +161,23 @@ TxActualType* TypeRegistry::make_specialized_type( const TxTypeDeclaration* decl
 
 
 
+static const TxActualType* get_derivable_base_type(const TxActualType* baseType) {
+    // FIXME: dead code, replace with assert
+    while (baseType->is_empty_derivation() && !baseType->get_explicit_declaration()) {
+        std::cerr << "#### Note - in specialization, bypassing empty base type " << baseType << std::endl;
+        baseType = baseType->get_base_type();
+    }
+    return baseType;
+}
+
+
+
 const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declaration, const TxType* type) {
     auto actualType = type->type();
-    // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
-    while (actualType->is_empty_derivation() && !actualType->get_explicit_declaration())  //!type->is_explicit_nongen_declaration())
-        actualType = actualType->get_base_type();
     ASSERT(!actualType->is_modifiable(), "Can't make a modifiable specialization of a modifiable type: " << actualType);
+    // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
+
+    actualType = get_derivable_base_type( actualType );
 
     if (! declaration) {
         std::string prefix = "~";
@@ -195,61 +206,93 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
         return modNode->get_type();
     }
 
-    return new TxType( this->make_specialized_type( declaration, actualType, {}, true ) );
+    return new TxType( this->make_actual_type( declaration, actualType, {}, true ) );
 }
 
 
 
-const TxType* TypeRegistry::get_empty_specialization(const TxTypeDeclaration* declaration, const TxType* type) {
+const TxType* TypeRegistry::make_empty_derivation(const TxTypeDeclaration* declaration, const TxType* type) {
     ASSERT(declaration, "empty type specialization doesn't have declaration: " << type);
     return new TxType( declaration->get_definer(),
                        [ this, declaration, type ] () {
-                           return this->get_actual_empty_specialization( declaration, type->type() );
+                           return this->make_actual_empty_derivation( declaration, type->type() );
                        } );
 }
 
-const TxActualType* TypeRegistry::get_actual_empty_specialization(const TxTypeDeclaration* declaration, const TxActualType* actualType) {
-    //std::cerr << "MAKING EMPTY TYPE: " << declaration->to_string() << std::endl;
-    ASSERT(!actualType->is_modifiable(), "Can't specialize a 'modifiable' base type: " << actualType);
-    if (actualType->is_modifiable()) {
-        CERROR(declaration->get_definer(), "Can't declare specialization / alias of a modifiable type: "<< actualType);
-        return nullptr;
-    }
-    while (actualType->is_empty_derivation() && !actualType->get_explicit_declaration())  //!type->is_explicit_nongen_declaration())
-        actualType = actualType->get_base_type();
-    return this->make_specialized_type( declaration, actualType );
+const TxActualType* TypeRegistry::make_actual_empty_derivation(const TxTypeDeclaration* declaration, const TxActualType* baseType) {
+    ASSERT(!baseType->is_modifiable(), "Can't specialize a 'modifiable' base type: " << baseType);
+
+    baseType = get_derivable_base_type( baseType );
+
+    return this->make_actual_type( declaration, baseType );
 }
 
 
 
-const TxType* TypeRegistry::get_type_derivation( const TxTypeExpressionNode* definer, const TxType* baseType,
+const TxType* TypeRegistry::make_type_derivation( const TxTypeExpressionNode* definer, const TxType* baseType,
                                                  const std::vector<const TxType*>& interfaces, bool _mutable ) {
     ASSERT(definer->get_declaration(), "type derivation doesn't have declaration: " << definer);
     return new TxType( definer,
                        [ this, definer, baseType, interfaces, _mutable ] () {
-                           return this->get_actual_type_derivation( definer, baseType->type(), interfaces, _mutable );
+                           return this->make_actual_type_derivation( definer, baseType->type(), interfaces, _mutable );
                        } );
 }
 
-const TxActualType* TypeRegistry::get_actual_type_derivation( const TxTypeExpressionNode* definer, const TxActualType* baseType,
-                                                              const std::vector<const TxType*>& interfaces, bool _mutable ) {
-    ASSERT(definer->get_declaration(), "NULL declaration in " << definer);
+const TxActualType* TypeRegistry::make_actual_type_derivation( const TxTypeExpressionNode* definer, const TxActualType* baseType,
+                                                               const std::vector<const TxType*>& interfaces, bool _mutable ) {
     ASSERT(!baseType->is_modifiable(), "Can't specialize a 'modifiable' base type: " << baseType);
 
-    while (baseType->is_empty_derivation() && !baseType->get_explicit_declaration())
-        baseType = baseType->get_base_type();
+    baseType = get_derivable_base_type( baseType );
 
     if (baseType->get_declaration()->get_decl_flags() & (TXD_GENPARAM | TXD_GENBINDING)) {
         // only empty derivation allowed from generic type parameter
-        if (!interfaces.empty()) {
-            CERROR(definer, "Can't specialize a generic type parameter: " << baseType);
-            return nullptr;
-        }
+        if (!interfaces.empty())
+            CERR_THROWRES(definer, "Can't specialize a generic type parameter: " << baseType);
     }
 
     // TODO: pass _mutable flag to type extensions
 
-    return this->make_specialized_type( definer->get_declaration(), baseType, interfaces );
+    return this->make_actual_type( definer->get_declaration(), baseType, interfaces );
+}
+
+
+
+const TxType* TypeRegistry::get_type_specialization( const TxTypeDefiningNode* definer, const TxType* baseType,
+                                                     const std::vector<const TxTypeArgumentNode*>& bindings ) {
+    ASSERT(!bindings.empty(), "Empty bindings list when specializing baseType: " << baseType);
+    ASSERT(bindings.at(0)->is_context_set(), "context not set for binding " << bindings.at(0));
+    return new TxType( definer,
+                       [ this, definer, baseType, bindings ] () {
+                           return this->get_actual_type_specialization( definer, baseType->type(), &bindings );
+                       } );
+}
+
+
+const TxActualType* TypeRegistry::get_actual_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
+                                                                  const std::vector<const TxTypeArgumentNode*>* bindings ) {
+    // Note: type specialization is never applied to a modifiable-specialization (legal only on non-modifiable base type)
+    ASSERT(!baseType->is_modifiable(), "Can't specialize a 'modifiable' base type: " << baseType);
+
+    const TxTypeDeclaration* declaration = nullptr;
+    if (auto typeExprNode = dynamic_cast<const TxTypeExpressionNode*>(definer))
+        declaration = typeExprNode->get_declaration();
+
+    // Note: The same generic type specialization may be produced by multiple statements,
+    //       both within ExpErr constructs and without. Therefore the type name must distinguish between them.
+    // Note: Implicit types (without explicit declaration) produced by ExpErr statements are identified by presence of ExpErrCtx.
+    bool isExpErrType = ( ( declaration && (declaration->get_decl_flags() & TXD_EXPERRBLOCK) )
+                          || ( !declaration && definer->exp_err_ctx() ) );
+
+    baseType = get_derivable_base_type( baseType );
+
+    const TxActualType* specializedBaseType = get_inner_type_specialization( definer, baseType, bindings, isExpErrType );
+
+    if (declaration) {
+        // create empty type specialization with explicit (unique) name
+        specializedBaseType = this->make_actual_type( declaration, specializedBaseType );
+    }
+
+    return specializedBaseType;
 }
 
 
@@ -280,9 +323,9 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
             for ( unsigned ix = 0; ix < bindings->size(); ix++ ) {
                 auto binding = bindings->at( ix );
                 if (auto typeBinding = dynamic_cast<const TxTypeTypeArgumentNode*>( binding )) {
-                    if (auto existingTypeDecl = dynamic_cast<const TxTypeDeclaration*>( existingBaseTypeBindings.at( ix ) )) {
-                        auto newBindingType = typeBinding->typeExprNode->resolve_type();
-                        auto existingBindingType = existingTypeDecl->get_definer()->resolve_type();
+                    if (auto existingBindingTypeDecl = dynamic_cast<const TxTypeDeclaration*>( existingBaseTypeBindings.at( ix ) )) {
+                        auto newBindingType = typeBinding->typeExprNode->get_type();
+                        auto existingBindingType = existingBindingTypeDecl->get_definer()->resolve_type();
                         if (newBindingType == existingBindingType)
                             continue;
                     }
@@ -324,9 +367,6 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
 }
 
 
-/**
- * Note: The provided binding declaration nodes are "node candidates", and have not run declaration or resolution passes.
- */
 static const TxActualType* get_existing_type( const TxActualType* baseType, const std::vector<const TxTypeArgumentNode*>* bindings,
                                               TxScopeSymbol* baseScope, const std::string& newBaseName ) {
     auto baseTypeParams = baseType->type_params();
@@ -338,8 +378,8 @@ static const TxActualType* get_existing_type( const TxActualType* baseType, cons
             auto paramDecl = baseTypeParams.at( ix );
             if (auto typeBinding = dynamic_cast<const TxTypeTypeArgumentNode*>( binding )) {
                 auto typeParamDecl = static_cast<const TxTypeDeclaration*>(paramDecl);
-                auto constraintType = typeParamDecl->get_definer()->resolve_type();
-                auto bindingType = typeBinding->typeExprNode->resolve_type();
+                auto constraintType = typeParamDecl->get_definer()->get_type();
+                auto bindingType = typeBinding->typeExprNode->get_type();
                 if (bindingType->get_decl_flags() & TXD_GENPARAM) {
                     auto bindingDecl = bindingType->get_declaration();
                     if (bindingDecl == constraintType->get_declaration()) {
@@ -397,59 +437,13 @@ static TxDeclarationNode* make_value_type_param_decl_node( const TxLocation& par
 
 
 
-/* TODO: break apart get_type_specialization( const TxTypeDefiningNode* definer, ...)
- *               and get_type_specialization( const TxTypeExpressionNode* definer, ...)
- * -- they have different declaration behavior
- */
-
-const TxType* TypeRegistry::get_type_specialization( const TxTypeDefiningNode* definer, const TxType* baseType,
-                                                     const std::vector<const TxTypeArgumentNode*>& bindings ) {
-    ASSERT(bindings.at(0)->is_context_set(), "context not set for binding " << bindings.at(0));
-    return new TxType( definer,
-                       [ this, definer, baseType, bindings ] () {
-                           return this->get_actual_type_specialization( definer, baseType->type(), &bindings );
-                       } );
-}
-
-
-const TxActualType* TypeRegistry::get_actual_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
-                                                                  const std::vector<const TxTypeArgumentNode*>* bindings ) {
-    const TxTypeDeclaration* declaration = nullptr;
-    if (auto typeExprNode = dynamic_cast<const TxTypeExpressionNode*>(definer))
-        declaration = typeExprNode->get_declaration();
-
-    // Note: The same generic type specialization may be produced by multiple statements,
-    //       both within ExpErr constructs and without. Therefore the type name must distinguish between them.
-    // Note: Implicit types (without explicit declaration) produced by ExpErr statements are identified by presence of ExpErrCtx.
-    bool isExpErrType = ( ( declaration && (declaration->get_decl_flags() & TXD_EXPERRBLOCK) )
-                          || ( !declaration && definer->exp_err_ctx() ) );
-
-    const TxActualType* specializedBaseType = get_inner_type_specialization( definer, baseType, bindings, isExpErrType );
-
-    if (declaration)
-        specializedBaseType = this->make_specialized_type( declaration, specializedBaseType );
-
-    return specializedBaseType;
-}
-
 const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
                                                                  const std::vector<const TxTypeArgumentNode*>* bindings,
                                                                  bool isExpErrType ) {
-    // Note: type specialization is never applied to a modifiable-specialization (legal only on non-modifiable base type)
     // Note: A non-parameterized type (without any declared type parameters) is not necessarily non-generic:
     //       It may have members that refer to generic parameters declared in an outer scope.
     // Note: Binding of ref-constrained type parameters doesn't necessarily affect code generation,
     //       but accesses to the members still need the specialized version of them in semantic analysis (e.g. the correct ref-target).
-    ASSERT(!baseType->is_modifiable(), "Can't specialize a 'modifiable' base type: " << baseType);
-    ASSERT(bindings && !bindings->empty(), "NULL or empty bindings list when specializing baseType: " << baseType);
-    ASSERT(definer, "NULL type definer");
-
-
-    while (baseType->is_empty_derivation() && !baseType->get_explicit_declaration()) {
-        // TODO: define/describe specific rules on when base type is bypassed
-        std::cerr << "Note - in specialization, bypassing empty base type " << baseType << std::endl;
-        baseType = baseType->get_base_type();
-    }
 
     auto baseDecl = baseType->get_declaration();
     ASSERT(baseDecl, "base type has no declaration: " << baseType);
@@ -472,8 +466,7 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
     // do shallow validation that bindings match base type's parameters:
     auto baseTypeParams = baseType->type_params();
     if (baseTypeParams.size() < bindings->size()) {
-        CERROR(definer, "Too many type arguments specifified for generic base type " << baseType);
-        return nullptr;
+        CERR_THROWRES(definer, "Too many type arguments specifified for generic base type " << baseType);
     }
 
     for ( unsigned ix = 0; ix < bindings->size(); ix++ ) {
@@ -481,12 +474,13 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
         auto paramDecl = baseTypeParams.at( ix );
         if (ix)  newBaseTypeName << ",";
         ASSERT(binding->is_context_set(), "Binding must have run declaration pass before being used in type specialization: " << binding);
+        paramDecl->get_definer()->resolve_type();  // ensure param is resolved (and verify that it does resolve)
 
         if (auto typeArg = dynamic_cast<const TxTypeTypeArgumentNode*>( binding )) {
             if (! dynamic_cast<const TxTypeDeclaration*>(paramDecl))
                 CERR_THROWRES(binding, "Can't bind a VALUE base type parameter using a TYPE: " << typeArg->typeExprNode->resolve_type());
 
-            typeArg->typeExprNode->resolve_type();  // verify that binding resolves
+            typeArg->typeExprNode->resolve_type();  // ensure binding is resolved (and verify that it does resolve)
             newBaseTypeName << "$";
         }
         else {  // binding is TxValueTypeArgumentNode

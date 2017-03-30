@@ -126,7 +126,7 @@ protected:
             //   instead they will have the generic base type's parent as their base type.
             //   Here that would be  this->baseTypeNode->resolve_type()  instead of  this->original->get_type() .
             //   That would however not work with the current type class implementation (TxReferenceType and TxArrayType).
-            return new TxType( this->types().make_specialized_type( this->get_declaration(), this->original->get_type()->type() ) );
+            return new TxType( this->types().make_actual_type( this->get_declaration(), this->original->get_type()->type() ) );
         }
         else {
             auto actType = this->define_builtin_type();
@@ -767,7 +767,7 @@ protected:
     virtual const TxType* define_type() override {
         if (this->originalNode) {
             ASSERT(!this->baseType, "type already set");
-            this->baseType = new TxType( this->types().make_specialized_type( this->get_declaration(), this->originalNode->baseType->type() ) );
+            this->baseType = new TxType( this->types().make_actual_type( this->get_declaration(), this->originalNode->baseType->type() ) );
         }
         return this->baseType;
     }

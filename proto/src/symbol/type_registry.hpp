@@ -45,21 +45,21 @@ class TypeRegistry {
 
     void add_type(TxActualType* type);
 
-    /** Makes a new type specialization and registers it with this registry. */
-    TxActualType* make_specialized_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
-                                         const std::vector<const TxType*>& interfaces={},
-                                         bool modifiable=false );
-    friend class TxImplicitTypeDefiningNode;  // may access make_specialized_type()
-    friend class TxBuiltinTypeDefiningNode;  // may access make_specialized_type()
+    /** Makes a new actual type and registers it with this registry. Used to make all types except original built-ins. */
+    TxActualType* make_actual_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
+                                    const std::vector<const TxType*>& interfaces={},
+                                    bool modifiable=false );
+    friend class TxImplicitTypeDefiningNode;  // may access make_actual_type()
+    friend class TxBuiltinTypeDefiningNode;  // may access make_actual_type()
     friend class BuiltinTypes;  // TODO: temporary
 
 //    /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
 //    const TxInterfaceAdapterType* inner_get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);
 
-    const TxActualType* get_actual_empty_specialization( const TxTypeDeclaration* declaration, const TxActualType* type );
+    const TxActualType* make_actual_empty_derivation( const TxTypeDeclaration* declaration, const TxActualType* type );
 
-    const TxActualType* get_actual_type_derivation( const TxTypeExpressionNode* definer, const TxActualType* baseType,
-                                                    const std::vector<const TxType*>& interfaces, bool _mutable );
+    const TxActualType* make_actual_type_derivation( const TxTypeExpressionNode* definer, const TxActualType* baseType,
+                                                     const std::vector<const TxType*>& interfaces, bool _mutable );
 
 
     const TxActualType* get_actual_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
@@ -101,24 +101,36 @@ public:
     const TxType* get_builtin_type(const BuiltinTypeId id, bool mod=false);
 
 
-    /*--- retrievers for derived types ---*/
+    /** Returns a read-only iterator that points to the first static type (with unique compile-time id). */
+    inline std::vector<const TxActualType*>::const_iterator static_types_cbegin() const { return this->staticTypes.cbegin(); }
+    /** Returns a read-only iterator that points to one past the last static type. */
+    inline std::vector<const TxActualType*>::const_iterator static_types_cend()   const { return this->staticTypes.cend(); }
 
-    /** Gets a modifiable 'usage' of a base type.
-     * The type parameters of the base type will pass-through (appear redeclared) in the modifiable type.
-     */
+    inline uint32_t get_static_type_count() const { return this->staticTypes.size(); }
+
+
+
+    /*--- retrievers / creators for derived types ---*/
+
+    /** Makes a new, empty derivation of a base type, with a distinct name. */
+    const TxType* make_empty_derivation( const TxTypeDeclaration* declaration, const TxType* type );
+
+    /** Makes a new derivation that extends a base type and a set of interfaces.
+     * The definer must have a declaration for this new type. */
+    const TxType* make_type_derivation( const TxTypeExpressionNode* definer, const TxType* baseType,
+                                        const std::vector<const TxType*>& interfaces, bool _mutable );
+
+
+    /** Gets a modifiable 'usage' of a base type. */
     const TxType* get_modifiable_type(const TxTypeDeclaration* declaration, const TxType* type);
 
-    const TxType* get_empty_specialization(const TxTypeDeclaration* declaration, const TxType* type);
-
-    /** Gets/makes a specialization of a generic base type. */
+    /** Gets/makes a specialization of a generic base type.
+     * If such a specialization already exists, that will be returned. */
     const TxType* get_type_specialization( const TxTypeDefiningNode* definer, const TxType* baseType,
                                            const std::vector<const TxTypeArgumentNode*>& bindings );
 
-    /** Makes a new derivation of a base type and a set of interfaces. */
-    const TxType* get_type_derivation( const TxTypeExpressionNode* definer, const TxType* baseType,
-                                       const std::vector<const TxType*>& interfaces, bool _mutable );
-
-    /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
+    /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType.
+     * If such an adapter already exists, that will be returned. */
     const TxType* get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);
 
     const TxType* get_reference_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* targetTypeBinding,
@@ -133,12 +145,4 @@ public:
     const TxType* get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, const TxType* returnType, bool mod=false);
     const TxType* get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, bool mod=false);
     const TxType* get_constructor_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, const TxTypeDeclaration* constructedObjTypeDecl);
-
-
-    /** Returns a read-only iterator that points to the first static type (with unique compile-time id). */
-    inline std::vector<const TxActualType*>::const_iterator static_types_cbegin() const { return this->staticTypes.cbegin(); }
-    /** Returns a read-only iterator that points to one past the last static type. */
-    inline std::vector<const TxActualType*>::const_iterator static_types_cend()   const { return this->staticTypes.cend(); }
-
-    inline uint32_t get_static_type_count() const { return this->staticTypes.size(); }
 };

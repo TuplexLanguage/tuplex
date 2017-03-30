@@ -361,7 +361,7 @@ protected:
             }
         }
 
-        auto type = this->types().get_type_derivation( this, baseObjType, interfaces, this->_mutable );
+        auto type = this->types().make_type_derivation( this, baseObjType, interfaces, this->_mutable );
         return type;
     }
 
@@ -516,6 +516,21 @@ public:
     virtual std::string get_auto_type_name() const override {
         ASSERT(this->get_declaration(), "NULL declaration in TxFunctionTypeNode: " << this);
         return this->get_declaration()->get_unique_full_name();
+    }
+
+    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
+                                          const TxTypeDeclaration* owningDeclaration ) override {
+        if (! owningDeclaration) {
+            std::string funcTypeName = lexContext.scope()->make_unique_name( "$ftype", true );
+            TxDeclarationFlags flags = TXD_IMPLICIT;  // TXD_PUBLIC, TXD_EXPERRBLOCK ?
+            owningDeclaration = lexContext.scope()->declare_type( funcTypeName, this, flags );
+            if (! owningDeclaration) {
+                CERROR(this, "Failed to declare type " << funcTypeName);
+                return;
+            }
+            LOG_TRACE(this->LOGGER(), this << ": Declared type " << owningDeclaration);
+        }
+        TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, owningDeclaration );
     }
 
     virtual void symbol_resolution_pass() override {

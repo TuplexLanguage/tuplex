@@ -270,7 +270,7 @@ const TxType* TxIdentifiedTypeNode::define_type() {
         auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type();
         if (auto declEnt = this->get_declaration()) {
             // create empty specialization (uniquely named but identical type)
-            return this->types().get_empty_specialization(declEnt, identifiedType);
+            return this->types().make_empty_derivation(declEnt, identifiedType);
         }
         return identifiedType;
     }
