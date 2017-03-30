@@ -27,7 +27,7 @@ protected:
         if (refType->get_type_class() == TXTC_REFERENCE) {
             if (refType->is_generic())
                 // FUTURE: return constraint type if present
-                return this->types().get_builtin_type(ANY);
+                return this->registry().get_builtin_type(ANY);
             return refType->target_type();
         }
         CERR_THROWRES(this, "Operand is not a reference and can't be dereferenced: " << refType);
@@ -80,7 +80,7 @@ protected:
                 return elemType;
             else
                 // FUTURE: return constraint type if present
-                return this->types().get_builtin_type(ANY);
+                return this->registry().get_builtin_type(ANY);
         }
         if (opType)
             CERR_THROWRES(this, "Operand is not an array and can't be subscripted: " << opType);
@@ -108,7 +108,7 @@ public:
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         this->array->symbol_resolution_pass();
-        this->subscript->insert_conversion( this->types().get_builtin_type(LONG) );
+        this->subscript->insert_conversion( this->registry().get_builtin_type(LONG) );
         this->subscript->symbol_resolution_pass();
     }
 
@@ -130,7 +130,7 @@ class TxReferenceToNode : public TxExpressionNode {
     TxTypeTypeArgumentNode* targetTypeNode;
 protected:
     virtual const TxType* define_type() override {
-        return this->types().get_reference_type( this, this->targetTypeNode, nullptr );
+        return this->registry().get_reference_type( this, this->targetTypeNode, nullptr );
     }
 
 public:
@@ -258,7 +258,7 @@ protected:
             return arithResultType;
         }
         else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
-            return this->types().get_builtin_type(BOOL);
+            return this->registry().get_builtin_type(BOOL);
         }
     }
 
@@ -315,13 +315,13 @@ protected:
                 bool mod = intType->is_modifiable();
                 switch (intType->get_type_id()) {
                 case UBYTE:
-                    type = this->types().get_builtin_type(SHORT, mod);
+                    type = this->registry().get_builtin_type(SHORT, mod);
                     break;
                 case USHORT:
-                    type = this->types().get_builtin_type(INT, mod);
+                    type = this->registry().get_builtin_type(INT, mod);
                     break;
                 case UINT:
-                    type = this->types().get_builtin_type(LONG, mod);
+                    type = this->registry().get_builtin_type(LONG, mod);
                     break;
                 case ULONG:
                     CERROR(this, "Invalid operand type for unary '-': " << (type ? type->str().c_str() : "NULL"));
@@ -370,7 +370,7 @@ public:
 class TxUnaryLogicalNotNode : public TxOperatorValueNode {
 protected:
     virtual const TxType* define_type() override {
-        return this->types().get_builtin_type(BOOL);
+        return this->registry().get_builtin_type(BOOL);
     }
 
 public:
@@ -619,7 +619,7 @@ protected:
 
     virtual const TxType* define_type() override {
         // new constructor returns the constructed object by reference
-        return this->types().get_reference_type( this, this->targetTypeNode, nullptr );
+        return this->registry().get_reference_type( this, this->targetTypeNode, nullptr );
     }
 
 public:
@@ -725,7 +725,7 @@ protected:
         if (opType->get_type_class() == TXTC_REFERENCE) {
             if (opType->is_generic())
                 // FUTURE: return constraint type if present
-                return this->types().get_builtin_type(ANY);
+                return this->registry().get_builtin_type(ANY);
             return opType->target_type();
         }
         CERR_THROWRES(this, "Operand is not a reference and can't be dereferenced: " << opType);
@@ -770,7 +770,7 @@ protected:
                 return elemType;
             else
                 // FUTURE: return constraint type if present
-                return this->types().get_builtin_type(ANY);  // (not modifiable)
+                return this->registry().get_builtin_type(ANY);  // (not modifiable)
         }
         // operand type is unknown / not an array and can't be subscripted
         CERR_THROWRES(this, "Can't subscript non-array expression.");
@@ -797,7 +797,7 @@ public:
     virtual void symbol_resolution_pass() override {
         TxAssigneeNode::symbol_resolution_pass();
         array->symbol_resolution_pass();
-        this->subscript->insert_conversion( this->types().get_builtin_type(LONG) );
+        this->subscript->insert_conversion( this->registry().get_builtin_type(LONG) );
         subscript->symbol_resolution_pass();
     }
 

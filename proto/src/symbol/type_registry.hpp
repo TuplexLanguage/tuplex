@@ -21,7 +21,7 @@ extern std::string encode_type_name( const TxTypeDeclaration* typeDecl );
 
 
 class TypeRegistry {
-    TxPackage& package;
+    TxPackage& _package;
 
 //    /** parse location used for built-in constructs without actual source code */
 //    const TxLocation& builtinLocation;
@@ -45,13 +45,22 @@ class TypeRegistry {
 
     void add_type(TxActualType* type);
 
+
+    // these access make_type_entity() / make_actual_type():
+    friend class TxImplicitTypeDefiningNode;
+    friend class TxBuiltinTypeDefiningNode;
+    friend class TxDefConstructorTypeDefNode;
+    friend class TxConvConstructorTypeDefNode;
+    friend class BuiltinTypes;
+
+    /** Makes a new type entity and registers it with this registry. */
+    TxType* make_type_entity( const TxActualType* actualType );
+
     /** Makes a new actual type and registers it with this registry. Used to make all types except original built-ins. */
     TxActualType* make_actual_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
                                     const std::vector<const TxType*>& interfaces={},
                                     bool modifiable=false );
-    friend class TxImplicitTypeDefiningNode;  // may access make_actual_type()
-    friend class TxBuiltinTypeDefiningNode;  // may access make_actual_type()
-    friend class BuiltinTypes;  // TODO: temporary
+
 
 //    /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
 //    const TxInterfaceAdapterType* inner_get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);
@@ -88,7 +97,8 @@ class TypeRegistry {
 public:
     TypeRegistry(TxPackage& package);
 
-    TxPackage& get_package() const { return this->package; }
+
+    TxPackage& package() const { return this->_package; }
 
 
     /** to be invoked after the resolution pass has been run on package's source, and before type registration */

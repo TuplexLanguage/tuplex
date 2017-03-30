@@ -84,5 +84,5 @@ public:
             this->baseExpr->visit_ast( visitor, thisAsParent, "base", context );
     }
 
-    virtual const TxIdentifier* get_identifier() const override { return this->symbolName; }
+    virtual std::string get_identifier() const override { return this->symbolName->str(); }
 };

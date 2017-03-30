@@ -94,7 +94,7 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
     /*--- parse built-in module(s) ---*/
     {
         TxParserContext* parserContext = new TxParserContext(*this, TxIdentifier("tx"), "");
-        parserContext->parsingUnit = this->package->builtin_types()->createTxModuleAST();
+        parserContext->parsingUnit = this->package->builtins().createTxModuleAST();
         this->parsedASTs.push_back(parserContext);
     }
 
@@ -143,7 +143,7 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
         parserContext->parsingUnit->symbol_declaration_pass(this->package);
     }
 
-    this->package->builtin_types()->initializeBuiltinSymbols();  // FIXME: to be removed
+    this->package->builtins().initializeBuiltinSymbols();  // FIXME: to be removed
 
     this->package->prepare_modules();  // (prepares the declared imports)
 
@@ -158,7 +158,7 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
         parserContext->parsingUnit->symbol_resolution_pass();
     }
 
-    this->package->types().deferred_type_resolution_pass();
+    this->package->registry().deferred_type_resolution_pass();
 
     for (auto parserContext : this->parsedASTs) {
         parserContext->finalize_expected_error_clauses();
@@ -302,7 +302,7 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
     }
 
     // generate the code for the type specializations that are defined by reinterpreted source:
-    for (auto specNode : this->package->types().get_enqueued_specializations()) {
+    for (auto specNode : this->package->registry().get_enqueued_specializations()) {
         ASSERT(specNode->get_declaration(), "Can't generate code for enqueued specialization without declaration: " << specNode);
         if (specNode->get_decl_flags() & TXD_EXPERRBLOCK) {
             _LOG.info("Skipping code generation for enqueued ExpErr specialization: %s", specNode->get_declaration()->str().c_str());
@@ -320,7 +320,7 @@ int TxDriver::llvm_compile(const std::string& outputFileName) {
         if (funcField->get_type()->get_type_class() == TXTC_FUNCTION) {
             auto retType = funcField->get_type()->return_type();
             if ( retType->get_type_class() != TXTC_VOID
-                 && ! retType->is_a( *this->package->types().get_builtin_type(INTEGER) ) )
+                 && ! retType->is_a( *this->package->registry().get_builtin_type(INTEGER) ) )
                 this->_LOG.error("main() method had invalid return type: %s", retType->str().c_str());
             else if ((mainGenerated = genContext.generate_main(funcDecl->get_unique_full_name(), funcField->get_type())))
                 this->_LOG.debug("Created program entry for user method %s", funcDecl->get_unique_full_name().c_str());

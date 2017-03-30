@@ -138,14 +138,14 @@ const TxType* TxReferenceConvNode::define_type() {
         if (! equivalent_interface_target_types(resultTargetType, origTargetType)) {
             // create / retrieve interface adapter type
             //std::cerr << "Converting interface reference to adapter:\n\tfrom & " << origTargetType << "\n\tto   & " << resultTargetType << std::endl;
-            this->adapterType = this->types().get_interface_adapter(resultTargetType, origTargetType);
+            this->adapterType = this->registry().get_interface_adapter(resultTargetType, origTargetType);
             ASSERT(this->adapterType->get_type_class() == TXTC_INTERFACEADAPTER, "Not an interface adapter type: " << this->adapterType);
 
             // create reference type to the adapter type  TODO: review if node creation can be moved to constructor / declaration pass
             auto adapterDefiner = new TxTypeDeclWrapperNode( this->parseLocation, adapterType->get_declaration() );
             TxTypeTypeArgumentNode* targetTypeNode = new TxTypeTypeArgumentNode( adapterDefiner );
             targetTypeNode->symbol_declaration_pass( this->context(), this->context());
-            return this->types().get_reference_type( this, targetTypeNode, nullptr );
+            return this->registry().get_reference_type( this, targetTypeNode, nullptr );
         }
     }
     return TxConversionNode::define_type();  // returns the required resultType

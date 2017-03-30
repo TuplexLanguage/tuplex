@@ -14,16 +14,14 @@ TxType::TxType( const TxActualType* actualType )
     : TxEntity( actualType->get_declaration() ), definer(),  actualTypeProducer(),
       _type( actualType ), startedRslv( true ), hasResolved( true )
 {
-    if (! this->_type->get_declaration())
-        std::cerr << "Actual type doesn't have declaration: " << this->_type << std::endl;
-    actualType->get_nearest_declaration()->get_symbol()->get_root_scope()->types().add_type_usage( this );
+    actualType->get_declaration()->get_symbol()->get_root_scope()->registry().add_type_usage( this );
 }
 
 TxType::TxType( const TxTypeDefiningNode* definer, std::function<const TxActualType*(void)> actualTypeProducer )
     : TxEntity( get_definer_declaration( definer ) ), definer( definer), actualTypeProducer( actualTypeProducer ),
       _type(), startedRslv(), hasResolved()
 {
-    definer->context().scope()->get_root_scope()->types().add_type_usage( this );
+    definer->registry().add_type_usage( this );
 }
 
 
@@ -45,8 +43,6 @@ const TxActualType* TxType::type() const {
         this->startedRslv = true;
         try {
             this->_type = this->define_type();
-            if (! this->_type->get_declaration())
-                std::cerr << "Actual type doesn't have declaration: " << this->_type << "  definer: " << this->definer << std::endl;
         }
         catch (const resolution_error& err) {
             this->hasResolved = true;

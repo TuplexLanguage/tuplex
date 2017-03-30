@@ -126,13 +126,13 @@ protected:
             //   instead they will have the generic base type's parent as their base type.
             //   Here that would be  this->baseTypeNode->resolve_type()  instead of  this->original->get_type() .
             //   That would however not work with the current type class implementation (TxReferenceType and TxArrayType).
-            return new TxType( this->types().make_actual_type( this->get_declaration(), this->original->get_type()->type() ) );
+            return this->registry().make_type_entity( this->registry().make_actual_type( this->get_declaration(), this->original->get_type()->type() ) );
         }
         else {
             auto actType = this->define_builtin_type();
             actType->staticTypeId = builtinTypeId;
-            this->types().add_type( actType );
-            return new TxType( actType );
+            this->registry().add_type( actType );
+            return this->registry().make_type_entity( actType );
         }
     }
 
@@ -405,9 +405,9 @@ protected:
     }
 
     virtual const TxType* define_type() override {
-        auto actType = new TxBuiltinDefaultConstructorType( this->get_declaration(), this->types().get_builtin_type( FUNCTION )->type(),
+        auto actType = new TxBuiltinDefaultConstructorType( this->get_declaration(), this->registry().get_builtin_type( FUNCTION )->type(),
                                                             this->returnField->resolve_type()->type(), initExprNode );
-        return new TxType( actType );
+        return this->registry().make_type_entity( actType );
     }
 
 public:
@@ -439,9 +439,9 @@ public:
 class TxConvConstructorTypeDefNode final : public TxFunctionTypeNode {
 protected:
     virtual const TxType* define_type() override {
-        auto actType = new TxBuiltinConversionFunctionType( this->get_declaration(), this->types().get_builtin_type( FUNCTION )->type(),
+        auto actType = new TxBuiltinConversionFunctionType( this->get_declaration(), this->registry().get_builtin_type( FUNCTION )->type(),
                                                             this->arguments->at(0)->resolve_type()->type(), this->returnField->resolve_type()->type() );
-        return new TxType( actType );
+        return this->registry().make_type_entity( actType );
     }
 
 public:
@@ -690,7 +690,7 @@ void BuiltinTypes::initializeBuiltinSymbols() {
 void BuiltinTypes::declare_tx_functions() {
 
 //    auto txCfuncModule = this->registry.get_package().declare_module( this->registry.get_package().root_origin(), TxIdentifier(BUILTIN_NS ".c"), true);
-    auto txCfuncModule = this->registry.get_package().lookup_module("tx.c");
+    auto txCfuncModule = this->registry.package().lookup_module("tx.c");
     LexicalContext ctx(txCfuncModule);
     {   // declare tx.c.puts:
         auto refTypeNode = new TxReferenceTypeNode(this->builtinLocation, nullptr, new TxIdentifiedTypeNode(this->builtinLocation, "tx.UByte"));
@@ -739,7 +739,7 @@ void BuiltinTypes::declare_tx_functions() {
 
 
 BuiltinTypes::BuiltinTypes( TypeRegistry& registry )
-        : registry(registry), builtinLocation( registry.get_package().root_origin().get_parse_location() ) {
+        : registry(registry), builtinLocation( registry.package().root_origin().get_parse_location() ) {
 }
 
 
@@ -767,7 +767,7 @@ protected:
     virtual const TxType* define_type() override {
         if (this->originalNode) {
             ASSERT(!this->baseType, "type already set");
-            this->baseType = new TxType( this->types().make_actual_type( this->get_declaration(), this->originalNode->baseType->type() ) );
+            this->baseType = this->registry().make_type_entity( this->registry().make_actual_type( this->get_declaration(), this->originalNode->baseType->type() ) );
         }
         return this->baseType;
     }
@@ -868,7 +868,7 @@ const TxType* BuiltinTypes::inner_get_interface_adapter(const TxActualType* inte
     }
 
     auto adapterActType = new TxInterfaceAdapterType( typeDecl, interfaceType, adaptedType );
-    auto adapterType = new TxType( adapterActType );
+    auto adapterType = this->registry.make_type_entity( adapterActType );
     adapterDefiner->set_type( adapterType );
     adapterDefiner->symbol_resolution_pass();
     this->registry.add_type( adapterActType );

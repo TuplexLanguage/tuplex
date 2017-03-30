@@ -20,7 +20,6 @@ static Value* code_gen_4_multiple(LlvmGenerationContext& context, GenScope* scop
 
 
 StructType* TxActualType::make_vtable_type(LlvmGenerationContext& context) const {
-    ASSERT(this->get_declaration(), "No declaration for type " << this << " - can't perform vtable LLVM type mapping");
     LOG_TRACE(context.LOGGER(), "Mapping vtable of type " << this->get_declaration()->get_unique_full_name() << ": " << this->str(true));
     std::vector<Type*> members;
     for (auto memberTxField : this->get_virtual_fields().fields) {
@@ -47,7 +46,6 @@ StructType* TxActualType::make_vtable_type(LlvmGenerationContext& context) const
 //}
 
 Function* TxActualType::get_type_user_init_func(LlvmGenerationContext& context) const {
-    ASSERT(this->get_declaration(), "No declaration for type " << this << " - can't create type init func");
     std::string funcName(this->get_declaration()->get_unique_full_name() + ".$tuinit");
 
     std::vector<Type*> typeInitFuncArgTypes {
@@ -305,10 +303,6 @@ Type* TxTupleType::make_llvm_type(LlvmGenerationContext& context) const {
 //        context.LOG.warning("making LLVM type of non-concrete type %s", this->to_string().c_str());
 //        return StructType::create(context.llvmContext);  // creates opaque (empty placeholder) structure
 //    }
-    if (! this->get_declaration()) {
-        LOG(context.LOGGER(), ERROR, "No declaration for Tuple type " << this << " - can't perform LLVM type mapping");
-        return nullptr;
-    }
     StructType* opaqueType = StructType::create(context.llvmContext, this->get_declaration()->get_unique_full_name());
     return opaqueType;
 }

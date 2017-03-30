@@ -162,7 +162,7 @@ public:
             typeArg->visit_ast( visitor, thisAsParent, "typearg", context );
     }
 
-    virtual const TxIdentifier* get_identifier() const override { return this->ident; }
+    virtual std::string get_identifier() const override { return this->ident->str(); }
 };
 
 
@@ -195,7 +195,7 @@ public:
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {}
 
-    virtual const TxIdentifier* get_identifier() const override { return this->ident; }
+    virtual std::string get_identifier() const override { return this->ident->str(); }
 };
 
 
@@ -219,7 +219,7 @@ protected:
     virtual const TxType* define_type() override {
 //        auto baseType = this->types().get_builtin_type(REFERENCE);
 //        auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
-        return this->types().get_reference_type( this, targetTypeNode, this->dataspace );
+        return this->registry().get_reference_type( this, targetTypeNode, this->dataspace );
     }
 
 public:
@@ -262,9 +262,9 @@ protected:
 //        auto baseType = this->types().get_builtin_type(ARRAY);
 //        auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
         if (this->lengthNode)
-            return this->types().get_array_type( this, this->elementTypeNode, this->lengthNode );
+            return this->registry().get_array_type( this, this->elementTypeNode, this->lengthNode );
         else
-            return this->types().get_array_type( this, this->elementTypeNode );
+            return this->registry().get_array_type( this, this->elementTypeNode );
     }
 
 public:
@@ -346,7 +346,7 @@ protected:
         const TxType* baseObjType = nullptr;
         std::vector<const TxType*> interfaces;
         if (this->baseTypes->empty())
-            baseObjType = this->types().get_builtin_type(TUPLE);
+            baseObjType = this->registry().get_builtin_type(TUPLE);
         else {
             interfaces.reserve(this->baseTypes->size()-1);
             for (size_t i = 0; i < this->baseTypes->size(); i++) {
@@ -361,7 +361,7 @@ protected:
             }
         }
 
-        auto type = this->types().make_type_derivation( this, baseObjType, interfaces, this->_mutable );
+        auto type = this->registry().make_type_derivation( this, baseObjType, interfaces, this->_mutable );
         return type;
     }
 
@@ -489,11 +489,11 @@ protected:
             argumentTypes.push_back( argDefNode->resolve_type() );
         }
         if (this->context().get_constructed())
-            return this->types().get_constructor_type(this->get_declaration(), argumentTypes, this->context().get_constructed());
+            return this->registry().get_constructor_type(this->get_declaration(), argumentTypes, this->context().get_constructed());
         else if (this->returnField)
-            return this->types().get_function_type(this->get_declaration(), argumentTypes, this->returnField->resolve_type(), modifiable);
+            return this->registry().get_function_type(this->get_declaration(), argumentTypes, this->returnField->resolve_type(), modifiable);
         else
-            return this->types().get_function_type(this->get_declaration(), argumentTypes, modifiable);
+            return this->registry().get_function_type(this->get_declaration(), argumentTypes, modifiable);
     }
 
 public:
@@ -576,7 +576,7 @@ protected:
                 return bType;
             }
             else if (! bType->is_immutable())
-                return this->types().get_modifiable_type(this->get_declaration(), bType);
+                return this->registry().get_modifiable_type(this->get_declaration(), bType);
             else
                 CERR_THROWRES(this, "Can't declare immutable type as modifiable: " << bType);
         }

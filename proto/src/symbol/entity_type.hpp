@@ -11,10 +11,13 @@
 
 
 
-// Make TxType the type all components outside the type registry interact with.
-// It encapsulates instancing of actual type, and rewiring while unifying equivalent specializations.
-
-
+/** A type entity. Represents the types defined in the program.
+ * This acts as a proxy for the 'actual' type, whose definition is deferred until its needed in order
+ * to facilitate type resolution without causing infinite recursions.
+ * Several TxType instances may ultimately refer to the same 'actual' type.
+ *
+ * Note: Type entities might not have a declaration. Their underlying actual type will always have a declaration though.
+ */
 class TxType : public TxEntity {
     const TxTypeDefiningNode* definer;
     const std::function<const TxActualType*(void)> actualTypeProducer;
@@ -25,13 +28,16 @@ class TxType : public TxEntity {
 
     const TxActualType* define_type() const;
 
-public:
+    // only TypeRegistry may create instances:
+    friend class TypeRegistry;
+
     TxType( const TxActualType* actualType );
 
     TxType( const TxTypeDefiningNode* definer, std::function<const TxActualType*(void)> actualTypeProducer );
 
+public:
 
-    virtual const TxTypeDeclaration* get_declaration() const override {
+    virtual inline const TxTypeDeclaration* get_declaration() const override {
         return static_cast<const TxTypeDeclaration*>(TxEntity::get_declaration());
     }
 
@@ -56,12 +62,11 @@ public:
         return this->str( false );
     }
 
+
+    // TODO: remove explicit usages of this method from AST (declaration & resolution passes)
+    // TODO: make non-const?
     const TxActualType* type() const;
 
-
-    const TxTypeDeclaration* get_explicit_declaration() const { return this->type()->get_explicit_declaration(); }
-
-    bool is_explicit_nongen_declaration() const { return this->type()->is_explicit_nongen_declaration(); }
 
 
     inline const TxType* get_base_type() const {

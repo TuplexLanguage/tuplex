@@ -35,7 +35,7 @@ Value* TxBinaryOperatorNode::code_gen(LlvmGenerationContext& context, GenScope* 
         return NULL;
 
     // pick field's plain name, if available, for the expression value:
-    const std::string fieldName = (this->fieldDefNode && this->fieldDefNode->get_identifier()) ? this->fieldDefNode->get_identifier()->str() : "";
+    const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
 
     auto op_class = get_op_class(this->op);
     unsigned llvm_op;
@@ -474,7 +474,7 @@ Value* TxFunctionCallNode::code_gen( LlvmGenerationContext& context, GenScope* s
         return this->inlinedExpression->code_gen( context, scope );
     else {
         // pick field's plain name, if available, for the expression value:
-        const std::string fieldName = (this->fieldDefNode && this->fieldDefNode->get_identifier()) ? this->fieldDefNode->get_identifier()->str() : "";
+        const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
         return gen_call( this, context, scope, fieldName );
     }
 }

@@ -22,7 +22,7 @@ class TxEntity : public virtual TxParseOrigin, public Printable {
 
 protected:
     TxEntity(const TxEntityDeclaration* declaration) : declaration(declaration)  {
-        // TODO: Make all entities have a declaration. ASSERT(declaration, "Assumed non-null declaration but was null");
+        // Note: Type entities might not have a declaration. Their underlying actual type will always have a declaration though.
     }
 
 public:

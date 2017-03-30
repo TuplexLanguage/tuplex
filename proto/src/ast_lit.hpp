@@ -72,7 +72,7 @@ class TxIntegerLitNode : public TxLiteralValueNode {
 
 protected:
     virtual const TxType* define_type() override {
-        return this->types().get_builtin_type(this->intValue.typeId);
+        return this->registry().get_builtin_type(this->intValue.typeId);
     }
 
 public:
@@ -97,7 +97,7 @@ public:
         if (this->intValue.radix < 2 || this->intValue.radix > 36)
             CERROR(this, "Radix outside valid range [2,36]: " << this->intValue.radix);
         else if (this->intValue.outOfRange)
-            CERROR(this, "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->types().get_builtin_type(this->intValue.typeId));
+            CERROR(this, "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->registry().get_builtin_type(this->intValue.typeId));
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override { return &this->intConstProxy; }
@@ -113,7 +113,7 @@ class TxFloatingLitNode : public TxLiteralValueNode {
 
 protected:
     virtual const TxType* define_type() override {
-        return this->types().get_builtin_type(this->typeId);
+        return this->registry().get_builtin_type(this->typeId);
     }
 
 public:
@@ -140,7 +140,7 @@ public:
 class TxCharacterLitNode : public TxLiteralValueNode {
 protected:
     virtual const TxType* define_type() override {
-        return this->types().get_builtin_type(UBYTE);
+        return this->registry().get_builtin_type(UBYTE);
     }
 
 public:
@@ -195,7 +195,7 @@ public:
 class TxBoolLitNode : public TxLiteralValueNode {
 protected:
     virtual const TxType* define_type() override {
-        return this->types().get_builtin_type(BOOL);
+        return this->registry().get_builtin_type(BOOL);
     }
 
 public:

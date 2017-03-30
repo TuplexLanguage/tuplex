@@ -206,7 +206,7 @@ public:
         this->typeExpression->visit_ast( visitor, thisAsParent, "type", context );
     }
 
-    // FIXME virtual const TxIdentifier* get_identifier() const override { return this->fieldName; }
+    virtual std::string get_identifier() const override { return std::string( this->fieldName ); }
 };
 
 
@@ -244,7 +244,7 @@ protected:
             type = this->initExpression->resolve_type();
             if (this->modifiable) {
                 if (! type->is_modifiable())
-                    type = this->types().get_modifiable_type(nullptr, type);
+                    type = this->registry().get_modifiable_type(nullptr, type);
             }
             else if (type->is_modifiable())
                 // if initialization expression is modifiable type, and modifiable not explicitly specified,
@@ -368,7 +368,7 @@ public:
             this->initExpression->visit_ast( visitor, thisAsParent, "initializer", context );
     }
 
-    virtual const TxIdentifier* get_identifier() const override { return this->fieldName; }
+    virtual std::string get_identifier() const override { return this->fieldName->str(); }
 };
 
 /** Non-local field declaration */
@@ -459,7 +459,7 @@ public:
         this->typeExpression->visit_ast( visitor, thisAsParent, "type", context );
     }
 
-    virtual const TxIdentifier* get_identifier() const override { return this->typeName; }
+    virtual std::string get_identifier() const override { return this->typeName->str(); }
 };
 
 

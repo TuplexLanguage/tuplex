@@ -167,8 +167,6 @@ public:
     virtual ~TxParserContext() = default;
 
 
-    inline TxDriver* get_driver() const { return &this->_driver; }
-
     /** The path of the file currently being parsed.
      * Used later to pass the file path to the location tracker. */
     std::string* current_input_filepath() const {

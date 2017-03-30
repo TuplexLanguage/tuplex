@@ -94,8 +94,6 @@ protected:
         this->lexContext = context;
     }
 
-    inline TypeRegistry& types() { return this->context().package()->types(); }
-
 public:
     const TxLocation parseLocation;
 
@@ -141,13 +139,16 @@ public:
 
 
 
-    /** Returns the identifier owned by this node, if any, otherwise null. */
-    virtual const TxIdentifier* get_identifier() const { return nullptr; }
+    /** Returns the identifier owned by this node, if any, otherwise an empty string. */
+    virtual std::string get_identifier() const { return std::string(); }
 
     virtual std::string str() const override;
 
     std::string parse_loc_string() const;
 
+
+
+    inline TypeRegistry& registry() const { return this->context().package()->registry(); }
 
     inline Logger* LOGGER() const { return &this->_LOG; }
 };
@@ -185,7 +186,7 @@ public:
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {};
 
-    virtual const TxIdentifier* get_identifier() const override { return this->ident; }
+    virtual std::string get_identifier() const override { return this->ident->str(); }
 };
 
 
@@ -279,7 +280,7 @@ public:
         }
     }
 
-    virtual const TxIdentifier* get_identifier() const override { return this->ident; }
+    virtual std::string get_identifier() const override { return this->ident->str(); }
 };
 
 

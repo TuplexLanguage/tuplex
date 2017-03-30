@@ -35,8 +35,7 @@ unsigned TxNode::nextNodeId = 0;
 std::string TxNode::str() const {
     auto ident = this->get_identifier();
     char buf[256];
-    snprintf( buf, 256, "%-11s %4u %-24s %s", this->parse_loc_string().c_str(), this->get_node_id(), typeid(*this).name(),
-              ( ident ? ident->c_str() : "" ) );
+    snprintf( buf, 256, "%-11s %4u %-24s %s", this->parse_loc_string().c_str(), this->get_node_id(), typeid(*this).name(), ident.c_str() );
     return std::string(buf);
 }
 
@@ -270,7 +269,7 @@ const TxType* TxIdentifiedTypeNode::define_type() {
         auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type();
         if (auto declEnt = this->get_declaration()) {
             // create empty specialization (uniquely named but identical type)
-            return this->types().make_empty_derivation(declEnt, identifiedType);
+            return this->registry().make_empty_derivation(declEnt, identifiedType);
         }
         return identifiedType;
     }
@@ -284,7 +283,7 @@ const TxType* TxGenSpecTypeNode::define_type() {
         // copy vector because of const conversion:
         auto tmp = std::vector<const TxTypeArgumentNode*>( this->typeArgs->size() );
         std::copy( this->typeArgs->cbegin(), this->typeArgs->cend(), tmp.begin() );
-        return this->types().get_type_specialization( this, baseType, tmp );
+        return this->registry().get_type_specialization( this, baseType, tmp );
     }
     else
         CERR_THROWRES(this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")");
@@ -633,7 +632,7 @@ const TxType* TxFieldValueNode::define_type() {
             return static_cast<const TxTypeDeclaration*>(decl)->get_definer()->resolve_type();
     }
     // Symbol is not a field or type, return Void as placeholder type
-    return this->types().get_builtin_type( VOID );
+    return this->registry().get_builtin_type( VOID );
 }
 
 
