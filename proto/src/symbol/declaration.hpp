@@ -16,6 +16,14 @@ const TxDeclarationFlags LEGAL_FIELD_DECL_FLAGS
           | TXD_BUILTIN | TXD_IMPLICIT | TXD_GENPARAM | TXD_GENBINDING | TXD_CONSTRUCTOR | TXD_INITIALIZER | TXD_EXPERRBLOCK;
 
 
+/** Represents a declaration of a program entity - a type or a field.
+ * A declaration constitutes the association between an entity-defining AST node
+ * (that inherits from TxEntityDefiningNode), and the entity's qualified name (symbol table entry)
+ * and declaration flags (attributes).
+ *
+ * Declarations are made in the declaration pass.
+ * The entity is produced by the definer during the resolution pass.
+ */
 class TxEntityDeclaration : public Printable {
     TxEntitySymbol* const symbol;
     const TxDeclarationFlags declFlags;

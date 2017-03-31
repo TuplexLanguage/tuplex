@@ -60,11 +60,7 @@ class TxFieldDefiningNode;
  * There is also a purely global and public resolution method, e.g. cross-package / API usage.
  */
 class TxScopeSymbol : public Printable {
-public:
-    typedef std::unordered_map<std::string, TxScopeSymbol*> SymbolMap;
-
-private:
-    static Logger& LOG;
+    static Logger& _LOG;
 
     /** Plain name of this symbol, which is unique within its outer (parent) scope. Does not contain any '.' characters. */
     const std::string name;
@@ -77,7 +73,7 @@ private:
     TxPackage* root;
 
     /** This scope's member symbols. The identifier keys are the symbols' plain names within this namespace. */
-    SymbolMap symbols;
+    std::unordered_map<std::string, TxScopeSymbol*> symbols;
     /** Internal vector containing this module's symbol names in insertion order. */
     std::vector<std::string> declOrderNames;
     /** Internal set containing this module's symbol names in alphabetical order. */
@@ -116,7 +112,7 @@ public:
     virtual ~TxScopeSymbol() = default;
 
 
-    inline Logger& LOGGER() const { return this->LOG; }
+    inline Logger* LOGGER() const { return &this->_LOG; }
 
 
     /** Returns true if this symbol has an outer (parent) scope, or false if it is a root scope. */

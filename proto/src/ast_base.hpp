@@ -313,16 +313,35 @@ public:
 
 
 
+/** Root class for AST nodes that resolve a program entity - a type or a field.
+ * To resolve means to either produce a new entity (define a new type or field)
+ * or to use one produced elsewhere.
+ *
+ * Type and field definitions, as well as value expressions, produce and/or use an entity.
+ * If the node resolves a field entity, it will also resolve the type of that field.
+ * This means all instances of this node will resolve a type, both type-defining and field-defining ones.
+ * The entity is produced/resolved during the resolution pass.
+ */
 class TxEntityDefiningNode : public TxNode {
 public:
     TxEntityDefiningNode(const TxLocation& parseLocation) : TxNode(parseLocation) { }
 
     virtual TxEntityDefiningNode* make_ast_copy() const override = 0;
 
-    /** Returns the type (as specific as can be known) of the value this node produces/uses. */
+    /** Resolves and returns the type of the entity/value this node produces/uses.
+     * If this node's entity has not already been resolved, it will be resolved in this invocation.
+     * If the resolution fails, an error message will have been generated and resolution_error exception is thrown.
+     * This method never returns NULL. */
     virtual const TxType* resolve_type    ()       = 0;
-    virtual const TxType* attempt_get_type() const = 0;
+
+    /** Returns the type of the entity/value this node produces/uses.
+     * This node must have been resolved before this call.
+     * This method never returns NULL, provided this node has been successfully resolved. */
     virtual const TxType* get_type        () const = 0;
+
+    /** Returns the type of the entity/value this node produces/uses if already successfully resolved,
+     * otherwise NULL. */
+    virtual const TxType* attempt_get_type() const = 0;
 };
 
 

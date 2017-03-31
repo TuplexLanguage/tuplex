@@ -12,6 +12,7 @@ struct ThresholdLevel {
 static struct ThresholdLevel THRESHOLD_LEVELS[] {
         { "MAIN",           ALL },
         { "DRIVER",         ALL },
+        { "REGISTRY",       ALL },
         { "AST",            ALL },
         { "SYMBOL",         ALL },
         { "ENTITY",         ALL },

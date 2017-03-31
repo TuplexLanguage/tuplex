@@ -334,7 +334,7 @@ void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& defContext, 
     if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType)) {
         if (auto maybeModElem = dynamic_cast<TxMaybeModTypeNode*>(arrayBaseType->elementTypeNode->typeExprNode)) {
             // (can this spuriously add Modifiable node to predeclared modifiable type, generating error?)
-            lexContext.scope()->LOGGER().debug("Implicitly declaring Array Element modifiable at %s", this->str().c_str());
+            this->LOGGER()->debug("Implicitly declaring Array Element modifiable at %s", this->str().c_str());
             maybeModElem->set_modifiable( true );
         }
     }
@@ -349,7 +349,7 @@ void TxMaybeModTypeNode::symbol_declaration_pass( LexicalContext& defContext, Le
     if (! this->is_modifiable()) {
         if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType))
             if (typeid(*arrayBaseType->elementTypeNode->typeExprNode) == typeid(TxModifiableTypeNode)) {
-                lexContext.scope()->LOGGER().debug("Implicitly declaring Array modifiable at %s", this->str().c_str());
+                this->LOGGER()->debug("Implicitly declaring Array modifiable at %s", this->str().c_str());
                 this->set_modifiable( true );
             }
     }
@@ -442,13 +442,13 @@ static int get_reinterpretation_degree( const TxType *expectedType, const TxType
  *
  * Note: This function doesn't generate compiler errors; if no match is found null is returned.
  */
-static const TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxEntitySymbol* entitySymbol,
+static const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntitySymbol* entitySymbol,
                                                 const std::vector<TxMaybeConversionNode*>* arguments ) {
     if (! arguments) {
         if (entitySymbol->field_count() == 1)
             return entitySymbol->get_first_field_decl();
         if (entitySymbol->field_count() > 1)
-            entitySymbol->LOGGER().note("%s must be matched using type parameters", entitySymbol->str().c_str());
+            LOG_DEBUG(origin->LOGGER(), entitySymbol << " must be resolved using type parameters but none provided from " << origin);
         return nullptr;
     }
 
@@ -477,7 +477,7 @@ static const TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxE
             if (field->get_type()->get_type_class() == TXTC_FUNCTION) {
                 auto candArgTypes = field->get_type()->argument_types();
                 if (candArgTypes.size() == arguments->size()) {
-                    //entitySymbol->LOGGER().trace("Candidate function: %s", funcType->to_string().c_str());
+                    //entitySymbol->LOGGER()->trace("Candidate function: %s", funcType->to_string().c_str());
 
                     // next check that the argument types match, and how close they match:
                     uint16_t reint[4] = { 0, 0, 0, 0 };
@@ -486,7 +486,7 @@ static const TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxE
                         auto argType = *argTypeI;
                         int degree = get_reinterpretation_degree( argDef, argType );
                         if (degree < 0) {
-                            //entitySymbol->LOGGER().info("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
+                            //entitySymbol->LOGGER()->info("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
                             //                             argType->str(true).c_str(), argDef->str(true).c_str());
                             goto NEXT_CANDIDATE;
                         }
@@ -494,8 +494,8 @@ static const TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxE
                         argTypeI++;
                     }
 
-                    entitySymbol->LOGGER().debug("Arguments match for %s: %-32s: %d, %d, %d, %d", field->str().c_str(), field->get_type()->str().c_str(),
-                                                 reint[0], reint[1], reint[2], reint[3] );
+                    //origin->LOGGER()->trace( "Arguments match for %s: %-32s: %d, %d, %d, %d", field->str().c_str(), field->get_type()->str().c_str(),
+                    //                         reint[0], reint[1], reint[2], reint[3] );
                     uint64_t candReint = ( ((uint64_t)reint[3])<<48 | ((uint64_t)reint[2])<<32 | ((uint64_t)reint[1])<<16 | reint[0] );
                     if (candReint <= closestReint) {
                         if (candReint == closestReint) {
@@ -523,7 +523,7 @@ static const TxFieldDeclaration* resolve_field( const TxParseOrigin& origin, TxE
         return closestDecl;
     }
 
-    entitySymbol->LOGGER().debug("Arguments do not match any overloaded candidate of %s", entitySymbol->str().c_str());
+    LOG_DEBUG(origin->LOGGER(), "Arguments do not match any overloaded candidate of " << entitySymbol);
     return nullptr;
 }
 
@@ -572,7 +572,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
         if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>(symbol)) {
             // if symbol can be resolved to actual field, then do so
             if (entitySymbol->field_count()) {
-                if (auto fieldDecl = resolve_field( *this, entitySymbol, this->appliedFuncArgs )) {
+                if (auto fieldDecl = resolve_field( this, entitySymbol, this->appliedFuncArgs )) {
                     if (fieldDecl->get_storage() == TXS_INSTANCE || fieldDecl->get_storage() == TXS_INSTANCEMETHOD) {
                         if (!this->baseExpr) {
                             CERR_THROWRES(this, "Instance member field referenced without instance base: " << this->get_full_identifier());
@@ -594,7 +594,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                 if (this->appliedFuncArgs) {
                     if (auto allocType = typeDecl->get_definer()->resolve_type()) {
                         if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member(CONSTR_IDENT))  // (constructors aren't inherited)
-                            if (auto constructorDecl = resolve_field( *this, constructorSymbol, this->appliedFuncArgs )) {
+                            if (auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs )) {
                                 ASSERT(constructorDecl->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_INITIALIZER),
                                         "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->str());
                                 //std::cerr << "resolving field to constructor: " << this << ": " << constructorDecl << std::endl;
@@ -643,7 +643,7 @@ const TxType* TxConstructorCalleeExprNode::define_type() {
         auto allocType = this->objectExpr->resolve_type();
         // find the constructor
         if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member(CONSTR_IDENT)) {  // (constructors aren't inherited)
-            if (auto constructorDecl = resolve_field( *this, constructorSymbol, this->appliedFuncArgs)) {
+            if (auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs)) {
                 ASSERT(constructorDecl->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_INITIALIZER),
                         "field named $init is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str());
                 this->declaration = constructorDecl;

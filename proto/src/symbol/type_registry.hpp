@@ -21,6 +21,8 @@ extern std::string encode_type_name( const TxTypeDeclaration* typeDecl );
 
 
 class TypeRegistry {
+    static Logger& _LOG;
+
     TxPackage& _package;
 
 //    /** parse location used for built-in constructs without actual source code */
@@ -97,6 +99,8 @@ class TypeRegistry {
 public:
     TypeRegistry(TxPackage& package);
 
+
+    inline Logger* LOGGER() const { return &this->_LOG; }
 
     TxPackage& package() const { return this->_package; }
 

@@ -12,7 +12,7 @@
 
 /*=== TxScopeSymbol implementation ===*/
 
-Logger& TxScopeSymbol::LOG = Logger::get("SYMBOL");
+Logger& TxScopeSymbol::_LOG = Logger::get("SYMBOL");
 
 /*--- lexical scope tracking ---*/
 
@@ -51,7 +51,7 @@ TxScopeSymbol* TxScopeSymbol::create_code_block_scope( const TxParseOrigin& orig
     bool success = this->declare_symbol(origin, scope);
     ASSERT(success, "failed to insert duplicate subscope name '" << baseName << "." << uniqueName << "'");
     (void)success;   // suppresses unused variable warning in release mode
-    this->LOGGER().trace("-->            %s", scope->get_full_name().str().c_str());
+    this->LOGGER()->trace("-->            %s", scope->get_full_name().str().c_str());
     return scope;
 }
 
@@ -97,7 +97,7 @@ TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName, TxNo
 //        if (shadowed && shadowed->get_full_name() != entity->get_full_name()) {
 //                //&& !(is_stack_field(entity) && is_stack_field(shadowed))) {  // (skip warn when stack var shadows another stack var)
 //            if (! this->get_full_name().begins_with(TxIdentifier(BUILTIN_NS)))
-//                this->LOGGER().warning("%-40s (in %-40s) shadows %s", entity->to_string().c_str(), this->to_string().c_str(), shadowed->to_string().c_str());
+//                this->LOGGER()->warning("%-40s (in %-40s) shadows %s", entity->to_string().c_str(), this->to_string().c_str(), shadowed->to_string().c_str());
 //        }
 //    }
 
@@ -112,7 +112,7 @@ TxEntitySymbol* TxScopeSymbol::declare_entity(const std::string& plainName, TxNo
     else {
         entitySymbol = new TxEntitySymbol(this, plainName);
         this->declare_symbol( *definingNode, entitySymbol );
-        this->LOGGER().trace("    Declared   %s", entitySymbol->str().c_str());
+        this->LOGGER()->trace("    Declared   %s", entitySymbol->str().c_str());
 
         // register possible main() function:
         if (plainName == "main") {
@@ -237,7 +237,7 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
                         if (auto thisDecl = get_symbols_declaration(this)) {
                             if (auto thisType = thisDecl->get_definer()->get_type()) {
                                 if (auto bindingDecl = thisType->lookup_param_binding(hashedDecl)) {
-                                    this->LOGGER().debug("Resolved %-16s = %-16s to binding\t%s", name.c_str(),
+                                    this->LOGGER()->debug("Resolved %-16s = %-16s to binding\t%s", name.c_str(),
                                                          hashedSym->get_full_name().str().c_str(), bindingDecl->str().c_str());
                                     return bindingDecl->get_symbol();
                                 }
@@ -259,7 +259,7 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
                 return member;
         }
         else
-            this->LOGGER().warning("Type not resolved of %s", this->str().c_str());
+            this->LOGGER()->warning("Type not resolved of %s", this->str().c_str());
     }
     return nullptr;
 }
@@ -396,7 +396,7 @@ const TxFieldDeclaration* lookup_field( TxScopeSymbol* vantageScope, const TxIde
         if (entitySymbol->field_count() == 1)
             return entitySymbol->get_first_field_decl();
         if (entitySymbol->field_count() > 1)
-            entitySymbol->LOGGER().note("%s must be matched using type parameters", entitySymbol->str().c_str());
+            entitySymbol->LOGGER()->note("%s must be matched using type parameters", entitySymbol->str().c_str());
     }
     return nullptr;
 }
