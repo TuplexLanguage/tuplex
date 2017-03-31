@@ -597,25 +597,6 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
 
 
 
-const TxType* TypeRegistry::get_interface_adapter(const TxType* interface, const TxType* adapted) {
-    const TxActualType* interfaceType = interface->type();
-    const TxActualType* adaptedType = adapted->type();
-    auto modIf = interfaceType->is_modifiable();
-    while (interfaceType->is_same_vtable_type())
-        interfaceType = interfaceType->get_semantic_base_type();
-    while (adaptedType->is_same_vtable_type())
-        adaptedType = adaptedType->get_semantic_base_type();
-
-    auto adapterType = this->_package.builtins().inner_get_interface_adapter( interfaceType, adaptedType );
-//    ASSERT(adapterType->adapted_type()->get_type_id() == adaptedType->get_type_id(),
-//           "Mismatching type ids between adapter and adaptee: " << adapterType->adapted_type()->get_type_id() << " != " << adaptedType->get_type_id());
-    if (modIf)
-        return this->get_modifiable_type(nullptr, adapterType);
-    else
-        return adapterType;
-}
-
-
 
 const TxType* TypeRegistry::get_reference_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* targetTypeBinding,
                                                 const TxIdentifier* dataspace ) {
@@ -667,4 +648,102 @@ const TxType* TypeRegistry::get_constructor_type(const TxTypeDeclaration* declar
                                        make_actual_arg_types( argumentTypes ), objectTypeDecl );
     this->add_type(type);
     return new TxType( type );
+}
+
+
+
+
+/*----- interface adapter -----*/
+
+class TxAdapterTypeNode final : public TxTypeExpressionNode {
+    const TxActualType* interfaceType;
+    const TxActualType* adaptedType;
+
+protected:
+    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override { }
+
+    virtual const TxType* define_type() override {
+        auto adapterActType = new TxInterfaceAdapterType( this->get_declaration(), interfaceType, adaptedType );
+        this->registry().add_type( adapterActType );
+        return this->registry().make_type_entity( adapterActType );
+    }
+
+public:
+    TxAdapterTypeNode( const TxLocation& parseLocation, const TxActualType* interfaceType, const TxActualType* adaptedType )
+            : TxTypeExpressionNode(parseLocation), interfaceType(interfaceType), adaptedType(adaptedType) { }
+
+    /** Creates a copy of this node and all its descendants for purpose of generic specialization. */
+    virtual TxAdapterTypeNode* make_ast_copy() const override {
+        ASSERT(false, "unexpected reinterpretation of " << this);
+        return nullptr; //new TxAdapterTypeNode( this );
+    }
+
+    virtual std::string get_auto_type_name() const override {
+        return (this->get_declaration() ? this->get_declaration()->get_unique_full_name() : "");
+    }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override { }
+};
+
+
+
+const TxType* TypeRegistry::get_interface_adapter(const TxType* interface, const TxType* adapted) {
+    // for now we don't defer it, we create it right away
+    auto adapterType = this->get_actual_interface_adapter( interface->type(), adapted->type() );
+    return adapterType;
+}
+
+
+const TxType* TypeRegistry::get_actual_interface_adapter(const TxActualType* interfaceType, const TxActualType* adaptedType) {
+    auto modIf = interfaceType->is_modifiable();
+
+    while (interfaceType->is_same_vtable_type())
+        interfaceType = interfaceType->get_semantic_base_type();
+    while (adaptedType->is_same_vtable_type())
+        adaptedType = adaptedType->get_semantic_base_type();
+
+    ASSERT(! interfaceType->is_modifiable(), "Shouldn't create adapter for 'modifiable' interface type: " << interfaceType);
+    ASSERT(!   adaptedType->is_modifiable(), "Shouldn't create adapter for 'modifiable' adaptee type: "   << adaptedType);
+    ASSERT(*interfaceType != *adaptedType,   "Shouldn't create adapter between equivalent types");
+    ASSERT(!(adaptedType->is_empty_derivation() && !adaptedType->get_explicit_declaration()), "Can't derive from implicit empty base type: " << adaptedType);
+
+    auto ifDecl = interfaceType->get_declaration();
+    auto scope = ifDecl->get_symbol()->get_outer();
+    std::string adapterName = ifDecl->get_unique_name() + "$if$" + encode_type_name( adaptedType->get_declaration() );
+
+    if (auto existingAdapterSymbol = dynamic_cast<TxEntitySymbol*>(scope->get_member_symbol(adapterName))) {
+        if (auto typeDecl = existingAdapterSymbol->get_type_decl()) {
+            auto adapterType = typeDecl->get_definer()->resolve_type();
+            //std::cerr << "Getting existing interface adapter: " << adapterType << std::endl;
+            return adapterType;
+        }
+    }
+
+    LOG(this->LOGGER(), INFO, "Creating interface adapter: " << adapterName << "\n\tfrom " << adaptedType << "\n\tto   " << interfaceType);
+    // TODO: combine flags from adapted and adaptee types, including TXD_EXPERRBLOCK
+
+    auto & loc = this->get_builtin_location();
+    auto adapterTypeNode = new TxAdapterTypeNode( loc, interfaceType, adaptedType );
+    auto adapterDeclNode = new TxTypeDeclNode( loc, (TXD_PUBLIC | TXD_IMPLICIT), adapterName, nullptr, adapterTypeNode );
+
+    adapterDeclNode->symbol_declaration_pass( ifDecl->get_definer()->context() );
+    {   // override the adaptee type id virtual field member:
+        TxDeclarationFlags fieldDeclFlags = TXD_PUBLIC | TXD_STATIC | TXD_OVERRIDE | TXD_IMPLICIT;
+        auto fieldDecl = new TxFieldDeclNode( loc, fieldDeclFlags,
+                                              new TxFieldDefNode( loc, "$adTypeId", new TxIdentifiedTypeNode( loc, "tx.UInt" ), nullptr ) );
+        auto ctx = LexicalContext( adapterDeclNode->get_declaration()->get_symbol(), nullptr, false );
+        fieldDecl->symbol_declaration_pass( ctx, false);
+        fieldDecl->symbol_resolution_pass();
+    }
+    adapterDeclNode->symbol_resolution_pass();
+
+    auto adapterType = adapterTypeNode->resolve_type();
+//    ASSERT(adapterType->adapted_type()->get_type_id() == adaptedType->get_type_id(),
+//           "Mismatching type ids between adapter and adaptee: " << adapterType->adapted_type()->get_type_id() << " != " << adaptedType->get_type_id());
+    if (modIf)
+        return this->get_modifiable_type(nullptr, adapterType);
+    else
+        return adapterType;
 }

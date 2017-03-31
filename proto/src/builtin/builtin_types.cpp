@@ -195,8 +195,7 @@ class TxAnyTypeDefNode final : public TxBuiltinTypeDefiningNode {
         TxAnyType(const TxTypeDeclaration* declaration) : TxActualType(TXTC_ANY, declaration) { }
 
         virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
-            //ASSERT(false, "Can't contruct LLVM type for abstract type " << this->to_string());
-            LOG_DEBUG(context.LOGGER(), "LLVM type for abstract type " << this << " is VOID");
+            LOG_TRACE(context.LOGGER(), "LLVM type for abstract type " << this << " is VOID");
             return context.get_voidT();
         }
     };
@@ -226,8 +225,7 @@ class TxVoidTypeDefNode final : public TxBuiltinTypeDefiningNode {
         TxVoidType( const TxTypeDeclaration* declaration ) : TxActualType( TXTC_VOID, declaration ) { }
 
         virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
-            //ASSERT(false, "Can't contruct LLVM type for Void type " << this->to_string());
-            LOG_DEBUG(context.LOGGER(), "LLVM type for abstract type " << this << " is VOID");
+            LOG_TRACE(context.LOGGER(), "LLVM type for abstract type " << this << " is VOID");
             return context.get_voidT();
         }
     };
@@ -262,8 +260,7 @@ class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
             : TxActualType(typeClass, declaration, TxTypeSpecialization(baseType))  { }
 
         virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
-            //ASSERT(false, "Can't contruct LLVM type for abstract type " << this->to_string());
-            LOG_DEBUG(context.LOGGER(), "LLVM type for abstract type " << this << " is VOID");
+            LOG_TRACE(context.LOGGER(), "LLVM type for abstract type " << this << " is VOID");
             return context.get_voidT();
         }
     };
@@ -746,132 +743,3 @@ BuiltinTypes::BuiltinTypes( TypeRegistry& registry )
 const TxType* BuiltinTypes::get_builtin_type( const BuiltinTypeId id ) const {
     return this->builtinTypes[id]->typeExpression->get_type();
 }
-
-
-
-
-/*----- interface adapter -----*/
-
-// TODO: can we refactor out these special node classes?
-
-class TxImplicitTypeDefiningNode final : public TxTypeExpressionNode {
-    const TxImplicitTypeDefiningNode* originalNode;
-    const TxType* baseType;
-
-    TxImplicitTypeDefiningNode( const TxImplicitTypeDefiningNode* original )
-            : TxTypeExpressionNode(original->parseLocation), originalNode(original), baseType() { }
-
-protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override { }
-
-    virtual const TxType* define_type() override {
-        if (this->originalNode) {
-            ASSERT(!this->baseType, "type already set");
-            this->baseType = this->registry().make_type_entity( this->registry().make_actual_type( this->get_declaration(), this->originalNode->baseType->type() ) );
-        }
-        return this->baseType;
-    }
-
-public:
-    TxImplicitTypeDefiningNode( const TxLocation& parseLocation )
-            : TxTypeExpressionNode(parseLocation), originalNode(), baseType() { }
-
-    /** Creates a copy of this node and all its descendants for purpose of generic specialization. */
-    virtual TxImplicitTypeDefiningNode* make_ast_copy() const override {
-        return new TxImplicitTypeDefiningNode( this );
-    }
-
-    virtual std::string get_auto_type_name() const override {
-        return (this->get_declaration() ? this->get_declaration()->get_unique_full_name() : "");
-    }
-
-    void set_type(const TxType* type) {
-        ASSERT(!this->baseType, "type already set");
-        this->baseType = type;
-    }
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
-
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        if (this->originalNode)
-            this->originalNode->visit_ast( visitor, thisAsParent, "originalnode", context );
-    }
-};
-
-class TxImplicitTypeDeclNode : public TxTypeDeclNode {
-public:
-    TxImplicitTypeDeclNode( const TxLocation& parseLocation, const std::string plainName, TxDeclarationFlags declFlags=(TXD_PUBLIC | TXD_IMPLICIT),
-                            const std::vector<TxDeclarationNode*>* typeParamDeclNodes=nullptr )
-        : TxTypeDeclNode( parseLocation, declFlags, plainName, typeParamDeclNodes, new TxImplicitTypeDefiningNode(parseLocation) ) { }
-
-    void set_type(const TxType* type) {
-        static_cast<TxImplicitTypeDefiningNode*>(this->typeExpression)->set_type(type);
-    }
-
-    const TxType* get_type() const { return this->typeExpression->get_type(); }
-};
-
-
-
-const TxType* BuiltinTypes::inner_get_interface_adapter(const TxActualType* interfaceType, const TxActualType* adaptedType) {
-    ASSERT(! interfaceType->is_modifiable(), "Shouldn't create adapter for 'modifiable' interface type: " << interfaceType);
-    ASSERT(!   adaptedType->is_modifiable(), "Shouldn't create adapter for 'modifiable' adaptee type: "   << adaptedType);
-    ASSERT(*interfaceType != *adaptedType,   "Shouldn't create adapter between equivalent types");
-
-    // we want to bypass empty, implicit derivations:
-    while (adaptedType->is_empty_derivation() && !adaptedType->is_explicit_nongen_declaration())
-        adaptedType = adaptedType->get_base_type();
-
-//    // (for now) we want to bypass equivalent reinterpretations:
-//    // FIXME: experimental: is this correct when only one of these is reinterpreted?
-//    while (interfaceType->is_equivalent_reinterpreted_specialization()) {
-//        auto tmpType = interfaceType->get_declaration()->get_definer()->get_node()->get_type();
-//        //std::cerr << "**** reverted from reinterpreted i/f type " << interfaceType << " to " << tmpType << std::endl;
-//        interfaceType = tmpType;
-//    }
-//    while (adaptedType->is_equivalent_reinterpreted_specialization()) {
-//        auto tmpType = adaptedType->get_declaration()->get_definer()->get_node()->get_type();
-//        //std::cerr << "**** reverted from reinterpreted obj type " << adaptedType << " to " << tmpType << std::endl;
-//        adaptedType = tmpType;
-//    }
-
-    auto ifDecl = interfaceType->get_declaration();
-    auto scope = ifDecl->get_symbol()->get_outer();
-    std::string adapterName = ifDecl->get_unique_name() + "$if$" + encode_type_name( adaptedType->get_declaration() );
-
-    if (auto existingAdapterSymbol = dynamic_cast<TxEntitySymbol*>(scope->get_member_symbol(adapterName))) {
-        if (auto typeDecl = existingAdapterSymbol->get_type_decl()) {
-            auto adapterType = typeDecl->get_definer()->resolve_type();
-            //std::cerr << "Getting existing interface adapter: " << adapterType << std::endl;
-            return adapterType;
-        }
-    }
-
-    //std::cerr << "Creating interface adapter: " << adapterName << "\n\tfrom " << adaptedType << "\n\tto   " << interfaceType << std::endl;
-    // TODO: combine flags from adapted and adaptee types, including TXD_EXPERRBLOCK
-
-    auto adapterDefiner = new TxImplicitTypeDeclNode( this->get_builtin_location(), adapterName );
-    {
-        auto ifDefiner = ifDecl->get_definer();
-        auto & ctx = ifDefiner->context();
-        adapterDefiner->symbol_declaration_pass(ctx);
-    }
-    //auto typeDecl = scope->declare_type(adapterName, adapterDefiner, TXD_PUBLIC | TXD_IMPLICIT);
-    auto typeDecl = adapterDefiner->get_declaration();
-
-    {   // override the adaptee type id virtual field member:
-        const TxType* fieldType = this->get_builtin_type( UINT );
-        auto fieldDef = new TxBuiltinFieldDefNode( this->get_builtin_location() );
-        auto fieldDecl = typeDecl->get_symbol()->declare_field("$adTypeId", fieldDef, TXD_PUBLIC | TXD_STATIC | TXD_OVERRIDE | TXD_IMPLICIT,
-                                                               TXS_VIRTUAL, "");
-        fieldDef->set_field( TxField::make_field(fieldDecl, fieldType) );
-    }
-
-    auto adapterActType = new TxInterfaceAdapterType( typeDecl, interfaceType, adaptedType );
-    auto adapterType = this->registry.make_type_entity( adapterActType );
-    adapterDefiner->set_type( adapterType );
-    adapterDefiner->symbol_resolution_pass();
-    this->registry.add_type( adapterActType );
-    return adapterType;
-}
-

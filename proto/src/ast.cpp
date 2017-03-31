@@ -213,7 +213,8 @@ void TxFieldDeclNode::symbol_resolution_pass() {
             }
             else if (storage == TXS_VIRTUAL || storage == TXS_INSTANCEMETHOD) {
                 if (! (this->field->get_declaration()->get_decl_flags() & TXD_ABSTRACT))
-                    CERROR(this, "Non-abstract virtual fields/methods must have an initializer: " << this->field->get_identifier());
+                    if (this->field->fieldName->str() != "$adTypeId")
+                        CERROR(this, "Non-abstract virtual fields/methods must have an initializer: " << this->field->get_identifier());
             }
             // Note: TXS_STACK is not declared via this node
             // FUTURE: ensure TXS_INSTANCE fields are initialized either here or in every constructor

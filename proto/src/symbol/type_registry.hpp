@@ -49,7 +49,7 @@ class TypeRegistry {
 
 
     // these access make_type_entity() / make_actual_type():
-    friend class TxImplicitTypeDefiningNode;
+    friend class TxAdapterTypeNode;
     friend class TxBuiltinTypeDefiningNode;
     friend class TxDefConstructorTypeDefNode;
     friend class TxConvConstructorTypeDefNode;
@@ -83,6 +83,8 @@ class TypeRegistry {
     const TxActualType* make_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
                                                   const std::vector<const TxTypeArgumentNode*>* bindings,
                                                   bool isExpErrType, const std::string& newBaseTypeNameStr );
+
+    const TxType* get_actual_interface_adapter( const TxActualType* interfaceType, const TxActualType* adaptedType );
 
 
     void resolve_deferred_types();
