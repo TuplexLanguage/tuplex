@@ -91,6 +91,49 @@ type Type derives Tuple, IntfA {
 abstract type AbstrIncomplType derives Tuple, IntfA {
 }
 
+## implementation member type must match interface member's type
+abstract type ErrImplType derives Tuple, IntfA {
+    public override mixin_method_2()->Int { return 10; }
+    #experr 1: public override mixin_method_1()->UByte { return 20; }
+    #experr 1: public override get_value()->Float { return 3.14; }
+}
+
+
+
+## implementing multiple interfaces
+
+type IntfX derives Interface {
+    public abstract get_value()->Int;
+
+    public mixin_method_1()->Int { return 1; }
+}
+
+type IntfY derives Interface {
+    public abstract get_value()->Int;
+}
+
+type IntfZ derives Interface {
+    public abstract get_value()->Int;
+
+    public mixin_method_1()->Int { return 5; }
+}
+
+
+type TypeOk derives Tuple, IntfX, IntfY {
+    public override get_value()->Int { return 14; }
+}
+
+## colliding mixin methods - should this be an error?
+type TypeErr1 derives Tuple, IntfX, IntfZ {
+    public override get_value()->Int { return 14; }
+}
+
+## double implementation - should this be an error/warning?
+type TypeErr2 derives Tuple, IntfX, IntfX {
+    public override get_value()->Int { return 14; }
+}
+
+
 
 main()->Int {
     t := Type(42);

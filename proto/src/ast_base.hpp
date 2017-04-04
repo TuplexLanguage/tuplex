@@ -413,7 +413,8 @@ public:
     virtual const TxType*  get_type        () const override final {
         ASSERT(this->type, "entity definer not resolved: " << this); return this->type; }
 
-    virtual const TxField* get_field       () const final {
+    virtual const TxField* attempt_get_field() const final { return this->field; }
+    virtual const TxField* get_field        () const final {
         ASSERT(this->field, "entity definer not resolved: " << this); return this->field; }
 
     virtual const TxExpressionNode* get_init_expression() const = 0;

@@ -31,8 +31,7 @@ type Type derives Tuple, IntfA, IntfB {
 }
 
 
-
-main()->Int {
+mixin_tests() {
     t := Type(42);
     r : &IntfA = &t;
     s : &IntfB = &t;
@@ -49,5 +48,10 @@ main()->Int {
     assert t.mixin_method_1() == 1;
     assert r.mixin_method_2() == 3;
     assert t.mixin_method_2() == 3;
+}
+
+
+main()->Int {
+    mixin_tests();
     return 0;
 }

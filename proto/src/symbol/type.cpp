@@ -155,7 +155,7 @@ void TxActualType::validate_type() const {
 void TxActualType::initialize_type() {
     LOG_TRACE(this->LOGGER(), "Initializing type " << this);
 
-    ASSERT(this->declaration, "No declaration for actual type " << this);  // FIXME: refactor Type impl to make use of this guarantee!
+    ASSERT(this->declaration, "No declaration for actual type " << this);
 
     auto typeDeclNamespace = this->get_declaration()->get_symbol();
     // determine generic base type, if any:
@@ -282,24 +282,31 @@ void TxActualType::initialize_type() {
     if (this->is_modifiable()) {
         // a modifiable type is a usage form of its base type, and doesn't affect the instance nor the vtable type
     }
-    else if (this->nonRefBindings) {
-        // Binding of a base type parameter implies reinterpretation of its members and thus
-        // the chance of modified instance / vtable types (for non-ref-constrained parameters).
-        this->extendsInstanceDatatype = true;
-        this->modifiesVTable = true;
-    }
-    else if (this->is_builtin()) {
-        // Built-in implies a distinct instance type compared to the base type.
-        this->extendsInstanceDatatype = true;
-    }
-    else if (this->get_type_class() == TXTC_FUNCTION) {
-        // function type implies a distinct instance type compared to the base type (for now)
-        this->extendsInstanceDatatype = true;
-    }
-    if (! this->interfaces.empty()) {
-        // If there are interfaces we assume that will cause the vtable will be extended in preparation.
-        // This may cause false positives, but we need to determine this flag in the type's initialization phase.
-        this->modifiesVTable = true;
+    else {
+        if (this->nonRefBindings) {
+            // Binding of a base type parameter implies reinterpretation of its members and thus
+            // the chance of modified instance / vtable types (for non-ref-constrained parameters).
+            // Note, may cause false positives (a full graph analysis of contained members would be needed for full accuracy)
+            this->extendsInstanceDatatype = true;
+            this->modifiesVTable = true;
+        }
+        else if (this->is_builtin()) {
+            // Built-in implies a distinct instance type compared to the base type.
+            this->extendsInstanceDatatype = true;
+        }
+        else if (this->get_type_class() == TXTC_FUNCTION) {
+            // function type implies a distinct instance type compared to the base type (for now)
+            this->extendsInstanceDatatype = true;
+        }
+        else if (this->get_type_class() == TXTC_INTERFACEADAPTER) {
+            this->modifiesVTable = true;
+        }
+
+        if (! this->interfaces.empty()) {
+            // If there are interfaces we assume that will cause the vtable will be extended in preparation.
+            // This may cause false positives, but we need to determine this flag in the type's initialization phase.
+            this->modifiesVTable = true;
+        }
     }
 
     this->hasInitialized = true;
@@ -387,15 +394,15 @@ bool TxActualType::inner_prepare_members() {
 
             bool expErrField = ( fieldDecl->get_decl_flags() & TXD_EXPERRBLOCK );
             ScopedExpErrClause expErrClause( fieldDecl->get_definer(), expErrField );
-            if (expErrField && ! fieldDecl->get_definer()->attempt_get_type()) {
+            if (expErrField && ! fieldDecl->get_definer()->attempt_get_field()) {
                 LOG_TRACE(this->LOGGER(), "Skipping preparation of EXPERR unresolved field " << fieldDecl);
                 continue;
             }
 
             auto field = fieldDecl->get_definer()->get_field();
-            // validate type:
-            {
-                auto fieldType = field->get_type()->type();
+            auto fieldType = field->get_type()->type();
+
+            { // validate field's type:
                 if (! fieldType->is_concrete()) {
                     CERROR(field, "Can't declare a field of non-concrete type: " << field << " " << fieldType);
                 }
@@ -417,17 +424,16 @@ bool TxActualType::inner_prepare_members() {
                 }
             }
 
-            // layout:
+            // validate field's storage and declaration flags, and do layout:
             switch (fieldDecl->get_storage()) {
             case TXS_INSTANCE:
-                this->LOGGER()->debug("Laying out instance field %-40s  %s  %u", field->str().c_str(),
-                                      field->get_type()->str().c_str(), this->instanceFields.get_field_count());
+                LOG_DEBUG(this->LOGGER(), "Laying out instance field " << field << "  " << this->instanceFields.get_field_count());
                 if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
-                    CERROR(field, "Can't declare an instance field as abstract: " << field);
+                    CERROR(field, "Can't declare an instance field abstract: " << field);
 
                 // recursively prepare instance member fields' types so that we identify recursive data type definitions:
                 //std::cerr << "Recursing into " << field << "  of type " << field->get_type() << std::endl;
-                if (const_cast<TxActualType*>( field->get_type()->type() )->prepare_members())
+                if (const_cast<TxActualType*>( fieldType )->prepare_members())
                     CERROR(field, "Recursive data type via field " << field->get_declaration()->get_unique_full_name());
 
                 if (fieldDecl->get_decl_flags() & TXD_GENBINDING)
@@ -445,9 +451,9 @@ bool TxActualType::inner_prepare_members() {
                     if (this->get_type_class() != TXTC_INTERFACE && !(this->get_declaration()->get_decl_flags() & TXD_ABSTRACT))
                         CERROR(fieldDecl->get_definer(), "Can't declare abstract member '" << fieldDecl->get_unique_name() << "' in type that is not declared abstract: " << this);
                 }
-                // permit this for now
-                //else if (this->get_type_class() == TXTC_INTERFACE)
-                //    CERROR(fieldDecl->get_definer(), "Can't declare non-abstract virtual member '" << fieldDecl->get_unique_name() << "' in interface type: " << this);
+
+                if (entitySym->is_overloaded())
+                    CERROR(field, "Overloading of virtual fields/methods not yet supported: " << field);
 
                 if (this->virtualFields.has_field(field->get_unique_name())) {
                     if (! (fieldDecl->get_decl_flags() & TXD_OVERRIDE))
@@ -1081,10 +1087,6 @@ const TxActualType* TxReferenceType::target_type() const {
 
 
 bool TxInterfaceAdapterType::inner_prepare_members() {
-    if (! this->is_modifiable()) {
-        this->modifiesVTable = true;
-    }
-
     bool rec = TxActualType::inner_prepare_members();
 
     LOG_DEBUG(this->LOGGER(), "preparing adapter for " << this->adaptedType << " to interface " << this->get_semantic_base_type());

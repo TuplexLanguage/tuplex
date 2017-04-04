@@ -19,6 +19,16 @@ type AType mod derives Tuple {
     public method(a : Int)->Int {
         return a * 2;
     }
+
+    ## overloaded method name:
+    ## TODO: Support this. For now, error is generated.
+
+    #experr: public multimethod(a : Int)->Int {
+        return Int( a * 3 );
+    }
+    #experr: public multimethod(a : Float)->Int {
+        return Int( a * 3.5 );
+    }
 }
 
 type BType mod derives AType {
@@ -39,6 +49,20 @@ type BType mod derives AType {
     ##public override bad_method() {}
 
     public b_method() {}
+
+
+    ## overriding overloaded method (in reverse order):
+    ## TODO: Support this.
+    /*
+    public override multimethod(a : Float)->Int {
+        return super.multimethod( a ) * 2;
+    }
+    public override multimethod(a : Int)->Int {
+        return super.multimethod( a ) * 3;
+    }
+
+    #experr: static override multimethod : Bool;
+    */
 }
 
 main()->Int {
@@ -67,11 +91,17 @@ main()->Int {
     br.b_method();
     #experr: ar.b_method();
 
-    ar.print();
-    br.print();
-
-    val := ar.method( 2 );
-    assert val == 8;
-    
+    ##ar.print();
+    ##br.print();
+    vala := ar.method( 2 );
+    assert vala == 8;
+    valb := br.method( 2 );
+    assert valb == 8;
+/*
+    val := ar.multimethod( 4.0 );
+    assert val == 28;
+    val := ar.multimethod( 4 );
+    assert val == 36;
+*/
     return 0;
 }

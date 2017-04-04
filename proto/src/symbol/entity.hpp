@@ -40,7 +40,7 @@ public:
 
     virtual ExpectedErrorClause* exp_err_ctx() const override;
 
-    TxScopeSymbol* get_symbol() const {
+    TxEntitySymbol* get_symbol() const {
         return (this->declaration ? this->declaration->get_symbol() : nullptr);
     }
 
@@ -98,6 +98,10 @@ public:
 
     inline const std::string get_unique_name() const {
         return this->get_declaration()->get_unique_name();
+    }
+
+    inline const std::string get_unique_full_name() const {
+        return this->get_declaration()->get_unique_full_name();
     }
 
     virtual std::string str() const override {
