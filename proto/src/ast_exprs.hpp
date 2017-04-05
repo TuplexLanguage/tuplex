@@ -62,6 +62,7 @@ public:
         return false;  // can we ever know if target is statically constant?
     }
 
+    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const override;
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
     virtual llvm::Value* code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const override;
 
@@ -116,7 +117,7 @@ public:
         return this->array->is_statically_constant() && this->subscript->is_statically_constant();
     }
 
-    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const override;
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {

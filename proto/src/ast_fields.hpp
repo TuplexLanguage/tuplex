@@ -75,7 +75,7 @@ public:
     }
 
 
-    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics=false) const;
+    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope /*, bool foldStatics=false */) const override;
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
 

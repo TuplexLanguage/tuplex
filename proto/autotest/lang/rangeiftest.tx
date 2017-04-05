@@ -51,7 +51,6 @@ main() -> Int {
     var2 := MyUInt( 2 );
     assert var1.ordinal() == 1;
     assert var2.ordinal() == 2;
-## FIXME: erroneous code generation for this call
-##    assert var1.compare( var2 ) == -1;
+    assert var1.compare( var2 ) == -1;
     return 0;
 }

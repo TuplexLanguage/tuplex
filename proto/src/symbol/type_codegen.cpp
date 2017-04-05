@@ -323,10 +323,8 @@ Type* TxTupleType::make_llvm_type_body(LlvmGenerationContext& context, Type* hea
 
 Type* TxInterfaceType::make_llvm_type(LlvmGenerationContext& context) const {
     return StructType::get(context.llvmContext);  // abstract type
-    //return context.get_voidT();  // abstract type
 }
 
 Type* TxInterfaceAdapterType::make_llvm_type(LlvmGenerationContext& context) const {
     return StructType::get(context.llvmContext);  // abstract type
-    //return context.get_voidT();  // abstract type
 }

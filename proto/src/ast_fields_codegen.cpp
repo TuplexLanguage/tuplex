@@ -90,7 +90,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
         if (baseExpr) {
             // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference
             Value* runtimeBaseTypeIdV = baseExpr->code_gen_typeid(context, scope);  // (static unless reference)
-            Value* baseValue = baseExpr->code_gen(context, scope);  // expected to be of pointer type
+            Value* baseValue = baseExpr->code_gen_address(context, scope);  // expected to be of pointer type
             val = instance_method_value_code_gen(context, scope, baseExpr->get_type()->type(), runtimeBaseTypeIdV, fieldEntity, baseValue, nonvirtualLookup);
         }
         else {
@@ -135,7 +135,7 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
                 LOG(context.LOGGER(), ERROR, "Attempted to dereference TXS_INSTANCE field but no base expression provided; identifier=" << fieldEntity->get_declaration()->get_unique_full_name());
                 return nullptr;
             }
-            auto baseValue = baseExpr->code_gen(context, scope);
+            auto baseValue = baseExpr->code_gen_address(context, scope);
             if (! baseValue)
                 return nullptr;
 
@@ -164,24 +164,25 @@ static Value* field_value_code_gen(LlvmGenerationContext& context, GenScope* sco
 }
 
 
-Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope, bool foldStatics) const {
+Value* TxFieldValueNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
     if (auto field = this->get_field())
-        return field_value_code_gen(context, scope, this->baseExpr, field, foldStatics);
+        return field_value_code_gen(context, scope, this->baseExpr, field, true);
     else
         return NULL;
 }
 
 Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     TRACE_CODEGEN(this, context);
-    Value* value = this->code_gen_address(context, scope, true);
+    Value* value = this->code_gen_address( context, scope /*, true*/ );
 
     if ( value && scope ) {  // (in global scope we don't load)
         auto valT = value->getType();
         // function and complex (non-single-valued) pointers don't require a load instruction,
         // except if a Ref type
-        if ( valT->isPointerTy()
-             && ( this->get_type()->get_type_class() == TXTC_REFERENCE
-                  || valT->getPointerElementType()->isSingleValueType() ) ) {
+        if ( valT->isPointerTy() )
+//             && ( this->get_type()->get_type_class() == TXTC_REFERENCE
+//                  || valT->getPointerElementType()->isSingleValueType() ) )
+        {
             //std::cerr << "access_via_load_store():  TRUE: " << valT << std::endl;
             value = scope->builder->CreateLoad( value );
         }

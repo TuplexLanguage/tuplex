@@ -90,6 +90,11 @@ public:
         this->appliedFuncArgs = appliedFuncArgs;
     }
 
+    /** Generates code that produces a pointer to the value of this expression. */
+    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
+        ASSERT(false, "Unsupported: code_gen_address() for node type " << this);
+    }
+
     /** Generates code that produces the type id (as opposed to the value) of this expression. */
     virtual llvm::Value* code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const;
 };
@@ -154,7 +159,8 @@ public:
         return this->get_spec_expression()->get_static_constant_proxy();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         if (this->conversionExpr)

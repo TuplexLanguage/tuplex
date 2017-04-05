@@ -195,8 +195,8 @@ class TxAnyTypeDefNode final : public TxBuiltinTypeDefiningNode {
         TxAnyType(const TxTypeDeclaration* declaration) : TxActualType(TXTC_ANY, declaration) { }
 
         virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
-            LOG_TRACE(context.LOGGER(), "LLVM type for abstract type " << this << " is VOID");
-            return context.get_voidT();
+            //LOG_TRACE(context.LOGGER(), "LLVM type for abstract type " << this << " is VOID");
+            return llvm::StructType::get(context.llvmContext);  // abstract type
         }
     };
 

@@ -5,6 +5,11 @@
 using namespace llvm;
 
 
+Value* TxMaybeConversionNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
+    TRACE_CODEGEN(this, context);
+    return this->get_spec_expression()->code_gen_address(context, scope);
+}
+
 Value* TxMaybeConversionNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     TRACE_CODEGEN(this, context);
     return this->get_spec_expression()->code_gen(context, scope);

@@ -216,31 +216,31 @@ Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* sco
     TRACE_CODEGEN(this, context);
     Value* ptrV = nullptr;
     TxExpressionNode* targetNode = this->target;
-    if (auto genConvNode = dynamic_cast<TxMaybeConversionNode*>(targetNode)) {
-        targetNode = genConvNode->get_spec_expression();
-    }
-
-    if (auto fieldNode = dynamic_cast<TxFieldValueNode*>(targetNode)) {
-        ptrV = fieldNode->code_gen_address(context, scope);
-    }
-    else if (auto elemNode = dynamic_cast<TxElemDerefNode*>(targetNode)) {
-        ptrV = elemNode->code_gen_address(context, scope);
-    }
-    else if (targetNode->is_statically_constant()) {
-        // experimental, automatically allocates space for literals, used for e.g. string literals
-        auto targetVal = targetNode->code_gen(context, scope);
-        if (auto constInitializer = dyn_cast<Constant>(targetVal))
-            ptrV = new GlobalVariable(context.llvmModule, constInitializer->getType(), true,
-                                         GlobalValue::InternalLinkage, constInitializer);
-        else {
-            LOG(context.LOGGER(), ERROR, this << ": Ref target expression supposed to be statically constant but isn't: " << ::to_string(targetVal));
-            return nullptr;
-        }
-    }
-    else {
-        ASSERT(false, "Can't construct reference to expression of type: " << *targetNode);
-        return nullptr;
-    }
+//    if (auto genConvNode = dynamic_cast<TxMaybeConversionNode*>(targetNode)) {
+//        targetNode = genConvNode->get_spec_expression();
+//    }
+//    if (auto fieldNode = dynamic_cast<TxFieldValueNode*>(targetNode)) {
+//        ptrV = fieldNode->code_gen_address(context, scope);
+//    }
+//    else if (auto elemNode = dynamic_cast<TxElemDerefNode*>(targetNode)) {
+//        ptrV = elemNode->code_gen_address(context, scope);
+//    }
+//    else if (targetNode->is_statically_constant()) {
+//        // experimental, automatically allocates space for literals, used for e.g. string literals
+//        auto targetVal = targetNode->code_gen(context, scope);
+//        if (auto constInitializer = dyn_cast<Constant>(targetVal))
+//            ptrV = new GlobalVariable(context.llvmModule, constInitializer->getType(), true,
+//                                         GlobalValue::InternalLinkage, constInitializer);
+//        else {
+//            LOG(context.LOGGER(), ERROR, this << ": Ref target expression supposed to be statically constant but isn't: " << ::to_string(targetVal));
+//            return nullptr;
+//        }
+//    }
+//    else {
+//        ASSERT(false, "Can't construct reference to expression of type: " << *targetNode);
+//        return nullptr;
+//    }
+    ptrV = targetNode->code_gen_address(context, scope);
 
     // the reference gets the statically known target type id
     auto tidV = ConstantInt::get(Type::getInt32Ty(context.llvmContext), targetNode->get_type()->get_type_id());
@@ -252,16 +252,18 @@ Value* TxReferenceToNode::code_gen(LlvmGenerationContext& context, GenScope* sco
 
 
 
-Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxReferenceDerefNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
     TRACE_CODEGEN(this, context);
     if (! this->refExprValue) {
         this->refExprValue = this->reference->code_gen(context, scope);
         if (! this->refExprValue)
             return NULL;
     }
+    return gen_get_ref_pointer(context, scope, this->refExprValue);
+}
 
-    Value* ptrV = gen_get_ref_pointer(context, scope, this->refExprValue);
-
+Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+    Value* ptrV = this->code_gen_address( context, scope );
     auto targT = ptrV->getType()->getPointerElementType();
     //std::cerr << this->parseLocation << ": Dereferencing: " << ptrV << " of pointer element type: "<< targT << std::endl;
     if (targT->isSingleValueType()) {  // can be loaded in register
@@ -321,31 +323,34 @@ static Value* gen_elem_address(LlvmGenerationContext& context, GenScope* scope, 
         return GetElementPtrInst::CreateInBounds(arrayPtrV, ixs);
 }
 
+
 Value* TxElemDerefNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
-    auto arrayV = this->array->code_gen(context, scope);
-    auto subscriptV = this->subscript->code_gen(context, scope);
-    if (! arrayV || ! subscriptV)
-        return NULL;
-
-    if (! arrayV->getType()->isPointerTy()) {
-        // aggregate values must be stored in memory (have address) for getting address of element
-        if (scope) {
-            auto arrayA = scope->builder->CreateAlloca(arrayV->getType());
-            scope->builder->CreateStore(arrayV, arrayA);
-            arrayV = arrayA;
-        }
-        else if (auto arrayC = dyn_cast<Constant>(arrayV)) {
-            auto arrayA = new GlobalVariable(context.llvmModule, arrayC->getType(), true, GlobalValue::InternalLinkage,
-                                             arrayC, "$array");
-            arrayV = arrayA;
-        }
-        else {
-            LOG(context.LOGGER(), ERROR, "Can't dereference non-constant array from global scope");
-            return NULL;
-        }
-    }
-
-    return gen_elem_address(context, scope, arrayV, subscriptV);
+    TRACE_CODEGEN(this, context);
+    return gen_elem_address( context, scope, this->array->code_gen_address(context, scope), this->subscript->code_gen(context, scope) );
+//    auto arrayV = this->array->code_gen(context, scope);
+//    auto subscriptV = this->subscript->code_gen(context, scope);
+//    if (! arrayV || ! subscriptV)
+//        return NULL;
+//
+//    if (! arrayV->getType()->isPointerTy()) {
+//        // aggregate values must be stored in memory (have address) for getting address of element
+//        if (scope) {
+//            auto arrayA = scope->builder->CreateAlloca(arrayV->getType());
+//            scope->builder->CreateStore(arrayV, arrayA);
+//            arrayV = arrayA;
+//        }
+//        else if (auto arrayC = dyn_cast<Constant>(arrayV)) {
+//            auto arrayA = new GlobalVariable(context.llvmModule, arrayC->getType(), true, GlobalValue::InternalLinkage,
+//                                             arrayC, "$array");
+//            arrayV = arrayA;
+//        }
+//        else {
+//            LOG(context.LOGGER(), ERROR, "Can't dereference non-constant array from global scope");
+//            return NULL;
+//        }
+//    }
+//
+//    return gen_elem_address(context, scope, arrayV, subscriptV);
 }
 
 Value* TxElemDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
@@ -355,6 +360,7 @@ Value* TxElemDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope
     if (! arrayV || ! subscriptV)
         return NULL;
 
+    // TODO: remove this auto-mem-alloc kludge (replace by proper value semantics and/or constant expression evaluation)
     if (! arrayV->getType()->isPointerTy()) {
         if (auto arrayC = dyn_cast<Constant>(arrayV)) {
             if (auto intC = dyn_cast<ConstantInt>(subscriptV)) {
@@ -408,19 +414,18 @@ Value* TxElemDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope
 
 Value* TxElemAssigneeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     TRACE_CODEGEN(this, context);
-    auto arrayval = this->array->code_gen(context, scope);
-    auto subscriptval = this->subscript->code_gen(context, scope);
-    if (! arrayval || ! subscriptval)
-        return NULL;
-    ASSERT(subscriptval->getType()->isIntegerTy(), "expected subscript to be an integer: " << subscriptval);
-    ASSERT(arrayval->getType()->isPointerTy(), "expected operand to be a pointer: " << arrayval);
-    ASSERT(arrayval->getType()->getPointerElementType()->isStructTy(), "expected array-operand to be a pointer to struct: " << arrayval);
-    // TODO: merge code with TxElemDerefNode::code_gen_address
-
-    Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
-                     ConstantInt::get(Type::getInt32Ty(context.llvmContext), 1),
-                     subscriptval };
-    return scope->builder->CreateInBoundsGEP(arrayval, ixs);
+    return gen_elem_address( context, scope, this->array->code_gen_address(context, scope), this->subscript->code_gen(context, scope) );
+//    if (! arrayval || ! subscriptval)
+//        return NULL;
+//    ASSERT(subscriptval->getType()->isIntegerTy(), "expected subscript to be an integer: " << subscriptval);
+//    ASSERT(arrayval->getType()->isPointerTy(), "expected operand to be a pointer: " << arrayval);
+//    ASSERT(arrayval->getType()->getPointerElementType()->isStructTy(), "expected array-operand to be a pointer to struct: " << arrayval);
+//    // TODO: merge code with TxElemDerefNode::code_gen_address
+//
+//    Value* ixs[] = { ConstantInt::get(Type::getInt32Ty(context.llvmContext), 0),
+//                     ConstantInt::get(Type::getInt32Ty(context.llvmContext), 1),
+//                     subscriptval };
+//    return scope->builder->CreateInBoundsGEP(arrayval, ixs);
 }
 
 
@@ -448,7 +453,6 @@ static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& c
         args.push_back(argDef->code_gen(context, scope));
     }
 
-    LOG_DEBUG(context.LOGGER(), "Creating function call \"" << functionPtrV->getName().str() << '"');
     if (scope)
         return scope->builder->CreateCall(functionPtrV, args, exprLabel);
     else {

@@ -11,6 +11,13 @@ Value* TxBoolLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) 
 }
 
 
+Value* TxCStringLitNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
+    // experimental, automatically allocates space for literals, used for e.g. string literals
+    auto targetVal = this->code_gen(context, scope);
+    auto constInitializer = cast<Constant>(targetVal);
+    return new GlobalVariable(context.llvmModule, constInitializer->getType(), true, GlobalValue::InternalLinkage, constInitializer);
+}
+
 Value* TxCStringLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     TRACE_CODEGEN(this, context, '"' << this->value << '"');
     //auto type = context.get_llvm_type(this->get_type());

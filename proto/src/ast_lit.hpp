@@ -187,6 +187,7 @@ public:
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override;
 
+    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const override;
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 

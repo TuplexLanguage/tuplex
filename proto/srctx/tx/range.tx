@@ -6,8 +6,7 @@ public interface Comparable< E > derives Interface {
 }
 
 
-## TODO: should be < E derives Enumerable >
-public interface Enumerable< E derives Enumerable > derives Comparable< E > {
+public interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
     /** returns the last (highest) ordinal for this type */
     public static abstract last_ordinal() -> ULong;
 
@@ -17,20 +16,6 @@ public interface Enumerable< E derives Enumerable > derives Comparable< E > {
     /** returns the ordinal for this value */
     public abstract ordinal() -> ULong;
 
-/*
-    public next() -> E {
-        return self.next( 1 );
-    }
-
-    public next( step : ULong ) -> E {
-        nextOrd := self.ordinal() + step;
-        if nextOrd <= E.last_ordinal()
-            return E.value( nextOrd );
-        else
-            ## FUTURE: panic / exception
-            return E.value( E.last_ordinal() );
-    }
-
 
     public static first() -> E {
         return E.value( 0 );
@@ -39,12 +24,11 @@ public interface Enumerable< E derives Enumerable > derives Comparable< E > {
     public static last() -> E {
         return E.value( E.last_ordinal() );
     }
-*/
 }
 
 
+
 /** A range between two values of an Enumerable type. */
-/*
 public Range< E derives Enumberable > derives Tuple {
     public start : E;
     public end   : E;
@@ -60,4 +44,3 @@ public Range< E derives Enumberable > derives Tuple {
     public count() ULong              { return (last - first + 1) / step }
     public at(index : ULong) Opt<E>   { r := first + index * step; return ( r<=last ? r : NULL ) }
 }
-*/
