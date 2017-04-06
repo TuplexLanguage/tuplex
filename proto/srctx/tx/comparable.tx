@@ -1,0 +1,6 @@
+module tx
+
+
+public interface Comparable< E > derives Interface {
+    public abstract compare( other : E ) -> Int;
+}

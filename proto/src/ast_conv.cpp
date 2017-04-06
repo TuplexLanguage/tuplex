@@ -108,6 +108,7 @@ TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType*
 
 void TxMaybeConversionNode::insert_conversion( const TxType* resultType, bool _explicit ) {
     ASSERT(this->originalExpr->is_context_set(), "declaration pass not yet run on originalExpr");
+    ASSERT(!this->attempt_get_type(), "type already resolved for " << this);
 
     if (this->conversionExpr) {
         LOG(this->LOGGER(), ALERT, this << ": Skipping overwrite previously inserted conversion node");

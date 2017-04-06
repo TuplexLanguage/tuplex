@@ -1,0 +1,51 @@
+
+public abstract interface Enumerable< E derives Enumerable<E> > {
+    /** returns the last (highest) ordinal for this type */
+    public static abstract last_ordinal() -> UInt;
+
+    /** returns the value for the specified ordinal (panics upon out-of-bounds) */
+    public static abstract value( ordinal: UInt ) -> E;
+
+    /** returns the ordinal for this value */
+    public abstract ordinal() -> UInt;
+
+
+    public static first() -> E {
+        return E.value( 0 );
+    }
+
+    public static last() -> E {
+        return E.value( E.last_ordinal() );
+    }
+}
+
+public type ERange< E derives Enumerable<E> > derives Tuple {
+    _last : UInt;
+
+    public start : E;
+    public end   : E;
+    public step  : Long;
+
+    public self( start : E, end : E, step : Long ) {
+        self.start = start;
+        self.end = end;
+        self.step = step;
+
+        if self.step >= 0
+            self._last = UInt( ( Long( self.end.ordinal() )   - self.start.ordinal() + 1L ) / self.step );
+        else
+            self._last = UInt( ( Long( self.start.ordinal() ) - self.end.ordinal()   + 1L ) / -self.step );
+    }
+
+    public last_index() -> UInt {
+        return self._last;
+    }
+    public at( index : UInt ) -> E {
+        assert index <= self._last;
+        return E.value( self.start.ordinal() + UInt( index * self.step ) );
+    }
+}
+
+main() {
+##    irange : ERange<Int>;
+}

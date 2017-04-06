@@ -1,20 +1,15 @@
-module txtmp
-
-
-public interface Comparable< E > derives Interface {
-    public abstract compare( other : E ) -> Int;
-}
+module tx
 
 
 public interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
     /** returns the last (highest) ordinal for this type */
-    public static abstract last_ordinal() -> ULong;
+    public static abstract last_ordinal() -> UInt;
 
     /** returns the value for the specified ordinal (panics upon out-of-bounds) */
-    public static abstract value( ordinal: ULong ) -> E;
+    public static abstract value( ordinal: UInt ) -> E;
 
     /** returns the ordinal for this value */
-    public abstract ordinal() -> ULong;
+    public abstract ordinal() -> UInt;
 
 
     public static first() -> E {
@@ -28,19 +23,81 @@ public interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
 
 
 
+public interface Range< E > derives Sequenceable< E > {
+    public abstract sequencer() -> Ref< ~Sequencer<E> >;
+    public abstract last_index() -> UInt;
+    public abstract at(index : UInt) -> E;
+}
+
+
+
 /** A range between two values of an Enumerable type. */
-public Range< E derives Enumberable > derives Tuple {
+public type ERange< E derives Enumerable<E> > derives Tuple, Range< E > {
+    _last : UInt;
+
     public start : E;
     public end   : E;
-    public step  : ULong;
+    public step  : Long;
 
-    public self( first : E, last : E, step : ULong ) {
-        self.first = first;
-        self.last = last;
+    public self( start : E, end : E, step : Long ) {
+        self.start = start;
+        self.end = end;
         self.step = step;
+
+        ## FIXME: review
+        if self.step >= 0
+            self._last = UInt( ( Long( self.end.ordinal() )   - self.start.ordinal() + 1L ) / self.step );
+        else
+            self._last = UInt( ( Long( self.start.ordinal() ) - self.end.ordinal()   + 1L ) / -self.step );
     }
 
-    public sequencer() ~Iterator<E>   { return ERangeIterator(first, last, step) }
-    public count() ULong              { return (last - first + 1) / step }
-    public at(index : ULong) Opt<E>   { r := first + index * step; return ( r<=last ? r : NULL ) }
+    public sequencer() -> Ref< ~ERangeIterator<E> > {
+        return new ~ERangeIterator<E>( self );
+    }
+    public last_index() -> UInt {
+        return self._last;
+    }
+    public at( index : UInt ) -> E {
+        assert index <= self._last;
+        return E.value( self.start.ordinal() + UInt( index * self.step ) );
+    }
+}
+
+/** The ERange iterator. */
+public type ERangeIterator< E derives Enumerable<E> > derives Tuple, Sequencer< E > {
+    range   : &ERange<E>;
+    nextVal : ~UInt;
+
+    public self( range : &ERange ) {
+        self.range = range;
+        self.nextVal = range.start;
+    }
+
+    public sequencer() -> Ref< ~ERangeIterator > {
+        return self;
+    }
+
+    public hasNext() -> Bool {
+        return self.nextVal <= self.range.end;
+    }
+
+    public next()->ULong  {
+        assert self.nextVal <= self.range.end;
+        r := self.nextVal;
+        self.nextVal = self.nextVal + self.range.step;
+        return r;
+    }
+
+/*
+    public hasPrev() -> Bool {
+        return self^.nextVal-self^.range^.step >= self^.range^.first;
+    }
+ 
+    public prev()->ULong  {
+        if self^.range^.first + self^.range^.step > self^.nextVal
+            return self^.range^.first;  ## TODO: panic
+        self^.nextVal = self^.nextVal - self^.range^.step;
+        return self^.nextVal;
+    }
+*/
 }

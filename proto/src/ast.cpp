@@ -65,7 +65,7 @@ void TxNode::visit_ast( AstVisitor visitor, void* context ) const {
 
 
 const TxType* TxTypeDefiningNode::resolve_type() {
-//    ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
+    ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
     if (! this->type) {
         if (this->hasResolved) {
             throw resolution_error( this, "Previous type resolution failed in " + this->str() );
@@ -92,7 +92,7 @@ const TxType* TxTypeDefiningNode::resolve_type() {
 
 
 const TxField* TxFieldDefiningNode::resolve_field() {
-//    ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
+    ASSERT(this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this);
     if (! this->field) {
         if (this->hasResolved) {
             throw resolution_error( this, "Previous field resolution failed in " + this->str() );
@@ -444,7 +444,7 @@ static int get_reinterpretation_degree( const TxType *expectedType, const TxType
  * Note: This function doesn't generate compiler errors; if no match is found null is returned.
  */
 static const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntitySymbol* entitySymbol,
-                                                const std::vector<TxMaybeConversionNode*>* arguments ) {
+                                                const std::vector<TxExpressionNode*>* arguments ) {
     if (! arguments) {
         if (entitySymbol->field_count() == 1)
             return entitySymbol->get_first_field_decl();
@@ -618,8 +618,12 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
         //else
         //    CERROR(this, "Symbol is not a field or type: " << this->get_full_identifier());
     }
-    else
-        CERR_THROWRES(this, "Unknown symbol: '" << this->get_full_identifier() << "'");
+    else {
+        if (this->baseExpr)
+            CERR_THROWRES(this, "Unknown symbol '" << this->get_full_identifier() << "' (base expression type is " << this->baseExpr->get_type() << ")");
+        else
+            CERR_THROWRES(this, "Unknown symbol '" << this->get_full_identifier() << "'");
+    }
     return nullptr;
 }
 
@@ -698,7 +702,7 @@ const TxType* TxFunctionCallNode::define_type() {
     // Prepare for resolving possible function overloading by registering actual function signature with
     // the callee node, BEFORE the callee node type is resolved:
     ASSERT (!this->callee->get_applied_func_args(), "callee already has applied func arg types: " << this->callee);
-    this->callee->set_applied_func_args( this->argsExprList );
+    this->callee->set_applied_func_args( this->origArgsExprList );
     this->calleeType = this->callee->resolve_type();
     if (this->calleeType->get_type_class() != TXTC_FUNCTION) {
         CERR_THROWRES(this, "Callee of function call expression is not of function type: " << this->calleeType);

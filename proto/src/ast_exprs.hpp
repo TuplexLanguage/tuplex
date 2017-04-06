@@ -75,6 +75,8 @@ public:
 class TxElemDerefNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type() override {
+        this->subscript->insert_conversion( this->registry().get_builtin_type(LONG) );
+
         auto opType = this->array->resolve_type();
         if (opType->get_type_class() == TXTC_ARRAY) {
             if (auto elemType = opType->element_type())
@@ -109,7 +111,6 @@ public:
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         this->array->symbol_resolution_pass();
-        this->subscript->insert_conversion( this->registry().get_builtin_type(LONG) );
         this->subscript->symbol_resolution_pass();
     }
 
@@ -175,10 +176,10 @@ public:
         return this->target->is_statically_constant();  // trying again
     }
 
-    virtual const std::vector<TxMaybeConversionNode*>* get_applied_func_args() override {
+    virtual const std::vector<TxExpressionNode*>* get_applied_func_args() const override {
         return this->target->get_applied_func_args();
     }
-    virtual void set_applied_func_args( std::vector<TxMaybeConversionNode*>* appliedTypeParameters ) override {
+    virtual void set_applied_func_args( const std::vector<TxExpressionNode*>* appliedTypeParameters ) override {
         this->target->set_applied_func_args( appliedTypeParameters );
     }
 
@@ -200,25 +201,21 @@ public:
 class TxBinaryOperatorNode : public TxOperatorValueNode {
 protected:
     virtual const TxType* define_type() override {
-        auto ltype = lhs->resolve_type();
-        auto rtype = rhs->resolve_type();
+        auto ltype = lhs->originalExpr->resolve_type();
+        auto rtype = rhs->originalExpr->resolve_type();
 
         const TxType* arithResultType = nullptr;
         if (ltype->is_scalar()) {
             if (rtype->is_scalar()) {
                 if (ltype != rtype) {
                     if (rtype->auto_converts_to(*ltype)) {
-                        // wrap rhs with cast instruction node
-                        this->rhs = new TxScalarConvNode( this->rhs, ltype );
-                        this->rhs->symbol_declaration_pass( this->context());
-                        //this->rhs->symbol_resolution_pass();
+                        // wrap rhs with conversion node
+                        this->rhs->insert_conversion( ltype );
                         arithResultType = ltype;
                     }
                     else if (ltype->auto_converts_to(*rtype)) {
-                        // wrap lhs with cast instruction node
-                        this->lhs = new TxScalarConvNode( this->lhs, rtype );
-                        this->lhs->symbol_declaration_pass( this->context());
-                        //this->lhs->symbol_resolution_pass();
+                        // wrap lhs with conversion node
+                        this->lhs->insert_conversion( rtype );
                         arithResultType = rtype;
                     }
                 }
@@ -265,18 +262,18 @@ protected:
 
 public:
     const TxOperation op;
-    TxExpressionNode* lhs;
-    TxExpressionNode* rhs;
+    TxMaybeConversionNode* lhs;
+    TxMaybeConversionNode* rhs;
     const int op_class;
 
-    TxBinaryOperatorNode(const TxLocation& parseLocation, TxExpressionNode* lhs, const TxOperation op, TxExpressionNode* rhs)
-            : TxOperatorValueNode(parseLocation), op(op), lhs(lhs), rhs(rhs), op_class(get_op_class(op))  {
+    TxBinaryOperatorNode( const TxLocation& parseLocation, TxExpressionNode* lhs, const TxOperation op, TxExpressionNode* rhs )
+            : TxOperatorValueNode( parseLocation ), op( op ), lhs( new TxMaybeConversionNode( lhs ) ), rhs( new TxMaybeConversionNode( rhs ) ),
+              op_class( get_op_class( op ) )  {
         ASSERT(is_valid(op), "Invalid operator value: " << (int)op);
     }
 
     virtual TxBinaryOperatorNode* make_ast_copy() const override {
-        // FIXME: operands may be TxConversionNodes
-        return new TxBinaryOperatorNode( this->parseLocation, this->lhs->make_ast_copy(), this->op, this->rhs->make_ast_copy() );
+        return new TxBinaryOperatorNode( this->parseLocation, this->lhs->originalExpr->make_ast_copy(), this->op, this->rhs->originalExpr->make_ast_copy() );
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
@@ -765,6 +762,8 @@ public:
 class TxElemAssigneeNode : public TxAssigneeNode {
 protected:
     virtual const TxType* define_type() override {
+        this->subscript->insert_conversion( this->registry().get_builtin_type(LONG) );
+
         auto opType = this->array->resolve_type();
         if (opType->get_type_class() == TXTC_ARRAY) {
             if (auto elemType = opType->element_type())
@@ -798,7 +797,6 @@ public:
     virtual void symbol_resolution_pass() override {
         TxAssigneeNode::symbol_resolution_pass();
         array->symbol_resolution_pass();
-        this->subscript->insert_conversion( this->registry().get_builtin_type(LONG) );
         subscript->symbol_resolution_pass();
     }
 

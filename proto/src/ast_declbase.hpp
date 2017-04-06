@@ -48,7 +48,7 @@ protected:
     const TxFieldDefNode* fieldDefNode = nullptr;
 
     /** injected by outer expression if applicable */
-    std::vector<TxMaybeConversionNode*>* appliedFuncArgs = nullptr;
+    const std::vector<TxExpressionNode*>* appliedFuncArgs = nullptr;
 
 public:
     TxExpressionNode(const TxLocation& parseLocation) : TxTypeDefiningNode(parseLocation) { }
@@ -83,10 +83,10 @@ public:
         return nullptr;
     }
 
-    virtual const std::vector<TxMaybeConversionNode*>* get_applied_func_args() {
+    virtual const std::vector<TxExpressionNode*>* get_applied_func_args() const {
         return this->appliedFuncArgs;
     }
-    virtual void set_applied_func_args( std::vector<TxMaybeConversionNode*>* appliedFuncArgs ) {
+    virtual void set_applied_func_args( const std::vector<TxExpressionNode*>* appliedFuncArgs ) {
         this->appliedFuncArgs = appliedFuncArgs;
     }
 
@@ -125,6 +125,11 @@ public:
         return nullptr;
     }
 
+    /** If necessary and permitted, inserts a new conversion expression that wraps the original expression.
+     * If a conversion node is created, symbol declaration pass is run on it.
+     * Generates a compilation error if the types don't match and conversion is not possible.
+     * @param _explicit if true, forces conversion between types that don't permit implicit conversion
+     */
     void insert_conversion( const TxType* resultType, bool _explicit=false );
 
     inline TxExpressionNode* get_spec_expression() const {
@@ -243,8 +248,11 @@ protected:
         if (this->typeExpression) {
             type = this->typeExpression->resolve_type();
             // also resolve initExpression from here, which guards against recursive field value initialization:
-            if (this->initExpression)
+            if (this->initExpression) {
+                auto nonModType = ( type->is_modifiable() ? type->get_base_type() : type );  // rvalue doesn't need to be modifiable
+                this->initExpression->insert_conversion( nonModType );
                 this->initExpression->resolve_type();
+            }
         }
         else {
             type = this->initExpression->resolve_type();
@@ -328,9 +336,6 @@ public:
         if (this->initExpression) {
             if (this->typeExpression) {
                 this->typeExpression->symbol_resolution_pass();
-                auto ltype = field->get_type();
-                auto nonModLType = ( ltype->is_modifiable() ? ltype->get_base_type() : ltype );  // rvalue doesn't need to be modifiable
-                this->initExpression->insert_conversion( nonModLType );
             }
             this->initExpression->symbol_resolution_pass();
 
@@ -349,7 +354,7 @@ public:
         }
 
         if (! field->get_type()->is_concrete())
-            if ( ! ( field->get_type()->get_declaration() && ( field->get_type()->get_declaration()->get_decl_flags() & TXD_GENPARAM ) ) )
+            if ( ! ( field->get_type()->get_declaration()->get_decl_flags() & TXD_GENPARAM ) )
                 CERROR(this, "Field type is not a concrete type (size potentially unknown): " << this->get_identifier() << " : " << field->get_type());
         if (this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR) {
             // TODO: check that constructor function type has void return value

@@ -4,7 +4,12 @@
 
 
 
-/** Wraps the provided original expression with a new conversion expression node if necessary. */
+/** Wraps the provided original expression with a new conversion expression node if necessary and permitted.
+ * If a conversion node is created, symbol declaration pass is run on it.
+ * Generates a compilation error if the types don't match and conversion is not possible.
+ * @param _explicit if true, forces conversion between types that don't permit implicit conversion
+ * @return a new conversion node that wraps the original node, or the original node itself if no conversion was applied
+ */
 TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType* resultType, bool _explicit );
 
 
@@ -12,9 +17,6 @@ TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType*
 class TxConversionNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type() override {
-        // FIXME: type equality logic
-        //auto type = expr->resolve_type();
-        //ASSERT(type && (*type) == (*this->resultType), "Mismatching types in " << this << ": \n" << type << " != \n" << this->resultType);
         return this->resultType;
     }
 public:

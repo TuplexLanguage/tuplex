@@ -491,13 +491,14 @@ bool TxActualType::inner_prepare_members() {
         }
     }
 
-    if (! this->is_abstract() && ! this->is_modifiable() && this->get_type_class() != TXTC_INTERFACEADAPTER) {
+    if (!this->is_abstract() && !this->is_modifiable() && this->get_type_class() != TXTC_INTERFACEADAPTER
+        && !( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )) {
         // check that all abstract members of base types & interfaces are implemented:
         auto virtualFields = this->get_virtual_fields();
         for (auto & field : virtualFields.fieldMap) {
             auto actualFieldEnt = virtualFields.get_field(field.second);
             if (actualFieldEnt->get_decl_flags() & TXD_ABSTRACT) {
-                CERROR(this, "Concrete type " << this->str(true) << " doesn't implement abstract member " << actualFieldEnt);
+                CERROR(this, "Concrete type " << this->str() << " doesn't implement abstract member " << actualFieldEnt);
             }
         }
     }
@@ -507,88 +508,36 @@ bool TxActualType::inner_prepare_members() {
 
 
 
-//bool TxActualType::is_reinterpreted() const {
-//    return ( this->get_declaration()
-//             && this->get_declaration()->get_definer()->get_six() > 0 );
-//}
-//
-//bool TxActualType::is_equivalent_reinterpreted_specialization() const {
-//    if (this->typeClass == TXTC_REFERENCE)
-//        return false;  // FIX ME
-//    else if (this->typeClass == TXTC_ARRAY)
-//        return false;  // FIX ME
-//    else if (this->genericBaseType)
-//        return !this->genericBaseType->nonRefParameters;
-//    else
-//        return (this->get_declaration() && this->get_declaration()->get_definer()->get_six() > 0 );
-//}
-
 bool TxActualType::is_abstract() const {
     return ( this->get_declaration()->get_decl_flags() & TXD_ABSTRACT );
 }
 
 bool TxActualType::is_concrete() const {
-    // A concrete type is not abstract, nor usually generic (references may be concrete while generic).
-    if (this->typeClass == TXTC_REFERENCE)
-        return true;
-    // TODO: If array of reference elements with known length, return true
+    // A concrete type is not declared abstract, nor usually generic (references may be concrete while generic).
     if (this->is_abstract())
         return false;
-    if (this->is_generic()) {
+    if (this->typeClass == TXTC_ARRAY) {
+        // If array of concrete elements with known length, return true
+        auto array = static_cast<const TxArrayType*>( this );
+        return ( array->element_type()->is_concrete() && array->length() );
+    }
+    if (this->typeClass != TXTC_REFERENCE && this->is_generic()) {
         // TODO: If all members concrete, then return true
         return false;
     }
     return true;
 }
 
-//bool TxActualType::is_pure_specialization() const {
-//    ASSERT(this->prepared, "Can't determine specialization degree of unprepared type: " << this);
-//    return ( this->baseTypeSpec.modifiable
-//             || ( this->has_base_type()
-//                  && !this->is_builtin()  // this being built-in implies that it is more concrete than base class
-//                  && typeid(*this) == typeid(*this->baseTypeSpec.type)
-//                  && ( this->genericBaseType
-//                       || ( !this->extendsInstanceDatatype && !this->modifiesVTable ) ) ) );
-//}
-
 bool TxActualType::is_empty_derivation() const {
     return this->emptyDerivation;
-    /*
-    ASSERT(this->prepared, "Can't determine specialization degree of unprepared type: " << this);
-    return ( this->has_base_type()
-             && this->interfaces.empty()
-             && !this->baseTypeSpec.modifiable
-             && !this->is_builtin()  // being built-in implies that it is more specialized than base class
-             && typeid(*this) == typeid(*this->baseTypeSpec.type)
-             && this->get_bindings().empty()
-             && !this->genericBaseType
-             && !this->extendsInstanceDatatype
-             && !this->modifiesVTable );
-     */
 }
 
 bool TxActualType::is_equivalent_derivation() const {
-    bool newCond = this->is_same_vtable_type() && this->is_same_instance_type();
-//    bool oldCond = ( this->baseTypeSpec.modifiable
-//             || ( this->has_base_type()
-//                  && !this->is_builtin()  // being built-in implies that it is more specialized than base class
-//                  && typeid(*this) == typeid(*this->baseTypeSpec.type)
-//                  && !this->nonRefBindings
-//                  && ( !this->extendsInstanceDatatype && !this->modifiesVTable ) ) );
-//    ASSERT(oldCond == newCond, "Unexpected is_equivalent_derivation() condition difference: old=" << oldCond << " != new=" << newCond);
-    return newCond;
+    return this->is_same_vtable_type() && this->is_same_instance_type();
 }
 
 bool TxActualType::is_virtual_derivation() const {
-    bool newCond = this->is_same_instance_type();
-//    bool oldCond = ( this->baseTypeSpec.modifiable
-//             || ( this->has_base_type()
-//                  && !this->is_builtin()  // being built-in implies that it is more specialized than base class
-//                  && typeid(*this) == typeid(*this->baseTypeSpec.type)
-//                  && !this->nonRefBindings
-//                  && !this->extendsInstanceDatatype ) );
-//    ASSERT(oldCond == newCond, "Unexpected is_virtual_derivation() condition difference: old=" << oldCond << " != new=" << newCond);
-    return newCond;
+    return this->is_same_instance_type();
 }
 
 bool TxActualType::is_statically_sized() const {

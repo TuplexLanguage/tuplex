@@ -388,18 +388,22 @@ public:
     /** Returns true if this type cannot be extended. */
     virtual bool is_final() const { return false; }
 
-    /** Returns true if this type is declared abstract. */
+    /** Returns true if this type is declared abstract.
+     * Note that there can be types that are neither declared abstract or concrete,
+     * these have members that depend on generic type parameters. */
     virtual bool is_abstract() const;
+
+    /** Returns true if this type is concrete (i.e. can be directly instanced).
+     * A concrete type is not declared abstract, nor usually generic.
+     * (References are concrete even if generic.)
+     * Note that there can be types that are neither declared abstract or concrete,
+     * these have members that depend on generic type parameters. */
+    bool is_concrete() const;
 
     /** Returns true if this type is generic (i.e. has unbound type parameters).
      * Note that a non-generic type may still have members that refer to unbound type parameters of an outer scope
      */
     inline bool is_generic() const { return !this->type_params().empty(); }
-
-    /** Returns true if this type is concrete (i.e. can be directly instanced).
-     * A concrete type is not abstract, nor usually generic.
-     * References are always concrete (even if generic). */
-    bool is_concrete() const;
 
     /** Returns true if this type has the same vtable as its base type. */
     inline bool is_same_vtable_type() const {

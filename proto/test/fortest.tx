@@ -1,7 +1,24 @@
-## not supported yet
+## step-by-step support for ranges, arrays, sequences, and for-loops 
+
+## Array literals:
+## array_literal :=    ‘[‘ expr_list ‘]’
+## Future: expansion operator '...'
+
+array_construction() {
+    a1 := Array<Int,3>( 1, 2, 3 );
+    a2 := Array<Int>( 1, 2, 3 );
+    a3 := Array<>( 1, 2, 3 );
+    a4 := Array( 1, 2, 3 );
+    a5 := [3]Int( 1, 2, 3 );
+    a6 := []Int( 1, 2, 3 );
+    a7 := [ Int(1), 2, 3 ];
+
+}
 
 
-func test_for() {
+
+/*
+for_loops() {
     for i in 0:10 {
     }
 
@@ -15,40 +32,9 @@ func test_for() {
             iter.next()
     }
 }
-
-/*
-
-Ranges are inclusive (closed intervals).
-This is because the the range element type should suffice as range end point value type.
-E.g.  0 : UBYTE_MAX  covers the whole range of UByte values
-
-Example:
-0   : 3    => 0,   1,   2,   3
-0.1 : 3.3  => 0.1, 1.1, 2.1, 3.1
-
-Default step is 1. Step can be specified:
-0:2:3  =>  0,2
-0:2:4  =>  0,2,4
-0.1 : 0.5 : 2.3  =>  0.1, 0.6, 1.1, 1.6, 2.1
-
-
-If a range endpoint type can have negative endpoint values:
-    If the range actually has negative endpoint values:
-        If the applied-upon sequence is indicable:
-            the original range is recomputed into range with positive endpoints
-        Else:
-            ERROR
-
-Wholly or partially implicit ranges are permissable in a sub-sequencing (slicing) production:
-[0:]   ## full range
-[:]    ## full range
-[:-1]  ## except last element
-[:-2]  ## except last two elements
-[-2:]  ## only last two elements
-
-
-if for's sequence expression is-a Sequencer, execute
-else if it is-a Sequenceable, invoke sequencer() on it and execute on that
-
-
 */
+
+main() -> Int {
+    array_construction();
+    return 0;
+}

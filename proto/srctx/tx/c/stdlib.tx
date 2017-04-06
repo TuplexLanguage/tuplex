@@ -1,0 +1,6 @@
+module tx.c
+
+
+public extern puts( str : Ref<UByte> ) -> Int;
+
+public extern abort();

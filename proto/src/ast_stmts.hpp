@@ -439,7 +439,8 @@ public:
         // note: similar rules to passing function arg
         if (! ltype->is_concrete())
             // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
-            CERROR(this->lvalue, "Assignee is not a concrete type (size potentially unknown): " << ltype);
+            if (! ( ltype->get_declaration()->get_decl_flags() & TXD_GENPARAM ))
+                CERROR(this->lvalue, "Assignee is not a concrete type (size potentially unknown): " << ltype);
         // if assignee is a reference:
         // TODO: check dataspace rules
 

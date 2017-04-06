@@ -74,11 +74,8 @@ Implement "development mode" in compiler, if disabled then:
  - no compiler assertions - DONE
  - no trace logging invocations - DONE
 
-Support overloading of virtual methods
-
-Review conversion node handling
+Review conversion node handling - DONE
  - should be allocated in node constructors (not decl/resolve passes)
- - check/fix AST copy in BinOp, UnaryOp
 
 Type reflection, at least for autotesting, some ideas:
     assert static_type(var) == static_type(Ref<Parent>)
@@ -90,14 +87,20 @@ Type reflection, at least for autotesting, some ideas:
 Make VALUE type parameters proper instance fields and ensure they're correctly initialized
 Proper support for VALUE bindings, and implement correct Array type handling
 
+Range typeclass
+
 Simple for-loops
 
 Sequence interfaces
 
 String datatype
 
+Array literals
+
+
 Implement debugging info
 
+Support overloading of virtual methods
 
 Autotests for conversions and default constructions for elementary types
   - both expression construction, stack field construction, and static construction
@@ -111,8 +114,6 @@ Generate statically constant operations for statically constant value expression
 Dynamic-length arrays tests - bounds checking, copying, etc
 
 Syntactic sugar for ref and array types in type arguments (possibly chained), e.g. Subtype<&Int> instead of Subtype<Ref<Int>>
-
-Range typeclass
 
 Advanced for-loops
 
@@ -132,7 +133,6 @@ Dataspace syntax support, continued
 break and continue out of nested loops
 
 Tuple literals
-Array literals
 
 Destructors
 
