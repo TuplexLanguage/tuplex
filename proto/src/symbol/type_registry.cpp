@@ -56,7 +56,7 @@ void TypeRegistry::resolve_deferred_types() {
         for ( ; specIx != this->enqueuedSpecializations.size(); specIx++) {
             //std::cerr << "Nof enqueued specializations: " << this->enqueuedSpecializations.size() << std::endl;
             auto specDecl = this->enqueuedSpecializations.at( specIx );
-            LOG( this->LOGGER(), INFO, "Resolving enqueued specialization: " << specDecl );
+            LOG( this->LOGGER(), DEBUG, "Resolving enqueued specialization: " << specDecl );
             specDecl->symbol_resolution_pass();
         }
     } while ( typeIx != this->usedTypes.size() );

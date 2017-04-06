@@ -28,16 +28,14 @@ public:
             : TxActualType(TXTC_ARRAY, declaration, TxTypeSpecialization(anyType)) { }
 
 
-    /** Returns nullptr if unbound. */
+    /** Returns tx.Any if unbound. */
     const TxActualType* element_type() const;
 
     /** Returns nullptr if unbound. */
     const TxExpressionNode* length() const;
 
-
-    //virtual bool is_abstract() const { return false; }
-
-    virtual bool is_statically_sized() const override;
+    /** Returns true if this type is concrete (i.e. can be directly instanced). */
+    virtual bool is_concrete() const override;
 
     virtual bool is_assignable_to(const TxActualType& other) const override;
 
@@ -72,15 +70,13 @@ public:
             : TxActualType(TXTC_REFERENCE, declaration, TxTypeSpecialization(anyType)) { }
 
 
-    /** Returns the target type of this reference type, or nullptr if it failed to resolve. */
+    /** Returns the target type of this reference type, or tx.Any if unbound. */
     const TxActualType* target_type() const;
 
-    virtual bool is_final() const { return true; }
-    //virtual bool is_abstract() const { return false; }
+    virtual bool is_abstract() const override { return false; }
 
-    /** Returns true if this type is concrete (i.e. can be directly instanced).
-     * A concrete type is not abstract, nor usually generic (references may be concrete while generic). */
-    virtual bool is_concrete() const { return true; }
+    /** Returns true if this type is concrete (i.e. can be directly instanced). References may be concrete while generic. */
+    virtual bool is_concrete() const override { return true; }
 
     virtual bool is_assignable_to(const TxActualType& other) const override;
 
@@ -138,8 +134,8 @@ public:
         ASSERT(returnType, "NULL return type (must be proper type or Void");
     }
 
-    /** Returns false. Functions types are never 'abstract' (except the abstract base type for all functions). */
-    virtual bool is_abstract() const override { return false; }
+//    /** Returns false. Functions types are never 'abstract' (except the abstract base type for all functions). */
+//    virtual bool is_abstract() const override { return false; }
 
     bool has_return_value() const  { return this->returnType->get_type_class() != TXTC_VOID; }
 
@@ -297,7 +293,7 @@ public:
     }
 
     // special case (lets user skip 'abstract' keyword in interface declarations)
-    // TODO: make TXD_ABSTRACT flag be automatically set for all interfaces?
+    // TODO: make TXD_ABSTRACT flag be automatically set for all interfaces
     virtual bool is_abstract() const override { return true; }
 
     // TODO: allow interfaces with proper is-a relationship to auto-convert (via adapter)

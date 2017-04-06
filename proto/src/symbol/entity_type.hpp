@@ -59,7 +59,7 @@ public:
     }
 
     virtual std::string str() const override {
-        return this->str( false );
+        return this->str( true );
     }
 
 
@@ -110,13 +110,13 @@ public:
     inline bool is_modifiable() const { return this->type()->is_modifiable(); }
 
     /** Returns true if this type is immutable (its instances' contents can never be modified after initialization). */
-    virtual bool is_immutable() const { return this->type()->is_immutable(); }
+    inline bool is_immutable() const { return this->type()->is_immutable(); }
 
     /** Returns true if this type cannot be extended. */
-    virtual bool is_final() const { return this->type()->is_final(); }
+    inline bool is_final() const { return this->type()->is_final(); }
 
     /** Returns true if this type is declared abstract. */
-    virtual bool is_abstract() const { return this->type()->is_abstract(); };
+    inline bool is_abstract() const { return this->type()->is_abstract(); };
 
     /** Returns true if this type is generic (i.e. has unbound type parameters). */
     inline bool is_generic() const { return this->type()->is_generic(); }
@@ -124,14 +124,14 @@ public:
     /** Returns true if this type is concrete (i.e. can be directly instanced).
      * A concrete type is not abstract, nor usually generic.
      * References are always concrete (even if generic). */
-    bool is_concrete() const { return this->type()->is_concrete(); }
+    inline bool is_concrete() const { return this->type()->is_concrete(); }
 
 
-    bool is_empty_derivation() const  { return this->type()->is_empty_derivation(); }
+    inline bool is_empty_derivation() const  { return this->type()->is_empty_derivation(); }
 
 
 
-    virtual bool operator==(const TxType& other) const { return this->type()->operator==( *other.type() ); }
+    inline bool operator==(const TxType& other) const { return this->type()->operator==( *other.type() ); }
 
     inline bool operator!=(const TxType& other) const  { return ! this->operator==(other); }
 
@@ -142,7 +142,7 @@ public:
      * (For example, an initializer to an unmodifiable field is still valid if assignable to its type.)
      * This is a less strict test than is_assignable, since some types that are not directly assignable
      * may be so after an implicit conversion (e.g. Byte -> Int). */
-    virtual bool auto_converts_to(const TxType& destination) const { return this->type()->auto_converts_to( *destination.type() ); }
+    inline bool auto_converts_to(const TxType& destination) const { return this->type()->auto_converts_to( *destination.type() ); }
 
     /** Returns true if an instance of this type can be assigned to a field of the provided type
      * (without performing any value conversion).
@@ -152,12 +152,12 @@ public:
      * For many type classes this is a more strict test than is-a,
      * however for functions, arrays, references and adapters this test concerns data type equivalence and
      * substitutability rather than is-a relationship. */
-    virtual bool is_assignable_to(const TxType& destination) const { return this->type()->is_assignable_to( *destination.type() ); }
+    inline bool is_assignable_to(const TxType& destination) const { return this->type()->is_assignable_to( *destination.type() ); }
 
     /** Returns true if the provided type is the same as this, or a specialization of this.
      * Note that true does not guarantee assignability, for example modifiability is not taken into account.
      */
-    bool is_a(const TxType& other) const { return this->type()->is_a( *other.type() ); }
+    inline bool is_a(const TxType& other) const { return this->type()->is_a( *other.type() ); }
 
 
     /** Returns true if this type has the same vtable as its base type. */
@@ -166,18 +166,18 @@ public:
 
 
     /** match against this entity's direct instance/static members (not its inherited members). */
-    virtual TxEntitySymbol* get_instance_member(const std::string& name) const {
+    inline TxEntitySymbol* get_instance_member(const std::string& name) const {
         return this->type()->get_instance_member( name );
     }
 
-    virtual TxEntitySymbol* lookup_inherited_instance_member(const std::string& name) const {
+    inline TxEntitySymbol* lookup_inherited_instance_member(const std::string& name) const {
         return this->type()->lookup_inherited_instance_member( name );
     }
-    virtual TxEntitySymbol* lookup_inherited_instance_member( TxScopeSymbol* vantageScope, const std::string& name ) const {
+    inline TxEntitySymbol* lookup_inherited_instance_member( TxScopeSymbol* vantageScope, const std::string& name ) const {
         return this->type()->lookup_inherited_instance_member( vantageScope, name );
     }
 
-    const TxEntityDeclaration* lookup_param_binding(const TxEntityDeclaration* paramDecl) const {
+    inline const TxEntityDeclaration* lookup_param_binding(const TxEntityDeclaration* paramDecl) const {
         return this->type()->lookup_param_binding( paramDecl );
     }
 

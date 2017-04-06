@@ -43,10 +43,10 @@ void DataTupleDefinition::dump() const {
 /*=== TxTypeSpecialization implementation ===*/
 
 bool TxTypeSpecialization::operator==(const TxTypeSpecialization& other) const {
-    return ( this->type == other.type
-             || ( this->type && other.type && *this->type == *other.type) )
-           //&& *this->dataspace == *other.dataspace
-           && this->modifiable == other.modifiable;
+    return ( ( this->type == other.type )  // instance equality required
+             //|| ( this->type && other.type && *this->type == *other.type) )
+             //&& *this->dataspace == *other.dataspace
+             && this->modifiable == other.modifiable );
 }
 
 std::string TxTypeSpecialization::str() const { return "specialization of " + this->type->str(); }
@@ -357,6 +357,11 @@ bool TxActualType::inner_prepare_members() {
     //std::cerr << "Inherited virtual fields of " << this << std::endl;
     //this->virtualFields.dump();
 
+//    // (note, this condition is not the same as is_concrete())
+//    bool expectOnlyConcreteMembers = ( !this->is_abstract()
+//                                       && !this->is_generic()
+//                                       //&& !( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )
+//                                       );
 
     auto semBaseType = this->get_semantic_base_type();
 
@@ -379,10 +384,12 @@ bool TxActualType::inner_prepare_members() {
                     if (auto paramDecl = semBaseType->get_type_param_decl( bname )) {
                         auto constraintType = paramDecl->get_definer()->get_type()->type();
 
+                        if (typeDecl->get_definer()->get_node_id() == 2541)
+                            std::cerr << "FOO: " << typeDecl->get_definer() << std::endl;
                         if (! type->type()->is_a(*constraintType))
                             // TODO: do this also for VALUE params, but array type expression needs auto-conversion support for that to work
-                            CERROR(typeDecl->get_definer(), "Bound type " << type << " for type parameter " << paramDecl
-                                                            << " is not a derivation of contraint type " << constraintType);
+                            CERROR(typeDecl->get_definer(), "Bound type for type parameter " << paramDecl->get_unique_full_name() << ": " << type->str(false)
+                                                            << std::endl << "  is not a derivation of contraint type: " << constraintType->str(false));
                     }
                 }
             }
@@ -403,24 +410,9 @@ bool TxActualType::inner_prepare_members() {
             auto fieldType = field->get_type()->type();
 
             { // validate field's type:
-                if (! fieldType->is_concrete()) {
-                    CERROR(field, "Can't declare a field of non-concrete type: " << field << " " << fieldType);
-                }
-                else if (fieldDecl->get_storage() == TXS_INSTANCE) {
-                    if (! fieldType->is_statically_sized()) {
-                        CERROR(field, "Instance fields that don't have statically determined size not yet supported: " << field);
-                    }
-                    else if (! (fieldDecl->get_decl_flags() & (TXD_GENPARAM | TXD_GENBINDING | TXD_IMPLICIT))) {
-                        if (this->get_type_class() != TXTC_TUPLE)
-                            //if (this->get_type_class() != TXTC_INTERFACE)  // (if not error already emitted above)
-                                CERROR(field, "Can't declare instance member in non-tuple type: " << field);
-                    }
-                }
-                else {  // static / virtual
-                    if (! fieldType->is_statically_sized()) {
-                        // since static fields are per generic base type, and not per specialization:
-                        CERROR(field, "Static fields must have statically determined size: " << field);
-                    }
+                if (!fieldType->is_concrete()) {
+                    if (this->is_concrete())
+                        CERROR(field, "In concrete type " << this << ", member field is not of a concrete type: " << field << " : " << fieldType);
                 }
             }
 
@@ -428,8 +420,13 @@ bool TxActualType::inner_prepare_members() {
             switch (fieldDecl->get_storage()) {
             case TXS_INSTANCE:
                 LOG_DEBUG(this->LOGGER(), "Laying out instance field " << field << "  " << this->instanceFields.get_field_count());
-                if (fieldDecl->get_decl_flags() & TXD_ABSTRACT)
+                if (fieldDecl->get_decl_flags() & TXD_ABSTRACT) {
                     CERROR(field, "Can't declare an instance field abstract: " << field);
+                }
+                if (this->get_type_class() != TXTC_TUPLE) {
+                    if (! (fieldDecl->get_decl_flags() & (TXD_GENPARAM | TXD_GENBINDING | TXD_IMPLICIT)))
+                        CERROR(field, "Can't declare instance member in non-tuple type: " << field);
+                }
 
                 // recursively prepare instance member fields' types so that we identify recursive data type definitions:
                 //std::cerr << "Recursing into " << field << "  of type " << field->get_type() << std::endl;
@@ -491,6 +488,7 @@ bool TxActualType::inner_prepare_members() {
         }
     }
 
+    // (note, this condition is not the same as is_concrete())
     if (!this->is_abstract() && !this->is_modifiable() && this->get_type_class() != TXTC_INTERFACEADAPTER
         && !( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )) {
         // check that all abstract members of base types & interfaces are implemented:
@@ -508,22 +506,24 @@ bool TxActualType::inner_prepare_members() {
 
 
 
-bool TxActualType::is_abstract() const {
-    return ( this->get_declaration()->get_decl_flags() & TXD_ABSTRACT );
-}
-
 bool TxActualType::is_concrete() const {
-    // A concrete type is not declared abstract, nor usually generic (references may be concrete while generic).
     if (this->is_abstract())
         return false;
-    if (this->typeClass == TXTC_ARRAY) {
-        // If array of concrete elements with known length, return true
-        auto array = static_cast<const TxArrayType*>( this );
-        return ( array->element_type()->is_concrete() && array->length() );
-    }
-    if (this->typeClass != TXTC_REFERENCE && this->is_generic()) {
-        // TODO: If all members concrete, then return true
+    else if (this->is_generic()) {
+        // TODO: If only Ref-constrained parameters, then return true
         return false;
+    }
+    else {
+        for (auto b : this->get_bindings()) {
+            if (auto t = dynamic_cast<const TxTypeDeclaration*>( b )) {
+                if (! t->get_definer()->resolve_type()->is_concrete())
+                    return false;
+            }
+            else if (auto initExpr = static_cast<const TxFieldDeclaration*>( b )->get_definer()->get_init_expression()) {
+                if (initExpr->is_statically_constant())
+                    return false;
+            }
+        }
     }
     return true;
 }
@@ -539,11 +539,6 @@ bool TxActualType::is_equivalent_derivation() const {
 bool TxActualType::is_virtual_derivation() const {
     return this->is_same_instance_type();
 }
-
-bool TxActualType::is_statically_sized() const {
-    return this->is_concrete();
-}
-
 
 bool TxActualType::is_scalar() const {
     switch( this->staticTypeId ) {
@@ -686,27 +681,45 @@ bool TxActualType::inner_equals(const TxActualType& otherType) const {
     if (this == &otherType)
         return true;
     // note: both are assumed to have explicit declaration and/or be non-empty
-    // note: an implicit declaration is effectively unique if it is non-empty (we don't structurally compare them
-    // if either has an explicit declaration, they both must have the same explicit declaration
+    // note: an implicit declaration is effectively unique if it is non-empty (we don't structurally compare them)
+    // If either has an explicit declaration, they both must have the same explicit declaration.
     auto explDecl = this->get_explicit_declaration();
     if (explDecl == otherType.get_explicit_declaration()) {  // same explicit declaration or both null
        if (explDecl)  // same explicit declaration
            return true;  // should this happen if instance equality above was false?
 
-       // compare structure:
-       if (this->baseTypeSpec == otherType.baseTypeSpec) {  // specializations of same base
+       // both are implicitly declared; compare structure:
+       if (this->baseTypeSpec.modifiable == otherType.baseTypeSpec.modifiable
+               && this->get_semantic_base_type() == otherType.get_semantic_base_type() ) {  // specializations of same base
            auto thisBinds = this->get_bindings();
            auto otherBinds = otherType.get_bindings();
            if (thisBinds.size() == otherBinds.size()) {
                if (thisBinds.size() == 0)
                    return true;
-               // for now just return unequal for all instances with bindings
-               std::cerr << "### structurally 'unequal': " << this << std::endl
-                         << "                            " << otherType << std::endl;
-//               return std::equal( thisBinds.cbegin(), thisBinds.cend(), otherBinds.cbegin(),
-//                                  [](TxEntityDeclaration* aEntDecl, TxEntityDeclaration* bEntDecl) {
-//                                      return TO DO;
-//                                  } );
+               bool eq = std::equal( thisBinds.cbegin(), thisBinds.cend(), otherBinds.cbegin(),
+                                     [](const TxEntityDeclaration* aEntDecl, const TxEntityDeclaration* bEntDecl)->bool {
+                                         if (dynamic_cast<const TxTypeDeclaration*>( aEntDecl )) {
+                                             //std::cerr << "### comparing bindings.. " << aEntDecl->get_definer()->resolve_type()->type()->str(false) << std::endl
+                                             //          << "                         " << bEntDecl->get_definer()->resolve_type()->type()->str(false) << std::endl;
+                                             return ( aEntDecl->get_definer()->resolve_type()->type() == bEntDecl->get_definer()->resolve_type()->type() );
+                                         }
+                                         else if (auto aInitExpr = static_cast<const TxFieldDeclaration*>( aEntDecl )->get_definer()->get_init_expression()) {
+                                             if  (auto bInitExpr = static_cast<const TxFieldDeclaration*>( bEntDecl )->get_definer()->get_init_expression()) {
+                                                 if (auto aConstProxy = aInitExpr->get_static_constant_proxy()) {
+                                                     if (auto bConstProxy = bInitExpr->get_static_constant_proxy())
+                                                         return ( *aConstProxy == *bConstProxy );
+                                                 }
+                                             }
+                                         }
+                                         return false;  // to be regarded equal, both VALUE parameter bindings must have statically known, equal value
+                                     } );
+//               if (eq)
+//                   std::cerr << "### structurally EQUAL:    " << this << std::endl
+//                             << "                           " << otherType << std::endl;
+//               else
+//                   std::cerr << "### structurally UNEQUAL:  " << this->str(false) << std::endl
+//                             << "                           " << otherType.str(false) << std::endl;
+               return eq;
            }
        }
     }
@@ -769,12 +782,12 @@ static void print_hierarchy(const TxActualType* type)
 
 
 bool TxActualType::is_a(const TxActualType& other) const {
-    //std::cerr << *this << "  IS-A\n" << other << std::endl;
 //    ASSERT(! this->genericBaseType, "Invoked is_a() on concrete specialization type: " << this);
 //    ASSERT(! other.genericBaseType, "Invoked is_a() with other being a concrete specialization type: " << this);
 
     const TxActualType* thisType = this;
     const TxActualType* otherType = &other;
+//    std::cerr << thisType << "  IS-A\n" << otherType << std::endl;
 
     // compare modifiability:
     if (thisType->is_modifiable()) {
@@ -870,6 +883,10 @@ bool TxActualType::derives_interface(const TxActualType* otherType) const {
 }
 
 
+std::string TxActualType::str() const {
+    return this->str(true);
+}
+
 //static void type_params_string(std::stringstream& str, const std::vector<const TxEntityDeclaration*>& params) {
 //    str << "<";
 //    int ix = 0;
@@ -937,6 +954,15 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
 
 /*=== ArrayType and ReferenceType implementation ===*/
 
+bool TxArrayType::is_concrete() const {
+    // If array of concrete elements with statically known length, return true
+    if (auto len = this->length()) {
+        return ( this->element_type()->is_concrete() && len->is_statically_constant() );
+    }
+    return false;
+}
+
+
 static bool array_assignable_from(const TxArrayType* toArray, const TxArrayType* fromArray) {
     // if origin has unbound type params that destination does not, origin is more generic and can't be assigned to destination
     if (auto toElem = toArray->element_type()) {
@@ -996,17 +1022,11 @@ bool TxReferenceType::is_assignable_to(const TxActualType& destination) const {
 
 
 
-bool TxArrayType::is_statically_sized() const {
-    return this->is_concrete() && this->element_type()->is_statically_sized()
-           && this->length()->is_statically_constant();
-}
-
-
 const TxExpressionNode* TxArrayType::length() const {
     if (auto bindingDecl = this->lookup_value_param_binding("tx.Array.L")) {
         return bindingDecl->get_definer()->get_init_expression();
     }
-    LOG(this->LOGGER(), NOTE, "Unbound length for array type " << this);
+    LOG_DEBUG(this->LOGGER(), "Unbound length for array type " << this);
     return nullptr;
 }
 
@@ -1014,8 +1034,7 @@ const TxActualType* TxArrayType::element_type() const {
     if (auto bindingDecl = this->lookup_type_param_binding("tx.Array.E")) {
         return bindingDecl->get_definer()->resolve_type()->type();
     }
-    LOG(this->LOGGER(), NOTE, "Unbound element type for array type " << this);
-    ASSERT(this->is_generic(), "Unbound element type for NON-GENERIC array type " << this);
+    LOG_DEBUG(this->LOGGER(), "Unbound element type for array type " << this);
     return this->get_root_any_type();  // we know the basic constraint type for element is Any
 }
 
@@ -1026,10 +1045,7 @@ const TxActualType* TxReferenceType::target_type() const {
     if (auto paramDecl = this->lookup_type_param_binding("tx.Ref.T")) {
         return paramDecl->get_definer()->resolve_type()->type();
     }
-    else {
-        LOG_DEBUG(this->LOGGER(), "Unbound target type for reference type " << this);
-        ASSERT(this->is_generic(), "Unbound target type for NON-GENERIC reference type " << this);
-    }
+    LOG_DEBUG(this->LOGGER(), "Unbound target type for reference type " << this);
     return this->get_root_any_type();  // we know the basic constraint type for ref target is Any
 }
 

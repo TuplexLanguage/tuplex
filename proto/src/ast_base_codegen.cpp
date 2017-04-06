@@ -112,7 +112,10 @@ Value* TxFieldDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope
         break;
 
     case TXS_INSTANCEMETHOD:
-        if (! (fieldDecl->get_decl_flags() & TXD_ABSTRACT)) {
+        if (!( fieldDecl->get_decl_flags() & TXD_ABSTRACT )
+            // constructors in generic types are suppressed (they are not abstract per se, but aren't code generated):
+            && !( ( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) )
+                  && static_cast<TxEntitySymbol*>( fieldDecl->get_symbol()->get_outer() )->get_type_decl()->get_definer()->get_type()->is_generic() ) ) {
             ASSERT(this->field->initExpression, "instance method does not have an initializer/definition: " << uniqueName);
             auto initLambdaV = cast<ConstantStruct>(this->field->initExpression->code_gen(context, scope));
             auto funcPtrV = initLambdaV->getAggregateElement((unsigned)0);

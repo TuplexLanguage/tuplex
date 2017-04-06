@@ -53,12 +53,13 @@ extern "C" int yywrap() { return 0; }
 
  /* multi-line comment */
 <INITIAL>{
-  "/*"      yylloc->step(); BEGIN(IN_COMMENT);
+  "/*"      yylloc->step(); parserCtx->commentNestLevel++; BEGIN(IN_COMMENT);
 }
 <IN_COMMENT>{
-  "*/"      yylloc->step(); BEGIN(INITIAL);
-  [^\*\n]+  yylloc->step(); // eat comment in chunks
-  "*"       yylloc->step(); // eat the lone star
+  "*/"       yylloc->step(); parserCtx->commentNestLevel--; if (parserCtx->commentNestLevel == 0) BEGIN(INITIAL);
+  "/*"       yylloc->step(); parserCtx->commentNestLevel++;
+  [^/\*\n]+  yylloc->step(); // eat comment in chunks
+  [/\*]      yylloc->step(); // eat lone stars and slashes
   [\n]+    { yylloc->lines(yyleng); yylloc->step(); }
 }
 

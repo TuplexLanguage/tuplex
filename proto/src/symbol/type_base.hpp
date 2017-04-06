@@ -198,8 +198,6 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
      * This also implies a pure specialization, even if extendsInstanceDatatype technically is true. */
     const TxActualType* genericBaseType = nullptr;
 
-//    /** false unless there are TYPE parameters with other than Ref constraint */
-//    bool nonRefParameters = false;
     /** false unless there are TYPE bindings for parameters with other than Ref constraint */
     bool nonRefBindings = false;
 
@@ -385,20 +383,23 @@ public:
     /** Returns true if this type is immutable (its instances' contents can never be modified after initialization). */
     virtual bool is_immutable() const { return false; }
 
-    /** Returns true if this type cannot be extended. */
-    virtual bool is_final() const { return false; }
+    /** Returns true if this type cannot be derived from. (Final generic types can still be specialized.) */
+    inline bool is_final() const { return ( this->get_declaration()->get_decl_flags() & TXD_FINAL ); }
 
     /** Returns true if this type is declared abstract.
      * Note that there can be types that are neither declared abstract or concrete,
      * these have members that depend on generic type parameters. */
-    virtual bool is_abstract() const;
+    virtual bool is_abstract() const { return ( this->get_declaration()->get_decl_flags() & TXD_ABSTRACT ); }
 
-    /** Returns true if this type is concrete (i.e. can be directly instanced).
-     * A concrete type is not declared abstract, nor usually generic.
-     * (References are concrete even if generic.)
-     * Note that there can be types that are neither declared abstract or concrete,
-     * these have members that depend on generic type parameters. */
-    bool is_concrete() const;
+    /** Returns true if this type is concrete.
+     * A concrete type can be directly instanced, which requires that the type's data type
+     * (and size) is fully known, and that it is not declared abstract.
+     * Generic types are not concrete, with these exceptions:
+     *  - References are always concrete
+     *  - If all unbound type parameters are Ref-constrained (i.e. guaranteed to derive Ref)
+     * TODO: in current implementation we regard all generic, non-reference types as non-concrete.
+     */
+    virtual bool is_concrete() const;
 
     /** Returns true if this type is generic (i.e. has unbound type parameters).
      * Note that a non-generic type may still have members that refer to unbound type parameters of an outer scope
@@ -458,11 +459,6 @@ public:
      * (Returns false for Any which has no base type.)
      */
     bool is_virtual_derivation() const;
-
-    /** Returns true if the size of this type is statically known.
-     * May be true for arrays with non-static length initializer or compound types containing such arrays.
-     */
-    virtual bool is_statically_sized() const;
 
 
     // FUTURE: checksum?
@@ -608,7 +604,7 @@ public:
 
     /*--- to string methods ---*/
 
-    virtual std::string str() const override final { return this->str(false); }
+    virtual std::string str() const override final;
     virtual std::string str( bool brief ) const final;
 
 protected:

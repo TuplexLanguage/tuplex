@@ -158,6 +158,10 @@ public:
     /** set directly by parser */
     TxParsingUnitNode* parsingUnit = nullptr;
 
+    /** used by lexer to track nested comments */
+    unsigned commentNestLevel = 0;
+
+
     TxParserContext(TxDriver& driver, TxIdentifier moduleName, const std::string &filePath)
         : _driver(driver), _moduleName(moduleName) {
         // FUTURE: make parser not save *pointer* to filename, necessitating this leaky snippet:

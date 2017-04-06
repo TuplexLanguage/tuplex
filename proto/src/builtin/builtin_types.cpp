@@ -478,7 +478,7 @@ static TxTypeDeclNode* make_builtin_abstract( const TxLocation& parseLoc, TxType
 static TxTypeDeclNode* make_builtin_integer( const TxLocation& parseLoc, BuiltinTypeId id, BuiltinTypeId parentId,
                                              std::vector<std::vector<TxDeclarationNode*>>& constructors, int size, bool sign ) {
     auto baseTypeNode = new TxIdentifiedTypeNode( parseLoc, BUILTIN_TYPE_NAMES[parentId] );
-    auto typeDecl = new TxTypeDeclNode( parseLoc, TXD_PUBLIC | TXD_BUILTIN, BUILTIN_TYPE_NAMES[id], nullptr,
+    auto typeDecl = new TxTypeDeclNode( parseLoc, TXD_PUBLIC | TXD_BUILTIN | TXD_FINAL, BUILTIN_TYPE_NAMES[id], nullptr,
                                         new TxIntegerTypeDefNode( parseLoc, id, baseTypeNode, size, sign, constructors[id] ) );
     return typeDecl;
 }
@@ -486,7 +486,7 @@ static TxTypeDeclNode* make_builtin_integer( const TxLocation& parseLoc, Builtin
 static TxTypeDeclNode* make_builtin_floating( const TxLocation& parseLoc, BuiltinTypeId id, BuiltinTypeId parentId,
                                               std::vector<std::vector<TxDeclarationNode*>>& constructors, int size ) {
     auto baseTypeNode = new TxIdentifiedTypeNode( parseLoc, BUILTIN_TYPE_NAMES[parentId] );
-    auto typeDecl = new TxTypeDeclNode( parseLoc, TXD_PUBLIC | TXD_BUILTIN, BUILTIN_TYPE_NAMES[id], nullptr,
+    auto typeDecl = new TxTypeDeclNode( parseLoc, TXD_PUBLIC | TXD_BUILTIN | TXD_FINAL, BUILTIN_TYPE_NAMES[id], nullptr,
                                         new TxFloatingTypeDefNode( parseLoc, id, baseTypeNode, size, constructors[id] ) );
     return typeDecl;
 }
@@ -537,7 +537,7 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
 
     { // create the Void type:
         auto voidBaseTypeNode = new TxIdentifiedTypeNode( loc, BUILTIN_TYPE_NAMES[ANY] );
-        auto voidTypeDecl = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Void", nullptr,
+        auto voidTypeDecl = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT | TXD_FINAL, "Void", nullptr,
                                                 new TxVoidTypeDefNode( loc, voidBaseTypeNode ) );
         this->builtinTypes[VOID] = voidTypeDecl;
     }
@@ -602,7 +602,7 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
 
 
     // create the boolean type:
-    this->builtinTypes[BOOL] = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN, "Bool", nullptr,
+    this->builtinTypes[BOOL] = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_FINAL, "Bool", nullptr,
             new TxBoolTypeDefNode( loc, new TxIdentifiedTypeNode( loc, "Elementary" ), constructors[BOOL] ) );
 
 

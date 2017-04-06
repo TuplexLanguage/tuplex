@@ -1,13 +1,17 @@
 module tx
 
 
-public interface Sequenceable<E derives Ref> derives Interface {
-    public abstract sequencer()->Ref<~Sequencer<E>>;
+public interface Sequenceable< E > derives Interface {
+    
+    public abstract sequencer() -> Ref< ~Sequencer< E > >;
 }
 
-public interface Sequencer<E derives Ref> derives Sequenceable<E> {
-    public override sequencer()->Ref<~Sequencer<E>> { return self; }
+public interface Sequencer< E > derives Sequenceable< E > {
+    
+    public override sequencer() -> Ref< ~Sequencer< E > > {
+        return self;
+    }
 
-    public abstract hasNext()->Bool;
-    public abstract next()->E;
+    public abstract hasNext() -> Bool;
+    public abstract next() -> E;
 }
