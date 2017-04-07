@@ -303,8 +303,8 @@ public:
 class TxUnaryMinusNode : public TxOperatorValueNode {
 protected:
     virtual const TxType* define_type() override {
-        auto type = this->operand->resolve_type();
-        if (! (type && type->is_scalar()))
+        auto type = this->operand->originalExpr->resolve_type();
+        if (! type->is_scalar())
             CERR_THROWRES(this, "Invalid operand type for unary '-', not of scalar type: " << type);
         else if (auto intType = dynamic_cast<const TxIntegerType*>(type->type()))
             if (! intType->is_signed()) {
@@ -322,26 +322,23 @@ protected:
                     type = this->registry().get_builtin_type(LONG, mod);
                     break;
                 case ULONG:
-                    CERROR(this, "Invalid operand type for unary '-': " << (type ? type->str().c_str() : "NULL"));
+                    CERROR(this, "Invalid operand type for unary '-': " << type);
                     break;
                 default:
                     ASSERT(false, "Unknown unsigned integer type id=" << intType->get_type_id() << ": " << intType);
                 }
-                this->operand = new TxScalarConvNode( this->operand, type );
-                this->operand->symbol_declaration_pass( this->context());
-                this->operand->symbol_resolution_pass();
+                this->operand->insert_conversion( type );
             }
         return type;
     }
 
 public:
-    TxExpressionNode* operand;
-    TxUnaryMinusNode(const TxLocation& parseLocation, TxExpressionNode* operand)
-        : TxOperatorValueNode(parseLocation), operand(operand) { }
+    TxMaybeConversionNode* operand;
+    TxUnaryMinusNode( const TxLocation& parseLocation, TxExpressionNode* operand )
+        : TxOperatorValueNode( parseLocation ), operand( new TxMaybeConversionNode( operand ) ) { }
 
     virtual TxUnaryMinusNode* make_ast_copy() const override {
-        // FIXME: operands may be TxConversionNodes
-        return new TxUnaryMinusNode( this->parseLocation, this->operand->make_ast_copy() );
+        return new TxUnaryMinusNode( this->parseLocation, this->operand->originalExpr->make_ast_copy() );
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
