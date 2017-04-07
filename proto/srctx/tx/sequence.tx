@@ -1,17 +1,73 @@
 module tx
 
 
+
+/** A sequenceable object supports step-wise single direction traversal of its contained elements.
+ */
 public interface Sequenceable< E > derives Interface {
     
     public abstract sequencer() -> Ref< ~Sequencer< E > >;
 }
 
+
+
+/** An iterable sequence supports step-wise forward and backward traversal.
+ */
+public interface Iterable< E > derives Sequenceable< E > {
+
+    public abstract override sequencer() -> Ref< ~Iterator< E > >;
+}
+
+
+
+/** An indicable sequence is finite, has known limits, and supports random-access.
+ * Valid indices are in the interval [0, last_index()].
+ */
+public interface Indicable< E > derives Iterable< E > {
+
+    public abstract last_index() -> UInt;
+
+    public abstract at( index : UInt ) -> E;
+}
+
+
+
+/** An updateable sequence supports replacing its elements.
+ */
+public interface Updateable< E > derives Sequenceable< E > {
+    public abstract updater() -> Ref< ~Updater< E > >;
+}
+
+
+
+
 public interface Sequencer< E > derives Sequenceable< E > {
-    
-    public override sequencer() -> Ref< ~Sequencer< E > > {
-        return self;
-    }
+
+    public override sequencer() -> Ref< ~Sequencer< E > > { return self; }
 
     public abstract hasNext() -> Bool;
+
     public abstract next() -> E;
 }
+
+
+
+public interface Iterator< E > derives Sequencer<E> {
+
+    public override sequencer()->Ref< ~Iterator< E > > { return self; }
+
+    public abstract hasPrev() -> Bool;
+
+    public abstract prev() -> E;
+}
+
+
+
+public interface Updater< E > derives Sequencer<E> {
+
+    public override sequencer() -> Ref< ~Updater< E > > { return self; }
+
+    /** replaces value returned by most-recent call to next() / prev() */
+    public abstract update( newValue : E );
+}
+

@@ -92,6 +92,10 @@ ExpectedErrorClause* TxActualType::exp_err_ctx() const {
 }
 
 
+const TxActualType* TxActualType::get_root_any_type() const {
+    return this->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( ANY )->type();
+}
+
 
 void TxActualType::validate_type() const {
     //std::cerr << "validating type " << this << std::endl;
@@ -158,14 +162,7 @@ void TxActualType::initialize_type() {
     ASSERT(this->declaration, "No declaration for actual type " << this);
 
     auto typeDeclNamespace = this->get_declaration()->get_symbol();
-    // determine generic base type, if any:
     const TxActualType* semBaseType = this->baseTypeSpec.type;
-    if (auto entitySym = dynamic_cast<TxEntitySymbol*>(typeDeclNamespace->get_member_symbol("$GenericBase"))) {
-        if (auto typeDecl = entitySym->get_type_decl()) {
-            this->genericBaseType = typeDecl->get_definer()->resolve_type()->type();
-            semBaseType = this->genericBaseType;
-        }
-    }
 
     // perform shallow pass on type's member declarations to determine derivation characteristics:
     bool hasExplicitFieldMembers = false;
@@ -180,6 +177,10 @@ void TxActualType::initialize_type() {
                 else if (typeDecl->get_decl_flags() & TXD_GENBINDING) {
                     this->bindings.emplace_back( typeDecl );
                     //std::cerr << "FOUND TYPE GENBINDING: " << typeDecl << std::endl;
+                }
+                else if (*symname == "$GenericBase") {
+                    this->genericBaseType = typeDecl->get_definer()->resolve_type()->type();
+                    semBaseType = this->genericBaseType;
                 }
             }
 
@@ -652,6 +653,14 @@ const TxEntityDeclaration* TxActualType::lookup_param_binding(const TxEntityDecl
 }
 
 
+
+/** Returns true if this type is explicitly declared and is not a generic parameter nor generic binding. */
+static inline bool is_explicit_nongen_declaration( const TxActualType* type ) {
+    return (!(type->get_declaration()->get_decl_flags() & (TXD_IMPLICIT | TXD_GENPARAM | TXD_GENBINDING)));
+}
+
+
+
 //bool TxActualType::inner_equals(const TxActualType& otherType) const {
 //    // note: both are assumed to have explicit declaration and/or be non-empty
 //    // note: an implicit declaration is effectively unique if it is non-empty (we don't structurally compare them
@@ -678,19 +687,13 @@ const TxEntityDeclaration* TxActualType::lookup_param_binding(const TxEntityDecl
 //    // (interfaces and members can only apply to a type with an explicit declaration, and an explicit declaration can have only one type instance)
 //}
 bool TxActualType::inner_equals(const TxActualType& otherType) const {
+    // note: both are assumed to have explicit declaration and/or be non-empty
     if (this == &otherType)
         return true;
-    // note: both are assumed to have explicit declaration and/or be non-empty
-    // note: an implicit declaration is effectively unique if it is non-empty (we don't structurally compare them)
-    // If either has an explicit declaration, they both must have the same explicit declaration.
-    auto explDecl = this->get_explicit_declaration();
-    if (explDecl == otherType.get_explicit_declaration()) {  // same explicit declaration or both null
-       if (explDecl)  // same explicit declaration
-           return true;  // should this happen if instance equality above was false?
-
+    if (( this->get_declaration()->get_decl_flags() & TXD_IMPLICIT ) && ( otherType.get_declaration()->get_decl_flags() & TXD_IMPLICIT )) {
        // both are implicitly declared; compare structure:
        if (this->baseTypeSpec.modifiable == otherType.baseTypeSpec.modifiable
-               && this->get_semantic_base_type() == otherType.get_semantic_base_type() ) {  // specializations of same base
+               && this->get_semantic_base_type() == otherType.get_semantic_base_type() ) {  // specializations of same semantic base
            auto thisBinds = this->get_bindings();
            auto otherBinds = otherType.get_bindings();
            if (thisBinds.size() == otherBinds.size()) {
@@ -731,9 +734,9 @@ bool TxActualType::operator==(const TxActualType& other) const {
     // skips empty type derivations that aren't explicitly declared
     const TxActualType* thisType = this;
     const TxActualType* otherType = &other;
-    while (!thisType->is_explicit_nongen_declaration() && thisType->is_empty_derivation())
+    while (!is_explicit_nongen_declaration( thisType ) && thisType->is_empty_derivation())
         thisType = thisType->get_semantic_base_type();
-    while (!otherType->is_explicit_nongen_declaration() && otherType->is_empty_derivation())
+    while (!is_explicit_nongen_declaration( otherType ) && otherType->is_empty_derivation())
         otherType = otherType->get_semantic_base_type();
     return thisType->inner_equals(*otherType);
 }
@@ -781,34 +784,32 @@ static void print_hierarchy(const TxActualType* type)
 */
 
 
-bool TxActualType::is_a(const TxActualType& other) const {
-//    ASSERT(! this->genericBaseType, "Invoked is_a() on concrete specialization type: " << this);
-//    ASSERT(! other.genericBaseType, "Invoked is_a() with other being a concrete specialization type: " << this);
-
-    const TxActualType* thisType = this;
-    const TxActualType* otherType = &other;
-//    std::cerr << thisType << "  IS-A\n" << otherType << std::endl;
-
-    // compare modifiability:
-    if (thisType->is_modifiable()) {
-        thisType = thisType->get_base_type();
-        if (otherType->is_modifiable())
-            otherType = otherType->get_base_type();
-    }
-    else if (otherType->is_modifiable())
-        return false;  // a non-modifiable type "is not a" modifiable type
-
-    // by-pass anonymous, empty specializations:
-    while (!thisType->is_explicit_nongen_declaration() && thisType->is_empty_derivation())
+/** Returns the common base type of the types, if both are pure specializations of it. */
+const TxActualType* TxActualType::common_generic_base_type( const TxActualType* thisType, const TxActualType* otherType ) {
+    // find the nearest explicitly declared generic base type of each type and check if they're the same one:
+    // (type parameters can only be present on explicitly declared types)
+    while (!is_explicit_nongen_declaration( thisType ) && !thisType->get_bindings().empty())
         thisType = thisType->get_semantic_base_type();
-    while (!otherType->is_explicit_nongen_declaration() && otherType->is_empty_derivation())
+    while (!is_explicit_nongen_declaration( otherType ) && !otherType->get_bindings().empty())
         otherType = otherType->get_semantic_base_type();
+    if (thisType->inner_equals(*otherType))
+        return thisType;
+    return nullptr;
+}
+
+
+bool TxActualType::inner_is_a( const TxActualType* thisType, const TxActualType* otherType ) {
+    //std::cerr << thisType << "  IS-A\n" << otherType << std::endl;
+    // by-pass anonymous, empty specializations:
+    while (!is_explicit_nongen_declaration( thisType ) && thisType->is_empty_derivation())
+        thisType = thisType->get_semantic_base_type();
 
     if (thisType->inner_equals(*otherType))
         return true;
 
     // check whether other is a more generic version of the same type:
-    if (auto genBaseType = thisType->common_generic_base_type(*otherType)) {
+    if (!thisType->get_bindings().empty() && !otherType->get_bindings().empty()) {
+        if (auto genBaseType = common_generic_base_type( thisType, otherType )) {
         for (auto paramDecl : genBaseType->type_params()) {
             // other's param shall either be redeclared (generic) or *equal* to this (is-a is not sufficient in general case)
             // - a MOD binding is considered to be is-a of a non-MOD binding
@@ -829,58 +830,46 @@ bool TxActualType::is_a(const TxActualType& other) const {
             }
         }
         return true;
+        }
     }
 
     // check whether any ancestor type is-a the other type:
-    if (otherType->get_type_class() == TXTC_INTERFACE)
-        return this->derives_interface(otherType);
-    else
-        return this->derives_object(otherType);
-}
-
-const TxActualType* TxActualType::common_generic_base_type(const TxActualType& other) const {
-    // !!! this implementation assumes that if a type has bindings, it is a pure specialization !!!
-    //std::cerr << "this: " << this << "   other: " << other << std::endl;
-    const TxActualType* thisType = this;
-    const TxActualType* otherType = &other;
-    while (!thisType->is_explicit_nongen_declaration() && !thisType->get_bindings().empty())
-        thisType = thisType->get_semantic_base_type();
-    while (!otherType->is_explicit_nongen_declaration() && !otherType->get_bindings().empty())
-        otherType = otherType->get_semantic_base_type();
-    if (thisType->inner_equals(*otherType))
-        return thisType;
-//    if (! this->get_explicit_declaration() && this->is_pure_specialization())
-//        return this->get_semantic_base_type()->common_generic_base_type(other);
-//    if (! other.get_explicit_declaration() && other.is_pure_specialization())
-//        return this->common_generic_base_type(*other.get_semantic_base_type());
-//    if (*this == other)
-//        return this;
-    return nullptr;
-}
-
-bool TxActualType::derives_object(const TxActualType* otherType) const {
-    auto thisType = this;
-    while (thisType->has_base_type()) {
-        thisType = thisType->get_semantic_base_type();
-        if (thisType->inner_equals(*otherType))
+    if (otherType->get_type_class() == TXTC_INTERFACE) {
+        for (auto & interfSpec : thisType->interfaces) {
+            if (inner_is_a( interfSpec.type, otherType ))
+                return true;
+        }
+    }
+    if (thisType->has_base_type()) {
+        if (inner_is_a( thisType->get_semantic_base_type(), otherType ))
             return true;
     }
     return false;
 }
 
-bool TxActualType::derives_interface(const TxActualType* otherType) const {
-    if (this->inner_equals(*otherType))
-        return true;
-    for (auto & interfSpec : this->interfaces) {
-        // TODO: This may not suffice - does not take modifiable, bindings, or dataspace of spec into account
-        if (interfSpec.type->derives_interface(otherType))
-            return true;
+
+bool TxActualType::is_a(const TxActualType& other) const {
+    const TxActualType* thisType = this;
+    const TxActualType* otherType = &other;
+    //std::cerr << thisType << "  IS-A\n" << otherType << std::endl;
+
+    // compare modifiability:
+    if (thisType->is_modifiable()) {
+        thisType = thisType->get_base_type();
+        if (otherType->is_modifiable())
+            otherType = otherType->get_base_type();
     }
-    if (this->has_base_type())
-        return this->get_semantic_base_type()->derives_interface(otherType);
-    else
-        return false;
+    else if (otherType->is_modifiable())
+        return false;  // a non-modifiable type "is not a" modifiable type
+
+    // by-pass anonymous, empty specializations:
+    while (!is_explicit_nongen_declaration( otherType ) && otherType->is_empty_derivation())
+        otherType = otherType->get_semantic_base_type();
+
+    return inner_is_a( thisType, otherType );
 }
+
+
 
 
 std::string TxActualType::str() const {
@@ -927,7 +916,9 @@ std::string TxActualType::str( bool brief ) const {
 }
 
 void TxActualType::self_string( std::stringstream& str, bool brief ) const {
-    if (this->is_modifiable()) {
+    bool expl = !( this->get_declaration()->get_decl_flags() & ( TXD_IMPLICIT | TXD_GENPARAM | TXD_GENBINDING ) );
+
+    if (!expl && this->is_modifiable()) {
         str << "MOD ";
         this->get_base_type()->self_string( str, brief );  // bypass modifiable derivation
         return;
@@ -940,7 +931,7 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
         return;
     }
 
-    if (! brief) {
+    if (!expl && !brief) {
         //if (! this->params.empty())
         //    type_params_string(str, this->params);
         if (! this->get_bindings().empty()) {
@@ -995,8 +986,7 @@ static bool ref_assignable_from(const TxReferenceType* toRef, const TxReferenceT
     if (auto toTarget = toRef->target_type()) {
         if (auto fromTarget = fromRef->target_type()) {
             // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
-            //std::cout << "CHECKING REF ASSIGNABLE\n\tFROM " << *fromTarget << "\n\tTO   " << *toTarget << std::endl;
-            //std::cerr << "CHECKING REF ASSIGNABLE from\n"; print_hierarchy(fromTarget); std::cerr << "to:\n"; print_hierarchy(toTarget);
+            //std::cerr << "CHECKING REF ASSIGNABLE\n\tFROM " << fromTarget->str(false) << "\n\tTO   " << toTarget->str(false) << std::endl;
             if (! fromTarget->is_a(*toTarget))
                 return false;
             else if (toTarget->is_modifiable() && !fromTarget->is_modifiable())
@@ -1027,11 +1017,43 @@ bool TxReferenceType::is_assignable_to(const TxActualType& destination) const {
 
 
 
+//void TxArrayType::self_string( std::stringstream& str, bool brief ) const {
+//    if (! (this->get_declaration()->get_decl_flags() & ( TXD_IMPLICIT ) ))
+//        str << this->get_declaration()->get_unique_full_name() << " : ";
+//    if (auto len = this->length()) {
+//        if (auto stat = len->get_static_constant_proxy())
+//            str << "[" << stat->get_value_UInt() << "] ";
+//        else
+//            str << "[$V] ";
+//    }
+//    else
+//        str << "[] ";
+//    const TxType* elemType;  // note, we don't force actual type resolve from here
+//    if (auto paramDecl = this->lookup_type_param_binding("tx.Array.E"))
+//        elemType = paramDecl->get_definer()->resolve_type();
+//    else
+//        elemType = this->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( ANY );  // we know the basic constraint type is Any
+//    str << elemType->str( false );
+//}
+//
+//void TxReferenceType::self_string( std::stringstream& str, bool brief ) const {
+//    if (! (this->get_declaration()->get_decl_flags() & ( TXD_IMPLICIT ) ))
+//        str << this->get_declaration()->get_unique_full_name() << " : ";
+//    const TxType* targetType;  // note, we don't force actual type resolve from here
+//    if (auto paramDecl = this->lookup_type_param_binding("tx.Ref.T"))
+//        targetType = paramDecl->get_definer()->resolve_type();
+//    else
+//        targetType = this->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( ANY );  // we know the basic constraint type is Any
+//    std::cerr << "REF  " << this->get_declaration() << std::endl;
+//    str << "& " << targetType->str();
+//}
+
+
+
 const TxExpressionNode* TxArrayType::length() const {
     if (auto bindingDecl = this->lookup_value_param_binding("tx.Array.L")) {
         return bindingDecl->get_definer()->get_init_expression();
     }
-    LOG_DEBUG(this->LOGGER(), "Unbound length for array type " << this);
     return nullptr;
 }
 
@@ -1039,18 +1061,14 @@ const TxActualType* TxArrayType::element_type() const {
     if (auto bindingDecl = this->lookup_type_param_binding("tx.Array.E")) {
         return bindingDecl->get_definer()->resolve_type()->type();
     }
-    LOG_DEBUG(this->LOGGER(), "Unbound element type for array type " << this);
     return this->get_root_any_type();  // we know the basic constraint type for element is Any
 }
 
 
 const TxActualType* TxReferenceType::target_type() const {
-    //std::string declstr = (this->get_declaration() ? this->get_declaration()->get_unique_full_name() : "nodecl");
-    //std::cerr << "getting target type of " << declstr << ": " << this << std::endl;
     if (auto paramDecl = this->lookup_type_param_binding("tx.Ref.T")) {
         return paramDecl->get_definer()->resolve_type()->type();
     }
-    LOG_DEBUG(this->LOGGER(), "Unbound target type for reference type " << this);
     return this->get_root_any_type();  // we know the basic constraint type for ref target is Any
 }
 

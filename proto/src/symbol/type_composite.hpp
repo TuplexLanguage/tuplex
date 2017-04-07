@@ -22,6 +22,8 @@ protected:
         return new TxArrayType(declaration, baseTypeSpec, interfaces);
     };
 
+    //virtual void self_string( std::stringstream& str, bool brief ) const override;
+
 public:
     /** Creates the Array base type. Only one such instance should exist. */
     TxArrayType(const TxTypeDeclaration* declaration, const TxActualType* anyType)
@@ -43,8 +45,6 @@ public:
     virtual llvm::Value* gen_size(LlvmGenerationContext& context, GenScope* scope) const override;
     virtual llvm::Value* gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName="") const override;
 
-    virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
-
 private:
     llvm::Value* inner_code_gen_size(LlvmGenerationContext& context, GenScope* scope, llvm::Value* elemSize, llvm::Value* arrayLen) const;
 };
@@ -63,6 +63,8 @@ protected:
             throw std::logic_error("Specified a base type for TxReferenceType that was not a TxReferenceType: " + baseTypeSpec.type->str());
         return new TxReferenceType(declaration, baseTypeSpec, interfaces);
     };
+
+    //virtual void self_string( std::stringstream& str, bool brief ) const override;
 
 public:
     /** Creates the Reference base type. Only one such instance should exist. */
@@ -87,8 +89,6 @@ public:
     /** Casts a reference value from one type to another. If targetTypeId is specified, it will replace the original type id. */
     static llvm::Value* gen_ref_conversion(LlvmGenerationContext& context, GenScope* scope, llvm::Value* origRefV,
                                            llvm::Type* targetRefT, uint32_t targetTypeId=UINT32_MAX);
-
-    virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
 
 
@@ -168,8 +168,6 @@ public:
     }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
-
-    virtual void accept(TxTypeVisitor& visitor) const override { visitor.visit(*this); }
 
 protected:
     virtual void self_string( std::stringstream& str, bool brief ) const override {
@@ -267,8 +265,6 @@ public:
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
     virtual llvm::Type* make_llvm_type_body(LlvmGenerationContext& context, llvm::Type* header) const override;
-
-    virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
 
 
@@ -299,8 +295,6 @@ public:
     // TODO: allow interfaces with proper is-a relationship to auto-convert (via adapter)
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
-
-    virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
 
 
@@ -344,6 +338,4 @@ public:
     inline const TxActualType* adapted_type() const { return this->adaptedType; }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
-
-    virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };

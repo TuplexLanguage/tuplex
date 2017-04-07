@@ -21,8 +21,6 @@ public:
     }
 
     virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override;
-
-    virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
 
 
@@ -40,8 +38,6 @@ public:
     inline virtual bool operator==(const TxActualType& other) const override final {
         return ( this == &other );
     }
-
-    virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 };
 
 class TxIntegerType final : public TxScalarType {

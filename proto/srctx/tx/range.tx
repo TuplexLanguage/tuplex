@@ -2,15 +2,16 @@ module tx
 
 
 public interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
+
     /** returns the last (highest) ordinal for this type */
     public static abstract last_ordinal() -> UInt;
 
     /** returns the value for the specified ordinal (panics upon out-of-bounds) */
     public static abstract value( ordinal: UInt ) -> E;
 
+
     /** returns the ordinal for this value */
     public abstract ordinal() -> UInt;
-
 
     public static first() -> E {
         return E.value( 0 );
@@ -24,8 +25,11 @@ public interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
 
 
 public interface Range< E > derives Sequenceable< E > {
+
     public abstract override sequencer() -> Ref< ~Sequencer<E> >;
+
     public abstract last_index() -> UInt;
+
     public abstract at(index : UInt) -> E;
 }
 
@@ -33,6 +37,7 @@ public interface Range< E > derives Sequenceable< E > {
 
 /** A range between two values of an Enumerable type. */
 public type ERange< E derives Enumerable<E> > derives Tuple, Range< E > {
+
     /** The ERange iterator. */
     public type ERangeIterator derives Tuple, Sequencer< E > {
         range   : &ERange<E>;

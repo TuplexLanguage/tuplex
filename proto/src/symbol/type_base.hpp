@@ -12,7 +12,6 @@
 #include "identifier.hpp"
 #include "tx_lang_defs.hpp"
 
-#include "type_visitor.hpp"
 #include "entity.hpp"
 
 
@@ -219,10 +218,9 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
         return ( (this->declaration->get_decl_flags() & TXD_IMPLICIT) ? nullptr : this->declaration );
     }
 
-    /** Returns true if this type is explicitly declared and is not a generic parameter nor generic binding. */
-    inline bool is_explicit_nongen_declaration() const {
-        return (!(this->get_declaration()->get_decl_flags() & (TXD_IMPLICIT | TXD_GENPARAM | TXD_GENBINDING)));
-    }
+    /** Returns the common base type of the types, if both are pure specializations of it. */
+    static const TxActualType* common_generic_base_type( const TxActualType* thisType, const TxActualType* otherType );
+    static bool inner_is_a( const TxActualType* thisType, const TxActualType* otherType );
 
 
 protected:
@@ -259,11 +257,7 @@ protected:
     friend class TxBuiltinTypeDefiningNode;
 
     /** Gets the Any root type. */
-    inline const TxActualType* get_root_any_type() const {
-        if (! this->has_base_type())
-            return this;
-        return this->get_semantic_base_type()->get_root_any_type();
-    }
+    const TxActualType* get_root_any_type() const;
 
     /** Prepares this type's members, including data layout. Called after resolution phase has completed.
      * @return true if a data type recursion has been discovered */
@@ -501,9 +495,6 @@ public:
 private:
     bool inner_equals(const TxActualType& otherType) const;
 
-    /** Returns the common base type of this and other, if both are pure specializations of it. */
-    const TxActualType* common_generic_base_type(const TxActualType& other) const;
-
     bool derives_object(const TxActualType* objectType) const;
     bool derives_interface(const TxActualType* interfaceType) const;
 
@@ -597,8 +588,6 @@ public:
     virtual llvm::Value* gen_size(LlvmGenerationContext& context, GenScope* scope) const;
     virtual llvm::Value* gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName="") const;
     virtual llvm::Constant* gen_typeid(LlvmGenerationContext& context, GenScope* scope) const;
-
-    virtual void accept(TxTypeVisitor& visitor) const { visitor.visit(*this); }
 
 
 

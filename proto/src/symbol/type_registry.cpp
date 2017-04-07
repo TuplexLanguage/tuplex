@@ -48,9 +48,12 @@ void TypeRegistry::resolve_deferred_types() {
         for ( ; typeIx != this->usedTypes.size(); typeIx++ ) {
             //std::cerr << "Nof used types: " << this->usedTypes.size() << std::endl;
             auto type = this->usedTypes.at( typeIx );
-            if (! type->is_builtin())
-                LOG_TRACE( this->LOGGER(), "Resolving deferred type: " << type );
-            type->type();
+            try {
+                type->type();
+            }
+            catch (const resolution_error& err) {
+                LOG(this->LOGGER(), NOTE, "Caught resolution error resolving deferred type " << type << ": " << err);
+            }
         }
 
         for ( ; specIx != this->enqueuedSpecializations.size(); specIx++) {
@@ -134,9 +137,6 @@ void TypeRegistry::prepare_types() {
         this->staticTypes.push_back(type);
         //std::cerr << "Registering static type " << type << " with distinct type id " << type->runtimeTypeId << std::endl;
     }
-    //ASSERT(this->createdTypes->empty(), "'Extra' types were created while prepare_types() was running");
-    //for (auto type : *this->createdTypes)
-    //    std::cerr << "'EXTRA' CREATED TYPE: " << type << std::endl;
     delete this->createdTypes;
     this->createdTypes = createdTypes;
 }
