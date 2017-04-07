@@ -267,7 +267,7 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol(const std::string& name) {
 
 
 static std::string field_description( const TxFieldDeclaration* fieldDecl ) {
-    if (auto field = fieldDecl->get_definer()->get_field()) {
+    if (auto field = fieldDecl->get_definer()->attempt_get_field()) {
         if (auto type = field->get_type()) {
             char buf[512];
 
@@ -275,8 +275,6 @@ static std::string field_description( const TxFieldDeclaration* fieldDecl ) {
             if (! (field->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_INITIALIZER | TXD_GENBINDING)))
                 storageIx = field->get_decl_storage_index();
             if (storageIx >= 0)
-            //std::string storageIxString = ( storageIx >= 0 ? std::string("[") + std::to_string(storageIx) + "] " : std::string("    ") );
-            //return "FIELD " + storageIxString + this->get_full_name().str() + " " + type->str(true);
                 snprintf( buf, 512, "FIELD [%2d]  %-48s : %s",
                           storageIx,
                           fieldDecl->get_unique_full_name().c_str(),
@@ -317,7 +315,7 @@ std::string TxEntitySymbol::description_string() const {
     else if (this->typeDeclaration)  // non-overloaded type name
         if (auto type = this->typeDeclaration->get_definer()->attempt_get_type()) {
             if (type->get_declaration() == this->typeDeclaration)
-                return "TYPE        " + type->str();
+                return "TYPE        " + type->str( false );
             else {
                 auto name = this->typeDeclaration->get_unique_full_name();
                 name.resize(48, ' ');
@@ -328,16 +326,6 @@ std::string TxEntitySymbol::description_string() const {
             return "TYPE        -undef-";
     else if (this->field_count()) {  // non-overloaded field name
         return field_description( this->get_first_field_decl() );
-//        if (auto field = this->get_first_field_decl()->get_definer()->get_field()) {
-//            if (auto type = field->get_type()) {
-//                int storageIx = -1;
-//                if (! (field->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_GENBINDING)))
-//                    storageIx = field->get_decl_storage_index();
-//                std::string storageIxString = ( storageIx >= 0 ? std::string("[") + std::to_string(storageIx) + "] " : std::string("    ") );
-//                return "FIELD " + storageIxString + this->get_full_name().str() + " " + type->str(true);
-//            }
-//        }
-//        return "FIELD     -undef-";
     }
     else  // declaration not yet assigned to this entity symbol
         return "-undef entity-";

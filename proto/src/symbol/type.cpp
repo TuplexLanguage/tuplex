@@ -898,7 +898,7 @@ std::string TxActualType::str() const {
 //}
 
 static void type_bindings_string(std::stringstream& str, const std::vector<const TxEntityDeclaration*>& bindings) {
-    str << "<";
+    str << " <";
     int ix = 0;
     for (auto b : bindings) {
         if (ix++)  str << ",";
@@ -912,14 +912,16 @@ static void type_bindings_string(std::stringstream& str, const std::vector<const
 
 std::string TxActualType::str( bool brief ) const {
     std::stringstream str;
-    if (this->get_type_class() == TXTC_INTERFACE)
-        str << "i/f ";
-    else if (this->get_type_class() == TXTC_INTERFACEADAPTER)
-        str << "i/f/ad ";
-    else if (this->is_abstract())
-        str << "ABSTRACT ";
-    if (this->is_immutable())
-        str << "IMMUTABLE ";
+    if (! brief) {
+        if (this->get_type_class() == TXTC_INTERFACE)
+            str << "i/f ";
+        else if (this->get_type_class() == TXTC_INTERFACEADAPTER)
+            str << "i/f/ad ";
+        else if (this->is_abstract())
+            str << "ABSTRACT ";
+        if (this->is_immutable())
+            str << "IMMUTABLE ";
+    }
     this->self_string( str, brief );
     return str.str();
 }
@@ -938,15 +940,18 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
         return;
     }
 
-    //if (! this->params.empty())
-    //    type_params_string(str, this->params);
-    if (! this->get_bindings().empty())
-        type_bindings_string(str, this->get_bindings());
+    if (! brief) {
+        //if (! this->params.empty())
+        //    type_params_string(str, this->params);
+        if (! this->get_bindings().empty()) {
+            type_bindings_string(str, this->get_bindings());
+        }
 
-    if (this->has_base_type() && !brief) {
-        str << (this->is_empty_derivation() ? " = " : " : ");
+        if (this->has_base_type()) {
+            str << (this->is_empty_derivation() ? " = " : " : ");
 
-        this->get_semantic_base_type()->self_string( str, false );  // set 'brief' to false to print entire type chain
+            this->get_semantic_base_type()->self_string( str, false );  // set 'brief' to false to print entire type chain
+        }
     }
 }
 
