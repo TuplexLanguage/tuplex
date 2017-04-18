@@ -24,13 +24,18 @@ public interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
 
 
 
-public interface Range< E > derives Sequenceable< E > {
+public interface Range< E > derives Indicable< UInt, E > {
 
-    public abstract override sequencer() -> Ref< ~Sequencer<E> >;
+    public abstract override sequencer() -> Ref< ~Iterator<E> >;
+
+    public abstract override count() -> ULong;
+
+    public abstract override has( key : UInt ) -> Bool;
+
+    public abstract override get( key : UInt ) -> E;
+
 
     public abstract last_index() -> UInt;
-
-    public abstract at(index : UInt) -> E;
 }
 
 
@@ -39,7 +44,7 @@ public interface Range< E > derives Sequenceable< E > {
 public type ERange< E derives Enumerable<E> > derives Tuple, Range< E > {
 
     /** The ERange iterator. */
-    public type ERangeIterator derives Tuple, Sequencer< E > {
+    public type ERangeIterator derives Tuple, Iterator< E > {
         range   : &ERange<E>;
         nextIndex : ~UInt;
 
@@ -51,29 +56,25 @@ public type ERange< E derives Enumerable<E> > derives Tuple, Range< E > {
         public override sequencer() -> Ref< ~ERangeIterator > {
             return self;
         }
-    
-        public override hasNext() -> Bool {
+
+        public override has_next() -> Bool {
             return self.nextIndex <= self.range.last_index();
         }
     
+        public override has_prev() -> Bool {
+            return self.nextIndex > 0;
+        }
+
         public override next() -> E {
             n := self.nextIndex;
             self.nextIndex = self.nextIndex + 1;
-            return self.range.at( n );
+            return self.range.get( n );
         }
     
-    /*
-        public hasPrev() -> Bool {
-            return self^.nextVal-self^.range^.step >= self^.range^.first;
+        public override prev() -> E  {
+            self.nextIndex = self.nextIndex - 1;
+            return self.range.get( self.nextIndex );
         }
-     
-        public prev()->ULong  {
-            if self^.range^.first + self^.range^.step > self^.nextVal
-                return self^.range^.first;  ## TODO: panic
-            self^.nextVal = self^.nextVal - self^.range^.step;
-            return self^.nextVal;
-        }
-    */
     }
 
     _last : UInt;
@@ -97,11 +98,19 @@ public type ERange< E derives Enumerable<E> > derives Tuple, Range< E > {
     public override sequencer() -> Ref< ~ERangeIterator > {
         return new ~ERangeIterator( self );
     }
-    public override last_index() -> UInt {
-        return self._last;
+
+    public override count() -> ULong {
+        return ULong( self._last ) + 1;
     }
-    public override at( index : UInt ) -> E {
+    public override has( index : UInt ) -> Bool {
+        return ( index <= self._last );
+    }
+    public override get( index : UInt ) -> E {
         assert index <= self._last;
         return E.value( self.start.ordinal() + UInt( index * self.step ) );
+    }
+
+    public override last_index() -> UInt {
+        return self._last;
     }
 }

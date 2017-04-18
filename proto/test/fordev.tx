@@ -7,12 +7,20 @@
 array_construction() {
     a1 := Array<Int,3>( 1, 2, 3 );
     a2 := Array<Int>( 1, 2, 3 );
-    a3 := Array<>( 1, 2, 3 );
-    a4 := Array( 1, 2, 3 );
+
+##  a3 := Array<>( 1, 2, 3 );  ## support?
+##  a4 := Array( 1, 2, 3 );    ## support?
+
     a5 := [3]Int( 1, 2, 3 );
     a6 := []Int( 1, 2, 3 );
     a7 := [ Int(1), 2, 3 ];
 
+    a8 := new [3]Int( 1, 2, 3 );
+    a9 := new Array<Int,3>( 1, 2, 3 );
+    a10 := new Array<Int>( 1, 2, 3 );
+
+##  FUTURE: In-place expansion of sequences:
+##  aa := Array<Int>( 1, 2, 3, a1... );
 }
 
 

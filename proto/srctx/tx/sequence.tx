@@ -20,22 +20,16 @@ public interface Iterable< E > derives Sequenceable< E > {
 
 
 
-/** An indicable sequence is finite, has known limits, and supports random-access.
- * Valid indices are in the interval [0, last_index()].
+/** An indicable sequence is finite and supports random-access.
+ * Sequences, sets, and maps are Indicable.
  */
-public interface Indicable< E > derives Iterable< E > {
+public interface Indicable< K, E > derives Iterable< E > {
 
-    public abstract last_index() -> UInt;
+    public abstract count() -> ULong;
 
-    public abstract at( index : UInt ) -> E;
-}
+    public abstract has( key : K ) -> Bool;
 
-
-
-/** An updateable sequence supports replacing its elements.
- */
-public interface Updateable< E > derives Sequenceable< E > {
-    public abstract updater() -> Ref< ~Updater< E > >;
+    public abstract get( key : K ) -> E;
 }
 
 
@@ -45,22 +39,34 @@ public interface Sequencer< E > derives Sequenceable< E > {
 
     public override sequencer() -> Ref< ~Sequencer< E > > { return self; }
 
-    public abstract hasNext() -> Bool;
+    public abstract has_next() -> Bool;
 
     public abstract next() -> E;
 }
 
 
 
-public interface Iterator< E > derives Sequencer<E> {
+public interface Iterator< E > derives Sequencer< E > {
 
-    public override sequencer()->Ref< ~Iterator< E > > { return self; }
+    public override sequencer() -> Ref< ~Iterator< E > > { return self; }
 
-    public abstract hasPrev() -> Bool;
+    public abstract has_prev() -> Bool;
 
     public abstract prev() -> E;
 }
 
+
+
+
+/*=====  modifiable variants =====*/
+/*
+
+/** An updateable sequence supports replacing its elements.
+ */
+public interface Updateable< E > derives Sequenceable< E > {
+
+    public abstract override sequencer() -> Ref< ~Updater< E > >;
+}
 
 
 public interface Updater< E > derives Sequencer<E> {
@@ -71,3 +77,22 @@ public interface Updater< E > derives Sequencer<E> {
     public abstract update( newValue : E );
 }
 
+
+
+
+/** A sequence that is both indicable and updateable.
+ */
+public interface Writable< K, E > derives Indicable< K, E >, Updateable< E > {
+
+    public abstract override sequencer() -> Ref< ~Writer< E > >;
+
+    /** Sets the element at the slot identified by key. */
+    public abstract set( key : K, element : E );
+}
+
+
+public interface Writer< E > derives Iterator<E>, Updater<E> {
+
+    public override sequencer() -> Ref< ~Writer< E > > { return self; }
+}
+*/

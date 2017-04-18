@@ -240,6 +240,7 @@ void TxActualType::initialize_type() {
                 if (hasImplicitFieldMembers) {
                     LOG(this->LOGGER(), NOTE, "Type with only implicit field members: " << this);
                 }
+                ASSERT(!this->genericBaseType, "Empty derivation had a $GenericBase: " << this->genericBaseType);
             }
         }
     }
@@ -385,12 +386,14 @@ bool TxActualType::inner_prepare_members() {
                     if (auto paramDecl = semBaseType->get_type_param_decl( bname )) {
                         auto constraintType = paramDecl->get_definer()->get_type()->type();
 
-                        if (typeDecl->get_definer()->get_node_id() == 2541)
-                            std::cerr << "FOO: " << typeDecl->get_definer() << std::endl;
-                        if (! type->type()->is_a(*constraintType))
+//                        if (typeDecl->get_definer()->get_node_id() == 1580)
+//                            std::cerr << "definer: " << typeDecl->get_definer() << std::endl;
+                        if (! type->type()->is_a(*constraintType)) {
                             // TODO: do this also for VALUE params, but array type expression needs auto-conversion support for that to work
                             CERROR(typeDecl->get_definer(), "Bound type for type parameter " << paramDecl->get_unique_full_name() << ": " << type->str(false)
                                                             << std::endl << "  is not a derivation of contraint type: " << constraintType->str(false));
+//                            std::cerr << "definer: " << typeDecl->get_definer() << std::endl;
+                        }
                     }
                 }
             }
@@ -735,9 +738,9 @@ bool TxActualType::operator==(const TxActualType& other) const {
     const TxActualType* thisType = this;
     const TxActualType* otherType = &other;
     while (!is_explicit_nongen_declaration( thisType ) && thisType->is_empty_derivation())
-        thisType = thisType->get_semantic_base_type();
+        thisType = thisType->get_base_type();
     while (!is_explicit_nongen_declaration( otherType ) && otherType->is_empty_derivation())
-        otherType = otherType->get_semantic_base_type();
+        otherType = otherType->get_base_type();
     return thisType->inner_equals(*otherType);
 }
 
@@ -802,7 +805,7 @@ bool TxActualType::inner_is_a( const TxActualType* thisType, const TxActualType*
     //std::cerr << thisType << "  IS-A\n" << otherType << std::endl;
     // by-pass anonymous, empty specializations:
     while (!is_explicit_nongen_declaration( thisType ) && thisType->is_empty_derivation())
-        thisType = thisType->get_semantic_base_type();
+        thisType = thisType->get_base_type();
 
     if (thisType->inner_equals(*otherType))
         return true;
@@ -841,7 +844,11 @@ bool TxActualType::inner_is_a( const TxActualType* thisType, const TxActualType*
         }
     }
     if (thisType->has_base_type()) {
-        if (inner_is_a( thisType->get_semantic_base_type(), otherType ))
+        if (thisType->genericBaseType) {
+            if (inner_is_a( thisType->genericBaseType, otherType ))
+                return true;
+        }
+        if (inner_is_a( thisType->get_base_type(), otherType ))
             return true;
     }
     return false;
@@ -864,7 +871,7 @@ bool TxActualType::is_a(const TxActualType& other) const {
 
     // by-pass anonymous, empty specializations:
     while (!is_explicit_nongen_declaration( otherType ) && otherType->is_empty_derivation())
-        otherType = otherType->get_semantic_base_type();
+        otherType = otherType->get_base_type();
 
     return inner_is_a( thisType, otherType );
 }
@@ -942,6 +949,11 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
             str << (this->is_empty_derivation() ? " = " : " : ");
 
             this->get_semantic_base_type()->self_string( str, false );  // set 'brief' to false to print entire type chain
+        }
+    }
+    else if (this->get_type_class() == TXTC_REFERENCE) {
+        if (! this->get_bindings().empty()) {
+            type_bindings_string(str, this->get_bindings());
         }
     }
 }
