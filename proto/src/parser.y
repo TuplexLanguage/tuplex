@@ -155,7 +155,7 @@ YY_DECL;
 %type <TxFunctionTypeNode*> function_header
 %type <TxExpressionNode*> expr make_expr lambda_expr value_literal array_literal array_dimensions cond_expr
 %type <TxFunctionCallNode*> call_expr
-%type <std::vector<TxExpressionNode*> *> expression_list call_params
+%type <std::vector<TxExpressionNode*> *> expression_list call_params array_lit_expr_list
 %type <std::vector<TxStatementNode*> *> statement_list
 %type <TxSuiteNode*> suite
 %type <TxStatementNode*> statement assignment_stmt return_stmt break_stmt continue_stmt assert_stmt type_decl_stmt
@@ -184,6 +184,7 @@ YY_DECL;
 %precedence CARET /* unary postfix de-reference */
 %precedence LBRACKET RBRACKET
 %precedence DOT
+%precedence ARRAY_LIT
 %right KW_MODULE KW_IMPORT  /* high token shift precedence */
 %right KW_ELSE
 %right SEMICOLON     /* semantic statement separator, always/greedily shift */
@@ -237,7 +238,7 @@ identifier : NAME                     { $$ = new TxIdentifier($1); }
            | identifier DOT ASTERISK  { $$ = $1; $$->append("*"); }
            ;
 
-compound_identifier : identifier  %prec EXPR  { $$ = $1; } ;
+compound_identifier : identifier  { $$ = $1; } ;
 
 
 
@@ -527,9 +528,19 @@ value_literal
         // |       LIT_STRING    { $$ = new TxStringLitNode(@1, $1); }
     ;
 
-array_literal : LBRACKET expression_list RBRACKET  { $$ = new TxArrayLitNode(@1, $2); }
-              // (empty array literal "[]" illegal since element type can't be determined)
+array_literal : LBRACKET expr COMMA array_lit_expr_list RBRACKET  { (*$4)[0] = $2;  $$ = new TxArrayLitNode(@1, $4); }
+              | LBRACKET expr RBRACKET  { $$ = new TxArrayLitNode(@1, new std::vector<TxExpressionNode*>( { $2 } )); }
+
+              // produces a (harmless) shift-reduce warning but unknown how to suppress that:
+              | LBRACKET expr RBRACKET predef_type LPAREN expression_list RPAREN  { $$ = new TxArrayLitNode(@1, $4, $6, $2); }
+              | LBRACKET RBRACKET predef_type LPAREN expression_list RPAREN       { $$ = new TxArrayLitNode(@1, $3, $5); }
+              | LBRACKET RBRACKET predef_type LPAREN RPAREN                       { $$ = new TxArrayLitNode(@1, $3); }
               ;
+              // LBRACKET RBRACKET - empty, unqualified array literal "[]" illegal since element type can't be determined
+
+array_lit_expr_list : expr  { $$ = new std::vector<TxExpressionNode*>();  $$->push_back(NULL);  $$->push_back($1); }
+                    | array_lit_expr_list COMMA expr  { $$ = $1;  $$->push_back($3); }
+                    ;
 
 make_expr : KW_NEW type_expression call_params { $$ = new TxNewConstructionNode(@1, $2, $3); }
           | LT type_expression GT call_params { $$ = new TxStackConstructionNode(@1, $2, $4); }

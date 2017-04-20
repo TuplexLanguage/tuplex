@@ -10,26 +10,31 @@
  */
 class TxArrayLitNode : public TxExpressionNode {
     std::vector<TxExpressionNode*> const * const origElemExprList;
+    TxExpressionNode* lengthExpr;
     TxTypeTypeArgumentNode* elementTypeNode;
     TxValueTypeArgumentNode* lengthNode;
     bool _constant = false;
 
 protected:
-    virtual const TxType* define_type() override {
-        auto elemType = this->elementTypeNode->typeExprNode->resolve_type();
-        for ( auto elemExprI = this->elemExprList->begin() + 1; elemExprI != this->elemExprList->end(); elemExprI++ )
-            (*elemExprI)->insert_conversion( elemType );
-        return this->registry().get_array_type( this, this->elementTypeNode, this->lengthNode );
-    }
+    virtual const TxType* define_type() override;
 
 public:
     std::vector<TxMaybeConversionNode*> const * const elemExprList;
 
-    TxArrayLitNode(const TxLocation& parseLocation, const std::vector<TxExpressionNode*>* elemExprList);
+    /** Represents an empty array with the specified element type. */
+    TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, TxExpressionNode* lengthExpr=nullptr )
+        : TxArrayLitNode( parseLocation, elementTypeExpr, new std::vector<TxExpressionNode*>(), lengthExpr )  { }
+
+    /** Represents a non-empty array with the specified element type. */
+    TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxExpressionNode*>* elemExprList,
+                    TxExpressionNode* lengthExpr=nullptr );
+
+    /** Represents a non-empty array with the element type defined by the first element. */
+    TxArrayLitNode( const TxLocation& parseLocation, const std::vector<TxExpressionNode*>* elemExprList );
 
     /** Creates an array literal node with elements that are owned by another AST node.
      * The resulting array literal node may not be AST-copied. */
-    TxArrayLitNode(const TxLocation& parseLocation, const std::vector<TxMaybeConversionNode*>* elemExprList);
+    TxArrayLitNode( const TxLocation& parseLocation, const std::vector<TxMaybeConversionNode*>* elemExprList );
 
     virtual TxArrayLitNode* make_ast_copy() const override {
         if (! this->origElemExprList) {
@@ -50,21 +55,7 @@ public:
         }
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->elementTypeNode->symbol_resolution_pass();
-        this->lengthNode->symbol_resolution_pass();
-        for (auto elemExpr : *this->elemExprList)
-            elemExpr->symbol_resolution_pass();
-
-        this->_constant = true;
-        for (auto arg : *this->elemExprList) {
-            if (!arg->is_statically_constant()) {
-                this->_constant = false;
-                break;
-            }
-        }
-    }
+    virtual void symbol_resolution_pass() override;
 
     virtual bool is_stack_allocation_expression() const override {
         // the array will be allocated on the stack if it is not statically constant

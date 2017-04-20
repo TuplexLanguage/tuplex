@@ -19,10 +19,22 @@ array_construction( i : UByte ) {
     a0 := [ i, i, i ];
     a1 := [ 1, 2, 3 ];
     a2 := [ Int(1), 2, 3 ];
+    #experr 1: ae := [];  ## invalid, no element type info
+
+    a3 := [3]Int( 1, 2, 3 );
+    a4 := []Int( 1, 2, 3 );
+    a5 := []Int();  ## empty array of Ints
+    #experr 1: ae := [2]Int( 1, 2, 3 );
+    #experr 1: ae := [4]Int( 1, 2, 3 );
+    #experr 2: ae := [2.5]Int( 1, 2, 3 );
+    #experr 2: ae := [i]Int( 1, 2, 3 );
 
     foofunc( a0 );
     foofunc( a1 );
     foofunc( a2 );
+    foofunc( a3 );
+    foofunc( a4 );
+    foofunc( a5 );
 
 /* requires var-arg constructors:
     aa := <Array<Int,3>>( 1, 2, 3 );
@@ -30,12 +42,12 @@ array_construction( i : UByte ) {
     aa := <Array<>>( 1, 2, 3 );  ## support?
     aa := <Array>( 1, 2, 3 );    ## support?
 
-    aa := [3]Int( 1, 2, 3 );
-    aa := []Int( 1, 2, 3 );
-
     aa := new [3]Int( 1, 2, 3 );
+    aa := new []Int( 1, 2, 3 );
+    aa := new []Int();
     aa := new Array<Int,3>( 1, 2, 3 );
     aa := new Array<Int>( 1, 2, 3 );
+    aa := new Array<Int>();
 */
 
 ##  FUTURE: In-place expansion of sequences:
