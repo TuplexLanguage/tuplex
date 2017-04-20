@@ -10,10 +10,19 @@ var_func( x : UInt, vars : Float... ) -> UInt {
 ## array_literal :=    ‘[‘ expr_list ‘]’
 ## Future: expansion operator '...'
 
+foofunc( array : &[]UByte ) { }
+
+foofunc( array : &[]Int ) { }
+
+
 array_construction( i : UByte ) {
-    a := [ i, i, i ];
-    a0 := [ 1, 2, 3 ];
-    a1 := [ Int(1), 2, 3 ];
+    a0 := [ i, i, i ];
+    a1 := [ 1, 2, 3 ];
+    a2 := [ Int(1), 2, 3 ];
+
+    foofunc( a0 );
+    foofunc( a1 );
+    foofunc( a2 );
 
 /* requires var-arg constructors:
     aa := <Array<Int,3>>( 1, 2, 3 );

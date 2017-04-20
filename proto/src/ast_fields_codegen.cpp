@@ -177,11 +177,8 @@ Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope* scop
 
     if ( value && scope ) {  // (in global scope we don't load)
         auto valT = value->getType();
-        // function and complex (non-single-valued) pointers don't require a load instruction,
-        // except if a Ref type
+        // function and complex (non-single-valued) pointers don't require a load instruction
         if ( valT->isPointerTy() )
-//             && ( this->get_type()->get_type_class() == TXTC_REFERENCE
-//                  || valT->getPointerElementType()->isSingleValueType() ) )
         {
             //std::cerr << "access_via_load_store():  TRUE: " << valT << std::endl;
             value = scope->builder->CreateLoad( value );
@@ -190,6 +187,7 @@ Value* TxFieldValueNode::code_gen(LlvmGenerationContext& context, GenScope* scop
         // There is a risk that this confuses 'void*' (i8*), which shouldn't be loaded, with pointer
         // to i8, which should. Unfortunately non-struct types can't be unique'd by naming in LLVM.
     }
-    //std::cerr << "skipping LOAD for " << value << std::endl;
+    //else
+    //    std::cerr << "skipping LOAD for " << value << std::endl;
     return value;
 }

@@ -12,7 +12,7 @@ class TxArrayLitNode : public TxExpressionNode {
     std::vector<TxExpressionNode*> const * const origElemExprList;
     TxTypeTypeArgumentNode* elementTypeNode;
     TxValueTypeArgumentNode* lengthNode;
-    bool _constant;
+    bool _constant = false;
 
 protected:
     virtual const TxType* define_type() override {
@@ -66,7 +66,10 @@ public:
         }
     }
 
-    virtual bool is_stack_allocation_expression() const override { return true; }
+    virtual bool is_stack_allocation_expression() const override {
+        // the array will be allocated on the stack if it is not statically constant
+        return !this->_constant;
+    }
 
     virtual bool is_statically_constant() const override { return this->_constant; }
 
