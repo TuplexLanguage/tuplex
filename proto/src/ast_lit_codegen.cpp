@@ -40,21 +40,21 @@ Value* TxCharacterLitNode::code_gen(LlvmGenerationContext& context, GenScope* sc
 Value* TxIntegerLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     TRACE_CODEGEN(this, context, this->intValue.value.i64);
     switch (this->intValue.typeId) {
-    case BYTE:
+    case TXBT_BYTE:
         return ConstantInt::get(IntegerType::getInt8Ty(context.llvmContext), this->intValue.value.i64, true);
-    case SHORT:
+    case TXBT_SHORT:
         return ConstantInt::get(IntegerType::getInt16Ty(context.llvmContext), this->intValue.value.i64, true);
-    case INT:
+    case TXBT_INT:
         return ConstantInt::get(IntegerType::getInt32Ty(context.llvmContext), this->intValue.value.i64, true);
-    case LONG:
+    case TXBT_LONG:
         return ConstantInt::get(IntegerType::getInt64Ty(context.llvmContext), this->intValue.value.i64, true);
-    case UBYTE:
+    case TXBT_UBYTE:
         return ConstantInt::get(IntegerType::getInt8Ty(context.llvmContext), this->intValue.value.u64, false);
-    case USHORT:
+    case TXBT_USHORT:
         return ConstantInt::get(IntegerType::getInt16Ty(context.llvmContext), this->intValue.value.u64, false);
-    case UINT:
+    case TXBT_UINT:
         return ConstantInt::get(IntegerType::getInt32Ty(context.llvmContext), this->intValue.value.u64, false);
-    case ULONG:
+    case TXBT_ULONG:
         return ConstantInt::get(IntegerType::getInt64Ty(context.llvmContext), this->intValue.value.u64, false);
     default:
         ASSERT(false, "Unhandled type id " << this->intValue.typeId);

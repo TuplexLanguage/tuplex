@@ -19,7 +19,7 @@ TxArrayLitNode::TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressio
     this->elementTypeNode = new TxTypeTypeArgumentNode( elementTypeExpr );
 
     if (! lengthExpr)
-        lengthExpr = new TxIntegerLitNode( this->parseLocation, elemExprList->size(), false, UINT );
+        lengthExpr = new TxIntegerLitNode( this->parseLocation, elemExprList->size(), false, TXBT_UINT );
     this->lengthNode = new TxValueTypeArgumentNode( lengthExpr );
 }
 
@@ -35,7 +35,7 @@ TxArrayLitNode::TxArrayLitNode( const TxLocation& parseLocation, const std::vect
     TxTypeExprWrapperNode* elementTypeExpr = new TxTypeExprWrapperNode( elemExprList->at( 0 )->originalExpr );
     this->elementTypeNode = new TxTypeTypeArgumentNode( elementTypeExpr );
 
-    TxExpressionNode* lengthExpr = new TxIntegerLitNode( this->parseLocation, elemExprList->size(), false, UINT );
+    TxExpressionNode* lengthExpr = new TxIntegerLitNode( this->parseLocation, elemExprList->size(), false, TXBT_UINT );
     this->lengthNode = new TxValueTypeArgumentNode( lengthExpr );
 }
 
@@ -50,11 +50,11 @@ const TxType* TxArrayLitNode::define_type() {
 
 static bool is_unsigned_integer( BuiltinTypeId typeId ) {
     switch ( typeId ) {
-    case UNSIGNED:
-    case UBYTE:
-    case USHORT:
-    case UINT:
-    case ULONG:
+    case TXBT_UNSIGNED:
+    case TXBT_UBYTE:
+    case TXBT_USHORT:
+    case TXBT_UINT:
+    case TXBT_ULONG:
         return true;
     default:
         return false;

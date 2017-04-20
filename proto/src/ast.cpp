@@ -653,7 +653,7 @@ const TxType* TxFieldValueNode::define_type() {
             return static_cast<const TxTypeDeclaration*>(decl)->get_definer()->resolve_type();
     }
     // Symbol is not a field or type, return Void as placeholder type
-    return this->registry().get_builtin_type( VOID );
+    return this->registry().get_builtin_type( TXBT_VOID );
 }
 
 

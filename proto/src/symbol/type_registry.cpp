@@ -601,7 +601,7 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
 const TxType* TypeRegistry::get_reference_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* targetTypeBinding,
                                                 const TxIdentifier* dataspace ) {
     std::vector<const TxTypeArgumentNode*> bindings( { targetTypeBinding } );
-    return this->get_type_specialization( definer, this->get_builtin_type( REFERENCE ), bindings );
+    return this->get_type_specialization( definer, this->get_builtin_type( TXBT_REFERENCE ), bindings );
 }
 
 
@@ -609,12 +609,12 @@ const TxType* TypeRegistry::get_reference_type( const TxTypeDefiningNode* define
 const TxType* TypeRegistry::get_array_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding,
                                             const TxValueTypeArgumentNode* lengthBinding ) {
     std::vector<const TxTypeArgumentNode*> bindings( { elemTypeBinding, lengthBinding } );
-    return this->get_type_specialization( definer, this->get_builtin_type( ARRAY ), bindings );
+    return this->get_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), bindings );
 }
 
 const TxType* TypeRegistry::get_array_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding ) {
     std::vector<const TxTypeArgumentNode*> bindings( { elemTypeBinding } );
-    return this->get_type_specialization( definer, this->get_builtin_type( ARRAY ), bindings );
+    return this->get_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), bindings );
 }
 
 
@@ -628,7 +628,7 @@ static std::vector<const TxActualType*> make_actual_arg_types( const std::vector
 
 const TxType* TypeRegistry::get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, const TxType* returnType,
                                               bool modifiableClosure) {
-    auto funcType = new TxFunctionType( declaration, this->get_builtin_type( FUNCTION )->type(),
+    auto funcType = new TxFunctionType( declaration, this->get_builtin_type( TXBT_FUNCTION )->type(),
                                         make_actual_arg_types( argumentTypes ), returnType->type(), modifiableClosure );
     this->add_type(funcType);
     return new TxType( funcType );
@@ -636,7 +636,7 @@ const TxType* TypeRegistry::get_function_type(const TxTypeDeclaration* declarati
 
 const TxType* TypeRegistry::get_function_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
                                               bool modifiableClosure) {
-    auto funcType = new TxFunctionType( declaration, this->get_builtin_type( FUNCTION )->type(),
+    auto funcType = new TxFunctionType( declaration, this->get_builtin_type( TXBT_FUNCTION )->type(),
                                         make_actual_arg_types( argumentTypes ), modifiableClosure );
     this->add_type(funcType);
     return new TxType( funcType );
@@ -644,7 +644,7 @@ const TxType* TypeRegistry::get_function_type(const TxTypeDeclaration* declarati
 
 const TxType* TypeRegistry::get_constructor_type(const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
                                                  const TxTypeDeclaration* objectTypeDecl) {
-    auto type = new TxConstructorType( declaration, this->get_builtin_type( FUNCTION )->type(),
+    auto type = new TxConstructorType( declaration, this->get_builtin_type( TXBT_FUNCTION )->type(),
                                        make_actual_arg_types( argumentTypes ), objectTypeDecl );
     this->add_type(type);
     return new TxType( type );

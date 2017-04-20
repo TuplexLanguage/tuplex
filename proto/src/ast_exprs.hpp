@@ -27,7 +27,7 @@ protected:
         if (refType->get_type_class() == TXTC_REFERENCE) {
             if (refType->is_generic())
                 // FUTURE: return constraint type if present
-                return this->registry().get_builtin_type(ANY);
+                return this->registry().get_builtin_type(TXBT_ANY);
             return refType->target_type();
         }
         CERR_THROWRES(this, "Operand is not a reference and can't be dereferenced: " << refType);
@@ -75,7 +75,7 @@ public:
 class TxElemDerefNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type() override {
-        this->subscript->insert_conversion( this->registry().get_builtin_type(LONG) );
+        this->subscript->insert_conversion( this->registry().get_builtin_type(TXBT_LONG) );
 
         auto opType = this->array->resolve_type();
         if (opType->get_type_class() == TXTC_ARRAY) {
@@ -83,7 +83,7 @@ protected:
                 return elemType;
             else
                 // FUTURE: return constraint type if present
-                return this->registry().get_builtin_type(ANY);
+                return this->registry().get_builtin_type(TXBT_ANY);
         }
         if (opType)
             CERR_THROWRES(this, "Operand is not an array and can't be subscripted: " << opType);
@@ -230,8 +230,8 @@ protected:
             else
                 CERR_THROWRES(this, "Mismatching scalar operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
         }
-        else if (ltype->is_builtin( BOOL )) {
-            if (rtype->is_builtin( BOOL )) {
+        else if (ltype->is_builtin( TXBT_BOOL )) {
+            if (rtype->is_builtin( TXBT_BOOL )) {
                 if (op_class == TXOC_ARITHMETIC)
                     CERROR(this, "Can't perform arithmetic operation on operands of boolean type: " << this->op);
             }
@@ -256,7 +256,7 @@ protected:
             return arithResultType;
         }
         else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
-            return this->registry().get_builtin_type(BOOL);
+            return this->registry().get_builtin_type(TXBT_BOOL);
         }
     }
 
@@ -312,16 +312,16 @@ protected:
                 // TODO: if operand is an integer literal (or statically constant) and small enough, convert to signed of same width
                 bool mod = intType->is_modifiable();
                 switch (intType->get_type_id()) {
-                case UBYTE:
-                    type = this->registry().get_builtin_type(SHORT, mod);
+                case TXBT_UBYTE:
+                    type = this->registry().get_builtin_type(TXBT_SHORT, mod);
                     break;
-                case USHORT:
-                    type = this->registry().get_builtin_type(INT, mod);
+                case TXBT_USHORT:
+                    type = this->registry().get_builtin_type(TXBT_INT, mod);
                     break;
-                case UINT:
-                    type = this->registry().get_builtin_type(LONG, mod);
+                case TXBT_UINT:
+                    type = this->registry().get_builtin_type(TXBT_LONG, mod);
                     break;
-                case ULONG:
+                case TXBT_ULONG:
                     CERROR(this, "Invalid operand type for unary '-': " << type);
                     break;
                 default:
@@ -365,7 +365,7 @@ public:
 class TxUnaryLogicalNotNode : public TxOperatorValueNode {
 protected:
     virtual const TxType* define_type() override {
-        return this->registry().get_builtin_type(BOOL);
+        return this->registry().get_builtin_type(TXBT_BOOL);
     }
 
 public:
@@ -387,7 +387,7 @@ public:
         operand->symbol_resolution_pass();
         auto type = operand->get_type();
         // assume arithmetic, scalar negation:
-        if (! type->is_builtin( BOOL ))
+        if (! type->is_builtin( TXBT_BOOL ))
             // should we support any auto-conversion to Bool?
             CERROR(this, "Operand of unary '!' is not of Bool type: " << (type ? type->str().c_str() : "NULL"));
     }
@@ -720,7 +720,7 @@ protected:
         if (opType->get_type_class() == TXTC_REFERENCE) {
             if (opType->is_generic())
                 // FUTURE: return constraint type if present
-                return this->registry().get_builtin_type(ANY);
+                return this->registry().get_builtin_type(TXBT_ANY);
             return opType->target_type();
         }
         CERR_THROWRES(this, "Operand is not a reference and can't be dereferenced: " << opType);
@@ -759,7 +759,7 @@ public:
 class TxElemAssigneeNode : public TxAssigneeNode {
 protected:
     virtual const TxType* define_type() override {
-        this->subscript->insert_conversion( this->registry().get_builtin_type(LONG) );
+        this->subscript->insert_conversion( this->registry().get_builtin_type(TXBT_LONG) );
 
         auto opType = this->array->resolve_type();
         if (opType->get_type_class() == TXTC_ARRAY) {
@@ -767,7 +767,7 @@ protected:
                 return elemType;
             else
                 // FUTURE: return constraint type if present
-                return this->registry().get_builtin_type(ANY);  // (not modifiable)
+                return this->registry().get_builtin_type(TXBT_ANY);  // (not modifiable)
         }
         // operand type is unknown / not an array and can't be subscripted
         CERR_THROWRES(this, "Can't subscript non-array expression.");

@@ -333,7 +333,7 @@ public:
     }
 
     virtual void symbol_resolution_pass() override {
-        this->cond->insert_conversion( this->registry().get_builtin_type(BOOL) );
+        this->cond->insert_conversion( this->registry().get_builtin_type(TXBT_BOOL) );
         this->cond->symbol_resolution_pass();
         this->body->symbol_resolution_pass();
         if (this->elseClause)

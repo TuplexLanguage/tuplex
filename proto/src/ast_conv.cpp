@@ -11,7 +11,7 @@ static TxExpressionNode* inner_wrap_conversion(TxExpressionNode* originalExpr, c
     if (_explicit || originalType->auto_converts_to(*requiredType)) {
         // wrap originalExpr with conversion node
 
-        if (requiredType->is_builtin( BOOL ))
+        if (requiredType->is_builtin( TXBT_BOOL ))
             return new TxBoolConvNode(originalExpr, requiredType);
 
         if (requiredType->is_scalar())

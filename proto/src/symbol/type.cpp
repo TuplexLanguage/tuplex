@@ -93,7 +93,7 @@ ExpectedErrorClause* TxActualType::exp_err_ctx() const {
 
 
 const TxActualType* TxActualType::get_root_any_type() const {
-    return this->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( ANY )->type();
+    return this->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_ANY )->type();
 }
 
 
@@ -116,7 +116,7 @@ void TxActualType::validate_type() const {
                 CERROR(this, "'modifiable' specialization cannot add any interface base types");
         }
         else {
-            ASSERT(this->baseTypeSpec.type->staticTypeId == ANY
+            ASSERT(this->baseTypeSpec.type->staticTypeId == TXBT_ANY
                    || (this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseTypeSpec.type->get_type_class() == TXTC_INTERFACE)
                    || this->get_type_class() == this->baseTypeSpec.type->get_type_class(),
                    "Specialized type's type class " << this << " not valid with base type's type class " << this->baseTypeSpec.type->get_type_class());
@@ -440,7 +440,7 @@ bool TxActualType::inner_prepare_members() {
                 if (fieldDecl->get_decl_flags() & TXD_GENBINDING)
                     LOG_DEBUG(this->LOGGER(), "Skipping layout of GENBINDING instance field: " << field);
                 else if (( fieldDecl->get_decl_flags() & TXD_GENPARAM ) && this->get_type_class() == TXTC_ARRAY
-                         && this->staticTypeId != ARRAY) {
+                         && this->staticTypeId != TXBT_ARRAY) {
                     // special case for the only built-in type with a VALUE param - Array
                     // this handles specializations of Array where the length (L) has not been bound and another L field shall not be added
                     LOG_NOTE(this->LOGGER(), "Skipping layout of Array GENPARAM instance field: " << field);
@@ -552,22 +552,22 @@ bool TxActualType::is_virtual_derivation() const {
 
 bool TxActualType::is_scalar() const {
     switch( this->staticTypeId ) {
-    case SCALAR:
-    case INTEGER:
-    case SIGNED:
-    case BYTE:
-    case SHORT:
-    case INT:
-    case LONG:
-    case UNSIGNED:
-    case UBYTE:
-    case USHORT:
-    case UINT:
-    case ULONG:
-    case FLOATINGPOINT:
-    case HALF:
-    case FLOAT:
-    case DOUBLE:
+    case TXBT_SCALAR:
+    case TXBT_INTEGER:
+    case TXBT_SIGNED:
+    case TXBT_BYTE:
+    case TXBT_SHORT:
+    case TXBT_INT:
+    case TXBT_LONG:
+    case TXBT_UNSIGNED:
+    case TXBT_UBYTE:
+    case TXBT_USHORT:
+    case TXBT_UINT:
+    case TXBT_ULONG:
+    case TXBT_FLOATINGPOINT:
+    case TXBT_HALF:
+    case TXBT_FLOAT:
+    case TXBT_DOUBLE:
         return true;
     default:
         return ( this->is_modifiable() && this->get_base_type()->is_scalar() );
@@ -1134,7 +1134,7 @@ bool TxInterfaceAdapterType::inner_prepare_members() {
 TxFunctionType::TxFunctionType( const TxTypeDeclaration* declaration, const TxActualType* baseType,
                                 const std::vector<const TxActualType*>& argumentTypes, bool modifiableClosure )
     : TxFunctionType( declaration, baseType, argumentTypes,
-                      baseType->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( VOID )->type(),
+                      baseType->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_VOID )->type(),
                       modifiableClosure )  { }
 
 

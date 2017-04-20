@@ -7,13 +7,13 @@
 
 bool is_signed_out_of_range(const int64_t i64, const BuiltinTypeId typeId) {
     switch (typeId) {
-    case BYTE:
+    case TXBT_BYTE:
         return (i64 < INT8_MIN  || i64 > INT8_MAX);
-    case SHORT:
+    case TXBT_SHORT:
         return (i64 < INT16_MIN || i64 > INT16_MAX);
-    case INT:
+    case TXBT_INT:
         return (i64 < INT32_MIN || i64 > INT32_MAX);
-    case LONG:
+    case TXBT_LONG:
         return false;  // (i64 < INT64_MIN || i64 > INT64_MAX);
     default:
         ASSERT(false, "Unhandled type id " << typeId);
@@ -23,13 +23,13 @@ bool is_signed_out_of_range(const int64_t i64, const BuiltinTypeId typeId) {
 
 bool is_unsigned_out_of_range(const uint64_t u64, const BuiltinTypeId typeId) {
     switch (typeId) {
-    case UBYTE:
+    case TXBT_UBYTE:
         return (u64 > UINT8_MAX);
-    case USHORT:
+    case TXBT_USHORT:
         return (u64 > UINT16_MAX);
-    case UINT:
+    case TXBT_UINT:
         return (u64 > UINT32_MAX);
-    case ULONG:
+    case TXBT_ULONG:
         return false;  // (u64 > UINT64_MAX);
     default:
         ASSERT(false, "Unhandled type id " << typeId);
@@ -45,9 +45,9 @@ inline std::string strip_ignored_chars(const std::string input) {
 }
 
 
-static const BuiltinTypeId inttypeids[] = { BYTE, SHORT, INT, LONG, UBYTE, USHORT, UINT, ULONG };
-static const BuiltinTypeId uinttypeids[] = { UBYTE, USHORT, UINT, ULONG };
-static const BuiltinTypeId sinttypeids[] = { BYTE, SHORT, INT, LONG };
+static const BuiltinTypeId inttypeids[] = { TXBT_BYTE, TXBT_SHORT, TXBT_INT, TXBT_LONG, TXBT_UBYTE, TXBT_USHORT, TXBT_UINT, TXBT_ULONG };
+static const BuiltinTypeId uinttypeids[] = { TXBT_UBYTE, TXBT_USHORT, TXBT_UINT, TXBT_ULONG };
+static const BuiltinTypeId sinttypeids[] = { TXBT_BYTE, TXBT_SHORT, TXBT_INT, TXBT_LONG };
 
 
 IntValue::IntValue(const std::string& sourceLiteral, bool hasRadix, BuiltinTypeId typeId) {
@@ -86,10 +86,10 @@ IntValue::IntValue(const std::string& sourceLiteral, bool hasRadix, BuiltinTypeI
     if (!typeId && !typeStr.empty()) {  // literal has type-specifying suffix
         this->_signed = ( typeStr.front() != 'U' );
         switch (typeStr.back()) {
-        case 'B':  typeId = (this->_signed ? BYTE  : UBYTE);   break;
-        case 'S':  typeId = (this->_signed ? SHORT : USHORT);  break;
-        case 'I':  typeId = (this->_signed ? INT   : UINT);    break;
-        case 'L':  typeId = (this->_signed ? LONG  : ULONG);   break;
+        case 'B':  typeId = (this->_signed ? TXBT_BYTE  : TXBT_UBYTE);   break;
+        case 'S':  typeId = (this->_signed ? TXBT_SHORT : TXBT_USHORT);  break;
+        case 'I':  typeId = (this->_signed ? TXBT_INT   : TXBT_UINT);    break;
+        case 'L':  typeId = (this->_signed ? TXBT_LONG  : TXBT_ULONG);   break;
         default:
             ASSERT(false, "Invalid integer literal type suffix: ''" << typeStr.back() << "'");
         }
@@ -129,17 +129,17 @@ IntValue::IntValue(const std::string& sourceLiteral, bool hasRadix, BuiltinTypeI
                 this->outOfRange = true;
             errno = 0;
             this->_signed = true;
-            if      (this->value.i64 >= INT8_MIN)   this->typeId = BYTE;
-            else if (this->value.i64 >= INT16_MIN)  this->typeId = SHORT;
-            else if (this->value.i64 >= INT32_MIN)  this->typeId = INT;
-            else                                    this->typeId = LONG;
+            if      (this->value.i64 >= INT8_MIN)   this->typeId = TXBT_BYTE;
+            else if (this->value.i64 >= INT16_MIN)  this->typeId = TXBT_SHORT;
+            else if (this->value.i64 >= INT32_MIN)  this->typeId = TXBT_INT;
+            else                                    this->typeId = TXBT_LONG;
         }
         else {
             this->_signed = false;
-            if      (this->value.u64 <= UINT8_MAX)   this->typeId = UBYTE;
-            else if (this->value.u64 <= UINT16_MAX)  this->typeId = USHORT;
-            else if (this->value.u64 <= UINT32_MAX)  this->typeId = UINT;
-            else                                     this->typeId = ULONG;
+            if      (this->value.u64 <= UINT8_MAX)   this->typeId = TXBT_UBYTE;
+            else if (this->value.u64 <= UINT16_MAX)  this->typeId = TXBT_USHORT;
+            else if (this->value.u64 <= UINT32_MAX)  this->typeId = TXBT_UINT;
+            else                                     this->typeId = TXBT_ULONG;
         }
     }
 }
@@ -155,10 +155,10 @@ IntValue::IntValue(int64_t i64value, BuiltinTypeId typeId, bool _signed) {
             this->outOfRange = is_signed_out_of_range(this->value.u64, this->typeId);
         }
         else {
-            if      (this->value.i64 >= INT8_MIN  && this->value.i64 <= INT8_MAX)   this->typeId = BYTE;
-            else if (this->value.i64 >= INT16_MIN && this->value.i64 <= INT16_MAX)  this->typeId = SHORT;
-            else if (this->value.i64 >= INT32_MIN && this->value.i64 <= INT32_MAX)  this->typeId = INT;
-            else                                                                    this->typeId = LONG;
+            if      (this->value.i64 >= INT8_MIN  && this->value.i64 <= INT8_MAX)   this->typeId = TXBT_BYTE;
+            else if (this->value.i64 >= INT16_MIN && this->value.i64 <= INT16_MAX)  this->typeId = TXBT_SHORT;
+            else if (this->value.i64 >= INT32_MIN && this->value.i64 <= INT32_MAX)  this->typeId = TXBT_INT;
+            else                                                                    this->typeId = TXBT_LONG;
         }
     }
     else {
@@ -178,10 +178,10 @@ void IntValue::init_unsigned(uint64_t u64value, BuiltinTypeId typeId) {
         this->outOfRange = is_unsigned_out_of_range(this->value.u64, this->typeId);
     }
     else {
-        if      (this->value.u64 <= UINT8_MAX)   this->typeId = UBYTE;
-        else if (this->value.u64 <= UINT16_MAX)  this->typeId = USHORT;
-        else if (this->value.u64 <= UINT32_MAX)  this->typeId = UINT;
-        else                                     this->typeId = ULONG;
+        if      (this->value.u64 <= UINT8_MAX)   this->typeId = TXBT_UBYTE;
+        else if (this->value.u64 <= UINT16_MAX)  this->typeId = TXBT_USHORT;
+        else if (this->value.u64 <= UINT32_MAX)  this->typeId = TXBT_UINT;
+        else                                     this->typeId = TXBT_ULONG;
     }
 }
 
@@ -204,7 +204,7 @@ void TxCStringLitNode::symbol_declaration_pass( LexicalContext& lexContext) {
 
     // (for now) Create AST to declare the implicit type of this c-string literal:
     TxTypeExpressionNode* elemTypeExpr = new TxIdentifiedTypeNode(this->parseLocation, "tx.UByte");
-    TxExpressionNode* lengthExpr = new TxIntegerLitNode(this->parseLocation, literal.length()-2, false, UINT);
+    TxExpressionNode* lengthExpr = new TxIntegerLitNode(this->parseLocation, literal.length()-2, false, TXBT_UINT);
     TxTypeExpressionNode* typeExpr = new TxArrayTypeNode(this->parseLocation, elemTypeExpr, lengthExpr);
     this->cstringTypeNode = typeExpr;
     this->cstringTypeNode->symbol_declaration_pass( lexContext, lexContext, nullptr );

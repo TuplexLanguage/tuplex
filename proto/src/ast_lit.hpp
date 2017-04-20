@@ -118,11 +118,11 @@ protected:
 
 public:
     TxFloatingLitNode(const TxLocation& parseLocation, const std::string& literal)
-        : TxLiteralValueNode(parseLocation), typeId(FLOAT), literal(literal), value(atof(literal.c_str())) {
+        : TxLiteralValueNode(parseLocation), typeId(TXBT_FLOAT), literal(literal), value(atof(literal.c_str())) {
         // TODO: produce different Floating types
     }
 
-    TxFloatingLitNode(const TxLocation& parseLocation, BuiltinTypeId typeId=FLOAT)
+    TxFloatingLitNode(const TxLocation& parseLocation, BuiltinTypeId typeId=TXBT_FLOAT)
         : TxLiteralValueNode(parseLocation), typeId(typeId), literal("0"), value(0) { }
 
     virtual TxFloatingLitNode* make_ast_copy() const override {
@@ -140,7 +140,7 @@ public:
 class TxCharacterLitNode : public TxLiteralValueNode {
 protected:
     virtual const TxType* define_type() override {
-        return this->registry().get_builtin_type(UBYTE);
+        return this->registry().get_builtin_type(TXBT_UBYTE);
     }
 
 public:
@@ -196,7 +196,7 @@ public:
 class TxBoolLitNode : public TxLiteralValueNode {
 protected:
     virtual const TxType* define_type() override {
-        return this->registry().get_builtin_type(BOOL);
+        return this->registry().get_builtin_type(TXBT_BOOL);
     }
 
 public:

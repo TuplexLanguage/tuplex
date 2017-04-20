@@ -348,7 +348,7 @@ protected:
         const TxType* baseObjType = nullptr;
         std::vector<const TxType*> interfaces;
         if (this->baseTypes->empty())
-            baseObjType = this->registry().get_builtin_type(TUPLE);
+            baseObjType = this->registry().get_builtin_type(TXBT_TUPLE);
         else {
             interfaces.reserve(this->baseTypes->size()-1);
             for (size_t i = 0; i < this->baseTypes->size(); i++) {
