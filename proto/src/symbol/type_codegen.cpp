@@ -181,7 +181,7 @@ Value* TxArrayType::inner_code_gen_size(LlvmGenerationContext& context, GenScope
 }
 
 Value* TxArrayType::gen_alloca(LlvmGenerationContext& context, GenScope* scope, const std::string &varName) const {
-    //std::cout << "ArrayType code_gen_alloca('" << varName << "')" << std::endl;
+    //std::cerr << "ArrayType code_gen_alloca('" << varName << "')" << std::endl;
     Type* headerType = Type::getInt32Ty(context.llvmContext);
     ASSERT(this->is_concrete(), "Attempted to codegen alloca of non-concrete type " << this);
 

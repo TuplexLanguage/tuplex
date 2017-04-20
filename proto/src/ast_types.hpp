@@ -127,8 +127,10 @@ public:
     const TxIdentifier* ident;
     const std::vector<TxTypeArgumentNode*>* const typeArgs;
 
-    TxGenSpecTypeNode( const TxLocation& parseLocation, const TxIdentifier* identifier,
-                                 const std::vector<TxTypeArgumentNode*>* typeArgs )
+    TxGenSpecTypeNode( const TxLocation& parseLocation, const std::string& identifier, const std::vector<TxTypeArgumentNode*>* typeArgs )
+            : TxGenSpecTypeNode(parseLocation, new TxIdentifier(identifier), typeArgs)  { }
+
+    TxGenSpecTypeNode( const TxLocation& parseLocation, const TxIdentifier* identifier, const std::vector<TxTypeArgumentNode*>* typeArgs )
             : TxTypeExpressionNode(parseLocation), ident(identifier), typeArgs(typeArgs)  {
         ASSERT(typeArgs && !typeArgs->empty(), "NULL or empty typeargs");
     }

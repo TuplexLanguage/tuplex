@@ -72,8 +72,12 @@ public:
     // TODO: review combinatorial expressions that maybe should return true if any of their sub-expressions return true
     virtual bool is_stack_allocation_expression() const { return false; }
 
-    /** Returns true if this expression is a constant expression that can be evaluated at compile time. */
-    virtual bool is_statically_constant() const { return false; }
+    /** Returns true if this expression is a constant expression that can be evaluated at compile time.
+     * The result is not defined before the resolution pass is run on this node. */
+    virtual bool is_statically_constant() const {
+        ASSERT(this->attempt_get_type(), "Can't determine whether statically constant before resolution pass: " << this);
+        return false;
+    }
 
     /** If this expression can currently be statically evaluated,
      * a TxConstantProxy representing its value is returned, otherwise nullptr.

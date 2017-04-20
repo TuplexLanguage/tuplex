@@ -98,7 +98,7 @@ YY_DECL;
 /* operators: */
 %token END 0  // end of scan
 %token NL SEMICOLON // statement separator
-%token DOT COLON COMMA ASTERISK PLUS MINUS FSLASH BSLASH AAND
+%token DOT COLON COMMA ELLIPSIS ASTERISK PLUS MINUS FSLASH BSLASH AAND
 %token PIPE CARET TILDE AT PERCENT DOLLAR EURO LPAREN RPAREN LBRACE
 %token RBRACE LBRACKET RBRACKET QMARK EMARK DASHGT
 %token EQUAL EEQUAL NEQUAL EEEQUAL NEEQUAL LT GT LEQUAL GEQUAL
@@ -153,7 +153,7 @@ YY_DECL;
 %type <TxTypeExpressionNode*> reference_type array_type //data_tuple_type
 
 %type <TxFunctionTypeNode*> function_header
-%type <TxExpressionNode*> expr make_expr lambda_expr value_literal array_dimensions cond_expr
+%type <TxExpressionNode*> expr make_expr lambda_expr value_literal array_literal array_dimensions cond_expr
 %type <TxFunctionCallNode*> call_expr
 %type <std::vector<TxExpressionNode*> *> expression_list call_params
 %type <std::vector<TxStatementNode*> *> statement_list
@@ -168,6 +168,7 @@ YY_DECL;
 /* Operator precedence for expression operators (higher line no = higher precedence) */
 %precedence STMT /* used to specify statement / member rule precedence, to be lower than e.g. separator  */
 %precedence EXPR
+%precedence ELLIPSIS
 %left COMMA COLON
 %right EQUAL
 %left PIPE  // boolean (logical, not bitwise) operator
@@ -391,8 +392,12 @@ type_arg        : value_literal       { $$ = new TxValueTypeArgumentNode($1); } 
 
 
 type_expression  // can construct new "literal" type but can't extend (subclass / add members to) one
-    :   opt_modifiable base_type_expression  { $$ = ( $1 ? new TxModifiableTypeNode(@1, $2)
-                                                         : new TxMaybeModTypeNode(@2, $2) ); }
+    :   opt_modifiable base_type_expression  %prec EXPR
+             { $$ = ( $1 ? new TxModifiableTypeNode(@1, $2)
+                         : new TxMaybeModTypeNode(@2, $2) ); }
+    |   opt_modifiable base_type_expression ELLIPSIS
+             { $$ = ( $1 ? new TxReferenceTypeNode(@1, nullptr, new TxArrayTypeNode(@1, new TxModifiableTypeNode(@1, $2)))
+                         : new TxReferenceTypeNode(@2, nullptr, new TxArrayTypeNode(@2, new TxMaybeModTypeNode(@2, $2))) ); }
     ;
 
 opt_modifiable : %empty { $$ = false; } | TILDE { $$ = true; } | KW_MODIFIABLE { $$ = true; } ;
@@ -482,6 +487,7 @@ method_def  : NAME function_header suite
 expr
     :   LPAREN expr RPAREN           { $$ = $2; }
     |   value_literal                { $$ = $1; }
+    |   array_literal                { $$ = $1; }
     |   lambda_expr                  { $$ = $1; }
     |   call_expr                    { $$ = $1; }
     |   make_expr                    { $$ = $1; }
@@ -521,8 +527,12 @@ value_literal
         // |       LIT_STRING    { $$ = new TxStringLitNode(@1, $1); }
     ;
 
+array_literal : LBRACKET expression_list RBRACKET  { $$ = new TxArrayLitNode(@1, $2); }
+              // (empty array literal "[]" illegal since element type can't be determined)
+              ;
+
 make_expr : KW_NEW type_expression call_params { $$ = new TxNewConstructionNode(@1, $2, $3); }
-          | LT type_expression GT call_params { $$ = new TxStackConstructionNode(@1, $2, $4); }  // TODO: review syntax
+          | LT type_expression GT call_params { $$ = new TxStackConstructionNode(@1, $2, $4); }
 ;
 
 call_expr : expr call_params  { $$ = new TxFunctionCallNode(@1, $1, $2); }

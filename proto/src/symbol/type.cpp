@@ -439,6 +439,12 @@ bool TxActualType::inner_prepare_members() {
 
                 if (fieldDecl->get_decl_flags() & TXD_GENBINDING)
                     LOG_DEBUG(this->LOGGER(), "Skipping layout of GENBINDING instance field: " << field);
+                else if (( fieldDecl->get_decl_flags() & TXD_GENPARAM ) && this->get_type_class() == TXTC_ARRAY
+                         && this->staticTypeId != ARRAY) {
+                    // special case for the only built-in type with a VALUE param - Array
+                    // this handles specializations of Array where the length (L) has not been bound and another L field shall not be added
+                    LOG_NOTE(this->LOGGER(), "Skipping layout of Array GENPARAM instance field: " << field);
+                }
                 else if (! expErrField || expErrWholeType)
                     this->instanceFields.add_field(field);
                 break;
@@ -813,26 +819,25 @@ bool TxActualType::inner_is_a( const TxActualType* thisType, const TxActualType*
     // check whether other is a more generic version of the same type:
     if (!thisType->get_bindings().empty() && !otherType->get_bindings().empty()) {
         if (auto genBaseType = common_generic_base_type( thisType, otherType )) {
-        for (auto paramDecl : genBaseType->type_params()) {
-            // other's param shall either be redeclared (generic) or *equal* to this (is-a is not sufficient in general case)
-            // - a MOD binding is considered to be is-a of a non-MOD binding
-            // TODO: more thorough analysis of which additional cases may be compatible
-            if (auto otherBinding = otherType->lookup_param_binding(paramDecl)) {
-                if (auto thisBinding = thisType->lookup_param_binding(paramDecl)) {
-                    // check whether both bindings resolve to same type/value:
-                    auto thisBType = thisBinding->get_definer()->resolve_type();
-                    auto thatBType = otherBinding->get_definer()->resolve_type();
-                    if (thisBType->is_modifiable() && !thatBType->is_modifiable())
-                        thisBType = thisBType->get_base_type();
-                    if (typeid(*thisBinding) != typeid(*otherBinding)  // both TYPE or both VALUE declarations
-                            || *thisBType != *thatBType)
+            for (auto paramDecl : genBaseType->type_params()) {
+                // other's param shall either be redeclared (generic) or *equal* to this (is-a is not sufficient in general case)
+                // - a MOD binding is considered to be is-a of a non-MOD binding
+                if (auto otherBinding = otherType->lookup_param_binding(paramDecl)) {
+                    if (auto thisBinding = thisType->lookup_param_binding(paramDecl)) {
+                        // check whether both bindings resolve to same type/value:
+                        auto thisBType = thisBinding->get_definer()->resolve_type();
+                        auto thatBType = otherBinding->get_definer()->resolve_type();
+                        if (thisBType->is_modifiable() && !thatBType->is_modifiable())
+                            thisBType = thisBType->get_base_type();
+                        if (typeid(*thisBinding) != typeid(*otherBinding)  // both TYPE or both VALUE declarations
+                                || *thisBType != *thatBType)
+                            return false;
+                    }
+                    else
                         return false;
                 }
-                else
-                    return false;
             }
-        }
-        return true;
+            return true;
         }
     }
 
@@ -898,7 +903,17 @@ static void type_bindings_string(std::stringstream& str, const std::vector<const
     int ix = 0;
     for (auto b : bindings) {
         if (ix++)  str << ",";
-        if (auto btype = b->get_definer()->attempt_get_type())
+        if (auto valB = dynamic_cast<const TxFieldDeclaration*>( b )) {
+            if (auto initializer = valB->get_definer()->get_init_expression()) {
+                if (auto constantValueProxy = initializer->get_static_constant_proxy()) {
+                    // existing binding has statically constant value
+                    str << constantValueProxy->get_value_UInt();
+                    continue;
+                }
+            }
+            str << "$V";
+        }
+        else if (auto btype = b->get_definer()->attempt_get_type())
             str << btype->str( true );
         else
             str << b->get_unique_full_name();

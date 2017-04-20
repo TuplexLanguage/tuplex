@@ -272,7 +272,7 @@ static std::string field_description( const TxFieldDeclaration* fieldDecl ) {
             char buf[512];
 
             int storageIx = -1;
-            if (! (field->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_INITIALIZER | TXD_GENBINDING)))
+            if (! ( field->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ))
                 storageIx = field->get_decl_storage_index();
             if (storageIx >= 0)
                 snprintf( buf, 512, "FIELD [%2d]  %-48s : %s",
@@ -311,7 +311,7 @@ std::string TxEntitySymbol::declaration_string() const {
 
 std::string TxEntitySymbol::description_string() const {
     if (this->is_overloaded())
-        return "   overloaded symbol      " + this->get_full_name().str();
+        return "   overloaded symbol       " + this->get_full_name().str();
     else if (this->typeDeclaration)  // non-overloaded type name
         if (auto type = this->typeDeclaration->get_definer()->attempt_get_type()) {
             if (type->get_declaration() == this->typeDeclaration)

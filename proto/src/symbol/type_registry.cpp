@@ -288,14 +288,14 @@ const TxActualType* TypeRegistry::get_actual_type_specialization( const TxTypeDe
     bool isExpErrType = ( ( declaration && (declaration->get_decl_flags() & TXD_EXPERRBLOCK) )
                           || ( !declaration && definer->exp_err_ctx() ) );
 
-    const TxActualType* specializedBaseType = get_inner_type_specialization( definer, baseType, bindings, isExpErrType );
+    const TxActualType* specializedType = get_inner_type_specialization( definer, baseType, bindings, isExpErrType );
 
     if (declaration) {
         // create empty type specialization with explicit (unique) name
-        specializedBaseType = this->make_actual_type( declaration, specializedBaseType );
+        specializedType = this->make_actual_type( declaration, specializedType );
     }
 
-    return specializedBaseType;
+    return specializedType;
 }
 
 
@@ -434,7 +434,7 @@ static TxDeclarationNode* make_value_type_param_decl_node( const TxLocation& par
                                                            const TxEntityDeclaration* paramValueTypeDecl, TxExpressionNode* valueDefiner=nullptr) {
     auto paramTypeNode = new TxTypeDeclWrapperNode( parseLoc, paramValueTypeDecl );
     auto fieldDef = new TxFieldDefNode(parseLoc, paramName, paramTypeNode, valueDefiner, false);
-    auto declNode = new TxFieldDeclNode(parseLoc, flags | TXD_PUBLIC | TXD_IMPLICIT, fieldDef);
+    auto declNode = new TxFieldDeclNode(parseLoc, flags | TXD_PUBLIC, fieldDef);
     return declNode;
 }
 
@@ -478,16 +478,16 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
 
         if (auto typeArg = dynamic_cast<const TxTypeTypeArgumentNode*>( binding )) {
             if (! dynamic_cast<const TxTypeDeclaration*>(paramDecl))
-                CERR_THROWRES(binding, "Can't bind a VALUE base type parameter using a TYPE: " << typeArg->typeExprNode->resolve_type());
+                CERR_THROWRES(binding, "Can't bind a VALUE base type parameter using a TYPE: " << paramDecl->get_unique_full_name());
 
             typeArg->typeExprNode->resolve_type();  // ensure binding is resolved (and verify that it does resolve)
             newBaseTypeName << "$";
         }
         else {  // binding is TxValueTypeArgumentNode
-            if (! dynamic_cast<const TxFieldDeclaration*>(paramDecl))
-                CERR_THROWRES(binding, "Can't bind a VALUE base type parameter using a TYPE: " << typeArg->typeExprNode->resolve_type());
-
             auto valueArg = static_cast<const TxValueTypeArgumentNode*>( binding );
+            if (! dynamic_cast<const TxFieldDeclaration*>(paramDecl))
+                CERR_THROWRES(binding, "Can't bind a TYPE base type parameter using a VALUE: " << paramDecl->get_unique_full_name());
+
             // implementation note: binding's value expression not necessarily 'resolved' at this point
             if (auto bindingValueProxy = valueArg->valueExprNode->get_static_constant_proxy()) {
                 uint32_t bindingValue = bindingValueProxy->get_value_UInt();
@@ -504,16 +504,16 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
 
     // if equivalent specialized type already exists then reuse it, otherwise create new one:
     auto baseScope = baseDecl->get_symbol()->get_outer();
-    const TxActualType* specializedBaseType = get_existing_type(baseType, bindings, baseScope, newBaseTypeNameStr);
-    if (! specializedBaseType) {
-        specializedBaseType = make_type_specialization( definer, baseType, bindings, isExpErrType, newBaseTypeNameStr );
+    const TxActualType* specializedType = get_existing_type(baseType, bindings, baseScope, newBaseTypeNameStr);
+    if (! specializedType) {
+        specializedType = make_type_specialization( definer, baseType, bindings, isExpErrType, newBaseTypeNameStr );
     }
-    return specializedBaseType;
+    return specializedType;
 }
 
 const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
                                                             const std::vector<const TxTypeArgumentNode*>* bindings,
-                                                            bool isExpErrType, const std::string& newBaseTypeNameStr ) {
+                                                            bool isExpErrType, const std::string& newSpecTypeNameStr ) {
     auto baseDecl = baseType->get_declaration();
     auto baseScope = baseDecl->get_symbol()->get_outer();
     auto baseTypeParams = baseType->type_params();
@@ -553,7 +553,7 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     for (auto unboundParamI = baseTypeParams.cbegin() + bindings->size();
             unboundParamI != baseTypeParams.cend(); unboundParamI++ ) {
         auto unboundParamDecl = *unboundParamI;
-        LOG_DEBUG(this->LOGGER(), "Implicitly inheriting (redeclaring) type parameters " << unboundParamDecl->get_unique_full_name() << " in type " << newBaseTypeNameStr);
+        LOG_DEBUG(this->LOGGER(), "Implicitly inheriting (redeclaring) type parameters " << unboundParamDecl->get_unique_full_name() << " in type " << newSpecTypeNameStr);
         if (auto typeDecl = dynamic_cast<const TxTypeDeclaration*>(unboundParamDecl)) {
             bindingDeclNodes->push_back( make_type_type_param_decl_node( definer->get_parse_location(), typeDecl->get_unique_name(),
                                                                          TXD_GENPARAM, typeDecl ) );
@@ -576,23 +576,23 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     ASSERT(dynamic_cast<TxTypeExpressionNode*>( baseDecl->get_definer() ), "baseType's definer is not a TxTypeExpressionNode: " << baseDecl->get_definer());
     ASSERT(baseDecl->get_definer()->context().scope() == baseScope, "Unexpected lexical scope: " << baseDecl->get_definer()->context().scope() << " != " << baseScope);
     auto baseTypeExpr = static_cast<TxTypeExpressionNode*>( baseDecl->get_definer() );
-    auto newBaseTypeExpr = baseTypeExpr->make_ast_copy();
-    auto uniqueBaseTypeNameStr = baseScope->make_unique_name(newBaseTypeNameStr);
-    auto newBaseTypeDecl = new TxTypeDeclNode( definer->get_parse_location(), newDeclFlags, uniqueBaseTypeNameStr, bindingDeclNodes, newBaseTypeExpr );
+    auto specTypeExpr = baseTypeExpr->make_ast_copy();
+    auto uniqueSpecTypeNameStr = baseScope->make_unique_name(newSpecTypeNameStr);
+    auto newSpecTypeDecl = new TxTypeDeclNode( definer->get_parse_location(), newDeclFlags, uniqueSpecTypeNameStr, bindingDeclNodes, specTypeExpr );
 
-    LexicalContext newBaseContext = LexicalContext( baseScope, definer->exp_err_ctx(), true );
-    newBaseTypeDecl->symbol_declaration_pass( newBaseContext, newBaseContext );
-    const TxActualType* specializedBaseType = newBaseTypeExpr->resolve_type()->type();
-    LOG_DEBUG(this->LOGGER(), "Created new specialized type " << specializedBaseType);
+    LexicalContext specContext = LexicalContext( baseScope, definer->exp_err_ctx(), true );
+    newSpecTypeDecl->symbol_declaration_pass( specContext, specContext );
+    const TxActualType* specializedType = specTypeExpr->resolve_type()->type();
+    LOG_DEBUG(this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << baseType);
 
     // Invoking the resolution pass here can cause infinite recursion
     // (since the same source text construct may be recursively reprocessed,
     //  and the bindings may refer to this type's declaration),
     // so we enqueue this "specialization resolution pass" for later processing.
     //std::cerr << "enqueuing specialization " << newBaseTypeDecl << std::endl;
-    this->enqueuedSpecializations.emplace_back( newBaseTypeDecl );
+    this->enqueuedSpecializations.emplace_back( newSpecTypeDecl );
 
-    return specializedBaseType;
+    return specializedType;
 }
 
 

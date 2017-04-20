@@ -10,6 +10,19 @@
     } while (false)
 
 
+#define LOG_INFO(logger, message) \
+    do { \
+            std::stringstream msg;  msg << message; \
+            logger->info( "%s", msg.str().c_str() ); \
+    } while (false)
+
+#define LOG_NOTE(logger, message) \
+    do { \
+            std::stringstream msg;  msg << message; \
+            logger->note( "%s", msg.str().c_str() ); \
+    } while (false)
+
+
 #ifndef NDEBUG
 #   define LOG_TRACE(logger, message) \
     do { \

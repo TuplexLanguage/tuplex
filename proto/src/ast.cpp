@@ -477,22 +477,38 @@ static const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, 
             // first screen the fields that are of function type and take the correct number of arguments:
             if (field->get_type()->get_type_class() == TXTC_FUNCTION) {
                 auto candArgTypes = field->get_type()->argument_types();
-                if (candArgTypes.size() == arguments->size()) {
-                    //entitySymbol->LOGGER()->trace("Candidate function: %s", funcType->to_string().c_str());
+                auto varArgElemType = field->get_type()->vararg_elem_type();
+
+                if (candArgTypes.size() != arguments->size()) {
+                    // var-arg parameter accepts zero or more arguments
+                    if (!( varArgElemType && arguments->size() >= candArgTypes.size() - 1 ))
+                        continue;  // mismatching number of function args
+                }
+
+                {
+                    //LOG_TRACE(entitySymbol->LOGGER(), "Candidate function: " << field->get_type());
 
                     // next check that the argument types match, and how close they match:
                     uint16_t reint[4] = { 0, 0, 0, 0 };
-                    auto argTypeI = argTypes.cbegin();
-                    for (auto argDef : candArgTypes) {
-                        auto argType = *argTypeI;
+                    for (unsigned i = 0; i < argTypes.size(); i++) {
+                        const TxType* argType = argTypes.at(i);
+                        const TxType* argDef = ( varArgElemType && i >= candArgTypes.size() - 1 ? varArgElemType
+                                                                                                : candArgTypes.at( i ) );
                         int degree = get_reinterpretation_degree( argDef, argType );
                         if (degree < 0) {
-                            //entitySymbol->LOGGER()->info("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
-                            //                             argType->str(true).c_str(), argDef->str(true).c_str());
-                            goto NEXT_CANDIDATE;
+                            if (varArgElemType && i == candArgTypes.size() - 1 && candArgTypes.size() == arguments->size()) {
+                                // if last provided arg is an array of the correct type, match it against the var-arg tail if present
+                                degree = get_reinterpretation_degree( candArgTypes.at( i ), argType );
+                                if (degree < 0)
+                                    goto NEXT_CANDIDATE;
+                            }
+                            else {
+                                //entitySymbol->LOGGER()->info("Argument mismatch, can't convert\n\tFrom: %80s\n\tTo:   %80s",
+                                //                             argType->str(true).c_str(), argDef->str(true).c_str());
+                                goto NEXT_CANDIDATE;
+                            }
                         }
                         reint[ degree ]++;
-                        argTypeI++;
                     }
 
                     //origin->LOGGER()->trace( "Arguments match for %s: %-32s: %d, %d, %d, %d", field->str().c_str(), field->get_type()->str().c_str(),
@@ -732,19 +748,44 @@ void TxFunctionCallNode::symbol_resolution_pass() {
         }
     }
 
-    // Verify matching function signature, and apply implicit conversions if needed:
+    // Verify arguments and apply implicit conversions if needed:
     if (this->calleeType && this->calleeType->get_type_class() == TXTC_FUNCTION) {
         auto calleeArgTypes = this->calleeType->argument_types();
-        if (calleeArgTypes.size() != this->argsExprList->size()) {
-            CERROR(this, "Callee of function call expression has mismatching argument count: " << this->calleeType);
-        }
-        else {
-            auto argExprI = this->argsExprList->begin();
-            for (auto argDefType : calleeArgTypes) {
+        auto varArgElemType = this->calleeType->vararg_elem_type();
+
+// this check has already been done in callee resolution
+//        if (calleeArgTypes.size() != this->argsExprList->size()
+//                && !( varArgElemType && this->argsExprList->size() >= calleeArgTypes.size() - 1 )) {
+//            CERROR(this, "Callee of function call expression has mismatching argument count: " << this->calleeType);
+//        }
+//        else
+        {
+            if (varArgElemType
+                    && !( calleeArgTypes.size() == this->origArgsExprList->size()
+                          && get_reinterpretation_degree( *(calleeArgTypes.cend()-1), (*(this->origArgsExprList->cend()-1))->get_type() ) >= 0 )) {
+                // Calling a var-args function, and last provided arg does not directly match the var-arg tail arg.
+                // transform the passed var-args into an array which is passed as the last argument
+                unsigned lastCalleeArgIx = calleeArgTypes.size() - 1;
+                auto varArgs = new std::vector<TxMaybeConversionNode*>();
+                for (unsigned i = lastCalleeArgIx; i < this->argsExprList->size(); i++) {
+                    // this->argsExprList->at(i)->insert_conversion( varArgElemType );  // Note: conversion is applied by TxArrayLitNode
+                    varArgs->push_back( this->argsExprList->at(i) );
+                }
+                this->argsExprList->resize( lastCalleeArgIx );
+                const TxLocation& varArgLoc = ( varArgs->empty() ? this->argsExprList->at( lastCalleeArgIx - 1 )->parseLocation
+                                                                 : varArgs->at( 0 )->parseLocation );
+                auto varArgsNode = new TxMaybeConversionNode( new TxArrayLitNode( varArgLoc, varArgs ) );
+                varArgsNode->symbol_declaration_pass( this->context() );
+                this->argsExprList->push_back( varArgsNode );
+            }
+            ASSERT(calleeArgTypes.size() == this->argsExprList->size(), "Mismatching argument count for callee " << this->calleeType);
+
+            for (unsigned i = 0; i < this->argsExprList->size(); i++) {
+                auto argExpr = this->argsExprList->at(i);
+                auto argDefType = calleeArgTypes.at(i);
                 // note: similar rules to assignment
                 // TODO: check dataspace rules if function arg is a reference
-                (*argExprI)->insert_conversion( argDefType );  // generates compilation error upon mismatch
-                argExprI++;
+                argExpr->insert_conversion( argDefType );  // generates compilation error upon mismatch
             }
         }
     }

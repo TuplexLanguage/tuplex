@@ -10,3 +10,4 @@
 #include "ast_exprs.hpp"
 #include "ast_lit.hpp"
 #include "ast_funcs.hpp"
+#include "ast_array.hpp"

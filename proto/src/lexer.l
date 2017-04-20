@@ -81,6 +81,7 @@ extern "C" int yywrap() { return 0; }
 "."		{ return token::DOT; }
 ":"		{ return token::COLON; }
 ","		{ return token::COMMA; }
+"..."   { return token::ELLIPSIS; }
 "*"		{ return token::ASTERISK; }
 "+"		{ return token::PLUS; }
 "-"		{ return token::MINUS; }

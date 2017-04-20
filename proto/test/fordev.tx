@@ -1,23 +1,33 @@
 ## step-by-step support for ranges, arrays, sequences, and for-loops 
 
+## var-arg functions:
+var_func( x : UInt, vars : Float... ) -> UInt {
+    return vars.L;  ## number of var-args passed
+}
+
+
 ## Array literals:
 ## array_literal :=    ‘[‘ expr_list ‘]’
 ## Future: expansion operator '...'
 
-array_construction() {
-    a1 := Array<Int,3>( 1, 2, 3 );
-    a2 := Array<Int>( 1, 2, 3 );
+array_construction( i : UByte ) {
+    a := [ i, i, i ];
+    a0 := [ 1, 2, 3 ];
+    a1 := [ Int(1), 2, 3 ];
 
-##  a3 := Array<>( 1, 2, 3 );  ## support?
-##  a4 := Array( 1, 2, 3 );    ## support?
+/* requires var-arg constructors:
+    aa := <Array<Int,3>>( 1, 2, 3 );
+    aa := <Array<Int>>( 1, 2, 3 );
+    aa := <Array<>>( 1, 2, 3 );  ## support?
+    aa := <Array>( 1, 2, 3 );    ## support?
 
-    a5 := [3]Int( 1, 2, 3 );
-    a6 := []Int( 1, 2, 3 );
-    a7 := [ Int(1), 2, 3 ];
+    aa := [3]Int( 1, 2, 3 );
+    aa := []Int( 1, 2, 3 );
 
-    a8 := new [3]Int( 1, 2, 3 );
-    a9 := new Array<Int,3>( 1, 2, 3 );
-    a10 := new Array<Int>( 1, 2, 3 );
+    aa := new [3]Int( 1, 2, 3 );
+    aa := new Array<Int,3>( 1, 2, 3 );
+    aa := new Array<Int>( 1, 2, 3 );
+*/
 
 ##  FUTURE: In-place expansion of sequences:
 ##  aa := Array<Int>( 1, 2, 3, a1... );
@@ -43,6 +53,7 @@ for_loops() {
 */
 
 main() -> Int {
-    array_construction();
-    return 0;
+    n := var_func( 0, 1.1, 2.2, 3.3 );
+    array_construction( 1 );
+    return Int( n );
 }

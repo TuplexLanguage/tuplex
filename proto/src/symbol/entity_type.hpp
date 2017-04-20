@@ -38,7 +38,12 @@ class TxType : public TxEntity {
 public:
 
     virtual inline const TxTypeDeclaration* get_declaration() const override {
-        return static_cast<const TxTypeDeclaration*>(TxEntity::get_declaration());
+        if (auto decl = static_cast<const TxTypeDeclaration*>(TxEntity::get_declaration()))
+            return decl;
+        if (this->_type)
+            return this->_type->get_declaration();
+        ASSERT(false, "Declaration not known for unresolved TxType, definer is " << this->definer);
+        return nullptr;
     }
 
     virtual const TxLocation& get_parse_location() const override {
@@ -184,7 +189,6 @@ public:
 
 
     /** Special case helper method for getting the target type of a reference type.
-     * Returns null if this is not a reference type or if the target type was not resolved.
      */
     const TxType* target_type() const {
         if (this->get_type_class() == TXTC_REFERENCE) {
@@ -196,7 +200,6 @@ public:
 
 
     /** Special case helper method for getting the element type of an array type.
-     * Returns null if this is not an array type or if the element type was not resolved.
      */
     const TxType* element_type() const {
         if (this->get_type_class() == TXTC_ARRAY) {
@@ -208,7 +211,6 @@ public:
 
 
     /** Special case helper method for getting the argument types of a function type.
-     * Returns an empty vector if this is not a function type or if an argument type was not resolved.
      */
     std::vector<const TxType*> argument_types() const {
         if (this->get_type_class() == TXTC_FUNCTION) {
@@ -222,8 +224,21 @@ public:
         THROW_LOGIC("Can't get argument_types() of non-function type: " << this);
     }
 
+    /** Special case helper method for getting the var-arg element type of a var-arg function type.
+     * Returns null if this is not a var-arg function.
+     */
+    const TxType* vararg_elem_type() const {
+        if (this->get_type_class() == TXTC_FUNCTION) {
+            auto funcType = static_cast<const TxFunctionType*>( this->type() );
+            if (auto vaElemType = funcType->vararg_elem_type())
+                return vaElemType->get_type_entity();
+            return nullptr;
+        }
+        THROW_LOGIC("Can't get vararg_elem_type() of non-function type: " << this);
+    }
+
     /** Special case helper method for getting the return type of a function type.
-     * Returns null if this is not a function type or if the return type was not resolved.
+     * Returns null if the return type was not resolved.
      */
     const TxType* return_type() const {
         if (this->get_type_class() == TXTC_FUNCTION) {

@@ -141,6 +141,20 @@ public:
 
     virtual bool modifiable_closure() const { return this->modifiableClosure; }
 
+    /** Returns the var-arg element type of this function, or nullptr if this is not a var-arg function. */
+    const TxActualType* vararg_elem_type() const {
+        if (argumentTypes.size() > 0) {
+            auto lastArgType = argumentTypes.at( argumentTypes.size() - 1 );
+            if (lastArgType->get_type_class() == TXTC_REFERENCE) {
+                auto refTargetType = static_cast<const TxReferenceType*>( lastArgType )->target_type();
+                if (refTargetType->get_type_class() == TXTC_ARRAY) {
+                    return static_cast<const TxArrayType*>( refTargetType )->element_type();
+                }
+            }
+        }
+        return nullptr;
+    }
+
     inline virtual bool operator==(const TxActualType& other) const override {
         if (auto otherF = dynamic_cast<const TxFunctionType*>(&other)) {
             //std::cerr << "EQUAL RETURN TYPES?\n\t" << this->returnType << "\n\t" << otherF->returnType << std::endl;

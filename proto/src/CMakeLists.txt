@@ -126,6 +126,7 @@ add_executable(txc
         ast.cpp
         ast_conv.cpp
         ast_lit.cpp
+        ast_array.cpp
         ast_base_codegen.cpp
         ast_exprs_codegen.cpp
         ast_conv_codegen.cpp
@@ -133,6 +134,7 @@ add_executable(txc
         ast_stmts_codegen.cpp
         ast_fields_codegen.cpp
         ast_types_codegen.cpp
+        ast_array_codegen.cpp
         llvm_generator.cpp
         llvm_exec.cpp
 	)
