@@ -14,6 +14,8 @@ foofunc( array : &[]UByte ) { }
 
 foofunc( array : &[]Int ) { }
 
+foofunc( array : &[]Float ) { }
+
 
 array_construction( i : UByte ) {
     a0 := [ i, i, i ];
@@ -36,8 +38,14 @@ array_construction( i : UByte ) {
     foofunc( a4 );
     foofunc( a5 );
 
-/* requires var-arg constructors:
-    aa := <Array<Int,3>>( 1, 2, 3 );
+## requires var-arg constructors:
+    a10 := <Array<UByte,3>>( [ 1, 2, 3 ] );
+    a11 := <Array<Int,3>>( [ 1I, 2, 3 ] );
+    #experr 1: ae := <Array<Int,3>>( [ 1, 2 ] );
+    #experr 1: ae := <Array<Int,3>>( [ 1, 2, 3, 4 ] );
+    #experr 1: ae := <Array<Int,3>>( [ 1.1, 2.2, 3.3 ] );
+    #experr 1: ae := <Array<Int,3>>( 1, 2, 3 );
+/*
     aa := <Array<Int>>( 1, 2, 3 );
     aa := <Array<>>( 1, 2, 3 );  ## support?
     aa := <Array>( 1, 2, 3 );    ## support?
@@ -75,6 +83,7 @@ for_loops() {
 
 main() -> Int {
     n := var_func( 0, 1.1, 2.2, 3.3 );
+    n := var_func( 0, [ 1.1, 2.2, 3.3 ] );
     array_construction( 1 );
     return Int( n );
 }

@@ -148,7 +148,9 @@ public:
             if (lastArgType->get_type_class() == TXTC_REFERENCE) {
                 auto refTargetType = static_cast<const TxReferenceType*>( lastArgType )->target_type();
                 if (refTargetType->get_type_class() == TXTC_ARRAY) {
-                    return static_cast<const TxArrayType*>( refTargetType )->element_type();
+                    auto arrayType = static_cast<const TxArrayType*>( refTargetType );
+                    if (!arrayType->length())  // only arrays of unspecified length apply to var-args syntactic sugar
+                        return arrayType->element_type();
                 }
             }
         }
@@ -221,7 +223,8 @@ public:
         : TxFunctionType(declaration, baseType, argumentTypes, returnType) { }
 
     /** Factory method that produces the TxExpressionNode to replace the function call with.
-     * Note that the argument expressions will have run the resolution pass before this call, but not calleeExpr. */
+     * Note that the argument expressions will have run the resolution pass before this call, but not calleeExpr.
+     * The returned expression will have run the declaration pass. */
     virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const = 0;
 };
 
@@ -243,6 +246,15 @@ public:
     TxBuiltinConversionFunctionType(const TxTypeDeclaration* declaration, const TxActualType* baseType, const TxActualType* argumentType,
                                     const TxActualType* returnType)
         : TxInlineFunctionType(declaration, baseType, std::vector<const TxActualType*>{ argumentType }, returnType) { }
+
+    virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;
+};
+
+class TxBuiltinArrayInitializerType : public TxInlineFunctionType {
+public:
+    TxBuiltinArrayInitializerType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const TxActualType* argumentType,
+                                   const TxActualType* returnType )
+        : TxInlineFunctionType( declaration, baseType, std::vector<const TxActualType*>{ argumentType }, returnType ) { }
 
     virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;
 };

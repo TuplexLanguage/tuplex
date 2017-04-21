@@ -32,9 +32,15 @@ public:
     /** Represents a non-empty array with the element type defined by the first element. */
     TxArrayLitNode( const TxLocation& parseLocation, const std::vector<TxExpressionNode*>* elemExprList );
 
+    /** Creates an array literal node with the specified element type, with elements that are owned by another AST node.
+     * The resulting array literal node may not be AST-copied. */
+    TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxMaybeConversionNode*>* elemExprList );
+
     /** Creates an array literal node with elements that are owned by another AST node.
+     * The element type is defined by the first element.
      * The resulting array literal node may not be AST-copied. */
     TxArrayLitNode( const TxLocation& parseLocation, const std::vector<TxMaybeConversionNode*>* elemExprList );
+
 
     virtual TxArrayLitNode* make_ast_copy() const override {
         if (! this->origElemExprList) {

@@ -310,7 +310,10 @@ public:
 
 
 class TxDerivedTypeNode : public TxTypeExpressionNode {
-    /** Initialized implicit type members such as '$Self' and '$Super' for types with a body. */
+    //TxTypeDeclNode* selfRefTypeNode = nullptr;
+    TxTypeDeclNode* superRefTypeNode = nullptr;
+
+    /** Initializes implicit type members such as '$Self' and '$Super' for types with a body. */
     void init_implicit_types();
 
 protected:
@@ -318,7 +321,7 @@ protected:
         for (auto baseType : *this->baseTypes)
             baseType->symbol_declaration_pass( defContext, lexContext, nullptr );
 
-        this->selfRefTypeNode->symbol_declaration_pass( lexContext );
+        //this->selfRefTypeNode->symbol_declaration_pass( lexContext );
         this->superRefTypeNode->symbol_declaration_pass( lexContext );
 
         for (auto member : *this->members)
@@ -371,8 +374,6 @@ public:
     const bool _mutable;
     std::vector<TxTypeExpressionNode*>* baseTypes;
     std::vector<TxDeclarationNode*>* members;
-    TxTypeDeclNode* selfRefTypeNode = nullptr;
-    TxTypeDeclNode* superRefTypeNode = nullptr;
 
     TxDerivedTypeNode(const TxLocation& parseLocation, const bool _mutable,
                       std::vector<TxTypeExpressionNode*>* baseTypes,
@@ -397,7 +398,7 @@ public:
             type->symbol_resolution_pass();
         }
 
-        this->selfRefTypeNode->symbol_resolution_pass();
+        //this->selfRefTypeNode->symbol_resolution_pass();
         this->superRefTypeNode->symbol_resolution_pass();
 
         for (auto member : *this->members) {
@@ -413,7 +414,7 @@ public:
         for (auto type : *this->baseTypes)
             type->visit_ast( visitor, thisAsParent, "basetype", context );
 
-        this->selfRefTypeNode->visit_ast( visitor, thisAsParent, "selfreftype", context );
+        //this->selfRefTypeNode->visit_ast( visitor, thisAsParent, "selfreftype", context );
         this->superRefTypeNode->visit_ast( visitor, thisAsParent, "superreftype", context );
 
         for (auto member : *this->members)
@@ -523,7 +524,7 @@ public:
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
                                           const TxTypeDeclaration* owningDeclaration ) override {
         if (! owningDeclaration) {
-            std::string funcTypeName = lexContext.scope()->make_unique_name( "$ftype", true );
+            std::string funcTypeName = lexContext.scope()->make_unique_name( "$Ftype", true );
             TxDeclarationFlags flags = TXD_IMPLICIT;  // TXD_PUBLIC, TXD_EXPERRBLOCK ?
             owningDeclaration = lexContext.scope()->declare_type( funcTypeName, this, flags );
             if (! owningDeclaration) {
@@ -541,16 +542,20 @@ public:
             argField->symbol_resolution_pass();
             auto argType = argField->get_type();
             if (! argType->is_concrete())
-                if ( ! ( argType->get_declaration()->get_decl_flags() & TXD_GENPARAM ) )
+                if ( ! ( argType->get_declaration()->get_decl_flags() & TXD_GENPARAM )
+                        && this->returnField && this->returnField->typeExpression->get_identifier() != "$Self" ) {
                     CERROR(argField, "Function argument type is not a concrete type (size potentially unknown): "
                             << argField->get_identifier() << " : " << argType);
+                }
         }
         if (this->returnField) {
             this->returnField->symbol_resolution_pass();
             auto retType = this->returnField->get_type();
             if (! retType->is_concrete())
-                if ( ! ( retType->get_declaration()->get_decl_flags() & TXD_GENPARAM ) )
+                if ( ! ( retType->get_declaration()->get_decl_flags() & TXD_GENPARAM )
+                     && this->returnField->typeExpression->get_identifier() != "$Self" ) {
                     CERROR(returnField, "Function return type is not a concrete type (size potentially unknown): " << retType);
+                }
         }
     }
 

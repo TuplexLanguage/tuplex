@@ -86,11 +86,13 @@ public:
             : TxExpressionNode( parseLocation ), funcHeaderNode( funcHeaderNode ), suite( suite ), isMethodSyntax( isMethodSyntax ) {
         if (isMethodSyntax) {
             // 'self' reference:
-            auto selfRefTypeExprN = new TxIdentifiedTypeNode(this->parseLocation, "$Self");
-            this->selfRefNode = new TxFieldDefNode(this->parseLocation, "self", selfRefTypeExprN, nullptr);
+            // FUTURE: if type is immutable, the reference target type should perhaps not be modifiable?
+            auto selfRefTypeExprN = new TxReferenceTypeNode( this->parseLocation, nullptr,
+                    new TxModifiableTypeNode( this->parseLocation, new TxIdentifiedTypeNode( this->parseLocation, "$Self" ) ) );
+            this->selfRefNode = new TxFieldDefNode( this->parseLocation, "self", selfRefTypeExprN, nullptr );
             // 'super' reference
-            auto superRefTypeExprN = new TxIdentifiedTypeNode(this->parseLocation, "$Super");
-            this->superRefNode = new TxFieldDefNode(this->parseLocation, "super", superRefTypeExprN, nullptr);
+            auto superRefTypeExprN = new TxIdentifiedTypeNode( this->parseLocation, "$Super" );
+            this->superRefNode = new TxFieldDefNode( this->parseLocation, "super", superRefTypeExprN, nullptr );
         }
     }
 

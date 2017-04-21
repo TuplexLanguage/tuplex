@@ -3,6 +3,7 @@
 
 #include "tinydir/tinydir.h"
 
+#include "util/util.hpp"
 #include "util/assert.hpp"
 #include "util/files_env.hpp"
 
@@ -213,13 +214,6 @@ void TxDriver::register_nonlocal_field_usage( TxFieldDeclNode* fieldDeclNode ) {
     this->usageOrderedNonlocalFieldDecls.push_back( fieldDeclNode );
 }
 
-
-inline bool begins_with(const std::string& str, const std::string& tail) {
-    return str.length() >= tail.length() && ! str.compare(0, tail.length(), tail);
-}
-inline bool ends_with(const std::string& str, const std::string& tail) {
-    return str.length() >= tail.length() && ! str.compare(str.length()-tail.length(), tail.length(), tail);
-}
 
 bool TxDriver::add_import(const TxIdentifier& moduleName) {
     if (this->package->lookup_module(moduleName)) {

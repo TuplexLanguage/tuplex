@@ -1,8 +1,10 @@
 #pragma once
 
 
-inline bool ends_with(std::string const &fullString, std::string const &ending) {
-    if (fullString.length() >= ending.length())
-        return (0 == fullString.compare( fullString.length() - ending.length(), ending.length(), ending ) );
-    return false;
+inline bool begins_with(const std::string& str, const std::string& tail) {
+    return str.length() >= tail.length() && ! str.compare(0, tail.length(), tail);
+}
+
+inline bool ends_with(const std::string& str, const std::string& tail) {
+    return str.length() >= tail.length() && ! str.compare(str.length()-tail.length(), tail.length(), tail);
 }

@@ -206,7 +206,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
         }
         else {
             if (storage == TXS_GLOBAL || storage == TXS_STATIC) {
-                if (! (this->field->get_declaration()->get_decl_flags() & ( TXD_BUILTIN | TXD_EXTERN))) //(TXD_GENPARAM | TXD_CONSTRUCTOR | TXD_INITIALIZER)))
+                if (! (this->field->get_declaration()->get_decl_flags() & ( TXD_BUILTIN | TXD_EXTERN ))) //(TXD_GENPARAM | TXD_CONSTRUCTOR | TXD_INITIALIZER)))
                     CERROR(this, "Global/static fields must have an initializer: " << this->field->get_identifier());
 //                else
 //                    std::cerr << "accepting without initializer: " << this->field->get_declaration() << std::endl;
@@ -309,12 +309,12 @@ void TxArrayTypeNode::symbol_declaration_pass_descendants( LexicalContext& defCo
 
 void TxDerivedTypeNode::init_implicit_types() {
     // implicit type members '$Self' and '$Super' for types with a body:
-    // FUTURE: if type is immutable, the reference target type should perhaps not be modifiable?
-    auto selfTypeExprN = new TxTypeExprWrapperNode(this);
-    auto selfRefTypeExprN = new TxReferenceTypeNode(this->parseLocation, nullptr,
-                                                    new TxModifiableTypeNode(this->parseLocation, selfTypeExprN));
-    const std::string selfTypeName = "$Self";
-    this->selfRefTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_IMPLICIT, selfTypeName, nullptr, selfRefTypeExprN);
+//    // FUTURE: if type is immutable, the reference target type should perhaps not be modifiable?
+//    auto selfTypeExprN = new TxTypeExprWrapperNode(this);
+//    auto selfRefTypeExprN = new TxReferenceTypeNode(this->parseLocation, nullptr,
+//                                                    new TxModifiableTypeNode(this->parseLocation, selfTypeExprN));
+//    const std::string selfTypeName = "$Self";
+//    this->selfRefTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_IMPLICIT, selfTypeName, nullptr, selfRefTypeExprN);
 
     TxTypeExpressionNode* superTypeExprN;
     if (this->baseTypes->empty())
@@ -774,7 +774,9 @@ void TxFunctionCallNode::symbol_resolution_pass() {
                 this->argsExprList->resize( lastCalleeArgIx );
                 const TxLocation& varArgLoc = ( varArgs->empty() ? this->argsExprList->at( lastCalleeArgIx - 1 )->parseLocation
                                                                  : varArgs->at( 0 )->parseLocation );
-                auto varArgsNode = new TxMaybeConversionNode( new TxArrayLitNode( varArgLoc, varArgs ) );
+                ASSERT(varArgElemType->get_declaration(), "callee's varArgElemType doesn't have a declaration in " << this);
+                auto elemTypeExpr = new TxTypeExprWrapperNode( varArgElemType->get_definer() );
+                auto varArgsNode = new TxMaybeConversionNode( new TxArrayLitNode( varArgLoc, elemTypeExpr, varArgs ) );
                 varArgsNode->symbol_declaration_pass( this->context() );
                 this->argsExprList->push_back( varArgsNode );
             }

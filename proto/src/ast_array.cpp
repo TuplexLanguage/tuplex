@@ -29,10 +29,15 @@ TxArrayLitNode::TxArrayLitNode( const TxLocation& parseLocation, const std::vect
 }
 
 TxArrayLitNode::TxArrayLitNode( const TxLocation& parseLocation, const std::vector<TxMaybeConversionNode*>* elemExprList )
+    : TxArrayLitNode( parseLocation, new TxTypeExprWrapperNode( elemExprList->at(0)->originalExpr ), elemExprList )
+{
+}
+
+TxArrayLitNode::TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr,
+                                const std::vector<TxMaybeConversionNode*>* elemExprList )
         : TxExpressionNode( parseLocation ), origElemExprList( nullptr ), lengthExpr( nullptr ), elemExprList( elemExprList ) {
     ASSERT(elemExprList && !elemExprList->empty(), "Array literals must have at least one element");
 
-    TxTypeExprWrapperNode* elementTypeExpr = new TxTypeExprWrapperNode( elemExprList->at( 0 )->originalExpr );
     this->elementTypeNode = new TxTypeTypeArgumentNode( elementTypeExpr );
 
     TxExpressionNode* lengthExpr = new TxIntegerLitNode( this->parseLocation, elemExprList->size(), false, TXBT_UINT );

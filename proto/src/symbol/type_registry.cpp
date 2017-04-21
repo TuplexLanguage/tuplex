@@ -31,8 +31,6 @@ const TxLocation& TypeRegistry::get_builtin_location() const {
 }
 
 
-//static bool matches_existing_type( const TxType* newBaseType, const TxType* existingBaseType );
-
 void TypeRegistry::deferred_type_resolution_pass() {
     this->resolve_deferred_types();
 
@@ -64,41 +62,6 @@ void TypeRegistry::resolve_deferred_types() {
         }
     } while ( typeIx != this->usedTypes.size() );
 }
-
-
-//void TypeRegistry::enqueued_resolution_pass() {
-////    std::unordered_multimap<std::string,const TxType*> existingSpecializations;
-//    // Note: Queue can be appended to during processing.
-//    for (unsigned i = 0; i != this->enqueuedSpecializations.size(); i++) {
-//        //std::cerr << "Nof enqueued specializations: " << this->enqueuedSpecializations.size() << std::endl;
-//        auto specDecl = this->enqueuedSpecializations.at(i);
-//
-////        auto newType = const_cast<TxType*>( specDecl->typeExpression->get_type() );
-////        auto genericBase = newType->get_semantic_base_type();
-////        auto baseName = genericBase->get_declaration()->get_unique_full_name();
-////
-////        // if new type is equal to an existing one, merge them
-////        auto range = existingSpecializations.equal_range( baseName );
-////        for( auto si = range.first; si != range.second; si++ ) {
-////            auto existingType = si->second;
-////            //std::cerr << "comparing against " << existingType << std::endl;
-////            if ( matches_existing_type( newType, existingType ) ) {
-////                this->LOGGER()->info("new specialization equal to preexisting one, reusing: %s", existingType->str().c_str());
-////                std::cerr << "  new spec: " << newType << std::endl;
-////                std::cerr << " prev spec: " << existingType << std::endl;
-////                newType->rewire( existingType );
-////                goto SKIP_ENQUEUED;
-////            }
-////        }
-////        existingSpecializations.emplace( baseName, newType );
-//
-//        this->LOGGER()->info("Resolving enqueued specialization: %s", specDecl->str().c_str());
-//        specDecl->symbol_resolution_pass();
-//
-////        SKIP_ENQUEUED:
-////        ;
-//    }
-//}
 
 
 void TypeRegistry::add_type_usage(TxType* type) {
@@ -169,16 +132,6 @@ TxActualType* TypeRegistry::make_actual_type( const TxTypeDeclaration* declarati
 
 
 
-//static const TxActualType* get_derivable_base_type(const TxActualType* baseType) {
-//    // FIX ME: dead code, replace with assert
-//    while (baseType->is_empty_derivation() && !baseType->get_explicit_declaration()) {
-//        std::cerr << "#### Note - in specialization, bypassing empty base type " << baseType << std::endl;
-//        baseType = baseType->get_base_type();
-//    }
-//    return baseType;
-//}
-
-
 const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declaration, const TxType* type) {
     auto actualType = type->type();
     ASSERT(!actualType->is_modifiable(), "Can't make a modifiable specialization of a modifiable type: " << actualType);
@@ -234,7 +187,7 @@ const TxActualType* TypeRegistry::make_actual_empty_derivation(const TxTypeDecla
 
 
 
-const TxType* TypeRegistry::make_type_derivation( const TxTypeExpressionNode* definer, const TxType* baseType,
+const TxType* TypeRegistry::make_type_derivation( TxTypeExpressionNode* definer, const TxType* baseType,
                                                  const std::vector<const TxType*>& interfaces, bool _mutable ) {
     ASSERT(definer->get_declaration(), "type derivation doesn't have declaration: " << definer);
     return new TxType( definer,
@@ -261,7 +214,7 @@ const TxActualType* TypeRegistry::make_actual_type_derivation( const TxTypeExpre
 
 
 
-const TxType* TypeRegistry::get_type_specialization( const TxTypeDefiningNode* definer, const TxType* baseType,
+const TxType* TypeRegistry::get_type_specialization( TxTypeDefiningNode* definer, const TxType* baseType,
                                                      const std::vector<const TxTypeArgumentNode*>& bindings ) {
     ASSERT(!bindings.empty(), "Empty bindings list when specializing baseType: " << baseType);
     ASSERT(bindings.at(0)->is_context_set(), "context not set for binding " << bindings.at(0));
@@ -565,11 +518,6 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
         }
     }
 
-    {   // pass on the generic base type to the new specialization via member named $GenericBase:
-        auto baseTypeExpr = new TxTypeDeclWrapperNode( definer->get_parse_location(), baseDecl );
-        auto declNode = new TxTypeDeclNode( definer->get_parse_location(), TXD_PUBLIC | TXD_IMPLICIT, "$GenericBase", nullptr, baseTypeExpr );
-        bindingDeclNodes->push_back( declNode );
-    }
 
     // process new specialization of the base type:
     //std::cerr << "specializing base " << newBaseTypeNameStr << ": " << baseType << std::endl;
@@ -577,6 +525,21 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     ASSERT(baseDecl->get_definer()->context().scope() == baseScope, "Unexpected lexical scope: " << baseDecl->get_definer()->context().scope() << " != " << baseScope);
     auto baseTypeExpr = static_cast<TxTypeExpressionNode*>( baseDecl->get_definer() );
     auto specTypeExpr = baseTypeExpr->make_ast_copy();
+
+    {   // pass on the generic base type to the new specialization via member named $GenericBase:
+        auto baseTypeExpr = new TxTypeDeclWrapperNode( definer->get_parse_location(), baseDecl );
+        auto declNode = new TxTypeDeclNode( definer->get_parse_location(), TXD_PUBLIC | TXD_IMPLICIT, "$GenericBase", nullptr, baseTypeExpr );
+        bindingDeclNodes->push_back( declNode );
+
+//        if (baseType->get_type_class() == TXTC_ARRAY) {
+//            // FUTURE: if type is immutable, the reference target type should perhaps not be modifiable?
+//            auto & loc = definer->get_parse_location();
+//            auto selfTypeExprN = new TxTypeExprWrapperNode( specTypeExpr );
+//            auto selfRefTypeExprN = new TxReferenceTypeNode( loc, nullptr, new TxModifiableTypeNode( loc, selfTypeExprN ) );
+//            bindingDeclNodes->push_back( new TxTypeDeclNode( loc, TXD_IMPLICIT, "$Self", nullptr, selfRefTypeExprN ) );
+//        }
+    }
+
     auto uniqueSpecTypeNameStr = baseScope->make_unique_name(newSpecTypeNameStr);
     auto newSpecTypeDecl = new TxTypeDeclNode( definer->get_parse_location(), newDeclFlags, uniqueSpecTypeNameStr, bindingDeclNodes, specTypeExpr );
 
@@ -598,7 +561,7 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
 
 
 
-const TxType* TypeRegistry::get_reference_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* targetTypeBinding,
+const TxType* TypeRegistry::get_reference_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* targetTypeBinding,
                                                 const TxIdentifier* dataspace ) {
     std::vector<const TxTypeArgumentNode*> bindings( { targetTypeBinding } );
     return this->get_type_specialization( definer, this->get_builtin_type( TXBT_REFERENCE ), bindings );
@@ -606,13 +569,13 @@ const TxType* TypeRegistry::get_reference_type( const TxTypeDefiningNode* define
 
 
 
-const TxType* TypeRegistry::get_array_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding,
+const TxType* TypeRegistry::get_array_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding,
                                             const TxValueTypeArgumentNode* lengthBinding ) {
     std::vector<const TxTypeArgumentNode*> bindings( { elemTypeBinding, lengthBinding } );
     return this->get_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), bindings );
 }
 
-const TxType* TypeRegistry::get_array_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding ) {
+const TxType* TypeRegistry::get_array_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding ) {
     std::vector<const TxTypeArgumentNode*> bindings( { elemTypeBinding } );
     return this->get_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), bindings );
 }

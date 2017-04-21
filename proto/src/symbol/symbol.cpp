@@ -1,5 +1,7 @@
 #include "util/assert.hpp"
 
+#include "util/util.hpp"
+
 #include "tx_lang_defs.hpp"
 #include "package.hpp"
 #include "entity.hpp"
@@ -131,8 +133,8 @@ static inline bool is_internal_name( const std::string& name ) {
 }
 
 
-const TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainName, TxTypeDefiningNode* typeDefiner,
-                                               TxDeclarationFlags declFlags) {
+const TxTypeDeclaration* TxScopeSymbol::declare_type( const std::string& plainName, TxTypeDefiningNode* typeDefiner,
+                                                      TxDeclarationFlags declFlags ) {
     ASSERT(!is_internal_name(plainName) || (declFlags & (TXD_IMPLICIT | TXD_CONSTRUCTOR | TXD_INITIALIZER)),
            "Mismatch between name format and IMPLICIT flag for type declaration " << plainName);
 
@@ -144,9 +146,9 @@ const TxTypeDeclaration* TxScopeSymbol::declare_type(const std::string& plainNam
     return nullptr;
 }
 
-const TxFieldDeclaration* TxScopeSymbol::declare_field(const std::string& plainName, TxFieldDefiningNode* fieldDefiner,
-                                                 TxDeclarationFlags declFlags, TxFieldStorage storage,
-                                                 const TxIdentifier& dataspace) {
+const TxFieldDeclaration* TxScopeSymbol::declare_field( const std::string& plainName, TxFieldDefiningNode* fieldDefiner,
+                                                        TxDeclarationFlags declFlags, TxFieldStorage storage,
+                                                        const TxIdentifier& dataspace ) {
     ASSERT(!is_internal_name(plainName) || (declFlags & (TXD_IMPLICIT | TXD_CONSTRUCTOR | TXD_INITIALIZER)),
            "Mismatch between name format and IMPLICIT flag for field declaration " << plainName);
 
@@ -200,6 +202,16 @@ bool TxEntitySymbol::add_type(TxTypeDeclaration* typeDeclaration) {
         return false;
     }
     this->typeDeclaration = typeDeclaration;
+
+    if (!( typeDeclaration->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING ) )
+            && this->get_name() != "$Self" && this->get_name() != "$GenericBase" && !begins_with( this->get_name(), "$Ftype" )) {
+        auto definer = typeDeclaration->get_definer();
+        if (TxEntitySymbol* entitySymbol = this->declare_entity( "$Self", definer )) {
+            auto selfDeclaration = new TxTypeDeclaration( entitySymbol, TXD_IMPLICIT, definer );
+            entitySymbol->add_type( selfDeclaration );
+        }
+    }
+
     return true;
 }
 

@@ -966,7 +966,7 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
             this->get_semantic_base_type()->self_string( str, false );  // set 'brief' to false to print entire type chain
         }
     }
-    else if (this->get_type_class() == TXTC_REFERENCE) {
+    else if (this->get_type_class() == TXTC_REFERENCE || this->get_type_class() == TXTC_ARRAY) {
         if (! this->get_bindings().empty()) {
             type_bindings_string(str, this->get_bindings());
         }
@@ -1142,4 +1142,10 @@ TxFunctionType::TxFunctionType( const TxTypeDeclaration* declaration, const TxAc
 TxExpressionNode* TxBuiltinConversionFunctionType::make_inline_expr( TxExpressionNode* calleeExpr,
                                                                      std::vector<TxMaybeConversionNode*>* argsExprList ) const {
     return make_conversion( argsExprList->front(), this->returnType->get_type_entity(), true );
+}
+
+
+TxExpressionNode* TxBuiltinArrayInitializerType::make_inline_expr( TxExpressionNode* calleeExpr,
+                                                                     std::vector<TxMaybeConversionNode*>* argsExprList ) const {
+    return argsExprList->front();
 }

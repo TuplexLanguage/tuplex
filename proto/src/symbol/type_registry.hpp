@@ -53,6 +53,7 @@ class TypeRegistry {
     friend class TxBuiltinTypeDefiningNode;
     friend class TxDefConstructorTypeDefNode;
     friend class TxConvConstructorTypeDefNode;
+    friend class TxArrayConstructorTypeDefNode;
     friend class BuiltinTypes;
 
     /** Makes a new type entity and registers it with this registry. */
@@ -133,7 +134,7 @@ public:
 
     /** Makes a new derivation that extends a base type and a set of interfaces.
      * The definer must have a declaration for this new type. */
-    const TxType* make_type_derivation( const TxTypeExpressionNode* definer, const TxType* baseType,
+    const TxType* make_type_derivation( TxTypeExpressionNode* definer, const TxType* baseType,
                                         const std::vector<const TxType*>& interfaces, bool _mutable );
 
 
@@ -142,19 +143,19 @@ public:
 
     /** Gets/makes a specialization of a generic base type.
      * If such a specialization already exists, that will be returned. */
-    const TxType* get_type_specialization( const TxTypeDefiningNode* definer, const TxType* baseType,
+    const TxType* get_type_specialization( TxTypeDefiningNode* definer, const TxType* baseType,
                                            const std::vector<const TxTypeArgumentNode*>& bindings );
 
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType.
      * If such an adapter already exists, that will be returned. */
     const TxType* get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);
 
-    const TxType* get_reference_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* targetTypeBinding,
+    const TxType* get_reference_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* targetTypeBinding,
                                       const TxIdentifier* dataspace );
 
-    const TxType* get_array_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding,
+    const TxType* get_array_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding,
                                   const TxValueTypeArgumentNode* lengthBinding );
-    const TxType* get_array_type( const TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding );
+    const TxType* get_array_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding );
 
     // "mod" of function refers to whether functions of this type may modify its closure when run.
     // Note: "mod" of args not part of the function type (though concrete function may mod-ify its stack arg copies).

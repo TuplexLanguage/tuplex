@@ -19,7 +19,7 @@
  * Note: Type entities might not have a declaration. Their underlying actual type will always have a declaration though.
  */
 class TxType : public TxEntity {
-    const TxTypeDefiningNode* definer;
+    TxTypeDefiningNode* definer;
     const std::function<const TxActualType*(void)> actualTypeProducer;
 
     mutable const TxActualType* _type = nullptr;
@@ -33,25 +33,18 @@ class TxType : public TxEntity {
 
     TxType( const TxActualType* actualType );
 
-    TxType( const TxTypeDefiningNode* definer, std::function<const TxActualType*(void)> actualTypeProducer );
+    TxType( TxTypeDefiningNode* definer, std::function<const TxActualType*(void)> actualTypeProducer );
 
 public:
 
-    virtual inline const TxTypeDeclaration* get_declaration() const override {
-        if (auto decl = static_cast<const TxTypeDeclaration*>(TxEntity::get_declaration()))
-            return decl;
-        if (this->_type)
-            return this->_type->get_declaration();
-        ASSERT(false, "Declaration not known for unresolved TxType, definer is " << this->definer);
-        return nullptr;
-    }
+    virtual const TxTypeDeclaration* get_declaration() const override;
 
     virtual const TxLocation& get_parse_location() const override {
-        return ( this->definer ? this->definer->get_parse_location() : this->_type->get_parse_location() );
+        return this->definer->get_parse_location();
     }
 
     virtual ExpectedErrorClause* exp_err_ctx() const override {
-        return ( this->definer ? this->definer->exp_err_ctx() : this->_type->exp_err_ctx() );
+        return this->definer->exp_err_ctx();
     }
 
     std::string str( bool brief ) const {
@@ -66,6 +59,10 @@ public:
     virtual std::string str() const override {
         return this->str( true );
     }
+
+
+    inline TxTypeDefiningNode* get_definer() const { return this->definer; }
+
 
 
     // TODO: remove explicit usages of this method from AST (declaration & resolution passes)

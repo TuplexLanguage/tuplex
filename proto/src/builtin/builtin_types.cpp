@@ -145,6 +145,7 @@ public:
           baseTypeNode( baseTypeNode ), declNodes( declNodes )  { }
 
     virtual TxBuiltinTypeDefiningNode* make_ast_copy() const override {
+        // (only valid for Ref and Array, which override this method)
         ASSERT(false, "Can't make AST copy of built-in type definer " << this);
         return nullptr;
     }
@@ -392,7 +393,32 @@ public:
 /*----- built-in constructor / initializer type defining AST nodes -----*/
 
 
-class TxDefConstructorTypeDefNode final : public TxFunctionTypeNode {
+class TxBuiltinConstructorTypeDefNode : public TxFunctionTypeNode {
+public:
+    TxBuiltinConstructorTypeDefNode( const TxLocation& parseLocation, std::vector<TxFieldTypeDefNode*>* arguments, TxTypeExpressionNode* returnType )
+        : TxFunctionTypeNode( parseLocation, false, arguments, returnType )  { }
+
+    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, const TxTypeDeclaration* owningDecl ) override {
+        // overrides in order to create implicit declaration for the function type
+        ASSERT(!owningDecl, "Expected NULL owningDeclaration: " << owningDecl);
+
+        std::string funcTypeName = "$Ftype";
+        funcTypeName = lexContext.scope()->make_unique_name( funcTypeName );
+        auto declaration = lexContext.scope()->declare_type( funcTypeName, this, TXD_PUBLIC | TXD_IMPLICIT );
+        if (! declaration) {
+            CERROR(this, "Failed to declare type " << funcTypeName);
+            return;
+        }
+        //LOG(this->LOGGER(), INFO, this << ": Declared type " << declaration);
+
+        TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, declaration );
+    }
+
+    virtual TxBuiltinConstructorTypeDefNode* make_ast_copy() const override = 0;
+};
+
+
+class TxDefConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode {
 protected:
     TxExpressionNode* initExprNode;
 
@@ -409,31 +435,19 @@ protected:
 
 public:
     TxDefConstructorTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* returnTypeNode, TxExpressionNode* initExprNode)
-        : TxFunctionTypeNode( parseLocation, false, new std::vector<TxFieldTypeDefNode*>(), returnTypeNode ), initExprNode( initExprNode )  { }
-
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, const TxTypeDeclaration* owningDecl ) override {
-        // overrides in order to create implicit declaration for the function type
-        ASSERT(!owningDecl, "Expected NULL owningDeclaration: " << owningDecl);
-
-        std::string funcTypeName = "$ftype";
-        funcTypeName = lexContext.scope()->make_unique_name( funcTypeName );
-        auto declaration = lexContext.scope()->declare_type( funcTypeName, this, TXD_PUBLIC | TXD_IMPLICIT );
-        if (! declaration) {
-            CERROR(this, "Failed to declare type " << funcTypeName);
-            return;
-        }
-        //LOG(this->LOGGER(), INFO, this << ": Declared type " << declaration);
-
-        TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, declaration );
-    }
+        : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxFieldTypeDefNode*>(), returnTypeNode ), initExprNode( initExprNode )  { }
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->initExprNode->visit_ast( visitor, thisAsParent, "initializer", context );
     }
+
+    virtual TxDefConstructorTypeDefNode* make_ast_copy() const override {
+        return new TxDefConstructorTypeDefNode( this->parseLocation, this->returnField->typeExpression->make_ast_copy(), initExprNode->make_ast_copy() );
+    }
 };
 
 
-class TxConvConstructorTypeDefNode final : public TxFunctionTypeNode {
+class TxConvConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode {
 protected:
     virtual const TxType* define_type() override {
         auto actType = new TxBuiltinConversionFunctionType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION )->type(),
@@ -443,22 +457,30 @@ protected:
 
 public:
     TxConvConstructorTypeDefNode( const TxLocation& parseLocation, TxFieldTypeDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
-        : TxFunctionTypeNode( parseLocation, false, new std::vector<TxFieldTypeDefNode*>( { fromTypeArg } ), returnTypeNode )  { }
+        : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxFieldTypeDefNode*>( { fromTypeArg } ), returnTypeNode )  { }
 
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, const TxTypeDeclaration* owningDecl ) override {
-        // overrides in order to create implicit declaration for the function type
-        ASSERT(!owningDecl, "Expected NULL owningDeclaration: " << owningDecl);
+    virtual TxConvConstructorTypeDefNode* make_ast_copy() const override {
+        return new TxConvConstructorTypeDefNode( this->parseLocation, this->arguments->at(0)->make_ast_copy(),
+                                                 this->returnField->typeExpression->make_ast_copy() );
+    }
+};
 
-        std::string funcTypeName = "$ftype";
-        funcTypeName = lexContext.scope()->make_unique_name( funcTypeName );
-        auto declaration = lexContext.scope()->declare_type( funcTypeName, this, TXD_PUBLIC | TXD_IMPLICIT );
-        if (! declaration) {
-            CERROR(this, "Failed to declare type " << funcTypeName);
-            return;
-        }
-        //LOG(this->LOGGER(), INFO, this << ": Declared type " << declaration);
 
-        TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, declaration );
+class TxArrayConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode {
+protected:
+    virtual const TxType* define_type() override {
+        auto actType = new TxBuiltinArrayInitializerType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION )->type(),
+                                                          this->arguments->at(0)->resolve_type()->type(), this->returnField->resolve_type()->type() );
+        return this->registry().make_type_entity( actType );
+    }
+
+public:
+    TxArrayConstructorTypeDefNode( const TxLocation& parseLocation, TxFieldTypeDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
+        : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxFieldTypeDefNode*>( { fromTypeArg } ), returnTypeNode )  { }
+
+    virtual TxArrayConstructorTypeDefNode* make_ast_copy() const override {
+        return new TxArrayConstructorTypeDefNode( this->parseLocation, this->arguments->at(0)->make_ast_copy(),
+                                                  this->returnField->typeExpression->make_ast_copy() );
     }
 };
 
@@ -518,6 +540,18 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
                                     new TxConvConstructorTypeDefNode( loc, new TxFieldTypeDefNode( loc, "arg", fromTypeNode ), toTypeNode ),
                                     nullptr ),  // no function body, initialization is inlined
                 false );  // not method syntax since elementary types' initializers are inlineable, pure functions
+}
+
+
+static TxFieldDeclNode* make_array_constructor( const TxLocation& loc ) {
+//    auto        argNode = new TxFieldTypeDefNode( loc, "val", new TxReferenceTypeNode( loc, nullptr, new TxIdentifiedTypeNode( loc, "$Self" ) ) );
+    auto        argNode = new TxFieldTypeDefNode( loc, "val", new TxIdentifiedTypeNode( loc, "$Self" ) );
+    auto returnTypeNode = new TxIdentifiedTypeNode( loc, "$Self" );
+    return new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
+                new TxFieldDefNode( loc, CONSTR_IDENT,
+                                    new TxArrayConstructorTypeDefNode( loc, argNode, returnTypeNode ),
+                                    nullptr ),  // no function body, initialization is inlined
+                false );  // not method syntax since this initializer is an inlineable, pure function
 }
 
 
@@ -625,13 +659,15 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
 
     // create the array base type:
     {
+        auto arrayConstructor = make_array_constructor( loc );
+
         auto lTypeNode = new TxIdentifiedTypeNode( loc, "UInt");
         auto paramNodes = new std::vector<TxDeclarationNode*>( {
                 new TxTypeDeclNode ( loc, TXD_PUBLIC | TXD_GENPARAM, "E", nullptr, new TxIdentifiedTypeNode( loc, "Any") ),
                 new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM, new TxFieldDefNode( loc, "L", lTypeNode, nullptr, false) )
             } );
         this->builtinTypes[TXBT_ARRAY] = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN, "Array", paramNodes,
-                new TxArrayTypeDefNode( loc, new TxIdentifiedTypeNode( loc, "Any" ), {} ) );
+                new TxArrayTypeDefNode( loc, new TxIdentifiedTypeNode( loc, "Any" ), { arrayConstructor } ) );
     }
 
     // create the interface base type:

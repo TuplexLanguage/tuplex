@@ -23,14 +23,14 @@ unsigned TxFieldDeclaration::get_overload_index() const {
 }
 
 std::string TxFieldDeclaration::get_unique_full_name() const {
-    if (this->get_symbol()->is_overloaded())
+    if (this->get_symbol()->is_overloaded() && this->get_overload_index() > 0)
         return this->get_symbol()->get_full_name().str() + "$" + std::to_string(this->get_overload_index());
     else
         return this->get_symbol()->get_full_name().str();
 }
 
 std::string TxFieldDeclaration::get_unique_name() const {
-    if (this->get_symbol()->is_overloaded())
+    if (this->get_symbol()->is_overloaded() && this->get_overload_index() > 0)
         return this->get_symbol()->get_name() + "$" + std::to_string(this->get_overload_index());
     else
         return this->get_symbol()->get_name();

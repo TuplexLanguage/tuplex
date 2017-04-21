@@ -11,19 +11,29 @@ inline static const TxTypeDeclaration* get_definer_declaration( const TxTypeDefi
 
 
 TxType::TxType( const TxActualType* actualType )
-    : TxEntity( actualType->get_declaration() ), definer(),  actualTypeProducer(),
+    : TxEntity( actualType->get_declaration() ), definer( actualType->get_declaration()->get_definer() ),  actualTypeProducer(),
       _type( actualType ), startedRslv( true ), hasResolved( true )
 {
     actualType->get_declaration()->get_symbol()->get_root_scope()->registry().add_type_usage( this );
 }
 
-TxType::TxType( const TxTypeDefiningNode* definer, std::function<const TxActualType*(void)> actualTypeProducer )
+TxType::TxType( TxTypeDefiningNode* definer, std::function<const TxActualType*(void)> actualTypeProducer )
     : TxEntity( get_definer_declaration( definer ) ), definer( definer), actualTypeProducer( actualTypeProducer ),
       _type(), startedRslv(), hasResolved()
 {
     definer->registry().add_type_usage( this );
 }
 
+
+const TxTypeDeclaration* TxType::get_declaration() const {
+    if (auto decl = static_cast<const TxTypeDeclaration*>(TxEntity::get_declaration()))
+        return decl;
+    if (this->_type)
+        return this->_type->get_declaration();
+    LOG(this->definer->LOGGER(), WARN, "Declaration not known for unresolved TxType, definer is " << this->definer);
+    //ASSERT(false, "Declaration not known for unresolved TxType, definer is " << this->definer);
+    return nullptr;
+}
 
 
 const TxActualType* TxType::define_type() const {
