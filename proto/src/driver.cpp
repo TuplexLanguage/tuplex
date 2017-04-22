@@ -148,8 +148,10 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
 
     this->package->prepare_modules();  // (prepares the declared imports)
 
-    if (error_count != prev_error_count)
+    if (error_count != prev_error_count) {
         _LOG.error("- Declaration pass completed, %d errors", error_count-prev_error_count);
+        prev_error_count = error_count;
+    }
     else
         _LOG.info("+ Declaration pass OK");
 
@@ -165,8 +167,12 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
         parserContext->finalize_expected_error_clauses();
     }
 
-    if (error_count == prev_error_count)
+    if (error_count == prev_error_count) {
         _LOG.info("+ Resolution pass OK");
+        prev_error_count = error_count;
+    }
+    else
+        _LOG.error("- Resolution pass completed, %d errors", error_count-prev_error_count);
 
     if (this->options.dump_ast) {
         auto visitor = []( const TxNode* node, const AstParent& parent, const std::string& role, void* ctx ) {
@@ -190,10 +196,6 @@ int TxDriver::compile(const std::vector<std::string>& startSourceFiles, const st
                   << "Built-in  Implicit  Genparam  genBinding  Constructor  Initializer  Expected-error" << std::endl;
         this->package->dump_symbols();
         std::cout << "END SYMBOL TABLE DUMP\n";
-    }
-
-    if (error_count != prev_error_count) {
-        _LOG.error("- Resolution pass completed, %d errors", error_count-prev_error_count);
     }
 
     if (error_count)

@@ -330,7 +330,8 @@ std::string TxEntitySymbol::description_string() const {
                 return "TYPE        " + type->str( false );
             else {
                 auto name = this->typeDeclaration->get_unique_full_name();
-                name.resize(48, ' ');
+                if (name.size() < 48)
+                    name.resize(48, ' ');
                 return "TYPE ALIAS  " + name + " = " + type->str();
             }
         }

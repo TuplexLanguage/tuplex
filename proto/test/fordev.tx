@@ -18,6 +18,7 @@ foofunc( array : &[]Float ) { }
 
 
 array_construction( i : UByte ) {
+## Construction via array literal syntax:
     a0 := [ i, i, i ];
     a1 := [ 1, 2, 3 ];
     a2 := [ Int(1), 2, 3 ];
@@ -28,6 +29,8 @@ array_construction( i : UByte ) {
     a5 := []Int();  ## empty array of Ints
     #experr 1: ae := [2]Int( 1, 2, 3 );
     #experr 1: ae := [4]Int( 1, 2, 3 );
+    #experr 1: ae := [0]Int( 1, 2, 3 );
+    #experr 2: ae := [-1]Int( 1, 2, 3 );
     #experr 2: ae := [2.5]Int( 1, 2, 3 );
     #experr 2: ae := [i]Int( 1, 2, 3 );
 
@@ -38,23 +41,36 @@ array_construction( i : UByte ) {
     foofunc( a4 );
     foofunc( a5 );
 
-## requires var-arg constructors:
+
+## Construction via Array type's constructor:
     a10 := <Array<UByte,3>>( [ 1, 2, 3 ] );
     a11 := <Array<Int,3>>( [ 1I, 2, 3 ] );
+    a12 := <Array<Int,0>>( []Int() );
     #experr 1: ae := <Array<Int,3>>( [ 1, 2 ] );
     #experr 1: ae := <Array<Int,3>>( [ 1, 2, 3, 4 ] );
     #experr 1: ae := <Array<Int,3>>( [ 1.1, 2.2, 3.3 ] );
-    #experr 1: ae := <Array<Int,3>>( 1, 2, 3 );
-/*
-    aa := <Array<Int>>( 1, 2, 3 );
-    aa := <Array<>>( 1, 2, 3 );  ## support?
-    aa := <Array>( 1, 2, 3 );    ## support?
 
+    type MyFA Array<Float,3>;
+    aa := MyFA( [ 1.1, 2.2, 3.3 ] );
+    #experr 1: ae := MyFA( [ 1.1, 2.2 ] );
+    #experr 1: ae := MyFA( [ 1.1, 2.2, 3.3, 4.4 ] );
+    #experr 1: ae := MyFA( [ 1, 2, 3 ] );
+
+    ## syntactic sugar that is currently not supported:
+    #experr 1: ae := <Array<Int,0>>();
+    #experr 1: ae := <Array<Int,3>>( 1, 2, 3 );
+
+    ## not supported to automatically infer generic type parameters:
+    #experr 1: aa := <Array<Int>>( [ 1, 2, 3 ] );
+    #experr 1: aa := <Array<>>( [ 1, 2, 3 ] );
+    #experr 1: aa := <Array>( [ 1, 2, 3 ] );
+
+/*
     aa := new [3]Int( 1, 2, 3 );
     aa := new []Int( 1, 2, 3 );
     aa := new []Int();
-    aa := new Array<Int,3>( 1, 2, 3 );
-    aa := new Array<Int>( 1, 2, 3 );
+    aa := new Array<Int,3>( [ 1, 2, 3 ] );
+    aa := new Array<Int>( [ 1, 2, 3 ] );
     aa := new Array<Int>();
 */
 

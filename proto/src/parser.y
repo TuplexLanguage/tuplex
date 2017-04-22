@@ -373,8 +373,8 @@ predef_type_list: predef_type  { $$ = new std::vector<TxTypeExpressionNode*>(); 
                 ;
 
 predef_type     : compound_identifier                      { $$ = new TxIdentifiedTypeNode(@1, $1); }
-                | compound_identifier LT GT                { $$ = new TxGenSpecTypeNode(@1, $1, new std::vector<TxTypeArgumentNode*>()); }
                 | compound_identifier LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@1, $1, $3); }
+                // not supported: | compound_identifier LT GT  { $$ = new TxGenSpecTypeNode(@1, $1, new std::vector<TxTypeArgumentNode*>()); }
                 ;
 
 type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->push_back($1); }
