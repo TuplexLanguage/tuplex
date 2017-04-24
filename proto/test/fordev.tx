@@ -14,19 +14,23 @@ foofunc( array : &[]UByte ) { }
 
 foofunc( array : &[]Int ) { }
 
+foofunc( array : &[]Long ) { }
+
 foofunc( array : &[]Float ) { }
 
 
-array_construction( i : UByte ) {
-## Construction via array literal syntax:
+array_stack_construction( i : UByte ) {
+  ## Construction via array literal syntax:
     a0 := [ i, i, i ];
     a1 := [ 1, 2, 3 ];
     a2 := [ Int(1), 2, 3 ];
     #experr 1: ae := [];  ## invalid, no element type info
 
+    ## explicit array type (fully specified or with implicit length) with direct initializer:
     a3 := [3]Int( 1, 2, 3 );
-    a4 := []Int( 1, 2, 3 );
-    a5 := []Int();  ## empty array of Ints
+    a4 := [0]Int();           ## empty array of Ints
+    a5 := []Int( 1, 2, 3 );
+    a6 := []Int();            ## empty array of Ints
     #experr 1: ae := [2]Int( 1, 2, 3 );
     #experr 1: ae := [4]Int( 1, 2, 3 );
     #experr 1: ae := [0]Int( 1, 2, 3 );
@@ -34,18 +38,40 @@ array_construction( i : UByte ) {
     #experr 2: ae := [2.5]Int( 1, 2, 3 );
     #experr 2: ae := [i]Int( 1, 2, 3 );
 
+    ## explicit array type (fully specified or with implicit length) with object initializer:
+    a10 := [3]Int( [ 1I, 2, 3 ] );  ## literal array initializer
+    a11 := [3]Int( a10 );           ## field initializer
+    a12 := [3]Int( &a10 );          ## auto-dereferencing
+    a13 := []Int( [ 1I, 2, 3 ] );   ## literal array initializer
+    a14 := []Int( a10 );            ## field initializer
+    a15 := []Int( &a10 );           ## auto-dereferencing
+    ## TODO: initialize from non-array sequences
+
+## TODO: conversions
+##    a16 := [3]Long( a6 );  ## safe element-wise conversion
+##    a17 := []Long( a6 );   ## safe element-wise conversion
+
     foofunc( a0 );
     foofunc( a1 );
     foofunc( a2 );
     foofunc( a3 );
     foofunc( a4 );
     foofunc( a5 );
+    foofunc( a6 );
+    foofunc( a10 );
+    foofunc( a11 );
+    foofunc( a12 );
+    foofunc( a13 );
+    foofunc( a14 );
+    foofunc( a15 );
 
 
-## Construction via Array type's constructor:
-    a10 := <Array<UByte,3>>( [ 1, 2, 3 ] );
-    a11 := <Array<Int,3>>( [ 1I, 2, 3 ] );
-    a12 := <Array<Int,0>>( []Int() );
+  ## Construction via Array type's constructor:
+    a20 := <Array<UByte,3>>( [ 1, 2, 3 ] );
+    a21 := <Array<Int,3>>( [ 1I, 2, 3 ] );
+    a22 := <Array<Int,0>>( []Int() );
+    a23 := <Array<Int,0>>();           ## syntactic sugar allows omitting brackets
+    a24 := <Array<Int,3>>( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
     #experr 1: ae := <Array<Int,3>>( [ 1, 2 ] );
     #experr 1: ae := <Array<Int,3>>( [ 1, 2, 3, 4 ] );
     #experr 1: ae := <Array<Int,3>>( [ 1.1, 2.2, 3.3 ] );
@@ -56,26 +82,79 @@ array_construction( i : UByte ) {
     #experr 1: ae := MyFA( [ 1.1, 2.2, 3.3, 4.4 ] );
     #experr 1: ae := MyFA( [ 1, 2, 3 ] );
 
-    ## syntactic sugar that is currently not supported:
-    #experr 1: ae := <Array<Int,0>>();
-    #experr 1: ae := <Array<Int,3>>( 1, 2, 3 );
+    ## not supported to automatically infer generic type parameters:
+    #experr 2: aa := <Array<Int>>( [ 1, 2, 3 ] );
+    #experr 2: aa := <Array>( [ 1, 2, 3 ] );
+}
+
+
+array_new_construction( i : UByte ) {
+  ## Construction via array literal syntax:
+  /*
+    a0 := new [ i, i, i ];
+    a1 := new [ 1, 2, 3 ];
+    a2 := new [ Int(1), 2, 3 ];
+    #experr 1: ae := new [];  ## invalid, no element type info
+  */
+
+    a3 := new [3]Int( 1, 2, 3 );
+    a4 := new [0]Int();           ## empty array of Ints
+/* TODO: support infering array length
+    a5 := new []Int( 1, 2, 3 );
+    a6 := new []Int();            ## empty array of Ints
+*/
+    #experr 1: ae := new [2]Int( 1, 2, 3 );
+    #experr 1: ae := new [4]Int( 1, 2, 3 );
+    #experr 1: ae := new [0]Int( 1, 2, 3 );
+    #experr 2: ae := new [-1]Int( 1, 2, 3 );
+    #experr 2: ae := new [2.5]Int( 1, 2, 3 );
+    #experr 2: ae := new [i]Int( 1, 2, 3 );
+
+    ## explicit array type (fully specified or with implicit length) with object initializer:
+    a10 := new [3]Int( [ 1I, 2, 3 ] );
+    a11 := new [3]Int( a10 );
+/* TODO: support infering array length
+    a12 := new []Int( [ 1I, 2, 3 ] );
+    a13 := new []Int( a10 );
+*/
+    ## TODO: initialize from non-array sequences
+
+## TODO: conversions
+##    a16 := new [3]Long( a6 );  ## safe element-wise conversion
+##    a17 := new []Long( a6 );   ## safe element-wise conversion
+
+##    foofunc( a0 );
+##    foofunc( a1 );
+##    foofunc( a2 );
+    foofunc( a3 );
+    foofunc( a4 );
+##    foofunc( a5 );
+##    foofunc( a6 );
+    foofunc( a10 );
+    foofunc( a11 );
+##    foofunc( a12 );
+##    foofunc( a13 );
+
+
+  ## Construction via Array type's constructor:
+    a20 := new Array<UByte,3>( [ 1, 2, 3 ] );
+    a21 := new Array<Int,3>( [ 1I, 2, 3 ] );
+    a22 := new Array<Int,0>( []Int() );
+    a23 := new Array<Int,0>();           ## syntactic sugar allows omitting brackets
+    a24 := new Array<Int,3>( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
+    #experr 1: ae := new Array<Int,3>( [ 1, 2 ] );
+    #experr 1: ae := new Array<Int,3>( [ 1, 2, 3, 4 ] );
+    #experr 1: ae := new Array<Int,3>( [ 1.1, 2.2, 3.3 ] );
+
+    type MyFA Array<Float,3>;
+    aa := new MyFA( [ 1.1, 2.2, 3.3 ] );
+    #experr 1: ae := new MyFA( [ 1.1, 2.2 ] );
+    #experr 1: ae := new MyFA( [ 1.1, 2.2, 3.3, 4.4 ] );
+    #experr 1: ae := new MyFA( [ 1, 2, 3 ] );
 
     ## not supported to automatically infer generic type parameters:
-    #experr 1: aa := <Array<Int>>( [ 1, 2, 3 ] );
-    #experr 1: aa := <Array<>>( [ 1, 2, 3 ] );
-    #experr 1: aa := <Array>( [ 1, 2, 3 ] );
-
-/*
-    aa := new [3]Int( 1, 2, 3 );
-    aa := new []Int( 1, 2, 3 );
-    aa := new []Int();
-    aa := new Array<Int,3>( [ 1, 2, 3 ] );
-    aa := new Array<Int>( [ 1, 2, 3 ] );
-    aa := new Array<Int>();
-*/
-
-##  FUTURE: In-place expansion of sequences:
-##  aa := Array<Int>( 1, 2, 3, a1... );
+    #experr 2: aa := new Array<Int>( [ 1, 2, 3 ] );
+    #experr 2: aa := new Array( [ 1, 2, 3 ] );
 }
 
 
@@ -100,6 +179,7 @@ for_loops() {
 main() -> Int {
     n := var_func( 0, 1.1, 2.2, 3.3 );
     n := var_func( 0, [ 1.1, 2.2, 3.3 ] );
-    array_construction( 1 );
+    array_stack_construction( 1 );
+    array_new_construction( 1 );
     return Int( n );
 }

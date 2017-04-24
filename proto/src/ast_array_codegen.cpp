@@ -17,9 +17,12 @@ Value* TxArrayLitNode::code_gen_address(LlvmGenerationContext& context, GenScope
 }
 
 Value* TxArrayLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-    TRACE_CODEGEN(this, context, std::to_string(this->value));
+    TRACE_CODEGEN(this, context);
 
-    if (this->is_statically_constant()) {
+    if (this->_directArrayArg) {
+        return this->elemExprList->front()->code_gen( context, scope );
+    }
+    else if (this->is_statically_constant()) {
         // FUTURE: optimize for arrays of scalars
         //    if (this->elementTypeNode->typeExprNode->get_type()->type()->is_scalar()) {
         //        Constant* dataArray = ConstantDataArray::get( context.llvmContext, nullptr );
@@ -34,7 +37,7 @@ Value* TxArrayLitNode::code_gen(LlvmGenerationContext& context, GenScope* scope)
             values.push_back( cast<Constant>( elemExpr->code_gen( context, scope ) ) );
         ArrayRef<Constant*> data( values );
 
-        Type* elemType = context.get_llvm_type( this->elementTypeNode->typeExprNode->get_type()->type() );
+        Type* elemType = context.get_llvm_type( this->get_type()->element_type()->type() );
         uint64_t arrayLen = this->elemExprList->size();
         ArrayType* arrayType = ArrayType::get( elemType, arrayLen );
         Constant* dataArray = ConstantArray::get( arrayType, data );

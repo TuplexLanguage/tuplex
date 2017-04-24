@@ -96,7 +96,7 @@ public:
 
     /** Generates code that produces a pointer to the value of this expression. */
     virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
-        ASSERT(false, "Unsupported: code_gen_address() for node type " << this);
+        THROW_LOGIC("Unsupported: code_gen_address() for node type " << this);
     }
 
     /** Generates code that produces the type id (as opposed to the value) of this expression. */

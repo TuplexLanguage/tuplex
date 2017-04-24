@@ -531,6 +531,12 @@ public:
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->objTypeExpr->visit_ast( visitor, thisAsParent, "type", context );
     }
+
+    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override {
+        THROW_LOGIC("Unsupported: code_gen() for node type " << this);
+    }
+
+    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const override = 0;
 };
 
 class TxHeapAllocNode : public TxMemAllocNode {
@@ -542,7 +548,7 @@ public:
         return new TxHeapAllocNode( this->parseLocation, this->objTypeExpr->make_ast_copy() );
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 class TxStackAllocNode : public TxMemAllocNode {
@@ -554,7 +560,7 @@ public:
         return new TxStackAllocNode( this->parseLocation, this->objTypeExpr->make_ast_copy() );
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const override;
 };
 
 
@@ -563,6 +569,7 @@ public:
 class TxMakeObjectNode : public TxExpressionNode {
 
 protected:
+    /** the type of the object to make/allocate */
     TxTypeExpressionNode* typeExpr;
     TxFunctionCallNode* constructorCall;
     TxExpressionNode* initializationExpression = nullptr;  // substitutes the function/constructor call if non-null
@@ -583,6 +590,8 @@ public:
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         this->typeExpr->symbol_resolution_pass();
+        if (! this->typeExpr->get_type()->is_concrete())
+            CERROR(this->typeExpr, "Can't make an object of a non-concrete type (size potentially unknown): " << this->typeExpr->get_type());
 
         this->constructorCall->symbol_resolution_pass();
 

@@ -130,7 +130,7 @@ public:
                     const TxActualType* returnType, bool modifiableClosure=false )
         : TxActualType(TXTC_FUNCTION, declaration, TxTypeSpecialization(baseType)),
           modifiableClosure(modifiableClosure), argumentTypes(argumentTypes), returnType(returnType)  {
-        ASSERT(argumentTypes.size() == 0 || argumentTypes.at(0), "NULL arg type");
+        ASSERT(argumentTypes.empty() || argumentTypes.front(), "NULL arg type");
         ASSERT(returnType, "NULL return type (must be proper type or Void");
     }
 
@@ -142,20 +142,10 @@ public:
     virtual bool modifiable_closure() const { return this->modifiableClosure; }
 
     /** Returns the var-arg element type of this function, or nullptr if this is not a var-arg function. */
-    const TxActualType* vararg_elem_type() const {
-        if (argumentTypes.size() > 0) {
-            auto lastArgType = argumentTypes.at( argumentTypes.size() - 1 );
-            if (lastArgType->get_type_class() == TXTC_REFERENCE) {
-                auto refTargetType = static_cast<const TxReferenceType*>( lastArgType )->target_type();
-                if (refTargetType->get_type_class() == TXTC_ARRAY) {
-                    auto arrayType = static_cast<const TxArrayType*>( refTargetType );
-                    if (!arrayType->length())  // only arrays of unspecified length apply to var-args syntactic sugar
-                        return arrayType->element_type();
-                }
-            }
-        }
-        return nullptr;
-    }
+    const TxActualType* vararg_elem_type() const;
+
+    /** Returns the array argument type if this function takes a single argument that is an array type with statically known size. */
+    const TxArrayType* fixed_array_arg_type() const;
 
     inline virtual bool operator==(const TxActualType& other) const override {
         if (auto otherF = dynamic_cast<const TxFunctionType*>(&other)) {
@@ -188,12 +178,13 @@ public:
 protected:
     virtual void self_string( std::stringstream& str, bool brief ) const override {
         str << this->get_declaration()->get_unique_full_name() << " : func(";
-        if (! this->argumentTypes.empty()) {
-            auto ai = this->argumentTypes.cbegin();
-            str << (*ai)->str(true);
-            for (ai++; ai != this->argumentTypes.cend(); ai++)
-                str << ", " << (*ai)->str(true);
-        }
+        str << join( this->argumentTypes, ", " );
+//        if (! this->argumentTypes.empty()) {
+//            auto ai = this->argumentTypes.cbegin();
+//            str << (*ai)->str(true);
+//            for (ai++; ai != this->argumentTypes.cend(); ai++)
+//                str << ", " << (*ai)->str(true);
+//        }
         str << ")";
         if (this->has_return_value())
             str << " -> " << this->returnType->str(true);

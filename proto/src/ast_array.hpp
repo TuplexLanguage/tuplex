@@ -10,9 +10,9 @@
  */
 class TxArrayLitNode : public TxExpressionNode {
     std::vector<TxExpressionNode*> const * const origElemExprList;
-    TxExpressionNode* lengthExpr;
     TxTypeTypeArgumentNode* elementTypeNode;
-    TxValueTypeArgumentNode* lengthNode;
+    TxExpressionNode* lengthExpr;
+    bool _directArrayArg = false;
     bool _constant = false;
 
 protected:
@@ -29,7 +29,8 @@ public:
     TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxExpressionNode*>* elemExprList,
                     TxExpressionNode* lengthExpr=nullptr );
 
-    /** Represents a non-empty array with the element type defined by the first element. */
+    /** Represents a non-empty array with the element type defined by the first element.
+     * The provided element expression list must not be empty. */
     TxArrayLitNode( const TxLocation& parseLocation, const std::vector<TxExpressionNode*>* elemExprList );
 
     /** Creates an array literal node with the specified element type, with elements that are owned by another AST node.
@@ -38,6 +39,7 @@ public:
 
     /** Creates an array literal node with elements that are owned by another AST node.
      * The element type is defined by the first element.
+     * The provided element expression list must not be empty.
      * The resulting array literal node may not be AST-copied. */
     TxArrayLitNode( const TxLocation& parseLocation, const std::vector<TxMaybeConversionNode*>* elemExprList );
 
@@ -50,22 +52,15 @@ public:
         return new TxArrayLitNode( this->parseLocation, make_node_vec_copy( this->origElemExprList ) );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
-        this->elementTypeNode->symbol_declaration_pass( lexContext, lexContext );
-        this->lengthNode->symbol_declaration_pass( lexContext, lexContext );
-        if (this->origElemExprList) {
-            // if this node owns the element nodes, perform declaration pass on them:
-            for (auto elemExpr : *this->elemExprList)
-                elemExpr->symbol_declaration_pass( lexContext);
-        }
-    }
+    virtual void symbol_declaration_pass( LexicalContext& lexContext) override;
 
     virtual void symbol_resolution_pass() override;
 
     virtual bool is_stack_allocation_expression() const override {
+        if (this->_directArrayArg)
+            return this->elemExprList->front()->is_stack_allocation_expression();
         // the array will be allocated on the stack if it is not statically constant
-        return !this->_constant;
+        return !this->_constant && !this->_directArrayArg;
     }
 
     virtual bool is_statically_constant() const override { return this->_constant; }
@@ -74,6 +69,10 @@ public:
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+        if (this->elementTypeNode)
+            this->elementTypeNode->visit_ast( visitor, thisAsParent, "elem-type", context );
+        if (this->lengthExpr)
+            this->lengthExpr->visit_ast( visitor, thisAsParent, "length", context );
         for (auto elem : *this->elemExprList)
             elem->visit_ast( visitor, thisAsParent, "element", context );
     }

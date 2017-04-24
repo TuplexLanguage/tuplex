@@ -21,6 +21,7 @@
 
 class TxType;
 class TxField;
+class TxNode;
 
 /* forward declarations pertaining to LLVM code generation */
 class LlvmGenerationContext;
@@ -41,6 +42,21 @@ std::vector<N*>* make_node_vec_copy( const std::vector<N*>* nodeVec ) {
                     []( N* n ) -> N*  {  return n->make_ast_copy();  } );
     return copyVec;
 }
+
+
+bool validateTypeName (TxNode* node, TxDeclarationFlags declFlags, const std::string& name);
+bool validateFieldName(TxNode* node, TxDeclarationFlags declFlags, const std::string& name);
+
+/** Returns the "degree of reinterpretation" required to implicitly transform a provided value
+ * to a value of an expected type.
+ * Returns 0 if the types are effectively equal (no conversion or casting required);
+ * >0 if the provided type can be cast or implicitly converted to the expected type
+ * (the higher the value, the greater the "degree of conversion" that is required
+ * ("distance" between the types);
+ * or <0 if it can't be cast or implicitly converted to the expected type.
+ */
+int get_reinterpretation_degree( const TxType *expectedType, const TxType* providedType );
+
 
 
 /** Represents a value that can be statically computed (in compile time). */
@@ -152,11 +168,6 @@ public:
 
     inline Logger* LOGGER() const { return &this->_LOG; }
 };
-
-
-
-bool validateTypeName (TxNode* node, TxDeclarationFlags declFlags, const std::string& name);
-bool validateFieldName(TxNode* node, TxDeclarationFlags declFlags, const std::string& name);
 
 
 

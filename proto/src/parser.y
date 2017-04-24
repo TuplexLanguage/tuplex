@@ -533,6 +533,7 @@ array_literal : LBRACKET expr COMMA array_lit_expr_list RBRACKET  { (*$4)[0] = $
 
               // produces a (harmless) shift-reduce warning but unknown how to suppress that:
               | LBRACKET expr RBRACKET predef_type LPAREN expression_list RPAREN  { $$ = new TxArrayLitNode(@1, $4, $6, $2); }
+              | LBRACKET expr RBRACKET predef_type LPAREN RPAREN  { $$ = new TxArrayLitNode(@1, $4, new std::vector<TxExpressionNode*>(), $2); }
               | LBRACKET RBRACKET predef_type LPAREN expression_list RPAREN       { $$ = new TxArrayLitNode(@1, $3, $5); }
               | LBRACKET RBRACKET predef_type LPAREN RPAREN                       { $$ = new TxArrayLitNode(@1, $3); }
               ;

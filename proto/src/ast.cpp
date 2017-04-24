@@ -27,6 +27,15 @@ bool validateFieldName(TxNode* node, TxDeclarationFlags declFlags, const std::st
 }
 
 
+template <typename Node>
+std::vector<const TxType*> to_typevec( const std::vector<Node*>* nodevec ) {
+    std::vector<const TxType*> types = std::vector<const TxType*>( nodevec->size() );
+    std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(),
+                    []( Node* node ) -> const TxType*  { return node->get_type(); } );
+    return types;
+}
+
+
 
 Logger& TxNode::_LOG = Logger::get("AST");
 
@@ -401,7 +410,7 @@ TxAssertStmtNode::TxAssertStmtNode(const TxLocation& parseLocation, TxExpression
 
 
 
-static int get_reinterpretation_degree( const TxType *expectedType, const TxType* providedType ) {
+int get_reinterpretation_degree( const TxType *expectedType, const TxType* providedType ) {
     if (*expectedType == *providedType) {
         //std::cerr << "Types equal: " << expectedType << "   ==   " << providedType << std::endl;
         return 0;
@@ -413,10 +422,18 @@ static int get_reinterpretation_degree( const TxType *expectedType, const TxType
         return 2;
 
     if (expectedType->get_type_class() == TXTC_REFERENCE) {
-        if (auto refTargetType = expectedType->target_type()) {
-            if (providedType->is_a( *refTargetType )) {
-                if (! refTargetType->is_modifiable())
+        if (auto expRefTargetType = expectedType->target_type()) {
+            if (providedType->is_a( *expRefTargetType )) {
+                if (! expRefTargetType->is_modifiable())
                     return 3;  // expression will be auto-wrapped with a reference-to node
+            }
+        }
+    }
+
+    if (providedType->get_type_class() == TXTC_REFERENCE) {
+        if (auto provRefTargetType = providedType->target_type()) {
+            if (provRefTargetType->auto_converts_to( *expectedType )) {
+                return 3;// expression will be wrapped with a dereference node
             }
         }
     }
@@ -477,27 +494,39 @@ static const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, 
             // first screen the fields that are of function type and take the correct number of arguments:
             if (field->get_type()->get_type_class() == TXTC_FUNCTION) {
                 auto candArgTypes = field->get_type()->argument_types();
-                auto varArgElemType = field->get_type()->vararg_elem_type();
+                auto arrayArgElemType = field->get_type()->vararg_elem_type();
+                const TxType* fixedArrayArgType = nullptr;
 
-                if (candArgTypes.size() != arguments->size()) {
-                    // var-arg parameter accepts zero or more arguments
-                    if (!( varArgElemType && arguments->size() >= candArgTypes.size() - 1 ))
+                if (arrayArgElemType) {
+                    // var-arg tail parameter accepts zero or more arguments
+                    if (arguments->size() < candArgTypes.size() - 1 )
                         continue;  // mismatching number of function args
+                }
+                else if ( ( fixedArrayArgType = field->get_type()->fixed_array_arg_type() ) ) {
+                    // fixed array parameter accepts matching number of arguments
+                    auto len = static_cast<const TxArrayType*>(fixedArrayArgType->type())->length()->get_static_constant_proxy()->get_value_UInt();
+                    if (! ( arguments->size() == 1 || arguments->size() == len))
+                        continue;  // mismatching number of function args
+                    arrayArgElemType = fixedArrayArgType->element_type();
+                }
+                else if (arguments->size() != candArgTypes.size()) {
+                    continue;  // mismatching number of function args
                 }
 
                 {
-                    //LOG_TRACE(entitySymbol->LOGGER(), "Candidate function: " << field->get_type());
+                    //LOG_INFO(entitySymbol->LOGGER(), "Candidate function: " << field->get_type());
 
                     // next check that the argument types match, and how close they match:
                     uint16_t reint[4] = { 0, 0, 0, 0 };
                     for (unsigned i = 0; i < argTypes.size(); i++) {
                         const TxType* argType = argTypes.at(i);
-                        const TxType* argDef = ( varArgElemType && i >= candArgTypes.size() - 1 ? varArgElemType
+                        const TxType* argDef = ( arrayArgElemType && i >= candArgTypes.size() - 1 ? arrayArgElemType
                                                                                                 : candArgTypes.at( i ) );
                         int degree = get_reinterpretation_degree( argDef, argType );
                         if (degree < 0) {
-                            if (varArgElemType && i == candArgTypes.size() - 1 && candArgTypes.size() == arguments->size()) {
+                            if (arrayArgElemType && i == candArgTypes.size() - 1 && candArgTypes.size() == arguments->size()) {
                                 // if last provided arg is an array of the correct type, match it against the var-arg tail if present
+                                //std::cerr << " cand-arg: " << candArgTypes.at( i ) << "   prov-arg: " << argType << std::endl;
                                 degree = get_reinterpretation_degree( candArgTypes.at( i ), argType );
                                 if (degree < 0)
                                     goto NEXT_CANDIDATE;
@@ -609,17 +638,17 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
             // if symbol is a type, and arguments are applied, and they match a constructor, the resolve to that constructor
             if (auto typeDecl = entitySymbol->get_type_decl()) {
                 if (this->appliedFuncArgs) {
-                    if (auto allocType = typeDecl->get_definer()->resolve_type()) {
-                        if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member(CONSTR_IDENT))  // (constructors aren't inherited)
-                            if (auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs )) {
-                                ASSERT(constructorDecl->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_INITIALIZER),
-                                        "field named $init is not flagged as TXD_CONSTRUCTOR: " << constructorDecl->str());
-                                //std::cerr << "resolving field to constructor: " << this << ": " << constructorDecl << std::endl;
-                                this->declaration = constructorDecl;
-                                return this->declaration;
-                            }
+                    auto allocType = typeDecl->get_definer()->resolve_type();
+                    if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member(CONSTR_IDENT)) { // (constructors aren't inherited)
+                        if (auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs )) {
+                            ASSERT(constructorDecl->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_INITIALIZER),
+                                   "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str());
+                            //std::cerr << "resolving field to constructor: " << this << ": " << constructorDecl << std::endl;
+                            this->declaration = constructorDecl;
+                            return this->declaration;
+                        }
                     }
-                    CERR_THROWRES(this, "No matching constructor signature for type symbol: " << this->get_full_identifier());
+                    CERR_THROWRES(this, "No matching constructor in type " << allocType << " for args (" << join( to_typevec( this->appliedFuncArgs ), ", ") << ")");
                 }
                 else {
                     // resolve this symbol to its type
@@ -666,7 +695,7 @@ const TxType* TxConstructorCalleeExprNode::define_type() {
         if (auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member(CONSTR_IDENT)) {  // (constructors aren't inherited)
             if (auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs)) {
                 ASSERT(constructorDecl->get_decl_flags() & (TXD_CONSTRUCTOR | TXD_INITIALIZER),
-                        "field named $init is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str());
+                       "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str());
                 this->declaration = constructorDecl;
                 auto constructorField = constructorDecl->get_definer()->resolve_field();
                 return constructorField->get_type();
@@ -678,7 +707,7 @@ const TxType* TxConstructorCalleeExprNode::define_type() {
         else if (this->appliedFuncArgs->size() == 1) {
             // TODO: support default assignment constructor
         }
-        CERR_THROWRES(this, "No matching constructor for type " << allocType);
+        CERR_THROWRES(this, "No matching constructor in type " << allocType << " for args (" << join( to_typevec( this->appliedFuncArgs ), ", ") << ")");
     }
     return nullptr;
 }
@@ -751,7 +780,12 @@ void TxFunctionCallNode::symbol_resolution_pass() {
     // Verify arguments and apply implicit conversions if needed:
     if (this->calleeType && this->calleeType->get_type_class() == TXTC_FUNCTION) {
         auto calleeArgTypes = this->calleeType->argument_types();
-        auto varArgElemType = this->calleeType->vararg_elem_type();
+        auto arrayArgElemType = this->calleeType->vararg_elem_type();
+        if (! arrayArgElemType) {
+            if (auto fixedArrayArgType = this->calleeType->fixed_array_arg_type()) {
+                arrayArgElemType = fixedArrayArgType->element_type();
+            }
+        }
 
 // this check has already been done in callee resolution
 //        if (calleeArgTypes.size() != this->argsExprList->size()
@@ -760,25 +794,22 @@ void TxFunctionCallNode::symbol_resolution_pass() {
 //        }
 //        else
         {
-            if (varArgElemType
+            if (arrayArgElemType
                     && !( calleeArgTypes.size() == this->origArgsExprList->size()
-                          && get_reinterpretation_degree( *(calleeArgTypes.cend()-1), (*(this->origArgsExprList->cend()-1))->get_type() ) >= 0 )) {
+                          && get_reinterpretation_degree( calleeArgTypes.back(), this->origArgsExprList->back()->get_type() ) >= 0 )) {
                 // Calling a var-args function, and last provided arg does not directly match the var-arg tail arg.
                 // transform the passed var-args into an array which is passed as the last argument
                 unsigned lastCalleeArgIx = calleeArgTypes.size() - 1;
-                auto varArgs = new std::vector<TxMaybeConversionNode*>();
+                auto arrayArgs = new std::vector<TxMaybeConversionNode*>();
                 for (unsigned i = lastCalleeArgIx; i < this->argsExprList->size(); i++) {
-                    // this->argsExprList->at(i)->insert_conversion( varArgElemType );  // Note: conversion is applied by TxArrayLitNode
-                    varArgs->push_back( this->argsExprList->at(i) );
+                    arrayArgs->push_back( this->argsExprList->at(i) );
                 }
                 this->argsExprList->resize( lastCalleeArgIx );
-                const TxLocation& varArgLoc = ( varArgs->empty() ? this->argsExprList->at( lastCalleeArgIx - 1 )->parseLocation
-                                                                 : varArgs->at( 0 )->parseLocation );
-                ASSERT(varArgElemType->get_declaration(), "callee's varArgElemType doesn't have a declaration in " << this);
-                auto elemTypeExpr = new TxTypeExprWrapperNode( varArgElemType->get_definer() );
-                auto varArgsNode = new TxMaybeConversionNode( new TxArrayLitNode( varArgLoc, elemTypeExpr, varArgs ) );
-                varArgsNode->symbol_declaration_pass( this->context() );
-                this->argsExprList->push_back( varArgsNode );
+                const TxLocation& varArgLoc = ( arrayArgs->empty() ? this->parseLocation : arrayArgs->front()->parseLocation );
+                auto elemTypeExpr = new TxTypeExprWrapperNode( arrayArgElemType->get_definer() );
+                auto arrayArgNode = new TxMaybeConversionNode( new TxArrayLitNode( varArgLoc, elemTypeExpr, arrayArgs ) );
+                arrayArgNode->symbol_declaration_pass( this->context() );
+                this->argsExprList->push_back( arrayArgNode );
             }
             ASSERT(calleeArgTypes.size() == this->argsExprList->size(), "Mismatching argument count for callee " << this->calleeType);
 

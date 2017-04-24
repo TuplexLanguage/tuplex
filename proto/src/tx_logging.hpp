@@ -39,7 +39,6 @@
 #   define LOG_DEBUG(logger, message) do { } while (false)
 #endif
 
-
 #define GET_MACRO(_1,_2,_3,NAME,...) NAME
 #define TRACE_CODEGEN(...) GET_MACRO(__VA_ARGS__, TRACE_CODEGEN3, TRACE_CODEGEN2)(__VA_ARGS__)
 

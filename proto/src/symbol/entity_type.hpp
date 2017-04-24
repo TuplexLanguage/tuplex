@@ -234,6 +234,19 @@ public:
         THROW_LOGIC("Can't get vararg_elem_type() of non-function type: " << this);
     }
 
+    /** Special case helper method for getting the array arg type of a fixed array arg function type.
+     * Returns null if this is not a fixed array arg function.
+     */
+    const TxType* fixed_array_arg_type() const {
+        if (this->get_type_class() == TXTC_FUNCTION) {
+            auto funcType = static_cast<const TxFunctionType*>( this->type() );
+            if (auto arrayArgType = funcType->fixed_array_arg_type())
+                return arrayArgType->get_type_entity();
+            return nullptr;
+        }
+        THROW_LOGIC("Can't get fixed_array_arg_type() of non-function type: " << this);
+    }
+
     /** Special case helper method for getting the return type of a function type.
      * Returns null if the return type was not resolved.
      */

@@ -264,18 +264,23 @@ Value* TxReferenceDerefNode::code_gen_address(LlvmGenerationContext& context, Ge
 
 Value* TxReferenceDerefNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     Value* ptrV = this->code_gen_address( context, scope );
-    auto targT = ptrV->getType()->getPointerElementType();
-    //std::cerr << this->parseLocation << ": Dereferencing: " << ptrV << " of pointer element type: "<< targT << std::endl;
-    if (targT->isSingleValueType()) {  // can be loaded in register
-        if (scope)
-            return scope->builder->CreateLoad(ptrV);
-        else
-            return new LoadInst(ptrV);
-    }
-    else {
-        // handled as pointers in LLVM  // context.LOG.warning("De-referencing reference to non-single-value type not yet fully supported: %s", ::to_string(elemType).c_str());
-        return ptrV;
-    }
+    if (scope)
+        return scope->builder->CreateLoad(ptrV);
+    else
+        return new LoadInst(ptrV);
+//    auto targT = ptrV->getType()->getPointerElementType();
+//    std::cerr << this->parseLocation << ": Dereferencing: " << ptrV << " of pointer element type: "<< targT << std::endl;
+//    if (targT->isSingleValueType()) {  // can be loaded in register
+//        if (scope)
+//            return scope->builder->CreateLoad(ptrV);
+//        else
+//            return new LoadInst(ptrV);
+//    }
+//    else {
+//        // handled as pointers in LLVM
+//        LOG(this->LOGGER(), WARN, "De-referencing reference to non-single-value type not yet fully supported: " << this->get_type());
+//        return ptrV;
+//    }
 }
 
 Value* TxReferenceDerefNode::code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const {
@@ -502,7 +507,7 @@ Value* TxConstructorCalleeExprNode::code_gen(LlvmGenerationContext& context, Gen
 
 Value* TxConstructorCalleeExprNode::gen_obj_ptr(LlvmGenerationContext& context, GenScope* scope) const {
     if (! this->objectPtrV) {
-        this->objectPtrV = this->objectExpr->code_gen(context, scope);
+        this->objectPtrV = this->objectExpr->code_gen_address(context, scope);
         ASSERT(this->objectPtrV->getType()->isPointerTy(), "Expected baseValue to be of pointer type but was: " << this->objectPtrV->getType());
     }
     return this->objectPtrV;
@@ -539,13 +544,13 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr(LlvmGenerationContext& context,
 }
 
 
-Value* TxHeapAllocNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxHeapAllocNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
     TRACE_CODEGEN(this, context);
     Type* objT = context.get_llvm_type(this->get_type());
     return context.gen_malloc(scope, objT);
 }
 
-Value* TxStackAllocNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
+Value* TxStackAllocNode::code_gen_address(LlvmGenerationContext& context, GenScope* scope) const {
     TRACE_CODEGEN(this, context);
     return this->get_type()->type()->gen_alloca(context, scope);
 }

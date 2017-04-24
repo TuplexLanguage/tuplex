@@ -1137,6 +1137,36 @@ TxFunctionType::TxFunctionType( const TxTypeDeclaration* declaration, const TxAc
                       baseType->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_VOID )->type(),
                       modifiableClosure )  { }
 
+const TxActualType* TxFunctionType::vararg_elem_type() const {
+    if (! argumentTypes.empty()) {
+        auto lastArgType = argumentTypes.back();
+        if (lastArgType->get_type_class() == TXTC_REFERENCE) {
+            auto refTargetType = static_cast<const TxReferenceType*>( lastArgType )->target_type();
+            if (refTargetType->get_type_class() == TXTC_ARRAY) {
+                auto arrayType = static_cast<const TxArrayType*>( refTargetType );
+                if (!arrayType->length())  // only arrays of unspecified length apply to var-args syntactic sugar
+                    return arrayType->element_type();
+            }
+        }
+    }
+    return nullptr;
+}
+
+const TxArrayType* TxFunctionType::fixed_array_arg_type() const {
+    if (argumentTypes.size() == 1) {
+        auto argType = argumentTypes.back();
+        if (argType->get_type_class() == TXTC_ARRAY) {
+            auto arrayType = static_cast<const TxArrayType*>( argType );
+            if (auto lenExpr = arrayType->length()) {
+                if (lenExpr->get_static_constant_proxy()) {
+                    return arrayType;
+                }
+            }
+        }
+    }
+    return nullptr;
+}
+
 
 
 TxExpressionNode* TxBuiltinConversionFunctionType::make_inline_expr( TxExpressionNode* calleeExpr,
