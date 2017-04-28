@@ -911,7 +911,7 @@ static void type_bindings_string(std::stringstream& str, const std::vector<const
                     continue;
                 }
             }
-            str << "$V";
+            str << "?";
         }
         else if (auto btype = b->get_definer()->attempt_get_type())
             str << btype->str( true );
@@ -1051,7 +1051,7 @@ bool TxReferenceType::is_assignable_to(const TxActualType& destination) const {
 //        if (auto stat = len->get_static_constant_proxy())
 //            str << "[" << stat->get_value_UInt() << "] ";
 //        else
-//            str << "[$V] ";
+//            str << "[?] ";
 //    }
 //    else
 //        str << "[] ";

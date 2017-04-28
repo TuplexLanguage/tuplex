@@ -32,6 +32,15 @@ public interface Indicable< K, E > derives Iterable< E > {
     public abstract get( key : K ) -> E;
 }
 
+/** A modifiable Indicable. */
+public interface Updatable< K, E > derives Indicable< K, E > {
+
+    /** Sets the element at the slot identified by key. Returns the replaced element. */
+    public abstract set( key : K, element : E ) mod -> E;
+
+    /** Swaps two elements, putting each in the slot previously occupied by the other. */
+    public abstract swap( keyA : K, keyB : K ) mod;
+}
 
 
 
@@ -53,46 +62,7 @@ public interface Iterator< E > derives Sequencer< E > {
     public abstract has_prev() -> Bool;
 
     public abstract prev() -> E;
+
+##    /** Replaces the value returned by the most-recent call to next() / prev(). Returns the replaced element. */
+##    public abstract set( element : E ) -> E;
 }
-
-
-
-
-/*=====  modifiable variants =====*/
-/*
-
-/** An updateable sequence supports replacing its elements.
- */
-public interface Updateable< E > derives Sequenceable< E > {
-
-    public abstract override sequencer() -> Ref< ~Updater< E > >;
-}
-
-
-public interface Updater< E > derives Sequencer<E> {
-
-    public override sequencer() -> Ref< ~Updater< E > > { return self; }
-
-    /** replaces value returned by most-recent call to next() / prev() */
-    public abstract update( newValue : E );
-}
-
-
-
-
-/** A sequence that is both indicable and updateable.
- */
-public interface Writable< K, E > derives Indicable< K, E >, Updateable< E > {
-
-    public abstract override sequencer() -> Ref< ~Writer< E > >;
-
-    /** Sets the element at the slot identified by key. */
-    public abstract set( key : K, element : E );
-}
-
-
-public interface Writer< E > derives Iterator<E>, Updater<E> {
-
-    public override sequencer() -> Ref< ~Writer< E > > { return self; }
-}
-*/

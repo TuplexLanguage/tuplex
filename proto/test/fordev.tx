@@ -45,6 +45,7 @@ array_stack_construction( i : UByte ) {
     a13 := []Int( [ 1I, 2, 3 ] );   ## literal array initializer
     a14 := []Int( a10 );            ## field initializer
     a15 := []Int( &a10 );           ## auto-dereferencing
+
     ## TODO: initialize from non-array sequences
 
 ## TODO: conversions
@@ -83,26 +84,31 @@ array_stack_construction( i : UByte ) {
     #experr 1: ae := MyFA( [ 1, 2, 3 ] );
 
     ## not supported to automatically infer generic type parameters:
-    #experr 2: aa := <Array<Int>>( [ 1, 2, 3 ] );
-    #experr 2: aa := <Array>( [ 1, 2, 3 ] );
+    #experr 2: ae := <Array<Int>>( [ 1, 2, 3 ] );
+    #experr 2: ae := <Array>( [ 1, 2, 3 ] );
+
+
+  ## Construction with dynamic Array length - not supported for stack storage:
+    #experr 2: ae := [i*0]Int();
+    #experr 2: ae := [i*3]Int( 1, 2, 3 );
+    #experr 1: ae := <Array<Int,i*0>>( []Int() );
+    #experr 1: ae := <Array<Int,i*3>>( [ 1I, 2, 3 ] );
 }
 
 
 array_new_construction( i : UByte ) {
-  ## Construction via array literal syntax:
-  /*
-    a0 := new [ i, i, i ];
-    a1 := new [ 1, 2, 3 ];
-    a2 := new [ Int(1), 2, 3 ];
+  ## Construction via array literal syntax is limited:
+    #experr 1: a0 := new [ i, i, i ];
+    #experr 1: a1 := new [ 1, 2, 3 ];
+    #experr 1: a2 := new [ Int(1), 2, 3 ];
     #experr 1: ae := new [];  ## invalid, no element type info
-  */
 
     a3 := new [3]Int( 1, 2, 3 );
     a4 := new [0]Int();           ## empty array of Ints
-/* TODO: support infering array length
-    a5 := new []Int( 1, 2, 3 );
-    a6 := new []Int();            ## empty array of Ints
-*/
+  ## not supported to automatically inferarray length
+    #experr 2: a5 := new []Int( 1, 2, 3 );
+    #experr 2: a6 := new []Int();            ## empty array of Ints
+
     #experr 1: ae := new [2]Int( 1, 2, 3 );
     #experr 1: ae := new [4]Int( 1, 2, 3 );
     #experr 1: ae := new [0]Int( 1, 2, 3 );
@@ -113,27 +119,20 @@ array_new_construction( i : UByte ) {
     ## explicit array type (fully specified or with implicit length) with object initializer:
     a10 := new [3]Int( [ 1I, 2, 3 ] );
     a11 := new [3]Int( a10 );
-/* TODO: support infering array length
-    a12 := new []Int( [ 1I, 2, 3 ] );
-    a13 := new []Int( a10 );
-*/
+  ## not supported to automatically inferarray length
+    #experr 1: a12 := new []Int( [ 1I, 2, 3 ] );
+    #experr 1: a13 := new []Int( a10 );
+
     ## TODO: initialize from non-array sequences
 
 ## TODO: conversions
 ##    a16 := new [3]Long( a6 );  ## safe element-wise conversion
 ##    a17 := new []Long( a6 );   ## safe element-wise conversion
 
-##    foofunc( a0 );
-##    foofunc( a1 );
-##    foofunc( a2 );
     foofunc( a3 );
     foofunc( a4 );
-##    foofunc( a5 );
-##    foofunc( a6 );
     foofunc( a10 );
     foofunc( a11 );
-##    foofunc( a12 );
-##    foofunc( a13 );
 
 
   ## Construction via Array type's constructor:
@@ -155,6 +154,15 @@ array_new_construction( i : UByte ) {
     ## not supported to automatically infer generic type parameters:
     #experr 2: aa := new Array<Int>( [ 1, 2, 3 ] );
     #experr 2: aa := new Array( [ 1, 2, 3 ] );
+
+
+  ## Construction with dynamic Array length:
+    a30 := new [i*0]Int();
+    a31 := new [i*3]Int( 1, 2, 3 );
+/* TODO
+    a40 := new Array<Int,i*0>( []Int() );
+    a41 := new Array<Int,i*3>( [ 1I, 2, 3 ] );
+*/
 }
 
 

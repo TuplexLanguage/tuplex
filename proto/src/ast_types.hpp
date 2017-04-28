@@ -69,7 +69,7 @@ public:
             return std::to_string( bindingValue );  // statically known value
         }
         else {
-            return "$VALUE";
+            return "?";
             // implementation note: a distinct compile time type is registered which holds this specific dynamic value expression
         }
     }

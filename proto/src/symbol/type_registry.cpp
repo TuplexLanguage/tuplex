@@ -290,21 +290,21 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
                     // (For now, statically constant VALUE specializations with diff. values don't share the same static type.)
                     auto valueBinding = static_cast<const TxValueTypeArgumentNode*>( binding );
                     if (auto existingFieldDecl = dynamic_cast<const TxFieldDeclaration*>( existingBaseTypeBindings.at( ix ) )) {
-                        uint32_t newValue = 0;  // zero means dynamically specified value
-                        uint32_t existingValue = 0;
-                        if (auto newConstantValueProxy = valueBinding->valueExprNode->get_static_constant_proxy()) {
+                        auto newConstantValueProxy = valueBinding->valueExprNode->get_static_constant_proxy();
+                        if (newConstantValueProxy) {
                             // new binding has statically constant value
-                            newValue = newConstantValueProxy->get_value_UInt();
-                        }
-                        if (auto existingInitializer = existingFieldDecl->get_definer()->get_init_expression()) {
-                            if (auto existingConstantValueProxy = existingInitializer->get_static_constant_proxy()) {
-                                // existing binding has statically constant value
-                                existingValue = existingConstantValueProxy->get_value_UInt();
+                            uint32_t newValue = newConstantValueProxy->get_value_UInt();
+
+                            if (auto existingInitializer = existingFieldDecl->get_definer()->get_init_expression()) {
+                                if (auto existingConstantValueProxy = existingInitializer->get_static_constant_proxy()) {
+                                    // existing binding has statically constant value
+                                    uint32_t existingValue = existingConstantValueProxy->get_value_UInt();
+                                    if (newValue == existingValue)
+                                        continue;
+                                }
                             }
                         }
-                        // dynamic VALUE specializations get distinct compile time types, which hold the specific VALUE expressions
-                        if (newValue != 0 && newValue == existingValue)
-                            continue;
+                        // dynamic VALUE specializations get distinct compile time types so that static type equality checks won't yield false positives
                     }
                 }
                 //std::cerr << "NOT ACCEPTING PRE-EXISTING TYPE " << existingBaseType << " SINCE " << std::endl;
@@ -447,7 +447,7 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
                 newBaseTypeName << bindingValue;  // statically known value
             }
             else {
-                newBaseTypeName << "$V";  // dynamic value
+                newBaseTypeName << "?";  // dynamic value
                 // implementation note: a distinct compile time type is registered which holds this specific dynamic value expression
             }
         }

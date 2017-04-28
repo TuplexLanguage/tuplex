@@ -179,13 +179,9 @@ protected:
     virtual void self_string( std::stringstream& str, bool brief ) const override {
         str << this->get_declaration()->get_unique_full_name() << " : func(";
         str << join( this->argumentTypes, ", " );
-//        if (! this->argumentTypes.empty()) {
-//            auto ai = this->argumentTypes.cbegin();
-//            str << (*ai)->str(true);
-//            for (ai++; ai != this->argumentTypes.cend(); ai++)
-//                str << ", " << (*ai)->str(true);
-//        }
         str << ")";
+        if (this->modifiable_closure())
+            str << " ~";
         if (this->has_return_value())
             str << " -> " << this->returnType->str(true);
     }

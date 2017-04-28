@@ -152,7 +152,7 @@ YY_DECL;
 %type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression
 %type <TxTypeExpressionNode*> reference_type array_type //data_tuple_type
 
-%type <TxFunctionTypeNode*> function_header
+%type <TxFunctionTypeNode*> function_signature
 %type <TxExpressionNode*> expr make_expr lambda_expr value_literal array_literal array_dimensions cond_expr
 %type <TxFunctionCallNode*> call_expr
 %type <std::vector<TxExpressionNode*> *> expression_list call_params array_lit_expr_list
@@ -408,7 +408,7 @@ base_type_expression
     :  predef_type      { $$ = $1; }
     |  reference_type   { $$ = $1; }
     |  array_type       { $$ = $1; }
-    |  function_header    { $$ = $1; }
+    |  function_signature { $$ = $1; }
 //    |  data_tuple_type  { $$ = $1; }
 //    |  union_type
 //    |  enum_type
@@ -453,13 +453,13 @@ array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
 
 /// function type and function declarations:
 
-lambda_expr : function_header suite  { $$ = new TxLambdaExprNode(@1, $1, $2); } ;
+lambda_expr : function_signature suite  { $$ = new TxLambdaExprNode(@1, $1, $2); } ;
 
-function_header : func_args DASHGT type_expression
-                  { $$ = new TxFunctionTypeNode(@1, false, $1, $3); }
-                | func_args
-                  { $$ = new TxFunctionTypeNode(@1, false, $1, NULL); }
-                ;
+function_signature : func_args opt_modifiable DASHGT type_expression
+                        { $$ = new TxFunctionTypeNode(@1, $2, $1, $4); }
+                   | func_args opt_modifiable
+                        { $$ = new TxFunctionTypeNode(@1, $2, $1, NULL); }
+                   ;
 
 func_args : LPAREN func_args_list RPAREN  { $$ = $2; }
           | LPAREN RPAREN  { $$ = new std::vector<TxFieldTypeDefNode*>(); }
@@ -475,9 +475,9 @@ func_args_list : field_type_def
                ;
 
 
-method_def  : NAME function_header suite
+method_def  : NAME function_signature suite
                 { $$ = new TxFieldDefNode(@1, $1, nullptr, new TxLambdaExprNode(@1, $2, $3, true)); }
-            | NAME function_header SEMICOLON  // abstract method (KW_ABSTRACT should be specified)
+            | NAME function_signature SEMICOLON  // abstract method (KW_ABSTRACT should be specified)
                 { $$ = new TxFieldDefNode(@1, $1, $2,      nullptr); }
             ;
 
