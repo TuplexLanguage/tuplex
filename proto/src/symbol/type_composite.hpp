@@ -10,10 +10,6 @@
 
 
 class TxArrayType : public TxActualType {
-    TxArrayType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                const std::vector<TxTypeSpecialization>& interfaces)
-            : TxActualType(TXTC_ARRAY, declaration, baseTypeSpec, interfaces)  { }
-
 protected:
     virtual TxArrayType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                const std::vector<TxTypeSpecialization>& interfaces) const override {
@@ -25,12 +21,11 @@ protected:
     //virtual void self_string( std::stringstream& str, bool brief ) const override;
 
 public:
-    /** Creates the Array base type. Only one such instance should exist. */
-    TxArrayType(const TxTypeDeclaration* declaration, const TxActualType* anyType)
-            : TxActualType(TXTC_ARRAY, declaration, TxTypeSpecialization(anyType)) { }
+    TxArrayType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+                const std::vector<TxTypeSpecialization>& interfaces)
+            : TxActualType(TXTC_ARRAY, declaration, baseTypeSpec, interfaces)  { }
 
-
-    /** Returns tx.Any if unbound. */
+    /** Returns the element type if bound, or tx.Array.E generic type parameter if unbound. */
     const TxActualType* element_type() const;
 
     /** Returns nullptr if unbound. */
@@ -52,10 +47,6 @@ private:
 
 
 class TxReferenceType : public TxActualType {
-    TxReferenceType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                    const std::vector<TxTypeSpecialization>& interfaces)
-            : TxActualType(TXTC_REFERENCE, declaration, baseTypeSpec, interfaces)  { }
-
 protected:
     virtual TxReferenceType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                    const std::vector<TxTypeSpecialization>& interfaces) const override {
@@ -67,12 +58,12 @@ protected:
     //virtual void self_string( std::stringstream& str, bool brief ) const override;
 
 public:
-    /** Creates the Reference base type. Only one such instance should exist. */
-    TxReferenceType(const TxTypeDeclaration* declaration, const TxActualType* anyType)
-            : TxActualType(TXTC_REFERENCE, declaration, TxTypeSpecialization(anyType)) { }
+    TxReferenceType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+                    const std::vector<TxTypeSpecialization>& interfaces)
+            : TxActualType(TXTC_REFERENCE, declaration, baseTypeSpec, interfaces)  { }
 
 
-    /** Returns the target type of this reference type, or tx.Any if unbound. */
+    /** Returns the target type if bound, or tx.Ref.T generic type parameter if unbound. */
     const TxActualType* target_type() const;
 
     virtual bool is_abstract() const override { return false; }
@@ -252,10 +243,6 @@ class TxTupleType : public TxActualType {
     // Indicates if this type is *not* immutable, in which case its instances may be declared modifiable.
     const bool _mutable;
 
-    TxTupleType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                const std::vector<TxTypeSpecialization>& interfaces, bool _mutable=false)
-            : TxActualType(TXTC_TUPLE, declaration, baseTypeSpec, interfaces), _mutable(_mutable)  { }
-
 protected:
     virtual TxTupleType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                const std::vector<TxTypeSpecialization>& interfaces) const override {
@@ -265,8 +252,9 @@ protected:
     };
 
 public:
-    TxTupleType(const TxTypeDeclaration* declaration, const TxActualType* baseType, bool _mutable=false)
-            : TxActualType(TXTC_TUPLE, declaration, TxTypeSpecialization(baseType)), _mutable(_mutable)  {
+    TxTupleType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+                const std::vector<TxTypeSpecialization>& interfaces, bool _mutable=false)
+            : TxActualType(TXTC_TUPLE, declaration, baseTypeSpec, interfaces), _mutable(_mutable) {
         ASSERT(declaration, "NULL declaration");
     }
 
@@ -283,10 +271,6 @@ public:
 
 /** Interfaces are intrinsically abstract types. */
 class TxInterfaceType : public TxActualType {
-    TxInterfaceType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                    const std::vector<TxTypeSpecialization>& interfaces)
-            : TxActualType(TXTC_INTERFACE, declaration, baseTypeSpec, interfaces)  { }
-
 protected:
     virtual TxInterfaceType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                    const std::vector<TxTypeSpecialization>& interfaces) const override {
@@ -296,8 +280,9 @@ protected:
     };
 
 public:
-    TxInterfaceType(const TxTypeDeclaration* declaration, const TxActualType* baseType)
-            : TxActualType(TXTC_INTERFACE, declaration, TxTypeSpecialization(baseType)) {
+    TxInterfaceType(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+                    const std::vector<TxTypeSpecialization>& interfaces)
+            : TxActualType(TXTC_INTERFACE, declaration, baseTypeSpec, interfaces) {
         ASSERT(declaration, "NULL declaration");
     }
 

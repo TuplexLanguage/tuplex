@@ -73,8 +73,8 @@ type SpecTypeErr {
 */
 
 ## since these are mutually recursive, one of them will report the error:
-#experr 0: type SpecTypeErrA  GenType<SpecTypeErrB>;
-#experr 1: type SpecTypeErrB  GenType<SpecTypeErrA>;
+#experr 1: type SpecTypeErrA  GenType<SpecTypeErrB>;
+#experr 2: type SpecTypeErrB  GenType<SpecTypeErrA>;
 
 
 ## ok with recursive type definition via reference:

@@ -16,6 +16,7 @@
 enum BuiltinTypeId : uint32_t {
     TXBT_ANY,
     TXBT_VOID,
+    TXBT_INTERFACE,
     TXBT_ELEMENTARY,
     TXBT_SCALAR,
     TXBT_INTEGER,
@@ -38,7 +39,6 @@ enum BuiltinTypeId : uint32_t {
     TXBT_ARRAY,
     TXBT_FUNCTION,
     TXBT_TUPLE,
-    TXBT_INTERFACE,
     BuiltinTypeId_COUNT,
     TXBT_NOTSET = UINT32_MAX
 };

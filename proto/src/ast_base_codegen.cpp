@@ -44,6 +44,8 @@ Value* TxModuleNode::code_gen(LlvmGenerationContext& context, GenScope* scope) c
 
 Value* TxTypeDeclNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
     TRACE_CODEGEN(this, context);
+    if (this->_builtinCode)
+        return NULL;
     return this->typeExpression->code_gen(context, scope);
 }
 

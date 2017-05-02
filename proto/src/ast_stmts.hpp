@@ -427,7 +427,14 @@ public:
         auto ltype = this->lvalue->resolve_type();
         if (! ltype)
             return;  // (error message should have been emitted by lvalue node)
-        if (! ltype->is_modifiable()) {
+
+        // note: similar rules to passing function arg
+        if (! ltype->is_concrete()) {
+            // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
+            if (! ( ltype->get_declaration()->get_decl_flags() & TXD_GENPARAM ))
+                CERROR(this->lvalue, "Assignee is not a concrete type (size potentially unknown): " << ltype);
+        }
+        else if (! ltype->is_modifiable()) {
             if (! this->context().get_constructed())  // TODO: only members of constructed object should skip error
                 CERROR(this, "Assignee is not modifiable: " << ltype);
             // Note: If the object as a whole is modifiable, it can be assigned to.
@@ -435,12 +442,6 @@ public:
             // We could add custom check to prevent that scenario for Arrays, but then
             // it would in this regard behave differently than other aggregate objects.
         }
-
-        // note: similar rules to passing function arg
-        if (! ltype->is_concrete())
-            // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
-            if (! ( ltype->get_declaration()->get_decl_flags() & TXD_GENPARAM ))
-                CERROR(this->lvalue, "Assignee is not a concrete type (size potentially unknown): " << ltype);
         // if assignee is a reference:
         // TODO: check dataspace rules
 

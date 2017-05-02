@@ -55,6 +55,19 @@ std::string TxTypeSpecialization::str() const { return "specialization of " + th
 
 /*=== TxActualType implementation ===*/
 
+/** Used to ensure proper resetting recursionGuard in type (RAII style). */
+class ScopedRecursionGuardClause {
+    const TxActualType* type;
+public:
+    ScopedRecursionGuardClause( const TxActualType* type ) : type(type) {
+        this->type->recursionGuard = true;
+    }
+    ~ScopedRecursionGuardClause() {
+        this->type->recursionGuard = false;
+    }
+};
+
+
 Logger& TxActualType::_LOG = Logger::get("ENTITY");
 
 //void TxActualType::rewire( const TxActualType* newBaseType ) {
@@ -517,12 +530,24 @@ bool TxActualType::inner_prepare_members() {
 
 
 bool TxActualType::is_concrete() const {
+    if (recursionGuard) {
+        LOG(this->LOGGER(), DEBUG, "Infinite recursion (probably erroneously recursive type definition) detected in is_concrete() of type " << this);
+        return false;
+    }
+    ScopedRecursionGuardClause guard(this);
+
     if (this->is_abstract())
         return false;
     else if (this->is_generic()) {
         // TODO: If only Ref-constrained parameters, then return true
         return false;
     }
+    else if (this->is_equivalent_derivation()) {
+        return this->get_base_type()->is_concrete();
+    }
+//    else if (this->get_declaration()->get_decl_flags() & TXD_GENPARAM) {
+//        return false;
+//    }
     else {
         for (auto b : this->get_bindings()) {
             if (auto t = dynamic_cast<const TxTypeDeclaration*>( b )) {
@@ -1085,17 +1110,31 @@ const TxExpressionNode* TxArrayType::length() const {
 }
 
 const TxActualType* TxArrayType::element_type() const {
-    if (auto bindingDecl = this->lookup_type_param_binding("tx.Array.E")) {
-        return bindingDecl->get_definer()->resolve_type()->type();
+    if (auto entSym = this->lookup_inherited_instance_member( "tx#Array#E" )) {
+        if (auto typeDecl = entSym->get_type_decl()) {
+            //std::cerr << "Array.E type decl: " << typeDecl << std::endl;
+            return typeDecl->get_definer()->resolve_type()->type();
+        }
     }
+    LOG(this->LOGGER(), ERROR, "tx#Array#E not found in " << this);
+//    if (auto bindingDecl = this->lookup_type_param_binding("tx.Array.E")) {
+//        return bindingDecl->get_definer()->resolve_type()->type();
+//    }
     return this->get_root_any_type();  // we know the basic constraint type for element is Any
 }
 
 
 const TxActualType* TxReferenceType::target_type() const {
-    if (auto paramDecl = this->lookup_type_param_binding("tx.Ref.T")) {
-        return paramDecl->get_definer()->resolve_type()->type();
+    if (auto entSym = this->lookup_inherited_instance_member( "tx#Ref#T" )) {
+        if (auto typeDecl = entSym->get_type_decl()) {
+            //std::cerr << "Ref.T type decl: " << typeDecl << std::endl;
+            return typeDecl->get_definer()->resolve_type()->type();
+        }
     }
+    LOG(this->LOGGER(), ERROR, "tx#Ref#T not found in " << this);
+//    if (auto paramDecl = this->lookup_type_param_binding("tx.Ref.T")) {
+//        return paramDecl->get_definer()->resolve_type()->type();
+//    }
     return this->get_root_any_type();  // we know the basic constraint type for ref target is Any
 }
 

@@ -1,5 +1,7 @@
 #include "ast.hpp"
 
+#include "builtin/builtin_types.hpp"
+
 
 static bool commonNameValidityChecks(TxNode* node, TxDeclarationFlags declFlags, const std::string& name) {
     if (name.empty()) {
@@ -232,29 +234,48 @@ void TxFieldDeclNode::symbol_resolution_pass() {
 }
 
 
-
 void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, bool isExpErrorDecl ) {
     this->set_context( lexContext );
 
-    TxDeclarationFlags flags = (isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags);
-    auto declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeExpression, flags );
-    if (! declaration) {
-        CERROR(this, "Failed to declare type " << this->typeName);
-        return;
+    const TxTypeDeclaration* declaration = nullptr;
+    if (this->declFlags & TXD_BUILTIN) {
+        if (auto entSym = dynamic_cast<const TxEntitySymbol*>( lexContext.scope()->get_member_symbol( this->typeName->str() ) )) {
+            if ((declaration = entSym->get_type_decl())) {
+                if (declaration->get_decl_flags() & TXD_BUILTIN) {
+                    //std::cerr << "existing builtin type declaration: " << declaration << "  new type expr: " << this->typeExpression << std::endl;
+                    auto derivedTypeExpr = dynamic_cast<TxDerivedTypeNode*>( this->typeExpression );
+                    ASSERT(derivedTypeExpr, "Expected definer for builtin-type to be a TxDerivedTypeNode: " << this->typeExpression);
+                    derivedTypeExpr->merge_builtin_type_definer( declaration->get_definer() );
+                    this->_builtinCode = true;
+                }
+            }
+        }
     }
-    LOG_TRACE(this->LOGGER(), this << ": Declared type " << declaration);
+
+    if (!this->_builtinCode) {
+        TxDeclarationFlags flags = (isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags);
+        declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeExpression, flags );
+        if (! declaration) {
+            CERROR(this, "Failed to declare type " << this->typeName);
+            return;
+        }
+        LOG_TRACE(this->LOGGER(), this << ": Declared type " << declaration);
+    }
 
     // The context of this node represents its outer scope.
     // The type expression's created type entity, if any, represents its inner scope.
     LexicalContext typeCtx(lexContext, declaration->get_symbol());
 
+    // TODO: review defCtx, lexCtx, and typeCtx usage / design
     // declare type parameters within type declaration's scope, and before rest of type expression is processed:
     if (this->typeParamDecls) {
-        for (auto paramDeclNode : *this->typeParamDecls) {
-            paramDeclNode->symbol_declaration_pass( typeCtx);
+        // if type parameters have been declared, rest of type expression has this typeCtx also as its defCtx
+        if (!this->_builtinCode) {
+            for (auto paramDeclNode : *this->typeParamDecls) {
+                paramDeclNode->symbol_declaration_pass( typeCtx);
+            }
         }
 
-        // if type parameters have been declared, rest of type expression has this typeCtx also as its defCtx:
         this->typeExpression->symbol_declaration_pass( lexContext, lexContext, declaration );
     }
     else
@@ -316,6 +337,7 @@ void TxArrayTypeNode::symbol_declaration_pass_descendants( LexicalContext& defCo
 }
 
 
+
 void TxDerivedTypeNode::init_implicit_types() {
     // implicit type members '$Self' and '$Super' for types with a body:
 //    // FUTURE: if type is immutable, the reference target type should perhaps not be modifiable?
@@ -336,6 +358,45 @@ void TxDerivedTypeNode::init_implicit_types() {
     const std::string superTypeName = "$Super";
     this->superRefTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN);
 }
+
+const TxType* TxDerivedTypeNode::define_type() {
+    ASSERT(this->get_declaration(), "No declaration for derived type " << *this);
+
+    if (this->builtinTypeDefiner) {
+        return this->builtinTypeDefiner->resolve_type();
+    }
+
+    const TxType* baseObjType = nullptr;
+    std::vector<const TxType*> interfaces;
+    if (this->baseTypes->empty())
+        baseObjType = this->registry().get_builtin_type(TXBT_TUPLE);
+    else {
+        interfaces.reserve(this->baseTypes->size()-1);
+        for (size_t i = 0; i < this->baseTypes->size(); i++) {
+            if (auto baseType = this->baseTypes->at(i)->resolve_type()) {
+                if (i == 0)
+                    baseObjType = baseType;
+                else
+                    interfaces.emplace_back(baseType);
+            }
+            else
+                return nullptr;
+        }
+    }
+
+    return this->registry().make_type_derivation( this, baseObjType, interfaces, this->_mutable );
+}
+
+void TxDerivedTypeNode::merge_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner ) {
+    if (this->baseTypes->empty()) {
+        CERROR(this, "Definition of a built-in type must have a base type specification.");
+        return;
+    }
+    this->builtinTypeDefiner = builtinTypeDefiner;
+    auto interfaces = std::vector<TxTypeExpressionNode*>(this->baseTypes->cbegin()+1, this->baseTypes->cend());
+    merge_builtin_type_definers( this, this->builtinTypeDefiner, this->baseTypes->front(), interfaces, this->_mutable );
+}
+
 
 
 void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,

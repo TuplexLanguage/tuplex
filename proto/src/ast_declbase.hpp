@@ -274,7 +274,8 @@ protected:
 
     virtual const TxField* define_field() override {
         LOG_TRACE(this->LOGGER(), "defining  field of " << this);
-        ASSERT(this->attempt_get_type(), "Expected non-NULL type in " << this);
+        if (this->get_node_id()==1840)
+            ASSERT(this->attempt_get_type(), "Expected non-NULL type in " << this);
         // FUTURE: consider if EXPERR decls shouldn't get their field created
         return TxField::make_field( this->declaration, this->attempt_get_type() );
     }
@@ -423,6 +424,9 @@ public:
 
 /** Non-local type declaration */
 class TxTypeDeclNode : public TxDeclarationNode {
+    /** if true, this node's subtree is merged with a built-in type definition */
+    bool _builtinCode = false;
+
 public:
     const TxIdentifier* typeName;
     const bool interfaceKW;
@@ -449,7 +453,9 @@ public:
     virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, bool isExpErrorDecl=false );
 
     virtual void symbol_resolution_pass() override {
-        if (this->typeParamDecls)
+//        if (this->_builtinCode)
+//            return;
+        if (!this->_builtinCode && this->typeParamDecls)
             for (auto paramDecl : *this->typeParamDecls)
                 paramDecl->symbol_resolution_pass();
         try {

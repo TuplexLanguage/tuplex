@@ -35,3 +35,8 @@ public:
 
     const TxType* get_builtin_type( const BuiltinTypeId id ) const;
 };
+
+
+
+void merge_builtin_type_definers( TxTypeExpressionNode* definer, TxTypeDefiningNode* builtinDefiner,
+                                  TxTypeExpressionNode* baseType, const std::vector<TxTypeExpressionNode*>& interfaces, bool _mutable );

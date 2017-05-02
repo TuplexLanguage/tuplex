@@ -124,7 +124,7 @@ YY_DECL;
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above.
  */
-%type <TxDeclarationFlags> declaration_flags opt_visibility opt_extern opt_static opt_abstract opt_override opt_final
+%type <TxDeclarationFlags> declaration_flags opt_visibility opt_extern opt_static opt_abstract opt_override opt_final opt_builtin
 %type <bool> opt_modifiable type_or_if
 %type <TxIdentifier*> identifier compound_identifier opt_dataspace
 %type <TxIdentifier*> opt_module_decl 
@@ -289,12 +289,13 @@ experr_decl : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErro
             ;
 
 
-declaration_flags : opt_visibility opt_extern opt_static opt_abstract opt_override opt_final  { $$ = ($1 | $2 | $3 | $4 | $5 | $6); } ;
+declaration_flags : opt_visibility opt_builtin opt_extern opt_static opt_abstract opt_override opt_final  { $$ = ($1 | $2 | $3 | $4 | $5 | $6 | $7); } ;
 
 opt_visibility : %empty        { $$ = TXD_NONE; }
                | KW_PUBLIC     { $$ = TXD_PUBLIC; }
                | KW_PROTECTED  { $$ = TXD_PROTECTED; }
                ;
+opt_builtin    : %empty { $$ = TXD_NONE; } | KW_BUILTIN  { $$ = TXD_BUILTIN;  } ;
 opt_extern     : %empty { $$ = TXD_NONE; } | KW_EXTERN   { $$ = TXD_EXTERN;   } ;
 opt_static     : %empty { $$ = TXD_NONE; } | KW_STATIC   { $$ = TXD_STATIC;   } ;
 opt_abstract   : %empty { $$ = TXD_NONE; } | KW_ABSTRACT { $$ = TXD_ABSTRACT; } ;

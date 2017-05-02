@@ -222,6 +222,9 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     static const TxActualType* common_generic_base_type( const TxActualType* thisType, const TxActualType* otherType );
     static bool inner_is_a( const TxActualType* thisType, const TxActualType* otherType );
 
+    /** used to prevent infinite recursion when compiler is processing erroneously defined recursive types */
+    mutable bool recursionGuard = false;
+    friend class ScopedRecursionGuardClause;
 
 protected:
     bool extendsInstanceDatatype = false;

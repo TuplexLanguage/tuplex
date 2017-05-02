@@ -24,14 +24,9 @@ class TxReferenceDerefNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type() override {
         auto refType = this->reference->resolve_type();
-        if (refType->get_type_class() == TXTC_REFERENCE) {
-            if (refType->is_generic())
-                // FUTURE: return constraint type if present
-                return this->registry().get_builtin_type(TXBT_ANY);
-            return refType->target_type();
-        }
-        CERR_THROWRES(this, "Operand is not a reference and can't be dereferenced: " << refType);
-        return nullptr;
+        if (refType->get_type_class() != TXTC_REFERENCE)
+            CERR_THROWRES(this, "Can't de-reference non-reference expression: " << refType);
+        return refType->target_type();
     }
 
 public:
@@ -53,9 +48,6 @@ public:
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         this->reference->symbol_resolution_pass();
-
-        if (this->reference->get_type()->get_type_class() != TXTC_REFERENCE)
-            CERROR(this, "Can't de-reference non-reference expression.");
     }
 
     virtual bool is_statically_constant() const {
@@ -77,28 +69,28 @@ protected:
     virtual const TxType* define_type() override {
         this->subscript->insert_conversion( this->registry().get_builtin_type(TXBT_LONG) );
 
-        auto opType = this->array->resolve_type();
-        if (opType->get_type_class() == TXTC_ARRAY) {
-            if (auto elemType = opType->element_type())
-                return elemType;
-            else
-                // FUTURE: return constraint type if present
-                return this->registry().get_builtin_type(TXBT_ANY);
+        auto opType = this->array->originalExpr->resolve_type();
+        if (opType->get_type_class() == TXTC_REFERENCE) {
+            auto targType = opType->target_type();
+            if (targType->get_type_class() == TXTC_ARRAY) {
+                this->array->insert_conversion( targType );
+            }
         }
-        if (opType)
-            CERR_THROWRES(this, "Operand is not an array and can't be subscripted: " << opType);
-        return nullptr;
+        opType = this->array->resolve_type();
+        if (opType->get_type_class() != TXTC_ARRAY)
+            CERR_THROWRES(this, "Can't subscript non-array expression: " << opType);
+        return opType->element_type();
     }
 
 public:
-    TxExpressionNode* array;
+    TxMaybeConversionNode* array;
     TxMaybeConversionNode* subscript;
 
     TxElemDerefNode(const TxLocation& parseLocation, TxExpressionNode* operand, TxExpressionNode* subscript)
-        : TxExpressionNode(parseLocation), array(operand), subscript(new TxMaybeConversionNode(subscript))  { }
+        : TxExpressionNode(parseLocation), array(new TxMaybeConversionNode(operand)), subscript(new TxMaybeConversionNode(subscript))  { }
 
     virtual TxElemDerefNode* make_ast_copy() const override {
-        return new TxElemDerefNode( this->parseLocation, this->array->make_ast_copy(),
+        return new TxElemDerefNode( this->parseLocation, this->array->originalExpr->make_ast_copy(),
                                     this->subscript->originalExpr->make_ast_copy() );
     }
 
@@ -725,19 +717,15 @@ public:
 class TxDerefAssigneeNode : public TxAssigneeNode {
 protected:
     virtual const TxType* define_type() override {
-        auto opType = this->operand->resolve_type();
-        if (opType->get_type_class() == TXTC_REFERENCE) {
-            if (opType->is_generic())
-                // FUTURE: return constraint type if present
-                return this->registry().get_builtin_type(TXBT_ANY);
-            return opType->target_type();
-        }
-        CERR_THROWRES(this, "Operand is not a reference and can't be dereferenced: " << opType);
-        return nullptr;
+        auto refType = this->operand->resolve_type();
+        if (refType->get_type_class() != TXTC_REFERENCE)
+            CERR_THROWRES(this, "Can't de-reference non-reference expression: " << refType);
+        return refType->target_type();
     }
 
 public:
     TxExpressionNode* operand;
+
     TxDerefAssigneeNode(const TxLocation& parseLocation, TxExpressionNode* operand)
         : TxAssigneeNode(parseLocation), operand(operand) { }
 
@@ -753,9 +741,6 @@ public:
     virtual void symbol_resolution_pass() override {
         TxAssigneeNode::symbol_resolution_pass();
         operand->symbol_resolution_pass();
-
-        if (this->operand->get_type()->get_type_class() != TXTC_REFERENCE)
-            CERROR(this, "Can't de-reference non-reference expression.");
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -770,28 +755,28 @@ protected:
     virtual const TxType* define_type() override {
         this->subscript->insert_conversion( this->registry().get_builtin_type(TXBT_LONG) );
 
-        auto opType = this->array->resolve_type();
-        if (opType->get_type_class() == TXTC_ARRAY) {
-            if (auto elemType = opType->element_type())
-                return elemType;
-            else
-                // FUTURE: return constraint type if present
-                return this->registry().get_builtin_type(TXBT_ANY);  // (not modifiable)
+        auto opType = this->array->originalExpr->resolve_type();
+        if (opType->get_type_class() == TXTC_REFERENCE) {
+            auto targType = opType->target_type();
+            if (targType->get_type_class() == TXTC_ARRAY) {
+                this->array->insert_conversion( targType );
+            }
         }
-        // operand type is unknown / not an array and can't be subscripted
-        CERR_THROWRES(this, "Can't subscript non-array expression.");
-        return nullptr;
+        opType = this->array->resolve_type();
+        if (opType->get_type_class() != TXTC_ARRAY)
+            CERR_THROWRES(this, "Can't subscript non-array assignee expression: " << opType);
+        return opType->element_type();
     }
 
 public:
-    TxExpressionNode* array;
+    TxMaybeConversionNode* array;
     TxMaybeConversionNode* subscript;
 
     TxElemAssigneeNode(const TxLocation& parseLocation, TxExpressionNode* array, TxExpressionNode* subscript)
-        : TxAssigneeNode(parseLocation), array(array), subscript(new TxMaybeConversionNode(subscript))  { }
+        : TxAssigneeNode(parseLocation), array(new TxMaybeConversionNode(array)), subscript(new TxMaybeConversionNode(subscript))  { }
 
     virtual TxElemAssigneeNode* make_ast_copy() const override {
-        return new TxElemAssigneeNode( this->parseLocation, this->array->make_ast_copy(), this->subscript->originalExpr->make_ast_copy() );
+        return new TxElemAssigneeNode( this->parseLocation, this->array->originalExpr->make_ast_copy(), this->subscript->originalExpr->make_ast_copy() );
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {

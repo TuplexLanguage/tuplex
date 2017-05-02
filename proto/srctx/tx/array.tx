@@ -1,0 +1,97 @@
+module tx
+
+
+public builtin type Array<E, L> derives Any, Collection<E>, Updatable<UInt, E>
+{
+    public override empty() -> Bool {
+        return self.L == 0;
+    }
+
+    public override count() -> ULong {
+        return self.L;
+    }
+
+    public override capacity() -> ULong {
+        return self.L;
+    }
+
+    public override clear() mod {
+        ## TODO
+    }
+
+    public override contains( val : E ) -> Bool {
+        /* TODO
+        for i in 0:L-1 {
+            if self[i] == val
+                return TRUE;
+        */
+        return FALSE;
+    }
+
+    public override add( val : E ) -> Bool {
+        ## TODO
+        return FALSE;
+    }
+
+
+
+    public override sequencer() -> Ref< ~Iterator< E > > {
+        return new ~ArrayIterator( self );
+    }
+
+    public override has( ix : UInt ) -> Bool {
+        return ix < self.L;
+    }
+
+    public override get( ix : UInt ) -> E {
+        ## TODO: bounds check
+        return self[ ix ];
+    }
+
+    public override set( ix : UInt, element : E ) mod -> E {
+        prev := self[ ix ];
+        self[ ix ] = element;
+        return prev;
+    }
+
+    public override swap( ixA : UInt, ixB : UInt ) mod {
+        tmp := self[ ixA ];
+        self[ ixA ] = self[ ixB ];
+        self[ ixB ] = tmp;
+    }
+
+
+
+    public type ArrayIterator derives Tuple, Iterator< E > {
+        array     : &Array<E>;
+        nextIndex : ~UInt;
+
+        public self( array : &Array<E> ) {
+            self.array = array;
+            self.nextIndex = 0;
+        }
+
+        public override sequencer() -> Ref< ~ArrayIterator > {
+            return self;
+        }
+
+        public override has_next() -> Bool {
+            return self.nextIndex < self.array.L;
+        }
+    
+        public override has_prev() -> Bool {
+            return self.nextIndex > 0;
+        }
+
+        public override next() -> E {
+            n := self.nextIndex;
+            self.nextIndex = self.nextIndex + 1;
+            return self.array.get( n );
+        }
+    
+        public override prev() -> E  {
+            self.nextIndex = self.nextIndex - 1;
+            return self.array.get( self.nextIndex );
+        }
+    }
+}

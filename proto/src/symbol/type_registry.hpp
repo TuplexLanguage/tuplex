@@ -38,9 +38,10 @@ class TypeRegistry {
     bool startedPreparingTypes = false;
 
     /** all the types created */
-    std::vector<TxActualType*>* createdTypes;
+    std::vector<TxActualType*> createdTypes;
 
-    /** all the static types, i.e. all types with distinct static data type (and thus distinct TypeId) */
+    /** All the static types, i.e. all types with distinct static data type (and thus distinct TypeId).
+     * Note: Not in a specific order. */
     std::vector<const TxActualType*> staticTypes;
 
     void add_type_usage(TxType* type);

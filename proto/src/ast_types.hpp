@@ -313,6 +313,8 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
     //TxTypeDeclNode* selfRefTypeNode = nullptr;
     TxTypeDeclNode* superRefTypeNode = nullptr;
 
+    TxTypeDefiningNode* builtinTypeDefiner = nullptr;
+
     /** Initializes implicit type members such as '$Self' and '$Super' for types with a body. */
     void init_implicit_types();
 
@@ -326,49 +328,9 @@ protected:
 
         for (auto member : *this->members)
             member->symbol_declaration_pass( lexContext);
-
-//        bool explicitConstructor = false;
-//        for (auto member : *this->members) {
-//            member->symbol_declaration_pass( lexContext);
-//            if (auto fieldMember = dynamic_cast<TxFieldDeclNode*>(member)) {
-//                if (fieldMember->field->get_field_name() == CONSTR_IDENT)
-//                    explicitConstructor = true;
-//            }
-//        }
-//        if (! explicitConstructor) {
-//            // add default constructor
-//            auto funcType;
-//            auto suite;
-//            auto lambdaExpr = new TxLambdaExprNode(this->parseLocation, funcType, suite, true);
-//            auto fieldDef = new TxFieldDefNode(this->parseLocation, "self", nullptr, lambdaExpr);
-//            auto fieldDecl = new TxFieldDeclNode(this->parseLocation, TXD_PUBLIC, fieldDef, true);
-//        }
     }
 
-    virtual const TxType* define_type() override {
-        ASSERT(this->get_declaration(), "No declaration for derived type " << *this);
-
-        const TxType* baseObjType = nullptr;
-        std::vector<const TxType*> interfaces;
-        if (this->baseTypes->empty())
-            baseObjType = this->registry().get_builtin_type(TXBT_TUPLE);
-        else {
-            interfaces.reserve(this->baseTypes->size()-1);
-            for (size_t i = 0; i < this->baseTypes->size(); i++) {
-                if (auto baseType = this->baseTypes->at(i)->resolve_type()) {
-                    if (i == 0)
-                        baseObjType = baseType;
-                    else
-                        interfaces.emplace_back(baseType);
-                }
-                else
-                    return nullptr;
-            }
-        }
-
-        auto type = this->registry().make_type_derivation( this, baseObjType, interfaces, this->_mutable );
-        return type;
-    }
+    virtual const TxType* define_type() override;
 
 public:
     const bool _mutable;
@@ -391,6 +353,8 @@ public:
     virtual std::string get_auto_type_name() const override {
         return this->get_declaration()->get_unique_full_name();
     }
+
+    void merge_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner );
 
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();

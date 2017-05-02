@@ -12,6 +12,7 @@
 std::vector<std::string> BUILTIN_TYPE_NAMES = {
     "Any",
     "Void",
+    "Interface",
     "Elementary",
     "Scalar",
     "Integer",
@@ -34,7 +35,6 @@ std::vector<std::string> BUILTIN_TYPE_NAMES = {
     "Array",
     "Function",
     "Tuple",
-    "Interface"
 };
 
 
@@ -105,6 +105,11 @@ protected:
     /** Declarations within this type's namespace. */
     std::vector<TxDeclarationNode*> declNodes;
 
+    friend void merge_builtin_type_definers( TxTypeExpressionNode* definer, TxTypeDefiningNode* builtinDefiner,
+                                             TxTypeExpressionNode* baseType, const std::vector<TxTypeExpressionNode*>& interfaces, bool _mutable );
+
+    std::vector<TxTypeExpressionNode*> interfaces;
+
     /** for use by make_ast_copy() in subclasses */
     TxBuiltinTypeDefiningNode( const TxLocation& parseLocation, const TxBuiltinTypeDefiningNode* original,
                                TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes )
@@ -137,6 +142,14 @@ protected:
     }
 
     virtual TxActualType* define_builtin_type() = 0;
+
+    /** helper method for subclasses that constructs a vector of TxTypeSpecialization of this instance's interface expressions */
+    std::vector<TxTypeSpecialization> resolve_interface_specs() const {
+        std::vector<TxTypeSpecialization> ifSpecs;
+        for (auto ifDef : this->interfaces)
+            ifSpecs.emplace_back( ifDef->resolve_type()->type() );
+        return ifSpecs;
+    }
 
 public:
     TxBuiltinTypeDefiningNode( const TxLocation& parseLocation, BuiltinTypeId builtinTypeId,
@@ -175,6 +188,30 @@ public:
             decl->visit_ast( visitor, thisAsParent, "decl", context );
     }
 };
+
+
+
+void merge_builtin_type_definers( TxTypeExpressionNode* definer, TxTypeDefiningNode* builtinDefiner,
+                                  TxTypeExpressionNode* baseType, const std::vector<TxTypeExpressionNode*>& interfaces, bool _mutable ) {
+    auto builtinNode = dynamic_cast<TxBuiltinTypeDefiningNode*>( builtinDefiner );
+    if (! builtinNode)
+        THROW_LOGIC("Expected builtin type definer to be of type TxBuiltinTypeDefiningNode: " << builtinDefiner);
+    ASSERT(builtinNode->is_context_set(), "Builtin type node hasn't run declaration pass: " << builtinNode);
+    ASSERT(!builtinNode->attempt_get_type(), "Builtin type already resolved: " << builtinNode);
+    builtinNode->interfaces = interfaces;
+}
+
+//void merge_declaration_nodes( TxTypeDefiningNode* builtinDefiner, const std::vector<TxDeclarationNode*>& declNodes ) {
+//    auto builtinNode = dynamic_cast<TxBuiltinTypeDefiningNode*>( builtinDefiner );
+//    if (! builtinNode)
+//        THROW_LOGIC("Expected builtin type definer to be of type TxBuiltinTypeDefiningNode: " << builtinDefiner);
+//    ASSERT(builtinNode->is_context_set(), "Expected builtinNode to have run declaration pass: " << builtinNode);
+//    for (auto declNode : declNodes) {
+//        ASSERT(declNode->is_context_set(), "Expected merged decl-node to have run declaration pass: " << declNode);
+//        //declNode->symbol_declaration_pass( builtinNode->context() );
+//        builtinNode->add_declaration_node( declNode );
+//    }
+//}
 
 
 
@@ -247,18 +284,17 @@ public:
 class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
     /** Used for the built-in types' abstract base types. */
     class TxBuiltinBaseType final : public TxActualType {
-        TxBuiltinBaseType* make_specialized_type(const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                      const std::vector<TxTypeSpecialization>& interfaces) const override {
+        TxBuiltinBaseType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+                                                  const std::vector<TxTypeSpecialization>& interfaces ) const override {
             if (! dynamic_cast<const TxBuiltinBaseType*>(baseTypeSpec.type))
                 throw std::logic_error("Specified a base type for TxBuiltinBaseType that was not a TxBuiltinBaseType: " + baseTypeSpec.type->str());
-            return new TxBuiltinBaseType(baseTypeSpec.type->get_type_class(), declaration, baseTypeSpec);
+            return new TxBuiltinBaseType( baseTypeSpec.type->get_type_class(), declaration, baseTypeSpec, interfaces );
         }
 
     public:
-        TxBuiltinBaseType(TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec)
-            : TxActualType(typeClass, declaration, baseTypeSpec)  { }
-        TxBuiltinBaseType(TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxActualType* baseType)
-            : TxActualType(typeClass, declaration, TxTypeSpecialization(baseType))  { }
+        TxBuiltinBaseType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+                           const std::vector<TxTypeSpecialization>& interfaces )
+            : TxActualType( typeClass, declaration, baseTypeSpec, interfaces )  { }
 
         virtual llvm::Type* make_llvm_type(LlvmGenerationContext& context) const override {
             LOG_TRACE(context.LOGGER(), "LLVM type for abstract type " << this << " is VOID");
@@ -268,8 +304,9 @@ class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
 
 protected:
     virtual TxActualType* define_builtin_type() override {
-        auto baseType = this->baseTypeNode->resolve_type();
-        return new TxBuiltinBaseType( this->typeClass, this->get_declaration(), baseType->type() );
+        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
+        auto ifSpecs = this->resolve_interface_specs();
+        return new TxBuiltinBaseType( this->typeClass, this->get_declaration(), baseTypeSpec, ifSpecs );
     }
 public:
     const TxTypeClass typeClass;
@@ -283,8 +320,9 @@ public:
 class TxIntegerTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     virtual TxActualType* define_builtin_type() override {
-        auto baseType = this->baseTypeNode->resolve_type();
-        return new TxIntegerType( this->get_declaration(), baseType->type(), this->size, this->sign);
+        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
+        auto ifSpecs = this->resolve_interface_specs();
+        return new TxIntegerType( this->get_declaration(), baseTypeSpec, ifSpecs, this->size, this->sign);
     }
 public:
     const int size;
@@ -298,8 +336,9 @@ public:
 class TxFloatingTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     virtual TxActualType* define_builtin_type() override {
-        auto baseType = this->baseTypeNode->resolve_type();
-        return new TxFloatingType( this->get_declaration(), baseType->type(), this->size );
+        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
+        auto ifSpecs = this->resolve_interface_specs();
+        return new TxFloatingType( this->get_declaration(), baseTypeSpec, ifSpecs, this->size );
     }
 public:
     const int size;
@@ -312,8 +351,9 @@ public:
 class TxBoolTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     virtual TxActualType* define_builtin_type() override {
-        auto baseType = this->baseTypeNode->resolve_type();
-        return new TxBoolType( this->get_declaration(), baseType->type() );
+        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
+        auto ifSpecs = this->resolve_interface_specs();
+        return new TxBoolType( this->get_declaration(), baseTypeSpec, ifSpecs );
     }
 public:
     TxBoolTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
@@ -325,8 +365,9 @@ public:
 class TxTupleTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     virtual TxActualType* define_builtin_type() override {
-        auto baseType = this->baseTypeNode->resolve_type();
-        return new TxTupleType( this->get_declaration(), baseType->type(), true );
+        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
+        auto ifSpecs = this->resolve_interface_specs();
+        return new TxTupleType( this->get_declaration(), baseTypeSpec, ifSpecs, true );
     }
 public:
     TxTupleTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
@@ -338,8 +379,9 @@ public:
 class TxInterfaceTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     virtual TxActualType* define_builtin_type() override {
-        auto baseType = this->baseTypeNode->resolve_type();
-        return new TxInterfaceType( this->get_declaration(), baseType->type() );
+        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
+        auto ifSpecs = this->resolve_interface_specs();
+        return new TxInterfaceType( this->get_declaration(), baseTypeSpec, ifSpecs );
     }
 public:
     TxInterfaceTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
@@ -354,8 +396,9 @@ class TxRefTypeDefNode final : public TxBuiltinTypeDefiningNode {
         : TxBuiltinTypeDefiningNode( parseLocation, original, baseTypeNode, declNodes )  { }
 protected:
     virtual TxActualType* define_builtin_type() override {
-        auto baseType = this->baseTypeNode->resolve_type();
-        return new TxReferenceType( this->get_declaration(), baseType->type() );
+        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
+        auto ifSpecs = this->resolve_interface_specs();
+        return new TxReferenceType( this->get_declaration(), baseTypeSpec, ifSpecs );
     }
 public:
     TxRefTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
@@ -374,8 +417,9 @@ class TxArrayTypeDefNode final : public TxBuiltinTypeDefiningNode {
         : TxBuiltinTypeDefiningNode( parseLocation, original, baseTypeNode, declNodes )  { }
 protected:
     virtual TxActualType* define_builtin_type() override {
-        auto baseType = this->baseTypeNode->resolve_type();
-        return new TxArrayType( this->get_declaration(), baseType->type() );
+        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
+        auto ifSpecs = this->resolve_interface_specs();
+        return new TxArrayType( this->get_declaration(), baseTypeSpec, ifSpecs );
     }
 public:
     TxArrayTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
