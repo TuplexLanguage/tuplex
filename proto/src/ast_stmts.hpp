@@ -433,6 +433,8 @@ public:
             // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
             if (! ( ltype->get_declaration()->get_decl_flags() & TXD_GENPARAM ))
                 CERROR(this->lvalue, "Assignee is not a concrete type (size potentially unknown): " << ltype);
+            else
+                LOG_NOTE(this->LOGGER(), "Assignee is not a concrete type (size potentially unknown): " << ltype);
         }
         else if (! ltype->is_modifiable()) {
             if (! this->context().get_constructed())  // TODO: only members of constructed object should skip error

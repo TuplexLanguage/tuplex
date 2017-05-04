@@ -71,6 +71,11 @@ void TypeRegistry::add_type_usage(TxType* type) {
 
 void TypeRegistry::add_type(TxActualType* type) {
     ASSERT (!this->startedPreparingTypes, "Can't create new types when type preparation phase has started: " << type);
+    if (type->staticTypeId < BuiltinTypeId_COUNT) {
+        ASSERT(type->staticTypeId == this->staticTypes.size(), "adding built-in type in wrong order: type id="
+                << type->staticTypeId << "; staticTypes.size()=" << this->staticTypes.size());
+        this->staticTypes.push_back(type);
+    }
     this->createdTypes.push_back(type);
 }
 
@@ -80,18 +85,19 @@ void TypeRegistry::prepare_types() {
     for (auto type : this->createdTypes) {
         //std::cerr << "Preparing type: " << type << std::endl;
         type->prepare_members();
-        if (!(type->is_builtin() && !type->is_modifiable())) {
-            // Types that are distinct in instance data type, or vtable, get distinct static type id and vtable.
-            if (( type->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK ))
-                continue;
-            if (type->get_type_class() == TXTC_FUNCTION)
-                continue;
-            if (type->is_equivalent_derivation()) {  // includes empty and modifiable derivations
-                //std::cerr << "Not registering distinct static type id for equivalent derivation: " << type << std::endl;
-                continue;
-            }
-            type->staticTypeId = this->staticTypes.size();
+        //if (type->is_builtin())
+        if (type->staticTypeId < BuiltinTypeId_COUNT)
+            continue;
+        // Types that are distinct in instance data type, or vtable, get distinct static type id and vtable.
+        if (( type->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK ))
+            continue;
+        if (type->get_type_class() == TXTC_FUNCTION)
+            continue;
+        if (type->is_equivalent_derivation()) {  // includes empty and modifiable derivations
+            //std::cerr << "Not registering distinct static type id for equivalent derivation: " << type << std::endl;
+            continue;
         }
+        type->staticTypeId = this->staticTypes.size();
         this->staticTypes.push_back(type);
         //std::cerr << "Registering static type " << type << " with distinct type id " << type->staticTypeId << std::endl;
     }

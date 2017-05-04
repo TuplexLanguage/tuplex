@@ -56,37 +56,21 @@ public:
 class TxScalarConvNode : public TxConversionNode {
     class ScalarConvConstantProxy : public TxConstantProxy {
         const TxScalarConvNode* convNode;
-        const TxConstantProxy* originalConstant;
-
     public:
-        ScalarConvConstantProxy() : convNode(), originalConstant()  { }
-        ScalarConvConstantProxy(const TxScalarConvNode* convNode, const TxConstantProxy* originalConstant)
-            : convNode(convNode), originalConstant(originalConstant)  { }
+        ScalarConvConstantProxy( const TxScalarConvNode* convNode ) : convNode(convNode)  { }
 
-        void init(const TxScalarConvNode* convNode, const TxConstantProxy* originalConstant) {
-            this->convNode = convNode;
-            this->originalConstant = originalConstant;
-        }
-
-        inline const TxConstantProxy* original_constant() const { return this->originalConstant; }
         virtual const TxType* get_type() const override { return this->convNode->resultType; }
-        virtual uint32_t get_value_UInt() const override { return this->originalConstant->get_value_UInt(); }
+        virtual uint32_t get_value_UInt() const override { return this->convNode->expr->get_static_constant_proxy()->get_value_UInt(); }
         virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const;
     };
 
     ScalarConvConstantProxy constProxy;
 public:
     TxScalarConvNode( TxExpressionNode* expr, const TxType* scalarResultType )
-        : TxConversionNode( expr, scalarResultType ), constProxy()  { }
-
-    virtual void symbol_resolution_pass() override {
-        TxConversionNode::symbol_resolution_pass();
-        if (auto originalConstant = this->expr->get_static_constant_proxy())
-            this->constProxy.init(this, originalConstant);
-    }
+        : TxConversionNode( expr, scalarResultType ), constProxy( this )  { }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        return (this->constProxy.original_constant() ? &this->constProxy : nullptr);
+        return &this->constProxy;
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

@@ -274,8 +274,6 @@ protected:
 
     virtual const TxField* define_field() override {
         LOG_TRACE(this->LOGGER(), "defining  field of " << this);
-        if (this->get_node_id()==1840)
-            ASSERT(this->attempt_get_type(), "Expected non-NULL type in " << this);
         // FUTURE: consider if EXPERR decls shouldn't get their field created
         return TxField::make_field( this->declaration, this->attempt_get_type() );
     }
@@ -358,9 +356,12 @@ public:
             this->typeExpression->symbol_resolution_pass();
         }
 
-        if (! field->get_type()->is_concrete())
+        if (! field->get_type()->is_concrete()) {
             if ( ! ( field->get_type()->get_declaration()->get_decl_flags() & TXD_GENPARAM ) )
                 CERROR(this, "Field type is not a concrete type (size potentially unknown): " << this->get_identifier() << " : " << field->get_type());
+            else
+                LOG_NOTE(this->LOGGER(), "Field type is not a concrete type (size potentially unknown): " << this->get_identifier() << " : " << field->get_type());
+        }
         if (this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR) {
             // TODO: check that constructor function type has void return value
         }

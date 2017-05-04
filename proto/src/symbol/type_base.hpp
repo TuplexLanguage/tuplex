@@ -220,7 +220,14 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
 
     /** Returns the common base type of the types, if both are pure specializations of it. */
     static const TxActualType* common_generic_base_type( const TxActualType* thisType, const TxActualType* otherType );
+
     static bool inner_is_a( const TxActualType* thisType, const TxActualType* otherType );
+
+    /** Returns true if this is a generic type or a direct specialization of a generic type.
+     * Note - does not bypass empty/modifiable derivations. */
+    inline bool is_gen_or_spec() const {
+        return ( !this->params.empty() || !this->bindings.empty() );
+    }
 
     /** used to prevent infinite recursion when compiler is processing erroneously defined recursive types */
     mutable bool recursionGuard = false;
@@ -496,7 +503,7 @@ public:
     bool is_a(const TxActualType& other) const;
 
 private:
-    bool inner_equals(const TxActualType& otherType) const;
+    bool inner_equals(const TxActualType* thatType) const;
 
     bool derives_object(const TxActualType* objectType) const;
     bool derives_interface(const TxActualType* interfaceType) const;

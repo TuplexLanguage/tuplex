@@ -428,8 +428,11 @@ bool TxActualType::inner_prepare_members() {
 
             { // validate field's type:
                 if (!fieldType->is_concrete()) {
-                    if (this->is_concrete())
-                        CERROR(field, "In concrete type " << this << ", member field is not of a concrete type: " << field << " : " << fieldType);
+                    // FIXME: if ( fieldType DEPENDENT ON GENERIC PARAMETER, DIRECTLY OR INDIRECTLY )
+                    if (!( fieldType->get_declaration()->get_decl_flags() & TXD_GENPARAM ))
+                        CERROR(field, "In type " << this << ": member field is not of a concrete type: " << field << " : " << fieldType);
+                    else
+                        LOG_NOTE(this->LOGGER(), "In type " << this << ": member field is not of a concrete type: " << field << " : " << fieldType);
                 }
             }
 
@@ -720,20 +723,20 @@ static inline bool is_explicit_nongen_declaration( const TxActualType* type ) {
 //    return false;
 //    // (interfaces and members can only apply to a type with an explicit declaration, and an explicit declaration can have only one type instance)
 //}
-bool TxActualType::inner_equals(const TxActualType& otherType) const {
+bool TxActualType::inner_equals(const TxActualType* thatType) const {
     // note: both are assumed to have explicit declaration and/or be non-empty
-    if (this == &otherType)
+    if (this == thatType)
         return true;
-    if (( this->get_declaration()->get_decl_flags() & TXD_IMPLICIT ) && ( otherType.get_declaration()->get_decl_flags() & TXD_IMPLICIT )) {
+    if (( this->get_declaration()->get_decl_flags() & TXD_IMPLICIT ) && ( thatType->get_declaration()->get_decl_flags() & TXD_IMPLICIT )) {
        // both are implicitly declared; compare structure:
-       if (this->baseTypeSpec.modifiable == otherType.baseTypeSpec.modifiable
-               && this->get_semantic_base_type() == otherType.get_semantic_base_type() ) {  // specializations of same semantic base
+       if (this->baseTypeSpec.modifiable == thatType->baseTypeSpec.modifiable
+               && this->get_semantic_base_type() == thatType->get_semantic_base_type() ) {  // specializations of same semantic base
            auto thisBinds = this->get_bindings();
-           auto otherBinds = otherType.get_bindings();
-           if (thisBinds.size() == otherBinds.size()) {
+           auto thatBinds = thatType->get_bindings();
+           if (thisBinds.size() == thatBinds.size()) {
                if (thisBinds.size() == 0)
                    return true;
-               bool eq = std::equal( thisBinds.cbegin(), thisBinds.cend(), otherBinds.cbegin(),
+               bool eq = std::equal( thisBinds.cbegin(), thisBinds.cend(), thatBinds.cbegin(),
                                      [](const TxEntityDeclaration* aEntDecl, const TxEntityDeclaration* bEntDecl)->bool {
                                          if (dynamic_cast<const TxTypeDeclaration*>( aEntDecl )) {
                                              //std::cerr << "### comparing bindings.. " << aEntDecl->get_definer()->resolve_type()->type()->str(false) << std::endl
@@ -767,12 +770,12 @@ bool TxActualType::inner_equals(const TxActualType& otherType) const {
 bool TxActualType::operator==(const TxActualType& other) const {
     // skips empty type derivations that aren't explicitly declared
     const TxActualType* thisType = this;
-    const TxActualType* otherType = &other;
+    const TxActualType* thatType = &other;
     while (!is_explicit_nongen_declaration( thisType ) && thisType->is_empty_derivation())
         thisType = thisType->get_base_type();
-    while (!is_explicit_nongen_declaration( otherType ) && otherType->is_empty_derivation())
-        otherType = otherType->get_base_type();
-    return thisType->inner_equals(*otherType);
+    while (!is_explicit_nongen_declaration( thatType ) && thatType->is_empty_derivation())
+        thatType = thatType->get_base_type();
+    return thisType->inner_equals( thatType );
 }
 
 
@@ -819,43 +822,51 @@ static void print_hierarchy(const TxActualType* type)
 
 
 /** Returns the common base type of the types, if both are pure specializations of it. */
-const TxActualType* TxActualType::common_generic_base_type( const TxActualType* thisType, const TxActualType* otherType ) {
+const TxActualType* TxActualType::common_generic_base_type( const TxActualType* thisType, const TxActualType* thatType ) {
     // find the nearest explicitly declared generic base type of each type and check if they're the same one:
     // (type parameters can only be present on explicitly declared types)
-    while (!is_explicit_nongen_declaration( thisType ) && !thisType->get_bindings().empty())
+    while (!thisType->get_explicit_declaration() && !thisType->get_bindings().empty())
         thisType = thisType->get_semantic_base_type();
-    while (!is_explicit_nongen_declaration( otherType ) && !otherType->get_bindings().empty())
-        otherType = otherType->get_semantic_base_type();
-    if (thisType->inner_equals(*otherType))
+    while (!thatType->get_explicit_declaration() && !thatType->get_bindings().empty())
+        thatType = thatType->get_semantic_base_type();
+    if (thisType->inner_equals( thatType ))
         return thisType;
     return nullptr;
 }
 
+static inline const TxEntityDeclaration* get_binding_or_parameter( const TxActualType* type, const TxEntityDeclaration* paramDecl ) {
+    if (auto binding = type->lookup_param_binding( paramDecl ))
+        return binding;
+    return paramDecl;
+}
 
-bool TxActualType::inner_is_a( const TxActualType* thisType, const TxActualType* otherType ) {
-    //std::cerr << thisType << "  IS-A\n" << otherType << std::endl;
+bool TxActualType::inner_is_a( const TxActualType* thisType, const TxActualType* thatType ) {
+    //std::cerr << thisType << "  IS-A\n" << thatType << std::endl;
     // by-pass anonymous, empty specializations:
     while (!is_explicit_nongen_declaration( thisType ) && thisType->is_empty_derivation())
         thisType = thisType->get_base_type();
 
-    if (thisType->inner_equals(*otherType))
+    if (thisType->inner_equals( thatType ))
         return true;
 
     // check whether other is a more generic version of the same type:
-    if (!thisType->get_bindings().empty() && !otherType->get_bindings().empty()) {
-        if (auto genBaseType = common_generic_base_type( thisType, otherType )) {
+    if (thisType->is_gen_or_spec() && thatType->is_gen_or_spec()) {
+        if (auto genBaseType = common_generic_base_type( thisType, thatType )) {
+            //std::cerr << "Common generic base type " << genBaseType << std::endl << "\tthisType: " << thisType << std::endl << "\tthatType: " << thatType << std::endl;
             for (auto paramDecl : genBaseType->type_params()) {
-                // other's param shall either be redeclared (generic) or *equal* to this (is-a is not sufficient in general case)
+                // other's param shall either be redeclared (unbound) or *equal* to this (is-a is not sufficient in general case)
                 // - a MOD binding is considered to be is-a of a non-MOD binding
-                if (auto otherBinding = otherType->lookup_param_binding(paramDecl)) {
-                    if (auto thisBinding = thisType->lookup_param_binding(paramDecl)) {
-                        // check whether both bindings resolve to same type/value:
+                // - a binding may be to a type that is equal to the parameter's constraint type, i.e. equivalent to unbound parameter
+                if (auto otherBinding = thatType->lookup_param_binding(paramDecl)) {
+                    if (auto thisBinding = get_binding_or_parameter( thisType, paramDecl )) {
+                        // check whether both resolve to same type/value:
                         auto thisBType = thisBinding->get_definer()->resolve_type();
                         auto thatBType = otherBinding->get_definer()->resolve_type();
                         if (thisBType->is_modifiable() && !thatBType->is_modifiable())
                             thisBType = thisBType->get_base_type();
-                        if (typeid(*thisBinding) != typeid(*otherBinding)  // both TYPE or both VALUE declarations
-                                || *thisBType != *thatBType)
+                        if (typeid(*thisBinding) != typeid(*otherBinding))
+                            return false;  // not both TYPE nor both VALUE
+                        if (*thisBType != *thatBType)
                             return false;
                     }
                     else
@@ -867,18 +878,18 @@ bool TxActualType::inner_is_a( const TxActualType* thisType, const TxActualType*
     }
 
     // check whether any ancestor type is-a the other type:
-    if (otherType->get_type_class() == TXTC_INTERFACE) {
+    if (thatType->get_type_class() == TXTC_INTERFACE) {
         for (auto & interfSpec : thisType->interfaces) {
-            if (inner_is_a( interfSpec.type, otherType ))
+            if (inner_is_a( interfSpec.type, thatType ))
                 return true;
         }
     }
     if (thisType->has_base_type()) {
         if (thisType->genericBaseType) {
-            if (inner_is_a( thisType->genericBaseType, otherType ))
+            if (inner_is_a( thisType->genericBaseType, thatType ))
                 return true;
         }
-        if (inner_is_a( thisType->get_base_type(), otherType ))
+        if (inner_is_a( thisType->get_base_type(), thatType ))
             return true;
     }
     return false;
@@ -887,23 +898,23 @@ bool TxActualType::inner_is_a( const TxActualType* thisType, const TxActualType*
 
 bool TxActualType::is_a(const TxActualType& other) const {
     const TxActualType* thisType = this;
-    const TxActualType* otherType = &other;
-    //std::cerr << thisType << "  IS-A\n" << otherType << std::endl;
+    const TxActualType* thatType = &other;
+    //std::cerr << thisType << "  IS-A\n" << thatType << std::endl;
 
     // compare modifiability:
     if (thisType->is_modifiable()) {
         thisType = thisType->get_base_type();
-        if (otherType->is_modifiable())
-            otherType = otherType->get_base_type();
+        if (thatType->is_modifiable())
+            thatType = thatType->get_base_type();
     }
-    else if (otherType->is_modifiable())
+    else if (thatType->is_modifiable())
         return false;  // a non-modifiable type "is not a" modifiable type
 
     // by-pass anonymous, empty specializations:
-    while (!is_explicit_nongen_declaration( otherType ) && otherType->is_empty_derivation())
-        otherType = otherType->get_base_type();
+    while (!is_explicit_nongen_declaration( thatType ) && thatType->is_empty_derivation())
+        thatType = thatType->get_base_type();
 
-    return inner_is_a( thisType, otherType );
+    return inner_is_a( thisType, thatType );
 }
 
 

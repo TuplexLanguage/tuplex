@@ -1,0 +1,55 @@
+## tests nested generic types and handling of "concreteness" of their code generation
+
+type Outer<S> {
+    ## TODO: static statMemb : S;
+    instMemb : S;
+    trivMemb : Int;
+
+    funcA( a : Int ) -> Int { return a; }
+    funcB( a : S ) -> S { return a; }
+
+    /** indirectly dependent on Outer's type parameters, i.e. indirectly generic */
+    type Inner {
+        ## TODO: static statMemb : S;
+        instMemb : S;
+        trivMemb : Int;
+        ## TODO: thatMemb : Outer<S>;
+
+        funcA( a : Int ) -> Int { return a; }
+        funcB( a : S ) -> S { return a; }
+    }
+
+    /** independent on Outer's type parameters, i.e. always concrete and the same */
+    type Indep {
+        static statMemb : Float = 1.1;
+        instMemb : Float;
+        trivMemb : Int;
+
+        funcA( a : Int ) -> Int { return a; }
+        funcB( a : Float ) -> Float { return a; }
+    }
+}
+
+
+main()->Int {
+    #experr: ve : Outer;
+    #experr: ve : Outer<Array>;
+
+    v1a : Outer<Float>;
+    v2a : v1a.Inner;
+    ## TODO: v3a : Outer<Float>.Inner;
+
+    #experr: ve : Outer.Inner;
+    ## TODO: #experr: ve : Outer<Array>.Inner;
+
+    type OuterFl Outer<Float>;
+    v1b : OuterFl;
+    v2b : v1b.Inner;
+    v3b : OuterFl.Inner;
+
+    v10 : Outer.Indep;
+    v11 : OuterFl.Indep;
+    v12 : &Outer.Indep = &v11;
+
+    return 0;
+}

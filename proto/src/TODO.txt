@@ -87,15 +87,17 @@ Type reflection, at least for autotesting, some ideas:
 Make VALUE type parameters proper instance fields and ensure they're correctly initialized
 Proper support for VALUE bindings, and implement correct Array type handling
 
-Range typeclass
+Support augmenting built-in types' definitions in tuplex code
 
-Simple for-loops
+Array literals
+
+Range typeclass
 
 Sequence interfaces
 
-String datatype
+Simple for-loops
 
-Array literals
+String datatype
 
 
 Implement debugging info
@@ -121,6 +123,10 @@ Proper mutability handling:
  - in compound expressions, e.g. mut.immut.mut.immut ...
  - mutating and non-mutating methods
  - review inheritance and mutability (including interface adapters)
+
+Handle static fields of generic types
+    - one per specialization type, or one for all specializations of a generic type?
+    - how write initializer?
 
 Implement implicit instance initializer function for types' instance members' inlined initializers
 
