@@ -512,7 +512,7 @@ public:
                             << argField->get_identifier() << " : " << argType);
                 }
                 else
-                    LOG_NOTE(this->LOGGER(), "Function argument type is not a concrete type (size potentially unknown): "
+                    LOG_INFO(this->LOGGER(), "Function argument type is not a concrete type (size potentially unknown): "
                              << argField->get_identifier() << " : " << argType);
             }
         }
@@ -525,7 +525,7 @@ public:
                     CERROR(returnField, "Function return type is not a concrete type (size potentially unknown): " << retType);
                 }
                 else
-                    LOG_NOTE(this->LOGGER(), "Function return type is not a concrete type (size potentially unknown): " << retType);
+                    LOG_INFO(this->LOGGER(), "Function return type is not a concrete type (size potentially unknown): " << retType);
             }
         }
     }

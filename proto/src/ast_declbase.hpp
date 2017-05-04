@@ -360,7 +360,7 @@ public:
             if ( ! ( field->get_type()->get_declaration()->get_decl_flags() & TXD_GENPARAM ) )
                 CERROR(this, "Field type is not a concrete type (size potentially unknown): " << this->get_identifier() << " : " << field->get_type());
             else
-                LOG_NOTE(this->LOGGER(), "Field type is not a concrete type (size potentially unknown): " << this->get_identifier() << " : " << field->get_type());
+                LOG_INFO(this->LOGGER(), "Field type is not a concrete type (size potentially unknown): " << this->get_identifier() << " : " << field->get_type());
         }
         if (this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR) {
             // TODO: check that constructor function type has void return value

@@ -100,6 +100,12 @@ Simple for-loops
 String datatype
 
 
+Overhaul concrete fields checking
+ - ideally bottom-up: any construct that is dependent on generic parameter causes container to be dependent (and non-concrete)
+ - methods may have function signature independent of generics, but contain code that is dependent on generic parameters
+ - distinguish between parameters that are ref-constrained and that aren't
+ - handle lexically nested generic and non-generic types appropriately
+
 Implement debugging info
 
 Support overloading of virtual methods

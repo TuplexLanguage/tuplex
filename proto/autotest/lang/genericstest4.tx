@@ -19,7 +19,7 @@ type Outer<S> {
         funcB( a : S ) -> S { return a; }
     }
 
-    /** independent on Outer's type parameters, i.e. always concrete and the same */
+    /** independent on Outer's type parameters, i.e. theoretically always concrete and the same */
     type Indep {
         static statMemb : Float = 1.1;
         instMemb : Float;

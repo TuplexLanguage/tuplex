@@ -264,19 +264,12 @@ void TxActualType::initialize_type() {
             if (auto paramDecl = semBaseType->get_type_param_decl( pname )) {
                 auto constraintType = paramDecl->get_definer()->resolve_type()->type();
                 ASSERT(constraintType, "NULL constraint type for param " << paramDecl << " of " << semBaseType);
-//                    auto boundType = bindingDecl->get_definer()->resolve_type();
-//                    ASSERT(boundType,      "NULL binding type for param " << paramDecl << " of " << basetype);
                 //std::cerr << this << ": Constraint type for param " << paramDecl << ": " << "checking bound type "
                 //          << boundType << "\tagainst constraint type " << constraintType << std::endl;
 
                 if (dynamic_cast<const TxTypeDeclaration*>(paramDecl)) {
                     if (! dynamic_cast<const TxTypeDeclaration*>(bindingDecl))
                         CERROR(bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " is not a type: " << bindingDecl);
-
-//                        if (! boundType->is_a(*constraintType))
-//                            // TO DO: do this also for VALUE params, but array type expression needs auto-conversion support for that to work
-//                            CERROR(bindingDecl->get_definer(), "Bound type " << boundType << " for type parameter " << paramDecl
-//                                                               << " is not a derivation of contraint type " << constraintType);
                     if (constraintType->get_type_class() != TXTC_REFERENCE)
                         this->nonRefBindings = true;
                 }
@@ -330,6 +323,22 @@ void TxActualType::initialize_type() {
 }
 
 
+/** Returns true if type or any of its enclosing types is dependent on generic type parameters. */
+static bool is_generic_context( const TxActualType* type ) {
+    if (type->is_generic())
+        return true;
+    TxScopeSymbol* scope = type->get_declaration()->get_symbol()->get_outer();
+    while (! dynamic_cast<TxModule*>( scope ) ) {
+        if (auto entitySymbol = dynamic_cast<TxEntitySymbol*>( scope )) {
+            type = entitySymbol->get_type_decl()->get_definer()->get_type()->type();
+            if (type->is_generic())
+                return true;
+        }
+        scope = scope->get_outer();
+    }
+    return false;
+}
+
 
 bool TxActualType::prepare_members() {
     if (!this->hasPrepared) {
@@ -372,11 +381,8 @@ bool TxActualType::inner_prepare_members() {
     //std::cerr << "Inherited virtual fields of " << this << std::endl;
     //this->virtualFields.dump();
 
-//    // (note, this condition is not the same as is_concrete())
-//    bool expectOnlyConcreteMembers = ( !this->is_abstract()
-//                                       && !this->is_generic()
-//                                       //&& !( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )
-//                                       );
+    // (note, this condition is not the same as is_concrete())
+    bool expectOnlyConcreteMembers = !is_generic_context( this );
 
     auto semBaseType = this->get_semantic_base_type();
 
@@ -398,9 +404,6 @@ bool TxActualType::inner_prepare_members() {
                     auto bname = typeDecl->get_unique_name();
                     if (auto paramDecl = semBaseType->get_type_param_decl( bname )) {
                         auto constraintType = paramDecl->get_definer()->get_type()->type();
-
-//                        if (typeDecl->get_definer()->get_node_id() == 1580)
-//                            std::cerr << "definer: " << typeDecl->get_definer() << std::endl;
                         if (! type->type()->is_a(*constraintType)) {
                             // TODO: do this also for VALUE params, but array type expression needs auto-conversion support for that to work
                             CERROR(typeDecl->get_definer(), "Bound type for type parameter " << paramDecl->get_unique_full_name() << ": " << type->str(false)
@@ -428,11 +431,12 @@ bool TxActualType::inner_prepare_members() {
 
             { // validate field's type:
                 if (!fieldType->is_concrete()) {
-                    // FIXME: if ( fieldType DEPENDENT ON GENERIC PARAMETER, DIRECTLY OR INDIRECTLY )
-                    if (!( fieldType->get_declaration()->get_decl_flags() & TXD_GENPARAM ))
+                    // it's ok for a field to be non-concrete if enclosed in a generic context
+                    if (expectOnlyConcreteMembers
+                            && !( fieldType->get_declaration()->get_decl_flags() & TXD_GENPARAM ))
                         CERROR(field, "In type " << this << ": member field is not of a concrete type: " << field << " : " << fieldType);
                     else
-                        LOG_NOTE(this->LOGGER(), "In type " << this << ": member field is not of a concrete type: " << field << " : " << fieldType);
+                        LOG_INFO(this->LOGGER(), "In type " << this << ": member field is not of a concrete type: " << field << " : " << fieldType);
                 }
             }
 
