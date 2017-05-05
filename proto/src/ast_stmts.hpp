@@ -105,8 +105,8 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt=false ) override {
-        this->set_context( lexContext);
-        ((TxExpressionNode*)this->call)->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        ((TxExpressionNode*)this->call)->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -125,7 +125,7 @@ protected:
     TxTerminalStmtNode(const TxLocation& parseLocation) : TxStatementNode(parseLocation)  { }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt=false ) override {
-        this->set_context( lexContext);
+        this->set_context( lexContext );
     }
     virtual void symbol_resolution_pass() override { }
 
@@ -146,9 +146,9 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt=false ) override {
-        this->set_context( lexContext);
+        this->set_context( lexContext );
         if (this->expr)
-            this->expr->symbol_declaration_pass( lexContext);
+            this->expr->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -221,9 +221,9 @@ public:
     }
 
     virtual void symbol_declaration_pass_no_subscope( LexicalContext& lexContext ) {
-        this->set_context( lexContext);
+        this->set_context( lexContext );
         for (auto stmt : *this->suite)
-            stmt->symbol_declaration_pass( lexContext);
+            stmt->symbol_declaration_pass( lexContext );
     }
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt=false ) override {
         LexicalContext suiteContext( lexContext, lexContext.scope()->create_code_block_scope( *this ) );
@@ -286,8 +286,8 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt=false ) override {
-        this->set_context( lexContext);
-        this->body->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        this->body->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -325,11 +325,11 @@ public:
     virtual TxCondCompoundStmtNode* make_ast_copy() const override = 0;
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt=false ) override {
-        this->set_context( lexContext);
-        this->cond->symbol_declaration_pass( lexContext);
-        this->body->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        this->cond->symbol_declaration_pass( lexContext );
+        this->body->symbol_declaration_pass( lexContext );
         if (this->elseClause)
-            this->elseClause->symbol_declaration_pass( lexContext);
+            this->elseClause->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -417,9 +417,9 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt=false ) override {
-        this->set_context( lexContext);
-        this->lvalue->symbol_declaration_pass( lexContext);
-        this->rvalue->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        this->lvalue->symbol_declaration_pass( lexContext );
+        this->rvalue->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -473,8 +473,8 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt=false ) override {
-        this->set_context( lexContext);
-        this->ifStmt->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        this->ifStmt->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -543,7 +543,7 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt=false ) override {
-        this->set_context( lexContext);
+        this->set_context( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {

@@ -34,9 +34,9 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
+        this->set_context( lexContext );
         if (! this->expr->is_context_set())
-            this->expr->symbol_declaration_pass( lexContext);
+            this->expr->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {

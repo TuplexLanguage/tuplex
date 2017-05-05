@@ -14,7 +14,7 @@ public:
 
     virtual std::string get_auto_type_name() const = 0;
 
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext ) = 0;
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) = 0;
 
     virtual void symbol_resolution_pass() = 0;
 };
@@ -35,9 +35,9 @@ public:
         return this->typeExprNode->get_auto_type_name();
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
         this->set_context( lexContext );
-        this->typeExprNode->symbol_declaration_pass( defContext, lexContext, nullptr );
+        this->typeExprNode->symbol_declaration_pass( lexContext, nullptr );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -74,7 +74,7 @@ public:
         }
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         this->valueExprNode->symbol_declaration_pass( lexContext );
     }
@@ -115,9 +115,9 @@ type Field<E,C,L> derives Array<Ref<Abstr<E,C>>,L> {
  */
 class TxGenSpecTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
         for (TxTypeArgumentNode* tp : *this->typeArgs) {
-            tp->symbol_declaration_pass( defContext, lexContext);
+            tp->symbol_declaration_pass( lexContext );
         }
     }
 
@@ -170,7 +170,7 @@ public:
 
 class TxIdentifiedTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
     }
 
     virtual const TxType* define_type() override;
@@ -214,8 +214,8 @@ class TxReferenceTypeNode : public TxBuiltinTypeSpecNode {
         : TxBuiltinTypeSpecNode(parseLocation), dataspace(dataspace), targetTypeNode(targetTypeArg)  { }
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
-        this->targetTypeNode->symbol_declaration_pass( defContext, lexContext);
+    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
+        this->targetTypeNode->symbol_declaration_pass( lexContext );
     }
 
     virtual const TxType* define_type() override {
@@ -258,7 +258,7 @@ class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
         : TxBuiltinTypeSpecNode(parseLocation), elementTypeNode(elementTypeArg), lengthNode(lengthExprArg) { }
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override;
+    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override;
 
     virtual const TxType* define_type() override {
 //        auto baseType = this->types().get_builtin_type(ARRAY);
@@ -319,15 +319,15 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
     void init_implicit_types();
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
         for (auto baseType : *this->baseTypes)
-            baseType->symbol_declaration_pass( defContext, lexContext, nullptr );
+            baseType->symbol_declaration_pass( lexContext, nullptr );
 
         //this->selfRefTypeNode->symbol_declaration_pass( lexContext );
         this->superRefTypeNode->symbol_declaration_pass( lexContext );
 
         for (auto member : *this->members)
-            member->symbol_declaration_pass( lexContext);
+            member->symbol_declaration_pass( lexContext );
     }
 
     virtual const TxType* define_type() override;
@@ -391,8 +391,8 @@ public:
 // * Custom AST node needed to resolve to a type's super type. */
 //class TxSuperTypeNode : public TxTypeExpressionNode {
 //protected:
-//    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
-//        this->derivedTypeNode->symbol_declaration_pass( defContext, lexContext, nullptr );
+//    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
+//        this->derivedTypeNode->symbol_declaration_pass( lexContext, nullptr );
 //    }
 //
 //    virtual const TxType* define_type() override {
@@ -443,7 +443,7 @@ class TxFunctionTypeNode : public TxTypeExpressionNode {
     }
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
         for (auto argDef : *this->arguments)
             argDef->symbol_declaration_pass( lexContext );
         if (this->returnField)
@@ -485,7 +485,7 @@ public:
         return this->get_declaration()->get_unique_full_name();
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
+    virtual void symbol_declaration_pass( LexicalContext& lexContext,
                                           const TxTypeDeclaration* owningDeclaration ) override {
         if (! owningDeclaration) {
             std::string funcTypeName = lexContext.scope()->make_unique_name( "$Ftype", true );
@@ -497,7 +497,7 @@ public:
             }
             LOG_TRACE(this->LOGGER(), this << ": Declared type " << owningDeclaration);
         }
-        TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, owningDeclaration );
+        TxTypeExpressionNode::symbol_declaration_pass( lexContext, owningDeclaration );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -543,8 +543,8 @@ public:
 
 class TxModifiableTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
-        this->baseType->symbol_declaration_pass( defContext, lexContext, nullptr );
+    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
+        this->baseType->symbol_declaration_pass( lexContext, nullptr );
     }
 
     virtual const TxType* define_type() override {
@@ -590,7 +590,7 @@ public:
         return "~" + baseName;
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
+    virtual void symbol_declaration_pass( LexicalContext& lexContext,
                                           const TxTypeDeclaration* owningDeclaration ) override;
 
     virtual void symbol_resolution_pass() override {
@@ -634,7 +634,7 @@ public:
             return this->baseType->get_auto_type_name();
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
+    virtual void symbol_declaration_pass( LexicalContext& lexContext,
                                           const TxTypeDeclaration* owningDeclaration ) override;
 
     virtual const TxTypeDeclaration* get_declaration() const override {

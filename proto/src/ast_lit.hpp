@@ -93,7 +93,7 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
+        this->set_context( lexContext );
         if (this->intValue.radix < 2 || this->intValue.radix > 36)
             CERROR(this, "Radix outside valid range [2,36]: " << this->intValue.radix);
         else if (this->intValue.outOfRange)
@@ -130,7 +130,7 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
+        this->set_context( lexContext );
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -156,7 +156,7 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
+        this->set_context( lexContext );
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
@@ -210,7 +210,7 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
+        this->set_context( lexContext );
     }
 
     virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;

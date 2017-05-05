@@ -145,7 +145,7 @@ const TxType* TxReferenceConvNode::define_type() {
             // create reference type to the adapter type  TODO: review if node creation can be moved to constructor / declaration pass
             auto adapterDefiner = new TxTypeDeclWrapperNode( this->parseLocation, adapterType->get_declaration() );
             TxTypeTypeArgumentNode* targetTypeNode = new TxTypeTypeArgumentNode( adapterDefiner );
-            targetTypeNode->symbol_declaration_pass( this->context(), this->context());
+            targetTypeNode->symbol_declaration_pass( this->context() );
             return this->registry().get_reference_type( this, targetTypeNode, nullptr );
         }
     }

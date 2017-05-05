@@ -13,7 +13,7 @@ class TxTypeExpressionNode : public TxTypeDefiningNode {
     const TxTypeDeclaration* declaration = nullptr;
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) = 0;
+    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) = 0;
 
 public:
     TxTypeExpressionNode(const TxLocation& parseLocation) : TxTypeDefiningNode(parseLocation) { }
@@ -30,8 +30,7 @@ public:
      * and a "lexical context", within which they declare their constituent sub-expressions.
      * The definition context is used for named types lookups, to avoid conflation with names of the sub-expressions.
      */
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
-                                          const TxTypeDeclaration* owningDeclaration );
+    virtual void symbol_declaration_pass( LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration );
 
     virtual void symbol_resolution_pass() {
         this->resolve_type();
@@ -144,10 +143,10 @@ public:
 //    virtual const TxType* get_type        () const override { return this->get_spec_expression()->get_type();         }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
+        this->set_context( lexContext );
         auto expr = this->get_spec_expression();
         if (! expr->is_context_set())
-            expr->symbol_declaration_pass( lexContext);
+            expr->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -206,8 +205,8 @@ public:
     }
 
     void symbol_declaration_pass( LexicalContext& lexContext ) {
-        this->set_context( lexContext);
-        this->typeExpression->symbol_declaration_pass( lexContext, lexContext, nullptr );
+        this->set_context( lexContext );
+        this->typeExpression->symbol_declaration_pass( lexContext, nullptr );
     }
 
     virtual void symbol_resolution_pass() {
@@ -240,7 +239,7 @@ class TxFieldDefNode : public TxFieldDefiningNode {
     void symbol_declaration_pass( LexicalContext& outerContext, LexicalContext& innerContext, TxDeclarationFlags declFlags) {
         this->set_context( outerContext);
         if (this->typeExpression)
-            this->typeExpression->symbol_declaration_pass( innerContext, innerContext, nullptr );
+            this->typeExpression->symbol_declaration_pass( innerContext, nullptr );
         if (this->initExpression)
             this->initExpression->symbol_declaration_pass( outerContext );
     };
@@ -448,14 +447,9 @@ public:
                                    this->typeExpression->make_ast_copy(), this->interfaceKW);
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl=false ) override {
-        this->symbol_declaration_pass( lexContext, lexContext, isExpErrorDecl );
-    }
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, bool isExpErrorDecl=false );
+    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl=false ) override;
 
     virtual void symbol_resolution_pass() override {
-//        if (this->_builtinCode)
-//            return;
         if (!this->_builtinCode && this->typeParamDecls)
             for (auto paramDecl : *this->typeParamDecls)
                 paramDecl->symbol_resolution_pass();

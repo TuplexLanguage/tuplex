@@ -159,7 +159,7 @@ const TxType* TypeRegistry::get_modifiable_type(const TxTypeDeclaration* declara
         auto modNode = new TxModifiableTypeNode(loc, new TxIdentifiedTypeNode(loc, actualType->get_declaration()->get_unique_name()));
         TxDeclarationFlags newDeclFlags = ( actualType->get_declaration()->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
         auto modDeclNode = new TxTypeDeclNode(loc, newDeclFlags, name, nullptr, modNode);
-        modDeclNode->symbol_declaration_pass( ctx, ctx );
+        modDeclNode->symbol_declaration_pass( ctx );
         modDeclNode->symbol_resolution_pass();
         return modNode->get_type();
     }
@@ -543,7 +543,7 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     auto newSpecTypeDecl = new TxTypeDeclNode( definer->get_parse_location(), newDeclFlags, uniqueSpecTypeNameStr, bindingDeclNodes, specTypeExpr );
 
     LexicalContext specContext = LexicalContext( baseScope, definer->exp_err_ctx(), true );
-    newSpecTypeDecl->symbol_declaration_pass( specContext, specContext );
+    newSpecTypeDecl->symbol_declaration_pass( specContext );
     const TxActualType* specializedType = specTypeExpr->resolve_type()->type();
     LOG_DEBUG(this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << baseType);
 
@@ -622,7 +622,7 @@ class TxAdapterTypeNode final : public TxTypeExpressionNode {
     const TxActualType* adaptedType;
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override { }
+    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override { }
 
     virtual const TxType* define_type() override {
         auto adapterActType = new TxInterfaceAdapterType( this->get_declaration(), interfaceType, adaptedType );

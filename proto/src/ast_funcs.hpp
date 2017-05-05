@@ -7,8 +7,8 @@ class TxFunctionHeaderNode : public TxTypeExpressionNode {
     TxFunctionTypeNode* funcTypeNode;
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
-        this->funcTypeNode->symbol_declaration_pass( defContext, lexContext, nullptr );  // (creates implicit declaration for the function type)
+    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
+        this->funcTypeNode->symbol_declaration_pass( lexContext, nullptr );  // (creates implicit declaration for the function type)
 
         // declare the function args, and the return type if any:
         for (auto argField : *this->arguments)
@@ -136,7 +136,7 @@ public:
 
         this->set_context( funcLexContext);
 
-        this->funcHeaderNode->symbol_declaration_pass( funcLexContext, funcLexContext, nullptr );  // function header
+        this->funcHeaderNode->symbol_declaration_pass( funcLexContext, nullptr );  // function header
         this->suite->symbol_declaration_pass_no_subscope( funcLexContext );  // function body
     }
 

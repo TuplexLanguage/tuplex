@@ -117,9 +117,9 @@ protected:
           baseTypeNode( baseTypeNode ), declNodes( declNodes )  { }
 
 
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
         if (this->baseTypeNode)
-            this->baseTypeNode->symbol_declaration_pass( defContext, lexContext, nullptr );
+            this->baseTypeNode->symbol_declaration_pass( lexContext, nullptr );
         for (auto decl : this->declNodes)
             decl->symbol_declaration_pass( lexContext, false );
     }
@@ -442,7 +442,7 @@ public:
     TxBuiltinConstructorTypeDefNode( const TxLocation& parseLocation, std::vector<TxFieldTypeDefNode*>* arguments, TxTypeExpressionNode* returnType )
         : TxFunctionTypeNode( parseLocation, false, arguments, returnType )  { }
 
-    virtual void symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, const TxTypeDeclaration* owningDecl ) override {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext, const TxTypeDeclaration* owningDecl ) override {
         // overrides in order to create implicit declaration for the function type
         ASSERT(!owningDecl, "Expected NULL owningDeclaration: " << owningDecl);
 
@@ -455,7 +455,7 @@ public:
         }
         //LOG(this->LOGGER(), INFO, this << ": Declared type " << declaration);
 
-        TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, declaration );
+        TxTypeExpressionNode::symbol_declaration_pass( lexContext, declaration );
     }
 
     virtual TxBuiltinConstructorTypeDefNode* make_ast_copy() const override = 0;
@@ -466,8 +466,8 @@ class TxDefConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode
 protected:
     TxExpressionNode* initExprNode;
 
-    virtual void symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) override {
-        TxFunctionTypeNode::symbol_declaration_pass_descendants( defContext, lexContext );
+    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
+        TxFunctionTypeNode::symbol_declaration_pass_descendants( lexContext );
         this->initExprNode->symbol_declaration_pass( this->context() );
     }
 

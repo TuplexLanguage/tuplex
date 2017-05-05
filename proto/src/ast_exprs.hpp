@@ -39,7 +39,7 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) {
-        this->set_context( lexContext);
+        this->set_context( lexContext );
         // when this is is used as an implicit conversion node the reference node may have already run declaration pass:
         if (! this->reference->is_context_set())
             this->reference->symbol_declaration_pass( lexContext );
@@ -95,9 +95,9 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
-        this->array->symbol_declaration_pass( lexContext);
-        this->subscript->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        this->array->symbol_declaration_pass( lexContext );
+        this->subscript->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -141,11 +141,11 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) {
-        this->set_context( lexContext);
+        this->set_context( lexContext );
         // when this is is used as an implicit conversion node the target node may have already run declaration pass:
         if (! this->target->is_context_set())
             this->target->symbol_declaration_pass( lexContext );
-        this->targetTypeNode->symbol_declaration_pass( lexContext, lexContext );
+        this->targetTypeNode->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -269,9 +269,9 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
-        lhs->symbol_declaration_pass( lexContext);
-        rhs->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        lhs->symbol_declaration_pass( lexContext );
+        rhs->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -334,8 +334,8 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
-        operand->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        operand->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -370,8 +370,8 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
-        operand->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        operand->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -486,8 +486,8 @@ public:
 
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
-        this->objectExpr->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        this->objectExpr->symbol_declaration_pass( lexContext );
     }
     virtual void symbol_resolution_pass() override { this->objectExpr->symbol_resolution_pass(); }
 
@@ -517,7 +517,7 @@ protected:
             : TxExpressionNode(parseLocation), objTypeExpr(objTypeExpr) { }
 
 public:
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override { this->set_context( lexContext); }
+    virtual void symbol_declaration_pass( LexicalContext& lexContext) override { this->set_context( lexContext ); }
     virtual void symbol_resolution_pass() override { }
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
@@ -574,9 +574,9 @@ protected:
 
 public:
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
-        this->typeExpr->symbol_declaration_pass( lexContext, lexContext, nullptr );
-        this->constructorCall->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        this->typeExpr->symbol_declaration_pass( lexContext, nullptr );
+        this->constructorCall->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -694,8 +694,8 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
-        field->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        field->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -734,8 +734,8 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
-        operand->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        operand->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -780,9 +780,9 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
-        this->set_context( lexContext);
-        array->symbol_declaration_pass( lexContext);
-        subscript->symbol_declaration_pass( lexContext);
+        this->set_context( lexContext );
+        array->symbol_declaration_pass( lexContext );
+        subscript->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {

@@ -132,7 +132,7 @@ const TxField* TxFieldDefiningNode::resolve_field() {
 
 
 void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) {
-    this->set_context( lexContext);
+    this->set_context( lexContext );
     TxDeclarationFlags flags = (isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags);
 
     if (field->initExpression) {
@@ -234,7 +234,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
 }
 
 
-void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext, bool isExpErrorDecl ) {
+void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) {
     this->set_context( lexContext );
 
     const TxTypeDeclaration* declaration = nullptr;
@@ -262,35 +262,29 @@ void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& defContext, Lexica
         LOG_TRACE(this->LOGGER(), this << ": Declared type " << declaration);
     }
 
-    // The context of this node represents its outer scope.
-    // The type expression's created type entity, if any, represents its inner scope.
-    LexicalContext typeCtx(lexContext, declaration->get_symbol());
-
-    // TODO: review defCtx, lexCtx, and typeCtx usage / design
-    // declare type parameters within type declaration's scope, and before rest of type expression is processed:
     if (this->typeParamDecls) {
-        // if type parameters have been declared, rest of type expression has this typeCtx also as its defCtx
+        // The context of this node represents its outer scope.
+        // The type expression's created type entity, if any, represents its inner scope.
+        // Declare type parameters within type declaration's scope, and before rest of type expression is processed:
+        // (TypeExpression also instantiates the typeCtx, but since we process paramDeclNodes here we do it here too)
+        LexicalContext typeCtx( lexContext, declaration->get_symbol() );
         if (!this->_builtinCode) {
             for (auto paramDeclNode : *this->typeParamDecls) {
                 paramDeclNode->symbol_declaration_pass( typeCtx);
             }
         }
-
-        this->typeExpression->symbol_declaration_pass( lexContext, lexContext, declaration );
     }
-    else
-        this->typeExpression->symbol_declaration_pass( defContext, lexContext, declaration );
+    this->typeExpression->symbol_declaration_pass( lexContext, declaration );
 }
 
 
-void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
-                                                    const TxTypeDeclaration* owningDeclaration ) {
+void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration ) {
     // The context of this node represents its outer scope.
     // The type expression's created type entity, if any, represents its inner scope.
     this->set_context( lexContext );
     this->declaration = owningDeclaration;
     LexicalContext typeCtx(lexContext, ( owningDeclaration ? owningDeclaration->get_symbol() : lexContext.scope() ) );
-    this->symbol_declaration_pass_descendants( defContext, typeCtx );
+    this->symbol_declaration_pass_descendants( typeCtx );
 }
 
 
@@ -322,18 +316,10 @@ const TxType* TxGenSpecTypeNode::define_type() {
 
 
 
-void TxArrayTypeNode::symbol_declaration_pass_descendants( LexicalContext& defContext, LexicalContext& lexContext ) {
-    this->elementTypeNode->symbol_declaration_pass( defContext, lexContext);
-// If we're to implicitly define a binding the Array.L parameter, we must also fix so that such implicit bindings
-// get a corresponding type parameter declaration in the outer type entity.
-//    if (! this->lengthNode) {
-//        // implicit redeclaration of array length parameter L:
-//        TxIdentifierNode* redeclIdent = new TxIdentifierNode(this->parseLocation, new TxIdentifier("L"));
-//        TxExpressionNode* lengthExpr = new TxFieldValueNode(this->parseLocation, nullptr, redeclIdent);
-//        lengthNode = new TxTypeArgumentNode(lengthExpr);
-//    }
+void TxArrayTypeNode::symbol_declaration_pass_descendants( LexicalContext& lexContext ) {
+    this->elementTypeNode->symbol_declaration_pass( lexContext );
     if (this->lengthNode)
-        this->lengthNode->symbol_declaration_pass( defContext, lexContext);
+        this->lengthNode->symbol_declaration_pass( lexContext );
 }
 
 
@@ -399,7 +385,7 @@ void TxDerivedTypeNode::merge_builtin_type_definer( TxTypeDefiningNode* builtinT
 
 
 
-void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
+void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& lexContext,
                                                     const TxTypeDeclaration* owningDeclaration ) {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if (auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>(this->baseType)) {
@@ -410,11 +396,11 @@ void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& defContext, 
         }
     }
 
-    TxTypeExpressionNode::symbol_declaration_pass( defContext, lexContext, owningDeclaration );
+    TxTypeExpressionNode::symbol_declaration_pass( lexContext, owningDeclaration );
 }
 
 
-void TxMaybeModTypeNode::symbol_declaration_pass( LexicalContext& defContext, LexicalContext& lexContext,
+void TxMaybeModTypeNode::symbol_declaration_pass( LexicalContext& lexContext,
                                                   const TxTypeDeclaration* owningDeclaration) {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if (! this->is_modifiable()) {
@@ -426,11 +412,11 @@ void TxMaybeModTypeNode::symbol_declaration_pass( LexicalContext& defContext, Le
     }
 
     if (this->is_modifiable())
-        TxModifiableTypeNode::symbol_declaration_pass( defContext, lexContext, owningDeclaration );
+        TxModifiableTypeNode::symbol_declaration_pass( lexContext, owningDeclaration );
     else {
         // "pass through" entity declaration to the underlying type
-        this->set_context( lexContext);
-        this->baseType->symbol_declaration_pass( defContext, lexContext, owningDeclaration );
+        this->set_context( lexContext );
+        this->baseType->symbol_declaration_pass( lexContext, owningDeclaration );
     }
 }
 
@@ -788,10 +774,10 @@ TxFunctionCallNode::TxFunctionCallNode(const TxLocation& parseLocation, TxExpres
 }
 
 void TxFunctionCallNode::symbol_declaration_pass( LexicalContext& lexContext) {
-    this->set_context( lexContext);
-    this->callee->symbol_declaration_pass( lexContext);
+    this->set_context( lexContext );
+    this->callee->symbol_declaration_pass( lexContext );
     for (auto argExpr : *this->argsExprList) {
-        argExpr->symbol_declaration_pass( lexContext);
+        argExpr->symbol_declaration_pass( lexContext );
     }
 
     if (this->isSelfSuperConstructorInvocation) {
