@@ -239,14 +239,7 @@ class TxFieldDefNode : public TxFieldDefiningNode {
 
     const TxFieldDeclaration* declaration = nullptr;
 
-    void symbol_declaration_pass( LexicalContext& outerContext, LexicalContext& innerContext, TxDeclarationFlags declFlags ) {
-        this->set_context( outerContext );
-        if ( this->typeExpression )
-            this->typeExpression->symbol_declaration_pass( innerContext, nullptr );
-        if ( this->initExpression )
-            this->initExpression->symbol_declaration_pass( outerContext );
-    }
-    ;
+    void symbol_declaration_pass( LexicalContext& lexContext, TxDeclarationFlags declFlags );
 
 protected:
     virtual const TxType* define_type() override {
@@ -313,31 +306,12 @@ public:
         return new TxFieldDefNode( this->parseLocation, this->fieldName->str(), typeExpr, initExpr, this->modifiable );
     }
 
-    void symbol_declaration_pass_local_field( LexicalContext& lexContext, bool create_local_scope, TxDeclarationFlags declFlags = TXD_NONE ) {
-        LexicalContext outerCtx( lexContext );  // prevents init expr from referring to this field
-        if ( create_local_scope )
-            lexContext.scope( lexContext.scope()->create_code_block_scope( *this ) );
-        this->declaration = lexContext.scope()->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
-        this->symbol_declaration_pass( outerCtx, lexContext, declFlags );
-    }
+    void symbol_declaration_pass_local_field( LexicalContext& lexContext, TxDeclarationFlags declFlags = TXD_NONE );
+
+    void symbol_declaration_pass_local_scoped_field( LexicalContext& lexContext, TxDeclarationFlags declFlags = TXD_NONE );
 
     void symbol_declaration_pass_nonlocal_field( LexicalContext& lexContext, TxFieldDeclNode* fieldDeclNode, TxDeclarationFlags declFlags,
-                                                 TxFieldStorage storage,
-                                                 const TxIdentifier& dataspace ) {
-        this->fieldDeclNode = fieldDeclNode;  // enables support for usage-order code generation of non-local fields
-        TxDeclarationFlags fieldFlags = declFlags;
-        std::string declName = this->fieldName->str();
-        if ( *this->fieldName == "self" ) {
-            // handle constructor declaration
-            declName = CONSTR_IDENT;
-            fieldFlags = fieldFlags | TXD_CONSTRUCTOR;
-            if ( storage != TXS_INSTANCEMETHOD )
-                CERROR( this, "Illegal declaration name for non-constructor member: " << this->fieldName );
-        }
-
-        this->declaration = lexContext.scope()->declare_field( declName, this, fieldFlags, storage, dataspace );
-        this->symbol_declaration_pass( lexContext, lexContext, declFlags );
-    }
+                                                 TxFieldStorage storage, const TxIdentifier& dataspace );
 
     virtual void symbol_resolution_pass() {
         auto field = this->resolve_field();

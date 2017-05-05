@@ -5,6 +5,7 @@
 #include "tx_error.hpp"
 
 #include "symbol/symbol.hpp"
+#include "symbol/module.hpp"
 
 class TxModule;
 class TxPackage;
@@ -30,8 +31,6 @@ class LexicalContext : public Printable {
     //         (a scope can have several statements, a statement may create subscopes).
     //         This might make multi-context handling (defContext / lexContext) and declaration flag handling cleaner.
 
-    static TxModule* get_module( TxScopeSymbol* scope );
-
 public:
     /** Constructs an "uninitialized" lexical context. */
     LexicalContext() //= default;
@@ -49,8 +48,7 @@ public:
     }
 
     /** Constructs a lexical context that is a sub-context of the provided context.
-     * The provided scope must be the same or a sub-scope of the parent's scope.
-     * This initializes the contextual (inherited) declaration flags. */
+     * The provided scope must be the same or a sub-scope of the parent's scope. */
     LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope )
             : _scope( scope ), constructedObjTypeDecl( parentContext.constructedObjTypeDecl ),
               reinterpretation( parentContext.reinterpretation ),
@@ -72,27 +70,58 @@ public:
             : _scope( scope ), constructedObjTypeDecl(), reinterpretation( reinterpretation ), expErrCtx( expErrCtx ) {
     }
 
-    inline TxScopeSymbol* scope() const {
-        return this->_scope;
-    }
 
+    /** used by field-declaring statements */
     void scope( TxScopeSymbol* scope ) {
         this->_scope = scope;
     }
 
-    /** If this scope is a type declaration, return it. */
-    inline const TxTypeDeclaration* outer_type() const {
-        if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->_scope ) )
-            return entitySymbol->get_type_decl();
-        return nullptr;
+
+    inline TxScopeSymbol* scope() const {
+        return this->_scope;
     }
 
+    /** Returns the closest enclosing module. */
     inline TxModule* module() const {
-        return get_module( this->_scope );
+        ASSERT( this->_scope, "scope is NULL" );
+        for ( auto scope = this->_scope; true; scope = scope->get_outer() ) {
+            if ( auto module = dynamic_cast<TxModule*>( scope ) )
+                return module;
+        }
     }
 
     inline TxPackage* package() const {
         return this->_scope->get_root_scope();
+    }
+
+
+//    inline TxScopeSymbol* enclosing_statement() const {
+//        return this->_scope;
+//    }
+//
+//    inline TxScopeSymbol* enclosing_function() const {
+//        return this->_scope;
+//    }
+
+    /** Returns the closest enclosing type's declaration, or null if this context has no enclosing type. */
+    inline const TxTypeDeclaration* enclosing_type() const {
+        ASSERT( this->_scope, "scope is NULL" );
+        for ( auto scope = this->_scope; scope; scope = scope->get_outer() ) {
+            if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( scope ) ) {
+                ASSERT(entitySymbol->get_type_decl(), "NULL type decl in entity symbol " << entitySymbol);
+                return entitySymbol->get_type_decl();
+            }
+        }
+        return nullptr;
+    }
+
+
+
+    /** If this scope is a type declaration, returns it, otherwise null. */
+    inline const TxTypeDeclaration* get_type_decl() const {
+        if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->_scope ) )
+            return entitySymbol->get_type_decl();
+        return nullptr;
     }
 
     /** Returns true if this is within a reinterpretation (specialization) of an AST. */

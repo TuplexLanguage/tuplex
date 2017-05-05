@@ -11,9 +11,9 @@ protected:
 
         // declare the function args, and the return type if any:
         for ( auto argField : *this->arguments )
-            argField->symbol_declaration_pass_local_field( lexContext, false );
+            argField->symbol_declaration_pass_local_field( lexContext );
         if ( this->returnField )
-            this->returnField->symbol_declaration_pass_local_field( lexContext, false, TXD_IMPLICIT );
+            this->returnField->symbol_declaration_pass_local_field( lexContext, TXD_IMPLICIT );
     }
 
     virtual const TxType* define_type() override {
@@ -131,8 +131,8 @@ public:
             else
                 CERROR( this, "The scope of an instance method must be a type scope" );
 
-            this->selfRefNode->symbol_declaration_pass_local_field( funcLexContext, false );
-            this->superRefNode->symbol_declaration_pass_local_field( funcLexContext, false );
+            this->selfRefNode->symbol_declaration_pass_local_field( funcLexContext );
+            this->superRefNode->symbol_declaration_pass_local_field( funcLexContext );
         }
         // FUTURE: define implicit closure object when in code block
 

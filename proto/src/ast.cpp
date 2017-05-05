@@ -120,6 +120,46 @@ const TxField* TxFieldDefiningNode::resolve_field() {
     return this->field;
 }
 
+
+
+void TxFieldDefNode::symbol_declaration_pass( LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
+    this->set_context( lexContext );
+    if ( this->typeExpression )
+        this->typeExpression->symbol_declaration_pass( lexContext, nullptr );
+    if ( this->initExpression )
+        this->initExpression->symbol_declaration_pass( lexContext );
+}
+
+void TxFieldDefNode::symbol_declaration_pass_local_field( LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
+    this->declaration = lexContext.scope()->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
+    this->symbol_declaration_pass( lexContext, declFlags );
+}
+
+void TxFieldDefNode::symbol_declaration_pass_local_scoped_field( LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
+    auto blockScope = lexContext.scope()->create_code_block_scope( *this );  // prevents init expr from referring to this field
+    this->declaration = blockScope->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
+    this->symbol_declaration_pass( lexContext, declFlags );
+}
+
+void TxFieldDefNode::symbol_declaration_pass_nonlocal_field( LexicalContext& lexContext, TxFieldDeclNode* fieldDeclNode, TxDeclarationFlags declFlags,
+                                                             TxFieldStorage storage, const TxIdentifier& dataspace ) {
+    this->fieldDeclNode = fieldDeclNode;  // enables support for usage-order code generation of non-local fields
+    TxDeclarationFlags fieldFlags = declFlags;
+    std::string declName = this->fieldName->str();
+    if ( *this->fieldName == "self" ) {
+        // handle constructor declaration
+        declName = CONSTR_IDENT;
+        fieldFlags = fieldFlags | TXD_CONSTRUCTOR;
+        if ( storage != TXS_INSTANCEMETHOD )
+            CERROR( this, "Illegal declaration name for non-constructor member: " << this->fieldName );
+    }
+
+    this->declaration = lexContext.scope()->declare_field( declName, this, fieldFlags, storage, dataspace );
+    this->symbol_declaration_pass( lexContext, declFlags );
+}
+
+
+
 void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) {
     this->set_context( lexContext );
     TxDeclarationFlags flags = ( isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags );
@@ -130,7 +170,7 @@ void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool 
     }
 
     TxFieldStorage storage;
-    if ( this->isMethodSyntax && lexContext.outer_type() ) {
+    if ( this->isMethodSyntax && lexContext.get_type_decl() ) {
         // Note: instance method storage is handled specially (technically the function pointer is a static field)
 
         TxLambdaExprNode* lambdaExpr = nullptr;

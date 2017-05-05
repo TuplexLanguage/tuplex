@@ -46,8 +46,10 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
-        this->field->symbol_declaration_pass_local_field( lexContext, true, ( isExpErrorStmt ? TXD_EXPERRBLOCK : TXD_NONE ) );
-        this->set_context( this->field->context() );
+        this->set_context( lexContext );
+        this->field->symbol_declaration_pass_local_scoped_field( lexContext, ( isExpErrorStmt ? TXD_EXPERRBLOCK : TXD_NONE ) );
+        auto innerScope = this->field->get_declaration()->get_symbol()->get_outer();
+        lexContext.scope( innerScope );  // so subsequent statements are in the scope block of this field
     }
 
     virtual void symbol_resolution_pass() override {
@@ -86,8 +88,8 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
+        this->set_context( lexContext );
         this->typeDecl->symbol_declaration_pass( lexContext, isExpErrorStmt );
-        this->set_context( this->typeDecl->context() );
     }
 
     virtual void symbol_resolution_pass() override {
