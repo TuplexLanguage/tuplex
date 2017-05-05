@@ -1,11 +1,8 @@
 #pragma once
 
-
 #include <stdexcept>
 
-
 class TxParseOrigin;
-
 
 /** Represents a failure to resolve a type / field.
  * (This is used instead of passing NULL values up the call stack, requiring many NULL pointer checks.)
@@ -13,18 +10,17 @@ class TxParseOrigin;
  */
 class resolution_error : public std::runtime_error {
     TxParseOrigin const * const origin;
-public:
+    public:
     resolution_error( const TxParseOrigin* origin, const std::string& errMessage )
-        : std::runtime_error( errMessage ), origin( origin )  { }
+            : std::runtime_error( errMessage ), origin( origin ) {
+    }
 };
-
 
 template<typename charT, typename traits>
 std::basic_ostream<charT, traits> &
-operator<< (std::basic_ostream<charT, traits> &lhs, const resolution_error& rhs) {
+operator<<( std::basic_ostream<charT, traits> &lhs, const resolution_error& rhs ) {
     return lhs << rhs.what();
 }
-
 
 #define THROW_LOGIC(message) \
 do { \

@@ -7,10 +7,8 @@
 
 #include "module.hpp"
 
-
 class TypeRegistry;
 class BuiltinTypes;
-
 
 /** A Tuplex package represents a Tuplex compilation unit.
  * A compilation unit can consist of multiple parsing units (source files).
@@ -25,25 +23,26 @@ class TxPackage : public TxModule {
 public:
     TxPackage( TxDriver& driver, const TxParseOrigin& rootOrigin );
 
+    inline TxDriver& driver() const {
+        return this->_driver;
+    }
 
-    inline TxDriver& driver() const { return this->_driver; }
+    inline TypeRegistry& registry() const {
+        return *this->typeRegistry;
+    }
 
-    inline TypeRegistry& registry() const { return *this->typeRegistry; }
-
-    inline BuiltinTypes& builtins() const { return *this->builtinTypes; }
-
-
+    inline BuiltinTypes& builtins() const {
+        return *this->builtinTypes;
+    }
 
     /** Gets the "root parse origin", corresponding to the package scope (the namespace root). */
-    inline const TxParseOrigin& root_origin() const { return this->origin; }
+    inline const TxParseOrigin& root_origin() const {
+        return this->origin;
+    }
 
-
-
-    void registerMainFunc(const TxEntitySymbol* mainFunc);
+    void registerMainFunc( const TxEntitySymbol* mainFunc );
 
     const TxFieldDeclaration* getMainFunc() const;
-
-
 
     virtual std::string description_string() const override {
         return "package";

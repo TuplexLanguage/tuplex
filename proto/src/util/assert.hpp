@@ -6,7 +6,9 @@
 
 class assertion_error : public std::logic_error {
 public:
-    assertion_error(const std::string& errMessage) : std::logic_error(errMessage) { }
+    assertion_error( const std::string& errMessage )
+            : std::logic_error( errMessage ) {
+    }
 };
 
 #ifndef NDEBUG

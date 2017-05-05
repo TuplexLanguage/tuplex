@@ -12,16 +12,14 @@
 #include "identifier.hpp"
 #include "tx_error.hpp"
 
-
 namespace yy {
-    class location;
+class location;
 }
 class TxPackage;
 class TxNode;
 class TxParsingUnitNode;
 class TxFieldDeclNode;
 class TxParserContext;
-
 
 /** Represents Tuplex compilation run-time options. */
 class TxOptions {
@@ -41,7 +39,6 @@ public:
     std::vector<std::string> sourceSearchPaths;
 };
 
-
 /** Represents a Tuplex package compilation job.
  * Conducts the whole scanning, parsing, symbol table and semantic passes, and code generation.
  * A TxDriver instance is not reentrant in the sense that it only performs a single compilation.
@@ -50,7 +47,6 @@ class TxDriver {
     Logger& _LOG;
 
     const TxOptions options;
-
 
     /** Parser context representing the built-in constructs without actual source code. */
     TxParserContext* builtinParserContext;
@@ -68,7 +64,7 @@ class TxDriver {
     int warning_count = 0;
 
     /** The queue of source files to parse in this compilation. */
-    std::deque< std::pair<TxIdentifier,std::string> > sourceFileQueue;
+    std::deque<std::pair<TxIdentifier, std::string> > sourceFileQueue;
 
     /** The parsing units for the source files already parsed, in parse order. */
     std::vector<TxParserContext*> parsedASTs;
@@ -79,43 +75,42 @@ class TxDriver {
 
     std::vector<TxFieldDeclNode*> usageOrderedNonlocalFieldDecls;
 
-
     // Handling the scanner.
-    int scan_begin(const std::string &filePath);
+    int scan_begin( const std::string &filePath );
     void scan_end();
 
     /** Parse a file, including it in the currently compiling package. */
-    int parse(TxParserContext& parserContext);
+    int parse( TxParserContext& parserContext );
 
     /** Generate LLVM IR and/or bytecode. */
-    int llvm_compile(const std::string& outputFileName);
-
+    int llvm_compile( const std::string& outputFileName );
 
     /** Add all .tx source files directly under the specified directory to the currently compiling package. */
-    int add_all_in_dir(const TxIdentifier& moduleName, const std::string &dirPath);
+    int add_all_in_dir( const TxIdentifier& moduleName, const std::string &dirPath );
 
     /** Add a source file to the currently compiling package.
      * @param moduleName the module expected to be found in the source file
      * @param filePath the path to the source file
      */
-    void add_source_file(const TxIdentifier& moduleName, const std::string &filePath);
+    void add_source_file( const TxIdentifier& moduleName, const std::string &filePath );
 
     /** Add a module to the currently compiling package.
      * The Tuplex source path will be searched for the module's source.
      * @return true if the module's source was found (does not indicate whether parse and compilation succeeded)
      */
-    bool add_import(const TxIdentifier& moduleName);
+    bool add_import( const TxIdentifier& moduleName );
 
     friend class TxParserContext;
 
 public:
     /** Constructs a TxDriver instance with the specified run-time options. */
-    TxDriver(const TxOptions& options);
+    TxDriver( const TxOptions& options );
 
     virtual ~TxDriver();
 
-    inline const TxOptions& get_options() const { return this->options; }
-
+    inline const TxOptions& get_options() const {
+        return this->options;
+    }
 
     /** Compile this Tuplex package. May only be called once.
      * Return values:
@@ -125,12 +120,10 @@ public:
      * 3 if code generation failed
      * @return 0 on success
      */
-    int compile(const std::vector<std::string>& startSourceFiles, const std::string& outputFileName);
-
+    int compile( const std::vector<std::string>& startSourceFiles, const std::string& outputFileName );
 
     void register_nonlocal_field_usage( TxFieldDeclNode* fieldDeclNode );
 };
-
 
 /** Represents the processing of a parsing unit.
  * When a driver compiles a package it consists of one or more parsing units.
@@ -145,7 +138,7 @@ class TxParserContext : public Printable {
 
     /** non-empty if currently processing within an EXPERR block */
     std::stack<ExpectedErrorClause*> expErrorStack;
-//    ExpectedErrorClause* expError = nullptr;
+    //    ExpectedErrorClause* expError = nullptr;
 
     void emit_comp_error( char const *msg, ExpectedErrorClause* expErrorContext );
     void emit_comp_warning( char const *msg );
@@ -161,15 +154,13 @@ public:
     /** used by lexer to track nested comments */
     unsigned commentNestLevel = 0;
 
-
-    TxParserContext(TxDriver& driver, TxIdentifier moduleName, const std::string &filePath)
-        : _driver(driver), _moduleName(moduleName) {
+    TxParserContext( TxDriver& driver, TxIdentifier moduleName, const std::string &filePath )
+            : _driver( driver ), _moduleName( moduleName ) {
         // FUTURE: make parser not save *pointer* to filename, necessitating this leaky snippet:
-        this->_currentInputFilename = new std::string(filePath);
+        this->_currentInputFilename = new std::string( filePath );
     }
 
     virtual ~TxParserContext() = default;
-
 
     /** The path of the file currently being parsed.
      * Used later to pass the file path to the location tracker. */
@@ -178,16 +169,15 @@ public:
     }
 
     /** Checks that the module name is valid in relation to the currently parsed source file and its file name/path. */
-    bool validate_module_name(const TxParseOrigin* origin, const TxIdentifier* moduleName);
+    bool validate_module_name( const TxParseOrigin* origin, const TxIdentifier* moduleName );
 
     /** Add a module to the currently compiling package.
      * The Tuplex source path will be searched for the module's source.
      * @return true if the module's source was found (does not indicate whether parse and compilation succeeded)
      */
-    bool add_import(const TxIdentifier& moduleName) {
-        return this->_driver.add_import(moduleName);
+    bool add_import( const TxIdentifier& moduleName ) {
+        return this->_driver.add_import( moduleName );
     }
-
 
     /** Registers an expected-error node that is being parsed within this context. */
     void register_exp_err_node( TxNode* expErrNode );
@@ -195,14 +185,13 @@ public:
     /** Checks all expected-error nodes of this parser context if the expected errors have occurred. */
     void finalize_expected_error_clauses();
 
-
     // Compilation error handling.
-    void cerror(const TxParseOrigin* origin, const std::string& msg);
-    void cwarning(const TxParseOrigin* origin, const std::string& msg);
-    void cinfo(const TxLocation& loc, const std::string& msg);
+    void cerror( const TxParseOrigin* origin, const std::string& msg );
+    void cwarning( const TxParseOrigin* origin, const std::string& msg );
+    void cinfo( const TxLocation& loc, const std::string& msg );
 
     /** should only be used when ParseOrigin is not available */
-    void cerror(const TxLocation& loc, const std::string& msg);
+    void cerror( const TxLocation& loc, const std::string& msg );
 
     // Compilation error handling.
     void begin_exp_err( const TxParseOrigin* origin );

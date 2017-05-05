@@ -9,12 +9,11 @@
 /** internal identifier for constructors */
 #define CONSTR_IDENT "$constr"
 
-
-
 #include <stdint.h>
 
-enum BuiltinTypeId : uint32_t {
-    TXBT_ANY,
+enum BuiltinTypeId
+    : uint32_t {
+        TXBT_ANY,
     TXBT_VOID,
     TXBT_INTERFACE,
     TXBT_ELEMENTARY,

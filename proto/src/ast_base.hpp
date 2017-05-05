@@ -27,25 +27,23 @@ class TxNode;
 class LlvmGenerationContext;
 class GenScope;
 namespace llvm {
-    class Constant;
-    class Value;
+class Constant;
+class Value;
 }
-
 
 /** Helper function that makes a deep-copy of a vector of nodes. */
 template<class N>
 std::vector<N*>* make_node_vec_copy( const std::vector<N*>* nodeVec ) {
-    if (! nodeVec)
+    if ( !nodeVec )
         return nullptr;
     std::vector<N*>* copyVec = new std::vector<N*>( nodeVec->size() );
     std::transform( nodeVec->cbegin(), nodeVec->cend(), copyVec->begin(),
-                    []( N* n ) -> N*  {  return n->make_ast_copy();  } );
+                    []( N* n ) -> N* {return n->make_ast_copy();} );
     return copyVec;
 }
 
-
-bool validateTypeName (TxNode* node, TxDeclarationFlags declFlags, const std::string& name);
-bool validateFieldName(TxNode* node, TxDeclarationFlags declFlags, const std::string& name);
+bool validateTypeName( TxNode* node, TxDeclarationFlags declFlags, const std::string& name );
+bool validateFieldName( TxNode* node, TxDeclarationFlags declFlags, const std::string& name );
 
 /** Returns the "degree of reinterpretation" required to implicitly transform a provided value
  * to a value of an expected type.
@@ -57,8 +55,6 @@ bool validateFieldName(TxNode* node, TxDeclarationFlags declFlags, const std::st
  */
 int get_reinterpretation_degree( const TxType *expectedType, const TxType* providedType );
 
-
-
 /** Represents a value that can be statically computed (in compile time). */
 class TxConstantProxy {
 public:
@@ -69,28 +65,29 @@ public:
 
     virtual uint32_t get_value_UInt() const = 0;
 
-    virtual llvm::Constant* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
+    virtual llvm::Constant* code_gen( LlvmGenerationContext& context, GenScope* scope ) const = 0;
 
-    virtual bool operator==(const TxConstantProxy& other) const;
+    virtual bool operator==( const TxConstantProxy& other ) const;
 
-    inline virtual bool operator!=(const TxConstantProxy& other) const final {
-        return ! this->operator==(other);
+    inline virtual bool operator!=( const TxConstantProxy& other ) const final {
+        return !this->operator==( other );
     }
 };
-
 
 struct AstParent {
     const AstParent* parent;
     const TxNode* node;
     unsigned depth;  // 0 if parent is null
-    AstParent( const TxNode* node ) : parent(), node(node), depth() {}
-    AstParent( const AstParent& parent, const TxNode* node ) : parent(&parent), node(node), depth(parent.depth+1) {}
+    AstParent( const TxNode* node )
+            : parent(), node( node ), depth() {
+    }
+    AstParent( const AstParent& parent, const TxNode* node )
+            : parent( &parent ), node( node ), depth( parent.depth + 1 ) {
+    }
 };
 
 /** type of the AST visitor callable */
 typedef std::function<void( const TxNode* node, const AstParent& parent, const std::string& role, void* context )> AstVisitor;
-
-
 
 class TxNode : public virtual TxParseOrigin, public Printable {
     static Logger& _LOG;
@@ -101,12 +98,14 @@ class TxNode : public virtual TxParseOrigin, public Printable {
     LexicalContext lexContext;
 
 protected:
-    TxNode(const TxLocation& parseLocation) : nodeId(nextNodeId++), lexContext(), parseLocation(parseLocation) { }
+    TxNode( const TxLocation& parseLocation )
+            : nodeId( nextNodeId++ ), lexContext(), parseLocation( parseLocation ) {
+    }
 
     virtual ~TxNode() = default;
 
-    void set_context(LexicalContext&& context) {
-        ASSERT(!this->is_context_set(), "lexicalContext already initialized in " << this->str());
+    void set_context( LexicalContext&& context ) {
+        ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );
         this->lexContext = context;
     }
 
@@ -121,31 +120,31 @@ public:
         return this->lexContext.exp_error();
     }
 
-    inline unsigned get_node_id() const { return this->nodeId; }
+    inline unsigned get_node_id() const {
+        return this->nodeId;
+    }
 
     /** Creates a copy of this node and all its descendants for purpose of generic specialization. */
     virtual TxNode* make_ast_copy() const = 0;
 
+    inline bool is_context_set() const {
+        return this->lexContext.scope();
+    }
 
-    inline bool is_context_set() const { return this->lexContext.scope(); }
-
-    void set_context(const LexicalContext& context) {
-        ASSERT(!this->is_context_set(), "lexicalContext already initialized in " << this->str());
+    void set_context( const LexicalContext& context ) {
+        ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );
         this->lexContext = context;
     }
 
     inline const LexicalContext& context() const {
-        ASSERT(this->is_context_set(), "lexicalContext not initialized in " << this->str());
+        ASSERT( this->is_context_set(), "lexicalContext not initialized in " << this->str() );
         return this->lexContext;
     }
     inline LexicalContext& context() {
-        return const_cast<LexicalContext&>(static_cast<const TxNode *>(this)->context());
+        return const_cast<LexicalContext&>( static_cast<const TxNode *>( this )->context() );
     }
 
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const = 0;
-
-
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const = 0;
 
     virtual void visit_ast( AstVisitor visitor, void* context ) const;
 
@@ -153,73 +152,82 @@ public:
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const = 0;
 
-
-
     /** Returns the identifier owned by this node, if any, otherwise an empty string. */
-    virtual std::string get_identifier() const { return std::string(); }
+    virtual std::string get_identifier() const {
+        return std::string();
+    }
 
     virtual std::string str() const override;
 
     std::string parse_loc_string() const;
 
+    inline TypeRegistry& registry() const {
+        return this->context().package()->registry();
+    }
 
-
-    inline TypeRegistry& registry() const { return this->context().package()->registry(); }
-
-    inline Logger* LOGGER() const { return &this->_LOG; }
+    inline Logger* LOGGER() const {
+        return &this->_LOG;
+    }
 };
-
-
 
 class TxImportNode : public TxNode {
 public:
     const TxIdentifier* ident;
 
     TxImportNode( const TxLocation& parseLocation, const TxIdentifier* identifier )
-        : TxNode(parseLocation), ident(identifier)  {
+            : TxNode( parseLocation ), ident( identifier ) {
         // imports need to be added to the parser context upon AST creation, so that they will be parsed before the declaration pass:
-        if (! this->ident->is_qualified())
-            CERROR(this, "can't import unqualified identifier '" << this->ident << "'");
+        if ( !this->ident->is_qualified() )
+            CERROR( this, "can't import unqualified identifier '" << this->ident << "'" );
         else {
-            if (! this->parseLocation.parserCtx->add_import( this->ident->parent() ))
-                CERROR(this, "Failed to import module (source not found): " << this->ident->parent());
+            if ( !this->parseLocation.parserCtx->add_import( this->ident->parent() ) )
+                CERROR( this, "Failed to import module (source not found): " << this->ident->parent() );
         }
     }
 
-    virtual TxImportNode* make_ast_copy() const override { return new TxImportNode( this->parseLocation, this->ident ); }
+    virtual TxImportNode* make_ast_copy() const override {
+        return new TxImportNode( this->parseLocation, this->ident );
+    }
 
     virtual void symbol_declaration_pass( TxModule* module ) {
-        this->set_context(LexicalContext(module));
+        this->set_context( LexicalContext( module ) );
         module->register_import( *this, *this->ident );
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override { return nullptr; }
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
+        return nullptr;
+    }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {};
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+    }
+    ;
 
-    virtual std::string get_identifier() const override { return this->ident->str(); }
+    virtual std::string get_identifier() const override {
+        return this->ident->str();
+    }
 };
-
 
 class TxDeclarationNode : public TxNode {  // either type or field
 protected:
     const TxDeclarationFlags declFlags;
 
 public:
-    TxDeclarationNode(const TxLocation& parseLocation, const TxDeclarationFlags declFlags)
-        : TxNode(parseLocation), declFlags(declFlags) { }
+    TxDeclarationNode( const TxLocation& parseLocation, const TxDeclarationFlags declFlags )
+            : TxNode( parseLocation ), declFlags( declFlags ) {
+    }
 
     virtual TxDeclarationNode* make_ast_copy() const override = 0;
 
-    inline TxDeclarationFlags get_decl_flags() const { return this->declFlags; }
+    inline TxDeclarationFlags get_decl_flags() const {
+        return this->declFlags;
+    }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl=false ) = 0;
+    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl = false ) = 0;
 
     virtual void symbol_resolution_pass() = 0;
 
     virtual const TxEntityDeclaration* get_declaration() const = 0;
 };
-
 
 class TxModuleNode : public TxNode {
     const TxIdentifier* ident;
@@ -231,98 +239,101 @@ class TxModuleNode : public TxNode {
 
 public:
     TxModuleNode( const TxLocation& parseLocation, const TxIdentifier* identifier,
-                  std::vector<TxImportNode*>* imports, std::vector<TxDeclarationNode*>* members,
-                  std::vector<TxModuleNode*>* subModules, bool builtin=false )
-        : TxNode(parseLocation), ident(identifier), imports(imports), members(members), subModules(subModules), builtin(builtin)  {
-        ASSERT(identifier, "NULL identifier");  // (sanity check on parser)
+                  std::vector<TxImportNode*>* imports,
+                  std::vector<TxDeclarationNode*>* members,
+                  std::vector<TxModuleNode*>* subModules,
+                  bool builtin = false )
+            : TxNode( parseLocation ), ident( identifier ), imports( imports ), members( members ), subModules( subModules ), builtin( builtin ) {
+        ASSERT( identifier, "NULL identifier" );  // (sanity check on parser)
     }
 
     virtual TxModuleNode* make_ast_copy() const override {
         return new TxModuleNode( this->parseLocation, this->ident,
                                  make_node_vec_copy( imports ),
                                  make_node_vec_copy( members ),
-                                 make_node_vec_copy( subModules ), builtin );
+                                 make_node_vec_copy( subModules ),
+                                 builtin );
     }
 
-    virtual void symbol_declaration_pass(TxModule* parent) {
+    virtual void symbol_declaration_pass( TxModule* parent ) {
         this->module = parent->declare_module( *this, *this->ident, this->builtin );
 
-        if (this->imports) {
-            for (auto imp : *this->imports)
+        if ( this->imports ) {
+            for ( auto imp : *this->imports )
                 imp->symbol_declaration_pass( this->module );
         }
-        if (this->members) {
-            LexicalContext subCtx(this->module);
-            for (auto mem : *this->members)
+        if ( this->members ) {
+            LexicalContext subCtx( this->module );
+            for ( auto mem : *this->members )
                 mem->symbol_declaration_pass( subCtx );
         }
-        if (this->subModules) {
-            for (auto mod : *this->subModules)
+        if ( this->subModules ) {
+            for ( auto mod : *this->subModules )
                 mod->symbol_declaration_pass( this->module );
         }
     }
 
     virtual void symbol_resolution_pass() {
-        if (this->members) {
-            for (auto mem : *this->members)
+        if ( this->members ) {
+            for ( auto mem : *this->members )
                 mem->symbol_resolution_pass();
         }
-        if (this->subModules) {
-            for (auto mod : *this->subModules)
+        if ( this->subModules ) {
+            for ( auto mod : *this->subModules )
                 mod->symbol_resolution_pass();
         }
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        if (this->imports) {
-            for (auto imp : *this->imports)
+        if ( this->imports ) {
+            for ( auto imp : *this->imports )
                 imp->visit_ast( visitor, thisAsParent, "import", context );
         }
-        if (this->members) {
-            LexicalContext subCtx(this->module);
-            for (auto mem : *this->members)
+        if ( this->members ) {
+            LexicalContext subCtx( this->module );
+            for ( auto mem : *this->members )
                 mem->visit_ast( visitor, thisAsParent, "member", context );
         }
-        if (this->subModules) {
-            for (auto mod : *this->subModules)
+        if ( this->subModules ) {
+            for ( auto mod : *this->subModules )
                 mod->visit_ast( visitor, thisAsParent, "module", context );
         }
     }
 
-    virtual std::string get_identifier() const override { return this->ident->str(); }
+    virtual std::string get_identifier() const override {
+        return this->ident->str();
+    }
 };
-
 
 /** Represents a parsing unit, i.e. a given source text input (e.g. source file). */
 class TxParsingUnitNode : public TxNode {
     TxModuleNode* module;
-public:
-    TxParsingUnitNode(const TxLocation& parseLocation, TxModuleNode* module)
-        : TxNode( parseLocation ), module( module )  { }
+    public:
+    TxParsingUnitNode( const TxLocation& parseLocation, TxModuleNode* module )
+            : TxNode( parseLocation ), module( module ) {
+    }
 
     virtual TxDeclarationNode* make_ast_copy() const override {
-        ASSERT(false, "Can't make AST copy of TxParsingUnitNode " << this);
+        ASSERT( false, "Can't make AST copy of TxParsingUnitNode " << this );
         return nullptr;
     }
 
-    virtual void symbol_declaration_pass(TxPackage* package) {
-        this->module->symbol_declaration_pass(package);
+    virtual void symbol_declaration_pass( TxPackage* package ) {
+        this->module->symbol_declaration_pass( package );
     }
 
     virtual void symbol_resolution_pass() {
         this->module->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->module->visit_ast( visitor, thisAsParent, "module", context );
     }
 };
-
-
 
 /** Root class for AST nodes that resolve a program entity - a type or a field.
  * To resolve means to either produce a new entity (define a new type or field)
@@ -335,7 +346,9 @@ public:
  */
 class TxEntityDefiningNode : public TxNode {
 public:
-    TxEntityDefiningNode(const TxLocation& parseLocation) : TxNode(parseLocation) { }
+    TxEntityDefiningNode( const TxLocation& parseLocation )
+            : TxNode( parseLocation ) {
+    }
 
     virtual TxEntityDefiningNode* make_ast_copy() const override = 0;
 
@@ -343,18 +356,17 @@ public:
      * If this node's entity has not already been resolved, it will be resolved in this invocation.
      * If the resolution fails, an error message will have been generated and resolution_error exception is thrown.
      * This method never returns NULL. */
-    virtual const TxType* resolve_type    ()       = 0;
+    virtual const TxType* resolve_type() = 0;
 
     /** Returns the type of the entity/value this node produces/uses.
      * This node must have been resolved before this call.
      * This method never returns NULL, provided this node has been successfully resolved. */
-    virtual const TxType* get_type        () const = 0;
+    virtual const TxType* get_type() const = 0;
 
     /** Returns the type of the entity/value this node produces/uses if already successfully resolved,
      * otherwise NULL. */
     virtual const TxType* attempt_get_type() const = 0;
 };
-
 
 class TxTypeDefiningNode : public TxEntityDefiningNode {
     const TxType* type = nullptr;
@@ -370,7 +382,9 @@ protected:
     virtual const TxType* define_type() = 0;
 
 public:
-    TxTypeDefiningNode(const TxLocation& parseLocation) : TxEntityDefiningNode(parseLocation) { }
+    TxTypeDefiningNode( const TxLocation& parseLocation )
+            : TxEntityDefiningNode( parseLocation ) {
+    }
 
     virtual TxTypeDefiningNode* make_ast_copy() const override = 0;
 
@@ -378,11 +392,14 @@ public:
      * @return a valid type pointer (exception is thrown upon failure) */
     virtual const TxType* resolve_type() override final;
 
-    virtual const TxType* attempt_get_type() const override { return this->type; }
-    virtual const TxType* get_type        () const override {
-        ASSERT(this->type, "entity definer not resolved: " << this); return this->type; }
+    virtual const TxType* attempt_get_type() const override {
+        return this->type;
+    }
+    virtual const TxType* get_type() const override {
+        ASSERT( this->type, "entity definer not resolved: " << this );
+        return this->type;
+    }
 };
-
 
 class TxExpressionNode;
 
@@ -405,7 +422,9 @@ protected:
     virtual const TxField* define_field() = 0;
 
 public:
-    TxFieldDefiningNode(const TxLocation& parseLocation) : TxEntityDefiningNode(parseLocation) { }
+    TxFieldDefiningNode( const TxLocation& parseLocation )
+            : TxEntityDefiningNode( parseLocation ) {
+    }
 
     virtual TxFieldDefiningNode* make_ast_copy() const override = 0;
 
@@ -420,13 +439,21 @@ public:
         return this->type;
     }
 
-    virtual const TxType*  attempt_get_type() const override final { return this->type; }
-    virtual const TxType*  get_type        () const override final {
-        ASSERT(this->type, "entity definer not resolved: " << this); return this->type; }
+    virtual const TxType* attempt_get_type() const override final {
+        return this->type;
+    }
+    virtual const TxType* get_type() const override final {
+        ASSERT( this->type, "entity definer not resolved: " << this );
+        return this->type;
+    }
 
-    virtual const TxField* attempt_get_field() const final { return this->field; }
-    virtual const TxField* get_field        () const final {
-        ASSERT(this->field, "entity definer not resolved: " << this); return this->field; }
+    virtual const TxField* attempt_get_field() const final {
+        return this->field;
+    }
+    virtual const TxField* get_field() const final {
+        ASSERT( this->field, "entity definer not resolved: " << this );
+        return this->field;
+    }
 
     virtual const TxExpressionNode* get_init_expression() const = 0;
 };

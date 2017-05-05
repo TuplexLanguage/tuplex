@@ -2,12 +2,12 @@
 
 #include "ast_declbase.hpp"
 
-
-
 /** Represents a binding for a type parameter. Can be either a Type or a Value parameter binding. */
 class TxTypeArgumentNode : public TxNode {
 protected:
-    TxTypeArgumentNode( const TxLocation& parseLocation ) : TxNode(parseLocation) { }
+    TxTypeArgumentNode( const TxLocation& parseLocation )
+            : TxNode( parseLocation ) {
+    }
 
 public:
     virtual TxTypeArgumentNode* make_ast_copy() const override = 0;
@@ -19,13 +19,13 @@ public:
     virtual void symbol_resolution_pass() = 0;
 };
 
-
 class TxTypeTypeArgumentNode : public TxTypeArgumentNode {
 public:
     TxTypeExpressionNode* typeExprNode;
 
     TxTypeTypeArgumentNode( TxTypeExpressionNode* typeExprNode )
-        : TxTypeArgumentNode(typeExprNode->parseLocation), typeExprNode(typeExprNode) { }
+            : TxTypeArgumentNode( typeExprNode->parseLocation ), typeExprNode( typeExprNode ) {
+    }
 
     virtual TxTypeTypeArgumentNode* make_ast_copy() const override {
         return new TxTypeTypeArgumentNode( this->typeExprNode->make_ast_copy() );
@@ -44,27 +44,27 @@ public:
         this->typeExprNode->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->typeExprNode->visit_ast( visitor, thisAsParent, "type", context );
     }
 };
 
-
 class TxValueTypeArgumentNode : public TxTypeArgumentNode {
 public:
     TxExpressionNode* valueExprNode;
 
     TxValueTypeArgumentNode( TxExpressionNode* valueExprNode )
-        : TxTypeArgumentNode(valueExprNode->parseLocation), valueExprNode(valueExprNode) { }
+            : TxTypeArgumentNode( valueExprNode->parseLocation ), valueExprNode( valueExprNode ) {
+    }
 
     virtual TxValueTypeArgumentNode* make_ast_copy() const override {
         return new TxValueTypeArgumentNode( this->valueExprNode->make_ast_copy() );
     }
 
     virtual std::string get_auto_type_name() const override {
-        if (auto bindingValueProxy = this->valueExprNode->get_static_constant_proxy()) {
+        if ( auto bindingValueProxy = this->valueExprNode->get_static_constant_proxy() ) {
             uint32_t bindingValue = bindingValueProxy->get_value_UInt();
             return std::to_string( bindingValue );  // statically known value
         }
@@ -83,40 +83,38 @@ public:
         this->valueExprNode->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->valueExprNode->visit_ast( visitor, thisAsParent, "value", context );
     }
 };
 
-
-
 /** Represents a directly named, predefined type, or a pure specialization of a predefined generic type
  * (binding one or more type parameters).
  *
  * Note on generic capability:
 
-type Abstr<E,C> { ... }
+ type Abstr<E,C> { ... }
 
-## we shall propably not allow *extension* of generic parameters:
-type Field<E,C,V derives Abstr,L> derives Array<V<E,C>,L> {
-    ## array elements are Abstr derivations stored by value
-}
+ ## we shall propably not allow *extension* of generic parameters:
+ type Field<E,C,V derives Abstr,L> derives Array<V<E,C>,L> {
+ ## array elements are Abstr derivations stored by value
+ }
 
-## Allowing this would probably require major redesign
-## of the TxType specialization hierarchy.
+ ## Allowing this would probably require major redesign
+ ## of the TxType specialization hierarchy.
 
-## the closest we can support is:
-type Field<E,C,L> derives Array<Ref<Abstr<E,C>>,L> {
-    ## array elements are Abstr derivations stored by reference
-}
+ ## the closest we can support is:
+ type Field<E,C,L> derives Array<Ref<Abstr<E,C>>,L> {
+ ## array elements are Abstr derivations stored by reference
+ }
 
  */
 class TxGenSpecTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        for (TxTypeArgumentNode* tp : *this->typeArgs) {
+        for ( TxTypeArgumentNode* tp : *this->typeArgs ) {
             tp->symbol_declaration_pass( lexContext );
         }
     }
@@ -128,11 +126,12 @@ public:
     const std::vector<TxTypeArgumentNode*>* const typeArgs;
 
     TxGenSpecTypeNode( const TxLocation& parseLocation, const std::string& identifier, const std::vector<TxTypeArgumentNode*>* typeArgs )
-            : TxGenSpecTypeNode(parseLocation, new TxIdentifier(identifier), typeArgs)  { }
+            : TxGenSpecTypeNode( parseLocation, new TxIdentifier( identifier ), typeArgs ) {
+    }
 
     TxGenSpecTypeNode( const TxLocation& parseLocation, const TxIdentifier* identifier, const std::vector<TxTypeArgumentNode*>* typeArgs )
-            : TxTypeExpressionNode(parseLocation), ident(identifier), typeArgs(typeArgs)  {
-        ASSERT(typeArgs && !typeArgs->empty(), "NULL or empty typeargs");
+            : TxTypeExpressionNode( parseLocation ), ident( identifier ), typeArgs( typeArgs ) {
+        ASSERT( typeArgs && !typeArgs->empty(), "NULL or empty typeargs" );
     }
 
     virtual TxGenSpecTypeNode* make_ast_copy() const override {
@@ -143,8 +142,8 @@ public:
         auto identifiedTypeDecl = lookup_type( this->context().scope(), *this->ident );
         std::string name = ( identifiedTypeDecl ? identifiedTypeDecl->get_unique_full_name() : "$UNKNOWN" );
         int ix = 0;
-        for (TxTypeArgumentNode* ta : *this->typeArgs) {
-            name += ( (ix++ == 0) ? "<" : "," );
+        for ( TxTypeArgumentNode* ta : *this->typeArgs ) {
+            name += ( ( ix++ == 0 ) ? "<" : "," );
             name += ta->get_auto_type_name();
         }
         name += ">";
@@ -153,20 +152,21 @@ public:
 
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
-        for (TxTypeArgumentNode* ta : *this->typeArgs)
+        for ( TxTypeArgumentNode* ta : *this->typeArgs )
             ta->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        for (auto typeArg : *this->typeArgs)
+        for ( auto typeArg : *this->typeArgs )
             typeArg->visit_ast( visitor, thisAsParent, "typearg", context );
     }
 
-    virtual std::string get_identifier() const override { return this->ident->str(); }
+    virtual std::string get_identifier() const override {
+        return this->ident->str();
+    }
 };
-
 
 class TxIdentifiedTypeNode : public TxTypeExpressionNode {
 protected:
@@ -179,10 +179,12 @@ public:
     const TxIdentifier* ident;
 
     TxIdentifiedTypeNode( const TxLocation& parseLocation, const TxIdentifier* identifier )
-        : TxTypeExpressionNode( parseLocation ), ident( identifier )  { }
+            : TxTypeExpressionNode( parseLocation ), ident( identifier ) {
+    }
 
-    TxIdentifiedTypeNode( const TxLocation& parseLocation, const std::string& identifier)
-        : TxTypeExpressionNode( parseLocation ), ident( new TxIdentifier( identifier ) )  { }
+    TxIdentifiedTypeNode( const TxLocation& parseLocation, const std::string& identifier )
+            : TxTypeExpressionNode( parseLocation ), ident( new TxIdentifier( identifier ) ) {
+    }
 
     virtual TxIdentifiedTypeNode* make_ast_copy() const override {
         return new TxIdentifiedTypeNode( this->parseLocation, this->ident );
@@ -193,25 +195,30 @@ public:
         return ( identifiedTypeDecl ? identifiedTypeDecl->get_unique_full_name() : "$UNKNOWN" );
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {}
+    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+    }
 
-    virtual std::string get_identifier() const override { return this->ident->str(); }
+    virtual std::string get_identifier() const override {
+        return this->ident->str();
+    }
 };
-
 
 /** Common superclass for specializations of the built-in types Ref and Array. */
 class TxBuiltinTypeSpecNode : public TxTypeExpressionNode {
 public:
-    TxBuiltinTypeSpecNode(const TxLocation& parseLocation) : TxTypeExpressionNode(parseLocation)  { }
+    TxBuiltinTypeSpecNode( const TxLocation& parseLocation )
+            : TxTypeExpressionNode( parseLocation ) {
+    }
 };
 
 /**
  * Custom AST node needed to handle dataspaces. */
 class TxReferenceTypeNode : public TxBuiltinTypeSpecNode {
     TxReferenceTypeNode( const TxLocation& parseLocation, const TxIdentifier* dataspace, TxTypeTypeArgumentNode* targetTypeArg )
-        : TxBuiltinTypeSpecNode(parseLocation), dataspace(dataspace), targetTypeNode(targetTypeArg)  { }
+            : TxBuiltinTypeSpecNode( parseLocation ), dataspace( dataspace ), targetTypeNode( targetTypeArg ) {
+    }
 
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
@@ -228,8 +235,9 @@ public:
     const TxIdentifier* dataspace;
     TxTypeTypeArgumentNode* targetTypeNode;
 
-    TxReferenceTypeNode(const TxLocation& parseLocation, const TxIdentifier* dataspace, TxTypeExpressionNode* targetType)
-        : TxReferenceTypeNode(parseLocation, dataspace, new TxTypeTypeArgumentNode(targetType) )  { }
+    TxReferenceTypeNode( const TxLocation& parseLocation, const TxIdentifier* dataspace, TxTypeExpressionNode* targetType )
+            : TxReferenceTypeNode( parseLocation, dataspace, new TxTypeTypeArgumentNode( targetType ) ) {
+    }
 
     virtual TxReferenceTypeNode* make_ast_copy() const override {
         return new TxReferenceTypeNode( this->parseLocation, this->dataspace, this->targetTypeNode->make_ast_copy() );
@@ -244,7 +252,7 @@ public:
         this->targetTypeNode->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->targetTypeNode->visit_ast( visitor, thisAsParent, "target", context );
@@ -254,8 +262,9 @@ public:
 /**
  * Custom AST node needed to provide syntactic sugar for modifiable declaration. */
 class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
-    TxArrayTypeNode(const TxLocation& parseLocation, TxTypeTypeArgumentNode* elementTypeArg, TxValueTypeArgumentNode* lengthExprArg)
-        : TxBuiltinTypeSpecNode(parseLocation), elementTypeNode(elementTypeArg), lengthNode(lengthExprArg) { }
+    TxArrayTypeNode( const TxLocation& parseLocation, TxTypeTypeArgumentNode* elementTypeArg, TxValueTypeArgumentNode* lengthExprArg )
+            : TxBuiltinTypeSpecNode( parseLocation ), elementTypeNode( elementTypeArg ), lengthNode( lengthExprArg ) {
+    }
 
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override;
@@ -263,7 +272,7 @@ protected:
     virtual const TxType* define_type() override {
 //        auto baseType = this->types().get_builtin_type(ARRAY);
 //        auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
-        if (this->lengthNode)
+        if ( this->lengthNode )
             return this->registry().get_array_type( this, this->elementTypeNode, this->lengthNode );
         else
             return this->registry().get_array_type( this, this->elementTypeNode );
@@ -273,8 +282,10 @@ public:
     TxTypeTypeArgumentNode* elementTypeNode;
     TxValueTypeArgumentNode* lengthNode;
 
-    TxArrayTypeNode(const TxLocation& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* lengthExpr=nullptr)
-        : TxArrayTypeNode( parseLocation, new TxTypeTypeArgumentNode(elementType), (lengthExpr ? new TxValueTypeArgumentNode(lengthExpr) : nullptr) ) { }
+    TxArrayTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* lengthExpr = nullptr )
+            : TxArrayTypeNode( parseLocation, new TxTypeTypeArgumentNode( elementType ),
+                               ( lengthExpr ? new TxValueTypeArgumentNode( lengthExpr ) : nullptr ) ) {
+    }
 
     virtual TxArrayTypeNode* make_ast_copy() const override {
         return new TxArrayTypeNode( this->parseLocation, this->elementTypeNode->make_ast_copy(),
@@ -282,7 +293,7 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override {
-        if (this->lengthNode)
+        if ( this->lengthNode )
             return "tx.Array<" + this->elementTypeNode->get_auto_type_name() + "," + this->lengthNode->get_auto_type_name() + ">";
         else
             return "tx.Array<" + this->elementTypeNode->get_auto_type_name() + ">";
@@ -291,23 +302,21 @@ public:
     virtual void symbol_resolution_pass() override {
         TxBuiltinTypeSpecNode::symbol_resolution_pass();
         this->elementTypeNode->symbol_resolution_pass();
-        if (this->lengthNode) {
+        if ( this->lengthNode ) {
             this->lengthNode->symbol_resolution_pass();
             //if (! this->lengthNode->valueExprNode->is_statically_constant())
             //    CERROR(this, "Non-constant array length specifier not yet supported.");
         }
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->elementTypeNode->visit_ast( visitor, thisAsParent, "elementtype", context );
-        if (this->lengthNode)
+        if ( this->lengthNode )
             this->lengthNode->visit_ast( visitor, thisAsParent, "length", context );
     }
 };
-
-
 
 class TxDerivedTypeNode : public TxTypeExpressionNode {
     //TxTypeDeclNode* selfRefTypeNode = nullptr;
@@ -320,13 +329,13 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
 
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        for (auto baseType : *this->baseTypes)
+        for ( auto baseType : *this->baseTypes )
             baseType->symbol_declaration_pass( lexContext, nullptr );
 
         //this->selfRefTypeNode->symbol_declaration_pass( lexContext );
         this->superRefTypeNode->symbol_declaration_pass( lexContext );
 
-        for (auto member : *this->members)
+        for ( auto member : *this->members )
             member->symbol_declaration_pass( lexContext );
     }
 
@@ -337,17 +346,19 @@ public:
     std::vector<TxTypeExpressionNode*>* baseTypes;
     std::vector<TxDeclarationNode*>* members;
 
-    TxDerivedTypeNode(const TxLocation& parseLocation, const bool _mutable,
-                      std::vector<TxTypeExpressionNode*>* baseTypes,
-                      std::vector<TxDeclarationNode*>* members)
-            : TxTypeExpressionNode(parseLocation), _mutable(_mutable),
-              baseTypes(baseTypes), members(members)  {
+    TxDerivedTypeNode( const TxLocation& parseLocation, const bool _mutable,
+                       std::vector<TxTypeExpressionNode*>* baseTypes,
+                       std::vector<TxDeclarationNode*>* members )
+            : TxTypeExpressionNode( parseLocation ), _mutable( _mutable ),
+              baseTypes( baseTypes ),
+              members( members ) {
         this->init_implicit_types();
     }
 
     virtual TxDerivedTypeNode* make_ast_copy() const override {
         return new TxDerivedTypeNode( this->parseLocation, this->_mutable,
-                                      make_node_vec_copy( this->baseTypes ), make_node_vec_copy( this->members ) );
+                                      make_node_vec_copy( this->baseTypes ),
+                                      make_node_vec_copy( this->members ) );
     }
 
     virtual std::string get_auto_type_name() const override {
@@ -358,34 +369,33 @@ public:
 
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
-        for (auto type : *this->baseTypes) {
+        for ( auto type : *this->baseTypes ) {
             type->symbol_resolution_pass();
         }
 
         //this->selfRefTypeNode->symbol_resolution_pass();
         this->superRefTypeNode->symbol_resolution_pass();
 
-        for (auto member : *this->members) {
+        for ( auto member : *this->members ) {
             member->symbol_resolution_pass();
             // TODO: can't put immutable instance member in non-immutable type (except via reference)
             //       (OR: disable whole-object-assignment)
         }
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        for (auto type : *this->baseTypes)
+        for ( auto type : *this->baseTypes )
             type->visit_ast( visitor, thisAsParent, "basetype", context );
 
         //this->selfRefTypeNode->visit_ast( visitor, thisAsParent, "selfreftype", context );
         this->superRefTypeNode->visit_ast( visitor, thisAsParent, "superreftype", context );
 
-        for (auto member : *this->members)
+        for ( auto member : *this->members )
             member->visit_ast( visitor, thisAsParent, "member", context );
     }
 };
-
 
 ///**
 // * Custom AST node needed to resolve to a type's super type. */
@@ -432,35 +442,34 @@ public:
 //    }
 //};
 
-
 /** Defines a function type. */
 class TxFunctionTypeNode : public TxTypeExpressionNode {
     // Note: the field names aren't part of a function's formal type definition
     // (a function type doesn't declare (create entities for) the function args)
 
-    static TxFieldTypeDefNode* make_return_field(TxTypeExpressionNode* returnType) {
+    static TxFieldTypeDefNode* make_return_field( TxTypeExpressionNode* returnType ) {
         return ( returnType ? new TxFieldTypeDefNode( returnType->parseLocation, "$return", returnType ) : nullptr );
     }
 
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        for (auto argDef : *this->arguments)
+        for ( auto argDef : *this->arguments )
             argDef->symbol_declaration_pass( lexContext );
-        if (this->returnField)
+        if ( this->returnField )
             this->returnField->symbol_declaration_pass( lexContext );
     }
 
     virtual const TxType* define_type() override {
         std::vector<const TxType*> argumentTypes;
-        for (auto argDefNode : *this->arguments) {
+        for ( auto argDefNode : *this->arguments ) {
             argumentTypes.push_back( argDefNode->resolve_type() );
         }
-        if (this->context().get_constructed())
-            return this->registry().get_constructor_type(this->get_declaration(), argumentTypes, this->context().get_constructed());
-        else if (this->returnField)
-            return this->registry().get_function_type(this->get_declaration(), argumentTypes, this->returnField->resolve_type(), modifiable);
+        if ( this->context().get_constructed() )
+            return this->registry().get_constructor_type( this->get_declaration(), argumentTypes, this->context().get_constructed() );
+        else if ( this->returnField )
+            return this->registry().get_function_type( this->get_declaration(), argumentTypes, this->returnField->resolve_type(), modifiable );
         else
-            return this->registry().get_function_type(this->get_declaration(), argumentTypes, modifiable);
+            return this->registry().get_function_type( this->get_declaration(), argumentTypes, modifiable );
     }
 
 public:
@@ -472,8 +481,10 @@ public:
     TxFunctionTypeNode( const TxLocation& parseLocation, const bool modifiable,
                         std::vector<TxFieldTypeDefNode*>* arguments,
                         TxTypeExpressionNode* returnType )
-        : TxTypeExpressionNode(parseLocation), modifiable(modifiable),
-          arguments(arguments), returnField(make_return_field(returnType)) { }
+            : TxTypeExpressionNode( parseLocation ), modifiable( modifiable ),
+              arguments( arguments ),
+              returnField( make_return_field( returnType ) ) {
+    }
 
     virtual TxFunctionTypeNode* make_ast_copy() const override {
         return new TxFunctionTypeNode( this->parseLocation, this->modifiable, make_node_vec_copy( this->arguments ),
@@ -481,65 +492,65 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override {
-        ASSERT(this->get_declaration(), "NULL declaration in TxFunctionTypeNode: " << this);
+        ASSERT( this->get_declaration(), "NULL declaration in TxFunctionTypeNode: " << this );
         return this->get_declaration()->get_unique_full_name();
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext,
                                           const TxTypeDeclaration* owningDeclaration ) override {
-        if (! owningDeclaration) {
+        if ( !owningDeclaration ) {
             std::string funcTypeName = lexContext.scope()->make_unique_name( "$Ftype", true );
             TxDeclarationFlags flags = TXD_IMPLICIT;  // TXD_PUBLIC, TXD_EXPERRBLOCK ?
             owningDeclaration = lexContext.scope()->declare_type( funcTypeName, this, flags );
-            if (! owningDeclaration) {
-                CERROR(this, "Failed to declare type " << funcTypeName);
+            if ( !owningDeclaration ) {
+                CERROR( this, "Failed to declare type " << funcTypeName );
                 return;
             }
-            LOG_TRACE(this->LOGGER(), this << ": Declared type " << owningDeclaration);
+            LOG_TRACE( this->LOGGER(), this << ": Declared type " << owningDeclaration );
         }
         TxTypeExpressionNode::symbol_declaration_pass( lexContext, owningDeclaration );
     }
 
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
-        for (auto argField : *this->arguments) {
+        for ( auto argField : *this->arguments ) {
             argField->symbol_resolution_pass();
             auto argType = argField->get_type();
-            if (! argType->is_concrete()) {
-                if ( ! ( argType->get_declaration()->get_decl_flags() & TXD_GENPARAM )
-                        && this->returnField && this->returnField->typeExpression->get_identifier() != "$Self" ) {
-                    CERROR(argField, "Function argument type is not a concrete type (size potentially unknown): "
-                            << argField->get_identifier() << " : " << argType);
+            if ( !argType->is_concrete() ) {
+                if ( !( argType->get_declaration()->get_decl_flags() & TXD_GENPARAM )
+                     && this->returnField
+                     && this->returnField->typeExpression->get_identifier() != "$Self" ) {
+                    CERROR( argField, "Function argument type is not a concrete type (size potentially unknown): "
+                            << argField->get_identifier() << " : " << argType );
                 }
                 else
-                    LOG_INFO(this->LOGGER(), "Function argument type is not a concrete type (size potentially unknown): "
-                             << argField->get_identifier() << " : " << argType);
+                    LOG_INFO( this->LOGGER(), "Function argument type is not a concrete type (size potentially unknown): "
+                              << argField->get_identifier() << " : " << argType );
             }
         }
-        if (this->returnField) {
+        if ( this->returnField ) {
             this->returnField->symbol_resolution_pass();
             auto retType = this->returnField->get_type();
-            if (! retType->is_concrete()) {
-                if ( ! ( retType->get_declaration()->get_decl_flags() & TXD_GENPARAM )
+            if ( !retType->is_concrete() ) {
+                if ( !( retType->get_declaration()->get_decl_flags() & TXD_GENPARAM )
                      && this->returnField->typeExpression->get_identifier() != "$Self" ) {
-                    CERROR(returnField, "Function return type is not a concrete type (size potentially unknown): " << retType);
+                    CERROR( returnField, "Function return type is not a concrete type (size potentially unknown): " << retType );
                 }
                 else
-                    LOG_INFO(this->LOGGER(), "Function return type is not a concrete type (size potentially unknown): " << retType);
+                    LOG_INFO( this->LOGGER(), "Function return type is not a concrete type (size potentially unknown): " << retType );
             }
         }
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        for (auto argField : *this->arguments)
+        for ( auto argField : *this->arguments )
             argField->visit_ast( visitor, thisAsParent, "arg", context );
-        if (this->returnField)
+        if ( this->returnField )
             this->returnField->visit_ast( visitor, thisAsParent, "return", context );
     }
 };
-
 
 class TxModifiableTypeNode : public TxTypeExpressionNode {
 protected:
@@ -548,15 +559,15 @@ protected:
     }
 
     virtual const TxType* define_type() override {
-        if (auto bType = this->baseType->resolve_type()) {
-            if (bType->is_modifiable()) {
-                CERROR(this, "'modifiable' specified more than once for type: " << bType);
+        if ( auto bType = this->baseType->resolve_type() ) {
+            if ( bType->is_modifiable() ) {
+                CERROR( this, "'modifiable' specified more than once for type: " << bType );
                 return bType;
             }
-            else if (! bType->is_immutable())
-                return this->registry().get_modifiable_type(this->get_declaration(), bType);
+            else if ( !bType->is_immutable() )
+                return this->registry().get_modifiable_type( this->get_declaration(), bType );
             else
-                CERR_THROWRES(this, "Can't declare immutable type as modifiable: " << bType);
+                CERR_THROWRES( this, "Can't declare immutable type as modifiable: " << bType );
         }
         return nullptr;
     }
@@ -564,8 +575,9 @@ protected:
 public:
     TxTypeExpressionNode* baseType;
 
-    TxModifiableTypeNode(const TxLocation& parseLocation, TxTypeExpressionNode* baseType)
-        : TxTypeExpressionNode(parseLocation), baseType(baseType) { }
+    TxModifiableTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseType )
+            : TxTypeExpressionNode( parseLocation ), baseType( baseType ) {
+    }
 
     virtual TxModifiableTypeNode* make_ast_copy() const override {
         return new TxModifiableTypeNode( this->parseLocation, this->baseType->make_ast_copy() );
@@ -576,14 +588,14 @@ public:
         // prepend ~ to the unqualified name:
         // (names can be complex such as foo.bar<mac<asp>>.arc<lap>)
         unsigned nest = 0;
-        for (unsigned i = baseName.size(); i > 0; i--) {
-            char c = baseName.at(i-1);
-            if (c == '>')
+        for ( unsigned i = baseName.size(); i > 0; i-- ) {
+            char c = baseName.at( i - 1 );
+            if ( c == '>' )
                 nest++;
-            else if (c == '<')
+            else if ( c == '<' )
                 nest--;
-            else if (c == '.' && nest == 0) {
-                baseName.insert(i, 1, '~');
+            else if ( c == '.' && nest == 0 ) {
+                baseName.insert( i, 1, '~' );
                 return baseName;
             }
         }
@@ -598,7 +610,7 @@ public:
         this->baseType->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->baseType->visit_ast( visitor, thisAsParent, "basetype", context );
@@ -613,22 +625,23 @@ class TxMaybeModTypeNode : public TxModifiableTypeNode {
 protected:
     virtual const TxType* define_type() override {
         // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
-        if (this->is_modifiable())
+        if ( this->is_modifiable() )
             return TxModifiableTypeNode::define_type();
         else
             return this->baseType->resolve_type();
     }
 
 public:
-    TxMaybeModTypeNode(const TxLocation& parseLocation, TxTypeExpressionNode* baseType)
-        : TxModifiableTypeNode(parseLocation, baseType) { }
+    TxMaybeModTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseType )
+            : TxModifiableTypeNode( parseLocation, baseType ) {
+    }
 
     virtual TxMaybeModTypeNode* make_ast_copy() const override {
         return new TxMaybeModTypeNode( this->parseLocation, this->baseType->make_ast_copy() );
     }
 
     virtual std::string get_auto_type_name() const override {
-        if (this->is_modifiable())
+        if ( this->is_modifiable() )
             return TxModifiableTypeNode::get_auto_type_name();
         else
             return this->baseType->get_auto_type_name();
@@ -641,9 +654,11 @@ public:
         return ( this->is_modifiable() ? TxModifiableTypeNode::get_declaration() : baseType->get_declaration() );
     }
 
-    inline bool is_modifiable() const { return this->isModifiable; }
+    inline bool is_modifiable() const {
+        return this->isModifiable;
+    }
 
-    void set_modifiable(bool mod) {
+    void set_modifiable( bool mod ) {
         this->isModifiable = mod;
     }
 };

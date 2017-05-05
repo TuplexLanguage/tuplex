@@ -10,9 +10,7 @@
 #include "declaration.hpp"
 #include "symbol.hpp"
 
-
 class TxConstantProxy;
-
 
 /** Represents a resolved program entity - a type or a field.
  * Entities are produced by entity-defining AST nodes (that inherit from TxEntityDefiningNode)
@@ -27,42 +25,45 @@ class TxEntity : public virtual TxParseOrigin, public Printable {
     const TxEntityDeclaration* declaration;
 
 protected:
-    TxEntity(const TxEntityDeclaration* declaration) : declaration(declaration)  {
+    TxEntity( const TxEntityDeclaration* declaration )
+            : declaration( declaration ) {
         // Note: Type entities might not have a declaration. Their underlying actual type will always have a declaration though.
     }
 
 public:
-    inline Logger* LOGGER() const { return &this->_LOG; }
+    inline Logger* LOGGER() const {
+        return &this->_LOG;
+    }
 
-    virtual inline const TxEntityDeclaration* get_declaration() const { return this->declaration; }
+    virtual inline const TxEntityDeclaration* get_declaration() const {
+        return this->declaration;
+    }
 
     virtual const TxLocation& get_parse_location() const override;
 
     virtual ExpectedErrorClause* exp_err_ctx() const override;
 
     TxEntitySymbol* get_symbol() const {
-        return (this->declaration ? this->declaration->get_symbol() : nullptr);
+        return ( this->declaration ? this->declaration->get_symbol() : nullptr );
     }
 
     TxDeclarationFlags get_decl_flags() const {
-        return (this->declaration ? this->declaration->get_decl_flags() : TXD_NONE);
+        return ( this->declaration ? this->declaration->get_decl_flags() : TXD_NONE );
     }
 };
-
-
 
 /** Represents a field definition. */
 class TxField : public TxEntity {
     const TxType* type;
 
     TxField( const TxFieldDeclaration* declaration, const TxType* type )
-            : TxEntity(declaration), type(type) {
+            : TxEntity( declaration ), type( type ) {
 //        ASSERT(declaration, "Fields must be named (have non-null declaration)");
 //        ASSERT(type, "NULL type for field " << declaration);
     }
 
     const TxTypeDeclaration* get_outer_type_decl() const {
-        if (auto outerEntity = dynamic_cast<TxEntitySymbol*>(get_symbol()->get_outer()))
+        if ( auto outerEntity = dynamic_cast<TxEntitySymbol*>( get_symbol()->get_outer() ) )
             return outerEntity->get_type_decl();
         return nullptr;
     }
@@ -71,14 +72,17 @@ public:
     /** Constructs a new field after applying some validation checks. If validation fails, resolution exception is thrown. */
     static TxField* make_field( const TxFieldDeclaration* declaration, const TxType* type );
 
-
     virtual inline const TxFieldDeclaration* get_declaration() const override {
-        return static_cast<const TxFieldDeclaration*>(TxEntity::get_declaration());
+        return static_cast<const TxFieldDeclaration*>( TxEntity::get_declaration() );
     }
 
-    inline TxFieldStorage get_storage() const { return this->get_declaration()->get_storage(); }
+    inline TxFieldStorage get_storage() const {
+        return this->get_declaration()->get_storage();
+    }
 
-    inline const TxType* get_type() const { return this->type; }
+    inline const TxType* get_type() const {
+        return this->type;
+    }
 
     /** Gets the storage "index" of this field within its declaration scope's data tuple.
      * This field must not have global or stack storage class.

@@ -47,10 +47,10 @@ using yy::position;
 class TxParserContext;
 
 //namespace yy {
-  /// Abstract a location.
-  class TxLocation
-  {
-  public:
+/// Abstract a location.
+class TxLocation
+{
+public:
 
 //    /// Construct a location from \a b to \a e.
 //    TxLocation (const position& b, const position& e)
@@ -60,28 +60,33 @@ class TxParserContext;
 //    }
 //
     /// Construct a 0-width location in \a p.
-    explicit TxLocation (const position& p = position ())
-      : begin (p)
-      , end (p)
+    explicit TxLocation( const position& p = position() )
+            : begin( p )
+                     ,
+              end( p )
     {
     }
 
     /// Construct a 0-width location in \a f, \a l, \a c.
-    explicit TxLocation (std::string* f,
+    explicit TxLocation( std::string* f,
                          unsigned int l,
                          unsigned int c,
-                         TxParserContext* parserCtx)
-      : begin (f, l, c)
-      , end (f, l, c)
-      , parserCtx(parserCtx)
+                         TxParserContext* parserCtx )
+            : begin( f, l, c )
+                     ,
+              end( f, l, c )
+                   ,
+              parserCtx( parserCtx )
     {
-        ASSERT(parserCtx, "NULL parserCtx");
+        ASSERT( parserCtx, "NULL parserCtx" );
     }
 
-    TxLocation(const TxLocation& loc)
-        : begin (loc.begin)
-        , end (loc.end)
-        , parserCtx (loc.parserCtx)
+    TxLocation( const TxLocation& loc )
+            : begin( loc.begin )
+                     ,
+              end( loc.end )
+                   ,
+              parserCtx( loc.parserCtx )
     {
     }
 
@@ -94,119 +99,117 @@ class TxParserContext;
 //      end = begin;
 //    }
 
-    void operator = (const TxLocation& loc)
-    {
-            begin = loc.begin;
-            end = loc.end;
-            parserCtx = loc.parserCtx;
+    void operator =( const TxLocation& loc )
+                     {
+        begin = loc.begin;
+        end = loc.end;
+        parserCtx = loc.parserCtx;
     }
 
     /** \name Line and Column related manipulators
      ** \{ */
-  public:
+public:
     /// Reset initial location to final location.
-    void step ()
+    void step()
     {
-      begin = end;
+        begin = end;
     }
 
     /// Extend the current location to the COUNT next columns.
-    void columns (int count = 1)
-    {
-      end += count;
+    void columns( int count = 1 )
+                  {
+        end += count;
     }
 
     /// Extend the current location to the COUNT next lines.
-    void lines (int count = 1)
-    {
-      end.lines (count);
+    void lines( int count = 1 )
+                {
+        end.lines( count );
     }
     /** \} */
 
-
-  public:
+public:
     /// Beginning of the located region.
     position begin;
     /// End of the located region.
     position end;
     TxParserContext* parserCtx = nullptr;
-  };
+};
 
-  /// Join two locations, in place.
-  inline TxLocation& operator+= (TxLocation& res, const TxLocation& end)
-  {
+/// Join two locations, in place.
+inline TxLocation& operator+=( TxLocation& res, const TxLocation& end )
+                               {
     res.end = end.end;
     return res;
-  }
+}
 
-  /// Join two locations.
-  inline TxLocation operator+ (TxLocation res, const TxLocation& end)
-  {
+/// Join two locations.
+inline TxLocation operator+( TxLocation res, const TxLocation& end )
+                             {
     return res += end;
-  }
+}
 
-  /// Add \a width columns to the end position, in place.
-  inline TxLocation& operator+= (TxLocation& res, int width)
-  {
-    res.columns (width);
+/// Add \a width columns to the end position, in place.
+inline TxLocation& operator+=( TxLocation& res, int width )
+                               {
+    res.columns( width );
     return res;
-  }
+}
 
-  /// Add \a width columns to the end position.
-  inline TxLocation operator+ (TxLocation res, int width)
-  {
+/// Add \a width columns to the end position.
+inline TxLocation operator+( TxLocation res, int width )
+                             {
     return res += width;
-  }
+}
 
-  /// Subtract \a width columns to the end position, in place.
-  inline TxLocation& operator-= (TxLocation& res, int width)
-  {
+/// Subtract \a width columns to the end position, in place.
+inline TxLocation& operator-=( TxLocation& res, int width )
+                               {
     return res += -width;
-  }
+}
 
-  /// Subtract \a width columns to the end position.
-  inline TxLocation operator- (TxLocation res, int width)
-  {
+/// Subtract \a width columns to the end position.
+inline TxLocation operator-( TxLocation res, int width )
+                             {
     return res -= width;
-  }
+}
 
-  /// Compare two location objects.
-  inline bool
-  operator== (const TxLocation& loc1, const TxLocation& loc2)
-  {
+/// Compare two location objects.
+inline bool
+operator==( const TxLocation& loc1, const TxLocation& loc2 )
+            {
     return loc1.begin == loc2.begin && loc1.end == loc2.end;
-  }
+}
 
-  /// Compare two location objects.
-  inline bool
-  operator!= (const TxLocation& loc1, const TxLocation& loc2)
-  {
-    return !(loc1 == loc2);
-  }
+/// Compare two location objects.
+inline bool
+operator!=( const TxLocation& loc1, const TxLocation& loc2 )
+            {
+    return !( loc1 == loc2 );
+}
 
-  /** \brief Intercept output stream redirection.
-   ** \param ostr the destination output stream
-   ** \param loc a reference to the location to redirect
-   **
-   ** Avoid duplicate information.
-   */
-  template <typename YYChar>
-  inline std::basic_ostream<YYChar>&
-  operator<< (std::basic_ostream<YYChar>& ostr, const TxLocation& loc)
-  {
+/** \brief Intercept output stream redirection.
+ ** \param ostr the destination output stream
+ ** \param loc a reference to the location to redirect
+ **
+ ** Avoid duplicate information.
+ */
+template<typename YYChar>
+inline std::basic_ostream<YYChar>&
+operator<<( std::basic_ostream<YYChar>& ostr, const TxLocation& loc )
+            {
     unsigned int end_col = 0 < loc.end.column ? loc.end.column - 1 : 0;
     ostr << loc.begin;
-    if (loc.end.filename
-        && (!loc.begin.filename
-            || *loc.begin.filename != *loc.end.filename))
-      ostr << '-' << loc.end.filename << ':' << loc.end.line << '.' << end_col;
-    else if (loc.begin.line < loc.end.line)
-      ostr << '-' << loc.end.line << '.' << end_col;
-    else if (loc.begin.column < end_col)
-      ostr << '-' << end_col;
+    if ( loc.end.filename
+         && ( !loc.begin.filename
+              || *loc.begin.filename != *loc.end.filename ) )
+        ostr << '-' << loc.end.filename << ':' << loc.end.line << '.' << end_col;
+    else if ( loc.begin.line < loc.end.line )
+        ostr << '-' << loc.end.line << '.' << end_col;
+    else if ( loc.begin.column < end_col )
+        ostr << '-' << end_col;
     return ostr;
-  }
-
+}
 
 //} // yy
 #endif // !YY_YY_HOME_CHRISTER_PROJ_WORKSPACE_PROTO_SRC_LOCATION_HPP_INCLUDED

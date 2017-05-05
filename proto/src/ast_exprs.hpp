@@ -6,16 +6,13 @@
 #include "ast_types.hpp"
 #include "ast_conv.hpp"
 
+extern llvm::Value* gen_get_struct_member( LlvmGenerationContext& context, GenScope* scope, llvm::Value* structV, unsigned ix );
 
-extern llvm::Value* gen_get_struct_member(LlvmGenerationContext& context, GenScope* scope, llvm::Value* structV, unsigned ix);
+extern llvm::Value* gen_get_ref_pointer( LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV );
+extern llvm::Value* gen_get_ref_typeid( LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV );
+extern llvm::Value* gen_ref( LlvmGenerationContext& context, GenScope* scope, llvm::Type* refT, llvm::Value* ptrV, llvm::Value* tidV );
 
-extern llvm::Value* gen_get_ref_pointer(LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV);
-extern llvm::Value* gen_get_ref_typeid(LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV);
-extern llvm::Value* gen_ref(LlvmGenerationContext& context, GenScope* scope, llvm::Type* refT, llvm::Value* ptrV, llvm::Value* tidV);
-
-extern llvm::Value* gen_lambda(LlvmGenerationContext& context, GenScope* scope, llvm::Type* lambdaT, llvm::Value* funcV, llvm::Value* closureRefV);
-
-
+extern llvm::Value* gen_lambda( LlvmGenerationContext& context, GenScope* scope, llvm::Type* lambdaT, llvm::Value* funcV, llvm::Value* closureRefV );
 
 class TxReferenceDerefNode : public TxExpressionNode {
     /** internal "cache" to prevent multiple code generations */
@@ -24,24 +21,25 @@ class TxReferenceDerefNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type() override {
         auto refType = this->reference->resolve_type();
-        if (refType->get_type_class() != TXTC_REFERENCE)
-            CERR_THROWRES(this, "Can't de-reference non-reference expression: " << refType);
+        if ( refType->get_type_class() != TXTC_REFERENCE )
+            CERR_THROWRES( this, "Can't de-reference non-reference expression: " << refType );
         return refType->target_type();
     }
 
 public:
     TxExpressionNode* reference;
-    TxReferenceDerefNode(const TxLocation& parseLocation, TxExpressionNode* operand)
-        : TxExpressionNode(parseLocation), reference(operand) { }
+    TxReferenceDerefNode( const TxLocation& parseLocation, TxExpressionNode* operand )
+            : TxExpressionNode( parseLocation ), reference( operand ) {
+    }
 
     virtual TxReferenceDerefNode* make_ast_copy() const override {
         return new TxReferenceDerefNode( this->parseLocation, this->reference->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) {
         this->set_context( lexContext );
         // when this is is used as an implicit conversion node the reference node may have already run declaration pass:
-        if (! this->reference->is_context_set())
+        if ( !this->reference->is_context_set() )
             this->reference->symbol_declaration_pass( lexContext );
     }
 
@@ -54,31 +52,30 @@ public:
         return false;  // can we ever know if target is statically constant?
     }
 
-    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const override;
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
-    virtual llvm::Value* code_gen_typeid(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->reference->visit_ast( visitor, thisAsParent, "ref", context );
     }
 };
 
-
 class TxElemDerefNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type() override {
-        this->subscript->insert_conversion( this->registry().get_builtin_type(TXBT_LONG) );
+        this->subscript->insert_conversion( this->registry().get_builtin_type( TXBT_LONG ) );
 
         auto opType = this->array->originalExpr->resolve_type();
-        if (opType->get_type_class() == TXTC_REFERENCE) {
+        if ( opType->get_type_class() == TXTC_REFERENCE ) {
             auto targType = opType->target_type();
-            if (targType->get_type_class() == TXTC_ARRAY) {
+            if ( targType->get_type_class() == TXTC_ARRAY ) {
                 this->array->insert_conversion( targType );
             }
         }
         opType = this->array->resolve_type();
-        if (opType->get_type_class() != TXTC_ARRAY)
-            CERR_THROWRES(this, "Can't subscript non-array expression: " << opType);
+        if ( opType->get_type_class() != TXTC_ARRAY )
+            CERR_THROWRES( this, "Can't subscript non-array expression: " << opType );
         return opType->element_type();
     }
 
@@ -86,15 +83,16 @@ public:
     TxMaybeConversionNode* array;
     TxMaybeConversionNode* subscript;
 
-    TxElemDerefNode(const TxLocation& parseLocation, TxExpressionNode* operand, TxExpressionNode* subscript)
-        : TxExpressionNode(parseLocation), array(new TxMaybeConversionNode(operand)), subscript(new TxMaybeConversionNode(subscript))  { }
+    TxElemDerefNode( const TxLocation& parseLocation, TxExpressionNode* operand, TxExpressionNode* subscript )
+            : TxExpressionNode( parseLocation ), array( new TxMaybeConversionNode( operand ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
+    }
 
     virtual TxElemDerefNode* make_ast_copy() const override {
         return new TxElemDerefNode( this->parseLocation, this->array->originalExpr->make_ast_copy(),
                                     this->subscript->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         this->array->symbol_declaration_pass( lexContext );
         this->subscript->symbol_declaration_pass( lexContext );
@@ -110,8 +108,8 @@ public:
         return this->array->is_statically_constant() && this->subscript->is_statically_constant();
     }
 
-    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const override;
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->array->visit_ast( visitor, thisAsParent, "array", context );
@@ -119,10 +117,9 @@ public:
     }
 };
 
-
 class TxReferenceToNode : public TxExpressionNode {
     TxTypeTypeArgumentNode* targetTypeNode;
-protected:
+    protected:
     virtual const TxType* define_type() override {
         return this->registry().get_reference_type( this, this->targetTypeNode, nullptr );
     }
@@ -130,8 +127,8 @@ protected:
 public:
     TxExpressionNode* target;
 
-    TxReferenceToNode(const TxLocation& parseLocation, TxExpressionNode* target)
-            : TxExpressionNode(parseLocation), target(target) {
+    TxReferenceToNode( const TxLocation& parseLocation, TxExpressionNode* target )
+            : TxExpressionNode( parseLocation ), target( target ) {
         TxTypeExprWrapperNode* targetTypeExpr = new TxTypeExprWrapperNode( this->target );
         this->targetTypeNode = new TxTypeTypeArgumentNode( targetTypeExpr );
     }
@@ -140,10 +137,10 @@ public:
         return new TxReferenceToNode( this->parseLocation, this->target->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) {
         this->set_context( lexContext );
         // when this is is used as an implicit conversion node the target node may have already run declaration pass:
-        if (! this->target->is_context_set())
+        if ( !this->target->is_context_set() )
             this->target->symbol_declaration_pass( lexContext );
         this->targetTypeNode->symbol_declaration_pass( lexContext );
     }
@@ -152,14 +149,14 @@ public:
         TxExpressionNode::symbol_resolution_pass();
         this->target->symbol_resolution_pass();
 
-        if (dynamic_cast<TxFieldValueNode*>(this->target)) {
+        if ( dynamic_cast<TxFieldValueNode*>( this->target ) ) {
         }
-        else if (dynamic_cast<TxElemDerefNode*>(this->target)) {
+        else if ( dynamic_cast<TxElemDerefNode*>( this->target ) ) {
         }
-        else if (this->target->is_statically_constant()) {
+        else if ( this->target->is_statically_constant() ) {
         }
         else
-            CERROR(this, "Can't construct reference to non-addressable expression / rvalue.");
+            CERROR( this, "Can't construct reference to non-addressable expression / rvalue." );
     }
 
     virtual bool is_statically_constant() const override {
@@ -175,19 +172,18 @@ public:
         this->target->set_applied_func_args( appliedTypeParameters );
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->target->visit_ast( visitor, thisAsParent, "target", context );
     }
 };
 
-
-
 class TxOperatorValueNode : public TxExpressionNode {
 public:
-    TxOperatorValueNode(const TxLocation& parseLocation)
-        : TxExpressionNode(parseLocation) { }
+    TxOperatorValueNode( const TxLocation& parseLocation )
+            : TxExpressionNode( parseLocation ) {
+    }
 };
 
 class TxBinaryOperatorNode : public TxOperatorValueNode {
@@ -197,15 +193,15 @@ protected:
         auto rtype = rhs->originalExpr->resolve_type();
 
         const TxType* arithResultType = nullptr;
-        if (ltype->is_scalar()) {
-            if (rtype->is_scalar()) {
-                if (ltype != rtype) {
-                    if (rtype->auto_converts_to(*ltype)) {
+        if ( ltype->is_scalar() ) {
+            if ( rtype->is_scalar() ) {
+                if ( ltype != rtype ) {
+                    if ( rtype->auto_converts_to( *ltype ) ) {
                         // wrap rhs with conversion node
                         this->rhs->insert_conversion( ltype );
                         arithResultType = ltype;
                     }
-                    else if (ltype->auto_converts_to(*rtype)) {
+                    else if ( ltype->auto_converts_to( *rtype ) ) {
                         // wrap lhs with conversion node
                         this->lhs->insert_conversion( rtype );
                         arithResultType = rtype;
@@ -215,40 +211,40 @@ protected:
                     // same type, no additional action necessary
                     arithResultType = ltype;
             }
-            if (arithResultType) {
-                if (op_class == TXOC_BOOLEAN)
-                    CERROR(this, "Can't perform boolean operation on operands of scalar type: " << ltype);
+            if ( arithResultType ) {
+                if ( op_class == TXOC_BOOLEAN )
+                    CERROR( this, "Can't perform boolean operation on operands of scalar type: " << ltype );
             }
             else
-                CERR_THROWRES(this, "Mismatching scalar operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
+                CERR_THROWRES( this, "Mismatching scalar operand types for binary operator " << this->op << ": " << ltype << ", " << rtype );
         }
-        else if (ltype->is_builtin( TXBT_BOOL )) {
-            if (rtype->is_builtin( TXBT_BOOL )) {
-                if (op_class == TXOC_ARITHMETIC)
-                    CERROR(this, "Can't perform arithmetic operation on operands of boolean type: " << this->op);
+        else if ( ltype->is_builtin( TXBT_BOOL ) ) {
+            if ( rtype->is_builtin( TXBT_BOOL ) ) {
+                if ( op_class == TXOC_ARITHMETIC )
+                    CERROR( this, "Can't perform arithmetic operation on operands of boolean type: " << this->op );
             }
             else
-                CERROR(this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
+                CERROR( this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype );
         }
-        else if (ltype->get_type_class() == TXTC_REFERENCE) {
-            if (rtype->get_type_class() == TXTC_REFERENCE) {
-                if (op_class != TXOC_EQUALITY)
-                    CERROR(this, "Invalid operator for reference operands: " << this->op);
+        else if ( ltype->get_type_class() == TXTC_REFERENCE ) {
+            if ( rtype->get_type_class() == TXTC_REFERENCE ) {
+                if ( op_class != TXOC_EQUALITY )
+                    CERROR( this, "Invalid operator for reference operands: " << this->op );
             }
             else
-                CERROR(this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
+                CERROR( this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype );
         }
         else
-            CERR_THROWRES(this, "Unsupported operand types for binary operator " << this->op << ": " << ltype << ", " << rtype);
+            CERR_THROWRES( this, "Unsupported operand types for binary operator " << this->op << ": " << ltype << ", " << rtype );
 
-        if (this->op_class == TXOC_ARITHMETIC) {
+        if ( this->op_class == TXOC_ARITHMETIC ) {
             // Note: After analyzing conversions, the lhs will hold the proper resulting type.
-            if (! arithResultType)
+            if ( !arithResultType )
                 throw resolution_error( this, "Mismatching arithmetic binary operand types" );
             return arithResultType;
         }
         else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
-            return this->registry().get_builtin_type(TXBT_BOOL);
+            return this->registry().get_builtin_type( TXBT_BOOL );
         }
     }
 
@@ -260,15 +256,16 @@ public:
 
     TxBinaryOperatorNode( const TxLocation& parseLocation, TxExpressionNode* lhs, const TxOperation op, TxExpressionNode* rhs )
             : TxOperatorValueNode( parseLocation ), op( op ), lhs( new TxMaybeConversionNode( lhs ) ), rhs( new TxMaybeConversionNode( rhs ) ),
-              op_class( get_op_class( op ) )  {
-        ASSERT(is_valid(op), "Invalid operator value: " << (int)op);
+              op_class( get_op_class( op ) ) {
+        ASSERT( is_valid( op ), "Invalid operator value: " << (int)op );
     }
 
     virtual TxBinaryOperatorNode* make_ast_copy() const override {
-        return new TxBinaryOperatorNode( this->parseLocation, this->lhs->originalExpr->make_ast_copy(), this->op, this->rhs->originalExpr->make_ast_copy() );
+        return new TxBinaryOperatorNode( this->parseLocation, this->lhs->originalExpr->make_ast_copy(), this->op,
+                                         this->rhs->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         lhs->symbol_declaration_pass( lexContext );
         rhs->symbol_declaration_pass( lexContext );
@@ -284,7 +281,7 @@ public:
         return this->lhs->is_statically_constant() && this->rhs->is_statically_constant();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->lhs->visit_ast( visitor, thisAsParent, "lhs", context );
@@ -296,28 +293,28 @@ class TxUnaryMinusNode : public TxOperatorValueNode {
 protected:
     virtual const TxType* define_type() override {
         auto type = this->operand->originalExpr->resolve_type();
-        if (! type->is_scalar())
-            CERR_THROWRES(this, "Invalid operand type for unary '-', not of scalar type: " << type);
-        else if (auto intType = dynamic_cast<const TxIntegerType*>(type->type()))
-            if (! intType->is_signed()) {
+        if ( !type->is_scalar() )
+            CERR_THROWRES( this, "Invalid operand type for unary '-', not of scalar type: " << type );
+        else if ( auto intType = dynamic_cast<const TxIntegerType*>( type->type() ) )
+            if ( !intType->is_signed() ) {
                 // promote unsigned integers upon negation
                 // TODO: if operand is an integer literal (or statically constant) and small enough, convert to signed of same width
                 bool mod = intType->is_modifiable();
-                switch (intType->get_type_id()) {
+                switch ( intType->get_type_id() ) {
                 case TXBT_UBYTE:
-                    type = this->registry().get_builtin_type(TXBT_SHORT, mod);
+                    type = this->registry().get_builtin_type( TXBT_SHORT, mod );
                     break;
                 case TXBT_USHORT:
-                    type = this->registry().get_builtin_type(TXBT_INT, mod);
+                    type = this->registry().get_builtin_type( TXBT_INT, mod );
                     break;
                 case TXBT_UINT:
-                    type = this->registry().get_builtin_type(TXBT_LONG, mod);
+                    type = this->registry().get_builtin_type( TXBT_LONG, mod );
                     break;
                 case TXBT_ULONG:
-                    CERROR(this, "Invalid operand type for unary '-': " << type);
+                    CERROR( this, "Invalid operand type for unary '-': " << type );
                     break;
                 default:
-                    ASSERT(false, "Unknown unsigned integer type id=" << intType->get_type_id() << ": " << intType);
+                    ASSERT( false, "Unknown unsigned integer type id=" << intType->get_type_id() << ": " << intType );
                 }
                 this->operand->insert_conversion( type );
             }
@@ -327,13 +324,14 @@ protected:
 public:
     TxMaybeConversionNode* operand;
     TxUnaryMinusNode( const TxLocation& parseLocation, TxExpressionNode* operand )
-        : TxOperatorValueNode( parseLocation ), operand( new TxMaybeConversionNode( operand ) ) { }
+            : TxOperatorValueNode( parseLocation ), operand( new TxMaybeConversionNode( operand ) ) {
+    }
 
     virtual TxUnaryMinusNode* make_ast_copy() const override {
         return new TxUnaryMinusNode( this->parseLocation, this->operand->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         operand->symbol_declaration_pass( lexContext );
     }
@@ -347,7 +345,7 @@ public:
         return this->operand->is_statically_constant();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->operand->visit_ast( visitor, thisAsParent, "operand", context );
@@ -357,19 +355,20 @@ public:
 class TxUnaryLogicalNotNode : public TxOperatorValueNode {
 protected:
     virtual const TxType* define_type() override {
-        return this->registry().get_builtin_type(TXBT_BOOL);
+        return this->registry().get_builtin_type( TXBT_BOOL );
     }
 
 public:
     TxExpressionNode* operand;
-    TxUnaryLogicalNotNode(const TxLocation& parseLocation, TxExpressionNode* operand)
-        : TxOperatorValueNode(parseLocation), operand(operand) { }
+    TxUnaryLogicalNotNode( const TxLocation& parseLocation, TxExpressionNode* operand )
+            : TxOperatorValueNode( parseLocation ), operand( operand ) {
+    }
 
     virtual TxUnaryLogicalNotNode* make_ast_copy() const override {
         return new TxUnaryLogicalNotNode( this->parseLocation, this->operand->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         operand->symbol_declaration_pass( lexContext );
     }
@@ -379,23 +378,21 @@ public:
         operand->symbol_resolution_pass();
         auto type = operand->get_type();
         // assume arithmetic, scalar negation:
-        if (! type->is_builtin( TXBT_BOOL ))
+        if ( !type->is_builtin( TXBT_BOOL ) )
             // should we support any auto-conversion to Bool?
-            CERROR(this, "Operand of unary '!' is not of Bool type: " << (type ? type->str().c_str() : "NULL"));
+            CERROR( this, "Operand of unary '!' is not of Bool type: " << (type ? type->str().c_str() : "NULL") );
     }
 
     virtual bool is_statically_constant() const override {
         return this->operand->is_statically_constant();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->operand->visit_ast( visitor, thisAsParent, "operand", context );
     }
 };
-
-
 
 class TxFunctionCallNode : public TxExpressionNode {
     const TxType* calleeType = nullptr;
@@ -405,7 +402,7 @@ class TxFunctionCallNode : public TxExpressionNode {
     static std::vector<TxMaybeConversionNode*>* make_args_vec( const std::vector<TxExpressionNode*>* argsExprList ) {
         std::vector<TxMaybeConversionNode*>* copyVec = new std::vector<TxMaybeConversionNode*>( argsExprList->size() );
         std::transform( argsExprList->cbegin(), argsExprList->cend(), copyVec->begin(),
-                        []( TxExpressionNode* n ) -> TxMaybeConversionNode*  {  return new TxMaybeConversionNode( n );  } );
+                        []( TxExpressionNode* n ) -> TxMaybeConversionNode* {return new TxMaybeConversionNode( n );} );
         return copyVec;
     }
 
@@ -417,50 +414,46 @@ public:
     std::vector<TxExpressionNode*> const * const origArgsExprList;
     std::vector<TxMaybeConversionNode*>* argsExprList;
 
-    TxFunctionCallNode(const TxLocation& parseLocation, TxExpressionNode* callee, const std::vector<TxExpressionNode*>* argsExprList);
+    TxFunctionCallNode( const TxLocation& parseLocation, TxExpressionNode* callee, const std::vector<TxExpressionNode*>* argsExprList );
 
     virtual TxFunctionCallNode* make_ast_copy() const override {
         return new TxFunctionCallNode( this->parseLocation, this->callee->make_ast_copy(), make_node_vec_copy( this->origArgsExprList ) );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override;
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override;
 
     virtual void symbol_resolution_pass() override;
 
-
     virtual bool is_stack_allocation_expression() const override {
-        if (this->inlinedExpression)
+        if ( this->inlinedExpression )
             return this->inlinedExpression->is_stack_allocation_expression();
         return false;
     }
 
     virtual bool is_statically_constant() const override {
-        if (this->inlinedExpression)
+        if ( this->inlinedExpression )
             return this->inlinedExpression->is_statically_constant();
         return false;
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        if (this->inlinedExpression)
+        if ( this->inlinedExpression )
             return this->inlinedExpression->get_static_constant_proxy();
         return nullptr;
     }
 
-
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        if (this->inlinedExpression)
+        if ( this->inlinedExpression )
             this->inlinedExpression->visit_ast( visitor, thisAsParent, "inlinedexpr", context );
         else {
             this->callee->visit_ast( visitor, thisAsParent, "callee", context );
-            for (auto arg : *this->argsExprList)
+            for ( auto arg : *this->argsExprList )
                 arg->visit_ast( visitor, thisAsParent, "arg", context );
         }
     }
 };
-
-
 
 /** Special callee expression node for calling constructors. */
 class TxConstructorCalleeExprNode : public TxExpressionNode {
@@ -468,7 +461,7 @@ class TxConstructorCalleeExprNode : public TxExpressionNode {
     mutable llvm::Value* objectPtrV = nullptr;
 
     /** @return a function pointer (not a lambda value) */
-    virtual llvm::Value* gen_func_ptr(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* gen_func_ptr( LlvmGenerationContext& context, GenScope* scope ) const;
 
 protected:
     /** Produces the object - either an allocation, or a self/super reference */
@@ -477,32 +470,32 @@ protected:
     virtual const TxType* define_type() override;
 
 public:
-    TxConstructorCalleeExprNode(const TxLocation& parseLocation, TxExpressionNode* objectExpr)
-            : TxExpressionNode(parseLocation), objectExpr(objectExpr) { }
+    TxConstructorCalleeExprNode( const TxLocation& parseLocation, TxExpressionNode* objectExpr )
+            : TxExpressionNode( parseLocation ), objectExpr( objectExpr ) {
+    }
 
     virtual TxConstructorCalleeExprNode* make_ast_copy() const override {
         return new TxConstructorCalleeExprNode( this->parseLocation, this->objectExpr->make_ast_copy() );
     }
 
-
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         this->objectExpr->symbol_declaration_pass( lexContext );
     }
-    virtual void symbol_resolution_pass() override { this->objectExpr->symbol_resolution_pass(); }
+    virtual void symbol_resolution_pass() override {
+        this->objectExpr->symbol_resolution_pass();
+    }
 
     /** @return a lambda value */
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     /** @return an object pointer (not a lambda value) */
-    virtual llvm::Value* gen_obj_ptr(LlvmGenerationContext& context, GenScope* scope) const;
+    virtual llvm::Value* gen_obj_ptr( LlvmGenerationContext& context, GenScope* scope ) const;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->objectExpr->visit_ast( visitor, thisAsParent, "objectexpr", context );
     }
 };
-
-
 
 /** Abstract superclass for memory allocation expressions, for heap and stack allocators. */
 class TxMemAllocNode : public TxExpressionNode {
@@ -513,49 +506,53 @@ protected:
         return this->objTypeExpr->resolve_type();
     }
 
-    TxMemAllocNode(const TxLocation& parseLocation, TxTypeExpressionNode* objTypeExpr)
-            : TxExpressionNode(parseLocation), objTypeExpr(objTypeExpr) { }
+    TxMemAllocNode( const TxLocation& parseLocation, TxTypeExpressionNode* objTypeExpr )
+            : TxExpressionNode( parseLocation ), objTypeExpr( objTypeExpr ) {
+    }
 
 public:
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override { this->set_context( lexContext ); }
-    virtual void symbol_resolution_pass() override { }
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+        this->set_context( lexContext );
+    }
+    virtual void symbol_resolution_pass() override {
+    }
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->objTypeExpr->visit_ast( visitor, thisAsParent, "type", context );
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override {
-        THROW_LOGIC("Unsupported: code_gen() for node type " << this);
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
+        THROW_LOGIC( "Unsupported: code_gen() for node type " << this );
     }
 
-    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const override = 0;
+    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override = 0;
 };
 
 class TxHeapAllocNode : public TxMemAllocNode {
 public:
-    TxHeapAllocNode(const TxLocation& parseLocation, TxTypeExpressionNode* objTypeExpr)
-            : TxMemAllocNode(parseLocation, objTypeExpr) { }
+    TxHeapAllocNode( const TxLocation& parseLocation, TxTypeExpressionNode* objTypeExpr )
+            : TxMemAllocNode( parseLocation, objTypeExpr ) {
+    }
 
     virtual TxHeapAllocNode* make_ast_copy() const override {
         return new TxHeapAllocNode( this->parseLocation, this->objTypeExpr->make_ast_copy() );
     }
 
-    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 class TxStackAllocNode : public TxMemAllocNode {
 public:
-    TxStackAllocNode(const TxLocation& parseLocation, TxTypeExpressionNode* objTypeExpr)
-            : TxMemAllocNode(parseLocation, objTypeExpr) { }
+    TxStackAllocNode( const TxLocation& parseLocation, TxTypeExpressionNode* objTypeExpr )
+            : TxMemAllocNode( parseLocation, objTypeExpr ) {
+    }
 
     virtual TxStackAllocNode* make_ast_copy() const override {
         return new TxStackAllocNode( this->parseLocation, this->objTypeExpr->make_ast_copy() );
     }
 
-    virtual llvm::Value* code_gen_address(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
-
-
 
 /** Abstract common superclass for new expression and local init expression */
 class TxMakeObjectNode : public TxExpressionNode {
@@ -570,10 +567,11 @@ protected:
     virtual const TxType* get_object_type() const = 0;
 
     TxMakeObjectNode( const TxLocation& parseLocation, TxTypeExpressionNode* typeExpr, TxFunctionCallNode* constructorCall )
-            : TxExpressionNode(parseLocation), typeExpr(typeExpr), constructorCall(constructorCall) { }
+            : TxExpressionNode( parseLocation ), typeExpr( typeExpr ), constructorCall( constructorCall ) {
+    }
 
 public:
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         this->typeExpr->symbol_declaration_pass( lexContext, nullptr );
         this->constructorCall->symbol_declaration_pass( lexContext );
@@ -582,24 +580,25 @@ public:
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         this->typeExpr->symbol_resolution_pass();
-        if (! this->typeExpr->get_type()->is_concrete())
-            CERROR(this->typeExpr, "Can't make an object of a non-concrete type (size potentially unknown): " << this->typeExpr->get_type());
+        if ( !this->typeExpr->get_type()->is_concrete() )
+            CERROR( this->typeExpr, "Can't make an object of a non-concrete type (size potentially unknown): " << this->typeExpr->get_type() );
 
         this->constructorCall->symbol_resolution_pass();
 
-        if (auto calleeType = this->constructorCall->callee->get_type()) {
-            if (auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>(calleeType->type())) {
+        if ( auto calleeType = this->constructorCall->callee->get_type() ) {
+            if ( auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>( calleeType->type() ) ) {
                 // This constructor is an inlineable function that returns the initializer value
                 // (as opposed to a constructor whose code assigns value to the object's members).
                 // We replace the constructor call with the initialization expression:
-                this->initializationExpression = inlineCalleeType->make_inline_expr( this->constructorCall->callee, this->constructorCall->argsExprList );
+                this->initializationExpression = inlineCalleeType->make_inline_expr( this->constructorCall->callee,
+                                                                                     this->constructorCall->argsExprList );
             }
         }
     }
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->typeExpr->visit_ast( visitor, thisAsParent, "type", context );
-        if (this->initializationExpression)
+        if ( this->initializationExpression )
             this->initializationExpression->visit_ast( visitor, thisAsParent, "initexpr", context );
         else
             this->constructorCall->visit_ast( visitor, thisAsParent, "call", context );
@@ -611,7 +610,9 @@ class TxNewConstructionNode : public TxMakeObjectNode {
     TxTypeTypeArgumentNode* targetTypeNode;
 
 protected:
-    virtual const TxType* get_object_type() const override { return this->typeExpr->get_type(); }
+    virtual const TxType* get_object_type() const override {
+        return this->typeExpr->get_type();
+    }
 
     virtual const TxType* define_type() override {
         // new constructor returns the constructed object by reference
@@ -619,17 +620,18 @@ protected:
     }
 
 public:
-    TxNewConstructionNode(const TxLocation& parseLocation, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList)
-            : TxMakeObjectNode( parseLocation, typeExpr,
-                                new TxFunctionCallNode(parseLocation,
-                                                       new TxConstructorCalleeExprNode(parseLocation, new TxHeapAllocNode(parseLocation, typeExpr)),
-                                                       argsExprList ) ) {
+    TxNewConstructionNode( const TxLocation& parseLocation, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList )
+            : TxMakeObjectNode(
+                    parseLocation, typeExpr,
+                    new TxFunctionCallNode( parseLocation,
+                                            new TxConstructorCalleeExprNode( parseLocation, new TxHeapAllocNode( parseLocation, typeExpr ) ),
+                                            argsExprList ) ) {
         targetTypeNode = new TxTypeTypeArgumentNode( this->typeExpr );
     }
 
     virtual TxNewConstructionNode* make_ast_copy() const override {
         return new TxNewConstructionNode( this->parseLocation, this->typeExpr->make_ast_copy(),
-                                  make_node_vec_copy( this->constructorCall->origArgsExprList ) );
+                                          make_node_vec_copy( this->constructorCall->origArgsExprList ) );
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
@@ -637,13 +639,15 @@ public:
         targetTypeNode->set_context( lexContext );  // emulate declaration pass
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 /** Makes a new object in newly allocated stack memory and returns it by value. */
 class TxStackConstructionNode : public TxMakeObjectNode {
 protected:
-    virtual const TxType* get_object_type() const override { return this->get_type(); }
+    virtual const TxType* get_object_type() const override {
+        return this->get_type();
+    }
 
     virtual const TxType* define_type() override {
         // stack constructor returns the constructed object by value, not by reference
@@ -652,17 +656,18 @@ protected:
 
 public:
     /** produced by the expression syntax: <...type-expr...>(...constructor-args...) */
-    TxStackConstructionNode(const TxLocation& parseLocation, TxTypeExpressionNode* typeExpr,
-                           const std::vector<TxExpressionNode*>* argsExprList)
-            : TxMakeObjectNode(parseLocation, typeExpr,
-                    new TxFunctionCallNode(parseLocation,
-                                           new TxConstructorCalleeExprNode(parseLocation, new TxStackAllocNode(parseLocation, typeExpr)),
-                                           argsExprList ) ) {
+    TxStackConstructionNode( const TxLocation& parseLocation, TxTypeExpressionNode* typeExpr,
+                             const std::vector<TxExpressionNode*>* argsExprList )
+            : TxMakeObjectNode(
+                    parseLocation, typeExpr,
+                    new TxFunctionCallNode( parseLocation,
+                                            new TxConstructorCalleeExprNode( parseLocation, new TxStackAllocNode( parseLocation, typeExpr ) ),
+                                            argsExprList ) ) {
     }
 
     virtual TxStackConstructionNode* make_ast_copy() const override {
         return new TxStackConstructionNode( this->parseLocation, this->typeExpr->make_ast_copy(),
-                                           make_node_vec_copy( this->constructorCall->origArgsExprList ) );
+                                            make_node_vec_copy( this->constructorCall->origArgsExprList ) );
     }
 
     virtual bool is_stack_allocation_expression() const override {
@@ -671,10 +676,8 @@ public:
 
     // virtual bool is_statically_constant() const override { return true; }  // TODO: review
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
-
-
 
 /*=== assignee expressions ===*/
 
@@ -686,14 +689,15 @@ protected:
 
 public:
     TxFieldValueNode* field;
-    TxFieldAssigneeNode(const TxLocation& parseLocation, TxFieldValueNode* field)
-        : TxAssigneeNode(parseLocation), field(field) { }
+    TxFieldAssigneeNode( const TxLocation& parseLocation, TxFieldValueNode* field )
+            : TxAssigneeNode( parseLocation ), field( field ) {
+    }
 
     virtual TxFieldAssigneeNode* make_ast_copy() const override {
         return new TxFieldAssigneeNode( this->parseLocation, this->field->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         field->symbol_declaration_pass( lexContext );
     }
@@ -703,11 +707,11 @@ public:
         field->symbol_resolution_pass();
 
         auto fieldDecl = field->get_field_declaration();
-        if (fieldDecl && fieldDecl->get_storage() == TXS_NOSTORAGE)
-            CERROR(this, "Assignee '" << field->symbolName << "' is not an L-value / has no storage.");
+        if ( fieldDecl && fieldDecl->get_storage() == TXS_NOSTORAGE )
+            CERROR( this, "Assignee '" << field->symbolName << "' is not an L-value / has no storage." );
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->field->visit_ast( visitor, thisAsParent, "field", context );
@@ -718,22 +722,23 @@ class TxDerefAssigneeNode : public TxAssigneeNode {
 protected:
     virtual const TxType* define_type() override {
         auto refType = this->operand->resolve_type();
-        if (refType->get_type_class() != TXTC_REFERENCE)
-            CERR_THROWRES(this, "Can't de-reference non-reference expression: " << refType);
+        if ( refType->get_type_class() != TXTC_REFERENCE )
+            CERR_THROWRES( this, "Can't de-reference non-reference expression: " << refType );
         return refType->target_type();
     }
 
 public:
     TxExpressionNode* operand;
 
-    TxDerefAssigneeNode(const TxLocation& parseLocation, TxExpressionNode* operand)
-        : TxAssigneeNode(parseLocation), operand(operand) { }
+    TxDerefAssigneeNode( const TxLocation& parseLocation, TxExpressionNode* operand )
+            : TxAssigneeNode( parseLocation ), operand( operand ) {
+    }
 
     virtual TxDerefAssigneeNode* make_ast_copy() const override {
         return new TxDerefAssigneeNode( this->parseLocation, this->operand->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         operand->symbol_declaration_pass( lexContext );
     }
@@ -743,7 +748,7 @@ public:
         operand->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->operand->visit_ast( visitor, thisAsParent, "operand", context );
@@ -753,18 +758,18 @@ public:
 class TxElemAssigneeNode : public TxAssigneeNode {
 protected:
     virtual const TxType* define_type() override {
-        this->subscript->insert_conversion( this->registry().get_builtin_type(TXBT_LONG) );
+        this->subscript->insert_conversion( this->registry().get_builtin_type( TXBT_LONG ) );
 
         auto opType = this->array->originalExpr->resolve_type();
-        if (opType->get_type_class() == TXTC_REFERENCE) {
+        if ( opType->get_type_class() == TXTC_REFERENCE ) {
             auto targType = opType->target_type();
-            if (targType->get_type_class() == TXTC_ARRAY) {
+            if ( targType->get_type_class() == TXTC_ARRAY ) {
                 this->array->insert_conversion( targType );
             }
         }
         opType = this->array->resolve_type();
-        if (opType->get_type_class() != TXTC_ARRAY)
-            CERR_THROWRES(this, "Can't subscript non-array assignee expression: " << opType);
+        if ( opType->get_type_class() != TXTC_ARRAY )
+            CERR_THROWRES( this, "Can't subscript non-array assignee expression: " << opType );
         return opType->element_type();
     }
 
@@ -772,14 +777,16 @@ public:
     TxMaybeConversionNode* array;
     TxMaybeConversionNode* subscript;
 
-    TxElemAssigneeNode(const TxLocation& parseLocation, TxExpressionNode* array, TxExpressionNode* subscript)
-        : TxAssigneeNode(parseLocation), array(new TxMaybeConversionNode(array)), subscript(new TxMaybeConversionNode(subscript))  { }
-
-    virtual TxElemAssigneeNode* make_ast_copy() const override {
-        return new TxElemAssigneeNode( this->parseLocation, this->array->originalExpr->make_ast_copy(), this->subscript->originalExpr->make_ast_copy() );
+    TxElemAssigneeNode( const TxLocation& parseLocation, TxExpressionNode* array, TxExpressionNode* subscript )
+            : TxAssigneeNode( parseLocation ), array( new TxMaybeConversionNode( array ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext) override {
+    virtual TxElemAssigneeNode* make_ast_copy() const override {
+        return new TxElemAssigneeNode( this->parseLocation, this->array->originalExpr->make_ast_copy(),
+                                       this->subscript->originalExpr->make_ast_copy() );
+    }
+
+    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         array->symbol_declaration_pass( lexContext );
         subscript->symbol_declaration_pass( lexContext );
@@ -791,7 +798,7 @@ public:
         subscript->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
         this->array->visit_ast( visitor, thisAsParent, "array", context );

@@ -2,13 +2,11 @@
 
 #include "util/logging.hpp"
 
-
 #define LOG(logger, level, message) \
     do { \
             std::stringstream msg;  msg << message; \
             logger->log( level, "%s", msg.str().c_str() ); \
     } while (false)
-
 
 #define LOG_INFO(logger, message) \
     do { \
@@ -21,7 +19,6 @@
             std::stringstream msg;  msg << message; \
             logger->note( "%s", msg.str().c_str() ); \
     } while (false)
-
 
 #ifndef NDEBUG
 #   define LOG_TRACE(logger, message) \
@@ -41,7 +38,6 @@
 
 #define GET_MACRO(_1,_2,_3,NAME,...) NAME
 #define TRACE_CODEGEN(...) GET_MACRO(__VA_ARGS__, TRACE_CODEGEN3, TRACE_CODEGEN2)(__VA_ARGS__)
-
 
 #ifdef DEBUG_CODEGEN
 #   define TRACE_CODEGEN2(node, llvmctx) \

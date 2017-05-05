@@ -5,12 +5,10 @@
 
 #include "symbol/type_registry.hpp"
 
-
 class TypeRegistry;
 class TxModule;
 class TxTypeDeclNode;
 class TxInterfaceAdapterType;
-
 
 class BuiltinTypes {
     TypeRegistry& registry;
@@ -25,18 +23,17 @@ class BuiltinTypes {
 public:
     BuiltinTypes( TypeRegistry& registry );
 
-
     TxParsingUnitNode* createTxModuleAST();
 
     void initializeBuiltinSymbols();  // FIXME: remove
 
-
-    const TxLocation& get_builtin_location() const { return this->builtinLocation; }
+    const TxLocation& get_builtin_location() const {
+        return this->builtinLocation;
+    }
 
     const TxType* get_builtin_type( const BuiltinTypeId id ) const;
 };
 
-
-
 void merge_builtin_type_definers( TxTypeExpressionNode* definer, TxTypeDefiningNode* builtinDefiner,
-                                  TxTypeExpressionNode* baseType, const std::vector<TxTypeExpressionNode*>& interfaces, bool _mutable );
+                                  TxTypeExpressionNode* baseType,
+                                  const std::vector<TxTypeExpressionNode*>& interfaces, bool _mutable );
