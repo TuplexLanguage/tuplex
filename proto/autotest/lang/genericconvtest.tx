@@ -31,7 +31,7 @@ public type ERange< E derives Enumerable<E> > derives Tuple {
         self.end = end;
         self.step = step;
 
-        if self.step >= 0
+        if self.step >= 0:
             self._last = UInt( ( Long( self.end.ordinal() )   - self.start.ordinal() + 1L ) / self.step );
         else
             self._last = UInt( ( Long( self.start.ordinal() ) - self.end.ordinal()   + 1L ) / -self.step );

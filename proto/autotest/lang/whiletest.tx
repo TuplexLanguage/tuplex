@@ -10,7 +10,7 @@ test_while_syntax() {
 
     }
 
-    while TRUE break;
+    while TRUE: break;
     
     while TRUE { break; }
 
@@ -24,19 +24,19 @@ test_while_syntax() {
         break;
     }
 
-    while TRUE break;
+    while TRUE: break;
     else assert FALSE;
     
     while TRUE { break; }
     else assert FALSE;
 
-    while TRUE break; else assert FALSE;
+    while TRUE: break; else assert FALSE;
     
     while TRUE { break; } else assert FALSE;
 
     ~i := 0;
 
-    while FALSE break;
+    while FALSE: break;
     else i = i + 1;
     
     while FALSE { break; }

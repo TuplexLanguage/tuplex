@@ -8,25 +8,25 @@ main()->Int {
 }
 
 recurse(x : Int)->Int {
-    if (x > 0)
+    if x > 0:
         return x + recurse(x - 1);
     else
         return 0;
 }
 
 cross_recurse_pos(x : Int)->Int {
-    if (x > 0)
+    if x > 0:
         return x + cross_recurse_neg(-(x-1));
-    else if (x < 0)
+    else if x < 0:
         return x + cross_recurse_neg(x+1);
     else
         return 0;
 }
 
 cross_recurse_neg(x : Int)->Int {
-    if (x > 0)
+    if x > 0:
         return x + cross_recurse_pos(-(x-1));
-    else if (x < 0)
+    else if x < 0:
         return x + cross_recurse_pos(x+1);
     else
         return 0;

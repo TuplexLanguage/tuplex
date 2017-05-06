@@ -23,7 +23,7 @@ type SingleRef<S derives Ref> derives Tuple, Sequenceable<S> {
             return !self.done;
         }
         public override next()->S {
-            if (self.done)
+            if self.done:
                 panic := TRUE;  ## TODO: panic
             self.done = TRUE;
             return self.element;

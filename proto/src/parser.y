@@ -141,7 +141,7 @@ YY_DECL;
 
 %type <TxIdentifiedSymbolNode*> named_symbol
 
-%type <std::vector<TxTypeExpressionNode*> *> opt_base_types predef_type_list
+%type <std::vector<TxTypeExpressionNode*> *> opt_base_types conv_type_list
 
 %type <TxTypeArgumentNode *> type_arg
 %type <std::vector<TxTypeArgumentNode*> *> type_arg_list
@@ -150,7 +150,7 @@ YY_DECL;
 %type <TxFieldTypeDefNode*> field_type_def
 %type <std::vector<TxFieldTypeDefNode*> *> func_args func_args_list
 
-%type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression predef_type produced_type
+%type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression conv_type_expr produced_type
 %type <TxTypeExpressionNode*> named_type specialized_type reference_type array_type //data_tuple_type
 
 %type <TxFunctionTypeNode*> function_signature
@@ -159,8 +159,8 @@ YY_DECL;
 %type <std::vector<TxExpressionNode*> *> expression_list call_params array_lit_expr_list
 %type <std::vector<TxStatementNode*> *> statement_list
 %type <TxSuiteNode*> suite
-%type <TxStatementNode*> statement assignment_stmt return_stmt break_stmt continue_stmt assert_stmt type_decl_stmt
-%type <TxStatementNode*> simple_cond_stmt other_stmt elementary_stmt cond_else_stmt
+%type <TxStatementNode*> statement single_statement assignment_stmt return_stmt break_stmt continue_stmt assert_stmt type_decl_stmt
+%type <TxStatementNode*> cond_stmt simple_stmt elementary_stmt cond_else_stmt
 %type <TxElseClauseNode*> else_clause
 %type <TxStatementNode*> experr_stmt
 %type <TxAssigneeNode*> assignee_expr
@@ -328,7 +328,7 @@ type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->
                 ;
 type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
                                                   new TxNamedTypeNode(@1, "tx.Any")); }
-                | NAME KW_DERIVES predef_type { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
+                | NAME KW_DERIVES conv_type_expr { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
                 | field_type_def  { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, new TxFieldDefNode($1)); }
                 ;
 
@@ -361,15 +361,16 @@ member_list : member_declaration
             ;
 
 opt_base_types  : %empty    { $$ = new std::vector<TxTypeExpressionNode*>(); }
-                | KW_DERIVES predef_type_list  { $$ = $2; }
+                | KW_DERIVES conv_type_list  { $$ = $2; }
                 // (all but the first must be interface types)
                 ;
 
-predef_type_list: predef_type  { $$ = new std::vector<TxTypeExpressionNode*>();  $$->push_back($1); }
-                | predef_type_list COMMA predef_type  { $$ = $1;  $$->push_back($3); }
+conv_type_list  : conv_type_expr  { $$ = new std::vector<TxTypeExpressionNode*>();  $$->push_back($1); }
+                | conv_type_list COMMA conv_type_expr  { $$ = $1;  $$->push_back($3); }
                 ;
 
-predef_type     : named_symbol                      { $$ = new TxNamedTypeNode(@1, $1); }
+// conventional type expressions are named types (and possibly specialized) (i.e. not using not syntatic sugar to describe the type)
+conv_type_expr  : named_symbol                      { $$ = new TxNamedTypeNode(@1, $1); }
                 | named_symbol LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@1, new TxNamedTypeNode(@1, $1), $3); }
                 ;
 
@@ -393,16 +394,16 @@ type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->
 
 type_arg        : value_literal       { $$ = new TxValueTypeArgumentNode($1); }  // unambiguous value expr
                 | LPAREN expr RPAREN  { $$ = new TxValueTypeArgumentNode($2); }  // parens prevent conflation with type expr
-                | opt_modifiable predef_type   { auto typeNode = ( $1 ? new TxModifiableTypeNode(@1, $2)
-                                                                      : new TxMaybeModTypeNode(@2, $2) );
-                                                 $$  = new TxTypeTypeArgumentNode(typeNode); }
-                // TODO: syntactic sugar for reference and array types (possibly chained):
-                // | opt_modifiable AAND predef_type
-                // | opt_modifiable LBRACKET RBRACKET predef_type
+                | opt_modifiable conv_type_expr   { $$ = new TxTypeTypeArgumentNode(( $1 ? new TxModifiableTypeNode(@1, $2)
+                                                                                      : new TxMaybeModTypeNode(@2, $2) )); }
+                // TODO: support reference and array types (possibly chained):
+                // | type_expression     { $$ = new TxTypeTypeArgumentNode($1); }
+                // | opt_modifiable AAND conv_type_expr
+                // | opt_modifiable LBRACKET RBRACKET conv_type_expr
                 ;
 
 
-type_expression  // can construct new "literal" type but can't extend (subclass / add members to) one
+type_expression  // can identify or construct new type but can't extend (specify interfaces or add members to) one
     :   opt_modifiable base_type_expression  %prec EXPR
              { $$ = ( $1 ? new TxModifiableTypeNode(@1, $2)
                          : new TxMaybeModTypeNode(@2, $2) ); }
@@ -441,7 +442,7 @@ array_type : array_dimensions type_expression
                       $$ = new TxArrayTypeNode(@1, $2, $1);
                     } ;
 array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
-                 //| LBRACKET predef_type RBRACKET  // predef_type must be an enum
+                 //| LBRACKET conv_type_expr RBRACKET  // type must be an enum
                  | LBRACKET RBRACKET  { $$ = NULL; }
                  ;
 
@@ -545,10 +546,10 @@ array_literal : LBRACKET expr COMMA array_lit_expr_list RBRACKET  { (*$4)[0] = $
               | LBRACKET expr RBRACKET  { $$ = new TxArrayLitNode(@1, new std::vector<TxExpressionNode*>( { $2 } )); }
 
               // produces a (harmless) shift-reduce warning but unknown how to suppress that:
-              | LBRACKET expr RBRACKET predef_type LPAREN expression_list RPAREN  { $$ = new TxArrayLitNode(@1, $4, $6, $2); }
-              | LBRACKET expr RBRACKET predef_type LPAREN RPAREN  { $$ = new TxArrayLitNode(@1, $4, new std::vector<TxExpressionNode*>(), $2); }
-              | LBRACKET RBRACKET predef_type LPAREN expression_list RPAREN       { $$ = new TxArrayLitNode(@1, $3, $5); }
-              | LBRACKET RBRACKET predef_type LPAREN RPAREN                       { $$ = new TxArrayLitNode(@1, $3); }
+              | LBRACKET expr RBRACKET conv_type_expr LPAREN expression_list RPAREN  { $$ = new TxArrayLitNode(@1, $4, $6, $2); }
+              | LBRACKET expr RBRACKET conv_type_expr LPAREN RPAREN  { $$ = new TxArrayLitNode(@1, $4, new std::vector<TxExpressionNode*>(), $2); }
+              | LBRACKET RBRACKET conv_type_expr LPAREN expression_list RPAREN       { $$ = new TxArrayLitNode(@1, $3, $5); }
+              | LBRACKET RBRACKET conv_type_expr LPAREN RPAREN                       { $$ = new TxArrayLitNode(@1, $3); }
               ;
               // LBRACKET RBRACKET - empty, unqualified array literal "[]" illegal since element type can't be determined
 
@@ -595,18 +596,40 @@ statement_list : statement  { $$ = new std::vector<TxStatementNode*>();
 // Conditional statements can be seen as statements prefixed with a condition clause
 // (which in itself is not "terminated").
 statement
-    :   simple_cond_stmt           %prec STMT    { $$ = $1; }
-    |   other_stmt                 %prec KW_ELSE { $$ = $1; }
+    :   single_statement                         { $$ = $1; }
+    |   suite                                    { $$ = $1; }
     ;
 
-other_stmt
-    :   suite                      %prec STMT    { $$ = $1; }
-    |   type_decl_stmt             %prec STMT    { $$ = $1; }
+single_statement
+    :   cond_stmt                  %prec STMT    { $$ = $1; }
+    |   simple_stmt                %prec STMT    { $$ = $1; }
+    ;
+
+simple_stmt
+    :   type_decl_stmt             %prec STMT    { $$ = $1; }
     |   elementary_stmt SEMICOLON  %prec STMT    { $$ = $1; }
     |   cond_else_stmt             %prec KW_ELSE { $$ = $1; }
     |   experr_stmt                %prec STMT    { $$ = $1; }
     |   error SEMICOLON            %prec STMT    { $$ = new TxNoOpStmtNode(@1); TX_SYNTAX_ERROR; }
     ;
+
+
+cond_stmt        : KW_IF    cond_expr COLON single_statement  %prec STMT  { $$ = new TxIfStmtNode   (@1, $2, $4); }
+                 | KW_IF    cond_expr suite                   %prec STMT  { $$ = new TxIfStmtNode   (@1, $2, $3); }
+                 | KW_WHILE cond_expr COLON single_statement  %prec STMT  { $$ = new TxWhileStmtNode(@1, $2, $4); }
+                 | KW_WHILE cond_expr suite                   %prec STMT  { $$ = new TxWhileStmtNode(@1, $2, $3); }
+                 ;
+
+cond_else_stmt   : KW_IF    cond_expr COLON simple_stmt else_clause  %prec KW_ELSE  { $$ = new TxIfStmtNode   (@1, $2, $4, $5); }
+                 | KW_IF    cond_expr suite             else_clause  %prec KW_ELSE  { $$ = new TxIfStmtNode   (@1, $2, $3, $4); }
+                 | KW_WHILE cond_expr COLON simple_stmt else_clause  %prec KW_ELSE  { $$ = new TxWhileStmtNode(@1, $2, $4, $5); }
+                 | KW_WHILE cond_expr suite             else_clause  %prec KW_ELSE  { $$ = new TxWhileStmtNode(@1, $2, $3, $4); }
+                 ;
+
+cond_expr        : expr %prec STMT    { $$ = $1; } ;
+
+else_clause      : KW_ELSE statement  { $$ = new TxElseClauseNode(@1, $2); } ;
+
 
 experr_stmt : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(-1)); }
               statement                    { $$ = new TxExpErrStmtNode(@1, END_TXEXPERR(@4), static_cast<TxStatementNode*>($4)); }
@@ -630,19 +653,6 @@ type_decl_stmt  : type_or_if NAME type_spec
                 | type_or_if NAME LT type_param_list GT type_spec
                     { $$ = new TxTypeStmtNode(@1, $2, $4,   $6, $1); }
                 ;
-
-
-simple_cond_stmt : KW_IF    cond_expr statement  { $$ = new TxIfStmtNode   (@1, $2, $3); }
-                 | KW_WHILE cond_expr statement  { $$ = new TxWhileStmtNode(@1, $2, $3); }
-                 ;
-
-cond_else_stmt   : KW_IF    cond_expr other_stmt else_clause  { $$ = new TxIfStmtNode   (@1, $2, $3, $4); }
-                 | KW_WHILE cond_expr other_stmt else_clause  { $$ = new TxWhileStmtNode(@1, $2, $3, $4); }
-                 ;
-
-cond_expr       : expr %prec STMT { $$ = $1; } ;
-
-else_clause     : KW_ELSE statement  { $$ = new TxElseClauseNode(@1, $2); } ;
 
 
 return_stmt : KW_RETURN expr  { $$ = new TxReturnStmtNode(@1, $2); }

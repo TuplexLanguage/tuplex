@@ -45,23 +45,23 @@ first() {
 second() {
     ~v := 0UL;
 
-    if TRUE
+    if TRUE:
         v = v + 1;
-    if TRUE  v = v + 2;
+    if TRUE:  v = v + 2;
     
-    if FALSE  v = v + 4;
-    else      v = v + 8;
+    if FALSE:  v = v + 4;
+    else       v = v + 8;
 
-    if TRUE
-        if FALSE  v = v + 16;
-        else      v = v + 32;
+    if TRUE:
+        if FALSE:  v = v + 16;
+        else       v = v + 32;
     else  v = v + 64;
 
-    if FALSE
+    if FALSE:
         v = v + 128;
-    else if TRUE
+    else if TRUE:
         v = v + 256;
-    else if TRUE
+    else if TRUE:
         v = v + 512;
     else
         v = v + 1024;
