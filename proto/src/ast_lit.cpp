@@ -222,10 +222,10 @@ void TxCStringLitNode::symbol_declaration_pass( LexicalContext& lexContext ) {
     this->set_context( lexContext );
 
     // (for now) Create AST to declare the implicit type of this c-string literal:
-    TxTypeExpressionNode* elemTypeExpr = new TxIdentifiedTypeNode( this->parseLocation, "tx.UByte" );
+    TxTypeExpressionNode* elemTypeExpr = new TxNamedTypeNode( this->parseLocation, "tx.UByte" );
     TxExpressionNode* lengthExpr = new TxIntegerLitNode( this->parseLocation, literal.length() - 2, false, TXBT_UINT );
     TxTypeExpressionNode* typeExpr = new TxArrayTypeNode( this->parseLocation, elemTypeExpr, lengthExpr );
     this->cstringTypeNode = typeExpr;
-    this->cstringTypeNode->symbol_declaration_pass( lexContext, nullptr );
+    this->cstringTypeNode->symbol_declaration_pass( lexContext );
 }
 

@@ -124,11 +124,11 @@ YY_DECL;
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above.
  */
+%type <TxIdentifier*> compound_identifier import_identifier 
+%type <TxIdentifier*> opt_module_decl opt_dataspace
+
 %type <TxDeclarationFlags> declaration_flags opt_visibility opt_extern opt_static opt_abstract opt_override opt_final opt_builtin
 %type <bool> opt_modifiable type_or_if
-%type <TxIdentifier*> identifier compound_identifier opt_dataspace
-%type <TxIdentifier*> opt_module_decl 
-
 %type <TxParsingUnitNode*> parsing_unit
 %type <TxModuleNode*> sub_module
 
@@ -139,8 +139,9 @@ YY_DECL;
 %type <TxDeclarationNode *> member_declaration experr_decl type_param
 %type <std::vector<TxDeclarationNode*> *> type_body member_list type_param_list
 
+%type <TxIdentifiedSymbolNode*> named_symbol
+
 %type <std::vector<TxTypeExpressionNode*> *> opt_base_types predef_type_list
-%type <TxTypeExpressionNode*> predef_type
 
 %type <TxTypeArgumentNode *> type_arg
 %type <std::vector<TxTypeArgumentNode*> *> type_arg_list
@@ -149,8 +150,8 @@ YY_DECL;
 %type <TxFieldTypeDefNode*> field_type_def
 %type <std::vector<TxFieldTypeDefNode*> *> func_args func_args_list
 
-%type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression
-%type <TxTypeExpressionNode*> reference_type array_type //data_tuple_type
+%type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression predef_type produced_type
+%type <TxTypeExpressionNode*> named_type specialized_type reference_type array_type //data_tuple_type
 
 %type <TxFunctionTypeNode*> function_signature
 %type <TxExpressionNode*> expr make_expr lambda_expr value_literal array_literal array_dimensions cond_expr
@@ -183,7 +184,7 @@ YY_DECL;
 %precedence ADDR  /* unary prefix address-of */
 %precedence CARET /* unary postfix de-reference */
 %precedence LBRACKET RBRACKET
-%precedence DOT
+%right DOT
 %precedence ARRAY_LIT
 %right KW_MODULE KW_IMPORT  /* high token shift precedence */
 %right KW_ELSE
@@ -228,18 +229,13 @@ sub_module : KW_MODULE compound_identifier
     ;
 
 
+compound_identifier : NAME                              { $$ = new TxIdentifier($1); }
+                    | compound_identifier DOT NAME      { $$ = $1; $$->append($3); }
+                    ;
 
-// An 'identifier' refers to an entity declared elsewhere, and contains one or more period-separated 'segments'.
-// Example of fully qualified static name: my.mod.MyClass.staticField.myMethod.$.InnerClass.staticField2
-// Example of fully qualified local name: my.mod.MyClass.staticField.myMethod.$.self
-
-identifier : NAME                     { $$ = new TxIdentifier($1); }
-           | identifier DOT NAME      { $$ = $1; $$->append($3); }
-           | identifier DOT ASTERISK  { $$ = $1; $$->append("*"); }
-           ;
-
-compound_identifier : identifier  { $$ = $1; } ;
-
+import_identifier   : compound_identifier               { $$ = $1; }
+                    | compound_identifier DOT ASTERISK  { $$ = $1; $$->append("*"); }
+                    ;
 
 
 opt_sc : %empty | SEMICOLON ;
@@ -256,7 +252,7 @@ import_statements  : import_statement
                      { $$ = $1; if ($2) $$->push_back($2); }
                    ;
 
-import_statement   : KW_IMPORT compound_identifier opt_sc  { $$ = new TxImportNode(@1, $2); }
+import_statement   : KW_IMPORT import_identifier opt_sc  { $$ = new TxImportNode(@1, $2); }
                    | KW_IMPORT error opt_sc                { $$ = NULL; }
                    ;
 
@@ -331,7 +327,7 @@ type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->
                 | type_param_list COMMA type_param  { $$ = $1; $$->push_back($3); }
                 ;
 type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
-                                                  new TxIdentifiedTypeNode(@1, "tx.Any")); }
+                                                  new TxNamedTypeNode(@1, "tx.Any")); }
                 | NAME KW_DERIVES predef_type { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
                 | field_type_def  { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, new TxFieldDefNode($1)); }
                 ;
@@ -373,10 +369,23 @@ predef_type_list: predef_type  { $$ = new std::vector<TxTypeExpressionNode*>(); 
                 | predef_type_list COMMA predef_type  { $$ = $1;  $$->push_back($3); }
                 ;
 
-predef_type     : compound_identifier                      { $$ = new TxIdentifiedTypeNode(@1, $1); }
-                | compound_identifier LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@1, $1, $3); }
-                // not supported: | compound_identifier LT GT  { $$ = new TxGenSpecTypeNode(@1, $1, new std::vector<TxTypeArgumentNode*>()); }
+predef_type     : named_symbol                      { $$ = new TxNamedTypeNode(@1, $1); }
+                | named_symbol LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@1, new TxNamedTypeNode(@1, $1), $3); }
                 ;
+
+
+named_symbol    : NAME                   { $$ = new TxIdentifiedSymbolNode(@1, NULL, $1); }
+                | named_symbol DOT NAME  { $$ = new TxIdentifiedSymbolNode(@1, $1, $3); }
+                ;
+
+
+named_type      : named_symbol            %prec EXPR { $$ = new TxNamedTypeNode(@1, $1); }
+                | produced_type DOT NAME  %prec DOT  { $$ = new TxMemberTypeNode(@1, $1, $3); }
+                ;
+
+specialized_type  : named_type LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@1, $1, $3); }
+// not supported: | named_type LT GT  { $$ = new TxGenSpecTypeNode(@1, $1, new std::vector<TxTypeArgumentNode*>()); }
+                  ;
 
 type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->push_back($1); }
                 | type_arg_list COMMA type_arg  { $$ = $1;  $$->push_back($3); }
@@ -404,13 +413,16 @@ type_expression  // can construct new "literal" type but can't extend (subclass 
 
 opt_modifiable : %empty { $$ = false; } | TILDE { $$ = true; } | KW_MODIFIABLE { $$ = true; } ;
 
-base_type_expression
-    // the tuple base type is extendable; the others are not (though non-references may be virtually inherited)
-    :  predef_type      { $$ = $1; }
-    |  reference_type   { $$ = $1; }
-    |  array_type       { $$ = $1; }
+base_type_expression    : named_type     %prec DOT  { $$ = $1; }
+                        | produced_type  %prec EXPR { $$ = $1; }
+                        ;
+
+produced_type
+    :  specialized_type   { $$ = $1; }
+    |  reference_type     { $$ = $1; }
+    |  array_type         { $$ = $1; }
     |  function_signature { $$ = $1; }
-//    |  data_tuple_type  { $$ = $1; }
+//    |  data_tuple_type
 //    |  union_type
 //    |  enum_type
 //    |  range_type
@@ -421,7 +433,7 @@ reference_type : opt_dataspace ref_token type_expression
                     { /* (custom ast node needed to handle dataspaces) */
                       $$ = new TxReferenceTypeNode(@2, $1, $3);
                     } ;
-opt_dataspace : %empty { $$ = NULL; } | QMARK { $$ = NULL; } | compound_identifier { $$ = $1; } ;
+opt_dataspace : %empty { $$ = NULL; } | QMARK { $$ = NULL; } | NAME { $$ = new TxIdentifier($1); } ;
 ref_token : KW_REFERENCE | AAND ;
 
 array_type : array_dimensions type_expression

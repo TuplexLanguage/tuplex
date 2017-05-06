@@ -125,7 +125,7 @@ const TxField* TxFieldDefiningNode::resolve_field() {
 void TxFieldDefNode::symbol_declaration_pass( LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
     this->set_context( lexContext );
     if ( this->typeExpression )
-        this->typeExpression->symbol_declaration_pass( lexContext, nullptr );
+        this->typeExpression->symbol_declaration_pass( lexContext );
     if ( this->initExpression )
         this->initExpression->symbol_declaration_pass( lexContext );
 }
@@ -248,8 +248,9 @@ void TxFieldDeclNode::symbol_resolution_pass() {
         }
         else {
             if ( storage == TXS_GLOBAL || storage == TXS_STATIC ) {
-                if ( !( this->field->get_declaration()->get_decl_flags() & ( TXD_BUILTIN | TXD_EXTERN ) ) ) //(TXD_GENPARAM | TXD_CONSTRUCTOR | TXD_INITIALIZER)))
+                if ( !( this->field->get_declaration()->get_decl_flags() & ( TXD_BUILTIN | TXD_EXTERN ) ) ) {
                     CERROR( this, "Global/static fields must have an initializer: " << this->field->get_identifier() );
+                }
 //                else
 //                    std::cerr << "accepting without initializer: " << this->field->get_declaration() << std::endl;
             }
@@ -316,8 +317,100 @@ void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& lexContext, 
     this->symbol_declaration_pass_descendants( typeCtx );
 }
 
-const TxType* TxIdentifiedTypeNode::define_type() {
-    if ( auto identifiedTypeDecl = lookup_type( this->context().scope(), *this->ident ) ) {
+TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
+    if (this->symbol)
+        return this->symbol;
+    if ( this->baseSymbol ) {
+        // baseSymbol may or may not refer to a type (e.g. modules don't)
+        auto baseType = this->baseSymbol->resolve_type();
+
+        TxScopeSymbol* vantageScope = this->context().scope();
+        if ( auto baseSymbolNode = dynamic_cast<TxIdentifiedSymbolNode*>( this->baseSymbol ) ) {
+            if ( baseType->get_type_class() == TXTC_VOID ) {
+                // base is a non-entity symbol
+                if ( auto baseSymbol = baseSymbolNode->resolve_symbol() ) {
+                    this->symbol = lookup_member( vantageScope, baseSymbol, *this->symbolName );
+                }
+            }
+            else {
+                // base is a type expression
+                this->symbol = baseType->lookup_inherited_instance_member( vantageScope, this->symbolName->str() );
+            }
+        }
+        else {
+            // base is a type expression
+            this->symbol = baseType->lookup_inherited_instance_member( vantageScope, this->symbolName->str() );
+        }
+    }
+    else {
+        // capable of looking up both simple names and fully qualified names
+        this->symbol = lookup_symbol( this->context().scope(), *this->symbolName );
+    }
+    return this->symbol;
+}
+
+const TxType* TxIdentifiedSymbolNode::define_type() {
+    if ( auto symbol = this->resolve_symbol() ) {
+        if ( auto entitySym = dynamic_cast<const TxEntitySymbol*>( symbol) ) {
+            if ( auto typeDecl = entitySym->get_type_decl() )
+                return typeDecl->get_definer()->resolve_type();
+            if ( entitySym->field_count() == 1 )
+                return entitySym->get_first_field_decl()->get_definer()->resolve_type();
+            CERR_THROWRES( this, "Can't resolve type of overloaded symbol " << this->get_full_identifier() );
+        }
+        // Symbol is not an entity (field or type), return Void as placeholder type
+        return this->registry().get_builtin_type( TXBT_VOID );
+    }
+    CERR_THROWRES( this, "Unknown symbol: " << this->symbolName );
+}
+
+const TxType* TxNamedTypeNode::define_type() {
+    if ( auto symbol = this->symbolNode->resolve_symbol() ) {
+        if ( auto entitySym = dynamic_cast<const TxEntitySymbol*>( symbol) ) {
+            if ( auto typeDecl = entitySym->get_type_decl() ) {
+                auto type = typeDecl->get_definer()->resolve_type();
+                if ( auto decl = this->get_declaration() ) {
+                    // create empty specialization (uniquely named but identical type)
+                    return this->registry().make_empty_derivation( decl, type );
+                }
+                return type;
+            }
+            CERR_THROWRES( this, "Can't resolve type of symbol " << this->symbolNode->get_full_identifier() );
+// for now we don't allow an identified field to imply its type
+//            if ( entitySym->field_count() == 1 )
+//                return entitySym->get_first_field_decl()->get_definer()->resolve_type();
+//            CERR_THROWRES( this, "Can't resolve type of overloaded symbol " << this->get_full_identifier() );
+        }
+        // Symbol is not a field or type
+        CERR_THROWRES( this, "Not a type: " << this->symbolNode->get_full_identifier() );
+    }
+    CERR_THROWRES( this, "Unknown symbol: " << this->symbolNode->get_full_identifier() );
+}
+
+const TxType* TxMemberTypeNode::define_type() {
+    auto baseType = this->baseTypeExpr->resolve_type();
+    if (auto memberSymbol = baseType->lookup_inherited_instance_member( this->context().scope(), this->memberName )) {
+        if ( auto entitySym = dynamic_cast<const TxEntitySymbol*>( memberSymbol) ) {
+            if ( auto typeDecl = entitySym->get_type_decl() ) {
+                auto type = typeDecl->get_definer()->resolve_type();
+                if ( auto decl = this->get_declaration() ) {
+                    // create empty specialization (uniquely named but identical type)
+                    return this->registry().make_empty_derivation( decl, type );
+                }
+                return type;
+            }
+            CERR_THROWRES( this, "Can't resolve type of symbol " << this->memberName );
+// for now we don't allow an identified field to imply its type
+//            if ( entitySym->field_count() == 1 )
+//                return entitySym->get_first_field_decl()->get_definer()->resolve_type();
+//            CERR_THROWRES( this, "Can't resolve type of overloaded symbol " << this->get_full_identifier() );
+        }
+        // Symbol is not a field or type
+        CERR_THROWRES( this, "Not a type: " << this->memberName );
+    }
+    CERR_THROWRES( this, "Unknown symbol: " << this->memberName );
+/* previous identified-type implementation
+    if ( auto identifiedTypeDecl = lookup_type( this->context().scope(), *this->symbolName ) ) {
         auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type();
         if ( auto declEnt = this->get_declaration() ) {
             // create empty specialization (uniquely named but identical type)
@@ -326,19 +419,16 @@ const TxType* TxIdentifiedTypeNode::define_type() {
         return identifiedType;
     }
     else
-        CERR_THROWRES( this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")" );
+        CERR_THROWRES( this, "Unknown type: " << this->symbolName << " (from " << this->context().scope() << ")" );
+*/
 }
 
 const TxType* TxGenSpecTypeNode::define_type() {
-    if ( auto baseTypeDecl = lookup_type( this->context().scope(), *this->ident ) ) {
-        auto baseType = baseTypeDecl->get_definer()->resolve_type();
-        // copy vector because of const conversion:
-        auto tmp = std::vector<const TxTypeArgumentNode*>( this->typeArgs->size() );
-        std::copy( this->typeArgs->cbegin(), this->typeArgs->cend(), tmp.begin() );
-        return this->registry().get_type_specialization( this, baseType, tmp );
-    }
-    else
-        CERR_THROWRES( this, "Unknown type: " << this->ident << " (from " << this->context().scope() << ")" );
+    auto genType = this->genTypeExpr->resolve_type();
+    // copy vector because of const conversion:
+    auto tmp = std::vector<const TxTypeArgumentNode*>( this->typeArgs->size() );
+    std::copy( this->typeArgs->cbegin(), this->typeArgs->cend(), tmp.begin() );
+    return this->registry().get_type_specialization( this, genType, tmp );
 }
 
 void TxArrayTypeNode::symbol_declaration_pass_descendants( LexicalContext& lexContext ) {
@@ -358,7 +448,7 @@ void TxDerivedTypeNode::init_implicit_types() {
 
     TxTypeExpressionNode* superTypeExprN;
     if ( this->baseTypes->empty() )
-        superTypeExprN = new TxIdentifiedTypeNode( this->parseLocation, "tx.Tuple" );
+        superTypeExprN = new TxNamedTypeNode( this->parseLocation, "tx.Tuple" );
     else
         superTypeExprN = new TxTypeExprWrapperNode( this->baseTypes->at( 0 ) );
     //TxTypeExpressionNode* superTypeExprN = new TxSuperTypeNode(this->parseLocation, new TxTypeExprWrapperNode(this));
@@ -638,7 +728,6 @@ static const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, 
 
 TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
     TxScopeSymbol* symbol = nullptr;
-    std::vector<TxScopeSymbol*> tmpPath;
     if ( this->baseExpr ) {
         // baseExpr may or may not refer to a type (e.g. modules don't)
         auto baseType = this->baseExpr->resolve_type();
@@ -656,14 +745,21 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
         }
 
         TxScopeSymbol* vantageScope = this->context().scope();
-        if ( baseType->get_type_class() != TXTC_VOID ) {
+        if ( auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {
+            if ( baseType->get_type_class() == TXTC_VOID ) {
+                // base is a non-entity symbol
+                if ( auto baseSymbol = baseSymbolNode->resolve_symbol() ) {
+                    symbol = lookup_member( vantageScope, baseSymbol, *this->symbolName );
+                }
+            }
+            else {
+                // base is a type or value expression  FIXME: if type, don't include instance members in lookup
+                symbol = baseType->lookup_inherited_instance_member( vantageScope, this->symbolName->str() );
+            }
+        }
+        else {
             // base is a value expression
             symbol = baseType->lookup_inherited_instance_member( vantageScope, this->symbolName->str() );
-        }
-        else if ( auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {
-            if ( auto baseSymbol = baseSymbolNode->resolve_symbol() ) {
-                symbol = lookup_member( vantageScope, baseSymbol, *this->symbolName );
-            }
         }
     }
     else {

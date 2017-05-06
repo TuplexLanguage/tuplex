@@ -28,8 +28,7 @@ public:
         return new TxFieldValueNode( this->parseLocation, ( this->baseExpr ? this->baseExpr->make_ast_copy() : nullptr ), this->symbolName->str() );
     }
 
-    /** Returns the full identifier (dot-separated full name) as specified in the program text,
-     * up to and including this name. */
+    /** Returns the full identifier (dot-separated full name) as specified in the program text, up to and including this name. */
     TxIdentifier get_full_identifier() const {
         if ( auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) )
             return TxIdentifier( baseSymbolNode->get_full_identifier(), this->symbolName->str() );

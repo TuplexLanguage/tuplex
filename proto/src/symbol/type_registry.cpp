@@ -39,6 +39,7 @@ void TypeRegistry::resolve_deferred_types() {
             //std::cerr << "Nof used types: " << this->usedTypes.size() << std::endl;
             auto type = this->usedTypes.at( typeIx );
             try {
+                ScopedExpErrClause scopedEEClause( type->get_definer(), type->get_definer()->exp_err_ctx() );
                 type->type();
             }
             catch ( const resolution_error& err ) {
@@ -49,7 +50,8 @@ void TypeRegistry::resolve_deferred_types() {
         for ( ; specIx != this->enqueuedSpecializations.size(); specIx++ ) {
             //std::cerr << "Nof enqueued specializations: " << this->enqueuedSpecializations.size() << std::endl;
             auto specDecl = this->enqueuedSpecializations.at( specIx );
-            LOG( this->LOGGER(), DEBUG, "Resolving enqueued specialization: " << specDecl );
+            LOG_DEBUG( this->LOGGER(), "Resolving enqueued specialization: " << specDecl << ( specDecl->exp_err_ctx() ? " (has ExpErr context)" : "" ));
+            ScopedExpErrClause scopedEEClause( specDecl, specDecl->exp_err_ctx() );
             specDecl->symbol_resolution_pass();
         }
     }while ( typeIx != this->usedTypes.size() );
@@ -141,7 +143,7 @@ const TxType* TypeRegistry::get_modifiable_type( const TxTypeDeclaration* declar
         const TxLocation& loc = ( declaration ? declaration->get_definer()->get_parse_location() : actualType->get_parse_location() );
         auto typeDefiner = actualType->get_declaration()->get_definer();
         auto & ctx = typeDefiner->context();
-        auto modNode = new TxModifiableTypeNode( loc, new TxIdentifiedTypeNode( loc, actualType->get_declaration()->get_unique_name() ) );
+        auto modNode = new TxModifiableTypeNode( loc, new TxNamedTypeNode( loc, actualType->get_declaration()->get_unique_name() ) );
         TxDeclarationFlags newDeclFlags = ( actualType->get_declaration()->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
         auto modDeclNode = new TxTypeDeclNode( loc, newDeclFlags, name, nullptr, modNode );
         modDeclNode->symbol_declaration_pass( ctx );
@@ -679,7 +681,7 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
     {   // override the adaptee type id virtual field member:
         TxDeclarationFlags fieldDeclFlags = TXD_PUBLIC | TXD_STATIC | TXD_OVERRIDE | TXD_IMPLICIT;
         auto fieldDecl = new TxFieldDeclNode( loc, fieldDeclFlags,
-                                              new TxFieldDefNode( loc, "$adTypeId", new TxIdentifiedTypeNode( loc, "tx.UInt" ), nullptr ) );
+                                              new TxFieldDefNode( loc, "$adTypeId", new TxNamedTypeNode( loc, "tx.UInt" ), nullptr ) );
         auto ctx = LexicalContext( adapterDeclNode->get_declaration()->get_symbol(), nullptr, false );
         fieldDecl->symbol_declaration_pass( ctx, false );
         fieldDecl->symbol_resolution_pass();

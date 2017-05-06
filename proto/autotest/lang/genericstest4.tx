@@ -1,7 +1,8 @@
 ## tests nested generic types and handling of "concreteness" of their code generation
 
 type Outer<S> {
-    ## TODO: static statMemb : S;
+    #experr 1: static statErrMemb : S;  ## static members dependent on type parameters not supported (how would they be initialized?)
+    static statMemb : Byte = 14B;
     instMemb : S;
     trivMemb : Int;
 
@@ -10,16 +11,17 @@ type Outer<S> {
 
     /** indirectly dependent on Outer's type parameters, i.e. indirectly generic */
     type Inner {
-        ## TODO: static statMemb : S;
+        static statMemb : Int = 32;
         instMemb : S;
         trivMemb : Int;
-        ## TODO: thatMemb : Outer<S>;
+        thatMemb : Outer<S>;
 
         funcA( a : Int ) -> Int { return a; }
         funcB( a : S ) -> S { return a; }
     }
 
-    /** independent on Outer's type parameters, i.e. theoretically always concrete and the same */
+    /** Independent on Outer's type parameters, i.e. theoretically always concrete and the same.
+     * However we currently treat all entities within a generic type as distinct per specialization. */
     type Indep {
         static statMemb : Float = 1.1;
         instMemb : Float;
@@ -32,24 +34,29 @@ type Outer<S> {
 
 
 main()->Int {
+    ## can't instantiate non-concrete types:
     #experr: ve : Outer;
     #experr: ve : Outer<Array>;
+    #experr: ve : Outer.Inner;
+    #experr: ve : Outer<Array>.Inner;
 
     v1a : Outer<Float>;
     v2a : v1a.Inner;
-    ## TODO: v3a : Outer<Float>.Inner;
-
-    #experr: ve : Outer.Inner;
-    ## TODO: #experr: ve : Outer<Array>.Inner;
+    v3a : Outer<Float>.Inner = v2a;
 
     type OuterFl Outer<Float>;
     v1b : OuterFl;
     v2b : v1b.Inner;
-    v3b : OuterFl.Inner;
+    v3b : OuterFl.Inner = v3a;
+    
+    ## explicitly named types are considered distinct:
+    #experr 1: ve : OuterFl = v1a;
+    #experr 1: ve : Outer<Float> = v1b;
 
     v10 : Outer.Indep;
     v11 : OuterFl.Indep;
-    v12 : &Outer.Indep = &v11;
+    ## we currently treat all entities within a generic type as distinct per specialization:
+    #experr 1: ve : &Outer.Indep = &v11;
 
     return 0;
 }

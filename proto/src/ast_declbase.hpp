@@ -28,12 +28,8 @@ public:
         return this->declaration;
     }
 
-    /** Performs the symbol declaration pass for this type expression.
-     * Type expressions evaluate within a "definition context", representing their "outer" scope,
-     * and a "lexical context", within which they declare their constituent sub-expressions.
-     * The definition context is used for named types lookups, to avoid conflation with names of the sub-expressions.
-     */
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration );
+    /** Performs the symbol declaration pass for this type expression. */
+    virtual void symbol_declaration_pass( LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration=nullptr );
 
     virtual void symbol_resolution_pass() {
         this->resolve_type();
@@ -181,6 +177,10 @@ public:
         else
             this->originalExpr->visit_ast( visitor, thisAsParent, "unconverted", context );
     }
+
+    virtual std::string get_identifier() const override {
+        return this->originalExpr->get_identifier();
+    }
 };
 
 /** Describes a field name and type - however does not declare or define a field entity.
@@ -209,7 +209,7 @@ public:
 
     void symbol_declaration_pass( LexicalContext& lexContext ) {
         this->set_context( lexContext );
-        this->typeExpression->symbol_declaration_pass( lexContext, nullptr );
+        this->typeExpression->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() {
@@ -501,27 +501,20 @@ public:
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) override {
         this->set_context( LexicalContext( lexContext, lexContext.scope(), expError ) );
         if ( isExpErrorDecl )
-            CERROR( this, "Can't next Expected Error constructs in a declaration" );
+            CERROR( this, "Can't nest Expected Error constructs in a declaration" );
         if ( this->body ) {
             if ( !this->context().is_reinterpretation() ) {
                 this->get_parse_location().parserCtx->register_exp_err_node( this );
-                ScopedExpErrClause scopedEEClause( this );
-                this->body->symbol_declaration_pass( this->context(), true );
             }
-            else
-                this->body->symbol_declaration_pass( this->context(), true );
+            ScopedExpErrClause scopedEEClause( this );
+            this->body->symbol_declaration_pass( this->context(), true );
         }
     }
 
     virtual void symbol_resolution_pass() override {
-        auto ctx = this->context();
         if ( this->body ) {
-            if ( !ctx.is_reinterpretation() ) {
-                ScopedExpErrClause scopedEEClause( this );
-                this->body->symbol_resolution_pass();
-            }
-            else
-                this->body->symbol_resolution_pass();
+            ScopedExpErrClause scopedEEClause( this );
+            this->body->symbol_resolution_pass();
         }
     }
 

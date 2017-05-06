@@ -382,8 +382,9 @@ bool TxParserContext::validate_module_name( const TxParseOrigin* origin, const T
 }
 
 void TxParserContext::emit_comp_error( char const *msg, ExpectedErrorClause* expErrorContext ) {
-    if ( expErrorContext ) {
-        expErrorContext->encountered_error_count++;
+    if (this->in_exp_err()) {
+        if ( expErrorContext )
+            expErrorContext->encountered_error_count++;
         CLOG.info( "EXPECTED CERROR: %s", msg );
     }
     else {
@@ -406,13 +407,6 @@ void TxParserContext::begin_exp_err( const TxParseOrigin* origin ) {
 }
 
 void TxParserContext::begin_exp_err( const TxLocation& loc, ExpectedErrorClause* expError ) {
-//    if (this->expError) {
-//        char buf[512];
-//        format_location_message(buf, 512, loc, "Nested EXPECTED ERROR blocks not supported");
-//        this->_driver.error_count++;
-//        CLOG.error("%s", buf);
-//        return;
-//    }
     this->expErrorStack.push( expError );
     //std::cerr << "EXPERR {  " << loc << std::endl;
 }

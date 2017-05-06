@@ -102,7 +102,7 @@ testfunc() {
     #experr 1: bad1 : Long = CompoundType.field1;
     #experr 1: bad2 := obj.InnerCompType;
     #experr 1: bad3 : CompoundType.SFIELD2;  ## implicit type entity may not be available
-    #experr 1: bad4 : CompoundType.field4;   ## implicit type entity may not be available
+    #experr 1: bad4 : CompoundType.field3;   ## implicit type entity may not be available
     #experr 1: bad5 : ~CompoundType.field3;  ## implicit type entity may not be available
 }
 

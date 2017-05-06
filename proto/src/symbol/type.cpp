@@ -347,7 +347,8 @@ bool TxActualType::inner_prepare_members() {
     LOG( this->LOGGER(), TRACE, "Preparing members of type " << this );
     bool recursionError = false;
 
-    bool expErrWholeType = ( this->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK );
+    bool expErrWholeType = ( ( this->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK )
+                             || this->get_declaration()->get_definer()->exp_err_ctx() );
     ScopedExpErrClause scopedEEWholeType( this->get_declaration()->get_definer(), expErrWholeType );
 
     // copy base type's virtual and instance field tuples (to which fields may be added / overridden):

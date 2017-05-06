@@ -24,7 +24,10 @@ static TxExpressionNode* inner_wrap_conversion( TxExpressionNode* originalExpr, 
             return new TxObjSpecCastNode( originalExpr, requiredType );
 
         if ( requiredType->get_type_class() == TXTC_FUNCTION )
-            return originalExpr;  // or do we actually need to do something here?
+            return originalExpr;
+
+        if ( requiredType->get_type_class() == TXTC_TUPLE )
+            return originalExpr;
 
         LOG( originalExpr->LOGGER(), ERROR, "Type supposedly auto-converts but no conversion logic available:  "
              << originalType << " => " << requiredType );
@@ -67,7 +70,6 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                     // wrap originalExpr with a reference-to node
                     //std::cerr << "Adding implicit '&' to: " << originalExpr << std::endl;
                     auto refToNode = new TxReferenceToNode( originalExpr->parseLocation, originalExpr );
-                    //refToNode->symbol_declaration_pass( originalExpr->context() );
                     return new TxReferenceConvNode( refToNode, requiredType );
                 }
             }
@@ -81,7 +83,6 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                 // wrap originalExpr with a dereference node
                 //std::cerr << "Adding implicit '^' to: " << originalExpr << std::endl;
                 auto derefNode = new TxReferenceDerefNode( originalExpr->parseLocation, originalExpr );
-                //derefNode->symbol_declaration_pass( originalExpr->context());
                 if ( auto newExpr = inner_wrap_conversion( derefNode, origRefTargetType, requiredType, _explicit ) ) {
                     if ( newExpr != derefNode )
                         return newExpr;

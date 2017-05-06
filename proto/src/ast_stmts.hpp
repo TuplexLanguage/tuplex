@@ -536,24 +536,17 @@ public:
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
         this->set_context( LexicalContext( lexContext, lexContext.scope()->create_code_block_scope( *this, "EE" ), expError ) );
         if ( isExpErrorStmt )
-            CERROR( this, "Can't next Expected Error constructs in a statement" );
+            CERROR( this, "Can't nest Expected Error constructs in a statement" );
         if ( !this->context().is_reinterpretation() ) {
             this->get_parse_location().parserCtx->register_exp_err_node( this );
-            ScopedExpErrClause scopedEEClause( this );
-            this->body->symbol_declaration_pass( this->context(), true );
         }
-        else
-            this->body->symbol_declaration_pass( this->context(), true );
+        ScopedExpErrClause scopedEEClause( this );
+        this->body->symbol_declaration_pass( this->context(), true );
     }
 
     virtual void symbol_resolution_pass() override {
-        auto ctx = this->context();
-        if ( !ctx.is_reinterpretation() ) {
-            ScopedExpErrClause scopedEEClause( this );
-            this->body->symbol_resolution_pass();
-        }
-        else
-            this->body->symbol_resolution_pass();
+        ScopedExpErrClause scopedEEClause( this );
+        this->body->symbol_resolution_pass();
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {

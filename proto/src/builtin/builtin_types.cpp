@@ -118,7 +118,7 @@ protected:
 
     virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
         if ( this->baseTypeNode )
-            this->baseTypeNode->symbol_declaration_pass( lexContext, nullptr );
+            this->baseTypeNode->symbol_declaration_pass( lexContext );
         for ( auto decl : this->declNodes )
             decl->symbol_declaration_pass( lexContext, false );
     }
@@ -450,7 +450,7 @@ public:
             : TxFunctionTypeNode( parseLocation, false, arguments, returnType ) {
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, const TxTypeDeclaration* owningDecl ) override {
+    virtual void symbol_declaration_pass( LexicalContext& lexContext, const TxTypeDeclaration* owningDecl=nullptr ) override {
         // overrides in order to create implicit declaration for the function type
         ASSERT( !owningDecl, "Expected NULL owningDeclaration: " << owningDecl );
 
@@ -543,7 +543,7 @@ public:
 /*----- helper functions creating the built-in elementary types' declarations and constructors -----*/
 
 static TxTypeDeclNode* make_builtin_abstract( const TxLocation& parseLoc, TxTypeClass typeClass, BuiltinTypeId id, BuiltinTypeId parentId ) {
-    auto baseTypeNode = new TxIdentifiedTypeNode( parseLoc, BUILTIN_TYPE_NAMES[parentId] );
+    auto baseTypeNode = new TxNamedTypeNode( parseLoc, BUILTIN_TYPE_NAMES[parentId] );
     auto typeDecl = new TxTypeDeclNode( parseLoc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, BUILTIN_TYPE_NAMES[id], nullptr,
                                         new TxBuiltinAbstractTypeDefNode( parseLoc, id, baseTypeNode, typeClass, { } ) );
     return typeDecl;
@@ -552,7 +552,7 @@ static TxTypeDeclNode* make_builtin_abstract( const TxLocation& parseLoc, TxType
 static TxTypeDeclNode* make_builtin_integer( const TxLocation& parseLoc, BuiltinTypeId id, BuiltinTypeId parentId,
                                              std::vector<std::vector<TxDeclarationNode*>>& constructors,
                                              int size, bool sign ) {
-    auto baseTypeNode = new TxIdentifiedTypeNode( parseLoc, BUILTIN_TYPE_NAMES[parentId] );
+    auto baseTypeNode = new TxNamedTypeNode( parseLoc, BUILTIN_TYPE_NAMES[parentId] );
     auto typeDecl = new TxTypeDeclNode( parseLoc, TXD_PUBLIC | TXD_BUILTIN | TXD_FINAL, BUILTIN_TYPE_NAMES[id], nullptr,
                                         new TxIntegerTypeDefNode( parseLoc, id, baseTypeNode, size, sign, constructors[id] ) );
     return typeDecl;
@@ -561,14 +561,14 @@ static TxTypeDeclNode* make_builtin_integer( const TxLocation& parseLoc, Builtin
 static TxTypeDeclNode* make_builtin_floating( const TxLocation& parseLoc, BuiltinTypeId id, BuiltinTypeId parentId,
                                               std::vector<std::vector<TxDeclarationNode*>>& constructors,
                                               int size ) {
-    auto baseTypeNode = new TxIdentifiedTypeNode( parseLoc, BUILTIN_TYPE_NAMES[parentId] );
+    auto baseTypeNode = new TxNamedTypeNode( parseLoc, BUILTIN_TYPE_NAMES[parentId] );
     auto typeDecl = new TxTypeDeclNode( parseLoc, TXD_PUBLIC | TXD_BUILTIN | TXD_FINAL, BUILTIN_TYPE_NAMES[id], nullptr,
                                         new TxFloatingTypeDefNode( parseLoc, id, baseTypeNode, size, constructors[id] ) );
     return typeDecl;
 }
 
 static TxFieldDeclNode* make_default_initializer( const TxLocation& loc, BuiltinTypeId toTypeId, TxExpressionNode* initializerExpr ) {
-    auto toTypeNode = new TxIdentifiedTypeNode( loc, BUILTIN_TYPE_NAMES[toTypeId] );
+    auto toTypeNode = new TxNamedTypeNode( loc, BUILTIN_TYPE_NAMES[toTypeId] );
     return new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
                                 new TxFieldDefNode( loc, CONSTR_IDENT,
                                                     new TxDefConstructorTypeDefNode( loc, toTypeNode, initializerExpr ),
@@ -584,8 +584,8 @@ static TxFieldDeclNode* make_default_initializer( const TxLocation& loc, Builtin
 }
 
 static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, BuiltinTypeId fromTypeId, BuiltinTypeId toTypeId ) {
-    auto toTypeNode = new TxIdentifiedTypeNode( loc, BUILTIN_TYPE_NAMES[toTypeId] );
-    auto fromTypeNode = new TxIdentifiedTypeNode( loc, BUILTIN_TYPE_NAMES[fromTypeId] );
+    auto toTypeNode = new TxNamedTypeNode( loc, BUILTIN_TYPE_NAMES[toTypeId] );
+    auto fromTypeNode = new TxNamedTypeNode( loc, BUILTIN_TYPE_NAMES[fromTypeId] );
     return new TxFieldDeclNode(
             loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
             new TxFieldDefNode( loc, CONSTR_IDENT,
@@ -596,8 +596,8 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
 
 static TxFieldDeclNode* make_array_constructor( const TxLocation& loc ) {
 //    auto        argNode = new TxFieldTypeDefNode( loc, "val", new TxReferenceTypeNode( loc, nullptr, new TxIdentifiedTypeNode( loc, "$Self" ) ) );
-    auto argNode = new TxFieldTypeDefNode( loc, "val", new TxIdentifiedTypeNode( loc, "$Self" ) );
-    auto returnTypeNode = new TxIdentifiedTypeNode( loc, "$Self" );
+    auto argNode = new TxFieldTypeDefNode( loc, "val", new TxNamedTypeNode( loc, "$Self" ) );
+    auto returnTypeNode = new TxNamedTypeNode( loc, "$Self" );
     return new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
                                 new TxFieldDefNode( loc, CONSTR_IDENT,
                                                     new TxArrayConstructorTypeDefNode( loc, argNode, returnTypeNode ),
@@ -618,7 +618,7 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     }
 
     { // create the Void type:
-        auto voidBaseTypeNode = new TxIdentifiedTypeNode( loc, BUILTIN_TYPE_NAMES[TXBT_ANY] );
+        auto voidBaseTypeNode = new TxNamedTypeNode( loc, BUILTIN_TYPE_NAMES[TXBT_ANY] );
         auto voidTypeDecl = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT | TXD_FINAL, "Void", nullptr,
                                                 new TxVoidTypeDefNode( loc, voidBaseTypeNode ) );
         this->builtinTypes[TXBT_VOID] = voidTypeDecl;
@@ -683,51 +683,51 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     // create the boolean type:
     this->builtinTypes[TXBT_BOOL] = new TxTypeDeclNode(
             loc, TXD_PUBLIC | TXD_BUILTIN | TXD_FINAL, "Bool", nullptr,
-            new TxBoolTypeDefNode( loc, new TxIdentifiedTypeNode( loc, "Elementary" ), constructors[TXBT_BOOL] ) );
+            new TxBoolTypeDefNode( loc, new TxNamedTypeNode( loc, "Elementary" ), constructors[TXBT_BOOL] ) );
 
     // create the function base type:
     this->builtinTypes[TXBT_FUNCTION] = new TxTypeDeclNode(
             loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Function", nullptr,
-            new TxBuiltinAbstractTypeDefNode( loc, TXBT_FUNCTION, new TxIdentifiedTypeNode( loc, "Any" ), TXTC_FUNCTION, { } ) );
+            new TxBuiltinAbstractTypeDefNode( loc, TXBT_FUNCTION, new TxNamedTypeNode( loc, "Any" ), TXTC_FUNCTION, { } ) );
 
     // create the tuple base type:
     this->builtinTypes[TXBT_TUPLE] = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Tuple", nullptr,
-                                                         new TxTupleTypeDefNode( loc, new TxIdentifiedTypeNode( loc, "Any" ), { } ) );
+                                                         new TxTupleTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), { } ) );
 
     // create the reference base type:
     {
         auto paramNodes = new std::vector<TxDeclarationNode*>(
                 {
-                  new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM, "T", nullptr, new TxIdentifiedTypeNode( loc, "Any" ) )
+                  new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM, "T", nullptr, new TxNamedTypeNode( loc, "Any" ) )
                 } );
         this->builtinTypes[TXBT_REFERENCE] = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN, "Ref", paramNodes,
-                                                                 new TxRefTypeDefNode( loc, new TxIdentifiedTypeNode( loc, "Any" ), { } ) );
+                                                                 new TxRefTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), { } ) );
     }
 
     // create the array base type:
     {
         auto arrayConstructor = make_array_constructor( loc );
 
-        auto lTypeNode = new TxIdentifiedTypeNode( loc, "UInt" );
+        auto lTypeNode = new TxNamedTypeNode( loc, "UInt" );
         auto paramNodes = new std::vector<TxDeclarationNode*>(
                 {
-                  new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM, "E", nullptr, new TxIdentifiedTypeNode( loc, "Any" ) ),
+                  new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM, "E", nullptr, new TxNamedTypeNode( loc, "Any" ) ),
                   new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM, new TxFieldDefNode( loc, "L", lTypeNode, nullptr, false ) )
                 } );
         this->builtinTypes[TXBT_ARRAY] = new TxTypeDeclNode(
                 loc, TXD_PUBLIC | TXD_BUILTIN, "Array", paramNodes,
-                new TxArrayTypeDefNode( loc, new TxIdentifiedTypeNode( loc, "Any" ), { arrayConstructor } ) );
+                new TxArrayTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), { arrayConstructor } ) );
     }
 
     // create the interface base type:
     {
         // the adaptee type id virtual field member, which is abstract here but concrete in adapter subtypes:
         const TxDeclarationFlags adapteeIdFieldFlags = TXD_PUBLIC | TXD_BUILTIN | TXD_STATIC | TXD_ABSTRACT | TXD_IMPLICIT;
-        auto adapteeIdFType = new TxIdentifiedTypeNode( loc, "UInt" );
+        auto adapteeIdFType = new TxNamedTypeNode( loc, "UInt" );
         auto adapteeIdField = new TxFieldDefNode( loc, "$adTypeId", adapteeIdFType, nullptr );
         auto adapteeIdFDecl = new TxFieldDeclNode( loc, adapteeIdFieldFlags, adapteeIdField );
 
-        auto ifTypeDef = new TxInterfaceTypeDefNode( loc, new TxIdentifiedTypeNode( loc, "Any" ), { adapteeIdFDecl } );
+        auto ifTypeDef = new TxInterfaceTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), { adapteeIdFDecl } );
         this->builtinTypes[TXBT_INTERFACE] = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Interface", nullptr,
                                                                  ifTypeDef,
                                                                  true );
@@ -774,10 +774,10 @@ void BuiltinTypes::declare_tx_functions() {
     auto txCfuncModule = this->registry.package().lookup_module( "tx.c" );
     LexicalContext ctx( txCfuncModule );
     {   // declare tx.c.puts:
-        auto refTypeNode = new TxReferenceTypeNode( this->builtinLocation, nullptr, new TxIdentifiedTypeNode( this->builtinLocation, "tx.UByte" ) );
+        auto refTypeNode = new TxReferenceTypeNode( this->builtinLocation, nullptr, new TxNamedTypeNode( this->builtinLocation, "tx.UByte" ) );
         auto argNode = new TxFieldTypeDefNode( this->builtinLocation, "str", refTypeNode );
         auto c_puts_func_type_def = new TxFunctionTypeNode( this->builtinLocation, false, new std::vector<TxFieldTypeDefNode*>( { argNode } ),
-                                                            new TxIdentifiedTypeNode( this->builtinLocation, "tx.Int" ) );
+                                                            new TxNamedTypeNode( this->builtinLocation, "tx.Int" ) );
         auto c_puts_func_type_decl = new TxTypeDeclNode( this->builtinLocation, TXD_PUBLIC | TXD_IMPLICIT, "puts$func", nullptr,
                                                          c_puts_func_type_def );
         c_puts_func_type_decl->symbol_declaration_pass( ctx );

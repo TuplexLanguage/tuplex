@@ -7,7 +7,7 @@ class TxFunctionHeaderNode : public TxTypeExpressionNode {
 
 protected:
     virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        this->funcTypeNode->symbol_declaration_pass( lexContext, nullptr );  // (creates implicit declaration for the function type)
+        this->funcTypeNode->symbol_declaration_pass( lexContext );  // (creates implicit declaration for the function type)
 
         // declare the function args, and the return type if any:
         for ( auto argField : *this->arguments )
@@ -86,10 +86,10 @@ public:
             // FUTURE: if type is immutable, the reference target type should perhaps not be modifiable?
             auto selfRefTypeExprN = new TxReferenceTypeNode(
                     this->parseLocation, nullptr,
-                    new TxModifiableTypeNode( this->parseLocation, new TxIdentifiedTypeNode( this->parseLocation, "$Self" ) ) );
+                    new TxModifiableTypeNode( this->parseLocation, new TxNamedTypeNode( this->parseLocation, "$Self" ) ) );
             this->selfRefNode = new TxFieldDefNode( this->parseLocation, "self", selfRefTypeExprN, nullptr );
             // 'super' reference
-            auto superRefTypeExprN = new TxIdentifiedTypeNode( this->parseLocation, "$Super" );
+            auto superRefTypeExprN = new TxNamedTypeNode( this->parseLocation, "$Super" );
             this->superRefNode = new TxFieldDefNode( this->parseLocation, "super", superRefTypeExprN, nullptr );
         }
     }
@@ -138,7 +138,7 @@ public:
 
         this->set_context( funcLexContext );
 
-        this->funcHeaderNode->symbol_declaration_pass( funcLexContext, nullptr );  // function header
+        this->funcHeaderNode->symbol_declaration_pass( funcLexContext );  // function header
         this->suite->symbol_declaration_pass_no_subscope( funcLexContext );  // function body
     }
 
