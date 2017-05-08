@@ -36,7 +36,7 @@ TxArrayLitNode::TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressio
           lengthExpr( nullptr ), elemExprList( elemExprList ) {
 }
 
-void TxArrayLitNode::symbol_declaration_pass( LexicalContext& lexContext ) {
+void TxArrayLitNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
     this->set_context( lexContext );
     if ( this->elementTypeNode )
         this->elementTypeNode->symbol_declaration_pass( lexContext );

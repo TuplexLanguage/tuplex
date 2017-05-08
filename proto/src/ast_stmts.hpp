@@ -4,6 +4,11 @@
 #include "ast_exprs.hpp"
 
 class TxStatementNode : public TxNode {
+protected:
+    /** set by parent if parent is an ExpErr node */
+    bool isExpErrorStmt = false;
+    friend class TxExpErrStmtNode;
+
 public:
     TxStatementNode( const TxLocation& parseLocation )
             : TxNode( parseLocation ) {
@@ -11,7 +16,7 @@ public:
 
     virtual TxStatementNode* make_ast_copy() const override = 0;
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) = 0;
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) = 0;
     virtual void symbol_resolution_pass() = 0;
 
     /** Returns true if this statement / compound statement *may* end with a break or continue statement. */
@@ -45,7 +50,7 @@ public:
         return new TxFieldStmtNode( this->parseLocation, this->field->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         auto blockScope = lexContext.scope()->create_code_block_scope( *this );
         this->set_context( LexicalContext( lexContext, blockScope ) );
         this->field->symbol_declaration_pass_local_scoped_field( this->context(), ( isExpErrorStmt ? TXD_EXPERRBLOCK : TXD_NONE ) );
@@ -87,9 +92,11 @@ public:
         return new TxTypeStmtNode( this->parseLocation, this->typeDecl->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
-        this->typeDecl->symbol_declaration_pass( lexContext, isExpErrorStmt );
+        if (this->isExpErrorStmt)
+            this->typeDecl->isExpErrorDecl = true;
+        this->typeDecl->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -115,7 +122,7 @@ public:
         return new TxCallStmtNode( this->parseLocation, this->call->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         ( (TxExpressionNode*) this->call )->symbol_declaration_pass( lexContext );
     }
@@ -137,7 +144,7 @@ protected:
             : TxStatementNode( parseLocation ) {
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
     }
     virtual void symbol_resolution_pass() override {
@@ -163,7 +170,7 @@ public:
         return new TxReturnStmtNode( this->parseLocation, this->expr->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         if ( this->expr )
             this->expr->symbol_declaration_pass( lexContext );
@@ -260,7 +267,7 @@ public:
             scope = stmt->context().scope();  // so subsequent statements are in the scope block of locally declared fields
         }
     }
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         LexicalContext suiteContext( lexContext, lexContext.scope()->create_code_block_scope( *this ) );
         this->symbol_declaration_pass_no_subscope( suiteContext );
     }
@@ -320,7 +327,7 @@ public:
         return new TxElseClauseNode( this->parseLocation, this->body->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         this->body->symbol_declaration_pass( lexContext );
     }
@@ -360,7 +367,7 @@ public:
 
     virtual TxCondCompoundStmtNode* make_ast_copy() const override = 0;
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         this->cond->symbol_declaration_pass( lexContext );
         this->body->symbol_declaration_pass( lexContext );
@@ -453,7 +460,7 @@ public:
         return new TxAssignStmtNode( this->parseLocation, this->lvalue->make_ast_copy(), this->rvalue->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         this->lvalue->symbol_declaration_pass( lexContext );
         this->rvalue->symbol_declaration_pass( lexContext );
@@ -507,7 +514,7 @@ class TxAssertStmtNode : public TxStatementNode {
         return new TxAssertStmtNode( this->parseLocation, this->expr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         this->ifStmt->symbol_declaration_pass( lexContext );
     }
@@ -531,21 +538,22 @@ public:
 
     TxExpErrStmtNode( const TxLocation& parseLocation, ExpectedErrorClause* expError, TxStatementNode* body )
             : TxStatementNode( parseLocation ), expError( expError ), body( body ) {
+        body->isExpErrorStmt = true;
     }
 
     virtual TxExpErrStmtNode* make_ast_copy() const override {
         return new TxExpErrStmtNode( this->parseLocation, nullptr, this->body->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( LexicalContext( lexContext, lexContext.scope()->create_code_block_scope( *this, "EE" ), expError ) );
-        if ( isExpErrorStmt )
+        if ( this->isExpErrorStmt )
             CERROR( this, "Can't nest Expected Error constructs in a statement" );
         if ( !this->context().is_reinterpretation() ) {
             this->get_parse_location().parserCtx->register_exp_err_node( this );
         }
         ScopedExpErrClause scopedEEClause( this );
-        this->body->symbol_declaration_pass( this->context(), true );
+        this->body->symbol_declaration_pass( this->context() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -572,7 +580,7 @@ public:
         return new TxNoOpStmtNode( this->parseLocation );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
     }
 

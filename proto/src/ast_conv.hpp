@@ -30,7 +30,7 @@ public:
         return nullptr;
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         if ( !this->expr->is_context_set() )
             this->expr->symbol_declaration_pass( lexContext );

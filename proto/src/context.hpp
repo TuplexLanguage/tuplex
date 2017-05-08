@@ -10,7 +10,9 @@
 class TxModule;
 class TxPackage;
 class TxTypeDeclaration;
-class LexicalContext;
+class TxStatementNode;
+class TxLambdaExprNode;
+class TxTypeDeclNode;
 
 /* forward declarations pertaining to LLVM code generation */
 class LlvmGenerationContext;
@@ -107,28 +109,33 @@ public:
         return this->_scope->get_root_scope();
     }
 
-//    inline TxScopeSymbol* enclosing_statement() const {
-//        return this->_scope;
-//    }
-//
-//    inline TxScopeSymbol* enclosing_function() const {
-//        return this->_scope;
-//    }
 
-    /** Returns the closest enclosing type's declaration, or null if this context has no enclosing type. */
-    inline const TxTypeDeclaration* enclosing_type() const {
-        ASSERT( this->_scope, "scope is NULL" );
-        for ( auto scope = this->_scope; scope; scope = scope->get_outer() ) {
-            if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( scope ) ) {
-                ASSERT( entitySymbol->get_type_decl(), "NULL type decl in entity symbol " << entitySymbol );
-                return entitySymbol->get_type_decl();
-            }
-        }
-        return nullptr;
+    TxStatementNode* encl_stmt_node() const {
+        return nullptr;  // FIXME
     }
+
+    /** Returns the closest enclosing function/method/lambda definition node, or null if this context has no enclosing type. */
+    const TxLambdaExprNode* encl_lambda_node() const {
+        return nullptr;  // FIXME
+    }
+
+    /** Returns the closest enclosing type declaration node, or null if this context has no enclosing type. */
+    TxTypeDeclNode* encl_type_decl_node() const {
+//        ASSERT( this->_scope, "scope is NULL" );
+//        for ( auto scope = this->_scope; scope; scope = scope->get_outer() ) {
+//            if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( scope ) ) {
+//                ASSERT( entitySymbol->get_type_decl(), "NULL type decl in entity symbol " << entitySymbol );
+//                return entitySymbol->get_type_decl();
+//            }
+//        }
+        return nullptr;  // FIXME
+    }
+
+
 
     /** If this scope is a type declaration, returns it, otherwise null. */
     inline const TxTypeDeclaration* get_type_decl() const {
+        // FIXME: rewrite
         if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->_scope ) )
             return entitySymbol->get_type_decl();
         return nullptr;

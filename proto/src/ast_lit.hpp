@@ -102,7 +102,7 @@ public:
         return new TxIntegerLitNode( *this );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         if ( this->intValue.radix < 2 || this->intValue.radix > 36 )
             CERROR( this, "Radix outside valid range [2,36]: " << this->intValue.radix );
@@ -142,7 +142,7 @@ public:
         return new TxFloatingLitNode( *this );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
     }
 
@@ -168,7 +168,7 @@ public:
         return new TxCharacterLitNode( *this );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
     }
 
@@ -199,7 +199,7 @@ public:
         return new TxCStringLitNode( *this );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override;
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
 
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
@@ -222,7 +222,7 @@ public:
         return new TxBoolLitNode( *this );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
     }
 

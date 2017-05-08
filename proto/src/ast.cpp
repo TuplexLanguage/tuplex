@@ -122,7 +122,7 @@ const TxField* TxFieldDefiningNode::resolve_field() {
 
 
 
-void TxFieldDefNode::symbol_declaration_pass( LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
+void TxFieldDefNode::symbol_declaration_pass( const LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
     this->set_context( lexContext );
     if ( this->typeExpression )
         this->typeExpression->symbol_declaration_pass( lexContext );
@@ -130,19 +130,19 @@ void TxFieldDefNode::symbol_declaration_pass( LexicalContext& lexContext, TxDecl
         this->initExpression->symbol_declaration_pass( lexContext );
 }
 
-void TxFieldDefNode::symbol_declaration_pass_local_field( LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
+void TxFieldDefNode::symbol_declaration_pass_local_field( const LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
     this->declaration = lexContext.scope()->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
     this->symbol_declaration_pass( lexContext, declFlags );
 }
 
-void TxFieldDefNode::symbol_declaration_pass_local_scoped_field( LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
+void TxFieldDefNode::symbol_declaration_pass_local_scoped_field( const LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
     this->declaration = lexContext.scope()->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
     // to prevent init expr from referring to this field, it is processed in the outer scope:
     LexicalContext outerCtx(lexContext, lexContext.scope()->get_outer());
     this->symbol_declaration_pass( outerCtx, declFlags );
 }
 
-void TxFieldDefNode::symbol_declaration_pass_nonlocal_field( LexicalContext& lexContext, TxFieldDeclNode* fieldDeclNode, TxDeclarationFlags declFlags,
+void TxFieldDefNode::symbol_declaration_pass_nonlocal_field( const LexicalContext& lexContext, TxFieldDeclNode* fieldDeclNode, TxDeclarationFlags declFlags,
                                                              TxFieldStorage storage, const TxIdentifier& dataspace ) {
     this->fieldDeclNode = fieldDeclNode;  // enables support for usage-order code generation of non-local fields
     TxDeclarationFlags fieldFlags = declFlags;
@@ -161,7 +161,7 @@ void TxFieldDefNode::symbol_declaration_pass_nonlocal_field( LexicalContext& lex
 
 
 
-void TxFieldDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) {
+void TxFieldDeclNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
     this->set_context( lexContext );
     TxDeclarationFlags flags = ( isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags );
 
@@ -266,7 +266,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
     }
 }
 
-void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) {
+void TxTypeDeclNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
     this->set_context( lexContext );
 
     const TxTypeDeclaration* declaration = nullptr;
@@ -315,7 +315,7 @@ void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool i
     this->typeExpression->symbol_declaration_pass( defCtx, declaration );
 }
 
-void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration ) {
+void TxTypeExpressionNode::symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration ) {
     // The context of this node represents its outer scope.
     // The type expression's created type entity, if any, represents its inner scope.
     this->set_context( lexContext );
@@ -503,8 +503,7 @@ void TxDerivedTypeNode::merge_builtin_type_definer( TxTypeDefiningNode* builtinT
     merge_builtin_type_definers( this, this->builtinTypeDefiner, this->baseTypes->front(), interfaces, this->_mutable );
 }
 
-void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& lexContext,
-                                                    const TxTypeDeclaration* owningDeclaration ) {
+void TxModifiableTypeNode::symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration ) {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->baseType ) ) {
         if ( auto maybeModElem = dynamic_cast<TxMaybeModTypeNode*>( arrayBaseType->elementTypeNode->typeExprNode ) ) {
@@ -517,8 +516,7 @@ void TxModifiableTypeNode::symbol_declaration_pass( LexicalContext& lexContext,
     TxTypeExpressionNode::symbol_declaration_pass( lexContext, owningDeclaration );
 }
 
-void TxMaybeModTypeNode::symbol_declaration_pass( LexicalContext& lexContext,
-                                                  const TxTypeDeclaration* owningDeclaration ) {
+void TxMaybeModTypeNode::symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration ) {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if ( !this->is_modifiable() ) {
         if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->baseType ) )
@@ -893,7 +891,7 @@ TxFunctionCallNode::TxFunctionCallNode( const TxLocation& parseLocation, TxExpre
     }
 }
 
-void TxFunctionCallNode::symbol_declaration_pass( LexicalContext& lexContext ) {
+void TxFunctionCallNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
     this->set_context( lexContext );
     this->callee->symbol_declaration_pass( lexContext );
     for ( auto argExpr : *this->argsExprList ) {

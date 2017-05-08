@@ -218,7 +218,7 @@ uint32_t IntValue::get_value_UInt() const {
     throw std::range_error( "Value of constant integer is not within range of type UInt" );
 }
 
-void TxCStringLitNode::symbol_declaration_pass( LexicalContext& lexContext ) {
+void TxCStringLitNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
     this->set_context( lexContext );
 
     // (for now) Create AST to declare the implicit type of this c-string literal:

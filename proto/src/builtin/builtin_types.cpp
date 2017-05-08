@@ -120,7 +120,7 @@ protected:
         if ( this->baseTypeNode )
             this->baseTypeNode->symbol_declaration_pass( lexContext );
         for ( auto decl : this->declNodes )
-            decl->symbol_declaration_pass( lexContext, false );
+            decl->symbol_declaration_pass( lexContext );
     }
 
     virtual const TxType* define_type() override final {
@@ -450,7 +450,7 @@ public:
             : TxFunctionTypeNode( parseLocation, false, arguments, returnType ) {
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, const TxTypeDeclaration* owningDecl=nullptr ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDecl=nullptr ) override {
         // overrides in order to create implicit declaration for the function type
         ASSERT( !owningDecl, "Expected NULL owningDeclaration: " << owningDecl );
 

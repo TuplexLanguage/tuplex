@@ -29,7 +29,7 @@ public:
     }
 
     /** Performs the symbol declaration pass for this type expression. */
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration=nullptr );
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration=nullptr );
 
     virtual void symbol_resolution_pass() {
         this->resolve_type();
@@ -59,7 +59,7 @@ public:
         this->fieldDefNode = fieldDefNode;
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) = 0;
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) = 0;
 
     virtual void symbol_resolution_pass() {
         this->resolve_type();
@@ -143,7 +143,7 @@ public:
 //    virtual const TxType* attempt_get_type() const override { return this->get_spec_expression()->attempt_get_type(); }
 //    virtual const TxType* get_type        () const override { return this->get_spec_expression()->get_type();         }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         auto expr = this->get_spec_expression();
         if ( !expr->is_context_set() )
@@ -207,7 +207,7 @@ public:
         return new TxFieldTypeDefNode( this->parseLocation, this->fieldName, this->typeExpression->make_ast_copy() );
     }
 
-    void symbol_declaration_pass( LexicalContext& lexContext ) {
+    void symbol_declaration_pass( const LexicalContext& lexContext ) {
         this->set_context( lexContext );
         this->typeExpression->symbol_declaration_pass( lexContext );
     }
@@ -239,7 +239,7 @@ class TxFieldDefNode : public TxFieldDefiningNode {
 
     const TxFieldDeclaration* declaration = nullptr;
 
-    void symbol_declaration_pass( LexicalContext& lexContext, TxDeclarationFlags declFlags );
+    void symbol_declaration_pass( const LexicalContext& lexContext, TxDeclarationFlags declFlags );
 
 protected:
     virtual const TxType* define_type() override {
@@ -306,11 +306,11 @@ public:
         return new TxFieldDefNode( this->parseLocation, this->fieldName->str(), typeExpr, initExpr, this->modifiable );
     }
 
-    void symbol_declaration_pass_local_field( LexicalContext& lexContext, TxDeclarationFlags declFlags = TXD_NONE );
+    void symbol_declaration_pass_local_field( const LexicalContext& lexContext, TxDeclarationFlags declFlags = TXD_NONE );
 
-    void symbol_declaration_pass_local_scoped_field( LexicalContext& lexContext, TxDeclarationFlags declFlags = TXD_NONE );
+    void symbol_declaration_pass_local_scoped_field( const LexicalContext& lexContext, TxDeclarationFlags declFlags = TXD_NONE );
 
-    void symbol_declaration_pass_nonlocal_field( LexicalContext& lexContext, TxFieldDeclNode* fieldDeclNode, TxDeclarationFlags declFlags,
+    void symbol_declaration_pass_nonlocal_field( const LexicalContext& lexContext, TxFieldDeclNode* fieldDeclNode, TxDeclarationFlags declFlags,
                                                  TxFieldStorage storage, const TxIdentifier& dataspace );
 
     virtual void symbol_resolution_pass() {
@@ -391,7 +391,7 @@ public:
         return new TxFieldDeclNode( this->parseLocation, this->declFlags, this->field->make_ast_copy(), this->isMethodSyntax );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) override;
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
 
     virtual void symbol_resolution_pass() override;
 
@@ -434,7 +434,7 @@ public:
                                    this->typeExpression->make_ast_copy(), this->interfaceKW );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl = false ) override;
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
 
     virtual void symbol_resolution_pass() override {
         if ( !this->_builtinCode && this->typeParamDecls )
@@ -475,7 +475,7 @@ public:
 
     virtual TxAssigneeNode* make_ast_copy() const override = 0;
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) = 0;
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) = 0;
 
     virtual void symbol_resolution_pass() {
         this->resolve_type();
@@ -492,22 +492,24 @@ public:
             : TxDeclarationNode( parseLocation, ( body ? body->get_decl_flags() : TXD_NONE ) | TXD_EXPERRBLOCK ),
               expError( expError ),
               body( body ) {
+        if (body)
+            body->isExpErrorDecl = true;
     }
 
     virtual TxExpErrDeclNode* make_ast_copy() const override {
         return new TxExpErrDeclNode( this->parseLocation, nullptr, ( this->body ? this->body->make_ast_copy() : nullptr ) );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( LexicalContext( lexContext, lexContext.scope(), expError ) );
-        if ( isExpErrorDecl )
+        if ( this->isExpErrorDecl )
             CERROR( this, "Can't nest Expected Error constructs in a declaration" );
         if ( this->body ) {
             if ( !this->context().is_reinterpretation() ) {
                 this->get_parse_location().parserCtx->register_exp_err_node( this );
             }
             ScopedExpErrClause scopedEEClause( this );
-            this->body->symbol_declaration_pass( this->context(), true );
+            this->body->symbol_declaration_pass( this->context() );
         }
     }
 

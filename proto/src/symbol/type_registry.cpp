@@ -694,7 +694,7 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
         auto fieldDecl = new TxFieldDeclNode( loc, fieldDeclFlags,
                                               new TxFieldDefNode( loc, "$adTypeId", new TxNamedTypeNode( loc, "tx.UInt" ), nullptr ) );
         auto ctx = LexicalContext( adapterCtx, adapterDeclNode->get_declaration()->get_symbol() );
-        fieldDecl->symbol_declaration_pass( ctx, false );
+        fieldDecl->symbol_declaration_pass( ctx );
         fieldDecl->symbol_resolution_pass();
     }
     adapterDeclNode->symbol_resolution_pass();

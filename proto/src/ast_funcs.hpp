@@ -112,7 +112,7 @@ public:
         return this->instanceMethod;
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         std::string funcName = ( this->fieldDefNode && this->fieldDefNode->get_declaration() )
                                       ? this->fieldDefNode->get_declaration()->get_unique_name()
                                       : "";

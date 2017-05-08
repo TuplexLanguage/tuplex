@@ -36,7 +36,7 @@ public:
         return new TxReferenceDerefNode( this->parseLocation, this->reference->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) {
         this->set_context( lexContext );
         // when this is is used as an implicit conversion node the reference node may have already run declaration pass:
         if ( !this->reference->is_context_set() )
@@ -92,7 +92,7 @@ public:
                                     this->subscript->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         this->array->symbol_declaration_pass( lexContext );
         this->subscript->symbol_declaration_pass( lexContext );
@@ -137,7 +137,7 @@ public:
         return new TxReferenceToNode( this->parseLocation, this->target->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) {
         this->set_context( lexContext );
         // when this is is used as an implicit conversion node the target node may have already run declaration pass:
         if ( !this->target->is_context_set() )
@@ -265,7 +265,7 @@ public:
                                          this->rhs->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         lhs->symbol_declaration_pass( lexContext );
         rhs->symbol_declaration_pass( lexContext );
@@ -331,7 +331,7 @@ public:
         return new TxUnaryMinusNode( this->parseLocation, this->operand->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         operand->symbol_declaration_pass( lexContext );
     }
@@ -368,7 +368,7 @@ public:
         return new TxUnaryLogicalNotNode( this->parseLocation, this->operand->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         operand->symbol_declaration_pass( lexContext );
     }
@@ -420,7 +420,7 @@ public:
         return new TxFunctionCallNode( this->parseLocation, this->callee->make_ast_copy(), make_node_vec_copy( this->origArgsExprList ) );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override;
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
 
     virtual void symbol_resolution_pass() override;
 
@@ -478,7 +478,7 @@ public:
         return new TxConstructorCalleeExprNode( this->parseLocation, this->objectExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         this->objectExpr->symbol_declaration_pass( lexContext );
     }
@@ -511,7 +511,7 @@ protected:
     }
 
 public:
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
     }
     virtual void symbol_resolution_pass() override {
@@ -571,7 +571,7 @@ protected:
     }
 
 public:
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         this->typeExpr->symbol_declaration_pass( lexContext );
         this->constructorCall->symbol_declaration_pass( lexContext );
@@ -634,7 +634,7 @@ public:
                                           make_node_vec_copy( this->constructorCall->origArgsExprList ) );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         TxMakeObjectNode::symbol_declaration_pass( lexContext );
         targetTypeNode->set_context( lexContext );  // emulate declaration pass
     }
@@ -697,7 +697,7 @@ public:
         return new TxFieldAssigneeNode( this->parseLocation, this->field->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         field->symbol_declaration_pass( lexContext );
     }
@@ -738,7 +738,7 @@ public:
         return new TxDerefAssigneeNode( this->parseLocation, this->operand->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         operand->symbol_declaration_pass( lexContext );
     }
@@ -786,7 +786,7 @@ public:
                                        this->subscript->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         array->symbol_declaration_pass( lexContext );
         subscript->symbol_declaration_pass( lexContext );

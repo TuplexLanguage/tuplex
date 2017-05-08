@@ -36,7 +36,7 @@ public:
             return *this->symbolName;
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
         if ( this->baseExpr )
             this->baseExpr->symbol_declaration_pass( lexContext );

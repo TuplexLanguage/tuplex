@@ -209,6 +209,11 @@ public:
 
 class TxDeclarationNode : public TxNode {  // either type or field
 protected:
+    /** set by parent if parent is an ExpErr node */
+    bool isExpErrorDecl = false;
+    friend class TxExpErrDeclNode;
+    friend class TxTypeStmtNode;
+
     const TxDeclarationFlags declFlags;
 
 public:
@@ -222,7 +227,7 @@ public:
         return this->declFlags;
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorDecl = false ) = 0;
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) = 0;
 
     virtual void symbol_resolution_pass() = 0;
 

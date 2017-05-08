@@ -50,7 +50,7 @@ public:
         return new TxArrayLitNode( this->parseLocation, make_node_vec_copy( this->origElemExprList ) );
     }
 
-    virtual void symbol_declaration_pass( LexicalContext& lexContext ) override;
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
 
     virtual void symbol_resolution_pass() override;
 
