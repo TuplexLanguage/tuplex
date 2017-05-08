@@ -563,6 +563,21 @@ bool TxActualType::is_concrete() const {
     return true;
 }
 
+bool TxActualType::is_generic_dependent() const {
+    if (!this->type_params().empty())
+        return true;
+    return this->get_declaration()->get_definer()->context().is_generic();
+//    for ( auto outerScope = this->get_declaration()->get_symbol()->get_outer();
+//          !dynamic_cast<TxModule*>(outerScope);
+//          outerScope = outerScope->get_outer() ) {
+//        if (auto typeScope = dynamic_cast<TxEntitySymbol*>(outerScope)) {
+//            auto outerTypeDecl = typeScope->get_type_decl();
+//            return outerTypeDecl->get_definer()->resolve_type()->type()->is_generic_dependent();
+//        }
+//    }
+//    return false;
+}
+
 bool TxActualType::is_empty_derivation() const {
     return this->emptyDerivation;
 }

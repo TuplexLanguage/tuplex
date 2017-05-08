@@ -336,7 +336,7 @@ public:
         }
 
         if ( !field->get_type()->is_concrete() ) {
-            if ( !( field->get_type()->get_declaration()->get_decl_flags() & TXD_GENPARAM ) )
+            if ( !this->context().is_generic() )
                 CERROR( this,
                         "Field type is not a concrete type (size potentially unknown): " << this->get_identifier() << " : " << field->get_type() );
             else
@@ -406,7 +406,7 @@ public:
     }
 };
 
-/** Non-local type declaration */
+/** Both non-local and local type declarations */
 class TxTypeDeclNode : public TxDeclarationNode {
     /** if true, this node's subtree is merged with a built-in type definition */
     bool _builtinCode = false;

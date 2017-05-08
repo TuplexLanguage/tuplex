@@ -90,6 +90,10 @@ void TypeRegistry::prepare_types() {
             //std::cerr << "Not registering distinct static type id for equivalent derivation: " << type << std::endl;
             continue;
         }
+        if ( type->is_generic_dependent() ) {
+            LOG( this->LOGGER(), INFO, "Not registering generic-dependent type as static type: " << type );
+            continue;
+        }
         type->staticTypeId = this->staticTypes.size();
         this->staticTypes.push_back( type );
         //std::cerr << "Registering static type " << type << " with distinct type id " << type->staticTypeId << std::endl;
@@ -532,7 +536,11 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     auto uniqueSpecTypeNameStr = baseScope->make_unique_name( newSpecTypeNameStr );
     auto newSpecTypeDecl = new TxTypeDeclNode( definer->get_parse_location(), newDeclFlags, uniqueSpecTypeNameStr, bindingDeclNodes, specTypeExpr );
 
-    LexicalContext specContext = LexicalContext( baseScope, definer->exp_err_ctx(), true );
+    // FIXME: be able to determine whether *outer* context of definer is generic:
+    bool outerIsGeneric = false;//baseDecl->get_definer()->context().is_generic();
+    if (outerIsGeneric)
+        std::cerr << "outer is generic for " << uniqueSpecTypeNameStr << std::endl;
+    LexicalContext specContext = LexicalContext( baseScope, definer->exp_err_ctx(), outerIsGeneric, true );
     newSpecTypeDecl->symbol_declaration_pass( specContext );
     const TxActualType* specializedType = specTypeExpr->resolve_type()->type();
     LOG_DEBUG( this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << baseType );
@@ -677,12 +685,15 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
     auto adapterTypeNode = new TxAdapterTypeNode( loc, interfaceType, adaptedType );
     auto adapterDeclNode = new TxTypeDeclNode( loc, ( TXD_PUBLIC | TXD_IMPLICIT ), adapterName, nullptr, adapterTypeNode );
 
-    adapterDeclNode->symbol_declaration_pass( ifDecl->get_definer()->context() );
+    auto & adaptedTypeCtx = adaptedType->get_declaration()->get_definer()->context();
+    auto adapterCtx = LexicalContext( ifDecl->get_definer()->context().scope(), adaptedTypeCtx.exp_error(), adaptedTypeCtx.is_generic(),
+                                      adaptedTypeCtx.is_reinterpretation() );
+    adapterDeclNode->symbol_declaration_pass( adapterCtx );
     {   // override the adaptee type id virtual field member:
         TxDeclarationFlags fieldDeclFlags = TXD_PUBLIC | TXD_STATIC | TXD_OVERRIDE | TXD_IMPLICIT;
         auto fieldDecl = new TxFieldDeclNode( loc, fieldDeclFlags,
                                               new TxFieldDefNode( loc, "$adTypeId", new TxNamedTypeNode( loc, "tx.UInt" ), nullptr ) );
-        auto ctx = LexicalContext( adapterDeclNode->get_declaration()->get_symbol(), nullptr, false );
+        auto ctx = LexicalContext( adapterCtx, adapterDeclNode->get_declaration()->get_symbol() );
         fieldDecl->symbol_declaration_pass( ctx, false );
         fieldDecl->symbol_resolution_pass();
     }

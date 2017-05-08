@@ -46,10 +46,10 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
-        this->set_context( lexContext );
-        this->field->symbol_declaration_pass_local_scoped_field( lexContext, ( isExpErrorStmt ? TXD_EXPERRBLOCK : TXD_NONE ) );
-        auto innerScope = this->field->get_declaration()->get_symbol()->get_outer();
-        lexContext.scope( innerScope );  // so subsequent statements are in the scope block of this field
+        auto blockScope = lexContext.scope()->create_code_block_scope( *this );
+        this->set_context( LexicalContext( lexContext, blockScope ) );
+        this->field->symbol_declaration_pass_local_scoped_field( this->context(), ( isExpErrorStmt ? TXD_EXPERRBLOCK : TXD_NONE ) );
+        //lexContext.scope( blockScope );  // so subsequent statements are in the scope block of this field
     }
 
     virtual void symbol_resolution_pass() override {
@@ -253,8 +253,12 @@ public:
 
     virtual void symbol_declaration_pass_no_subscope( LexicalContext& lexContext ) {
         this->set_context( lexContext );
-        for ( auto stmt : *this->suite )
-            stmt->symbol_declaration_pass( lexContext );
+        auto scope = lexContext.scope();
+        for ( auto stmt : *this->suite ) {
+            LexicalContext stmtCtx( lexContext, scope );
+            stmt->symbol_declaration_pass( stmtCtx );
+            scope = stmt->context().scope();  // so subsequent statements are in the scope block of locally declared fields
+        }
     }
     virtual void symbol_declaration_pass( LexicalContext& lexContext, bool isExpErrorStmt = false ) override {
         LexicalContext suiteContext( lexContext, lexContext.scope()->create_code_block_scope( *this ) );
@@ -464,7 +468,7 @@ public:
         // note: similar rules to passing function arg
         if ( !ltype->is_concrete() ) {
             // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
-            if ( !( ltype->get_declaration()->get_decl_flags() & TXD_GENPARAM ) )
+            if ( !this->context().is_generic() )
                 CERROR( this->lvalue, "Assignee is not a concrete type (size potentially unknown): " << ltype );
             else
                 LOG_INFO( this->LOGGER(), "Assignee is not a concrete type (size potentially unknown): " << ltype );

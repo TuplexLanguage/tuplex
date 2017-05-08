@@ -412,11 +412,17 @@ public:
     virtual bool is_concrete() const;
 
     /** Returns true if this type is generic (i.e. has unbound type parameters).
-     * Note that a non-generic type may still have members that refer to unbound type parameters of an outer scope
+     * Note that a non-generic type may still have members that refer to unbound type parameters of an outer scope.
+     * @see is_generic_dependent()
      */
     inline bool is_generic() const {
         return !this->type_params().empty();
     }
+
+    /** Returns true if this type is dependent on generic type parameters.
+     * This is true if this type is generic or has an outer generic type, either of which has unbound type parameters.
+     */
+    bool is_generic_dependent() const;
 
     /** Returns true if this type has the same vtable as its base type. */
     inline bool is_same_vtable_type() const {

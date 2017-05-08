@@ -613,9 +613,7 @@ public:
             argField->symbol_resolution_pass();
             auto argType = argField->get_type();
             if ( !argType->is_concrete() ) {
-                if ( !( argType->get_declaration()->get_decl_flags() & TXD_GENPARAM )
-                     && this->returnField
-                     && this->returnField->typeExpression->get_identifier() != "$Self" ) {
+                if ( !this->context().is_generic() ) {
                     CERROR( argField, "Function argument type is not a concrete type (size potentially unknown): "
                             << argField->get_identifier() << " : " << argType );
                 }
@@ -628,8 +626,7 @@ public:
             this->returnField->symbol_resolution_pass();
             auto retType = this->returnField->get_type();
             if ( !retType->is_concrete() ) {
-                if ( !( retType->get_declaration()->get_decl_flags() & TXD_GENPARAM )
-                     && this->returnField->typeExpression->get_identifier() != "$Self" ) {
+                if ( !this->context().is_generic() ) {
                     CERROR( returnField, "Function return type is not a concrete type (size potentially unknown): " << retType );
                 }
                 else

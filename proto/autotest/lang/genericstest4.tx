@@ -30,6 +30,18 @@ type Outer<S> {
         funcA( a : Int ) -> Int { return a; }
         funcB( a : Float ) -> Float { return a; }
     }
+
+    /** Nested generic type. */
+    type Nested<T,U> {
+        static statMemb : Float = 1.1;
+        instS : S;
+        instT : T;
+        instU : U;
+
+        funcS() -> S { return self.instS; }
+        funcT() -> T { return self.instT; }
+        funcU() -> U { return self.instU; }
+    }
 }
 
 

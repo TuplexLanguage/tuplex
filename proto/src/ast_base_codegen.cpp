@@ -42,7 +42,10 @@ Value* TxModuleNode::code_gen( LlvmGenerationContext& context, GenScope* scope )
 
 Value* TxTypeDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return this->typeExpression->code_gen( context, scope );
+    if (!this->typeExpression->context().is_generic())
+        return this->typeExpression->code_gen( context, scope );
+    std::cerr << "Skipped codegen for: " << this->typeExpression << "  type: " << this->typeExpression->get_type() << std::endl;
+    return nullptr;
 }
 
 static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, GenScope* scope,

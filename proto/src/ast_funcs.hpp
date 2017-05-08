@@ -113,26 +113,28 @@ public:
     }
 
     virtual void symbol_declaration_pass( LexicalContext& lexContext ) override {
-        std::string funcName =
-                ( this->fieldDefNode && this->fieldDefNode->get_declaration() ) ?
-                                                                                  this->fieldDefNode->get_declaration()->get_unique_name() :
-                                                                                  "";
-        LexicalContext funcLexContext( lexContext, lexContext.scope()->create_code_block_scope( *this, funcName ) );
-
+        std::string funcName = ( this->fieldDefNode && this->fieldDefNode->get_declaration() )
+                                      ? this->fieldDefNode->get_declaration()->get_unique_name()
+                                      : "";
+        LexicalContext funcLexContext;
         if ( this->is_instance_method() ) {
+            const TxTypeDeclaration* constructedObjTypeDecl = nullptr;
             auto entitySym = dynamic_cast<TxEntitySymbol*>( lexContext.scope() );
             if ( entitySym && entitySym->get_type_decl() ) {  // if in type scope
                 if ( this->fieldDefNode->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR ) {
                     // this is a constructor
-                    auto constructedObjTypeDecl = entitySym->get_type_decl();
-                    funcLexContext.set_constructed( constructedObjTypeDecl );
+                    constructedObjTypeDecl = entitySym->get_type_decl();
                 }
             }
             else
                 CERROR( this, "The scope of an instance method must be a type scope" );
 
+            funcLexContext = LexicalContext( lexContext, lexContext.scope()->create_code_block_scope( *this, funcName ), constructedObjTypeDecl );
             this->selfRefNode->symbol_declaration_pass_local_field( funcLexContext );
             this->superRefNode->symbol_declaration_pass_local_field( funcLexContext );
+        }
+        else {
+            funcLexContext = LexicalContext( lexContext, lexContext.scope()->create_code_block_scope( *this, funcName ) );
         }
         // FUTURE: define implicit closure object when in code block
 

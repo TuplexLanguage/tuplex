@@ -136,9 +136,10 @@ void TxFieldDefNode::symbol_declaration_pass_local_field( LexicalContext& lexCon
 }
 
 void TxFieldDefNode::symbol_declaration_pass_local_scoped_field( LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
-    auto blockScope = lexContext.scope()->create_code_block_scope( *this );  // prevents init expr from referring to this field
-    this->declaration = blockScope->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
-    this->symbol_declaration_pass( lexContext, declFlags );
+    this->declaration = lexContext.scope()->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
+    // to prevent init expr from referring to this field, it is processed in the outer scope:
+    LexicalContext outerCtx(lexContext, lexContext.scope()->get_outer());
+    this->symbol_declaration_pass( outerCtx, declFlags );
 }
 
 void TxFieldDefNode::symbol_declaration_pass_nonlocal_field( LexicalContext& lexContext, TxFieldDeclNode* fieldDeclNode, TxDeclarationFlags declFlags,
@@ -293,19 +294,25 @@ void TxTypeDeclNode::symbol_declaration_pass( LexicalContext& lexContext, bool i
         LOG_TRACE( this->LOGGER(), this << ": Declared type " << declaration );
     }
 
+    bool genericContext = lexContext.is_generic();
     if ( this->typeParamDecls ) {
         // The context of this node represents its outer scope.
         // The type expression's created type entity, if any, represents its inner scope.
         // Declare type parameters within type declaration's scope, and before rest of type expression is processed:
         // (TypeExpression also instantiates the typeCtx, but since we process paramDeclNodes here we do it here too)
         LexicalContext typeCtx( lexContext, declaration->get_symbol() );
-        if ( !this->_builtinCode ) {
-            for ( auto paramDeclNode : *this->typeParamDecls ) {
+        for ( auto paramDeclNode : *this->typeParamDecls ) {
+            if ( !this->_builtinCode ) {
                 paramDeclNode->symbol_declaration_pass( typeCtx );
+            }
+            if (paramDeclNode->get_decl_flags() & TXD_GENPARAM) {
+                //std::cerr << "Has unbound gen-params: " << this << std::endl;
+                genericContext = true;
             }
         }
     }
-    this->typeExpression->symbol_declaration_pass( lexContext, declaration );
+    LexicalContext defCtx( lexContext, genericContext );
+    this->typeExpression->symbol_declaration_pass( defCtx, declaration );
 }
 
 void TxTypeExpressionNode::symbol_declaration_pass( LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration ) {

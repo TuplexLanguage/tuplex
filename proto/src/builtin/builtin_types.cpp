@@ -72,7 +72,7 @@ public:
 
     void set_field( const TxField* field ) {
         this->builtinField = field;
-        this->set_context( LexicalContext( field->get_symbol()->get_outer(), nullptr, false ) );  // emulate declaration pass
+        this->set_context( LexicalContext( field->get_symbol()->get_outer(), nullptr, false, false ) );  // emulate declaration pass
         this->resolve_field();  // auto-resolves
     }
 
