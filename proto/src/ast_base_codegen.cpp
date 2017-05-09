@@ -162,7 +162,7 @@ Value* TxFieldDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scop
     return fieldVal;
 }
 
-Value* TxFieldTypeDefNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxArgTypeDefNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     return nullptr;  // passive node
 }

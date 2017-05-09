@@ -183,11 +183,11 @@ public:
     }
 };
 
-/** Describes a field name and type - however does not declare or define a field entity.
+/** Describes an arg name and type - however does not declare or define a field entity.
  * This is used for function arguments and return values, they are not distinct declarations / entities,
  * rather they are part of the function type definition.
  */
-class TxFieldTypeDefNode : public TxTypeDefiningNode {
+class TxArgTypeDefNode : public TxTypeDefiningNode {
 protected:
     virtual const TxType* define_type() override {
         LOG_TRACE( this->LOGGER(), "defining  type  of " << this );
@@ -198,13 +198,13 @@ public:
     const std::string fieldName;
     TxTypeExpressionNode* typeExpression;
 
-    TxFieldTypeDefNode( const TxLocation& parseLocation, const std::string& fieldName, TxTypeExpressionNode* typeExpression )
+    TxArgTypeDefNode( const TxLocation& parseLocation, const std::string& fieldName, TxTypeExpressionNode* typeExpression )
             : TxTypeDefiningNode( parseLocation ), fieldName( fieldName ), typeExpression( typeExpression ) {
         ASSERT( typeExpression, "typeExpression must be specified" );
     }
 
-    virtual TxFieldTypeDefNode* make_ast_copy() const override {
-        return new TxFieldTypeDefNode( this->parseLocation, this->fieldName, this->typeExpression->make_ast_copy() );
+    virtual TxArgTypeDefNode* make_ast_copy() const override {
+        return new TxArgTypeDefNode( this->parseLocation, this->fieldName, this->typeExpression->make_ast_copy() );
     }
 
     void declaration_pass() {
@@ -231,18 +231,8 @@ public:
     }
 };
 
-class TxFieldDeclNode;
-
 class TxFieldDefNode : public TxFieldDefiningNode {
-    /** original field type def node, if constructed with such */
-    TxFieldTypeDefNode* typeDefNode = nullptr;
-
-//    /** injected by non-local field declaration if applicable */
-//    TxFieldDeclNode* fieldDeclNode = nullptr;
-
     const TxFieldDeclaration* declaration = nullptr;
-
-    void symbol_declaration_pass( const LexicalContext& lexContext, TxDeclarationFlags declFlags );
 
 protected:
     virtual const TxType* define_type() override {
@@ -283,11 +273,6 @@ public:
     TxTypeExpressionNode* typeExpression;
     TxMaybeConversionNode* initExpression;
 
-    TxFieldDefNode( TxFieldTypeDefNode* typeDefNode )
-            : TxFieldDefNode( typeDefNode->parseLocation, typeDefNode->fieldName, typeDefNode->typeExpression, nullptr ) {
-        this->typeDefNode = typeDefNode;
-    }
-
     TxFieldDefNode( const TxLocation& parseLocation, const std::string& fieldName,
                     TxTypeExpressionNode* typeExpression,
                     TxExpressionNode* initExpression, bool modifiable = false )
@@ -309,12 +294,17 @@ public:
         return new TxFieldDefNode( this->parseLocation, this->fieldName->str(), typeExpr, initExpr, this->modifiable );
     }
 
-    void symbol_declaration_pass_local_field( const LexicalContext& lexContext, TxDeclarationFlags declFlags = TXD_NONE );
+    /** Performs the declaration of the field defined by this node. To be run before declaration pass is run on this node. */
+    inline void declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
+        this->declare_field( this->fieldName->str(), scope, declFlags, storage );
+    }
 
-    void symbol_declaration_pass_local_scoped_field( const LexicalContext& lexContext, TxDeclarationFlags declFlags = TXD_NONE );
+    /** Performs the declaration of the field defined by this node. To be run before declaration pass is run on this node. */
+    inline void declare_field( const std::string& name, TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
+        this->declaration = scope->declare_field( name, this, declFlags, storage, TxIdentifier() );
+    }
 
-    void symbol_declaration_pass_nonlocal_field( const LexicalContext& lexContext, TxFieldDeclNode* fieldDeclNode, TxDeclarationFlags declFlags,
-                                                 TxFieldStorage storage, const TxIdentifier& dataspace );
+    void symbol_declaration_pass( const LexicalContext& lexContext );
 
     virtual void symbol_resolution_pass() {
         auto field = this->resolve_field();
@@ -377,11 +367,6 @@ public:
 /** Non-local field declaration */
 class TxFieldDeclNode : public TxDeclarationNode {
     const bool isMethodSyntax = false;
-    TxFieldStorage storage = TXS_NOSTORAGE;
-
-// experimental
-//    /** code value generated for this node (supports generation in usage order instead of lexical order) */
-//    mutable llvm::Value* codeGenValue = nullptr;
 
 public:
     TxFieldDefNode* field;
@@ -399,10 +384,6 @@ public:
 
     virtual void symbol_resolution_pass() override;
 
-    TxFieldStorage get_storage() const {
-        return this->storage;
-    }
-
     virtual const TxFieldDeclaration* get_declaration() const override {
         return this->field->get_declaration();
     }
@@ -418,7 +399,6 @@ public:
 class TxTypeDeclNode : public TxDeclarationNode {
     /** if true, this node's subtree is merged with a built-in type definition */
     bool _builtinCode = false;
-//    const TxTypeDeclaration* declaration = nullptr;
 
 public:
     const TxIdentifier* typeName;

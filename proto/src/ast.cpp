@@ -30,7 +30,7 @@ bool validateFieldName( TxNode* node, TxDeclarationFlags declFlags, const std::s
 template<typename Node>
 std::vector<const TxType*> to_typevec( const std::vector<Node*>* nodevec ) {
     std::vector<const TxType*> types = std::vector<const TxType*>( nodevec->size() );
-    std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(), []( Node* node ) -> const TxType* {return node->get_type();} );
+    std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(), []( Node* node ) -> const TxType* {return node->attempt_get_type();} );
     return types;
 }
 
@@ -130,7 +130,7 @@ const TxField* TxFieldDefiningNode::resolve_field() {
 
 
 
-void TxFieldDefNode::symbol_declaration_pass( const LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
+void TxFieldDefNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
     this->set_context( lexContext );
     if ( this->typeExpression )
         this->typeExpression->symbol_declaration_pass( lexContext );
@@ -138,34 +138,33 @@ void TxFieldDefNode::symbol_declaration_pass( const LexicalContext& lexContext, 
         this->initExpression->symbol_declaration_pass( lexContext );
 }
 
-void TxFieldDefNode::symbol_declaration_pass_local_field( const LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
-    this->declaration = lexContext.scope()->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
-    this->symbol_declaration_pass( lexContext, declFlags );
-}
-
-void TxFieldDefNode::symbol_declaration_pass_local_scoped_field( const LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
-    this->declaration = lexContext.scope()->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
-    // to prevent init expr from referring to this field, it is processed in the outer scope:
-    LexicalContext outerCtx(lexContext, lexContext.scope()->get_outer());
-    this->symbol_declaration_pass( outerCtx, declFlags );
-}
-
-void TxFieldDefNode::symbol_declaration_pass_nonlocal_field( const LexicalContext& lexContext, TxFieldDeclNode* fieldDeclNode, TxDeclarationFlags declFlags,
-                                                             TxFieldStorage storage, const TxIdentifier& dataspace ) {
-//    this->fieldDeclNode = fieldDeclNode;  // enables support for usage-order code generation of non-local fields
-    TxDeclarationFlags fieldFlags = declFlags;
-    std::string declName = this->fieldName->str();
-    if ( *this->fieldName == "self" ) {
-        // handle constructor declaration
-        declName = CONSTR_IDENT;
-        fieldFlags = fieldFlags | TXD_CONSTRUCTOR;
-        if ( storage != TXS_INSTANCEMETHOD )
-            CERROR( this, "Illegal declaration name for non-constructor member: " << this->fieldName );
-    }
-
-    this->declaration = lexContext.scope()->declare_field( declName, this, fieldFlags, storage, dataspace );
-    this->symbol_declaration_pass( lexContext, declFlags );
-}
+//void TxFieldDefNode::symbol_declaration_pass_local_field( const LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
+//    this->declaration = lexContext.scope()->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
+//    this->symbol_declaration_pass( lexContext );
+//}
+//
+//void TxFieldDefNode::symbol_declaration_pass_local_scoped_field( const LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
+//    this->declaration = lexContext.scope()->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
+//    // to prevent init expr from referring to this field, it is processed in the outer scope:
+//    LexicalContext outerCtx(lexContext, lexContext.scope()->get_outer());
+//    this->symbol_declaration_pass( outerCtx );
+//}
+//
+//void TxFieldDefNode::symbol_declaration_pass_nonlocal_field( const LexicalContext& lexContext, TxFieldDeclNode* fieldDeclNode, TxDeclarationFlags declFlags,
+//                                                             TxFieldStorage storage, const TxIdentifier& dataspace ) {
+//    TxDeclarationFlags fieldFlags = declFlags;
+//    std::string declName = this->fieldName->str();
+//    if ( *this->fieldName == "self" ) {
+//        // handle constructor declaration
+//        declName = CONSTR_IDENT;
+//        fieldFlags = fieldFlags | TXD_CONSTRUCTOR;
+//        if ( storage != TXS_INSTANCEMETHOD )
+//            CERROR( this, "Illegal declaration name for non-constructor member: " << this->fieldName );
+//    }
+//
+//    this->declaration = lexContext.scope()->declare_field( declName, this, fieldFlags, storage, dataspace );
+//    this->symbol_declaration_pass( lexContext, declFlags );
+//}
 
 
 void TxFieldDeclNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
@@ -220,13 +219,24 @@ void TxFieldDeclNode::symbol_declaration_pass( const LexicalContext& lexContext 
 
     // TXS_STATIC may be changed to TXS_VIRTUAL depending on context:
     if ( storage == TXS_STATIC
-         && ( declFlags & ( TXD_PUBLIC | TXD_PROTECTED ) )          // private fields are non-virtual
-         && !( declFlags & TXD_INITIALIZER )                      // initializers are static
-         && ( ( declFlags & ( TXD_OVERRIDE | TXD_FINAL ) ) != TXD_FINAL ) ) { // if final but doesn't override, its effectively non-virtual
+         && ( flags & ( TXD_PUBLIC | TXD_PROTECTED ) )          // private fields are non-virtual
+         && !( flags & TXD_INITIALIZER )                        // initializers are static
+         && ( ( flags & ( TXD_OVERRIDE | TXD_FINAL ) ) != TXD_FINAL ) ) { // if final but doesn't override, its effectively non-virtual
         storage = TXS_VIRTUAL;
     }
-    this->storage = storage;
-    this->field->symbol_declaration_pass_nonlocal_field( lexContext, this, flags, storage, TxIdentifier( "" ) );
+
+//    this->field->symbol_declaration_pass_nonlocal_field( lexContext, this, flags, storage, TxIdentifier( "" ) );
+    std::string declName = this->field->fieldName->str();
+    if ( declName == "self" ) {
+        // handle constructor declaration
+        if ( storage != TXS_INSTANCEMETHOD )
+            CERROR( this, "Illegal declaration name for non-constructor member: " << declName );
+        declName = CONSTR_IDENT;
+        flags = flags | TXD_CONSTRUCTOR;
+    }
+
+    this->field->declare_field( declName, lexContext.scope(), flags, storage );
+    this->field->symbol_declaration_pass( lexContext );
 }
 
 void TxFieldDeclNode::symbol_resolution_pass() {

@@ -53,8 +53,12 @@ public:
     virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         auto blockScope = lexContext.scope()->create_code_block_scope( *this );
         this->set_context( LexicalContext( lexContext, blockScope ) );
-        this->field->symbol_declaration_pass_local_scoped_field( this->context(), ( isExpErrorStmt ? TXD_EXPERRBLOCK : TXD_NONE ) );
-        //lexContext.scope( blockScope );  // so subsequent statements are in the scope block of this field
+
+//        this->field->symbol_declaration_pass_local_scoped_field( this->context(), ( isExpErrorStmt ? TXD_EXPERRBLOCK : TXD_NONE ) );
+        auto declFlags = ( isExpErrorStmt ? TXD_EXPERRBLOCK : TXD_NONE );
+        this->field->declare_field( blockScope, declFlags, TXS_STACK );
+        // to prevent init expr from referring to this field, it is processed in the outer scope:
+        this->field->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {

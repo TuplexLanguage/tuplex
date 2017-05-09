@@ -446,7 +446,7 @@ public:
 
 class TxBuiltinConstructorTypeDefNode : public TxFunctionTypeNode {
 public:
-    TxBuiltinConstructorTypeDefNode( const TxLocation& parseLocation, std::vector<TxFieldTypeDefNode*>* arguments, TxTypeExpressionNode* returnType )
+    TxBuiltinConstructorTypeDefNode( const TxLocation& parseLocation, std::vector<TxArgTypeDefNode*>* arguments, TxTypeExpressionNode* returnType )
             : TxFunctionTypeNode( parseLocation, false, arguments, returnType ) {
     }
 
@@ -487,7 +487,7 @@ protected:
 
 public:
     TxDefConstructorTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* returnTypeNode, TxExpressionNode* initExprNode )
-            : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxFieldTypeDefNode*>(), returnTypeNode ), initExprNode( initExprNode ) {
+            : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxArgTypeDefNode*>(), returnTypeNode ), initExprNode( initExprNode ) {
     }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
@@ -510,8 +510,8 @@ protected:
     }
 
 public:
-    TxConvConstructorTypeDefNode( const TxLocation& parseLocation, TxFieldTypeDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
-            : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxFieldTypeDefNode*>( { fromTypeArg } ), returnTypeNode ) {
+    TxConvConstructorTypeDefNode( const TxLocation& parseLocation, TxArgTypeDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
+            : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxArgTypeDefNode*>( { fromTypeArg } ), returnTypeNode ) {
     }
 
     virtual TxConvConstructorTypeDefNode* make_ast_copy() const override {
@@ -530,8 +530,8 @@ protected:
     }
 
 public:
-    TxArrayConstructorTypeDefNode( const TxLocation& parseLocation, TxFieldTypeDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
-            : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxFieldTypeDefNode*>( { fromTypeArg } ), returnTypeNode ) {
+    TxArrayConstructorTypeDefNode( const TxLocation& parseLocation, TxArgTypeDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
+            : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxArgTypeDefNode*>( { fromTypeArg } ), returnTypeNode ) {
     }
 
     virtual TxArrayConstructorTypeDefNode* make_ast_copy() const override {
@@ -589,14 +589,14 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
     return new TxFieldDeclNode(
             loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
             new TxFieldDefNode( loc, CONSTR_IDENT,
-                                new TxConvConstructorTypeDefNode( loc, new TxFieldTypeDefNode( loc, "arg", fromTypeNode ), toTypeNode ),
+                                new TxConvConstructorTypeDefNode( loc, new TxArgTypeDefNode( loc, "arg", fromTypeNode ), toTypeNode ),
                                 nullptr ),  // no function body, initialization is inlined
             false );  // not method syntax since elementary types' initializers are inlineable, pure functions
 }
 
 static TxFieldDeclNode* make_array_constructor( const TxLocation& loc ) {
 //    auto        argNode = new TxFieldTypeDefNode( loc, "val", new TxReferenceTypeNode( loc, nullptr, new TxIdentifiedTypeNode( loc, "$Self" ) ) );
-    auto argNode = new TxFieldTypeDefNode( loc, "val", new TxNamedTypeNode( loc, "$Self" ) );
+    auto argNode = new TxArgTypeDefNode( loc, "val", new TxNamedTypeNode( loc, "$Self" ) );
     auto returnTypeNode = new TxNamedTypeNode( loc, "$Self" );
     return new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
                                 new TxFieldDefNode( loc, CONSTR_IDENT,
@@ -775,8 +775,8 @@ void BuiltinTypes::declare_tx_functions() {
     LexicalContext ctx( txCfuncModule );
     {   // declare tx.c.puts:
         auto refTypeNode = new TxReferenceTypeNode( this->builtinLocation, nullptr, new TxNamedTypeNode( this->builtinLocation, "tx.UByte" ) );
-        auto argNode = new TxFieldTypeDefNode( this->builtinLocation, "str", refTypeNode );
-        auto c_puts_func_type_def = new TxFunctionTypeNode( this->builtinLocation, false, new std::vector<TxFieldTypeDefNode*>( { argNode } ),
+        auto argNode = new TxArgTypeDefNode( this->builtinLocation, "str", refTypeNode );
+        auto c_puts_func_type_def = new TxFunctionTypeNode( this->builtinLocation, false, new std::vector<TxArgTypeDefNode*>( { argNode } ),
                                                             new TxNamedTypeNode( this->builtinLocation, "tx.Int" ) );
         auto c_puts_func_type_decl = new TxTypeDeclNode( this->builtinLocation, TXD_PUBLIC | TXD_IMPLICIT, "puts$func", nullptr,
                                                          c_puts_func_type_def );
@@ -792,7 +792,7 @@ void BuiltinTypes::declare_tx_functions() {
 //        auto funcType = new TxFunctionType( nullptr, this->builtinTypes[FUNCTION]->typeExpression->resolve_type()->type(), argumentTypes,
 //                                            this->builtinTypes[VOID]->typeExpression->resolve_type()->type() );
 //        auto type = new TxType( funcType );
-        auto c_abort_func_type_def = new TxFunctionTypeNode( this->builtinLocation, false, new std::vector<TxFieldTypeDefNode*>( { } ), nullptr );
+        auto c_abort_func_type_def = new TxFunctionTypeNode( this->builtinLocation, false, new std::vector<TxArgTypeDefNode*>( { } ), nullptr );
         auto c_abort_func_type_decl = new TxTypeDeclNode( this->builtinLocation, TXD_PUBLIC | TXD_IMPLICIT, "abort$func", nullptr,
                                                           c_abort_func_type_def );
         c_abort_func_type_decl->symbol_declaration_pass( ctx );

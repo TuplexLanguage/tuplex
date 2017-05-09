@@ -2,6 +2,12 @@
 
 // (requires types, expressions, and statements to be included before this)
 
+
+/** Constructs a new TxFieldDefNode based on a TxFieldTypeDefNode (the new copy is independently allocated). */
+inline TxFieldDefNode* make_field_def_node( TxArgTypeDefNode* fieldTypeDef ) {
+    return new TxFieldDefNode( fieldTypeDef->parseLocation, fieldTypeDef->fieldName, fieldTypeDef->typeExpression->make_ast_copy(), nullptr );
+}
+
 class TxFunctionHeaderNode : public TxTypeExpressionNode {
     TxFunctionTypeNode* funcTypeNode;
 
@@ -10,10 +16,14 @@ protected:
         this->funcTypeNode->symbol_declaration_pass( lexContext );  // (creates implicit declaration for the function type)
 
         // declare the function args, and the return type if any:
-        for ( auto argField : *this->arguments )
-            argField->symbol_declaration_pass_local_field( lexContext );
-        if ( this->returnField )
-            this->returnField->symbol_declaration_pass_local_field( lexContext, TXD_IMPLICIT );
+        for ( auto argField : *this->arguments ) {
+            argField->declare_field( lexContext.scope(), TXD_NONE, TXS_STACK );
+            argField->symbol_declaration_pass( lexContext );
+        }
+        if ( this->returnField ) {
+            this->returnField->declare_field( lexContext.scope(), TXD_IMPLICIT, TXS_STACK );
+            this->returnField->symbol_declaration_pass( lexContext );
+        }
     }
 
     virtual const TxType* define_type() override {
@@ -27,9 +37,9 @@ public:
     TxFunctionHeaderNode( TxFunctionTypeNode* funcTypeNode )
             : TxTypeExpressionNode( funcTypeNode->parseLocation ), funcTypeNode( funcTypeNode ),
               arguments( new std::vector<TxFieldDefNode*>() ),
-              returnField( funcTypeNode->returnField ? new TxFieldDefNode( funcTypeNode->returnField->make_ast_copy() ) : nullptr ) {
+              returnField( funcTypeNode->returnField ? make_field_def_node( funcTypeNode->returnField ) : nullptr ) {
         for ( auto arg : *funcTypeNode->arguments )
-            this->arguments->push_back( new TxFieldDefNode( arg->make_ast_copy() ) );
+            this->arguments->push_back( make_field_def_node( arg ) );
     }
 
     virtual TxFunctionHeaderNode* make_ast_copy() const override {
@@ -130,8 +140,10 @@ public:
                 CERROR( this, "The scope of an instance method must be a type scope" );
 
             funcLexContext = LexicalContext( lexContext, lexContext.scope()->create_code_block_scope( *this, funcName ), constructedObjTypeDecl );
-            this->selfRefNode->symbol_declaration_pass_local_field( funcLexContext );
-            this->superRefNode->symbol_declaration_pass_local_field( funcLexContext );
+            this->selfRefNode->declare_field( funcLexContext.scope(), TXD_NONE, TXS_STACK );
+            this->superRefNode->declare_field( funcLexContext.scope(), TXD_NONE, TXS_STACK );
+            this->selfRefNode->symbol_declaration_pass( funcLexContext );
+            this->superRefNode->symbol_declaration_pass( funcLexContext );
         }
         else {
             funcLexContext = LexicalContext( lexContext, lexContext.scope()->create_code_block_scope( *this, funcName ) );

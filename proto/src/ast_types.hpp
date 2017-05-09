@@ -544,8 +544,8 @@ class TxFunctionTypeNode : public TxTypeExpressionNode {
     // Note: the field names aren't part of a function's formal type definition
     // (a function type doesn't declare (create entities for) the function args)
 
-    static TxFieldTypeDefNode* make_return_field( TxTypeExpressionNode* returnType ) {
-        return ( returnType ? new TxFieldTypeDefNode( returnType->parseLocation, "$return", returnType ) : nullptr );
+    static TxArgTypeDefNode* make_return_field( TxTypeExpressionNode* returnType ) {
+        return ( returnType ? new TxArgTypeDefNode( returnType->parseLocation, "$return", returnType ) : nullptr );
     }
 
 protected:
@@ -572,11 +572,11 @@ protected:
 public:
     /** Indicates whether functions of this type may modify its closure when run. */
     const bool modifiable;
-    std::vector<TxFieldTypeDefNode*>* arguments;
-    TxFieldTypeDefNode* returnField;
+    std::vector<TxArgTypeDefNode*>* arguments;
+    TxArgTypeDefNode* returnField;
 
     TxFunctionTypeNode( const TxLocation& parseLocation, const bool modifiable,
-                        std::vector<TxFieldTypeDefNode*>* arguments,
+                        std::vector<TxArgTypeDefNode*>* arguments,
                         TxTypeExpressionNode* returnType )
             : TxTypeExpressionNode( parseLocation ), modifiable( modifiable ),
               arguments( arguments ),
