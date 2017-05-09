@@ -51,12 +51,12 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
         // (for now, we don't treat funcTypeNode as a visited descendant)
         for ( auto argField : *this->arguments )
-            argField->visit_ast( visitor, thisAsParent, "arg", context );
+            argField->visit_ast( visitor, thisCursor, "arg", context );
         if ( this->returnField )
-            this->returnField->visit_ast( visitor, thisAsParent, "return", context );
+            this->returnField->visit_ast( visitor, thisCursor, "return", context );
     }
 };
 
@@ -174,12 +174,12 @@ public:
     llvm::Function* code_gen_forward_decl( LlvmGenerationContext& context, GenScope* scope ) const;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        this->funcHeaderNode->visit_ast( visitor, thisAsParent, "functype", context );
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+        this->funcHeaderNode->visit_ast( visitor, thisCursor, "functype", context );
         if ( this->selfRefNode ) {
-            this->selfRefNode->visit_ast( visitor, thisAsParent, "selfref", context );
-            this->superRefNode->visit_ast( visitor, thisAsParent, "superref", context );
+            this->selfRefNode->visit_ast( visitor, thisCursor, "selfref", context );
+            this->superRefNode->visit_ast( visitor, thisCursor, "superref", context );
         }
-        this->suite->visit_ast( visitor, thisAsParent, "suite", context );
+        this->suite->visit_ast( visitor, thisCursor, "suite", context );
     }
 };

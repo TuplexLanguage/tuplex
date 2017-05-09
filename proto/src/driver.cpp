@@ -138,7 +138,12 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     /*--- perform declaration pass ---*/
 
     for ( auto parserContext : this->parsedASTs ) {
-        parserContext->parsingUnit->symbol_declaration_pass( this->package );
+//        // by processing root node here we avoid root checking in visitor implementation
+//        parserContext->parsingUnit->set_context( this->package );
+//        const AstCursor parent( parserContext->parsingUnit );
+//        parserContext->parsingUnit->module->visit_ast( declPassVisitor, parent, "module", nullptr );
+        LexicalContext rootLexCtx( this->package );
+        parserContext->parsingUnit->symbol_declaration_pass( rootLexCtx );
     }
 
     this->package->builtins().initializeBuiltinSymbols();  // FIXME: to be removed
@@ -172,7 +177,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         _LOG.error( "- Resolution pass completed, %d errors", error_count - prev_error_count );
 
     if ( this->options.dump_ast ) {
-        auto visitor = []( const TxNode* node, const AstParent& parent, const std::string& role, void* ctx ) {
+        auto visitor = []( const TxNode* node, const AstCursor& parent, const std::string& role, void* ctx ) {
             char buf[256];
             snprintf( buf, 256, "%*s%s", parent.depth*2, "", role.c_str() );
             printf( "%-50s %s\n", buf, node->str().c_str() );

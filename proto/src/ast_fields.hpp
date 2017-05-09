@@ -77,9 +77,9 @@ public:
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope /*, bool foldStatics=false */) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
         if ( this->baseExpr )
-            this->baseExpr->visit_ast( visitor, thisAsParent, "base", context );
+            this->baseExpr->visit_ast( visitor, thisCursor, "base", context );
     }
 
     virtual std::string get_identifier() const override {

@@ -84,7 +84,7 @@ public:
         return nullptr;
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
     }
 };
 
@@ -184,11 +184,11 @@ public:
         return nullptr;
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
         if ( this->baseTypeNode )
-            this->baseTypeNode->visit_ast( visitor, thisAsParent, "basetype", context );
+            this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
         for ( auto decl : this->declNodes )
-            decl->visit_ast( visitor, thisAsParent, "decl", context );
+            decl->visit_ast( visitor, thisCursor, "decl", context );
     }
 };
 
@@ -490,8 +490,8 @@ public:
             : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxFieldTypeDefNode*>(), returnTypeNode ), initExprNode( initExprNode ) {
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        this->initExprNode->visit_ast( visitor, thisAsParent, "initializer", context );
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+        this->initExprNode->visit_ast( visitor, thisCursor, "initializer", context );
     }
 
     virtual TxDefConstructorTypeDefNode* make_ast_copy() const override {

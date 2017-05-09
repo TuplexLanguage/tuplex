@@ -24,6 +24,7 @@ class Value;
 /** Represents the lexical source scope of a syntax node / entity.
  */
 class LexicalContext : public Printable {
+public:
     TxScopeSymbol* _scope;
     const TxTypeDeclaration* constructedObjTypeDecl;
     bool generic;  // true if this is within a generic type definition (note, can be true also when reinterpreted, if not all params bound)
@@ -33,7 +34,6 @@ class LexicalContext : public Printable {
     // FUTURE: Maybe represent/refer to the closest surrounding statement here, which is not equivalent to scope
     //         (a scope can have several statements, a statement may create subscopes).
 
-public:
     /** Constructs an "uninitialized" lexical context. */
     LexicalContext() //= default;
             : _scope(), constructedObjTypeDecl(), generic(), reinterpretation(), expErrCtx() {
@@ -110,28 +110,6 @@ public:
     }
 
 
-    TxStatementNode* encl_stmt_node() const {
-        return nullptr;  // FIXME
-    }
-
-    /** Returns the closest enclosing function/method/lambda definition node, or null if this context has no enclosing type. */
-    const TxLambdaExprNode* encl_lambda_node() const {
-        return nullptr;  // FIXME
-    }
-
-    /** Returns the closest enclosing type declaration node, or null if this context has no enclosing type. */
-    TxTypeDeclNode* encl_type_decl_node() const {
-//        ASSERT( this->_scope, "scope is NULL" );
-//        for ( auto scope = this->_scope; scope; scope = scope->get_outer() ) {
-//            if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( scope ) ) {
-//                ASSERT( entitySymbol->get_type_decl(), "NULL type decl in entity symbol " << entitySymbol );
-//                return entitySymbol->get_type_decl();
-//            }
-//        }
-        return nullptr;  // FIXME
-    }
-
-
 
     /** If this scope is a type declaration, returns it, otherwise null. */
     inline const TxTypeDeclaration* get_type_decl() const {
@@ -158,7 +136,7 @@ public:
     }
 
     /** If non-null, this context is within a constructor and the declaration for the constructed object type is returned. */
-    inline const TxTypeDeclaration* get_constructed() {
+    inline const TxTypeDeclaration* get_constructed() const {
         return this->constructedObjTypeDecl;
     }
 

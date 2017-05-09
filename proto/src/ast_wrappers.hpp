@@ -47,7 +47,7 @@ public:
         return this->typeDefNode->code_gen( context, scope );
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
         // Traversal does not proceed to the wrapped node from here since it should be visited via its original AST location.
     }
 };
@@ -85,6 +85,6 @@ public:
         return nullptr;
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
     }
 };

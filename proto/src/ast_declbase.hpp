@@ -140,8 +140,8 @@ public:
         return ( this->conversionExpr ? this->conversionExpr : this->originalExpr );
     }
 
-//    virtual const TxType* attempt_get_type() const override { return this->get_spec_expression()->attempt_get_type(); }
-//    virtual const TxType* get_type        () const override { return this->get_spec_expression()->get_type();         }
+    void declaration_pass() {
+    }
 
     virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         this->set_context( lexContext );
@@ -171,11 +171,11 @@ public:
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
         if ( this->conversionExpr )
-            this->conversionExpr->visit_ast( visitor, thisAsParent, "convertee", context );
+            this->conversionExpr->visit_ast( visitor, thisCursor, "convertee", context );
         else
-            this->originalExpr->visit_ast( visitor, thisAsParent, "unconverted", context );
+            this->originalExpr->visit_ast( visitor, thisCursor, "unconverted", context );
     }
 
     virtual std::string get_identifier() const override {
@@ -207,6 +207,9 @@ public:
         return new TxFieldTypeDefNode( this->parseLocation, this->fieldName, this->typeExpression->make_ast_copy() );
     }
 
+    void declaration_pass() {
+    }
+
     void symbol_declaration_pass( const LexicalContext& lexContext ) {
         this->set_context( lexContext );
         this->typeExpression->symbol_declaration_pass( lexContext );
@@ -219,8 +222,8 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        this->typeExpression->visit_ast( visitor, thisAsParent, "type", context );
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+        this->typeExpression->visit_ast( visitor, thisCursor, "type", context );
     }
 
     virtual std::string get_identifier() const override {
@@ -234,8 +237,8 @@ class TxFieldDefNode : public TxFieldDefiningNode {
     /** original field type def node, if constructed with such */
     TxFieldTypeDefNode* typeDefNode = nullptr;
 
-    /** injected by non-local field declaration if applicable */
-    TxFieldDeclNode* fieldDeclNode = nullptr;
+//    /** injected by non-local field declaration if applicable */
+//    TxFieldDeclNode* fieldDeclNode = nullptr;
 
     const TxFieldDeclaration* declaration = nullptr;
 
@@ -359,11 +362,11 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
         if ( this->typeExpression )
-            this->typeExpression->visit_ast( visitor, thisAsParent, "type", context );
+            this->typeExpression->visit_ast( visitor, thisCursor, "type", context );
         if ( this->initExpression )
-            this->initExpression->visit_ast( visitor, thisAsParent, "initializer", context );
+            this->initExpression->visit_ast( visitor, thisCursor, "initializer", context );
     }
 
     virtual std::string get_identifier() const override {
@@ -374,6 +377,7 @@ public:
 /** Non-local field declaration */
 class TxFieldDeclNode : public TxDeclarationNode {
     const bool isMethodSyntax = false;
+    TxFieldStorage storage = TXS_NOSTORAGE;
 
 // experimental
 //    /** code value generated for this node (supports generation in usage order instead of lexical order) */
@@ -395,14 +399,18 @@ public:
 
     virtual void symbol_resolution_pass() override;
 
+    TxFieldStorage get_storage() const {
+        return this->storage;
+    }
+
     virtual const TxFieldDeclaration* get_declaration() const override {
         return this->field->get_declaration();
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
-        this->field->visit_ast( visitor, thisAsParent, "field", context );
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+        this->field->visit_ast( visitor, thisCursor, "field", context );
     }
 };
 
@@ -410,6 +418,7 @@ public:
 class TxTypeDeclNode : public TxDeclarationNode {
     /** if true, this node's subtree is merged with a built-in type definition */
     bool _builtinCode = false;
+//    const TxTypeDeclaration* declaration = nullptr;
 
 public:
     const TxIdentifier* typeName;
@@ -434,6 +443,8 @@ public:
                                    this->typeExpression->make_ast_copy(), this->interfaceKW );
     }
 
+    virtual void declaration_pass() override;
+
     virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
 
     virtual void symbol_resolution_pass() override {
@@ -455,11 +466,11 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
         if ( this->typeParamDecls )
             for ( auto decl : *this->typeParamDecls )
-                decl->visit_ast( visitor, thisAsParent, "type-param", context );
-        this->typeExpression->visit_ast( visitor, thisAsParent, "type", context );
+                decl->visit_ast( visitor, thisCursor, "type-param", context );
+        this->typeExpression->visit_ast( visitor, thisCursor, "type", context );
     }
 
     virtual std::string get_identifier() const override {
@@ -528,8 +539,8 @@ public:
         return nullptr;
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
         if ( this->body )
-            this->body->visit_ast( visitor, thisAsParent, "decl", context );
+            this->body->visit_ast( visitor, thisCursor, "decl", context );
     }
 };

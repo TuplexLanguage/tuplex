@@ -540,7 +540,7 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     bool outerIsGeneric = false;//baseDecl->get_definer()->context().is_generic();
     if (outerIsGeneric)
         std::cerr << "outer is generic for " << uniqueSpecTypeNameStr << std::endl;
-    LexicalContext specContext = LexicalContext( baseScope, definer->exp_err_ctx(), outerIsGeneric, true );
+    LexicalContext specContext( baseScope, definer->exp_err_ctx(), outerIsGeneric, true );
     newSpecTypeDecl->symbol_declaration_pass( specContext );
     const TxActualType* specializedType = specTypeExpr->resolve_type()->type();
     LOG_DEBUG( this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << baseType );
@@ -642,7 +642,7 @@ public:
         return nullptr;
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisAsParent, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
     }
 };
 
@@ -686,14 +686,14 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
     auto adapterDeclNode = new TxTypeDeclNode( loc, ( TXD_PUBLIC | TXD_IMPLICIT ), adapterName, nullptr, adapterTypeNode );
 
     auto & adaptedTypeCtx = adaptedType->get_declaration()->get_definer()->context();
-    auto adapterCtx = LexicalContext( ifDecl->get_definer()->context().scope(), adaptedTypeCtx.exp_error(), adaptedTypeCtx.is_generic(),
-                                      adaptedTypeCtx.is_reinterpretation() );
+    LexicalContext adapterCtx( ifDecl->get_definer()->context().scope(), adaptedTypeCtx.exp_error(), adaptedTypeCtx.is_generic(),
+                               adaptedTypeCtx.is_reinterpretation() );
     adapterDeclNode->symbol_declaration_pass( adapterCtx );
     {   // override the adaptee type id virtual field member:
         TxDeclarationFlags fieldDeclFlags = TXD_PUBLIC | TXD_STATIC | TXD_OVERRIDE | TXD_IMPLICIT;
         auto fieldDecl = new TxFieldDeclNode( loc, fieldDeclFlags,
                                               new TxFieldDefNode( loc, "$adTypeId", new TxNamedTypeNode( loc, "tx.UInt" ), nullptr ) );
-        auto ctx = LexicalContext( adapterCtx, adapterDeclNode->get_declaration()->get_symbol() );
+        LexicalContext ctx( adapterCtx, adapterDeclNode->get_declaration()->get_symbol() );
         fieldDecl->symbol_declaration_pass( ctx );
         fieldDecl->symbol_resolution_pass();
     }

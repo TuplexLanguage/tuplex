@@ -34,6 +34,14 @@ std::vector<const TxType*> to_typevec( const std::vector<Node*>* nodevec ) {
     return types;
 }
 
+
+
+AstVisitor declPassVisitor = []( TxNode* node, const AstCursor& parent, const std::string& role, void* parserCtx ) {
+        node->set_context( parent.node );
+        node->declaration_pass();
+    };
+
+
 Logger& TxNode::_LOG = Logger::get( "AST" );
 
 unsigned TxNode::nextNodeId = 0;
@@ -56,14 +64,14 @@ std::string TxNode::parse_loc_string() const {
     return std::string( buf );
 }
 
-void TxNode::visit_ast( AstVisitor visitor, const AstParent& parent, const std::string& role, void* context ) const {
+void TxNode::visit_ast( AstVisitor visitor, const AstCursor& parent, const std::string& role, void* context ) {
     visitor( this, parent, role, context );
-    const AstParent thisParent( parent, this );
-    this->visit_descendants( visitor, thisParent, role, context );
+    const AstCursor thisCursor( &parent, this );
+    this->visit_descendants( visitor, thisCursor, role, context );
 }
 
-void TxNode::visit_ast( AstVisitor visitor, void* context ) const {
-    const AstParent parent( this );
+void TxNode::visit_ast( AstVisitor visitor, void* context ) {
+    const AstCursor parent(nullptr);  // a 'null' parent
     this->visit_ast( visitor, parent, "", context );
 }
 
@@ -144,7 +152,7 @@ void TxFieldDefNode::symbol_declaration_pass_local_scoped_field( const LexicalCo
 
 void TxFieldDefNode::symbol_declaration_pass_nonlocal_field( const LexicalContext& lexContext, TxFieldDeclNode* fieldDeclNode, TxDeclarationFlags declFlags,
                                                              TxFieldStorage storage, const TxIdentifier& dataspace ) {
-    this->fieldDeclNode = fieldDeclNode;  // enables support for usage-order code generation of non-local fields
+//    this->fieldDeclNode = fieldDeclNode;  // enables support for usage-order code generation of non-local fields
     TxDeclarationFlags fieldFlags = declFlags;
     std::string declName = this->fieldName->str();
     if ( *this->fieldName == "self" ) {
@@ -158,7 +166,6 @@ void TxFieldDefNode::symbol_declaration_pass_nonlocal_field( const LexicalContex
     this->declaration = lexContext.scope()->declare_field( declName, this, fieldFlags, storage, dataspace );
     this->symbol_declaration_pass( lexContext, declFlags );
 }
-
 
 
 void TxFieldDeclNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
@@ -218,7 +225,7 @@ void TxFieldDeclNode::symbol_declaration_pass( const LexicalContext& lexContext 
          && ( ( declFlags & ( TXD_OVERRIDE | TXD_FINAL ) ) != TXD_FINAL ) ) { // if final but doesn't override, its effectively non-virtual
         storage = TXS_VIRTUAL;
     }
-
+    this->storage = storage;
     this->field->symbol_declaration_pass_nonlocal_field( lexContext, this, flags, storage, TxIdentifier( "" ) );
 }
 
@@ -264,6 +271,34 @@ void TxFieldDeclNode::symbol_resolution_pass() {
             // FUTURE: ensure TXS_INSTANCE fields are initialized either here or in every constructor
         }
     }
+}
+
+void TxTypeDeclNode::declaration_pass() {
+    const TxTypeDeclaration* declaration = nullptr;
+    if ( this->declFlags & TXD_BUILTIN ) {
+        if ( auto entSym = dynamic_cast<const TxEntitySymbol*>( lexContext.scope()->get_member_symbol( this->typeName->str() ) ) ) {
+            if ( ( declaration = entSym->get_type_decl() ) ) {
+                if ( declaration->get_decl_flags() & TXD_BUILTIN ) {
+                    //std::cerr << "existing builtin type declaration: " << declaration << "  new type expr: " << this->typeExpression << std::endl;
+                    auto derivedTypeExpr = dynamic_cast<TxDerivedTypeNode*>( this->typeExpression );
+                    ASSERT( derivedTypeExpr, "Expected definer for builtin-type to be a TxDerivedTypeNode: " << this->typeExpression );
+                    derivedTypeExpr->merge_builtin_type_definer( declaration->get_definer() );
+                    this->_builtinCode = true;
+                }
+            }
+        }
+    }
+
+    if ( !this->_builtinCode ) {
+        TxDeclarationFlags flags = ( isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags );
+        declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeExpression, flags );
+        if ( !declaration ) {
+            CERROR( this, "Failed to declare type " << this->typeName );
+            return;
+        }
+        LOG_TRACE( this->LOGGER(), this << ": Declared type " << declaration );
+    }
+    this->lexContext._scope = declaration->get_symbol();
 }
 
 void TxTypeDeclNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
@@ -314,6 +349,12 @@ void TxTypeDeclNode::symbol_declaration_pass( const LexicalContext& lexContext )
     LexicalContext defCtx( lexContext, genericContext );
     this->typeExpression->symbol_declaration_pass( defCtx, declaration );
 }
+
+//const TxTypeDeclaration* TxTypeExpressionNode::get_declaration() const {
+//    if (auto declParent = dynamic_cast<const TxTypeDeclNode*>(this->parent()))
+//        return declParent->get_declaration();
+//    return nullptr;
+//}
 
 void TxTypeExpressionNode::symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration ) {
     // The context of this node represents its outer scope.
