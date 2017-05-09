@@ -62,19 +62,20 @@ class TxScalarConvNode : public TxConversionNode {
             return this->convNode->resultType;
         }
         virtual uint32_t get_value_UInt() const override {
-            return this->convNode->expr->get_static_constant_proxy()->get_value_UInt();
+            auto constProxy = this->convNode->expr->get_static_constant_proxy();
+            return constProxy->get_value_UInt();
         }
         virtual llvm::Constant* code_gen( LlvmGenerationContext& context, GenScope* scope ) const;
     };
-
     ScalarConvConstantProxy constProxy;
-    public:
+
+public:
     TxScalarConvNode( TxExpressionNode* expr, const TxType* scalarResultType )
             : TxConversionNode( expr, scalarResultType ), constProxy( this ) {
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        return &this->constProxy;
+        return ( this->expr->get_static_constant_proxy() ? &this->constProxy : nullptr );
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
