@@ -24,12 +24,16 @@ public:
     virtual std::string get_auto_type_name() const = 0;
 
     /** Gets the type declaration of this type expression, if any. */
-    virtual const TxTypeDeclaration* get_declaration() const {
+    inline const TxTypeDeclaration* get_declaration() const {
         return this->declaration;
     }
 
+    inline void set_declaration( const TxTypeDeclaration* declaration ) {
+        this->declaration = declaration;
+    }
+
     /** Performs the symbol declaration pass for this type expression. */
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration=nullptr );
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext );
 
     virtual void symbol_resolution_pass() {
         this->resolve_type();

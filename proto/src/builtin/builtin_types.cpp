@@ -450,9 +450,9 @@ public:
             : TxFunctionTypeNode( parseLocation, false, arguments, returnType ) {
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDecl=nullptr ) override {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
         // overrides in order to create implicit declaration for the function type
-        ASSERT( !owningDecl, "Expected NULL owningDeclaration: " << owningDecl );
+        ASSERT( !this->get_declaration(), "Expected NULL owningDeclaration: " << this->get_declaration() );
 
         std::string funcTypeName = "$Ftype";
         funcTypeName = lexContext.scope()->make_unique_name( funcTypeName );
@@ -463,7 +463,8 @@ public:
         }
         //LOG(this->LOGGER(), INFO, this << ": Declared type " << declaration);
 
-        TxTypeExpressionNode::symbol_declaration_pass( lexContext, declaration );
+        this->set_declaration( declaration );
+        TxTypeExpressionNode::symbol_declaration_pass( lexContext );
     }
 
     virtual TxBuiltinConstructorTypeDefNode* make_ast_copy() const override = 0;

@@ -593,18 +593,19 @@ public:
         return this->get_declaration()->get_unique_full_name();
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration = nullptr ) override {
-        if ( !owningDeclaration ) {
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
+        if ( !this->get_declaration() ) {
             std::string funcTypeName = lexContext.scope()->make_unique_name( "$Ftype", true );
             TxDeclarationFlags flags = TXD_IMPLICIT;  // TXD_PUBLIC, TXD_EXPERRBLOCK ?
-            owningDeclaration = lexContext.scope()->declare_type( funcTypeName, this, flags );
-            if ( !owningDeclaration ) {
+            auto declaration = lexContext.scope()->declare_type( funcTypeName, this, flags );
+            if ( !declaration ) {
                 CERROR( this, "Failed to declare type " << funcTypeName );
                 return;
             }
-            LOG_TRACE( this->LOGGER(), this << ": Declared type " << owningDeclaration );
+            this->set_declaration( declaration );
+            LOG_TRACE( this->LOGGER(), this << ": Declared type " << declaration );
         }
-        TxTypeExpressionNode::symbol_declaration_pass( lexContext, owningDeclaration );
+        TxTypeExpressionNode::symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -695,7 +696,7 @@ public:
         return "~" + baseName;
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration ) override;
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
 
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
@@ -739,7 +740,7 @@ public:
             return this->baseType->get_auto_type_name();
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration ) override;
+    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
 
 //    virtual const TxTypeDeclaration* get_declaration() const override {
 //        return ( this->is_modifiable() ? TxModifiableTypeNode::get_declaration() : baseType->get_declaration() );

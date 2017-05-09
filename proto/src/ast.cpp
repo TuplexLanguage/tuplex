@@ -357,7 +357,8 @@ void TxTypeDeclNode::symbol_declaration_pass( const LexicalContext& lexContext )
         }
     }
     LexicalContext defCtx( lexContext, genericContext );
-    this->typeExpression->symbol_declaration_pass( defCtx, declaration );
+    this->typeExpression->set_declaration( declaration );
+    this->typeExpression->symbol_declaration_pass( defCtx );
 }
 
 //const TxTypeDeclaration* TxTypeExpressionNode::get_declaration() const {
@@ -366,12 +367,12 @@ void TxTypeDeclNode::symbol_declaration_pass( const LexicalContext& lexContext )
 //    return nullptr;
 //}
 
-void TxTypeExpressionNode::symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration ) {
+void TxTypeExpressionNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
     // The context of this node represents its outer scope.
     // The type expression's created type entity, if any, represents its inner scope.
     this->set_context( lexContext );
-    this->declaration = owningDeclaration;
-    LexicalContext typeCtx( lexContext, ( owningDeclaration ? owningDeclaration->get_symbol() : lexContext.scope() ) );
+//    this->declaration = owningDeclaration;
+    LexicalContext typeCtx( lexContext, ( this->declaration ? this->declaration->get_symbol() : lexContext.scope() ) );
     this->symbol_declaration_pass_descendants( typeCtx );
 }
 
@@ -554,7 +555,7 @@ void TxDerivedTypeNode::merge_builtin_type_definer( TxTypeDefiningNode* builtinT
     merge_builtin_type_definers( this, this->builtinTypeDefiner, this->baseTypes->front(), interfaces, this->_mutable );
 }
 
-void TxModifiableTypeNode::symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration ) {
+void TxModifiableTypeNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->baseType ) ) {
         if ( auto maybeModElem = dynamic_cast<TxMaybeModTypeNode*>( arrayBaseType->elementTypeNode->typeExprNode ) ) {
@@ -564,10 +565,10 @@ void TxModifiableTypeNode::symbol_declaration_pass( const LexicalContext& lexCon
         }
     }
 
-    TxTypeExpressionNode::symbol_declaration_pass( lexContext, owningDeclaration );
+    TxTypeExpressionNode::symbol_declaration_pass( lexContext );
 }
 
-void TxMaybeModTypeNode::symbol_declaration_pass( const LexicalContext& lexContext, const TxTypeDeclaration* owningDeclaration ) {
+void TxMaybeModTypeNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if ( !this->is_modifiable() ) {
         if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->baseType ) )
@@ -578,11 +579,12 @@ void TxMaybeModTypeNode::symbol_declaration_pass( const LexicalContext& lexConte
     }
 
     if ( this->is_modifiable() )
-        TxModifiableTypeNode::symbol_declaration_pass( lexContext, owningDeclaration );
+        TxModifiableTypeNode::symbol_declaration_pass( lexContext );
     else {
         // "pass through" entity declaration to the underlying type
         this->set_context( lexContext );
-        this->baseType->symbol_declaration_pass( lexContext, owningDeclaration );
+        this->baseType->set_declaration( this->get_declaration() );
+        this->baseType->symbol_declaration_pass( lexContext );
     }
 }
 
