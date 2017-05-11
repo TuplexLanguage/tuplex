@@ -46,7 +46,7 @@ type ConcreteType derives Tuple {
 
 ## interface tests
 
-type IntfA derives Interface {
+interface IntfA {
     public abstract get_value()->Int;
 
     ## "mixin" or default-implementation interface methods:
@@ -56,12 +56,6 @@ type IntfA derives Interface {
     #experr 1: instField : Int;  ## interface can't have instance members
     public static ifField : Int = 17;
 }
-
-/* future syntax?
-interface IntfA {
-    public abstract get_value()->Int;
-}
-*/
 
 type Type derives Tuple, IntfA {
     fld : Int;
@@ -82,7 +76,7 @@ type Type derives Tuple, IntfA {
 }
 
 ## can't inherit object type in 2nd position
-#experr: type EType derives IntfA, Tuple {
+#experr: interface EType derives IntfA, Tuple {
 }
 
 ## must declare abstract if missing concrete members
@@ -102,17 +96,17 @@ abstract type ErrImplType derives Tuple, IntfA {
 
 ## implementing multiple interfaces
 
-type IntfX derives Interface {
+interface IntfX {
     public abstract get_value()->Int;
 
     public mixin_method_1()->Int { return 1; }
 }
 
-type IntfY derives Interface {
+interface IntfY {
     public abstract get_value()->Int;
 }
 
-type IntfZ derives Interface {
+interface IntfZ {
     public abstract get_value()->Int;
 
     public mixin_method_1()->Int { return 5; }

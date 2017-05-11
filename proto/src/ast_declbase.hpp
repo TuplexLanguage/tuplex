@@ -418,6 +418,16 @@ public:
             LOG( this->LOGGER(), DEBUG, "Caught resolution error in " << this->typeExpression << ": " << err );
             return;
         }
+        if (this->interfaceKW) {
+            if (this->typeExpression->get_type()->get_type_class() != TXTC_INTERFACE)
+                CERROR(this, "Interface type cannot derive from non-interface type " << this->typeExpression->get_type());
+        }
+        else {
+            if (this->typeExpression->get_type()->get_type_class() == TXTC_INTERFACE)
+                if ( !( this->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING | TXD_IMPLICIT ) )
+                     && !this->typeExpression->get_type()->is_modifiable() )
+                    CWARNING(this, "Interface type not declared with 'interface' keyword: " << this->typeExpression->get_type());
+        }
     }
 
     virtual const TxTypeDeclaration* get_declaration() const override {

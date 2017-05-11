@@ -377,9 +377,16 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
     TxTypeDeclNode* superRefTypeNode = nullptr;
 
     TxTypeDefiningNode* builtinTypeDefiner = nullptr;
+    bool interfaceKW = false;
 
     /** Initializes implicit type members such as '$Self' and '$Super' for types with a body. */
     void init_implicit_types();
+
+    friend TxTypeDeclNode;
+    void merge_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner );
+    void set_interface_decl( bool isInterface ) {
+        this->interfaceKW = isInterface;
+    }
 
 protected:
     virtual const TxType* define_type() override;
@@ -413,8 +420,6 @@ public:
     virtual std::string get_auto_type_name() const override {
         return this->get_declaration()->get_unique_full_name();
     }
-
-    void merge_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner );
 
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();

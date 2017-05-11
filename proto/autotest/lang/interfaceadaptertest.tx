@@ -1,6 +1,6 @@
 ## interface adapter tests (including interface adapter modifiability)
 
-type IntfA derives Interface {
+interface IntfA {
     public abstract get_value()->Int;
 
     ## "mixin" or default-implementation interface methods:
@@ -8,7 +8,7 @@ type IntfA derives Interface {
     public mixin_method_2()->Int { return 2; }
 }
 
-type IntfB derives Interface {
+interface IntfB {
     public abstract set_value( v : Int );
 }
 

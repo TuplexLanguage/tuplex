@@ -330,6 +330,10 @@ void TxTypeDeclNode::declaration_pass() {
     this->lexContext._scope = declaration->get_symbol();
     this->lexContext.generic = genericContext;
     this->typeExpression->set_declaration( declaration );
+    if (this->interfaceKW) {
+        if (auto derivedType = dynamic_cast<TxDerivedTypeNode*>(this->typeExpression))
+            derivedType->set_interface_decl( this->interfaceKW );
+    }
 }
 
 void TxTypeExpressionNode::declaration_pass() {
@@ -483,8 +487,12 @@ const TxType* TxDerivedTypeNode::define_type() {
 
     const TxType* baseObjType = nullptr;
     std::vector<const TxType*> interfaces;
-    if ( this->baseTypes->empty() )
-        baseObjType = this->registry().get_builtin_type( TXBT_TUPLE );
+    if ( this->baseTypes->empty() ) {
+        if (this->interfaceKW)
+            baseObjType = this->registry().get_builtin_type( TXBT_INTERFACE );
+        else
+            baseObjType = this->registry().get_builtin_type( TXBT_TUPLE );
+    }
     else {
         interfaces.reserve( this->baseTypes->size() - 1 );
         for ( size_t i = 0; i < this->baseTypes->size(); i++ ) {
