@@ -26,14 +26,14 @@ class Value;
 class LexicalContext : public Printable {
 public:
     TxScopeSymbol* _scope;
-    const TxTypeDeclaration* constructedObjTypeDecl;
     bool generic;  // true if this is within a generic type definition (note, can be true also when reinterpreted, if not all params bound)
     bool reinterpretation;  // true if this is a reinterpretation (specialization) of an AST
     ExpectedErrorClause* expErrCtx;
+    TxLambdaExprNode* enclosingLambda;  // the nearest enclosing lambda node, or null if none
 
     /** Constructs an "uninitialized" lexical context. */
     LexicalContext() //= default;
-            : _scope(), constructedObjTypeDecl(), generic(), reinterpretation(), expErrCtx() {
+            : _scope(), generic(), reinterpretation(), expErrCtx(), enclosingLambda() {
     }
 
     /** Copy constructor. */
@@ -42,17 +42,15 @@ public:
     /** Constructs a lexical context for the provided module.
      * (A module context does not require a parent context.) */
     LexicalContext( TxModule* module )
-            : _scope( (TxScopeSymbol*) module ), constructedObjTypeDecl(), generic(), reinterpretation(), expErrCtx() {
+            : _scope( (TxScopeSymbol*) module ), generic(), reinterpretation(), expErrCtx(), enclosingLambda() {
         ASSERT( module, "module is NULL" );
     }
 
     /** Constructs a lexical context that is a sub-context of the provided context.
      * The provided scope must be the same or a sub-scope of the parent's scope. */
     LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope )
-            : _scope( scope ), constructedObjTypeDecl( parentContext.constructedObjTypeDecl ),
-              generic( parentContext.generic ),
-              reinterpretation( parentContext.reinterpretation ),
-              expErrCtx( parentContext.expErrCtx ) {
+            : _scope( scope ), generic( parentContext.generic ), reinterpretation( parentContext.reinterpretation ),
+              expErrCtx( parentContext.expErrCtx ), enclosingLambda( parentContext.enclosingLambda ) {
         ASSERT( scope, "scope is NULL" );
     }
 
@@ -84,7 +82,7 @@ public:
 
     /** Constructs a new lexical context for a given scope, and that may represent a reinterpretation of a lexical unit. */
     LexicalContext( TxScopeSymbol* scope, ExpectedErrorClause* expErrCtx, bool generic, bool reinterpretation )
-            : _scope( scope ), constructedObjTypeDecl(), generic( generic ), reinterpretation( reinterpretation ), expErrCtx( expErrCtx ) {
+            : _scope( scope ), generic( generic ), reinterpretation( reinterpretation ), expErrCtx( expErrCtx ), enclosingLambda() {
         ASSERT( scope, "scope is NULL" );
     }
 
@@ -123,9 +121,8 @@ public:
         return expErrCtx;
     }
 
-    /** If non-null, this context is within a constructor and the declaration for the constructed object type is returned. */
-    inline const TxTypeDeclaration* get_constructed() const {
-        return this->constructedObjTypeDecl;
+    inline TxLambdaExprNode* enclosing_lambda() const {
+        return this->enclosingLambda;
     }
 
     std::string str() const override {

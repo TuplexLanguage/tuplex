@@ -135,6 +135,7 @@ add_executable(txc
         ast_fields_codegen.cpp
         ast_types_codegen.cpp
         ast_array_codegen.cpp
+        ast_util.cpp
         llvm_generator.cpp
         llvm_exec.cpp
 	)

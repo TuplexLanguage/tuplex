@@ -455,35 +455,7 @@ public:
         return new TxAssignStmtNode( this->parseLocation, this->lvalue->make_ast_copy(), this->rvalue->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        this->lvalue->symbol_resolution_pass();
-        auto ltype = this->lvalue->resolve_type();
-        if ( !ltype )
-            return;  // (error message should have been emitted by lvalue node)
-
-        // note: similar rules to passing function arg
-        if ( !ltype->is_concrete() ) {
-            // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
-            if ( !this->context().is_generic() )
-                CERROR( this->lvalue, "Assignee is not a concrete type (size potentially unknown): " << ltype );
-            else
-                LOG_INFO( this->LOGGER(), "Assignee is not a concrete type (size potentially unknown): " << ltype );
-        }
-        else if ( !ltype->is_modifiable() ) {
-            if ( !this->context().get_constructed() )  // TODO: only members of constructed object should skip error
-                CERROR( this, "Assignee is not modifiable: " << ltype );
-            // Note: If the object as a whole is modifiable, it can be assigned to.
-            // If it has any "non-modifiable" members, those will still get overwritten.
-            // We could add custom check to prevent that scenario for Arrays, but then
-            // it would in this regard behave differently than other aggregate objects.
-        }
-        // if assignee is a reference:
-        // TODO: check dataspace rules
-
-        auto nonModLType = ( ltype->is_modifiable() ? ltype->get_base_type() : ltype );  // rvalue doesn't need to be modifiable
-        this->rvalue->insert_conversion( nonModLType );
-        this->rvalue->symbol_resolution_pass();
-    }
+    virtual void symbol_resolution_pass() override;
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 

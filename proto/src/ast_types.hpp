@@ -495,34 +495,9 @@ class TxFunctionTypeNode : public TxTypeExpressionNode {
     }
 
 protected:
-    virtual void declaration_pass() override {
-        // overrides in order to create implicit declaration for the function type
-        if ( !this->get_declaration() ) {
-            std::string funcTypeName = lexContext.scope()->make_unique_name( "$Ftype", true );
-            TxDeclarationFlags flags = TXD_IMPLICIT;  // TXD_PUBLIC, TXD_EXPERRBLOCK ?
-            auto declaration = lexContext.scope()->declare_type( funcTypeName, this, flags );
-            if ( !declaration ) {
-                CERROR( this, "Failed to declare type " << funcTypeName );
-                return;
-            }
-            this->set_declaration( declaration );
-            LOG_TRACE( this->LOGGER(), this << ": Declared type " << declaration );
-        }
-        TxTypeExpressionNode::declaration_pass();
-    }
+    virtual void declaration_pass() override;
 
-    virtual const TxType* define_type() override {
-        std::vector<const TxType*> argumentTypes;
-        for ( auto argDefNode : *this->arguments ) {
-            argumentTypes.push_back( argDefNode->resolve_type() );
-        }
-        if ( this->context().get_constructed() )
-            return this->registry().get_constructor_type( this->get_declaration(), argumentTypes, this->context().get_constructed() );
-        else if ( this->returnField )
-            return this->registry().get_function_type( this->get_declaration(), argumentTypes, this->returnField->resolve_type(), modifiable );
-        else
-            return this->registry().get_function_type( this->get_declaration(), argumentTypes, modifiable );
-    }
+    virtual const TxType* define_type() override;
 
 public:
     /** Indicates whether functions of this type may modify its closure when run. */

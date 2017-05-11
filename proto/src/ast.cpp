@@ -1,4 +1,5 @@
 #include "ast.hpp"
+#include "ast_util.hpp"
 
 #include "builtin/builtin_types.hpp"
 
@@ -511,6 +512,35 @@ void TxDerivedTypeNode::merge_builtin_type_definer( TxTypeDefiningNode* builtinT
     merge_builtin_type_definers( this, this->builtinTypeDefiner, this->baseTypes->front(), interfaces, this->_mutable );
 }
 
+void TxFunctionTypeNode::declaration_pass() {
+    // overrides in order to create implicit declaration for the function type
+    if ( !this->get_declaration() ) {
+        std::string funcTypeName = lexContext.scope()->make_unique_name( "$Ftype", true );
+        TxDeclarationFlags flags = TXD_IMPLICIT;  // TXD_PUBLIC, TXD_EXPERRBLOCK ?
+        auto declaration = lexContext.scope()->declare_type( funcTypeName, this, flags );
+        if ( !declaration ) {
+            CERROR( this, "Failed to declare type " << funcTypeName );
+            return;
+        }
+        this->set_declaration( declaration );
+        LOG_TRACE( this->LOGGER(), this << ": Declared type " << declaration );
+    }
+    TxTypeExpressionNode::declaration_pass();
+}
+
+const TxType* TxFunctionTypeNode::define_type() {
+    std::vector<const TxType*> argumentTypes;
+    for ( auto argDefNode : *this->arguments ) {
+        argumentTypes.push_back( argDefNode->resolve_type() );
+    }
+    if ( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() )
+        return this->registry().get_constructor_type( this->get_declaration(), argumentTypes, this->context().enclosing_lambda()->get_constructed() );
+    else if ( this->returnField )
+        return this->registry().get_function_type( this->get_declaration(), argumentTypes, this->returnField->resolve_type(), modifiable );
+    else
+        return this->registry().get_function_type( this->get_declaration(), argumentTypes, modifiable );
+}
+
 void TxModifiableTypeNode::declaration_pass() {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->baseType ) ) {
@@ -545,6 +575,37 @@ void TxMaybeModTypeNode::declaration_pass() {
 void TxSuiteNode::stmt_declaration_pass() {
     if (! dynamic_cast<const TxLambdaExprNode*>(this->parent()))
         this->lexContext._scope = lexContext.scope()->create_code_block_scope( *this );
+}
+
+void TxAssignStmtNode::symbol_resolution_pass() {
+    this->lvalue->symbol_resolution_pass();
+    auto ltype = this->lvalue->resolve_type();
+    if ( !ltype )
+        return;  // (error message should have been emitted by lvalue node)
+
+    // note: similar rules to passing function arg
+    if ( !ltype->is_concrete() ) {
+        // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
+        if ( !this->context().is_generic() )
+            CERROR( this->lvalue, "Assignee is not a concrete type (size potentially unknown): " << ltype );
+        else
+            LOG_INFO( this->LOGGER(), "Assignee is not a concrete type (size potentially unknown): " << ltype );
+    }
+    else if ( !ltype->is_modifiable() ) {
+        if ( !( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() ) )
+            // TODO: only members of constructed object should skip error
+            CERROR( this, "Assignee is not modifiable: " << ltype );
+        // Note: If the object as a whole is modifiable, it can be assigned to.
+        // If it has any "non-modifiable" members, those will still get overwritten.
+        // We could add custom check to prevent that scenario for Arrays, but then
+        // it would in this regard behave differently than other aggregate objects.
+    }
+    // if assignee is a reference:
+    // TODO: check dataspace rules
+
+    auto nonModLType = ( ltype->is_modifiable() ? ltype->get_base_type() : ltype );  // rvalue doesn't need to be modifiable
+    this->rvalue->insert_conversion( nonModLType );
+    this->rvalue->symbol_resolution_pass();
 }
 
 TxAssertStmtNode::TxAssertStmtNode( const TxLocation& parseLocation, TxExpressionNode* expr )
@@ -905,7 +966,7 @@ TxFunctionCallNode::TxFunctionCallNode( const TxLocation& parseLocation, TxExpre
 
 void TxFunctionCallNode::declaration_pass() {
     if ( this->isSelfSuperConstructorInvocation ) {
-        if ( !this->context().get_constructed() )
+        if ( !( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() ) )
             CERROR( this, "self() / super() constructor may only be invoked from within the type's other constructors" );
         // TODO: shall only be legal as first statement within constructor body
     }

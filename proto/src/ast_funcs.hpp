@@ -69,6 +69,7 @@ class TxLambdaExprNode : public TxExpressionNode {
     bool instanceMethod = false;
     TxFieldDefNode* selfRefNode = nullptr;
     TxFieldDefNode* superRefNode = nullptr;
+    const TxTypeDeclaration* constructedObjTypeDecl = nullptr;
 
 protected:
     virtual void declaration_pass() override {
@@ -77,22 +78,21 @@ protected:
                                       : "";
         TxScopeSymbol* funcScope = lexContext.scope()->create_code_block_scope( *this, funcName );
         if ( this->is_instance_method() ) {
-            const TxTypeDeclaration* constructedObjTypeDecl = nullptr;
             auto entitySym = dynamic_cast<TxEntitySymbol*>( lexContext.scope() );
             if ( entitySym && entitySym->get_type_decl() ) {  // if in type scope
                 if ( this->fieldDefNode->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR ) {
                     // this is a constructor
-                    constructedObjTypeDecl = entitySym->get_type_decl();
+                    this->constructedObjTypeDecl = entitySym->get_type_decl();
                 }
             }
             else
                 CERROR( this, "The scope of instance method must be a type scope: " << lexContext.scope() );
 
-            this->lexContext.constructedObjTypeDecl = constructedObjTypeDecl;
             this->selfRefNode->declare_field( funcScope, TXD_NONE, TXS_STACK );
             this->superRefNode->declare_field( funcScope, TXD_NONE, TXS_STACK );
         }
         this->lexContext._scope = funcScope;
+        this->lexContext.enclosingLambda = this;
         // FUTURE: define implicit closure object when in code block
     }
 
@@ -140,6 +140,11 @@ public:
     /** Returns true if this lambda expression is an instance method (with a runtime-provided 'self' argument). */
     inline bool is_instance_method() const {
         return this->instanceMethod;
+    }
+
+    /** If non-null, this is a constructor and the declaration for the constructed object type is returned. */
+    inline const TxTypeDeclaration* get_constructed() const {
+        return this->constructedObjTypeDecl;
     }
 
     virtual void symbol_resolution_pass() override {
