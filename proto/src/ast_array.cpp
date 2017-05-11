@@ -36,29 +36,31 @@ TxArrayLitNode::TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressio
           lengthExpr( nullptr ), elemExprList( elemExprList ) {
 }
 
-void TxArrayLitNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
-    this->set_context( lexContext );
-    if ( this->elementTypeNode )
-        this->elementTypeNode->symbol_declaration_pass( lexContext );
-    if ( this->origElemExprList ) {
-        // if this node owns the element nodes, perform declaration pass on them:
-        for ( auto elemExpr : *this->elemExprList )
-            elemExpr->symbol_declaration_pass( lexContext );
-    }
-}
+//void TxArrayLitNode::declaration_pass() {
+//    this->set_context( lexContext );
+//    if ( this->elementTypeNode )
+//        this->elementTypeNode->symbol_declaration_pass( lexContext );
+//    if ( this->origElemExprList ) {
+//        // if this node owns the element nodes, perform declaration pass on them:
+//        for ( auto elemExpr : *this->elemExprList )
+//            elemExpr->symbol_declaration_pass( lexContext );
+//    }
+//}
 
 const TxType* TxArrayLitNode::define_type() {
     const TxType* expectedArgType;
     const TxType* arrayType = nullptr;
     if ( this->lengthExpr ) {
-        auto elemTypeNode = this->elementTypeNode ? this->elementTypeNode
-                                                    :
-                                                    new TxTypeTypeArgumentNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) );
+        auto elemTypeNode = this->elementTypeNode;
+        if ( !elemTypeNode ) {
+            elemTypeNode = new TxTypeTypeArgumentNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) );
+            run_declaration_pass( elemTypeNode, this, "elem-type" );
+        }
         auto lengthNode = new TxValueTypeArgumentNode( this->lengthExpr );
-        lengthNode->symbol_declaration_pass( this->context() );
+        lengthNode->node_declaration_pass( this );
         arrayType = this->registry().get_array_type( this, elemTypeNode, lengthNode );
-        if ( this->elemExprList->size() == 1 && get_reinterpretation_degree( arrayType, this->elemExprList->front()->originalExpr->resolve_type() )
-                >= 0 ) {
+        if ( this->elemExprList->size() == 1
+             && get_reinterpretation_degree( arrayType, this->elemExprList->front()->originalExpr->resolve_type() ) >= 0 ) {
             // treat as array to array assignment
             this->_directArrayArg = true;
             expectedArgType = arrayType;
@@ -89,11 +91,11 @@ const TxType* TxArrayLitNode::define_type() {
             auto elemTypeNode = this->elementTypeNode;
             if ( !elemTypeNode ) {
                 elemTypeNode = new TxTypeTypeArgumentNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) );
-                elemTypeNode->symbol_declaration_pass( this->context() );
+                run_declaration_pass( elemTypeNode, this, "elem-type" );
             }
             auto tmpLengthExpr = new TxIntegerLitNode( this->parseLocation, elemExprList->size(), false, TXBT_UINT );
             auto lengthNode = new TxValueTypeArgumentNode( tmpLengthExpr );
-            lengthNode->symbol_declaration_pass( this->context() );
+            run_declaration_pass( lengthNode, this, "length" );
             arrayType = this->registry().get_array_type( this, elemTypeNode, lengthNode );
             expectedArgType = arrayType->element_type();
         }

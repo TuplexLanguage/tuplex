@@ -12,7 +12,7 @@ class TxTypeExpressionNode : public TxTypeDefiningNode {
     const TxTypeDeclaration* declaration = nullptr;
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) = 0;
+    virtual void declaration_pass() override;
 
 public:
     TxTypeExpressionNode( const TxLocation& parseLocation )
@@ -32,9 +32,6 @@ public:
         this->declaration = declaration;
     }
 
-    /** Performs the symbol declaration pass for this type expression. */
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext );
-
     virtual void symbol_resolution_pass() {
         this->resolve_type();
     }
@@ -46,7 +43,7 @@ class TxMaybeConversionNode;
 class TxExpressionNode : public TxTypeDefiningNode {
 protected:
     /** injected by field definition if known and applicable */
-    const TxFieldDefNode* fieldDefNode = nullptr;
+    const TxFieldDefNode* fieldDefNode = nullptr;  // FIXME: remove
 
     /** injected by outer expression if applicable */
     const std::vector<TxExpressionNode*>* appliedFuncArgs = nullptr;
@@ -62,8 +59,6 @@ public:
     virtual void set_field_def_node( const TxFieldDefNode* fieldDefNode ) {
         this->fieldDefNode = fieldDefNode;
     }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) = 0;
 
     virtual void symbol_resolution_pass() {
         this->resolve_type();
@@ -144,16 +139,6 @@ public:
         return ( this->conversionExpr ? this->conversionExpr : this->originalExpr );
     }
 
-    void declaration_pass() {
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        auto expr = this->get_spec_expression();
-        if ( !expr->is_context_set() )
-            expr->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         auto expr = this->get_spec_expression();
@@ -175,7 +160,7 @@ public:
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->conversionExpr )
             this->conversionExpr->visit_ast( visitor, thisCursor, "convertee", context );
         else
@@ -211,14 +196,6 @@ public:
         return new TxArgTypeDefNode( this->parseLocation, this->fieldName, this->typeExpression->make_ast_copy() );
     }
 
-    void declaration_pass() {
-    }
-
-    void symbol_declaration_pass( const LexicalContext& lexContext ) {
-        this->set_context( lexContext );
-        this->typeExpression->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() {
         this->resolve_type();
         this->typeExpression->symbol_resolution_pass();
@@ -226,7 +203,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->typeExpression->visit_ast( visitor, thisCursor, "type", context );
     }
 
@@ -281,6 +258,7 @@ public:
                     TxTypeExpressionNode* typeExpression,
                     TxExpressionNode* initExpression, bool modifiable = false )
             : TxFieldDefiningNode( parseLocation ), fieldName( new TxIdentifier( fieldName ) ), modifiable( modifiable ) {
+        validateFieldName( this, fieldName );
         this->typeExpression = typeExpression;
         if ( initExpression ) {
             initExpression->set_field_def_node( this );
@@ -307,8 +285,6 @@ public:
     inline void declare_field( const std::string& name, TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
         this->declaration = scope->declare_field( name, this, declFlags, storage, TxIdentifier() );
     }
-
-    void symbol_declaration_pass( const LexicalContext& lexContext );
 
     virtual void symbol_resolution_pass() {
         auto field = this->resolve_field();
@@ -356,7 +332,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->typeExpression )
             this->typeExpression->visit_ast( visitor, thisCursor, "type", context );
         if ( this->initExpression )
@@ -372,6 +348,9 @@ public:
 class TxFieldDeclNode : public TxDeclarationNode {
     const bool isMethodSyntax = false;
 
+protected:
+    virtual void declaration_pass() override;
+
 public:
     TxFieldDefNode* field;
 
@@ -381,10 +360,8 @@ public:
     }
 
     virtual TxFieldDeclNode* make_ast_copy() const override {
-        return new TxFieldDeclNode( this->parseLocation, this->declFlags, this->field->make_ast_copy(), this->isMethodSyntax );
+        return new TxFieldDeclNode( this->parseLocation, this->get_decl_flags(), this->field->make_ast_copy(), this->isMethodSyntax );
     }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
 
     virtual void symbol_resolution_pass() override;
 
@@ -394,7 +371,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->field->visit_ast( visitor, thisCursor, "field", context );
     }
 };
@@ -403,6 +380,9 @@ public:
 class TxTypeDeclNode : public TxDeclarationNode {
     /** if true, this node's subtree is merged with a built-in type definition */
     bool _builtinCode = false;
+
+protected:
+    virtual void declaration_pass() override;
 
 public:
     const TxIdentifier* typeName;
@@ -422,14 +402,10 @@ public:
     }
 
     virtual TxTypeDeclNode* make_ast_copy() const override {
-        return new TxTypeDeclNode( this->parseLocation, this->declFlags, this->typeName->str(),
+        return new TxTypeDeclNode( this->parseLocation, this->get_decl_flags(), this->typeName->str(),
                                    make_node_vec_copy( this->typeParamDecls ),
                                    this->typeExpression->make_ast_copy(), this->interfaceKW );
     }
-
-    virtual void declaration_pass() override;
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
 
     virtual void symbol_resolution_pass() override {
         if ( !this->_builtinCode && this->typeParamDecls )
@@ -450,8 +426,8 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
-        if ( this->typeParamDecls )
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        if ( !this->_builtinCode && this->typeParamDecls )
             for ( auto decl : *this->typeParamDecls )
                 decl->visit_ast( visitor, thisCursor, "type-param", context );
         this->typeExpression->visit_ast( visitor, thisCursor, "type", context );
@@ -470,8 +446,6 @@ public:
 
     virtual TxAssigneeNode* make_ast_copy() const override = 0;
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) = 0;
-
     virtual void symbol_resolution_pass() {
         this->resolve_type();
     }
@@ -480,32 +454,31 @@ public:
 class TxExpErrDeclNode : public TxDeclarationNode {
     ExpectedErrorClause* expError;
 
+protected:
+    virtual void declaration_pass() override {
+        this->lexContext.expErrCtx = this->expError;
+        if ( this->body ) {
+            if ( !this->context().is_reinterpretation() ) {
+                this->get_parse_location().parserCtx->register_exp_err_node( this );
+            }
+        }
+    }
+
 public:
     TxDeclarationNode* body;
 
     TxExpErrDeclNode( const TxLocation& parseLocation, ExpectedErrorClause* expError, TxDeclarationNode* body )
             : TxDeclarationNode( parseLocation, ( body ? body->get_decl_flags() : TXD_NONE ) | TXD_EXPERRBLOCK ),
-              expError( expError ),
-              body( body ) {
-        if (body)
-            body->isExpErrorDecl = true;
+              expError( expError ), body( body ) {
+        if ( body ) {
+            body->declFlags |= TXD_EXPERRBLOCK;
+            if ( dynamic_cast<const TxExpErrDeclNode*>( body ) )
+                CERROR( this, "Can't nest Expected Error constructs in a declaration" );
+        }
     }
 
     virtual TxExpErrDeclNode* make_ast_copy() const override {
         return new TxExpErrDeclNode( this->parseLocation, nullptr, ( this->body ? this->body->make_ast_copy() : nullptr ) );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( LexicalContext( lexContext, lexContext.scope(), expError ) );
-        if ( this->isExpErrorDecl )
-            CERROR( this, "Can't nest Expected Error constructs in a declaration" );
-        if ( this->body ) {
-            if ( !this->context().is_reinterpretation() ) {
-                this->get_parse_location().parserCtx->register_exp_err_node( this );
-            }
-            ScopedExpErrClause scopedEEClause( this );
-            this->body->symbol_declaration_pass( this->context() );
-        }
     }
 
     virtual void symbol_resolution_pass() override {
@@ -523,8 +496,10 @@ public:
         return nullptr;
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
-        if ( this->body )
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        if ( this->body ) {
+            ScopedExpErrClause scopedEEClause( this );
             this->body->visit_ast( visitor, thisCursor, "decl", context );
+        }
     }
 };

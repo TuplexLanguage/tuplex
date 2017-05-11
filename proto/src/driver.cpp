@@ -138,12 +138,9 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     /*--- perform declaration pass ---*/
 
     for ( auto parserContext : this->parsedASTs ) {
-//        // by processing root node here we avoid root checking in visitor implementation
-//        parserContext->parsingUnit->set_context( this->package );
-//        const AstCursor parent( parserContext->parsingUnit );
-//        parserContext->parsingUnit->module->visit_ast( declPassVisitor, parent, "module", nullptr );
-        LexicalContext rootLexCtx( this->package );
-        parserContext->parsingUnit->symbol_declaration_pass( rootLexCtx );
+        // by processing root node here we avoid root checking in visitor implementation
+        parserContext->parsingUnit->set_context( this->package );
+        run_declaration_pass( parserContext->parsingUnit->module, parserContext->parsingUnit, "module" );
     }
 
     this->package->builtins().initializeBuiltinSymbols();  // FIXME: to be removed

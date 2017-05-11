@@ -25,12 +25,6 @@ public:
                                            this->symbolName->str() );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) {
-        this->set_context( lexContext );
-        if ( this->baseSymbol )
-            this->baseSymbol->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() {
         if ( this->baseSymbol )
             this->baseSymbol->symbol_resolution_pass();
@@ -38,7 +32,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->baseSymbol )
             this->baseSymbol->visit_ast( visitor, thisCursor, "basetype", context );
     }
@@ -56,10 +50,6 @@ public:
 /** Identifies a type directly via its name. */
 class TxNamedTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        this->symbolNode->symbol_declaration_pass( lexContext );
-    }
-
     virtual const TxType* define_type() override;
 
 public:
@@ -88,7 +78,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->symbolNode->visit_ast( visitor, thisCursor, "symbol", context );
     }
 
@@ -100,10 +90,6 @@ public:
 /** Identifies a type that is a member of another type, which is determined by an arbitrary type expression. */
 class TxMemberTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        this->baseTypeExpr->symbol_declaration_pass( lexContext );
-    }
-
     virtual const TxType* define_type() override;
 
 public:
@@ -129,7 +115,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->baseTypeExpr->visit_ast( visitor, thisCursor, "type-expr", context );
         //this->memberName->visit_ast( visitor, thisCursor, "member", context );
     }
@@ -151,8 +137,6 @@ public:
 
     virtual std::string get_auto_type_name() const = 0;
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) = 0;
-
     virtual void symbol_resolution_pass() = 0;
 };
 
@@ -172,18 +156,13 @@ public:
         return this->typeExprNode->get_auto_type_name();
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        this->typeExprNode->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         this->typeExprNode->symbol_resolution_pass();
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->typeExprNode->visit_ast( visitor, thisCursor, "type", context );
     }
 };
@@ -211,18 +190,13 @@ public:
         }
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        this->valueExprNode->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         this->valueExprNode->symbol_resolution_pass();
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->valueExprNode->visit_ast( visitor, thisCursor, "value", context );
     }
 };
@@ -249,13 +223,6 @@ public:
  */
 class TxGenSpecTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        this->genTypeExpr->symbol_declaration_pass( lexContext );
-        for ( TxTypeArgumentNode* tp : *this->typeArgs ) {
-            tp->symbol_declaration_pass( lexContext );
-        }
-    }
-
     virtual const TxType* define_type() override;
 
 public:
@@ -291,7 +258,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->genTypeExpr->visit_ast( visitor, thisCursor, "gentype", context );
         for ( auto typeArg : *this->typeArgs )
             typeArg->visit_ast( visitor, thisCursor, "typearg", context );
@@ -318,13 +285,7 @@ class TxReferenceTypeNode : public TxBuiltinTypeSpecNode {
     }
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        this->targetTypeNode->symbol_declaration_pass( lexContext );
-    }
-
     virtual const TxType* define_type() override {
-//        auto baseType = this->types().get_builtin_type(REFERENCE);
-//        auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
         return this->registry().get_reference_type( this, targetTypeNode, this->dataspace );
     }
 
@@ -351,7 +312,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->targetTypeNode->visit_ast( visitor, thisCursor, "target", context );
     }
 };
@@ -364,11 +325,7 @@ class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
     }
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override;
-
     virtual const TxType* define_type() override {
-//        auto baseType = this->types().get_builtin_type(ARRAY);
-//        auto baseTypeName = baseType->get_declaration()->get_symbol()->get_full_name();
         if ( this->lengthNode )
             return this->registry().get_array_type( this, this->elementTypeNode, this->lengthNode );
         else
@@ -408,7 +365,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->elementTypeNode->visit_ast( visitor, thisCursor, "elementtype", context );
         if ( this->lengthNode )
             this->lengthNode->visit_ast( visitor, thisCursor, "length", context );
@@ -425,17 +382,6 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
     void init_implicit_types();
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        for ( auto baseType : *this->baseTypes )
-            baseType->symbol_declaration_pass( lexContext );
-
-        //this->selfRefTypeNode->symbol_declaration_pass( lexContext );
-        this->superRefTypeNode->symbol_declaration_pass( lexContext );
-
-        for ( auto member : *this->members )
-            member->symbol_declaration_pass( lexContext );
-    }
-
     virtual const TxType* define_type() override;
 
 public:
@@ -482,7 +428,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         for ( auto type : *this->baseTypes )
             type->visit_ast( visitor, thisCursor, "basetype", context );
 
@@ -549,11 +495,20 @@ class TxFunctionTypeNode : public TxTypeExpressionNode {
     }
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        for ( auto argDef : *this->arguments )
-            argDef->symbol_declaration_pass( lexContext );
-        if ( this->returnField )
-            this->returnField->symbol_declaration_pass( lexContext );
+    virtual void declaration_pass() override {
+        // overrides in order to create implicit declaration for the function type
+        if ( !this->get_declaration() ) {
+            std::string funcTypeName = lexContext.scope()->make_unique_name( "$Ftype", true );
+            TxDeclarationFlags flags = TXD_IMPLICIT;  // TXD_PUBLIC, TXD_EXPERRBLOCK ?
+            auto declaration = lexContext.scope()->declare_type( funcTypeName, this, flags );
+            if ( !declaration ) {
+                CERROR( this, "Failed to declare type " << funcTypeName );
+                return;
+            }
+            this->set_declaration( declaration );
+            LOG_TRACE( this->LOGGER(), this << ": Declared type " << declaration );
+        }
+        TxTypeExpressionNode::declaration_pass();
     }
 
     virtual const TxType* define_type() override {
@@ -593,21 +548,6 @@ public:
         return this->get_declaration()->get_unique_full_name();
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        if ( !this->get_declaration() ) {
-            std::string funcTypeName = lexContext.scope()->make_unique_name( "$Ftype", true );
-            TxDeclarationFlags flags = TXD_IMPLICIT;  // TXD_PUBLIC, TXD_EXPERRBLOCK ?
-            auto declaration = lexContext.scope()->declare_type( funcTypeName, this, flags );
-            if ( !declaration ) {
-                CERROR( this, "Failed to declare type " << funcTypeName );
-                return;
-            }
-            this->set_declaration( declaration );
-            LOG_TRACE( this->LOGGER(), this << ": Declared type " << declaration );
-        }
-        TxTypeExpressionNode::symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
         for ( auto argField : *this->arguments ) {
@@ -638,7 +578,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         for ( auto argField : *this->arguments )
             argField->visit_ast( visitor, thisCursor, "arg", context );
         if ( this->returnField )
@@ -648,9 +588,7 @@ public:
 
 class TxModifiableTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        this->baseType->symbol_declaration_pass( lexContext );
-    }
+    virtual void declaration_pass() override;
 
     virtual const TxType* define_type() override {
         if ( auto bType = this->baseType->resolve_type() ) {
@@ -696,8 +634,6 @@ public:
         return "~" + baseName;
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
-
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
         this->baseType->symbol_resolution_pass();
@@ -705,7 +641,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->baseType->visit_ast( visitor, thisCursor, "basetype", context );
     }
 };
@@ -716,6 +652,8 @@ class TxMaybeModTypeNode : public TxModifiableTypeNode {
     bool isModifiable = false;
 
 protected:
+    virtual void declaration_pass() override;
+
     virtual const TxType* define_type() override {
         // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
         if ( this->is_modifiable() )
@@ -739,12 +677,6 @@ public:
         else
             return this->baseType->get_auto_type_name();
     }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
-
-//    virtual const TxTypeDeclaration* get_declaration() const override {
-//        return ( this->is_modifiable() ? TxModifiableTypeNode::get_declaration() : baseType->get_declaration() );
-//    }
 
     inline bool is_modifiable() const {
         return this->isModifiable;

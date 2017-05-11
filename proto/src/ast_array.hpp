@@ -50,8 +50,6 @@ public:
         return new TxArrayLitNode( this->parseLocation, make_node_vec_copy( this->origElemExprList ) );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
-
     virtual void symbol_resolution_pass() override;
 
     virtual bool is_stack_allocation_expression() const override {
@@ -68,12 +66,15 @@ public:
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->elementTypeNode )
             this->elementTypeNode->visit_ast( visitor, thisCursor, "elem-type", context );
         if ( this->lengthExpr )
             this->lengthExpr->visit_ast( visitor, thisCursor, "length", context );
-        for ( auto elem : *this->elemExprList )
-            elem->visit_ast( visitor, thisCursor, "element", context );
+        if ( this->origElemExprList ) {
+            // if this node owns the element nodes, perform pass on them:
+            for ( auto elem : *this->elemExprList )
+                elem->visit_ast( visitor, thisCursor, "element", context );
+        }
     }
 };

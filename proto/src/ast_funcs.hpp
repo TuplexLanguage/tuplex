@@ -9,20 +9,15 @@ inline TxFieldDefNode* make_field_def_node( TxArgTypeDefNode* fieldTypeDef ) {
 }
 
 class TxFunctionHeaderNode : public TxTypeExpressionNode {
-    TxFunctionTypeNode* funcTypeNode;
+    TxFunctionTypeNode* funcTypeNode;  // (creates implicit declaration for the function type)
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        this->funcTypeNode->symbol_declaration_pass( lexContext );  // (creates implicit declaration for the function type)
-
-        // declare the function args, and the return type if any:
+    virtual void declaration_pass() override {
         for ( auto argField : *this->arguments ) {
             argField->declare_field( lexContext.scope(), TXD_NONE, TXS_STACK );
-            argField->symbol_declaration_pass( lexContext );
         }
         if ( this->returnField ) {
             this->returnField->declare_field( lexContext.scope(), TXD_IMPLICIT, TXS_STACK );
-            this->returnField->symbol_declaration_pass( lexContext );
         }
     }
 
@@ -61,8 +56,8 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
-        // (for now, we don't treat funcTypeNode as a visited descendant)
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->funcTypeNode->visit_ast( visitor, thisCursor, "functype", context );
         for ( auto argField : *this->arguments )
             argField->visit_ast( visitor, thisCursor, "arg", context );
         if ( this->returnField )
@@ -76,6 +71,31 @@ class TxLambdaExprNode : public TxExpressionNode {
     TxFieldDefNode* superRefNode = nullptr;
 
 protected:
+    virtual void declaration_pass() override {
+        std::string funcName = ( this->fieldDefNode && this->fieldDefNode->get_declaration() )
+                                      ? this->fieldDefNode->get_declaration()->get_unique_name()
+                                      : "";
+        TxScopeSymbol* funcScope = lexContext.scope()->create_code_block_scope( *this, funcName );
+        if ( this->is_instance_method() ) {
+            const TxTypeDeclaration* constructedObjTypeDecl = nullptr;
+            auto entitySym = dynamic_cast<TxEntitySymbol*>( lexContext.scope() );
+            if ( entitySym && entitySym->get_type_decl() ) {  // if in type scope
+                if ( this->fieldDefNode->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR ) {
+                    // this is a constructor
+                    constructedObjTypeDecl = entitySym->get_type_decl();
+                }
+            }
+            else
+                CERROR( this, "The scope of instance method must be a type scope: " << lexContext.scope() );
+
+            this->lexContext.constructedObjTypeDecl = constructedObjTypeDecl;
+            this->selfRefNode->declare_field( funcScope, TXD_NONE, TXS_STACK );
+            this->superRefNode->declare_field( funcScope, TXD_NONE, TXS_STACK );
+        }
+        this->lexContext._scope = funcScope;
+        // FUTURE: define implicit closure object when in code block
+    }
+
     virtual const TxType* define_type() override {
         return this->funcHeaderNode->resolve_type();
     }
@@ -122,40 +142,6 @@ public:
         return this->instanceMethod;
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        std::string funcName = ( this->fieldDefNode && this->fieldDefNode->get_declaration() )
-                                      ? this->fieldDefNode->get_declaration()->get_unique_name()
-                                      : "";
-        LexicalContext funcLexContext;
-        if ( this->is_instance_method() ) {
-            const TxTypeDeclaration* constructedObjTypeDecl = nullptr;
-            auto entitySym = dynamic_cast<TxEntitySymbol*>( lexContext.scope() );
-            if ( entitySym && entitySym->get_type_decl() ) {  // if in type scope
-                if ( this->fieldDefNode->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR ) {
-                    // this is a constructor
-                    constructedObjTypeDecl = entitySym->get_type_decl();
-                }
-            }
-            else
-                CERROR( this, "The scope of an instance method must be a type scope" );
-
-            funcLexContext = LexicalContext( lexContext, lexContext.scope()->create_code_block_scope( *this, funcName ), constructedObjTypeDecl );
-            this->selfRefNode->declare_field( funcLexContext.scope(), TXD_NONE, TXS_STACK );
-            this->superRefNode->declare_field( funcLexContext.scope(), TXD_NONE, TXS_STACK );
-            this->selfRefNode->symbol_declaration_pass( funcLexContext );
-            this->superRefNode->symbol_declaration_pass( funcLexContext );
-        }
-        else {
-            funcLexContext = LexicalContext( lexContext, lexContext.scope()->create_code_block_scope( *this, funcName ) );
-        }
-        // FUTURE: define implicit closure object when in code block
-
-        this->set_context( funcLexContext );
-
-        this->funcHeaderNode->symbol_declaration_pass( funcLexContext );  // function header
-        this->suite->symbol_declaration_pass_no_subscope( funcLexContext );  // function body
-    }
-
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         if ( this->is_instance_method() ) {
@@ -186,9 +172,9 @@ public:
     llvm::Function* code_gen_forward_decl( LlvmGenerationContext& context, GenScope* scope ) const;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->funcHeaderNode->visit_ast( visitor, thisCursor, "functype", context );
-        if ( this->selfRefNode ) {
+        if ( this->is_instance_method() ) {
             this->selfRefNode->visit_ast( visitor, thisCursor, "selfref", context );
             this->superRefNode->visit_ast( visitor, thisCursor, "superref", context );
         }

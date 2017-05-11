@@ -3,6 +3,7 @@
 #include "ast_declbase.hpp"
 
 /** Wraps the provided original expression with a new conversion expression node if necessary and permitted.
+ * Assumes declaration pass has already run on originalExpr.
  * If a conversion node is created, symbol declaration pass is run on it.
  * Generates a compilation error if the types don't match and conversion is not possible.
  * @param _explicit if true, forces conversion between types that don't permit implicit conversion
@@ -30,12 +31,6 @@ public:
         return nullptr;
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        if ( !this->expr->is_context_set() )
-            this->expr->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         this->expr->symbol_resolution_pass();
@@ -45,7 +40,7 @@ public:
         return this->expr->is_statically_constant();
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->expr->visit_ast( visitor, thisCursor, "convertee", context );
     }
 };

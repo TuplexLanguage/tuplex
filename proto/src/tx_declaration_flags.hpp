@@ -21,14 +21,21 @@ enum TxDeclarationFlags {
     TXD_INITIALIZER = 1 << 12,
     TXD_EXPERRBLOCK = 1 << 13,
 };
+
 inline TxDeclarationFlags operator|( TxDeclarationFlags a, TxDeclarationFlags b ) {
     return static_cast<TxDeclarationFlags>( static_cast<int>( a ) | static_cast<int>( b ) );
 }
+
 inline TxDeclarationFlags operator&( TxDeclarationFlags a, TxDeclarationFlags b ) {
     return static_cast<TxDeclarationFlags>( static_cast<int>( a ) & static_cast<int>( b ) );
 }
+
 inline TxDeclarationFlags operator^( TxDeclarationFlags a, TxDeclarationFlags b ) {
     return static_cast<TxDeclarationFlags>( static_cast<int>( a ) ^ static_cast<int>( b ) );
+}
+
+inline TxDeclarationFlags& operator|=( TxDeclarationFlags& a, TxDeclarationFlags b ) {
+    return a = a | b;
 }
 
 inline std::string to_string( TxDeclarationFlags flags ) {

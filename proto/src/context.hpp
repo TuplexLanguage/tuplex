@@ -31,9 +31,6 @@ public:
     bool reinterpretation;  // true if this is a reinterpretation (specialization) of an AST
     ExpectedErrorClause* expErrCtx;
 
-    // FUTURE: Maybe represent/refer to the closest surrounding statement here, which is not equivalent to scope
-    //         (a scope can have several statements, a statement may create subscopes).
-
     /** Constructs an "uninitialized" lexical context. */
     LexicalContext() //= default;
             : _scope(), constructedObjTypeDecl(), generic(), reinterpretation(), expErrCtx() {
@@ -59,31 +56,31 @@ public:
         ASSERT( scope, "scope is NULL" );
     }
 
-    /** Constructs a lexical context that is a sub-context of the provided context, and may be in context of a constructor.
-     * The provided scope must be the same or a sub-scope of the parent's scope. */
-    LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope, const TxTypeDeclaration* constructedObjTypeDecl )
-            : _scope( scope ), constructedObjTypeDecl( constructedObjTypeDecl ),
-              generic( parentContext.generic ),
-              reinterpretation( parentContext.reinterpretation ),
-              expErrCtx( parentContext.expErrCtx ) {
-        ASSERT( scope, "scope is NULL" );
-    }
+//    /** Constructs a lexical context that is a sub-context of the provided context, and may be in context of a constructor.
+//     * The provided scope must be the same or a sub-scope of the parent's scope. */
+//    LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope, const TxTypeDeclaration* constructedObjTypeDecl )
+//            : _scope( scope ), constructedObjTypeDecl( constructedObjTypeDecl ),
+//              generic( parentContext.generic ),
+//              reinterpretation( parentContext.reinterpretation ),
+//              expErrCtx( parentContext.expErrCtx ) {
+//        ASSERT( scope, "scope is NULL" );
+//    }
 
-    /** Constructs a lexical context that is a sub-context of the provided context, and is an expected-error context.
-     * The provided scope must be the same or a sub-scope of the parent's scope. */
-    LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope, ExpectedErrorClause* expErrCtx )
-            : _scope( scope ), constructedObjTypeDecl( parentContext.constructedObjTypeDecl ),
-              generic( parentContext.generic ),
-              reinterpretation( parentContext.reinterpretation ),
-              expErrCtx( expErrCtx ) {
-        ASSERT( scope, "scope is NULL" );
-    }
+//    /** Constructs a lexical context that is a sub-context of the provided context, and is an expected-error context.
+//     * The provided scope must be the same or a sub-scope of the parent's scope. */
+//    LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope, ExpectedErrorClause* expErrCtx )
+//            : _scope( scope ), constructedObjTypeDecl( parentContext.constructedObjTypeDecl ),
+//              generic( parentContext.generic ),
+//              reinterpretation( parentContext.reinterpretation ),
+//              expErrCtx( expErrCtx ) {
+//        ASSERT( scope, "scope is NULL" );
+//    }
 
-    /** Constructs a lexical context that is a copy of the provided context and has the specified generic flag. */
-    LexicalContext( const LexicalContext& parentContext, bool generic )
-            : _scope( parentContext._scope ), constructedObjTypeDecl( parentContext.constructedObjTypeDecl ),
-              generic( generic ), reinterpretation( parentContext.reinterpretation ), expErrCtx( parentContext.expErrCtx ) {
-    }
+//    /** Constructs a lexical context that is a copy of the provided context and has the specified generic flag. */
+//    LexicalContext( const LexicalContext& parentContext, bool generic )
+//            : _scope( parentContext._scope ), constructedObjTypeDecl( parentContext.constructedObjTypeDecl ),
+//              generic( generic ), reinterpretation( parentContext.reinterpretation ), expErrCtx( parentContext.expErrCtx ) {
+//    }
 
     /** Constructs a new lexical context for a given scope, and that may represent a reinterpretation of a lexical unit. */
     LexicalContext( TxScopeSymbol* scope, ExpectedErrorClause* expErrCtx, bool generic, bool reinterpretation )
@@ -110,15 +107,6 @@ public:
     }
 
 
-
-    /** If this scope is a type declaration, returns it, otherwise null. */
-    inline const TxTypeDeclaration* get_type_decl() const {
-        // FIXME: rewrite
-        if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->_scope ) )
-            return entitySymbol->get_type_decl();
-        return nullptr;
-    }
-
     /** Returns true if this is within a generic type definition (a generic type whose parameters are not all bound). */
     inline bool is_generic() const {
         return ( this->generic );
@@ -140,7 +128,7 @@ public:
         return this->constructedObjTypeDecl;
     }
 
-    std::string str() const {
+    std::string str() const override {
         return _scope->str();
     }
 };

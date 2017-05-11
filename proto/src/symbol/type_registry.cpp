@@ -145,12 +145,10 @@ const TxType* TypeRegistry::get_modifiable_type( const TxTypeDeclaration* declar
         }
 
         const TxLocation& loc = ( declaration ? declaration->get_definer()->get_parse_location() : actualType->get_parse_location() );
-        auto typeDefiner = actualType->get_declaration()->get_definer();
-        auto & ctx = typeDefiner->context();
         auto modNode = new TxModifiableTypeNode( loc, new TxNamedTypeNode( loc, actualType->get_declaration()->get_unique_name() ) );
         TxDeclarationFlags newDeclFlags = ( actualType->get_declaration()->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
         auto modDeclNode = new TxTypeDeclNode( loc, newDeclFlags, name, nullptr, modNode );
-        modDeclNode->symbol_declaration_pass( ctx );
+        run_declaration_pass( modDeclNode, LexicalContext( scope, nullptr, false, false ) );
         modDeclNode->symbol_resolution_pass();
         return modNode->get_type();
     }
@@ -370,6 +368,8 @@ static TxDeclarationNode* make_type_type_param_decl_node( const TxLocation& pars
 static TxDeclarationNode* make_value_type_param_decl_node( const TxLocation& parseLoc, const std::string& paramName, TxDeclarationFlags flags,
                                                            const TxEntityDeclaration* paramValueTypeDecl,
                                                            TxExpressionNode* valueDefiner = nullptr ) {
+    if (valueDefiner)
+        valueDefiner = new TxExprWrapperNode( valueDefiner );
     auto paramTypeNode = new TxTypeDeclWrapperNode( parseLoc, paramValueTypeDecl );
     auto fieldDef = new TxFieldDefNode( parseLoc, paramName, paramTypeNode, valueDefiner, false );
     auto declNode = new TxFieldDeclNode( parseLoc, flags | TXD_PUBLIC, fieldDef );
@@ -514,8 +514,6 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     //std::cerr << "specializing base " << newBaseTypeNameStr << ": " << baseType << std::endl;
     ASSERT( dynamic_cast<TxTypeExpressionNode*>( baseDecl->get_definer() ),
             "baseType's definer is not a TxTypeExpressionNode: " << baseDecl->get_definer() );
-    ASSERT( baseDecl->get_definer()->context().scope() == baseScope,
-            "Unexpected lexical scope: " << baseDecl->get_definer()->context().scope() << " != " << baseScope );
     auto baseTypeExpr = static_cast<TxTypeExpressionNode*>( baseDecl->get_definer() );
     auto specTypeExpr = baseTypeExpr->make_ast_copy();
 
@@ -536,12 +534,11 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     auto uniqueSpecTypeNameStr = baseScope->make_unique_name( newSpecTypeNameStr );
     auto newSpecTypeDecl = new TxTypeDeclNode( definer->get_parse_location(), newDeclFlags, uniqueSpecTypeNameStr, bindingDeclNodes, specTypeExpr );
 
-    // FIXME: be able to determine whether *outer* context of definer is generic:
-    bool outerIsGeneric = false;//baseDecl->get_definer()->context().is_generic();
-    if (outerIsGeneric)
-        std::cerr << "outer is generic for " << uniqueSpecTypeNameStr << std::endl;
+    bool outerIsGeneric = definer->parent()->context().is_generic();
+//    if (outerIsGeneric)
+//        std::cerr << "outer is generic for " << uniqueSpecTypeNameStr << " at " << definer << std::endl;
     LexicalContext specContext( baseScope, definer->exp_err_ctx(), outerIsGeneric, true );
-    newSpecTypeDecl->symbol_declaration_pass( specContext );
+    run_declaration_pass( newSpecTypeDecl, specContext );
     const TxActualType* specializedType = specTypeExpr->resolve_type()->type();
     LOG_DEBUG( this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << baseType );
 
@@ -614,9 +611,6 @@ class TxAdapterTypeNode final : public TxTypeExpressionNode {
     const TxActualType* adaptedType;
 
 protected:
-    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-    }
-
     virtual const TxType* define_type() override {
         auto adapterActType = new TxInterfaceAdapterType( this->get_declaration(), interfaceType, adaptedType );
         this->registry().add_type( adapterActType );
@@ -642,7 +636,7 @@ public:
         return nullptr;
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
 };
 
@@ -688,13 +682,14 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
     auto & adaptedTypeCtx = adaptedType->get_declaration()->get_definer()->context();
     LexicalContext adapterCtx( ifDecl->get_definer()->context().scope(), adaptedTypeCtx.exp_error(), adaptedTypeCtx.is_generic(),
                                adaptedTypeCtx.is_reinterpretation() );
-    adapterDeclNode->symbol_declaration_pass( adapterCtx );
+    run_declaration_pass( adapterDeclNode, adapterCtx );
     {   // override the adaptee type id virtual field member:
+        // TODO: instead pass this as param decl node to adapterDeclNode
         TxDeclarationFlags fieldDeclFlags = TXD_PUBLIC | TXD_STATIC | TXD_OVERRIDE | TXD_IMPLICIT;
         auto fieldDecl = new TxFieldDeclNode( loc, fieldDeclFlags,
                                               new TxFieldDefNode( loc, "$adTypeId", new TxNamedTypeNode( loc, "tx.UInt" ), nullptr ) );
         LexicalContext ctx( adapterCtx, adapterDeclNode->get_declaration()->get_symbol() );
-        fieldDecl->symbol_declaration_pass( ctx );
+        run_declaration_pass( fieldDecl, ctx );
         fieldDecl->symbol_resolution_pass();
     }
     adapterDeclNode->symbol_resolution_pass();

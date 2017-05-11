@@ -20,7 +20,7 @@
             logger->note( "%s", msg.str().c_str() ); \
     } while (false)
 
-#ifndef NDEBUG
+#ifdef DEVMODE
 #   define LOG_TRACE(logger, message) \
     do { \
             std::stringstream msg;  msg << message; \

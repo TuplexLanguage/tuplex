@@ -23,7 +23,7 @@ int main( int argc, char **argv )
     std::string outputFileName;
     bool separateJobs = false;
 
-#ifndef NDEBUG
+#ifdef DEVMODE
     // development mode default options:
     options.run_verifier = true;
     options.run_jit = true;

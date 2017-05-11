@@ -36,12 +36,6 @@ public:
             return *this->symbolName;
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        if ( this->baseExpr )
-            this->baseExpr->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         // not invoking baseExpr->symbol_resolution_pass() since that is only done via define_type()
@@ -77,7 +71,7 @@ public:
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope /*, bool foldStatics=false */) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->baseExpr )
             this->baseExpr->visit_ast( visitor, thisCursor, "base", context );
     }

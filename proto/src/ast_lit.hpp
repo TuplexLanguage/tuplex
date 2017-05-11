@@ -18,7 +18,7 @@ public:
         return true;
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
 };
 
@@ -77,6 +77,14 @@ class TxIntegerLitNode : public TxLiteralValueNode {
     }
 
 protected:
+    virtual void declaration_pass() override {
+        if ( this->intValue.radix < 2 || this->intValue.radix > 36 )
+            CERROR( this, "Radix outside valid range [2,36]: " << this->intValue.radix );
+        else if ( this->intValue.outOfRange )
+            CERROR( this,
+                    "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->registry().get_builtin_type(this->intValue.typeId) );
+    }
+
     virtual const TxType* define_type() override {
         return this->registry().get_builtin_type( this->intValue.typeId );
     }
@@ -100,15 +108,6 @@ public:
 
     virtual TxIntegerLitNode* make_ast_copy() const override {
         return new TxIntegerLitNode( *this );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        if ( this->intValue.radix < 2 || this->intValue.radix > 36 )
-            CERROR( this, "Radix outside valid range [2,36]: " << this->intValue.radix );
-        else if ( this->intValue.outOfRange )
-            CERROR( this,
-                    "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->registry().get_builtin_type(this->intValue.typeId) );
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {
@@ -139,11 +138,7 @@ public:
     }
 
     virtual TxFloatingLitNode* make_ast_copy() const override {
-        return new TxFloatingLitNode( *this );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
+        return new TxFloatingLitNode( this->parseLocation, this->literal );
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
@@ -165,11 +160,7 @@ public:
     // TODO: properly parse char literal
 
     virtual TxCharacterLitNode* make_ast_copy() const override {
-        return new TxCharacterLitNode( *this );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
+        return new TxCharacterLitNode( this->parseLocation, this->literal );
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
@@ -178,6 +169,8 @@ public:
 class TxCStringLitNode : public TxLiteralValueNode {
     const size_t arrayLength;  // note: array length includes the null terminator
     TxTypeExpressionNode* cstringTypeNode;  // implicit type definer
+
+    static TxTypeExpressionNode* make_cstring_type_expr( const TxLocation& parseLocation, const std::string& literal );
 
 protected:
     virtual const TxType* define_type() override {
@@ -189,20 +182,22 @@ public:
     const std::string value;
 
     TxCStringLitNode( const TxLocation& parseLocation, const std::string& literal )
-            : TxLiteralValueNode( parseLocation ), arrayLength( literal.length() - 2 ), cstringTypeNode(),
-              literal( literal ),
-              value( literal, 2, literal.length() - 3 ) {
+            : TxLiteralValueNode( parseLocation ), arrayLength( literal.length() - 2 ),
+              cstringTypeNode( make_cstring_type_expr( parseLocation, literal ) ),
+              literal( literal ), value( literal, 2, literal.length() - 3 ) {
     }
     // TODO: properly parse string literal
 
     virtual TxCStringLitNode* make_ast_copy() const override {
-        return new TxCStringLitNode( *this );
+        return new TxCStringLitNode( this->parseLocation, this->literal );
     }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
 
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->cstringTypeNode->visit_ast( visitor, thisCursor, "cstrtype", context );
+    }
 };
 
 class TxBoolLitNode : public TxLiteralValueNode {
@@ -219,11 +214,7 @@ public:
     }
 
     virtual TxBoolLitNode* make_ast_copy() const override {
-        return new TxBoolLitNode( *this );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
+        return new TxBoolLitNode( this->parseLocation, this->value );
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;

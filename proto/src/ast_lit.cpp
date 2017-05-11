@@ -218,14 +218,11 @@ uint32_t IntValue::get_value_UInt() const {
     throw std::range_error( "Value of constant integer is not within range of type UInt" );
 }
 
-void TxCStringLitNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
-    this->set_context( lexContext );
-
+TxTypeExpressionNode* TxCStringLitNode::make_cstring_type_expr( const TxLocation& parseLocation, const std::string& literal ) {
     // (for now) Create AST to declare the implicit type of this c-string literal:
-    TxTypeExpressionNode* elemTypeExpr = new TxNamedTypeNode( this->parseLocation, "tx.UByte" );
-    TxExpressionNode* lengthExpr = new TxIntegerLitNode( this->parseLocation, literal.length() - 2, false, TXBT_UINT );
-    TxTypeExpressionNode* typeExpr = new TxArrayTypeNode( this->parseLocation, elemTypeExpr, lengthExpr );
-    this->cstringTypeNode = typeExpr;
-    this->cstringTypeNode->symbol_declaration_pass( lexContext );
+    TxTypeExpressionNode* elemTypeExpr = new TxNamedTypeNode( parseLocation, "tx.UByte" );
+    TxExpressionNode* lengthExpr = new TxIntegerLitNode( parseLocation, literal.length() - 2, false, TXBT_UINT );
+    TxTypeExpressionNode* typeExpr = new TxArrayTypeNode( parseLocation, elemTypeExpr, lengthExpr );
+    return typeExpr;
 }
 

@@ -36,13 +36,6 @@ public:
         return new TxReferenceDerefNode( this->parseLocation, this->reference->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) {
-        this->set_context( lexContext );
-        // when this is is used as an implicit conversion node the reference node may have already run declaration pass:
-        if ( !this->reference->is_context_set() )
-            this->reference->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         this->reference->symbol_resolution_pass();
@@ -56,7 +49,7 @@ public:
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->reference->visit_ast( visitor, thisCursor, "ref", context );
     }
 };
@@ -92,12 +85,6 @@ public:
                                     this->subscript->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        this->array->symbol_declaration_pass( lexContext );
-        this->subscript->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         this->array->symbol_resolution_pass();
@@ -111,7 +98,7 @@ public:
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->array->visit_ast( visitor, thisCursor, "array", context );
         this->subscript->visit_ast( visitor, thisCursor, "subscript", context );
     }
@@ -119,14 +106,22 @@ public:
 
 class TxReferenceToNode : public TxExpressionNode {
     TxTypeTypeArgumentNode* targetTypeNode;
-    protected:
+    TxExpressionNode* target;
+
+protected:
+    virtual void declaration_pass() override {
+        // Special case handling: When this is is applied as an implicit conversion node,
+        // target may have already run declaration pass, so we run it for targetTypeNode:
+        if ( this->target->is_context_set() ) {
+            run_declaration_pass( this->targetTypeNode, this, "type" );
+        }
+    }
+
     virtual const TxType* define_type() override {
         return this->registry().get_reference_type( this, this->targetTypeNode, nullptr );
     }
 
 public:
-    TxExpressionNode* target;
-
     TxReferenceToNode( const TxLocation& parseLocation, TxExpressionNode* target )
             : TxExpressionNode( parseLocation ), target( target ) {
         TxTypeExprWrapperNode* targetTypeExpr = new TxTypeExprWrapperNode( this->target );
@@ -135,14 +130,6 @@ public:
 
     virtual TxReferenceToNode* make_ast_copy() const override {
         return new TxReferenceToNode( this->parseLocation, this->target->make_ast_copy() );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) {
-        this->set_context( lexContext );
-        // when this is is used as an implicit conversion node the target node may have already run declaration pass:
-        if ( !this->target->is_context_set() )
-            this->target->symbol_declaration_pass( lexContext );
-        this->targetTypeNode->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -160,9 +147,8 @@ public:
     }
 
     virtual bool is_statically_constant() const override {
-        // apparently static const field will not be recognized to have statically const address by llvm
-        //return false;
-        return this->target->is_statically_constant();  // trying again
+        // (unsure if static const field will be recognized to have statically const address by llvm?)
+        return this->target->is_statically_constant();
     }
 
     virtual const std::vector<TxExpressionNode*>* get_applied_func_args() const override {
@@ -174,7 +160,8 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->targetTypeNode->visit_ast( visitor, thisCursor, "type", context );
         this->target->visit_ast( visitor, thisCursor, "target", context );
     }
 };
@@ -265,12 +252,6 @@ public:
                                          this->rhs->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        lhs->symbol_declaration_pass( lexContext );
-        rhs->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         lhs->symbol_resolution_pass();
@@ -283,7 +264,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->lhs->visit_ast( visitor, thisCursor, "lhs", context );
         this->rhs->visit_ast( visitor, thisCursor, "rhs", context );
     }
@@ -331,11 +312,6 @@ public:
         return new TxUnaryMinusNode( this->parseLocation, this->operand->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        operand->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         operand->symbol_resolution_pass();
@@ -347,7 +323,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->operand->visit_ast( visitor, thisCursor, "operand", context );
     }
 };
@@ -368,11 +344,6 @@ public:
         return new TxUnaryLogicalNotNode( this->parseLocation, this->operand->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        operand->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         operand->symbol_resolution_pass();
@@ -389,7 +360,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->operand->visit_ast( visitor, thisCursor, "operand", context );
     }
 };
@@ -407,6 +378,8 @@ class TxFunctionCallNode : public TxExpressionNode {
     }
 
 protected:
+    virtual void declaration_pass() override;
+
     virtual const TxType* define_type() override;
 
 public:
@@ -419,8 +392,6 @@ public:
     virtual TxFunctionCallNode* make_ast_copy() const override {
         return new TxFunctionCallNode( this->parseLocation, this->callee->make_ast_copy(), make_node_vec_copy( this->origArgsExprList ) );
     }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override;
 
     virtual void symbol_resolution_pass() override;
 
@@ -444,7 +415,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->inlinedExpression )
             this->inlinedExpression->visit_ast( visitor, thisCursor, "inlinedexpr", context );
         else {
@@ -478,10 +449,6 @@ public:
         return new TxConstructorCalleeExprNode( this->parseLocation, this->objectExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        this->objectExpr->symbol_declaration_pass( lexContext );
-    }
     virtual void symbol_resolution_pass() override {
         this->objectExpr->symbol_resolution_pass();
     }
@@ -492,7 +459,7 @@ public:
     /** @return an object pointer (not a lambda value) */
     virtual llvm::Value* gen_obj_ptr( LlvmGenerationContext& context, GenScope* scope ) const;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->objectExpr->visit_ast( visitor, thisCursor, "objectexpr", context );
     }
 };
@@ -511,13 +478,10 @@ protected:
     }
 
 public:
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-    }
     virtual void symbol_resolution_pass() override {
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->objTypeExpr->visit_ast( visitor, thisCursor, "type", context );
     }
 
@@ -571,12 +535,6 @@ protected:
     }
 
 public:
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        this->typeExpr->symbol_declaration_pass( lexContext );
-        this->constructorCall->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         this->typeExpr->symbol_resolution_pass();
@@ -596,7 +554,7 @@ public:
         }
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->typeExpr->visit_ast( visitor, thisCursor, "type", context );
         if ( this->initializationExpression )
             this->initializationExpression->visit_ast( visitor, thisCursor, "initexpr", context );
@@ -610,6 +568,10 @@ class TxNewConstructionNode : public TxMakeObjectNode {
     TxTypeTypeArgumentNode* targetTypeNode;
 
 protected:
+    virtual void declaration_pass() override {
+        targetTypeNode->node_declaration_pass( this );  // special case instead of wrapping typeExpr and overriding visit_descendants()
+    }
+
     virtual const TxType* get_object_type() const override {
         return this->typeExpr->get_type();
     }
@@ -621,22 +583,18 @@ protected:
 
 public:
     TxNewConstructionNode( const TxLocation& parseLocation, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList )
-            : TxMakeObjectNode(
-                    parseLocation, typeExpr,
-                    new TxFunctionCallNode( parseLocation,
-                                            new TxConstructorCalleeExprNode( parseLocation, new TxHeapAllocNode( parseLocation, typeExpr ) ),
-                                            argsExprList ) ) {
+            : TxMakeObjectNode( parseLocation, typeExpr,
+                                new TxFunctionCallNode(
+                                        parseLocation,
+                                        new TxConstructorCalleeExprNode(
+                                                parseLocation, new TxHeapAllocNode( parseLocation, new TxTypeExprWrapperNode( typeExpr ) ) ),
+                                        argsExprList ) ) {
         targetTypeNode = new TxTypeTypeArgumentNode( this->typeExpr );
     }
 
     virtual TxNewConstructionNode* make_ast_copy() const override {
         return new TxNewConstructionNode( this->parseLocation, this->typeExpr->make_ast_copy(),
                                           make_node_vec_copy( this->constructorCall->origArgsExprList ) );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        TxMakeObjectNode::symbol_declaration_pass( lexContext );
-        targetTypeNode->set_context( lexContext );  // emulate declaration pass
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
@@ -658,11 +616,12 @@ public:
     /** produced by the expression syntax: <...type-expr...>(...constructor-args...) */
     TxStackConstructionNode( const TxLocation& parseLocation, TxTypeExpressionNode* typeExpr,
                              const std::vector<TxExpressionNode*>* argsExprList )
-            : TxMakeObjectNode(
-                    parseLocation, typeExpr,
-                    new TxFunctionCallNode( parseLocation,
-                                            new TxConstructorCalleeExprNode( parseLocation, new TxStackAllocNode( parseLocation, typeExpr ) ),
-                                            argsExprList ) ) {
+            : TxMakeObjectNode( parseLocation, typeExpr,
+                                new TxFunctionCallNode(
+                                        parseLocation,
+                                        new TxConstructorCalleeExprNode(
+                                                parseLocation, new TxStackAllocNode( parseLocation, new TxTypeExprWrapperNode( typeExpr ) ) ),
+                                        argsExprList ) ) {
     }
 
     virtual TxStackConstructionNode* make_ast_copy() const override {
@@ -697,11 +656,6 @@ public:
         return new TxFieldAssigneeNode( this->parseLocation, this->field->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        field->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxAssigneeNode::symbol_resolution_pass();
         field->symbol_resolution_pass();
@@ -713,7 +667,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->field->visit_ast( visitor, thisCursor, "field", context );
     }
 };
@@ -738,11 +692,6 @@ public:
         return new TxDerefAssigneeNode( this->parseLocation, this->operand->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        operand->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxAssigneeNode::symbol_resolution_pass();
         operand->symbol_resolution_pass();
@@ -750,7 +699,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->operand->visit_ast( visitor, thisCursor, "operand", context );
     }
 };
@@ -786,12 +735,6 @@ public:
                                        this->subscript->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        array->symbol_declaration_pass( lexContext );
-        subscript->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxAssigneeNode::symbol_resolution_pass();
         array->symbol_resolution_pass();
@@ -800,7 +743,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->array->visit_ast( visitor, thisCursor, "array", context );
         this->subscript->visit_ast( visitor, thisCursor, "subscript", context );
     }

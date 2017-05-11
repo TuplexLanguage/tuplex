@@ -4,10 +4,30 @@
 #include "ast_exprs.hpp"
 
 class TxStatementNode : public TxNode {
+    /** The predecessor that defines the scope of this statement. Injected by TxSuiteNode. */
+    TxStatementNode* predecessor = nullptr;
+    friend class TxSuiteNode;
+
 protected:
-    /** set by parent if parent is an ExpErr node */
-    bool isExpErrorStmt = false;
+    /** called by TxExpErrStmtNode on it's child statement */
+    virtual void set_exp_error_stmt() { }
     friend class TxExpErrStmtNode;
+
+    virtual void declaration_pass() override final {
+        if (this->predecessor) {
+            // place statement in the effective sub-scope of its predecessor
+            this->lexContext._scope = this->predecessor->get_stmt_successor_scope();
+        }
+        this->stmt_declaration_pass();
+    }
+
+    /** Performs declaration pass operations on this statement node. To be overridden by subclasses as necessary. */
+    virtual void stmt_declaration_pass() { }
+
+    /** Returns the effective sub-scope for statements succeeding this one. */
+    virtual TxScopeSymbol* get_stmt_successor_scope() const {
+        return this->context().scope();  // default behavior
+    }
 
 public:
     TxStatementNode( const TxLocation& parseLocation )
@@ -16,7 +36,6 @@ public:
 
     virtual TxStatementNode* make_ast_copy() const override = 0;
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) = 0;
     virtual void symbol_resolution_pass() = 0;
 
     /** Returns true if this statement / compound statement *may* end with a break or continue statement. */
@@ -39,6 +58,25 @@ public:
 
 /** Local field declaration */
 class TxFieldStmtNode : public TxStatementNode {
+    /** the effective sub-scope for statements succeeding this one */
+    TxScopeSymbol* blockScope = nullptr;
+    TxDeclarationFlags declFlags = TXD_NONE;
+
+protected:
+    virtual void set_exp_error_stmt() override {
+        this->declFlags = TXD_EXPERRBLOCK;
+    }
+
+    virtual void stmt_declaration_pass() override {
+        this->blockScope = lexContext.scope()->create_code_block_scope( *this );
+        this->field->declare_field( this->blockScope, this->declFlags, TXS_STACK );
+        // (to prevent init expr from referencing this field, it is processed in the 'outer' scope, not in the new block scope)
+    }
+
+    virtual TxScopeSymbol* get_stmt_successor_scope() const override {
+        return this->blockScope;
+    }
+
 public:
     TxFieldDefNode* field;
 
@@ -48,17 +86,6 @@ public:
 
     virtual TxFieldStmtNode* make_ast_copy() const override {
         return new TxFieldStmtNode( this->parseLocation, this->field->make_ast_copy() );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        auto blockScope = lexContext.scope()->create_code_block_scope( *this );
-        this->set_context( LexicalContext( lexContext, blockScope ) );
-
-//        this->field->symbol_declaration_pass_local_scoped_field( this->context(), ( isExpErrorStmt ? TXD_EXPERRBLOCK : TXD_NONE ) );
-        auto declFlags = ( isExpErrorStmt ? TXD_EXPERRBLOCK : TXD_NONE );
-        this->field->declare_field( blockScope, declFlags, TXS_STACK );
-        // to prevent init expr from referring to this field, it is processed in the outer scope:
-        this->field->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -71,13 +98,18 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->field->visit_ast( visitor, thisCursor, "fielddecl", context );
     }
 };
 
 /** Local type declaration */
 class TxTypeStmtNode : public TxStatementNode {
+protected:
+    virtual void set_exp_error_stmt() override {
+        this->typeDecl->declFlags |= TXD_EXPERRBLOCK;
+    }
+
 public:
     TxTypeDeclNode* const typeDecl;
 
@@ -96,20 +128,13 @@ public:
         return new TxTypeStmtNode( this->parseLocation, this->typeDecl->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        if (this->isExpErrorStmt)
-            this->typeDecl->isExpErrorDecl = true;
-        this->typeDecl->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         this->typeDecl->symbol_resolution_pass();
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->typeDecl->visit_ast( visitor, thisCursor, "typedecl", context );
     }
 };
@@ -126,18 +151,13 @@ public:
         return new TxCallStmtNode( this->parseLocation, this->call->make_ast_copy() );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        ( (TxExpressionNode*) this->call )->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         ( (TxExpressionNode*) this->call )->symbol_resolution_pass();
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->call->visit_ast( visitor, thisCursor, "call", context );
     }
 };
@@ -148,9 +168,6 @@ protected:
             : TxStatementNode( parseLocation ) {
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-    }
     virtual void symbol_resolution_pass() override {
     }
 
@@ -172,12 +189,6 @@ public:
 
     virtual TxReturnStmtNode* make_ast_copy() const override {
         return new TxReturnStmtNode( this->parseLocation, this->expr->originalExpr->make_ast_copy() );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        if ( this->expr )
-            this->expr->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -202,8 +213,9 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
-        this->expr->visit_ast( visitor, thisCursor, "value", context );
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        if (this->expr)
+            this->expr->visit_ast( visitor, thisCursor, "value", context );
     }
 };
 
@@ -223,7 +235,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
 };
 
@@ -243,16 +255,27 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
 };
 
 class TxSuiteNode : public TxStatementNode {
+protected:
+    virtual void stmt_declaration_pass() override;
+
 public:
     std::vector<TxStatementNode*>* suite;
 
     TxSuiteNode( const TxLocation& parseLocation, std::vector<TxStatementNode*>* suite )
             : TxStatementNode( parseLocation ), suite( suite ) {
+        if (suite->size() > 1) {
+            // inject predecessor links
+            TxStatementNode* pred = suite->front();
+            for ( auto stmtI = std::next( suite->begin() ); stmtI != suite->end(); stmtI++ ) {
+                (*stmtI)->predecessor = pred;
+                pred = (*stmtI);
+            }
+        }
     }
     TxSuiteNode( const TxLocation& parseLocation )
             : TxSuiteNode( parseLocation, new std::vector<TxStatementNode*>() ) {
@@ -260,20 +283,6 @@ public:
 
     virtual TxSuiteNode* make_ast_copy() const override {
         return new TxSuiteNode( this->parseLocation, make_node_vec_copy( this->suite ) );
-    }
-
-    virtual void symbol_declaration_pass_no_subscope( LexicalContext& lexContext ) {
-        this->set_context( lexContext );
-        auto scope = lexContext.scope();
-        for ( auto stmt : *this->suite ) {
-            LexicalContext stmtCtx( lexContext, scope );
-            stmt->symbol_declaration_pass( stmtCtx );
-            scope = stmt->context().scope();  // so subsequent statements are in the scope block of locally declared fields
-        }
-    }
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        LexicalContext suiteContext( lexContext, lexContext.scope()->create_code_block_scope( *this ) );
-        this->symbol_declaration_pass_no_subscope( suiteContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -313,7 +322,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         for ( auto stmt : *this->suite )
             stmt->visit_ast( visitor, thisCursor, "stmt", context );
     }
@@ -329,11 +338,6 @@ public:
 
     virtual TxElseClauseNode* make_ast_copy() const override {
         return new TxElseClauseNode( this->parseLocation, this->body->make_ast_copy() );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        this->body->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -352,7 +356,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->body->visit_ast( visitor, thisCursor, "body", context );
     }
 };
@@ -371,14 +375,6 @@ public:
 
     virtual TxCondCompoundStmtNode* make_ast_copy() const override = 0;
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        this->cond->symbol_declaration_pass( lexContext );
-        this->body->symbol_declaration_pass( lexContext );
-        if ( this->elseClause )
-            this->elseClause->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
         this->cond->insert_conversion( this->registry().get_builtin_type( TXBT_BOOL ) );
         this->cond->symbol_resolution_pass();
@@ -389,6 +385,13 @@ public:
 
     virtual bool ends_with_return_stmt() const override {
         return ( this->body->ends_with_return_stmt() && this->elseClause && this->elseClause->ends_with_return_stmt() );
+    }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->cond->visit_ast( visitor, thisCursor, "condition", context );
+        this->body->visit_ast( visitor, thisCursor, "then", context );
+        if (this->elseClause)
+            this->elseClause->visit_ast( visitor, thisCursor, "else", context );
     }
 };
 
@@ -412,12 +415,6 @@ public:
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
-
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
-        this->cond->visit_ast( visitor, thisCursor, "condition", context );
-        this->body->visit_ast( visitor, thisCursor, "then", context );
-        this->cond->visit_ast( visitor, thisCursor, "else", context );
-    }
 };
 
 class TxWhileStmtNode : public TxCondCompoundStmtNode {
@@ -443,12 +440,6 @@ public:
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
-
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
-        this->cond->visit_ast( visitor, thisCursor, "condition", context );
-        this->body->visit_ast( visitor, thisCursor, "loop", context );
-        this->cond->visit_ast( visitor, thisCursor, "else", context );
-    }
 };
 
 class TxAssignStmtNode : public TxStatementNode {
@@ -462,12 +453,6 @@ public:
 
     virtual TxAssignStmtNode* make_ast_copy() const override {
         return new TxAssignStmtNode( this->parseLocation, this->lvalue->make_ast_copy(), this->rvalue->originalExpr->make_ast_copy() );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        this->lvalue->symbol_declaration_pass( lexContext );
-        this->rvalue->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -502,7 +487,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->lvalue->visit_ast( visitor, thisCursor, "lvalue", context );
         this->rvalue->visit_ast( visitor, thisCursor, "rvalue", context );
     }
@@ -511,16 +496,12 @@ public:
 class TxAssertStmtNode : public TxStatementNode {
     TxExpressionNode* expr;
     TxStatementNode* ifStmt;
-    public:
+
+public:
     TxAssertStmtNode( const TxLocation& parseLocation, TxExpressionNode* expr );
 
     virtual TxAssertStmtNode* make_ast_copy() const override {
         return new TxAssertStmtNode( this->parseLocation, this->expr->make_ast_copy() );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-        this->ifStmt->symbol_declaration_pass( lexContext );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -529,7 +510,7 @@ class TxAssertStmtNode : public TxStatementNode {
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->ifStmt->visit_ast( visitor, thisCursor, "ifstmt", context );
     }
 };
@@ -537,27 +518,27 @@ class TxAssertStmtNode : public TxStatementNode {
 class TxExpErrStmtNode : public TxStatementNode {
     ExpectedErrorClause* expError;
 
+protected:
+    virtual void stmt_declaration_pass() override {
+        this->lexContext._scope = lexContext.scope()->create_code_block_scope( *this, "EE" );
+        this->lexContext.expErrCtx = this->expError;
+        if ( !this->context().is_reinterpretation() ) {
+            this->get_parse_location().parserCtx->register_exp_err_node( this );
+        }
+    }
+
 public:
     TxStatementNode* body;
 
     TxExpErrStmtNode( const TxLocation& parseLocation, ExpectedErrorClause* expError, TxStatementNode* body )
             : TxStatementNode( parseLocation ), expError( expError ), body( body ) {
-        body->isExpErrorStmt = true;
+        if ( dynamic_cast<const TxExpErrStmtNode*>( body ) )
+            CERROR( this, "Can't nest Expected Error constructs in a statement" );
+        body->set_exp_error_stmt();
     }
 
     virtual TxExpErrStmtNode* make_ast_copy() const override {
         return new TxExpErrStmtNode( this->parseLocation, nullptr, this->body->make_ast_copy() );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( LexicalContext( lexContext, lexContext.scope()->create_code_block_scope( *this, "EE" ), expError ) );
-        if ( this->isExpErrorStmt )
-            CERROR( this, "Can't nest Expected Error constructs in a statement" );
-        if ( !this->context().is_reinterpretation() ) {
-            this->get_parse_location().parserCtx->register_exp_err_node( this );
-        }
-        ScopedExpErrClause scopedEEClause( this );
-        this->body->symbol_declaration_pass( this->context() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -569,7 +550,8 @@ public:
         return nullptr;
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        ScopedExpErrClause scopedEEClause( this );
         this->body->visit_ast( visitor, thisCursor, "stmt", context );
     }
 };
@@ -584,10 +566,6 @@ public:
         return new TxNoOpStmtNode( this->parseLocation );
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
-        this->set_context( lexContext );
-    }
-
     virtual void symbol_resolution_pass() override {
     }
 
@@ -595,6 +573,6 @@ public:
         return nullptr;
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
 };

@@ -43,7 +43,7 @@ std::vector<N*>* make_node_vec_copy( const std::vector<N*>* nodeVec ) {
 }
 
 bool validateTypeName( TxNode* node, TxDeclarationFlags declFlags, const std::string& name );
-bool validateFieldName( TxNode* node, TxDeclarationFlags declFlags, const std::string& name );
+bool validateFieldName( TxNode* node, const std::string& name );
 
 /** Returns the "degree of reinterpretation" required to implicitly transform a provided value
  * to a value of an expected type.
@@ -89,7 +89,24 @@ struct AstCursor {
 /** type of the AST visitor callable */
 typedef std::function<void( TxNode* node, const AstCursor& parent, const std::string& role, void* context )> AstVisitor;
 
-extern AstVisitor declPassVisitor;
+
+/** Runs the declaration pass on a node and its subtree.
+ * @parentNode the parent of node; must not be null */
+extern void run_declaration_pass( TxNode* node, const TxNode* parentNode, const std::string& role="");
+
+class TxDeclarationNode;
+/** Runs the declaration pass on a node and its subtree. */
+extern void run_declaration_pass( TxDeclarationNode* declNode, const LexicalContext& lexContext );
+
+
+//template<class N>
+//const N* enclosing_node(const TxNode* node) const {
+//    for ( const TxNode* node = node->parent(); node; node = node->parent() ) {
+//        if ( auto stmtNode = dynamic_cast<const N*>( node ) )
+//            return stmtNode;
+//    }
+//    return nullptr;
+//}
 
 class TxNode : public virtual TxParseOrigin, public Printable {
     static Logger& _LOG;
@@ -110,9 +127,24 @@ protected:
 
     virtual ~TxNode() = default;
 
-    void set_context( LexicalContext&& context ) {
+    inline void set_context( LexicalContext&& context ) {
         ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );
         this->lexContext = context;
+    }
+
+    /** sets the parent node reference of this node and copies the parent's context to this node */
+    inline void set_context( const TxNode* parentNode ) {
+        ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );
+        this->parentNode = parentNode;
+        this->lexContext = this->parentNode->context();
+    }
+
+    /** Performs the declaration pass operations specific to this node.
+     * The default implementation does nothing; to be overridden by subclasses as necessary.
+     * This is invoked exactly once by run_declaration_pass() and should not be invoked from elsewhere.
+     * This node's parent and context are set prior to this call.
+     */
+    virtual void declaration_pass() {
     }
 
 public:
@@ -137,18 +169,6 @@ public:
         return this->lexContext.scope();
     }
 
-    inline void set_context( const LexicalContext& context ) {
-        ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );
-        this->lexContext = context;
-    }
-
-    /** sets the parent node reference of this node and copies the parent's context to this node */
-    inline void set_context( const TxNode* parentNode ) {
-        ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );
-        this->parentNode = parentNode;
-        this->lexContext = this->parentNode->context();
-    }
-
     inline const LexicalContext& context() const {
         ASSERT( this->is_context_set(), "lexicalContext not initialized in " << this->str() );
         return this->lexContext;
@@ -158,26 +178,16 @@ public:
         return this->parentNode;
     }
 
-    /** Returns the closest enclosing statement node, or null if there is none. */
-    TxStatementNode* encl_stmt_node() const {
-        return nullptr;  // FIXME
-    }
 
-    /** Returns the closest enclosing function/method/lambda definition node, or null if there is none. */
-    const TxLambdaExprNode* encl_lambda_node() const {
-        return nullptr;  // FIXME
-    }
-
-    /** Returns the closest enclosing type declaration node, or null if there is none. */
-    TxTypeDeclNode* encl_type_decl_node() const {
-//        ASSERT( this->_scope, "scope is NULL" );
-//        for ( auto scope = this->_scope; scope; scope = scope->get_outer() ) {
-//            if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( scope ) ) {
-//                ASSERT( entitySymbol->get_type_decl(), "NULL type decl in entity symbol " << entitySymbol );
-//                return entitySymbol->get_type_decl();
-//            }
-//        }
-        return nullptr;  // FIXME
+    /** Gets the nearest parent node of the specified type, starting with this node's parent.
+     * Returns null if this node has no ancestor of the desired type. */
+    template<class N>
+    const N* enclosing_node() const {
+        for ( const TxNode* node = this->parent(); node; node = node->parent() ) {
+            if ( auto soughtNode = dynamic_cast<const N*>( node ) )
+                return soughtNode;
+        }
+        return nullptr;
     }
 
 
@@ -190,19 +200,18 @@ public:
     void visit_ast( AstVisitor visitor, const AstCursor& parent, const std::string& role, void* context );
 
     /** To be implemented by subclasses. */
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const = 0;
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) = 0;
 
-    // FIXME: review
-    virtual inline void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) final {
-        static_cast<const TxNode *>( this )->visit_descendants( visitor, thisCursor, role, context );
-    }
-
-    /** Performs the declaration pass on this node.
-     * This is invoked exactly once.
-     * This node's parent is set prior to this call.
-     */
-    virtual void declaration_pass() {
-        std::cerr << "Hasn't implemented new declaration_pass(): " << this << std::endl;
+    /** Runs the declaration pass on this node (its subtree is not processed).
+     * @parentNode the parent of node; must not be null */
+    inline void node_declaration_pass( const TxNode* parentNode ) {
+        ASSERT( parentNode, "NULL parentNode" );
+        if (this->is_context_set()) {
+            LOG( this->LOGGER(), ERROR, "Context already set, skipping decl pass for node " << this << " (parent: " << this->parent() << ")" );
+            return;
+        }
+        this->set_context( parentNode );
+        this->declaration_pass();
     }
 
     /** Returns the identifier owned by this node, if any, otherwise an empty string. */
@@ -224,6 +233,11 @@ public:
 };
 
 class TxImportNode : public TxNode {
+protected:
+    virtual void declaration_pass() override {
+        static_cast<TxModule*>( this->context().scope() )->register_import( *this, *this->ident );
+    }
+
 public:
     const TxIdentifier* ident;
 
@@ -242,20 +256,11 @@ public:
         return new TxImportNode( this->parseLocation, this->ident );
     }
 
-    virtual void declaration_pass() override {
-        static_cast<TxModule*>( this->parent()->context().scope() )->register_import( *this, *this->ident );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) {
-        this->set_context( lexContext );
-        static_cast<TxModule*>( lexContext.scope() )->register_import( *this, *this->ident );
-    }
-
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
         return nullptr;
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
 
     virtual std::string get_identifier() const override {
@@ -264,13 +269,10 @@ public:
 };
 
 class TxDeclarationNode : public TxNode {  // either type or field
-protected:
-    /** set by parent if parent is an ExpErr node */
-    bool isExpErrorDecl = false;
+    TxDeclarationFlags declFlags;
+    // these set TXD_EXPERRBLOCK if this is an exp-err declaration:
     friend class TxExpErrDeclNode;
-    friend class TxTypeStmtNode;
-
-    const TxDeclarationFlags declFlags;
+    friend class TxTypeStmtNode;  // forwards from TxExpErrStmtNode
 
 public:
     TxDeclarationNode( const TxLocation& parseLocation, const TxDeclarationFlags declFlags )
@@ -283,8 +285,6 @@ public:
         return this->declFlags;
     }
 
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) = 0;
-
     virtual void symbol_resolution_pass() = 0;
 
     virtual const TxEntityDeclaration* get_declaration() const = 0;
@@ -296,7 +296,11 @@ class TxModuleNode : public TxNode {
     std::vector<TxDeclarationNode*>* members;
     std::vector<TxModuleNode*>* subModules;
     bool builtin;
-//    TxModule* module = nullptr;
+
+protected:
+    virtual void declaration_pass() override {
+        this->lexContext._scope = static_cast<TxModule*>( this->lexContext._scope )->declare_module( *this, *this->ident, this->builtin );
+    }
 
 public:
     TxModuleNode( const TxLocation& parseLocation, const TxIdentifier* identifier,
@@ -316,27 +320,6 @@ public:
                                  builtin );
     }
 
-    virtual void declaration_pass() override {
-        this->lexContext._scope = static_cast<TxModule*>( this->parent()->context().scope() )->declare_module( *this, *this->ident, this->builtin );
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) {
-        this->set_context( LexicalContext( static_cast<TxModule*>( lexContext.scope() )->declare_module( *this, *this->ident, this->builtin ) ) );
-
-        if ( this->imports ) {
-            for ( auto imp : *this->imports )
-                imp->symbol_declaration_pass( this->context() );
-        }
-        if ( this->members ) {
-            for ( auto mem : *this->members )
-                mem->symbol_declaration_pass( this->context() );
-        }
-        if ( this->subModules ) {
-            for ( auto mod : *this->subModules )
-                mod->symbol_declaration_pass( this->context() );
-        }
-    }
-
     virtual void symbol_resolution_pass() {
         if ( this->members ) {
             for ( auto mem : *this->members )
@@ -350,7 +333,7 @@ public:
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->imports ) {
             for ( auto imp : *this->imports )
                 imp->visit_ast( visitor, thisCursor, "import", context );
@@ -389,19 +372,13 @@ public:
         this->lexContext = LexicalContext( package );
     }
 
-    virtual void declaration_pass() override { }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) {
-        this->module->symbol_declaration_pass( lexContext );
-    }
-
     virtual void symbol_resolution_pass() {
         this->module->symbol_resolution_pass();
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->module->visit_ast( visitor, thisCursor, "module", context );
     }
 };

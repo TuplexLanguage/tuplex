@@ -11,7 +11,7 @@ public:
     }
 };
 
-#ifndef NDEBUG
+#ifdef DEVMODE
 #   define ASSERT(condition, message) \
     do { \
         if (! (condition)) { \

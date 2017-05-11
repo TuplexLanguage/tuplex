@@ -25,7 +25,7 @@ public:
 
     TxParsingUnitNode* createTxModuleAST();
 
-    void initializeBuiltinSymbols();  // FIXME: remove
+    void initializeBuiltinSymbols();  // TODO: remove
 
     const TxLocation& get_builtin_location() const {
         return this->builtinLocation;

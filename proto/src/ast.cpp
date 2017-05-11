@@ -7,24 +7,21 @@ static bool commonNameValidityChecks( TxNode* node, TxDeclarationFlags declFlags
         CERROR( node, "Name string is empty." );
         return false;
     }
-    bool valid = true;
-// TODO: distinguish between source origin (illegal) and implicitly generated names
-//    auto pos = name.find_first_of(".#");
-//    if (pos != std::string::npos) {
-//        parser_error(node->parseLocation, "Illegal character within a name segment: '%c'", name.at(pos));
-//        valid = false;
-//    }
-    return valid;
+    return true;
 }
 
 bool validateTypeName( TxNode* node, TxDeclarationFlags declFlags, const std::string& name ) {
-    // TODO: warning if first character is not upper case
+// TODO
+//    if (! isupper( name.at(0) ))
+//        CWARNING(node, "The first letter of type names should be uppercase: " << name);
     return commonNameValidityChecks( node, declFlags, name );
 }
 
-bool validateFieldName( TxNode* node, TxDeclarationFlags declFlags, const std::string& name ) {
-    // TODO: either all chars upper case or first character lower case, else warning
-    return commonNameValidityChecks( node, declFlags, name );
+bool validateFieldName( TxNode* node, const std::string& name ) {
+// TODO
+//    if (! islower( name.at(0) ))
+//        CWARNING(node, "The first letter of field names should be lowercase: " << name);
+    return commonNameValidityChecks( node, TXD_NONE, name );
 }
 
 template<typename Node>
@@ -37,10 +34,20 @@ std::vector<const TxType*> to_typevec( const std::vector<Node*>* nodevec ) {
 
 
 AstVisitor declPassVisitor = []( TxNode* node, const AstCursor& parent, const std::string& role, void* parserCtx ) {
-        node->set_context( parent.node );
-        node->declaration_pass();
-    };
+    node->node_declaration_pass( parent.node );
+};
 
+void run_declaration_pass( TxNode* node, const TxNode* parentNode, const std::string& role) {
+    ASSERT(parentNode, "NULL parentNode");
+    const AstCursor parent( parentNode );
+    node->visit_ast( declPassVisitor, parent, role, nullptr );
+}
+
+void run_declaration_pass( TxDeclarationNode* declNode, const LexicalContext& lexContext ) {
+    ASSERT( lexContext.scope(), "uninitialized lex-context" );
+    auto internalRoot = new TxInternalRootNode( declNode->parseLocation, declNode, lexContext );
+    run_declaration_pass( declNode, internalRoot, "type-decl" );
+}
 
 Logger& TxNode::_LOG = Logger::get( "AST" );
 
@@ -130,14 +137,14 @@ const TxField* TxFieldDefiningNode::resolve_field() {
 
 
 
-void TxFieldDefNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
-    this->set_context( lexContext );
-    if ( this->typeExpression )
-        this->typeExpression->symbol_declaration_pass( lexContext );
-    if ( this->initExpression )
-        this->initExpression->symbol_declaration_pass( lexContext );
-}
-
+//void TxFieldDefNode::declaration_pass() {
+//    this->set_context( lexContext );
+//    if ( this->typeExpression )
+//        this->typeExpression->symbol_declaration_pass( lexContext );
+//    if ( this->initExpression )
+//        this->initExpression->symbol_declaration_pass( lexContext );
+//}
+//
 //void TxFieldDefNode::symbol_declaration_pass_local_field( const LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
 //    this->declaration = lexContext.scope()->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
 //    this->symbol_declaration_pass( lexContext );
@@ -167,9 +174,8 @@ void TxFieldDefNode::symbol_declaration_pass( const LexicalContext& lexContext )
 //}
 
 
-void TxFieldDeclNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
-    this->set_context( lexContext );
-    TxDeclarationFlags flags = ( isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags );
+void TxFieldDeclNode::declaration_pass() {
+    TxDeclarationFlags flags = this->get_decl_flags();
 
     if ( field->initExpression ) {
         if ( flags & TXD_ABSTRACT )
@@ -177,7 +183,11 @@ void TxFieldDeclNode::symbol_declaration_pass( const LexicalContext& lexContext 
     }
 
     TxFieldStorage storage;
-    if ( this->isMethodSyntax && lexContext.get_type_decl() ) {
+    const TxTypeDeclaration* outerTypeDecl = nullptr;
+    if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->context().scope() ) )
+        outerTypeDecl = entitySymbol->get_type_decl();
+
+    if ( this->isMethodSyntax && outerTypeDecl ) {
         // Note: instance method storage is handled specially (technically the function pointer is a static field)
 
         TxLambdaExprNode* lambdaExpr = nullptr;
@@ -225,7 +235,6 @@ void TxFieldDeclNode::symbol_declaration_pass( const LexicalContext& lexContext 
         storage = TXS_VIRTUAL;
     }
 
-//    this->field->symbol_declaration_pass_nonlocal_field( lexContext, this, flags, storage, TxIdentifier( "" ) );
     std::string declName = this->field->fieldName->str();
     if ( declName == "self" ) {
         // handle constructor declaration
@@ -236,7 +245,7 @@ void TxFieldDeclNode::symbol_declaration_pass( const LexicalContext& lexContext 
     }
 
     this->field->declare_field( declName, lexContext.scope(), flags, storage );
-    this->field->symbol_declaration_pass( lexContext );
+    // Note: Field is processed in the 'outer' scope and not in the 'inner' scope of its declaration.
 }
 
 void TxFieldDeclNode::symbol_resolution_pass() {
@@ -285,7 +294,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
 
 void TxTypeDeclNode::declaration_pass() {
     const TxTypeDeclaration* declaration = nullptr;
-    if ( this->declFlags & TXD_BUILTIN ) {
+    if ( this->get_decl_flags() & TXD_BUILTIN ) {
         if ( auto entSym = dynamic_cast<const TxEntitySymbol*>( lexContext.scope()->get_member_symbol( this->typeName->str() ) ) ) {
             if ( ( declaration = entSym->get_type_decl() ) ) {
                 if ( declaration->get_decl_flags() & TXD_BUILTIN ) {
@@ -300,38 +309,7 @@ void TxTypeDeclNode::declaration_pass() {
     }
 
     if ( !this->_builtinCode ) {
-        TxDeclarationFlags flags = ( isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags );
-        declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeExpression, flags );
-        if ( !declaration ) {
-            CERROR( this, "Failed to declare type " << this->typeName );
-            return;
-        }
-        LOG_TRACE( this->LOGGER(), this << ": Declared type " << declaration );
-    }
-    this->lexContext._scope = declaration->get_symbol();
-}
-
-void TxTypeDeclNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
-    this->set_context( lexContext );
-
-    const TxTypeDeclaration* declaration = nullptr;
-    if ( this->declFlags & TXD_BUILTIN ) {
-        if ( auto entSym = dynamic_cast<const TxEntitySymbol*>( lexContext.scope()->get_member_symbol( this->typeName->str() ) ) ) {
-            if ( ( declaration = entSym->get_type_decl() ) ) {
-                if ( declaration->get_decl_flags() & TXD_BUILTIN ) {
-                    //std::cerr << "existing builtin type declaration: " << declaration << "  new type expr: " << this->typeExpression << std::endl;
-                    auto derivedTypeExpr = dynamic_cast<TxDerivedTypeNode*>( this->typeExpression );
-                    ASSERT( derivedTypeExpr, "Expected definer for builtin-type to be a TxDerivedTypeNode: " << this->typeExpression );
-                    derivedTypeExpr->merge_builtin_type_definer( declaration->get_definer() );
-                    this->_builtinCode = true;
-                }
-            }
-        }
-    }
-
-    if ( !this->_builtinCode ) {
-        TxDeclarationFlags flags = ( isExpErrorDecl ? this->declFlags | TXD_EXPERRBLOCK : this->declFlags );
-        declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeExpression, flags );
+        declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeExpression, this->get_decl_flags() );
         if ( !declaration ) {
             CERROR( this, "Failed to declare type " << this->typeName );
             return;
@@ -341,39 +319,23 @@ void TxTypeDeclNode::symbol_declaration_pass( const LexicalContext& lexContext )
 
     bool genericContext = lexContext.is_generic();
     if ( this->typeParamDecls ) {
-        // The context of this node represents its outer scope.
-        // The type expression's created type entity, if any, represents its inner scope.
-        // Declare type parameters within type declaration's scope, and before rest of type expression is processed:
-        // (TypeExpression also instantiates the typeCtx, but since we process paramDeclNodes here we do it here too)
-        LexicalContext typeCtx( lexContext, declaration->get_symbol() );
         for ( auto paramDeclNode : *this->typeParamDecls ) {
-            if ( !this->_builtinCode ) {
-                paramDeclNode->symbol_declaration_pass( typeCtx );
-            }
             if (paramDeclNode->get_decl_flags() & TXD_GENPARAM) {
                 //std::cerr << "Has unbound gen-params: " << this << std::endl;
                 genericContext = true;
             }
         }
     }
-    LexicalContext defCtx( lexContext, genericContext );
+    this->lexContext._scope = declaration->get_symbol();
+    this->lexContext.generic = genericContext;
     this->typeExpression->set_declaration( declaration );
-    this->typeExpression->symbol_declaration_pass( defCtx );
 }
 
-//const TxTypeDeclaration* TxTypeExpressionNode::get_declaration() const {
-//    if (auto declParent = dynamic_cast<const TxTypeDeclNode*>(this->parent()))
-//        return declParent->get_declaration();
-//    return nullptr;
-//}
-
-void TxTypeExpressionNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
+void TxTypeExpressionNode::declaration_pass() {
     // The context of this node represents its outer scope.
     // The type expression's created type entity, if any, represents its inner scope.
-    this->set_context( lexContext );
-//    this->declaration = owningDeclaration;
-    LexicalContext typeCtx( lexContext, ( this->declaration ? this->declaration->get_symbol() : lexContext.scope() ) );
-    this->symbol_declaration_pass_descendants( typeCtx );
+    if (this->declaration)
+        this->lexContext._scope = this->declaration->get_symbol();
 }
 
 TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
@@ -490,12 +452,6 @@ const TxType* TxGenSpecTypeNode::define_type() {
     return this->registry().get_type_specialization( this, genType, tmp );
 }
 
-void TxArrayTypeNode::symbol_declaration_pass_descendants( LexicalContext& lexContext ) {
-    this->elementTypeNode->symbol_declaration_pass( lexContext );
-    if ( this->lengthNode )
-        this->lengthNode->symbol_declaration_pass( lexContext );
-}
-
 void TxDerivedTypeNode::init_implicit_types() {
     // implicit type members '$Self' and '$Super' for types with a body:
 //    // FUTURE: if type is immutable, the reference target type should perhaps not be modifiable?
@@ -555,7 +511,7 @@ void TxDerivedTypeNode::merge_builtin_type_definer( TxTypeDefiningNode* builtinT
     merge_builtin_type_definers( this, this->builtinTypeDefiner, this->baseTypes->front(), interfaces, this->_mutable );
 }
 
-void TxModifiableTypeNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
+void TxModifiableTypeNode::declaration_pass() {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->baseType ) ) {
         if ( auto maybeModElem = dynamic_cast<TxMaybeModTypeNode*>( arrayBaseType->elementTypeNode->typeExprNode ) ) {
@@ -565,10 +521,10 @@ void TxModifiableTypeNode::symbol_declaration_pass( const LexicalContext& lexCon
         }
     }
 
-    TxTypeExpressionNode::symbol_declaration_pass( lexContext );
+    TxTypeExpressionNode::declaration_pass();
 }
 
-void TxMaybeModTypeNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
+void TxMaybeModTypeNode::declaration_pass() {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if ( !this->is_modifiable() ) {
         if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->baseType ) )
@@ -579,13 +535,16 @@ void TxMaybeModTypeNode::symbol_declaration_pass( const LexicalContext& lexConte
     }
 
     if ( this->is_modifiable() )
-        TxModifiableTypeNode::symbol_declaration_pass( lexContext );
+        TxModifiableTypeNode::declaration_pass();
     else {
         // "pass through" entity declaration to the underlying type
-        this->set_context( lexContext );
         this->baseType->set_declaration( this->get_declaration() );
-        this->baseType->symbol_declaration_pass( lexContext );
     }
+}
+
+void TxSuiteNode::stmt_declaration_pass() {
+    if (! dynamic_cast<const TxLambdaExprNode*>(this->parent()))
+        this->lexContext._scope = lexContext.scope()->create_code_block_scope( *this );
 }
 
 TxAssertStmtNode::TxAssertStmtNode( const TxLocation& parseLocation, TxExpressionNode* expr )
@@ -795,7 +754,7 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
             if ( auto baseRefTargetType = baseType->target_type() ) {
                 //std::cerr << "Adding implicit '^' to: " << this->baseExpr << "  six=" << six << std::endl;
                 auto derefNode = new TxReferenceDerefNode( this->baseExpr->parseLocation, this->baseExpr );
-                derefNode->set_context( this->baseExpr->context() );  // in lieu of symbol_declaration_pass()
+                derefNode->node_declaration_pass( this ); //set_context( this->baseExpr->context() );  // in lieu of declaration_pass()
                 derefNode->symbol_resolution_pass();
                 this->baseExpr = derefNode;
                 baseType = baseRefTargetType;
@@ -944,13 +903,7 @@ TxFunctionCallNode::TxFunctionCallNode( const TxLocation& parseLocation, TxExpre
     }
 }
 
-void TxFunctionCallNode::symbol_declaration_pass( const LexicalContext& lexContext ) {
-    this->set_context( lexContext );
-    this->callee->symbol_declaration_pass( lexContext );
-    for ( auto argExpr : *this->argsExprList ) {
-        argExpr->symbol_declaration_pass( lexContext );
-    }
-
+void TxFunctionCallNode::declaration_pass() {
     if ( this->isSelfSuperConstructorInvocation ) {
         if ( !this->context().get_constructed() )
             CERROR( this, "self() / super() constructor may only be invoked from within the type's other constructors" );
@@ -988,8 +941,13 @@ void TxFunctionCallNode::symbol_resolution_pass() {
         // If the callee is a constructor, we substitute this function call with a stack construction expression:
         if ( !dynamic_cast<TxConstructorCalleeExprNode*>( this->callee ) ) {  // (prevents infinite recursion)
             auto typeDeclNode = new TxTypeDeclWrapperNode( this->parseLocation, constructorType->get_constructed_type_decl() );
-            this->inlinedExpression = new TxStackConstructionNode( this->parseLocation, typeDeclNode, this->origArgsExprList );
-            this->inlinedExpression->symbol_declaration_pass( this->context() );
+            // Implementation note: Declaration pass is already run on the args, but we need to run it on the new construction node
+            // and its new children, and we need to run resolution pass on the whole sub-tree.
+            auto wrappedArgs = make_expr_wrapper_vec( this->origArgsExprList );
+            this->inlinedExpression = new TxStackConstructionNode( this->parseLocation, typeDeclNode, wrappedArgs );
+            run_declaration_pass( this->inlinedExpression, this, "inlinedexpr" );
+            for ( auto argExpr : *this->origArgsExprList )
+                argExpr->symbol_resolution_pass();
             this->inlinedExpression->symbol_resolution_pass();
             return;
         }
@@ -1026,7 +984,7 @@ void TxFunctionCallNode::symbol_resolution_pass() {
                 const TxLocation& varArgLoc = ( arrayArgs->empty() ? this->parseLocation : arrayArgs->front()->parseLocation );
                 auto elemTypeExpr = new TxTypeExprWrapperNode( arrayArgElemType->get_definer() );
                 auto arrayArgNode = new TxMaybeConversionNode( new TxArrayLitNode( varArgLoc, elemTypeExpr, arrayArgs ) );
-                arrayArgNode->symbol_declaration_pass( this->context() );
+                run_declaration_pass( arrayArgNode, this, "arg" );
                 this->argsExprList->push_back( arrayArgNode );
             }
             ASSERT( calleeArgTypes.size() == this->argsExprList->size(), "Mismatching argument count for callee " << this->calleeType );

@@ -344,7 +344,7 @@ bool TxActualType::prepare_members() {
 }
 
 bool TxActualType::inner_prepare_members() {
-    LOG( this->LOGGER(), TRACE, "Preparing members of type " << this );
+    LOG_TRACE( this->LOGGER(), "Preparing members of type " << this );
     bool recursionError = false;
 
     bool expErrWholeType = ( ( this->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK )

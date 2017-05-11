@@ -605,7 +605,10 @@ Type* LlvmGenerationContext::get_llvm_type( const TxActualType* txType ) {
     Type* llvmType = txType->make_llvm_type( *this );
     if ( llvmType ) {
         this->llvmTypeMapping.emplace( txType, llvmType );
-        LOG_DEBUG( this->LOGGER(), "Made LLVM type mapping for type " << txType->str(true) << ": " << to_string(llvmType) );
+        if (txType->get_type_class() != TXTC_FUNCTION)
+            LOG_DEBUG( this->LOGGER(), "Made LLVM type mapping for type " << txType->str(true) << ": " << to_string(llvmType) );
+        else
+            LOG_TRACE( this->LOGGER(), "Made LLVM type mapping for type " << txType->str(true) << ": " << to_string(llvmType) );
     }
     else
         this->LOGGER()->error( "No LLVM type mapping for type: %s", txType->str().c_str() );

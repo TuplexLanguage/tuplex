@@ -84,7 +84,7 @@ public:
         return nullptr;
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
 };
 
@@ -116,12 +116,12 @@ protected:
               declNodes( declNodes ) {
     }
 
-    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        if ( this->baseTypeNode )
-            this->baseTypeNode->symbol_declaration_pass( lexContext );
-        for ( auto decl : this->declNodes )
-            decl->symbol_declaration_pass( lexContext );
-    }
+//    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
+//        if ( this->baseTypeNode )
+//            this->baseTypeNode->symbol_declaration_pass( lexContext );
+//        for ( auto decl : this->declNodes )
+//            decl->symbol_declaration_pass( lexContext );
+//    }
 
     virtual const TxType* define_type() override final {
         if ( this->original ) {  // true when this is a reinterpreted copy
@@ -184,7 +184,7 @@ public:
         return nullptr;
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->baseTypeNode )
             this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
         for ( auto decl : this->declNodes )
@@ -445,15 +445,10 @@ public:
 /*----- built-in constructor / initializer type defining AST nodes -----*/
 
 class TxBuiltinConstructorTypeDefNode : public TxFunctionTypeNode {
-public:
-    TxBuiltinConstructorTypeDefNode( const TxLocation& parseLocation, std::vector<TxArgTypeDefNode*>* arguments, TxTypeExpressionNode* returnType )
-            : TxFunctionTypeNode( parseLocation, false, arguments, returnType ) {
-    }
-
-    virtual void symbol_declaration_pass( const LexicalContext& lexContext ) override {
+protected:
+    virtual void declaration_pass() override {
         // overrides in order to create implicit declaration for the function type
         ASSERT( !this->get_declaration(), "Expected NULL owningDeclaration: " << this->get_declaration() );
-
         std::string funcTypeName = "$Ftype";
         funcTypeName = lexContext.scope()->make_unique_name( funcTypeName );
         auto declaration = lexContext.scope()->declare_type( funcTypeName, this, TXD_PUBLIC | TXD_IMPLICIT );
@@ -462,9 +457,13 @@ public:
             return;
         }
         //LOG(this->LOGGER(), INFO, this << ": Declared type " << declaration);
-
         this->set_declaration( declaration );
-        TxTypeExpressionNode::symbol_declaration_pass( lexContext );
+        TxTypeExpressionNode::declaration_pass();
+    }
+
+public:
+    TxBuiltinConstructorTypeDefNode( const TxLocation& parseLocation, std::vector<TxArgTypeDefNode*>* arguments, TxTypeExpressionNode* returnType )
+            : TxFunctionTypeNode( parseLocation, false, arguments, returnType ) {
     }
 
     virtual TxBuiltinConstructorTypeDefNode* make_ast_copy() const override = 0;
@@ -474,10 +473,10 @@ class TxDefConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode
 protected:
     TxExpressionNode* initExprNode;
 
-    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-        TxFunctionTypeNode::symbol_declaration_pass_descendants( lexContext );
-        this->initExprNode->symbol_declaration_pass( this->context() );
-    }
+//    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
+//        TxFunctionTypeNode::symbol_declaration_pass_descendants( lexContext );
+//        this->initExprNode->symbol_declaration_pass( this->context() );
+//    }
 
     virtual const TxType* define_type() override {
         auto actType = new TxBuiltinDefaultConstructorType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION )->type(),
@@ -491,13 +490,14 @@ public:
             : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxArgTypeDefNode*>(), returnTypeNode ), initExprNode( initExprNode ) {
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) const override {
-        this->initExprNode->visit_ast( visitor, thisCursor, "initializer", context );
-    }
-
     virtual TxDefConstructorTypeDefNode* make_ast_copy() const override {
         return new TxDefConstructorTypeDefNode( this->parseLocation, this->returnField->typeExpression->make_ast_copy(),
                                                 initExprNode->make_ast_copy() );
+    }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        TxBuiltinConstructorTypeDefNode::visit_descendants( visitor, thisCursor, role, context );
+        this->initExprNode->visit_ast( visitor, thisCursor, "initializer", context );
     }
 };
 
@@ -759,7 +759,7 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
 /** Initializes the built-in symbols. */
 void BuiltinTypes::initializeBuiltinSymbols() {
 
-    // FIXME: remove when initializeBuiltinSymbols() no longer creates entities needing these to be pre-resolved:
+    // TODO: remove when initializeBuiltinSymbols() no longer creates entities needing these to be pre-resolved:
     for ( unsigned id = 0; id < BuiltinTypeId_COUNT; id++ ) {
         // verify that all built-in types are initialized:
         ASSERT( this->builtinTypes[id], "Uninitialized built-in type! id=" << id );
@@ -781,7 +781,7 @@ void BuiltinTypes::declare_tx_functions() {
                                                             new TxNamedTypeNode( this->builtinLocation, "tx.Int" ) );
         auto c_puts_func_type_decl = new TxTypeDeclNode( this->builtinLocation, TXD_PUBLIC | TXD_IMPLICIT, "puts$func", nullptr,
                                                          c_puts_func_type_def );
-        c_puts_func_type_decl->symbol_declaration_pass( ctx );
+        run_declaration_pass( c_puts_func_type_decl, ctx );
         c_puts_func_type_decl->symbol_resolution_pass();
 
         auto c_puts_def = new TxBuiltinFieldDefNode( this->builtinLocation );
@@ -796,7 +796,7 @@ void BuiltinTypes::declare_tx_functions() {
         auto c_abort_func_type_def = new TxFunctionTypeNode( this->builtinLocation, false, new std::vector<TxArgTypeDefNode*>( { } ), nullptr );
         auto c_abort_func_type_decl = new TxTypeDeclNode( this->builtinLocation, TXD_PUBLIC | TXD_IMPLICIT, "abort$func", nullptr,
                                                           c_abort_func_type_def );
-        c_abort_func_type_decl->symbol_declaration_pass( ctx );
+        run_declaration_pass( c_abort_func_type_decl, ctx );
         c_abort_func_type_decl->symbol_resolution_pass();
 
         auto c_abort_def = new TxBuiltinFieldDefNode( this->builtinLocation );
@@ -808,7 +808,7 @@ void BuiltinTypes::declare_tx_functions() {
 //    LexicalContext moduleCtx( module );
 
     // public _address( r : Ref ) ULong
-// FIXME
+// TODO
 //    std::vector<const TxType*> argumentTypes( { this->builtinTypes[REFERENCE]->typeExpression->get_type() } );
 //    auto funcTypeDef = new TxBuiltinFieldDefNode( this->builtinLocation );
 //    auto funcDecl = module->declare_field("_address", funcTypeDef, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
