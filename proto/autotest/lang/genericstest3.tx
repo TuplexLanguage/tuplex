@@ -5,9 +5,9 @@ type TupTypeA<S,T> {
     instMembT : T;
 }
 
-type EqTypeA TupTypeA;
+type EqTypeA : TupTypeA;
 
-type PureDerTypeA0 TupTypeA<Int,Float>;
+type PureDerTypeA0 : TupTypeA<Int,Float>;
 
 
 ## test auto-redeclaration of unbound type parameter:
@@ -16,7 +16,7 @@ type PureDerTypeA0 TupTypeA<Int,Float>;
 
 
 ## test rebinding type parameters to new type parameters:
-type RebindTypeA<U,V> TupTypeA<V,U>;
+type RebindTypeA<U,V> : TupTypeA<V,U>;
 
 
 

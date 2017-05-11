@@ -4,8 +4,8 @@ module my
 
 type AType<S derives Ref> mod derives Tuple {
     public memref : S;
-    public type GenAlias S;
-    public type GenRef Ref<S>;
+    public type GenAlias : S;
+    public type GenRef : Ref<S>;
 
     public self(s : S) {
         self.memref = s;
@@ -16,9 +16,9 @@ type AType<S derives Ref> mod derives Tuple {
     }
 }
 
-type RInt Ref<Int>;
+type RInt : Ref<Int>;
 
-type ATypeRInt AType<RInt>;
+type ATypeRInt : AType<RInt>;
 
 #experr: type BadAType derives AType<Float> { ## doesn't match parameter's constraint type
 }

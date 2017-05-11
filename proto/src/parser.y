@@ -138,10 +138,11 @@ YY_DECL;
 %type <TxModuleMembers*> module_members opt_module_members
 %type <TxDeclarationNode *> member_declaration experr_decl type_param
 %type <std::vector<TxDeclarationNode*> *> type_body member_list type_param_list
+%type <TxTypeDeclNode*> type_declaration
 
 %type <TxIdentifiedSymbolNode*> named_symbol
 
-%type <std::vector<TxTypeExpressionNode*> *> opt_base_types conv_type_list
+%type <std::vector<TxTypeExpressionNode*> *> conv_type_list
 
 %type <TxTypeArgumentNode *> type_arg
 %type <std::vector<TxTypeArgumentNode*> *> type_arg_list
@@ -151,7 +152,7 @@ YY_DECL;
 %type <TxArgTypeDefNode*> func_arg_def
 %type <std::vector<TxArgTypeDefNode*> *> func_args func_args_list
 
-%type <TxTypeExpressionNode*> type_spec type_extension type_expression base_type_expression conv_type_expr produced_type
+%type <TxTypeExpressionNode*> type_spec type_expression data_type_expression conv_type_expr produced_type
 %type <TxTypeExpressionNode*> named_type specialized_type reference_type array_type //data_tuple_type
 
 %type <TxFunctionTypeNode*> function_signature
@@ -264,10 +265,7 @@ member_declaration
             { $$ = new TxFieldDeclNode(@2, $1, $2); }
 
     // type
-    | declaration_flags type_or_if NAME type_spec  
-            { $$ = new TxTypeDeclNode(@2, $1, $3, NULL, $4, $2); }
-    | declaration_flags type_or_if NAME LT type_param_list GT type_spec
-            { $$ = new TxTypeDeclNode(@2, $1, $3, $5,   $7, $2); }
+    | type_declaration     { $$ = $1; }
 
     // function / method
     |   declaration_flags method_def
@@ -320,27 +318,7 @@ field_assignment_def : NAME COLON type_expression EQUAL expr
 
 //// types:
 
-type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->push_back($1); }
-                | type_param_list COMMA type_param  { $$ = $1; $$->push_back($3); }
-                ;
-type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
-                                                  new TxNamedTypeNode(@1, "tx.Any")); }
-                | NAME KW_DERIVES conv_type_expr { $$ = new TxTypeDeclNode (@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
-                | NAME COLON type_expression     { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, new TxFieldDefNode(@1, $1, $3, nullptr)); }
-                ;
-
-
-type_spec : type_expression SEMICOLON { $$ = $1; }
-          | type_extension            { $$ = $1; }
-//          | type_interface { $$ = $1; }
-          ;
-
-type_extension : opt_modifiable opt_base_types type_body  //LBRACE  opt_type_members  RBRACE
-                        { $$ = new TxDerivedTypeNode(@1, $1, $2, $3); }
-               ;
-
 type_body
-    //:   %empty                          { $$ = new std::vector<TxDeclarationNode*>(); }
     :   LBRACE RBRACE                   { $$ = new std::vector<TxDeclarationNode*>(); }
     |   LBRACE member_list RBRACE       { $$ = $2; }
     |   LBRACE error RBRACE             { $$ = new std::vector<TxDeclarationNode*>(); TX_SYNTAX_ERROR; }
@@ -357,18 +335,45 @@ member_list : member_declaration
                            $$->push_back($2); }
             ;
 
-opt_base_types  : %empty    { $$ = new std::vector<TxTypeExpressionNode*>(); }
-                | KW_DERIVES conv_type_list  { $$ = $2; }
-                // (all but the first must be interface types)
+type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->push_back($1); }
+                | type_param_list COMMA type_param  { $$ = $1; $$->push_back($3); }
                 ;
+type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
+                                                  new TxNamedTypeNode(@1, "tx.Any")); }
+                | NAME KW_DERIVES conv_type_expr { $$ = new TxTypeDeclNode (@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
+                | NAME COLON type_expression     { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, new TxFieldDefNode(@1, $1, $3, nullptr)); }
+                ;
+
+type_declaration : declaration_flags type_or_if NAME type_spec  
+                        { $$ = new TxTypeDeclNode(@2, $1, $3, NULL, $4, $2); }
+                 | declaration_flags type_or_if NAME LT type_param_list GT type_spec
+                        { $$ = new TxTypeDeclNode(@2, $1, $3, $5,   $7, $2); }
+                 ;
+
+type_spec : opt_modifiable derives_token type_expression                      SEMICOLON  { $$ = $3; }
+          | opt_modifiable derives_token type_expression                      type_body  { $$ = new TxDerivedTypeNode(@1, $1, $3, $4); }
+          | opt_modifiable derives_token type_expression COMMA conv_type_list type_body
+                { $5->insert($5->begin(), $3); $$ = new TxDerivedTypeNode(@1, $1, $5, $6); }
+          | opt_modifiable type_body         { $$ = new TxDerivedTypeNode(@1, $1, $2); }
+//          | type_interface { $$ = $1; }
+          ;
+          // (all but the first of the base types must be interface types)
+
+derives_token : KW_DERIVES | COLON ;
+
+//opt_base_types  : %empty    { $$ = new std::vector<TxTypeExpressionNode*>(); }
+//                | derives_token conv_type_list  { $$ = $2; }
+//                ;
 
 conv_type_list  : conv_type_expr  { $$ = new std::vector<TxTypeExpressionNode*>();  $$->push_back($1); }
                 | conv_type_list COMMA conv_type_expr  { $$ = $1;  $$->push_back($3); }
                 ;
 
 // conventional type expressions are named types (and possibly specialized) (i.e. not using not syntatic sugar to describe the type)
-conv_type_expr  : named_symbol                      { $$ = new TxNamedTypeNode(@1, $1); }
-                | named_symbol LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@1, new TxNamedTypeNode(@1, $1), $3); }
+conv_type_expr  : named_symbol             %prec DOT  { $$ = new TxNamedTypeNode(@1, $1); }
+                | conv_type_expr DOT NAME             { $$ = new TxMemberTypeNode(@1, $1, $3); }
+                | conv_type_expr LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@1, $1, $3); }
+                //| named_symbol LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@1, new TxNamedTypeNode(@1, $1), $3); }
                 ;
 
 
@@ -401,17 +406,17 @@ type_arg        : value_literal       { $$ = new TxValueTypeArgumentNode($1); } 
 
 
 type_expression  // can identify or construct new type but can't extend (specify interfaces or add members to) one
-    :   opt_modifiable base_type_expression  %prec EXPR
+    :   opt_modifiable data_type_expression  %prec EXPR
              { $$ = ( $1 ? new TxModifiableTypeNode(@1, $2)
                          : new TxMaybeModTypeNode(@2, $2) ); }
-    |   opt_modifiable base_type_expression ELLIPSIS
+    |   opt_modifiable data_type_expression ELLIPSIS
              { $$ = ( $1 ? new TxReferenceTypeNode(@1, nullptr, new TxArrayTypeNode(@1, new TxModifiableTypeNode(@1, $2)))
                          : new TxReferenceTypeNode(@2, nullptr, new TxArrayTypeNode(@2, new TxMaybeModTypeNode(@2, $2))) ); }
     ;
 
 opt_modifiable : %empty { $$ = false; } | TILDE { $$ = true; } | KW_MODIFIABLE { $$ = true; } ;
 
-base_type_expression    : named_type     %prec DOT  { $$ = $1; }
+data_type_expression    : named_type     %prec DOT  { $$ = $1; }
                         | produced_type  %prec EXPR { $$ = $1; }
                         ;
 

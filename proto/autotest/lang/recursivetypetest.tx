@@ -78,13 +78,13 @@ type SpecTypeErr {
 
 
 ## ok with recursive type definition via reference:
-type SpecTypeOk    GenType<Ref<SpecTypeOk>>;
+type SpecTypeOk : GenType<Ref<SpecTypeOk>>;
 
-type ARef Ref<BRef>;
-type BRef Ref<ARef>;
+type ARef : Ref<BRef>;
+type BRef : Ref<ARef>;
 
-type CRef &DRef;
-type DRef &CRef;
+type CRef : &DRef;
+type DRef : &CRef;
 
 
 ## ok with recursive type definition via non-reference and not containing itself (needed to support CRTP):

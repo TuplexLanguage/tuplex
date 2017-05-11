@@ -77,7 +77,7 @@ array_stack_construction( i : UByte ) {
     #experr 1: ae := <Array<Int,3>>( [ 1, 2, 3, 4 ] );
     #experr 1: ae := <Array<Int,3>>( [ 1.1, 2.2, 3.3 ] );
 
-    type MyFA Array<Float,3>;
+    type MyFA : Array<Float,3>;
     aa := MyFA( [ 1.1, 2.2, 3.3 ] );
     #experr 1: ae := MyFA( [ 1.1, 2.2 ] );
     #experr 1: ae := MyFA( [ 1.1, 2.2, 3.3, 4.4 ] );
@@ -145,7 +145,7 @@ array_new_construction( i : UByte ) {
     #experr 1: ae := new Array<Int,3>( [ 1, 2, 3, 4 ] );
     #experr 1: ae := new Array<Int,3>( [ 1.1, 2.2, 3.3 ] );
 
-    type MyFA Array<Float,3>;
+    type MyFA : Array<Float,3>;
     aa := new MyFA( [ 1.1, 2.2, 3.3 ] );
     #experr 1: ae := new MyFA( [ 1.1, 2.2 ] );
     #experr 1: ae := new MyFA( [ 1.1, 2.2, 3.3, 4.4 ] );

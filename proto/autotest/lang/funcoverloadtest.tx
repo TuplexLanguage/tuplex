@@ -14,7 +14,7 @@ overloaded_func(a : Float, b : Int)->Float {
 #experr 1: non_func(a : Float, b : Int)->Int { return b; }  ## overload with non-function field
 
 
-type FooFuncType (a : Double, b : Double)->Double;
+type FooFuncType : (a : Double, b : Double)->Double;
 
 other_func(a : Double, b : Double)->Double {
     r := a * b / 2.0;

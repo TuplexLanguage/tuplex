@@ -398,6 +398,12 @@ public:
         this->init_implicit_types();
     }
 
+    TxDerivedTypeNode( const TxLocation& parseLocation, const bool _mutable, TxTypeExpressionNode* baseType, std::vector<TxDeclarationNode*>* members )
+        : TxDerivedTypeNode(parseLocation, _mutable, new std::vector<TxTypeExpressionNode*>( { baseType } ), members) { }
+
+    TxDerivedTypeNode( const TxLocation& parseLocation, const bool _mutable, std::vector<TxDeclarationNode*>* members )
+        : TxDerivedTypeNode(parseLocation, _mutable, new std::vector<TxTypeExpressionNode*>(), members) { }
+
     virtual TxDerivedTypeNode* make_ast_copy() const override {
         return new TxDerivedTypeNode( this->parseLocation, this->_mutable,
                                       make_node_vec_copy( this->baseTypes ),
