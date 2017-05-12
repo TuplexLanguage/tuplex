@@ -135,6 +135,8 @@ protected:
     inline void set_context( const TxNode* parentNode ) {
         ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );
         this->parentNode = parentNode;
+        // TODO: make private and non-const, or separate parserCtx from TxLocation into separate TxNode member:
+        const_cast<TxLocation&>( this->parseLocation ).parserCtx = parentNode->parseLocation.parserCtx;
         this->lexContext = this->parentNode->context();
     }
 

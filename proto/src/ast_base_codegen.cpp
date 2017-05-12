@@ -42,8 +42,11 @@ Value* TxModuleNode::code_gen( LlvmGenerationContext& context, GenScope* scope )
 
 Value* TxTypeDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    if ( this->typeExpression->context().is_generic() ) {
-        LOG( context.LOGGER(), INFO, "Skipping codegen for type with generic context: " << this->typeExpression << " : " << this->typeExpression->get_type());
+    if ( !this->typeExpression->get_type()->type()->has_type_id() ) {
+        LOG_DEBUG( context.LOGGER(), "Skipping codegen for AST of type without static type id: " << this->typeExpression << " : " << this->typeExpression->get_type() );
+        // Note that this skips codegen for the entire AST of all generic-dependent types,
+        // which means none of their members are generated, including any statically declared inner/local types.
+        // FUTURE: Evaluate capability for generic types to have global static members (e.g. inner types independent of the outer type parameters).
         return nullptr;
     }
     return this->typeExpression->code_gen( context, scope );

@@ -78,7 +78,6 @@ void TypeRegistry::prepare_types() {
     for ( auto type : this->createdTypes ) {
         //std::cerr << "Preparing type: " << type << std::endl;
         type->prepare_members();
-        //if (type->is_builtin())
         if ( type->staticTypeId < BuiltinTypeId_COUNT )
             continue;
         // Types that are distinct in instance data type, or vtable, get distinct static type id and vtable.
@@ -91,7 +90,16 @@ void TypeRegistry::prepare_types() {
             continue;
         }
         if ( type->is_generic_dependent() ) {
-            LOG( this->LOGGER(), INFO, "Not registering generic-dependent type as static type: " << type );
+            // FUTURE: review whether generic base types should be a vtable parent of their specializations
+            LOG_DEBUG( this->LOGGER(), "Not registering generic-dependent type as static type: " << type );
+            continue;
+        }
+        if ( type->get_declaration()->get_definer()->exp_err_ctx() ) {
+            if (type->get_declaration()->get_definer()->context().reinterpretation_definer())
+                LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr context as static type: " << type
+                     << " origin: " << type->get_declaration()->get_definer()->context().reinterpretation_definer());
+            else
+                LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr context as static type: " << type);
             continue;
         }
         type->staticTypeId = this->staticTypes.size();
@@ -144,7 +152,7 @@ const TxType* TypeRegistry::get_modifiable_type( const TxTypeDeclaration* declar
             name = scope->make_unique_name( name );
         }
 
-        const TxLocation& loc = ( declaration ? declaration->get_definer()->get_parse_location() : actualType->get_parse_location() );
+        const TxLocation& loc = actualType->get_parse_location();
         auto modNode = new TxModifiableTypeNode( loc, new TxNamedTypeNode( loc, actualType->get_declaration()->get_unique_name() ) );
         TxDeclarationFlags newDeclFlags = ( actualType->get_declaration()->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
         auto modDeclNode = new TxTypeDeclNode( loc, newDeclFlags, name, nullptr, modNode );
@@ -221,13 +229,7 @@ const TxActualType* TypeRegistry::get_actual_type_specialization( const TxTypeDe
     if ( auto typeExprNode = dynamic_cast<const TxTypeExpressionNode*>( definer ) )
         declaration = typeExprNode->get_declaration();
 
-    // Note: The same generic type specialization may be produced by multiple statements,
-    //       both within ExpErr constructs and without. Therefore the type name must distinguish between them.
-    // Note: Implicit types (without explicit declaration) produced by ExpErr statements are identified by presence of ExpErrCtx.
-    bool isExpErrType = ( ( declaration && ( declaration->get_decl_flags() & TXD_EXPERRBLOCK ) )
-                          || ( !declaration && definer->exp_err_ctx() ) );
-
-    const TxActualType* specializedType = get_inner_type_specialization( definer, baseType, bindings, isExpErrType );
+    const TxActualType* specializedType = get_inner_type_specialization( definer, baseType, bindings );
 
     if ( declaration ) {
         // create empty type specialization with explicit (unique) name
@@ -308,7 +310,7 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
 static const TxActualType* get_existing_type( const TxActualType* baseType, const std::vector<const TxTypeArgumentNode*>* bindings,
                                               TxScopeSymbol* baseScope,
                                               const std::string& newBaseName ) {
-    auto baseTypeParams = baseType->type_params();
+    auto baseTypeParams = baseType->get_type_params();
     if ( bindings->size() == baseTypeParams.size() ) {
         // if generic type specialization is equivalent to the generic base type, reuse it:
         bool matchOK = true;
@@ -377,8 +379,7 @@ static TxDeclarationNode* make_value_type_param_decl_node( const TxLocation& par
 }
 
 const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
-                                                                 const std::vector<const TxTypeArgumentNode*>* bindings,
-                                                                 bool isExpErrType ) {
+                                                                 const std::vector<const TxTypeArgumentNode*>* bindings ) {
     // Note: A non-parameterized type (without any declared type parameters) is not necessarily non-generic:
     //       It may have members that refer to generic parameters declared in an outer scope.
     // Note: Binding of ref-constrained type parameters doesn't necessarily affect code generation,
@@ -394,13 +395,21 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
     // (this replaces the type parameter bindings with direct declarations within the new type)
     LOG_DEBUG( this->LOGGER(), "Re-basing the new type of [ " << definer << " ] by specializing the generic base type " << baseType );
 
+    // Note: The same generic type specialization may be produced by multiple statements,
+    //       both within ExpErr constructs and without. Therefore the type name must distinguish between them.
+    // If either the generic type or its specialization site is defined within an exp-err-context,
+    // the specialization inherits that exp-err-context:
+    ExpectedErrorClause* expErrCtx = definer->exp_err_ctx();
+    if (! expErrCtx)
+        expErrCtx = baseDecl->get_definer()->exp_err_ctx();
+
     std::stringstream newBaseTypeName;
-    if ( isExpErrType )
+    if ( expErrCtx )
         newBaseTypeName << "$EE$";
     newBaseTypeName << baseDecl->get_unique_name() << "<";
 
     // do shallow validation that bindings match base type's parameters:
-    auto baseTypeParams = baseType->type_params();
+    auto baseTypeParams = baseType->get_type_params();
     if ( baseTypeParams.size() < bindings->size() ) {
         CERR_THROWRES( definer, "Too many type arguments specifified for generic base type " << baseType );
     }
@@ -443,21 +452,21 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
     auto baseScope = baseDecl->get_symbol()->get_outer();
     const TxActualType* specializedType = get_existing_type( baseType, bindings, baseScope, newBaseTypeNameStr );
     if ( !specializedType ) {
-        specializedType = make_type_specialization( definer, baseType, bindings, isExpErrType, newBaseTypeNameStr );
+        specializedType = make_type_specialization( definer, baseType, bindings, expErrCtx, newBaseTypeNameStr );
     }
     return specializedType;
 }
 
 const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
                                                             const std::vector<const TxTypeArgumentNode*>* bindings,
-                                                            bool isExpErrType, const std::string& newSpecTypeNameStr ) {
+                                                            ExpectedErrorClause* expErrCtx, const std::string& newSpecTypeNameStr ) {
     auto baseDecl = baseType->get_declaration();
     auto baseScope = baseDecl->get_symbol()->get_outer();
-    auto baseTypeParams = baseType->type_params();
+    auto baseTypeParams = baseType->get_type_params();
 
     TxDeclarationFlags newDeclFlags;
 
-    if ( isExpErrType )
+    if ( expErrCtx )
         newDeclFlags = ( baseDecl->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT | TXD_EXPERRBLOCK;
     else
         newDeclFlags = ( baseDecl->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT;
@@ -537,7 +546,7 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     bool outerIsGeneric = definer->parent()->context().is_generic();
 //    if (outerIsGeneric)
 //        std::cerr << "outer is generic for " << uniqueSpecTypeNameStr << " at " << definer << std::endl;
-    LexicalContext specContext( baseScope, definer->exp_err_ctx(), outerIsGeneric, definer );
+    LexicalContext specContext( baseScope, expErrCtx, outerIsGeneric, definer );
     run_declaration_pass( newSpecTypeDecl, specContext );
     const TxActualType* specializedType = specTypeExpr->resolve_type()->type();
     LOG_DEBUG( this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << baseType );
@@ -675,7 +684,7 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
     LOG( this->LOGGER(), INFO, "Creating interface adapter: " << adapterName << "\n\tfrom " << adaptedType << "\n\tto   " << interfaceType );
     // TODO: combine flags from adapted and adaptee types, including TXD_EXPERRBLOCK
 
-    auto & loc = this->get_builtin_location();
+    auto & loc = this->get_builtin_location();  // FIXME: add origin (adapter use site) to function signature so that we can assign an appropriate location
     auto adapterTypeNode = new TxAdapterTypeNode( loc, interfaceType, adaptedType );
     auto adapterDeclNode = new TxTypeDeclNode( loc, ( TXD_PUBLIC | TXD_IMPLICIT ), adapterName, nullptr, adapterTypeNode );
 

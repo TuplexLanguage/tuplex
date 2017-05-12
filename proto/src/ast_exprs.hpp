@@ -538,8 +538,13 @@ public:
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         this->typeExpr->symbol_resolution_pass();
-        if ( !this->typeExpr->get_type()->is_concrete() )
-            CERROR( this->typeExpr, "Can't make an object of a non-concrete type (size potentially unknown): " << this->typeExpr->get_type() );
+        if ( !this->typeExpr->get_type()->is_concrete() ) {
+            if ( !this->context().is_generic() )
+                CERROR( this->typeExpr, "Object to allocate is not a concrete type (size potentially unknown): " << this->typeExpr->get_type() );
+            else
+                LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Object to allocate is not a concrete type (size potentially unknown): "
+                           << this->typeExpr->get_type() );
+        }
 
         this->constructorCall->symbol_resolution_pass();
 

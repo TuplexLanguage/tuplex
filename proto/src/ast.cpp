@@ -597,7 +597,7 @@ void TxAssignStmtNode::symbol_resolution_pass() {
         if ( !this->context().is_generic() )
             CERROR( this->lvalue, "Assignee is not a concrete type (size potentially unknown): " << ltype );
         else
-            LOG_INFO( this->LOGGER(), "Assignee is not a concrete type (size potentially unknown): " << ltype );
+            LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Assignee is not a concrete type (size potentially unknown): " << ltype );
     }
     else if ( !ltype->is_modifiable() ) {
         if ( !( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() ) )

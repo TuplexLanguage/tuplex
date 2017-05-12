@@ -298,12 +298,18 @@ public:
         return this->declaration;
     }
 
-    /** Gets the runtime type id of this type. (Equivalent specializations return their base type's id.)
+    /** Gets the static type id of this type. (Equivalent specializations return their base type's id.)
      * For non-built-in types, this is only valid to call after the type preparation phase. */
     inline uint32_t get_type_id() const {
         //ASSERT(this->prepared, "Can't get runtime type id of unprepared type: " << this);
         ASSERT( this->staticTypeId != UINT32_MAX || this->is_equivalent_derivation(), "Type id not set for " << this );
         return ( this->staticTypeId == UINT32_MAX ? this->get_semantic_base_type()->get_type_id() : this->staticTypeId );
+    }
+
+    /** Returns true if this type instance has a static type id assigned.
+     * If called before the type preparation phase, only built-in types return true. */
+    inline bool has_type_id() const {
+        return ( this->staticTypeId != UINT32_MAX );
     }
 
     /*--- characteristics ---*/
@@ -405,7 +411,6 @@ public:
      * Generic types are not concrete, with these exceptions:
      *  - References are always concrete
      *  - If all unbound type parameters are Ref-constrained (i.e. guaranteed to derive Ref)
-     * TODO: in current implementation we regard all generic, non-reference types as non-concrete.
      */
     virtual bool is_concrete() const;
 
@@ -414,11 +419,12 @@ public:
      * @see is_generic_dependent()
      */
     inline bool is_generic() const {
-        return !this->type_params().empty();
+        return !this->get_type_params().empty();
     }
 
-    /** Returns true if this type is dependent on generic type parameters.
-     * This is true if this type is generic or has an outer generic type, either of which has unbound type parameters.
+    /** Returns true if this type is dependent on unbound generic type parameters.
+     * This is true if this type is generic (i.e. has unbound type parameters), or is declared within the scope
+     * of another generic type (i.e. which has unbound type parameters).
      */
     bool is_generic_dependent() const;
 
@@ -539,22 +545,22 @@ public:
     /*--- type parameter handling ---*/
 
     /** Gets the (unbound) type parameters of this type (this type is a generic type if this is non-empty). */
-    inline const std::vector<const TxEntityDeclaration*>& type_params() const {
+    inline const std::vector<const TxEntityDeclaration*>& get_type_params() const {
         ASSERT( this->hasInitialized, "Can't get type params of uninitized type " << this );
-        return ( ( this->is_empty_derivation() || this->is_modifiable() ) ? this->get_base_type()->type_params() : this->params );
+        return ( ( this->is_empty_derivation() || this->is_modifiable() ) ? this->get_base_type()->get_type_params() : this->params );
     }
 
     /** Returns true if this type has an (unbound) type parameter with the specified (plain) name. */
     bool has_type_param( const std::string& plainParamName ) const {
-        for ( auto & p : this->type_params() )
+        for ( auto & p : this->get_type_params() )
             if ( p->get_unique_name() == plainParamName )
                 return true;
         return false;
     }
 
-    /** Gets the declaration of a type parameter of this type. (Note - this does not search ancestors' bound parameters.) */
+    /** Gets the declaration of an (unbound) type parameter of this type. (Note - this does not search ancestors' bound parameters.) */
     const TxEntityDeclaration* get_type_param_decl( const std::string& plainParamName ) const {
-        for ( auto & paramDecl : this->type_params() ) {
+        for ( auto & paramDecl : this->get_type_params() ) {
             if ( plainParamName == paramDecl->get_unique_name() )
                 return paramDecl;
         }

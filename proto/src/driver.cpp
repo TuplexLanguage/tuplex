@@ -276,11 +276,6 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
 
     // generate the code for the type specializations that are defined by reinterpreted source:
     for ( auto specNode : this->package->registry().get_enqueued_specializations() ) {
-        ASSERT( specNode->get_declaration(), "Can't generate code for enqueued specialization without declaration: " << specNode );
-        if ( specNode->get_decl_flags() & TXD_EXPERRBLOCK ) {
-            _LOG.info( "Skipping code generation for enqueued ExpErr specialization: %s", specNode->get_declaration()->str().c_str() );
-            continue;
-        }
         _LOG.debug( "Generating code for enqueued specialization: %s", specNode->get_declaration()->str().c_str() );
         genContext.generate_code( specNode );
     }
@@ -353,14 +348,22 @@ static std::string format_location_message( const TxLocation& parseLocation, cha
 }
 
 static std::string format_location_message( const TxParseOrigin* origin, char const *msg ) {
-    auto firstLine = format_location_message( origin->get_parse_location(), msg );
-    if ( origin->get_origin_node()->is_context_set() ) {
-        if ( auto reinterpretingNode = origin->get_origin_node()->context().reinterpretation_definer() ) {
-            // display both reinterpretation site location and error site location
-            return firstLine + "\n\t\t-- In type specialized from here: " + format_location( reinterpretingNode->get_parse_location() );
+    auto message = format_location_message( origin->get_parse_location(), msg );
+    auto reintOrigin = origin->get_origin_node();
+    std::string prefix = "\n\t";
+    do {
+        if ( reintOrigin->is_context_set() ) {
+            if ( auto reinterpretingNode = reintOrigin->context().reinterpretation_definer() ) {
+                // display both reinterpretation site location and error site location
+                message += prefix + "-- In type specialized from here: " + format_location( reinterpretingNode->get_parse_location() );
+                reintOrigin = reinterpretingNode;
+                prefix += '\t';
+                continue;
+            }
         }
-    }
-    return firstLine;
+        break;
+    } while (true);
+    return message;
 }
 
 /******* TxParserContext implementation *******/

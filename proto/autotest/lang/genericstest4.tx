@@ -47,8 +47,9 @@ type Outer<S> {
 test_nested() {
     n1 : Outer<Long>.Nested<Byte, Short>;
     
-    type Redecl<W> derives Outer<Long>.Nested<Byte,W>;
+    type Redecl<W> : Outer<Long>.Nested<Byte,W>;
     n2 : Redecl<Short>;
+    n3 : n2.T;
 }
 
 main()->Int {
@@ -67,11 +68,13 @@ main()->Int {
     v2b : v1b.Inner;
     v3b : OuterFl.Inner = v3a;
     
-    ## explicitly named types are considered distinct:
+    ## explicitly named type is considered distinct:
     #experr 1: ve : OuterFl = v1a;
-    #experr 1: ve : Outer<Float> = v1b;
 
-    v10 : Outer.Indep;
+    ## an equivalent, implicit parent type of an explicitly named type is more forgiving:
+    v4 : Outer<Float> = v1b;
+
+    #experr: ve : Outer.Indep;
     v11 : OuterFl.Indep;
     ## we currently treat all entities enclosed by a generic type as distinct per specialization:
     #experr 1: ve : &Outer.Indep = &v11;

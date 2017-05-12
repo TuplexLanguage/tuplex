@@ -134,7 +134,7 @@ void TxActualType::validate_type() const {
         // if this is not an empty nor a modifiable derivation, verify that all parameters of base type are either bound, or redeclared:
         // Note: The base type's parameters that have not been bound should normally be automatically redeclared by the type registry.
         if ( !this->emptyDerivation && !this->is_modifiable() ) {
-            for ( auto & paramDecl : this->get_semantic_base_type()->type_params() ) {
+            for ( auto & paramDecl : this->get_semantic_base_type()->get_type_params() ) {
                 if ( !this->get_binding( paramDecl->get_unique_name() ) ) {
                     if ( !this->has_type_param( paramDecl->get_unique_name() ) ) {
                         //this->params.emplace_back(paramDecl);
@@ -310,22 +310,6 @@ void TxActualType::initialize_type() {
     this->validate_type();
 }
 
-/** Returns true if type or any of its enclosing types is dependent on generic type parameters. */
-static bool is_generic_context( const TxActualType* type ) {
-    if ( type->is_generic() )
-        return true;
-    TxScopeSymbol* scope = type->get_declaration()->get_symbol()->get_outer();
-    while ( !dynamic_cast<TxModule*>( scope ) ) {
-        if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( scope ) ) {
-            type = entitySymbol->get_type_decl()->get_definer()->get_type()->type();
-            if ( type->is_generic() )
-                return true;
-        }
-        scope = scope->get_outer();
-    }
-    return false;
-}
-
 bool TxActualType::prepare_members() {
     if ( !this->hasPrepared ) {
         if ( this->startedPrepare ) {
@@ -366,9 +350,6 @@ bool TxActualType::inner_prepare_members() {
     }
     //std::cerr << "Inherited virtual fields of " << this << std::endl;
     //this->virtualFields.dump();
-
-    // (note, this condition is not the same as is_concrete())
-    bool expectOnlyConcreteMembers = !is_generic_context( this );
 
     auto semBaseType = this->get_semantic_base_type();
 
@@ -415,17 +396,6 @@ bool TxActualType::inner_prepare_members() {
 
             auto field = fieldDecl->get_definer()->get_field();
             auto fieldType = field->get_type()->type();
-
-            { // validate field's type:
-                if ( !fieldType->is_concrete() ) {
-                    // it's ok for a field to be non-concrete if enclosed in a generic context
-                    if ( expectOnlyConcreteMembers
-                         && !( fieldType->get_declaration()->get_decl_flags() & TXD_GENPARAM ) )
-                        CERROR( field, "In type " << this << ": member field is not of a concrete type: " << field << " : " << fieldType );
-                    else
-                        LOG_INFO( this->LOGGER(), "In type " << this << ": member field is not of a concrete type: " << field << " : " << fieldType );
-                }
-            }
 
             // validate field's storage and declaration flags, and do layout:
             switch ( fieldDecl->get_storage() ) {
@@ -524,54 +494,75 @@ bool TxActualType::inner_prepare_members() {
     return recursionError;
 }
 
+/** Returns true if this type has one or more (unbound) TYPE parameters that are not constrained to be a Ref type. */
+static bool has_nonref_params( const TxActualType* type ) {
+    for ( auto & paramDecl : type->get_type_params() ) {
+        if ( auto paramTypeDecl = dynamic_cast<const TxTypeDeclaration*>( paramDecl ) ) {
+            auto constraintType = paramTypeDecl->get_definer()->resolve_type();
+            ASSERT( constraintType, "NULL constraint type for param " << paramDecl << " of " << type );
+            if ( constraintType->get_type_class() != TXTC_REFERENCE )
+                return true;
+        }
+    }
+    return false;
+}
+
+/** Returns true if any the type's enclosing types is dependent on non-ref type parameters. */
+static bool has_outer_with_nonref_params( const TxActualType* type ) {
+    TxScopeSymbol* scope = type->get_declaration()->get_symbol()->get_outer();
+    while ( !dynamic_cast<TxModule*>( scope ) ) {
+        if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( scope ) ) {
+            type = entitySymbol->get_type_decl()->get_definer()->get_type()->type();
+            if ( has_nonref_params( type ) )
+                return true;
+        }
+        scope = scope->get_outer();
+    }
+    return false;
+}
+
 bool TxActualType::is_concrete() const {
     if ( recursionGuard ) {
         LOG( this->LOGGER(), DEBUG,
-             "Infinite recursion (probably erroneously recursive type definition) detected in is_concrete() of type " << this );
+             "Infinite recursion (probably due to erroneously recursive type definition) detected in is_concrete() of type " << this );
         return false;
     }
     ScopedRecursionGuardClause guard( this );
 
     if ( this->is_abstract() )
         return false;
-    else if ( this->is_generic() ) {
-        // TODO: If only Ref-constrained parameters, then return true
-        return false;
-    }
     else if ( this->is_equivalent_derivation() ) {
         return this->get_base_type()->is_concrete();
     }
-//    else if (this->get_declaration()->get_decl_flags() & TXD_GENPARAM) {
-//        return false;
-//    }
-    else {
-        for ( auto b : this->get_bindings() ) {
-            if ( auto t = dynamic_cast<const TxTypeDeclaration*>( b ) ) {
-                if ( !t->get_definer()->resolve_type()->is_concrete() )
-                    return false;
-            }
-            else if ( auto initExpr = static_cast<const TxFieldDeclaration*>( b )->get_definer()->get_init_expression() ) {
+    else if ( has_nonref_params( this ) ) {
+        // (if only Ref-constrained parameters then being generic doesn't cause it to be non-concrete)
+        return false;
+    }
+
+    for ( auto b : this->get_bindings() ) {
+        if ( auto f = dynamic_cast<const TxFieldDeclaration*>( b ) ) {
+            if ( auto initExpr = f->get_definer()->get_init_expression() ) {
                 if ( initExpr->is_statically_constant() )
                     return false;
             }
         }
+        else {  // const TxTypeDeclaration*
+            // a bound TYPE type parameter is always concrete (unless this is declared within a generic outer scope)
+            //if ( !t->get_definer()->resolve_type()->is_concrete() )
+            //    return false;
+        }
     }
+
+    if ( has_outer_with_nonref_params( this ) )
+        return false;
+
     return true;
 }
 
 bool TxActualType::is_generic_dependent() const {
-    if (!this->type_params().empty())
+    if ( this->is_generic() )
         return true;
     return this->get_declaration()->get_definer()->context().is_generic();
-//    for ( auto outerScope = this->get_declaration()->get_symbol()->get_outer();
-//          !dynamic_cast<TxModule*>(outerScope);
-//          outerScope = outerScope->get_outer() ) {
-//        if (auto typeScope = dynamic_cast<TxEntitySymbol*>(outerScope)) {
-//            auto outerTypeDecl = typeScope->get_type_decl();
-//            return outerTypeDecl->get_definer()->resolve_type()->type()->is_generic_dependent();
-//        }
-//    }
-//    return false;
 }
 
 bool TxActualType::is_empty_derivation() const {
@@ -658,7 +649,7 @@ static TxEntitySymbol* lookup_inherited_binding( const TxActualType* type, const
     auto paramName = ident.name();
     const TxActualType* semBaseType = type->get_semantic_base_type();
     while ( semBaseType ) {
-        if ( get_type_param_decl( semBaseType->type_params(), fullParamName ) ) {
+        if ( get_type_param_decl( semBaseType->get_type_params(), fullParamName ) ) {
             // semBaseType is the (nearest) type that declares the sought parameter
             if ( auto binding = type->get_binding( paramName ) )
                 return binding->get_symbol();
@@ -853,7 +844,7 @@ bool TxActualType::inner_is_a( const TxActualType* thisType, const TxActualType*
     if ( thisType->is_gen_or_spec() && thatType->is_gen_or_spec() ) {
         if ( auto genBaseType = common_generic_base_type( thisType, thatType ) ) {
             //std::cerr << "Common generic base type " << genBaseType << std::endl << "\tthisType: " << thisType << std::endl << "\tthatType: " << thatType << std::endl;
-            for ( auto paramDecl : genBaseType->type_params() ) {
+            for ( auto paramDecl : genBaseType->get_type_params() ) {
                 // other's param shall either be redeclared (unbound) or *equal* to this (is-a is not sufficient in general case)
                 // - a MOD binding is considered to be is-a of a non-MOD binding
                 // - a binding may be to a type that is equal to the parameter's constraint type, i.e. equivalent to unbound parameter
@@ -1009,9 +1000,9 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
 /*=== ArrayType and ReferenceType implementation ===*/
 
 bool TxArrayType::is_concrete() const {
-    // If array of concrete elements with statically known length, return true
+    // Array elements, if bound, are always concrete. If statically known length, return true:
     if ( auto len = this->length() ) {
-        return ( this->element_type()->is_concrete() && len->is_statically_constant() );
+        return len->is_statically_constant();
     }
     return false;
 }

@@ -70,7 +70,7 @@ public:
         return false;
     }
 
-    /** Returns true if this type is concrete (i.e. can be directly instanced). References may be concrete while generic. */
+    /** Returns true if this type is concrete (i.e. can be directly instanced). References are always concrete, also when generic. */
     virtual bool is_concrete() const override {
         return true;
     }

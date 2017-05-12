@@ -74,12 +74,11 @@ class TypeRegistry {
                                                         const std::vector<const TxTypeArgumentNode*>* bindings );
 
     const TxActualType* get_inner_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
-                                                       const std::vector<const TxTypeArgumentNode*>* bindings,
-                                                       bool isExpErrType );
+                                                       const std::vector<const TxTypeArgumentNode*>* bindings );
 
     const TxActualType* make_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
                                                   const std::vector<const TxTypeArgumentNode*>* bindings,
-                                                  bool isExpErrType, const std::string& newBaseTypeNameStr );
+                                                  ExpectedErrorClause* expErrCtx, const std::string& newBaseTypeNameStr );
 
     const TxType* get_actual_interface_adapter( const TxActualType* interfaceType, const TxActualType* adaptedType );
 

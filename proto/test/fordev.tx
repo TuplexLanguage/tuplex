@@ -36,7 +36,7 @@ array_stack_construction( i : UByte ) {
     #experr 1: ae := [0]Int( 1, 2, 3 );
     #experr 2: ae := [-1]Int( 1, 2, 3 );
     #experr 2: ae := [2.5]Int( 1, 2, 3 );
-    #experr 2: ae := [i]Int( 1, 2, 3 );
+    #experr 4: ae := [i]Int( 1, 2, 3 );
 
     ## explicit array type (fully specified or with implicit length) with object initializer:
     a10 := [3]Int( [ 1I, 2, 3 ] );  ## literal array initializer
@@ -88,9 +88,10 @@ array_stack_construction( i : UByte ) {
     #experr 2: ae := <Array>( [ 1, 2, 3 ] );
 
 
-  ## Construction with dynamic Array length - not supported for stack storage:
-    #experr 2: ae := [i*0]Int();
-    #experr 2: ae := [i*3]Int( 1, 2, 3 );
+  ## Construction with dynamic Array length
+  ## TODO: support for stack storage (like in C99):
+    #experr 4: ae := [i*0]Int();
+    #experr 4: ae := [i*3]Int( 1, 2, 3 );
     #experr 1: ae := <Array<Int,i*0>>( []Int() );
     #experr 1: ae := <Array<Int,i*3>>( [ 1I, 2, 3 ] );
 }
@@ -105,7 +106,7 @@ array_new_construction( i : UByte ) {
 
     a3 := new [3]Int( 1, 2, 3 );
     a4 := new [0]Int();           ## empty array of Ints
-  ## not supported to automatically inferarray length
+  ## not supported to automatically infer array length
     #experr 2: a5 := new []Int( 1, 2, 3 );
     #experr 2: a6 := new []Int();            ## empty array of Ints
 
@@ -114,7 +115,7 @@ array_new_construction( i : UByte ) {
     #experr 1: ae := new [0]Int( 1, 2, 3 );
     #experr 2: ae := new [-1]Int( 1, 2, 3 );
     #experr 2: ae := new [2.5]Int( 1, 2, 3 );
-    #experr 2: ae := new [i]Int( 1, 2, 3 );
+    #experr 4: ae := new [i]Int( 1, 2, 3 );
 
     ## explicit array type (fully specified or with implicit length) with object initializer:
     a10 := new [3]Int( [ 1I, 2, 3 ] );
