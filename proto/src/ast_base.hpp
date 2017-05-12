@@ -94,9 +94,8 @@ typedef std::function<void( TxNode* node, const AstCursor& parent, const std::st
  * @parentNode the parent of node; must not be null */
 extern void run_declaration_pass( TxNode* node, const TxNode* parentNode, const std::string& role="");
 
-class TxDeclarationNode;
 /** Runs the declaration pass on a node and its subtree. */
-extern void run_declaration_pass( TxDeclarationNode* declNode, const LexicalContext& lexContext );
+extern void run_declaration_pass( TxNode* node, const LexicalContext& lexContext );
 
 
 //template<class N>
@@ -150,11 +149,15 @@ protected:
 public:
     const TxLocation parseLocation;
 
+    virtual const TxNode* get_origin_node() const override final {
+        return this;
+    }
+
     virtual const TxLocation& get_parse_location() const override final {
         return this->parseLocation;
     }
 
-    virtual ExpectedErrorClause* exp_err_ctx() const override {
+    virtual ExpectedErrorClause* exp_err_ctx() const override final {
         return this->lexContext.exp_error();
     }
 
@@ -170,7 +173,7 @@ public:
     }
 
     inline const LexicalContext& context() const {
-        ASSERT( this->is_context_set(), "lexicalContext not initialized in " << this->str() );
+        ASSERT( this->is_context_set(), "lexicalContext not initialized in " << this );
         return this->lexContext;
     }
 
@@ -190,6 +193,8 @@ public:
         return nullptr;
     }
 
+    /** Runs the resolution pass on this node and its subtree. */
+    virtual void symbol_resolution_pass() = 0;
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const = 0;
 
@@ -256,6 +261,8 @@ public:
         return new TxImportNode( this->parseLocation, this->ident );
     }
 
+    virtual void symbol_resolution_pass() override { }
+
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
         return nullptr;
     }
@@ -268,6 +275,7 @@ public:
     }
 };
 
+/** Common superclass for entity declaration nodes. */
 class TxDeclarationNode : public TxNode {  // either type or field
     TxDeclarationFlags declFlags;
     // these set TXD_EXPERRBLOCK if this is an exp-err declaration:
@@ -284,8 +292,6 @@ public:
     inline TxDeclarationFlags get_decl_flags() const {
         return this->declFlags;
     }
-
-    virtual void symbol_resolution_pass() = 0;
 
     virtual const TxEntityDeclaration* get_declaration() const = 0;
 };

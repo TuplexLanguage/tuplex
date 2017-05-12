@@ -41,6 +41,8 @@ run_cmd( """txc -quiet -nojit -nobc errtest.tx inttest.tx 2>/dev/null""", 2 )   
 
 
 source_files = [
+    "helloworld.tx",
+
     "errtest.tx",
 
     "inttest.tx",

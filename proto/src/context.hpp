@@ -27,13 +27,13 @@ class LexicalContext : public Printable {
 public:
     TxScopeSymbol* _scope;
     bool generic;  // true if this is within a generic type definition (note, can be true also when reinterpreted, if not all params bound)
-    bool reinterpretation;  // true if this is a reinterpretation (specialization) of an AST
+    const TxTypeDefiningNode* reinterpretationDefiner;  // non-null if this is a reinterpretation (specialization) of an AST
     ExpectedErrorClause* expErrCtx;
     TxLambdaExprNode* enclosingLambda;  // the nearest enclosing lambda node, or null if none
 
     /** Constructs an "uninitialized" lexical context. */
     LexicalContext() //= default;
-            : _scope(), generic(), reinterpretation(), expErrCtx(), enclosingLambda() {
+            : _scope(), generic(), reinterpretationDefiner(), expErrCtx(), enclosingLambda() {
     }
 
     /** Copy constructor. */
@@ -42,14 +42,14 @@ public:
     /** Constructs a lexical context for the provided module.
      * (A module context does not require a parent context.) */
     LexicalContext( TxModule* module )
-            : _scope( (TxScopeSymbol*) module ), generic(), reinterpretation(), expErrCtx(), enclosingLambda() {
+            : _scope( (TxScopeSymbol*) module ), generic(), reinterpretationDefiner(), expErrCtx(), enclosingLambda() {
         ASSERT( module, "module is NULL" );
     }
 
     /** Constructs a lexical context that is a sub-context of the provided context.
      * The provided scope must be the same or a sub-scope of the parent's scope. */
     LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope )
-            : _scope( scope ), generic( parentContext.generic ), reinterpretation( parentContext.reinterpretation ),
+            : _scope( scope ), generic( parentContext.generic ), reinterpretationDefiner( parentContext.reinterpretationDefiner ),
               expErrCtx( parentContext.expErrCtx ), enclosingLambda( parentContext.enclosingLambda ) {
         ASSERT( scope, "scope is NULL" );
     }
@@ -80,9 +80,9 @@ public:
 //              generic( generic ), reinterpretation( parentContext.reinterpretation ), expErrCtx( parentContext.expErrCtx ) {
 //    }
 
-    /** Constructs a new lexical context for a given scope, and that may represent a reinterpretation of a lexical unit. */
-    LexicalContext( TxScopeSymbol* scope, ExpectedErrorClause* expErrCtx, bool generic, bool reinterpretation )
-            : _scope( scope ), generic( generic ), reinterpretation( reinterpretation ), expErrCtx( expErrCtx ), enclosingLambda() {
+    /** Constructs a new lexical context for a given scope, and that may represent a reinterpretationDefiner of a lexical unit. */
+    LexicalContext( TxScopeSymbol* scope, ExpectedErrorClause* expErrCtx, bool generic, const TxTypeDefiningNode* reinterpretationDefiner )
+            : _scope( scope ), generic( generic ), reinterpretationDefiner( reinterpretationDefiner ), expErrCtx( expErrCtx ), enclosingLambda() {
         ASSERT( scope, "scope is NULL" );
     }
 
@@ -110,9 +110,14 @@ public:
         return ( this->generic );
     }
 
-    /** Returns true if this is within a reinterpretation (specialization) of an AST. */
+    /** Returns true if this is within a reinterpretationDefiner (specialization) of an AST. */
     inline bool is_reinterpretation() const {
-        return ( this->reinterpretation );
+        return ( this->reinterpretationDefiner );
+    }
+
+    /** If this is reinterpreted, the definer of the reinterpretation (that bound the type parameters) is returned; otherwise null. */
+    inline const TxTypeDefiningNode* reinterpretation_definer() const {
+        return ( this->reinterpretationDefiner );
     }
 
     /** Returns the ExpectedErrorClause if this context is within an expected-error declaration / statement / block,

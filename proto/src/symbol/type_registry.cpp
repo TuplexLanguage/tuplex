@@ -148,7 +148,7 @@ const TxType* TypeRegistry::get_modifiable_type( const TxTypeDeclaration* declar
         auto modNode = new TxModifiableTypeNode( loc, new TxNamedTypeNode( loc, actualType->get_declaration()->get_unique_name() ) );
         TxDeclarationFlags newDeclFlags = ( actualType->get_declaration()->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
         auto modDeclNode = new TxTypeDeclNode( loc, newDeclFlags, name, nullptr, modNode );
-        run_declaration_pass( modDeclNode, LexicalContext( scope, nullptr, false, false ) );
+        run_declaration_pass( modDeclNode, LexicalContext( scope, nullptr, false, nullptr ) );
         modDeclNode->symbol_resolution_pass();
         return modNode->get_type();
     }
@@ -537,7 +537,7 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     bool outerIsGeneric = definer->parent()->context().is_generic();
 //    if (outerIsGeneric)
 //        std::cerr << "outer is generic for " << uniqueSpecTypeNameStr << " at " << definer << std::endl;
-    LexicalContext specContext( baseScope, definer->exp_err_ctx(), outerIsGeneric, true );
+    LexicalContext specContext( baseScope, definer->exp_err_ctx(), outerIsGeneric, definer );
     run_declaration_pass( newSpecTypeDecl, specContext );
     const TxActualType* specializedType = specTypeExpr->resolve_type()->type();
     LOG_DEBUG( this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << baseType );
@@ -681,7 +681,7 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
 
     auto & adaptedTypeCtx = adaptedType->get_declaration()->get_definer()->context();
     LexicalContext adapterCtx( ifDecl->get_definer()->context().scope(), adaptedTypeCtx.exp_error(), adaptedTypeCtx.is_generic(),
-                               adaptedTypeCtx.is_reinterpretation() );
+                               adaptedTypeCtx.reinterpretation_definer() );
     run_declaration_pass( adapterDeclNode, adapterCtx );
     {   // override the adaptee type id virtual field member:
         // TODO: instead pass this as param decl node to adapterDeclNode

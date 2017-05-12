@@ -5,6 +5,9 @@
 
 #include "symbol/type_registry.hpp"
 
+/** Creates the package, i.e. the root namespace module (""). */
+TxPackage* make_root_package( TxParserContext* parserContext );
+
 class TypeRegistry;
 class TxModule;
 class TxTypeDeclNode;

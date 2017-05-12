@@ -91,12 +91,8 @@ Logger& TxActualType::_LOG = Logger::get( "ENTITY" );
 //    pureDerivation = false;
 //}
 
-const TxLocation& TxActualType::get_parse_location() const {
-    return this->get_declaration()->get_definer()->get_parse_location();
-}
-
-ExpectedErrorClause* TxActualType::exp_err_ctx() const {
-    return this->get_declaration()->get_definer()->exp_err_ctx();
+const TxNode* TxActualType::get_origin_node() const {
+    return this->get_declaration()->get_definer();
 }
 
 const TxActualType* TxActualType::get_root_any_type() const {

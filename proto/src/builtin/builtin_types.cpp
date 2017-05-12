@@ -72,13 +72,15 @@ public:
 
     void set_field( const TxField* field ) {
         this->builtinField = field;
-        this->set_context( LexicalContext( field->get_symbol()->get_outer(), nullptr, false, false ) );  // emulate declaration pass
+        this->set_context( LexicalContext( field->get_symbol()->get_outer(), nullptr, false, nullptr ) );  // emulate declaration pass
         this->resolve_field();  // auto-resolves
     }
 
     virtual const TxExpressionNode* get_init_expression() const {
         return nullptr;
     }
+
+    virtual void symbol_resolution_pass() override { }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
         return nullptr;
@@ -823,4 +825,50 @@ BuiltinTypes::BuiltinTypes( TypeRegistry& registry )
 
 const TxType* BuiltinTypes::get_builtin_type( const BuiltinTypeId id ) const {
     return this->builtinTypes[id]->typeExpression->get_type();
+}
+
+
+/*=== root package definer ===*/
+
+/** Represents the definition of the package, i.e. the root module. */
+class TxPackageDefinerNode : public TxNode {
+protected:
+    virtual void declaration_pass() override {
+        this->lexContext._scope = new TxPackage( this->get_parser_context()->driver(), *this );
+    }
+
+public:
+    TxPackageDefinerNode( const TxLocation& parseLocation )
+            : TxNode( parseLocation ) {
+    }
+
+    virtual TxNode* make_ast_copy() const override {
+        ASSERT( false, "Can't make AST copy of TxPackageDefinerNode " << this );
+        return nullptr;
+    }
+
+    TxPackage* get_package() const {
+        return static_cast<TxPackage*>( this->context().scope() );
+    }
+
+    /** This node has a special declaration pass implementation since it has neither parent node or parent scope. */
+    void node_declaration_pass() {
+        this->declaration_pass();
+    }
+
+    virtual void symbol_resolution_pass() override {
+    }
+
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
+        return nullptr;
+    }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    }
+};
+
+TxPackage* make_root_package( TxParserContext* parserContext ) {
+    auto packageDefiner = new TxPackageDefinerNode( TxLocation( nullptr, 0, 0, parserContext ) );
+    packageDefiner->node_declaration_pass();
+    return packageDefiner->get_package();
 }

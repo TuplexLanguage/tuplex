@@ -84,12 +84,12 @@ Type reflection, at least for autotesting, some ideas:
     #exptype( var, "$local.Foo.$type" )  ## compilation test, no code generated
 
 
-Make VALUE type parameters proper instance fields and ensure they're correctly initialized
-Proper support for VALUE bindings, and implement correct Array type handling
+Make VALUE type parameters proper instance fields and ensure they're correctly initialized - IN PROGRESS
+ - implement correct Array type handling
 
-Support augmenting built-in types' definitions in tuplex code
+Support augmenting built-in types' definitions in tuplex code - IN PROGRESS
 
-Array literals
+Array literals - IN PROGRESS
 
 Range typeclass
 

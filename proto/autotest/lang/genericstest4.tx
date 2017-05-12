@@ -73,7 +73,7 @@ main()->Int {
 
     v10 : Outer.Indep;
     v11 : OuterFl.Indep;
-    ## we currently treat all entities within a generic type as distinct per specialization:
+    ## we currently treat all entities enclosed by a generic type as distinct per specialization:
     #experr 1: ve : &Outer.Indep = &v11;
 
     return 0;

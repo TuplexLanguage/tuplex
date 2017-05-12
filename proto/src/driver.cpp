@@ -18,39 +18,18 @@
 extern FILE * yyin;
 extern int yy_flex_debug;
 
-class TxBuiltinParseOrigin : public TxParseOrigin {
-    TxLocation location;
-
-public:
-    TxBuiltinParseOrigin( TxParserContext* parserContext )
-            : location( nullptr, 0, 0, parserContext ) {
-    }
-
-    virtual const TxLocation& get_parse_location() const override {
-        return location;
-    }
-
-    virtual ExpectedErrorClause* exp_err_ctx() const override {
-        return nullptr;
-    }
-};
-
 TxDriver::TxDriver( const TxOptions& options )
         : _LOG( Logger::get( "DRIVER" ) ), options( options ),
-          builtinParserContext( new TxParserContext( *this, TxIdentifier( "" ), "" ) ),
-          builtinOrigin( new TxBuiltinParseOrigin( this->builtinParserContext ) )
+          builtinParserContext( new TxParserContext( *this, TxIdentifier( "" ), "" ) )
 {
     if ( options.sourceSearchPaths.empty() )
         this->_LOG.config( "Tuplex source search path is empty" );
     else
         for ( auto pathItem : options.sourceSearchPaths )
             this->_LOG.config( "Tuplex source search path item: '%s'", pathItem.c_str() );
-
-    this->package = new TxPackage( *this, *this->builtinOrigin );
 }
 
 TxDriver::~TxDriver() {
-    delete this->package;
     // FUTURE: free the symbol tables and the ASTs
 }
 
@@ -89,6 +68,8 @@ int TxDriver::parse( TxParserContext& parserContext ) {
 
 int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const std::string& outputFileName ) {
     ASSERT( this->parsedSourceFiles.empty(), "Can only run driver instance once" );
+
+    this->package = make_root_package( this->builtinParserContext );
 
     /*--- parse built-in module(s) ---*/
     {
@@ -348,20 +329,38 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
     return retCode;
 }
 
-static void format_location_message( char *buf, size_t bufSize, const TxLocation& parseLocation, char const *msg ) {
+static std::string format_location( const TxLocation& parseLocation ) {
+    const size_t bufSize = 256;
+    char buf[bufSize];
     auto filename = parseLocation.begin.filename ? parseLocation.begin.filename->c_str() : "";
     if ( parseLocation.begin.line == parseLocation.end.line ) {
         int lcol = ( parseLocation.end.column > parseLocation.begin.column ) ? parseLocation.end.column : parseLocation.end.column;
-        snprintf( buf, bufSize, "%s %2d.%2d-%2d: %s", filename,
+        snprintf( buf, bufSize, "%s %2d.%2d-%2d", filename,
                   parseLocation.begin.line,
-                  parseLocation.begin.column, lcol, msg );
+                  parseLocation.begin.column, lcol );
     }
     else
-        snprintf( buf, bufSize, "%s %2d.%2d-%2d.%2d: %s", filename,
+        snprintf( buf, bufSize, "%s %2d.%2d-%2d.%2d", filename,
                   parseLocation.begin.line,
                   parseLocation.begin.column,
                   parseLocation.end.line,
-                  parseLocation.end.column, msg );
+                  parseLocation.end.column );
+    return std::string( buf );
+}
+
+static std::string format_location_message( const TxLocation& parseLocation, char const *msg ) {
+    return format_location(parseLocation) + " " + msg;
+}
+
+static std::string format_location_message( const TxParseOrigin* origin, char const *msg ) {
+    auto firstLine = format_location_message( origin->get_parse_location(), msg );
+    if ( origin->get_origin_node()->is_context_set() ) {
+        if ( auto reinterpretingNode = origin->get_origin_node()->context().reinterpretation_definer() ) {
+            // display both reinterpretation site location and error site location
+            return firstLine + "\n\t\t-- In type specialized from here: " + format_location( reinterpretingNode->get_parse_location() );
+        }
+    }
+    return firstLine;
 }
 
 /******* TxParserContext implementation *******/
@@ -383,25 +382,25 @@ bool TxParserContext::validate_module_name( const TxParseOrigin* origin, const T
     return res;
 }
 
-void TxParserContext::emit_comp_error( char const *msg, ExpectedErrorClause* expErrorContext ) {
+void TxParserContext::emit_comp_error( const std::string& msg, ExpectedErrorClause* expErrorContext ) {
     if (this->in_exp_err()) {
         if ( expErrorContext )
             expErrorContext->encountered_error_count++;
-        CLOG.info( "EXPECTED CERROR: %s", msg );
+        CLOG.info( "EXPECTED CERROR: %s", msg.c_str() );
     }
     else {
         this->_driver.error_count++;
-        CLOG.error( "%s", msg );
+        CLOG.error( "%s", msg.c_str() );
     }
 }
 
-void TxParserContext::emit_comp_warning( char const *msg ) {
+void TxParserContext::emit_comp_warning( const std::string& msg ) {
     this->_driver.warning_count++;
-    CLOG.warning( "%s", msg );
+    CLOG.warning( "%s", msg.c_str() );
 }
 
-void TxParserContext::emit_comp_info( char const *msg ) {
-    CLOG.info( "%s", msg );
+void TxParserContext::emit_comp_info( const std::string& msg ) {
+    CLOG.info( "%s", msg.c_str() );
 }
 
 void TxParserContext::begin_exp_err( const TxParseOrigin* origin ) {
@@ -436,37 +435,24 @@ void TxParserContext::finalize_expected_error_clauses() {
     }
 }
 
-//void TxParserContext::cerror(const TxLocation& loc, char const *fmt, ...) {
-//    va_list ap;
-//    va_start(ap, fmt);
-//    char buf[512];
-//    vsnprintf(buf, 512, fmt, ap);
-//    va_end(ap);
-//    this->cerror(loc, std::string(buf));
-//}
-
-void TxParserContext::cerror( const TxLocation& loc, const std::string& msg ) {
-    char buf[512];
-    format_location_message( buf, 512, loc, msg.c_str() );
-    this->emit_comp_error( buf, ( this->expErrorStack.empty() ? nullptr : this->expErrorStack.top() ) );
+void TxParserContext::cerror( const TxParseOrigin* origin, const std::string& msg ) {
+    auto str = format_location_message( origin, msg.c_str() );
+    this->emit_comp_error( str, origin->exp_err_ctx() );
 }
 
-void TxParserContext::cerror( const TxParseOrigin* origin, const std::string& msg ) {
-    char buf[512];
-    format_location_message( buf, 512, origin->get_parse_location(), msg.c_str() );
-    this->emit_comp_error( buf, origin->exp_err_ctx() );
+void TxParserContext::cerror( const TxLocation& loc, const std::string& msg ) {
+    auto str = format_location_message( loc, msg.c_str() );
+    this->emit_comp_error( str, ( this->expErrorStack.empty() ? nullptr : this->expErrorStack.top() ) );
 }
 
 void TxParserContext::cwarning( const TxParseOrigin* origin, const std::string& msg ) {
-    char buf[512];
-    format_location_message( buf, 512, origin->get_parse_location(), msg.c_str() );
-    this->emit_comp_warning( buf );
+    auto str = format_location_message( origin, msg.c_str() );
+    this->emit_comp_warning( str );
 }
 
 void TxParserContext::cinfo( const TxLocation& loc, const std::string& msg ) {
-    char buf[512];
-    format_location_message( buf, 512, loc, msg.c_str() );
-    this->emit_comp_info( buf );
+    auto str = format_location_message( loc, msg.c_str() );
+    this->emit_comp_info( str );
 }
 
 std::string TxParserContext::str() const {

@@ -153,13 +153,13 @@ public:
     }
 };
 
-/** An internal AST root node for processing a compiler-generated declaration node. */
+/** An internal AST root node for processing a compiler-generated node. */
 class TxInternalRootNode : public TxNode {
-public:
-    TxDeclarationNode* declNode;
+    TxNode* innerNode;
 
-    TxInternalRootNode( const TxLocation& parseLocation, TxDeclarationNode* declNode, const LexicalContext& context )
-            : TxNode( parseLocation ), declNode( declNode ) {
+public:
+    TxInternalRootNode( const TxLocation& parseLocation, TxNode* node, const LexicalContext& context )
+            : TxNode( parseLocation ), innerNode( node ) {
         this->lexContext = context;
     }
 
@@ -167,15 +167,15 @@ public:
         ASSERT( false, "Can't make AST copy of " << this ); return nullptr;
     }
 
-    virtual void symbol_resolution_pass() {
-        this->declNode->symbol_resolution_pass();
+    virtual void symbol_resolution_pass() override {
+        this->innerNode->symbol_resolution_pass();
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
-        return this->declNode->code_gen( context, scope );
+        return this->innerNode->code_gen( context, scope );
     }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->declNode->visit_ast( visitor, thisCursor, "decl", context );
+        this->innerNode->visit_ast( visitor, thisCursor, "node", context );
     }
 };

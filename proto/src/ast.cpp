@@ -44,10 +44,10 @@ void run_declaration_pass( TxNode* node, const TxNode* parentNode, const std::st
     node->visit_ast( declPassVisitor, parent, role, nullptr );
 }
 
-void run_declaration_pass( TxDeclarationNode* declNode, const LexicalContext& lexContext ) {
+void run_declaration_pass( TxNode* node, const LexicalContext& lexContext ) {
     ASSERT( lexContext.scope(), "uninitialized lex-context" );
-    auto internalRoot = new TxInternalRootNode( declNode->parseLocation, declNode, lexContext );
-    run_declaration_pass( declNode, internalRoot, "type-decl" );
+    auto internalRoot = new TxInternalRootNode( node->parseLocation, node, lexContext );
+    run_declaration_pass( node, internalRoot, "node" );
 }
 
 Logger& TxNode::_LOG = Logger::get( "AST" );

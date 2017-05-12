@@ -24,15 +24,24 @@ struct ExpectedErrorClause {
     }
 };
 
+class TxNode;
+
 class TxParseOrigin {
 public:
     virtual ~TxParseOrigin() = default;
 
+    TxParserContext* get_parser_context() const {
+        return this->get_parse_location().parserCtx;
+    }
+
+    /** Returns the node that is this parse origin. */
+    virtual const TxNode* get_origin_node() const = 0;
+
     /** Returns the parse location of this parse origin. */
-    virtual const TxLocation& get_parse_location() const = 0;
+    virtual const TxLocation& get_parse_location() const;
 
     /** Returns the expected-error clause of this parse origin, or null if none. */
-    virtual ExpectedErrorClause* exp_err_ctx() const = 0;
+    virtual ExpectedErrorClause* exp_err_ctx() const;
 };
 
 /** Used to ensure proper closing of an exp-err-clause (RAII style). */

@@ -37,12 +37,8 @@ public:
 
     virtual const TxTypeDeclaration* get_declaration() const override;
 
-    virtual const TxLocation& get_parse_location() const override {
-        return this->definer->get_parse_location();
-    }
-
-    virtual ExpectedErrorClause* exp_err_ctx() const override {
-        return this->definer->exp_err_ctx();
+    virtual const TxNode* get_origin_node() const override {
+        return this->definer;
     }
 
     std::string str( bool brief ) const {

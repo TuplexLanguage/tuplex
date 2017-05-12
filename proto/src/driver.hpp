@@ -51,9 +51,6 @@ class TxDriver {
     /** Parser context representing the built-in constructs without actual source code. */
     TxParserContext* builtinParserContext;
 
-    /** parse location used for built-in constructs without actual source code */
-    TxParseOrigin* builtinOrigin;
-
     /*--- these members reflect the current compilation state ---*/
     /** the currently compiled tuplex package */
     TxPackage* package = nullptr;
@@ -140,9 +137,9 @@ class TxParserContext : public Printable {
     std::stack<ExpectedErrorClause*> expErrorStack;
     //    ExpectedErrorClause* expError = nullptr;
 
-    void emit_comp_error( char const *msg, ExpectedErrorClause* expErrorContext );
-    void emit_comp_warning( char const *msg );
-    void emit_comp_info( char const *msg );
+    void emit_comp_error( const std::string& msg, ExpectedErrorClause* expErrorContext );
+    void emit_comp_warning( const std::string& msg );
+    void emit_comp_info( const std::string& msg );
 
     /** the expected-error nodes having been parsed */
     std::vector<TxNode*> expErrorNodes;
@@ -161,6 +158,10 @@ public:
     }
 
     virtual ~TxParserContext() = default;
+
+    TxDriver& driver() const {
+        return this->_driver;
+    }
 
     /** The path of the file currently being parsed.
      * Used later to pass the file path to the location tracker. */

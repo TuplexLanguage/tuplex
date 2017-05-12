@@ -39,9 +39,7 @@ public:
         return this->declaration;
     }
 
-    virtual const TxLocation& get_parse_location() const override;
-
-    virtual ExpectedErrorClause* exp_err_ctx() const override;
+    virtual const TxNode* get_origin_node() const override;
 
     TxEntitySymbol* get_symbol() const {
         return ( this->declaration ? this->declaration->get_symbol() : nullptr );

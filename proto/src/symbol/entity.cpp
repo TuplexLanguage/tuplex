@@ -4,14 +4,9 @@
 
 Logger& TxEntity::_LOG = Logger::get( "ENTITY" );
 
-const TxLocation& TxEntity::get_parse_location() const {
+const TxNode* TxEntity::get_origin_node() const {
     ASSERT( this->declaration, "NULL declaration in " << this );
-    return this->declaration->get_definer()->get_parse_location();
-}
-
-ExpectedErrorClause* TxEntity::exp_err_ctx() const {
-    ASSERT( this->declaration, "NULL declaration in " << this );
-    return this->declaration->get_definer()->exp_err_ctx();
+    return this->declaration->get_definer();
 }
 
 TxField* TxField::make_field( const TxFieldDeclaration* fieldDeclaration, const TxType* fieldType ) {

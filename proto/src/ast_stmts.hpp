@@ -36,8 +36,6 @@ public:
 
     virtual TxStatementNode* make_ast_copy() const override = 0;
 
-    virtual void symbol_resolution_pass() = 0;
-
     /** Returns true if this statement / compound statement *may* end with a break or continue statement. */
     virtual bool may_end_with_non_return_stmt() const {
         return false;

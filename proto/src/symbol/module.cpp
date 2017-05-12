@@ -113,7 +113,7 @@ TxModule* TxModule::lookup_module( const TxIdentifier& fullName ) {
             else
                 return module->lookup_module( TxIdentifier( fullName, 1 ) );
         }
-        CERROR( this->get_root_scope()->root_origin(), "Symbol is not a Module: " << member );
+        CERROR( this->origin, "Symbol is not a Module: " << member );
     }
     return nullptr;
 }
