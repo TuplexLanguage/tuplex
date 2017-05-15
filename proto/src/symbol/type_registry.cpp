@@ -78,30 +78,34 @@ void TypeRegistry::prepare_types() {
     for ( auto type : this->createdTypes ) {
         //std::cerr << "Preparing type: " << type << std::endl;
         type->prepare_members();
-        if ( type->staticTypeId < BuiltinTypeId_COUNT )
+
+        if ( type->staticTypeId < BuiltinTypeId_COUNT )  // the built-in types are already handled
             continue;
+
         // Types that are distinct in instance data type, or vtable, get distinct static type id and vtable.
-        if ( ( type->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK ) )
+        // Certain types that will not be represented as static types are filtered out here:
+
+        if ( type->get_declaration()->get_definer()->exp_err_ctx() ) {
+            LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr context as static type: " << type);
             continue;
+        }
+        // there shouldn't be a TXD_EXPERRBLOCK declaration without exp-err-ctx set:
+        ASSERT( !(type->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK), "Unexpected TXD_EXPERRBLOCK flag in type "<< type);
+
         if ( type->get_type_class() == TXTC_FUNCTION )
             continue;
+
         if ( type->is_equivalent_derivation() ) {  // includes empty and modifiable derivations
             //std::cerr << "Not registering distinct static type id for equivalent derivation: " << type << std::endl;
             continue;
         }
+
         if ( type->is_generic_dependent() ) {
             // FUTURE: review whether generic base types should be a vtable parent of their specializations
             LOG_DEBUG( this->LOGGER(), "Not registering generic-dependent type as static type: " << type );
             continue;
         }
-        if ( type->get_declaration()->get_definer()->exp_err_ctx() ) {
-            if (type->get_declaration()->get_definer()->context().reinterpretation_definer())
-                LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr context as static type: " << type
-                     << " origin: " << type->get_declaration()->get_definer()->context().reinterpretation_definer());
-            else
-                LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr context as static type: " << type);
-            continue;
-        }
+
         type->staticTypeId = this->staticTypes.size();
         this->staticTypes.push_back( type );
         //std::cerr << "Registering static type " << type << " with distinct type id " << type->staticTypeId << std::endl;
@@ -156,7 +160,8 @@ const TxType* TypeRegistry::get_modifiable_type( const TxTypeDeclaration* declar
         auto modNode = new TxModifiableTypeNode( loc, new TxNamedTypeNode( loc, actualType->get_declaration()->get_unique_name() ) );
         TxDeclarationFlags newDeclFlags = ( actualType->get_declaration()->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
         auto modDeclNode = new TxTypeDeclNode( loc, newDeclFlags, name, nullptr, modNode );
-        run_declaration_pass( modDeclNode, LexicalContext( scope, nullptr, false, nullptr ) );
+        auto expErrCtx = actualType->get_declaration()->get_definer()->context().exp_error();
+        run_declaration_pass( modDeclNode, LexicalContext( scope, expErrCtx, false, nullptr ) );
         modDeclNode->symbol_resolution_pass();
         return modNode->get_type();
     }

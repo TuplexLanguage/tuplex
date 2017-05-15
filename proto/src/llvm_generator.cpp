@@ -480,14 +480,18 @@ void LlvmGenerationContext::generate_runtime_data() {
         ASSERT( txType->is_prepared(), "Non-prepared type: " << txType );
         std::string vtableName( txType->get_declaration()->get_unique_full_name() + "$vtable" );
         if ( auto vtableV = dyn_cast<GlobalVariable>( this->lookup_llvm_value( vtableName ) ) ) {
-            LOG_DEBUG( this->LOGGER(), "Populating vtable initializer for " << txType );
+            bool isGenericBase = txType->get_declaration()->get_definer()->context().is_generic();
+            if ( isGenericBase )
+                LOG_DEBUG( this->LOGGER(), "Populating vtable initializer with null placeholders for generic base type " << txType );
+            else
+                LOG_DEBUG( this->LOGGER(), "Populating vtable initializer for " << txType );
             std::vector<Constant*> initMembers;
             auto virtualFields = txType->get_virtual_fields();
             initMembers.resize( virtualFields.get_field_count() );
             for ( auto & field : virtualFields.fieldMap ) {
                 auto actualFieldEnt = virtualFields.get_field( field.second );
                 Constant* llvmField;
-                if ( actualFieldEnt->get_decl_flags() & TXD_ABSTRACT ) {
+                if ( ( actualFieldEnt->get_decl_flags() & TXD_ABSTRACT ) || isGenericBase ) {
                     //std::cerr << "inserting NULL for abstract virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                     Type* fieldType;
                     if ( actualFieldEnt->get_storage() & TXS_INSTANCEMETHOD ) {

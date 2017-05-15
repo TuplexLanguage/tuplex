@@ -229,6 +229,11 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     mutable bool recursionGuard = false;
     friend class ScopedRecursionGuardClause;
 
+    static inline bool determine_builtin( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec) {
+        return ( ( declaration->get_decl_flags() & TXD_BUILTIN )
+                 || ( baseTypeSpec.modifiable && baseTypeSpec.type->is_builtin() ) );
+    }
+
 protected:
     bool extendsInstanceDatatype = false;
     bool modifiesVTable = false;
@@ -241,17 +246,15 @@ protected:
 
     /** Only to be used for Any type. */
     TxActualType( TxTypeClass typeClass, const TxTypeDeclaration* declaration )
-            : typeClass( typeClass ), builtin( declaration && ( declaration->get_decl_flags() & TXD_BUILTIN ) ),
-              declaration( declaration ),
-              baseTypeSpec(), interfaces() {
+            : typeClass( typeClass ), builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+              declaration( declaration ), baseTypeSpec(), interfaces() {
         this->initialize_type();
     }
 
     TxActualType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                   const std::vector<TxTypeSpecialization>& interfaces = std::vector<TxTypeSpecialization>() )
-            : typeClass( typeClass ), builtin( declaration && ( declaration->get_decl_flags() & TXD_BUILTIN ) ),
-              declaration( declaration ),
-              baseTypeSpec( baseTypeSpec ), interfaces( interfaces ) {
+            : typeClass( typeClass ), builtin( determine_builtin( declaration, baseTypeSpec ) ),
+              declaration( declaration ), baseTypeSpec( baseTypeSpec ), interfaces( interfaces ) {
         this->initialize_type();
     }
 
@@ -364,13 +367,13 @@ public:
 
     /** Returns true if this type is a built-in type. */
     inline bool is_builtin() const {
-        return ( this->builtin || ( this->is_modifiable() && this->get_base_type()->is_builtin() ) );
+        return this->builtin;
     }
 
     /** Returns true if this type is the specified built-in type. */
     inline bool is_builtin( BuiltinTypeId biTypeId ) const {
         return ( this->staticTypeId == (uint32_t) biTypeId  // Note: static type ids of built-in types are always set
-                 || ( this->is_modifiable() && this->get_base_type()->is_builtin( biTypeId ) ) );
+                 || ( this->is_modifiable() && this->get_base_type()->staticTypeId == (uint32_t) biTypeId ) );
     }
 
     /** Returns true if this type is a scalar type. */

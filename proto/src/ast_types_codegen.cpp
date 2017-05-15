@@ -56,6 +56,10 @@ Value* TxArrayTypeNode::code_gen( LlvmGenerationContext& context, GenScope* scop
 
 Value* TxDerivedTypeNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    if ( this->context().is_generic() ) {  // this->get_type()->type()->is_builtin()
+        std::cerr << "Skipping code gen for generic-dependent type's members: " << this->get_type()->type() << std::endl;
+        return nullptr;
+    }
     for ( auto type : *this->baseTypes )
         type->code_gen( context, scope );
     for ( auto member : *this->members )
