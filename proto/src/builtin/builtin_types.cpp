@@ -94,6 +94,14 @@ public:
 
 /** Abstract superclass for the built-in type defining nodes. */
 class TxBuiltinTypeDefiningNode : public TxTypeExpressionNode {
+    void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner ) {
+        ASSERT( this->is_context_set(), "Builtin type node hasn't run declaration pass: " << this );
+        ASSERT( !this->attempt_get_type(), "Builtin type already resolved: " << this );
+        this->sourcecodeDefiner = sourcecodeDefiner;
+    }
+
+    friend void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner, TxTypeDefiningNode* builtinDefiner );
+
 protected:
     const BuiltinTypeId builtinTypeId;
     TxBuiltinTypeDefiningNode const * const original;
@@ -103,27 +111,25 @@ protected:
     /** Declarations within this type's namespace. */
     std::vector<TxDeclarationNode*> declNodes;
 
-    friend void merge_builtin_type_definers( TxTypeExpressionNode* definer, TxTypeDefiningNode* builtinDefiner,
-                                             TxTypeExpressionNode* baseType,
-                                             const std::vector<TxTypeExpressionNode*>& interfaces, bool _mutable );
-
-    std::vector<TxTypeExpressionNode*> interfaces;
+    /** behavior defined via source code */
+    TxDerivedTypeNode* sourcecodeDefiner = nullptr;
 
     /** for use by make_ast_copy() in subclasses */
     TxBuiltinTypeDefiningNode( const TxLocation& parseLocation, const TxBuiltinTypeDefiningNode* original,
-                               TxTypeExpressionNode* baseTypeNode,
-                               const std::vector<TxDeclarationNode*>& declNodes )
+                               TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes,
+                               TxDerivedTypeNode* sourcecodeDefiner )
             : TxTypeExpressionNode( parseLocation ), builtinTypeId( TXBT_NOTSET ), original( original ),
-              baseTypeNode( baseTypeNode ),
-              declNodes( declNodes ) {
+              baseTypeNode( baseTypeNode ), declNodes( declNodes ), sourcecodeDefiner( sourcecodeDefiner ) {
+        if (sourcecodeDefiner)
+            sourcecodeDefiner->set_builtin_type_definer( this );
     }
 
-//    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-//        if ( this->baseTypeNode )
-//            this->baseTypeNode->symbol_declaration_pass( lexContext );
-//        for ( auto decl : this->declNodes )
-//            decl->symbol_declaration_pass( lexContext );
-//    }
+    virtual void declaration_pass() override {
+        if ( this->sourcecodeDefiner ) {
+            // "pass through" entity declaration to the source code definer
+            this->sourcecodeDefiner->set_declaration( this->get_declaration() );
+        }
+    }
 
     virtual const TxType* define_type() override final {
         if ( this->original ) {  // true when this is a reinterpreted copy
@@ -132,8 +138,8 @@ protected:
             //   instead they will have the generic base type's parent as their base type.
             //   Here that would be  this->baseTypeNode->resolve_type()  instead of  this->original->get_type() .
             //   That would however not work with the current type class implementation (TxReferenceType and TxArrayType).
-            return this->registry().make_type_entity(
-                    this->registry().make_actual_type( this->get_declaration(), this->original->get_type()->type() ) );
+            return this->registry().make_type_entity( this->registry().make_actual_type( this->get_declaration(),
+                                                                                         this->original->get_type()->type() ) );
         }
         else {
             auto actType = this->define_builtin_type();
@@ -148,8 +154,10 @@ protected:
     /** helper method for subclasses that constructs a vector of TxTypeSpecialization of this instance's interface expressions */
     std::vector<TxTypeSpecialization> resolve_interface_specs() const {
         std::vector<TxTypeSpecialization> ifSpecs;
-        for ( auto ifDef : this->interfaces )
-            ifSpecs.emplace_back( ifDef->resolve_type()->type() );
+        if ( this->sourcecodeDefiner ) {
+            for ( auto ifDef : *this->sourcecodeDefiner->interfaces )
+                ifSpecs.emplace_back( ifDef->resolve_type()->type() );
+        }
         return ifSpecs;
     }
 
@@ -176,6 +184,8 @@ public:
         TxTypeExpressionNode::symbol_resolution_pass();
         for ( auto decl : this->declNodes )
             decl->symbol_resolution_pass();
+        if ( this->sourcecodeDefiner )
+            this->sourcecodeDefiner->symbol_resolution_pass();
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
@@ -183,6 +193,8 @@ public:
             this->baseTypeNode->code_gen( context, scope );
         for ( auto decl : this->declNodes )
             decl->code_gen( context, scope );
+        if ( this->sourcecodeDefiner )
+            this->sourcecodeDefiner->code_gen( context, scope );
         return nullptr;
     }
 
@@ -191,18 +203,16 @@ public:
             this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
         for ( auto decl : this->declNodes )
             decl->visit_ast( visitor, thisCursor, "decl", context );
+        if ( this->sourcecodeDefiner )
+            this->sourcecodeDefiner->visit_ast( visitor, thisCursor, "source", context );
     }
 };
 
-void merge_builtin_type_definers( TxTypeExpressionNode* definer, TxTypeDefiningNode* builtinDefiner,
-                                  TxTypeExpressionNode* baseType,
-                                  const std::vector<TxTypeExpressionNode*>& interfaces, bool _mutable ) {
+void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner, TxTypeDefiningNode* builtinDefiner ) {
     auto builtinNode = dynamic_cast<TxBuiltinTypeDefiningNode*>( builtinDefiner );
     if ( !builtinNode )
         THROW_LOGIC( "Expected builtin type definer to be of type TxBuiltinTypeDefiningNode: " << builtinDefiner );
-    ASSERT( builtinNode->is_context_set(), "Builtin type node hasn't run declaration pass: " << builtinNode );
-    ASSERT( !builtinNode->attempt_get_type(), "Builtin type already resolved: " << builtinNode );
-    builtinNode->interfaces = interfaces;
+    builtinNode->merge_builtin_type_definers( sourcecodeDefiner );
 }
 
 //void merge_declaration_nodes( TxTypeDefiningNode* builtinDefiner, const std::vector<TxDeclarationNode*>& declNodes ) {
@@ -398,9 +408,8 @@ public:
 
 class TxRefTypeDefNode final : public TxBuiltinTypeDefiningNode {
     TxRefTypeDefNode( const TxLocation& parseLocation, const TxRefTypeDefNode* original,
-                      TxTypeExpressionNode* baseTypeNode,
-                      const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( parseLocation, original, baseTypeNode, declNodes ) {
+                      TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes, TxDerivedTypeNode* sourcecodeDefiner )
+            : TxBuiltinTypeDefiningNode( parseLocation, original, baseTypeNode, declNodes, sourcecodeDefiner ) {
     }
 protected:
     virtual TxActualType* define_builtin_type() override {
@@ -416,15 +425,15 @@ public:
     }
 
     virtual TxRefTypeDefNode* make_ast_copy() const override {
-        return new TxRefTypeDefNode( this->parseLocation, this, this->baseTypeNode->make_ast_copy(), make_node_vec_copy( this->declNodes ) );
+        return new TxRefTypeDefNode( this->parseLocation, this, this->baseTypeNode->make_ast_copy(), make_node_vec_copy( this->declNodes ),
+                                     ( this->sourcecodeDefiner ? this->sourcecodeDefiner->make_ast_copy() : nullptr ) );
     }
 };
 
 class TxArrayTypeDefNode final : public TxBuiltinTypeDefiningNode {
     TxArrayTypeDefNode( const TxLocation& parseLocation, const TxArrayTypeDefNode* original,
-                        TxTypeExpressionNode* baseTypeNode,
-                        const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( parseLocation, original, baseTypeNode, declNodes ) {
+                        TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes, TxDerivedTypeNode* sourcecodeDefiner )
+            : TxBuiltinTypeDefiningNode( parseLocation, original, baseTypeNode, declNodes, sourcecodeDefiner ) {
     }
 protected:
     virtual TxActualType* define_builtin_type() override {
@@ -440,7 +449,8 @@ public:
     }
 
     virtual TxArrayTypeDefNode* make_ast_copy() const override {
-        return new TxArrayTypeDefNode( this->parseLocation, this, this->baseTypeNode->make_ast_copy(), make_node_vec_copy( this->declNodes ) );
+        return new TxArrayTypeDefNode( this->parseLocation, this, this->baseTypeNode->make_ast_copy(), make_node_vec_copy( this->declNodes ),
+                                       ( this->sourcecodeDefiner ? this->sourcecodeDefiner->make_ast_copy() : nullptr ) );
     }
 };
 

@@ -107,7 +107,7 @@ YY_DECL;
 /* keywords: */
 %token KW_MODULE KW_IMPORT KW_TYPE KW_INTERFACE
 %token KW_PUBLIC KW_PROTECTED KW_STATIC KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERN
-%token KW_MODIFIABLE KW_REFERENCE KW_DERIVES
+%token KW_MODIFIABLE KW_REFERENCE KW_DERIVES KW_IMPLEMENTS
 %token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_OR
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE KW_FROM
 %token KW_NULL KW_TRUE KW_FALSE
@@ -116,7 +116,7 @@ YY_DECL;
 /* keywords reserved but not currently used */
 %token KW_TUPLE KW_UNION KW_ENUM
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
-%token KW_AND KW_XOR KW_NOT KW_BUILTIN KW_FUNC KW_LAMBDA KW_CLASS KW_EXTENDS KW_IMPLEMENTS
+%token KW_AND KW_XOR KW_NOT KW_BUILTIN KW_FUNC KW_LAMBDA KW_CLASS KW_EXTENDS
 
  /* literals: */
 %token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
@@ -152,7 +152,7 @@ YY_DECL;
 %type <TxArgTypeDefNode*> func_arg_def
 %type <std::vector<TxArgTypeDefNode*> *> func_args func_args_list
 
-%type <TxTypeExpressionNode*> type_spec type_expression data_type_expression conv_type_expr produced_type
+%type <TxTypeExpressionNode*> type_derivation type_expression data_type_expression conv_type_expr produced_type
 %type <TxTypeExpressionNode*> named_type specialized_type reference_type array_type //data_tuple_type
 
 %type <TxFunctionTypeNode*> function_signature
@@ -344,26 +344,33 @@ type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM,
                 | NAME COLON type_expression     { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, new TxFieldDefNode(@1, $1, $3, nullptr)); }
                 ;
 
-type_declaration : declaration_flags type_or_if NAME type_spec  
+type_declaration : declaration_flags type_or_if NAME type_derivation  
                         { $$ = new TxTypeDeclNode(@2, $1, $3, NULL, $4, $2); }
-                 | declaration_flags type_or_if NAME LT type_param_list GT type_spec
+                 | declaration_flags type_or_if NAME LT type_param_list GT type_derivation
                         { $$ = new TxTypeDeclNode(@2, $1, $3, $5,   $7, $2); }
+
+                 // error recovery, handles when an error occurs before a type body's LBRACE:
+                 | error type_body  { $$ = NULL; }
                  ;
 
-type_spec : opt_modifiable derives_token type_expression                      SEMICOLON  { $$ = $3; }
-          | opt_modifiable derives_token type_expression                      type_body  { $$ = new TxDerivedTypeNode(@1, $1, $3, $4); }
-          | opt_modifiable derives_token type_expression COMMA conv_type_list type_body
-                { $5->insert($5->begin(), $3); $$ = new TxDerivedTypeNode(@1, $1, $5, $6); }
-          | opt_modifiable type_body         { $$ = new TxDerivedTypeNode(@1, $1, $2); }
-//          | type_interface { $$ = $1; }
-          ;
-          // (all but the first of the base types must be interface types)
+type_derivation : opt_modifiable derives_token type_expression SEMICOLON  { $$ = $3; }
 
-derives_token : KW_DERIVES | COLON ;
+                | opt_modifiable derives_token type_expression type_body  { $$ = new TxDerivedTypeNode(@1, $1, $3, $4); }
+    
+                | opt_modifiable derives_token type_expression implements_token conv_type_list type_body
+                    { $$ = new TxDerivedTypeNode(@1, $1, $3, $5, $6); }
+    
+                | opt_modifiable derives_token implements_token conv_type_list type_body
+                    { $$ = new TxDerivedTypeNode(@1, $1, nullptr, $4, $5); }
+    
+                | opt_modifiable KW_IMPLEMENTS conv_type_list type_body
+                    { $$ = new TxDerivedTypeNode(@1, $1, nullptr, $3, $4); }
+    
+                | opt_modifiable type_body         { $$ = new TxDerivedTypeNode(@1, $1, $2); }
+                ;
 
-//opt_base_types  : %empty    { $$ = new std::vector<TxTypeExpressionNode*>(); }
-//                | derives_token conv_type_list  { $$ = $2; }
-//                ;
+derives_token    : KW_DERIVES    | COLON ;
+implements_token : KW_IMPLEMENTS | COLON ;
 
 conv_type_list  : conv_type_expr  { $$ = new std::vector<TxTypeExpressionNode*>();  $$->push_back($1); }
                 | conv_type_list COMMA conv_type_expr  { $$ = $1;  $$->push_back($3); }
@@ -653,9 +660,9 @@ elementary_stmt
     ;
 
 // TODO: support declaration flags abstract, final, and maybe static
-type_decl_stmt  : type_or_if NAME type_spec
+type_decl_stmt  : type_or_if NAME type_derivation
                     { $$ = new TxTypeStmtNode(@1, $2, NULL, $3, $1); }
-                | type_or_if NAME LT type_param_list GT type_spec
+                | type_or_if NAME LT type_param_list GT type_derivation
                     { $$ = new TxTypeStmtNode(@1, $2, $4,   $6, $1); }
                 ;
 

@@ -1,4 +1,24 @@
 
+## we can't derive directly from Any
+
+#experr 1: type BadDerivation1 : Any;
+#experr 2: interface BadDerivation2 : Any;
+
+
+## interfaces can't derive from non-interface type classes
+
+#experr 1: interface BadDerivation3 : Tuple;
+#experr 1: interface BadDerivation4 : Array;
+#experr 1: interface BadDerivation5 : Ref;
+#experr 1: interface BadDerivation6 : Function;
+#experr 1: interface BadDerivation7 : Elementary;
+#experr 1: interface BadDerivation8 : Int;
+#experr 1: interface BadDerivation9 : Bool;
+
+
+## FUTURE: support #expwarn: type WarnInterface : Interface;
+
+
 ## 'abstract' tests
 
 #experr: forward_func()->Int;  ## "forward declaration" free functions not currently supported
@@ -57,7 +77,7 @@ interface IntfA {
     public static ifField : Int = 17;
 }
 
-type Type derives Tuple, IntfA {
+type Type derives Tuple implements IntfA {
     fld : Int;
 
     self(f : Int) { self.fld = f; }
@@ -76,17 +96,17 @@ type Type derives Tuple, IntfA {
 }
 
 ## can't inherit object type in 2nd position
-#experr: interface EType derives IntfA, Tuple {
+#experr: interface EType derives IntfA implements Tuple {
 }
 
 ## must declare abstract if missing concrete members
-#experr 1: type IncompleteType derives Tuple, IntfA {
+#experr 1: type IncompleteType derives Tuple implements IntfA {
 }
-abstract type AbstrIncomplType derives Tuple, IntfA {
+abstract type AbstrIncomplType derives Tuple implements IntfA {
 }
 
 ## implementation member type must match interface member's type
-abstract type ErrImplType derives Tuple, IntfA {
+abstract type ErrImplType derives Tuple : IntfA {
     public override mixin_method_2()->Int { return 10; }
     #experr 1: public override mixin_method_1()->UByte { return 20; }
     #experr 1: public override get_value()->Float { return 3.14; }
@@ -113,17 +133,17 @@ interface IntfZ {
 }
 
 
-type TypeOk derives Tuple, IntfX, IntfY {
+type TypeOk : Tuple : IntfX, IntfY {
     public override get_value()->Int { return 14; }
 }
 
-## colliding mixin methods - should this be an error?
-type TypeErr1 derives Tuple, IntfX, IntfZ {
+## colliding mixin methods  ## TODO: should this be an error?
+type TypeErr1 : Tuple : IntfX, IntfZ {
     public override get_value()->Int { return 14; }
 }
 
-## double implementation - should this be an error/warning?
-type TypeErr2 derives Tuple, IntfX, IntfX {
+## double implementation  ## TODO: should this be an error/warning?
+type TypeErr2 : Tuple : IntfX, IntfX {
     public override get_value()->Int { return 14; }
 }
 

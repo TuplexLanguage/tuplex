@@ -1,0 +1,12 @@
+
+#experr 1: builtin type BadUserType derives Tuple;
+
+test_array_interface() {
+    a1 := [ Int(1), 2, 3 ];
+    assert !a1.empty();
+}
+
+main() -> Int {
+    test_array_interface();
+    return 0;
+}

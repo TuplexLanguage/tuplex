@@ -21,7 +21,7 @@ public interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
 */
 }
 
-public type MyUInt derives Tuple, Enumerable< MyUInt > {
+public type MyUInt implements Enumerable< MyUInt > {
     public static override value( ordinal: ULong ) -> MyUInt {
         return MyUInt( UInt( ordinal ) );
     }

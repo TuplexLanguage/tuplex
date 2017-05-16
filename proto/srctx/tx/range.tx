@@ -1,7 +1,7 @@
 module tx
 
 
-public interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
+public interface Enumerable< E derives Enumerable<E> > : Comparable< E > {
 
     /** returns the last (highest) ordinal for this type */
     public static abstract last_ordinal() -> UInt;
@@ -24,7 +24,7 @@ public interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
 
 
 
-public interface Range< E > derives Indicable< UInt, E > {
+public interface Range< E > : Indicable< UInt, E > {
 
     public abstract override sequencer() -> Ref< ~Iterator<E> >;
 
@@ -41,10 +41,10 @@ public interface Range< E > derives Indicable< UInt, E > {
 
 
 /** A range between two values of an Enumerable type. */
-public type ERange< E derives Enumerable<E> > derives Tuple, Range< E > {
+public type ERange< E derives Enumerable<E> > implements Range< E > {
 
     /** The ERange iterator. */
-    public type ERangeIterator derives Tuple, Iterator< E > {
+    public type ERangeIterator implements Iterator< E > {
         range   : &ERange<E>;
         nextIndex : ~UInt;
 

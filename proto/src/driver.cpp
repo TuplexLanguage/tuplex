@@ -370,6 +370,10 @@ static std::string format_location_message( const TxParseOrigin* origin, char co
 
 static Logger& CLOG = Logger::get( "COMPILER" );
 
+bool TxParserContext::is_internal_builtin() {
+    return this == this->_driver.builtinParserContext;
+}
+
 bool TxParserContext::validate_module_name( const TxParseOrigin* origin, const TxIdentifier* moduleName ) {
     if ( moduleName->str() == LOCAL_NS ) {
         if ( !this->_driver.parsedSourceFiles.empty() ) {

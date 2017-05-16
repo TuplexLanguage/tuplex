@@ -60,8 +60,10 @@ Value* TxDerivedTypeNode::code_gen( LlvmGenerationContext& context, GenScope* sc
         std::cerr << "Skipping code gen for generic-dependent type's members: " << this->get_type()->type() << std::endl;
         return nullptr;
     }
-    for ( auto type : *this->baseTypes )
-        type->code_gen( context, scope );
+    this->baseType->code_gen( context, scope );
+    for ( auto interface : *this->interfaces )
+        interface->code_gen( context, scope );
+    this->superRefTypeNode->code_gen( context, scope );
     for ( auto member : *this->members )
         member->code_gen( context, scope );
     return nullptr;

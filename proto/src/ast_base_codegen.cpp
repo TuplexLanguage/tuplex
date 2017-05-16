@@ -42,6 +42,8 @@ Value* TxModuleNode::code_gen( LlvmGenerationContext& context, GenScope* scope )
 
 Value* TxTypeDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    if (this->get_node_id() == 4188)
+        std::cerr << "FOO! " << this << std::endl;
     if ( !this->typeExpression->get_type()->type()->has_type_id() ) {
         LOG_DEBUG( context.LOGGER(), "Skipping codegen for AST of type without static type id: " << this->typeExpression << " : " << this->typeExpression->get_type() );
         // Note that this skips codegen for the entire AST of all generic-dependent types,
@@ -97,12 +99,6 @@ static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, GenS
 }
 
 Value* TxFieldDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
-// experimental
-//    if (this->codeGenValue) {
-//        context.LOG.note("Code already generated for %-48s", this->to_string().c_str());
-//        return this->codeGenValue;
-//    }
-
     TRACE_CODEGEN( this, context );
     if ( this->field->typeExpression )
         this->field->typeExpression->code_gen( context, scope );
@@ -162,7 +158,6 @@ Value* TxFieldDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scop
     if ( fieldVal )
         context.register_llvm_value( fieldVal->getName(), fieldVal );
 
-//    this->codeGenValue = fieldVal;
     return fieldVal;
 }
 

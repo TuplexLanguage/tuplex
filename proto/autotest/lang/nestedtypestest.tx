@@ -12,9 +12,9 @@ public interface Sequencer derives Sequenceable {
     public abstract next()->Int;
 }
 
-type SingleRef derives Tuple, Sequenceable {
+type SingleRef derives Tuple : Sequenceable {
 
-    type SingleSeq derives Tuple, Sequencer {
+    type SingleSeq derives Tuple : Sequencer {
         element : Int;
         done : ~Bool;
 

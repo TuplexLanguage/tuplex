@@ -48,7 +48,7 @@ class TxDriver {
 
     const TxOptions options;
 
-    /** Parser context representing the built-in constructs without actual source code. */
+    /** Parser context representing the built-in internally coded constructs (without actual source code). */
     TxParserContext* builtinParserContext;
 
     /*--- these members reflect the current compilation state ---*/
@@ -162,6 +162,9 @@ public:
     TxDriver& driver() const {
         return this->_driver;
     }
+
+    /** Returns true if this parser context is for the internally coded built-in constructs (lacking actual source code). */
+    bool is_internal_builtin();
 
     /** The path of the file currently being parsed.
      * Used later to pass the file path to the location tracker. */

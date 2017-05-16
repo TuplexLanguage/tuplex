@@ -408,7 +408,11 @@ public:
     }
 
     virtual void symbol_resolution_pass() override {
-        if ( !this->_builtinCode && this->typeParamDecls )
+        if ( this->_builtinCode ) {
+            // the definer has been merged with the built-in type
+            return;
+        }
+        if ( this->typeParamDecls )
             for ( auto paramDecl : *this->typeParamDecls )
                 paramDecl->symbol_resolution_pass();
         try {

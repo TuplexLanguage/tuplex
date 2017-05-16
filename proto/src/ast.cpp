@@ -56,19 +56,24 @@ unsigned TxNode::nextNodeId = 0;
 
 std::string TxNode::str() const {
     auto ident = this->get_identifier();
-    char buf[256];
-    snprintf( buf, 256, "%-11s %4u %-24s %s", this->parse_loc_string().c_str(), this->get_node_id(), typeid(*this).name(), ident.c_str() );
-    return std::string( buf );
+    const size_t bsize = 128;
+    char buf[bsize];
+    snprintf( buf, bsize, "%-11s %4u %-24s %s", this->parse_loc_string().c_str(), this->get_node_id(), typeid(*this).name(), ident.c_str() );
+    if ( this->lexContext.reinterpretationDefiner )
+        return std::string( buf ) + " <: " + this->lexContext.reinterpretationDefiner->str();
+    else
+        return std::string( buf );
 }
 
 std::string TxNode::parse_loc_string() const {
-    char buf[128];
+    const size_t bsize = 32;
+    char buf[bsize];
     if ( parseLocation.begin.line == parseLocation.end.line ) {
         int lcol = ( parseLocation.end.column > parseLocation.begin.column ) ? parseLocation.end.column : parseLocation.end.column;
-        snprintf( buf, 128, "%3d.%2d-%d", parseLocation.begin.line, parseLocation.begin.column, lcol );
+        snprintf( buf, bsize, "%3d.%2d-%d", parseLocation.begin.line, parseLocation.begin.column, lcol );
     }
     else
-        snprintf( buf, 128, "%3d.%2d-%d.%d", parseLocation.begin.line, parseLocation.begin.column, parseLocation.end.line, parseLocation.end.column );
+        snprintf( buf, bsize, "%3d.%2d-%d.%d", parseLocation.begin.line, parseLocation.begin.column, parseLocation.end.line, parseLocation.end.column );
     return std::string( buf );
 }
 
@@ -300,13 +305,15 @@ void TxTypeDeclNode::declaration_pass() {
             if ( ( declaration = entSym->get_type_decl() ) ) {
                 if ( declaration->get_decl_flags() & TXD_BUILTIN ) {
                     //std::cerr << "existing builtin type declaration: " << declaration << "  new type expr: " << this->typeExpression << std::endl;
-                    auto derivedTypeExpr = dynamic_cast<TxDerivedTypeNode*>( this->typeExpression );
-                    ASSERT( derivedTypeExpr, "Expected definer for builtin-type to be a TxDerivedTypeNode: " << this->typeExpression );
-                    derivedTypeExpr->merge_builtin_type_definer( declaration->get_definer() );
+                    ASSERT( dynamic_cast<TxDerivedTypeNode*>( this->typeExpression ),
+                            "Expected definer for builtin-type to be a TxDerivedTypeNode: " << this->typeExpression );
+                    static_cast<TxDerivedTypeNode*>( this->typeExpression )->merge_builtin_type_definer( declaration->get_definer() );
                     this->_builtinCode = true;
                 }
             }
         }
+        if ( !this->_builtinCode && !this->get_parser_context()->is_internal_builtin() )
+            CERROR( this, "Declaration qualifier 'builtin' used for a non-builtin type: " << this->typeName );
     }
 
     if ( !this->_builtinCode ) {
@@ -318,17 +325,15 @@ void TxTypeDeclNode::declaration_pass() {
         LOG_TRACE( this->LOGGER(), this << ": Declared type " << declaration );
     }
 
-    bool genericContext = lexContext.is_generic();
-    if ( this->typeParamDecls ) {
+    if ( !lexContext.is_generic() && this->typeParamDecls ) {
         for ( auto paramDeclNode : *this->typeParamDecls ) {
             if (paramDeclNode->get_decl_flags() & TXD_GENPARAM) {
-                //std::cerr << "Has unbound gen-params: " << this << std::endl;
-                genericContext = true;
+                this->lexContext.generic = true;
+                break;
             }
         }
     }
     this->lexContext._scope = declaration->get_symbol();
-    this->lexContext.generic = genericContext;
     this->typeExpression->set_declaration( declaration );
     if (this->interfaceKW) {
         if (auto derivedType = dynamic_cast<TxDerivedTypeNode*>(this->typeExpression))
@@ -458,6 +463,13 @@ const TxType* TxGenSpecTypeNode::define_type() {
 }
 
 void TxDerivedTypeNode::init_implicit_types() {
+    if ( !this->baseType ) {
+        if (this->interfaceKW)
+            this->baseType = new TxNamedTypeNode( this->parseLocation, "tx.Interface" );
+        else
+            this->baseType = new TxNamedTypeNode( this->parseLocation, "tx.Tuple" );
+    }
+
     // implicit type members '$Self' and '$Super' for types with a body:
 //    // FUTURE: if type is immutable, the reference target type should perhaps not be modifiable?
 //    auto selfTypeExprN = new TxTypeExprWrapperNode(this);
@@ -466,12 +478,7 @@ void TxDerivedTypeNode::init_implicit_types() {
 //    const std::string selfTypeName = "$Self";
 //    this->selfRefTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_IMPLICIT, selfTypeName, nullptr, selfRefTypeExprN);
 
-    TxTypeExpressionNode* superTypeExprN;
-    if ( this->baseTypes->empty() )
-        superTypeExprN = new TxNamedTypeNode( this->parseLocation, "tx.Tuple" );
-    else
-        superTypeExprN = new TxTypeExprWrapperNode( this->baseTypes->at( 0 ) );
-    //TxTypeExpressionNode* superTypeExprN = new TxSuperTypeNode(this->parseLocation, new TxTypeExprWrapperNode(this));
+    TxTypeExpressionNode* superTypeExprN = new TxTypeExprWrapperNode( this->baseType );
     auto superRefTypeExprN = new TxReferenceTypeNode( this->parseLocation, nullptr,
                                                       new TxModifiableTypeNode( this->parseLocation, superTypeExprN ) );
     const std::string superTypeName = "$Super";
@@ -485,39 +492,19 @@ const TxType* TxDerivedTypeNode::define_type() {
         return this->builtinTypeDefiner->resolve_type();
     }
 
-    const TxType* baseObjType = nullptr;
-    std::vector<const TxType*> interfaces;
-    if ( this->baseTypes->empty() ) {
-        if (this->interfaceKW)
-            baseObjType = this->registry().get_builtin_type( TXBT_INTERFACE );
-        else
-            baseObjType = this->registry().get_builtin_type( TXBT_TUPLE );
-    }
-    else {
-        interfaces.reserve( this->baseTypes->size() - 1 );
-        for ( size_t i = 0; i < this->baseTypes->size(); i++ ) {
-            if ( auto baseType = this->baseTypes->at( i )->resolve_type() ) {
-                if ( i == 0 )
-                    baseObjType = baseType;
-                else
-                    interfaces.emplace_back( baseType );
-            }
-            else
-                return nullptr;
-        }
+    const TxType* baseObjType = this->baseType->resolve_type();
+    std::vector<const TxType*> interfaceTypes;
+    interfaceTypes.reserve( this->interfaces->size() );
+    for ( auto interface : *this->interfaces ) {
+        interfaceTypes.emplace_back( interface->resolve_type() );
     }
 
-    return this->registry().make_type_derivation( this, baseObjType, interfaces, this->_mutable );
+    return this->registry().make_type_derivation( this, baseObjType, interfaceTypes, this->_mutable );
 }
 
 void TxDerivedTypeNode::merge_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner ) {
-    if ( this->baseTypes->empty() ) {
-        CERROR( this, "Definition of a built-in type must have a base type specification." );
-        return;
-    }
     this->builtinTypeDefiner = builtinTypeDefiner;
-    auto interfaces = std::vector<TxTypeExpressionNode*>( this->baseTypes->cbegin() + 1, this->baseTypes->cend() );
-    merge_builtin_type_definers( this, this->builtinTypeDefiner, this->baseTypes->front(), interfaces, this->_mutable );
+    merge_builtin_type_definers( this, this->builtinTypeDefiner );
 }
 
 void TxFunctionTypeNode::declaration_pass() {

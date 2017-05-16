@@ -401,38 +401,43 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
     void init_implicit_types();
 
     friend TxTypeDeclNode;
-    void merge_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner );
+    friend class TxBuiltinTypeDefiningNode;
     void set_interface_decl( bool isInterface ) {
         this->interfaceKW = isInterface;
     }
+    void set_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner ) {
+        this->builtinTypeDefiner = builtinTypeDefiner;
+    }
+    void merge_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner );
 
 protected:
+    virtual void declaration_pass() override {
+        this->init_implicit_types();  // (can't run this before interfaceKW is known)
+    }
+
     virtual const TxType* define_type() override;
 
 public:
     const bool _mutable;
-    std::vector<TxTypeExpressionNode*>* baseTypes;
+    TxTypeExpressionNode* baseType;
+    std::vector<TxTypeExpressionNode*>* interfaces;
     std::vector<TxDeclarationNode*>* members;
 
     TxDerivedTypeNode( const TxLocation& parseLocation, const bool _mutable,
-                       std::vector<TxTypeExpressionNode*>* baseTypes,
+                       TxTypeExpressionNode* baseType, std::vector<TxTypeExpressionNode*>* interfaces,
                        std::vector<TxDeclarationNode*>* members )
-            : TxTypeExpressionNode( parseLocation ), _mutable( _mutable ),
-              baseTypes( baseTypes ),
-              members( members ) {
-        this->init_implicit_types();
+            : TxTypeExpressionNode( parseLocation ), _mutable( _mutable ), baseType( baseType ), interfaces( interfaces ), members( members ) {
     }
 
     TxDerivedTypeNode( const TxLocation& parseLocation, const bool _mutable, TxTypeExpressionNode* baseType, std::vector<TxDeclarationNode*>* members )
-        : TxDerivedTypeNode(parseLocation, _mutable, new std::vector<TxTypeExpressionNode*>( { baseType } ), members) { }
+        : TxDerivedTypeNode(parseLocation, _mutable, baseType, new std::vector<TxTypeExpressionNode*>(), members) { }
 
     TxDerivedTypeNode( const TxLocation& parseLocation, const bool _mutable, std::vector<TxDeclarationNode*>* members )
-        : TxDerivedTypeNode(parseLocation, _mutable, new std::vector<TxTypeExpressionNode*>(), members) { }
+        : TxDerivedTypeNode(parseLocation, _mutable, nullptr, new std::vector<TxTypeExpressionNode*>(), members) { }
 
     virtual TxDerivedTypeNode* make_ast_copy() const override {
-        return new TxDerivedTypeNode( this->parseLocation, this->_mutable,
-                                      make_node_vec_copy( this->baseTypes ),
-                                      make_node_vec_copy( this->members ) );
+        return new TxDerivedTypeNode( this->parseLocation, this->_mutable, this->baseType->make_ast_copy(),
+                                      make_node_vec_copy( this->interfaces ), make_node_vec_copy( this->members ) );
     }
 
     virtual std::string get_auto_type_name() const override {
@@ -441,8 +446,9 @@ public:
 
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
-        for ( auto type : *this->baseTypes ) {
-            type->symbol_resolution_pass();
+        this->baseType->symbol_resolution_pass();
+        for ( auto interface : *this->interfaces ) {
+            interface->symbol_resolution_pass();
         }
 
         //this->selfRefTypeNode->symbol_resolution_pass();
@@ -458,8 +464,9 @@ public:
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        for ( auto type : *this->baseTypes )
-            type->visit_ast( visitor, thisCursor, "basetype", context );
+        this->baseType->visit_ast( visitor, thisCursor, "basetype", context );
+        for ( auto interface : *this->interfaces )
+            interface->visit_ast( visitor, thisCursor, "interface", context );
 
         //this->selfRefTypeNode->visit_ast( visitor, thisCursor, "selfreftype", context );
         this->superRefTypeNode->visit_ast( visitor, thisCursor, "superreftype", context );

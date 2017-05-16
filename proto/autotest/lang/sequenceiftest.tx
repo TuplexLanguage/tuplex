@@ -9,9 +9,9 @@ public interface Sequencer<E derives Ref> derives Sequenceable<E> {
     public abstract next()->E;
 }
 
-type SingleRef<S derives Ref> derives Tuple, Sequenceable<S> {
+type SingleRef<S derives Ref> implements Sequenceable<S> {
 
-    type SingleSeq derives Tuple, Sequencer<S> {
+    type SingleSeq implements Sequencer<S> {
         element : S;
         done : ~Bool;
 

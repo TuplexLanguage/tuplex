@@ -12,7 +12,7 @@ interface IntfB {
     public abstract set_value( v : Int );
 }
 
-type Type derives Tuple, IntfA, IntfB {
+type Type : Tuple : IntfA, IntfB {
     fld : ~Int;
 
     self(f : Int) { self.fld = f; }

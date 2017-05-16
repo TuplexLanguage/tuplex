@@ -118,6 +118,9 @@ void TxActualType::validate_type() const {
                 CERROR( this, "'modifiable' specialization cannot add any interface base types" );
         }
         else {
+            if ( this->baseTypeSpec.type->staticTypeId == TXBT_ANY
+                    && !this->builtin && !( this->get_declaration()->get_decl_flags() & TXD_GENPARAM ) )
+                CERROR( this, "Can't derive directly from the Any root type: " << this->get_declaration() );
             ASSERT( this->baseTypeSpec.type->staticTypeId == TXBT_ANY
                     || ( this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseTypeSpec.type->get_type_class() == TXTC_INTERFACE )
                     || this->get_type_class() == this->baseTypeSpec.type->get_type_class(),

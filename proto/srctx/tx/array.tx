@@ -1,7 +1,7 @@
 module tx
 
 
-public builtin type Array<E, L> derives Any, Collection<E>, Updatable<UInt, E>
+public builtin type Array<E, L : UInt> derives Any implements Collection<E>, Updatable<UInt, E>
 {
     public override empty() -> Bool {
         return self.L == 0;
@@ -62,7 +62,7 @@ public builtin type Array<E, L> derives Any, Collection<E>, Updatable<UInt, E>
 
 
 
-    public type ArrayIterator derives Tuple, Iterator< E > {
+    public type ArrayIterator implements Iterator< E > {
         array     : &Array<E>;
         nextIndex : ~UInt;
 
