@@ -85,7 +85,8 @@ public:
     inline uint32_t get_field_index( const std::string& name ) const {
         if ( !this->fieldMap.count( name ) ) {
             // can happen for EXPERR fields when dumping symbol table (their symbol is registered but aren't placed in the field table)
-            std::cerr << "Error, can't find field in data tuple definition with field name: " << name << std::endl;
+            // or for VALUE type parameters of type specializations (the binding of a VALUE parameter doesn't allocate a new field slot)
+            //std::cerr << "(Perhaps caused by symbol dump) Note, can't find field in data tuple definition with field name: " << name << std::endl;
             return UINT32_MAX;
         }
         return this->fieldMap.at( name );

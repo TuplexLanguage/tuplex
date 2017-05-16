@@ -132,21 +132,20 @@ protected:
     }
 
     virtual const TxType* define_type() override final {
-        if ( this->original ) {  // true when this is a reinterpreted copy
-            // Note: This applies to Ref and Array specializations and deviates from reinterpretation of user types:
-            //   Specializations of user types will not have the generic base type as their base type,
-            //   instead they will have the generic base type's parent as their base type.
-            //   Here that would be  this->baseTypeNode->resolve_type()  instead of  this->original->get_type() .
-            //   That would however not work with the current type class implementation (TxReferenceType and TxArrayType).
-            return this->registry().make_type_entity( this->registry().make_actual_type( this->get_declaration(),
-                                                                                         this->original->get_type()->type() ) );
-        }
-        else {
-            auto actType = this->define_builtin_type();
-            actType->staticTypeId = builtinTypeId;
-            this->registry().add_type( actType );
-            return this->registry().make_type_entity( actType );
-        }
+// This used to be necessary but hindered providing members to Array and Ref in source code:
+//        if ( this->original ) {  // true when this is a reinterpreted copy
+//            // Note: This applies to Ref and Array specializations and deviates from reinterpretation of user types:
+//            //   Specializations of user types will not have the generic base type as their base type,
+//            //   instead they will have the generic base type's parent as their base type.
+//            //   Here that would be  this->baseTypeNode->resolve_type()  instead of  this->original->get_type() .
+//            //   That would however not work with the current type class implementation (TxReferenceType and TxArrayType).
+//            return this->registry().make_type_entity( this->registry().make_actual_type( this->get_declaration(),
+//                                                                                         this->original->get_type()->type() ) );
+//        }
+        auto actType = this->define_builtin_type();
+        actType->staticTypeId = builtinTypeId;
+        this->registry().add_type( actType );
+        return this->registry().make_type_entity( actType );
     }
 
     virtual TxActualType* define_builtin_type() = 0;

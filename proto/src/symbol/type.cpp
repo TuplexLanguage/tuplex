@@ -119,7 +119,8 @@ void TxActualType::validate_type() const {
         }
         else {
             if ( this->baseTypeSpec.type->staticTypeId == TXBT_ANY
-                    && !this->builtin && !( this->get_declaration()->get_decl_flags() & TXD_GENPARAM ) )
+                 && !( this->builtin || ( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )
+                       || this->get_type_class() == TXTC_REFERENCE || this->get_type_class() == TXTC_ARRAY ) )
                 CERROR( this, "Can't derive directly from the Any root type: " << this->get_declaration() );
             ASSERT( this->baseTypeSpec.type->staticTypeId == TXBT_ANY
                     || ( this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseTypeSpec.type->get_type_class() == TXTC_INTERFACE )
