@@ -372,8 +372,7 @@ bool TxActualType::inner_prepare_members() {
 
             if ( auto type = typeDecl->get_definer()->get_type() ) {
                 if ( typeDecl->get_decl_flags() & TXD_GENBINDING ) {
-                    auto bname = typeDecl->get_unique_name();
-                    if ( auto paramDecl = semBaseType->get_type_param_decl( bname ) ) {
+                    if ( auto paramDecl = semBaseType->get_type_param_decl( typeDecl->get_unique_name() ) ) {
                         auto constraintType = paramDecl->get_definer()->get_type()->type();
                         if ( !type->type()->is_a( *constraintType ) ) {
                             // TODO: do this also for VALUE params, but array type expression needs auto-conversion support for that to work

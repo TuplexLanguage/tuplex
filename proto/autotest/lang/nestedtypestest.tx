@@ -1,11 +1,11 @@
 ## Similar to sequence interface test but without generics
 
 public interface Sequenceable derives Interface {
-    public abstract sequencer()->Ref<~Sequencer>;
+    public abstract sequencer() mod ->Ref<~Sequencer>;
 }
 
 public interface Sequencer derives Sequenceable {
-    public override sequencer()->Ref<~Sequencer> { return self; }
+    public override sequencer() mod ->Ref<~Sequencer> { return self; }
 
     public abstract emptyFunc();
     public abstract hasNext()->Bool;
@@ -14,7 +14,7 @@ public interface Sequencer derives Sequenceable {
 
 type SingleRef derives Tuple : Sequenceable {
 
-    type SingleSeq derives Tuple : Sequencer {
+    type ~ SingleSeq derives Tuple : Sequencer {
         element : Int;
         done : ~Bool;
 

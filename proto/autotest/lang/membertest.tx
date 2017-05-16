@@ -1,5 +1,5 @@
 
-type CompoundType mod derives Tuple {
+type ~ CompoundType derives Tuple {
     public static SFIELD := -1;
     static SFIELD2 := 2.73;
     field0 : Long;
@@ -9,13 +9,13 @@ type CompoundType mod derives Tuple {
     ##public field4 := c"abra" ## not yet supported
     field5 : ~InnerCompType;
     field6 : ~&~InnerCompType;
-    type InnerCompType mod derives Tuple {
+    type ~ InnerCompType derives Tuple {
         static PI := 3.14;
         blaha : ~Float;
     }
 }
 
-type Subtype mod derives CompoundType {
+type ~ Subtype derives CompoundType {
     ##subfield1 : ~Long;
 }
 
@@ -112,7 +112,7 @@ main() {
 
 
 
-/*
+/* TODO
 ## Implicit type declaration:
 
 func somefunc() tuple { a : Int, b : Ref<Foo> }

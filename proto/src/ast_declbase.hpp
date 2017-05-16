@@ -387,24 +387,22 @@ protected:
 public:
     const TxIdentifier* typeName;
     const bool interfaceKW;
+    const bool mutableType;
     const std::vector<TxDeclarationNode*>* typeParamDecls;
     TxTypeExpressionNode* typeExpression;
 
-    TxTypeDeclNode( const TxLocation& parseLocation, const TxDeclarationFlags declFlags,
-                    const std::string& typeName,
-                    const std::vector<TxDeclarationNode*>* typeParamDecls,
-                    TxTypeExpressionNode* typeExpression,
-                    bool interfaceKW = false )
-            : TxDeclarationNode( parseLocation, declFlags ),
-              typeName( new TxIdentifier( typeName ) ),
-              interfaceKW( interfaceKW ), typeParamDecls( typeParamDecls ), typeExpression( typeExpression ) {
+    TxTypeDeclNode( const TxLocation& parseLocation, const TxDeclarationFlags declFlags, const std::string& typeName,
+                    const std::vector<TxDeclarationNode*>* typeParamDecls, TxTypeExpressionNode* typeExpression,
+                    bool interfaceKW = false, bool mutableType = false )
+            : TxDeclarationNode( parseLocation, declFlags ), typeName( new TxIdentifier( typeName ) ),
+              interfaceKW( interfaceKW ), mutableType( mutableType ), typeParamDecls( typeParamDecls ), typeExpression( typeExpression ) {
         validateTypeName( this, declFlags, typeName );
     }
 
     virtual TxTypeDeclNode* make_ast_copy() const override {
         return new TxTypeDeclNode( this->parseLocation, this->get_decl_flags(), this->typeName->str(),
-                                   make_node_vec_copy( this->typeParamDecls ),
-                                   this->typeExpression->make_ast_copy(), this->interfaceKW );
+                                   make_node_vec_copy( this->typeParamDecls ), this->typeExpression->make_ast_copy(),
+                                   this->interfaceKW, this->mutableType );
     }
 
     virtual void symbol_resolution_pass() override {

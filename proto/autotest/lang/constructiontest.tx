@@ -1,5 +1,5 @@
 
-type AType mod derives Tuple {
+type ~ AType derives Tuple {
     field1 : Long;
     field2 : Float;
     field3 : ~Bool;
@@ -25,7 +25,7 @@ type AType mod derives Tuple {
     }
 }
 
-type BType mod derives AType {
+type ~ BType derives AType {
     field4 : Double;
 
     public self(f4 : Double) {

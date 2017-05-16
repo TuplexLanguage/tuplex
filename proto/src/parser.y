@@ -338,35 +338,34 @@ member_list : member_declaration
 type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->push_back($1); }
                 | type_param_list COMMA type_param  { $$ = $1; $$->push_back($3); }
                 ;
-type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
-                                                  new TxNamedTypeNode(@1, "tx.Any")); }
+type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, new TxNamedTypeNode(@1, "tx.Any")); }
                 | NAME KW_DERIVES conv_type_expr { $$ = new TxTypeDeclNode (@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
                 | NAME COLON type_expression     { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, new TxFieldDefNode(@1, $1, $3, nullptr)); }
                 ;
 
-type_declaration : declaration_flags type_or_if NAME type_derivation  
-                        { $$ = new TxTypeDeclNode(@2, $1, $3, NULL, $4, $2); }
-                 | declaration_flags type_or_if NAME LT type_param_list GT type_derivation
-                        { $$ = new TxTypeDeclNode(@2, $1, $3, $5,   $7, $2); }
+type_declaration : declaration_flags type_or_if opt_modifiable NAME type_derivation  
+                        { $$ = new TxTypeDeclNode(@2, $1, $4, NULL, $5, $2, $3); }
+                 | declaration_flags type_or_if opt_modifiable NAME LT type_param_list GT type_derivation
+                        { $$ = new TxTypeDeclNode(@2, $1, $4, $6,   $8, $2, $3); }
 
                  // error recovery, handles when an error occurs before a type body's LBRACE:
                  | error type_body  { $$ = NULL; }
                  ;
 
-type_derivation : opt_modifiable derives_token type_expression SEMICOLON  { $$ = $3; }
+type_derivation : derives_token type_expression SEMICOLON  { $$ = $2; }
 
-                | opt_modifiable derives_token type_expression type_body  { $$ = new TxDerivedTypeNode(@1, $1, $3, $4); }
+                | derives_token type_expression type_body  { $$ = new TxDerivedTypeNode(@1, $2, $3); }
     
-                | opt_modifiable derives_token type_expression implements_token conv_type_list type_body
-                    { $$ = new TxDerivedTypeNode(@1, $1, $3, $5, $6); }
+                | derives_token type_expression implements_token conv_type_list type_body
+                    { $$ = new TxDerivedTypeNode(@1, $2, $4, $5); }
     
-                | opt_modifiable derives_token implements_token conv_type_list type_body
-                    { $$ = new TxDerivedTypeNode(@1, $1, nullptr, $4, $5); }
+                | derives_token implements_token conv_type_list type_body
+                    { $$ = new TxDerivedTypeNode(@1, nullptr, $3, $4); }
     
-                | opt_modifiable KW_IMPLEMENTS conv_type_list type_body
-                    { $$ = new TxDerivedTypeNode(@1, $1, nullptr, $3, $4); }
+                | KW_IMPLEMENTS conv_type_list type_body
+                    { $$ = new TxDerivedTypeNode(@1, nullptr, $2, $3); }
     
-                | opt_modifiable type_body         { $$ = new TxDerivedTypeNode(@1, $1, $2); }
+                | type_body         { $$ = new TxDerivedTypeNode(@1, $1); }
                 ;
 
 derives_token    : KW_DERIVES    | COLON ;

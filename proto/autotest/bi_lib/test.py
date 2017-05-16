@@ -31,7 +31,7 @@ current_script_dir = dirname( abspath( __file__ ) )
 chdir( current_script_dir )
 
 source_files = [
-    "array_interface.tx",
+    #"array_interface.tx",
 ]
 
 for src in source_files:

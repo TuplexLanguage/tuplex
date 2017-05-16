@@ -1,6 +1,6 @@
 
 
-type TupTypeA<S,T> {
+type ~ TupTypeA<S,T> {
     instMembS : S;
     instMembT : T;
 }

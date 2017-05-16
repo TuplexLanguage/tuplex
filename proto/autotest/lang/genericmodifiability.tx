@@ -1,0 +1,39 @@
+## Tests modifiability in combination with generic type parameters for user types
+
+## TODO: add immutable variant
+
+type ~ GType<S,T> {
+    sfield : S;
+    tfield : T;
+
+    self( s : S, t : T ) {
+        self.sfield = s;
+        self.tfield = t;
+    }
+
+    get_s()->S {
+        #experr 1: self.sfield = 5;
+        return self.sfield;
+    }
+
+    get_t()->T {
+        #experr 1: self.tfield = 6.3;
+        return self.tfield;
+    }
+
+    set_s( s : S ) mod {
+        self.sfield = s;
+    }
+
+    set_t( t : T ) mod {
+        self.tfield = t;
+    }
+}
+
+main()->Int {
+    nonmodA := <GType<Int,Float>>( 2, 3.14 );
+    smodA := <GType<~Int,Float>>( 2, 3.14 );
+    tmodA := <GType<Int,~Float>>( 2, 3.14 );
+    allmodA := <GType<~Int,~Float>>( 2, 3.14 );
+    return 0;
+}

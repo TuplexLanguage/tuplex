@@ -2,6 +2,7 @@
 #experr 1: builtin type BadUserType derives Tuple;
 
 test_array_interface() {
+    a0 : Array<~Int,3>;
     a1 := [ Int(1), 2, 3 ];
     assert !a1.empty();
 }

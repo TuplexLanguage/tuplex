@@ -121,14 +121,18 @@ TxType* TypeRegistry::make_type_entity( const TxActualType* actualType ) {
     return new TxType( actualType );
 }
 
-TxActualType* TypeRegistry::make_actual_type( const TxTypeDeclaration* declaration,
-                                              const TxActualType* baseType,
-                                              const std::vector<const TxType*>& interfaces,
-                                              bool modifiable ) {
+TxActualType* TypeRegistry::make_modifiable_type( const TxTypeDeclaration* declaration, const TxActualType* baseType ) {
+    auto newType = baseType->make_specialized_type( declaration, TxTypeSpecialization( baseType, true ) );
+    this->add_type( newType );
+    return newType;
+}
+
+TxActualType* TypeRegistry::make_actual_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
+                                              const std::vector<const TxType*>& interfaces, bool mutableType ) {
     std::vector<TxTypeSpecialization> interfaceSpecializations;
     for ( auto in : interfaces )
         interfaceSpecializations.emplace_back( in->type() );
-    auto newType = baseType->make_specialized_type( declaration, TxTypeSpecialization( baseType, modifiable ), interfaceSpecializations );
+    auto newType = baseType->make_specialized_type( declaration, TxTypeSpecialization( baseType ), interfaceSpecializations, mutableType );
     this->add_type( newType );
     return newType;
 }
@@ -166,7 +170,7 @@ const TxType* TypeRegistry::get_modifiable_type( const TxTypeDeclaration* declar
         return modNode->get_type();
     }
 
-    return new TxType( this->make_actual_type( declaration, actualType, { }, true ) );
+    return new TxType( this->make_modifiable_type( declaration, actualType ) );
 }
 
 const TxType* TypeRegistry::make_empty_derivation( const TxTypeDeclaration* declaration, const TxType* type ) {
@@ -186,31 +190,32 @@ const TxActualType* TypeRegistry::make_actual_empty_derivation( const TxTypeDecl
 }
 
 const TxType* TypeRegistry::make_type_derivation( TxTypeExpressionNode* definer, const TxType* baseType,
-                                                  const std::vector<const TxType*>& interfaces,
-                                                  bool _mutable ) {
+                                                  const std::vector<const TxType*>& interfaces, bool mutableType ) {
     ASSERT( definer->get_declaration(), "type derivation doesn't have declaration: " << definer );
     return new TxType( definer,
-                       [ this, definer, baseType, interfaces, _mutable ] () {
-                           return this->make_actual_type_derivation( definer, baseType->type(), interfaces, _mutable );
+                       [ this, definer, baseType, interfaces, mutableType ] () {
+                           return this->make_actual_type_derivation( definer, baseType->type(), interfaces, mutableType );
                        } );
 }
 
 const TxActualType* TypeRegistry::make_actual_type_derivation( const TxTypeExpressionNode* definer, const TxActualType* baseType,
-                                                               const std::vector<const TxType*>& interfaces,
-                                                               bool _mutable ) {
-    ASSERT( !baseType->is_modifiable(), "Can't specialize a 'modifiable' base type: " << baseType );
+                                                               const std::vector<const TxType*>& interfaces, bool mutableType ) {
     ASSERT( !( baseType->is_empty_derivation() && !baseType->get_explicit_declaration() ),
             "Can't derive from implicit empty base type: " << baseType );
 
+    if ( baseType->is_modifiable() )
+        CERR_THROWRES( definer, "Can't derive from a 'modifiable' base type (derive from the actual type instead): " << baseType );
+    for ( auto interface : interfaces ) {
+        if ( interface->is_modifiable() )
+            CERROR( definer, "Can't implement a 'modifiable' interface (implement the actual interface type instead): " << interface );
+    }
     if ( baseType->get_declaration()->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING ) ) {
         // only empty derivation allowed from generic type parameter
         if ( !interfaces.empty() )
             CERR_THROWRES( definer, "Can't specialize a generic type parameter: " << baseType );
     }
 
-    // TODO: pass _mutable flag to type extensions
-
-    return this->make_actual_type( definer->get_declaration(), baseType, interfaces );
+    return this->make_actual_type( definer->get_declaration(), baseType, interfaces, mutableType );
 }
 
 const TxType* TypeRegistry::get_type_specialization( TxTypeDefiningNode* definer, const TxType* baseType,
@@ -529,28 +534,22 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     ASSERT( dynamic_cast<TxTypeExpressionNode*>( baseDecl->get_definer() ),
             "baseType's definer is not a TxTypeExpressionNode: " << baseDecl->get_definer() );
     auto baseTypeExpr = static_cast<TxTypeExpressionNode*>( baseDecl->get_definer() );
+    ASSERT( dynamic_cast<const TxTypeDeclNode*>( baseTypeExpr->parent() ),
+            "baseType definer's parent is not a TxTypeDeclNode: " << baseTypeExpr->parent() );
+    auto baseDeclNode = static_cast<const TxTypeDeclNode*>( baseTypeExpr->parent() );
     auto specTypeExpr = baseTypeExpr->make_ast_copy();
 
     {   // pass on the generic base type to the new specialization via member named $GenericBase:
         auto baseTypeExpr = new TxTypeDeclWrapperNode( definer->get_parse_location(), baseDecl );
         auto declNode = new TxTypeDeclNode( definer->get_parse_location(), TXD_PUBLIC | TXD_IMPLICIT, "$GenericBase", nullptr, baseTypeExpr );
         bindingDeclNodes->push_back( declNode );
-
-//        if (baseType->get_type_class() == TXTC_ARRAY) {
-//            // FUTURE: if type is immutable, the reference target type should perhaps not be modifiable?
-//            auto & loc = definer->get_parse_location();
-//            auto selfTypeExprN = new TxTypeExprWrapperNode( specTypeExpr );
-//            auto selfRefTypeExprN = new TxReferenceTypeNode( loc, nullptr, new TxModifiableTypeNode( loc, selfTypeExprN ) );
-//            bindingDeclNodes->push_back( new TxTypeDeclNode( loc, TXD_IMPLICIT, "$Self", nullptr, selfRefTypeExprN ) );
-//        }
     }
 
     auto uniqueSpecTypeNameStr = baseScope->make_unique_name( newSpecTypeNameStr );
-    auto newSpecTypeDecl = new TxTypeDeclNode( definer->get_parse_location(), newDeclFlags, uniqueSpecTypeNameStr, bindingDeclNodes, specTypeExpr );
+    auto newSpecTypeDecl = new TxTypeDeclNode( definer->get_parse_location(), newDeclFlags, uniqueSpecTypeNameStr, bindingDeclNodes, specTypeExpr,
+                                               baseDeclNode->interfaceKW, baseDeclNode->mutableType );
 
     bool outerIsGeneric = definer->parent()->context().is_generic();
-//    if (outerIsGeneric)
-//        std::cerr << "outer is generic for " << uniqueSpecTypeNameStr << " at " << definer << std::endl;
     LexicalContext specContext( baseScope, expErrCtx, outerIsGeneric, definer );
     run_declaration_pass( newSpecTypeDecl, specContext );
     const TxActualType* specializedType = specTypeExpr->resolve_type()->type();

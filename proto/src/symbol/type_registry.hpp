@@ -56,10 +56,13 @@ class TypeRegistry {
     /** Makes a new type entity and registers it with this registry. */
     TxType* make_type_entity( const TxActualType* actualType );
 
-    /** Makes a new actual type and registers it with this registry. Used to make all types except original built-ins. */
+    /** Makes a new modifiable usage of an actual type. */
+    TxActualType* make_modifiable_type( const TxTypeDeclaration* declaration, const TxActualType* baseType );
+
+    /** Makes a new actual type and registers it with this registry. Used to make all types except original built-ins.
+     * The type will be mutable if mutableType arg is true AND the base type is mutable. (Validity check is done elsewhere.) */
     TxActualType* make_actual_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
-                                    const std::vector<const TxType*>& interfaces = { },
-                                    bool modifiable = false );
+                                    const std::vector<const TxType*>& interfaces = { }, bool mutableType = true );
 
 //    /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
 //    const TxInterfaceAdapterType* inner_get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);
@@ -67,8 +70,7 @@ class TypeRegistry {
     const TxActualType* make_actual_empty_derivation( const TxTypeDeclaration* declaration, const TxActualType* type );
 
     const TxActualType* make_actual_type_derivation( const TxTypeExpressionNode* definer, const TxActualType* baseType,
-                                                     const std::vector<const TxType*>& interfaces,
-                                                     bool _mutable );
+                                                     const std::vector<const TxType*>& interfaces, bool mutableType );
 
     const TxActualType* get_actual_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
                                                         const std::vector<const TxTypeArgumentNode*>* bindings );
@@ -135,8 +137,7 @@ public:
     /** Makes a new derivation that extends a base type and a set of interfaces.
      * The definer must have a declaration for this new type. */
     const TxType* make_type_derivation( TxTypeExpressionNode* definer, const TxType* baseType,
-                                        const std::vector<const TxType*>& interfaces,
-                                        bool _mutable );
+                                        const std::vector<const TxType*>& interfaces, bool mutableType );
 
     /** Gets a modifiable 'usage' of a base type. */
     const TxType* get_modifiable_type( const TxTypeDeclaration* declaration, const TxType* type );

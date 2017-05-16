@@ -390,25 +390,36 @@ public:
     }
 };
 
+/** Represents a type derivation with a body and / or implemented interfaces (a.k.a. a type extension). */
 class TxDerivedTypeNode : public TxTypeExpressionNode {
-    //TxTypeDeclNode* selfRefTypeNode = nullptr;
     TxTypeDeclNode* superRefTypeNode = nullptr;
 
     TxTypeDefiningNode* builtinTypeDefiner = nullptr;
     bool interfaceKW = false;
+    bool mutableType = false;
 
-    /** Initializes implicit type members such as '$Self' and '$Super' for types with a body. */
+    /** Initializes certain implicit type members such as '$Super' for types with a body. */
     void init_implicit_types();
 
     friend TxTypeDeclNode;
     friend class TxBuiltinTypeDefiningNode;
-    void set_interface_decl( bool isInterface ) {
+    void set_decl_attributes( bool isInterface, bool mutableType ) {
         this->interfaceKW = isInterface;
+        this->mutableType = mutableType;
     }
     void set_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner ) {
         this->builtinTypeDefiner = builtinTypeDefiner;
     }
     void merge_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner );
+
+    /** used by make_ast_copy() */
+    TxDerivedTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseType,
+                       std::vector<TxTypeExpressionNode*>* interfaces, std::vector<TxDeclarationNode*>* members,
+                       bool interfaceKW, bool mutableType )
+            : TxTypeExpressionNode( parseLocation ), baseType( baseType ), interfaces( interfaces ), members( members ) {
+        this->interfaceKW = interfaceKW;
+        this->mutableType = mutableType;
+    }
 
 protected:
     virtual void declaration_pass() override {
@@ -418,27 +429,30 @@ protected:
     virtual const TxType* define_type() override;
 
 public:
-    const bool _mutable;
     TxTypeExpressionNode* baseType;
     std::vector<TxTypeExpressionNode*>* interfaces;
     std::vector<TxDeclarationNode*>* members;
 
-    TxDerivedTypeNode( const TxLocation& parseLocation, const bool _mutable,
-                       TxTypeExpressionNode* baseType, std::vector<TxTypeExpressionNode*>* interfaces,
-                       std::vector<TxDeclarationNode*>* members )
-            : TxTypeExpressionNode( parseLocation ), _mutable( _mutable ), baseType( baseType ), interfaces( interfaces ), members( members ) {
+    TxDerivedTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseType,
+                       std::vector<TxTypeExpressionNode*>* interfaces, std::vector<TxDeclarationNode*>* members )
+            : TxTypeExpressionNode( parseLocation ), baseType( baseType ), interfaces( interfaces ), members( members ) {
     }
 
-    TxDerivedTypeNode( const TxLocation& parseLocation, const bool _mutable, TxTypeExpressionNode* baseType, std::vector<TxDeclarationNode*>* members )
-        : TxDerivedTypeNode(parseLocation, _mutable, baseType, new std::vector<TxTypeExpressionNode*>(), members) { }
+    TxDerivedTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseType, std::vector<TxDeclarationNode*>* members )
+        : TxDerivedTypeNode(parseLocation, baseType, new std::vector<TxTypeExpressionNode*>(), members) { }
 
-    TxDerivedTypeNode( const TxLocation& parseLocation, const bool _mutable, std::vector<TxDeclarationNode*>* members )
-        : TxDerivedTypeNode(parseLocation, _mutable, nullptr, new std::vector<TxTypeExpressionNode*>(), members) { }
+    TxDerivedTypeNode( const TxLocation& parseLocation, std::vector<TxDeclarationNode*>* members )
+        : TxDerivedTypeNode(parseLocation, nullptr, new std::vector<TxTypeExpressionNode*>(), members) { }
 
     virtual TxDerivedTypeNode* make_ast_copy() const override {
-        return new TxDerivedTypeNode( this->parseLocation, this->_mutable, this->baseType->make_ast_copy(),
-                                      make_node_vec_copy( this->interfaces ), make_node_vec_copy( this->members ) );
+        return new TxDerivedTypeNode( this->parseLocation, this->baseType->make_ast_copy(),
+                                      make_node_vec_copy( this->interfaces ), make_node_vec_copy( this->members ),
+                                      this->interfaceKW, this->mutableType );
     }
+
+    inline bool is_interface() const { return this->interfaceKW; }
+
+    inline bool is_mutable() const { return this->mutableType; }
 
     virtual std::string get_auto_type_name() const override {
         return this->get_declaration()->get_unique_full_name();
@@ -451,7 +465,6 @@ public:
             interface->symbol_resolution_pass();
         }
 
-        //this->selfRefTypeNode->symbol_resolution_pass();
         this->superRefTypeNode->symbol_resolution_pass();
 
         for ( auto member : *this->members ) {
@@ -468,7 +481,6 @@ public:
         for ( auto interface : *this->interfaces )
             interface->visit_ast( visitor, thisCursor, "interface", context );
 
-        //this->selfRefTypeNode->visit_ast( visitor, thisCursor, "selfreftype", context );
         this->superRefTypeNode->visit_ast( visitor, thisCursor, "superreftype", context );
 
         for ( auto member : *this->members )
@@ -537,20 +549,19 @@ protected:
 
 public:
     /** Indicates whether functions of this type may modify its closure when run. */
-    const bool modifiable;
+    const bool modifying;
     std::vector<TxArgTypeDefNode*>* arguments;
     TxArgTypeDefNode* returnField;
 
-    TxFunctionTypeNode( const TxLocation& parseLocation, const bool modifiable,
-                        std::vector<TxArgTypeDefNode*>* arguments,
-                        TxTypeExpressionNode* returnType )
-            : TxTypeExpressionNode( parseLocation ), modifiable( modifiable ),
+    TxFunctionTypeNode( const TxLocation& parseLocation, const bool modifying,
+                        std::vector<TxArgTypeDefNode*>* arguments, TxTypeExpressionNode* returnType )
+            : TxTypeExpressionNode( parseLocation ), modifying( modifying ),
               arguments( arguments ),
               returnField( make_return_field( returnType ) ) {
     }
 
     virtual TxFunctionTypeNode* make_ast_copy() const override {
-        return new TxFunctionTypeNode( this->parseLocation, this->modifiable, make_node_vec_copy( this->arguments ),
+        return new TxFunctionTypeNode( this->parseLocation, this->modifying, make_node_vec_copy( this->arguments ),
                                        ( this->returnField ? this->returnField->typeExpression->make_ast_copy() : nullptr ) );
     }
 

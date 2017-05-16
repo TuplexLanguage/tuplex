@@ -235,7 +235,7 @@ class TxAnyTypeDefNode final : public TxBuiltinTypeDefiningNode {
         }
 
         TxAnyType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                          const std::vector<TxTypeSpecialization>& interfaces ) const override {
+                                          const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
             if ( !dynamic_cast<const TxAnyType*>( baseTypeSpec.type ) )
                 throw std::logic_error( "Specified a base type for TxAnyType that was not a TxAnyType: " + baseTypeSpec.type->str() );
             return new TxAnyType( declaration, baseTypeSpec );
@@ -268,7 +268,7 @@ class TxVoidTypeDefNode final : public TxBuiltinTypeDefiningNode {
     /** Used solely for the Void type object. */
     class TxVoidType final : public TxActualType {
         TxVoidType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                           const std::vector<TxTypeSpecialization>& interfaces ) const override {
+                                           const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
             throw std::logic_error( "Can't specialize Void" );
         }
 
@@ -299,7 +299,7 @@ class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
     /** Used for the built-in types' abstract base types. */
     class TxBuiltinBaseType final : public TxActualType {
         TxBuiltinBaseType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                  const std::vector<TxTypeSpecialization>& interfaces ) const override {
+                                                  const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
             if ( !dynamic_cast<const TxBuiltinBaseType*>( baseTypeSpec.type ) )
                 throw std::logic_error( "Specified a base type for TxBuiltinBaseType that was not a TxBuiltinBaseType: " + baseTypeSpec.type->str() );
             return new TxBuiltinBaseType( baseTypeSpec.type->get_type_class(), declaration, baseTypeSpec, interfaces );

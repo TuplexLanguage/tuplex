@@ -41,6 +41,11 @@ public:
         return new TxFunctionHeaderNode( this->funcTypeNode->make_ast_copy() );
     }
 
+    /** Returns true if this function header is declared 'modifying', i.e. may modify its closure. */
+    bool is_modifying() const {
+        return this->funcTypeNode->modifying;
+    }
+
     virtual std::string get_auto_type_name() const override {
         return this->get_declaration()->get_unique_full_name();
     }
@@ -113,14 +118,20 @@ public:
             : TxExpressionNode( parseLocation ), funcHeaderNode( funcHeaderNode ), suite( suite ), isMethodSyntax( isMethodSyntax ) {
         if ( isMethodSyntax ) {
             // 'self' reference:
-            // FUTURE: if type is immutable, the reference target type should perhaps not be modifiable?
-            auto selfRefTypeExprN = new TxReferenceTypeNode(
-                    this->parseLocation, nullptr,
-                    new TxModifiableTypeNode( this->parseLocation, new TxNamedTypeNode( this->parseLocation, "$Self" ) ) );
+            TxTypeExpressionNode* selfTypeNode;
+            if ( this->funcHeaderNode->is_modifying() ) {
+                selfTypeNode = new TxModifiableTypeNode( this->parseLocation, new TxNamedTypeNode( this->parseLocation, "$Self" ) );
+            }
+            else {
+                selfTypeNode = new TxNamedTypeNode( this->parseLocation, "$Self" );
+            }
+            auto selfRefTypeExprN = new TxReferenceTypeNode( this->parseLocation, nullptr, selfTypeNode );
             this->selfRefNode = new TxFieldDefNode( this->parseLocation, "self", selfRefTypeExprN, nullptr );
+
             // 'super' reference
             auto superRefTypeExprN = new TxNamedTypeNode( this->parseLocation, "$Super" );
             this->superRefNode = new TxFieldDefNode( this->parseLocation, "super", superRefTypeExprN, nullptr );
+            // FUTURE: if type is modifiable, the super target type should in some cases perhaps be modifiable as well?
         }
     }
 
@@ -150,8 +161,13 @@ public:
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         if ( this->is_instance_method() ) {
-            this->selfRefNode->symbol_resolution_pass();
-            this->superRefNode->symbol_resolution_pass();
+            try {
+                this->selfRefNode->symbol_resolution_pass();
+                this->superRefNode->symbol_resolution_pass();
+            }
+            catch ( const resolution_error& err ) {
+                LOG( this->LOGGER(), DEBUG, "Caught resolution error in self/super of instance method " << this << ": " << err );
+            }
         }
         this->funcHeaderNode->symbol_resolution_pass();  // function header
         this->suite->symbol_resolution_pass();  // function body

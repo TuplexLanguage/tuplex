@@ -23,6 +23,10 @@ protected:
         auto refType = this->reference->resolve_type();
         if ( refType->get_type_class() != TXTC_REFERENCE )
             CERR_THROWRES( this, "Can't de-reference non-reference expression: " << refType );
+//        if (refType->target_type()->get_type_class() == TXTC_ARRAY) {
+//            std::cerr << "   refType:     " << refType << std::endl;
+//            std::cerr << "   target type: " << refType->target_type() << std::endl;
+//        }
         return refType->target_type();
     }
 

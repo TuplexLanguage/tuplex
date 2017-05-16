@@ -2,7 +2,7 @@ module my
 
 ## tests specializations of ref-bound generic type
 
-type AType<S derives Ref> mod derives Tuple {
+type ~ AType<S derives Ref> derives Tuple {
     public memref : S;
     public type GenAlias : S;
     public type GenRef : Ref<S>;

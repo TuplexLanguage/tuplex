@@ -1,9 +1,9 @@
 public interface Sequenceable<E derives Ref> derives Interface {
-    public abstract sequencer()->Ref<~Sequencer<E>>;
+    public abstract sequencer() mod ->Ref<~Sequencer<E>>;
 }
 
 public interface Sequencer<E derives Ref> derives Sequenceable<E> {
-    public override sequencer()->Ref<~Sequencer<E>> { return self; }
+    public override sequencer() mod ->Ref<~Sequencer<E>> { return self; }
 
     public abstract hasNext()->Bool;
     public abstract next()->E;
@@ -11,7 +11,7 @@ public interface Sequencer<E derives Ref> derives Sequenceable<E> {
 
 type SingleRef<S derives Ref> implements Sequenceable<S> {
 
-    type SingleSeq implements Sequencer<S> {
+    type ~ SingleSeq implements Sequencer<S> {
         element : S;
         done : ~Bool;
 

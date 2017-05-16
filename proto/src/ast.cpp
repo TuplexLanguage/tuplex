@@ -263,38 +263,58 @@ void TxFieldDeclNode::symbol_resolution_pass() {
         return;
     }
 
-    {
-        auto type = this->field->get_type();
-        auto storage = this->field->get_declaration()->get_storage();
-        if ( type->is_modifiable() ) {
-            if ( storage == TXS_GLOBAL )
-                CERROR( this, "Global fields may not be modifiable: " << field->get_identifier() );
-        }
+    auto type = this->field->get_type();
+    auto storage = this->field->get_declaration()->get_storage();
+    if ( type->is_modifiable() ) {
+        if ( storage == TXS_GLOBAL )
+            CERROR( this, "Global fields may not be modifiable: " << field->get_identifier() );
+    }
 
+    switch ( storage ) {
+    case TXS_INSTANCE:
+        // FUTURE: ensure TXS_INSTANCE fields are initialized either here or in every constructor
         if ( this->field->initExpression ) {
-            if ( storage == TXS_INSTANCE ) {
-                if ( !( this->field->get_declaration()->get_decl_flags() & TXD_GENBINDING ) )  // hackish... skips tx.Array.L
-                    CWARNING(
-                            this,
-                            "Not yet supported: Inline initializer for instance fields (initialize within constructor instead): " << this->field->get_identifier() );
+            if ( !( this->field->get_declaration()->get_decl_flags() & TXD_GENBINDING ) )  // hackish... skips tx.Array.L
+                CWARNING( this, "Not yet supported: Inline initializer for instance fields (initialize within constructor instead): "
+                          << this->field->get_identifier() );
+        }
+        if ( type->is_modifiable() ) {
+            if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->context().scope() ) ) {
+                const TxTypeDeclaration* outerTypeDecl = entitySymbol->get_type_decl();
+                if (outerTypeDecl->get_definer()->get_type()->is_immutable())
+                    CERROR( this, "Instance field of an immutable type may not be declared modifiable: " << field->get_identifier() );
             }
         }
-        else {
-            if ( storage == TXS_GLOBAL || storage == TXS_STATIC ) {
-                if ( !( this->field->get_declaration()->get_decl_flags() & ( TXD_BUILTIN | TXD_EXTERN ) ) ) {
-                    CERROR( this, "Global/static fields must have an initializer: " << this->field->get_identifier() );
+        break;
+    case TXS_INSTANCEMETHOD:
+        if ( this->field->initExpression ) {
+            auto lambdaExpr = static_cast<TxLambdaExprNode*>( static_cast<TxMaybeConversionNode*>( field->initExpression )->originalExpr );
+            if ( lambdaExpr->funcHeaderNode->is_modifying() ) {
+                if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->context().scope() ) ) {
+                    const TxTypeDeclaration* outerTypeDecl = entitySymbol->get_type_decl();
+                    if ( outerTypeDecl->get_definer()->get_type()->is_immutable() )
+                        CERROR( this, "Instance method of an immutable type may not be declared modifying: " << field->get_identifier() );
                 }
-//                else
-//                    std::cerr << "accepting without initializer: " << this->field->get_declaration() << std::endl;
             }
-            else if ( storage == TXS_VIRTUAL || storage == TXS_INSTANCEMETHOD ) {
-                if ( !( this->field->get_declaration()->get_decl_flags() & TXD_ABSTRACT ) )
-                    if ( this->field->fieldName->str() != "$adTypeId" )
-                        CERROR( this, "Non-abstract virtual fields/methods must have an initializer: " << this->field->get_identifier() );
-            }
-            // Note: TXS_STACK is not declared via this node
-            // FUTURE: ensure TXS_INSTANCE fields are initialized either here or in every constructor
         }
+        // no break
+    case TXS_VIRTUAL:
+        if ( !this->field->initExpression ) {
+            if ( !( this->field->get_declaration()->get_decl_flags() & TXD_ABSTRACT ) )
+                if ( this->field->fieldName->str() != "$adTypeId" )
+                    CERROR( this, "Non-abstract virtual fields/methods must have an initializer: " << this->field->get_identifier() );
+        }
+        break;
+    case TXS_GLOBAL:
+    case TXS_STATIC:
+        if ( !this->field->initExpression ) {
+            if ( !( this->field->get_declaration()->get_decl_flags() & ( TXD_BUILTIN | TXD_EXTERN ) ) )
+                CERROR( this, "Global/static fields must have an initializer: " << this->field->get_identifier() );
+        }
+        break;
+    default:
+        // Note: TXS_STACK is not declared via this node
+        CERROR( this, "Invalid storage type in field declaration: " << this->field );
     }
 }
 
@@ -335,9 +355,15 @@ void TxTypeDeclNode::declaration_pass() {
     }
     this->lexContext._scope = declaration->get_symbol();
     this->typeExpression->set_declaration( declaration );
-    if (this->interfaceKW) {
-        if (auto derivedType = dynamic_cast<TxDerivedTypeNode*>(this->typeExpression))
-            derivedType->set_interface_decl( this->interfaceKW );
+
+    if ( auto derivedType = dynamic_cast<TxDerivedTypeNode*>( this->typeExpression ) ) {
+        derivedType->set_decl_attributes( this->interfaceKW, this->mutableType );
+    }
+    else {
+        if ( this->interfaceKW && !this->get_parser_context()->is_internal_builtin() )
+            CERROR( this, "'interface' keyword where 'type' should have been used: " << this->typeExpression );
+        if ( this->mutableType && !this->context().is_reinterpretation() )
+            CWARNING( this, "Spurious mutability attribute in type declaration (has no effect on this type expression)" );
     }
 }
 
@@ -470,17 +496,10 @@ void TxDerivedTypeNode::init_implicit_types() {
             this->baseType = new TxNamedTypeNode( this->parseLocation, "tx.Tuple" );
     }
 
-    // implicit type members '$Self' and '$Super' for types with a body:
-//    // FUTURE: if type is immutable, the reference target type should perhaps not be modifiable?
-//    auto selfTypeExprN = new TxTypeExprWrapperNode(this);
-//    auto selfRefTypeExprN = new TxReferenceTypeNode(this->parseLocation, nullptr,
-//                                                    new TxModifiableTypeNode(this->parseLocation, selfTypeExprN));
-//    const std::string selfTypeName = "$Self";
-//    this->selfRefTypeNode = new TxTypeDeclNode(this->parseLocation, TXD_IMPLICIT, selfTypeName, nullptr, selfRefTypeExprN);
-
+    // implicit type member '$Super' for types with a body:
+    // (Note, '$Self' is created in the symbol table for all types, as an alias directly to the type.)
     TxTypeExpressionNode* superTypeExprN = new TxTypeExprWrapperNode( this->baseType );
-    auto superRefTypeExprN = new TxReferenceTypeNode( this->parseLocation, nullptr,
-                                                      new TxModifiableTypeNode( this->parseLocation, superTypeExprN ) );
+    auto superRefTypeExprN = new TxReferenceTypeNode( this->parseLocation, nullptr, superTypeExprN );
     const std::string superTypeName = "$Super";
     this->superRefTypeNode = new TxTypeDeclNode( this->parseLocation, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN );
 }
@@ -499,7 +518,7 @@ const TxType* TxDerivedTypeNode::define_type() {
         interfaceTypes.emplace_back( interface->resolve_type() );
     }
 
-    return this->registry().make_type_derivation( this, baseObjType, interfaceTypes, this->_mutable );
+    return this->registry().make_type_derivation( this, baseObjType, interfaceTypes, this->mutableType );
 }
 
 void TxDerivedTypeNode::merge_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner ) {
@@ -531,9 +550,9 @@ const TxType* TxFunctionTypeNode::define_type() {
     if ( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() )
         return this->registry().get_constructor_type( this->get_declaration(), argumentTypes, this->context().enclosing_lambda()->get_constructed() );
     else if ( this->returnField )
-        return this->registry().get_function_type( this->get_declaration(), argumentTypes, this->returnField->resolve_type(), modifiable );
+        return this->registry().get_function_type( this->get_declaration(), argumentTypes, this->returnField->resolve_type(), modifying );
     else
-        return this->registry().get_function_type( this->get_declaration(), argumentTypes, modifiable );
+        return this->registry().get_function_type( this->get_declaration(), argumentTypes, modifying );
 }
 
 void TxModifiableTypeNode::declaration_pass() {
@@ -849,18 +868,6 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
             // if symbol can be resolved to actual field, then do so
             if ( entitySymbol->field_count() ) {
                 if ( auto fieldDecl = resolve_field( this, entitySymbol, this->appliedFuncArgs ) ) {
-                    if ( fieldDecl->get_storage() == TXS_INSTANCE || fieldDecl->get_storage() == TXS_INSTANCEMETHOD ) {
-                        if ( !this->baseExpr ) {
-                            CERR_THROWRES( this, "Instance member field referenced without instance base: " << this->get_full_identifier() );
-                            return nullptr;
-                        }
-                        else if ( auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {
-                            if ( !baseSymbolNode->get_field() ) {
-                                CERR_THROWRES( this, "Instance member field referenced without instance base: " << this->get_full_identifier() );
-                                return nullptr;
-                            }
-                        }
-                    }
                     this->declaration = fieldDecl;
                     return this->declaration;
                 }
@@ -878,9 +885,8 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                             return this->declaration;
                         }
                     }
-                    CERR_THROWRES(
-                            this,
-                            "No matching constructor in type " << allocType << " for args (" << join( to_typevec( this->appliedFuncArgs ), ", ") << ")" );
+                    CERR_THROWRES( this,"No matching constructor in type " << allocType
+                                   << " for args (" << join( to_typevec( this->appliedFuncArgs ), ", ") << ")" );
                 }
                 else {
                     // resolve this symbol to its type
@@ -889,8 +895,8 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                 }
             }
             else
-                CERR_THROWRES( this,
-                               "Symbol " << entitySymbol << " could not be resolved to a distinct field or type: " << this->get_full_identifier() );
+                CERR_THROWRES( this, "Symbol " << entitySymbol << " could not be resolved to a distinct field or type: "
+                               << this->get_full_identifier() );
         }
         // not an error
         //else
@@ -898,8 +904,8 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
     }
     else {
         if ( this->baseExpr )
-            CERR_THROWRES( this,
-                           "Unknown symbol '" << this->get_full_identifier() << "' (base expression type is " << this->baseExpr->get_type() << ")" );
+            CERR_THROWRES( this, "Unknown symbol '" << this->get_full_identifier()
+                           << "' (base expression type is " << this->baseExpr->get_type() << ")" );
         else
             CERR_THROWRES( this, "Unknown symbol '" << this->get_full_identifier() << "'" );
     }
@@ -910,6 +916,23 @@ const TxType* TxFieldValueNode::define_type() {
     if ( auto decl = this->resolve_decl() ) {
         if ( auto fieldDecl = dynamic_cast<const TxFieldDeclaration*>( decl ) ) {
             this->field = fieldDecl->get_definer()->resolve_field();
+
+            if ( ( fieldDecl->get_storage() == TXS_INSTANCE || fieldDecl->get_storage() == TXS_INSTANCEMETHOD )
+                 && !( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ) ) {
+                if ( !this->baseExpr ) {
+                    CERR_THROWRES( this, "Instance member field referenced without instance base: " << this->get_full_identifier() );
+                    return nullptr;
+                }
+                else {
+                    if ( auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {
+                        if ( !baseSymbolNode->get_field() ) {
+                            CERR_THROWRES( this, "Instance member field referenced without instance base: " << this->get_full_identifier() );
+                            return nullptr;
+                        }
+                    }
+                }
+            }
+
             return this->field->get_type();
         }
         else

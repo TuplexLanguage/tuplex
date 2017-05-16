@@ -262,8 +262,9 @@ protected:
     /** Creates a specialization of this type. To be used by the type registry. */
     virtual TxActualType* make_specialized_type( const TxTypeDeclaration* declaration,
                                                  const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
-                                                 const std::vector<TxTypeSpecialization>& interfaces =
-                                                         std::vector<TxTypeSpecialization>() ) const = 0;
+                                                 const std::vector<TxTypeSpecialization>& interfaces = std::vector<TxTypeSpecialization>(),
+                                                 bool mutableType=true ) const = 0;
+    // FUTURE: refactor how TxActualType objects are created and remove this method
 
     friend class TypeRegistry;  // allows access for registry's type construction
     friend class BuiltinTypes;

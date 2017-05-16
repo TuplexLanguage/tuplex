@@ -3,7 +3,7 @@ puts(cstr : &[]UByte) {
     tx.c.puts( cstr^[0] );
 }
 
-type AType mod derives Tuple {
+type ~ AType derives Tuple {
     public static SFIELD := 41;
     public static SFIELD2 := 2.72;
     field1 : ~Long;
@@ -31,7 +31,7 @@ type AType mod derives Tuple {
     }
 }
 
-type BType mod derives AType {
+type ~ BType derives AType {
     public static override SFIELD := 42;
     public static override SFIELD2 := 3.14;
     field1 : ~Long;

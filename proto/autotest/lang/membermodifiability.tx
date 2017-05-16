@@ -1,0 +1,63 @@
+## Tests modifiability in combination with Tuple member fields and methods
+
+type ImmutableType {
+    ifield : Int;
+    #experr 1: ffield : ~Float;  ## can't declare modifiable member on immutable type
+
+    self( i : Int ) {
+        self.ifield = i;
+    }
+
+    get_i()->Int {
+        #experr 1: self.ifield = 5;  ## method is not modifying; field is not modifiable
+        return self.ifield;
+    }
+
+    #experr 2: set_i( i : Int ) mod {  ## can't declare modifying method on immutable type
+        #experr 0: self.ifield = i;    ## field is not modifiable
+    }
+}
+
+type ~ AType {  ## mutable type
+    ifield : Int;
+    ffield : ~Float;
+
+    self( i : Int, f : Float ) {
+        self.ifield = i;
+        self.ffield = f;
+    }
+
+    get_i()->Int {
+        #experr 1: self.ifield = 5;  ## method is not modifying
+        return self.ifield;
+    }
+
+    get_f()->Float {
+        #experr 1: self.ffield = 6.3;  ## method is not modifying
+        return self.ffield;
+    }
+
+    set_i( i : Int ) mod {
+        #experr 1: self.ifield = i;  ## field is not modifiable
+    }
+
+    set_f( f : Float ) mod {
+        self.ffield = f;
+    }
+}
+
+main()->Int {
+    nonmodA := AType( 2, 3.14 );
+    nonmodA.get_i();
+    nonmodA.get_f();
+    #experr 1: nonmodA.set_i( 5 );
+    #experr 1: nonmodA.set_f( 2.72 );
+
+    ~modA := AType( 2, 3.14 );
+    nonmodA.get_i();
+    nonmodA.get_f();
+    #experr 1: nonmodA.set_i( 5 );
+    nonmodA.set_f( 2.72 );
+
+    return 0;
+}
