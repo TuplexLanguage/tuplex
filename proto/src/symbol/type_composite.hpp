@@ -257,15 +257,11 @@ public:
 };
 
 class TxTupleType : public TxActualType {
-    // Indicates if this type is *not* immutable, in which case its instances may be declared modifiable.
-    const bool mutableType;
-
 protected:
     virtual TxTupleType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                                                 const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
-        if ( auto tupleBaseType = dynamic_cast<const TxTupleType*>( baseTypeSpec.type ) ) {
-            bool actuallyMutable = tupleBaseType->mutableType && mutableType;
-            return new TxTupleType( declaration, baseTypeSpec, interfaces, actuallyMutable );
+        if ( dynamic_cast<const TxTupleType*>( baseTypeSpec.type ) ) {
+            return new TxTupleType( declaration, baseTypeSpec, interfaces, mutableType );
         }
         throw std::logic_error( "Specified a base type for TxTupleType that was not a TxTupleType: " + baseTypeSpec.type->str() );
     }
@@ -274,12 +270,8 @@ protected:
 public:
     TxTupleType( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                  const std::vector<TxTypeSpecialization>& interfaces, bool mutableType )
-            : TxActualType( TXTC_TUPLE, declaration, baseTypeSpec, interfaces ), mutableType( mutableType ) {
+            : TxActualType( TXTC_TUPLE, declaration, baseTypeSpec, interfaces, mutableType ) {
         ASSERT( declaration, "NULL declaration" );
-    }
-
-    virtual bool is_mutable() const override {
-        return this->mutableType;
     }
 
     // FUTURE: override is_statically_sized() and return false if any instance member is not statically sized

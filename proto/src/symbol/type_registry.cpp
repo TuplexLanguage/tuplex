@@ -127,8 +127,8 @@ TxActualType* TypeRegistry::make_modifiable_type( const TxTypeDeclaration* decla
     return newType;
 }
 
-TxActualType* TypeRegistry::make_actual_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
-                                              const std::vector<const TxType*>& interfaces, bool mutableType ) {
+TxActualType* TypeRegistry::make_actual_type( const TxTypeDeclaration* declaration, const TxActualType* baseType, bool mutableType,
+                                              const std::vector<const TxType*>& interfaces ) {
     std::vector<TxTypeSpecialization> interfaceSpecializations;
     for ( auto in : interfaces )
         interfaceSpecializations.emplace_back( in->type() );
@@ -173,20 +173,21 @@ const TxType* TypeRegistry::get_modifiable_type( const TxTypeDeclaration* declar
     return new TxType( this->make_modifiable_type( declaration, actualType ) );
 }
 
-const TxType* TypeRegistry::make_empty_derivation( const TxTypeDeclaration* declaration, const TxType* type ) {
-    ASSERT( declaration, "empty type specialization doesn't have declaration: " << type );
+const TxType* TypeRegistry::make_empty_derivation( const TxTypeDeclaration* declaration, const TxType* baseType, bool mutableType ) {
+    ASSERT( declaration, "empty type specialization doesn't have declaration: " << baseType );
     return new TxType( declaration->get_definer(),
-                       [ this, declaration, type ] () {
-                           return this->make_actual_empty_derivation( declaration, type->type() );
+                       [ this, declaration, baseType, mutableType ] () {
+                           return this->make_actual_empty_derivation( declaration, baseType->type(), mutableType );
                        } );
 }
 
-const TxActualType* TypeRegistry::make_actual_empty_derivation( const TxTypeDeclaration* declaration, const TxActualType* baseType ) {
+const TxActualType* TypeRegistry::make_actual_empty_derivation( const TxTypeDeclaration* declaration, const TxActualType* baseType,
+                                                                bool mutableType ) {
     ASSERT( !baseType->is_modifiable(), "Can't specialize a 'modifiable' base type: " << baseType );
     ASSERT( !( baseType->is_empty_derivation() && !baseType->get_explicit_declaration() ),
             "Can't derive from implicit empty base type: " << baseType );
 
-    return this->make_actual_type( declaration, baseType );
+    return this->make_actual_type( declaration, baseType, mutableType );
 }
 
 const TxType* TypeRegistry::make_type_derivation( TxTypeExpressionNode* definer, const TxType* baseType,
@@ -215,21 +216,21 @@ const TxActualType* TypeRegistry::make_actual_type_derivation( const TxTypeExpre
             CERR_THROWRES( definer, "Can't specialize a generic type parameter: " << baseType );
     }
 
-    return this->make_actual_type( definer->get_declaration(), baseType, interfaces, mutableType );
+    return this->make_actual_type( definer->get_declaration(), baseType, mutableType, interfaces );
 }
 
 const TxType* TypeRegistry::get_type_specialization( TxTypeDefiningNode* definer, const TxType* baseType,
-                                                     const std::vector<const TxTypeArgumentNode*>& bindings ) {
+                                                     const std::vector<const TxTypeArgumentNode*>& bindings, bool mutableType ) {
     ASSERT( !bindings.empty(), "Empty bindings list when specializing baseType: " << baseType );
     ASSERT( bindings.at( 0 )->is_context_set(), "context not set for binding " << bindings.at(0) );
     return new TxType( definer,
-                       [ this, definer, baseType, bindings ] () {
-                           return this->get_actual_type_specialization( definer, baseType->type(), &bindings );
+                       [ this, definer, baseType, bindings, mutableType ] () {
+                           return this->get_actual_type_specialization( definer, baseType->type(), &bindings, mutableType );
                        } );
 }
 
 const TxActualType* TypeRegistry::get_actual_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
-                                                                  const std::vector<const TxTypeArgumentNode*>* bindings ) {
+                                                                  const std::vector<const TxTypeArgumentNode*>* bindings, bool mutableType ) {
     // Note: type specialization is never applied to a modifiable-specialization (legal only on non-modifiable base type)
     ASSERT( !baseType->is_modifiable(), "Can't specialize a 'modifiable' base type: " << baseType );
     ASSERT( !( baseType->is_empty_derivation() && !baseType->get_explicit_declaration() ),
@@ -239,11 +240,11 @@ const TxActualType* TypeRegistry::get_actual_type_specialization( const TxTypeDe
     if ( auto typeExprNode = dynamic_cast<const TxTypeExpressionNode*>( definer ) )
         declaration = typeExprNode->get_declaration();
 
-    const TxActualType* specializedType = get_inner_type_specialization( definer, baseType, bindings );
+    const TxActualType* specializedType = get_inner_type_specialization( definer, baseType, bindings, mutableType );
 
     if ( declaration ) {
         // create empty type specialization with explicit (unique) name
-        specializedType = this->make_actual_type( declaration, specializedType );
+        specializedType = this->make_actual_type( declaration, specializedType, mutableType );
     }
 
     return specializedType;
@@ -318,8 +319,7 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
 }
 
 static const TxActualType* get_existing_type( const TxActualType* baseType, const std::vector<const TxTypeArgumentNode*>* bindings,
-                                              TxScopeSymbol* baseScope,
-                                              const std::string& newBaseName ) {
+                                              TxScopeSymbol* baseScope, const std::string& newBaseName ) {
     auto baseTypeParams = baseType->get_type_params();
     if ( bindings->size() == baseTypeParams.size() ) {
         // if generic type specialization is equivalent to the generic base type, reuse it:
@@ -389,7 +389,7 @@ static TxDeclarationNode* make_value_type_param_decl_node( const TxLocation& par
 }
 
 const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
-                                                                 const std::vector<const TxTypeArgumentNode*>* bindings ) {
+                                                                 const std::vector<const TxTypeArgumentNode*>* bindings, bool mutableType ) {
     // Note: A non-parameterized type (without any declared type parameters) is not necessarily non-generic:
     //       It may have members that refer to generic parameters declared in an outer scope.
     // Note: Binding of ref-constrained type parameters doesn't necessarily affect code generation,
@@ -416,6 +416,8 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
     std::stringstream newBaseTypeName;
     if ( expErrCtx )
         newBaseTypeName << "$EE$";
+    if (mutableType)
+        newBaseTypeName << "M$";  // distinguish mutable and immutable specializations by name
     newBaseTypeName << baseDecl->get_unique_name() << "<";
 
     // do shallow validation that bindings match base type's parameters:
@@ -462,14 +464,14 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
     auto baseScope = baseDecl->get_symbol()->get_outer();
     const TxActualType* specializedType = get_existing_type( baseType, bindings, baseScope, newBaseTypeNameStr );
     if ( !specializedType ) {
-        specializedType = make_type_specialization( definer, baseType, bindings, expErrCtx, newBaseTypeNameStr );
+        specializedType = make_type_specialization( definer, baseType, bindings, expErrCtx, newBaseTypeNameStr, mutableType );
     }
     return specializedType;
 }
 
 const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
-                                                            const std::vector<const TxTypeArgumentNode*>* bindings,
-                                                            ExpectedErrorClause* expErrCtx, const std::string& newSpecTypeNameStr ) {
+                                                            const std::vector<const TxTypeArgumentNode*>* bindings, ExpectedErrorClause* expErrCtx,
+                                                            const std::string& newSpecTypeNameStr, bool mutableType ) {
     auto baseDecl = baseType->get_declaration();
     auto baseScope = baseDecl->get_symbol()->get_outer();
     auto baseTypeParams = baseType->get_type_params();
@@ -547,7 +549,7 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
 
     auto uniqueSpecTypeNameStr = baseScope->make_unique_name( newSpecTypeNameStr );
     auto newSpecTypeDecl = new TxTypeDeclNode( definer->get_parse_location(), newDeclFlags, uniqueSpecTypeNameStr, bindingDeclNodes, specTypeExpr,
-                                               baseDeclNode->interfaceKW, baseDeclNode->mutableType );
+                                               baseDeclNode->interfaceKW, mutableType );
 
     bool outerIsGeneric = definer->parent()->context().is_generic();
     LexicalContext specContext( baseScope, expErrCtx, outerIsGeneric, definer );
@@ -568,18 +570,18 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
 const TxType* TypeRegistry::get_reference_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* targetTypeBinding,
                                                 const TxIdentifier* dataspace ) {
     std::vector<const TxTypeArgumentNode*> bindings( { targetTypeBinding } );
-    return this->get_type_specialization( definer, this->get_builtin_type( TXBT_REFERENCE ), bindings );
+    return this->get_type_specialization( definer, this->get_builtin_type( TXBT_REFERENCE ), bindings, true );
 }
 
 const TxType* TypeRegistry::get_array_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding,
                                             const TxValueTypeArgumentNode* lengthBinding ) {
     std::vector<const TxTypeArgumentNode*> bindings( { elemTypeBinding, lengthBinding } );
-    return this->get_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), bindings );
+    return this->get_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), bindings, true );
 }
 
 const TxType* TypeRegistry::get_array_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding ) {
     std::vector<const TxTypeArgumentNode*> bindings( { elemTypeBinding } );
-    return this->get_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), bindings );
+    return this->get_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), bindings, true );
 }
 
 static std::vector<const TxActualType*> make_actual_arg_types( const std::vector<const TxType*>& argumentTypes ) {

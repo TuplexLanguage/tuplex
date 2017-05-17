@@ -395,34 +395,31 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
     TxTypeDeclNode* superRefTypeNode = nullptr;
 
     TxTypeDefiningNode* builtinTypeDefiner = nullptr;
-    bool interfaceKW = false;
-    bool mutableType = false;
 
     /** Initializes certain implicit type members such as '$Super' for types with a body. */
     void init_implicit_types();
 
-    friend TxTypeDeclNode;
     friend class TxBuiltinTypeDefiningNode;
-    void set_decl_attributes( bool isInterface, bool mutableType ) {
-        this->interfaceKW = isInterface;
-        this->mutableType = mutableType;
-    }
+//    friend TxTypeDeclNode;
+//    void set_decl_attributes( bool isInterface, bool mutableType ) {
+//        this->interfaceKW = isInterface;
+//        this->mutableType = mutableType;
+//    }
     void set_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner ) {
         this->builtinTypeDefiner = builtinTypeDefiner;
     }
-    void merge_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner );
 
     /** used by make_ast_copy() */
     TxDerivedTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseType,
                        std::vector<TxTypeExpressionNode*>* interfaces, std::vector<TxDeclarationNode*>* members,
                        bool interfaceKW, bool mutableType )
             : TxTypeExpressionNode( parseLocation ), baseType( baseType ), interfaces( interfaces ), members( members ) {
-        this->interfaceKW = interfaceKW;
-        this->mutableType = mutableType;
+//        this->interfaceKW = interfaceKW;
+//        this->mutableType = mutableType;
     }
 
 protected:
-    virtual void declaration_pass() override {
+    virtual void typeexpr_declaration_pass() override {
         this->init_implicit_types();  // (can't run this before interfaceKW is known)
     }
 
@@ -446,13 +443,13 @@ public:
 
     virtual TxDerivedTypeNode* make_ast_copy() const override {
         return new TxDerivedTypeNode( this->parseLocation, this->baseType->make_ast_copy(),
-                                      make_node_vec_copy( this->interfaces ), make_node_vec_copy( this->members ),
-                                      this->interfaceKW, this->mutableType );
+                                      make_node_vec_copy( this->interfaces ), make_node_vec_copy( this->members ) );
+                                      //this->interfaceKW, this->mutableType );
     }
 
-    inline bool is_interface() const { return this->interfaceKW; }
-
-    inline bool is_mutable() const { return this->mutableType; }
+//    inline bool is_interface() const { return this->interfaceKW; }
+//
+//    inline bool is_mutable() const { return this->mutableType; }
 
     virtual std::string get_auto_type_name() const override {
         return this->get_declaration()->get_unique_full_name();
@@ -543,7 +540,7 @@ class TxFunctionTypeNode : public TxTypeExpressionNode {
     }
 
 protected:
-    virtual void declaration_pass() override;
+    virtual void typeexpr_declaration_pass() override;
 
     virtual const TxType* define_type() override;
 
@@ -608,7 +605,7 @@ public:
 
 class TxModifiableTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual void declaration_pass() override;
+    virtual void typeexpr_declaration_pass() override;
 
     virtual const TxType* define_type() override {
         if ( auto bType = this->baseType->resolve_type() ) {
@@ -671,7 +668,7 @@ class TxMaybeModTypeNode : public TxModifiableTypeNode {
     bool isModifiable = false;
 
 protected:
-    virtual void declaration_pass() override;
+    virtual void typeexpr_declaration_pass() override;
 
     virtual const TxType* define_type() override {
         // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT

@@ -61,26 +61,26 @@ class TypeRegistry {
 
     /** Makes a new actual type and registers it with this registry. Used to make all types except original built-ins.
      * The type will be mutable if mutableType arg is true AND the base type is mutable. (Validity check is done elsewhere.) */
-    TxActualType* make_actual_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
-                                    const std::vector<const TxType*>& interfaces = { }, bool mutableType = true );
+    TxActualType* make_actual_type( const TxTypeDeclaration* declaration, const TxActualType* baseType, bool mutableType,
+                                    const std::vector<const TxType*>& interfaces = { } );
 
 //    /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType. */
 //    const TxInterfaceAdapterType* inner_get_interface_adapter(const TxType* interfaceType, const TxType* adaptedType);
 
-    const TxActualType* make_actual_empty_derivation( const TxTypeDeclaration* declaration, const TxActualType* type );
+    const TxActualType* make_actual_empty_derivation( const TxTypeDeclaration* declaration, const TxActualType* baseType, bool mutableType );
 
     const TxActualType* make_actual_type_derivation( const TxTypeExpressionNode* definer, const TxActualType* baseType,
                                                      const std::vector<const TxType*>& interfaces, bool mutableType );
 
     const TxActualType* get_actual_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
-                                                        const std::vector<const TxTypeArgumentNode*>* bindings );
+                                                        const std::vector<const TxTypeArgumentNode*>* bindings, bool mutableType );
 
     const TxActualType* get_inner_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
-                                                       const std::vector<const TxTypeArgumentNode*>* bindings );
+                                                       const std::vector<const TxTypeArgumentNode*>* bindings, bool mutableType );
 
     const TxActualType* make_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
                                                   const std::vector<const TxTypeArgumentNode*>* bindings,
-                                                  ExpectedErrorClause* expErrCtx, const std::string& newBaseTypeNameStr );
+                                                  ExpectedErrorClause* expErrCtx, const std::string& newBaseTypeNameStr, bool mutableType );
 
     const TxType* get_actual_interface_adapter( const TxActualType* interfaceType, const TxActualType* adaptedType );
 
@@ -132,7 +132,7 @@ public:
     /*--- retrievers / creators for derived types ---*/
 
     /** Makes a new, empty derivation of a base type, with a distinct name. */
-    const TxType* make_empty_derivation( const TxTypeDeclaration* declaration, const TxType* type );
+    const TxType* make_empty_derivation( const TxTypeDeclaration* declaration, const TxType* baseType, bool mutableType );
 
     /** Makes a new derivation that extends a base type and a set of interfaces.
      * The definer must have a declaration for this new type. */
@@ -145,7 +145,7 @@ public:
     /** Gets/makes a specialization of a generic base type.
      * If such a specialization already exists, that will be returned. */
     const TxType* get_type_specialization( TxTypeDefiningNode* definer, const TxType* baseType,
-                                           const std::vector<const TxTypeArgumentNode*>& bindings );
+                                           const std::vector<const TxTypeArgumentNode*>& bindings, bool mutableType );
 
     /** Gets a concrete "adapter type" that specializes the interface type and redirects to adaptedType.
      * If such an adapter already exists, that will be returned. */
@@ -160,9 +160,12 @@ public:
 
     // "mod" of function refers to whether functions of this type may modify its closure when run.
     // Note: "mod" of args not part of the function type (though concrete function may mod-ify its stack arg copies).
-    const TxType* get_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, const TxType* returnType,
-                                     bool mod = false );
-    const TxType* get_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes, bool mod = false );
+    const TxType* get_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
+                                     const TxType* returnType, bool modifying );
+
+    const TxType* get_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
+                                     bool modifying );
+
     const TxType* get_constructor_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
                                         const TxTypeDeclaration* constructedObjTypeDecl );
 };

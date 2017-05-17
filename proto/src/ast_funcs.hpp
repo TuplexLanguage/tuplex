@@ -12,7 +12,7 @@ class TxFunctionHeaderNode : public TxTypeExpressionNode {
     TxFunctionTypeNode* funcTypeNode;  // (creates implicit declaration for the function type)
 
 protected:
-    virtual void declaration_pass() override {
+    virtual void typeexpr_declaration_pass() override {
         for ( auto argField : *this->arguments ) {
             argField->declare_field( lexContext.scope(), TXD_NONE, TXS_STACK );
         }

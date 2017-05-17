@@ -180,6 +180,9 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     /** The static type id of this type, if it is defined at compile time and a distinct type (not an equivalent specialization). */
     uint32_t staticTypeId = UINT32_MAX;
 
+    /** If true, this type is mutable, in which case its instances may be declared modifiable. */
+    const bool mutableType;
+
     const TxTypeDeclaration* declaration;
 
     /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
@@ -247,14 +250,14 @@ protected:
 
     /** Only to be used for Any type. */
     TxActualType( TxTypeClass typeClass, const TxTypeDeclaration* declaration )
-            : typeClass( typeClass ), builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+            : typeClass( typeClass ), builtin( declaration->get_decl_flags() & TXD_BUILTIN ), mutableType( true ),
               declaration( declaration ), baseTypeSpec(), interfaces() {
         this->initialize_type();
     }
 
     TxActualType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                  const std::vector<TxTypeSpecialization>& interfaces = std::vector<TxTypeSpecialization>() )
-            : typeClass( typeClass ), builtin( determine_builtin( declaration, baseTypeSpec ) ),
+                  const std::vector<TxTypeSpecialization>& interfaces = std::vector<TxTypeSpecialization>(), bool mutableType=true )
+            : typeClass( typeClass ), builtin( determine_builtin( declaration, baseTypeSpec ) ), mutableType( mutableType ),
               declaration( declaration ), baseTypeSpec( baseTypeSpec ), interfaces( interfaces ) {
         this->initialize_type();
     }
@@ -396,7 +399,9 @@ public:
     /** Returns true if this type is mutable by declaration.
      * If true its instances can be declared modifiable.
      */
-    virtual bool is_mutable() const;
+    inline bool is_mutable() const {
+        return this->mutableType;
+    }
 
     /** Returns true if this type cannot be derived from. (Final generic types can still be specialized.) */
     inline bool is_final() const {

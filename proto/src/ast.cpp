@@ -335,7 +335,7 @@ void TxTypeDeclNode::declaration_pass() {
                     //std::cerr << "existing builtin type declaration: " << declaration << "  new type expr: " << this->typeExpression << std::endl;
                     ASSERT( dynamic_cast<TxDerivedTypeNode*>( this->typeExpression ),
                             "Expected definer for builtin-type to be a TxDerivedTypeNode: " << this->typeExpression );
-                    static_cast<TxDerivedTypeNode*>( this->typeExpression )->merge_builtin_type_definer( declaration->get_definer() );
+                    merge_builtin_type_definers( static_cast<TxDerivedTypeNode*>( this->typeExpression ), declaration->get_definer() );
                     this->_builtinCode = true;
                 }
             }
@@ -363,16 +363,31 @@ void TxTypeDeclNode::declaration_pass() {
     }
     this->lexContext._scope = declaration->get_symbol();
     this->typeExpression->set_declaration( declaration );
+}
 
-    if ( auto derivedType = dynamic_cast<TxDerivedTypeNode*>( this->typeExpression ) ) {
-        derivedType->set_decl_attributes( this->interfaceKW, this->mutableType );
+const TxTypeDeclNode* TxTypeExpressionNode::decl_parent() const {
+    const TxNode* p = this->parent();
+    if ( auto d = dynamic_cast<const TxTypeDeclNode*>( p ) )
+        return d;
+    if ( auto m = dynamic_cast<const TxMaybeModTypeNode*>( p ) ) {
+        if ( m->is_modifiable() )
+            return nullptr;
+        if ( auto d = dynamic_cast<const TxTypeDeclNode*>( m->parent() ) )
+            return d;
     }
-    else {
-        if ( this->interfaceKW && !this->get_parser_context()->is_internal_builtin() )
-            CERROR( this, "'interface' keyword where 'type' should have been used: " << this->typeExpression );
-        if ( this->mutableType && !this->context().is_reinterpretation() )
-            CWARNING( this, "Spurious mutability attribute in type declaration (has no effect on this type expression)" );
-    }
+    return nullptr;
+}
+
+bool TxTypeExpressionNode::get_decl_mutable_type() const {
+    if ( auto parentDecl = this->decl_parent() )
+        return parentDecl->mutableType;
+    return false;
+}
+
+bool TxTypeExpressionNode::get_decl_interface_kw() const {
+    if ( auto parentDecl = this->decl_parent() )
+        return parentDecl->interfaceKW;
+    return false;
 }
 
 void TxTypeExpressionNode::declaration_pass() {
@@ -380,6 +395,7 @@ void TxTypeExpressionNode::declaration_pass() {
     // The type expression's created type entity, if any, represents its inner scope.
     if (this->declaration)
         this->lexContext._scope = this->declaration->get_symbol();
+    this->typeexpr_declaration_pass();
 }
 
 TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
@@ -436,7 +452,7 @@ const TxType* TxNamedTypeNode::define_type() {
                 auto type = typeDecl->get_definer()->resolve_type();
                 if ( auto decl = this->get_declaration() ) {
                     // create empty specialization (uniquely named but identical type)
-                    return this->registry().make_empty_derivation( decl, type );
+                    return this->registry().make_empty_derivation( decl, type, this->get_decl_mutable_type() );
                 }
                 return type;
             }
@@ -460,7 +476,7 @@ const TxType* TxMemberTypeNode::define_type() {
                 auto type = typeDecl->get_definer()->resolve_type();
                 if ( auto decl = this->get_declaration() ) {
                     // create empty specialization (uniquely named but identical type)
-                    return this->registry().make_empty_derivation( decl, type );
+                    return this->registry().make_empty_derivation( decl, type, this->get_decl_mutable_type() );
                 }
                 return type;
             }
@@ -493,12 +509,12 @@ const TxType* TxGenSpecTypeNode::define_type() {
     // copy vector because of const conversion:
     auto tmp = std::vector<const TxTypeArgumentNode*>( this->typeArgs->size() );
     std::copy( this->typeArgs->cbegin(), this->typeArgs->cend(), tmp.begin() );
-    return this->registry().get_type_specialization( this, genType, tmp );
+    return this->registry().get_type_specialization( this, genType, tmp, this->get_decl_mutable_type() );
 }
 
 void TxDerivedTypeNode::init_implicit_types() {
     if ( !this->baseType ) {
-        if (this->interfaceKW)
+        if ( this->get_decl_interface_kw() )
             this->baseType = new TxNamedTypeNode( this->parseLocation, "tx.Interface" );
         else
             this->baseType = new TxNamedTypeNode( this->parseLocation, "tx.Tuple" );
@@ -526,15 +542,10 @@ const TxType* TxDerivedTypeNode::define_type() {
         interfaceTypes.emplace_back( interface->resolve_type() );
     }
 
-    return this->registry().make_type_derivation( this, baseObjType, interfaceTypes, this->mutableType );
+    return this->registry().make_type_derivation( this, baseObjType, interfaceTypes, this->get_decl_mutable_type() );
 }
 
-void TxDerivedTypeNode::merge_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner ) {
-    this->builtinTypeDefiner = builtinTypeDefiner;
-    merge_builtin_type_definers( this, this->builtinTypeDefiner );
-}
-
-void TxFunctionTypeNode::declaration_pass() {
+void TxFunctionTypeNode::typeexpr_declaration_pass() {
     // overrides in order to create implicit declaration for the function type
     if ( !this->get_declaration() ) {
         std::string funcTypeName = lexContext.scope()->make_unique_name( "$Ftype", true );
@@ -547,7 +558,6 @@ void TxFunctionTypeNode::declaration_pass() {
         this->set_declaration( declaration );
         LOG_TRACE( this->LOGGER(), this << ": Declared type " << declaration );
     }
-    TxTypeExpressionNode::declaration_pass();
 }
 
 const TxType* TxFunctionTypeNode::define_type() {
@@ -563,7 +573,7 @@ const TxType* TxFunctionTypeNode::define_type() {
         return this->registry().get_function_type( this->get_declaration(), argumentTypes, modifying );
 }
 
-void TxModifiableTypeNode::declaration_pass() {
+void TxModifiableTypeNode::typeexpr_declaration_pass() {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->baseType ) ) {
         if ( auto maybeModElem = dynamic_cast<TxMaybeModTypeNode*>( arrayBaseType->elementTypeNode->typeExprNode ) ) {
@@ -572,11 +582,9 @@ void TxModifiableTypeNode::declaration_pass() {
             maybeModElem->set_modifiable( true );
         }
     }
-
-    TxTypeExpressionNode::declaration_pass();
 }
 
-void TxMaybeModTypeNode::declaration_pass() {
+void TxMaybeModTypeNode::typeexpr_declaration_pass() {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if ( !this->is_modifiable() ) {
         if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->baseType ) )
@@ -587,7 +595,7 @@ void TxMaybeModTypeNode::declaration_pass() {
     }
 
     if ( this->is_modifiable() )
-        TxModifiableTypeNode::declaration_pass();
+        TxModifiableTypeNode::typeexpr_declaration_pass();
     else {
         // "pass through" entity declaration to the underlying type
         this->baseType->set_declaration( this->get_declaration() );

@@ -97,6 +97,7 @@ class TxBuiltinTypeDefiningNode : public TxTypeExpressionNode {
     void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner ) {
         ASSERT( this->is_context_set(), "Builtin type node hasn't run declaration pass: " << this );
         ASSERT( !this->attempt_get_type(), "Builtin type already resolved: " << this );
+        sourcecodeDefiner->set_builtin_type_definer( this );
         this->sourcecodeDefiner = sourcecodeDefiner;
     }
 
@@ -124,7 +125,7 @@ protected:
             sourcecodeDefiner->set_builtin_type_definer( this );
     }
 
-    virtual void declaration_pass() override {
+    virtual void typeexpr_declaration_pass() override {
         if ( this->sourcecodeDefiner ) {
             // "pass through" entity declaration to the source code definer
             this->sourcecodeDefiner->set_declaration( this->get_declaration() );
@@ -457,20 +458,20 @@ public:
 
 class TxBuiltinConstructorTypeDefNode : public TxFunctionTypeNode {
 protected:
-    virtual void declaration_pass() override {
-        // overrides in order to create implicit declaration for the function type
-        ASSERT( !this->get_declaration(), "Expected NULL owningDeclaration: " << this->get_declaration() );
-        std::string funcTypeName = "$Ftype";
-        funcTypeName = lexContext.scope()->make_unique_name( funcTypeName );
-        auto declaration = lexContext.scope()->declare_type( funcTypeName, this, TXD_PUBLIC | TXD_IMPLICIT );
-        if ( !declaration ) {
-            CERROR( this, "Failed to declare type " << funcTypeName );
-            return;
-        }
-        //LOG(this->LOGGER(), INFO, this << ": Declared type " << declaration);
-        this->set_declaration( declaration );
-        TxTypeExpressionNode::declaration_pass();
-    }
+//    virtual void typeexpr_declaration_pass() override {
+//        // overrides in order to create implicit declaration for the function type
+//        ASSERT( !this->get_declaration(), "Expected NULL owningDeclaration: " << this->get_declaration() );
+//        std::string funcTypeName = "$Ftype";
+//        funcTypeName = lexContext.scope()->make_unique_name( funcTypeName );
+//        auto declaration = lexContext.scope()->declare_type( funcTypeName, this, TXD_PUBLIC | TXD_IMPLICIT );
+//        if ( !declaration ) {
+//            CERROR( this, "Failed to declare type " << funcTypeName );
+//            return;
+//        }
+//        //LOG(this->LOGGER(), INFO, this << ": Declared type " << declaration);
+//        this->set_declaration( declaration );
+//        TxTypeExpressionNode::typeexpr_declaration_pass();
+//    }
 
 public:
     TxBuiltinConstructorTypeDefNode( const TxLocation& parseLocation, std::vector<TxArgTypeDefNode*>* arguments, TxTypeExpressionNode* returnType )

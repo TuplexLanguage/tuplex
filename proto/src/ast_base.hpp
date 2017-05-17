@@ -179,6 +179,7 @@ public:
         return this->lexContext;
     }
 
+    /** Gets the AST parent of this node. Populated in the beginning of the declaration pass. */
     inline const TxNode* parent() const {
         return this->parentNode;
     }

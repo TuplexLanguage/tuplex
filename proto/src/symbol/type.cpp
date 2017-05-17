@@ -118,6 +118,9 @@ void TxActualType::validate_type() const {
                 CERROR( this, "'modifiable' specialization cannot add any interface base types" );
         }
         else {
+            if ( this->is_mutable() && ! this->baseTypeSpec.type->is_mutable() )
+                CERROR( this, "Can't derive a mutable type from an immutable base type: " << this->baseTypeSpec.type );
+
             if ( this->baseTypeSpec.type->staticTypeId == TXBT_ANY
                  && !( this->builtin || ( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )
                        || this->get_type_class() == TXTC_REFERENCE || this->get_type_class() == TXTC_ARRAY ) )
@@ -604,8 +607,7 @@ bool TxActualType::is_scalar() const {
     }
 }
 
-bool TxActualType::is_mutable() const {
-    return true;
+//bool TxActualType::is_mutable() const {
 // In temporary version below, specializations were implicitly immutable if one or more of their TYPE arguments were immutable,
 //    if ( !this->is_declared_mutable() )
 //        return false;
@@ -622,7 +624,7 @@ bool TxActualType::is_mutable() const {
 //        }
 //    }
 //    return true;
-}
+//}
 
 const TxActualType* TxActualType::get_instance_base_type() const {
     return ( this->is_same_instance_type() ? this->get_semantic_base_type()->get_instance_base_type() : this );

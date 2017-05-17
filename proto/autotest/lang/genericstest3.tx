@@ -16,7 +16,7 @@ type PureDerTypeA0 : TupTypeA<Int,Float>;
 
 
 ## test rebinding type parameters to new type parameters:
-type RebindTypeA<U,V> : TupTypeA<V,U>;
+type ~ RebindTypeA<U,V> : TupTypeA<V,U>;
 
 
 

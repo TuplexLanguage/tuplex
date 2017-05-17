@@ -2,18 +2,18 @@
 ## we can't derive directly from Any
 
 #experr 1: type BadDerivation1 : Any;
-#experr 3: interface BadDerivation2 : Any;
+#experr 2: interface BadDerivation2 : Any;
 
 
 ## interfaces can't derive from non-interface type classes
 
-#experr 2: interface BadDerivation3 : Tuple;
-#experr 2: interface BadDerivation4 : Array;
-#experr 2: interface BadDerivation5 : Ref;
-#experr 2: interface BadDerivation6 : Function;
-#experr 2: interface BadDerivation7 : Elementary;
-#experr 2: interface BadDerivation8 : Int;
-#experr 2: interface BadDerivation9 : Bool;
+#experr 1: interface BadDerivation3 : Tuple;
+#experr 1: interface BadDerivation4 : Array;
+#experr 1: interface BadDerivation5 : Ref;
+#experr 1: interface BadDerivation6 : Function;
+#experr 1: interface BadDerivation7 : Elementary;
+#experr 1: interface BadDerivation8 : Int;
+#experr 1: interface BadDerivation9 : Bool;
 
 
 ## FUTURE: support #expwarn: type WarnInterface : Interface;

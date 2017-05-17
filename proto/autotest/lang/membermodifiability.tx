@@ -18,6 +18,8 @@ type ImmutableType {
     }
 }
 
+#experr 1: type ~ BadMutType : ImmutableType;  ## can't derive mutable type from immutable base type
+
 type ~ AType {  ## mutable type
     ifield : Int;
     ffield : ~Float;
@@ -113,6 +115,10 @@ main()->Int {
     modA.get_f();
     modA.set_i( 5 );  ## error is in the function body, not in this call
     modA.set_f( 2.72 );
+
+    type ImmTypeA : AType;
+    ok := ImmTypeA( 2, 3.14 );
+    ~bad := ImmTypeA( 2, 3.14 );
 
     return 0;
 }

@@ -12,7 +12,18 @@ class TxTypeExpressionNode : public TxTypeDefiningNode {
     const TxTypeDeclaration* declaration = nullptr;
 
 protected:
-    virtual void declaration_pass() override;
+    /** Gets the parent of this node if the parent is a TxTypeDeclNode, otherwise null.
+     * Note that this is not transitive (with exception of certain type expr wrapping nodes). */
+    const TxTypeDeclNode* decl_parent() const;
+
+    bool get_decl_mutable_type() const;
+
+    bool get_decl_interface_kw() const;
+
+    virtual void declaration_pass() override final;
+
+    /** Performs declaration pass operations on this type expression node. To be overridden by subclasses as necessary. */
+    virtual void typeexpr_declaration_pass() { }
 
 public:
     TxTypeExpressionNode( const TxLocation& parseLocation )
@@ -28,7 +39,7 @@ public:
         return this->declaration;
     }
 
-    inline void set_declaration( const TxTypeDeclaration* declaration ) {
+    inline void set_declaration( const TxTypeDeclaration* declaration ) {  // FUTURE: refactor & remove
         this->declaration = declaration;
     }
 
@@ -450,7 +461,7 @@ public:
         }
         if (this->interfaceKW) {
             if (this->typeExpression->get_type()->get_type_class() != TXTC_INTERFACE)
-                CERROR(this, "Interface type cannot derive from non-interface type " << this->typeExpression->get_type());
+                CERROR(this, "Interface type cannot derive from non-interface type: " << this->typeExpression->get_type());
         }
         else {
             if (this->typeExpression->get_type()->get_type_class() == TXTC_INTERFACE)
