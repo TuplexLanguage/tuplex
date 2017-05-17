@@ -21,7 +21,7 @@ type ~ Type : Tuple : IntfA, IntfB {
         return self.fld;
     }
 
-    public override set_value( v : Int ) {
+    public override set_value( v : Int ) ~ {
         self.fld = v;
     }
 
@@ -32,7 +32,7 @@ type ~ Type : Tuple : IntfA, IntfB {
 
 
 mixin_tests() {
-    t := Type(42);
+    ~t := Type(42);
     r : &IntfA = &t;
     s : &IntfB = &t;
     assert t.get_value() == 42;

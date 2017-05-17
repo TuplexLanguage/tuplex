@@ -26,6 +26,10 @@ public:
         return new TxExprWrapperNode( this->exprNode );
     }
 
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
+        return this->exprNode;
+    }
+
     virtual bool is_stack_allocation_expression() const {
         return this->exprNode->is_stack_allocation_expression();
     }

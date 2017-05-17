@@ -45,6 +45,10 @@ public:
         this->reference->symbol_resolution_pass();
     }
 
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
+        return this->reference;
+    }
+
     virtual bool is_statically_constant() const {
         return false;  // can we ever know if target is statically constant?
     }
@@ -93,6 +97,10 @@ public:
         TxExpressionNode::symbol_resolution_pass();
         this->array->symbol_resolution_pass();
         this->subscript->symbol_resolution_pass();
+    }
+
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
+        return this->array;
     }
 
     virtual bool is_statically_constant() const {
@@ -665,6 +673,10 @@ public:
         return new TxFieldAssigneeNode( this->parseLocation, this->field->make_ast_copy() );
     }
 
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
+        return this->field->get_data_graph_origin_expr();
+    }
+
     virtual void symbol_resolution_pass() override {
         TxAssigneeNode::symbol_resolution_pass();
         field->symbol_resolution_pass();
@@ -699,6 +711,10 @@ public:
 
     virtual TxDerefAssigneeNode* make_ast_copy() const override {
         return new TxDerefAssigneeNode( this->parseLocation, this->operand->make_ast_copy() );
+    }
+
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
+        return this->operand;
     }
 
     virtual void symbol_resolution_pass() override {
@@ -742,6 +758,10 @@ public:
     virtual TxElemAssigneeNode* make_ast_copy() const override {
         return new TxElemAssigneeNode( this->parseLocation, this->array->originalExpr->make_ast_copy(),
                                        this->subscript->originalExpr->make_ast_copy() );
+    }
+
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
+        return this->array;
     }
 
     virtual void symbol_resolution_pass() override {

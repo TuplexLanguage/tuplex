@@ -68,6 +68,7 @@ source_files = [
     #"stringtest.tx",
 
     "membertest.tx",
+    "membermodifiability.tx",
     "polymorphtest.tx",
     "recursivetypetest.tx",
     "constructiontest.tx",
@@ -79,6 +80,8 @@ source_files = [
     "genericstest2.tx",
     "genericstest3.tx",
     "genericstest4.tx",
+    "genericmodifiability.tx",
+
     "sequenceiftest.tx",
     "rangeiftest.tx",
     "genericconvtest.tx",

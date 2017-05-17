@@ -26,9 +26,17 @@ bool validateFieldName( TxNode* node, const std::string& name ) {
 }
 
 template<typename Node>
-std::vector<const TxType*> to_typevec( const std::vector<Node*>* nodevec ) {
+std::vector<const TxType*> attempt_typevec( const std::vector<Node*>* nodevec ) {
     std::vector<const TxType*> types = std::vector<const TxType*>( nodevec->size() );
     std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(), []( Node* node ) -> const TxType* {return node->attempt_get_type();} );
+    return types;
+}
+
+template<typename Node>
+std::vector<const TxType*> resolve_typevec( const std::vector<Node*>* nodevec ) {
+    std::vector<const TxType*> types = std::vector<const TxType*>( nodevec->size() );
+    std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(), []( Node* node ) -> const TxType* {
+        node->resolve_type()->type(); return node->attempt_get_type(); } );
     return types;
 }
 
@@ -594,8 +602,6 @@ void TxSuiteNode::stmt_declaration_pass() {
 void TxAssignStmtNode::symbol_resolution_pass() {
     this->lvalue->symbol_resolution_pass();
     auto ltype = this->lvalue->resolve_type();
-    if ( !ltype )
-        return;  // (error message should have been emitted by lvalue node)
 
     // note: similar rules to passing function arg
     if ( !ltype->is_concrete() ) {
@@ -605,10 +611,14 @@ void TxAssignStmtNode::symbol_resolution_pass() {
         else
             LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Assignee is not a concrete type (size potentially unknown): " << ltype );
     }
-    else if ( !ltype->is_modifiable() ) {
-        if ( !( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() ) )
+    else {
+        if ( !( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() ) ) {
             // TODO: only members of constructed object should skip error
-            CERROR( this, "Assignee is not modifiable: " << ltype );
+            if ( !lvalue->is_mutable() ) {
+                // error message already generated
+                //CERROR( this, "Assignee or assignee's container is not modifiable (nominal type of assignee is " << ltype << ")" );
+            }
+        }
         // Note: If the object as a whole is modifiable, it can be assigned to.
         // If it has any "non-modifiable" members, those will still get overwritten.
         // We could add custom check to prevent that scenario for Arrays, but then
@@ -819,7 +829,8 @@ static const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, 
 }
 
 TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
-    TxScopeSymbol* symbol = nullptr;
+    if (this->symbol)
+        return this->symbol;
     if ( this->baseExpr ) {
         // baseExpr may or may not refer to a type (e.g. modules don't)
         auto baseType = this->baseExpr->resolve_type();
@@ -841,23 +852,23 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
             if ( baseType->get_type_class() == TXTC_VOID ) {
                 // base is a non-entity symbol
                 if ( auto baseSymbol = baseSymbolNode->resolve_symbol() ) {
-                    symbol = lookup_member( vantageScope, baseSymbol, *this->symbolName );
+                    this->symbol = lookup_member( vantageScope, baseSymbol, *this->symbolName );
                 }
             }
             else {
                 // base is a type or value expression  FIXME: if type, don't include instance members in lookup
-                symbol = baseType->lookup_inherited_instance_member( vantageScope, this->symbolName->str() );
+                this->symbol = baseType->lookup_inherited_instance_member( vantageScope, this->symbolName->str() );
             }
         }
         else {
             // base is a value expression
-            symbol = baseType->lookup_inherited_instance_member( vantageScope, this->symbolName->str() );
+            this->symbol = baseType->lookup_inherited_instance_member( vantageScope, this->symbolName->str() );
         }
     }
     else {
-        symbol = lookup_symbol( this->context().scope(), *this->symbolName );
+        this->symbol = lookup_symbol( this->context().scope(), *this->symbolName );
     }
-    return symbol;
+    return this->symbol;
 }
 
 const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
@@ -886,7 +897,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                         }
                     }
                     CERR_THROWRES( this,"No matching constructor in type " << allocType
-                                   << " for args (" << join( to_typevec( this->appliedFuncArgs ), ", ") << ")" );
+                                   << " for args (" << join( resolve_typevec( this->appliedFuncArgs ), ", ") << ")" );
                 }
                 else {
                     // resolve this symbol to its type
@@ -898,9 +909,11 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                 CERR_THROWRES( this, "Symbol " << entitySymbol << " could not be resolved to a distinct field or type: "
                                << this->get_full_identifier() );
         }
-        // not an error
-        //else
-        //    CERROR(this, "Symbol is not a field or type: " << this->get_full_identifier());
+        else {
+            //not an error, symbol is not an entity but valid
+            //CERROR(this, "Symbol is not a field or type: " << this->get_full_identifier());
+            return nullptr;
+        }
     }
     else {
         if ( this->baseExpr )
@@ -909,6 +922,8 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
         else
             CERR_THROWRES( this, "Unknown symbol '" << this->get_full_identifier() << "'" );
     }
+    // function returns or throws resolution exception before this
+    ASSERT( false, "unexpected execution point in " << this );
     return nullptr;
 }
 
@@ -930,6 +945,15 @@ const TxType* TxFieldValueNode::define_type() {
                             return nullptr;
                         }
                     }
+//                    auto baseExprType = this->baseExpr->get_type();
+//                    std::cerr << "base expr type: " << baseExprType << std::endl;
+//                    auto fieldType = field->get_type();
+//                    if ( fieldDecl->get_storage() == TXS_INSTANCEMETHOD ) {
+//
+//                    }
+//                    else if ( fieldType->is_modifiable() ) {
+//
+//                    }
                 }
             }
 
@@ -962,8 +986,8 @@ const TxType* TxConstructorCalleeExprNode::define_type() {
         else if ( this->appliedFuncArgs->size() == 1 ) {
             // TODO: support default assignment constructor
         }
-        CERR_THROWRES( this,
-                       "No matching constructor in type " << allocType << " for args (" << join( to_typevec( this->appliedFuncArgs ), ", ") << ")" );
+        CERR_THROWRES( this, "No matching constructor in type " << allocType
+                       << " for args (" << join( resolve_typevec( this->appliedFuncArgs ), ", ") << ")" );
     }
     return nullptr;
 }
@@ -1015,7 +1039,8 @@ void TxFunctionCallNode::symbol_resolution_pass() {
     TxExpressionNode::symbol_resolution_pass();
 
     auto actualCalleeType = ( this->calleeType ? this->calleeType->type() : nullptr );
-    if ( auto constructorType = dynamic_cast<const TxConstructorType*>( actualCalleeType ) ) {
+    auto constructorType = dynamic_cast<const TxConstructorType*>( actualCalleeType );
+    if ( constructorType ) {
         // Stack construction syntactically looks like a function call, e.g. Int(42)
         // If the callee is a constructor, we substitute this function call with a stack construction expression:
         if ( !dynamic_cast<TxConstructorCalleeExprNode*>( this->callee ) ) {  // (prevents infinite recursion)
@@ -1074,6 +1099,15 @@ void TxFunctionCallNode::symbol_resolution_pass() {
                 // note: similar rules to assignment
                 // TODO: check dataspace rules if function arg is a reference
                 argExpr->insert_conversion( argDefType );  // generates compilation error upon mismatch
+            }
+        }
+
+        auto funcType = static_cast<const TxFunctionType*>( actualCalleeType );
+        if ( !constructorType && funcType->modifiable_closure() ) {
+            ASSERT( this->callee->get_data_graph_origin_expr(), "Callee with modifiable closere didn't have origin expression: " << this->callee );
+            if ( !this->callee->get_data_graph_origin_expr()->check_chain_mutable() ) {
+                // error message already generated
+                //CERROR( this, "Can't invoke modifying method on immutable closure: " << funcType );
             }
         }
     }

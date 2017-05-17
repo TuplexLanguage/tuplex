@@ -27,7 +27,7 @@ type SingleRef derives Tuple : Sequenceable {
         public override hasNext()->Bool {
             return !self.done;
         }
-        public override next()->Int {
+        public override next() ~ ->Int {
             if self.done:
                 panic := TRUE;  ## TODO: panic
             self.done = TRUE;

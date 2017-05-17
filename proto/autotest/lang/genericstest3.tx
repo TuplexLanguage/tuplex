@@ -21,7 +21,7 @@ type RebindTypeA<U,V> : TupTypeA<V,U>;
 
 
 main()->Int {
-    rbt : RebindTypeA<~Float,~Int>;
+    rbt : ~RebindTypeA<~Float,~Int>;
     rbt.instMembS = 3;
     rbt.instMembT = 3.14;
     return 0;

@@ -66,9 +66,9 @@ type ~ BType derives AType {
 }
 
 main()->Int {
-    bo : BType;
-    ar : &AType = &bo;
-    br : &BType = &bo;
+    bo : ~BType;
+    ar : &~AType = &bo;
+    br : &~BType = &bo;
 
     ar.field1 = 1;
     br.field1 = 2;

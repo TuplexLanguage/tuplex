@@ -5,6 +5,7 @@
 class TxFieldValueNode : public TxExpressionNode {
     const TxField* field = nullptr;
     const TxEntityDeclaration* declaration = nullptr;
+    TxScopeSymbol* symbol = nullptr;
 
     TxScopeSymbol* resolve_symbol();
     const TxEntityDeclaration* resolve_decl();
@@ -43,6 +44,27 @@ public:
         //    this->baseExpr->symbol_resolution_pass(six);
         if ( auto typeDecl = dynamic_cast<const TxTypeDeclaration*>( this->declaration ) )
             CERROR( this, "'" << get_full_identifier() << "' resolved to a type, not a field: " << typeDecl );
+    }
+
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
+        if ( this->baseExpr ) {
+            if ( auto fieldBase = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {
+                if ( !fieldBase->get_field() )
+                    return nullptr;  // baseExpr identifies a namespace
+            }
+        }
+        return this->baseExpr;
+//        if ( auto field = this->get_field() ) {
+//            if ( is_link_mutable( field->get_type() ) ) {
+//                if ( this->baseExpr ) {
+//                    return this->baseExpr->is_chain_mutable();
+//                }
+//                return true;
+//            }
+//            return false;
+//        }
+//        else
+//            return bool( this->symbol );
     }
 
     virtual const TxConstantProxy* get_static_constant_proxy() const override {

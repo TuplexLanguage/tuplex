@@ -22,7 +22,7 @@ type SingleRef<S derives Ref> implements Sequenceable<S> {
         public override hasNext()->Bool {
             return !self.done;
         }
-        public override next()->S {
+        public override next() ~ ->S {
             if self.done:
                 panic := TRUE;  ## TODO: panic
             self.done = TRUE;

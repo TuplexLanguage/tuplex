@@ -64,6 +64,30 @@ public:
         this->resolve_type();
     }
 
+    /** Checks if this expression produces a modifiable type usage; this requires the whole access chain to be mutable.
+     * Generates an error message if it is not and returns false.
+     * Note: Transitive across the object graph via references, regardless of mutability of references' *pointer values*.
+     */
+    virtual bool check_chain_mutable() const {
+        // The transitive mutability rule for references is that whether the reference itself
+        // is modifiable does not matter (i.e. whether it can be changed to point to another object),
+        // however the container of the reference must be mutable in order for the reference target
+        // to be considered mutable.
+        for ( const TxExpressionNode* origin = this; origin; origin = origin->get_data_graph_origin_expr() ) {
+            auto type = origin->get_type();
+            if ( !( type->get_type_class() == TXTC_REFERENCE || type->is_modifiable() ) ) {
+                CERROR( this, "Expression is not mutable: " << type );
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Gets the sub-expression of this expression that determines which data graph (if any) this value is stored in. */
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const {
+        return nullptr;
+    }
+
     /** Returns true if this expression is a stack allocation expression,
      * i.e. its result is in newly allocated stack space, and the allocation's type is the type of this expression.
      * Note that sub-expressions may perform allocations without this expression being an allocation. */
@@ -143,6 +167,10 @@ public:
         TxExpressionNode::symbol_resolution_pass();
         auto expr = this->get_spec_expression();
         expr->symbol_resolution_pass();
+    }
+
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
+        return this->get_spec_expression()->get_data_graph_origin_expr();
     }
 
     virtual bool is_stack_allocation_expression() const override {
@@ -457,6 +485,19 @@ public:
     }
 
     virtual TxAssigneeNode* make_ast_copy() const override = 0;
+
+    bool is_mutable() const {
+        if ( !this->get_type()->is_modifiable() ) {
+            CERROR( this, "Assignee is not mutable: " << this->get_type() );
+            return false;
+        }
+        if ( auto origin = this->get_data_graph_origin_expr() )
+            return origin->check_chain_mutable();
+        return true;
+    }
+
+    /** Gets the sub-expression of this expression that determines which data graph (if any) this value is stored in. */
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const  = 0;
 
     virtual void symbol_resolution_pass() {
         this->resolve_type();

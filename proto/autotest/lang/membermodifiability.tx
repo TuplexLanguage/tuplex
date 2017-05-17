@@ -46,6 +46,61 @@ type ~ AType {  ## mutable type
     }
 }
 
+
+type ~ Node {  ## mutable type
+    hiNode : ~&Node;
+    loNode : &~Node;
+
+    self() {
+    }
+    self( h : &Node, l : &~Node ) {
+        self.hiNode = h;
+        self.loNode = l;
+    }
+}
+
+test_transitivity() {
+    ~n0 := Node();
+    ~n1 := Node( &n0, &n0 );
+    n2a := Node( &n1, &n1 );
+    ~n2b  := Node( &n1, &n1 );
+    ~n3 := Node( &n2a, &n2b );
+
+               n1.hiNode = &n0;
+    #experr 1: n1.loNode = &n0;
+
+    #experr 1: n2a.hiNode = &n1;
+    #experr 1: n2a.loNode = &n1;
+    #experr 1: n2a.hiNode.hiNode = &n0;
+    #experr 1: n2a.hiNode.loNode = &n0;
+    #experr 1: n2a.loNode.hiNode = &n0;
+    #experr 1: n2a.loNode.loNode = &n0;
+
+               n2b.hiNode = &n1;
+    #experr 1: n2b.loNode = &n1;
+    #experr 1: n2b.hiNode.hiNode = &n0;
+    #experr 1: n2b.hiNode.loNode = &n0;
+               n2b.loNode.hiNode = &n0;
+    #experr 1: n2b.loNode.loNode = &n0;
+
+               n3.hiNode = &n2a;
+    #experr 1: n3.loNode = &n2b;
+    #experr 1: n3.hiNode.hiNode = &n1;
+    #experr 1: n3.hiNode.loNode = &n1;
+               n3.loNode.hiNode = &n1;
+    #experr 1: n3.loNode.loNode = &n1;
+
+    #experr 1: n3.hiNode.hiNode.hiNode = &n0;
+    #experr 1: n3.hiNode.hiNode.loNode = &n0;
+    #experr 1: n3.hiNode.loNode.hiNode = &n0;
+    #experr 1: n3.hiNode.loNode.loNode = &n0;
+    #experr 1: n3.loNode.hiNode.hiNode = &n0;
+    #experr 1: n3.loNode.hiNode.loNode = &n0;
+               n3.loNode.loNode.hiNode = &n0;
+    #experr 1: n3.loNode.loNode.loNode = &n0;
+}
+
+
 main()->Int {
     nonmodA := AType( 2, 3.14 );
     nonmodA.get_i();
@@ -54,10 +109,10 @@ main()->Int {
     #experr 1: nonmodA.set_f( 2.72 );
 
     ~modA := AType( 2, 3.14 );
-    nonmodA.get_i();
-    nonmodA.get_f();
-    #experr 1: nonmodA.set_i( 5 );
-    nonmodA.set_f( 2.72 );
+    modA.get_i();
+    modA.get_f();
+    modA.set_i( 5 );  ## error is in the function body, not in this call
+    modA.set_f( 2.72 );
 
     return 0;
 }
