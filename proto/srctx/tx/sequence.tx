@@ -46,22 +46,22 @@ public interface Updatable< K, E > derives Indicable< K, E > {
 
 public interface Sequencer< E > derives Sequenceable< E > {
 
-    public override sequencer() -> Ref< ~Sequencer< E > > { return self; }
+    public override sequencer() ~ -> Ref< ~Sequencer< E > > { return self; }
 
     public abstract has_next() -> Bool;
 
-    public abstract next() -> E;
+    public abstract next() ~ -> E;
 }
 
 
 
 public interface Iterator< E > derives Sequencer< E > {
 
-    public override sequencer() -> Ref< ~Iterator< E > > { return self; }
+    public override sequencer() ~ -> Ref< ~Iterator< E > > { return self; }
 
     public abstract has_prev() -> Bool;
 
-    public abstract prev() -> E;
+    public abstract prev() ~ -> E;
 
 ##    /** Replaces the value returned by the most-recent call to next() / prev(). Returns the replaced element. */
 ##    public abstract set( element : E ) -> E;

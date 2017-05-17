@@ -1,7 +1,7 @@
 module tx
 
 
-public builtin type Array<E, L : UInt> derives Any implements Collection<E>, Updatable<UInt, E>
+public builtin type ~ Array<E, L : UInt> derives Any implements Collection<E>, Updatable<UInt, E>
 {
     public override empty() -> Bool {
         return self.L == 0;
@@ -15,7 +15,7 @@ public builtin type Array<E, L : UInt> derives Any implements Collection<E>, Upd
         return self.L;
     }
 
-    public override clear() mod {
+    public override clear() ~ {
         ## TODO
     }
 
@@ -48,13 +48,13 @@ public builtin type Array<E, L : UInt> derives Any implements Collection<E>, Upd
         return self[ ix ];
     }
 
-    public override set( ix : UInt, element : E ) mod -> E {
+    public override set( ix : UInt, element : E ) ~ -> E {
         prev := self[ ix ];
         self[ ix ] = element;
         return prev;
     }
 
-    public override swap( ixA : UInt, ixB : UInt ) mod {
+    public override swap( ixA : UInt, ixB : UInt ) ~ {
         tmp := self[ ixA ];
         self[ ixA ] = self[ ixB ];
         self[ ixB ] = tmp;
@@ -62,7 +62,7 @@ public builtin type Array<E, L : UInt> derives Any implements Collection<E>, Upd
 
 
 
-    public type ArrayIterator implements Iterator< E > {
+    public type ~ ArrayIterator implements Iterator< E > {
         array     : &Array<E>;
         nextIndex : ~UInt;
 
@@ -71,7 +71,7 @@ public builtin type Array<E, L : UInt> derives Any implements Collection<E>, Upd
             self.nextIndex = 0;
         }
 
-        public override sequencer() -> Ref< ~ArrayIterator > {
+        public override sequencer() ~ -> Ref< ~ArrayIterator > {
             return self;
         }
 
@@ -83,13 +83,13 @@ public builtin type Array<E, L : UInt> derives Any implements Collection<E>, Upd
             return self.nextIndex > 0;
         }
 
-        public override next() -> E {
+        public override next() ~ -> E {
             n := self.nextIndex;
             self.nextIndex = self.nextIndex + 1;
             return self.array.get( n );
         }
     
-        public override prev() -> E  {
+        public override prev() ~ -> E  {
             self.nextIndex = self.nextIndex - 1;
             return self.array.get( self.nextIndex );
         }

@@ -44,7 +44,7 @@ public interface Range< E > : Indicable< UInt, E > {
 public type ERange< E derives Enumerable<E> > implements Range< E > {
 
     /** The ERange iterator. */
-    public type ERangeIterator implements Iterator< E > {
+    public type ~ ERangeIterator implements Iterator< E > {
         range   : &ERange<E>;
         nextIndex : ~UInt;
 
@@ -53,7 +53,7 @@ public type ERange< E derives Enumerable<E> > implements Range< E > {
             self.nextIndex = 0;
         }
 
-        public override sequencer() -> Ref< ~ERangeIterator > {
+        public override sequencer() ~ -> Ref< ~ERangeIterator > {
             return self;
         }
 
@@ -65,13 +65,13 @@ public type ERange< E derives Enumerable<E> > implements Range< E > {
             return self.nextIndex > 0;
         }
 
-        public override next() -> E {
+        public override next() ~ -> E {
             n := self.nextIndex;
             self.nextIndex = self.nextIndex + 1;
             return self.range.get( n );
         }
     
-        public override prev() -> E  {
+        public override prev() ~ -> E  {
             self.nextIndex = self.nextIndex - 1;
             return self.range.get( self.nextIndex );
         }
