@@ -72,34 +72,13 @@ public:
 
 class TxLambdaExprNode : public TxExpressionNode {
     bool instanceMethod = false;
+    TxTypeExpressionNode* selfTypeNode = nullptr;
     TxFieldDefNode* selfRefNode = nullptr;
     TxFieldDefNode* superRefNode = nullptr;
     const TxTypeDeclaration* constructedObjTypeDecl = nullptr;
 
 protected:
-    virtual void declaration_pass() override {
-        std::string funcName = ( this->fieldDefNode && this->fieldDefNode->get_declaration() )
-                                      ? this->fieldDefNode->get_declaration()->get_unique_name()
-                                      : "";
-        TxScopeSymbol* funcScope = lexContext.scope()->create_code_block_scope( *this, funcName );
-        if ( this->is_instance_method() ) {
-            auto entitySym = dynamic_cast<TxEntitySymbol*>( lexContext.scope() );
-            if ( entitySym && entitySym->get_type_decl() ) {  // if in type scope
-                if ( this->fieldDefNode->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR ) {
-                    // this is a constructor
-                    this->constructedObjTypeDecl = entitySym->get_type_decl();
-                }
-            }
-            else
-                CERROR( this, "The scope of instance method must be a type scope: " << lexContext.scope() );
-
-            this->selfRefNode->declare_field( funcScope, TXD_NONE, TXS_STACK );
-            this->superRefNode->declare_field( funcScope, TXD_NONE, TXS_STACK );
-        }
-        this->lexContext._scope = funcScope;
-        this->lexContext.enclosingLambda = this;
-        // FUTURE: define implicit closure object when in code block
-    }
+    virtual void declaration_pass() override;
 
     virtual const TxType* define_type() override {
         return this->funcHeaderNode->resolve_type();
@@ -118,14 +97,13 @@ public:
             : TxExpressionNode( parseLocation ), funcHeaderNode( funcHeaderNode ), suite( suite ), isMethodSyntax( isMethodSyntax ) {
         if ( isMethodSyntax ) {
             // 'self' reference:
-            TxTypeExpressionNode* selfTypeNode;
-            if ( this->funcHeaderNode->is_modifying() ) {
-                selfTypeNode = new TxModifiableTypeNode( this->parseLocation, new TxNamedTypeNode( this->parseLocation, "$Self" ) );
-            }
-            else {
-                selfTypeNode = new TxNamedTypeNode( this->parseLocation, "$Self" );
-            }
-            auto selfRefTypeExprN = new TxReferenceTypeNode( this->parseLocation, nullptr, selfTypeNode );
+            this->selfTypeNode = new TxNamedTypeNode( this->parseLocation, "$Self" );
+            TxTypeExpressionNode* selfRefTargetTypeNode;
+            if ( this->funcHeaderNode->is_modifying() )
+                selfRefTargetTypeNode = new TxModifiableTypeNode( this->parseLocation, this->selfTypeNode );
+            else
+                selfRefTargetTypeNode = this->selfTypeNode;
+            auto selfRefTypeExprN = new TxReferenceTypeNode( this->parseLocation, nullptr, selfRefTargetTypeNode );
             this->selfRefNode = new TxFieldDefNode( this->parseLocation, "self", selfRefTypeExprN, nullptr );
 
             // 'super' reference
@@ -158,32 +136,11 @@ public:
         return this->constructedObjTypeDecl;
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        if ( this->is_instance_method() ) {
-            try {
-                this->selfRefNode->symbol_resolution_pass();
-                this->superRefNode->symbol_resolution_pass();
-            }
-            catch ( const resolution_error& err ) {
-                LOG( this->LOGGER(), DEBUG, "Caught resolution error in self/super of instance method " << this << ": " << err );
-            }
-        }
-        this->funcHeaderNode->symbol_resolution_pass();  // function header
-        this->suite->symbol_resolution_pass();  // function body
+    /** Returns true if this method is suppressed (as if it were abstract) due to being a modifying instance method
+     * in an immutable specialization of a mutable generic type. */
+    bool is_suppressed_modifying_method();
 
-        if ( this->funcHeaderNode->returnField ) {
-            // verify that body always ends with explicit return statement
-            if ( !this->suite->ends_with_return_stmt() )
-                CERROR( this, "Function has return value, but not all code paths end with a return statement." );
-        }
-        // TODO: if in global scope, don't permit 'modifying'
-    }
-
-//    /** Returns false if this function may modify its closure when run, i.e. have side effects.
-//     * A modifying function is not regarded as statically constant since its closure may be modified when run.
-//     */
-//    virtual bool is_constant_closure() const { return this->funcTypeNode->get_type()->is_immutable(); }
+    virtual void symbol_resolution_pass() override;
 
     /** Returns true if this expression is a constant expression that can be evaluated at compile time. */
     virtual bool is_statically_constant() const override {

@@ -5,6 +5,7 @@
 type ~ GType<S,T> {
     sfield : S;
     tfield : T;
+    ## TODO: add arrays of S and T
 
     self( s : S, t : T ) {
         self.sfield = s;
@@ -31,9 +32,12 @@ type ~ GType<S,T> {
 }
 
 main()->Int {
-    nonmodA := <GType<Int,Float>>( 2, 3.14 );
-    smodA := <GType<~Int,Float>>( 2, 3.14 );
-    tmodA := <GType<Int,~Float>>( 2, 3.14 );
+## TODO: be able to specialize an immutable version of mutable generic types, so that they can accept immutable type bindings
+##    type ImmSpec : GType<Int,Float>;
+##    type MutSpec : ~GType<Int,Float>;
+    #experr 2: nonmodA := <GType<Int,Float>>( 2, 3.14 );
+    #experr 1: smodA := <GType<~Int,Float>>( 2, 3.14 );
+    #experr 1: tmodA := <GType<Int,~Float>>( 2, 3.14 );
     allmodA := <GType<~Int,~Float>>( 2, 3.14 );
     return 0;
 }

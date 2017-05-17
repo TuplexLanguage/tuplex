@@ -111,9 +111,11 @@ public:
         return this->type()->is_modifiable();
     }
 
-    /** Returns true if this type is immutable (its instances' contents can never be modified after initialization). */
-    inline bool is_immutable() const {
-        return this->type()->is_immutable();
+    /** Returns true if this type is mutable by declaration.
+     * If true its instances can be declared modifiable.
+     */
+    inline bool is_mutable() const {
+        return this->type()->is_mutable();
     }
 
     /** Returns true if this type cannot be extended. */

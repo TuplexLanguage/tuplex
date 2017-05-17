@@ -77,11 +77,13 @@ Implement "development mode" in compiler, if disabled then:
 Review conversion node handling - DONE
  - should be allocated in node constructors (not decl/resolve passes)
 
-Type reflection, at least for autotesting, some ideas:
-    assert static_type(var) == static_type(Ref<Parent>)
-    assert type(var^) == type(Child)
-    #exptype( var, Ref<Parent> )  ## compilation test, no code generated
-    #exptype( var, "$local.Foo.$type" )  ## compilation test, no code generated
+Overhaul concrete fields checking - DONE
+ - distinguish between parameters that are ref-constrained and that aren't
+ - handle lexically nested generic and non-generic types appropriately
+
+Proper mutability handling: - DONE
+ - in compound expressions, e.g. mut.immut.mut.immut ...
+ - mutating and non-mutating methods
 
 
 Make VALUE type parameters proper instance fields and ensure they're correctly initialized - IN PROGRESS
@@ -99,50 +101,47 @@ Simple for-loops
 
 String datatype
 
-
-Overhaul concrete fields checking
- - ideally bottom-up: any construct that is dependent on generic parameter causes container to be dependent (and non-concrete)
- - methods may have function signature independent of generics, but contain code that is dependent on generic parameters
- - distinguish between parameters that are ref-constrained and that aren't
- - handle lexically nested generic and non-generic types appropriately
-
-Implement debugging info
-
-Support overloading of virtual methods
-
-Autotests for conversions and default constructions for elementary types
-  - both expression construction, stack field construction, and static construction
-
-Generate function header declarations before lexical-order code generation
- - should avoid auto-forward-declaring functions
-
-Generate statically constant operations for statically constant value expressions
- - should also enable arbitrary declaration order of global constants 
-
 Dynamic-length arrays tests - bounds checking, copying, etc
-
-Syntactic sugar for ref and array types in type arguments (possibly chained), e.g. Subtype<&Int> instead of Subtype<Ref<Int>>
 
 Advanced for-loops
 
-Proper mutability handling:
- - in compound expressions, e.g. mut.immut.mut.immut ...
- - mutating and non-mutating methods
- - review inheritance and mutability (including interface adapters)
+Implement advanced implicit constructor concept
+ - Automatically generate the basic constructor (one argument for each instance member (except const with initializer))
+   - basic constructor has 'self' as pseuodo-return value, so user constructors can operate object only after it is properly initialized
+ - Allow instance members' inlined initializers?
+ - Default (zero arguments) constructor if base type and all members without inlined initializers allow default construction?
 
-Handle static fields of generic types
-    - one per specialization type, or one for all specializations of a generic type?
-    - how write initializer?
+Constructor initialization validation check: That each constructor properly initializes all members (without inlined initializers)
 
-Implement implicit instance initializer function for types' instance members' inlined initializers
 
-Implement implicit static initializer function for types' static members and static code?
+Implement implicit static initializer function for types' static members and static code
 
 Type conversions (with if statements)
 
 Dataspace syntax support, continued
 
 break and continue out of nested loops
+
+Generate statically constant operations for statically constant value expressions
+ - should also enable arbitrary declaration order of global constants 
+
+Syntactic sugar for ref and array types in type arguments (possibly chained), e.g. Subtype<&Int> instead of Subtype<Ref<Int>>
+
+Implement debugging info
+
+Be able to specialize an immutable version of mutable generic types, so that they can accept immutable type bindings
+ - review inheritance and mutability (including interface adapters)
+
+Type reflection, at least for autotesting, some ideas:
+    assert static_type(var) == static_type(Ref<Parent>)
+    assert type(var^) == type(Child)
+    #exptype( var, Ref<Parent> )  ## compilation test, no code generated
+    #exptype( var, "$local.Foo.$type" )  ## compilation test, no code generated
+
+Support overloading of virtual methods
+
+Autotests for conversions and default constructions for elementary types
+  - both expression construction, stack field construction, and static construction
 
 Tuple literals
 
@@ -158,12 +157,10 @@ Overhaul function overloading (permitting "near-matches") together with implicit
 
 Implement symbol visibility (private etc)
 
-Implicit constructors: if no constructor specified, automatically generate constructors:
- - default (zero arguments) constructor if base type and all members without inlined initializers allow default construction
- - "full" constructor if base type allows default construction and one argument for each member (?)
- 
-Constructor initialization validation check: That each constructor properly initializes all members (without inlined initializers)
-
 Enum typeclass
 
 Support non-constant static initializers (i.e. executed before main())
+
+Ideal concrete fields checking
+ - ideally bottom-up: any construct that is dependent on generic parameter causes container to be dependent (and non-concrete)
+ - methods may have function signature independent of generics, but contain code that is dependent on generic parameters

@@ -616,10 +616,9 @@ protected:
                 CERROR( this, "'modifiable' specified more than once for type: " << bType );
                 return bType;
             }
-            else if ( !bType->is_immutable() )
-                return this->registry().get_modifiable_type( this->get_declaration(), bType );
-            else
+            else if ( !bType->is_mutable() )
                 CERR_THROWRES( this, "Can't declare immutable type as modifiable: " << bType );
+            return this->registry().get_modifiable_type( this->get_declaration(), bType );
         }
         return nullptr;
     }

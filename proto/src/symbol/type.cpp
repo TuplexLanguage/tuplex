@@ -108,7 +108,7 @@ void TxActualType::validate_type() const {
         if ( this->baseTypeSpec.modifiable ) {
             ASSERT( this->get_type_class() == this->baseTypeSpec.type->get_type_class(),
                     "'modifiable' specialization must have same TxActualType class as the base type: " << this->baseTypeSpec.type );
-            if ( this->baseTypeSpec.type->is_immutable() )
+            if ( !this->baseTypeSpec.type->is_mutable() )
                 CERROR( this, "Can't make an immutable type modifiable: " << this->baseTypeSpec.type );
             //if (this->dataspace)
             //    CERROR(this->type, "Can't specify dataspace for a 'modifiable' type specialization");
@@ -604,6 +604,26 @@ bool TxActualType::is_scalar() const {
     }
 }
 
+bool TxActualType::is_mutable() const {
+    return true;
+// In temporary version below, specializations were implicitly immutable if one or more of their TYPE arguments were immutable,
+//    if ( !this->is_declared_mutable() )
+//        return false;
+//    if ( this->get_type_class() == TXTC_REFERENCE )
+//        return true;
+//    for ( auto b : this->get_bindings() ) {
+//        if ( auto t = dynamic_cast<const TxTypeDeclaration*>( b ) ) {
+//            if ( auto btype = t->get_definer()->resolve_type() ) {
+//                if ( !btype->is_modifiable() ) {
+//                    if ( !( btype->get_declaration()->get_decl_flags() & TXD_GENPARAM ) )
+//                        return false;
+//                }
+//            }
+//        }
+//    }
+//    return true;
+}
+
 const TxActualType* TxActualType::get_instance_base_type() const {
     return ( this->is_same_instance_type() ? this->get_semantic_base_type()->get_instance_base_type() : this );
 }
@@ -957,8 +977,8 @@ std::string TxActualType::str( bool brief ) const {
             str << "i/f/ad ";
         else if ( this->is_abstract() )
             str << "ABSTRACT ";
-        if ( this->is_immutable() )
-            str << "IMMUTABLE ";
+        if ( this->is_mutable() )
+            str << "MUT ";
     }
     this->self_string( str, brief );
     return str.str();

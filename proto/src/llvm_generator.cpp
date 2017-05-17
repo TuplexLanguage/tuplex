@@ -215,8 +215,9 @@ int LlvmGenerationContext::write_bitcode( const std::string& filepath ) {
 }
 
 void LlvmGenerationContext::register_llvm_value( const std::string& identifier, Value* val ) {
+    ASSERT( !identifier.empty(), "Empty identifier string when registering llvm value " << val );
     if ( identifier.compare( 0, strlen( BUILTIN_NS ), BUILTIN_NS ) != 0 )
-        LOG_TRACE( this->LOGGER(), "Registering LLVM value " << identifier << " : " << to_string(val->getType()) );
+        LOG_TRACE( this->LOGGER(), "Registering LLVM value '" << identifier << "' : " << to_string(val->getType()) );
     this->llvmSymbolTable.emplace( identifier, val );
 }
 

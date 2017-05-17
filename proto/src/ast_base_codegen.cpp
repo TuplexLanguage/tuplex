@@ -42,8 +42,6 @@ Value* TxModuleNode::code_gen( LlvmGenerationContext& context, GenScope* scope )
 
 Value* TxTypeDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    if (this->get_node_id() == 4188)
-        std::cerr << "FOO! " << this << std::endl;
     if ( !this->typeExpression->get_type()->type()->has_type_id() ) {
         LOG_DEBUG( context.LOGGER(), "Skipping codegen for AST of type without static type id: " << this->typeExpression << " : " << this->typeExpression->get_type() );
         // Note that this skips codegen for the entire AST of all generic-dependent types,
@@ -103,7 +101,7 @@ Value* TxFieldDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scop
     if ( this->field->typeExpression )
         this->field->typeExpression->code_gen( context, scope );
     auto fieldDecl = this->field->get_declaration();
-    auto uniqueName = fieldDecl->get_unique_full_name();
+    std::string uniqueName = fieldDecl->get_unique_full_name();
     auto txType = this->field->get_type()->type();
     Type* llvmType = context.get_llvm_type( txType );
 
@@ -118,12 +116,20 @@ Value* TxFieldDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scop
              // constructors in generic types are suppressed (they are not abstract per se, but aren't code generated):
              && !( ( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) )
                    && static_cast<TxEntitySymbol*>( fieldDecl->get_symbol()->get_outer() )->get_type_decl()->get_definer()->get_type()->is_generic() ) ) {
-            ASSERT( this->field->initExpression, "instance method does not have an initializer/definition: " << uniqueName );
-            auto initLambdaV = cast<ConstantStruct>( this->field->initExpression->code_gen( context, scope ) );
-            auto funcPtrV = initLambdaV->getAggregateElement( (unsigned) 0 );
-            //std::cout << "initLambdaV: " << initLambdaV << std::endl;
-            //std::cout << "initFuncPtrV: " << funcPtrV << std::endl;
-            fieldVal = funcPtrV;  // the naked $func is stored (as opposed to a full lambda object)
+            if ( static_cast<TxLambdaExprNode*>( this->field->initExpression->originalExpr )->is_suppressed_modifying_method() ) {
+                // modifying instance methods in immutable specializations of generic types are suppressed (as if abstract)
+                auto closureType = context.get_llvm_type( txType );
+                Type* fieldType = closureType->getStructElementType( 0 );
+                fieldVal = Constant::getNullValue( fieldType );
+                uniqueName += "$func";
+            }
+            else {
+                ASSERT( this->field->initExpression, "instance method does not have an initializer/definition: " << uniqueName );
+                auto initLambdaV = cast<ConstantStruct>( this->field->initExpression->code_gen( context, scope ) );
+                auto funcPtrV = initLambdaV->getAggregateElement( (unsigned) 0 );
+                fieldVal = funcPtrV;  // the naked $func is stored (as opposed to a full lambda object)
+                uniqueName = fieldVal->getName();
+            }
         }
         break;
 
@@ -132,7 +138,7 @@ Value* TxFieldDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scop
         break;
 
     case TXS_VIRTUAL:
-        case TXS_STATIC:
+    case TXS_STATIC:
         if ( !( fieldDecl->get_decl_flags() & ( TXD_ABSTRACT | TXD_INITIALIZER ) ) ) {
             //if (txType->is_modifiable())
             //    context.LOG.error("modifiable TXS_STATIC fields not yet implemented: %s", uniqueName.c_str());
@@ -156,7 +162,7 @@ Value* TxFieldDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scop
         break;
     }
     if ( fieldVal )
-        context.register_llvm_value( fieldVal->getName(), fieldVal );
+        context.register_llvm_value( uniqueName, fieldVal );
 
     return fieldVal;
 }

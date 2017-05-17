@@ -1,8 +1,8 @@
-public interface Sequenceable<E derives Ref> derives Interface {
+public interface ~ Sequenceable<E derives Ref> derives Interface {
     public abstract sequencer() mod ->Ref<~Sequencer<E>>;
 }
 
-public interface Sequencer<E derives Ref> derives Sequenceable<E> {
+public interface ~ Sequencer<E derives Ref> derives Sequenceable<E> {
     public override sequencer() mod ->Ref<~Sequencer<E>> { return self; }
 
     public abstract hasNext()->Bool;

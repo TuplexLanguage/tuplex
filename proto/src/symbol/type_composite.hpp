@@ -278,8 +278,8 @@ public:
         ASSERT( declaration, "NULL declaration" );
     }
 
-    virtual bool is_immutable() const override {
-        return !this->mutableType;
+    virtual bool is_mutable() const override {
+        return this->mutableType;
     }
 
     // FUTURE: override is_statically_sized() and return false if any instance member is not statically sized

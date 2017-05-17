@@ -393,10 +393,10 @@ public:
         return this->baseTypeSpec.modifiable;
     }
 
-    /** Returns true if this type is immutable (its instances' contents can never be modified after initialization). */
-    virtual bool is_immutable() const {
-        return false;
-    }
+    /** Returns true if this type is mutable by declaration.
+     * If true its instances can be declared modifiable.
+     */
+    virtual bool is_mutable() const;
 
     /** Returns true if this type cannot be derived from. (Final generic types can still be specialized.) */
     inline bool is_final() const {
