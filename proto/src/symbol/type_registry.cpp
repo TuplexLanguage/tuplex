@@ -132,7 +132,7 @@ TxActualType* TypeRegistry::make_actual_type( const TxTypeDeclaration* declarati
     std::vector<TxTypeSpecialization> interfaceSpecializations;
     for ( auto in : interfaces )
         interfaceSpecializations.emplace_back( in->type() );
-    auto newType = baseType->make_specialized_type( declaration, TxTypeSpecialization( baseType ), interfaceSpecializations, mutableType );
+    auto newType = baseType->make_specialized_type( declaration, TxTypeSpecialization( baseType ), mutableType, interfaceSpecializations );
     this->add_type( newType );
     return newType;
 }
@@ -144,7 +144,10 @@ const TxType* TypeRegistry::get_modifiable_type( const TxTypeDeclaration* declar
             "Can't derive from implicit empty base type: " << actualType );
     // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
 
-    if ( !declaration ) {
+    if ( declaration ) {
+        return new TxType( this->make_modifiable_type( declaration, actualType ) );
+    }
+    else {
         std::string prefix = "~";
         std::string name = prefix + actualType->get_declaration()->get_unique_name();
         TxScopeSymbol* scope = actualType->get_declaration()->get_symbol()->get_outer();
@@ -166,11 +169,9 @@ const TxType* TypeRegistry::get_modifiable_type( const TxTypeDeclaration* declar
         auto modDeclNode = new TxTypeDeclNode( loc, newDeclFlags, name, nullptr, modNode );
         auto expErrCtx = actualType->get_declaration()->get_definer()->context().exp_error();
         run_declaration_pass( modDeclNode, LexicalContext( scope, expErrCtx, false, nullptr ) );
-        modDeclNode->symbol_resolution_pass();
+        modDeclNode->symbol_resolution_pass();  // (causes get_modifiable_type() to be invoked again, with this implicit declaration)
         return modNode->get_type();
     }
-
-    return new TxType( this->make_modifiable_type( declaration, actualType ) );
 }
 
 const TxType* TypeRegistry::make_empty_derivation( const TxTypeDeclaration* declaration, const TxType* baseType, bool mutableType ) {
@@ -416,8 +417,10 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
     std::stringstream newBaseTypeName;
     if ( expErrCtx )
         newBaseTypeName << "$EE$";
-    if (mutableType)
+    if (mutableType && baseType->get_type_class() != TXTC_REFERENCE) {
+        // (References are always mutable, don't distinguish them be name)
         newBaseTypeName << "M$";  // distinguish mutable and immutable specializations by name
+    }
     newBaseTypeName << baseDecl->get_unique_name() << "<";
 
     // do shallow validation that bindings match base type's parameters:

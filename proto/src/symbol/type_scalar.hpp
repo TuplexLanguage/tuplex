@@ -5,7 +5,7 @@
 class TxBoolType : public TxActualType {
 protected:
     virtual TxBoolType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                               const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
+                                               bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
         if ( dynamic_cast<const TxBoolType*>( baseTypeSpec.type ) )
             return new TxBoolType( declaration, baseTypeSpec, interfaces );
         throw std::logic_error( "Specified a base type for TxBoolType that was not a TxBoolType: " + baseTypeSpec.type->str() );
@@ -14,7 +14,7 @@ protected:
 
 public:
     TxBoolType( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, const std::vector<TxTypeSpecialization>& interfaces )
-            : TxActualType( TXTC_ELEMENTARY, declaration, baseTypeSpec, interfaces ) {
+            : TxActualType( TXTC_ELEMENTARY, declaration, baseTypeSpec, true, interfaces ) {
     }
 
     inline virtual bool operator==( const TxActualType& other ) const override {
@@ -30,7 +30,7 @@ protected:
 
     TxScalarType( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, const std::vector<TxTypeSpecialization>& interfaces,
                   uint64_t size )
-            : TxActualType( TXTC_ELEMENTARY, declaration, baseTypeSpec, interfaces ), _size( size ) {
+            : TxActualType( TXTC_ELEMENTARY, declaration, baseTypeSpec, true, interfaces ), _size( size ) {
     }
 
 public:
@@ -46,7 +46,7 @@ public:
 class TxIntegerType final : public TxScalarType {
 protected:
     virtual TxIntegerType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                  const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
+                                                  bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
         if ( const TxIntegerType* intType = dynamic_cast<const TxIntegerType*>( baseTypeSpec.type ) )
             return new TxIntegerType( declaration, baseTypeSpec, interfaces, intType->size(), intType->sign );
         throw std::logic_error( "Specified a base type for TxIntegerType that was not a TxIntegerType: " + baseTypeSpec.type->str() );
@@ -89,7 +89,7 @@ public:
 class TxFloatingType final : public TxScalarType {
 protected:
     virtual TxFloatingType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                   const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
+                                                   bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
         if ( const TxFloatingType* floatType = dynamic_cast<const TxFloatingType*>( baseTypeSpec.type ) )
             return new TxFloatingType( declaration, baseTypeSpec, interfaces, floatType->size() );
         throw std::logic_error( "Specified a base type for TxFloatingType that was not a TxFloatingType: " + baseTypeSpec.type->str() );

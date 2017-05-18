@@ -161,6 +161,10 @@ protected:
         return ifSpecs;
     }
 
+//    /** Returns true if this type expression requires the produced type to be mutable. Used by subclasses upon type creation. */
+//    bool requires_mutable_type() const {
+//    }
+
 public:
     TxBuiltinTypeDefiningNode( const TxLocation& parseLocation, BuiltinTypeId builtinTypeId,
                                TxTypeExpressionNode* baseTypeNode,
@@ -232,11 +236,12 @@ class TxAnyTypeDefNode final : public TxBuiltinTypeDefiningNode {
     /** Used solely for the Any root type object. */
     class TxAnyType final : public TxActualType {
         TxAnyType( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec )
-                : TxActualType( TXTC_ANY, declaration, baseTypeSpec ) {
+                : TxActualType( TXTC_ANY, declaration, baseTypeSpec, true ) {
         }
 
         TxAnyType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                          const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
+                                          bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
+            // Note: Only for equivalent derivations - e.g. empty, 'modifiable', and GENPARAM constraints.
             if ( !dynamic_cast<const TxAnyType*>( baseTypeSpec.type ) )
                 throw std::logic_error( "Specified a base type for TxAnyType that was not a TxAnyType: " + baseTypeSpec.type->str() );
             return new TxAnyType( declaration, baseTypeSpec );
@@ -244,7 +249,7 @@ class TxAnyTypeDefNode final : public TxBuiltinTypeDefiningNode {
 
     public:
         TxAnyType( const TxTypeDeclaration* declaration )
-                : TxActualType( TXTC_ANY, declaration ) {
+                : TxActualType( TXTC_ANY, declaration, true ) {
         }
 
         virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override {
@@ -269,13 +274,13 @@ class TxVoidTypeDefNode final : public TxBuiltinTypeDefiningNode {
     /** Used solely for the Void type object. */
     class TxVoidType final : public TxActualType {
         TxVoidType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                           const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
+                                           bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
             throw std::logic_error( "Can't specialize Void" );
         }
 
     public:
         TxVoidType( const TxTypeDeclaration* declaration )
-                : TxActualType( TXTC_VOID, declaration ) {
+                : TxActualType( TXTC_VOID, declaration, false ) {
         }
 
         virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override {
@@ -300,7 +305,7 @@ class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
     /** Used for the built-in types' abstract base types. */
     class TxBuiltinBaseType final : public TxActualType {
         TxBuiltinBaseType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                  const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
+                                                  bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
             if ( !dynamic_cast<const TxBuiltinBaseType*>( baseTypeSpec.type ) )
                 throw std::logic_error( "Specified a base type for TxBuiltinBaseType that was not a TxBuiltinBaseType: " + baseTypeSpec.type->str() );
             return new TxBuiltinBaseType( baseTypeSpec.type->get_type_class(), declaration, baseTypeSpec, interfaces );
@@ -309,7 +314,7 @@ class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
     public:
         TxBuiltinBaseType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                            const std::vector<TxTypeSpecialization>& interfaces )
-                : TxActualType( typeClass, declaration, baseTypeSpec, interfaces ) {
+                : TxActualType( typeClass, declaration, baseTypeSpec, true, interfaces ) {
         }
 
         virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override {
@@ -383,7 +388,7 @@ protected:
     virtual TxActualType* define_builtin_type() override {
         auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
         auto ifSpecs = this->resolve_interface_specs();
-        return new TxTupleType( this->get_declaration(), baseTypeSpec, ifSpecs, true );
+        return new TxTupleType( this->get_declaration(), baseTypeSpec, ifSpecs, this->requires_mutable_type() );
     }
 public:
     TxTupleTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
@@ -439,7 +444,8 @@ protected:
     virtual TxActualType* define_builtin_type() override {
         auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
         auto ifSpecs = this->resolve_interface_specs();
-        return new TxArrayType( this->get_declaration(), baseTypeSpec, ifSpecs );
+        return new TxArrayType( this->get_declaration(), baseTypeSpec, this->requires_mutable_type(), ifSpecs );
+        //FIXME: make all types' constructors here use this->requires_mutable_type(), to be consistent with normal AST handling
     }
 public:
     TxArrayTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
@@ -558,7 +564,7 @@ public:
 static TxTypeDeclNode* make_builtin_abstract( const TxLocation& parseLoc, TxTypeClass typeClass, BuiltinTypeId id, BuiltinTypeId parentId ) {
     auto baseTypeNode = new TxNamedTypeNode( parseLoc, BUILTIN_TYPE_NAMES[parentId] );
     auto typeDecl = new TxTypeDeclNode( parseLoc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, BUILTIN_TYPE_NAMES[id], nullptr,
-                                        new TxBuiltinAbstractTypeDefNode( parseLoc, id, baseTypeNode, typeClass, { } ) );
+                                        new TxBuiltinAbstractTypeDefNode( parseLoc, id, baseTypeNode, typeClass, { } ), false, true );
     return typeDecl;
 }
 
@@ -567,7 +573,7 @@ static TxTypeDeclNode* make_builtin_integer( const TxLocation& parseLoc, Builtin
                                              int size, bool sign ) {
     auto baseTypeNode = new TxNamedTypeNode( parseLoc, BUILTIN_TYPE_NAMES[parentId] );
     auto typeDecl = new TxTypeDeclNode( parseLoc, TXD_PUBLIC | TXD_BUILTIN | TXD_FINAL, BUILTIN_TYPE_NAMES[id], nullptr,
-                                        new TxIntegerTypeDefNode( parseLoc, id, baseTypeNode, size, sign, constructors[id] ) );
+                                        new TxIntegerTypeDefNode( parseLoc, id, baseTypeNode, size, sign, constructors[id] ), false, true );
     return typeDecl;
 }
 
@@ -576,7 +582,7 @@ static TxTypeDeclNode* make_builtin_floating( const TxLocation& parseLoc, Builti
                                               int size ) {
     auto baseTypeNode = new TxNamedTypeNode( parseLoc, BUILTIN_TYPE_NAMES[parentId] );
     auto typeDecl = new TxTypeDeclNode( parseLoc, TXD_PUBLIC | TXD_BUILTIN | TXD_FINAL, BUILTIN_TYPE_NAMES[id], nullptr,
-                                        new TxFloatingTypeDefNode( parseLoc, id, baseTypeNode, size, constructors[id] ) );
+                                        new TxFloatingTypeDefNode( parseLoc, id, baseTypeNode, size, constructors[id] ), false, true );
     return typeDecl;
 }
 
@@ -623,7 +629,7 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
 
     { // create the Any root type:
         auto anyTypeDecl = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Any", nullptr,
-                                               new TxAnyTypeDefNode( loc ) );
+                                               new TxAnyTypeDefNode( loc ), false, true );
         this->builtinTypes[TXBT_ANY] = anyTypeDecl;
         // candidate members of the Any root type:
         // public static _typeid() UInt
@@ -633,7 +639,7 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     { // create the Void type:
         auto voidBaseTypeNode = new TxNamedTypeNode( loc, BUILTIN_TYPE_NAMES[TXBT_ANY] );
         auto voidTypeDecl = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT | TXD_FINAL, "Void", nullptr,
-                                                new TxVoidTypeDefNode( loc, voidBaseTypeNode ) );
+                                                new TxVoidTypeDefNode( loc, voidBaseTypeNode ), false, false );
         this->builtinTypes[TXBT_VOID] = voidTypeDecl;
     }
 
@@ -696,16 +702,16 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     // create the boolean type:
     this->builtinTypes[TXBT_BOOL] = new TxTypeDeclNode(
             loc, TXD_PUBLIC | TXD_BUILTIN | TXD_FINAL, "Bool", nullptr,
-            new TxBoolTypeDefNode( loc, new TxNamedTypeNode( loc, "Elementary" ), constructors[TXBT_BOOL] ) );
+            new TxBoolTypeDefNode( loc, new TxNamedTypeNode( loc, "Elementary" ), constructors[TXBT_BOOL] ), false, true );
 
     // create the function base type:
     this->builtinTypes[TXBT_FUNCTION] = new TxTypeDeclNode(
             loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Function", nullptr,
-            new TxBuiltinAbstractTypeDefNode( loc, TXBT_FUNCTION, new TxNamedTypeNode( loc, "Any" ), TXTC_FUNCTION, { } ) );
+            new TxBuiltinAbstractTypeDefNode( loc, TXBT_FUNCTION, new TxNamedTypeNode( loc, "Any" ), TXTC_FUNCTION, { } ), false, true );
 
     // create the tuple base type:
     this->builtinTypes[TXBT_TUPLE] = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Tuple", nullptr,
-                                                         new TxTupleTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), { } ) );
+                                                         new TxTupleTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), { } ), false, true );
 
     // create the reference base type:
     {
@@ -714,7 +720,7 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
                   new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM, "T", nullptr, new TxNamedTypeNode( loc, "Any" ) )
                 } );
         this->builtinTypes[TXBT_REFERENCE] = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN, "Ref", paramNodes,
-                                                                 new TxRefTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), { } ) );
+                                                                 new TxRefTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), { } ), false, true );
     }
 
     // create the array base type:
@@ -729,7 +735,7 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
                 } );
         this->builtinTypes[TXBT_ARRAY] = new TxTypeDeclNode(
                 loc, TXD_PUBLIC | TXD_BUILTIN, "Array", paramNodes,
-                new TxArrayTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), { arrayConstructor } ) );
+                new TxArrayTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), { arrayConstructor } ), false, true );
     }
 
     // create the interface base type:
@@ -742,8 +748,7 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
 
         auto ifTypeDef = new TxInterfaceTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), { adapteeIdFDecl } );
         this->builtinTypes[TXBT_INTERFACE] = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Interface", nullptr,
-                                                                 ifTypeDef,
-                                                                 true );
+                                                                 ifTypeDef, true, true );
     }
 
     // put it all together as the AST for the tx module:

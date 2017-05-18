@@ -248,15 +248,15 @@ protected:
     DataTupleDefinition virtualFields;
     DataTupleDefinition instanceFields;
 
-    /** Only to be used for Any type. */
-    TxActualType( TxTypeClass typeClass, const TxTypeDeclaration* declaration )
-            : typeClass( typeClass ), builtin( declaration->get_decl_flags() & TXD_BUILTIN ), mutableType( true ),
+    /** Only to be used for Any and Void types. */
+    TxActualType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, bool mutableType )
+            : typeClass( typeClass ), builtin( declaration->get_decl_flags() & TXD_BUILTIN ), mutableType( mutableType ),
               declaration( declaration ), baseTypeSpec(), interfaces() {
         this->initialize_type();
     }
 
-    TxActualType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                  const std::vector<TxTypeSpecialization>& interfaces = std::vector<TxTypeSpecialization>(), bool mutableType=true )
+    TxActualType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, bool mutableType,
+                  const std::vector<TxTypeSpecialization>& interfaces = std::vector<TxTypeSpecialization>() )
             : typeClass( typeClass ), builtin( determine_builtin( declaration, baseTypeSpec ) ), mutableType( mutableType ),
               declaration( declaration ), baseTypeSpec( baseTypeSpec ), interfaces( interfaces ) {
         this->initialize_type();
@@ -265,8 +265,7 @@ protected:
     /** Creates a specialization of this type. To be used by the type registry. */
     virtual TxActualType* make_specialized_type( const TxTypeDeclaration* declaration,
                                                  const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
-                                                 const std::vector<TxTypeSpecialization>& interfaces = std::vector<TxTypeSpecialization>(),
-                                                 bool mutableType=true ) const = 0;
+                                                 bool mutableType = true, const std::vector<TxTypeSpecialization>& interfaces = {} ) const = 0;
     // FUTURE: refactor how TxActualType objects are created and remove this method
 
     friend class TypeRegistry;  // allows access for registry's type construction

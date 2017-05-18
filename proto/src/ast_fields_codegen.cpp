@@ -152,7 +152,7 @@ static Value* field_value_code_gen( LlvmGenerationContext& context, GenScope* sc
 
         auto staticBaseType = baseExpr->get_type()->type();
         uint32_t fieldIx = staticBaseType->get_instance_fields().get_field_index( fieldEntity->get_unique_name() );
-        //auto fieldIx = fieldEntity->get_instance_field_index();
+        ASSERT( fieldIx != UINT32_MAX, "Unknown field index for field " << fieldEntity->get_unique_name() << " in " << staticBaseType );
         //std::cerr << "Getting TXS_INSTANCE ix " << fieldIx << " value off LLVM base value: " << baseValue << std::endl;
         Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                          ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };

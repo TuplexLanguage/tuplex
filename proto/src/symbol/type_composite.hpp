@@ -11,19 +11,18 @@
 class TxArrayType : public TxActualType {
 protected:
     virtual TxArrayType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
+                                                bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
         if ( !dynamic_cast<const TxArrayType*>( baseTypeSpec.type ) )
             throw std::logic_error( "Specified a base type for TxArrayType that was not a TxArrayType: " + baseTypeSpec.type->str() );
-        return new TxArrayType( declaration, baseTypeSpec, interfaces );
+        return new TxArrayType( declaration, baseTypeSpec, mutableType, interfaces );
     }
-    ;
 
     //virtual void self_string( std::stringstream& str, bool brief ) const override;
 
 public:
-    TxArrayType( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
+    TxArrayType( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, bool mutableType,
                  const std::vector<TxTypeSpecialization>& interfaces )
-            : TxActualType( TXTC_ARRAY, declaration, baseTypeSpec, interfaces ) {
+            : TxActualType( TXTC_ARRAY, declaration, baseTypeSpec, mutableType, interfaces ) {
     }
 
     /** Returns the element type if bound, or tx.Array.E generic type parameter if unbound. */
@@ -45,22 +44,22 @@ private:
     llvm::Value* inner_code_gen_size( LlvmGenerationContext& context, GenScope* scope, llvm::Value* elemSize, llvm::Value* arrayLen ) const;
 };
 
+/** Note, all reference specializations are mutable. */
 class TxReferenceType : public TxActualType {
 protected:
     virtual TxReferenceType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                    const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
+                                                    bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
         if ( !dynamic_cast<const TxReferenceType*>( baseTypeSpec.type ) )
             throw std::logic_error( "Specified a base type for TxReferenceType that was not a TxReferenceType: " + baseTypeSpec.type->str() );
         return new TxReferenceType( declaration, baseTypeSpec, interfaces );
     }
-    ;
 
     //virtual void self_string( std::stringstream& str, bool brief ) const override;
 
 public:
     TxReferenceType( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                      const std::vector<TxTypeSpecialization>& interfaces )
-            : TxActualType( TXTC_REFERENCE, declaration, baseTypeSpec, interfaces ) {
+            : TxActualType( TXTC_REFERENCE, declaration, baseTypeSpec, true, interfaces ) {
     }
 
     /** Returns the target type if bound, or tx.Ref.T generic type parameter if unbound. */
@@ -95,27 +94,24 @@ public:
 class TxFunctionType : public TxActualType {
     /** Indicates whether functions of this type may modify its closure when run. */
     const bool modifiableClosure;
+    // TODO: review if modifiableClosure can be merged with mutableType for FunctionType
 
     TxFunctionType( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                     const std::vector<const TxActualType*>& argumentTypes,
-                    const TxActualType* returnType,
-                    bool modifiableClosure = false )
-            : TxActualType( TXTC_FUNCTION, declaration, baseTypeSpec, std::vector<TxTypeSpecialization>() ),
-              modifiableClosure( modifiableClosure ),
-              argumentTypes( argumentTypes ), returnType( returnType ) {
+                    const TxActualType* returnType, bool modifiableClosure = false )
+            : TxActualType( TXTC_FUNCTION, declaration, baseTypeSpec, true, std::vector<TxTypeSpecialization>() ),
+              modifiableClosure( modifiableClosure ), argumentTypes( argumentTypes ), returnType( returnType ) {
     }
 
 protected:
-    // TODO: review, is this used?
     virtual TxFunctionType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                   const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
+                                                   bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
+        // Note: Only for equivalent derivations - e.g. empty, 'modifiable', and GENPARAM constraints.
         if ( auto funcBaseType = dynamic_cast<const TxFunctionType*>( baseTypeSpec.type ) )
             return new TxFunctionType( declaration, baseTypeSpec, funcBaseType->argumentTypes,
-                                       funcBaseType->returnType,
-                                       funcBaseType->modifiableClosure );
+                                       funcBaseType->returnType, funcBaseType->modifiableClosure );
         throw std::logic_error( "Specified a base type for TxFunctionType that was not a TxFunctionType: " + baseTypeSpec.type->str() );
     }
-    ;
 
 public:
     const std::vector<const TxActualType*> argumentTypes;
@@ -127,17 +123,12 @@ public:
 
     /** Creates a function type with a return type. */
     TxFunctionType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*>& argumentTypes,
-                    const TxActualType* returnType,
-                    bool modifiableClosure = false )
-            : TxActualType( TXTC_FUNCTION, declaration, TxTypeSpecialization( baseType ) ),
-              modifiableClosure( modifiableClosure ),
-              argumentTypes( argumentTypes ), returnType( returnType ) {
+                    const TxActualType* returnType, bool modifiableClosure = false )
+            : TxActualType( TXTC_FUNCTION, declaration, TxTypeSpecialization( baseType ), true ),
+              modifiableClosure( modifiableClosure ), argumentTypes( argumentTypes ), returnType( returnType ) {
         ASSERT( argumentTypes.empty() || argumentTypes.front(), "NULL arg type" );
         ASSERT( returnType, "NULL return type (must be proper type or Void" );
     }
-
-//    /** Returns false. Functions types are never 'abstract' (except the abstract base type for all functions). */
-//    virtual bool is_abstract() const override { return false; }
 
     bool has_return_value() const {
         return this->returnType->get_type_class() != TXTC_VOID;
@@ -259,24 +250,19 @@ public:
 class TxTupleType : public TxActualType {
 protected:
     virtual TxTupleType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
+                                                bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
         if ( dynamic_cast<const TxTupleType*>( baseTypeSpec.type ) ) {
             return new TxTupleType( declaration, baseTypeSpec, interfaces, mutableType );
         }
         throw std::logic_error( "Specified a base type for TxTupleType that was not a TxTupleType: " + baseTypeSpec.type->str() );
     }
-    ;
 
 public:
     TxTupleType( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                  const std::vector<TxTypeSpecialization>& interfaces, bool mutableType )
-            : TxActualType( TXTC_TUPLE, declaration, baseTypeSpec, interfaces, mutableType ) {
+            : TxActualType( TXTC_TUPLE, declaration, baseTypeSpec, mutableType, interfaces ) {
         ASSERT( declaration, "NULL declaration" );
     }
-
-    // FUTURE: override is_statically_sized() and return false if any instance member is not statically sized
-    // (currently such members are not supported so this can't be false for valid tuple types)
-    //bool TxArrayType::is_statically_sized() const override;
 
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
     virtual llvm::Type* make_llvm_type_body( LlvmGenerationContext& context, llvm::Type* header ) const override;
@@ -286,17 +272,16 @@ public:
 class TxInterfaceType : public TxActualType {
 protected:
     virtual TxInterfaceType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                    const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
+                                                    bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
         if ( dynamic_cast<const TxInterfaceType*>( baseTypeSpec.type ) )
             return new TxInterfaceType( declaration, baseTypeSpec, interfaces );
         throw std::logic_error( "Specified a base type for TxInterfaceType that was not a TxInterfaceType: " + baseTypeSpec.type->str() );
     }
-    ;
 
 public:
     TxInterfaceType( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
                      const std::vector<TxTypeSpecialization>& interfaces )
-            : TxActualType( TXTC_INTERFACE, declaration, baseTypeSpec, interfaces ) {
+            : TxActualType( TXTC_INTERFACE, declaration, baseTypeSpec, true, interfaces ) {
         ASSERT( declaration, "NULL declaration" );
     }
 
@@ -315,18 +300,18 @@ public:
  * The interface type is the direct base type of the adapter type.
  * The type adapter is abstract - no instances of it are created - it is to be used as a reference target type. */
 class TxInterfaceAdapterType : public TxActualType {
+    // as adapters are intrinsically abstract, no instances are created and can't be any more assignable than interfaces
     const TxActualType* adaptedType;
 
     TxInterfaceAdapterType( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                            const std::vector<TxTypeSpecialization>& interfaces,
-                            const TxActualType* adaptedType )
-            : TxActualType( TXTC_INTERFACEADAPTER, declaration, baseTypeSpec, interfaces ), adaptedType( adaptedType ) {
+                            const std::vector<TxTypeSpecialization>& interfaces, const TxActualType* adaptedType )
+            : TxActualType( TXTC_INTERFACEADAPTER, declaration, baseTypeSpec, adaptedType->is_mutable(), interfaces ), adaptedType( adaptedType ) {
     }
 
 protected:
     virtual TxInterfaceAdapterType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                           const std::vector<TxTypeSpecialization>& interfaces, bool mutableType ) const override {
-        // Note: Only 'modifiable' and perhaps reference target binding is allowed.
+                                                           bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
+        // Note: Only for equivalent derivations including modifiable.
         if ( dynamic_cast<const TxInterfaceAdapterType*>( baseTypeSpec.type ) )
             return new TxInterfaceAdapterType( declaration, baseTypeSpec, interfaces, this->adaptedType );
         throw std::logic_error(
@@ -337,19 +322,9 @@ protected:
 
 public:
     TxInterfaceAdapterType( const TxTypeDeclaration* declaration, const TxActualType* interfaceType, const TxActualType* adaptedType )
-            : TxActualType( TXTC_INTERFACEADAPTER, declaration, TxTypeSpecialization( interfaceType ) ), adaptedType( adaptedType ) {
+            : TxActualType( TXTC_INTERFACEADAPTER, declaration, TxTypeSpecialization( interfaceType ), adaptedType->is_mutable() ),
+                            adaptedType( adaptedType ) {
     }
-
-//    virtual bool is_abstract() const override { return false; }
-
-// as adapters are intrinsically abstract, no instances are created and can't be any more assignable than interfaces
-//    // TO DO: allow adapters with proper is-a relationship to auto-convert
-//    virtual bool is_assignable_to(const TxActualType& someType) const override {
-//        if (auto otherAdapter = dynamic_cast<const TxInterfaceAdapterType*>(&someType))
-//            return (*this == *otherAdapter && this->adaptedType == otherAdapter->adaptedType);
-//        else
-//            return false;
-//    }
 
     inline const TxActualType* adapted_type() const {
         return this->adaptedType;
