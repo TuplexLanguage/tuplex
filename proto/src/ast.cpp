@@ -289,8 +289,13 @@ void TxFieldDeclNode::symbol_resolution_pass() {
         if ( type->is_modifiable() ) {
             if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->context().scope() ) ) {
                 const TxTypeDeclaration* outerTypeDecl = entitySymbol->get_type_decl();
-                if ( !outerTypeDecl->get_definer()->get_type()->is_mutable() )
-                    CERROR( this, "Instance field of an immutable type may not be declared modifiable: " << field->get_identifier() );
+                if ( !outerTypeDecl->get_definer()->get_type()->is_mutable() ) {
+                    // FIXME: evaluate if this should be OK (especially for specializations)
+                    if ( this->context().reinterpretation_definer() )
+                        CWARNING( this, "Instance field of an immutable type is declared modifiable: " << field->get_identifier() );
+                    else
+                        CERROR( this, "Instance field of an immutable type is declared modifiable: " << field->get_identifier() );
+                }
             }
         }
         break;
@@ -300,8 +305,12 @@ void TxFieldDeclNode::symbol_resolution_pass() {
             if ( lambdaExpr->funcHeaderNode->is_modifying() ) {
                 if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->context().scope() ) ) {
                     const TxTypeDeclaration* outerTypeDecl = entitySymbol->get_type_decl();
-                    if ( !outerTypeDecl->get_definer()->get_type()->is_mutable() )
-                        CERROR( this, "Instance method of an immutable type may not be declared modifying: " << field->get_identifier() );
+                    if ( !outerTypeDecl->get_definer()->get_type()->is_mutable() ) {
+                        if ( !this->context().reinterpretation_definer() ) {
+                            // (we skip this error for type specializations that have not been declared mutable, this method will be suppressed)
+                            CERROR( this, "Instance method of an immutable type may not be declared modifying: " << field->get_identifier() );
+                        }
+                    }
                 }
             }
         }
@@ -365,28 +374,31 @@ void TxTypeDeclNode::declaration_pass() {
     this->typeExpression->set_declaration( declaration );
 }
 
-const TxTypeDeclNode* TxTypeExpressionNode::decl_parent() const {
+bool TxTypeExpressionNode::requires_mutable_type() const {
     const TxNode* p = this->parent();
     if ( auto d = dynamic_cast<const TxTypeDeclNode*>( p ) )
-        return d;
-    if ( auto m = dynamic_cast<const TxMaybeModTypeNode*>( p ) ) {
+        return d->mutableType;
+    if ( auto m = dynamic_cast<const TxModifiableTypeNode*>( p ) ) {
         if ( m->is_modifiable() )
-            return nullptr;
-        if ( auto d = dynamic_cast<const TxTypeDeclNode*>( m->parent() ) )
-            return d;
+            return true;
+        if ( auto m = dynamic_cast<const TxMaybeModTypeNode*>( p ) ) {
+            if ( auto d = dynamic_cast<const TxTypeDeclNode*>( m->parent() ) )
+                return d->mutableType;
+        }
     }
-    return nullptr;
-}
-
-bool TxTypeExpressionNode::get_decl_mutable_type() const {
-    if ( auto parentDecl = this->decl_parent() )
-        return parentDecl->mutableType;
     return false;
 }
 
 bool TxTypeExpressionNode::get_decl_interface_kw() const {
-    if ( auto parentDecl = this->decl_parent() )
-        return parentDecl->interfaceKW;
+    const TxNode* p = this->parent();
+    if ( auto d = dynamic_cast<const TxTypeDeclNode*>( p ) )
+        return d->interfaceKW;
+    if ( auto m = dynamic_cast<const TxModifiableTypeNode*>( p ) ) {
+        //if ( m->is_modifiable() )
+        //    return false;
+        if ( auto d = dynamic_cast<const TxTypeDeclNode*>( m->parent() ) )
+            return d->interfaceKW;
+    }
     return false;
 }
 
@@ -452,7 +464,7 @@ const TxType* TxNamedTypeNode::define_type() {
                 auto type = typeDecl->get_definer()->resolve_type();
                 if ( auto decl = this->get_declaration() ) {
                     // create empty specialization (uniquely named but identical type)
-                    return this->registry().make_empty_derivation( decl, type, this->get_decl_mutable_type() );
+                    return this->registry().make_empty_derivation( decl, type, this->requires_mutable_type() );
                 }
                 return type;
             }
@@ -476,7 +488,7 @@ const TxType* TxMemberTypeNode::define_type() {
                 auto type = typeDecl->get_definer()->resolve_type();
                 if ( auto decl = this->get_declaration() ) {
                     // create empty specialization (uniquely named but identical type)
-                    return this->registry().make_empty_derivation( decl, type, this->get_decl_mutable_type() );
+                    return this->registry().make_empty_derivation( decl, type, this->requires_mutable_type() );
                 }
                 return type;
             }
@@ -509,7 +521,7 @@ const TxType* TxGenSpecTypeNode::define_type() {
     // copy vector because of const conversion:
     auto tmp = std::vector<const TxTypeArgumentNode*>( this->typeArgs->size() );
     std::copy( this->typeArgs->cbegin(), this->typeArgs->cend(), tmp.begin() );
-    return this->registry().get_type_specialization( this, genType, tmp, this->get_decl_mutable_type() );
+    return this->registry().get_type_specialization( this, genType, tmp, this->requires_mutable_type() );
 }
 
 void TxDerivedTypeNode::init_implicit_types() {
@@ -542,7 +554,7 @@ const TxType* TxDerivedTypeNode::define_type() {
         interfaceTypes.emplace_back( interface->resolve_type() );
     }
 
-    return this->registry().make_type_derivation( this, baseObjType, interfaceTypes, this->get_decl_mutable_type() );
+    return this->registry().make_type_derivation( this, baseObjType, interfaceTypes, this->requires_mutable_type() );
 }
 
 void TxFunctionTypeNode::typeexpr_declaration_pass() {
@@ -586,15 +598,15 @@ void TxModifiableTypeNode::typeexpr_declaration_pass() {
 
 void TxMaybeModTypeNode::typeexpr_declaration_pass() {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
-    if ( !this->is_modifiable() ) {
+    if ( !this->isModifiable ) {
         if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->baseType ) )
             if ( typeid(*arrayBaseType->elementTypeNode->typeExprNode) == typeid(TxModifiableTypeNode) ) {
                 this->LOGGER()->debug( "Implicitly declaring Array modifiable at %s", this->str().c_str() );
-                this->set_modifiable( true );
+                this->isModifiable = true;
             }
     }
 
-    if ( this->is_modifiable() )
+    if ( this->isModifiable )
         TxModifiableTypeNode::typeexpr_declaration_pass();
     else {
         // "pass through" entity declaration to the underlying type

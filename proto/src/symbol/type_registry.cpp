@@ -574,14 +574,14 @@ const TxType* TypeRegistry::get_reference_type( TxTypeDefiningNode* definer, con
 }
 
 const TxType* TypeRegistry::get_array_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding,
-                                            const TxValueTypeArgumentNode* lengthBinding ) {
+                                            const TxValueTypeArgumentNode* lengthBinding, bool mutableType ) {
     std::vector<const TxTypeArgumentNode*> bindings( { elemTypeBinding, lengthBinding } );
-    return this->get_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), bindings, true );
+    return this->get_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), bindings, mutableType );
 }
 
-const TxType* TypeRegistry::get_array_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding ) {
+const TxType* TypeRegistry::get_array_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding, bool mutableType ) {
     std::vector<const TxTypeArgumentNode*> bindings( { elemTypeBinding } );
-    return this->get_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), bindings, true );
+    return this->get_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), bindings, mutableType );
 }
 
 static std::vector<const TxActualType*> make_actual_arg_types( const std::vector<const TxType*>& argumentTypes ) {

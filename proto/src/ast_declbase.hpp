@@ -12,11 +12,8 @@ class TxTypeExpressionNode : public TxTypeDefiningNode {
     const TxTypeDeclaration* declaration = nullptr;
 
 protected:
-    /** Gets the parent of this node if the parent is a TxTypeDeclNode, otherwise null.
-     * Note that this is not transitive (with exception of certain type expr wrapping nodes). */
-    const TxTypeDeclNode* decl_parent() const;
-
-    bool get_decl_mutable_type() const;
+    /** Returns true if this type expression requires the produced type to be mutable. Used by subclasses upon type creation. */
+    bool requires_mutable_type() const;
 
     bool get_decl_interface_kw() const;
 

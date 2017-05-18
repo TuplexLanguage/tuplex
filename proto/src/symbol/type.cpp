@@ -972,17 +972,15 @@ static void type_bindings_string( std::stringstream& str, const std::vector<cons
 
 std::string TxActualType::str( bool brief ) const {
     std::stringstream str;
+    this->self_string( str, brief );
     if ( !brief ) {
         if ( this->get_type_class() == TXTC_INTERFACE )
-            str << "i/f ";
+            str << " i/f";
         else if ( this->get_type_class() == TXTC_INTERFACEADAPTER )
-            str << "i/f/ad ";
-        else if ( this->is_abstract() )
-            str << "ABSTRACT ";
+            str << " i/f/ad";
         if ( this->is_mutable() )
-            str << "MUT ";
+            str << " MUT";
     }
-    this->self_string( str, brief );
     return str.str();
 }
 

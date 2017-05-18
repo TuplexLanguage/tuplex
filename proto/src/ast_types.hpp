@@ -338,9 +338,9 @@ class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
 protected:
     virtual const TxType* define_type() override {
         if ( this->lengthNode )
-            return this->registry().get_array_type( this, this->elementTypeNode, this->lengthNode );
+            return this->registry().get_array_type( this, this->elementTypeNode, this->lengthNode, this->requires_mutable_type() );
         else
-            return this->registry().get_array_type( this, this->elementTypeNode );
+            return this->registry().get_array_type( this, this->elementTypeNode, this->requires_mutable_type() );
     }
 
 public:
@@ -650,6 +650,8 @@ public:
         return "~" + baseName;
     }
 
+    virtual bool is_modifiable() const { return true; }
+
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
         this->baseType->symbol_resolution_pass();
@@ -672,7 +674,7 @@ protected:
 
     virtual const TxType* define_type() override {
         // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
-        if ( this->is_modifiable() )
+        if ( this->isModifiable )
             return TxModifiableTypeNode::define_type();
         else
             return this->baseType->resolve_type();
@@ -688,13 +690,13 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override {
-        if ( this->is_modifiable() )
+        if ( this->isModifiable )
             return TxModifiableTypeNode::get_auto_type_name();
         else
             return this->baseType->get_auto_type_name();
     }
 
-    inline bool is_modifiable() const {
+    virtual bool is_modifiable() const override {
         return this->isModifiable;
     }
 

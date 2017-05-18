@@ -2,24 +2,31 @@
 
 ## TODO: add immutable variant
 
-type ~ GType<S,T> {
+type ~ GType<S,T,U> {
     sfield : S;
     tfield : T;
+    ufield : U;
     ## TODO: add arrays of S and T
 
-    self( s : S, t : T ) {
+    self( s : S, t : T, u : U ) {
         self.sfield = s;
         self.tfield = t;
+        self.ufield = u;
     }
 
     get_s()->S {
-        #experr 1: self.sfield = 5;
+        #experr: self.sfield = 5;
         return self.sfield;
     }
 
     get_t()->T {
-        #experr 1: self.tfield = 6.3;
+        #experr: self.tfield = 6.3;
         return self.tfield;
+    }
+
+    get_u()->U {
+        #experr: self.ufield = TRUE;
+        return self.ufield;
     }
 
     set_s( s : S ) mod {
@@ -33,13 +40,23 @@ type ~ GType<S,T> {
 
 main()->Int {
 ## TODO: be able to specialize an immutable version of mutable generic types, so that they can accept immutable type bindings
-    type ImmSpec : GType<Int,Float>;
-    type MutSpec : ~GType<Int,Float>;
-/*
-    #experr 2: nonmodA := <GType<Int,Float>>( 2, 3.14 );
-    #experr 1: smodA := <GType<~Int,Float>>( 2, 3.14 );
-    #experr 1: tmodA := <GType<Int,~Float>>( 2, 3.14 );
-    allmodA := <GType<~Int,~Float>>( 2, 3.14 );
-*/
+    type ImmSpec : GType<Int,Float,Bool>;
+    type MutSpec : ~GType<~Int,~Float,Bool>;
+    #experr 2: type BadSpec : ~GType<Int,Float,Bool>;
+
+    {
+        nonmodI := <GType<Int,Float,Bool>>( 2, 3.14, TRUE );
+        smodI   := <GType<~Int,Float,Bool>>( 2, 3.14, TRUE );
+        tmodI   := <GType<Int,~Float,Bool>>( 2, 3.14, TRUE );
+        allmodI := <GType<~Int,~Float,Bool>>( 2, 3.14, TRUE );
+    }
+
+    {
+        #experr 0: nonmodM := <~GType<Int,Float,Bool>>( 2, 3.14, TRUE );  ## 0 errs since BadSpec above already created type spec
+        #experr 1: smodM   := <~GType<~Int,Float,Bool>>( 2, 3.14, TRUE );
+        #experr 1: tmodM   := <~GType<Int,~Float,Bool>>( 2, 3.14, TRUE );
+                   allmodM := <~GType<~Int,~Float,Bool>>( 2, 3.14, TRUE );
+    }
+
     return 0;
 }
