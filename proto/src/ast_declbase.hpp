@@ -346,10 +346,10 @@ public:
 
         if ( !field->get_type()->is_concrete() ) {
             if ( !this->context().is_generic() )
-                CERROR( this, "Field type is not a statically known type (size potentially unknown): "
+                CERROR( this, "Field type is not concrete: "
                         << this->get_identifier() << " : " << field->get_type() );
             else
-                LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Field type is not a statically known type (size potentially unknown): "
+                LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Field type is not concrete: "
                            << this->get_identifier() << " : " << field->get_type() );
         }
         if ( this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR ) {

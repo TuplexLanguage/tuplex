@@ -258,9 +258,9 @@ public:
                     auto elemType = typeTypeArg->typeExprNode->get_type();
                     if ( !elemType->is_concrete() ) {
                         if ( !this->context().is_generic() )
-                            CERROR( this, "Type specialization parameter is not a statically known type (size potentially unknown): " << elemType );
+                            CERROR( this, "Type specialization parameter is not concrete: " << elemType );
                         else
-                            LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Type specialization parameter is not a statically known type (size potentially unknown): " << elemType );
+                            LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Type specialization parameter is not concrete: " << elemType );
                     }
                 }
             }
@@ -375,9 +375,9 @@ public:
         auto elemType = this->elementTypeNode->typeExprNode->get_type();
         if ( !elemType->is_concrete() ) {
             if ( !this->context().is_generic() )
-                CERROR( this, "Array element type is not a statically known type (size potentially unknown): " << elemType );
+                CERROR( this, "Array element type is not concrete: " << elemType );
             else
-                LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Array element type is not a statically known type (size potentially unknown): " << elemType );
+                LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Array element type is not concrete: " << elemType );
         }
     }
 
@@ -574,10 +574,10 @@ public:
             auto argType = argField->get_type();
             if ( !argType->is_concrete() ) {
                 if ( !this->context().is_generic() )
-                    CERROR( argField, "Function argument type is not a statically known type (size potentially unknown): "
+                    CERROR( argField, "Function argument type is not concrete: "
                             << argField->get_identifier() << " : " << argType );
                 else
-                    LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Function argument type is not a statically known type (size potentially unknown): "
+                    LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Function argument type is not concrete: "
                                << argField->get_identifier() << " : " << argType );
             }
         }
@@ -586,9 +586,9 @@ public:
             auto retType = this->returnField->get_type();
             if ( !retType->is_concrete() ) {
                 if ( !this->context().is_generic() )
-                    CERROR( returnField, "Function return type is not a statically known type (size potentially unknown): " << retType );
+                    CERROR( returnField, "Function return type is not concrete: " << retType );
                 else
-                    LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Function return type is not a statically known type (size potentially unknown): " << retType );
+                    LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Function return type is not concrete: " << retType );
             }
         }
     }

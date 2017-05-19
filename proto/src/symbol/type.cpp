@@ -271,7 +271,6 @@ void TxActualType::initialize_type() {
                 else {
                     if ( !dynamic_cast<const TxFieldDeclaration*>( bindingDecl ) )
                         CERROR( bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " is not a field/value: " << bindingDecl );
-
                     this->nonRefBindings = true;
                 }
             }
@@ -501,7 +500,8 @@ bool TxActualType::inner_prepare_members() {
     return recursionError;
 }
 
-/** Returns true if this type has one or more (unbound) TYPE parameters that are not constrained to be a Ref type. */
+/** Returns true if this type has one or more (unbound) TYPE parameters that are not constrained to be a Ref type,
+ * or an unbound VALUE parameter. These mean the size of this type is neither statically nor dynamically known. */
 static bool has_nonref_params( const TxActualType* type ) {
     for ( auto & paramDecl : type->get_type_params() ) {
         if ( auto paramTypeDecl = dynamic_cast<const TxTypeDeclaration*>( paramDecl ) ) {
@@ -510,6 +510,8 @@ static bool has_nonref_params( const TxActualType* type ) {
             if ( constraintType->get_type_class() != TXTC_REFERENCE )
                 return true;
         }
+        else
+            return true;
     }
     return false;
 }
@@ -555,7 +557,7 @@ static bool is_dynamic_binding_dependent( const TxActualType* type ) {
 }
 
 bool TxActualType::is_concrete() const {
-//    if (this->get_declaration()->get_decl_flags() & TXD_GENPARAM)
+//    if (this->get_type_class() == TXTC_ARRAY)
 //        std::cerr << this << std::endl;
     const TxActualType* type = this;
     if ( type->is_abstract() )

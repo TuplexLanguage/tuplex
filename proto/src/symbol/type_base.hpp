@@ -198,7 +198,7 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
      * This also implies a pure specialization, even if extendsInstanceDatatype technically is true. */
     const TxActualType* genericBaseType = nullptr;
 
-    /** false unless there are TYPE bindings for parameters with other than Ref constraint */
+    /** false unless there are either TYPE bindings for parameters with other than Ref constraint, or VALUE bindings */
     bool nonRefBindings = false;
 
     /** true when initialize_type() has completed its initializations */
