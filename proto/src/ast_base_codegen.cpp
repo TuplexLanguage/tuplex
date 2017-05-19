@@ -8,15 +8,6 @@ using namespace llvm;
 /** Convenience function that returns true if type is a pointer to a non-single value type. */
 inline bool is_complex_pointer( const Type* type ) {
     bool ret = ( type->isPointerTy() && !type->getPointerElementType()->isSingleValueType() );
-//    bool ret;
-//    if (! type->isPointerTy())
-//        ret = false;
-//    else {
-//        auto elemType = type->getPointerElementType();
-//        //std::cout << value << " pointer type: "<< elemType << " is array: " << elemType->isArrayTy() << std::endl;
-//        //ret = elemType->isArrayTy() || elemType->isFunctionTy() || elemType->isStructTy();
-//        ret = !elemType->isSingleValueType();
-//    }
     //std::cout << "is_complex_pointer(): " << ret << ": type: " << type << std::endl;
     return ret;
 }
@@ -65,7 +56,7 @@ static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, GenS
                 LOG( context.LOGGER(), ERROR, "Global field " << uniqueName << " initializer is not constant: " << to_string(initValue) );
             else if ( is_complex_pointer( constantInitializer->getType() ) ) {
                 context.LOGGER()->note( "Global field %s with complex ptr constant initializer", uniqueName.c_str() );
-                //return constantInitializer;
+                // TODO: review and perhaps remove/refactor
                 ASSERT( !context.llvmModule.getNamedGlobal( uniqueName ),
                         "Can't declare llvm alias since global variable with same name already declared: " << uniqueName );
                 return GlobalAlias::create( llvmType, 0, GlobalValue::InternalLinkage,

@@ -45,6 +45,9 @@ abstract type AbstractType derives Tuple {
     concrete_method2()->Int { return 2; }
 }
 
+## must declare abstract if actually is abstract:
+#experr 2: type StillAbstractType : AbstractType;
+
 ## a concrete type can't have abstract members:
 type ConcreteType derives Tuple {
     public static foo : Int = 2;

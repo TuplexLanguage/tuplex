@@ -84,7 +84,7 @@ public:
         for ( const TxExpressionNode* origin = this; origin; origin = origin->get_data_graph_origin_expr() ) {
             auto type = origin->get_type();
             if ( !( type->get_type_class() == TXTC_REFERENCE || type->is_modifiable() ) ) {
-                CERROR( this, "Expression is not mutable: " << type );
+                CERROR( this, "Expression is not modifiable: " << type );
                 return false;
             }
         }
@@ -344,7 +344,7 @@ public:
             this->typeExpression->symbol_resolution_pass();
         }
 
-        if ( !field->get_type()->is_static() ) {
+        if ( !field->get_type()->is_concrete() ) {
             if ( !this->context().is_generic() )
                 CERROR( this, "Field type is not a statically known type (size potentially unknown): "
                         << this->get_identifier() << " : " << field->get_type() );
@@ -496,7 +496,7 @@ public:
 
     bool is_mutable() const {
         if ( !this->get_type()->is_modifiable() ) {
-            CERROR( this, "Assignee is not mutable: " << this->get_type() );
+            CERROR( this, "Assignee is not modifiable: " << this->get_type()->str(false) );
             return false;
         }
         if ( auto origin = this->get_data_graph_origin_expr() )

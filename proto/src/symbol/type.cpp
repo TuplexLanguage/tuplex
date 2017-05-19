@@ -531,6 +531,12 @@ static bool has_outer_with_nonref_params( const TxActualType* type ) {
 /** Returns true if this type is dependent on a VALUE type parameter binding with a dynamic value (not known at compile time),
  * either directly (one of its own bindings), or via a TYPE binding that is dynamic. */
 static bool is_dynamic_binding_dependent( const TxActualType* type ) {
+//    if ( recursionGuard ) {
+//        LOG( this->LOGGER(), DEBUG,
+//             "Infinite recursion (probably due to erroneously recursive type definition) detected in is_concrete() of type " << this );
+//        return false;
+//    }
+//    ScopedRecursionGuardClause guard( this );
     for ( auto b : type->get_bindings() ) {
         if ( auto f = dynamic_cast<const TxFieldDeclaration*>( b ) ) {
             if ( auto initExpr = f->get_definer()->get_init_expression() ) {
@@ -549,33 +555,54 @@ static bool is_dynamic_binding_dependent( const TxActualType* type ) {
 }
 
 bool TxActualType::is_concrete() const {
-//    if ( recursionGuard ) {
-//        LOG( this->LOGGER(), DEBUG,
-//             "Infinite recursion (probably due to erroneously recursive type definition) detected in is_concrete() of type " << this );
-//        return false;
-//    }
-//    ScopedRecursionGuardClause guard( this );
-
-    if ( this->is_abstract() )
+//    if (this->get_declaration()->get_decl_flags() & TXD_GENPARAM)
+//        std::cerr << this << std::endl;
+    const TxActualType* type = this;
+    if ( type->is_abstract() )
         return false;
-    else if ( this->is_equivalent_derivation() )
-        return this->get_base_type()->is_static();
-    else if ( has_nonref_params( this ) )
-        return false;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
+    while ( type->is_equivalent_derivation() ) {
+        type = type->get_base_type();
+        if ( type->is_abstract() )
+            return false;
+    }
 
-    return !has_outer_with_nonref_params( this );
+    if ( has_nonref_params( type ) )
+        return false;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
+    return !has_outer_with_nonref_params( type );
 }
 
 bool TxActualType::is_static() const {
-    if ( !this->is_concrete() )
+    const TxActualType* type = this;
+    if ( type->is_abstract() )
         return false;
-    return !is_dynamic_binding_dependent( this );
+    while ( type->is_equivalent_derivation() ) {
+        type = type->get_base_type();
+        if ( type->is_abstract() )
+            return false;
+    }
+
+    if ( has_nonref_params( type ) )
+        return false;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
+    if ( has_outer_with_nonref_params( type ) )
+        return false;
+    return !is_dynamic_binding_dependent( type );
 }
 
 bool TxActualType::is_dynamic() const {
-    if ( !this->is_concrete() )
+    const TxActualType* type = this;
+    if ( type->is_abstract() )
         return false;
-    return is_dynamic_binding_dependent( this );
+    while ( type->is_equivalent_derivation() ) {
+        type = type->get_base_type();
+        if ( type->is_abstract() )
+            return false;
+    }
+
+    if ( has_nonref_params( type ) )
+        return false;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
+    if ( has_outer_with_nonref_params( type ) )
+        return false;
+    return is_dynamic_binding_dependent( type );
 }
 
 bool TxActualType::is_generic_dependent() const {

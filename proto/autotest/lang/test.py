@@ -64,7 +64,9 @@ source_files = [
     "importtest.tx",
 
     "reftest.tx",
-    "arraytest.tx",
+    "arraybasictest.tx",
+    "arraydynamictest.tx",
+    "arrayinittest.tx",
     #"stringtest.tx",
 
     "membertest.tx",

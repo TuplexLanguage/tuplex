@@ -22,7 +22,7 @@ function checked {
 
 echo -e $color_cyan "Compiling: " "$@" $color_off
 # -nojit option disables running in JITed mode from compiler
-checked bin/txc -nojit "$@"
+checked txc -nojit -bc "$@"
 
 # determine output file basepath
 while [[ $# -gt 0 ]]; do
@@ -46,7 +46,7 @@ echo -e $color_cyan "Linking " $bintarget $color_off
 checked gcc -o $bintarget $objtarget
 
 echo -e $color_cyan "Running " $bintarget $color_off
-$bintarget
+./$bintarget
 # $? has the return code of the last statement in bash
 retval=$?
 echo -e $color_cyan "Return value: " $retval $color_off

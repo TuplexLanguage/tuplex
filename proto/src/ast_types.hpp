@@ -256,7 +256,7 @@ public:
             if (this->genTypeExpr->get_type()->get_type_class() != TXTC_REFERENCE) {
                 if ( auto typeTypeArg = dynamic_cast<TxTypeTypeArgumentNode*>( ta ) ) {
                     auto elemType = typeTypeArg->typeExprNode->get_type();
-                    if ( !elemType->is_static() ) {
+                    if ( !elemType->is_concrete() ) {
                         if ( !this->context().is_generic() )
                             CERROR( this, "Type specialization parameter is not a statically known type (size potentially unknown): " << elemType );
                         else
@@ -373,7 +373,7 @@ public:
             //    CERROR(this, "Non-constant array length specifier not yet supported.");
         }
         auto elemType = this->elementTypeNode->typeExprNode->get_type();
-        if ( !elemType->is_static() ) {
+        if ( !elemType->is_concrete() ) {
             if ( !this->context().is_generic() )
                 CERROR( this, "Array element type is not a statically known type (size potentially unknown): " << elemType );
             else
@@ -572,7 +572,7 @@ public:
         for ( auto argField : *this->arguments ) {
             argField->symbol_resolution_pass();
             auto argType = argField->get_type();
-            if ( !argType->is_static() ) {
+            if ( !argType->is_concrete() ) {
                 if ( !this->context().is_generic() )
                     CERROR( argField, "Function argument type is not a statically known type (size potentially unknown): "
                             << argField->get_identifier() << " : " << argType );
@@ -584,7 +584,7 @@ public:
         if ( this->returnField ) {
             this->returnField->symbol_resolution_pass();
             auto retType = this->returnField->get_type();
-            if ( !retType->is_static() ) {
+            if ( !retType->is_concrete() ) {
                 if ( !this->context().is_generic() )
                     CERROR( returnField, "Function return type is not a statically known type (size potentially unknown): " << retType );
                 else

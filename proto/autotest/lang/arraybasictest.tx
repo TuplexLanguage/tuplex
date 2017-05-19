@@ -1,3 +1,4 @@
+## basic tests of array usage, only statically sized and not literals
 
 FOO_STR := c"foo";
 FOO_CHR1 := c"foo"[1];
