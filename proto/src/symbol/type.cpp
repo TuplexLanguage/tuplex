@@ -121,11 +121,11 @@ void TxActualType::validate_type() const {
             if ( this->is_mutable() && ! this->baseTypeSpec.type->is_mutable() )
                 CERROR( this, "Can't derive a mutable type from an immutable base type: " << this->baseTypeSpec.type );
 
-            if ( this->baseTypeSpec.type->staticTypeId == TXBT_ANY
+            if ( this->baseTypeSpec.type->formalTypeId == TXBT_ANY
                  && !( this->builtin || ( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )
                        || this->get_type_class() == TXTC_REFERENCE || this->get_type_class() == TXTC_ARRAY ) )
                 CERROR( this, "Can't derive directly from the Any root type: " << this->get_declaration() );
-            ASSERT( this->baseTypeSpec.type->staticTypeId == TXBT_ANY
+            ASSERT( this->baseTypeSpec.type->formalTypeId == TXBT_ANY
                     || ( this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseTypeSpec.type->get_type_class() == TXTC_INTERFACE )
                     || this->get_type_class() == this->baseTypeSpec.type->get_type_class(),
                     "Specialized type's type class " << this << " not valid with base type's type class " << this->baseTypeSpec.type->get_type_class() );
@@ -420,10 +420,11 @@ bool TxActualType::inner_prepare_members() {
                 if ( const_cast<TxActualType*>( fieldType )->prepare_members() )
                     CERROR( field, "Recursive data type via field " << field->get_declaration()->get_unique_full_name() );
 
-                if ( fieldDecl->get_decl_flags() & TXD_GENBINDING )
-                    LOG_DEBUG( this->LOGGER(), "Skipping layout of GENBINDING instance field: " << field );
-                else if ( ( fieldDecl->get_decl_flags() & TXD_GENPARAM ) && this->get_type_class() == TXTC_ARRAY
-                          && this->staticTypeId != TXBT_ARRAY ) {
+                if ( false && ( fieldDecl->get_decl_flags() & TXD_GENBINDING ) )
+                    LOG_NOTE( this->LOGGER(), "Skipping layout of GENBINDING instance field: " << field );
+                else if ( false && ( fieldDecl->get_decl_flags() & TXD_GENPARAM )
+                          //&& this->get_type_class() == TXTC_ARRAY && this->staticTypeId != TXBT_ARRAY
+                          ) {
                     // special case for the only built-in type with a VALUE param - Array
                     // this handles specializations of Array where the length (L) has not been bound and another L field shall not be added
                     LOG_NOTE( this->LOGGER(), "Skipping layout of Array GENPARAM instance field: " << field );
@@ -432,7 +433,7 @@ bool TxActualType::inner_prepare_members() {
                     this->instanceFields.add_field( field );
                 break;
             case TXS_VIRTUAL:
-                case TXS_INSTANCEMETHOD:
+            case TXS_INSTANCEMETHOD:
                 ASSERT( !( fieldDecl->get_decl_flags() & TXD_INITIALIZER ), "initializers can't be virtual/instance method: " << fieldDecl );
                 if ( fieldDecl->get_decl_flags() & TXD_CONSTRUCTOR )
                     break;  // skip, constructors aren't virtual
@@ -527,42 +528,54 @@ static bool has_outer_with_nonref_params( const TxActualType* type ) {
     return false;
 }
 
-bool TxActualType::is_concrete() const {
-    if ( recursionGuard ) {
-        LOG( this->LOGGER(), DEBUG,
-             "Infinite recursion (probably due to erroneously recursive type definition) detected in is_concrete() of type " << this );
-        return false;
-    }
-    ScopedRecursionGuardClause guard( this );
-
-    if ( this->is_abstract() )
-        return false;
-    else if ( this->is_equivalent_derivation() ) {
-        return this->get_base_type()->is_concrete();
-    }
-    else if ( has_nonref_params( this ) ) {
-        // (if only Ref-constrained parameters then being generic doesn't cause it to be non-concrete)
-        return false;
-    }
-
-    for ( auto b : this->get_bindings() ) {
+/** Returns true if this type is dependent on a VALUE type parameter binding with a dynamic value (not known at compile time),
+ * either directly (one of its own bindings), or via a TYPE binding that is dynamic. */
+static bool is_dynamic_binding_dependent( const TxActualType* type ) {
+    for ( auto b : type->get_bindings() ) {
         if ( auto f = dynamic_cast<const TxFieldDeclaration*>( b ) ) {
             if ( auto initExpr = f->get_definer()->get_init_expression() ) {
                 if ( initExpr->is_statically_constant() )
-                    return false;
+                    continue;
             }
+            return true;
         }
         else {  // const TxTypeDeclaration*
-            // a bound TYPE type parameter is always concrete (unless this is declared within a generic outer scope)
-            //if ( !t->get_definer()->resolve_type()->is_concrete() )
-            //    return false;
+            // a bound TYPE type parameter is always concrete (unless this is declared within a generic outer scope), but may be dynamic
+            if ( is_dynamic_binding_dependent( static_cast<const TxTypeDeclaration*>( b )->get_definer()->resolve_type()->type() ) )
+                return true;
         }
     }
+    return false;
+}
 
-    if ( has_outer_with_nonref_params( this ) )
+bool TxActualType::is_concrete() const {
+//    if ( recursionGuard ) {
+//        LOG( this->LOGGER(), DEBUG,
+//             "Infinite recursion (probably due to erroneously recursive type definition) detected in is_concrete() of type " << this );
+//        return false;
+//    }
+//    ScopedRecursionGuardClause guard( this );
+
+    if ( this->is_abstract() )
         return false;
+    else if ( this->is_equivalent_derivation() )
+        return this->get_base_type()->is_static();
+    else if ( has_nonref_params( this ) )
+        return false;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
 
-    return true;
+    return !has_outer_with_nonref_params( this );
+}
+
+bool TxActualType::is_static() const {
+    if ( !this->is_concrete() )
+        return false;
+    return !is_dynamic_binding_dependent( this );
+}
+
+bool TxActualType::is_dynamic() const {
+    if ( !this->is_concrete() )
+        return false;
+    return is_dynamic_binding_dependent( this );
 }
 
 bool TxActualType::is_generic_dependent() const {
@@ -584,7 +597,7 @@ bool TxActualType::is_virtual_derivation() const {
 }
 
 bool TxActualType::is_scalar() const {
-    switch ( this->staticTypeId ) {
+    switch ( this->formalTypeId ) {
     case TXBT_SCALAR:
         case TXBT_INTEGER:
         case TXBT_SIGNED:
@@ -1022,13 +1035,13 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
 
 /*=== ArrayType and ReferenceType implementation ===*/
 
-bool TxArrayType::is_concrete() const {
-    // Array elements, if bound, are always concrete. If statically known length, return true:
-    if ( auto len = this->length() ) {
-        return len->is_statically_constant();
-    }
-    return false;
-}
+//bool TxArrayType::is_static() const {
+//    // Array elements, if bound, are always concrete. If statically known length, return true:
+//    if ( auto len = this->length() ) {
+//        return len->is_statically_constant();
+//    }
+//    return false;
+//}
 
 static bool array_assignable_from( const TxArrayType* toArray, const TxArrayType* fromArray ) {
     // if origin has unbound type params that destination does not, origin is more generic and can't be assigned to destination

@@ -31,9 +31,6 @@ public:
     /** Returns nullptr if unbound. */
     const TxExpressionNode* length() const;
 
-    /** Returns true if this type is concrete (i.e. can be directly instanced). */
-    virtual bool is_concrete() const override;
-
     virtual bool is_assignable_to( const TxActualType& other ) const override;
 
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
@@ -65,12 +62,18 @@ public:
     /** Returns the target type if bound, or tx.Ref.T generic type parameter if unbound. */
     const TxActualType* target_type() const;
 
+    /** References are never abstract. */
     virtual bool is_abstract() const override {
         return false;
     }
 
-    /** Returns true if this type is concrete (i.e. can be directly instanced). References are always concrete, also when generic. */
+    /** Returns true if this type is concrete. References are always concrete, also when generic. */
     virtual bool is_concrete() const override {
+        return true;
+    }
+
+    /** Returns true if this type is static (i.e. can be directly instanced). References are always static, also when generic. */
+    virtual bool is_static() const override {
         return true;
     }
 

@@ -550,11 +550,11 @@ public:
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         this->typeExpr->symbol_resolution_pass();
-        if ( !this->typeExpr->get_type()->is_concrete() ) {
+        if ( !this->typeExpr->get_type()->is_static() ) {
             if ( !this->context().is_generic() )
-                CERROR( this->typeExpr, "Object to allocate is not a concrete type (size potentially unknown): " << this->typeExpr->get_type() );
+                CERROR( this->typeExpr, "Object to allocate is not a statically known type (size potentially unknown): " << this->typeExpr->get_type() );
             else
-                LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Object to allocate is not a concrete type (size potentially unknown): "
+                LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Object to allocate is not a statically known type (size potentially unknown): "
                            << this->typeExpr->get_type() );
         }
 

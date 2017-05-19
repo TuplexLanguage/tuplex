@@ -256,11 +256,11 @@ public:
             if (this->genTypeExpr->get_type()->get_type_class() != TXTC_REFERENCE) {
                 if ( auto typeTypeArg = dynamic_cast<TxTypeTypeArgumentNode*>( ta ) ) {
                     auto elemType = typeTypeArg->typeExprNode->get_type();
-                    if ( !elemType->is_concrete() ) {
+                    if ( !elemType->is_static() ) {
                         if ( !this->context().is_generic() )
-                            CERROR( this, "Type specialization parameter is not a concrete type (size potentially unknown): " << elemType );
+                            CERROR( this, "Type specialization parameter is not a statically known type (size potentially unknown): " << elemType );
                         else
-                            LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Type specialization parameter is not a concrete type (size potentially unknown): " << elemType );
+                            LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Type specialization parameter is not a statically known type (size potentially unknown): " << elemType );
                     }
                 }
             }
@@ -373,11 +373,11 @@ public:
             //    CERROR(this, "Non-constant array length specifier not yet supported.");
         }
         auto elemType = this->elementTypeNode->typeExprNode->get_type();
-        if ( !elemType->is_concrete() ) {
+        if ( !elemType->is_static() ) {
             if ( !this->context().is_generic() )
-                CERROR( this, "Array element type is not a concrete type (size potentially unknown): " << elemType );
+                CERROR( this, "Array element type is not a statically known type (size potentially unknown): " << elemType );
             else
-                LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Array element type is not a concrete type (size potentially unknown): " << elemType );
+                LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Array element type is not a statically known type (size potentially unknown): " << elemType );
         }
     }
 
@@ -572,23 +572,23 @@ public:
         for ( auto argField : *this->arguments ) {
             argField->symbol_resolution_pass();
             auto argType = argField->get_type();
-            if ( !argType->is_concrete() ) {
+            if ( !argType->is_static() ) {
                 if ( !this->context().is_generic() )
-                    CERROR( argField, "Function argument type is not a concrete type (size potentially unknown): "
+                    CERROR( argField, "Function argument type is not a statically known type (size potentially unknown): "
                             << argField->get_identifier() << " : " << argType );
                 else
-                    LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Function argument type is not a concrete type (size potentially unknown): "
+                    LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Function argument type is not a statically known type (size potentially unknown): "
                                << argField->get_identifier() << " : " << argType );
             }
         }
         if ( this->returnField ) {
             this->returnField->symbol_resolution_pass();
             auto retType = this->returnField->get_type();
-            if ( !retType->is_concrete() ) {
+            if ( !retType->is_static() ) {
                 if ( !this->context().is_generic() )
-                    CERROR( returnField, "Function return type is not a concrete type (size potentially unknown): " << retType );
+                    CERROR( returnField, "Function return type is not a statically known type (size potentially unknown): " << retType );
                 else
-                    LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Function return type is not a concrete type (size potentially unknown): " << retType );
+                    LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Function return type is not a statically known type (size potentially unknown): " << retType );
             }
         }
     }

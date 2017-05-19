@@ -55,7 +55,7 @@ Function* TxActualType::get_type_user_init_func( LlvmGenerationContext& context 
 }
 
 Value* TxActualType::gen_size( LlvmGenerationContext& context, GenScope* scope ) const {
-    ASSERT( this->is_concrete(), "Attempted to codegen size of non-concrete type " << this );
+    ASSERT( this->is_static(), "Attempted to codegen size of non-static type " << this );
     Type* llvmType = context.get_llvm_type( this );  // (gets the cached LLVM type if previously accessed)
     if ( !llvmType )
         return nullptr;
@@ -63,7 +63,7 @@ Value* TxActualType::gen_size( LlvmGenerationContext& context, GenScope* scope )
 }
 
 Value* TxActualType::gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
-    ASSERT( this->is_concrete(), "Attempted to codegen alloca of non-concrete type " << this );
+    ASSERT( this->is_static(), "Attempted to codegen alloca of non-static type " << this );
     Type* llvmType = context.get_llvm_type( this );  // (gets the cached LLVM type if previously accessed)
     if ( !llvmType )
         return nullptr;
@@ -286,11 +286,10 @@ Type* TxFunctionType::make_llvm_type( LlvmGenerationContext& context ) const {
 }
 
 Type* TxTupleType::make_llvm_type( LlvmGenerationContext& context ) const {
-// FUTURE: when is_concrete() is more robust (works for code within generic types) this should maybe be reintroduced:
-//    if (! this->is_concrete()) {
-//        context.LOG.warning("making LLVM type of non-concrete type %s", this->to_string().c_str());
-//        return StructType::create(context.llvmContext);  // creates opaque (empty placeholder) structure
-//    }
+    if (! this->is_concrete()) {
+        // (we do need llvm types of abstract types, at least for super-references)
+        LOG_DEBUG( context.LOGGER(), "making LLVM type of non-concrete type " << this );
+    }
     StructType* opaqueType = StructType::create( context.llvmContext, this->get_declaration()->get_unique_full_name() );
     return opaqueType;
 }

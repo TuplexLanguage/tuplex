@@ -64,10 +64,10 @@ void TypeRegistry::add_type_usage( TxType* type ) {
 
 void TypeRegistry::add_type( TxActualType* type ) {
     ASSERT( !this->startedPreparingTypes, "Can't create new types when type preparation phase has started: " << type );
-    if ( type->staticTypeId < BuiltinTypeId_COUNT ) {
-        ASSERT( type->staticTypeId == this->staticTypes.size(), "adding built-in type in wrong order: type id="
-                << type->staticTypeId << "; staticTypes.size()=" << this->staticTypes.size() );
-        this->staticTypes.push_back( type );
+    if ( type->formalTypeId < BuiltinTypeId_COUNT ) {
+        ASSERT( type->formalTypeId == this->formalTypes.size(), "adding built-in type in wrong order: type id="
+                << type->formalTypeId << "; staticTypes.size()=" << this->formalTypes.size() );
+        this->formalTypes.push_back( type );
     }
     this->createdTypes.push_back( type );
 }
@@ -79,14 +79,14 @@ void TypeRegistry::prepare_types() {
         //std::cerr << "Preparing type: " << type << std::endl;
         type->prepare_members();
 
-        if ( type->staticTypeId < BuiltinTypeId_COUNT )  // the built-in types are already handled
+        if ( type->formalTypeId < BuiltinTypeId_COUNT )  // the built-in types are already handled
             continue;
 
-        // Types that are distinct in instance data type, or vtable, get distinct static type id and vtable.
-        // Certain types that will not be represented as static types are filtered out here:
+        // Types that are distinct in instance data type, or vtable, get distinct type id and vtable.
+        // Certain types that will not be represented as runtime types are filtered out here:
 
         if ( type->get_declaration()->get_definer()->exp_err_ctx() ) {
-            LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr context as static type: " << type);
+            LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr context as formal type: " << type);
             continue;
         }
         // there shouldn't be a TXD_EXPERRBLOCK declaration without exp-err-ctx set:
@@ -96,19 +96,19 @@ void TypeRegistry::prepare_types() {
             continue;
 
         if ( type->is_equivalent_derivation() ) {  // includes empty and modifiable derivations
-            //std::cerr << "Not registering distinct static type id for equivalent derivation: " << type << std::endl;
+            //std::cerr << "Not registering distinct type id for equivalent derivation: " << type << std::endl;
             continue;
         }
 
         if ( type->is_generic_dependent() ) {
             // FUTURE: review whether generic base types should be a vtable parent of their specializations
-            LOG_DEBUG( this->LOGGER(), "Not registering generic-dependent type as static type: " << type );
+            LOG_DEBUG( this->LOGGER(), "Not registering generic-dependent type as formal type: " << type );
             continue;
         }
 
-        type->staticTypeId = this->staticTypes.size();
-        this->staticTypes.push_back( type );
-        //std::cerr << "Registering static type " << type << " with distinct type id " << type->staticTypeId << std::endl;
+        type->formalTypeId = this->formalTypes.size();
+        this->formalTypes.push_back( type );
+        //std::cerr << "Registering formal type " << type << " with distinct type id " << type->formalTypeId << std::endl;
     }
 }
 
@@ -283,24 +283,22 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
                     }
                 }
                 else {  // TxValueTypeArgumentNode
-                    // (For now, statically constant VALUE specializations with diff. values don't share the same static type.)
+                    // Statically constant VALUE specializations with distinct values are distinct types.
+                    // Dynamic VALUE specializations with distinct value expressions are distinct (we presume inequality in this implementation).
                     auto valueBinding = static_cast<const TxValueTypeArgumentNode*>( binding );
                     if ( auto existingFieldDecl = dynamic_cast<const TxFieldDeclaration*>( existingBaseTypeBindings.at( ix ) ) ) {
-                        auto newConstantValueProxy = valueBinding->valueExprNode->get_static_constant_proxy();
-                        if ( newConstantValueProxy ) {
+                        // to match, both need to be statically constant and with equal value
+                        ASSERT(valueBinding->valueExprNode, "valueBinding->valueExprNode is null for " << existingBaseSymbol);
+                        if (auto newConstantValueProxy = valueBinding->valueExprNode->get_static_constant_proxy() ) {
                             // new binding has statically constant value
-                            uint32_t newValue = newConstantValueProxy->get_value_UInt();
-
                             if ( auto existingInitializer = existingFieldDecl->get_definer()->get_init_expression() ) {
                                 if ( auto existingConstantValueProxy = existingInitializer->get_static_constant_proxy() ) {
                                     // existing binding has statically constant value
-                                    uint32_t existingValue = existingConstantValueProxy->get_value_UInt();
-                                    if ( newValue == existingValue )
+                                    if ( newConstantValueProxy->get_value_UInt() == existingConstantValueProxy->get_value_UInt() )
                                         continue;
                                 }
                             }
                         }
-                        // dynamic VALUE specializations get distinct compile time types so that static type equality checks won't yield false positives
                     }
                 }
                 //std::cerr << "NOT ACCEPTING PRE-EXISTING TYPE " << existingBaseType << " SINCE " << std::endl;
@@ -498,18 +496,15 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
             TxTypeExpressionNode* btypeExprNode = new TxTypeExprWrapperNode( btypeDefNode );
             bindingDeclNodes->push_back( new TxTypeDeclNode( typeArg->get_parse_location(), TXD_GENBINDING | TXD_PUBLIC, paramName, nullptr,
                                                              btypeExprNode ) );
-            LOG_TRACE(
-                    this->LOGGER(),
-                    "Re-bound base type " << baseDecl->get_unique_full_name() << " parameter '" << paramName << "' with " << typeArg->typeExprNode );
+            LOG_TRACE( this->LOGGER(), "Re-bound base type " << baseDecl->get_unique_full_name() << " parameter '" << paramName
+                       << "' with " << typeArg->typeExprNode );
         }
         else {
             auto valueArg = static_cast<const TxValueTypeArgumentNode*>( binding );
-            bindingDeclNodes->push_back( make_value_type_param_decl_node( valueArg->get_parse_location(), paramName,
-                                                                          TXD_GENBINDING,
+            bindingDeclNodes->push_back( make_value_type_param_decl_node( valueArg->get_parse_location(), paramName, TXD_GENBINDING,
                                                                           paramDecl, valueArg->valueExprNode ) );
-            LOG_TRACE(
-                    this->LOGGER(),
-                    "Re-bound base type " << baseDecl->get_unique_full_name() << " parameter '" << paramName << "' with " << valueArg->valueExprNode );
+            LOG_TRACE( this->LOGGER(), "Re-bound base type " << baseDecl->get_unique_full_name() << " parameter '" << paramName
+                       << "' with " << valueArg->valueExprNode );
         }
     }
 
@@ -518,19 +513,16 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     for ( auto unboundParamI = baseTypeParams.cbegin() + bindings->size();
             unboundParamI != baseTypeParams.cend(); unboundParamI++ ) {
         auto unboundParamDecl = *unboundParamI;
-        LOG_DEBUG(
-                this->LOGGER(),
-                "Implicitly inheriting (redeclaring) type parameters " << unboundParamDecl->get_unique_full_name() << " in type " << newSpecTypeNameStr );
+        LOG_DEBUG( this->LOGGER(), "Implicitly inheriting (redeclaring) type parameters " << unboundParamDecl->get_unique_full_name()
+                   << " in type " << newSpecTypeNameStr );
         if ( auto typeDecl = dynamic_cast<const TxTypeDeclaration*>( unboundParamDecl ) ) {
             bindingDeclNodes->push_back( make_type_type_param_decl_node( definer->get_parse_location(), typeDecl->get_unique_name(),
-                                                                         TXD_GENPARAM,
-                                                                         typeDecl ) );
+                                                                         TXD_GENPARAM, typeDecl ) );
         }
         else {
             auto fieldDecl = static_cast<const TxFieldDeclaration*>( unboundParamDecl );
             bindingDeclNodes->push_back( make_value_type_param_decl_node( definer->get_parse_location(), fieldDecl->get_unique_name(),
-                                                                          TXD_GENPARAM,
-                                                                          fieldDecl ) );
+                                                                          TXD_GENPARAM, fieldDecl ) );
         }
     }
 

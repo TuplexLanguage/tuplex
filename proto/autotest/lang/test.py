@@ -85,6 +85,8 @@ source_files = [
     "sequenceiftest.tx",
     "rangeiftest.tx",
     "genericconvtest.tx",
+
+    "matrixtest.tx",
 ]
 
 for src in source_files:

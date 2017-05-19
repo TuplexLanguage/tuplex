@@ -134,11 +134,30 @@ public:
         return this->type()->is_generic();
     }
 
-    /** Returns true if this type is concrete (i.e. can be directly instanced).
-     * A concrete type is not abstract, nor usually generic.
-     * References are always concrete (even if generic). */
+    /** Returns true if this type is concrete.
+     * A concrete type is not declared abstract, nor is it dependent on any non-reference-constrained unbound type parameter.
+     * This includes both unbound type parameters of this type and of its outer lexical scope, if any.
+     * Reference types are always concrete.
+     */
     inline bool is_concrete() const {
         return this->type()->is_concrete();
+    }
+
+    /** Returns true if this type is static, which means it is concrete and non-dynamic.
+     * A static type can be directly instanced since its data type and size is fully known at compile time.
+     * Reference types are always static.
+     */
+    inline bool is_static() const {
+        return this->type()->is_static();
+    }
+
+    /** Returns true if this type is dynamic, which means it is concrete and dependent on one or more
+     * VALUE type parameter bindings with a dynamic value (not known at compile time).
+     * The size of a dynamic type may not be known at compile time, but it is instantiable
+     * via an expression that computes the dynamic parameter bindings.
+     */
+    inline bool is_dynamic() const {
+        return this->type()->is_dynamic();
     }
 
     inline bool is_empty_derivation() const {

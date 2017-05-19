@@ -37,9 +37,8 @@ class TypeRegistry {
     /** all the types created */
     std::vector<TxActualType*> createdTypes;
 
-    /** All the static types, i.e. all types with distinct static data type (and thus distinct TypeId).
-     * Note: Not in a specific order. */
-    std::vector<const TxActualType*> staticTypes;
+    /** All the formal types, i.e. all types with distinct runtime data type and distinct formal type id. */
+    std::vector<const TxActualType*> formalTypes;
 
     void add_type_usage( TxType* type );
 
@@ -118,15 +117,15 @@ public:
 
     /** Returns a read-only iterator that points to the first static type (with unique compile-time id). */
     inline std::vector<const TxActualType*>::const_iterator static_types_cbegin() const {
-        return this->staticTypes.cbegin();
+        return this->formalTypes.cbegin();
     }
     /** Returns a read-only iterator that points to one past the last static type. */
     inline std::vector<const TxActualType*>::const_iterator static_types_cend() const {
-        return this->staticTypes.cend();
+        return this->formalTypes.cend();
     }
 
     inline uint32_t get_static_type_count() const {
-        return this->staticTypes.size();
+        return this->formalTypes.size();
     }
 
     /*--- retrievers / creators for derived types ---*/

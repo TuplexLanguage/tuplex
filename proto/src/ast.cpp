@@ -686,12 +686,12 @@ void TxAssignStmtNode::symbol_resolution_pass() {
     auto ltype = this->lvalue->resolve_type();
 
     // note: similar rules to passing function arg
-    if ( !ltype->is_concrete() ) {
+    if ( !ltype->is_static() ) {
         // TODO: dynamic concrete type resolution (recognize actual type in runtime when dereferencing a generic pointer)
         if ( !this->context().is_generic() )
-            CERROR( this->lvalue, "Assignee is not a concrete type (size potentially unknown): " << ltype );
+            CERROR( this->lvalue, "Assignee is not a statically known type (size potentially unknown): " << ltype );
         else
-            LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Assignee is not a concrete type (size potentially unknown): " << ltype );
+            LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Assignee is not a statically known type (size potentially unknown): " << ltype );
     }
     else {
         if ( !( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() ) ) {

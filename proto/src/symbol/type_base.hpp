@@ -177,8 +177,8 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     /** true if this is a built-in type */
     const bool builtin;
 
-    /** The static type id of this type, if it is defined at compile time and a distinct type (not an equivalent specialization). */
-    uint32_t staticTypeId = UINT32_MAX;
+    /** The formal type id of this type, if it is defined at compile time and a distinct type (not an equivalent specialization). */
+    uint32_t formalTypeId = UINT32_MAX;
 
     /** If true, this type is mutable, in which case its instances may be declared modifiable. */
     const bool mutableType;
@@ -305,18 +305,18 @@ public:
         return this->declaration;
     }
 
-    /** Gets the static type id of this type. (Equivalent specializations return their base type's id.)
+    /** Gets the formal type id of this type. (Equivalent specializations return their base type's id.)
      * For non-built-in types, this is only valid to call after the type preparation phase. */
     inline uint32_t get_type_id() const {
-        //ASSERT(this->prepared, "Can't get runtime type id of unprepared type: " << this);
-        ASSERT( this->staticTypeId != UINT32_MAX || this->is_equivalent_derivation(), "Type id not set for " << this );
-        return ( this->staticTypeId == UINT32_MAX ? this->get_semantic_base_type()->get_type_id() : this->staticTypeId );
+        //ASSERT(this->prepared, "Can't get formal type id of unprepared type: " << this);
+        ASSERT( this->formalTypeId != UINT32_MAX || this->is_equivalent_derivation(), "Type id not set for " << this );
+        return ( this->formalTypeId == UINT32_MAX ? this->get_semantic_base_type()->get_type_id() : this->formalTypeId );
     }
 
-    /** Returns true if this type instance has a static type id assigned.
+    /** Returns true if this type instance has a formal type id assigned.
      * If called before the type preparation phase, only built-in types return true. */
     inline bool has_type_id() const {
-        return ( this->staticTypeId != UINT32_MAX );
+        return ( this->formalTypeId != UINT32_MAX );
     }
 
     /*--- characteristics ---*/
@@ -376,8 +376,8 @@ public:
 
     /** Returns true if this type is the specified built-in type. */
     inline bool is_builtin( BuiltinTypeId biTypeId ) const {
-        return ( this->staticTypeId == (uint32_t) biTypeId  // Note: static type ids of built-in types are always set
-                 || ( this->is_modifiable() && this->get_base_type()->staticTypeId == (uint32_t) biTypeId ) );
+        return ( this->formalTypeId == (uint32_t) biTypeId  // Note: type ids of built-in types are always set
+                 || ( this->is_modifiable() && this->get_base_type()->formalTypeId == (uint32_t) biTypeId ) );
     }
 
     /** Returns true if this type is a scalar type. */
@@ -409,19 +409,30 @@ public:
 
     /** Returns true if this type is declared abstract.
      * Note that there can be types that are neither declared abstract or concrete,
-     * these have members that depend on generic type parameters. */
+     * if they are dependent on generic type parameters. */
     virtual bool is_abstract() const {
         return ( this->get_declaration()->get_decl_flags() & TXD_ABSTRACT );
     }
 
     /** Returns true if this type is concrete.
-     * A concrete type can be directly instanced, which requires that the type's data type
-     * (and size) is fully known, and that it is not declared abstract.
-     * Generic types are not concrete, with these exceptions:
-     *  - References are always concrete
-     *  - If all unbound type parameters are Ref-constrained (i.e. guaranteed to derive Ref)
+     * A concrete type is not declared abstract, nor is it dependent on any non-reference-constrained unbound type parameter.
+     * This includes both unbound type parameters of this type and of its outer lexical scope, if any.
+     * Reference types are always concrete.
      */
     virtual bool is_concrete() const;
+
+    /** Returns true if this type is static, which means it is concrete and non-dynamic.
+     * A static type can be directly instanced since its data type and size is fully known at compile time.
+     * Reference types are always static.
+     */
+    virtual bool is_static() const;
+
+    /** Returns true if this type is dynamic, which means it is concrete and dependent on one or more
+     * VALUE type parameter bindings with a dynamic value (not known at compile time).
+     * The size of a dynamic type may not be known at compile time, but it is instantiable
+     * via an expression that computes the dynamic parameter bindings.
+     */
+    virtual bool is_dynamic() const;
 
     /** Returns true if this type is generic (i.e. has unbound type parameters).
      * Note that a non-generic type may still have members that refer to unbound type parameters of an outer scope.
