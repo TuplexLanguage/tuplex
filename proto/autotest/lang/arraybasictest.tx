@@ -37,7 +37,7 @@ basic_array_syntax()->Int {
 }
 
 
-setelem(cstr : &~[]UByte, i : Int, chr : UByte) {
+setelem(cstr : &~[]UByte, i : UInt, chr : UByte) {
     cstr^[i] = chr;
 }
 

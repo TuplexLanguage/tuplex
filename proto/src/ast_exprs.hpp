@@ -65,7 +65,7 @@ public:
 class TxElemDerefNode : public TxExpressionNode {
 protected:
     virtual const TxType* define_type() override {
-        this->subscript->insert_conversion( this->registry().get_builtin_type( TXBT_LONG ) );
+        this->subscript->insert_conversion( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
 
         auto opType = this->array->originalExpr->resolve_type();
         if ( opType->get_type_class() == TXTC_REFERENCE ) {
@@ -732,7 +732,7 @@ public:
 class TxElemAssigneeNode : public TxAssigneeNode {
 protected:
     virtual const TxType* define_type() override {
-        this->subscript->insert_conversion( this->registry().get_builtin_type( TXBT_LONG ) );
+        this->subscript->insert_conversion( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
 
         auto opType = this->array->originalExpr->resolve_type();
         if ( opType->get_type_class() == TXTC_REFERENCE ) {

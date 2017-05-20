@@ -15,7 +15,7 @@ TxArrayLitNode::TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressio
                                 TxExpressionNode* lengthExpr )
         : TxExpressionNode( parseLocation ), origElemExprList( elemExprList ),
           elementTypeNode( elementTypeExpr ? new TxTypeTypeArgumentNode( elementTypeExpr ) : nullptr ),
-          lengthExpr( lengthExpr ), elemExprList( make_args_vec( elemExprList ) )
+          lengthExpr( lengthExpr ? new TxMaybeConversionNode( lengthExpr ) : nullptr ), elemExprList( make_args_vec( elemExprList ) )
 {
 }
 
@@ -36,17 +36,6 @@ TxArrayLitNode::TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressio
           lengthExpr( nullptr ), elemExprList( elemExprList ) {
 }
 
-//void TxArrayLitNode::declaration_pass() {
-//    this->set_context( lexContext );
-//    if ( this->elementTypeNode )
-//        this->elementTypeNode->symbol_declaration_pass( lexContext );
-//    if ( this->origElemExprList ) {
-//        // if this node owns the element nodes, perform declaration pass on them:
-//        for ( auto elemExpr : *this->elemExprList )
-//            elemExpr->symbol_declaration_pass( lexContext );
-//    }
-//}
-
 const TxType* TxArrayLitNode::define_type() {
     const TxType* expectedArgType;
     const TxType* arrayType = nullptr;
@@ -56,6 +45,7 @@ const TxType* TxArrayLitNode::define_type() {
             elemTypeNode = new TxTypeTypeArgumentNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) );
             run_declaration_pass( elemTypeNode, this, "elem-type" );
         }
+        this->lengthExpr->insert_conversion( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
         auto lengthNode = new TxValueTypeArgumentNode( this->lengthExpr );
         lengthNode->node_declaration_pass( this );
         arrayType = this->registry().get_array_type( this, elemTypeNode, lengthNode );
@@ -106,19 +96,6 @@ const TxType* TxArrayLitNode::define_type() {
     return arrayType;
 }
 
-static bool is_unsigned_integer( BuiltinTypeId typeId ) {
-    switch ( typeId ) {
-    case TXBT_UNSIGNED:
-        case TXBT_UBYTE:
-        case TXBT_USHORT:
-        case TXBT_UINT:
-        case TXBT_ULONG:
-        return true;
-    default:
-        return false;
-    }
-}
-
 void TxArrayLitNode::symbol_resolution_pass() {
     TxExpressionNode::symbol_resolution_pass();
     if ( this->elementTypeNode )
@@ -129,11 +106,7 @@ void TxArrayLitNode::symbol_resolution_pass() {
     if ( this->lengthExpr ) {
         this->lengthExpr->symbol_resolution_pass();
 
-        if ( !this->lengthExpr->is_statically_constant() )
-            CERROR( this, "Length expression of array literal is not statically constant" );
-        else if ( !is_unsigned_integer( (BuiltinTypeId) this->lengthExpr->get_type()->get_type_id() ) )
-            CERROR( this, "Length expression of array literal is not an unsigned integer type: " << this->lengthExpr->get_type() );
-        else if ( auto constProxy = this->lengthExpr->get_static_constant_proxy() ) {
+        if ( auto constProxy = this->lengthExpr->get_static_constant_proxy() ) {
             if ( this->elemExprList->size() == 1 && this->elemExprList->front()->get_type()->is_assignable_to( *this->get_type() ) ) {
                 // array to array assignment
             }
@@ -141,6 +114,8 @@ void TxArrayLitNode::symbol_resolution_pass() {
                 CERROR( this, "length expression of array literal equals " << constProxy->get_value_UInt()
                         << ", but number of elements is " << this->elemExprList->size() );
         }
+        else  // TODO: support dynamic array literals (which requires supporting partially filled arrays)
+            CERROR( this, "Length expression of array literal is not statically constant" );
     }
     this->_constant = true;
     for ( auto arg : *this->elemExprList ) {

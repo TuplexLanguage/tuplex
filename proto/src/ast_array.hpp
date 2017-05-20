@@ -9,7 +9,7 @@
 class TxArrayLitNode : public TxExpressionNode {
     std::vector<TxExpressionNode*> const * const origElemExprList;
     TxTypeTypeArgumentNode* elementTypeNode;
-    TxExpressionNode* lengthExpr;
+    TxMaybeConversionNode* lengthExpr;
     bool _directArrayArg = false;
     bool _constant = false;
 
@@ -47,7 +47,11 @@ public:
             ASSERT( false, "Can't make AST copy of a TxArrayLitNode whose elements are owned by another AST node: " << this );
             return nullptr;
         }
-        return new TxArrayLitNode( this->parseLocation, make_node_vec_copy( this->origElemExprList ) );
+        //return new TxArrayLitNode( this->parseLocation, make_node_vec_copy( this->origElemExprList ) );
+        return new TxArrayLitNode( this->parseLocation,
+                                   ( this->elementTypeNode ? this->elementTypeNode->typeExprNode->make_ast_copy() : nullptr ),
+                                   make_node_vec_copy( this->origElemExprList ),
+                                   ( this->lengthExpr ? this->lengthExpr->originalExpr->make_ast_copy() : nullptr) );
     }
 
     virtual void symbol_resolution_pass() override;

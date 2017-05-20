@@ -41,3 +41,5 @@ enum BuiltinTypeId
     BuiltinTypeId_COUNT,
     TXBT_NOTSET = UINT32_MAX
 };
+
+const BuiltinTypeId ARRAY_SUBSCRIPT_TYPE_ID = TXBT_UINT;
