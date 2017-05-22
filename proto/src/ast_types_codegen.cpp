@@ -29,10 +29,7 @@ Value* TxTypeTypeArgumentNode::code_gen( LlvmGenerationContext& context, GenScop
 
 Value* TxValueTypeArgumentNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    if ( this->valueExprNode->is_statically_constant() )
-        return this->valueExprNode->code_gen_constant( context.llvmContext );
-    else
-        return this->valueExprNode->code_gen( context, scope );
+    return this->valueExprNode->code_gen( context, scope );
 }
 
 Value* TxGenSpecTypeNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -62,9 +59,9 @@ Value* TxDerivedTypeNode::code_gen( LlvmGenerationContext& context, GenScope* sc
     this->baseType->code_gen( context, scope );
     for ( auto interface : *this->interfaces )
         interface->code_gen( context, scope );
-    this->superRefTypeNode->code_gen( context, scope );
+    this->superRefTypeNode->code_gen( context );
     for ( auto member : *this->members )
-        member->code_gen( context, scope );
+        member->code_gen( context );
     return nullptr;
 }
 

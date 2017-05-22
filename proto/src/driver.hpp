@@ -176,9 +176,9 @@ public:
     }
 
     /** Returns the LLVMContext for this parser context. Can be used in constant expression evaluation during analysis. */
-    llvm::LLVMContext& llvm_context() const {
+    inline LlvmGenerationContext* get_llvm_gen_context() const {
         // Note: LLVMContext are to be unique per thread, so if we in future use one ParserContext per thread each will have its own.
-        return *this->_driver.llvmContext;
+        return this->_driver.get_llvm_gen_context();
     }
 
     /** Returns true if this parser context is for the internally coded built-in constructs (lacking actual source code). */

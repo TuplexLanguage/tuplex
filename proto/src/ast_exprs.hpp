@@ -50,7 +50,7 @@ public:
     }
 
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
@@ -104,9 +104,9 @@ public:
         return ( this->array->is_statically_constant() && this->subscript->is_statically_constant() );
     }
 
-    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
+    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->array->visit_ast( visitor, thisCursor, "array", context );
@@ -163,7 +163,7 @@ public:
         this->target->set_applied_func_args( appliedTypeParameters );
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->targetTypeNode->visit_ast( visitor, thisCursor, "type", context );
@@ -267,8 +267,8 @@ public:
         return this->lhs->is_statically_constant() && this->rhs->is_statically_constant();
     }
 
-    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->lhs->visit_ast( visitor, thisCursor, "lhs", context );
@@ -327,8 +327,8 @@ public:
         return this->operand->is_statically_constant();
     }
 
-    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->operand->visit_ast( visitor, thisCursor, "operand", context );
@@ -365,8 +365,8 @@ public:
         return this->operand->is_statically_constant();
     }
 
-    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->operand->visit_ast( visitor, thisCursor, "operand", context );
@@ -415,7 +415,8 @@ public:
         return false;
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->inlinedExpression )
@@ -456,7 +457,7 @@ public:
     }
 
     /** @return a lambda value */
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     /** @return an object pointer (not a lambda value) */
     virtual llvm::Value* gen_obj_ptr( LlvmGenerationContext& context, GenScope* scope ) const;
@@ -487,7 +488,7 @@ public:
         this->objTypeExpr->visit_ast( visitor, thisCursor, "type", context );
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override {
         THROW_LOGIC( "Unsupported: code_gen() for node type " << this );
     }
 
@@ -604,7 +605,7 @@ public:
                                           make_node_vec_copy( this->constructorCall->origArgsExprList ) );
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 /** Makes a new object in newly allocated stack memory and returns it by value. */
@@ -640,7 +641,7 @@ public:
         return !this->initializationExpression;  // performs stack allocation unless this is an inlined value expression
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 /*=== assignee expressions ===*/

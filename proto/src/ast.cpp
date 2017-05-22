@@ -195,16 +195,6 @@ void TxFieldDefNode::symbol_resolution_pass() {
             this->typeExpression->symbol_resolution_pass();
         }
         this->initExpression->symbol_resolution_pass();
-
-        auto storage = field->get_storage();
-        if ( storage == TXS_GLOBAL
-             || ( ( storage == TXS_STATIC || storage == TXS_VIRTUAL )
-                  && !field->get_type()->is_modifiable() ) ) {
-            // field is expected to have a statically constant initializer
-            // (Note: When static initializers in types are supported, static/virtual fields' initialization may be deferred.)
-            if ( !this->initExpression->is_statically_constant() )
-                CERROR( this, "Non-constant initializer for constant global/static/virtual field " << this->fieldName );
-        }
     }
     else {  // if initExpression is null then typeExpression is set
         this->typeExpression->symbol_resolution_pass();
@@ -356,6 +346,11 @@ void TxFieldDeclNode::symbol_resolution_pass() {
             if ( !( this->field->get_declaration()->get_decl_flags() & TXD_ABSTRACT ) )
                 if ( this->field->fieldName->str() != "$adTypeId" )
                     CERROR( this, "Non-abstract virtual fields/methods must have an initializer: " << this->field->get_identifier() );
+            // FUTURE: When static initializers in types are supported, static/virtual fields' initialization may be deferred.
+        }
+        else {
+            if ( !this->field->initExpression->is_statically_constant() )
+                CERROR( this, "Non-constant initializer for virtual field " << this->field->fieldName );
         }
         break;
     case TXS_GLOBAL:
@@ -363,6 +358,12 @@ void TxFieldDeclNode::symbol_resolution_pass() {
         if ( !this->field->initExpression ) {
             if ( !( this->field->get_declaration()->get_decl_flags() & ( TXD_BUILTIN | TXD_EXTERN ) ) )
                 CERROR( this, "Global/static fields must have an initializer: " << this->field->get_identifier() );
+            // FUTURE: When static initializers in types are supported, static/virtual fields' initialization may be deferred.
+        }
+        else {
+            // field is expected to have a statically constant initializer
+            if ( !this->field->initExpression->is_statically_constant() )
+                CERROR( this, "Non-constant initializer for global/static field " << this->field->fieldName );
         }
         break;
     default:
@@ -1082,6 +1083,35 @@ const TxType* TxFieldValueNode::define_type() {
     }
     // Symbol is not a field or type, return Void as placeholder type
     return this->registry().get_builtin_type( TXBT_VOID );
+}
+
+const TxExpressionNode* TxFieldValueNode::get_data_graph_origin_expr() const {
+    if ( this->baseExpr ) {
+        if ( auto fieldBase = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {
+            if ( !fieldBase->get_field() )
+                return nullptr;  // baseExpr identifies a namespace
+        }
+    }
+    return this->baseExpr;
+}
+
+bool TxFieldValueNode::is_statically_constant() const {
+    if ( this->field ) {
+        if ( this->field->get_storage() == TXS_INSTANCEMETHOD )
+            return false;
+        if ( this->field->get_storage() == TXS_VIRTUAL ) {
+            // allow a virtual field lookup, with a constant base expression, to behave as a static field lookup (i.e. non-polymorphic),
+            // unless it has a non-constant base expression:
+            if ( this->baseExpr && !this->baseExpr->is_statically_constant() )
+                return false;
+        }
+        return this->field->is_statically_constant();
+    }
+    else if ( this->symbol ) {
+        return true;
+    }
+    else
+        return false;
 }
 
 const TxType* TxConstructorCalleeExprNode::define_type() {

@@ -136,6 +136,8 @@ public:
     virtual TxTypeArgumentNode* make_ast_copy() const override = 0;
 
     virtual std::string get_auto_type_name() const = 0;
+
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const = 0;
 };
 
 class TxTypeTypeArgumentNode : public TxTypeArgumentNode {

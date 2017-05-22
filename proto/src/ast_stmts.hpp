@@ -52,6 +52,8 @@ public:
     virtual bool ends_with_return_stmt() const {
         return false;
     }
+
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const = 0;
 };
 
 /** Local field declaration */
@@ -94,7 +96,7 @@ public:
         }
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->field->visit_ast( visitor, thisCursor, "fielddecl", context );
@@ -130,7 +132,7 @@ public:
         this->typeDecl->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->typeDecl->visit_ast( visitor, thisCursor, "typedecl", context );
@@ -153,7 +155,7 @@ public:
         ( (TxExpressionNode*) this->call )->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->call->visit_ast( visitor, thisCursor, "call", context );
@@ -209,7 +211,7 @@ public:
         return true;
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if (this->expr)
@@ -231,7 +233,7 @@ public:
         return true;
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
@@ -251,7 +253,7 @@ public:
         return true;
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
@@ -318,7 +320,7 @@ public:
         return this->suite->back()->ends_with_return_stmt();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         for ( auto stmt : *this->suite )
@@ -352,7 +354,7 @@ public:
         return this->body->ends_with_return_stmt();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->body->visit_ast( visitor, thisCursor, "body", context );
@@ -412,7 +414,7 @@ public:
         return ( this->body->ends_with_terminal_stmt() && this->elseClause && this->elseClause->ends_with_terminal_stmt() );
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 class TxWhileStmtNode : public TxCondCompoundStmtNode {
@@ -437,7 +439,7 @@ public:
         return this->ends_with_return_stmt();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 class TxAssignStmtNode : public TxStatementNode {
@@ -455,7 +457,7 @@ public:
 
     virtual void symbol_resolution_pass() override;
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->lvalue->visit_ast( visitor, thisCursor, "lvalue", context );
@@ -478,7 +480,7 @@ public:
         this->ifStmt->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->ifStmt->visit_ast( visitor, thisCursor, "ifstmt", context );
@@ -516,9 +518,7 @@ public:
         this->body->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
-        return nullptr;
-    }
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override { }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         ScopedExpErrClause scopedEEClause( this );
@@ -539,9 +539,7 @@ public:
     virtual void symbol_resolution_pass() override {
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
-        return nullptr;
-    }
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override { }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }

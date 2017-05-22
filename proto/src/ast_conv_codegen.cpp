@@ -3,9 +3,9 @@
 
 using namespace llvm;
 
-Constant* TxMaybeConversionNode::code_gen_constant( LLVMContext& llvmContext ) const {
+Constant* TxMaybeConversionNode::code_gen_constant( LlvmGenerationContext& context) const {
     TRACE_CODEGEN( this, context );
-    return this->get_spec_expression()->code_gen_constant( llvmContext );
+    return this->get_spec_expression()->code_gen_constant( context );
 }
 
 Value* TxMaybeConversionNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -13,12 +13,12 @@ Value* TxMaybeConversionNode::code_gen_address( LlvmGenerationContext& context, 
     return this->get_spec_expression()->code_gen_address( context, scope );
 }
 
-Value* TxMaybeConversionNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxMaybeConversionNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return this->get_spec_expression()->code_gen( context, scope );
+    return this->get_spec_expression()->code_gen_value( context, scope );
 }
 
-Constant* TxBoolConvNode::code_gen_constant( LLVMContext& context ) const {
+Constant* TxBoolConvNode::code_gen_constant( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
     auto origValue = this->expr->code_gen_constant( context );
     // accepts scalar types and converts to bool: 0 => FALSE, otherwise => TRUE
@@ -29,9 +29,9 @@ Constant* TxBoolConvNode::code_gen_constant( LLVMContext& context ) const {
     return ConstantExpr::getFCmp( FCmpInst::FCMP_UNE, cast<Constant>( origValue ), ConstantFP::get( origValue->getType(), 0 ) );
 }
 
-Value* TxBoolConvNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxBoolConvNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
-    auto origValue = this->expr->code_gen( context, scope );
+    auto origValue = this->expr->code_gen_value( context, scope );
     // accepts scalar types and converts to bool: 0 => FALSE, otherwise => TRUE
     // Note: can't cast, since that will simply truncate to the lowest source bit
     if ( origValue->getType()->isIntegerTy() )
@@ -40,7 +40,7 @@ Value* TxBoolConvNode::code_gen( LlvmGenerationContext& context, GenScope* scope
     return ConstantExpr::getFCmp( FCmpInst::FCMP_UNE, cast<Constant>( origValue ), ConstantFP::get( origValue->getType(), 0 ) );
 }
 
-Constant* TxScalarConvNode::code_gen_constant( LLVMContext& context ) const {
+Constant* TxScalarConvNode::code_gen_constant( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, " -> " << this->node->resultType );
     auto origValue = this->expr->code_gen_constant( context );
     auto actType = this->resultType->type();
@@ -60,9 +60,9 @@ Constant* TxScalarConvNode::code_gen_constant( LLVMContext& context ) const {
     return folder.CreateCast( cop, origValue, targetLlvmType );
 }
 
-Value* TxScalarConvNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxScalarConvNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
-    auto origValue = this->expr->code_gen( context, scope );
+    auto origValue = this->expr->code_gen_value( context, scope );
     auto targetLlvmType = context.get_llvm_type( this->resultType );
     ASSERT(targetLlvmType, "In scalar cast, no target LLVM type found for " << this->resultType );
     // FUTURE: manually determine cast instruction
@@ -93,9 +93,9 @@ Value* TxScalarConvNode::code_gen( LlvmGenerationContext& context, GenScope* sco
      */
 }
 
-Value* TxReferenceConvNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxReferenceConvNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
-    auto origValue = this->expr->code_gen( context, scope );
+    auto origValue = this->expr->code_gen_value( context, scope );
 
     // from another reference:
     if ( this->expr->get_type()->get_type_class() == TXTC_REFERENCE ) {
@@ -113,8 +113,8 @@ Value* TxReferenceConvNode::code_gen( LlvmGenerationContext& context, GenScope* 
     return origValue;
 }
 
-Value* TxObjSpecCastNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxObjSpecCastNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
     // this is a semantic conversion; it doesn't actually do anything
-    return this->expr->code_gen( context, scope );
+    return this->expr->code_gen_value( context, scope );
 }

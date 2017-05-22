@@ -180,7 +180,7 @@ public:
     /** Runs the resolution pass on this node and its subtree. */
     virtual void symbol_resolution_pass() = 0;
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const = 0;
+//    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const = 0;
 
     /** Visits this node and its subtree with the provided visitor and context object. */
     void visit_ast( AstVisitor visitor, void* context );
@@ -247,10 +247,6 @@ public:
 
     virtual void symbol_resolution_pass() override { }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
-        return nullptr;
-    }
-
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
 
@@ -259,8 +255,8 @@ public:
     }
 };
 
-/** Common superclass for entity declaration nodes. */
-class TxDeclarationNode : public TxNode {  // either type or field
+/** Common superclass for non-local entity declaration nodes. */
+class TxDeclarationNode : public TxNode {
     TxDeclarationFlags declFlags;
     // these set TXD_EXPERRBLOCK if this is an exp-err declaration:
     friend class TxExpErrDeclNode;
@@ -278,6 +274,8 @@ public:
     }
 
     virtual const TxEntityDeclaration* get_declaration() const = 0;
+
+    virtual void code_gen( LlvmGenerationContext& context ) const = 0;
 };
 
 class TxModuleNode : public TxNode {
@@ -321,7 +319,7 @@ public:
         }
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    void code_gen( LlvmGenerationContext& context ) const;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->imports ) {
@@ -366,7 +364,7 @@ public:
         this->module->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    void code_gen( LlvmGenerationContext& context ) const;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->module->visit_ast( visitor, thisCursor, "module", context );
@@ -437,6 +435,8 @@ public:
         ASSERT( this->type, "entity definer not resolved: " << this );
         return this->type;
     }
+
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const = 0;
 };
 
 class TxExpressionNode;
@@ -446,6 +446,8 @@ class TxFieldDefiningNode : public TxEntityDefiningNode {
     const TxField* field = nullptr;
     bool startedRslv = false;  // guard against recursive resolution
     bool hasResolved = false;  // to prevent multiple identical error messages
+
+    mutable llvm::Constant* cachedConstantInitializer = nullptr;
 
 protected:
     /** Defines the type of this field (as specific as can be known), constructing/obtaining the TxType instance.
@@ -494,4 +496,10 @@ public:
     }
 
     virtual const TxExpressionNode* get_init_expression() const = 0;
+
+    /** Generates / retrieves the code generated constant value of this field's init expression,
+     * if it has one and it is constant.
+     * May be called multiple times, it caches the result to ensures the constant value is only generated once.
+     * Only valid to call on nodes for which is_statically_constant() returns true. */
+    virtual llvm::Constant* code_gen_constant_init_expr( LlvmGenerationContext& context ) const;
 };

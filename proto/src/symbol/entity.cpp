@@ -70,7 +70,7 @@ int TxField::get_decl_storage_index() const {
 }
 
 bool TxField::is_statically_constant() const {
-    // A field is statically constant if it is unmodifiable and has a statically constant initializer.
+    // A field is statically constant if it is unmodifiable and has a statically constant initializer
     if ( auto initExpr = this->get_declaration()->get_definer()->get_init_expression() )
         return ( !this->get_type()->is_modifiable() && initExpr->is_statically_constant() );
     return false;

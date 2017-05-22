@@ -73,6 +73,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
 
     // ONLY used for constant evaluation before code generation pass:
     this->llvmContext = &llvm::getGlobalContext();
+    this->genContext = new LlvmGenerationContext( *this->package, *this->llvmContext );
 
     /*--- parse built-in module(s) ---*/
     {
@@ -258,7 +259,7 @@ void TxDriver::add_source_file( const TxIdentifier& moduleName, const std::strin
 }
 
 int TxDriver::llvm_compile( const std::string& outputFileName ) {
-    this->genContext = new LlvmGenerationContext( *this->package, *this->llvmContext );
+    this->genContext->initialize_builtins();
 
     // generate the code for the program in lexical order:
     for ( auto parserContext : this->parsedASTs ) {

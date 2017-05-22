@@ -38,12 +38,12 @@ public:
         return this->exprNode->is_statically_constant();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
-        return this->exprNode->code_gen( context, scope );
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override {
+        return this->exprNode->code_gen_value( context, scope );
     }
 
-    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const {
-        return this->exprNode->code_gen_constant( llvmContext );
+    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const {
+        return this->exprNode->code_gen_constant( context );
     }
 
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -173,10 +173,6 @@ public:
 
     virtual void symbol_resolution_pass() override {
         this->innerNode->symbol_resolution_pass();
-    }
-
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
-        return this->innerNode->code_gen( context, scope );
     }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {

@@ -20,20 +20,21 @@ type ~ Subtype derives CompoundType {
 }
 
 type MemberInitTestType {
+  ## private static are truly static:
     static FIELD1 := 4;
     static FIELD2 := FIELD1 + 1;
     static FIELD3 := FIELD4;
     static FIELD4 := FIELD1;
-    ## TODO: support for constant initializer *expressions* with reverse lexical order dependency
-    ##static FIELD5 := FIELD6 + 1;
+    static FIELD5 := FIELD6 + 1;
     static FIELD6 := FIELD1 + 1;
+
+  ## public static are virtual, but referencing them without a non-constant base expression is non-polymorphic:
 
     public static PUB_FIELD1 := 4;
     public static PUB_FIELD2 := PUB_FIELD1 + 1;
     public static PUB_FIELD3 := PUB_FIELD4;
     public static PUB_FIELD4 := PUB_FIELD1;
-    ## TODO: support for constant initializer *expressions* with reverse lexical order dependency
-    ##public static PUB_FIELD5 := PUB_FIELD6 + 1;
+    public static PUB_FIELD5 := PUB_FIELD6 + 1;
     public static PUB_FIELD6 := PUB_FIELD1 + 1;
 
     /* TODO: initializers with modifiable statics
@@ -41,8 +42,7 @@ type MemberInitTestType {
     public static ~PUB_MFIELD2 := PUB_MFIELD1 + 1;
     public static ~PUB_MFIELD3 := PUB_MFIELD4;
     public static ~PUB_MFIELD4 := PUB_MFIELD1;
-    ## TODO: support for constant initializer *expressions* with reverse lexical order dependency
-    ##public static ~PUB_MFIELD5 := PUB_MFIELD6 + 1;
+    public static ~PUB_MFIELD5 := PUB_MFIELD6 + 1;
     public static ~PUB_MFIELD6 := PUB_MFIELD1 + 1;
     */
 

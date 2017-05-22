@@ -116,21 +116,16 @@ public:
         this->appliedFuncArgs = appliedFuncArgs;
     }
 
-//    /** Generates code that produces the value of this expression.
-//     * If this expression is constant, the value will be of llvm::Constant type. */
-//    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override final {
-//        if (this->is_statically_constant())
-//            return this->code_gen_constant( context.llvmContext );
-//        else
-//            return this->code_gen_value( context, scope );
-//    }
-//
-//    /** Generates code that produces the value of this expression. */
-//    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const = 0;
+    /** Generates code that produces the value of this expression.
+     * If this expression is constant, the value will be of llvm::Constant type. */
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override final;
+
+    /** Generates code that produces the value of this expression. */
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const = 0;
 
     /** Generates code that produces a constant value.
      * Only valid to call on nodes for which is_statically_constant() returns true. */
-    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const {
+    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const {
         ASSERT(! this->is_statically_constant(), "code_gen_constant() not implemented though is_statically_constant() returns true for " << this );
         THROW_LOGIC( "Unsupported: code_gen_constant() for node type " << this );
     }
@@ -194,15 +189,12 @@ public:
     }
 
     virtual bool is_statically_constant() const override {
-        if ( this->insertedResultType && !this->conversionExpr ) {
-            CERR_THROWRES( this, "Type conversion failed" );
-        }
         return this->get_spec_expression()->is_statically_constant();
     }
 
-    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
+    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->conversionExpr )
@@ -313,8 +305,6 @@ public:
         return this->declaration;
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
-
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->typeExpression )
             this->typeExpression->visit_ast( visitor, thisCursor, "type", context );
@@ -352,7 +342,7 @@ public:
         return this->field->get_declaration();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->field->visit_ast( visitor, thisCursor, "field", context );
@@ -419,7 +409,7 @@ public:
         return this->typeExpression->get_declaration();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void code_gen( LlvmGenerationContext& context ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( !this->_builtinCode && this->typeParamDecls )
@@ -500,9 +490,7 @@ public:
         return ( this->body ? this->body->get_declaration() : nullptr );
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
-        return nullptr;
-    }
+    virtual void code_gen( LlvmGenerationContext& context ) const override { }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->body ) {

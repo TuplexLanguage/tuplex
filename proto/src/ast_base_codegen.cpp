@@ -12,30 +12,28 @@ inline bool is_complex_pointer( const Type* type ) {
     return ret;
 }
 
-Value* TxParsingUnitNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxParsingUnitNode::code_gen( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
-    this->module->code_gen( context, scope );
-    return NULL;
+    this->module->code_gen( context );
 }
 
-Value* TxModuleNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxModuleNode::code_gen( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     if ( this->members ) {
         for ( auto mem : *this->members )
-            mem->code_gen( context, scope );
+            mem->code_gen( context );
     }
     if ( this->subModules ) {
         for ( auto mod : *this->subModules )
-            mod->code_gen( context, scope );
+            mod->code_gen( context );
     }
-    return nullptr;
 }
 
-Value* TxTypeDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxTypeDeclNode::code_gen( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     if ( this->context().exp_error() ) {
         LOG_DEBUG( this->LOGGER(), "Skipping codegen for AST of type with ExpErr context: " << this->typeExpression->get_type() );
-        return nullptr;
+        return;
     }
     if ( this->context().is_generic() ) {
         LOG_DEBUG( context.LOGGER(), "Skipping codegen for AST of generic-dependent type: "
@@ -43,34 +41,20 @@ Value* TxTypeDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scope
         // Note that this skips codegen for the entire AST of all generic-dependent types,
         // which means none of their members are generated, including any statically declared inner/local types.
         // FUTURE: Evaluate capability for generic types to have global static members (e.g. inner types independent of the outer type parameters).
-        return nullptr;
+        return;
     }
-    return this->typeExpression->code_gen( context, scope );
+    this->typeExpression->code_gen( context, nullptr );
 }
 
-static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, GenScope* scope,
-                                            TxFieldDefNode* field,
-                                            Type* llvmType ) {
-    auto uniqueName = field->get_declaration()->get_unique_full_name();
-    Constant* constantInitializer = nullptr;
-    if ( field->initExpression ) {
-        if ( field->initExpression->is_statically_constant() ) {
-            constantInitializer = field->initExpression->code_gen_constant( context.llvmContext );
-            if ( is_complex_pointer( constantInitializer->getType() ) ) {
-                context.LOGGER()->note( "Global field %s with complex ptr constant initializer", uniqueName.c_str() );
-                // TODO: review and perhaps remove/refactor
-                ASSERT( !context.llvmModule.getNamedGlobal( uniqueName ),
-                        "Can't declare llvm alias since global variable with same name already declared: " << uniqueName );
-                return GlobalAlias::create( llvmType, 0, GlobalValue::InternalLinkage,
-                                            uniqueName,
-                                            constantInitializer, &context.llvmModule );
-            }
-        }
-        else
-            LOG( context.LOGGER(), ERROR, "Global/static constant field " << uniqueName << " initializer is not a constant expression" );
+static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, const std::string& uniqueName, Constant* constantInitializer, Type* llvmType ) {
+    if ( is_complex_pointer( constantInitializer->getType() ) ) {
+        context.LOGGER()->note( "Global field %s with complex ptr constant initializer", uniqueName.c_str() );
+        // TODO: review and perhaps remove/refactor
+        ASSERT( !context.llvmModule.getNamedGlobal( uniqueName ),
+                "Can't declare llvm alias since global variable with same name already declared: " << uniqueName );
+        return GlobalAlias::create( llvmType, 0, GlobalValue::InternalLinkage, uniqueName,
+                                    constantInitializer, &context.llvmModule );
     }
-    else
-        LOG( context.LOGGER(), ERROR, "Global/static constant field " << uniqueName << " does not have an initializer" );
 
     // handle case when there has been a "forward-declaration" of this field:
     Constant* maybe = context.llvmModule.getOrInsertGlobal( uniqueName, llvmType );
@@ -86,21 +70,17 @@ static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, GenS
     //                                constantInitializer, fullName.to_string());
 }
 
-Value* TxFieldDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxFieldDeclNode::code_gen( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     if ( this->field->typeExpression )
-        this->field->typeExpression->code_gen( context, scope );
+        this->field->typeExpression->code_gen( context, nullptr );
+
     auto fieldDecl = this->field->get_declaration();
     std::string uniqueName = fieldDecl->get_unique_full_name();
     auto txType = this->field->get_type()->type();
-    Type* llvmType = context.get_llvm_type( txType );
 
     Value* fieldVal = nullptr;
     switch ( fieldDecl->get_storage() ) {
-    case TXS_NOSTORAGE:
-        LOG( context.LOGGER(), ERROR, "TXS_NOSTORAGE specified for field: " << uniqueName );
-        break;
-
     case TXS_INSTANCEMETHOD:
         if ( !( fieldDecl->get_decl_flags() & TXD_ABSTRACT )
              // constructors in generic types are suppressed (they are not abstract per se, but aren't code generated):
@@ -115,46 +95,44 @@ Value* TxFieldDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scop
             }
             else {
                 ASSERT( this->field->initExpression, "instance method does not have an initializer/definition: " << uniqueName );
-                auto initLambdaV = cast<ConstantStruct>( this->field->initExpression->code_gen( context, scope ) );
+                auto initLambdaV = this->field->initExpression->code_gen_constant( context );
                 auto funcPtrV = initLambdaV->getAggregateElement( (unsigned) 0 );
                 fieldVal = funcPtrV;  // the naked $func is stored (as opposed to a full lambda object)
                 uniqueName = fieldVal->getName();
             }
+            break;
         }
-        break;
+        return;
 
     case TXS_GLOBAL:
-        fieldVal = make_constant_nonlocal_field( context, scope, this->field, llvmType );
-        break;
-
-    case TXS_VIRTUAL:
     case TXS_STATIC:
+    case TXS_VIRTUAL:
         if ( !( fieldDecl->get_decl_flags() & ( TXD_ABSTRACT | TXD_INITIALIZER ) ) ) {
-            //if (txType->is_modifiable())
-            //    context.LOG.error("modifiable TXS_STATIC fields not yet implemented: %s", uniqueName.c_str());
-            if ( this->field->initExpression && !this->field->initExpression->is_statically_constant() ) {
-                // TODO
-                auto lvl = Level::WARN; //( entity->is_generic_param_binding() ? Level::DEBUG : Level::WARN );
-                context.LOGGER()->log( lvl, "Skipping codegen for global/static constant field %s whose initializer is not a constant expression",
-                                       uniqueName.c_str() );
+            if ( this->field->initExpression ) {
+                if ( this->field->initExpression->is_statically_constant() ) {
+                    auto uniqueName = field->get_declaration()->get_unique_full_name();
+                    Constant* constantInitializer = field->code_gen_constant_init_expr( context );
+                    Type* llvmType = context.get_llvm_type( txType );
+                    fieldVal = make_constant_nonlocal_field( context, uniqueName, constantInitializer, llvmType );
+                    break;
+                }
+                // TODO: support non-constant initializers for static and virtual fields
             }
-            else
-                fieldVal = make_constant_nonlocal_field( context, scope, this->field, llvmType );
+            LOG( context.LOGGER(), WARN, "Skipping codegen for global/static/virtual field without constant initializer: "
+                 << uniqueName );
         }
-        break;
+        return;
 
     case TXS_INSTANCE:
         // just a type definition; field storage isn't created until parent object is allocated
-        break;
+        return;
 
+    case TXS_NOSTORAGE:
     case TXS_STACK:
-        LOG( context.LOGGER(), ERROR, "TxFieldDeclNode can not apply to TXS_STACK storage fields: " << uniqueName );
-        break;
+        THROW_LOGIC( "TxFieldDeclNode can not apply to fields with storage " << fieldDecl->get_storage() << ": " << uniqueName );
     }
-    if ( fieldVal )
-        context.register_llvm_value( uniqueName, fieldVal );
 
-    return fieldVal;
+    context.register_llvm_value( uniqueName, fieldVal );
 }
 
 Value* TxArgTypeDefNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -162,11 +140,19 @@ Value* TxArgTypeDefNode::code_gen( LlvmGenerationContext& context, GenScope* sco
     return nullptr;  // passive node
 }
 
-Value* TxFieldDefNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
-    // (note that this is doesn't *declare* the field since that operation is context-sensitive;
-    // the parent node does that)
-    TRACE_CODEGEN( this, context );
-    return nullptr;  // passive node
+Constant* TxFieldDefiningNode::code_gen_constant_init_expr( LlvmGenerationContext& context ) const {
+    if (! this->cachedConstantInitializer) {
+        ASSERT( this->get_init_expression() && this->get_init_expression()->is_statically_constant(), "Expected constant initializer in " << this );
+        this->cachedConstantInitializer = this->get_init_expression()->code_gen_constant( context );
+    }
+    return this->cachedConstantInitializer;
+}
+
+Value* TxExpressionNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+    if (this->is_statically_constant())
+        return this->code_gen_constant( context );
+    else
+        return this->code_gen_value( context, scope );
 }
 
 Value* TxExpressionNode::code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const {

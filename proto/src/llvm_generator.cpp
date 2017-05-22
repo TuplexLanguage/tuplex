@@ -164,12 +164,11 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
 
 /* Compile the AST into a module */
 
-void LlvmGenerationContext::generate_function_declaration( const TxLambdaExprNode* lambdaNode ) {
-    lambdaNode->code_gen_forward_decl( *this );  // (global/static scope has no block)
+void LlvmGenerationContext::generate_code( const TxParsingUnitNode* staticScopeNode ) {
+    staticScopeNode->code_gen( *this );
 }
-
-void LlvmGenerationContext::generate_code( const TxNode* staticScopeNode ) {
-    staticScopeNode->code_gen( *this, nullptr );  // (global/static scope has no block)
+void LlvmGenerationContext::generate_code( const TxTypeDeclNode* staticScopeNode ) {
+    staticScopeNode->code_gen( *this );
 }
 
 bool LlvmGenerationContext::generate_main( const std::string& userMainIdent, const TxType* mainFuncType ) {
@@ -238,7 +237,6 @@ const TxType* LlvmGenerationContext::lookup_builtin( BuiltinTypeId id ) {
 }
 
 void LlvmGenerationContext::initialize_builtins() {
-    this->initialize_basic_llvm_types();
     this->initialize_meta_type_data();
     this->initialize_builtin_functions();
     this->initialize_external_functions();
@@ -256,9 +254,6 @@ void LlvmGenerationContext::initialize_builtins() {
 //    ReturnInst::Create(context.llvmContext, eb);
 //    return initFunc;
 //}
-
-void LlvmGenerationContext::initialize_basic_llvm_types() {
-}
 
 void LlvmGenerationContext::initialize_meta_type_data() {
     /* This is a possible future C declaration equivalent of the constructed runtime type data:

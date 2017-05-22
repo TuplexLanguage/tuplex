@@ -43,7 +43,7 @@ public:
     }
 
     /** This is legal to invoke during analysis passes. It is used for constant expression evaluation. */
-    virtual llvm::Type* get_scalar_llvm_type( llvm::LLVMContext& context ) const = 0;
+    virtual llvm::Type* get_scalar_llvm_type( LlvmGenerationContext& context ) const = 0;
 
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override final;
 };
@@ -82,7 +82,7 @@ public:
         return false;
     }
 
-    virtual llvm::Type* get_scalar_llvm_type( llvm::LLVMContext& context ) const override;
+    virtual llvm::Type* get_scalar_llvm_type( LlvmGenerationContext& context ) const override;
 };
 
 class TxFloatingType final : public TxScalarType {
@@ -107,5 +107,5 @@ public:
         return false;
     }
 
-    virtual llvm::Type* get_scalar_llvm_type( llvm::LLVMContext& context ) const override;
+    virtual llvm::Type* get_scalar_llvm_type( LlvmGenerationContext& context ) const override;
 };

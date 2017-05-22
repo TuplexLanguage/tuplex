@@ -80,32 +80,32 @@ Type* TxBoolType::make_llvm_type( LlvmGenerationContext& context ) const {
 }
 
 llvm::Type* TxScalarType::make_llvm_type( LlvmGenerationContext& context ) const {
-    return this->get_scalar_llvm_type( context.llvmContext );
+    return this->get_scalar_llvm_type( context );
 }
 
-llvm::Type* TxIntegerType::get_scalar_llvm_type( llvm::LLVMContext& context ) const {
+llvm::Type* TxIntegerType::get_scalar_llvm_type( LlvmGenerationContext& context ) const {
     switch ( this->_size ) {
     case 1:
-        return Type::getInt8Ty( context );
+        return Type::getInt8Ty( context.llvmContext );
     case 2:
-        return Type::getInt16Ty( context );
+        return Type::getInt16Ty( context.llvmContext );
     case 4:
-        return Type::getInt32Ty( context );
+        return Type::getInt32Ty( context.llvmContext );
     case 8:
-        return Type::getInt64Ty( context );
+        return Type::getInt64Ty( context.llvmContext );
     default:
         THROW_LOGIC( "Unsupported integer size " << this->_size << " in type " << this );
     }
 }
 
-llvm::Type* TxFloatingType::get_scalar_llvm_type( llvm::LLVMContext& context ) const {
+llvm::Type* TxFloatingType::get_scalar_llvm_type( LlvmGenerationContext& context ) const {
     switch ( this->_size ) {
     case 2:
-        return Type::getHalfTy( context );
+        return Type::getHalfTy( context.llvmContext );
     case 4:
-        return Type::getFloatTy( context );
+        return Type::getFloatTy( context.llvmContext );
     case 8:
-        return Type::getDoubleTy( context );
+        return Type::getDoubleTy( context.llvmContext );
     default:
         THROW_LOGIC( "Unsupported floating-point size " << this->_size << " in type " << this );
     }

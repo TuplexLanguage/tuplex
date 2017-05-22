@@ -57,7 +57,7 @@ unsigned get_llvm_op( TxOperationClass op_class, TxOperation op, const TxType* r
     return llvm_op;
 }
 
-llvm::Constant* TxBinaryOperatorNode::code_gen_constant( LLVMContext& context ) const {
+llvm::Constant* TxBinaryOperatorNode::code_gen_constant( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     auto lval = this->lhs->code_gen_constant( context );
     auto rval = this->rhs->code_gen_constant( context );
@@ -80,11 +80,11 @@ llvm::Constant* TxBinaryOperatorNode::code_gen_constant( LLVMContext& context ) 
     }
 }
 
-Value* TxBinaryOperatorNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxBinaryOperatorNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     ASSERT( scope, "NULL scope in non-const binary expression: " << this );
-    auto lval = this->lhs->code_gen( context, scope );
-    auto rval = this->rhs->code_gen( context, scope );
+    auto lval = this->lhs->code_gen_value( context, scope );
+    auto rval = this->rhs->code_gen_value( context, scope );
 
     // pick field's plain name, if available, for the expression value:
     const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
@@ -117,7 +117,7 @@ Value* TxBinaryOperatorNode::code_gen( LlvmGenerationContext& context, GenScope*
     }
 }
 
-llvm::Constant* TxUnaryMinusNode::code_gen_constant( LLVMContext& context ) const {
+llvm::Constant* TxUnaryMinusNode::code_gen_constant( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     auto operand = this->operand->code_gen_constant( context );
     auto opType = this->get_type()->type();
@@ -130,9 +130,9 @@ llvm::Constant* TxUnaryMinusNode::code_gen_constant( LLVMContext& context ) cons
     THROW_LOGIC( "Invalid unary minus operand type: " << opType << " in " << this );
 }
 
-Value* TxUnaryMinusNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxUnaryMinusNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto operand = this->operand->code_gen( context, scope );
+    auto operand = this->operand->code_gen_value( context, scope );
     auto opType = this->get_type()->type();
     if ( dynamic_cast<const TxIntegerType*>( opType ) ) {
         return scope->builder->CreateNeg( operand );
@@ -143,15 +143,15 @@ Value* TxUnaryMinusNode::code_gen( LlvmGenerationContext& context, GenScope* sco
     THROW_LOGIC( "Invalid unary minus operand type: " << opType << " in " << this );
 }
 
-llvm::Constant* TxUnaryLogicalNotNode::code_gen_constant( LLVMContext& context ) const {
+llvm::Constant* TxUnaryLogicalNotNode::code_gen_constant( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     auto operand = this->operand->code_gen_constant( context );
     return ConstantExpr::getNot( operand );
 }
 
-Value* TxUnaryLogicalNotNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxUnaryLogicalNotNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto operand = this->operand->code_gen( context, scope );
+    auto operand = this->operand->code_gen_value( context, scope );
     return scope->builder->CreateNot( operand );
 }
 
@@ -223,7 +223,7 @@ Value* gen_lambda( LlvmGenerationContext& context, GenScope* scope, Type* lambda
     }
 }
 
-Value* TxReferenceToNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxReferenceToNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     Value* ptrV = nullptr;
     TxExpressionNode* targetNode = this->target;
@@ -240,14 +240,14 @@ Value* TxReferenceToNode::code_gen( LlvmGenerationContext& context, GenScope* sc
 Value* TxReferenceDerefNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     if ( !this->refExprValue ) {
-        this->refExprValue = this->reference->code_gen( context, scope );
+        this->refExprValue = this->reference->code_gen_value( context, scope );
         if ( !this->refExprValue )
             return NULL;
     }
     return gen_get_ref_pointer( context, scope, this->refExprValue );
 }
 
-Value* TxReferenceDerefNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxReferenceDerefNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     Value* ptrV = this->code_gen_address( context, scope );
     if ( scope )
         return scope->builder->CreateLoad( ptrV );
@@ -259,7 +259,7 @@ Value* TxReferenceDerefNode::code_gen_typeid( LlvmGenerationContext& context, Ge
     // dynamic by reading the reference's target type id
     TRACE_CODEGEN( this, context, " TypeID" );
     if ( !this->refExprValue ) {
-        this->refExprValue = this->reference->code_gen( context, scope );
+        this->refExprValue = this->reference->code_gen_value( context, scope );
         if ( !this->refExprValue )
             return NULL;
     }
@@ -267,20 +267,6 @@ Value* TxReferenceDerefNode::code_gen_typeid( LlvmGenerationContext& context, Ge
     Value* tidV = gen_get_ref_typeid( context, scope, this->refExprValue );
     return tidV;
 }
-
-//static Value* gen_const_elem_address( LLVMContext& context, Constant* arrayPtrC, Constant* subscriptC ) {
-//    ASSERT( subscriptC->getType()->isIntegerTy(), "expected subscript to be an integer: " << subscriptC );
-//    ASSERT( arrayPtrC->getType()->isPointerTy(), "expected array-operand to be a pointer: " << arrayPtrC );
-//    ASSERT( arrayPtrC->getType()->getPointerElementType()->isStructTy(), "expected array-operand to be a pointer to struct: " << arrayPtrC );
-//
-//    // TODO: constant expression, static bounds check sufficient
-//
-//    //auto intC = cast<ConstantInt>( subscriptC );
-//    Constant* ixs[] = { ConstantInt::get( Type::getInt32Ty( context ), 0 ),
-//                        ConstantInt::get( Type::getInt32Ty( context ), 1 ),
-//                        subscriptC };
-//    return ConstantExpr::getInBoundsGetElementPtr( arrayPtrC, ixs );
-//}
 
 static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope, Value* arrayPtrV, Value* subscriptV ) {
     ASSERT( subscriptV->getType()->isIntegerTy(), "expected subscript to be an integer: " << subscriptV );
@@ -314,56 +300,46 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
 
 Value* TxElemDerefNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return gen_elem_address( context, scope, this->array->code_gen_address( context, scope ), this->subscript->code_gen( context, scope ) );
+    return gen_elem_address( context, scope, this->array->code_gen_address( context, scope ),
+                             this->subscript->code_gen_value( context, scope ) );
 }
 
-Value* TxElemDerefNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxElemDerefNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto arrayV = this->array->code_gen_address( context, scope );
-    auto subscriptV = this->subscript->code_gen( context, scope );
-    if ( auto arrayPtrG = dyn_cast<GlobalVariable>( arrayV ) ) {
-        //ASSERT(false, "FOOBAR " << this);
-        // this enables dereferencing (constant) arrays from global scope
-        // since we can't use load instructions in global (constant) initializers, access the original initializer directly
-        if ( arrayPtrG->hasInitializer() ) {
-            if ( auto intC = dyn_cast<ConstantInt>( subscriptV ) ) {
-                uint32_t ixs[] = { 1, (uint32_t) intC->getLimitedValue( UINT32_MAX ) };
-                return ConstantExpr::getExtractValue( arrayPtrG->getInitializer(), ixs );
-            }
-        }
-    }
-    Value* elemPtr = gen_elem_address( context, scope, arrayV, subscriptV );
+//    auto arrayV = this->array->code_gen_address( context, scope );
+//    auto subscriptV = this->subscript->code_gen_value( context, scope );
+//    if ( auto arrayPtrG = dyn_cast<GlobalVariable>( arrayV ) ) {
+//        // this enables dereferencing (constant) arrays from global scope
+//        // since we can't use load instructions in global (constant) initializers, access the original initializer directly
+//        if ( arrayPtrG->hasInitializer() ) {
+//            if ( auto intC = dyn_cast<ConstantInt>( subscriptV ) ) {
+//                uint32_t ixs[] = { 1, (uint32_t) intC->getLimitedValue( UINT32_MAX ) };
+//                return ConstantExpr::getExtractValue( arrayPtrG->getInitializer(), ixs );
+//            }
+//        }
+//    }
+//    Value* elemPtr = gen_elem_address( context, scope, arrayV, subscriptV );
+    Value* elemPtr = gen_elem_address( context, scope, this->array->code_gen_address( context, scope ),
+                                       this->subscript->code_gen_value( context, scope ) );
     if ( scope )
         return scope->builder->CreateLoad( elemPtr );
     else
         return new LoadInst( elemPtr );
 }
 
-Constant* TxElemDerefNode::code_gen_constant( LLVMContext& context ) const {
+Constant* TxElemDerefNode::code_gen_constant( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     auto arrayC = this->array->code_gen_constant( context );
     auto subscriptC = cast<ConstantInt>( this->subscript->code_gen_constant( context ) );
-//    if ( auto arrayPtrG = dyn_cast<GlobalVariable>( arrayC ) ) {
-//        std::cerr << "global variable array in " << this->node << " is: " << arrayC << std::endl;
-//        // this enables dereferencing (constant) arrays from global scope
-//        // since we can't use load instructions in global (constant) initializers, access the original initializer directly
-//        if ( arrayPtrG->hasInitializer() ) {
-//            uint32_t ixs[] = { 1, (uint32_t) subscriptC->getLimitedValue( UINT32_MAX ) };
-//            return ConstantExpr::getExtractValue( arrayPtrG->getInitializer(), ixs );
-//        }
-//    }
-//    else
-    if (arrayC->getType()->isStructTy()) {
-        std::cerr << "constant array in " << this << " is: " << arrayC << std::endl;
-        uint32_t ixs[] = { 1, (uint32_t) subscriptC->getLimitedValue( UINT32_MAX ) };
-        return ConstantExpr::getExtractValue( arrayC, ixs );
-    }
-    THROW_LOGIC( "Can't create constant array elem deref expression with array value that is: " << arrayC );
+    ASSERT( arrayC->getType()->isStructTy(), "Can't create constant array elem deref expression with array value that is: "
+            << arrayC << "  type: " << arrayC->getType() );
+    uint32_t ixs[] = { 1, (uint32_t) subscriptC->getLimitedValue( UINT32_MAX ) };
+    return ConstantExpr::getExtractValue( arrayC, ixs );
 }
 
 Value* TxElemAssigneeNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return gen_elem_address( context, scope, this->array->code_gen_address( context, scope ), this->subscript->code_gen( context, scope ) );
+    return gen_elem_address( context, scope, this->array->code_gen_address( context, scope ), this->subscript->code_gen_value( context, scope ) );
 }
 
 Value* TxFieldAssigneeNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -373,7 +349,7 @@ Value* TxFieldAssigneeNode::code_gen( LlvmGenerationContext& context, GenScope* 
 
 Value* TxDerefAssigneeNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto refval = this->operand->code_gen( context, scope );
+    auto refval = this->operand->code_gen_value( context, scope );
     if ( !refval )
         return NULL;
     return gen_get_ref_pointer( context, scope, refval );
@@ -397,7 +373,7 @@ static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& c
 }
 
 static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, const std::string& exprLabel ) {
-    auto lambdaV = node->callee->code_gen( context, scope );
+    auto lambdaV = node->callee->code_gen_value( context, scope );
     if ( !lambdaV )
         return nullptr;
     //std::cout << "callee: " << lambdaV << std::endl;
@@ -406,10 +382,15 @@ static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& c
     return gen_call( node, context, scope, functionPtrV, closureRefV, exprLabel );
 }
 
-Value* TxFunctionCallNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Constant* TxFunctionCallNode::code_gen_constant( LlvmGenerationContext& context ) const {
+    ASSERT( this->inlinedExpression, "invoked code_gen_constant() on function call that has no inlined expression: " << this );
+    return this->inlinedExpression->code_gen_constant( context );
+}
+
+Value* TxFunctionCallNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     if ( this->inlinedExpression )
-        return this->inlinedExpression->code_gen( context, scope );
+        return this->inlinedExpression->code_gen_value( context, scope );
     else {
         // pick field's plain name, if available, for the expression value:
         const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
@@ -417,7 +398,7 @@ Value* TxFunctionCallNode::code_gen( LlvmGenerationContext& context, GenScope* s
     }
 }
 
-Value* TxConstructorCalleeExprNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxConstructorCalleeExprNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     Value* funcPtrV = this->gen_func_ptr( context, scope );
     auto allocType = this->objectExpr->get_type();
@@ -480,19 +461,19 @@ Value* TxStackAllocNode::code_gen_address( LlvmGenerationContext& context, GenSc
     return this->get_type()->type()->gen_alloca( context, scope );
 }
 
-Value* TxNewConstructionNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxNewConstructionNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     // new constructor returns the constructed object by reference
     TRACE_CODEGEN( this, context );
 
     Value* objAllocV = static_cast<TxConstructorCalleeExprNode*>( this->constructorCall->callee )->gen_obj_ptr( context, scope );
     // initialize the object
     if ( this->initializationExpression ) {
-        auto initValue = this->initializationExpression->code_gen( context, scope );
+        auto initValue = this->initializationExpression->code_gen_value( context, scope );
         ASSERT( scope, "new expression not supported in global/static scope: " << this->parse_loc_string() );
         scope->builder->CreateStore( initValue, objAllocV );
     }
     else {
-        this->constructorCall->code_gen( context, scope );
+        this->constructorCall->code_gen_value( context, scope );
     }
 
     Type* objRefT = context.get_llvm_type( this->get_type() );
@@ -503,17 +484,17 @@ Value* TxNewConstructionNode::code_gen( LlvmGenerationContext& context, GenScope
     return objRefV;
 }
 
-Value* TxStackConstructionNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxStackConstructionNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     // stack constructor returns the constructed object by value, not by reference
     TRACE_CODEGEN( this, context );
     if ( this->initializationExpression ) {
         // if inlined, the stack constructor doesn't need to actually allocate storage on stack
         // (the receiver of this expression value might do this, if it needs to)
-        return this->initializationExpression->code_gen( context, scope );
+        return this->initializationExpression->code_gen_value( context, scope );
     }
     else {
         Value* objAllocV = static_cast<TxConstructorCalleeExprNode*>( this->constructorCall->callee )->gen_obj_ptr( context, scope );
-        this->constructorCall->code_gen( context, scope );
+        this->constructorCall->code_gen_value( context, scope );
         return objAllocV;
     }
 }

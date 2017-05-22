@@ -55,7 +55,6 @@ class LlvmGenerationContext {
     void initialize_meta_type_data();
     void initialize_builtin_functions();
     void initialize_external_functions();
-    void initialize_builtins();
     llvm::Function* gen_static_init_function();
     llvm::Function* gen_main_function( const std::string userMain, bool hasIntReturnValue );
 
@@ -75,8 +74,6 @@ public:
         this->voidT = llvm::Type::getVoidTy( this->llvmContext );
         this->voidPtrT = llvm::Type::getInt8PtrTy( this->llvmContext );
         this->voidRefT = TxReferenceType::make_ref_llvm_type( *this, llvm::Type::getInt8Ty( this->llvmContext ) );
-
-        this->initialize_builtins();
     }
 
     inline llvm::Type* get_voidT() const {
@@ -89,6 +86,8 @@ public:
         return this->voidRefT;
     }
 
+    void initialize_builtins();
+
     llvm::Type* get_llvm_type( const TxType* txType );
     llvm::Type* get_llvm_type( const TxActualType* txType );
 
@@ -98,10 +97,9 @@ public:
     void register_llvm_value( const std::string& identifier, llvm::Value* val );
     llvm::Value* lookup_llvm_value( const std::string& identifier ) const;
 
-    void generate_function_declaration( const TxLambdaExprNode* lambdaNode );
-
     /** Generate the LLVM code for the provided AST, which must be in global/static scope. */
-    void generate_code( const TxNode* staticScopeNode );
+    void generate_code( const TxParsingUnitNode* staticScopeNode );
+    void generate_code( const TxTypeDeclNode* staticScopeNode );
 
     void generate_runtime_data();
 

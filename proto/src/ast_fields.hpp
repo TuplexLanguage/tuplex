@@ -44,21 +44,9 @@ public:
             CERROR( this, "'" << get_full_identifier() << "' resolved to a type, not a field: " << typeDecl );
     }
 
-    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
-        if ( this->baseExpr ) {
-            if ( auto fieldBase = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {
-                if ( !fieldBase->get_field() )
-                    return nullptr;  // baseExpr identifies a namespace
-            }
-        }
-        return this->baseExpr;
-    }
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const override;
 
-    virtual bool is_statically_constant() const override {
-        if ( auto field = this->get_field() )
-            return field->is_statically_constant();
-        return false;
-    }
+    virtual bool is_statically_constant() const override;
 
     // should not be called before symbol is resolved:
     inline const TxField* get_field() const {
@@ -68,9 +56,9 @@ public:
         return dynamic_cast<const TxFieldDeclaration*>( this->declaration );
     }
 
-    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
+    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->baseExpr )

@@ -110,8 +110,7 @@ static Value* field_value_code_gen( LlvmGenerationContext& context, GenScope* sc
             // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference
             auto baseType = baseExpr->get_type()->type();
             Value* baseTypeIdV = nonvirtualLookup ? baseType->gen_typeid( context, scope )  // static
-                                                                          :
-                                                    baseExpr->code_gen_typeid( context, scope );  // runtime (static unless reference)
+                                                  : baseExpr->code_gen_typeid( context, scope );  // runtime (static unless reference)
             Type* expectedT = context.get_llvm_type( fieldEntity->get_type() );
             val = virtual_field_value_code_gen( context, scope, baseType, baseTypeIdV, expectedT, fieldEntity );
             break;
@@ -120,13 +119,6 @@ static Value* field_value_code_gen( LlvmGenerationContext& context, GenScope* sc
 
     case TXS_STATIC:
     case TXS_GLOBAL:
-// generated multiple entries...
-//        if ( fieldEntity->is_statically_constant() ) {
-//            val = fieldEntity->get_declaration()->get_definer()->get_init_expression()->code_gen_constant( context.llvmContext );
-//            LOG_DEBUG( context.LOGGER(),
-//                       "Generating field value code for statically constant fieldEntity " << fieldEntity << ": " << ::to_string(val) );
-//            break;
-//        }
         val = context.lookup_llvm_value( fieldEntity->get_declaration()->get_unique_full_name() );
         if ( !val ) {
             // forward declaration situation
@@ -176,7 +168,7 @@ Value* TxFieldValueNode::code_gen_address( LlvmGenerationContext& context, GenSc
     return field_value_code_gen( context, scope, this->baseExpr, this->get_field() );
 }
 
-Value* TxFieldValueNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxFieldValueNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     Value* value = this->code_gen_address( context, scope );
 
@@ -197,7 +189,7 @@ Value* TxFieldValueNode::code_gen( LlvmGenerationContext& context, GenScope* sco
     return value;
 }
 
-llvm::Constant* TxFieldValueNode::code_gen_constant( llvm::LLVMContext& llvmContext ) const {
+Constant* TxFieldValueNode::code_gen_constant( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
-    return this->get_field()->get_declaration()->get_definer()->get_init_expression()->code_gen_constant( llvmContext );
+    return this->get_field()->get_declaration()->get_definer()->code_gen_constant_init_expr( context );
 }

@@ -51,8 +51,8 @@ public:
         return this->expr->is_statically_constant();
     }
 
-    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 class TxBoolConvNode : public TxConversionNode {
@@ -65,8 +65,8 @@ public:
         return this->expr->is_statically_constant();
     }
 
-    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 class TxReferenceConvNode : public TxConversionNode {
@@ -78,7 +78,7 @@ public:
     TxReferenceConvNode( TxExpressionNode* expr, const TxType* refResultType )
             : TxConversionNode( expr, refResultType ) {
     }
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 /** Casts (not converts) between object specializations (across type parameters and inheritance). */
@@ -87,7 +87,7 @@ public:
     TxObjSpecCastNode( TxExpressionNode* expr, const TxType* resultType )
             : TxConversionNode( expr, resultType ) {
     }
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 /** A non-conversion "placeholder conversion". */
@@ -96,7 +96,7 @@ public:
     TxNoConversionNode( TxExpressionNode* expr, const TxType* resultType )
             : TxConversionNode( expr, resultType ) {
     }
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
-        return this->expr->code_gen( context, scope );
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override {
+        return this->expr->code_gen_value( context, scope );
     }
 };

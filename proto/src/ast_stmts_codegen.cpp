@@ -20,11 +20,11 @@ using namespace llvm;
 //}
 
 /** @param lval must be of pointer type */
-static Value* do_store( LlvmGenerationContext& context, GenScope* scope, Value* lval, Value* rval ) {
+static void do_store( LlvmGenerationContext& context, GenScope* scope, Value* lval, Value* rval ) {
     if ( rval->getType()->isPointerTy() && lval->getType()->getPointerElementType() == rval->getType()->getPointerElementType() ) {
         rval = scope->builder->CreateLoad( rval );
     }
-    return scope->builder->CreateStore( rval, lval );
+    scope->builder->CreateStore( rval, lval );
 }
 
 static Value* gen_local_field( LlvmGenerationContext& context, GenScope* scope, const TxField* field, Value* fieldV ) {
@@ -67,11 +67,12 @@ Function* TxLambdaExprNode::code_gen_forward_decl( LlvmGenerationContext& contex
     return function;
 }
 
-Value* TxLambdaExprNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+llvm::Constant* TxLambdaExprNode::code_gen_constant( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, " function body" );
     Function* function = this->code_gen_forward_decl( context );
     ASSERT( function, "NULL function pointer in " << this );
 
+    //std::cerr << "code gen for " << this << std::endl;
     // FUTURE: if this is a lambda within a code-block, define the implicit closure object here
 
     StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->get_type() ) );
@@ -122,13 +123,12 @@ Value* TxLambdaExprNode::code_gen( LlvmGenerationContext& context, GenScope* sco
     return lambdaV;
 }
 
-llvm::Constant* TxLambdaExprNode::code_gen_constant( llvm::LLVMContext& llvmContext ) const {
-    TRACE_CODEGEN( this, context );
-    //THROW_LOGIC( "TxLambdaExprNode::code_gen_constant() not yet supported: " << this );
-    return cast<Constant>( this->code_gen( *this->get_parser_context()->driver().get_llvm_gen_context(), nullptr ) );
+Value* TxLambdaExprNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    ASSERT( false, "code_gen_value() in TxLambdaExprNode called; code_gen_constant() should be called instead: " << this );
+    return this->code_gen_constant( context );
 }
 
-Value* TxFieldStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxFieldStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     if ( this->field->typeExpression )
         this->field->typeExpression->code_gen( context, scope );
@@ -157,54 +157,39 @@ Value* TxFieldStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scop
         // We don't automatically invoke default constructor (in future, a code flow validator should check that initialized before first use)
     }
     context.register_llvm_value( uniqueName, fieldVal );
-    return fieldVal;
 }
 
-Value* TxTypeStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxTypeStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return this->typeDecl->code_gen( context, scope );
+    this->typeDecl->code_gen( context );
 }
 
-Value* TxAssignStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxAssignStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     auto rval = this->rvalue->code_gen( context, scope );
     auto lval = this->lvalue->code_gen( context, scope );
-    if ( ( !lval ) || ( !rval ) )
-        return NULL;
-    if ( !lval->getType()->isPointerTy() ) {
-        LOG( context.LOGGER(), ERROR, "At " << this->parse_loc_string() << ": L-value is not of pointer type:\n" << ::to_string(lval) );
-        return rval;
-    }
-    return do_store( context, scope, lval, rval );
+    ASSERT ( lval->getType()->isPointerTy(), "At " << this->parse_loc_string() << ": L-value is not of pointer type:\n" << ::to_string(lval) );
+    do_store( context, scope, lval, rval );
 }
 
-Value* TxAssertStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxAssertStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    if ( context.tuplexPackage.driver().get_options().suppress_asserts )
-        return nullptr;
-    else
-        return this->ifStmt->code_gen( context, scope );
+    if ( !context.tuplexPackage.driver().get_options().suppress_asserts )
+        this->ifStmt->code_gen( context, scope );
 }
 
-Value* TxSuiteNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxSuiteNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-
-//    auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-//    BasicBlock* suiteBlock = BasicBlock::Create(context.llvmContext,  "suite", parentFunc);
-//    scope->builder->SetInsertPoint(suiteBlock);
     for ( auto stmt : *this->suite )
         stmt->code_gen( context, scope );
-//    scope->builder->SetInsertPoint(continuationBlock);
-
-    return NULL;
 }
 
-Value* TxElseClauseNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxElseClauseNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     return this->body->code_gen( context, scope );
 }
 
-Value* TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
 
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
@@ -214,7 +199,7 @@ Value* TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope )
 
     // generate condition:
     auto condVal = this->cond->code_gen( context, scope );
-    auto condInstr = scope->builder->CreateCondBr( condVal, trueBlock, elseBlock );
+    scope->builder->CreateCondBr( condVal, trueBlock, elseBlock );
 
     // generate else code:
     if ( this->elseClause ) {
@@ -238,11 +223,9 @@ Value* TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope )
             scope->builder->CreateBr( nextBlock );  // branch from end of true block to next-block
         scope->builder->SetInsertPoint( nextBlock );
     }
-
-    return condInstr;
 }
 
-Value* TxWhileStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxWhileStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
 
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
@@ -255,7 +238,7 @@ Value* TxWhileStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scop
     scope->builder->CreateBr( condBlock );  // branch from end of preceding block to condition-block
     scope->builder->SetInsertPoint( condBlock );
     auto condVal = this->cond->code_gen( context, scope );
-    auto condInstr = scope->builder->CreateCondBr( condVal, loopBlock, elseBlock );
+    scope->builder->CreateCondBr( condVal, loopBlock, elseBlock );
 
     // generate else code:
     if ( this->elseClause ) {
@@ -282,46 +265,42 @@ Value* TxWhileStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scop
 
     if ( nextBlock )
         scope->builder->SetInsertPoint( nextBlock );
-
-    return condInstr;
 }
 
-Value* TxCallStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxCallStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return this->call->code_gen( context, scope );
+    this->call->code_gen( context, scope );
 }
 
-Value* TxReturnStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxReturnStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     if ( this->expr ) {
         auto exprV = this->expr->code_gen( context, scope );
-        if ( !exprV )
-            return nullptr;
         // TODO: this is hackish, can we find systematic solution?
         auto expectedT = context.get_llvm_type( this->expr->get_type() );
         if ( exprV->getType() == expectedT )
-            return scope->builder->CreateRet( exprV );
+            scope->builder->CreateRet( exprV );
         else if ( exprV->getType()->isPointerTy() && exprV->getType()->getPointerElementType() == expectedT ) {
             LOG_DEBUG( context.LOGGER(),
                        "auto-loading return value type " << ::to_string(exprV->getType()) << "  to expected  " << ::to_string(expectedT) );
-            return scope->builder->CreateRet( scope->builder->CreateLoad( exprV ) );
+            scope->builder->CreateRet( scope->builder->CreateLoad( exprV ) );
         }
         else {
             LOG( context.LOGGER(), ERROR,
                  "Mismatching return value type: " << ::to_string(exprV->getType()) << " is not as expected " << ::to_string(expectedT) );
-            return scope->builder->CreateRet( exprV );
+            scope->builder->CreateRet( exprV );
         }
     }
     else
-        return scope->builder->CreateRetVoid();
+        scope->builder->CreateRetVoid();
 }
 
-Value* TxBreakStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxBreakStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return scope->builder->CreateBr( scope->compStmtStack.top()->breakBlock );
+    scope->builder->CreateBr( scope->compStmtStack.top()->breakBlock );
 }
 
-Value* TxContinueStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxContinueStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return scope->builder->CreateBr( scope->compStmtStack.top()->continueBlock );
+    scope->builder->CreateBr( scope->compStmtStack.top()->continueBlock );
 }
