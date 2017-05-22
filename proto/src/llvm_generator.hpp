@@ -61,14 +61,14 @@ class LlvmGenerationContext {
 
 public:
     TxPackage& tuplexPackage;
-
     llvm::LLVMContext& llvmContext;
+
     llvm::Module llvmModule;
     llvm::DataLayout dataLayout;
 
-    LlvmGenerationContext( TxPackage& tuplexPackage )
+    LlvmGenerationContext( TxPackage& tuplexPackage, llvm::LLVMContext& llvmContext )
             : tuplexPackage( tuplexPackage ),
-              llvmContext( llvm::getGlobalContext() ),
+              llvmContext( llvmContext ),
               llvmModule( "top", this->llvmContext ),
               dataLayout( &llvmModule )
     {

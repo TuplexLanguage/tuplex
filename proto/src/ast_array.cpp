@@ -106,12 +106,12 @@ void TxArrayLitNode::symbol_resolution_pass() {
     if ( this->lengthExpr ) {
         this->lengthExpr->symbol_resolution_pass();
 
-        if ( auto constProxy = this->lengthExpr->get_static_constant_proxy() ) {
+        if ( this->lengthExpr->is_statically_constant() ) {
             if ( this->elemExprList->size() == 1 && this->elemExprList->front()->get_type()->is_assignable_to( *this->get_type() ) ) {
                 // array to array assignment
             }
-            else if ( constProxy->get_value_UInt() != this->elemExprList->size() )
-                CERROR( this, "length expression of array literal equals " << constProxy->get_value_UInt()
+            else if ( eval_UInt_constant( this->lengthExpr ) != this->elemExprList->size() )
+                CERROR( this, "length expression of array literal equals " << eval_UInt_constant( this->lengthExpr )
                         << ", but number of elements is " << this->elemExprList->size() );
         }
         else  // TODO: support dynamic array literals (which requires supporting partially filled arrays)

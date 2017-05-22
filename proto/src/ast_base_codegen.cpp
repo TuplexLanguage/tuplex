@@ -33,8 +33,13 @@ Value* TxModuleNode::code_gen( LlvmGenerationContext& context, GenScope* scope )
 
 Value* TxTypeDeclNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    if ( !this->typeExpression->get_type()->type()->has_type_id() ) {
-        LOG_DEBUG( context.LOGGER(), "Skipping codegen for AST of type without static type id: " << this->typeExpression << " : " << this->typeExpression->get_type() );
+    if ( this->context().exp_error() ) {
+        LOG_DEBUG( this->LOGGER(), "Skipping codegen for AST of type with ExpErr context: " << this->typeExpression->get_type() );
+        return nullptr;
+    }
+    if ( this->context().is_generic() ) {
+        LOG_DEBUG( context.LOGGER(), "Skipping codegen for AST of generic-dependent type: "
+                   << this->typeExpression << " : " << this->typeExpression->get_type() );
         // Note that this skips codegen for the entire AST of all generic-dependent types,
         // which means none of their members are generated, including any statically declared inner/local types.
         // FUTURE: Evaluate capability for generic types to have global static members (e.g. inner types independent of the outer type parameters).
@@ -50,11 +55,8 @@ static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, GenS
     Constant* constantInitializer = nullptr;
     if ( field->initExpression ) {
         if ( field->initExpression->is_statically_constant() ) {
-            auto initValue = field->initExpression->code_gen( context, scope );
-            constantInitializer = dyn_cast_or_null<Constant>( initValue );
-            if ( !constantInitializer )
-                LOG( context.LOGGER(), ERROR, "Global field " << uniqueName << " initializer is not constant: " << to_string(initValue) );
-            else if ( is_complex_pointer( constantInitializer->getType() ) ) {
+            constantInitializer = field->initExpression->code_gen_constant( context.llvmContext );
+            if ( is_complex_pointer( constantInitializer->getType() ) ) {
                 context.LOGGER()->note( "Global field %s with complex ptr constant initializer", uniqueName.c_str() );
                 // TODO: review and perhaps remove/refactor
                 ASSERT( !context.llvmModule.getNamedGlobal( uniqueName ),
@@ -63,9 +65,6 @@ static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, GenS
                                             uniqueName,
                                             constantInitializer, &context.llvmModule );
             }
-//            else if (auto constantInitExpr = dyn_cast_or_null<ConstantExpr>(initValue)) {
-//                std::cerr << "It's a constant expression: " << constantInitExpr << std::endl;
-//            }
         }
         else
             LOG( context.LOGGER(), ERROR, "Global/static constant field " << uniqueName << " initializer is not a constant expression" );

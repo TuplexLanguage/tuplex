@@ -56,10 +56,10 @@ square( a : Int )->Int {
 
 ## initializer recursion:
 #experr 1: REC3 : Int = REC4;
-#experr 0: REC4 : Int = REC3;
+#experr 1: REC4 : Int = REC3;
 
 #experr 1: REC5 := REC6;
-#experr 0: REC6 : Int = REC5;
+#experr 1: REC6 : Int = REC5;
 
 #experr 1: REC7 : Int = REC8;
 #experr 0: REC8 := REC7;
@@ -73,10 +73,10 @@ type Compound {
     #experr 0: static RECB := RECA;
 
     #experr 1: static RECC : Int = RECD;
-    #experr 0: static RECD : Int = RECC;
+    #experr 1: static RECD : Int = RECC;
 
     #experr 1: static RECE := RECF;
-    #experr 0: static RECF : Int = RECE;
+    #experr 1: static RECF : Int = RECE;
 
     #experr 1: static RECG : Int = RECH;
     #experr 0: static RECH := RECG;

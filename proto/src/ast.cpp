@@ -150,42 +150,78 @@ const TxField* TxFieldDefiningNode::resolve_field() {
 }
 
 
+const TxType* TxFieldDefNode::define_type() {
+    LOG_TRACE( this->LOGGER(), "defining  type  of " << this );
+    const TxType* type;
+    if ( this->typeExpression ) {
+        type = this->typeExpression->resolve_type();
+        // also resolve initExpression from here, which guards against recursive field value initialization:
+        if ( this->initExpression ) {
+            auto nonModType = ( type->is_modifiable() ? type->get_base_type() : type );  // rvalue doesn't need to be modifiable
+            this->initExpression->insert_conversion( nonModType );
+            try {
+                this->initExpression->resolve_type();
+            }
+            catch ( const resolution_error& err ) {
+                // by catching here, we allow the field to be created without initializer, reducing follow-on errors
+                LOG_DEBUG(this->LOGGER(), "Caught field initializer expression resolution error in " << this << ": " << err);
+            }
+        }
+    }
+    else {
+        type = this->initExpression->resolve_type();
+        if ( this->modifiable ) {
+            if ( !type->is_modifiable() )
+                type = this->registry().get_modifiable_type( nullptr, type );
+        }
+        else if ( type->is_modifiable() )
+            // if initialization expression is modifiable type, and modifiable not explicitly specified,
+            // lose modifiable attribute (modifiability must be explicit)
+            type = type->get_base_type();
+    }
+    return type;
+}
 
-//void TxFieldDefNode::declaration_pass() {
-//    this->set_context( lexContext );
-//    if ( this->typeExpression )
-//        this->typeExpression->symbol_declaration_pass( lexContext );
-//    if ( this->initExpression )
-//        this->initExpression->symbol_declaration_pass( lexContext );
-//}
-//
-//void TxFieldDefNode::symbol_declaration_pass_local_field( const LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
-//    this->declaration = lexContext.scope()->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
-//    this->symbol_declaration_pass( lexContext );
-//}
-//
-//void TxFieldDefNode::symbol_declaration_pass_local_scoped_field( const LexicalContext& lexContext, TxDeclarationFlags declFlags ) {
-//    this->declaration = lexContext.scope()->declare_field( this->fieldName->str(), this, declFlags, TXS_STACK, TxIdentifier( "" ) );
-//    // to prevent init expr from referring to this field, it is processed in the outer scope:
-//    LexicalContext outerCtx(lexContext, lexContext.scope()->get_outer());
-//    this->symbol_declaration_pass( outerCtx );
-//}
-//
-//void TxFieldDefNode::symbol_declaration_pass_nonlocal_field( const LexicalContext& lexContext, TxFieldDeclNode* fieldDeclNode, TxDeclarationFlags declFlags,
-//                                                             TxFieldStorage storage, const TxIdentifier& dataspace ) {
-//    TxDeclarationFlags fieldFlags = declFlags;
-//    std::string declName = this->fieldName->str();
-//    if ( *this->fieldName == "self" ) {
-//        // handle constructor declaration
-//        declName = CONSTR_IDENT;
-//        fieldFlags = fieldFlags | TXD_CONSTRUCTOR;
-//        if ( storage != TXS_INSTANCEMETHOD )
-//            CERROR( this, "Illegal declaration name for non-constructor member: " << this->fieldName );
-//    }
-//
-//    this->declaration = lexContext.scope()->declare_field( declName, this, fieldFlags, storage, dataspace );
-//    this->symbol_declaration_pass( lexContext, declFlags );
-//}
+const TxField* TxFieldDefNode::define_field() {
+    LOG_TRACE( this->LOGGER(), "defining  field of " << this );
+    // FUTURE: consider if EXPERR decls shouldn't get their field created
+    return TxField::make_field( this->declaration, this->attempt_get_type() );
+}
+
+void TxFieldDefNode::symbol_resolution_pass() {
+    auto field = this->resolve_field();
+    if ( this->initExpression ) {
+        if ( this->typeExpression ) {
+            this->typeExpression->symbol_resolution_pass();
+        }
+        this->initExpression->symbol_resolution_pass();
+
+        auto storage = field->get_storage();
+        if ( storage == TXS_GLOBAL
+             || ( ( storage == TXS_STATIC || storage == TXS_VIRTUAL )
+                  && !field->get_type()->is_modifiable() ) ) {
+            // field is expected to have a statically constant initializer
+            // (Note: When static initializers in types are supported, static/virtual fields' initialization may be deferred.)
+            if ( !this->initExpression->is_statically_constant() )
+                CERROR( this, "Non-constant initializer for constant global/static/virtual field " << this->fieldName );
+        }
+    }
+    else {  // if initExpression is null then typeExpression is set
+        this->typeExpression->symbol_resolution_pass();
+    }
+
+    if ( !field->get_type()->is_concrete() ) {
+        if ( !this->context().is_generic() )
+            CERROR( this, "Field type is not concrete: "
+                    << this->get_identifier() << " : " << field->get_type() );
+        else
+            LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Field type is not concrete: "
+                       << this->get_identifier() << " : " << field->get_type() );
+    }
+    if ( this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR ) {
+        // TODO: check that constructor function type has void return value
+    }
+}
 
 
 void TxFieldDeclNode::declaration_pass() {
@@ -839,7 +875,8 @@ static const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, 
                 }
                 else if ( ( fixedArrayArgType = field->get_type()->fixed_array_arg_type() ) ) {
                     // fixed array parameter accepts matching number of arguments
-                    auto len = static_cast<const TxArrayType*>( fixedArrayArgType->type() )->length()->get_static_constant_proxy()->get_value_UInt();
+                    auto lenExpr = static_cast<const TxArrayType*>( fixedArrayArgType->type() )->length();
+                    auto len = eval_UInt_constant( lenExpr );
                     if ( !( arguments->size() == 1 || arguments->size() == len ) )
                         continue;  // mismatching number of function args
                     arrayArgElemType = fixedArrayArgType->element_type();

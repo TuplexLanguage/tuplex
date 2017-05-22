@@ -13,7 +13,7 @@
 
 enum BuiltinTypeId
     : uint32_t {
-        TXBT_ANY,
+    TXBT_ANY,
     TXBT_VOID,
     TXBT_INTERFACE,
     TXBT_ELEMENTARY,
@@ -43,3 +43,38 @@ enum BuiltinTypeId
 };
 
 const BuiltinTypeId ARRAY_SUBSCRIPT_TYPE_ID = TXBT_UINT;
+
+inline bool is_concrete_uinteger_type( BuiltinTypeId id ) {
+    switch( id ) {
+    case TXBT_UBYTE:
+    case TXBT_USHORT:
+    case TXBT_UINT:
+    case TXBT_ULONG:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool is_concrete_sinteger_type( BuiltinTypeId id ) {
+    switch( id ) {
+    case TXBT_BYTE:
+    case TXBT_SHORT:
+    case TXBT_INT:
+    case TXBT_LONG:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool is_concrete_floating_type( BuiltinTypeId id ) {
+    switch( id ) {
+    case TXBT_HALF:
+    case TXBT_FLOAT:
+    case TXBT_DOUBLE:
+        return true;
+    default:
+        return false;
+    }
+}

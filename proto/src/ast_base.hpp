@@ -55,25 +55,6 @@ bool validateFieldName( TxNode* node, const std::string& name );
  */
 int get_reinterpretation_degree( const TxType *expectedType, const TxType* providedType );
 
-/** Represents a value that can be statically computed (in compile time). */
-class TxConstantProxy {
-public:
-    virtual ~TxConstantProxy() = default;
-
-    /** Gets the TxType instance representing the type of the constant. */
-    virtual const TxType* get_type() const = 0;
-
-    virtual uint32_t get_value_UInt() const = 0;
-
-    virtual llvm::Constant* code_gen( LlvmGenerationContext& context, GenScope* scope ) const = 0;
-
-    virtual bool operator==( const TxConstantProxy& other ) const;
-
-    inline virtual bool operator!=( const TxConstantProxy& other ) const final {
-        return !this->operator==( other );
-    }
-};
-
 struct AstCursor {
     const AstCursor* parent;
     const TxNode* node;

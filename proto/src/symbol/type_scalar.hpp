@@ -41,6 +41,11 @@ public:
     inline virtual bool operator==( const TxActualType& other ) const override final {
         return ( this == &other );
     }
+
+    /** This is legal to invoke during analysis passes. It is used for constant expression evaluation. */
+    virtual llvm::Type* get_scalar_llvm_type( llvm::LLVMContext& context ) const = 0;
+
+    virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override final;
 };
 
 class TxIntegerType final : public TxScalarType {
@@ -67,14 +72,6 @@ public:
         return this->sign;
     }
 
-    virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
-
-//    inline virtual bool operator==(const TxActualType& other) const override {
-//        return (typeid(*this) == typeid(other)
-//                && this->sign == ((TxIntegerType&)other).sign
-//                && this->_size == ((TxIntegerType&)other)._size);
-//    }
-
     virtual bool auto_converts_to( const TxActualType& destination ) const override {
         if ( const TxIntegerType* destInt = dynamic_cast<const TxIntegerType*>( &destination ) ) {
             if ( this->sign == destInt->sign )
@@ -84,6 +81,8 @@ public:
         }
         return false;
     }
+
+    virtual llvm::Type* get_scalar_llvm_type( llvm::LLVMContext& context ) const override;
 };
 
 class TxFloatingType final : public TxScalarType {
@@ -102,16 +101,11 @@ public:
             : TxScalarType( declaration, baseTypeSpec, interfaces, size ) {
     }
 
-    virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
-
-//    virtual bool operator==(const TxActualType& other) const override {
-//        return (typeid(*this) == typeid(other)
-//                && this->_size == ((TxFloatingType&)other)._size);
-//    }
-
     virtual bool auto_converts_to( const TxActualType& destination ) const override {
         if ( const TxFloatingType* destFloat = dynamic_cast<const TxFloatingType*>( &destination ) )
             return this->_size <= destFloat->_size;
         return false;
     }
+
+    virtual llvm::Type* get_scalar_llvm_type( llvm::LLVMContext& context ) const override;
 };

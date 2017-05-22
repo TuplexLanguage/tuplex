@@ -64,9 +64,11 @@ public:
     }
 
     virtual bool is_statically_constant() const override {
+        // FUTURE: support array constant proxy (requires element llvm type generation before llvm pass)
         return this->_constant;
     }
 
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 

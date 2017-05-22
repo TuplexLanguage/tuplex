@@ -38,12 +38,12 @@ public:
         return this->exprNode->is_statically_constant();
     }
 
-    virtual const TxConstantProxy* get_static_constant_proxy() const {
-        return this->exprNode->get_static_constant_proxy();
-    }
-
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
         return this->exprNode->code_gen( context, scope );
+    }
+
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const {
+        return this->exprNode->code_gen_constant( llvmContext );
     }
 
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {

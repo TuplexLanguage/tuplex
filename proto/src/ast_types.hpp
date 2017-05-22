@@ -178,8 +178,8 @@ public:
     }
 
     virtual std::string get_auto_type_name() const override {
-        if ( auto bindingValueProxy = this->valueExprNode->get_static_constant_proxy() ) {
-            uint32_t bindingValue = bindingValueProxy->get_value_UInt();
+        if ( this->valueExprNode->is_statically_constant() ) {
+            uint32_t bindingValue = eval_UInt_constant( this->valueExprNode );
             return std::to_string( bindingValue );  // statically known value
         }
         else {
@@ -337,8 +337,11 @@ class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
 
 protected:
     virtual const TxType* define_type() override {
-        if ( this->lengthNode )
+        if ( this->lengthNode ) {
+            static_cast<TxMaybeConversionNode*>(this->lengthNode->valueExprNode)->insert_conversion(
+                    this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
             return this->registry().get_array_type( this, this->elementTypeNode, this->lengthNode, this->requires_mutable_type() );
+        }
         else
             return this->registry().get_array_type( this, this->elementTypeNode, this->requires_mutable_type() );
     }
@@ -349,7 +352,7 @@ public:
 
     TxArrayTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* lengthExpr = nullptr )
             : TxArrayTypeNode( parseLocation, new TxTypeTypeArgumentNode( elementType ),
-                               ( lengthExpr ? new TxValueTypeArgumentNode( lengthExpr ) : nullptr ) ) {
+                               ( lengthExpr ? new TxValueTypeArgumentNode( new TxMaybeConversionNode( lengthExpr ) ) : nullptr ) ) {
     }
 
     virtual TxArrayTypeNode* make_ast_copy() const override {
@@ -369,8 +372,6 @@ public:
         this->elementTypeNode->symbol_resolution_pass();
         if ( this->lengthNode ) {
             this->lengthNode->symbol_resolution_pass();
-            //if (! this->lengthNode->valueExprNode->is_statically_constant())
-            //    CERROR(this, "Non-constant array length specifier not yet supported.");
         }
         auto elemType = this->elementTypeNode->typeExprNode->get_type();
         if ( !elemType->is_concrete() ) {

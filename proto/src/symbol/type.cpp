@@ -6,12 +6,6 @@
 #include "ast.hpp"
 #include "entity.hpp"
 
-bool TxConstantProxy::operator==( const TxConstantProxy& other ) const {
-    // simple since we so far only support UInt values
-    // FUTURE: improve as more value getters added (note that auto-conversion needs to be supported)
-    return this->get_value_UInt() == other.get_value_UInt();
-}
-
 bool DataTupleDefinition::add_interface_fields( const DataTupleDefinition& interfaceFields ) {
     bool added = false;
     for ( auto & f : interfaceFields.fields ) {
@@ -793,33 +787,33 @@ bool TxActualType::inner_equals( const TxActualType* thatType ) const {
             auto thisBinds = this->get_bindings();
             auto thatBinds = thatType->get_bindings();
             if ( thisBinds.size() == thatBinds.size() ) {
-                if ( thisBinds.size() == 0 )
+                if ( thisBinds.size() == 0 ) {
+//                    std::cerr << "Unexpected structural equality between types with no bindings: "
+//                              << "\n\tthis: " << this << "\n\tthat: " << thatType << std::endl;
                     return true;
-                bool eq = std::equal( thisBinds.cbegin(),
-                                      thisBinds.cend(),
-                                      thatBinds.cbegin(),
-                                      [](const TxEntityDeclaration* aEntDecl, const TxEntityDeclaration* bEntDecl)->bool {
-                                          if (dynamic_cast<const TxTypeDeclaration*>( aEntDecl )) {
-                                              //std::cerr << "### comparing bindings.. " << aEntDecl->get_definer()->resolve_type()->type()->str(false) << std::endl
-                                              //          << "                         " << bEntDecl->get_definer()->resolve_type()->type()->str(false) << std::endl;
+                }
+                bool eq = std::equal( thisBinds.cbegin(), thisBinds.cend(), thatBinds.cbegin(),
+                                      [this, thatType] ( const TxEntityDeclaration* aEntDecl, const TxEntityDeclaration* bEntDecl )->bool {
+                    if (dynamic_cast<const TxTypeDeclaration*>( aEntDecl )) {
+                        //std::cerr << "### comparing bindings.. " << aEntDecl->get_definer()->resolve_type()->type()->str(false) << std::endl
+                        //          << "                         " << bEntDecl->get_definer()->resolve_type()->type()->str(false) << std::endl;
                         return ( aEntDecl->get_definer()->resolve_type()->type() == bEntDecl->get_definer()->resolve_type()->type() );
                     }
                     else if (auto aInitExpr = static_cast<const TxFieldDeclaration*>( aEntDecl )->get_definer()->get_init_expression()) {
                         if (auto bInitExpr = static_cast<const TxFieldDeclaration*>( bEntDecl )->get_definer()->get_init_expression()) {
-                            if (auto aConstProxy = aInitExpr->get_static_constant_proxy()) {
-                                if (auto bConstProxy = bInitExpr->get_static_constant_proxy())
-                                return ( *aConstProxy == *bConstProxy );
+                            if ( aInitExpr->is_statically_constant() && bInitExpr->is_statically_constant() ) {
+                                return true;
                             }
                         }
                     }
                     return false;  // to be regarded equal, both VALUE parameter bindings must have statically known, equal value
-                    } );
-//               if (eq)
-//                   std::cerr << "### structurally EQUAL:    " << this << std::endl
-//                             << "                           " << otherType << std::endl;
-//               else
-//                   std::cerr << "### structurally UNEQUAL:  " << this->str(false) << std::endl
-//                             << "                           " << otherType.str(false) << std::endl;
+                } );
+//                if (eq)
+//                    std::cerr << "### structurally EQUAL:    " << this << std::endl
+//                              << "                           " << thatType << std::endl;
+//                else
+//                    std::cerr << "### structurally UNEQUAL:  " << this->str(false) << std::endl
+//                              << "                           " << thatType->str(false) << std::endl;
                 return eq;
             }
         }
@@ -996,9 +990,10 @@ static void type_bindings_string( std::stringstream& str, const std::vector<cons
             str << ",";
         if ( auto valB = dynamic_cast<const TxFieldDeclaration*>( b ) ) {
             if ( auto initializer = valB->get_definer()->get_init_expression() ) {
-                if ( auto constantValueProxy = initializer->get_static_constant_proxy() ) {
+                if ( initializer->is_statically_constant() ) {
                     // existing binding has statically constant value
-                    str << constantValueProxy->get_value_UInt();
+                    // TODO: handle constants of different types
+                    str << eval_UInt_constant( initializer );
                     continue;
                 }
             }
@@ -1064,14 +1059,6 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
 
 /*=== ArrayType and ReferenceType implementation ===*/
 
-//bool TxArrayType::is_static() const {
-//    // Array elements, if bound, are always concrete. If statically known length, return true:
-//    if ( auto len = this->length() ) {
-//        return len->is_statically_constant();
-//    }
-//    return false;
-//}
-
 static bool array_assignable_from( const TxArrayType* toArray, const TxArrayType* fromArray ) {
     // if origin has unbound type params that destination does not, origin is more generic and can't be assigned to destination
     if ( auto toElem = toArray->element_type() ) {
@@ -1083,10 +1070,10 @@ static bool array_assignable_from( const TxArrayType* toArray, const TxArrayType
         else
             return false;  // origin has not bound E
     }
-    if ( auto len = toArray->length() ) {
-        if ( auto otherLen = fromArray->length() ) {
-            return ( len->get_static_constant_proxy() && otherLen->get_static_constant_proxy()
-                     && *len->get_static_constant_proxy() == *otherLen->get_static_constant_proxy() );
+    if ( auto lenExpr = toArray->length() ) {
+        if ( auto otherLenExpr = fromArray->length() ) {
+            return ( lenExpr->is_statically_constant() && otherLenExpr->is_statically_constant()
+                     && eval_UInt_constant( lenExpr ) == eval_UInt_constant( otherLenExpr ) );
         }
         else
             return false;  // origin has not bound L
@@ -1132,8 +1119,8 @@ bool TxReferenceType::is_assignable_to( const TxActualType& destination ) const 
 //    if (! (this->get_declaration()->get_decl_flags() & ( TXD_IMPLICIT ) ))
 //        str << this->get_declaration()->get_unique_full_name() << " : ";
 //    if (auto len = this->length()) {
-//        if (auto stat = len->get_static_constant_proxy())
-//            str << "[" << stat->get_value_UInt() << "] ";
+//        if ( len->is_statically_constant() )
+//            str << "[" << eval_UInt_constant( len ) << "] ";
 //        else
 //            str << "[?] ";
 //    }
@@ -1252,7 +1239,7 @@ const TxArrayType* TxFunctionType::fixed_array_arg_type() const {
         if ( argType->get_type_class() == TXTC_ARRAY ) {
             auto arrayType = static_cast<const TxArrayType*>( argType );
             if ( auto lenExpr = arrayType->length() ) {
-                if ( lenExpr->get_static_constant_proxy() ) {
+                if ( lenExpr->is_statically_constant() ) {
                     return arrayType;
                 }
             }

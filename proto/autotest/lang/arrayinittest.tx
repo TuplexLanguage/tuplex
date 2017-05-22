@@ -34,8 +34,8 @@ array_stack_construction( i : UByte ) {
     #experr 1: ae := [2]Int( 1, 2, 3 );
     #experr 1: ae := [4]Int( 1, 2, 3 );
     #experr 1: ae := [0]Int( 1, 2, 3 );
-    #experr 3: ae := [-1]Int( 1, 2, 3 );
-    #experr 3: ae := [2.5]Int( 1, 2, 3 );
+    #experr 1: ae := [-1]Int( 1, 2, 3 );
+    #experr 1: ae := [2.5]Int( 1, 2, 3 );
     #experr 1: ae := [i]Int( 1, 2, 3 );
 
     ## explicit array type (fully specified or with implicit length) with object initializer:
@@ -113,8 +113,8 @@ array_new_construction( i : UByte ) {
     #experr 1: ae := new [2]Int( 1, 2, 3 );
     #experr 1: ae := new [4]Int( 1, 2, 3 );
     #experr 1: ae := new [0]Int( 1, 2, 3 );
-    #experr 2: ae := new [-1]Int( 1, 2, 3 );
-    #experr 2: ae := new [2.5]Int( 1, 2, 3 );
+    #experr 1: ae := new [-1]Int( 1, 2, 3 );
+    #experr 1: ae := new [2.5]Int( 1, 2, 3 );
     #experr 1: ae := new [i]Int( 1, 2, 3 );
 
     ## explicit array type (fully specified or with implicit length) with object initializer:

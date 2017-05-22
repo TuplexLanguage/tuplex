@@ -142,12 +142,13 @@ public:
 
     virtual void symbol_resolution_pass() override;
 
-    /** Returns true if this expression is a constant expression that can be evaluated at compile time. */
     virtual bool is_statically_constant() const override {
-        return !this->is_instance_method();
+        // FUTURE: is this true for local closures?
+        return true;
     }
 
-    llvm::Function* code_gen_forward_decl( LlvmGenerationContext& context, GenScope* scope ) const;
+    llvm::Function* code_gen_forward_decl( LlvmGenerationContext& context ) const;
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {

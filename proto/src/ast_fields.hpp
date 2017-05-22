@@ -40,8 +40,6 @@ public:
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         // not invoking baseExpr->symbol_resolution_pass() since that is only done via define_type()
-        //if (this->baseExpr)
-        //    this->baseExpr->symbol_resolution_pass(six);
         if ( auto typeDecl = dynamic_cast<const TxTypeDeclaration*>( this->declaration ) )
             CERROR( this, "'" << get_full_identifier() << "' resolved to a type, not a field: " << typeDecl );
     }
@@ -54,29 +52,9 @@ public:
             }
         }
         return this->baseExpr;
-//        if ( auto field = this->get_field() ) {
-//            if ( is_link_mutable( field->get_type() ) ) {
-//                if ( this->baseExpr ) {
-//                    return this->baseExpr->is_chain_mutable();
-//                }
-//                return true;
-//            }
-//            return false;
-//        }
-//        else
-//            return bool( this->symbol );
-    }
-
-    virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        if ( auto field = this->get_field() )
-            if ( auto constProxy = field->get_static_constant_proxy() ) {
-                return constProxy;
-            }
-        return nullptr;
     }
 
     virtual bool is_statically_constant() const override {
-        //std::cerr << "is_statically_constant() in " << this << std::endl;
         if ( auto field = this->get_field() )
             return field->is_statically_constant();
         return false;
@@ -90,7 +68,8 @@ public:
         return dynamic_cast<const TxFieldDeclaration*>( this->declaration );
     }
 
-    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope /*, bool foldStatics=false */) const override;
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
+    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {

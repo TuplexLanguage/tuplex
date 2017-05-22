@@ -12,6 +12,10 @@
 #include "identifier.hpp"
 #include "tx_error.hpp"
 
+namespace llvm {
+class LLVMContext;
+}
+
 namespace yy {
 class location;
 }
@@ -20,6 +24,7 @@ class TxNode;
 class TxParsingUnitNode;
 class TxFieldDeclNode;
 class TxParserContext;
+class LlvmGenerationContext;
 
 /** Represents Tuplex compilation run-time options. */
 class TxOptions {
@@ -55,6 +60,12 @@ class TxDriver {
     /** the currently compiled tuplex package */
     TxPackage* package = nullptr;
 
+    // Note, may only be used for constant evaluation before code generation pass:
+    llvm::LLVMContext* llvmContext = nullptr;
+
+    // not set before code generation pass:
+    LlvmGenerationContext* genContext = nullptr;
+
     /** number of compilation errors */
     int error_count = 0;
     /** number of compilation warnings */
@@ -69,8 +80,6 @@ class TxDriver {
     /** The source files already parsed.
      * The value is the top level root node of the AST. */
     std::unordered_map<std::string, TxParsingUnitNode*> parsedSourceFiles;
-
-    std::vector<TxFieldDeclNode*> usageOrderedNonlocalFieldDecls;
 
     // Handling the scanner.
     int scan_begin( const std::string &filePath );
@@ -109,6 +118,11 @@ public:
         return this->options;
     }
 
+    inline LlvmGenerationContext* get_llvm_gen_context() const {
+        ASSERT( this->genContext, "Can't get LlvmGenerationContext before code generation pass" );
+        return this->genContext;
+    }
+
     /** Compile this Tuplex package. May only be called once.
      * Return values:
      * 0 upon success
@@ -118,8 +132,6 @@ public:
      * @return 0 on success
      */
     int compile( const std::vector<std::string>& startSourceFiles, const std::string& outputFileName );
-
-    void register_nonlocal_field_usage( TxFieldDeclNode* fieldDeclNode );
 };
 
 /** Represents the processing of a parsing unit.
@@ -161,6 +173,12 @@ public:
 
     TxDriver& driver() const {
         return this->_driver;
+    }
+
+    /** Returns the LLVMContext for this parser context. Can be used in constant expression evaluation during analysis. */
+    llvm::LLVMContext& llvm_context() const {
+        // Note: LLVMContext are to be unique per thread, so if we in future use one ParserContext per thread each will have its own.
+        return *this->_driver.llvmContext;
     }
 
     /** Returns true if this parser context is for the internally coded built-in constructs (lacking actual source code). */

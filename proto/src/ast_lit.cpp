@@ -4,7 +4,7 @@
 #include "ast_lit.hpp"
 #include "ast_types.hpp"
 
-bool is_signed_out_of_range( const int64_t i64, const BuiltinTypeId typeId ) {
+static bool is_signed_out_of_range( const int64_t i64, const BuiltinTypeId typeId ) {
     switch ( typeId ) {
     case TXBT_BYTE:
         return ( i64 < INT8_MIN || i64 > INT8_MAX );
@@ -20,7 +20,7 @@ bool is_signed_out_of_range( const int64_t i64, const BuiltinTypeId typeId ) {
     }
 }
 
-bool is_unsigned_out_of_range( const uint64_t u64, const BuiltinTypeId typeId ) {
+static bool is_unsigned_out_of_range( const uint64_t u64, const BuiltinTypeId typeId ) {
     switch ( typeId ) {
     case TXBT_UBYTE:
         return ( u64 > UINT8_MAX );
@@ -44,10 +44,11 @@ inline std::string strip_ignored_chars( const std::string input ) {
 }
 
 static const BuiltinTypeId inttypeids[] = { TXBT_BYTE, TXBT_SHORT, TXBT_INT, TXBT_LONG, TXBT_UBYTE, TXBT_USHORT, TXBT_UINT, TXBT_ULONG };
-static const BuiltinTypeId uinttypeids[] = { TXBT_UBYTE, TXBT_USHORT, TXBT_UINT, TXBT_ULONG };
 static const BuiltinTypeId sinttypeids[] = { TXBT_BYTE, TXBT_SHORT, TXBT_INT, TXBT_LONG };
+static const BuiltinTypeId uinttypeids[] = { TXBT_UBYTE, TXBT_USHORT, TXBT_UINT, TXBT_ULONG };
 
-IntValue::IntValue( const std::string& sourceLiteral, bool hasRadix, BuiltinTypeId typeId ) {
+IntConstant::IntConstant( TxTypeDefiningNode* node, const std::string& sourceLiteral, bool hasRadix, BuiltinTypeId typeId )
+    : node( node ) {
     char* pEnd;
 
     // pre-parse value string:
@@ -157,7 +158,8 @@ IntValue::IntValue( const std::string& sourceLiteral, bool hasRadix, BuiltinType
     }
 }
 
-IntValue::IntValue( int64_t i64value, BuiltinTypeId typeId, bool _signed ) {
+IntConstant::IntConstant( TxTypeDefiningNode* node, int64_t i64value, BuiltinTypeId typeId, bool _signed )
+    : node( node ) {
     this->_signed = _signed;
     if ( _signed ) {
         this->value.i64 = i64value;
@@ -185,7 +187,7 @@ IntValue::IntValue( int64_t i64value, BuiltinTypeId typeId, bool _signed ) {
     }
 }
 
-void IntValue::init_unsigned( uint64_t u64value, BuiltinTypeId typeId ) {
+void IntConstant::init_unsigned( uint64_t u64value, BuiltinTypeId typeId ) {
     value.u64 = u64value;
     _signed = false;
     if ( typeId ) {
@@ -206,16 +208,12 @@ void IntValue::init_unsigned( uint64_t u64value, BuiltinTypeId typeId ) {
     }
 }
 
-uint32_t IntValue::get_value_UInt() const {
-    if ( this->_signed ) {
-        if ( this->value.i64 >= 0 && this->value.i64 <= UINT32_MAX )
-            return static_cast<uint32_t>( this->value.i64 );
-    }
-    else {
-        if ( this->value.u64 <= UINT32_MAX )
-            return static_cast<uint32_t>( this->value.u64 );
-    }
-    throw std::range_error( "Value of constant integer is not within range of type UInt" );
+void TxIntegerLitNode::declaration_pass() {
+    if ( this->constValue.radix < 2 || this->constValue.radix > 36 )
+        CERROR( this, "Radix outside valid range [2,36]: " << this->constValue.radix );
+    else if ( this->constValue.outOfRange )
+        CERROR( this,
+                "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->registry().get_builtin_type(this->constValue.typeId) );
 }
 
 TxTypeExpressionNode* TxCStringLitNode::make_cstring_type_expr( const TxLocation& parseLocation, const std::string& literal ) {

@@ -165,7 +165,7 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
 /* Compile the AST into a module */
 
 void LlvmGenerationContext::generate_function_declaration( const TxLambdaExprNode* lambdaNode ) {
-    lambdaNode->code_gen_forward_decl( *this, nullptr );  // (global/static scope has no block)
+    lambdaNode->code_gen_forward_decl( *this );  // (global/static scope has no block)
 }
 
 void LlvmGenerationContext::generate_code( const TxNode* staticScopeNode ) {

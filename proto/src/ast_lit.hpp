@@ -2,27 +2,8 @@
 
 #include "ast_declbase.hpp"
 
-//bool is_signed_out_of_range(const int64_t i64, const BuiltinTypeId typeId);
-//
-//bool is_unsigned_out_of_range(const uint64_t u64, const BuiltinTypeId typeId);
-
-class TxLiteralValueNode : public TxExpressionNode {
-public:
-    TxLiteralValueNode( const TxLocation& parseLocation )
-            : TxExpressionNode( parseLocation ) {
-    }
-
-    virtual TxLiteralValueNode* make_ast_copy() const override = 0;
-
-    virtual bool is_statically_constant() const override final {
-        return true;
-    }
-
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-    }
-};
-
-class IntValue {
+class IntConstant {
+    TxTypeDefiningNode* node;
     void init_unsigned( uint64_t u64value, BuiltinTypeId typeId );
 
 public:
@@ -35,89 +16,76 @@ public:
         uint64_t u64;
     } value;
 
-    IntValue( const std::string& valueLiteral, bool hasRadix, BuiltinTypeId typeId = (BuiltinTypeId) 0 );
+    IntConstant( TxTypeDefiningNode* node, const std::string& valueLiteral, bool hasRadix, BuiltinTypeId typeId = (BuiltinTypeId) 0 );
 
-    IntValue( int64_t i64value, BuiltinTypeId typeId, bool _signed );
+    IntConstant( TxTypeDefiningNode* node, int64_t i64value, BuiltinTypeId typeId, bool _signed );
 
-//    IntValue(uint64_t u64value, BuiltinTypeId typeId) {
-//        this->init_unsigned(u64value, typeId);
+//    IntConstant( uint64_t u64value, BuiltinTypeId typeId ) {
+//        this->init_unsigned( u64value, typeId );
 //    }
 
-    uint32_t get_value_UInt() const;
+    TxTypeDefiningNode* get_node() const {
+        return this->node;
+    }
+
+    llvm::Constant* code_gen_constant( llvm::LLVMContext& context ) const;
 };
 
-class TxIntegerLitNode : public TxLiteralValueNode {
-    class IntConstantProxy : public TxConstantProxy {
-        TxIntegerLitNode* intNode;
-        public:
-        IntConstantProxy( TxIntegerLitNode* intNode )
-                : intNode( intNode ) {
-        }
-        virtual const TxType* get_type() const override {
-            return intNode->get_type();
-        }
-        virtual uint32_t get_value_UInt() const override {
-            return intNode->intValue.get_value_UInt();
-        }
-//        virtual bool operator==(const TxConstantProxy& other) const override {
-//            if (auto otherInt = dynamic_cast<const IntConstantProxy*>(&other)) {
-//                return ( intNode->intValue._signed == otherInt->intNode->intValue._signed
-//                         && intNode->intValue.value.u64 == otherInt->intNode->intValue.value.u64 );
-//            }
-//            else return false;
-//        }
-        virtual llvm::Constant* code_gen( LlvmGenerationContext& context, GenScope* scope ) const;
-    } intConstProxy;
+class TxLiteralElementaryValueNode : public TxExpressionNode {
+public:
+    TxLiteralElementaryValueNode( const TxLocation& parseLocation )
+            : TxExpressionNode( parseLocation ) {
+    }
 
-    IntValue intValue;
+    virtual TxLiteralElementaryValueNode* make_ast_copy() const override = 0;
+
+    virtual bool is_statically_constant() const override final {
+        return true;
+    }
+
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override = 0;
+
+    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override final;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override final {
+    }
+};
+
+class TxIntegerLitNode : public TxLiteralElementaryValueNode {
+    const IntConstant constValue;
     const std::string sourceLiteral;
 
     TxIntegerLitNode( const TxIntegerLitNode& orig )
-            : TxLiteralValueNode( orig.parseLocation ), intConstProxy( this ), intValue( orig.intValue ), sourceLiteral( orig.sourceLiteral ) {
+            : TxLiteralElementaryValueNode( orig.parseLocation ), constValue( orig.constValue ), sourceLiteral( orig.sourceLiteral ) {
     }
 
 protected:
-    virtual void declaration_pass() override {
-        if ( this->intValue.radix < 2 || this->intValue.radix > 36 )
-            CERROR( this, "Radix outside valid range [2,36]: " << this->intValue.radix );
-        else if ( this->intValue.outOfRange )
-            CERROR( this,
-                    "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->registry().get_builtin_type(this->intValue.typeId) );
-    }
+    virtual void declaration_pass() override;
 
     virtual const TxType* define_type() override {
-        return this->registry().get_builtin_type( this->intValue.typeId );
+        return this->registry().get_builtin_type( this->constValue.typeId );
     }
 
 public:
     TxIntegerLitNode( const TxLocation& parseLocation, const std::string& sourceLiteral, bool hasRadix )
-            : TxLiteralValueNode( parseLocation ), intConstProxy( this ),
-              intValue( sourceLiteral, hasRadix ),
-              sourceLiteral( sourceLiteral ) {
+            : TxLiteralElementaryValueNode( parseLocation ), constValue( this, sourceLiteral, hasRadix ), sourceLiteral( sourceLiteral ) {
     }
 
     TxIntegerLitNode( const TxLocation& parseLocation, int64_t i64value, bool _signed, BuiltinTypeId typeId = (BuiltinTypeId) 0 )
-            : TxLiteralValueNode( parseLocation ), intConstProxy( this ),
-              intValue( i64value, typeId, _signed ),
-              sourceLiteral( "" ) {
+            : TxLiteralElementaryValueNode( parseLocation ), constValue( this, i64value, typeId, _signed ),sourceLiteral( "" ) {
     }
 
 //    TxIntegerLitNode(const TxLocation& parseLocation, uint64_t u64value, BuiltinTypeId typeId=(BuiltinTypeId)0)
-//            : TxLiteralValueNode(parseLocation), intConstProxy(this),
-//              intValue(u64value, typeId), sourceLiteral("")  { }
+//            : TxLiteralValueNode(parseLocation), intValue(u64value, typeId), sourceLiteral("")  { }
 
     virtual TxIntegerLitNode* make_ast_copy() const override {
         return new TxIntegerLitNode( *this );
     }
 
-    virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        return &this->intConstProxy;
-    }
-
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
 };
 
-class TxFloatingLitNode : public TxLiteralValueNode {
+class TxFloatingLitNode : public TxLiteralElementaryValueNode {
     BuiltinTypeId typeId;
     const std::string literal;
     const double value;
@@ -129,22 +97,43 @@ protected:
 
 public:
     TxFloatingLitNode( const TxLocation& parseLocation, const std::string& literal )
-            : TxLiteralValueNode( parseLocation ), typeId( TXBT_FLOAT ), literal( literal ), value( atof( literal.c_str() ) ) {
+            : TxLiteralElementaryValueNode( parseLocation ), typeId( TXBT_FLOAT ), literal( literal ), value( atof( literal.c_str() ) ) {
         // TODO: produce different Floating types
     }
 
+    /** Creates a floating point literal value of zero. */
     TxFloatingLitNode( const TxLocation& parseLocation, BuiltinTypeId typeId = TXBT_FLOAT )
-            : TxLiteralValueNode( parseLocation ), typeId( typeId ), literal( "0" ), value( 0 ) {
+            : TxLiteralElementaryValueNode( parseLocation ), typeId( typeId ), literal( "0" ), value( 0 ) {
     }
 
     virtual TxFloatingLitNode* make_ast_copy() const override {
         return new TxFloatingLitNode( this->parseLocation, this->literal );
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
 };
 
-class TxCharacterLitNode : public TxLiteralValueNode {
+class TxBoolLitNode : public TxLiteralElementaryValueNode {
+protected:
+    virtual const TxType* define_type() override {
+        return this->registry().get_builtin_type( TXBT_BOOL );
+    }
+
+public:
+    const bool value;
+
+    TxBoolLitNode( const TxLocation& parseLocation, bool value )
+            : TxLiteralElementaryValueNode( parseLocation ), value( value ) {
+    }
+
+    virtual TxBoolLitNode* make_ast_copy() const override {
+        return new TxBoolLitNode( this->parseLocation, this->value );
+    }
+
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
+};
+
+class TxCharacterLitNode : public TxLiteralElementaryValueNode {
 protected:
     virtual const TxType* define_type() override {
         return this->registry().get_builtin_type( TXBT_UBYTE );
@@ -155,7 +144,7 @@ public:
     const char value;  // TODO: unicode support
 
     TxCharacterLitNode( const TxLocation& parseLocation, const std::string& literal )
-            : TxLiteralValueNode( parseLocation ), literal( literal ), value( literal.at( 1 ) ) {
+            : TxLiteralElementaryValueNode( parseLocation ), literal( literal ), value( literal.at( 1 ) ) {
     }
     // TODO: properly parse char literal
 
@@ -163,10 +152,10 @@ public:
         return new TxCharacterLitNode( this->parseLocation, this->literal );
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
 };
 
-class TxCStringLitNode : public TxLiteralValueNode {
+class TxCStringLitNode : public TxExpressionNode {
     const size_t arrayLength;  // note: array length includes the null terminator
     TxTypeExpressionNode* cstringTypeNode;  // implicit type definer
 
@@ -182,7 +171,7 @@ public:
     const std::string value;
 
     TxCStringLitNode( const TxLocation& parseLocation, const std::string& literal )
-            : TxLiteralValueNode( parseLocation ), arrayLength( literal.length() - 2 ),
+            : TxExpressionNode( parseLocation ), arrayLength( literal.length() - 2 ),
               cstringTypeNode( make_cstring_type_expr( parseLocation, literal ) ),
               literal( literal ), value( literal, 2, literal.length() - 3 ) {
     }
@@ -192,30 +181,15 @@ public:
         return new TxCStringLitNode( this->parseLocation, this->literal );
     }
 
+    virtual bool is_statically_constant() const override final {
+        return true;
+    }
+
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->cstringTypeNode->visit_ast( visitor, thisCursor, "cstrtype", context );
     }
-};
-
-class TxBoolLitNode : public TxLiteralValueNode {
-protected:
-    virtual const TxType* define_type() override {
-        return this->registry().get_builtin_type( TXBT_BOOL );
-    }
-
-public:
-    const bool value;
-
-    TxBoolLitNode( const TxLocation& parseLocation, bool value )
-            : TxLiteralValueNode( parseLocation ), value( value ) {
-    }
-
-    virtual TxBoolLitNode* make_ast_copy() const override {
-        return new TxBoolLitNode( this->parseLocation, this->value );
-    }
-
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 };

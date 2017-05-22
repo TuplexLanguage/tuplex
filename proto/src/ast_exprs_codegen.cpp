@@ -26,26 +26,15 @@ static const OpMapping OP_MAPPING[] = {
                                         { TXOP_OR, Instruction::Or, Instruction::Or, 0 },
 };
 
-Value* TxBinaryOperatorNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
-    TRACE_CODEGEN( this, context );
-    auto lval = this->lhs->code_gen( context, scope );
-    auto rval = this->rhs->code_gen( context, scope );
-    if ( ( !lval ) || ( !rval ) )
-        return NULL;
-
-    // pick field's plain name, if available, for the expression value:
-    const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
-
-    auto op_class = get_op_class( this->op );
+unsigned get_llvm_op( TxOperationClass op_class, TxOperation op, const TxType* resType, const TxType* lhsType, bool& float_operation ) {
     unsigned llvm_op;
-    bool float_operation = false;
     if ( op_class == TXOC_ARITHMETIC ) {
-        auto resultType = this->get_type()->type();
+        auto resultType = resType->type();
         if ( auto intType = dynamic_cast<const TxIntegerType*>( resultType ) ) {
-            llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
+            llvm_op = intType->sign ? OP_MAPPING[op].l_si_op : OP_MAPPING[op].l_ui_op;
         }
         else if ( dynamic_cast<const TxFloatingType*>( resultType ) ) {
-            llvm_op = OP_MAPPING[this->op].l_f_op;
+            llvm_op = OP_MAPPING[op].l_f_op;
             float_operation = true;
         }
         else {
@@ -54,85 +43,116 @@ Value* TxBinaryOperatorNode::code_gen( LlvmGenerationContext& context, GenScope*
         }
     }
     else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
-        if ( dynamic_cast<const TxFloatingType*>( this->lhs->get_type()->type() ) ) {
-            llvm_op = OP_MAPPING[this->op].l_f_op;
+        if ( dynamic_cast<const TxFloatingType*>( lhsType->type() ) ) {
+            llvm_op = OP_MAPPING[op].l_f_op;
             float_operation = true;
         }
-        else if ( auto intType = dynamic_cast<const TxIntegerType*>( this->lhs->get_type()->type() ) ) {
-            llvm_op = intType->sign ? OP_MAPPING[this->op].l_si_op : OP_MAPPING[this->op].l_ui_op;
+        else if ( auto intType = dynamic_cast<const TxIntegerType*>( lhsType->type() ) ) {
+            llvm_op = intType->sign ? OP_MAPPING[op].l_si_op : OP_MAPPING[op].l_ui_op;
         }
         else {  // Bool or Ref operands
-            llvm_op = OP_MAPPING[this->op].l_ui_op;  // as unsigned integers
+            llvm_op = OP_MAPPING[op].l_ui_op;  // as unsigned integers
         }
     }
+    return llvm_op;
+}
+
+llvm::Constant* TxBinaryOperatorNode::code_gen_constant( LLVMContext& context ) const {
+    TRACE_CODEGEN( this, context );
+    auto lval = this->lhs->code_gen_constant( context );
+    auto rval = this->rhs->code_gen_constant( context );
+
+    // pick field's plain name, if available, for the expression value:
+    const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
+
+    auto op_class = get_op_class( this->op );
+    bool float_operation = false;
+    unsigned llvm_op = get_llvm_op( op_class, this->op, this->get_type(), this->lhs->get_type(), float_operation );
 
     if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_BOOLEAN ) {
         ASSERT( Instruction::isBinaryOp( llvm_op ), "Not a valid LLVM binary op: " << llvm_op );
         Instruction::BinaryOps binop_instr = (Instruction::BinaryOps) llvm_op;
-        if ( this->is_statically_constant() && !scope )  // seems we can only do this in global scope?
-            return ConstantExpr::get( binop_instr, cast<Constant>( lval ), cast<Constant>( rval ) );
-        else {
-            ASSERT( scope, "scope is NULL, although expression is not constant and thus should be within runtime block" );
-            return scope->builder->CreateBinOp( binop_instr, lval, rval, fieldName );
-        }
+        return ConstantExpr::get( binop_instr, lval, rval );
+    }
+    else { // if (op_class == TXOC_EQUALITY || op_class == TXOC_COMPARISON) {
+        CmpInst::Predicate cmp_pred = (CmpInst::Predicate) llvm_op;
+        return ConstantExpr::getCompare( cmp_pred, lval, rval );
+    }
+}
+
+Value* TxBinaryOperatorNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    ASSERT( scope, "NULL scope in non-const binary expression: " << this );
+    auto lval = this->lhs->code_gen( context, scope );
+    auto rval = this->rhs->code_gen( context, scope );
+
+    // pick field's plain name, if available, for the expression value:
+    const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
+
+    auto op_class = get_op_class( this->op );
+    bool float_operation = false;
+    unsigned llvm_op = get_llvm_op( op_class, this->op, this->get_type(), this->lhs->get_type(), float_operation );
+
+    if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_BOOLEAN ) {
+        ASSERT( Instruction::isBinaryOp( llvm_op ), "Not a valid LLVM binary op: " << llvm_op );
+        Instruction::BinaryOps binop_instr = (Instruction::BinaryOps) llvm_op;
+        return scope->builder->CreateBinOp( binop_instr, lval, rval, fieldName );
     }
 
     else { // if (op_class == TXOC_EQUALITY || op_class == TXOC_COMPARISON) {
         CmpInst::Predicate cmp_pred = (CmpInst::Predicate) llvm_op;
-        if ( this->is_statically_constant() && !scope )  // seems we can only do this in global scope?
-            return ConstantExpr::getCompare( cmp_pred, cast<Constant>( lval ), cast<Constant>( rval ) );
+        if ( float_operation ) {
+            ASSERT( CmpInst::isFPPredicate( cmp_pred ), "Not a valid LLVM FP comparison predicate: " << llvm_op );
+            return scope->builder->CreateFCmp( cmp_pred, lval, rval, fieldName );
+        }
         else {
-            ASSERT( scope, "scope is NULL, although expression is not constant and thus should be within runtime block" );
-            if ( float_operation ) {
-                ASSERT( CmpInst::isFPPredicate( cmp_pred ), "Not a valid LLVM FP comparison predicate: " << llvm_op );
-                return scope->builder->CreateFCmp( cmp_pred, lval, rval, fieldName );
+            ASSERT( CmpInst::isIntPredicate( cmp_pred ), "Not a valid LLVM Int comparison predicate: " << llvm_op );
+            if ( this->lhs->get_type()->get_type_class() == TXTC_REFERENCE ) {
+                // both operands are references, compare their pointer values
+                lval = gen_get_ref_pointer( context, scope, lval );
+                rval = gen_get_ref_pointer( context, scope, rval );
             }
-            else {
-                ASSERT( CmpInst::isIntPredicate( cmp_pred ), "Not a valid LLVM Int comparison predicate: " << llvm_op );
-                if ( this->lhs->get_type()->get_type_class() == TXTC_REFERENCE ) {
-                    // both operands are references, compare their pointer values
-                    lval = gen_get_ref_pointer( context, scope, lval );
-                    rval = gen_get_ref_pointer( context, scope, rval );
-                }
-                return scope->builder->CreateICmp( cmp_pred, lval, rval, fieldName );
-            }
+            return scope->builder->CreateICmp( cmp_pred, lval, rval, fieldName );
         }
     }
+}
+
+llvm::Constant* TxUnaryMinusNode::code_gen_constant( LLVMContext& context ) const {
+    TRACE_CODEGEN( this, context );
+    auto operand = this->operand->code_gen_constant( context );
+    auto opType = this->get_type()->type();
+    if ( dynamic_cast<const TxIntegerType*>( opType ) ) {
+        return ConstantExpr::getNeg( operand  );
+    }
+    else if ( dynamic_cast<const TxFloatingType*>( opType ) ) {
+        return ConstantExpr::getFNeg( operand );
+    }
+    THROW_LOGIC( "Invalid unary minus operand type: " << opType << " in " << this );
 }
 
 Value* TxUnaryMinusNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     auto operand = this->operand->code_gen( context, scope );
-    if ( !operand )
-        return NULL;
     auto opType = this->get_type()->type();
     if ( dynamic_cast<const TxIntegerType*>( opType ) ) {
-        if ( this->is_statically_constant() && !scope )
-            return ConstantExpr::getNeg( cast<Constant>( operand ) );
-        else
-            return scope->builder->CreateNeg( operand );
+        return scope->builder->CreateNeg( operand );
     }
     else if ( dynamic_cast<const TxFloatingType*>( opType ) ) {
-        if ( this->is_statically_constant() && !scope )
-            return ConstantExpr::getFNeg( cast<Constant>( operand ) );
-        else
-            return scope->builder->CreateFNeg( operand );
+        return scope->builder->CreateFNeg( operand );
     }
-    else {
-        LOG( context.LOGGER(), ERROR, "Invalid unary minus operand type: " << opType );
-        return NULL;
-    }
+    THROW_LOGIC( "Invalid unary minus operand type: " << opType << " in " << this );
+}
+
+llvm::Constant* TxUnaryLogicalNotNode::code_gen_constant( LLVMContext& context ) const {
+    TRACE_CODEGEN( this, context );
+    auto operand = this->operand->code_gen_constant( context );
+    return ConstantExpr::getNot( operand );
 }
 
 Value* TxUnaryLogicalNotNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     auto operand = this->operand->code_gen( context, scope );
-    if ( !operand )
-        return NULL;
-    if ( this->is_statically_constant() && !scope )
-        return ConstantExpr::getNot( cast<Constant>( operand ) );
-    else
-        return scope->builder->CreateNot( operand );
+    return scope->builder->CreateNot( operand );
 }
 
 Value* gen_get_struct_member( LlvmGenerationContext& context, GenScope* scope, Value* structV, unsigned ix ) {
@@ -248,6 +268,20 @@ Value* TxReferenceDerefNode::code_gen_typeid( LlvmGenerationContext& context, Ge
     return tidV;
 }
 
+//static Value* gen_const_elem_address( LLVMContext& context, Constant* arrayPtrC, Constant* subscriptC ) {
+//    ASSERT( subscriptC->getType()->isIntegerTy(), "expected subscript to be an integer: " << subscriptC );
+//    ASSERT( arrayPtrC->getType()->isPointerTy(), "expected array-operand to be a pointer: " << arrayPtrC );
+//    ASSERT( arrayPtrC->getType()->getPointerElementType()->isStructTy(), "expected array-operand to be a pointer to struct: " << arrayPtrC );
+//
+//    // TODO: constant expression, static bounds check sufficient
+//
+//    //auto intC = cast<ConstantInt>( subscriptC );
+//    Constant* ixs[] = { ConstantInt::get( Type::getInt32Ty( context ), 0 ),
+//                        ConstantInt::get( Type::getInt32Ty( context ), 1 ),
+//                        subscriptC };
+//    return ConstantExpr::getInBoundsGetElementPtr( arrayPtrC, ixs );
+//}
+
 static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope, Value* arrayPtrV, Value* subscriptV ) {
     ASSERT( subscriptV->getType()->isIntegerTy(), "expected subscript to be an integer: " << subscriptV );
     ASSERT( arrayPtrV->getType()->isPointerTy(), "expected array-operand to be a pointer: " << arrayPtrV );
@@ -288,6 +322,7 @@ Value* TxElemDerefNode::code_gen( LlvmGenerationContext& context, GenScope* scop
     auto arrayV = this->array->code_gen_address( context, scope );
     auto subscriptV = this->subscript->code_gen( context, scope );
     if ( auto arrayPtrG = dyn_cast<GlobalVariable>( arrayV ) ) {
+        //ASSERT(false, "FOOBAR " << this);
         // this enables dereferencing (constant) arrays from global scope
         // since we can't use load instructions in global (constant) initializers, access the original initializer directly
         if ( arrayPtrG->hasInitializer() ) {
@@ -302,6 +337,28 @@ Value* TxElemDerefNode::code_gen( LlvmGenerationContext& context, GenScope* scop
         return scope->builder->CreateLoad( elemPtr );
     else
         return new LoadInst( elemPtr );
+}
+
+Constant* TxElemDerefNode::code_gen_constant( LLVMContext& context ) const {
+    TRACE_CODEGEN( this, context );
+    auto arrayC = this->array->code_gen_constant( context );
+    auto subscriptC = cast<ConstantInt>( this->subscript->code_gen_constant( context ) );
+//    if ( auto arrayPtrG = dyn_cast<GlobalVariable>( arrayC ) ) {
+//        std::cerr << "global variable array in " << this->node << " is: " << arrayC << std::endl;
+//        // this enables dereferencing (constant) arrays from global scope
+//        // since we can't use load instructions in global (constant) initializers, access the original initializer directly
+//        if ( arrayPtrG->hasInitializer() ) {
+//            uint32_t ixs[] = { 1, (uint32_t) subscriptC->getLimitedValue( UINT32_MAX ) };
+//            return ConstantExpr::getExtractValue( arrayPtrG->getInitializer(), ixs );
+//        }
+//    }
+//    else
+    if (arrayC->getType()->isStructTy()) {
+        std::cerr << "constant array in " << this << " is: " << arrayC << std::endl;
+        uint32_t ixs[] = { 1, (uint32_t) subscriptC->getLimitedValue( UINT32_MAX ) };
+        return ConstantExpr::getExtractValue( arrayC, ixs );
+    }
+    THROW_LOGIC( "Can't create constant array elem deref expression with array value that is: " << arrayC );
 }
 
 Value* TxElemAssigneeNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {

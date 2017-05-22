@@ -29,7 +29,10 @@ Value* TxTypeTypeArgumentNode::code_gen( LlvmGenerationContext& context, GenScop
 
 Value* TxValueTypeArgumentNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return this->valueExprNode->code_gen( context, scope );
+    if ( this->valueExprNode->is_statically_constant() )
+        return this->valueExprNode->code_gen_constant( context.llvmContext );
+    else
+        return this->valueExprNode->code_gen( context, scope );
 }
 
 Value* TxGenSpecTypeNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -56,10 +59,6 @@ Value* TxArrayTypeNode::code_gen( LlvmGenerationContext& context, GenScope* scop
 
 Value* TxDerivedTypeNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    if ( this->context().is_generic() ) {  // this->get_type()->type()->is_builtin()
-        std::cerr << "Skipping code gen for generic-dependent type's members: " << this->get_type()->type() << std::endl;
-        return nullptr;
-    }
     this->baseType->code_gen( context, scope );
     for ( auto interface : *this->interfaces )
         interface->code_gen( context, scope );
@@ -68,12 +67,6 @@ Value* TxDerivedTypeNode::code_gen( LlvmGenerationContext& context, GenScope* sc
         member->code_gen( context, scope );
     return nullptr;
 }
-
-//Value* TxSuperTypeNode::code_gen(LlvmGenerationContext& context, GenScope* scope) const {
-//    TRACE_CODEGEN(this, context);
-//    this->derivedTypeNode->code_gen(context, scope);
-//    return nullptr;
-//}
 
 Value* TxFunctionTypeNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );

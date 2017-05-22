@@ -51,8 +51,14 @@ void TypeRegistry::resolve_deferred_types() {
             //std::cerr << "Nof enqueued specializations: " << this->enqueuedSpecializations.size() << std::endl;
             auto specDecl = this->enqueuedSpecializations.at( specIx );
             LOG_DEBUG( this->LOGGER(), "Resolving enqueued specialization: " << specDecl << ( specDecl->exp_err_ctx() ? " (has ExpErr context)" : "" ));
-            ScopedExpErrClause scopedEEClause( specDecl, specDecl->exp_err_ctx() );
-            specDecl->symbol_resolution_pass();
+            try {
+                ScopedExpErrClause scopedEEClause( specDecl, specDecl->exp_err_ctx() );
+                specDecl->symbol_resolution_pass();
+            }
+            catch ( const resolution_error& err ) {
+                // if this happens, investigate why it wasn't caught before this type was added to the types queue
+                LOG( this->LOGGER(), ALERT, "Caught resolution error resolving enqueued type specialization " << specDecl << ": " << err );
+            }
         }
     }while ( typeIx != this->usedTypes.size() );
 }
@@ -76,8 +82,15 @@ void TypeRegistry::prepare_types() {
     this->startedPreparingTypes = true;
     std::map<uint32_t, TxActualType*> statics;
     for ( auto type : this->createdTypes ) {
-        //std::cerr << "Preparing type: " << type << std::endl;
-        type->prepare_members();
+        try {
+            //std::cerr << "Preparing type: " << type << std::endl;
+            type->prepare_members();
+        }
+        catch ( const resolution_error& err ) {
+            // if this happens, investigate why it wasn't caught before this type was added to the types list
+            LOG( this->LOGGER(), ALERT, "Caught resolution error preparing members of type " << type << ": " << err );
+            continue;
+        }
 
         if ( type->formalTypeId < BuiltinTypeId_COUNT )  // the built-in types are already handled
             continue;
@@ -289,12 +302,12 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
                     if ( auto existingFieldDecl = dynamic_cast<const TxFieldDeclaration*>( existingBaseTypeBindings.at( ix ) ) ) {
                         // to match, both need to be statically constant and with equal value
                         ASSERT(valueBinding->valueExprNode, "valueBinding->valueExprNode is null for " << existingBaseSymbol);
-                        if (auto newConstantValueProxy = valueBinding->valueExprNode->get_static_constant_proxy() ) {
+                        if ( valueBinding->valueExprNode->is_statically_constant() ) {
                             // new binding has statically constant value
                             if ( auto existingInitializer = existingFieldDecl->get_definer()->get_init_expression() ) {
-                                if ( auto existingConstantValueProxy = existingInitializer->get_static_constant_proxy() ) {
+                                if ( existingInitializer->is_statically_constant() ) {
                                     // existing binding has statically constant value
-                                    if ( newConstantValueProxy->get_value_UInt() == existingConstantValueProxy->get_value_UInt() )
+                                    if ( eval_UInt_constant( valueBinding->valueExprNode ) == eval_UInt_constant( existingInitializer ) )
                                         continue;
                                 }
                             }
@@ -447,9 +460,9 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
             if ( !dynamic_cast<const TxFieldDeclaration*>( paramDecl ) )
                 CERR_THROWRES( binding, "Can't bind a TYPE base type parameter using a VALUE: " << paramDecl->get_unique_full_name() );
 
-            // implementation note: binding's value expression not necessarily 'resolved' at this point
-            if ( auto bindingValueProxy = valueArg->valueExprNode->get_static_constant_proxy() ) {
-                uint32_t bindingValue = bindingValueProxy->get_value_UInt();
+            valueArg->valueExprNode->resolve_type();  // ensure binding is resolved (and verify that it does resolve)
+            if ( valueArg->valueExprNode->is_statically_constant() ) {
+                uint32_t bindingValue = eval_UInt_constant( valueArg->valueExprNode );
                 newBaseTypeName << bindingValue;  // statically known value
             }
             else {

@@ -90,12 +90,6 @@ public:
     /** Returns true if this field is statically constant. */
     bool is_statically_constant() const;
 
-    /** If this field's initializer can be statically evaluated,
-     * a TxConstantProxy representing its value is returned, otherwise nullptr.
-     * In future, this should return non-null for all expressions for which is_statically_constant() returns true.
-     */
-    virtual const TxConstantProxy* get_static_constant_proxy() const;
-
     bool is_modifiable() const;
 
     inline const std::string get_unique_name() const {

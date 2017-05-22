@@ -49,10 +49,6 @@ public:
         return this->reference;
     }
 
-    virtual bool is_statically_constant() const {
-        return false;  // can we ever know if target is statically constant?
-    }
-
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
@@ -85,7 +81,8 @@ public:
     TxMaybeConversionNode* subscript;
 
     TxElemDerefNode( const TxLocation& parseLocation, TxExpressionNode* operand, TxExpressionNode* subscript )
-            : TxExpressionNode( parseLocation ), array( new TxMaybeConversionNode( operand ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
+            : TxExpressionNode( parseLocation ), array( new TxMaybeConversionNode( operand ) ),
+              subscript( new TxMaybeConversionNode( subscript ) ) {
     }
 
     virtual TxElemDerefNode* make_ast_copy() const override {
@@ -103,10 +100,11 @@ public:
         return this->array;
     }
 
-    virtual bool is_statically_constant() const {
-        return this->array->is_statically_constant() && this->subscript->is_statically_constant();
+    virtual bool is_statically_constant() const override {
+        return ( this->array->is_statically_constant() && this->subscript->is_statically_constant() );
     }
 
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
@@ -156,11 +154,6 @@ public:
         }
         else
             CERROR( this, "Can't construct reference to non-addressable expression / rvalue." );
-    }
-
-    virtual bool is_statically_constant() const override {
-        // (unsure if static const field will be recognized to have statically const address by llvm?)
-        return this->target->is_statically_constant();
     }
 
     virtual const std::vector<TxExpressionNode*>* get_applied_func_args() const override {
@@ -254,8 +247,8 @@ public:
     const int op_class;
 
     TxBinaryOperatorNode( const TxLocation& parseLocation, TxExpressionNode* lhs, const TxOperation op, TxExpressionNode* rhs )
-            : TxOperatorValueNode( parseLocation ), op( op ), lhs( new TxMaybeConversionNode( lhs ) ), rhs( new TxMaybeConversionNode( rhs ) ),
-              op_class( get_op_class( op ) ) {
+            : TxOperatorValueNode( parseLocation ), op( op ),
+              lhs( new TxMaybeConversionNode( lhs ) ), rhs( new TxMaybeConversionNode( rhs ) ), op_class( get_op_class( op ) ) {
         ASSERT( is_valid( op ), "Invalid operator value: " << (int)op );
     }
 
@@ -274,6 +267,7 @@ public:
         return this->lhs->is_statically_constant() && this->rhs->is_statically_constant();
     }
 
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
@@ -333,6 +327,7 @@ public:
         return this->operand->is_statically_constant();
     }
 
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
@@ -370,6 +365,7 @@ public:
         return this->operand->is_statically_constant();
     }
 
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
@@ -417,12 +413,6 @@ public:
         if ( this->inlinedExpression )
             return this->inlinedExpression->is_statically_constant();
         return false;
-    }
-
-    virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        if ( this->inlinedExpression )
-            return this->inlinedExpression->get_static_constant_proxy();
-        return nullptr;
     }
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
@@ -649,8 +639,6 @@ public:
     virtual bool is_stack_allocation_expression() const override {
         return !this->initializationExpression;  // performs stack allocation unless this is an inlined value expression
     }
-
-    // virtual bool is_statically_constant() const override { return true; }  // TODO: review
 
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 };

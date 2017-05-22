@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ast_base.hpp"
-
+#include "ast_constexpr.hpp"
 #include "symbol/entity_type.hpp"
 #include "symbol/type_registry.hpp"
 
@@ -104,19 +104,9 @@ public:
         return false;
     }
 
-    /** Returns true if this expression is a constant expression that can be evaluated at compile time.
-     * The result is not defined before the resolution pass is run on this node. */
+    /** Returns true if this expression is a constant expression that can be evaluated at compile time. */
     virtual bool is_statically_constant() const {
-        ASSERT( this->attempt_get_type(), "Can't determine whether statically constant before resolution pass: " << this );
         return false;
-    }
-
-    /** If this expression can currently be statically evaluated,
-     * a TxConstantProxy representing its value is returned, otherwise nullptr.
-     * In future, this should return non-null for all expressions for which is_statically_constant() returns true.
-     */
-    virtual const TxConstantProxy* get_static_constant_proxy() const {
-        return nullptr;
     }
 
     virtual const std::vector<TxExpressionNode*>* get_applied_func_args() const {
@@ -124,6 +114,25 @@ public:
     }
     virtual void set_applied_func_args( const std::vector<TxExpressionNode*>* appliedFuncArgs ) {
         this->appliedFuncArgs = appliedFuncArgs;
+    }
+
+//    /** Generates code that produces the value of this expression.
+//     * If this expression is constant, the value will be of llvm::Constant type. */
+//    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override final {
+//        if (this->is_statically_constant())
+//            return this->code_gen_constant( context.llvmContext );
+//        else
+//            return this->code_gen_value( context, scope );
+//    }
+//
+//    /** Generates code that produces the value of this expression. */
+//    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const = 0;
+
+    /** Generates code that produces a constant value.
+     * Only valid to call on nodes for which is_statically_constant() returns true. */
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const {
+        ASSERT(! this->is_statically_constant(), "code_gen_constant() not implemented though is_statically_constant() returns true for " << this );
+        THROW_LOGIC( "Unsupported: code_gen_constant() for node type " << this );
     }
 
     /** Generates code that produces a pointer to the value of this expression. */
@@ -137,13 +146,16 @@ public:
 
 /** A conversion placeholder node which can wrap a specific conversion around an expression if necessary. */
 class TxMaybeConversionNode : public TxExpressionNode {
+    const TxType* insertedResultType = nullptr;
+    bool _explicit = false;
     TxExpressionNode* conversionExpr = nullptr;
 
-protected:
-    virtual const TxType* define_type() override {
-        auto expr = this->get_spec_expression();
-        return expr->resolve_type();
+    inline TxExpressionNode* get_spec_expression() const {
+        return ( this->conversionExpr ? this->conversionExpr : this->originalExpr );
     }
+
+protected:
+    virtual const TxType* define_type() override;
 
 public:
     TxExpressionNode* const originalExpr;
@@ -167,10 +179,6 @@ public:
      */
     void insert_conversion( const TxType* resultType, bool _explicit = false );
 
-    inline TxExpressionNode* get_spec_expression() const {
-        return ( this->conversionExpr ? this->conversionExpr : this->originalExpr );
-    }
-
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         auto expr = this->get_spec_expression();
@@ -186,13 +194,13 @@ public:
     }
 
     virtual bool is_statically_constant() const override {
+        if ( this->insertedResultType && !this->conversionExpr ) {
+            CERR_THROWRES( this, "Type conversion failed" );
+        }
         return this->get_spec_expression()->is_statically_constant();
     }
 
-    virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        return this->get_spec_expression()->get_static_constant_proxy();
-    }
-
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
@@ -252,37 +260,9 @@ class TxFieldDefNode : public TxFieldDefiningNode {
     const TxFieldDeclaration* declaration = nullptr;
 
 protected:
-    virtual const TxType* define_type() override {
-        LOG_TRACE( this->LOGGER(), "defining  type  of " << this );
-        const TxType* type;
-        if ( this->typeExpression ) {
-            type = this->typeExpression->resolve_type();
-            // also resolve initExpression from here, which guards against recursive field value initialization:
-            if ( this->initExpression ) {
-                auto nonModType = ( type->is_modifiable() ? type->get_base_type() : type );  // rvalue doesn't need to be modifiable
-                this->initExpression->insert_conversion( nonModType );
-                this->initExpression->resolve_type();
-            }
-        }
-        else {
-            type = this->initExpression->resolve_type();
-            if ( this->modifiable ) {
-                if ( !type->is_modifiable() )
-                    type = this->registry().get_modifiable_type( nullptr, type );
-            }
-            else if ( type->is_modifiable() )
-                // if initialization expression is modifiable type, and modifiable not explicitly specified,
-                // lose modifiable attribute (modifiability must be explicit)
-                type = type->get_base_type();
-        }
-        return type;
-    }
+    virtual const TxType* define_type() override;
 
-    virtual const TxField* define_field() override {
-        LOG_TRACE( this->LOGGER(), "defining  field of " << this );
-        // FUTURE: consider if EXPERR decls shouldn't get their field created
-        return TxField::make_field( this->declaration, this->attempt_get_type() );
-    }
+    virtual const TxField* define_field() override;
 
 public:
     const TxIdentifier* fieldName;
@@ -322,42 +302,9 @@ public:
         this->declaration = scope->declare_field( name, this, declFlags, storage, TxIdentifier() );
     }
 
-    virtual void symbol_resolution_pass() {
-        auto field = this->resolve_field();
-        if ( this->initExpression ) {
-            if ( this->typeExpression ) {
-                this->typeExpression->symbol_resolution_pass();
-            }
-            this->initExpression->symbol_resolution_pass();
+    virtual void symbol_resolution_pass() override;
 
-            auto storage = field->get_storage();
-            if ( storage == TXS_GLOBAL
-                 || ( ( storage == TXS_STATIC || storage == TXS_VIRTUAL )
-                      && !field->get_type()->is_modifiable() ) ) {
-                // field is expected to have a statically constant initializer
-                // (Note: When static initializers in types are supported, static/virtual fields' initialization may be deferred.)
-                if ( !this->initExpression->is_statically_constant() )
-                    CERROR( this, "Non-constant initializer for constant global/static/virtual field" << this->fieldName );
-            }
-        }
-        else {  // if initExpression is null then typeExpression is set
-            this->typeExpression->symbol_resolution_pass();
-        }
-
-        if ( !field->get_type()->is_concrete() ) {
-            if ( !this->context().is_generic() )
-                CERROR( this, "Field type is not concrete: "
-                        << this->get_identifier() << " : " << field->get_type() );
-            else
-                LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Field type is not concrete: "
-                           << this->get_identifier() << " : " << field->get_type() );
-        }
-        if ( this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR ) {
-            // TODO: check that constructor function type has void return value
-        }
-    }
-
-    virtual const TxExpressionNode* get_init_expression() const {
+    virtual const TxExpressionNode* get_init_expression() const override {
         return this->initExpression;
     }
 

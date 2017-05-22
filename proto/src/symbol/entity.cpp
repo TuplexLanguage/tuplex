@@ -70,26 +70,10 @@ int TxField::get_decl_storage_index() const {
 }
 
 bool TxField::is_statically_constant() const {
-    /*
-     bool genericParamBinding = (this->get_unique_name().find_last_of('#') != std::string::npos);
-     if ( (this->get_decl_flags() & TXD_GENPARAM) || genericParamBinding )
-     // (The second condition might be removable in future, but now needed to avoid expecting e.g.
-     // tx#Array#L to be statically constant)
-     return false;
-     if ( this->get_storage() == TXS_GLOBAL )
-     return true;
-     */
     // A field is statically constant if it is unmodifiable and has a statically constant initializer.
     if ( auto initExpr = this->get_declaration()->get_definer()->get_init_expression() )
         return ( !this->get_type()->is_modifiable() && initExpr->is_statically_constant() );
     return false;
-}
-
-const TxConstantProxy* TxField::get_static_constant_proxy() const {
-    if ( this->is_statically_constant() )
-        if ( auto initExpr = this->get_declaration()->get_definer()->get_init_expression() )
-            return initExpr->get_static_constant_proxy();
-    return nullptr;
 }
 
 bool TxField::is_modifiable() const {

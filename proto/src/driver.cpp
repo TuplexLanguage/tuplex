@@ -71,6 +71,9 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
 
     this->package = make_root_package( this->builtinParserContext );
 
+    // ONLY used for constant evaluation before code generation pass:
+    this->llvmContext = &llvm::getGlobalContext();
+
     /*--- parse built-in module(s) ---*/
     {
         TxParserContext* parserContext = new TxParserContext( *this, TxIdentifier( "tx" ), "" );
@@ -191,10 +194,6 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     return 0;
 }
 
-void TxDriver::register_nonlocal_field_usage( TxFieldDeclNode* fieldDeclNode ) {
-    this->usageOrderedNonlocalFieldDecls.push_back( fieldDeclNode );
-}
-
 bool TxDriver::add_import( const TxIdentifier& moduleName ) {
     if ( this->package->lookup_module( moduleName ) ) {
         this->_LOG.debug( "Skipping import of previously imported module: %s", moduleName.str().c_str() );
@@ -259,28 +258,20 @@ void TxDriver::add_source_file( const TxIdentifier& moduleName, const std::strin
 }
 
 int TxDriver::llvm_compile( const std::string& outputFileName ) {
-    LlvmGenerationContext genContext( *this->package );
-
-    // emit bytecode for the program:
-
-    // first generate non-local fields in usage order (instead of lexical order):
-    for ( auto fieldDeclNode : this->usageOrderedNonlocalFieldDecls ) {
-        _LOG.note( "Pre-generating code for non-local field: %s", fieldDeclNode->get_declaration()->str().c_str() );
-        genContext.generate_code( fieldDeclNode );
-    }
+    this->genContext = new LlvmGenerationContext( *this->package, *this->llvmContext );
 
     // generate the code for the program in lexical order:
     for ( auto parserContext : this->parsedASTs ) {
-        genContext.generate_code( parserContext->parsingUnit );
+        this->genContext->generate_code( parserContext->parsingUnit );
     }
 
     // generate the code for the type specializations that are defined by reinterpreted source:
     for ( auto specNode : this->package->registry().get_enqueued_specializations() ) {
         _LOG.debug( "Generating code for enqueued specialization: %s", specNode->get_declaration()->str().c_str() );
-        genContext.generate_code( specNode );
+        this->genContext->generate_code( specNode );
     }
 
-    genContext.generate_runtime_data();
+    this->genContext->generate_runtime_data();
 
     bool mainGenerated = false;
     if ( auto funcDecl = this->package->getMainFunc() ) {
@@ -290,18 +281,18 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
             if ( retType->get_type_class() != TXTC_VOID
                  && !retType->is_a( *this->package->registry().get_builtin_type( TXBT_INTEGER ) ) )
                 this->_LOG.error( "main() method had invalid return type: %s", retType->str().c_str() );
-            else if ( ( mainGenerated = genContext.generate_main( funcDecl->get_unique_full_name(), funcField->get_type() ) ) )
+            else if ( ( mainGenerated = this->genContext->generate_main( funcDecl->get_unique_full_name(), funcField->get_type() ) ) )
                 this->_LOG.debug( "Created program entry for user method %s", funcDecl->get_unique_full_name().c_str() );
         }
     }
     _LOG.info( "+ LLVM code generated (not yet written)" );
 
     if ( this->options.dump_ir )
-        genContext.print_IR();
+        this->genContext->print_IR();
 
     int retCode = 0;
     if ( this->options.run_verifier ) {
-        retCode = genContext.verify_code();
+        retCode = this->genContext->verify_code();
         if ( retCode )
             return retCode;
         else
@@ -312,12 +303,12 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
         if ( !mainGenerated )
             this->_LOG.error( "Can't run program, no main() method found." );
         else {
-            genContext.run_code();
+            this->genContext->run_code();
         }
     }
 
     if ( !this->options.no_bc_output ) {
-        retCode = genContext.write_bitcode( outputFileName );
+        retCode = this->genContext->write_bitcode( outputFileName );
         _LOG.info( "+ Wrote bitcode file '%s'", outputFileName.c_str() );
     }
 

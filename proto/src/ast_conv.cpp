@@ -2,6 +2,7 @@
 #include "ast_exprs.hpp"
 
 // FUTURE: rework together with overloaded function resolution
+/** Returns null if conversion failed. */
 static TxExpressionNode* inner_wrap_conversion( TxExpressionNode* originalExpr, const TxType* originalType,
                                                 const TxType* requiredType, bool _explicit ) {
     if ( originalType == requiredType ) // TODO: test with:  || *originalType == *requiredType)
@@ -46,14 +47,13 @@ static TxExpressionNode* inner_wrap_conversion( TxExpressionNode* originalExpr, 
  *
  * Assumes that originalExpr declaration pass has already run.
  * If a conversion node is created, symbol declaration pass is run on it.
+ * Returns null if conversion failed.
  */
 static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* originalExpr,
                                                       const TxType* requiredType,
                                                       bool _explicit ) {
     // Note: Symbol declaration and resolution passes are not run on the created wrapper nodes.
     auto originalType = originalExpr->resolve_type();
-    if ( !originalType )
-        return originalExpr;
 
     if ( auto newExpr = inner_wrap_conversion( originalExpr, originalType, requiredType, _explicit ) )
         return newExpr;
@@ -63,11 +63,12 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
         if ( auto reqRefTargetType = requiredType->target_type() ) {
             if ( originalType->is_a( *reqRefTargetType ) ) {
                 if ( reqRefTargetType->is_modifiable() ) {
-                    if ( originalType->is_modifiable() )
-                        CERROR( originalExpr, "Cannot implicitly convert to reference with modifiable target: "
-                                << originalType << " -> " << requiredType );
-                    // Note, is_a() will have already returned false for attempt to convert reference with non-mod-target to one with mod target
-                    return originalExpr;
+//                    if ( !originalType->is_modifiable() ) {
+//                        // Note, is_a() will have already returned false for attempt to convert reference with non-mod-target to one with mod target
+//                        return originalExpr;
+//                    }
+                    CERR_THROWRES( originalExpr, "Cannot implicitly convert to reference with modifiable target: "
+                                   << originalType << " -> " << requiredType );
                 }
                 else {
                     // wrap originalExpr with a reference-to node
@@ -102,29 +103,41 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
         }
     }
 
-    CERROR( originalExpr, "Can't auto-convert value\n\tFrom: " << originalType << " \t@" << originalExpr->get_parse_location()
-            << "\n\tTo:   " << requiredType << " \t@" << requiredType->get_parse_location() );
-    return originalExpr;
+    CERR_THROWRES( originalExpr, "Can't auto-convert value\n\tFrom: " << originalType << " \t@" << originalExpr->get_parse_location()
+                   << "\n\tTo:   " << requiredType << " \t@" << requiredType->get_parse_location() );
+    return nullptr;
 }
 
 TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType* resultType, bool _explicit ) {
     ASSERT( originalExpr->is_context_set(), "Conversion's original expression hasn't run declaration pass: " << originalExpr );
     auto exprNode = inner_validate_wrap_convert( originalExpr, resultType, _explicit );
-    if ( exprNode != originalExpr ) {
+    if ( exprNode && exprNode != originalExpr ) {
         LOG_TRACE( originalExpr->LOGGER(), "Wrapping conversion to type " << resultType->str() << " around " << originalExpr );
     }
     return exprNode;
+}
+
+const TxType* TxMaybeConversionNode::define_type() {
+    if ( this->insertedResultType ) {
+        this->conversionExpr = make_conversion( this->originalExpr, this->insertedResultType, this->_explicit );
+        return this->conversionExpr->resolve_type();
+    }
+    else {
+        return this->originalExpr->resolve_type();
+    }
 }
 
 void TxMaybeConversionNode::insert_conversion( const TxType* resultType, bool _explicit ) {
     ASSERT( this->originalExpr->is_context_set(), "declaration pass not yet run on originalExpr" );
     ASSERT( !this->attempt_get_type(), "type already resolved for " << this );
 
-    if ( this->conversionExpr ) {
+    if ( this->insertedResultType ) {
         LOG( this->LOGGER(), ALERT, this << ": Skipping overwrite previously inserted conversion node" );
         return;
     }
-    this->conversionExpr = make_conversion( this->originalExpr, resultType, _explicit );
+    this->insertedResultType = resultType;
+    this->_explicit = _explicit;
+    //this->conversionExpr = make_conversion( this->originalExpr, resultType, _explicit );
 }
 
 /** Returns true if the two types are mutually "equivalent".

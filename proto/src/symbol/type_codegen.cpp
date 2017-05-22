@@ -1,5 +1,6 @@
 #include "type.hpp"
 #include "llvm_generator.hpp"
+#include "tx_except.hpp"
 
 using namespace llvm;
 
@@ -78,33 +79,35 @@ Type* TxBoolType::make_llvm_type( LlvmGenerationContext& context ) const {
     return Type::getInt1Ty( context.llvmContext );
 }
 
-Type* TxIntegerType::make_llvm_type( LlvmGenerationContext& context ) const {
+llvm::Type* TxScalarType::make_llvm_type( LlvmGenerationContext& context ) const {
+    return this->get_scalar_llvm_type( context.llvmContext );
+}
+
+llvm::Type* TxIntegerType::get_scalar_llvm_type( llvm::LLVMContext& context ) const {
     switch ( this->_size ) {
     case 1:
-        return Type::getInt8Ty( context.llvmContext );
+        return Type::getInt8Ty( context );
     case 2:
-        return Type::getInt16Ty( context.llvmContext );
+        return Type::getInt16Ty( context );
     case 4:
-        return Type::getInt32Ty( context.llvmContext );
+        return Type::getInt32Ty( context );
     case 8:
-        return Type::getInt64Ty( context.llvmContext );
+        return Type::getInt64Ty( context );
     default:
-        LOG( context.LOGGER(), ERROR, "Unsupported integer size " << this->_size << " in type " << this );
-        return nullptr;
+        THROW_LOGIC( "Unsupported integer size " << this->_size << " in type " << this );
     }
 }
 
-Type* TxFloatingType::make_llvm_type( LlvmGenerationContext& context ) const {
+llvm::Type* TxFloatingType::get_scalar_llvm_type( llvm::LLVMContext& context ) const {
     switch ( this->_size ) {
     case 2:
-        return Type::getHalfTy( context.llvmContext );
+        return Type::getHalfTy( context );
     case 4:
-        return Type::getFloatTy( context.llvmContext );
+        return Type::getFloatTy( context );
     case 8:
-        return Type::getDoubleTy( context.llvmContext );
+        return Type::getDoubleTy( context );
     default:
-        LOG( context.LOGGER(), ERROR, "Unsupported floating-point size " << this->_size << " in type " << this );
-        return nullptr;
+        THROW_LOGIC( "Unsupported floating-point size " << this->_size << " in type " << this );
     }
 }
 
@@ -124,8 +127,8 @@ Type* TxArrayType::make_llvm_type( LlvmGenerationContext& context ) const {
     uint32_t arrayLen;
     if ( auto lenExpr = this->length() ) {
         // concrete array (specific length)
-        if ( auto lenProxy = lenExpr->get_static_constant_proxy() )
-            arrayLen = lenProxy->get_value_UInt();  // length is statically specified
+        if ( lenExpr->is_statically_constant() )
+            arrayLen = eval_UInt_constant( lenExpr );  // length is statically specified
         else
             arrayLen = 0;  // length is dynamically specified
     }
@@ -178,8 +181,8 @@ Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope,
 
     // construct LLVM array type:
     Type* elemType = context.get_llvm_type( this->element_type() );
-    auto staticLength = this->length()->get_static_constant_proxy();
-    uint32_t nofElems = ( staticLength ? staticLength->get_value_UInt() : 0 );
+    bool staticLength = this->length()->is_statically_constant();
+    uint32_t nofElems = ( staticLength ? eval_UInt_constant( this->length() ) : 0 );
     std::vector<Type*> llvmMemberTypes {
                                          headerType,
                                          ArrayType::get( elemType, nofElems )

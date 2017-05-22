@@ -42,7 +42,7 @@ Value* TxFunctionHeaderNode::code_gen( LlvmGenerationContext& context, GenScope*
     return nullptr;
 }
 
-Function* TxLambdaExprNode::code_gen_forward_decl( LlvmGenerationContext& context, GenScope* scope ) const {
+Function* TxLambdaExprNode::code_gen_forward_decl( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, " forward declaration" );
     std::string funcName;
     if ( this->fieldDefNode ) {
@@ -69,7 +69,7 @@ Function* TxLambdaExprNode::code_gen_forward_decl( LlvmGenerationContext& contex
 
 Value* TxLambdaExprNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context, " function body" );
-    Function* function = this->code_gen_forward_decl( context, scope );
+    Function* function = this->code_gen_forward_decl( context );
     ASSERT( function, "NULL function pointer in " << this );
 
     // FUTURE: if this is a lambda within a code-block, define the implicit closure object here
@@ -120,6 +120,12 @@ Value* TxLambdaExprNode::code_gen( LlvmGenerationContext& context, GenScope* sco
     auto lambdaV = ConstantStruct::get( lambdaT, function, nullClosureRefV, NULL );
     //auto lambdaV = gen_lambda(context, scope, lambdaT, function, nullClosureRefV);
     return lambdaV;
+}
+
+llvm::Constant* TxLambdaExprNode::code_gen_constant( llvm::LLVMContext& llvmContext ) const {
+    TRACE_CODEGEN( this, context );
+    //THROW_LOGIC( "TxLambdaExprNode::code_gen_constant() not yet supported: " << this );
+    return cast<Constant>( this->code_gen( *this->get_parser_context()->driver().get_llvm_gen_context(), nullptr ) );
 }
 
 Value* TxFieldStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {

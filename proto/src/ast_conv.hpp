@@ -5,9 +5,9 @@
 /** Wraps the provided original expression with a new conversion expression node if necessary and permitted.
  * Assumes declaration pass has already run on originalExpr.
  * If a conversion node is created, symbol declaration pass is run on it.
- * Generates a compilation error if the types don't match and conversion is not possible.
+ * If the types don't match and conversion is not possible, a compilation error is generated and null is returned.
  * @param _explicit if true, forces conversion between types that don't permit implicit conversion
- * @return a new conversion node that wraps the original node, or the original node itself if no conversion was applied
+ * @return a new conversion node that wraps the original node, or the original node itself if no conversion was applied, or null upon failure
  */
 TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType* resultType, bool _explicit );
 
@@ -36,43 +36,22 @@ public:
         this->expr->symbol_resolution_pass();
     }
 
-    virtual bool is_statically_constant() const override {
-        return this->expr->is_statically_constant();
-    }
-
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->expr->visit_ast( visitor, thisCursor, "convertee", context );
     }
 };
 
 class TxScalarConvNode : public TxConversionNode {
-    class ScalarConvConstantProxy : public TxConstantProxy {
-        const TxScalarConvNode* convNode;
-        public:
-        ScalarConvConstantProxy( const TxScalarConvNode* convNode )
-                : convNode( convNode ) {
-        }
-
-        virtual const TxType* get_type() const override {
-            return this->convNode->resultType;
-        }
-        virtual uint32_t get_value_UInt() const override {
-            auto constProxy = this->convNode->expr->get_static_constant_proxy();
-            return constProxy->get_value_UInt();
-        }
-        virtual llvm::Constant* code_gen( LlvmGenerationContext& context, GenScope* scope ) const;
-    };
-    ScalarConvConstantProxy constProxy;
-
 public:
     TxScalarConvNode( TxExpressionNode* expr, const TxType* scalarResultType )
-            : TxConversionNode( expr, scalarResultType ), constProxy( this ) {
+            : TxConversionNode( expr, scalarResultType ) {
     }
 
-    virtual const TxConstantProxy* get_static_constant_proxy() const override {
-        return ( this->expr->get_static_constant_proxy() ? &this->constProxy : nullptr );
+    virtual bool is_statically_constant() const override {
+        return this->expr->is_statically_constant();
     }
 
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
@@ -81,6 +60,12 @@ public:
     TxBoolConvNode( TxExpressionNode* expr, const TxType* boolResultType )
             : TxConversionNode( expr, boolResultType ) {
     }
+
+    virtual bool is_statically_constant() const override {
+        return this->expr->is_statically_constant();
+    }
+
+    virtual llvm::Constant* code_gen_constant( llvm::LLVMContext& llvmContext ) const override;
     virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 

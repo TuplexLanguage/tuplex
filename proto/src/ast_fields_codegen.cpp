@@ -84,8 +84,7 @@ static bool is_non_virtual_lookup( const TxExpressionNode* baseExpr ) {
 
 /** Generate code to obtain field value, potentially based on a base value (pointer). */
 static Value* field_value_code_gen( LlvmGenerationContext& context, GenScope* scope,
-                                    const TxExpressionNode* baseExpr,
-                                    const TxField* fieldEntity, bool foldStatics = false ) {
+                                    const TxExpressionNode* baseExpr, const TxField* fieldEntity ) {
     ASSERT( !( fieldEntity->get_decl_flags() & TXD_CONSTRUCTOR ), "Can't get 'field value' of constructor " << fieldEntity );
 
     bool nonvirtualLookup = is_non_virtual_lookup( baseExpr );  // true for super.foo lookups
@@ -120,15 +119,14 @@ static Value* field_value_code_gen( LlvmGenerationContext& context, GenScope* sc
         // no break
 
     case TXS_STATIC:
-        case TXS_GLOBAL:
-        if ( foldStatics ) {
-            if ( auto constProxy = fieldEntity->get_static_constant_proxy() ) {
-                val = constProxy->code_gen( context, scope );
-                LOG_DEBUG( context.LOGGER(),
-                           "Generating field value code for statically constant fieldEntity " << fieldEntity << ": " << ::to_string(val) );
-                break;
-            }
-        }
+    case TXS_GLOBAL:
+// generated multiple entries...
+//        if ( fieldEntity->is_statically_constant() ) {
+//            val = fieldEntity->get_declaration()->get_definer()->get_init_expression()->code_gen_constant( context.llvmContext );
+//            LOG_DEBUG( context.LOGGER(),
+//                       "Generating field value code for statically constant fieldEntity " << fieldEntity << ": " << ::to_string(val) );
+//            break;
+//        }
         val = context.lookup_llvm_value( fieldEntity->get_declaration()->get_unique_full_name() );
         if ( !val ) {
             // forward declaration situation
@@ -140,27 +138,26 @@ static Value* field_value_code_gen( LlvmGenerationContext& context, GenScope* sc
 
     case TXS_INSTANCE:
         {
-        if ( !baseExpr ) {
-            LOG( context.LOGGER(),
-                 ERROR,
-                 "Attempted to dereference TXS_INSTANCE field but no base expression provided; identifier=" << fieldEntity->get_declaration()->get_unique_full_name() );
-            return nullptr;
-        }
-        auto baseValue = baseExpr->code_gen_address( context, scope );
-        if ( !baseValue )
-            return nullptr;
+            if ( !baseExpr ) {
+                LOG( context.LOGGER(), ERROR, "Attempted to dereference TXS_INSTANCE field but no base expression provided; identifier="
+                     << fieldEntity->get_declaration()->get_unique_full_name() );
+                return nullptr;
+            }
+            auto baseValue = baseExpr->code_gen_address( context, scope );
+            if ( !baseValue )
+                return nullptr;
 
-        auto staticBaseType = baseExpr->get_type()->type();
-        uint32_t fieldIx = staticBaseType->get_instance_fields().get_field_index( fieldEntity->get_unique_name() );
-        ASSERT( fieldIx != UINT32_MAX, "Unknown field index for field " << fieldEntity->get_unique_name() << " in " << staticBaseType );
-        //std::cerr << "Getting TXS_INSTANCE ix " << fieldIx << " value off LLVM base value: " << baseValue << std::endl;
-        Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };
-        if ( !scope )
-            val = GetElementPtrInst::CreateInBounds( baseValue, ixs );
-        else
-            val = scope->builder->CreateInBoundsGEP( baseValue, ixs );
-    }
+            auto staticBaseType = baseExpr->get_type()->type();
+            uint32_t fieldIx = staticBaseType->get_instance_fields().get_field_index( fieldEntity->get_unique_name() );
+            ASSERT( fieldIx != UINT32_MAX, "Unknown field index for field " << fieldEntity->get_unique_name() << " in " << staticBaseType );
+            //std::cerr << "Getting TXS_INSTANCE ix " << fieldIx << " value off LLVM base value: " << baseValue << std::endl;
+            Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                             ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };
+            if ( !scope )
+                val = GetElementPtrInst::CreateInBounds( baseValue, ixs );
+            else
+                val = scope->builder->CreateInBoundsGEP( baseValue, ixs );
+        }
         break;
 
     case TXS_STACK:
@@ -175,15 +172,13 @@ static Value* field_value_code_gen( LlvmGenerationContext& context, GenScope* sc
 }
 
 Value* TxFieldValueNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
-    if ( auto field = this->get_field() )
-        return field_value_code_gen( context, scope, this->baseExpr, field, true );
-    else
-        return NULL;
+    ASSERT( this->get_field(), "No field in " << this );
+    return field_value_code_gen( context, scope, this->baseExpr, this->get_field() );
 }
 
 Value* TxFieldValueNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    Value* value = this->code_gen_address( context, scope /*, true*/);
+    Value* value = this->code_gen_address( context, scope );
 
     if ( value && scope ) {  // (in global scope we don't load)
         auto valT = value->getType();
@@ -200,4 +195,9 @@ Value* TxFieldValueNode::code_gen( LlvmGenerationContext& context, GenScope* sco
     //else
     //    std::cerr << "skipping LOAD for " << value << std::endl;
     return value;
+}
+
+llvm::Constant* TxFieldValueNode::code_gen_constant( llvm::LLVMContext& llvmContext ) const {
+    TRACE_CODEGEN( this, context );
+    return this->get_field()->get_declaration()->get_definer()->get_init_expression()->code_gen_constant( llvmContext );
 }

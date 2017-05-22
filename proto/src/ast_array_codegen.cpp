@@ -20,7 +20,7 @@ Value* TxArrayLitNode::code_gen( LlvmGenerationContext& context, GenScope* scope
     if ( this->_directArrayArg ) {
         return this->elemExprList->front()->code_gen( context, scope );
     }
-    else if ( this->is_statically_constant() ) {
+    else if ( this->_constant ) {
         // FUTURE: optimize for arrays of scalars
         //    if (this->elementTypeNode->typeExprNode->get_type()->type()->is_scalar()) {
         //        Constant* dataArray = ConstantDataArray::get( context.llvmContext, nullptr );
@@ -32,7 +32,7 @@ Value* TxArrayLitNode::code_gen( LlvmGenerationContext& context, GenScope* scope
         //    }
         std::vector<Constant*> values;
         for ( auto elemExpr : *this->elemExprList )
-            values.push_back( cast<Constant>( elemExpr->code_gen( context, scope ) ) );
+            values.push_back( elemExpr->code_gen_constant( context.llvmContext ) );
         ArrayRef<Constant*> data( values );
 
         Type* elemType = context.get_llvm_type( this->get_type()->element_type()->type() );
@@ -56,4 +56,10 @@ Value* TxArrayLitNode::code_gen( LlvmGenerationContext& context, GenScope* scope
         }
         return arrayObj;
     }
+}
+
+Constant* TxArrayLitNode::code_gen_constant( LLVMContext& context ) const {
+    TRACE_CODEGEN( this, context );
+    //THROW_LOGIC( "Array constant code gen not yet supported   " << this );
+    return cast<Constant>( this->code_gen( *this->get_parser_context()->driver().get_llvm_gen_context(), nullptr ) );
 }
