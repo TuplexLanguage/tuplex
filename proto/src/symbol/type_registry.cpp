@@ -303,16 +303,15 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
                     if ( auto existingFieldDecl = dynamic_cast<const TxFieldDeclaration*>( existingBaseTypeBindings.at( ix ) ) ) {
                         // to match, both need to be statically constant and with equal value
                         ASSERT(valueBinding->valueExprNode, "valueBinding->valueExprNode is null for " << existingBaseSymbol);
-                        if ( valueBinding->valueExprNode->is_statically_constant() ) {
-                            // new binding has statically constant value
-                            if ( auto existingInitializer = existingFieldDecl->get_definer()->get_init_expression() ) {
-                                if ( existingInitializer->is_statically_constant() ) {
-                                    // existing binding has statically constant value
-                                    if ( valueBinding->valueExprNode->get_type()->is_builtin( TXBT_UINT) )
-                                        if ( eval_UInt_constant( valueBinding->valueExprNode ) == eval_UInt_constant( existingInitializer ) )
-                                            continue;
-                                }
+                        if ( auto existingInitializer = existingFieldDecl->get_definer()->get_init_expression() ) {
+                            if ( valueBinding->valueExprNode->is_statically_constant() && existingInitializer->is_statically_constant() ) {
+                                auto actType = valueBinding->valueExprNode->get_type()->type();
+                                if ( actType->has_type_id() && is_concrete_uinteger_type( (BuiltinTypeId) actType->get_type_id() ) )
+                                    if ( eval_unsigned_int_constant( valueBinding->valueExprNode ) == eval_unsigned_int_constant( existingInitializer ) )
+                                        continue;
                             }
+//                            if ( is_static_equal( valueBinding->valueExprNode, existingInitializer ) )
+//                                continue;
                         }
                     }
                 }
@@ -464,7 +463,7 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
 
             valueArg->valueExprNode->resolve_type();  // ensure binding is resolved (and verify that it does resolve)
             if ( valueArg->valueExprNode->is_statically_constant() ) {
-                uint32_t bindingValue = eval_UInt_constant( valueArg->valueExprNode );
+                uint32_t bindingValue = eval_unsigned_int_constant( valueArg->valueExprNode );
                 newBaseTypeName << bindingValue;  // statically known value
             }
             else {

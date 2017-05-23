@@ -6,23 +6,43 @@
 
 using namespace llvm;
 
-uint32_t eval_UInt_constant( const TxExpressionNode* exprNode ) {
+uint64_t eval_unsigned_int_constant( const TxExpressionNode* exprNode ) {
     Constant* value = exprNode->code_gen_constant( *exprNode->get_parser_context()->get_llvm_gen_context() );
     ConstantInt* CI = cast<ConstantInt>( value );
     uint64_t constUIntValue = CI->getZExtValue();
     return constUIntValue;
 }
 
-int32_t eval_Int_constant( const TxExpressionNode* exprNode ) {
+int64_t eval_signed_int_constant( const TxExpressionNode* exprNode ) {
     Constant* value = exprNode->code_gen_constant( *exprNode->get_parser_context()->get_llvm_gen_context() );
     ConstantInt* CI = cast<ConstantInt>( value );
     int64_t constIntValue = CI->getSExtValue();
     return constIntValue;
 }
 
-double eval_Floatingpoint_constant( const TxExpressionNode* exprNode ) {
+double eval_floatingpoint_constant( const TxExpressionNode* exprNode ) {
     Constant* value = exprNode->code_gen_constant( *exprNode->get_parser_context()->get_llvm_gen_context() );
     ConstantFP* CF = cast<ConstantFP>( value );
     double constDoubleValue = CF->getValueAPF().convertToDouble();
     return constDoubleValue;
+}
+
+bool is_static_equal( const TxExpressionNode* exprA, const TxExpressionNode* exprB ) {
+    if ( exprA->is_statically_constant() && exprB->is_statically_constant() ) {
+        auto atype = exprA->get_type()->type();
+        auto btype = exprB->get_type()->type();
+        if ( !( atype->has_type_id() && btype->has_type_id() ) )
+            return false;  // can currently only compare constant values of built-in types
+
+        if ( ( is_concrete_uinteger_type( (BuiltinTypeId)atype->get_type_id() ) && is_concrete_uinteger_type( (BuiltinTypeId)btype->get_type_id() ) )
+                || ( atype->get_type_id() == TXBT_BOOL && btype->get_type_id() == TXBT_BOOL ) )
+            return ( eval_unsigned_int_constant( exprA ) == eval_unsigned_int_constant( exprB ) );
+
+        if ( is_concrete_sinteger_type( (BuiltinTypeId)atype->get_type_id() ) && is_concrete_sinteger_type( (BuiltinTypeId)btype->get_type_id() ) )
+            return ( eval_signed_int_constant( exprA ) == eval_signed_int_constant( exprB ) );
+
+        if ( is_concrete_floating_type( (BuiltinTypeId)atype->get_type_id() ) && is_concrete_floating_type( (BuiltinTypeId)btype->get_type_id() ) )
+            return ( eval_floatingpoint_constant( exprA ) == eval_floatingpoint_constant( exprB ) );
+    }
+    return false;
 }

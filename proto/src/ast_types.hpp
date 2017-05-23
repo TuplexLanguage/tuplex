@@ -181,7 +181,7 @@ public:
 
     virtual std::string get_auto_type_name() const override {
         if ( this->valueExprNode->is_statically_constant() ) {
-            uint32_t bindingValue = eval_UInt_constant( this->valueExprNode );
+            uint32_t bindingValue = eval_unsigned_int_constant( this->valueExprNode );
             return std::to_string( bindingValue );  // statically known value
         }
         else {

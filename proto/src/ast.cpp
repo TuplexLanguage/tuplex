@@ -877,7 +877,7 @@ static const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, 
                 else if ( ( fixedArrayArgType = field->get_type()->fixed_array_arg_type() ) ) {
                     // fixed array parameter accepts matching number of arguments
                     auto lenExpr = static_cast<const TxArrayType*>( fixedArrayArgType->type() )->length();
-                    auto len = eval_UInt_constant( lenExpr );
+                    auto len = eval_unsigned_int_constant( lenExpr );
                     if ( !( arguments->size() == 1 || arguments->size() == len ) )
                         continue;  // mismatching number of function args
                     arrayArgElemType = fixedArrayArgType->element_type();

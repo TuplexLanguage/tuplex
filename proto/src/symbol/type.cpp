@@ -751,31 +751,6 @@ static inline bool is_explicit_nongen_declaration( const TxActualType* type ) {
     return ( !( type->get_declaration()->get_decl_flags() & ( TXD_IMPLICIT | TXD_GENPARAM | TXD_GENBINDING ) ) );
 }
 
-//bool TxActualType::inner_equals(const TxActualType& otherType) const {
-//    // note: both are assumed to have explicit declaration and/or be non-empty
-//    // note: an implicit declaration is effectively unique if it is non-empty (we don't structurally compare them
-//    // if either has an explicit declaration, they both must have the same explicit declaration
-//    auto decl = this->get_declaration();
-//    auto otherDecl = otherType.get_declaration();
-//    if ( !( decl->get_decl_flags() & TXD_IMPLICIT ) || !( otherDecl->get_decl_flags() & TXD_IMPLICIT ) ) {
-//        return decl == otherDecl;  // same explicit declaration
-//    }
-//
-//    if ( decl || otherDecl ) {
-//        // if either has an explicit declaration, they both must have the same declaration
-//        return decl == otherDecl;  // same explicit declaration
-//    }
-//
-//    if (explDecl)
-//            return true;
-//
-//        if ( this->is_empty_derivation() && otherType.is_empty_derivation()
-//             && this->baseTypeSpec == otherType.baseTypeSpec )  // non-explicitly declared but identical, empty specializations
-//            return true;
-//    }
-//    return false;
-//    // (interfaces and members can only apply to a type with an explicit declaration, and an explicit declaration can have only one type instance)
-//}
 bool TxActualType::inner_equals( const TxActualType* thatType ) const {
     // note: both are assumed to have explicit declaration and/or be non-empty
     // (interfaces and members can only apply to a type with an explicit declaration, and an explicit declaration can have only one type instance)
@@ -856,27 +831,6 @@ bool TxActualType::is_assignable_to( const TxActualType& destination ) const {
             return false;
     }while ( true );
 }
-
-/*
- static std::string type_name(const TxActualType* type) {
- if (auto decl = type->get_declaration())
- return decl->to_string();
- else
- return typeid(*type).name();
- }
- static void print_hierarchy(const TxActualType* type)
- {
- while (type) {
- if (type->is_empty_derivation())
- std::cerr << type_name(type) << "\t (EMPTY)" << std::endl;
- else if (type->is_modifiable())
- std::cerr << type_name(type) << "\t (MOD)" << std::endl;
- else
- std::cerr << type_name(type) << std::endl;
- type = type->get_semantic_base_type();
- }
- }
- */
 
 /** Returns the common base type of the types, if both are pure specializations of it. */
 const TxActualType* TxActualType::common_generic_base_type( const TxActualType* thisType, const TxActualType* thatType ) {
@@ -998,7 +952,7 @@ static void type_bindings_string( std::stringstream& str, const std::vector<cons
                 if ( initializer->is_statically_constant() ) {
                     // existing binding has statically constant value
                     // TODO: handle constants of different types
-                    str << eval_UInt_constant( initializer );
+                    str << eval_unsigned_int_constant( initializer );
                     continue;
                 }
             }
@@ -1078,7 +1032,7 @@ static bool array_assignable_from( const TxArrayType* toArray, const TxArrayType
     if ( auto lenExpr = toArray->length() ) {
         if ( auto otherLenExpr = fromArray->length() ) {
             return ( lenExpr->is_statically_constant() && otherLenExpr->is_statically_constant()
-                     && eval_UInt_constant( lenExpr ) == eval_UInt_constant( otherLenExpr ) );
+                     && eval_unsigned_int_constant( lenExpr ) == eval_unsigned_int_constant( otherLenExpr ) );
         }
         else
             return false;  // origin has not bound L

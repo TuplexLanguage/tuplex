@@ -128,7 +128,7 @@ Type* TxArrayType::make_llvm_type( LlvmGenerationContext& context ) const {
     if ( auto lenExpr = this->length() ) {
         // concrete array (specific length)
         if ( lenExpr->is_statically_constant() )
-            arrayLen = eval_UInt_constant( lenExpr );  // length is statically specified
+            arrayLen = eval_unsigned_int_constant( lenExpr );  // length is statically specified
         else
             arrayLen = 0;  // length is dynamically specified
     }
@@ -182,7 +182,7 @@ Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope,
     // construct LLVM array type:
     Type* elemType = context.get_llvm_type( this->element_type() );
     bool staticLength = this->length()->is_statically_constant();
-    uint32_t nofElems = ( staticLength ? eval_UInt_constant( this->length() ) : 0 );
+    uint32_t nofElems = ( staticLength ? eval_unsigned_int_constant( this->length() ) : 0 );
     std::vector<Type*> llvmMemberTypes {
                                          headerType,
                                          ArrayType::get( elemType, nofElems )
