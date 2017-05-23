@@ -194,10 +194,10 @@ bool TxEntitySymbol::add_type( TxTypeDeclaration* typeDeclaration ) {
     this->typeDeclaration = typeDeclaration;
 
     if ( !( typeDeclaration->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING ) )
-         && this->get_name() != "$Self"
+         && this->get_name() != "Self" && this->get_name() != "Super"
          && this->get_name() != "$GenericBase" && !begins_with( this->get_name(), "$Ftype" ) ) {
         auto definer = typeDeclaration->get_definer();
-        if ( TxEntitySymbol* entitySymbol = this->declare_entity( "$Self", definer ) ) {
+        if ( TxEntitySymbol* entitySymbol = this->declare_entity( "Self", definer ) ) {
             auto selfDeclaration = new TxTypeDeclaration( entitySymbol, TXD_IMPLICIT, definer );
             entitySymbol->add_type( selfDeclaration );
         }
@@ -317,8 +317,16 @@ std::string TxEntitySymbol::description_string() const {
         return "   overloaded symbol       " + this->get_full_name().str();
     else if ( this->typeDeclaration )  // non-overloaded type name
         if ( auto type = this->typeDeclaration->get_definer()->attempt_get_type() ) {
-            if ( type->get_declaration() == this->typeDeclaration )
-                return "TYPE        " + type->str( false );
+            if ( type->get_declaration() == this->typeDeclaration ) {
+                if ( auto basetype = type->get_semantic_base_type() ) {
+                    auto name = type->str();
+                    if ( name.size() < 48 )
+                        name.resize( 48, ' ' );
+                    return "TYPE        " + name + " : " + basetype->str();
+                }
+                else
+                    return "TYPE        " + type->str( false );
+            }
             else {
                 auto name = this->typeDeclaration->get_unique_full_name();
                 if ( name.size() < 48 )

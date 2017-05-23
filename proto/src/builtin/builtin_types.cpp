@@ -591,9 +591,8 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
 
 static std::vector<TxDeclarationNode*> make_array_constructors( const TxLocation& loc ) {
     std::vector<TxDeclarationNode*> constructors;
-//    auto        argNode = new TxFieldTypeDefNode( loc, "val", new TxReferenceTypeNode( loc, nullptr, new TxIdentifiedTypeNode( loc, "$Self" ) ) );
-    auto argNode = new TxArgTypeDefNode( loc, "val", new TxNamedTypeNode( loc, "$Self" ) );
-    auto returnTypeNode = new TxNamedTypeNode( loc, "$Self" );
+    auto argNode = new TxArgTypeDefNode( loc, "val", new TxNamedTypeNode( loc, "Self" ) );
+    auto returnTypeNode = new TxNamedTypeNode( loc, "Self" );
     constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
                                                  new TxFieldDefNode( loc, CONSTR_IDENT,
                                                                      new TxArrayConstructorTypeDefNode( loc, argNode, returnTypeNode ),

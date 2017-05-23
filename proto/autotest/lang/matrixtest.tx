@@ -1,15 +1,26 @@
 ## Tests building nested types with VALUE type parameters.
 
-type Matrix<E, M : UInt, N : UInt> {
-    type Row : Array<E, (N)>;
+type Matrix<E, R : UInt, C : UInt> {
+    type Row : Array<E, (C)>;
 
-    rows : Array< Row, (M) >;
+    rows : Array< Row, (R) >;
 
-    self( other : &Matrix<E,(M),(N)> ) {
+    ##self( other : &Matrix<E,(R),(C)> ) {
+    self( other : &Self ) {
         self.rows = other.rows;
+    }
+
+    self() {
     }
 }
 
+make_matrix( r : UInt, c : UInt ) -> &Matrix {
+    return new Matrix<Int, (r), (c)>();
+}
+
 main()->Int {
+    type Mat : Matrix<Int, (2), (3)>;
+    m : Mat;
+    
     return 0;
 }

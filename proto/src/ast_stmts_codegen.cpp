@@ -72,7 +72,6 @@ llvm::Constant* TxLambdaExprNode::code_gen_constant( LlvmGenerationContext& cont
     Function* function = this->code_gen_forward_decl( context );
     ASSERT( function, "NULL function pointer in " << this );
 
-    //std::cerr << "code gen for " << this << std::endl;
     // FUTURE: if this is a lambda within a code-block, define the implicit closure object here
 
     StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->get_type() ) );

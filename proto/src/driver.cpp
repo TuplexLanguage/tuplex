@@ -113,7 +113,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     }
 
     if ( error_count )
-        _LOG.error( "- Grammar parse completed, %d errors", error_count );
+        _LOG.error( "- Grammar parse encountered %d errors", error_count );
     else
         _LOG.info( "+ Grammar parse OK" );
     if ( this->options.only_parse )
@@ -133,7 +133,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     this->package->prepare_modules();  // (prepares the declared imports)
 
     if ( error_count != prev_error_count ) {
-        _LOG.error( "- Declaration pass completed, %d errors", error_count - prev_error_count );
+        _LOG.error( "- Declaration pass encountered %d errors", error_count - prev_error_count );
         prev_error_count = error_count;
     }
     else
@@ -145,18 +145,26 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         parserContext->parsingUnit->symbol_resolution_pass();
     }
 
-    this->package->registry().deferred_type_resolution_pass();
-
-    for ( auto parserContext : this->parsedASTs ) {
-        parserContext->finalize_expected_error_clauses();
-    }
-
-    if ( error_count == prev_error_count ) {
-        _LOG.info( "+ Resolution pass OK" );
+    if ( error_count != prev_error_count ) {
+        _LOG.error( "- Resolution pass encountered %d errors", error_count - prev_error_count );
         prev_error_count = error_count;
     }
-    else
-        _LOG.error( "- Resolution pass completed, %d errors", error_count - prev_error_count );
+    else {
+        _LOG.info( "+ Resolution pass OK" );
+
+        this->package->registry().deferred_type_resolution_pass();
+
+        for ( auto parserContext : this->parsedASTs ) {
+            parserContext->finalize_expected_error_clauses();
+        }
+
+        if ( error_count == prev_error_count ) {
+            _LOG.info( "+ Deferred resolution pass OK" );
+            prev_error_count = error_count;
+        }
+        else
+            _LOG.error( "- Deferred resolution pass encountered %d errors", error_count - prev_error_count );
+    }
 
     if ( this->options.dump_ast ) {
         auto visitor = []( const TxNode* node, const AstCursor& parent, const std::string& role, void* ctx ) {

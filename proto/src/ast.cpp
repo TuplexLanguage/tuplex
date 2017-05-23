@@ -569,11 +569,11 @@ void TxDerivedTypeNode::init_implicit_types() {
             this->baseType = new TxNamedTypeNode( this->parseLocation, "tx.Tuple" );
     }
 
-    // implicit type member '$Super' for types with a body:
-    // (Note, '$Self' is created in the symbol table for all types, as an alias directly to the type.)
+    // implicit type member 'Super' for types with a body:
+    // (Note, 'Self' is created in the symbol table for all types, as an alias directly to the type.)
     TxTypeExpressionNode* superTypeExprN = new TxTypeExprWrapperNode( this->baseType );
     auto superRefTypeExprN = new TxReferenceTypeNode( this->parseLocation, nullptr, superTypeExprN );
-    const std::string superTypeName = "$Super";
+    const std::string superTypeName = "Super";
     this->superRefTypeNode = new TxTypeDeclNode( this->parseLocation, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN );
 }
 
@@ -1051,31 +1051,20 @@ const TxType* TxFieldValueNode::define_type() {
         if ( auto fieldDecl = dynamic_cast<const TxFieldDeclaration*>( decl ) ) {
             this->field = fieldDecl->get_definer()->resolve_field();
 
-            if ( ( fieldDecl->get_storage() == TXS_INSTANCE || fieldDecl->get_storage() == TXS_INSTANCEMETHOD )
-                 && !( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ) ) {
-                if ( !this->baseExpr ) {
-                    CERR_THROWRES( this, "Instance member field referenced without instance base: " << this->get_full_identifier() );
-                    return nullptr;
-                }
-                else {
-                    if ( auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {
-                        if ( !baseSymbolNode->get_field() ) {
-                            CERR_THROWRES( this, "Instance member field referenced without instance base: " << this->get_full_identifier() );
-                            return nullptr;
+            if ( fieldDecl->get_storage() == TXS_INSTANCE || fieldDecl->get_storage() == TXS_INSTANCEMETHOD ) {
+                if ( !( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER | TXD_GENPARAM | TXD_GENBINDING ) ) ) {
+                    if ( this->baseExpr ) {
+                        if ( auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {
+                            if ( !baseSymbolNode->get_field() ) {
+                                CERR_THROWRES( this, "Instance member field referenced without instance base: " << this->get_full_identifier() );
+                            }
                         }
                     }
-//                    auto baseExprType = this->baseExpr->get_type();
-//                    std::cerr << "base expr type: " << baseExprType << std::endl;
-//                    auto fieldType = field->get_type();
-//                    if ( fieldDecl->get_storage() == TXS_INSTANCEMETHOD ) {
-//
-//                    }
-//                    else if ( fieldType->is_modifiable() ) {
-//
-//                    }
+                    else {
+                        CERR_THROWRES( this, "Instance member field referenced without instance base: " << this->get_full_identifier() );
+                    }
                 }
             }
-
             return this->field->get_type();
         }
         else

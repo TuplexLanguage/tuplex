@@ -399,7 +399,7 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
 
     TxTypeDefiningNode* builtinTypeDefiner = nullptr;
 
-    /** Initializes certain implicit type members such as '$Super' for types with a body. */
+    /** Initializes certain implicit type members such as 'Super' for types with a body. */
     void init_implicit_types();
 
     friend class TxBuiltinTypeDefiningNode;
@@ -517,8 +517,8 @@ public:
 //
 //    virtual std::string get_auto_type_name() const override {
 //        //std::cerr << "TxSuperTypeNode: " << this->context().scope()->get_full_name().str() << std::endl;
-//        return this->context().scope()->get_full_name().str();  // the current scope name ends with $Super
-//        // TODO: review
+//        return this->context().scope()->get_full_name().str();  // the current scope name ends with Super
+//        // TO DO: review
 //    }
 //
 //    virtual void symbol_resolution_pass() override {

@@ -97,7 +97,7 @@ public:
             : TxExpressionNode( parseLocation ), funcHeaderNode( funcHeaderNode ), suite( suite ), isMethodSyntax( isMethodSyntax ) {
         if ( isMethodSyntax ) {
             // 'self' reference:
-            this->selfTypeNode = new TxNamedTypeNode( this->parseLocation, "$Self" );
+            this->selfTypeNode = new TxNamedTypeNode( this->parseLocation, "Self" );
             TxTypeExpressionNode* selfRefTargetTypeNode;
             if ( this->funcHeaderNode->is_modifying() )
                 selfRefTargetTypeNode = new TxModifiableTypeNode( this->parseLocation, this->selfTypeNode );
@@ -107,7 +107,7 @@ public:
             this->selfRefNode = new TxFieldDefNode( this->parseLocation, "self", selfRefTypeExprN, nullptr );
 
             // 'super' reference
-            auto superRefTypeExprN = new TxNamedTypeNode( this->parseLocation, "$Super" );
+            auto superRefTypeExprN = new TxNamedTypeNode( this->parseLocation, "Super" );
             this->superRefNode = new TxFieldDefNode( this->parseLocation, "super", superRefTypeExprN, nullptr );
             // FUTURE: if type is modifiable, the super target type should in some cases perhaps be modifiable as well?
         }
