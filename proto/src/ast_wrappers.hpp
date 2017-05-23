@@ -62,7 +62,6 @@ public:
 /** Wraps a TxTypeDefiningNode as an TxTypeExpressionNode.
  * The declaration and resolution pass calls won't be forwarded,
  * allowing the wrapped node to be added as a TxTypeExpressionNode child to additional parent nodes.
- * Code generation however is performed on the wrapped node.
  */
 class TxTypeExprWrapperNode : public TxTypeExpressionNode {
 protected:
@@ -91,9 +90,7 @@ public:
         }
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
-        return this->typeDefNode->code_gen( context, scope );
-    }
+    virtual void code_gen_type( LlvmGenerationContext& context ) const override { }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         // Traversal does not proceed to the wrapped node from here since it is visited via its original AST location.
@@ -149,9 +146,7 @@ public:
         return this->typeDecl;
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
-        return nullptr;
-    }
+    virtual void code_gen_type( LlvmGenerationContext& context ) const override { }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }

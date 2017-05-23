@@ -337,21 +337,19 @@ Constant* TxElemDerefNode::code_gen_constant( LlvmGenerationContext& context ) c
     return ConstantExpr::getExtractValue( arrayC, ixs );
 }
 
-Value* TxElemAssigneeNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxElemAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     return gen_elem_address( context, scope, this->array->code_gen_address( context, scope ), this->subscript->code_gen_value( context, scope ) );
 }
 
-Value* TxFieldAssigneeNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxFieldAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     return this->field->code_gen_address( context, scope );
 }
 
-Value* TxDerefAssigneeNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxDerefAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     auto refval = this->operand->code_gen_value( context, scope );
-    if ( !refval )
-        return NULL;
     return gen_get_ref_pointer( context, scope, refval );
 }
 
@@ -360,7 +358,7 @@ static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& c
     std::vector<Value*> args;
     args.push_back( closureRefV );
     for ( auto argDef : *node->argsExprList ) {
-        args.push_back( argDef->code_gen( context, scope ) );
+        args.push_back( argDef->code_gen_expr( context, scope ) );
     }
 
     if ( scope )
@@ -374,8 +372,6 @@ static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& c
 
 static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, const std::string& exprLabel ) {
     auto lambdaV = node->callee->code_gen_value( context, scope );
-    if ( !lambdaV )
-        return nullptr;
     //std::cout << "callee: " << lambdaV << std::endl;
     auto functionPtrV = gen_get_struct_member( context, scope, lambdaV, 0 );
     auto closureRefV = gen_get_struct_member( context, scope, lambdaV, 1 );
@@ -402,8 +398,6 @@ Value* TxConstructorCalleeExprNode::code_gen_value( LlvmGenerationContext& conte
     TRACE_CODEGEN( this, context );
     Value* funcPtrV = this->gen_func_ptr( context, scope );
     auto allocType = this->objectExpr->get_type();
-    if ( !allocType )
-        return nullptr;
     Constant* instanceTypeIdV = allocType->type()->gen_typeid( context, scope );
     // construct the lambda object:
     auto closureRefT = context.get_voidRefT();

@@ -149,7 +149,7 @@ Type* TxArrayType::make_llvm_type( LlvmGenerationContext& context ) const {
 Value* TxArrayType::gen_size( LlvmGenerationContext& context, GenScope* scope ) const {
     ASSERT( this->is_concrete(), "Attempted to codegen size of non-concrete type " << this );
     Value* elemSize = this->element_type()->gen_size( context, scope );
-    Value* arrayLen = this->length()->code_gen( context, scope );
+    Value* arrayLen = this->length()->code_gen_expr( context, scope );
     return this->inner_code_gen_size( context, scope, elemSize, arrayLen );
 }
 
@@ -199,7 +199,7 @@ Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope,
     }
     else {
         // otherwise calculate allocation size as a multiple of the array header size - ought to provide sufficient alignment?
-        arrayLen = scope->builder->CreateZExtOrBitCast( this->length()->code_gen( context, scope ),
+        arrayLen = scope->builder->CreateZExtOrBitCast( this->length()->code_gen_expr( context, scope ),
                                                         Type::getInt32Ty( context.llvmContext ) );
         auto arrayLen64 = scope->builder->CreateZExtOrBitCast( arrayLen, Type::getInt64Ty( context.llvmContext ) );
         Value* elemSize = this->element_type()->gen_size( context, scope );

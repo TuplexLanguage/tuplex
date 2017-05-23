@@ -435,8 +435,6 @@ public:
         ASSERT( this->type, "entity definer not resolved: " << this );
         return this->type;
     }
-
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const = 0;
 };
 
 class TxExpressionNode;

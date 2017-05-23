@@ -656,9 +656,7 @@ public:
         return ( this->get_declaration() ? this->get_declaration()->get_unique_full_name() : "" );
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
-        return nullptr;
-    }
+    virtual void code_gen_type( LlvmGenerationContext& context ) const override { }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }

@@ -43,7 +43,7 @@ void TxTypeDeclNode::code_gen( LlvmGenerationContext& context ) const {
         // FUTURE: Evaluate capability for generic types to have global static members (e.g. inner types independent of the outer type parameters).
         return;
     }
-    this->typeExpression->code_gen( context, nullptr );
+    this->typeExpression->code_gen_type( context );
 }
 
 static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, const std::string& uniqueName, Constant* constantInitializer, Type* llvmType ) {
@@ -73,7 +73,7 @@ static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, cons
 void TxFieldDeclNode::code_gen( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     if ( this->field->typeExpression )
-        this->field->typeExpression->code_gen( context, nullptr );
+        this->field->typeExpression->code_gen_type( context );
 
     auto fieldDecl = this->field->get_declaration();
     std::string uniqueName = fieldDecl->get_unique_full_name();
@@ -135,11 +135,6 @@ void TxFieldDeclNode::code_gen( LlvmGenerationContext& context ) const {
     context.register_llvm_value( uniqueName, fieldVal );
 }
 
-Value* TxArgTypeDefNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
-    TRACE_CODEGEN( this, context );
-    return nullptr;  // passive node
-}
-
 Constant* TxFieldDefiningNode::code_gen_constant_init_expr( LlvmGenerationContext& context ) const {
     if (! this->cachedConstantInitializer) {
         ASSERT( this->get_init_expression() && this->get_init_expression()->is_statically_constant(), "Expected constant initializer in " << this );
@@ -148,7 +143,7 @@ Constant* TxFieldDefiningNode::code_gen_constant_init_expr( LlvmGenerationContex
     return this->cachedConstantInitializer;
 }
 
-Value* TxExpressionNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxExpressionNode::code_gen_expr( LlvmGenerationContext& context, GenScope* scope ) const {
     if (this->is_statically_constant())
         return this->code_gen_constant( context );
     else

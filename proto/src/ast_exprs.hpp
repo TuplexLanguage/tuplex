@@ -675,7 +675,7 @@ public:
             CERROR( this, "Assignee '" << field->symbolName << "' is not an L-value / has no storage." );
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->field->visit_ast( visitor, thisCursor, "field", context );
@@ -711,7 +711,7 @@ public:
         operand->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->operand->visit_ast( visitor, thisCursor, "operand", context );
@@ -759,7 +759,7 @@ public:
         subscript->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->array->visit_ast( visitor, thisCursor, "array", context );

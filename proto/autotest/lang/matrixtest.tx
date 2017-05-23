@@ -1,9 +1,9 @@
 ## Tests building nested types with VALUE type parameters.
 
-type Matrix<E, R : UInt, C : UInt> {
-    type Row : Array<E, (C)>;
+type ~ Matrix<E, R : UInt, C : UInt> {
+    type ~ Row : Array<E, (C)>;
 
-    rows : Array< Row, (R) >;
+    rows : ~Array< ~Row, (R) >;
 
     ##self( other : &Matrix<E,(R),(C)> ) {
     self( other : &Self ) {
@@ -14,8 +14,16 @@ type Matrix<E, R : UInt, C : UInt> {
     }
 }
 
-make_matrix( r : UInt, c : UInt ) -> &Matrix {
-    return new Matrix<Int, (r), (c)>();
+make_matrix( rows : UInt, cols : UInt ) -> &Matrix {
+    m := new ~Matrix<~Int, (rows), (cols)>();
+
+    ci : ~UInt = 0;
+    while ci < cols {
+        m.rows[0][ci] = Int(ci);
+        ci = ci + 1;
+    }
+
+    return m;
 }
 
 main()->Int {

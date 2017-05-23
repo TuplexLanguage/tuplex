@@ -188,14 +188,13 @@ public:
             this->sourcecodeDefiner->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
+    virtual void code_gen_type( LlvmGenerationContext& context ) const override {
         if ( this->baseTypeNode )
-            this->baseTypeNode->code_gen( context, scope );
+            this->baseTypeNode->code_gen_type( context );
         for ( auto decl : this->declNodes )
             decl->code_gen( context );
         if ( this->sourcecodeDefiner )
-            this->sourcecodeDefiner->code_gen( context, scope );
-        return nullptr;
+            this->sourcecodeDefiner->code_gen_type( context );
     }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
