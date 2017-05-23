@@ -1,7 +1,9 @@
 #pragma once
 
-inline bool begins_with( const std::string& str, const std::string& tail ) {
-    return str.length() >= tail.length() && !str.compare( 0, tail.length(), tail );
+#include <string>
+
+inline bool begins_with( const std::string& str, const std::string& head ) {
+    return str.length() >= head.length() && !str.compare( 0, head.length(), head );
 }
 
 inline bool ends_with( const std::string& str, const std::string& tail ) {

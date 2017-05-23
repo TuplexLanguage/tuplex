@@ -58,6 +58,27 @@ public:
         return this->definer;
     }
 
+    /** Performs as accurate equals as possible without forcing actualization of this type or that type.
+     * Since it doesn't force actualization it may produce false negatives; but no false positives.
+     */
+    bool shallow_equals( const TxType* that ) const {
+        if (this == that)
+            return true;
+        if ( this->_type && that->_type )
+            return this->_type == that->_type;
+        if ( auto thisDecl = this->TxEntity::get_declaration() ) {
+            if ( auto thatDecl = that->TxEntity::get_declaration() ) {
+                bool eq = ( thisDecl == thatDecl );
+                return eq;
+            }
+        }
+        return false;
+    }
+
+    bool is_actualized() const {
+        return bool( this->_type );
+    }
+
     // TODO: remove explicit usages of this method from AST (declaration & resolution passes)
     // TODO: make non-const?
     const TxActualType* type() const;

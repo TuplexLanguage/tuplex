@@ -778,20 +778,22 @@ static inline bool is_explicit_nongen_declaration( const TxActualType* type ) {
 //}
 bool TxActualType::inner_equals( const TxActualType* thatType ) const {
     // note: both are assumed to have explicit declaration and/or be non-empty
+    // (interfaces and members can only apply to a type with an explicit declaration, and an explicit declaration can have only one type instance)
     if ( this == thatType )
         return true;
+    return false;
+/*
     if ( ( this->get_declaration()->get_decl_flags() & TXD_IMPLICIT ) && ( thatType->get_declaration()->get_decl_flags() & TXD_IMPLICIT ) ) {
         // both are implicitly declared; compare structure:
         if ( this->baseTypeSpec.modifiable == thatType->baseTypeSpec.modifiable
-             && this->get_semantic_base_type() == thatType->get_semantic_base_type() ) {  // specializations of same semantic base
+             && this->is_mutable() == thatType->is_mutable()
+             && this->get_semantic_base_type() == thatType->get_semantic_base_type()  // specializations of same semantic base
+             && ( ( this->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK ) ==
+                  ( thatType->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK ) ) )
+        {
             auto thisBinds = this->get_bindings();
             auto thatBinds = thatType->get_bindings();
             if ( thisBinds.size() == thatBinds.size() ) {
-                if ( thisBinds.size() == 0 ) {
-//                    std::cerr << "Unexpected structural equality between types with no bindings: "
-//                              << "\n\tthis: " << this << "\n\tthat: " << thatType << std::endl;
-                    return true;
-                }
                 bool eq = std::equal( thisBinds.cbegin(), thisBinds.cend(), thatBinds.cbegin(),
                                       [this, thatType] ( const TxEntityDeclaration* aEntDecl, const TxEntityDeclaration* bEntDecl )->bool {
                     if (dynamic_cast<const TxTypeDeclaration*>( aEntDecl )) {
@@ -802,7 +804,10 @@ bool TxActualType::inner_equals( const TxActualType* thatType ) const {
                     else if (auto aInitExpr = static_cast<const TxFieldDeclaration*>( aEntDecl )->get_definer()->get_init_expression()) {
                         if (auto bInitExpr = static_cast<const TxFieldDeclaration*>( bEntDecl )->get_definer()->get_init_expression()) {
                             if ( aInitExpr->is_statically_constant() && bInitExpr->is_statically_constant() ) {
-                                return true;
+                                if ( auto aBindExprType = aInitExpr->attempt_get_type() ) {
+                                    if ( aBindExprType->is_builtin( TXBT_UINT) )
+                                        return ( eval_UInt_constant( aInitExpr ) == eval_UInt_constant( bInitExpr ) );
+                                }
                             }
                         }
                     }
@@ -819,7 +824,7 @@ bool TxActualType::inner_equals( const TxActualType* thatType ) const {
         }
     }
     return false;
-    // (interfaces and members can only apply to a type with an explicit declaration, and an explicit declaration can have only one type instance)
+*/
 }
 
 bool TxActualType::operator==( const TxActualType& other ) const {

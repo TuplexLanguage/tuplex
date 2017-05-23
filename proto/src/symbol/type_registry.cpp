@@ -1,3 +1,4 @@
+#include "util/util.hpp"
 #include "util/assert.hpp"
 
 #include "type_registry.hpp"
@@ -291,7 +292,7 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
                     if ( auto existingBindingTypeDecl = dynamic_cast<const TxTypeDeclaration*>( existingBaseTypeBindings.at( ix ) ) ) {
                         auto newBindingType = typeBinding->typeExprNode->get_type();
                         auto existingBindingType = existingBindingTypeDecl->get_definer()->resolve_type();
-                        if ( newBindingType == existingBindingType )
+                        if ( newBindingType->shallow_equals( existingBindingType ) )
                             continue;
                     }
                 }
@@ -307,8 +308,9 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
                             if ( auto existingInitializer = existingFieldDecl->get_definer()->get_init_expression() ) {
                                 if ( existingInitializer->is_statically_constant() ) {
                                     // existing binding has statically constant value
-                                    if ( eval_UInt_constant( valueBinding->valueExprNode ) == eval_UInt_constant( existingInitializer ) )
-                                        continue;
+                                    if ( valueBinding->valueExprNode->get_type()->is_builtin( TXBT_UINT) )
+                                        if ( eval_UInt_constant( valueBinding->valueExprNode ) == eval_UInt_constant( existingInitializer ) )
+                                            continue;
                                 }
                             }
                         }
@@ -428,8 +430,8 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
     std::stringstream newBaseTypeName;
     if ( expErrCtx )
         newBaseTypeName << "$EE$";
-    if (mutableType && baseType->get_type_class() != TXTC_REFERENCE) {
-        // (References are always mutable, don't distinguish them be name)
+    if (mutableType && baseType->get_type_class() != TXTC_REFERENCE && baseType->get_type_class() != TXTC_INTERFACE ) {
+        // (References and interfaces are always mutable, don't distinguish them be name)
         newBaseTypeName << "M$";  // distinguish mutable and immutable specializations by name
     }
     newBaseTypeName << baseDecl->get_unique_name() << "<";
