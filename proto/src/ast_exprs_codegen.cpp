@@ -26,7 +26,7 @@ static const OpMapping OP_MAPPING[] = {
                                         { TXOP_OR, Instruction::Or, Instruction::Or, 0 },
 };
 
-unsigned get_llvm_op( TxOperationClass op_class, TxOperation op, const TxType* resType, const TxType* lhsType, bool& float_operation ) {
+unsigned get_llvm_op( TxOperationClass op_class, TxOperation op, const TxType* resType, const TxType* operandType, bool* float_operation ) {
     unsigned llvm_op;
     if ( op_class == TXOC_ARITHMETIC ) {
         auto resultType = resType->type();
@@ -35,7 +35,7 @@ unsigned get_llvm_op( TxOperationClass op_class, TxOperation op, const TxType* r
         }
         else if ( dynamic_cast<const TxFloatingType*>( resultType ) ) {
             llvm_op = OP_MAPPING[op].l_f_op;
-            float_operation = true;
+            *float_operation = true;
         }
         else {
             ASSERT( false, "Unsupported binary operand type: " << (resultType?resultType->str().c_str():"NULL") );
@@ -43,11 +43,11 @@ unsigned get_llvm_op( TxOperationClass op_class, TxOperation op, const TxType* r
         }
     }
     else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
-        if ( dynamic_cast<const TxFloatingType*>( lhsType->type() ) ) {
+        if ( dynamic_cast<const TxFloatingType*>( operandType->type() ) ) {
             llvm_op = OP_MAPPING[op].l_f_op;
-            float_operation = true;
+            *float_operation = true;
         }
-        else if ( auto intType = dynamic_cast<const TxIntegerType*>( lhsType->type() ) ) {
+        else if ( auto intType = dynamic_cast<const TxIntegerType*>( operandType->type() ) ) {
             llvm_op = intType->sign ? OP_MAPPING[op].l_si_op : OP_MAPPING[op].l_ui_op;
         }
         else {  // Bool or Ref operands
@@ -67,7 +67,7 @@ llvm::Constant* TxBinaryOperatorNode::code_gen_constant( LlvmGenerationContext& 
 
     auto op_class = get_op_class( this->op );
     bool float_operation = false;
-    unsigned llvm_op = get_llvm_op( op_class, this->op, this->get_type(), this->lhs->get_type(), float_operation );
+    unsigned llvm_op = get_llvm_op( op_class, this->op, this->get_type(), this->lhs->resolve_type(), &float_operation );
 
     if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_BOOLEAN ) {
         ASSERT( Instruction::isBinaryOp( llvm_op ), "Not a valid LLVM binary op: " << llvm_op );
@@ -91,7 +91,7 @@ Value* TxBinaryOperatorNode::code_gen_value( LlvmGenerationContext& context, Gen
 
     auto op_class = get_op_class( this->op );
     bool float_operation = false;
-    unsigned llvm_op = get_llvm_op( op_class, this->op, this->get_type(), this->lhs->get_type(), float_operation );
+    unsigned llvm_op = get_llvm_op( op_class, this->op, this->get_type(), this->lhs->get_type(), &float_operation );
 
     if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_BOOLEAN ) {
         ASSERT( Instruction::isBinaryOp( llvm_op ), "Not a valid LLVM binary op: " << llvm_op );

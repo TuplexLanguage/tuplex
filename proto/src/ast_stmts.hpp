@@ -119,8 +119,9 @@ public:
 
     TxTypeStmtNode( const TxLocation& parseLocation, const std::string typeName,
                     const std::vector<TxDeclarationNode*>* typeParamDecls,
-                    TxTypeExpressionNode* typeExpression, bool interfaceKW = false )
-            : TxTypeStmtNode( parseLocation, new TxTypeDeclNode( parseLocation, TXD_NONE, typeName, typeParamDecls, typeExpression, interfaceKW ) )
+                    TxTypeExpressionNode* typeExpression, bool interfaceKW = false, bool mutableType = false )
+            : TxTypeStmtNode( parseLocation, new TxTypeDeclNode( parseLocation, TXD_NONE, typeName, typeParamDecls, typeExpression,
+                                                                 interfaceKW, mutableType ) )
     {
     }
 

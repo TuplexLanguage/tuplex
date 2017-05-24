@@ -191,12 +191,12 @@ protected:
                     if ( rtype->auto_converts_to( *ltype ) ) {
                         // wrap rhs with conversion node
                         this->rhs->insert_conversion( ltype );
-                        arithResultType = ltype;
+                        arithResultType = this->rhs->resolve_type();
                     }
                     else if ( ltype->auto_converts_to( *rtype ) ) {
                         // wrap lhs with conversion node
                         this->lhs->insert_conversion( rtype );
-                        arithResultType = rtype;
+                        arithResultType = this->lhs->resolve_type();
                     }
                 }
                 else
@@ -282,7 +282,7 @@ protected:
         auto type = this->operand->originalExpr->resolve_type();
         if ( !type->is_scalar() )
             CERR_THROWRES( this, "Invalid operand type for unary '-', not of scalar type: " << type );
-        else if ( auto intType = dynamic_cast<const TxIntegerType*>( type->type() ) )
+        else if ( auto intType = dynamic_cast<const TxIntegerType*>( type->type() ) ) {
             if ( !intType->is_signed() ) {
                 // promote unsigned integers upon negation
                 // TODO: if operand is an integer literal (or statically constant) and small enough, convert to signed of same width
@@ -298,13 +298,15 @@ protected:
                     type = this->registry().get_builtin_type( TXBT_LONG, mod );
                     break;
                 case TXBT_ULONG:
-                    CERROR( this, "Invalid operand type for unary '-': " << type );
+                    CERR_THROWRES( this, "Invalid operand type for unary '-': " << type );
                     break;
                 default:
                     ASSERT( false, "Unknown unsigned integer type id=" << intType->get_type_id() << ": " << intType );
                 }
                 this->operand->insert_conversion( type );
+                return this->operand->resolve_type();
             }
+        }
         return type;
     }
 

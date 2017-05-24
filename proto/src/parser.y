@@ -152,8 +152,9 @@ YY_DECL;
 %type <TxArgTypeDefNode*> func_arg_def
 %type <std::vector<TxArgTypeDefNode*> *> func_args func_args_list
 
-%type <TxTypeExpressionNode*> type_derivation type_expression data_type_expression conv_type_expr produced_type
-%type <TxTypeExpressionNode*> named_type specialized_type reference_type array_type //data_tuple_type
+%type <TxTypeExpressionNode*> type_usage_expr
+%type <TxTypeExpressionNode*> type_expression type_derivation conv_type_expr produced_type
+%type <TxTypeExpressionNode*> named_type specialized_type reference_type array_type
 
 %type <TxFunctionTypeNode*> function_signature
 %type <TxExpressionNode*> expr make_expr lambda_expr value_literal array_literal array_dimensions cond_expr
@@ -302,11 +303,11 @@ type_or_if : KW_TYPE        { $$ = false; }
            | KW_INTERFACE   { $$ = true;  }
            ;
 
-field_def : NAME COLON type_expression  { $$ = new TxFieldDefNode(@1, $1, $3, nullptr); }
+field_def : NAME COLON type_usage_expr  { $$ = new TxFieldDefNode(@1, $1, $3, nullptr); }
           | field_assignment_def        { $$ = $1; }
           ;
 
-field_assignment_def : NAME COLON type_expression EQUAL expr
+field_assignment_def : NAME COLON type_usage_expr EQUAL expr
                            { $$ = new TxFieldDefNode(@1, $1, $3,      $5); }
                      | NAME COLEQUAL expr
                            { $$ = new TxFieldDefNode(@1, $1, nullptr, $3); }
@@ -317,6 +318,13 @@ field_assignment_def : NAME COLON type_expression EQUAL expr
 
 
 //// types:
+
+derives_token    : KW_DERIVES    | COLON ;
+implements_token : KW_IMPLEMENTS | COLON ;
+ref_token        : KW_REFERENCE  | AAND ;
+mod_token        : KW_MODIFIABLE | TILDE ;
+
+opt_modifiable   : %empty { $$ = false; } | mod_token { $$ = true; } ;
 
 type_body
     :   LBRACE RBRACE                   { $$ = new std::vector<TxDeclarationNode*>(); }
@@ -368,9 +376,6 @@ type_derivation : derives_token type_expression SEMICOLON  { $$ = $2; }
                 | type_body         { $$ = new TxDerivedTypeNode(@1, $1); }
                 ;
 
-derives_token    : KW_DERIVES    | COLON ;
-implements_token : KW_IMPLEMENTS | COLON ;
-
 conv_type_list  : conv_type_expr  { $$ = new std::vector<TxTypeExpressionNode*>();  $$->push_back($1); }
                 | conv_type_list COMMA conv_type_expr  { $$ = $1;  $$->push_back($3); }
                 ;
@@ -379,7 +384,6 @@ conv_type_list  : conv_type_expr  { $$ = new std::vector<TxTypeExpressionNode*>(
 conv_type_expr  : named_symbol             %prec DOT  { $$ = new TxNamedTypeNode(@1, $1); }
                 | conv_type_expr DOT NAME             { $$ = new TxMemberTypeNode(@1, $1, $3); }
                 | conv_type_expr LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@1, $1, $3); }
-                //| named_symbol LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@1, new TxNamedTypeNode(@1, $1), $3); }
                 ;
 
 
@@ -393,7 +397,6 @@ named_type      : named_symbol            %prec EXPR { $$ = new TxNamedTypeNode(
                 ;
 
 specialized_type  : named_type LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@1, $1, $3); }
-// not supported: | named_type LT GT  { $$ = new TxGenSpecTypeNode(@1, $1, new std::vector<TxTypeArgumentNode*>()); }
                   ;
 
 type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->push_back($1); }
@@ -405,47 +408,40 @@ type_arg        : value_literal       { $$ = new TxValueTypeArgumentNode($1); } 
                 | opt_modifiable conv_type_expr   { $$ = new TxTypeTypeArgumentNode(( $1 ? new TxModifiableTypeNode(@1, $2)
                                                                                       : new TxMaybeModTypeNode(@2, $2) )); }
                 // TODO: support reference and array types (possibly chained):
-                // | type_expression     { $$ = new TxTypeTypeArgumentNode($1); }
+                // | type_usage_expr     { $$ = new TxTypeTypeArgumentNode($1); }
                 // | opt_modifiable AAND conv_type_expr
                 // | opt_modifiable LBRACKET RBRACKET conv_type_expr
                 ;
 
+// a type usage is a non-modifiable or modifiable usage of a type expression:
+type_usage_expr : opt_modifiable type_expression  %prec EXPR
+                         { $$ = ( $1 ? new TxModifiableTypeNode(@1, $2)
+                                     : new TxMaybeModTypeNode(@2, $2) ); }
+                ;
 
-type_expression  // can identify or construct new type but can't extend (specify interfaces or add members to) one
-    :   opt_modifiable data_type_expression  %prec EXPR
-             { $$ = ( $1 ? new TxModifiableTypeNode(@1, $2)
-                         : new TxMaybeModTypeNode(@2, $2) ); }
-    |   opt_modifiable data_type_expression ELLIPSIS
-             { $$ = ( $1 ? new TxReferenceTypeNode(@1, nullptr, new TxArrayTypeNode(@1, new TxModifiableTypeNode(@1, $2)))
-                         : new TxReferenceTypeNode(@2, nullptr, new TxArrayTypeNode(@2, new TxMaybeModTypeNode(@2, $2))) ); }
-    ;
+// can identify or construct new type but can't extend (specify interfaces or add members to) one:
+type_expression : named_type     %prec DOT  { $$ = $1; }
+                | produced_type  %prec EXPR { $$ = $1; }
+                ;
 
-opt_modifiable : %empty { $$ = false; } | TILDE { $$ = true; } | KW_MODIFIABLE { $$ = true; } ;
-
-data_type_expression    : named_type     %prec DOT  { $$ = $1; }
-                        | produced_type  %prec EXPR { $$ = $1; }
-                        ;
-
-produced_type
-    :  specialized_type   { $$ = $1; }
-    |  reference_type     { $$ = $1; }
-    |  array_type         { $$ = $1; }
-    |  function_signature { $$ = $1; }
+produced_type   :  specialized_type   { $$ = $1; }
+                |  reference_type     { $$ = $1; }
+                |  array_type         { $$ = $1; }
+                |  function_signature { $$ = $1; }
+                ;
 //    |  data_tuple_type
 //    |  union_type
 //    |  enum_type
 //    |  range_type
 //    |  shared_obj_type
-    ;
 
-reference_type : opt_dataspace ref_token type_expression
+reference_type : opt_dataspace ref_token type_usage_expr
                     { /* (custom ast node needed to handle dataspaces) */
                       $$ = new TxReferenceTypeNode(@2, $1, $3);
                     } ;
 opt_dataspace : %empty { $$ = NULL; } | QMARK { $$ = NULL; } | NAME { $$ = new TxIdentifier($1); } ;
-ref_token : KW_REFERENCE | AAND ;
 
-array_type : array_dimensions type_expression
+array_type : array_dimensions type_usage_expr
                     { /* (custom ast node needed to provide syntactic sugar for modifiable decl) */
                       $$ = new TxArrayTypeNode(@1, $2, $1);
                     } ;
@@ -460,8 +456,8 @@ array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
 //    ;
 
 //union_type     : KW_UNION LBRACE type_expr_list RBRACE ;
-//type_expr_list : type_expression
-//               | type_expr_list COMMA type_expression
+//type_expr_list : type_usage_expr
+//               | type_expr_list COMMA type_usage_expr
 //               ;
 //
 //enum_type       : KW_ENUM LBRACE enum_value_list RBRACE ;
@@ -496,7 +492,14 @@ func_args_list : func_arg_def
                | error  { $$ = new std::vector<TxArgTypeDefNode*>(); }
                ;
 
-func_arg_def   : NAME COLON type_expression  { $$ = new TxArgTypeDefNode(@1, $1, $3); }
+func_arg_def   : NAME COLON type_expression
+                        { $$ = new TxArgTypeDefNode(@1, $1, $3); }
+               | NAME COLON type_expression ELLIPSIS
+                        { $$ = new TxArgTypeDefNode(@1, $1,
+                                    new TxReferenceTypeNode(@3, nullptr, new TxArrayTypeNode(@3, new TxMaybeModTypeNode(@3, $3)))); }
+               | NAME COLON mod_token type_expression ELLIPSIS
+                        { $$ = new TxArgTypeDefNode(@1, $1,
+                                    new TxReferenceTypeNode(@3, nullptr, new TxArrayTypeNode(@3, new TxModifiableTypeNode(@3, $4)))); }
                ;
 
 
@@ -568,8 +571,8 @@ array_lit_expr_list : expr  { $$ = new std::vector<TxExpressionNode*>();  $$->pu
                     | array_lit_expr_list COMMA expr  { $$ = $1;  $$->push_back($3); }
                     ;
 
-make_expr : KW_NEW type_expression call_params { $$ = new TxNewConstructionNode(@1, $2, $3); }
-          | LT type_expression GT call_params { $$ = new TxStackConstructionNode(@1, $2, $4); }
+make_expr : KW_NEW type_usage_expr call_params { $$ = new TxNewConstructionNode(@1, $2, $3); }
+          | LT type_usage_expr GT call_params { $$ = new TxStackConstructionNode(@1, $2, $4); }
 ;
 
 call_expr : expr call_params  { $$ = new TxFunctionCallNode(@1, $1, $2); }
@@ -659,10 +662,10 @@ elementary_stmt
     ;
 
 // TODO: support declaration flags abstract, final, and maybe static
-type_decl_stmt  : type_or_if NAME type_derivation
-                    { $$ = new TxTypeStmtNode(@1, $2, NULL, $3, $1); }
-                | type_or_if NAME LT type_param_list GT type_derivation
-                    { $$ = new TxTypeStmtNode(@1, $2, $4,   $6, $1); }
+type_decl_stmt  : type_or_if opt_modifiable NAME type_derivation
+                    { $$ = new TxTypeStmtNode(@1, $3, NULL, $4, $1, $2); }
+                | type_or_if opt_modifiable NAME LT type_param_list GT type_derivation
+                    { $$ = new TxTypeStmtNode(@1, $3, $5,   $7, $1, $2); }
                 ;
 
 

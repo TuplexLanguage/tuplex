@@ -49,13 +49,14 @@ sign2(x : Int)->Int {
     return 0;
 }
 
-sum(x : ~Int)->Int {
+sum(x : Int)->Int {
     ~sum := 0I;
+    ~xi := x;
     while (TRUE) {
-        if x <= 0:
+        if xi <= 0:
             break;
-        sum = sum + x;
-        x = x - 1;
+        sum = sum + xi;
+        xi = xi - 1;
     }
     return sum;
 }

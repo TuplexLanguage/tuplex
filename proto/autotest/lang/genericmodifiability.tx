@@ -1,6 +1,30 @@
 ## Tests modifiability in combination with generic type parameters for user types
 
-## TODO: add immutable variant
+type ImmutableType<M,N> {
+    mfield : M;
+    nfield : N;
+    #experr 1: efield : ~M;  ## can't declare modifiable member on immutable type
+
+    self( m : M, n : N ) {
+        self.mfield = m;
+        self.nfield = n;
+    }
+
+    get_m()->M {
+        #experr 1: self.efield = self.mfield;  ## method is not modifying; field is not modifiable
+        return self.mfield;
+    }
+
+    #experr 2: set_n( n : N ) mod {  ## can't declare modifying method on immutable type
+        #experr 0: self.nfield = n;    ## field is not modifiable
+    }
+}
+
+type StillImmType : ImmutableType<~Int,~Float>;  ## stays immutable although type bindings are mutable 
+
+#experr 1: type ~ BadSyntax  : ~ImmutableType<~Int,~Float>;
+#experr 1: type ~ BadMutType1 : ImmutableType<~Int,~Float>;  ## can't derive mutable type from immutable base type
+#experr 1: type ~ BadMutType2 : ImmutableType<Int,Float>;  ## can't derive mutable type from immutable base type
 
 type ~ GType<S,T,U> {
     sfield : S;
@@ -40,9 +64,10 @@ type ~ GType<S,T,U> {
 
 main()->Int {
 ## TODO: be able to specialize an immutable version of mutable generic types, so that they can accept immutable type bindings
-    type ImmSpec : GType<Int,Float,Bool>;
-    type MutSpec : ~GType<~Int,~Float,Bool>;
-    #experr 2: type BadSpec : ~GType<Int,Float,Bool>;
+    type ImmSpec  : GType<Int,Float,Bool>;
+    type ~MutSpec : GType<~Int,~Float,Bool>;
+    #experr 1: type BadSyntax : ~GType<~Int,~Float,Bool>;
+    #experr 2: type ~BadSpec : GType<Int,Float,Bool>;
 
     {
         nonmodI := <GType<Int,Float,Bool>>( 2, 3.14, TRUE );

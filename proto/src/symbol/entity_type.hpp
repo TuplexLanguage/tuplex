@@ -155,6 +155,11 @@ public:
         return this->type()->is_generic();
     }
 
+    /** Returns true if this type is a generic type parameter. */
+    inline bool is_generic_param() const {
+        return this->type()->is_generic_param();
+    }
+
     /** Returns true if this type is concrete.
      * A concrete type is not declared abstract, nor is it dependent on any non-reference-constrained unbound type parameter.
      * This includes both unbound type parameters of this type and of its outer lexical scope, if any.

@@ -279,6 +279,11 @@ protected:
      * @return true if a data type recursion has been discovered */
     virtual bool inner_prepare_members();
 
+    /** Overriding this allows a type class to allow structurally equal types to be assignable.
+     * The default implementation simply returns false.
+     * This method implementation can assume it will only be called with dest types of the same type class. */
+    virtual bool inner_is_assignable_to( const TxActualType* dest ) const;
+
 public:
     inline Logger* LOGGER() const {
         return &this->_LOG;
@@ -448,6 +453,13 @@ public:
      */
     bool is_generic_dependent() const;
 
+    /** Returns true if this type is a generic type parameter.
+     * (Note: Generic type bindings are not distinct type instances, they are aliases.)
+     */
+    inline bool is_generic_param() const {
+        return ( this->get_declaration()->get_decl_flags() & TXD_GENPARAM );
+    }
+
     /** Returns true if this type has the same vtable as its base type. */
     inline bool is_same_vtable_type() const {
         ASSERT( this->hasInitialized, "Can't determine same vtable type of uninitialized type " << this );
@@ -533,7 +545,7 @@ public:
      * For many type classes this is a more strict test than is-a,
      * however for functions, arrays, references and adapters this test concerns data type equivalence and
      * substitutability rather than is-a relationship. */
-    virtual bool is_assignable_to( const TxActualType& destination ) const;
+    bool is_assignable_to( const TxActualType& destination ) const;
 
     /** Returns true if the provided type is the same as this, or a specialization of this.
      * Note that true does not guarantee assignability, for example modifiability is not taken into account.
@@ -541,7 +553,9 @@ public:
     bool is_a( const TxActualType& other ) const;
 
 private:
-    bool inner_equals( const TxActualType* thatType ) const;
+    inline bool inner_equals( const TxActualType* thatType ) const {
+        return this == thatType;
+    }
 
     bool derives_object( const TxActualType* objectType ) const;
     bool derives_interface( const TxActualType* interfaceType ) const;

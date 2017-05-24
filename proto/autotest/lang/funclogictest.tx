@@ -14,9 +14,9 @@ func1( v : Int )->Int {
     return v;
 }
 
-func2( v : ~Int )->Int {
-    v = v * 2;
-    return v;
+func2( v : Int )->Int {
+    vv := v * 2;
+    return vv;
 }
 
 func3( v : Int )->Int {

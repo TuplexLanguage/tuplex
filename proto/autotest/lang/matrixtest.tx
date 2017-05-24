@@ -1,6 +1,6 @@
 ## Tests building nested types with VALUE type parameters.
 
-type ~ Matrix<E, R : UInt, C : UInt> {
+type ~Matrix<E, R : UInt, C : UInt> {
     type ~ Row : Array<E, (C)>;
 
     rows : ~Array< ~Row, (R) >;
@@ -14,7 +14,7 @@ type ~ Matrix<E, R : UInt, C : UInt> {
     }
 }
 
-make_matrix( rows : UInt, cols : UInt ) -> &Matrix {
+make_matrix( rows : UInt, cols : UInt ) -> &Matrix<~Int> {
     m := new ~Matrix<~Int, (rows), (cols)>();
 
     ci : ~UInt = 0;
@@ -27,8 +27,26 @@ make_matrix( rows : UInt, cols : UInt ) -> &Matrix {
 }
 
 main()->Int {
-    type Mat : Matrix<Int, (2), (3)>;
-    m : Mat;
-    
-    return 0;
+    rows : UInt = 2;
+    cols : UInt = 3;
+
+    m := make_matrix( rows, cols );
+    sum : ~Int = 0;
+    ci : ~UInt = 0;
+    while ci < cols {
+        sum = sum + m.rows[0][ci];
+        ci = ci + 1;
+    }
+
+    copy := m;
+
+    #experr 1: badstack := <Matrix<Int, (rows+1), (cols)>>( m );
+    stack := <Matrix<Int, (rows), (cols)>>( m );
+
+    heap := new Matrix<Int, (rows), (cols)>( m );
+
+##    type ~Mat : Matrix<Int, (rows), (cols)>;
+##    mymat : Mat;
+
+    return sum;
 }

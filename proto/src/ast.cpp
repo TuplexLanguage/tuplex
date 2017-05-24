@@ -316,11 +316,10 @@ void TxFieldDeclNode::symbol_resolution_pass() {
             if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->context().scope() ) ) {
                 const TxTypeDeclaration* outerTypeDecl = entitySymbol->get_type_decl();
                 if ( !outerTypeDecl->get_definer()->get_type()->is_mutable() ) {
-                    // FIXME: evaluate if this should be OK (especially for specializations)
-                    if ( this->context().reinterpretation_definer() )
-                        CWARNING( this, "Instance field of an immutable type is declared modifiable: " << field->get_identifier() );
-                    else
+                    if ( !this->context().reinterpretation_definer() ) {
+                        // (suppressed if this is a specialization)
                         CERROR( this, "Instance field of an immutable type is declared modifiable: " << field->get_identifier() );
+                    }
                 }
             }
         }
@@ -651,6 +650,25 @@ void TxMaybeModTypeNode::typeexpr_declaration_pass() {
     }
 }
 
+/** Checks if this expression produces a modifiable type usage; this requires the whole access chain to be mutable.
+ * Generates an error message if it is not and returns false.
+ * Note: Transitive across the object graph via references, regardless of mutability of references' *pointer values*.
+ */
+bool TxExpressionNode::check_chain_mutable() const {
+    // The transitive mutability rule for references is that whether the reference itself
+    // is modifiable does not matter (i.e. whether it can be changed to point to another object),
+    // however the container of the reference must be mutable in order for the reference target
+    // to be considered mutable.
+    for ( const TxExpressionNode* origin = this; origin; origin = origin->get_data_graph_origin_expr() ) {
+        auto type = origin->get_type();
+        if ( !( type->get_type_class() == TXTC_REFERENCE || type->is_modifiable() ) && !type->is_generic_param() ) {
+            CERROR( this, "Expression is not modifiable: " << type );
+            return false;
+        }
+    }
+    return true;
+}
+
 void TxLambdaExprNode::declaration_pass() {
     std::string funcName = ( this->fieldDefNode && this->fieldDefNode->get_declaration() )
                                   ? this->fieldDefNode->get_declaration()->get_unique_name()
@@ -729,19 +747,19 @@ void TxAssignStmtNode::symbol_resolution_pass() {
         else
             LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Assignee is not concrete: " << ltype );
     }
-    else {
-        if ( !( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() ) ) {
-            // TODO: only members of constructed object should skip error
-            if ( !lvalue->is_mutable() ) {
-                // error message already generated
-                //CERROR( this, "Assignee or assignee's container is not modifiable (nominal type of assignee is " << ltype << ")" );
-            }
+
+    if ( !( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() ) ) {
+        // TODO: only members of constructed object should skip error
+        if ( !lvalue->is_mutable() ) {
+            // error message already generated
+            //CERROR( this, "Assignee or assignee's container is not modifiable (nominal type of assignee is " << ltype << ")" );
         }
-        // Note: If the object as a whole is modifiable, it can be assigned to.
-        // If it has any "non-modifiable" members, those will still get overwritten.
-        // We could add custom check to prevent that scenario for Arrays, but then
-        // it would in this regard behave differently than other aggregate objects.
     }
+    // Note: If the object as a whole is modifiable, it can be assigned to.
+    // If it has any "non-modifiable" members, those will still get overwritten.
+    // We could add custom check to prevent that scenario for Arrays, but then
+    // it would in this regard behave differently than other aggregate objects.
+
     // if assignee is a reference:
     // TODO: check dataspace rules
 

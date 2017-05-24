@@ -17,6 +17,8 @@ protected:
         return new TxArrayType( declaration, baseTypeSpec, mutableType, interfaces );
     }
 
+    virtual bool inner_is_assignable_to( const TxActualType* other ) const override;
+
     //virtual void self_string( std::stringstream& str, bool brief ) const override;
 
 public:
@@ -30,8 +32,6 @@ public:
 
     /** Returns nullptr if unbound. */
     const TxExpressionNode* length() const;
-
-    virtual bool is_assignable_to( const TxActualType& other ) const override;
 
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* gen_size( LlvmGenerationContext& context, GenScope* scope ) const override;
@@ -50,6 +50,8 @@ protected:
             throw std::logic_error( "Specified a base type for TxReferenceType that was not a TxReferenceType: " + baseTypeSpec.type->str() );
         return new TxReferenceType( declaration, baseTypeSpec, interfaces );
     }
+
+    virtual bool inner_is_assignable_to( const TxActualType* other ) const override;
 
     //virtual void self_string( std::stringstream& str, bool brief ) const override;
 
@@ -76,8 +78,6 @@ public:
     virtual bool is_static() const override {
         return true;
     }
-
-    virtual bool is_assignable_to( const TxActualType& other ) const override;
 
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
 
@@ -115,6 +115,8 @@ protected:
                                        funcBaseType->returnType, funcBaseType->modifiableClosure );
         throw std::logic_error( "Specified a base type for TxFunctionType that was not a TxFunctionType: " + baseTypeSpec.type->str() );
     }
+
+    virtual bool inner_is_assignable_to( const TxActualType* other ) const override;
 
 public:
     const std::vector<const TxActualType*> argumentTypes;
@@ -156,19 +158,6 @@ public:
                      && std::equal( this->argumentTypes.cbegin(), this->argumentTypes.cend(),
                                     otherF->argumentTypes.cbegin(),
                                     [](const TxActualType* ta, const TxActualType* oa) {return *ta == *oa;} ) );
-        }
-        return false;
-    }
-
-    virtual bool is_assignable_to( const TxActualType& other ) const override {
-        if ( auto otherF = dynamic_cast<const TxFunctionType*>( &other ) ) {
-            //std::cerr << "ASSIGNABLE RETURN TYPES?\n\t" << this->returnType << "\n\t" << otherF->returnType << std::endl;
-            return ( ( this->returnType == otherF->returnType
-                       || ( this->returnType->is_assignable_to( *otherF->returnType ) ) )
-                     && this->argumentTypes.size() == otherF->argumentTypes.size()
-                     && std::equal( this->argumentTypes.cbegin(), this->argumentTypes.cend(),
-                                    otherF->argumentTypes.cbegin(),
-                                    [](const TxActualType* ta, const TxActualType* oa) {return oa->is_assignable_to( *ta );} ) );
         }
         return false;
     }

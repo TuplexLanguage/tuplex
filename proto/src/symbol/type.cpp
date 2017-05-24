@@ -112,8 +112,8 @@ void TxActualType::validate_type() const {
                 CERROR( this, "'modifiable' specialization cannot add any interface base types" );
         }
         else {
-            if ( this->is_mutable() && ! this->baseTypeSpec.type->is_mutable() )
-                CERROR( this, "Can't derive a mutable type from an immutable base type: " << this->baseTypeSpec.type );
+            if ( this->is_mutable() && !this->get_semantic_base_type()->is_mutable() )
+                CERROR( this, "Can't derive a mutable type from an immutable base type: " << this->get_semantic_base_type() );
 
             if ( this->baseTypeSpec.type->formalTypeId == TXBT_ANY
                  && !( this->builtin || ( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )
@@ -751,13 +751,12 @@ static inline bool is_explicit_nongen_declaration( const TxActualType* type ) {
     return ( !( type->get_declaration()->get_decl_flags() & ( TXD_IMPLICIT | TXD_GENPARAM | TXD_GENBINDING ) ) );
 }
 
+/* This implementation also checked structural equality, which we currently don't (generally) allow:
 bool TxActualType::inner_equals( const TxActualType* thatType ) const {
     // note: both are assumed to have explicit declaration and/or be non-empty
     // (interfaces and members can only apply to a type with an explicit declaration, and an explicit declaration can have only one type instance)
     if ( this == thatType )
         return true;
-    return false;
-/*
     if ( ( this->get_declaration()->get_decl_flags() & TXD_IMPLICIT ) && ( thatType->get_declaration()->get_decl_flags() & TXD_IMPLICIT ) ) {
         // both are implicitly declared; compare structure:
         if ( this->baseTypeSpec.modifiable == thatType->baseTypeSpec.modifiable
@@ -799,8 +798,8 @@ bool TxActualType::inner_equals( const TxActualType* thatType ) const {
         }
     }
     return false;
-*/
 }
+*/
 
 bool TxActualType::operator==( const TxActualType& other ) const {
     // skips empty type derivations that aren't explicitly declared
@@ -822,14 +821,23 @@ bool TxActualType::is_assignable_to( const TxActualType& destination ) const {
         thisType = thisType->get_base_type();
     if ( destType->is_modifiable() )
         destType = destType->get_base_type();
+    while ( destType->is_empty_derivation() && !is_explicit_nongen_declaration( destType ) )
+        destType = destType->get_base_type();
+    if ( thisType->get_type_class() != destType->get_type_class() )
+        return false;
     do {
-        if ( *thisType == *destType )
+        if ( thisType->inner_equals( destType ) )
             return true;
-        if ( thisType->is_same_instance_type() )
-            thisType = thisType->get_base_type();
-        else
+        if ( thisType->inner_is_assignable_to( destType ) )
+            return true;
+        if ( !thisType->is_same_instance_type() )
             return false;
-    }while ( true );
+        thisType = thisType->get_base_type();
+    } while ( true );
+}
+
+bool TxActualType::inner_is_assignable_to( const TxActualType* dest ) const {
+    return false;
 }
 
 /** Returns the common base type of the types, if both are pure specializations of it. */
@@ -865,23 +873,36 @@ bool TxActualType::inner_is_a( const TxActualType* thisType, const TxActualType*
         if ( auto genBaseType = common_generic_base_type( thisType, thatType ) ) {
             //std::cerr << "Common generic base type " << genBaseType << std::endl << "\tthisType: " << thisType << std::endl << "\tthatType: " << thatType << std::endl;
             for ( auto paramDecl : genBaseType->get_type_params() ) {
-                // other's param shall either be redeclared (unbound) or *equal* to this (is-a is not sufficient in general case)
-                // - a MOD binding is considered to be is-a of a non-MOD binding
-                // - a binding may be to a type that is equal to the parameter's constraint type, i.e. equivalent to unbound parameter
-                if ( auto otherBinding = thatType->lookup_param_binding( paramDecl ) ) {
-                    if ( auto thisBinding = get_binding_or_parameter( thisType, paramDecl ) ) {
+                // each of other's type param shall either be unbound (redeclared) or *equal* to this type's param/binding
+                // (is-a is not sufficient in general case)
+                if ( auto thatBinding = thatType->lookup_param_binding( paramDecl ) ) {
+                    if ( dynamic_cast<const TxTypeDeclaration*>( thatBinding ) ) {
+                        // other has bound this TYPE param - check that it matches this type's param/binding
+                        // - a MOD binding is considered to be is-a of a non-MOD binding
+                        // - a binding may be to a type that is equal to the parameter's constraint type, i.e. equivalent to unbound parameter
+                        auto thisBindPar = get_binding_or_parameter( thisType, paramDecl );
                         // check whether both resolve to same type/value:
-                        auto thisBType = thisBinding->get_definer()->resolve_type();
-                        auto thatBType = otherBinding->get_definer()->resolve_type();
+                        auto thisBType = thisBindPar->get_definer()->resolve_type();
+                        auto thatBType = thatBinding->get_definer()->resolve_type();
                         if ( thisBType->is_modifiable() && !thatBType->is_modifiable() )
                             thisBType = thisBType->get_base_type();
-                        if ( typeid(*thisBinding) != typeid(*otherBinding) )
-                            return false;  // not both TYPE nor both VALUE
                         if ( *thisBType != *thatBType )
                             return false;
                     }
-                    else
-                        return false;
+                    else {
+                        // other has bound this VALUE param - must match this type's VALUE binding exactly
+                        bool staticEqual = false;
+                        auto thatFieldBinding = static_cast<const TxFieldDeclaration*>( thatBinding );
+                        if ( auto thisFieldBinding = dynamic_cast<const TxFieldDeclaration*>( thisType->lookup_param_binding( paramDecl ) ) ) {
+                            if ( auto thisInitExpr = thisFieldBinding->get_definer()->get_init_expression() ) {
+                                if (auto thatInitExpr = thatFieldBinding->get_definer()->get_init_expression() ) {
+                                    staticEqual = is_static_equal( thisInitExpr, thatInitExpr );
+                                }
+                            }
+                        }
+                        if (! staticEqual)
+                            return false;
+                    }
                 }
             }
             return true;
@@ -1032,7 +1053,7 @@ static bool array_assignable_from( const TxArrayType* toArray, const TxArrayType
     if ( auto lenExpr = toArray->length() ) {
         if ( auto otherLenExpr = fromArray->length() ) {
             return ( lenExpr->is_statically_constant() && otherLenExpr->is_statically_constant()
-                     && eval_unsigned_int_constant( lenExpr ) == eval_unsigned_int_constant( otherLenExpr ) );
+                     && ( eval_unsigned_int_constant( lenExpr ) == eval_unsigned_int_constant( otherLenExpr ) ) );
         }
         else
             return false;  // origin has not bound L
@@ -1046,12 +1067,12 @@ static bool ref_assignable_from( const TxReferenceType* toRef, const TxReference
         if ( auto fromTarget = fromRef->target_type() ) {
             // is-a test sufficient for reference targets (it isn't for arrays, which require same concrete type)
             //std::cerr << "CHECKING REF ASSIGNABLE\n\tFROM " << fromTarget->str(false) << "\n\tTO   " << toTarget->str(false) << std::endl;
-            if ( !fromTarget->is_a( *toTarget ) )
-                return false;
-            else if ( toTarget->is_modifiable() && !fromTarget->is_modifiable() )
+            if ( toTarget->is_modifiable() && !fromTarget->is_modifiable() )
                 return false;  // can't lose non-modifiability of target type
-            else
+            if ( fromTarget->is_a( *toTarget ) )
                 return true;
+            else
+                return false;
         }
         else
             return false;  // origin has not bound T
@@ -1060,18 +1081,14 @@ static bool ref_assignable_from( const TxReferenceType* toRef, const TxReference
         return true;
 }
 
-bool TxArrayType::is_assignable_to( const TxActualType& destination ) const {
-    if ( const TxArrayType* toArray = dynamic_cast<const TxArrayType*>( &destination ) )
-        return array_assignable_from( toArray, this );
-    else
-        return false;
+bool TxArrayType::inner_is_assignable_to( const TxActualType* destination ) const {
+    auto toArray = static_cast<const TxArrayType*>( destination );
+    return array_assignable_from( toArray, this );
 }
 
-bool TxReferenceType::is_assignable_to( const TxActualType& destination ) const {
-    if ( const TxReferenceType* toRef = dynamic_cast<const TxReferenceType*>( &destination ) )
-        return ref_assignable_from( toRef, this );
-    else
-        return false;
+bool TxReferenceType::inner_is_assignable_to( const TxActualType* destination ) const {
+    auto toRef = static_cast<const TxReferenceType*>( destination );
+    return ref_assignable_from( toRef, this );
 }
 
 //void TxArrayType::self_string( std::stringstream& str, bool brief ) const {
@@ -1175,6 +1192,18 @@ TxFunctionType::TxFunctionType( const TxTypeDeclaration* declaration, const TxAc
         : TxFunctionType( declaration, baseType, argumentTypes,
                           baseType->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_VOID )->type(),
                           modifiableClosure ) {
+}
+
+bool TxFunctionType::inner_is_assignable_to( const TxActualType* other ) const {
+    auto otherF = static_cast<const TxFunctionType*>( other );
+    //std::cerr << "ASSIGNABLE RETURN TYPES?\n\t" << this->returnType << "\n\t" << otherF->returnType << std::endl;
+    return ( ( this->returnType == otherF->returnType
+               || ( this->returnType->is_assignable_to( *otherF->returnType ) ) )
+             && this->argumentTypes.size() == otherF->argumentTypes.size()
+             && std::equal( this->argumentTypes.cbegin(), this->argumentTypes.cend(),
+                            otherF->argumentTypes.cbegin(),
+                            [](const TxActualType* ta, const TxActualType* oa) {return oa->is_assignable_to( *ta );} ) );
+    return false;
 }
 
 const TxActualType* TxFunctionType::vararg_elem_type() const {
