@@ -46,6 +46,8 @@ type ~ BType derives AType {
     }
 }
 
+type CType derives BType;
+
 object_construction()->Int {
     stackObj := AType();  ## FIXME: allocates twice & copies!
     assert stackObj.field1 == -17;
@@ -76,9 +78,20 @@ object_construction()->Int {
     assert heapObj4.field3 == TRUE;
     assert heapObj4.field4 == 2.71;
 
-    ## constructors aren't inherited:
+    ## constructors aren't inherited for non-emtpy derivations:
     #experr 1: bad1 := BType();  
     #experr 1: bad2 := new BType();  
+
+    ## empty derivations do inherit constructors:
+    ok1 := CType( 1.1 );
+    ok2 := CType( 101, 2.71 );
+    ok3 : CType = CType( 1.1 );
+    ok4 : CType = CType( 101, 2.71 );
+
+    ok5 := new CType( 1.1 );
+    ok6 := new CType( 101, 2.71 );
+    ok7 : &CType = new CType( 1.1 );
+    ok8 : &CType = new CType( 101, 2.71 );
 
     return heapObj4.method( 2 );
 }

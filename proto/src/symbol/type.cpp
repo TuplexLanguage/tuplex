@@ -826,6 +826,7 @@ bool TxActualType::is_assignable_to( const TxActualType& destination ) const {
     if ( thisType->get_type_class() != destType->get_type_class() )
         return false;
     do {
+        //std::cerr << thisType << "  IS-ASSIGNABLE-TO\n" << destType << std::endl;
         if ( thisType->inner_equals( destType ) )
             return true;
         if ( thisType->inner_is_assignable_to( destType ) )
@@ -894,6 +895,8 @@ bool TxActualType::inner_is_a( const TxActualType* thisType, const TxActualType*
                         bool staticEqual = false;
                         auto thatFieldBinding = static_cast<const TxFieldDeclaration*>( thatBinding );
                         if ( auto thisFieldBinding = dynamic_cast<const TxFieldDeclaration*>( thisType->lookup_param_binding( paramDecl ) ) ) {
+                            thisFieldBinding->get_definer()->resolve_type();
+                            thatFieldBinding->get_definer()->resolve_type();
                             if ( auto thisInitExpr = thisFieldBinding->get_definer()->get_init_expression() ) {
                                 if (auto thatInitExpr = thatFieldBinding->get_definer()->get_init_expression() ) {
                                     staticEqual = is_static_equal( thisInitExpr, thatInitExpr );

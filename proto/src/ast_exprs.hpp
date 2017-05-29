@@ -146,14 +146,14 @@ public:
         TxExpressionNode::symbol_resolution_pass();
         this->target->symbol_resolution_pass();
 
-        if ( dynamic_cast<TxFieldValueNode*>( this->target ) ) {
+        auto targetNode = this->target;
+        if ( auto wrapperNode = dynamic_cast<TxExprWrapperNode*>( targetNode ) )
+            targetNode = wrapperNode->exprNode;
+        if ( !( dynamic_cast<TxFieldValueNode*>( targetNode )
+                || dynamic_cast<TxElemDerefNode*>( targetNode )
+                || targetNode->is_statically_constant() ) ) {
+            CERROR( this, "Can't construct reference to non-addressable expression / rvalue: " << targetNode );
         }
-        else if ( dynamic_cast<TxElemDerefNode*>( this->target ) ) {
-        }
-        else if ( this->target->is_statically_constant() ) {
-        }
-        else
-            CERROR( this, "Can't construct reference to non-addressable expression / rvalue." );
     }
 
     virtual const std::vector<TxExpressionNode*>* get_applied_func_args() const override {
@@ -456,6 +456,11 @@ public:
 
     virtual void symbol_resolution_pass() override {
         this->objectExpr->symbol_resolution_pass();
+    }
+
+    /** Returns the constructed type. */
+    inline const TxType* get_constructed_type() const {
+        return this->objectExpr->resolve_type();
     }
 
     /** @return a lambda value */

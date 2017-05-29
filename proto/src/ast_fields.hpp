@@ -7,6 +7,9 @@ class TxFieldValueNode : public TxExpressionNode {
     const TxEntityDeclaration* declaration = nullptr;
     TxScopeSymbol* symbol = nullptr;
 
+    /** If this field value resolves to a constructor, this is the constructed type */
+    const TxType* constructedType = nullptr;
+
     TxScopeSymbol* resolve_symbol();
     const TxEntityDeclaration* resolve_decl();
 
@@ -54,6 +57,11 @@ public:
     }
     inline const TxFieldDeclaration* get_field_declaration() const {
         return dynamic_cast<const TxFieldDeclaration*>( this->declaration );
+    }
+
+    /** If this field value resolves to a constructor, returns the constructed type, otherwise null. */
+    inline const TxType* get_constructed_type() const {
+        return constructedType;
     }
 
     virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;

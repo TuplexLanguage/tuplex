@@ -26,7 +26,7 @@ make_matrix( rows : UInt, cols : UInt ) -> &Matrix<~Int> {
     return m;
 }
 
-main()->Int {
+dynamic_test()->Int {
     rows : UInt = 2;
     cols : UInt = 3;
 
@@ -38,15 +38,38 @@ main()->Int {
         ci = ci + 1;
     }
 
-    copy := m;
-
-    #experr 1: badstack := <Matrix<Int, (rows+1), (cols)>>( m );
-    stack := <Matrix<Int, (rows), (cols)>>( m );
-
-    heap := new Matrix<Int, (rows), (cols)>( m );
-
-##    type ~Mat : Matrix<Int, (rows), (cols)>;
-##    mymat : Mat;
+    ## can't statically match types:
+    #experr 1: badstack := <Matrix<Int, (rows), (cols)>>( m );
+    #experr 1: badheap := new Matrix<Int, (rows), (cols)>( m );
 
     return sum;
+}
+
+main()->Int {
+    rows : UInt = 2;
+    cols : UInt = 3;
+
+    m23a := <Matrix<Int, (rows), (cols)>>();
+    m23b := <Matrix<Int, (2*rows/2), (2*cols/2)>>( m23a );
+
+    type ~ Matrix23 : Matrix<Int, (1+rows-1), (1+cols-1)>;
+    m23c : ~Matrix23 = Matrix23( m23a );
+    m23d := Matrix23( m23a );
+    m23c = m23d;
+
+    ## can't auto-convert to explicitly named type:
+    #experr 1: badcopy0 : Matrix23 = m23a;
+
+    ## can't auto-convert between mutabile and immutable specializations:
+    #experr 1: badcopy1 : Matrix<Int, (rows), (cols)> = m23c;
+    #experr 1: badcopy2 : ~Matrix<Int, (rows), (cols)> = m23d;
+    #experr 1: badcopy3 : Matrix<Int, (rows), (cols)> = m23d;  ## Matrix23's instance base type is mutable
+
+    copy1 : ~Matrix<Int, (rows), (cols)> = m23c;
+
+    #experr 1: mismatch := <Matrix<Int, (rows+1), (cols)>>( m23a );
+    #experr 1: mismatch := <Matrix<Int, (rows), (cols-1)>>( m23a );
+    #experr 1: mismatch := <Matrix<Long, (rows), (cols)>>( m23a );
+
+    return dynamic_test();
 }

@@ -171,8 +171,11 @@ const TxType* TxFieldDefNode::define_type() {
     else {
         type = this->initExpression->resolve_type();
         if ( this->modifiable ) {
-            if ( !type->is_modifiable() )
+            if ( !type->is_modifiable() ) {
+                if ( !type->is_mutable() )
+                    CERR_THROWRES( this, "Can't use immutable type as modifiable: " << type );
                 type = this->registry().get_modifiable_type( nullptr, type );
+            }
         }
         else if ( type->is_modifiable() )
             // if initialization expression is modifiable type, and modifiable not explicitly specified,
@@ -1024,11 +1027,12 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
             if ( auto typeDecl = entitySymbol->get_type_decl() ) {
                 if ( this->appliedFuncArgs ) {
                     auto allocType = typeDecl->get_definer()->resolve_type();
-                    if ( auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member( CONSTR_IDENT ) ) { // (constructors aren't inherited)
+                    // constructors aren't inherited, except for empty/modifiable derivations:
+                    if ( auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member( CONSTR_IDENT ) ) {
                         if ( auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs ) ) {
                             ASSERT( constructorDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ),
                                     "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );
-                            //std::cerr << "resolving field to constructor: " << this << ": " << constructorDecl << std::endl;
+                            this->constructedType = allocType;
                             this->declaration = constructorDecl;
                             return this->declaration;
                         }
@@ -1181,10 +1185,20 @@ const TxType* TxFunctionCallNode::define_type() {
     if ( this->calleeType->get_type_class() != TXTC_FUNCTION ) {
         CERR_THROWRES( this, "Callee of function call expression is not of function type: " << this->calleeType );
     }
-    else if ( auto constructorType = dynamic_cast<const TxConstructorType*>( this->calleeType->type() ) ) {
+    else if ( /*auto constructorType =*/ dynamic_cast<const TxConstructorType*>( this->calleeType->type() ) ) {
         // constructor functions return void but the constructor invocation expression yields the constructed type:
-        auto objectDefiner = constructorType->get_constructed_type_decl()->get_definer();
-        return objectDefiner->resolve_type();
+        if ( auto calleeConstructor = dynamic_cast<TxConstructorCalleeExprNode*>( this->callee ) ) {
+            ASSERT( calleeConstructor->get_constructed_type(), "Expected callee field get_constructed_type() to be non-null: " << this->callee );
+            return calleeConstructor->get_constructed_type();
+        }
+        else {
+            ASSERT( dynamic_cast<TxFieldValueNode*>( this->callee ), "Expected callee to be a TxFieldValueNode but was: " << this->callee );
+            auto calleeField = static_cast<TxFieldValueNode*>( this->callee );
+            ASSERT( calleeField->get_constructed_type(), "Expected callee field get_constructed_type() to be non-null: " << this->callee );
+            return calleeField->get_constructed_type();
+        }
+//        auto objectDefiner = constructorType->get_constructed_type_decl()->get_definer();
+//        return objectDefiner->resolve_type();
     }
     else
         return this->calleeType->return_type();
@@ -1199,7 +1213,10 @@ void TxFunctionCallNode::symbol_resolution_pass() {
         // Stack construction syntactically looks like a function call, e.g. Int(42)
         // If the callee is a constructor, we substitute this function call with a stack construction expression:
         if ( !dynamic_cast<TxConstructorCalleeExprNode*>( this->callee ) ) {  // (prevents infinite recursion)
-            auto typeDeclNode = new TxTypeDeclWrapperNode( this->parseLocation, constructorType->get_constructed_type_decl() );
+            auto calleeField = static_cast<TxFieldValueNode*>( this->callee );
+            auto typeDeclNode = new TxTypeDeclWrapperNode( this->parseLocation, calleeField->get_constructed_type()->get_declaration() );
+//            auto typeDeclNode = new TxTypeDeclWrapperNode( this->parseLocation, constructorType->get_constructed_type_decl() );
+
             // Implementation note: Declaration pass is already run on the args, but we need to run it on the new construction node
             // and its new children, and we need to run resolution pass on the whole sub-tree.
             auto wrappedArgs = make_expr_wrapper_vec( this->origArgsExprList );
