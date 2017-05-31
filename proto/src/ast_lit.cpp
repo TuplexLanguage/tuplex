@@ -219,8 +219,8 @@ void TxIntegerLitNode::declaration_pass() {
 TxTypeExpressionNode* TxCStringLitNode::make_cstring_type_expr( const TxLocation& parseLocation, const std::string& literal ) {
     // (for now) Create AST to declare the implicit type of this c-string literal:
     TxTypeExpressionNode* elemTypeExpr = new TxNamedTypeNode( parseLocation, "tx.UByte" );
-    TxExpressionNode* lengthExpr = new TxIntegerLitNode( parseLocation, literal.length() - 2, false, TXBT_UINT );
-    TxTypeExpressionNode* typeExpr = new TxArrayTypeNode( parseLocation, elemTypeExpr, lengthExpr );
+    TxExpressionNode* capExpr = new TxIntegerLitNode( parseLocation, literal.length() - 2, false, TXBT_UINT );
+    TxTypeExpressionNode* typeExpr = new TxArrayTypeNode( parseLocation, elemTypeExpr, capExpr );
     return typeExpr;
 }
 

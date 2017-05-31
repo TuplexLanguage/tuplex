@@ -419,7 +419,7 @@ bool TxActualType::inner_prepare_members() {
                           //&& this->get_type_class() == TXTC_ARRAY && this->staticTypeId != TXBT_ARRAY
                           ) {
                     // special case for the only built-in type with a VALUE param - Array
-                    // this handles specializations of Array where the length (L) has not been bound and another L field shall not be added
+                    // this handles specializations of Array where the capacity (C) has not been bound and another C field shall not be added
                     LOG_NOTE( this->LOGGER(), "Skipping layout of Array GENPARAM instance field: " << field );
                 }
                 else if ( !expErrField || expErrWholeType )
@@ -1053,13 +1053,13 @@ static bool array_assignable_from( const TxArrayType* toArray, const TxArrayType
         else
             return false;  // origin has not bound E
     }
-    if ( auto lenExpr = toArray->length() ) {
-        if ( auto otherLenExpr = fromArray->length() ) {
+    if ( auto lenExpr = toArray->capacity() ) {
+        if ( auto otherLenExpr = fromArray->capacity() ) {
             return ( lenExpr->is_statically_constant() && otherLenExpr->is_statically_constant()
                      && ( eval_unsigned_int_constant( lenExpr ) == eval_unsigned_int_constant( otherLenExpr ) ) );
         }
         else
-            return false;  // origin has not bound L
+            return false;  // origin has not bound C
     }
     return true;
 }
@@ -1097,7 +1097,7 @@ bool TxReferenceType::inner_is_assignable_to( const TxActualType* destination ) 
 //void TxArrayType::self_string( std::stringstream& str, bool brief ) const {
 //    if (! (this->get_declaration()->get_decl_flags() & ( TXD_IMPLICIT ) ))
 //        str << this->get_declaration()->get_unique_full_name() << " : ";
-//    if (auto len = this->length()) {
+//    if (auto len = this->capacity()) {
 //        if ( len->is_statically_constant() )
 //            str << "[" << eval_UInt_constant( len ) << "] ";
 //        else
@@ -1125,8 +1125,8 @@ bool TxReferenceType::inner_is_assignable_to( const TxActualType* destination ) 
 //    str << "& " << targetType->str();
 //}
 
-const TxExpressionNode* TxArrayType::length() const {
-    if ( auto bindingDecl = this->lookup_value_param_binding( "tx.Array.L" ) ) {
+const TxExpressionNode* TxArrayType::capacity() const {
+    if ( auto bindingDecl = this->lookup_value_param_binding( "tx.Array.C" ) ) {
         return bindingDecl->get_definer()->get_init_expression();
     }
     return nullptr;
@@ -1216,7 +1216,7 @@ const TxActualType* TxFunctionType::vararg_elem_type() const {
             auto refTargetType = static_cast<const TxReferenceType*>( lastArgType )->target_type();
             if ( refTargetType->get_type_class() == TXTC_ARRAY ) {
                 auto arrayType = static_cast<const TxArrayType*>( refTargetType );
-                if ( !arrayType->length() )  // only arrays of unspecified length apply to var-args syntactic sugar
+                if ( !arrayType->capacity() )  // only arrays of unspecified capacity apply to var-args syntactic sugar
                     return arrayType->element_type();
             }
         }
@@ -1229,7 +1229,7 @@ const TxArrayType* TxFunctionType::fixed_array_arg_type() const {
         auto argType = argumentTypes.back();
         if ( argType->get_type_class() == TXTC_ARRAY ) {
             auto arrayType = static_cast<const TxArrayType*>( argType );
-            if ( auto lenExpr = arrayType->length() ) {
+            if ( auto lenExpr = arrayType->capacity() ) {
                 if ( lenExpr->is_statically_constant() ) {
                     return arrayType;
                 }

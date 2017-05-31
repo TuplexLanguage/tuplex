@@ -315,7 +315,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
     case TXS_INSTANCE:
         // FUTURE: ensure TXS_INSTANCE fields are initialized either here or in every constructor
         if ( this->field->initExpression ) {
-            if ( !( this->field->get_declaration()->get_decl_flags() & TXD_GENBINDING ) )  // hackish... skips tx.Array.L
+            if ( !( this->field->get_declaration()->get_decl_flags() & TXD_GENBINDING ) )  // hackish... skips tx.Array.C
                 CWARNING( this, "Not yet supported: Inline initializer for instance fields (initialize within constructor instead): "
                           << this->field->get_identifier() );
         }
@@ -901,7 +901,7 @@ static const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, 
                 }
                 else if ( ( fixedArrayArgType = field->get_type()->fixed_array_arg_type() ) ) {
                     // fixed array parameter accepts matching number of arguments
-                    auto lenExpr = static_cast<const TxArrayType*>( fixedArrayArgType->type() )->length();
+                    auto lenExpr = static_cast<const TxArrayType*>( fixedArrayArgType->type() )->capacity();
                     auto len = eval_unsigned_int_constant( lenExpr );
                     if ( !( arguments->size() == 1 || arguments->size() == len ) )
                         continue;  // mismatching number of function args

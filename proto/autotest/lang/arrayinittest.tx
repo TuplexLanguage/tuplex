@@ -2,7 +2,7 @@
 
 ## var-arg functions:
 var_func( x : UInt, vars : Float... ) -> UInt {
-    return vars.L;  ## number of var-args passed
+    return vars.C;  ## number of var-args passed
 }
 
 

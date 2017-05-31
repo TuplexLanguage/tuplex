@@ -9,7 +9,7 @@
 class TxArrayLitNode : public TxExpressionNode {
     std::vector<TxExpressionNode*> const * const origElemExprList;
     TxTypeTypeArgumentNode* elementTypeNode;
-    TxMaybeConversionNode* lengthExpr;
+    TxMaybeConversionNode* capacityExpr;
     bool _directArrayArg = false;
     bool _constant = false;
 
@@ -20,13 +20,13 @@ public:
     std::vector<TxMaybeConversionNode*> const * const elemExprList;
 
     /** Represents an empty array with the specified element type. */
-    TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, TxExpressionNode* lengthExpr = nullptr )
-            : TxArrayLitNode( parseLocation, elementTypeExpr, new std::vector<TxExpressionNode*>(), lengthExpr ) {
+    TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, TxExpressionNode* capacityExpr = nullptr )
+            : TxArrayLitNode( parseLocation, elementTypeExpr, new std::vector<TxExpressionNode*>(), capacityExpr ) {
     }
 
     /** Represents a non-empty array with the specified element type. */
     TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxExpressionNode*>* elemExprList,
-                    TxExpressionNode* lengthExpr = nullptr );
+                    TxExpressionNode* capacityExpr = nullptr );
 
     /** Represents a non-empty array with the element type defined by the first element.
      * The provided element expression list must not be empty. */
@@ -51,7 +51,7 @@ public:
         return new TxArrayLitNode( this->parseLocation,
                                    ( this->elementTypeNode ? this->elementTypeNode->typeExprNode->make_ast_copy() : nullptr ),
                                    make_node_vec_copy( this->origElemExprList ),
-                                   ( this->lengthExpr ? this->lengthExpr->originalExpr->make_ast_copy() : nullptr) );
+                                   ( this->capacityExpr ? this->capacityExpr->originalExpr->make_ast_copy() : nullptr) );
     }
 
     virtual void symbol_resolution_pass() override;
@@ -75,8 +75,8 @@ public:
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->elementTypeNode )
             this->elementTypeNode->visit_ast( visitor, thisCursor, "elem-type", context );
-        if ( this->lengthExpr )
-            this->lengthExpr->visit_ast( visitor, thisCursor, "length", context );
+        if ( this->capacityExpr )
+            this->capacityExpr->visit_ast( visitor, thisCursor, "capacity", context );
         if ( this->origElemExprList ) {
             // if this node owns the element nodes, perform pass on them:
             for ( auto elem : *this->elemExprList )

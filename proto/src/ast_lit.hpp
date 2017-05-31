@@ -156,7 +156,7 @@ public:
 };
 
 class TxCStringLitNode : public TxExpressionNode {
-    const size_t arrayLength;  // note: array length includes the null terminator
+    const size_t arrayCapacity;  // note: array capacity includes the null terminator
     TxTypeExpressionNode* cstringTypeNode;  // implicit type definer
 
     static TxTypeExpressionNode* make_cstring_type_expr( const TxLocation& parseLocation, const std::string& literal );
@@ -171,7 +171,7 @@ public:
     const std::string value;
 
     TxCStringLitNode( const TxLocation& parseLocation, const std::string& literal )
-            : TxExpressionNode( parseLocation ), arrayLength( literal.length() - 2 ),
+            : TxExpressionNode( parseLocation ), arrayCapacity( literal.length() - 2 ),
               cstringTypeNode( make_cstring_type_expr( parseLocation, literal ) ),
               literal( literal ), value( literal, 2, literal.length() - 3 ) {
     }

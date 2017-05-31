@@ -31,7 +31,7 @@ public:
     const TxActualType* element_type() const;
 
     /** Returns nullptr if unbound. */
-    const TxExpressionNode* length() const;
+    const TxExpressionNode* capacity() const;
 
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* gen_size( LlvmGenerationContext& context, GenScope* scope ) const override;

@@ -36,8 +36,8 @@ void TxReferenceTypeNode::code_gen_type( LlvmGenerationContext& context ) const 
 
 void TxArrayTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
-    if ( this->lengthNode )
-        this->lengthNode->code_gen_type( context );
+    if ( this->capacityNode )
+        this->capacityNode->code_gen_type( context );
     this->elementTypeNode->code_gen_type( context );
 }
 

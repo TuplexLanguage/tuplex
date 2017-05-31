@@ -154,7 +154,7 @@ public:
                                       const TxIdentifier* dataspace );
 
     const TxType* get_array_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding,
-                                  const TxValueTypeArgumentNode* lengthBinding, bool mutableType=false );
+                                  const TxValueTypeArgumentNode* capacityBinding, bool mutableType=false );
     const TxType* get_array_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding, bool mutableType=false );
 
     // "mod" of function refers to whether functions of this type may modify its closure when run.

@@ -9,8 +9,8 @@ ret_array()->&[]UByte {
     t : &[]UByte = FOO_STR;
     #experr: u : [4]UByte = t^;  ## unknown length
     puts(s);
-    assert s.L == 4;
-    assert t.L == 4;
+    assert s.C == 4;
+    assert t.C == 4;
     return t;
 }
 
@@ -21,7 +21,7 @@ puts(cstr : &[]UByte) {
 basic_array_syntax()->Int {
     ra := ret_array();
     puts( ra );
-    assert ra.L == 4;
+    assert ra.C == 4;
 
     a : ~Array<~UByte,10>;
     b : ~[10]~UByte;
@@ -83,7 +83,7 @@ array_modifiability() {
     puts(ms);  ## expect "cst"
 
     conststr := c"1234567890";
-    assert conststr.L == 11;
+    assert conststr.C == 11;
     strcopy : ~[11]~UByte;
     strcopy = conststr;
 }

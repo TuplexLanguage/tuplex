@@ -493,7 +493,7 @@ class TxExpErrStmtNode : public TxStatementNode {
 
 protected:
     virtual void stmt_declaration_pass() override {
-        this->lexContext._scope = lexContext.scope()->create_code_block_scope( *this, "EE" );
+        //this->lexContext._scope = lexContext.scope()->create_code_block_scope( *this, "EE" );
         this->lexContext.expErrCtx = this->expError;
         if ( !this->context().is_reinterpretation() ) {
             this->get_parse_location().parserCtx->register_exp_err_node( this );

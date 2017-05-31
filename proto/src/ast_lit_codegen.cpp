@@ -77,7 +77,7 @@ Constant* TxCharacterLitNode::code_gen_constant( LlvmGenerationContext& context 
 Constant* TxCStringLitNode::code_gen_constant( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, '"' << this->value << '"' );
     std::vector<Constant*> members {
-                                     ConstantInt::get( context.llvmContext, APInt( 32, this->arrayLength ) ),
+                                     ConstantInt::get( context.llvmContext, APInt( 32, this->arrayCapacity ) ),
                                      ConstantDataArray::getString( context.llvmContext, this->value )
     };
     auto str = ConstantStruct::getAnon( members );

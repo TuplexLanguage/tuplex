@@ -1,18 +1,18 @@
 module tx
 
 
-public builtin type ~ Array<E, L : UInt> derives Any implements Collection<E>, Updatable<UInt, E>
+public builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, Updatable<UInt, E>
 {
     public override empty() -> Bool {
-        return self.L == 0;
+        return self.C == 0;
     }
 
     public override count() -> ULong {
-        return self.L;
+        return self.C;
     }
 
     public override capacity() -> ULong {
-        return self.L;
+        return self.C;
     }
 
     public override clear() ~ {
@@ -21,7 +21,7 @@ public builtin type ~ Array<E, L : UInt> derives Any implements Collection<E>, U
 
     public override contains( val : E ) -> Bool {
         /* TODO
-        for i in 0:L-1 {
+        for i in 0:C-1 {
             if self[i] == val
                 return TRUE;
         */
@@ -40,7 +40,7 @@ public builtin type ~ Array<E, L : UInt> derives Any implements Collection<E>, U
     }
 
     public override has( ix : UInt ) -> Bool {
-        return ix < self.L;
+        return ix < self.C;
     }
 
     public override get( ix : UInt ) -> E {
@@ -76,7 +76,7 @@ public builtin type ~ Array<E, L : UInt> derives Any implements Collection<E>, U
         }
 
         public override has_next() -> Bool {
-            return self.nextIndex < self.array.L;
+            return self.nextIndex < self.array.C;
         }
     
         public override has_prev() -> Bool {

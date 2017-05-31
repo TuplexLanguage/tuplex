@@ -586,8 +586,8 @@ const TxType* TypeRegistry::get_reference_type( TxTypeDefiningNode* definer, con
 }
 
 const TxType* TypeRegistry::get_array_type( TxTypeDefiningNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding,
-                                            const TxValueTypeArgumentNode* lengthBinding, bool mutableType ) {
-    std::vector<const TxTypeArgumentNode*> bindings( { elemTypeBinding, lengthBinding } );
+                                            const TxValueTypeArgumentNode* capBinding, bool mutableType ) {
+    std::vector<const TxTypeArgumentNode*> bindings( { elemTypeBinding, capBinding } );
     return this->get_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), bindings, mutableType );
 }
 

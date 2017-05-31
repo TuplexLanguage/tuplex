@@ -313,16 +313,16 @@ public:
 /**
  * Custom AST node needed to provide syntactic sugar for modifiable declaration. */
 class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
-    TxArrayTypeNode( const TxLocation& parseLocation, TxTypeTypeArgumentNode* elementTypeArg, TxValueTypeArgumentNode* lengthExprArg )
-            : TxBuiltinTypeSpecNode( parseLocation ), elementTypeNode( elementTypeArg ), lengthNode( lengthExprArg ) {
+    TxArrayTypeNode( const TxLocation& parseLocation, TxTypeTypeArgumentNode* elementTypeArg, TxValueTypeArgumentNode* capacityExprArg )
+            : TxBuiltinTypeSpecNode( parseLocation ), elementTypeNode( elementTypeArg ), capacityNode( capacityExprArg ) {
     }
 
 protected:
     virtual const TxType* define_type() override {
-        if ( this->lengthNode ) {
-            static_cast<TxMaybeConversionNode*>(this->lengthNode->valueExprNode)->insert_conversion(
+        if ( this->capacityNode ) {
+            static_cast<TxMaybeConversionNode*>(this->capacityNode->valueExprNode)->insert_conversion(
                     this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
-            return this->registry().get_array_type( this, this->elementTypeNode, this->lengthNode, this->requires_mutable_type() );
+            return this->registry().get_array_type( this, this->elementTypeNode, this->capacityNode, this->requires_mutable_type() );
         }
         else
             return this->registry().get_array_type( this, this->elementTypeNode, this->requires_mutable_type() );
@@ -330,21 +330,21 @@ protected:
 
 public:
     TxTypeTypeArgumentNode* elementTypeNode;
-    TxValueTypeArgumentNode* lengthNode;
+    TxValueTypeArgumentNode* capacityNode;
 
-    TxArrayTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* lengthExpr = nullptr )
+    TxArrayTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* capacityExpr = nullptr )
             : TxArrayTypeNode( parseLocation, new TxTypeTypeArgumentNode( elementType ),
-                               ( lengthExpr ? new TxValueTypeArgumentNode( new TxMaybeConversionNode( lengthExpr ) ) : nullptr ) ) {
+                               ( capacityExpr ? new TxValueTypeArgumentNode( new TxMaybeConversionNode( capacityExpr ) ) : nullptr ) ) {
     }
 
     virtual TxArrayTypeNode* make_ast_copy() const override {
         return new TxArrayTypeNode( this->parseLocation, this->elementTypeNode->make_ast_copy(),
-                                    ( this->lengthNode ? this->lengthNode->make_ast_copy() : nullptr ) );
+                                    ( this->capacityNode ? this->capacityNode->make_ast_copy() : nullptr ) );
     }
 
     virtual std::string get_auto_type_name() const override {
-        if ( this->lengthNode )
-            return "tx.Array<" + this->elementTypeNode->get_auto_type_name() + "," + this->lengthNode->get_auto_type_name() + ">";
+        if ( this->capacityNode )
+            return "tx.Array<" + this->elementTypeNode->get_auto_type_name() + "," + this->capacityNode->get_auto_type_name() + ">";
         else
             return "tx.Array<" + this->elementTypeNode->get_auto_type_name() + ">";
     }
@@ -352,8 +352,8 @@ public:
     virtual void symbol_resolution_pass() override {
         TxBuiltinTypeSpecNode::symbol_resolution_pass();
         this->elementTypeNode->symbol_resolution_pass();
-        if ( this->lengthNode ) {
-            this->lengthNode->symbol_resolution_pass();
+        if ( this->capacityNode ) {
+            this->capacityNode->symbol_resolution_pass();
         }
         auto elemType = this->elementTypeNode->typeExprNode->get_type();
         if ( !elemType->is_concrete() ) {
@@ -368,8 +368,8 @@ public:
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->elementTypeNode->visit_ast( visitor, thisCursor, "elementtype", context );
-        if ( this->lengthNode )
-            this->lengthNode->visit_ast( visitor, thisCursor, "length", context );
+        if ( this->capacityNode )
+            this->capacityNode->visit_ast( visitor, thisCursor, "capacity", context );
     }
 };
 
