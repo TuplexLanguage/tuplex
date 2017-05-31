@@ -109,16 +109,19 @@ void TypeRegistry::prepare_types() {
         if ( type->get_type_class() == TXTC_FUNCTION )
             continue;
 
+        if ( type->get_type_class() == TXTC_REFERENCE )
+            continue;
+
         if ( type->is_equivalent_derivation() ) {  // includes empty and modifiable derivations
             //std::cerr << "Not registering distinct type id for equivalent derivation: " << type << std::endl;
             continue;
         }
 
-        if ( type->is_generic_dependent() ) {
-            // FUTURE: review whether generic base types should be a vtable parent of their specializations
-            LOG_DEBUG( this->LOGGER(), "Not registering generic-dependent type as formal type: " << type );
-            continue;
-        }
+//        if ( type->is_generic_dependent() ) {
+//            // FUTURE: review whether generic base types should be a vtable parent of their specializations
+//            LOG_DEBUG( this->LOGGER(), "Not registering generic-dependent type as formal type: " << type );
+//            continue;
+//        }
 
         type->formalTypeId = this->formalTypes.size();
         this->formalTypes.push_back( type );

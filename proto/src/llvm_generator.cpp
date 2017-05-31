@@ -495,7 +495,6 @@ void LlvmGenerationContext::generate_runtime_data() {
                         fieldType = closureType->getStructElementType( 0 );
                     }
                     else if ( field.first == "$adTypeId" ) {
-                        ASSERT( txType->get_type_class() == TXTC_INTERFACE, "Expected TxInterfaceType: " << txType );
                         fieldType = this->get_llvm_type( actualFieldEnt->get_type()->type() );
                     }
                     else
@@ -509,8 +508,8 @@ void LlvmGenerationContext::generate_runtime_data() {
                         fieldName = actualFieldEnt->get_declaration()->get_unique_full_name() + "$func";
                     }
                     else if ( field.first == "$adTypeId" ) {
+                        ASSERT( txType->get_type_class() == TXTC_INTERFACEADAPTER, "Expected InterfaceAdapter type: " << txType );
                         auto adapterType = static_cast<const TxInterfaceAdapterType*>( txType );
-                        ASSERT( adapterType, "Expected TxInterfaceAdapterType: " << txType );
                         fieldName = adapterType->adapted_type()->get_declaration()->get_unique_full_name() + ".$typeid";
                     }
                     else {
@@ -549,30 +548,24 @@ llvm::Value* LlvmGenerationContext::gen_malloc( GenScope* scope, llvm::Type* obj
 }
 
 Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV ) const {
+    // cast vtable type according to statically declared type (may be parent type of actual type):
+    Type* vtablePtrT = PointerType::getUnqual( this->get_llvm_vtable_type( statDeclType ) );
+    //std::cerr << "got vtable ptr type for " << statDeclType << " (id " << statDeclType->get_type_id() << "): " << vtablePtrT << std::endl;
+
     Value* metaTypesV = this->lookup_llvm_value( "tx.runtime.META_TYPES" );
     Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
                      runtimeBaseTypeIdV,
                      ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 1 ) };
-    Value* vtablePtrA;
-    if ( !scope )
-        vtablePtrA = GetElementPtrInst::CreateInBounds( metaTypesV, ixs );
-    else
-        vtablePtrA = scope->builder->CreateInBoundsGEP( metaTypesV, ixs );
-
-    // cast vtable type according to statically declared type (may be parent type of actual type):
-    if ( auto vtableT = this->get_llvm_vtable_type( statDeclType ) ) {
-        //std::cerr << "got vtable type for " << statDeclType << " (id " << statDeclType->get_type_id() << "): " << vtableT << std::endl;
-        Type* vtablePtrT = PointerType::getUnqual( vtableT );
-        if ( !scope ) {
-            auto vtablePtr = new LoadInst( vtablePtrA );
-            return CastInst::CreatePointerCast( vtablePtr, vtablePtrT, "vtableptr" );
-        }
-        else {
-            auto vtablePtr = scope->builder->CreateLoad( vtablePtrA );
-            return scope->builder->CreatePointerCast( vtablePtr, vtablePtrT, "vtableptr" );
-        }
+    if ( !scope ) {
+        auto vtablePtrA = GetElementPtrInst::CreateInBounds( metaTypesV, ixs );
+        auto vtablePtr = new LoadInst( vtablePtrA );
+        return CastInst::CreatePointerCast( vtablePtr, vtablePtrT, "vtableptr" );
     }
-    return nullptr;
+    else {
+        auto vtablePtrA = scope->builder->CreateInBoundsGEP( metaTypesV, ixs );
+        auto vtablePtr = scope->builder->CreateLoad( vtablePtrA );
+        return scope->builder->CreatePointerCast( vtablePtr, vtablePtrT, "vtableptr" );
+    }
 }
 
 Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualType* statDeclType ) const {
@@ -583,7 +576,7 @@ StructType* LlvmGenerationContext::get_llvm_vtable_type( const TxActualType* txT
     auto iter = this->llvmVTableTypeMapping.find( txType->get_type_id() );
     if ( iter != this->llvmVTableTypeMapping.end() )
         return iter->second;
-    return nullptr;
+    THROW_LOGIC( "No vtable mapped for type " << txType );
 }
 
 Type* LlvmGenerationContext::get_llvm_type( const TxType* txType ) {

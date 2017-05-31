@@ -31,8 +31,8 @@ current_script_dir = dirname( abspath( __file__ ) )
 chdir( current_script_dir )
 
 source_files = [
-    #"array_interface.tx",
+    "array_interface.tx",
 ]
 
 for src in source_files:
-    run_cmd( """txc -quiet -jit -nobc %s -allowtx ../../srctx/tx/*.tx""" % ( src, ) )
+    run_cmd( """txc -quiet -jit -nobc -tx ../../ %s""" % ( src, ) )

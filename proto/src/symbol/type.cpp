@@ -259,7 +259,7 @@ void TxActualType::initialize_type() {
                 if ( dynamic_cast<const TxTypeDeclaration*>( paramDecl ) ) {
                     if ( !dynamic_cast<const TxTypeDeclaration*>( bindingDecl ) )
                         CERROR( bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " is not a type: " << bindingDecl );
-                    if ( constraintType->get_type_class() != TXTC_REFERENCE )
+                    if ( constraintType->get_type_class() != TXTC_REFERENCE && this->get_type_class() != TXTC_REFERENCE )
                         this->nonRefBindings = true;
                 }
                 else {

@@ -131,9 +131,9 @@ public:
  type Mac Foo<Byte>
 
  Mud : Foo$Long : Bar$Long : Tuple : Any
- \          \
+                \          \
                 : Foo<Any> : Bar<Any> : Tuple : Any
- /          /
+                /          /
  Mac : Foo$Byte : Bar$Byte : Tuple : Any
 
  Foo<Any> is the "generic base type" for Foo$xyz
@@ -198,7 +198,8 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
      * This also implies a pure specialization, even if extendsInstanceDatatype technically is true. */
     const TxActualType* genericBaseType = nullptr;
 
-    /** false unless there are either TYPE bindings for parameters with other than Ref constraint, or VALUE bindings */
+    /** False unless there are either TYPE bindings for parameters with other than Ref constraint, or VALUE bindings.
+     * If this is a Ref type, this is always false (regardless of the Ref's bound target type). */
     bool nonRefBindings = false;
 
     /** true when initialize_type() has completed its initializations */
