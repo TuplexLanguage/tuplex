@@ -200,24 +200,6 @@ public:
 };
 
 /** Represents a specialization of a generic type (binding one or more type parameters).
- *
- * Note on generic capability:
-
- type Abstr<E,C> { ... }
-
- ## we shall probably not allow *extension* of generic parameters:
- type Field<E,C,V derives Abstr,L> derives Array<V<E,C>,L> {
- ## array elements are Abstr derivations stored by value
- }
-
- ## Allowing this would probably require major redesign
- ## of the TxType specialization hierarchy.
-
- ## the closest we can support is:
- type Field<E,C,L> derives Array<Ref<Abstr<E,C>>,L> {
- ## array elements are Abstr derivations stored by reference
- }
-
  */
 class TxGenSpecTypeNode : public TxTypeExpressionNode {
 protected:
