@@ -64,7 +64,6 @@ public:
     }
 
     virtual bool is_statically_constant() const override {
-        // FUTURE: support array constant proxy (requires element llvm type generation before llvm pass)
         return this->_constant;
     }
 

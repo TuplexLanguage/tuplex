@@ -283,14 +283,14 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
     if ( auto arrayPtrC = dyn_cast<Constant>( arrayPtrV ) ) {
         if ( auto intC = dyn_cast<ConstantInt>( subscriptV ) ) {
             Constant* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                                ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ),
+                                ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
                                 intC };
             return ConstantExpr::getInBoundsGetElementPtr( arrayPtrC, ixs );
         }
     }
 
     Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                     ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ),
+                     ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
                      subscriptV };
     if ( scope )
         return scope->builder->CreateInBoundsGEP( arrayPtrV, ixs );
@@ -333,7 +333,7 @@ Constant* TxElemDerefNode::code_gen_constant( LlvmGenerationContext& context ) c
     auto subscriptC = cast<ConstantInt>( this->subscript->code_gen_constant( context ) );
     ASSERT( arrayC->getType()->isStructTy(), "Can't create constant array elem deref expression with array value that is: "
             << arrayC << "  type: " << arrayC->getType() );
-    uint32_t ixs[] = { 1, (uint32_t) subscriptC->getLimitedValue( UINT32_MAX ) };
+    uint32_t ixs[] = { 2, (uint32_t) subscriptC->getLimitedValue( UINT32_MAX ) };
     return ConstantExpr::getExtractValue( arrayC, ixs );
 }
 

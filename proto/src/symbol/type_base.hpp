@@ -61,7 +61,7 @@ public:
 
     /** Adds a field to this tuple. If the field name already exists, the old will be shadowed by the new field. */
     void add_field( const TxField* field ) {
-        //std::cerr << "Adding field " << name << " at index " << this->fields.size() << ": " << field << std::endl;
+        //std::cerr << "Adding field at index " << this->fields.size() << ": " << field << std::endl;
         this->fieldMap[field->get_unique_name()] = this->fields.size();  // (inserts new or overwrites existing entry)
         this->fields.push_back( field );
     }

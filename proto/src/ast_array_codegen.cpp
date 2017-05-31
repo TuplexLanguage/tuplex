@@ -22,9 +22,16 @@ Value* TxArrayLitNode::code_gen_value( LlvmGenerationContext& context, GenScope*
     }
 
     Value* arrayObj = this->get_type()->type()->gen_alloca( context, scope, "array_lit" );
+    { // initialize length field:
+        Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
+        auto lenField = scope->builder->CreateInBoundsGEP( arrayObj, ixs );
+        auto lenVal = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->elemExprList->size() );
+        scope->builder->CreateStore( lenVal, lenField );
+    }
     for ( unsigned i = 0; i < this->elemExprList->size(); i++ ) {
         Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ),
+                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
                          ConstantInt::get( Type::getInt32Ty( context.llvmContext ), i ) };
         auto elemAddr = scope->builder->CreateInBoundsGEP( arrayObj, ixs );
         scope->builder->CreateStore( this->elemExprList->at( i )->code_gen_value( context, scope ), elemAddr );
@@ -57,6 +64,7 @@ Constant* TxArrayLitNode::code_gen_constant( LlvmGenerationContext& context ) co
     ArrayType* arrayType = ArrayType::get( elemType, arrayLen );
     Constant* dataArray = ConstantArray::get( arrayType, data );
     std::vector<Constant*> objMembers {
+                                        ConstantInt::get( context.llvmContext, APInt( 32, arrayLen ) ),
                                         ConstantInt::get( context.llvmContext, APInt( 32, arrayLen ) ),
                                         dataArray
     };

@@ -703,12 +703,15 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     {
         auto arrayConstructors = make_array_constructors( loc );
 
-        auto lTypeNode = new TxNamedTypeNode( loc, "UInt" );
         auto paramNodes = new std::vector<TxDeclarationNode*>(
                 {
                   new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM, "E", nullptr, new TxNamedTypeNode( loc, "Any" ) ),
-                  new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM, new TxFieldDefNode( loc, "C", lTypeNode, nullptr, false ) ),
-                  //new TxFieldDeclNode( loc, TXD_PUBLIC, new TxFieldDefNode( loc, "L", lTypeNode, nullptr, false ) )
+                  new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM,
+                                       new TxFieldDefNode( loc, "C", new TxNamedTypeNode( loc, "UInt" ),
+                                                           nullptr, false ) ),
+                  new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_IMPLICIT,
+                                       new TxFieldDefNode( loc, "L", new TxModifiableTypeNode( loc, new TxNamedTypeNode( loc, "UInt" ) ),
+                                                           nullptr, false ) )
                 } );
         this->builtinTypes[TXBT_ARRAY] = new TxTypeDeclNode(
                 loc, TXD_PUBLIC | TXD_BUILTIN, "Array", paramNodes,

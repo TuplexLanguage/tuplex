@@ -60,11 +60,11 @@ class TxField : public TxEntity {
 //        ASSERT(type, "NULL type for field " << declaration);
     }
 
-    const TxTypeDeclaration* get_outer_type_decl() const {
-        if ( auto outerEntity = dynamic_cast<TxEntitySymbol*>( get_symbol()->get_outer() ) )
-            return outerEntity->get_type_decl();
-        return nullptr;
-    }
+//    const TxTypeDeclaration* get_outer_type_decl() const {
+//        if ( auto outerEntity = dynamic_cast<TxEntitySymbol*>( this->get_symbol()->get_outer() ) )
+//            return outerEntity->get_type_decl();
+//        return nullptr;
+//    }
 
 public:
     /** Constructs a new field after applying some validation checks. If validation fails, resolution exception is thrown. */
@@ -82,10 +82,10 @@ public:
         return this->type;
     }
 
-    /** Gets the storage "index" of this field within its declaration scope's data tuple.
-     * This field must not have global or stack storage class.
-     */
-    int get_decl_storage_index() const;
+//    /** Gets the storage "index" of this field within its declaration scope's data tuple.
+//     * This field must not have global or stack storage class.
+//     */
+//    int get_decl_storage_index() const;
 
     /** Returns true if this field is statically constant. */
     bool is_statically_constant() const;

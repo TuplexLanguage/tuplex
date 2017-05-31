@@ -48,26 +48,26 @@ TxField* TxField::make_field( const TxFieldDeclaration* fieldDeclaration, const 
     return new TxField( fieldDeclaration, fieldType );
 }
 
-int TxField::get_decl_storage_index() const {
-    if ( auto typeDecl = this->get_outer_type_decl() ) {
-        if ( auto outerType = typeDecl->get_definer()->get_type() ) {  // assumes already resolved
-            switch ( this->get_storage() ) {
-            case TXS_STATIC:
-                return outerType->type()->get_static_fields().get_field_index( this->get_unique_name() );
-            case TXS_VIRTUAL:
-                case TXS_INSTANCEMETHOD:
-                ASSERT( !( this->get_decl_flags() & TXD_CONSTRUCTOR ), "constructor does not have an instance method index: " << this );
-                return outerType->type()->get_virtual_fields().get_field_index( this->get_unique_name() );
-            case TXS_INSTANCE:
-                return outerType->type()->get_instance_fields().get_field_index( this->get_unique_name() );
-            default:
-                //ASSERT(false, "Only fields of static/virtual/instancemethod/instance storage classes have a storage index: " << *this);
-                return -1;
-            }
-        }
-    }
-    return -1;
-}
+//int TxField::get_decl_storage_index() const {
+//    if ( auto typeDecl = this->get_outer_type_decl() ) {
+//        if ( auto outerType = typeDecl->get_definer()->get_type() ) {  // assumes already resolved
+//            switch ( this->get_storage() ) {
+//            case TXS_STATIC:
+//                return outerType->type()->get_static_fields().get_field_index( this->get_unique_name() );
+//            case TXS_VIRTUAL:
+//            case TXS_INSTANCEMETHOD:
+//                ASSERT( !( this->get_decl_flags() & TXD_CONSTRUCTOR ), "constructor does not have an instance method index: " << this );
+//                return outerType->type()->get_virtual_fields().get_field_index( this->get_unique_name() );
+//            case TXS_INSTANCE:
+//                return outerType->type()->get_instance_fields().get_field_index( this->get_unique_name() );
+//            default:
+//                //ASSERT(false, "Only fields of static/virtual/instancemethod/instance storage classes have a storage index: " << *this);
+//                return -1;
+//            }
+//        }
+//    }
+//    return -1;
+//}
 
 bool TxField::is_statically_constant() const {
     // A field is statically constant if it is unmodifiable and has a statically constant initializer

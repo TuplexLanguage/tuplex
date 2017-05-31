@@ -173,7 +173,7 @@ void TxScopeSymbol::dump_symbols() const {
 }
 
 std::string TxScopeSymbol::description_string() const {
-    return "                           " + this->get_full_name().str();
+    return "                            " + this->get_full_name().str();
 }
 
 /*=== TxEntitySymbol implementation ===*/
@@ -271,24 +271,51 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol( const std::string& name ) {
 static std::string field_description( const TxFieldDeclaration* fieldDecl ) {
     if ( auto field = fieldDecl->get_definer()->attempt_get_field() ) {
         if ( auto type = field->get_type() ) {
-            char buf[512];
+            const unsigned bufsize = 256;
+            char buf[bufsize];
 
-            int storageIx = -1;
-            if ( !( field->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ) )
-                storageIx = field->get_decl_storage_index();
-            if ( storageIx >= 0 )
-                snprintf( buf, 512, "FIELD [%2d]  %-48s : %s",
-                          storageIx,
-                          fieldDecl->get_unique_full_name().c_str(),
-                          type->str().c_str() );
-            else
-                snprintf( buf, 512, "FIELD       %-48s : %s",
-                          fieldDecl->get_unique_full_name().c_str(),
-                          type->str().c_str() );
+            if ( !( field->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ) ) {
+                if ( auto outerEntity = dynamic_cast<TxEntitySymbol*>( field->get_symbol()->get_outer() ) ) {
+                    if ( auto typeDecl = outerEntity->get_type_decl() ) {
+                        if ( auto outerType = typeDecl->get_definer()->get_type() ) {  // assumes already resolved
+                            char storageType = ' ';
+                            int storageIx = -1;
+                            switch ( field->get_storage() ) {
+                            case TXS_STATIC:
+                                storageType = 's';
+                                storageIx = outerType->type()->get_static_fields().get_field_index( field->get_unique_name() );
+                                break;
+                            case TXS_VIRTUAL:
+                                case TXS_INSTANCEMETHOD:
+                                storageType = 'v';
+                                storageIx = outerType->type()->get_virtual_fields().get_field_index( field->get_unique_name() );
+                                break;
+                            case TXS_INSTANCE:
+                                storageType = 'i';
+                                storageIx = outerType->type()->get_instance_fields().get_field_index( field->get_unique_name() );
+                                break;
+                            default:
+                                //ASSERT(false, "Only fields of static/virtual/instancemethod/instance storage classes have a storage index: " << *this);
+                                break;
+                            }
+                            if ( storageIx >= 0 ) {
+                                snprintf( buf, bufsize, "FIELD [%c%2d]  %-48s : %s",
+                                          storageType,
+                                          storageIx, fieldDecl->get_unique_full_name().c_str(), type->str().c_str() );
+                                return std::string( buf );
+                            }
+                        }
+                    }
+                }
+            }
+
+            snprintf( buf, bufsize, "FIELD        %-48s : %s",
+                      fieldDecl->get_unique_full_name().c_str(),
+                      type->str().c_str() );
             return std::string( buf );
         }
     }
-    return "FIELD       -undef-";
+    return "FIELD        -undef-";
 }
 
 void TxEntitySymbol::dump_symbols() const {
@@ -322,20 +349,20 @@ std::string TxEntitySymbol::description_string() const {
                     auto name = type->str();
                     if ( name.size() < 48 )
                         name.resize( 48, ' ' );
-                    return "TYPE        " + name + " : " + basetype->str();
+                    return "TYPE         " + name + " : " + basetype->str();
                 }
                 else
-                    return "TYPE        " + type->str( false );
+                    return "TYPE         " + type->str( false );
             }
             else {
                 auto name = this->typeDeclaration->get_unique_full_name();
                 if ( name.size() < 48 )
                     name.resize( 48, ' ' );
-                return "TYPE ALIAS  " + name + " = " + type->str();
+                return "TYPE ALIAS   " + name + " = " + type->str();
             }
         }
         else
-            return "TYPE        -undef-";
+            return "TYPE         -undef-";
     else if ( this->field_count() ) {  // non-overloaded field name
         return field_description( this->get_first_field_decl() );
     }

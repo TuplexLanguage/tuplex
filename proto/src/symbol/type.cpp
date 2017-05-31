@@ -413,15 +413,15 @@ bool TxActualType::inner_prepare_members() {
                 if ( const_cast<TxActualType*>( fieldType )->prepare_members() )
                     CERROR( field, "Recursive data type via field " << field->get_declaration()->get_unique_full_name() );
 
-                if ( false && ( fieldDecl->get_decl_flags() & TXD_GENBINDING ) )
-                    LOG_NOTE( this->LOGGER(), "Skipping layout of GENBINDING instance field: " << field );
-                else if ( false && ( fieldDecl->get_decl_flags() & TXD_GENPARAM )
-                          //&& this->get_type_class() == TXTC_ARRAY && this->staticTypeId != TXBT_ARRAY
-                          ) {
-                    // special case for the only built-in type with a VALUE param - Array
-                    // this handles specializations of Array where the capacity (C) has not been bound and another C field shall not be added
-                    LOG_NOTE( this->LOGGER(), "Skipping layout of Array GENPARAM instance field: " << field );
-                }
+//                if ( false && ( fieldDecl->get_decl_flags() & TXD_GENBINDING ) )
+//                    LOG_NOTE( this->LOGGER(), "Skipping layout of GENBINDING instance field: " << field );
+//                else if ( false && ( fieldDecl->get_decl_flags() & TXD_GENPARAM )
+//                          //&& this->get_type_class() == TXTC_ARRAY && this->staticTypeId != TXBT_ARRAY
+//                          ) {
+//                    // special case for the only built-in type with a VALUE param - Array
+//                    // this handles specializations of Array where the capacity (C) has not been bound and another C field shall not be added
+//                    LOG_NOTE( this->LOGGER(), "Skipping layout of Array GENPARAM instance field: " << field );
+//                }
                 else if ( !expErrField || expErrWholeType )
                     this->instanceFields.add_field( field );
                 break;

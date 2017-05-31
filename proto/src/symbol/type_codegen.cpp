@@ -139,6 +139,7 @@ Type* TxArrayType::make_llvm_type( LlvmGenerationContext& context ) const {
     }
     std::vector<Type*> llvmMemberTypes {
                                          Type::getInt32Ty( context.llvmContext ),
+                                         Type::getInt32Ty( context.llvmContext ),
                                          ArrayType::get( elemType, arrayCap )
     };
     auto llvmType = StructType::get( context.llvmContext, llvmMemberTypes );
@@ -154,8 +155,7 @@ Value* TxArrayType::gen_size( LlvmGenerationContext& context, GenScope* scope ) 
 }
 
 Value* TxArrayType::inner_code_gen_size( LlvmGenerationContext& context, GenScope* scope, Value* elemSize, Value* arrayLen ) const {
-    Type* headerType = Type::getInt32Ty( context.llvmContext );
-    Constant* headerSize = ConstantExpr::getSizeOf( headerType );
+    Constant* headerSize = ConstantExpr::getSizeOf( Type::getInt64Ty( context.llvmContext ) );
     //std::cout << "Array header size: " << to_string(headerSize) << std::endl;
 
     if ( auto ce = dyn_cast<Constant>( elemSize ) )
@@ -184,7 +184,8 @@ Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope,
     bool staticCap = this->capacity()->is_statically_constant();
     uint32_t nofElems = ( staticCap ? eval_unsigned_int_constant( this->capacity() ) : 0 );
     std::vector<Type*> llvmMemberTypes {
-                                         headerType,
+                                         Type::getInt32Ty( context.llvmContext ),
+                                         Type::getInt32Ty( context.llvmContext ),
                                          ArrayType::get( elemType, nofElems )
     };
     auto llvmType = StructType::get( context.llvmContext, llvmMemberTypes );
@@ -211,11 +212,20 @@ Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope,
         arrayObj = scope->builder->CreatePointerCast( allocation, ptrType, varName );
     }
 
-    // initialize capacity field:
-    Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                     ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) };
-    auto capField = scope->builder->CreateInBoundsGEP( arrayObj, ixs );
-    scope->builder->CreateStore( arrayCap, capField );
+    { // initialize capacity field:
+        Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) };
+        auto capField = scope->builder->CreateInBoundsGEP( arrayObj, ixs );
+        scope->builder->CreateStore( arrayCap, capField );
+    }
+
+    { // initialize length field:
+        Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
+        auto lenField = scope->builder->CreateInBoundsGEP( arrayObj, ixs );
+        auto zeroVal = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 );
+        scope->builder->CreateStore( zeroVal, lenField );
+    }
 
     return arrayObj;
 }
