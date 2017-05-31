@@ -30,6 +30,8 @@ int main( int argc, char **argv )
     options.no_bc_output = true;
 #endif
 
+    options.txPath = ".";
+
     for ( int a = 1; a < argc; a++ ) {
         if ( argv[a][0] == '-' && argv[a][1] ) {
             if ( !strcmp( argv[a], "-version" ) ) {
@@ -60,7 +62,9 @@ int main( int argc, char **argv )
                 printf( "  %-22s %s\n", "-onlyparse", "Stop after grammar parse" );
                 printf( "  %-22s %s\n", "-sepjobs", "Compile each command line source file as a separate compilation job" );
                 printf( "  %-22s %s\n", "-cnoassert", "Suppress code generation for assert statements" );
-                printf( "  %-22s %s\n", "-allowtx", "Permit source code to declare within the tx namespace" );
+                // unofficial option  printf( "  %-22s %s\n", "-allowtx", "Permit source code to declare within the tx namespace" );
+                printf( "  %-22s %s\n", "-notx", "Exclude the tx namespace source code (basic built-in definitions will still exist)" );
+                printf( "  %-22s %s\n", "-tx <path>", "Location of the tx directory containing the tx namespace source code (default is .)" );
                 printf( "  %-22s %s\n", "-o  | -output <file>", "Explicitly specify LLVM bitcode output file name" );
                 printf( "  %-22s %s\n", "-sp <pathlist>", "Set source files search paths (overrides TUPLEX_PATH environment variable)" );
                 printf( "  %-22s %s\n", "-sourcepath <pathlist>", "Set source files search paths (overrides TUPLEX_PATH environment variable)" );
@@ -106,6 +110,15 @@ int main( int argc, char **argv )
                 options.suppress_asserts = true;
             else if ( !strcmp( argv[a], "-allowtx" ) )
                 options.allow_tx = true;
+            else if ( !strcmp( argv[a], "-notx" ) )
+                options.txPath = "";
+            else if ( !strcmp( argv[a], "-tx" ) ) {
+                if ( ++a >= argc ) {
+                    LOG.error( "Invalid command options, specified %s without subsequent argument", argv[a - 1] );
+                    return 1;  // exits
+                }
+                options.txPath = argv[a];
+            }
             else if ( !strcmp( argv[a], "-sp" ) || !strcmp( argv[a], "-sourcepath" ) ) {
                 if ( ++a >= argc ) {
                     LOG.error( "Invalid command options, specified %s without subsequent argument", argv[a - 1] );

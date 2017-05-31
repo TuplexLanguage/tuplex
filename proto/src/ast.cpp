@@ -1,3 +1,5 @@
+#include "util/files_env.hpp"
+
 #include "ast.hpp"
 #include "ast_util.hpp"
 
@@ -66,7 +68,9 @@ std::string TxNode::str() const {
     auto ident = this->get_identifier();
     const size_t bsize = 128;
     char buf[bsize];
-    snprintf( buf, bsize, "%-11s %4u %-24s %s", this->parse_loc_string().c_str(), this->get_node_id(), typeid(*this).name(), ident.c_str() );
+    std::string filename = parseLocation.begin.filename ? get_file_name( *parseLocation.begin.filename ) : "";
+    snprintf( buf, bsize, "%s %-11s %4u %-24s %s", filename.c_str(), this->parse_loc_string().c_str(),
+              this->get_node_id(), typeid(*this).name(), ident.c_str() );
     if ( this->lexContext.reinterpretationDefiner )
         return std::string( buf ) + " <: " + this->lexContext.reinterpretationDefiner->str();
     else

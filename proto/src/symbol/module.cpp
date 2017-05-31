@@ -34,8 +34,9 @@ TxModule* TxModule::declare_module( const TxParseOrigin& origin, const TxIdentif
     if ( !this->get_outer() ) {
         // this is the namespace root - the tuplex package
         if ( !builtin ) {
-            if ( ident.begins_with( BUILTIN_NS ) && !this->get_root_scope()->driver().get_options().allow_tx )
-                CERROR( origin, "Can't declare or extend built-in namespace from user code: '" << ident << "'" );
+            // this check is currently disabled
+            //if ( ident.begins_with( BUILTIN_NS ) && !this->get_root_scope()->driver().get_options().allow_tx )
+            //    CERROR( origin, "Can't declare or extend built-in namespace from user code: '" << ident << "'" );
         }
     }
     else {

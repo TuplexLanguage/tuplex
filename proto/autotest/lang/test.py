@@ -31,9 +31,10 @@ current_script_dir = dirname( abspath( __file__ ) )
 chdir( current_script_dir )
 
 run_cmd( """echo "module my" | txc -quiet -nojit -nobc 2>/dev/null""" )
-run_cmd( """echo "module tx" | txc -quiet -nojit -nobc 2>/dev/null""", 2 )        # illegal namespace for user code
-run_cmd( """echo "module tx.c" | txc -quiet -nojit -nobc 2>/dev/null""", 2 )      # illegal namespace for user code
-run_cmd( """echo "module tx.foobar" | txc -quiet -nojit -nobc 2>/dev/null""", 2 ) # illegal namespace for user code
+# currently disabled:
+#run_cmd( """echo "module tx" | txc -quiet -nojit -nobc 2>/dev/null""", 2 )        # illegal namespace for user code
+#run_cmd( """echo "module tx.c" | txc -quiet -nojit -nobc 2>/dev/null""", 2 )      # illegal namespace for user code
+#run_cmd( """echo "module tx.foobar" | txc -quiet -nojit -nobc 2>/dev/null""", 2 ) # illegal namespace for user code
 run_cmd( """echo "module \$local" | txc -quiet -nojit -nobc 2>/dev/null""", 1 )   # can't be specified explicitly
 run_cmd( """echo "module foo\$bar" | txc -quiet -nojit -nobc 2>/dev/null""", 1 )  # illegal character
 

@@ -22,11 +22,6 @@ TxDriver::TxDriver( const TxOptions& options )
         : _LOG( Logger::get( "DRIVER" ) ), options( options ),
           builtinParserContext( new TxParserContext( *this, TxIdentifier( "" ), "" ) )
 {
-    if ( options.sourceSearchPaths.empty() )
-        this->_LOG.config( "Tuplex source search path is empty" );
-    else
-        for ( auto pathItem : options.sourceSearchPaths )
-            this->_LOG.config( "Tuplex source search path item: '%s'", pathItem.c_str() );
 }
 
 TxDriver::~TxDriver() {
@@ -75,8 +70,15 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     this->llvmContext = &llvm::getGlobalContext();
     this->genContext = new LlvmGenerationContext( *this->package, *this->llvmContext );
 
-    /*--- parse built-in module(s) ---*/
-    {
+    if ( options.sourceSearchPaths.empty() )
+        this->_LOG.config( "Source search path is empty" );
+    else
+        for ( auto pathItem : options.sourceSearchPaths )
+            this->_LOG.config( "Source search path item: '%s'", pathItem.c_str() );
+
+    /*--- prepare the parse units ---*/
+
+    {  // initialize the built-in ASTs
         TxParserContext* parserContext = new TxParserContext( *this, TxIdentifier( "tx" ), "" );
         parserContext->parsingUnit = this->package->builtins().createTxModuleAST();
         this->parsedASTs.push_back( parserContext );
@@ -88,6 +90,16 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     }
     for ( auto startFile : startSourceFiles )
         this->sourceFileQueue.push_back( std::pair<TxIdentifier, std::string>( TxIdentifier(), startFile ) );
+
+    if ( !this->options.txPath.empty() ) {
+        // add the tx namespace sources
+        std::string txPath( this->options.txPath );
+        this->_LOG.config( "Including tx namespace source path '%s'", txPath.c_str() );
+        if ( !is_path_separator( txPath.back() ) )
+            txPath.push_back( get_path_separator() );
+        txPath.append( BUILTIN_NS );
+        this->add_all_in_dir( BUILTIN_NS, txPath, true );
+    }
 
     /*--- parse all source filed (during parsing, files are added to the queue as the are imported) ---*/
 
@@ -233,7 +245,7 @@ bool TxDriver::add_import( const TxIdentifier& moduleName ) {
                 moduleDirPath += *si;
             }
             if ( file_status( moduleDirPath ) == 2 ) {
-                this->add_all_in_dir( moduleName, moduleDirPath );
+                this->add_all_in_dir( moduleName, moduleDirPath, false );
                 return true;
             }
         }
@@ -242,14 +254,22 @@ bool TxDriver::add_import( const TxIdentifier& moduleName ) {
     return false;
 }
 
-int TxDriver::add_all_in_dir( const TxIdentifier& moduleName, const std::string &dirPath ) {
+int TxDriver::add_all_in_dir( const TxIdentifier& moduleName, const std::string &dirPath, bool recurseSubDirs ) {
     int addCount = 0;
     tinydir_dir dir;
     tinydir_open( &dir, dirPath.c_str() );
     while ( dir.has_next ) {
         tinydir_file file;
         tinydir_readfile( &dir, &file );
-        if ( !file.is_dir && !strcmp( file.extension, "tx" ) ) {
+        if ( file.is_dir ) {
+            if ( recurseSubDirs ) {
+                if ( !strchr( file.name, '.' ) ) {
+                    TxIdentifier submodName( moduleName, file.name );
+                    this->add_all_in_dir( submodName, file.path, true );
+                }
+            }
+        }
+        else if ( !strcmp( file.extension, "tx" ) ) {
             this->add_source_file( moduleName, file.path );
             addCount++;
         }

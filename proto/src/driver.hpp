@@ -41,6 +41,7 @@ public:
     bool no_bc_output = false;
     bool suppress_asserts = false;
     bool allow_tx = false;
+    std::string txPath;
     std::vector<std::string> sourceSearchPaths;
 };
 
@@ -92,7 +93,7 @@ class TxDriver {
     int llvm_compile( const std::string& outputFileName );
 
     /** Add all .tx source files directly under the specified directory to the currently compiling package. */
-    int add_all_in_dir( const TxIdentifier& moduleName, const std::string &dirPath );
+    int add_all_in_dir( const TxIdentifier& moduleName, const std::string &dirPath, bool recurseSubDirs );
 
     /** Add a source file to the currently compiling package.
      * @param moduleName the module expected to be found in the source file

@@ -59,3 +59,10 @@ std::vector<std::string> get_path_list( const std::string paths ) {
     }
     return result;
 }
+
+std::string get_file_name( const std::string& path ) {
+    size_t index = path.find_last_of( PATH_SEPARATOR );
+    if ( index == std::string::npos )
+        return path;
+    return path.substr( index + 1 );
+}

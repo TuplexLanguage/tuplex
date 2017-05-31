@@ -30,10 +30,7 @@ for name in listdir(current_script_dir):
     else:
         dirs.append(name)
 
-for file in files:
-    pass
-
-for dir in dirs:
+for dir in sorted( dirs ):
     dir_path = join( current_script_dir, dir )
     test_script = join( dir_path, "test.py" )
     if isfile( test_script ):
