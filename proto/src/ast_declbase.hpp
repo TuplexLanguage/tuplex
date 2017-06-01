@@ -124,9 +124,7 @@ public:
     }
 
     /** Generates code that produces a pointer to the value of this expression. */
-    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
-        THROW_LOGIC( "Unsupported: code_gen_address() for node type " << this );
-    }
+    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const;
 
     /** Generates code that produces the type id (as opposed to the value) of this expression. */
     virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const;

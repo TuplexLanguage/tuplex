@@ -89,11 +89,18 @@ array_stack_construction( i : UByte ) {
 
 
   ## Construction with dynamic Array length
-  ## TODO: support for stack storage (like in C99):
-    #experr 1: ae := [i*0]Int();
+    a30 := [i*0]Int();
+/*
+    a31 := [i*3]Int();
+    a32 := <Array<Int,(i*0)>>();
+    a33 := <Array<Int,(i*3)>>();
+/* TODO
+    #experr 1: ae := [i*3]Int( []Int() );
     #experr 1: ae := [i*3]Int( 1, 2, 3 );
-    #experr 1: ae := <Array<Int,i*0>>( []Int() );
+    #experr 1: ae := <Array<Int,i*3>>( []Int() );
     #experr 1: ae := <Array<Int,i*3>>( [ 1I, 2, 3 ] );
+*/
+*/
 }
 
 
@@ -108,7 +115,7 @@ array_new_construction( i : UByte ) {
     a4 := new [0]Int();           ## empty array of Ints
   ## not supported to automatically infer array length
     #experr 2: a5 := new []Int( 1, 2, 3 );
-    #experr 2: a6 := new []Int();            ## empty array of Ints
+    #experr 1: a6 := new []Int();            ## empty array of Ints
 
     #experr 1: ae := new [2]Int( 1, 2, 3 );
     #experr 1: ae := new [4]Int( 1, 2, 3 );
@@ -159,9 +166,13 @@ array_new_construction( i : UByte ) {
 
   ## Construction with dynamic Array length:
     a30 := new [i*0]Int();
-    a31 := new [i*3]Int( 1, 2, 3 );
+    a31 := new [i*3]Int();
+    a32 := new Array<Int,(i*0)>();
+    a33 := new Array<Int,(i*3)>();
 /* TODO
-    a40 := new Array<Int,i*0>( []Int() );
+    a31 := new [i*3]Int( []Int() );
+    a31 := new [i*3]Int( 1, 2, 3 );
+    a40 := new Array<Int,i*3>( []Int() );
     a41 := new Array<Int,i*3>( [ 1I, 2, 3 ] );
 */
 }
@@ -186,6 +197,7 @@ for_loops() {
 */
 
 main() -> Int {
+    tx.c.puts( c"foo"[0] );
     n := var_func( 0, 1.1, 2.2, 3.3 );
     n := var_func( 0, [ 1.1, 2.2, 3.3 ] );
     array_stack_construction( 1 );

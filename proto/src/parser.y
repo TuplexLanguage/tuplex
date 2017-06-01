@@ -556,14 +556,14 @@ value_literal
         // |       LIT_STRING    { $$ = new TxStringLitNode(@1, $1); }
     ;
 
-array_literal : LBRACKET expr COMMA array_lit_expr_list RBRACKET  { (*$4)[0] = $2;  $$ = new TxArrayLitNode(@1, $4); }
-              | LBRACKET expr RBRACKET  { $$ = new TxArrayLitNode(@1, new std::vector<TxExpressionNode*>( { $2 } )); }
+array_literal : LBRACKET expr COMMA array_lit_expr_list RBRACKET  { (*$4)[0] = $2;  $$ = new TxFilledArrayLitNode(@1, $4); }
+              | LBRACKET expr RBRACKET  { $$ = new TxFilledArrayLitNode(@1, new std::vector<TxExpressionNode*>( { $2 } )); }
 
               // produces a (harmless) shift-reduce warning but unknown how to suppress that:
-              | LBRACKET expr RBRACKET conv_type_expr LPAREN expression_list RPAREN  { $$ = new TxArrayLitNode(@1, $4, $6, $2); }
-              | LBRACKET expr RBRACKET conv_type_expr LPAREN RPAREN  { $$ = new TxArrayLitNode(@1, $4, new std::vector<TxExpressionNode*>(), $2); }
-              | LBRACKET RBRACKET conv_type_expr LPAREN expression_list RPAREN       { $$ = new TxArrayLitNode(@1, $3, $5); }
-              | LBRACKET RBRACKET conv_type_expr LPAREN RPAREN                       { $$ = new TxArrayLitNode(@1, $3); }
+              | LBRACKET expr RBRACKET conv_type_expr LPAREN expression_list RPAREN  { $$ = new TxFilledArrayLitNode(@1, $4, $6, $2); }
+              | LBRACKET expr RBRACKET conv_type_expr LPAREN RPAREN                  { $$ = new TxUnfilledArrayCompLitNode(@1, $4, $2); }
+              | LBRACKET RBRACKET conv_type_expr LPAREN expression_list RPAREN       { $$ = new TxFilledArrayLitNode(@1, $3, $5); }
+              | LBRACKET RBRACKET conv_type_expr LPAREN RPAREN                       { $$ = new TxFilledArrayLitNode(@1, $3); }
               ;
               // LBRACKET RBRACKET - empty, unqualified array literal "[]" illegal since element type can't be determined
 

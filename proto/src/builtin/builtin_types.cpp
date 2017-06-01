@@ -214,18 +214,6 @@ void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner, TxTypeDe
     builtinNode->merge_builtin_type_definers( sourcecodeDefiner );
 }
 
-//void merge_declaration_nodes( TxTypeDefiningNode* builtinDefiner, const std::vector<TxDeclarationNode*>& declNodes ) {
-//    auto builtinNode = dynamic_cast<TxBuiltinTypeDefiningNode*>( builtinDefiner );
-//    if (! builtinNode)
-//        THROW_LOGIC("Expected builtin type definer to be of type TxBuiltinTypeDefiningNode: " << builtinDefiner);
-//    ASSERT(builtinNode->is_context_set(), "Expected builtinNode to have run declaration pass: " << builtinNode);
-//    for (auto declNode : declNodes) {
-//        ASSERT(declNode->is_context_set(), "Expected merged decl-node to have run declaration pass: " << declNode);
-//        //declNode->symbol_declaration_pass( builtinNode->context() );
-//        builtinNode->add_declaration_node( declNode );
-//    }
-//}
-
 /** Single-purpose node that defines the Any root type. */
 class TxAnyTypeDefNode final : public TxBuiltinTypeDefiningNode {
     /** Used solely for the Any root type object. */
@@ -534,32 +522,6 @@ public:
     }
 };
 
-//class TxArrayEmptyConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode {
-//    static inline TxExpressionNode* make_init_expr( TxTypeExpressionNode* arrayTypeNode ) {
-//        return new TxUnfilledArrayLitNode( arrayTypeNode->parseLocation, arrayTypeNode );
-//    }
-//
-//protected:
-//    TxExpressionNode* initExprNode;
-//
-//    virtual const TxType* define_type() override {
-//        auto actType = new TxBuiltinDefaultConstructorType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION )->type(),
-//                                                            this->returnField->resolve_type()->type(),
-//                                                            initExprNode );
-//        return this->registry().make_type_entity( actType );
-//    }
-//
-//public:
-//    TxArrayEmptyConstructorTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* arrayTypeNode )
-//            : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxArgTypeDefNode*>( { } ), arrayTypeNode ),
-//              initExprNode( make_init_expr( arrayTypeNode ) ) {
-//    }
-//
-//    virtual TxArrayEmptyConstructorTypeDefNode* make_ast_copy() const override {
-//        return new TxArrayEmptyConstructorTypeDefNode( this->parseLocation, this->returnField->typeExpression->make_ast_copy() );
-//    }
-//};
-
 /*----- helper functions creating the built-in elementary types' declarations and constructors -----*/
 
 static TxTypeDeclNode* make_builtin_abstract( const TxLocation& parseLoc, TxTypeClass typeClass, BuiltinTypeId id, BuiltinTypeId parentId ) {
@@ -593,13 +555,6 @@ static TxFieldDeclNode* make_default_initializer( const TxLocation& loc, Builtin
                                 new TxFieldDefNode( loc, CONSTR_IDENT,
                                                     new TxDefConstructorTypeDefNode( loc, toTypeNode, initializerExpr ),
                                                     nullptr ),  // no function body, initialization is inlined
-//                        new TxLambdaExprNode( loc,
-//                                new TxDefConstructorTypeDefNode( loc, toTypeNode, initializerExpr ),
-//                                new TxSuiteNode( loc, new std::vector<TxStatementNode*>( {
-//                                                            new TxReturnStmtNode( loc, initializerExpr )
-//                                                        } ) ),
-//                                false )  // not method syntax since elementary types' initializers are inlineable, pure functions
-//                        ),
                                 false );  // not method syntax since elementary types' initializers are inlineable, pure functions
 }
 

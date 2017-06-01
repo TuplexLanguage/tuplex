@@ -697,7 +697,7 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
         }
     }
 
-    LOG( this->LOGGER(), INFO, "Creating interface adapter: " << adapterName << "\n\tfrom " << adaptedType << "\n\tto   " << interfaceType );
+    LOG_TRACE( this->LOGGER(), "Creating interface adapter: " << adapterName << "\n\tfrom " << adaptedType << "\n\tto   " << interfaceType );
     // TODO: combine flags from adapted and adaptee types, including TXD_EXPERRBLOCK
 
     auto & loc = this->get_builtin_location();  // FIXME: add origin (adapter use site) to function signature so that we can assign an appropriate location

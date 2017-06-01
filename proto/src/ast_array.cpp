@@ -10,33 +10,33 @@ static std::vector<TxMaybeConversionNode*>* make_args_vec( const std::vector<TxE
     return copyVec;
 }
 
-TxArrayLitNode::TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr,
+TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr,
                                 const std::vector<TxExpressionNode*>* elemExprList,
                                 TxExpressionNode* capacityExpr )
-        : TxExpressionNode( parseLocation ), origElemExprList( elemExprList ),
+        : TxArrayLitNode( parseLocation ), origElemExprList( elemExprList ),
           elementTypeNode( elementTypeExpr ? new TxTypeTypeArgumentNode( elementTypeExpr ) : nullptr ),
           capacityExpr( capacityExpr ? new TxMaybeConversionNode( capacityExpr ) : nullptr ), elemExprList( make_args_vec( elemExprList ) )
 {
 }
 
-TxArrayLitNode::TxArrayLitNode( const TxLocation& parseLocation, const std::vector<TxExpressionNode*>* elemExprList )
-        : TxArrayLitNode( parseLocation, nullptr, elemExprList )
+TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& parseLocation, const std::vector<TxExpressionNode*>* elemExprList )
+        : TxFilledArrayLitNode( parseLocation, nullptr, elemExprList )
 {
 }
 
-TxArrayLitNode::TxArrayLitNode( const TxLocation& parseLocation, const std::vector<TxMaybeConversionNode*>* elemExprList )
-        : TxArrayLitNode( parseLocation, nullptr, elemExprList )
+TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& parseLocation, const std::vector<TxMaybeConversionNode*>* elemExprList )
+        : TxFilledArrayLitNode( parseLocation, nullptr, elemExprList )
 {
 }
 
-TxArrayLitNode::TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr,
+TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr,
                                 const std::vector<TxMaybeConversionNode*>* elemExprList )
-        : TxExpressionNode( parseLocation ), origElemExprList( nullptr ),
+        : TxArrayLitNode( parseLocation ), origElemExprList( nullptr ),
           elementTypeNode( elementTypeExpr ? new TxTypeTypeArgumentNode( elementTypeExpr ) : nullptr ),
           capacityExpr( nullptr ), elemExprList( elemExprList ) {
 }
 
-const TxType* TxArrayLitNode::define_type() {
+const TxType* TxFilledArrayLitNode::define_type() {
     const TxType* expectedArgType;
     const TxType* arrayType = nullptr;
     if ( this->capacityExpr ) {
@@ -96,7 +96,7 @@ const TxType* TxArrayLitNode::define_type() {
     return arrayType;
 }
 
-void TxArrayLitNode::symbol_resolution_pass() {
+void TxFilledArrayLitNode::symbol_resolution_pass() {
     TxExpressionNode::symbol_resolution_pass();
     if ( this->elementTypeNode )
         this->elementTypeNode->symbol_resolution_pass();
@@ -130,7 +130,7 @@ void TxArrayLitNode::symbol_resolution_pass() {
 
 
 TxUnfilledArrayLitNode::TxUnfilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* arrayTypeExpr )
-        : TxExpressionNode( parseLocation ), arrayTypeNode( arrayTypeExpr ) {
+        : TxArrayLitNode( parseLocation ), arrayTypeNode( arrayTypeExpr ) {
 }
 
 const TxType* TxUnfilledArrayLitNode::define_type() {
@@ -139,5 +139,27 @@ const TxType* TxUnfilledArrayLitNode::define_type() {
 
 void TxUnfilledArrayLitNode::symbol_resolution_pass() {
     TxExpressionNode::symbol_resolution_pass();
-    return this->arrayTypeNode->symbol_resolution_pass();
+    this->arrayTypeNode->symbol_resolution_pass();
+}
+
+
+
+TxUnfilledArrayCompLitNode::TxUnfilledArrayCompLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr,
+                                                        TxExpressionNode* capacityExpr )
+        : TxArrayLitNode( parseLocation ), elementTypeNode( new TxTypeTypeArgumentNode( elementTypeExpr ) ),
+          capacityExpr( new TxMaybeConversionNode( capacityExpr ? capacityExpr : new TxIntegerLitNode( parseLocation, "0", false ) ) ) {
+}
+
+const TxType* TxUnfilledArrayCompLitNode::define_type() {
+    this->capacityExpr->insert_conversion( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
+    auto capacityNode = new TxValueTypeArgumentNode( this->capacityExpr );
+    capacityNode->node_declaration_pass( this );
+    auto arrayType = this->registry().get_array_type( this, this->elementTypeNode, capacityNode );
+    return arrayType;
+}
+
+void TxUnfilledArrayCompLitNode::symbol_resolution_pass() {
+    TxExpressionNode::symbol_resolution_pass();
+    this->elementTypeNode->symbol_resolution_pass();
+    this->capacityExpr->symbol_resolution_pass();
 }

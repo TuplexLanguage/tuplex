@@ -1263,7 +1263,7 @@ void TxFunctionCallNode::symbol_resolution_pass() {
                 this->argsExprList->resize( lastCalleeArgIx );
                 const TxLocation& varArgLoc = ( arrayArgs->empty() ? this->parseLocation : arrayArgs->front()->parseLocation );
                 auto elemTypeExpr = new TxTypeExprWrapperNode( arrayArgElemType->get_definer() );
-                auto arrayArgNode = new TxMaybeConversionNode( new TxArrayLitNode( varArgLoc, elemTypeExpr, arrayArgs ) );
+                auto arrayArgNode = new TxMaybeConversionNode( new TxFilledArrayLitNode( varArgLoc, elemTypeExpr, arrayArgs ) );
                 run_declaration_pass( arrayArgNode, this, "arg" );
                 this->argsExprList->push_back( arrayArgNode );
             }

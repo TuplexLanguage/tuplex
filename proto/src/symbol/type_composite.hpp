@@ -239,15 +239,6 @@ public:
     virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;
 };
 
-class TxBuiltinArrayEmptyInitializerType : public TxInlineFunctionType {
-public:
-    TxBuiltinArrayEmptyInitializerType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const TxActualType* returnType )
-            : TxInlineFunctionType( declaration, baseType, std::vector<const TxActualType*> { }, returnType ) {
-    }
-
-    virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;
-};
-
 class TxTupleType : public TxActualType {
 protected:
     virtual TxTupleType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,

@@ -3,11 +3,18 @@
 #include "ast_declbase.hpp"
 #include "ast_types.hpp"
 
+class TxArrayLitNode : public TxExpressionNode {
+public:
+    TxArrayLitNode( const TxLocation& parseLocation ) : TxExpressionNode( parseLocation ) { }
+
+    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+};
+
 /** Represents filled array literals, explicitly specified in source code as well as array initializers created implicitly
  * (e.g. for var-arg functions). Filled means their length will equal capacity, all elements initialized.
  * Note that an array literal doesn't necessarily only have literal elements; it is statically constant only if all its elements are.
  */
-class TxArrayLitNode : public TxExpressionNode {
+class TxFilledArrayLitNode : public TxArrayLitNode {
     std::vector<TxExpressionNode*> const * const origElemExprList;
     TxTypeTypeArgumentNode* elementTypeNode;
     TxMaybeConversionNode* capacityExpr;
@@ -21,35 +28,35 @@ public:
     std::vector<TxMaybeConversionNode*> const * const elemExprList;
 
     /** Represents an empty array with the specified element type. */
-    TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, TxExpressionNode* capacityExpr = nullptr )
-            : TxArrayLitNode( parseLocation, elementTypeExpr, new std::vector<TxExpressionNode*>(), capacityExpr ) {
+    TxFilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, TxExpressionNode* capacityExpr = nullptr )
+            : TxFilledArrayLitNode( parseLocation, elementTypeExpr, new std::vector<TxExpressionNode*>(), capacityExpr ) {
     }
 
     /** Represents a non-empty array with the specified element type. */
-    TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxExpressionNode*>* elemExprList,
+    TxFilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxExpressionNode*>* elemExprList,
                     TxExpressionNode* capacityExpr = nullptr );
 
     /** Represents a non-empty array with the element type defined by the first element.
      * The provided element expression list must not be empty. */
-    TxArrayLitNode( const TxLocation& parseLocation, const std::vector<TxExpressionNode*>* elemExprList );
+    TxFilledArrayLitNode( const TxLocation& parseLocation, const std::vector<TxExpressionNode*>* elemExprList );
 
     /** Creates an array literal node with the specified element type, with elements that are owned by another AST node.
      * The resulting array literal node may not be AST-copied. */
-    TxArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxMaybeConversionNode*>* elemExprList );
+    TxFilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxMaybeConversionNode*>* elemExprList );
 
     /** Creates an array literal node with elements that are owned by another AST node.
      * The element type is defined by the first element.
      * The provided element expression list must not be empty.
      * The resulting array literal node may not be AST-copied. */
-    TxArrayLitNode( const TxLocation& parseLocation, const std::vector<TxMaybeConversionNode*>* elemExprList );
+    TxFilledArrayLitNode( const TxLocation& parseLocation, const std::vector<TxMaybeConversionNode*>* elemExprList );
 
-    virtual TxArrayLitNode* make_ast_copy() const override {
+    virtual TxFilledArrayLitNode* make_ast_copy() const override {
         if ( !this->origElemExprList ) {
             ASSERT( false, "Can't make AST copy of a TxArrayLitNode whose elements are owned by another AST node: " << this );
             return nullptr;
         }
         //return new TxArrayLitNode( this->parseLocation, make_node_vec_copy( this->origElemExprList ) );
-        return new TxArrayLitNode( this->parseLocation,
+        return new TxFilledArrayLitNode( this->parseLocation,
                                    ( this->elementTypeNode ? this->elementTypeNode->typeExprNode->make_ast_copy() : nullptr ),
                                    make_node_vec_copy( this->origElemExprList ),
                                    ( this->capacityExpr ? this->capacityExpr->originalExpr->make_ast_copy() : nullptr) );
@@ -61,8 +68,6 @@ public:
         if ( this->_directArrayArg )
             return this->elemExprList->front()->is_stack_allocation_expression();
         return false;
-//        // the array will be allocated on the stack if it is not statically constant
-//        return !this->_constant && !this->_directArrayArg;
     }
 
     virtual bool is_statically_constant() const override {
@@ -71,7 +76,6 @@ public:
 
     virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
-//    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->elementTypeNode )
@@ -86,7 +90,7 @@ public:
     }
 };
 
-class TxUnfilledArrayLitNode : public TxExpressionNode {
+class TxUnfilledArrayLitNode : public TxArrayLitNode {
     TxTypeExpressionNode* arrayTypeNode;
 
 protected:
@@ -115,5 +119,40 @@ public:
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->arrayTypeNode->visit_ast( visitor, thisCursor, "type", context );
+    }
+};
+
+class TxUnfilledArrayCompLitNode : public TxArrayLitNode {
+    TxTypeTypeArgumentNode* elementTypeNode;
+    TxMaybeConversionNode* capacityExpr;
+
+protected:
+    virtual const TxType* define_type() override;
+
+public:
+    /** Represents an unfilled array with the specified type. */
+    TxUnfilledArrayCompLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elemTypeExpr, TxExpressionNode* capacityExpr = nullptr );
+
+    virtual TxUnfilledArrayCompLitNode* make_ast_copy() const override {
+        return new TxUnfilledArrayCompLitNode( this->parseLocation, this->elementTypeNode->typeExprNode->make_ast_copy(),
+                                               this->capacityExpr->originalExpr->make_ast_copy() );
+    }
+
+    virtual void symbol_resolution_pass() override;
+
+    virtual bool is_stack_allocation_expression() const override {
+        return false;
+    }
+
+    virtual bool is_statically_constant() const override {
+        return this->capacityExpr->is_statically_constant();
+    }
+
+    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->elementTypeNode->visit_ast( visitor, thisCursor, "elem-type", context );
+        this->capacityExpr->visit_ast( visitor, thisCursor, "capacity", context );
     }
 };
