@@ -30,15 +30,15 @@ def run_cmd( cmdline, expected_ret_code=0 ):
 current_script_dir = dirname( abspath( __file__ ) )
 chdir( current_script_dir )
 
-run_cmd( """echo "module my" | txc -quiet -nojit -nobc 2>/dev/null""" )
+run_cmd( """echo "module my" | txc -quiet -nojit -nobc -notx 2>/dev/null""" )
 # currently disabled:
-#run_cmd( """echo "module tx" | txc -quiet -nojit -nobc 2>/dev/null""", 2 )        # illegal namespace for user code
-#run_cmd( """echo "module tx.c" | txc -quiet -nojit -nobc 2>/dev/null""", 2 )      # illegal namespace for user code
-#run_cmd( """echo "module tx.foobar" | txc -quiet -nojit -nobc 2>/dev/null""", 2 ) # illegal namespace for user code
-run_cmd( """echo "module \$local" | txc -quiet -nojit -nobc 2>/dev/null""", 1 )   # can't be specified explicitly
-run_cmd( """echo "module foo\$bar" | txc -quiet -nojit -nobc 2>/dev/null""", 1 )  # illegal character
+#run_cmd( """echo "module tx" | txc -quiet -nojit -nobc -notx 2>/dev/null""", 2 )        # illegal namespace for user code
+#run_cmd( """echo "module tx.c" | txc -quiet -nojit -nobc -notx 2>/dev/null""", 2 )      # illegal namespace for user code
+#run_cmd( """echo "module tx.foobar" | txc -quiet -nojit -nobc -notx 2>/dev/null""", 2 ) # illegal namespace for user code
+run_cmd( """echo "module \$local" | txc -quiet -nojit -nobc -notx 2>/dev/null""", 1 )   # can't be specified explicitly
+run_cmd( """echo "module foo\$bar" | txc -quiet -nojit -nobc -notx 2>/dev/null""", 1 )  # illegal character
 
-run_cmd( """txc -quiet -nojit -nobc errtest.tx inttest.tx 2>/dev/null""", 2 )     # can't have more than one '$local' sources
+run_cmd( """txc -quiet -nojit -nobc -notx errtest.tx inttest.tx 2>/dev/null""", 2 )     # can't have more than one '$local' sources
 
 
 source_files = [
@@ -93,4 +93,4 @@ source_files = [
 ]
 
 for src in source_files:
-    run_cmd( """txc -quiet -jit -nobc %s""" % ( src, ) )
+    run_cmd( """txc -quiet -jit -nobc -notx %s""" % ( src, ) )

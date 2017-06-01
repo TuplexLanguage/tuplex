@@ -1248,3 +1248,9 @@ TxExpressionNode* TxBuiltinArrayInitializerType::make_inline_expr( TxExpressionN
                                                                    std::vector<TxMaybeConversionNode*>* argsExprList ) const {
     return argsExprList->front();
 }
+
+TxExpressionNode* TxBuiltinArrayEmptyInitializerType::make_inline_expr( TxExpressionNode* calleeExpr,
+                                                                        std::vector<TxMaybeConversionNode*>* argsExprList ) const {
+    auto elemTypeNode = new TxReferenceTypeNode( calleeExpr->parseLocation, nullptr, new TxNamedTypeNode( calleeExpr->parseLocation, "tx.Any") );
+    return new TxArrayLitNode( calleeExpr->parseLocation, elemTypeNode );
+}

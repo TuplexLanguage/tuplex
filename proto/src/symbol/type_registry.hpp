@@ -44,12 +44,13 @@ class TypeRegistry {
 
     void add_type( TxActualType* type );
 
-    // these access make_type_entity() / make_actual_type():
+    // these access make_type_entity() / make_actual_type():  TODO: refactor this
     friend class TxAdapterTypeNode;
     friend class TxBuiltinTypeDefiningNode;
     friend class TxDefConstructorTypeDefNode;
     friend class TxConvConstructorTypeDefNode;
     friend class TxArrayConstructorTypeDefNode;
+    friend class TxArrayEmptyConstructorTypeDefNode;
     friend class BuiltinTypes;
 
     /** Makes a new type entity and registers it with this registry. */

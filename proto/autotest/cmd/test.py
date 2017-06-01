@@ -30,7 +30,7 @@ def run_cmd( cmdline, expected_ret_code=0 ):
 current_script_dir = dirname( abspath( __file__ ) )
 chdir( current_script_dir )
 
-options = """-vquiet -nobc"""
+options = """-vquiet -nobc -notx"""
 
 # print options and quit
 run_cmd( """txc -help >/dev/null""" )

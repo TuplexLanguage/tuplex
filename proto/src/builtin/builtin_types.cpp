@@ -534,6 +534,24 @@ public:
     }
 };
 
+class TxArrayEmptyConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode {
+protected:
+    virtual const TxType* define_type() override {
+        auto actType = new TxBuiltinArrayEmptyInitializerType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION )->type(),
+                                                               this->returnField->resolve_type()->type() );
+        return this->registry().make_type_entity( actType );
+    }
+
+public:
+    TxArrayEmptyConstructorTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* returnTypeNode )
+            : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxArgTypeDefNode*>( { } ), returnTypeNode ) {
+    }
+
+    virtual TxArrayEmptyConstructorTypeDefNode* make_ast_copy() const override {
+        return new TxArrayEmptyConstructorTypeDefNode( this->parseLocation, this->returnField->typeExpression->make_ast_copy() );
+    }
+};
+
 /*----- helper functions creating the built-in elementary types' declarations and constructors -----*/
 
 static TxTypeDeclNode* make_builtin_abstract( const TxLocation& parseLoc, TxTypeClass typeClass, BuiltinTypeId id, BuiltinTypeId parentId ) {
@@ -590,6 +608,7 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
 
 static std::vector<TxDeclarationNode*> make_array_constructors( const TxLocation& loc ) {
     std::vector<TxDeclarationNode*> constructors;
+    {
     auto argNode = new TxArgTypeDefNode( loc, "val", new TxNamedTypeNode( loc, "Self" ) );
     auto returnTypeNode = new TxNamedTypeNode( loc, "Self" );
     constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
@@ -597,6 +616,16 @@ static std::vector<TxDeclarationNode*> make_array_constructors( const TxLocation
                                                                      new TxArrayConstructorTypeDefNode( loc, argNode, returnTypeNode ),
                                                                      nullptr ),  // no function body, initialization is inlined
                                                  false ) );  // not method syntax since this initializer is an inlineable, pure function
+    }
+//    {
+//    //auto argNode = new TxArgTypeDefNode( loc, "val", new TxNamedTypeNode( loc, "Self" ) );
+//    auto returnTypeNode = new TxNamedTypeNode( loc, "Self" );
+//    constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
+//                                                 new TxFieldDefNode( loc, CONSTR_IDENT,
+//                                                                     new TxArrayEmptyConstructorTypeDefNode( loc, returnTypeNode ),
+//                                                                     nullptr ),  // no function body, initialization is inlined
+//                                                 false ) );  // not method syntax since this initializer is an inlineable, pure function
+//    }
     return constructors;
 }
 
