@@ -24,23 +24,23 @@ Value* TxArrayLitNode::code_gen_value( LlvmGenerationContext& context, GenScope*
 
     {
         ASSERT( scope, "Expected non-constant array literal to be codegen'd within a scope: " << this );
-        Type* arrayT = this->get_type()->type()->make_llvm_type( context );
-        Value* arrayV = UndefValue::get( arrayT );
+        Type* arrayObjT = this->get_type()->type()->make_llvm_type( context );
+        Value* arrayObjV = UndefValue::get( arrayObjT );
         auto capacityC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->elemExprList->size() );
-        arrayV = scope->builder->CreateInsertValue( arrayV, capacityC, 0 );
-        arrayV = scope->builder->CreateInsertValue( arrayV, capacityC, 1 );  // length equals capacity
+        arrayObjV = scope->builder->CreateInsertValue( arrayObjV, capacityC, 0 );
+        arrayObjV = scope->builder->CreateInsertValue( arrayObjV, capacityC, 1 );  // length equals capacity
 
         if ( this->elemExprList->empty() ) {
-            Constant* emptyArrayC = ConstantArray::get( cast<ArrayType>( arrayT->getContainedType( 2 ) ), ArrayRef<Constant*>() );
-            arrayV = scope->builder->CreateInsertValue( arrayV, emptyArrayC, 2 );
+            Constant* emptyArrayC = ConstantArray::get( cast<ArrayType>( arrayObjT->getContainedType( 2 ) ), ArrayRef<Constant*>() );
+            arrayObjV = scope->builder->CreateInsertValue( arrayObjV, emptyArrayC, 2 );
         }
         else {
             for ( unsigned i = 0; i < this->elemExprList->size(); i++ ) {
                 auto elemV = this->elemExprList->at( i )->code_gen_value( context, scope );
-                arrayV = scope->builder->CreateInsertValue( arrayV, elemV, std::vector<unsigned>( { 2, i } ) );
+                arrayObjV = scope->builder->CreateInsertValue( arrayObjV, elemV, std::vector<unsigned>( { 2, i } ) );
             }
         }
-        return arrayV;
+        return arrayObjV;
     }
 
     /*
@@ -83,14 +83,43 @@ Constant* TxArrayLitNode::code_gen_constant( LlvmGenerationContext& context ) co
         values.push_back( elemExpr->code_gen_constant( context ) );
     ArrayRef<Constant*> data( values );
 
-    Type* elemType = context.get_llvm_type( this->get_type()->element_type()->type() );
+    Type* elemT = context.get_llvm_type( this->get_type()->element_type() );
     uint64_t arrayLen = this->elemExprList->size();
-    ArrayType* arrayType = ArrayType::get( elemType, arrayLen );
-    Constant* dataArray = ConstantArray::get( arrayType, data );
+    ArrayType* arrayT = ArrayType::get( elemT, arrayLen );
+    Constant* dataArrayC = ConstantArray::get( arrayT, data );
     std::vector<Constant*> objMembers {
                                         ConstantInt::get( context.llvmContext, APInt( 32, arrayLen ) ),
                                         ConstantInt::get( context.llvmContext, APInt( 32, arrayLen ) ),
-                                        dataArray
+                                        dataArrayC
+    };
+    return ConstantStruct::getAnon( objMembers );
+}
+
+Value* TxUnfilledArrayLitNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    auto txArrayType = static_cast<const TxArrayType*>( this->get_type()->type() );
+    Type* arrayObjT = txArrayType->make_llvm_type( context );
+    Value* arrayObjV = UndefValue::get( arrayObjT );
+    Value* arrayCapV = txArrayType->capacity()->code_gen_expr( context, scope );
+
+    arrayObjV = scope->builder->CreateInsertValue( arrayObjV, arrayCapV, 0 );
+    arrayObjV = scope->builder->CreateInsertValue( arrayObjV, ConstantInt::get( context.llvmContext, APInt( 32, 0 ) ), 1 );
+
+    auto arrayT = cast<ArrayType>( arrayObjT->getContainedType( 2 ) );
+    Constant* emptyArrayC = ConstantArray::get( arrayT, ArrayRef<Constant*>() );
+    arrayObjV = scope->builder->CreateInsertValue( arrayObjV, emptyArrayC, 2 );
+    return arrayObjV;
+}
+
+Constant* TxUnfilledArrayLitNode::code_gen_constant( LlvmGenerationContext& context ) const {
+    TRACE_CODEGEN( this, context );
+    Type* arrayObjT = this->get_type()->type()->make_llvm_type( context );
+    auto arrayT = cast<ArrayType>( arrayObjT->getContainedType( 2 ) );
+    auto cap = arrayT->getArrayNumElements();
+    std::cerr << this << " code_gen_constant() capacity=" << cap << std::endl;
+    std::vector<Constant*> objMembers {
+                                        ConstantInt::get( context.llvmContext, APInt( 32, cap ) ),
+                                        ConstantInt::get( context.llvmContext, APInt( 32, 0 ) ),
+                                        ConstantArray::get( arrayT, ArrayRef<Constant*>() )
     };
     return ConstantStruct::getAnon( objMembers );
 }

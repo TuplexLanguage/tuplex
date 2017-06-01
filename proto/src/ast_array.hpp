@@ -3,7 +3,8 @@
 #include "ast_declbase.hpp"
 #include "ast_types.hpp"
 
-/** Represents explicit array literals in source code as well as array initializers created implicitly (e.g. for var-arg functions).
+/** Represents filled array literals, explicitly specified in source code as well as array initializers created implicitly
+ * (e.g. for var-arg functions). Filled means their length will equal capacity, all elements initialized.
  * Note that an array literal doesn't necessarily only have literal elements; it is statically constant only if all its elements are.
  */
 class TxArrayLitNode : public TxExpressionNode {
@@ -59,8 +60,9 @@ public:
     virtual bool is_stack_allocation_expression() const override {
         if ( this->_directArrayArg )
             return this->elemExprList->front()->is_stack_allocation_expression();
-        // the array will be allocated on the stack if it is not statically constant
-        return !this->_constant && !this->_directArrayArg;
+        return false;
+//        // the array will be allocated on the stack if it is not statically constant
+//        return !this->_constant && !this->_directArrayArg;
     }
 
     virtual bool is_statically_constant() const override {
@@ -81,5 +83,37 @@ public:
             for ( auto elem : *this->elemExprList )
                 elem->visit_ast( visitor, thisCursor, "element", context );
         }
+    }
+};
+
+class TxUnfilledArrayLitNode : public TxExpressionNode {
+    TxTypeExpressionNode* arrayTypeNode;
+
+protected:
+    virtual const TxType* define_type() override;
+
+public:
+    /** Represents an unfilled array with the specified type. */
+    TxUnfilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* arrayTypeExpr );
+
+    virtual TxUnfilledArrayLitNode* make_ast_copy() const override {
+        return new TxUnfilledArrayLitNode( this->parseLocation, this->arrayTypeNode->make_ast_copy() );
+    }
+
+    virtual void symbol_resolution_pass() override;
+
+    virtual bool is_stack_allocation_expression() const override {
+        return false;
+    }
+
+    virtual bool is_statically_constant() const override {
+        return this->arrayTypeNode->get_type()->is_static();
+    }
+
+    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->arrayTypeNode->visit_ast( visitor, thisCursor, "type", context );
     }
 };

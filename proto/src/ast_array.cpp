@@ -114,9 +114,10 @@ void TxArrayLitNode::symbol_resolution_pass() {
                 CERROR( this, "Capacity expression of array literal equals " << eval_unsigned_int_constant( this->capacityExpr )
                         << ", but number of elements is " << this->elemExprList->size() );
         }
-        else  // TODO: support dynamic array literals (which requires supporting partially filled arrays)
-            CERROR( this, "Capacity expression of array literal is not statically constant" );
+        else
+            CERROR( this, "Capacity expression of filled array literal is not statically constant" );
     }
+
     this->_constant = true;
     for ( auto arg : *this->elemExprList ) {
         if ( !arg->is_statically_constant() ) {
@@ -124,4 +125,19 @@ void TxArrayLitNode::symbol_resolution_pass() {
             break;
         }
     }
+}
+
+
+
+TxUnfilledArrayLitNode::TxUnfilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* arrayTypeExpr )
+        : TxExpressionNode( parseLocation ), arrayTypeNode( arrayTypeExpr ) {
+}
+
+const TxType* TxUnfilledArrayLitNode::define_type() {
+    return this->arrayTypeNode->resolve_type();
+}
+
+void TxUnfilledArrayLitNode::symbol_resolution_pass() {
+    TxExpressionNode::symbol_resolution_pass();
+    return this->arrayTypeNode->symbol_resolution_pass();
 }
