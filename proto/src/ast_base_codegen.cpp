@@ -50,14 +50,14 @@ static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, cons
     if ( is_complex_pointer( constantInitializer->getType() ) ) {
         context.LOGGER()->note( "Global field %s with complex ptr constant initializer", uniqueName.c_str() );
         // TODO: review and perhaps remove/refactor
-        ASSERT( !context.llvmModule.getNamedGlobal( uniqueName ),
+        ASSERT( !context.llvmModule().getNamedGlobal( uniqueName ),
                 "Can't declare llvm alias since global variable with same name already declared: " << uniqueName );
         return GlobalAlias::create( llvmType, 0, GlobalValue::InternalLinkage, uniqueName,
-                                    constantInitializer, &context.llvmModule );
+                                    constantInitializer, &context.llvmModule() );
     }
 
     // handle case when there has been a "forward-declaration" of this field:
-    Constant* maybe = context.llvmModule.getOrInsertGlobal( uniqueName, llvmType );
+    Constant* maybe = context.llvmModule().getOrInsertGlobal( uniqueName, llvmType );
     //std::cout << "maybe type: " << *maybe->getType() << "  value: " << *maybe << std::endl;
     auto globalV = cast<GlobalVariable>( maybe );  // bails if bitcast has been inserted, which means wrong type has been chosen
     globalV->setConstant( true );

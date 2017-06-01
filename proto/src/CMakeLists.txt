@@ -73,31 +73,6 @@ set(LLVM_CXX_FLAGS "-D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIM
 execute_process(COMMAND llvm-config --ldflags OUTPUT_VARIABLE LLVM_LD_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 
-
-#set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} "/usr/share/llvm-3.5/cmake")
-#execute_process(COMMAND llvm-config --prefix OUTPUT_VARIABLE CMAKE_PREFIX_PATH)
-#message( "Using prefix path: " '${CMAKE_PREFIX_PATH}' )
-
-# needs link from
-# /usr/share/llvm-3.5/cmake/LLVMConfig.cmake
-# to
-# /usr/share/llvm-3.5/cmake/LLVM-Config.cmake
-# find_package(LLVM) # PATHS "/usr/share/llvm-3.5/cmake/LLVM-Config.cmake")
-
-# if( NOT LLVM_FOUND )
-#   message(FATAL_ERROR "LLVM package can't be found. Set CMAKE_PREFIX_PATH variable to LLVM's installation prefix.")
-# endif()
-
-# include_directories( ${LLVM_INCLUDE_DIRS} )
-# link_directories( ${LLVM_LIBRARY_DIRS} )
-
-# Let's suppose we want to build a JIT compiler with support for binary code (no interpreter):
-# llvm_map_components_to_libraries(REQ_LLVM_LIBRARIES jit native)
-
-# Finally, we link the LLVM libraries to our executable:
-# target_link_libraries(txc ${REQ_LLVM_LIBRARIES})
-
-
 # add the executable
 add_executable(txc
     ${FLEX_TxLexer_OUTPUTS}

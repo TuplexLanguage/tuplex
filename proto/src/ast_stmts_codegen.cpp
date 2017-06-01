@@ -59,7 +59,7 @@ Function* TxLambdaExprNode::code_gen_forward_decl( LlvmGenerationContext& contex
     FunctionType *funcT = cast<FunctionType>( cast<PointerType>( lambdaT->getElementType( 0 ) )->getPointerElementType() );
     ASSERT( funcT, "Couldn't get LLVM type for function type " << this->funcHeaderNode->get_type() );
 
-    Function* function = cast<Function>( context.llvmModule.getOrInsertFunction( funcName, funcT ) );
+    Function* function = cast<Function>( context.llvmModule().getOrInsertFunction( funcName, funcT ) );
     // function->setLinkage(GlobalValue::InternalLinkage);  TODO (can cause LLVM to rename function)
     //Function *function = Function::Create(ftype, GlobalValue::InternalLinkage, funcName.c_str(), &context.llvmModule);
     // note: function is of LLVM function pointer type (since it is an LLVM global value)
@@ -87,13 +87,13 @@ llvm::Constant* TxLambdaExprNode::code_gen_constant( LlvmGenerationContext& cont
         {
             this->selfRefNode->typeExpression->code_gen_type( context );
             auto selfT = context.get_llvm_type( this->selfRefNode->get_type() );
-            auto convSelfV = TxReferenceType::gen_ref_conversion( context, &fscope, fArgI, selfT );
+            auto convSelfV = TxReferenceType::gen_ref_conversion( context, &fscope, &(*fArgI), selfT );
             gen_local_field( context, &fscope, this->selfRefNode->get_field(), convSelfV );
         }
         {
             this->superRefNode->typeExpression->code_gen_type( context );
             auto superT = context.get_llvm_type( this->superRefNode->get_type() );
-            auto convSuperV = TxReferenceType::gen_ref_conversion( context, &fscope, fArgI, superT );
+            auto convSuperV = TxReferenceType::gen_ref_conversion( context, &fscope, &(*fArgI), superT );
             gen_local_field( context, &fscope, this->superRefNode->get_field(), convSuperV );
         }
     }
@@ -103,7 +103,7 @@ llvm::Constant* TxLambdaExprNode::code_gen_constant( LlvmGenerationContext& cont
             fArgI++, argDefI++ )
             {
         ( *argDefI )->typeExpression->code_gen_type( context );
-        gen_local_field( context, &fscope, ( *argDefI )->get_field(), fArgI );
+        gen_local_field( context, &fscope, ( *argDefI )->get_field(), &(*fArgI) );
     }
 
     this->suite->code_gen( context, &fscope );

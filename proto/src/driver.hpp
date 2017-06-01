@@ -61,10 +61,10 @@ class TxDriver {
     /** the currently compiled tuplex package */
     TxPackage* package = nullptr;
 
-    // Note, may only be used for constant evaluation before code generation pass:
-    llvm::LLVMContext* llvmContext = nullptr;
+    /** global LLVMContext */
+    llvm::LLVMContext* llvmContext;
 
-    // not set before code generation pass:
+    /** Note, may only be used for constant evaluation before code generation pass. */
     LlvmGenerationContext* genContext = nullptr;
 
     /** number of compilation errors */

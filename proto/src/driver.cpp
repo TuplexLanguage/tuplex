@@ -20,7 +20,8 @@ extern int yy_flex_debug;
 
 TxDriver::TxDriver( const TxOptions& options )
         : _LOG( Logger::get( "DRIVER" ) ), options( options ),
-          builtinParserContext( new TxParserContext( *this, TxIdentifier( "" ), "" ) )
+          builtinParserContext( new TxParserContext( *this, TxIdentifier( "" ), "" ) ),
+          llvmContext( new llvm::LLVMContext() )
 {
 }
 
@@ -67,7 +68,6 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     this->package = make_root_package( this->builtinParserContext );
 
     // ONLY used for constant evaluation before code generation pass:
-    this->llvmContext = &llvm::getGlobalContext();
     this->genContext = new LlvmGenerationContext( *this->package, *this->llvmContext );
 
     if ( options.sourceSearchPaths.empty() )

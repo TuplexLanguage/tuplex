@@ -8,7 +8,7 @@ Value* TxArrayLitNode::code_gen_address( LlvmGenerationContext& context, GenScop
     std::cerr << "TxArrayLitNode::code_gen_address " << this << std::endl;
     auto targetVal = this->code_gen_expr( context, scope );
     if ( auto constInitializer = dyn_cast<Constant>( targetVal ) ) {
-        return new GlobalVariable( context.llvmModule, constInitializer->getType(), true, GlobalValue::InternalLinkage, constInitializer );
+        return new GlobalVariable( context.llvmModule(), constInitializer->getType(), true, GlobalValue::InternalLinkage, constInitializer );
     }
     else {
         return targetVal;

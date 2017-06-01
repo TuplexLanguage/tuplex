@@ -157,11 +157,11 @@ Value* TxUnaryLogicalNotNode::code_gen_value( LlvmGenerationContext& context, Ge
 
 Value* gen_get_struct_member( LlvmGenerationContext& context, GenScope* scope, Value* structV, unsigned ix ) {
     Value* memberV;
-    if ( auto structPtrV = dyn_cast<PointerType>( structV->getType() ) ) {  // address of struct
-        ASSERT( structPtrV->getPointerElementType()->isStructTy(), "expected pointer element to be a struct: " << structV );
-        (void) structPtrV;   // suppresses unused variable warning in release mode
+    if ( auto structPtrT = dyn_cast<PointerType>( structV->getType() ) ) {  // address of struct
+        ASSERT( structPtrT->getPointerElementType()->isStructTy(), "expected pointer element to be a struct: " << structV );
+        (void) structPtrT;   // suppresses unused variable warning in release mode
         if ( scope ) {
-            auto memberA = scope->builder->CreateStructGEP( structV, ix );
+            auto memberA = scope->builder->CreateStructGEP( structPtrT->getPointerElementType(), structV, ix );
             memberV = scope->builder->CreateLoad( memberA );
         }
         else {
@@ -281,11 +281,12 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
     }
 
     if ( auto arrayPtrC = dyn_cast<Constant>( arrayPtrV ) ) {
+        // address of global constant
         if ( auto intC = dyn_cast<ConstantInt>( subscriptV ) ) {
             Constant* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                                 ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
                                 intC };
-            return ConstantExpr::getInBoundsGetElementPtr( arrayPtrC, ixs );
+            return ConstantExpr::getInBoundsGetElementPtr( arrayPtrC->getType()->getPointerElementType(), arrayPtrC, ixs );
         }
     }
 
@@ -435,7 +436,7 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr( LlvmGenerationContext& context
                 StructType *lambdaT = cast<StructType>( context.get_llvm_type( txFuncType ) );
                 FunctionType *funcT = cast<FunctionType>( cast<PointerType>( lambdaT->getElementType( 0 ) )->getPointerElementType() );
                 auto funcName = uniqueFullName;
-                funcPtrV = context.llvmModule.getOrInsertFunction( funcName, funcT );
+                funcPtrV = context.llvmModule().getOrInsertFunction( funcName, funcT );
             }
             else
                 LOG( context.LOGGER(), ERROR, "No LLVM type defined for " << txType );

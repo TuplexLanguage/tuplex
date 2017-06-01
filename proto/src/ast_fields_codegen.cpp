@@ -124,7 +124,7 @@ static Value* field_value_code_gen( LlvmGenerationContext& context, GenScope* sc
             // forward declaration situation
             LOG_DEBUG( context.LOGGER(), "Forward-declaring field " << fieldEntity->get_declaration()->get_unique_full_name() );
             Type *fieldT = context.get_llvm_type( fieldEntity->get_type() );
-            val = context.llvmModule.getOrInsertGlobal( fieldEntity->get_declaration()->get_unique_full_name(), fieldT );
+            val = context.llvmModule().getOrInsertGlobal( fieldEntity->get_declaration()->get_unique_full_name(), fieldT );
         }
         break;
 

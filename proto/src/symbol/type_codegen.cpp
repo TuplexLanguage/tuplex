@@ -50,8 +50,8 @@ Function* TxActualType::get_type_user_init_func( LlvmGenerationContext& context 
     };
     FunctionType *typeInitFuncType = FunctionType::get( context.get_voidT(), typeInitFuncArgTypes, false );
 
-    Function *initFunc = cast<Function>( context.llvmModule.getOrInsertFunction( funcName, typeInitFuncType ) );
-    BasicBlock::Create( context.llvmModule.getContext(), "entry", initFunc );
+    Function *initFunc = cast<Function>( context.llvmModule().getOrInsertFunction( funcName, typeInitFuncType ) );
+    BasicBlock::Create( context.llvmModule().getContext(), "entry", initFunc );
     return initFunc;
 }
 

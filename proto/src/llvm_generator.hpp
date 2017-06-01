@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stack>
+#include <memory.h>
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
@@ -45,6 +46,10 @@ class LlvmGenerationContext {
     std::map<const TxActualType*, llvm::Type*> llvmTypeMapping;
     std::map<uint32_t, llvm::StructType*> llvmVTableTypeMapping;
 
+    std::unique_ptr<llvm::Module> llvmModulePtr;
+
+    //llvm::DataLayout dataLayout;
+
     // some common, basic types:
     llvm::Type* voidT;
     llvm::Type* voidPtrT;
@@ -62,18 +67,19 @@ public:
     TxPackage& tuplexPackage;
     llvm::LLVMContext& llvmContext;
 
-    llvm::Module llvmModule;
-    llvm::DataLayout dataLayout;
-
     LlvmGenerationContext( TxPackage& tuplexPackage, llvm::LLVMContext& llvmContext )
-            : tuplexPackage( tuplexPackage ),
-              llvmContext( llvmContext ),
-              llvmModule( "top", this->llvmContext ),
-              dataLayout( &llvmModule )
+            : llvmModulePtr( new llvm::Module("top", llvmContext ) ),
+              //dataLayout( llvmModulePtr ),
+              tuplexPackage( tuplexPackage ),
+              llvmContext( llvmContext )
     {
         this->voidT = llvm::Type::getVoidTy( this->llvmContext );
         this->voidPtrT = llvm::Type::getInt8PtrTy( this->llvmContext );
         this->voidRefT = TxReferenceType::make_ref_llvm_type( *this, llvm::Type::getInt8Ty( this->llvmContext ) );
+    }
+
+    inline llvm::Module& llvmModule() const {
+        return *this->llvmModulePtr;
     }
 
     inline llvm::Type* get_voidT() const {

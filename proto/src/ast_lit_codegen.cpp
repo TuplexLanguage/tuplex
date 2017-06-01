@@ -89,7 +89,7 @@ Value* TxCStringLitNode::code_gen_address( LlvmGenerationContext& context, GenSc
     // experimental, automatically allocates space for literals, used for e.g. string literals
     auto constant = this->code_gen_value( context, scope );
     auto constInitializer = cast<Constant>( constant );
-    return new GlobalVariable( context.llvmModule, constInitializer->getType(), true, GlobalValue::InternalLinkage, constInitializer );
+    return new GlobalVariable( context.llvmModule(), constInitializer->getType(), true, GlobalValue::InternalLinkage, constInitializer );
 }
 
 Value* TxCStringLitNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
