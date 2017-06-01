@@ -5,7 +5,7 @@ using namespace llvm;
 
 Value* TxArrayLitNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     // experimental, automatically allocates global space for constants
-    std::cerr << "TxArrayLitNode::code_gen_address " << this << std::endl;
+    //std::cerr << "TxArrayLitNode::code_gen_address " << this << std::endl;
     auto targetVal = this->code_gen_expr( context, scope );
     if ( auto constInitializer = dyn_cast<Constant>( targetVal ) ) {
         return new GlobalVariable( context.llvmModule(), constInitializer->getType(), true, GlobalValue::InternalLinkage, constInitializer );

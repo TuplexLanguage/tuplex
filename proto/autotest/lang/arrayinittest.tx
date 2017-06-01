@@ -90,7 +90,6 @@ array_stack_construction( i : UByte ) {
 
   ## Construction with dynamic Array length
     a30 := [i*0]Int();
-/*
     a31 := [i*3]Int();
     a32 := <Array<Int,(i*0)>>();
     a33 := <Array<Int,(i*3)>>();
@@ -99,7 +98,6 @@ array_stack_construction( i : UByte ) {
     #experr 1: ae := [i*3]Int( 1, 2, 3 );
     #experr 1: ae := <Array<Int,i*3>>( []Int() );
     #experr 1: ae := <Array<Int,i*3>>( [ 1I, 2, 3 ] );
-*/
 */
 }
 
@@ -197,7 +195,6 @@ for_loops() {
 */
 
 main() -> Int {
-    tx.c.puts( c"foo"[0] );
     n := var_func( 0, 1.1, 2.2, 3.3 );
     n := var_func( 0, [ 1.1, 2.2, 3.3 ] );
     array_stack_construction( 1 );
