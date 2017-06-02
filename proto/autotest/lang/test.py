@@ -60,6 +60,7 @@ source_files = [
     "funcrettest.tx",
     "funcoverloadtest.tx",
     "funcrecursetest.tx",
+    "funcvarargs.tx",
 
     "test.modul.tx",
     "importtest.tx",

@@ -1,15 +1,6 @@
-## step-by-step support for ranges, arrays, sequences, and for-loops 
+## tests array literals and array allocation and initialization expressions
 
-## var-arg functions:
-var_func( x : UInt, vars : Float... ) -> UInt {
-    return vars.C;  ## number of var-args passed
-}
-
-
-## Array literals:
-## array_literal :=    ‘[‘ expr_list ‘]’
-## Future: expansion operator '...'
-
+## functions to pass arrays to so they won't be optimized away for not being used
 foofunc( array : &[]UByte ) { }
 
 foofunc( array : &[]Int ) { }
@@ -93,7 +84,10 @@ array_stack_construction( i : UByte ) {
     a31 := [i*3]Int();
     a32 := <Array<Int,(i*0)>>();
     a33 := <Array<Int,(i*3)>>();
-/* TODO
+
+
+  ## TODO: partial initialization and initialization from non-array sequences
+/*
     #experr 1: ae := [i*3]Int( []Int() );
     #experr 1: ae := [i*3]Int( 1, 2, 3 );
     #experr 1: ae := <Array<Int,i*3>>( []Int() );
@@ -128,8 +122,6 @@ array_new_construction( i : UByte ) {
   ## not supported to automatically inferarray length
     #experr 1: a12 := new []Int( [ 1I, 2, 3 ] );
     #experr 1: a13 := new []Int( a10 );
-
-    ## TODO: initialize from non-array sequences
 
 ## TODO: conversions
 ##    a16 := new [3]Long( a6 );  ## safe element-wise conversion
@@ -167,7 +159,10 @@ array_new_construction( i : UByte ) {
     a31 := new [i*3]Int();
     a32 := new Array<Int,(i*0)>();
     a33 := new Array<Int,(i*3)>();
-/* TODO
+
+
+  ## TODO: partial initialization and initialization from non-array sequences
+/*
     a31 := new [i*3]Int( []Int() );
     a31 := new [i*3]Int( 1, 2, 3 );
     a40 := new Array<Int,i*3>( []Int() );
@@ -176,28 +171,9 @@ array_new_construction( i : UByte ) {
 }
 
 
-
-/*
-for_loops() {
-    for i in 0:10 {
-    }
-
-    for i in 0:9,
-        j in 9:-1:0 {
-    }
-
-    for i, iter in str[0:9] {
-        print(i)
-        if i == 'a'
-            iter.next()
-    }
-}
-*/
-
 main() -> Int {
-    n := var_func( 0, 1.1, 2.2, 3.3 );
-    n := var_func( 0, [ 1.1, 2.2, 3.3 ] );
-    array_stack_construction( 1 );
-    array_new_construction( 1 );
-    return Int( n );
+    i := 1;
+    array_stack_construction( i );
+    array_new_construction( i );
+    return i;
 }

@@ -154,8 +154,7 @@ public:
     }
 
     virtual TxMaybeConversionNode* make_ast_copy() const override {
-        ASSERT( false, "Can't make AST copy of a TxMaybeConversionNode: " << this );
-        return nullptr;
+        return new TxMaybeConversionNode( this->originalExpr->make_ast_copy() );
     }
 
     /** If necessary and permitted, inserts a new conversion expression that wraps the original expression.

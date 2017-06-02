@@ -57,9 +57,9 @@ public:
         }
         //return new TxArrayLitNode( this->parseLocation, make_node_vec_copy( this->origElemExprList ) );
         return new TxFilledArrayLitNode( this->parseLocation,
-                                   ( this->elementTypeNode ? this->elementTypeNode->typeExprNode->make_ast_copy() : nullptr ),
-                                   make_node_vec_copy( this->origElemExprList ),
-                                   ( this->capacityExpr ? this->capacityExpr->originalExpr->make_ast_copy() : nullptr) );
+                                         ( this->elementTypeNode ? this->elementTypeNode->typeExprNode->make_ast_copy() : nullptr ),
+                                         make_node_vec_copy( this->origElemExprList ),
+                                         ( this->capacityExpr ? this->capacityExpr->originalExpr->make_ast_copy() : nullptr ) );
     }
 
     virtual void symbol_resolution_pass() override;
