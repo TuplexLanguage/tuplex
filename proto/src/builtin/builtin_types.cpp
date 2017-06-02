@@ -693,7 +693,9 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
 
     // create the array base type:
     {
-        auto arrayConstructors = make_array_constructors( loc );
+        auto arrayMembers = make_array_constructors( loc );
+        arrayMembers.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_IMPLICIT,
+                                                     new TxFieldDefNode( loc, "L", new TxNamedTypeNode( loc, "UInt" ), nullptr, false ) ) );
 
         auto paramNodes = new std::vector<TxDeclarationNode*>(
                 {
@@ -701,13 +703,10 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
                   new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM,
                                        new TxFieldDefNode( loc, "C", new TxNamedTypeNode( loc, "UInt" ),
                                                            nullptr, false ) ),
-                  new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_IMPLICIT,
-                                       new TxFieldDefNode( loc, "L", new TxModifiableTypeNode( loc, new TxNamedTypeNode( loc, "UInt" ) ),
-                                                           nullptr, false ) )
                 } );
         this->builtinTypes[TXBT_ARRAY] = new TxTypeDeclNode(
                 loc, TXD_PUBLIC | TXD_BUILTIN, "Array", paramNodes,
-                new TxArrayTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), arrayConstructors ), false, true );
+                new TxArrayTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), arrayMembers ), false, true );
     }
 
     // create the interface base type:
