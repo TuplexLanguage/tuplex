@@ -94,6 +94,8 @@ public:
         TxExpressionNode::symbol_resolution_pass();
         this->array->symbol_resolution_pass();
         this->subscript->symbol_resolution_pass();
+        // TODO: Add bounds checking. If statically constant operands, do static check, otherwise add AST nodes generating runtime check.
+        // TODO: Support negative array indexing.
     }
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
@@ -764,6 +766,8 @@ public:
         TxAssigneeNode::symbol_resolution_pass();
         array->symbol_resolution_pass();
         subscript->symbol_resolution_pass();
+        // TODO: Add bounds checking. If statically constant operands, do static check, otherwise add AST nodes generating runtime check.
+        // TODO: Support negative array indexing.
     }
 
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;

@@ -493,7 +493,7 @@ public:
         return this->field;
     }
 
-    virtual const TxExpressionNode* get_init_expression() const = 0;
+    virtual TxExpressionNode* get_init_expression() const = 0;
 
     /** Generates / retrieves the code generated constant value of this field's init expression,
      * if it has one and it is constant.

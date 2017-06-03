@@ -190,6 +190,10 @@ public:
         return this->type()->is_empty_derivation();
     }
 
+    inline bool is_generic_specialization() const {
+        return this->type()->is_generic_specialization();
+    }
+
     inline bool operator==( const TxType& other ) const {
         return this->type()->operator==( *other.type() );
     }

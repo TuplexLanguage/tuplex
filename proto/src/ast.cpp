@@ -154,6 +154,39 @@ const TxField* TxFieldDefiningNode::resolve_field() {
 }
 
 
+static const TxType* get_mutable_specialization( TxNode* parent, const TxType* origType ) {
+    const TxLocation& loc = parent->parseLocation;
+    auto newbindings = new std::vector<TxTypeArgumentNode*>();
+    auto actType = origType->type();
+    for ( auto bdecl : actType->get_bindings() ) {
+        if ( auto btypedecl = dynamic_cast<const TxTypeDeclaration*>( bdecl ) ) {
+            auto btype = btypedecl->get_definer()->resolve_type();
+            if ( btype->is_modifiable() ) {
+                auto newbind = new TxTypeDeclWrapperNode( loc, btypedecl );
+                newbindings->push_back( new TxTypeTypeArgumentNode( newbind ) );
+            }
+            else {
+                auto newbind = new TxModifiableTypeNode( loc, new TxTypeDeclWrapperNode( loc, btypedecl ) );
+                newbindings->push_back( new TxTypeTypeArgumentNode( newbind ) );
+            }
+        }
+        else {
+            auto bvaluedecl = dynamic_cast<const TxFieldDeclaration*>( bdecl );
+            auto previnitexpr = bvaluedecl->get_definer()->get_init_expression();
+            if ( auto convinitexpr = dynamic_cast<TxMaybeConversionNode*>( previnitexpr ) )
+                previnitexpr = convinitexpr->originalExpr;
+            auto newbind = new TxExprWrapperNode( previnitexpr );
+            newbindings->push_back( new TxValueTypeArgumentNode( newbind ) );
+        }
+    }
+    auto genBaseTypeNode = new TxTypeDeclWrapperNode( loc, actType->get_semantic_base_type()->get_declaration() );
+    auto mutTypeDef = new TxGenSpecTypeNode( loc, genBaseTypeNode, newbindings );
+    run_declaration_pass( mutTypeDef, parent, "mut-type" );
+    const TxType* type = mutTypeDef->resolve_type();
+    LOG_DEBUG( parent->LOGGER(), "Created mutable specialization for " << parent );
+    return type;
+}
+
 const TxType* TxFieldDefNode::define_type() {
     LOG_TRACE( this->LOGGER(), "defining  type  of " << this );
     const TxType* type;
@@ -176,8 +209,15 @@ const TxType* TxFieldDefNode::define_type() {
         type = this->initExpression->resolve_type();
         if ( this->modifiable ) {
             if ( !type->is_modifiable() ) {
-                if ( !type->is_mutable() )
-                    CERR_THROWRES( this, "Can't use immutable type as modifiable: " << type );
+                if ( !type->is_mutable() ) {
+                    if ( type->is_generic_specialization() && type->get_semantic_base_type()->is_mutable() ) {
+                        // copying an immutable type to a modifiable field is ok if we can obtain the mutable specialization
+                        // corresponding to the source's immutable specialization
+                        type = get_mutable_specialization( this, type );
+                    }
+                    else
+                        CERR_THROWRES( this, "Can't use immutable type as modifiable: " << type );
+                }
                 type = this->registry().get_modifiable_type( nullptr, type );
             }
         }
@@ -429,6 +469,8 @@ bool TxTypeExpressionNode::requires_mutable_type() const {
                 return d->mutableType;
         }
     }
+    if ( auto d = dynamic_cast<const TxFieldDefNode*>( p ) )
+        return d->modifiable;
     return false;
 }
 
@@ -437,8 +479,6 @@ bool TxTypeExpressionNode::get_decl_interface_kw() const {
     if ( auto d = dynamic_cast<const TxTypeDeclNode*>( p ) )
         return d->interfaceKW;
     if ( auto m = dynamic_cast<const TxModifiableTypeNode*>( p ) ) {
-        //if ( m->is_modifiable() )
-        //    return false;
         if ( auto d = dynamic_cast<const TxTypeDeclNode*>( m->parent() ) )
             return d->interfaceKW;
     }
@@ -557,6 +597,20 @@ const TxType* TxMemberTypeNode::define_type() {
     else
         CERR_THROWRES( this, "Unknown type: " << this->symbolName << " (from " << this->context().scope() << ")" );
 */
+}
+
+const TxType* TxArrayTypeNode::define_type() {
+    if ( this->requires_mutable_type() ) {
+        if ( auto elemTypeArg = dynamic_cast<TxMaybeModTypeNode*>( this->elementTypeNode->typeExprNode ) )
+            elemTypeArg->set_modifiable( true );
+    }
+    if ( this->capacityNode ) {
+        static_cast<TxMaybeConversionNode*>( this->capacityNode->valueExprNode )->insert_conversion(
+                this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
+        return this->registry().get_array_type( this, this->elementTypeNode, this->capacityNode, this->requires_mutable_type() );
+    }
+    else
+        return this->registry().get_array_type( this, this->elementTypeNode, this->requires_mutable_type() );
 }
 
 const TxType* TxGenSpecTypeNode::define_type() {

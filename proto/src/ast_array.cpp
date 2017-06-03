@@ -10,6 +10,15 @@ static std::vector<TxMaybeConversionNode*>* make_args_vec( const std::vector<TxE
     return copyVec;
 }
 
+//bool TxArrayLitNode::requires_mutable_type() const {
+//    auto par = this->parent();
+//    if ( auto conv = dynamic_cast<const TxMaybeConversionNode*>( par ) )
+//        par = conv->parent();
+//    if ( auto fieldDef = dynamic_cast<const TxFieldDefNode*>( par ) )
+//        return fieldDef->modifiable;
+//    return false;
+//}
+
 TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr,
                                 const std::vector<TxExpressionNode*>* elemExprList,
                                 TxExpressionNode* capacityExpr )

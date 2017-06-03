@@ -351,25 +351,6 @@ public:
      * This is used to bypass same-instance-type derivations (e.g. empty/mod. specializations). */
     const TxActualType* get_instance_base_type() const;
 
-//    /** Returns true if this type is a reinterpreted specialization, i.e. reinterpreted source
-//     * with a specialization index greater than zero.
-//     */
-//    bool is_reinterpreted() const;
-//
-//    /** Returns true if this type is a reinterpreted specialization, i.e. reinterpreted source
-//     * with at least one parameter binding and a specialization index greater than zero.
-//     * Note: There are reinterpreted types for which this is false: Types that in themselves are not
-//     * specializations of a generic base type, but are a member of another type that is being reinterpreted.
-//     */
-//    inline bool is_reinterpreted_specialization() const { return this->genericBaseType; }
-//
-//    /** Returns true if this type is a reinterpreted specialization that is also equivalent to its base type,
-//     * i.e. no non-ref-constrained type parameters were bound.
-//     * Note: There are reinterpreted types for which this is false: Types that in themselves are not
-//     * specializations of a generic base type, but are a member of another type that is being reinterpreted.
-//     */
-//    bool is_equivalent_reinterpreted_specialization() const;
-
     /** Returns the type class this type belongs to. */
     inline TxTypeClass get_type_class() const {
         return this->typeClass;
@@ -492,21 +473,6 @@ public:
      */
     bool is_equivalent_derivation() const;
 
-//    /** Returns true if this type is a pure specialization of a base type,
-//     * i.e. does not extend the base type with any definitions, or interfaces,
-//     * besides type parameter bindings and the modifiable attribute.
-//     * Such a type is a *direct usage form* of the base type.
-//     *
-//     * Note that a pure specialization may still be non-concrete (generic and/or abstract),
-//     * and that it isn't necessarily the same data type as the base type.
-//     *
-//     * Technically, pure specialization types are created when only specializing a base type
-//     * with type parameter bindings and/or the modifiable attribute.
-//     *
-//     * (Returns false for Any which has no base type.)
-//     */
-//    bool is_pure_specialization() const;
-
     /** Returns true if this type is a virtual derivation of a base type,
      * i.e. is effectively the same *instance data type* as the base type.
      * Added instance fields and bound non-ref type parameters cause this to return false;
@@ -515,7 +481,9 @@ public:
      */
     bool is_virtual_derivation() const;
 
-    // FUTURE: checksum?
+    /** Returns true if this type is a specialization of a generic base type. */
+    inline bool is_generic_specialization() const { return this->genericBaseType; }
+
 
     // FUTURE: Should we remove the == != operator overloads in favor of more specifically named comparison methods?
 

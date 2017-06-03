@@ -4,6 +4,10 @@
 #include "ast_types.hpp"
 
 class TxArrayLitNode : public TxExpressionNode {
+//protected:
+//    /** Returns true if this array literal's context requires it to be mutable. Used by subclasses upon type creation. */
+//    bool requires_mutable_type() const;
+//
 public:
     TxArrayLitNode( const TxLocation& parseLocation ) : TxExpressionNode( parseLocation ) { }
 

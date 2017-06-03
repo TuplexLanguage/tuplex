@@ -1,0 +1,149 @@
+## Tests the various ways arrays can be declared and initialized with and without modifiability.
+
+write( a : Ref< ~Array<~UByte,3> > ) {
+    a[0] = 'P';
+    a[1] = 'I';
+    a[2] = 0;
+}
+
+array_modifiability() {
+    ## Without sugar, all components must be specified as mod: element type, array type, and the field.
+
+    ## specific array types - no implicit modifiability applied:
+    {
+        a0 : Array<UByte,3>;
+        #experr 1: write( &a0 );
+    
+        a1 : Array<~UByte,3>;
+        #experr 1: write( &a1 );
+    
+        a2 : ~Array<UByte,3>;  ## TODO: yields inconsistent type which causes errors in array.tx
+        #experr 1: write( &a2 );
+    
+        a3 : ~Array<~UByte,3>;
+        write( &a3 );
+    }
+
+    ## array type syntax sugar - implicit modifiability applied:
+    {
+        a10 : [3]UByte;
+        #experr 1: write( &a10 );
+    
+        a11 : ~[3]UByte;
+        write( &a11 );
+    
+        a12 : [3]~UByte;
+        write( &a12 );
+    
+        a13 : ~[3]~UByte;
+        write( &a13 );
+    }
+
+    ## modifiable field def syntax sugar - implicit modifiability applied:
+    {
+        init := c"HI";
+
+        a20 := init;
+        #experr 1: write( &a20 );
+
+        ~a21 := init;
+        write( &a21 );
+
+        #experr 1: a22 := ~init;  ## value expressions can't begin with modifiable token
+    }
+
+    ## specific array stack constructor - no implicit modifiability applied, but assignee specifies its modifiability:
+    {
+        a30 := <Array<UByte,3>>();
+        #experr 1: write( &a30 );
+
+        a31 := <Array<~UByte,3>>();
+        #experr 1: write( &a31 );
+
+        a32 := <~Array<UByte,3>>();
+        #experr 1: write( &a32 );
+
+        a33 := <~Array<~UByte,3>>();
+        #experr 1: write( &a33 );
+
+        ~a34 := <Array<UByte,3>>();
+        write( &a34 );
+
+        ~a35 := <Array<~UByte,3>>();
+        write( &a35 );
+
+        ~a36 := <~Array<UByte,3>>();  ## TODO: yields inconsistent type
+        ##write( &a36 );
+
+        ~a37 := <~Array<~UByte,3>>();
+        write( &a37 );
+    }
+
+    ## array stack constructor syntax sugar - implicit modifiability applied:
+    {
+        a40 := [3]UByte();
+        #experr 1: write( &a40 );
+
+        ~a41 := [3]UByte();
+        write( &a41 );
+
+        #experr 1: a43 := ~[3]UByte();   ## value expressions can't begin with modifiable token
+        #experr 1: a44 := ~[3]~UByte();  ## value expressions can't begin with modifiable token
+    }
+
+    ## array literals syntax sugar - implicit modifiability applied:
+    {
+        a50 := [ 1, 2, 3 ];
+        #experr 1: write( &a50 );
+
+        a51 := [ UByte(1), 2, 3 ];
+        #experr 1: write( &a51 );
+
+        ~a52 := [ 1, 2, 3 ];
+        write( &a52 );
+
+        #experr 1: a53 := [ ~UByte(1), 2, 3 ];   ## value expressions can't begin with modifiable token
+        #experr 1: a54 := ~[ UByte(1), 2, 3 ];   ## value expressions can't begin with modifiable token
+    }
+
+    ## array type aliasing
+    {
+        type ImmArr1 : Array<UByte,3>;
+        ~a60 := ImmArr1( [ 1, 2, 3 ] );  ## TODO: review, seems to not get ImmArr type
+
+        type ImmArr3 : Array<~UByte,3>;
+        ~a62 := ImmArr3( [ 1, 2, 3 ] );  ## TODO: review, seems to not get ImmArr type
+
+        #experr 1: type ImmArr2 : ~Array<UByte,3>;
+        #experr 1: type ImmArr4 : ~Array<~UByte,3>;
+
+        type ~ MutArr1 : Array<UByte,3>;
+        ~a64 := MutArr1( [ 1, 2, 3 ] );
+        #experr 1: write( &a64 );
+
+        type ~ MutArr3 : Array<~UByte,3>;
+        ~a66 := MutArr3( [ 1, 2, 3 ] );
+        write( &a66 );
+
+        #experr 1: type ~ MutArr2 : ~Array<UByte,3>;
+        #experr 1: type ~ MutArr4 : ~Array<~UByte,3>;
+
+        type ~ MutArr5 : [3]UByte;
+        ~a68 := MutArr5( [ 1, 2, 3 ] );
+        write( &a68 );
+
+        type ~ MutArr7 : [3]~UByte;
+        ~a70 := MutArr7( [ 1, 2, 3 ] );
+        write( &a70 );
+
+        #experr 1: type ~ MutArr6 : ~[3]UByte;
+        #experr 1: type ~ MutArr8 : ~[3]~UByte;
+    }
+
+    ## TODO: new expressions
+}
+
+main()->Int {
+    array_modifiability();
+    return 0;
+}

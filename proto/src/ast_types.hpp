@@ -318,15 +318,7 @@ class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
     }
 
 protected:
-    virtual const TxType* define_type() override {
-        if ( this->capacityNode ) {
-            static_cast<TxMaybeConversionNode*>(this->capacityNode->valueExprNode)->insert_conversion(
-                    this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
-            return this->registry().get_array_type( this, this->elementTypeNode, this->capacityNode, this->requires_mutable_type() );
-        }
-        else
-            return this->registry().get_array_type( this, this->elementTypeNode, this->requires_mutable_type() );
-    }
+    virtual const TxType* define_type() override;
 
 public:
     TxTypeTypeArgumentNode* elementTypeNode;
@@ -684,6 +676,7 @@ public:
     }
 
     void set_modifiable( bool mod ) {
+        ASSERT( !this->attempt_get_type(), "Can't set modifiable after type already has been resolved in " << this );
         this->isModifiable = mod;
     }
 

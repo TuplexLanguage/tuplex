@@ -69,6 +69,7 @@ source_files = [
     "arraybasictest.tx",
     "arraydynamictest.tx",
     "arrayinittest.tx",
+    "arraymodifiability.tx",
     #"stringtest.tx",
 
     "membertest.tx",

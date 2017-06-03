@@ -176,8 +176,7 @@ Value* gen_get_struct_member( LlvmGenerationContext& context, GenScope* scope, V
     else {  // direct / "register" struct
         ASSERT( structV->getType()->isStructTy(), "expected value to be a struct: " << structV );
         memberV = ( scope ? scope->builder->CreateExtractValue( structV, ix )
-                                                                :
-                            ExtractValueInst::Create( structV, ix ) );
+                          : ExtractValueInst::Create( structV, ix ) );
         //std::cerr << "gen_get_struct_member(), structV: " << structV << "   ix: " << ix << std::endl;
         //std::cerr << "                         memberV: " << memberV << std::endl;
     }
@@ -273,12 +272,14 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
     ASSERT( arrayPtrV->getType()->isPointerTy(), "expected array-operand to be a pointer: " << arrayPtrV );
     ASSERT( arrayPtrV->getType()->getPointerElementType()->isStructTy(), "expected array-operand to be a pointer to struct: " << arrayPtrV );
 
-    if ( dyn_cast<Constant>( arrayPtrV ) && ( dyn_cast<Constant>( subscriptV ) ) ) {
-        // TODO: constant expression, static bounds check sufficient
-    }
-    else {
-        // TODO: Inject code for bounds checking, and support negative indexing from array end
-    }
+// semantic pass adds AST nodes performing the bounds check
+//    { // bounds check
+//        Value* lenIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+//                            ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
+//        auto lengthPtrV = GetElementPtrInst::CreateInBounds( arrayPtrV, lenIxs );
+//        auto lengthV = new LoadInst( lengthPtrV );
+//
+//    }
 
     if ( auto arrayPtrC = dyn_cast<Constant>( arrayPtrV ) ) {
         // address of global constant
@@ -307,19 +308,6 @@ Value* TxElemDerefNode::code_gen_address( LlvmGenerationContext& context, GenSco
 
 Value* TxElemDerefNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-//    auto arrayV = this->array->code_gen_address( context, scope );
-//    auto subscriptV = this->subscript->code_gen_value( context, scope );
-//    if ( auto arrayPtrG = dyn_cast<GlobalVariable>( arrayV ) ) {
-//        // this enables dereferencing (constant) arrays from global scope
-//        // since we can't use load instructions in global (constant) initializers, access the original initializer directly
-//        if ( arrayPtrG->hasInitializer() ) {
-//            if ( auto intC = dyn_cast<ConstantInt>( subscriptV ) ) {
-//                uint32_t ixs[] = { 1, (uint32_t) intC->getLimitedValue( UINT32_MAX ) };
-//                return ConstantExpr::getExtractValue( arrayPtrG->getInitializer(), ixs );
-//            }
-//        }
-//    }
-//    Value* elemPtr = gen_elem_address( context, scope, arrayV, subscriptV );
     Value* elemPtr = gen_elem_address( context, scope, this->array->code_gen_address( context, scope ),
                                        this->subscript->code_gen_value( context, scope ) );
     if ( scope )

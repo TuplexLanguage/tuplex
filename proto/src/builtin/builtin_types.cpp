@@ -76,7 +76,7 @@ public:
         this->resolve_field();  // auto-resolves
     }
 
-    virtual const TxExpressionNode* get_init_expression() const {
+    virtual TxExpressionNode* get_init_expression() const {
         return nullptr;
     }
 

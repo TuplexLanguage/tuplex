@@ -284,7 +284,7 @@ public:
 
     virtual void symbol_resolution_pass() override;
 
-    virtual const TxExpressionNode* get_init_expression() const override {
+    virtual TxExpressionNode* get_init_expression() const override {
         return this->initExpression;
     }
 

@@ -63,7 +63,6 @@ type ~ GType<S,T,U> {
 }
 
 main()->Int {
-## TODO: be able to specialize an immutable version of mutable generic types, so that they can accept immutable type bindings
     type ImmSpec  : GType<Int,Float,Bool>;
     type ~MutSpec : GType<~Int,~Float,Bool>;
     #experr 1: type BadSyntax : ~GType<~Int,~Float,Bool>;
@@ -81,6 +80,13 @@ main()->Int {
         #experr 1: smodM   := <~GType<~Int,Float,Bool>>( 2, 3.14, TRUE );
         #experr 1: tmodM   := <~GType<Int,~Float,Bool>>( 2, 3.14, TRUE );
                    allmodM := <~GType<~Int,~Float,Bool>>( 2, 3.14, TRUE );
+    }
+
+    ## specialize a mutable generic type with immutable type bindings:
+    {
+        init := StillImmType( 17, 49.9 );
+        #experr 2: errmut := <~GType< StillImmType, StillImmType, StillImmType >>( init, init, init );
+        nonmut := <GType< StillImmType, StillImmType, StillImmType >>( init, init, init );
     }
 
     return 0;
