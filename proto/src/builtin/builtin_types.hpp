@@ -1,6 +1,6 @@
 #pragma once
 
-#include "location.hpp"
+#include "parser/location.hpp"
 #include "tx_lang_defs.hpp"
 
 #include "symbol/type_registry.hpp"
@@ -8,10 +8,9 @@
 /** Creates the package, i.e. the root namespace module (""). */
 TxPackage* make_root_package( TxParserContext* parserContext );
 
+class TxParsingUnitNode;
 class TypeRegistry;
-class TxModule;
 class TxTypeDeclNode;
-class TxInterfaceAdapterType;
 
 class BuiltinTypes {
     TypeRegistry& registry;

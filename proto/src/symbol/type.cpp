@@ -3,8 +3,13 @@
 #include "tx_error.hpp"
 
 #include "type.hpp"
-#include "ast.hpp"
-#include "entity.hpp"
+#include "type_registry.hpp"
+#include "entity_type.hpp"
+#include "package.hpp"
+
+#include "ast/expr/ast_expr_node.hpp"
+#include "ast/expr/ast_constexpr.hpp"
+#include "ast/expr/ast_conv.hpp"
 
 bool DataTupleDefinition::add_interface_fields( const DataTupleDefinition& interfaceFields ) {
     bool added = false;

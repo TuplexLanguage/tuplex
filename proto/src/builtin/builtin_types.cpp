@@ -2,9 +2,15 @@
 
 #include "util/assert.hpp"
 
-#include "ast.hpp"
-
 #include "llvm_generator.hpp"
+#include "parsercontext.hpp"
+
+#include "ast/ast_decls.hpp"
+#include "ast/ast_modbase.hpp"
+#include "ast/ast_declpass.hpp"
+#include "ast/type/ast_types.hpp"
+#include "ast/expr/ast_lit.hpp"
+#include "ast/expr/ast_array.hpp"
 
 /*--- statically allocated built-in type objects ---*/
 
@@ -174,10 +180,6 @@ public:
         // (only valid for Ref and Array, which override this method)
         ASSERT( false, "Can't make AST copy of built-in type definer " << this );
         return nullptr;
-    }
-
-    virtual std::string get_auto_type_name() const override final {
-        return this->get_declaration()->get_unique_full_name();
     }
 
     virtual void symbol_resolution_pass() override {

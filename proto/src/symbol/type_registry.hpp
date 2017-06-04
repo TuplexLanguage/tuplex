@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "location.hpp"
+#include "parser/location.hpp"
 #include "tx_lang_defs.hpp"
 #include "type.hpp"
 

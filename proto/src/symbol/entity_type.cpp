@@ -1,6 +1,7 @@
 #include "entity_type.hpp"
-
-#include "ast.hpp"
+#include "package.hpp"
+#include "type_registry.hpp"
+#include "ast/type/ast_typeexpr_node.hpp"
 
 inline static const TxTypeDeclaration* get_definer_declaration( const TxTypeDefiningNode* definer ) {
     if ( auto typeExprNode = dynamic_cast<const TxTypeExpressionNode*>( definer ) )

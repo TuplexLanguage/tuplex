@@ -4,7 +4,7 @@
 
 #include "util/logging.hpp"
 
-#include "context.hpp"
+#include "ast/lexcontext.hpp"
 
 #include "type_base.hpp"
 

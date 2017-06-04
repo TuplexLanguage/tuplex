@@ -2,13 +2,13 @@
 
 #include "util/logging.hpp"
 
-#include "driver.hpp"
 #include "tx_error.hpp"
 
 #include "module.hpp"
 
 class TypeRegistry;
 class BuiltinTypes;
+class TxDriver;
 
 /** A Tuplex package represents a Tuplex compilation unit.
  * A compilation unit can consist of multiple parsing units (source files).

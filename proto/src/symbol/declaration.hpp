@@ -4,7 +4,11 @@
 #include "tx_declaration_flags.hpp"
 #include "tx_field_storage.hpp"
 
-#include "ast_base.hpp"
+#include "ast/ast_entitydefs.hpp"
+//class TxEntityDefiningNode;
+//class TxFieldDefiningNode;
+//class TxTypeDefiningNode;
+
 
 // (types are implicitly static)
 const TxDeclarationFlags LEGAL_TYPE_DECL_FLAGS

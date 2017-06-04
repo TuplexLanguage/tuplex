@@ -1,4 +1,7 @@
 #include "type.hpp"
+#include "ast/expr/ast_expr_node.hpp"
+#include "ast/expr/ast_constexpr.hpp"
+#include "ast/expr/ast_exprs.hpp"
 #include "llvm_generator.hpp"
 #include "tx_except.hpp"
 

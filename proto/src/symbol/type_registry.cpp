@@ -3,13 +3,20 @@
 
 #include "type_registry.hpp"
 
+#include "ast/ast_decls.hpp"
+#include "ast/ast_declpass.hpp"
 #include "tx_logging.hpp"
+#include "tx_error.hpp"
 #include "package.hpp"
 #include "entity.hpp"
-#include "ast.hpp"
 #include "builtin/builtin_types.hpp"
 
 #include "llvm_generator.hpp"
+
+#include "ast/ast_wrappers.hpp"
+#include "ast/type/ast_types.hpp"
+#include "ast/expr/ast_constexpr.hpp"
+
 
 /** the flags that may be inherited when specializing a type */
 static const TxDeclarationFlags DECL_FLAG_FILTER = TXD_STATIC | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_FINAL | TXD_IMPLICIT
@@ -653,10 +660,6 @@ public:
     virtual TxAdapterTypeNode* make_ast_copy() const override {
         ASSERT( false, "unexpected reinterpretation of " << this );
         return nullptr; //new TxAdapterTypeNode( this );
-    }
-
-    virtual std::string get_auto_type_name() const override {
-        return ( this->get_declaration() ? this->get_declaration()->get_unique_full_name() : "" );
     }
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override { }

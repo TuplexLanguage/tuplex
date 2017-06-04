@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <sstream>
+
 class Printable {
 public:
     virtual ~Printable() = default;
@@ -26,8 +29,7 @@ operator<<( std::basic_ostream<charT, traits> &lhs, Printable const *printable_r
 template<template<typename, typename > class Container,
         typename Value,
         typename Allocator = std::allocator<Value> >
-std::string join( const Container<Value, Allocator>& cont, const std::string& infix )
-                  {
+std::string join( const Container<Value, Allocator>& cont, const std::string& infix ) {
     std::stringstream str;
     if ( !cont.empty() ) {
         auto ai = cont.cbegin();
@@ -41,7 +43,6 @@ std::string join( const Container<Value, Allocator>& cont, const std::string& in
 template<template<typename, typename > class Container,
         typename Value,
         typename Allocator = std::allocator<Value> >
-inline std::string join( const Container<Value, Allocator>* cont, const std::string& infix )
-                         {
+inline std::string join( const Container<Value, Allocator>* cont, const std::string& infix ) {
     return join( *cont, infix );
 }

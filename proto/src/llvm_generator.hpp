@@ -12,8 +12,12 @@
 #include <llvm/ExecutionEngine/GenericValue.h>
 #include <llvm/Support/raw_ostream.h>
 
-#include "ast.hpp"
 #include "tx_logging.hpp"
+
+#include "symbol/entity_type.hpp"
+
+class TxParsingUnitNode;
+class TxTypeDeclNode;
 
 class CompoundStatementScope {
 public:

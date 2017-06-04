@@ -3,15 +3,15 @@
 #include "util/util.hpp"
 
 #include "tx_lang_defs.hpp"
-#include "package.hpp"
-#include "entity.hpp"
-#include "declaration.hpp"
+
 #include "symbol.hpp"
+#include "package.hpp"
+#include "declaration.hpp"
+#include "entity.hpp"
+#include "entity_type.hpp"
 
-#include "type.hpp"
-#include "ast_declbase.hpp"
+#include "driver.hpp"
 
-/*=== TxScopeSymbol implementation ===*/
 
 Logger& TxScopeSymbol::_LOG = Logger::get( "SYMBOL" );
 

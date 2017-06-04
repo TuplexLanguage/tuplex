@@ -3,7 +3,7 @@
 #include <iostream>
 #include <sstream>
 
-#include "location.hpp"
+#include "parser/location.hpp"
 #include "tx_except.hpp"
 
 struct ExpectedErrorClause {

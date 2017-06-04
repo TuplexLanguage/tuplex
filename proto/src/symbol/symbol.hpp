@@ -15,7 +15,6 @@ class TxEntitySymbol;
 class TxEntityDeclaration;
 class TxTypeDeclaration;
 class TxFieldDeclaration;
-class TxType;
 class TxNode;
 class TxTypeDefiningNode;
 class TxFieldDefiningNode;

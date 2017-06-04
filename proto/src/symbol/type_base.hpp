@@ -1,6 +1,5 @@
 #pragma once
 
-//#include <typeinfo>
 #include <vector>
 #include <unordered_map>
 #include <algorithm>
@@ -15,6 +14,7 @@
 #include "entity.hpp"
 
 class TxActualType;
+class TxType;
 
 /* forward declarations pertaining to LLVM code generation */
 class LlvmGenerationContext;

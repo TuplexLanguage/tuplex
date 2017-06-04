@@ -21,6 +21,10 @@
 #include "tx_lang_defs.hpp"
 #include "llvm_generator.hpp"
 
+#include "ast/ast_modbase.hpp"
+#include "ast/expr/ast_exprs.hpp"
+#include "symbol/package.hpp"
+
 using namespace llvm;
 
 // currently not used, but has working runtime initialization logic, including malloc:

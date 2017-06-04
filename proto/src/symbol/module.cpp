@@ -2,7 +2,7 @@
 
 #include "package.hpp"
 #include "entity.hpp"
-#include "type_registry.hpp"
+#include "driver.hpp"
 
 TxModule::TxModule( TxModule* parent, const std::string& name, const TxParseOrigin& origin, bool declared )
         : TxScopeSymbol( parent, name ), declared( declared ), origin( origin ) {

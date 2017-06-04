@@ -1,6 +1,6 @@
 #include "entity.hpp"
-
-#include "ast.hpp"
+#include "entity_type.hpp"
+#include "ast/expr/ast_expr_node.hpp"
 
 Logger& TxEntity::_LOG = Logger::get( "ENTITY" );
 

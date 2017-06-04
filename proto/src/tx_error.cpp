@@ -1,7 +1,7 @@
 #include "tx_error.hpp"
-#include "driver.hpp"
-#include "context.hpp"
-#include "ast_base.hpp"
+
+#include "ast/ast_node.hpp"
+#include "parsercontext.hpp"
 
 
 const TxLocation& TxParseOrigin::get_parse_location() const {
