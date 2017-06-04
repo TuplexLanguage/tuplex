@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ast_decls.hpp"
+#include "ast_entitydecls.hpp"
 #include "symbol/type_registry.hpp"
 
 /** Wraps a TxExpressionNode. The declaration and resolution pass calls won't be forwarded,

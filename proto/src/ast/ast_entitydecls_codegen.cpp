@@ -1,8 +1,8 @@
-#include "ast_modbase.hpp"
-#include "ast_decls.hpp"
-#include "llvm_generator.hpp"
+#include "ast_entitydecls.hpp"
 
 #include "expr/ast_lambda_node.hpp"
+
+#include "llvm_generator.hpp"
 
 using namespace llvm;
 
@@ -11,23 +11,6 @@ inline bool is_complex_pointer( const Type* type ) {
     bool ret = ( type->isPointerTy() && !type->getPointerElementType()->isSingleValueType() );
     //std::cout << "is_complex_pointer(): " << ret << ": type: " << type << std::endl;
     return ret;
-}
-
-void TxParsingUnitNode::code_gen( LlvmGenerationContext& context ) const {
-    TRACE_CODEGEN( this, context );
-    this->module->code_gen( context );
-}
-
-void TxModuleNode::code_gen( LlvmGenerationContext& context ) const {
-    TRACE_CODEGEN( this, context );
-    if ( this->members ) {
-        for ( auto mem : *this->members )
-            mem->code_gen( context );
-    }
-    if ( this->subModules ) {
-        for ( auto mod : *this->subModules )
-            mod->code_gen( context );
-    }
 }
 
 void TxTypeDeclNode::code_gen( LlvmGenerationContext& context ) const {

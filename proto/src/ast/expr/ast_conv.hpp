@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../ast_decls.hpp"
+#include "../ast_entitydecls.hpp"
 
 /** Wraps the provided original expression with a new conversion expression node if necessary and permitted.
  * Assumes declaration pass has already run on originalExpr.

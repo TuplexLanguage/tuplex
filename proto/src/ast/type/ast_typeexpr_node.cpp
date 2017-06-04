@@ -1,6 +1,6 @@
 #include "ast_typeexpr_node.hpp"
 
-#include "../ast_decls.hpp"
+#include "../ast_entitydecls.hpp"
 #include "ast_types.hpp"
 
 

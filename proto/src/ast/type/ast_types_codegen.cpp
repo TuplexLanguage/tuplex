@@ -1,4 +1,4 @@
-#include "../ast_decls.hpp"
+#include "../ast_entitydecls.hpp"
 #include "llvm_generator.hpp"
 #include "ast_types.hpp"
 #include "ast_funcheader_node.hpp"

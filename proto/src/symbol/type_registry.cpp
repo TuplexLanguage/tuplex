@@ -3,7 +3,7 @@
 
 #include "type_registry.hpp"
 
-#include "ast/ast_decls.hpp"
+#include "../ast/ast_entitydecls.hpp"
 #include "ast/ast_declpass.hpp"
 #include "tx_logging.hpp"
 #include "tx_error.hpp"

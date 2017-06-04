@@ -1,11 +1,11 @@
 #include "builtin_types.hpp"
 
+#include "../ast/ast_entitydecls.hpp"
 #include "util/assert.hpp"
 
 #include "llvm_generator.hpp"
 #include "parsercontext.hpp"
 
-#include "ast/ast_decls.hpp"
 #include "ast/ast_modbase.hpp"
 #include "ast/ast_declpass.hpp"
 #include "ast/type/ast_types.hpp"

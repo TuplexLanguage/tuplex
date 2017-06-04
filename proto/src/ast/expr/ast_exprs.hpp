@@ -1,9 +1,9 @@
 #pragma once
 
+#include "../ast_entitydecls.hpp"
 #include "ast_expr_node.hpp"
 #include "ast_maybe_conv_node.hpp"
 
-#include "ast/ast_decls.hpp"
 #include "ast/ast_wrappers.hpp"
 #include "ast/type/ast_typearg_node.hpp"
 

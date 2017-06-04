@@ -1,5 +1,6 @@
 #include "ast_modbase.hpp"
-#include "ast_decls.hpp"
+
+#include "ast_entitydecls.hpp"
 #include "ast_util.hpp"
 
 #include "parsercontext.hpp"

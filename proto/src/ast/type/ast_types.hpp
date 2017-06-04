@@ -1,7 +1,7 @@
 #pragma once
 
+#include "../ast_entitydecls.hpp"
 #include "ast/ast_entitydefs.hpp"
-#include "ast/ast_decls.hpp"
 #include "ast/type/ast_typeexpr_node.hpp"
 #include "ast/type/ast_typearg_node.hpp"
 #include "ast/type/ast_argtypedef_node.hpp"

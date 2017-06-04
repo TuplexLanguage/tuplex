@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ast/ast_decls.hpp"
+#include "../ast_entitydecls.hpp"
 #include "ast/type/ast_types.hpp"
 #include "ast_assignee_node.hpp"
 

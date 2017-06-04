@@ -1,5 +1,5 @@
-#include "ast_decls.hpp"
 #include "ast/expr/ast_lambda_node.hpp"
+#include "ast_entitydecls.hpp"
 #include "builtin/builtin_types.hpp"
 
 #include "parsercontext.hpp"
