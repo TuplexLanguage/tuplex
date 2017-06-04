@@ -26,8 +26,10 @@
 
 #include "ast/ast_modbase.hpp"
 #include "ast/expr/ast_array.hpp"
+#include "ast/expr/ast_ref.hpp"
+#include "ast/expr/ast_op_exprs.hpp"
 #include "ast/expr/ast_exprs.hpp"
-#include "ast/expr/ast_fieldvalue_node.hpp"
+#include "ast/expr/ast_field.hpp"
 #include "ast/expr/ast_lambda_node.hpp"
 #include "ast/expr/ast_lit.hpp"
 #include "ast/expr/ast_assignee_exprs.hpp"

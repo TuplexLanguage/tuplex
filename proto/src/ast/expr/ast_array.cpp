@@ -1,11 +1,11 @@
 #include "ast_array.hpp"
 
 #include "ast_lit.hpp"
-#include "ast_fieldvalue_node.hpp"
 #include "ast_constexpr.hpp"
 
 #include "ast/ast_wrappers.hpp"
 #include "ast/ast_declpass.hpp"
+#include "ast_field.hpp"
 
 // Note: similar to helper function in function call node
 static std::vector<TxMaybeConversionNode*>* make_args_vec( const std::vector<TxExpressionNode*>* argsExprList ) {

@@ -146,3 +146,69 @@ Constant* TxUnfilledArrayCompLitNode::code_gen_constant( LlvmGenerationContext& 
     auto txArrayType = static_cast<const TxArrayType*>( this->get_type()->type() );
     return unfilled_array_code_gen_constant( context, txArrayType );
 }
+
+
+
+static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope, Value* arrayPtrV, Value* subscriptV ) {
+    ASSERT( subscriptV->getType()->isIntegerTy(), "expected subscript to be an integer: " << subscriptV );
+    ASSERT( arrayPtrV->getType()->isPointerTy(), "expected array-operand to be a pointer: " << arrayPtrV );
+    ASSERT( arrayPtrV->getType()->getPointerElementType()->isStructTy(), "expected array-operand to be a pointer to struct: " << arrayPtrV );
+
+// semantic pass adds AST nodes performing the bounds check
+//    { // bounds check
+//        Value* lenIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+//                            ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
+//        auto lengthPtrV = GetElementPtrInst::CreateInBounds( arrayPtrV, lenIxs );
+//        auto lengthV = new LoadInst( lengthPtrV );
+//
+//    }
+
+    if ( auto arrayPtrC = dyn_cast<Constant>( arrayPtrV ) ) {
+        // address of global constant
+        if ( auto intC = dyn_cast<ConstantInt>( subscriptV ) ) {
+            Constant* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                                ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
+                                intC };
+            return ConstantExpr::getInBoundsGetElementPtr( arrayPtrC->getType()->getPointerElementType(), arrayPtrC, ixs );
+        }
+    }
+
+    Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                     ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
+                     subscriptV };
+    if ( scope )
+        return scope->builder->CreateInBoundsGEP( arrayPtrV, ixs );
+    else
+        return GetElementPtrInst::CreateInBounds( arrayPtrV, ixs );
+}
+
+Value* TxElemDerefNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    return gen_elem_address( context, scope, this->array->code_gen_address( context, scope ),
+                             this->subscript->code_gen_value( context, scope ) );
+}
+
+Value* TxElemDerefNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    Value* elemPtr = gen_elem_address( context, scope, this->array->code_gen_address( context, scope ),
+                                       this->subscript->code_gen_value( context, scope ) );
+    if ( scope )
+        return scope->builder->CreateLoad( elemPtr );
+    else
+        return new LoadInst( elemPtr );
+}
+
+Constant* TxElemDerefNode::code_gen_constant( LlvmGenerationContext& context ) const {
+    TRACE_CODEGEN( this, context );
+    auto arrayC = this->array->code_gen_constant( context );
+    auto subscriptC = cast<ConstantInt>( this->subscript->code_gen_constant( context ) );
+    ASSERT( arrayC->getType()->isStructTy(), "Can't create constant array elem deref expression with array value that is: "
+            << arrayC << "  type: " << arrayC->getType() );
+    uint32_t ixs[] = { 2, (uint32_t) subscriptC->getLimitedValue( UINT32_MAX ) };
+    return ConstantExpr::getExtractValue( arrayC, ixs );
+}
+
+Value* TxElemAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    return gen_elem_address( context, scope, this->array->code_gen_address( context, scope ), this->subscript->code_gen_value( context, scope ) );
+}

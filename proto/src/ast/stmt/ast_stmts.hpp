@@ -104,7 +104,8 @@ public:
     }
 
     virtual void symbol_resolution_pass() override {
-        ( (TxExpressionNode*) this->call )->symbol_resolution_pass();
+        //( (TxExpressionNode*) this->call )->symbol_resolution_pass();
+        this->call->symbol_resolution_pass();
     }
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;

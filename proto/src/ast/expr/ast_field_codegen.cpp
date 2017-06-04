@@ -1,7 +1,24 @@
-#include "ast_exprs.hpp"
+#include "ast_field.hpp"
+#include "ast_ref.hpp"
+#include "ast_lambda_node.hpp"
 #include "llvm_generator.hpp"
 
 using namespace llvm;
+
+Value* gen_lambda( LlvmGenerationContext& context, GenScope* scope, Type* lambdaT, Value* funcV, Value* closureRefV ) {
+    if ( scope ) {
+        Value* lambdaV = UndefValue::get( lambdaT );
+        auto castFuncV = scope->builder->CreatePointerCast( funcV, lambdaT->getStructElementType( 0 ) );
+        lambdaV = scope->builder->CreateInsertValue( lambdaV, castFuncV, 0 );
+        lambdaV = scope->builder->CreateInsertValue( lambdaV, closureRefV, 1 );
+        return lambdaV;
+    }
+    else {
+        ASSERT( false, "Not yet supported to construct global lambda" );  // TODO
+        return nullptr;
+    }
+}
+
 
 static Value* virtual_field_value_code_gen( LlvmGenerationContext& context, GenScope* scope,
                                             const TxActualType* staticBaseType,
@@ -192,4 +209,10 @@ Value* TxFieldValueNode::code_gen_value( LlvmGenerationContext& context, GenScop
 Constant* TxFieldValueNode::code_gen_constant( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     return this->get_field()->get_declaration()->get_definer()->code_gen_constant_init_expr( context );
+}
+
+
+Value* TxFieldAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    return this->field->code_gen_address( context, scope );
 }

@@ -1,6 +1,8 @@
-#include "ast_fieldvalue_node.hpp"
+#include "ast_field.hpp"
+
 #include "ast_exprs.hpp"
 #include "ast_constexpr.hpp"
+#include "ast_ref.hpp"
 
 #include "ast/ast_util.hpp"
 

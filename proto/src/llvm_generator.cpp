@@ -22,7 +22,7 @@
 #include "llvm_generator.hpp"
 
 #include "ast/ast_modbase.hpp"
-#include "ast/expr/ast_exprs.hpp"
+#include "ast/expr/ast_ref.hpp"
 #include "symbol/package.hpp"
 
 using namespace llvm;

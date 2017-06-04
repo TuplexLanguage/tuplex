@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../ast_decls.hpp"
+#include "ast/ast_decls.hpp"
 
 class IntConstant {
     TxTypeDefiningNode* node;

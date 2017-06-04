@@ -1,7 +1,9 @@
 #include "ast_exprs.hpp"
 #include "ast_lambda_node.hpp"
 #include "ast_array.hpp"
+#include "ast_ref.hpp"
 #include "ast/ast_util.hpp"
+#include "ast_field.hpp"
 
 
 const TxType* TxConstructorCalleeExprNode::define_type() {

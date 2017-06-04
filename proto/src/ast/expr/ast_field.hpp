@@ -1,7 +1,8 @@
 #pragma once
 
-#include "../ast_decls.hpp"
+#include "ast/ast_decls.hpp"
 #include "ast_expr_node.hpp"
+#include "ast_assignee_node.hpp"
 
 /** Returns the "degree of reinterpretation" required to implicitly transform a provided value
  * to a value of an expected type.
@@ -11,7 +12,7 @@
  * ("distance" between the types);
  * or <0 if it can't be cast or implicitly converted to the expected type.
  */
-int get_reinterpretation_degree( const TxType *expectedType, const TxType* providedType );
+extern int get_reinterpretation_degree( const TxType *expectedType, const TxType* providedType );
 
 /** Attempts to resolve an identified entity symbol, that is potentially overloaded,
  * to a specific field by matching with the provided arguments' types.
@@ -31,8 +32,10 @@ int get_reinterpretation_degree( const TxType *expectedType, const TxType* provi
  *
  * Note: This function doesn't generate compiler errors; if no match is found null is returned.
  */
-const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntitySymbol* entitySymbol,
-                                         const std::vector<TxExpressionNode*>* arguments );
+extern const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntitySymbol* entitySymbol,
+                                                const std::vector<TxExpressionNode*>* arguments );
+
+extern llvm::Value* gen_lambda( LlvmGenerationContext& context, GenScope* scope, llvm::Type* lambdaT, llvm::Value* funcV, llvm::Value* closureRefV );
 
 
 class TxFieldValueNode : public TxExpressionNode {
@@ -108,5 +111,42 @@ public:
 
     virtual std::string get_identifier() const override {
         return this->symbolName->str();
+    }
+};
+
+
+class TxFieldAssigneeNode : public TxAssigneeNode {
+protected:
+    virtual const TxType* define_type() override {
+        return this->field->resolve_type();
+    }
+
+public:
+    TxFieldValueNode* field;
+    TxFieldAssigneeNode( const TxLocation& parseLocation, TxFieldValueNode* field )
+            : TxAssigneeNode( parseLocation ), field( field ) {
+    }
+
+    virtual TxFieldAssigneeNode* make_ast_copy() const override {
+        return new TxFieldAssigneeNode( this->parseLocation, this->field->make_ast_copy() );
+    }
+
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
+        return this->field->get_data_graph_origin_expr();
+    }
+
+    virtual void symbol_resolution_pass() override {
+        TxAssigneeNode::symbol_resolution_pass();
+        field->symbol_resolution_pass();
+
+        auto fieldDecl = field->get_field_declaration();
+        if ( fieldDecl && fieldDecl->get_storage() == TXS_NOSTORAGE )
+            CERROR( this, "Assignee '" << field->symbolName << "' is not an L-value / has no storage." );
+    }
+
+    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->field->visit_ast( visitor, thisCursor, "field", context );
     }
 };

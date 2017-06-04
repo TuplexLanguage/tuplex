@@ -121,18 +121,20 @@ add_executable(txc
 
         ast/expr/ast_expr_node.cpp
         ast/expr/ast_exprs.cpp
-        ast/expr/ast_fieldvalue_node.cpp
+        ast/expr/ast_field.cpp
         ast/expr/ast_lambda_node.cpp
         ast/expr/ast_conv.cpp
         ast/expr/ast_lit.cpp
         ast/expr/ast_array.cpp
         ast/expr/ast_expr_node_codegen.cpp
         ast/expr/ast_exprs_codegen.cpp
-        ast/expr/ast_fieldvalue_codegen.cpp
+        ast/expr/ast_field_codegen.cpp
         ast/expr/ast_lambda_codegen.cpp
         ast/expr/ast_conv_codegen.cpp
         ast/expr/ast_lit_codegen.cpp
+        ast/expr/ast_ref_codegen.cpp
         ast/expr/ast_array_codegen.cpp
+        ast/expr/ast_op_exprs_codegen.cpp
         ast/expr/ast_constexpr_codegen.cpp
 	)
 
