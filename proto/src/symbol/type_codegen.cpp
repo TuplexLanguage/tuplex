@@ -61,17 +61,19 @@ Function* TxActualType::get_type_user_init_func( LlvmGenerationContext& context 
 Value* TxActualType::gen_size( LlvmGenerationContext& context, GenScope* scope ) const {
     ASSERT( this->is_static(), "Attempted to codegen size of non-static type " << this );
     Type* llvmType = context.get_llvm_type( this );  // (gets the cached LLVM type if previously accessed)
-    if ( !llvmType )
-        return nullptr;
     return ConstantExpr::getSizeOf( llvmType );
 }
 
 Value* TxActualType::gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
     ASSERT( this->is_static(), "Attempted to codegen alloca of non-static type " << this );
     Type* llvmType = context.get_llvm_type( this );  // (gets the cached LLVM type if previously accessed)
-    if ( !llvmType )
-        return nullptr;
-    return scope->builder->CreateAlloca( llvmType, 0, varName );
+    return scope->builder->CreateAlloca( llvmType, nullptr, varName );
+}
+
+Value* TxActualType::gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
+    ASSERT( this->is_static(), "Attempted to codegen alloca of non-static type " << this );
+    Type* llvmType = context.get_llvm_type( this );  // (gets the cached LLVM type if previously accessed)
+    return context.gen_malloc( scope, llvmType );
 }
 
 Constant* TxActualType::gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -150,87 +152,114 @@ Type* TxArrayType::make_llvm_type( LlvmGenerationContext& context ) const {
     return llvmType;
 }
 
-Value* TxArrayType::gen_size( LlvmGenerationContext& context, GenScope* scope ) const {
-    ASSERT( this->is_concrete(), "Attempted to codegen size of non-concrete type " << this );
-    Value* elemSize = this->element_type()->gen_size( context, scope );
-    Value* arrayCap = this->capacity()->code_gen_expr( context, scope );
-    return this->inner_code_gen_size( context, scope, elemSize, arrayCap );
-}
-
-Value* TxArrayType::inner_code_gen_size( LlvmGenerationContext& context, GenScope* scope, Value* elemSize, Value* arrayCap ) const {
+Value* TxArrayType::inner_code_gen_size( LlvmGenerationContext& context, GenScope* scope, Value* elemSize, Value* arrayCapi64V ) const {
     Constant* headerSize = ConstantExpr::getSizeOf( Type::getInt64Ty( context.llvmContext ) );
     //std::cout << "Array header size: " << to_string(headerSize) << std::endl;
 
-    if ( auto ce = dyn_cast<Constant>( elemSize ) )
-        if ( auto cl = dyn_cast<Constant>( arrayCap ) )
+    // FIXME: review how alignment needs should affect storage size
+    if ( auto ce = dyn_cast<Constant>( elemSize ) ) {
+        if ( auto cl = dyn_cast<Constant>( arrayCapi64V ) ) {
+            ce = ConstantExpr::getZExtOrBitCast( ce, Type::getInt64Ty( context.llvmContext ) );
             return ConstantExpr::getAdd( ConstantExpr::getMul( ce, cl ), headerSize );
+        }
+    }
+
     if ( scope ) {
-        arrayCap = scope->builder->CreateZExtOrBitCast( arrayCap, Type::getInt64Ty( context.llvmContext ) );
-        auto product = scope->builder->CreateMul( elemSize, arrayCap, "arraysize" );
+        elemSize = scope->builder->CreateZExtOrBitCast( elemSize, Type::getInt64Ty( context.llvmContext ) );
+        auto product = scope->builder->CreateMul( elemSize, arrayCapi64V, "arraysize" );
         return scope->builder->CreateAdd( product, headerSize, "arrayobjsize" );
     }
     else {
         LOG( context.LOGGER(), WARN, "code_gen_size() with NULL scope and non-const expression for " << this );
-        arrayCap = CastInst::CreateZExtOrBitCast( arrayCap, Type::getInt64Ty( context.llvmContext ) );
-        auto product = BinaryOperator::CreateMul( elemSize, arrayCap, "arraysize" );
+        elemSize = CastInst::CreateZExtOrBitCast( elemSize, Type::getInt64Ty( context.llvmContext ) );
+        auto product = BinaryOperator::CreateMul( elemSize, arrayCapi64V, "arraysize" );
         return BinaryOperator::CreateAdd( product, headerSize, "arrayobjsize" );
     }
 }
 
-Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
-    //std::cerr << "ArrayType code_gen_alloca('" << varName << "')" << std::endl;
-    Type* headerType = Type::getInt32Ty( context.llvmContext );
-    ASSERT( this->is_concrete(), "Attempted to codegen alloca of non-concrete type " << this );
-
-    // construct LLVM array type:
-    Type* elemType = context.get_llvm_type( this->element_type() );
-    bool staticCap = this->capacity()->is_statically_constant();
-    uint32_t nofElems = ( staticCap ? eval_unsigned_int_constant( this->capacity() ) : 0 );
-    std::vector<Type*> llvmMemberTypes {
-                                         Type::getInt32Ty( context.llvmContext ),
-                                         Type::getInt32Ty( context.llvmContext ),
-                                         ArrayType::get( elemType, nofElems )
-    };
-    auto llvmType = StructType::get( context.llvmContext, llvmMemberTypes );
-
-    // allocate array object:
-    Value* arrayCap;  // uint32
-    Value* arrayObj;  // pointer to llvm array obj
-    if ( staticCap ) {
-        // if statically known array size, use direct LLVM type
-        arrayCap = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), nofElems );
-        arrayObj = scope->builder->CreateAlloca( llvmType, nullptr, "arrayalloc" );
-    }
-    else {
-        // otherwise calculate allocation size as a multiple of the array header size - ought to provide sufficient alignment?
-        arrayCap = scope->builder->CreateZExtOrBitCast( this->capacity()->code_gen_expr( context, scope ),
-                                                        Type::getInt32Ty( context.llvmContext ) );
-        auto arrayCap64 = scope->builder->CreateZExtOrBitCast( arrayCap, Type::getInt64Ty( context.llvmContext ) );
-        Value* elemSize = this->element_type()->gen_size( context, scope );
-        Value* objectSize = this->inner_code_gen_size( context, scope, elemSize, arrayCap64 );
-
-        Value* allocElems = code_gen_4_multiple( context, scope, objectSize );
-        Value* allocation = scope->builder->CreateAlloca( headerType, allocElems, "arrayalloc" );
-        Type* ptrType = PointerType::getUnqual( llvmType );
-        arrayObj = scope->builder->CreatePointerCast( allocation, ptrType, varName );
-    }
-
+static void initialize_array_obj( LlvmGenerationContext& context, GenScope* scope, Value* arrayObjPtrV, Value* arrayCap ) {
     { // initialize capacity field:
         Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                          ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) };
-        auto capField = scope->builder->CreateInBoundsGEP( arrayObj, ixs );
+        auto capField = scope->builder->CreateInBoundsGEP( arrayObjPtrV, ixs );
         scope->builder->CreateStore( arrayCap, capField );
     }
 
     { // initialize length field:
         Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                          ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
-        auto lenField = scope->builder->CreateInBoundsGEP( arrayObj, ixs );
+        auto lenField = scope->builder->CreateInBoundsGEP( arrayObjPtrV, ixs );
         auto zeroVal = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 );
         scope->builder->CreateStore( zeroVal, lenField );
     }
+}
 
-    return arrayObj;
+Value* TxArrayType::gen_size( LlvmGenerationContext& context, GenScope* scope ) const {
+    ASSERT( this->is_concrete(), "Attempted to codegen size of non-concrete type " << this );
+    Value* elemSize = this->element_type()->gen_size( context, scope );
+    Value* arrayCap = this->capacity()->code_gen_expr( context, scope );
+    arrayCap = scope->builder->CreateZExtOrBitCast( arrayCap, Type::getInt64Ty( context.llvmContext ) );
+    return this->inner_code_gen_size( context, scope, elemSize, arrayCap );
+}
+
+Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
+    //std::cerr << "ArrayType code_gen_alloca('" << varName << "')" << std::endl;
+    auto capExpr = this->capacity();
+    bool staticCap = capExpr->is_statically_constant();
+    if ( staticCap ) {
+        return TxActualType::gen_alloca( context, scope, varName );
+    }
+
+    // if size not statically constant, the llvm type will indicate zero array length and thus not describe full size of the allocation
+
+    // compute the allocation size:
+    Value* arrayCapV = capExpr->code_gen_expr( context, scope );
+    Value* arrayCap64V = scope->builder->CreateZExtOrBitCast( arrayCapV, Type::getInt64Ty( context.llvmContext ) );
+    Value* elemSizeV = this->element_type()->gen_size( context, scope );
+    Value* objectSizeV = this->inner_code_gen_size( context, scope, elemSizeV, arrayCap64V );
+
+    // allocate array object:
+    Value* allocation = scope->builder->CreateAlloca( Type::getInt8Ty( context.llvmContext ), objectSizeV, "arrayalloca" );
+
+    // cast the pointer:
+    Type* llvmType = context.get_llvm_type( this );  // (gets the cached LLVM type if previously accessed)
+    Type* ptrType = PointerType::getUnqual( llvmType );
+    Value* arrayObjPtrV = scope->builder->CreatePointerCast( allocation, ptrType, varName );
+
+    // initialize the memory:
+    initialize_array_obj( context, scope, arrayObjPtrV, arrayCapV );
+
+    return arrayObjPtrV;
+}
+
+Value* TxArrayType::gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
+    //std::cerr << "ArrayType code_gen_alloca('" << varName << "')" << std::endl;
+    auto capExpr = this->capacity();
+    bool staticCap = capExpr->is_statically_constant();
+    if ( staticCap ) {
+        return TxActualType::gen_malloc( context, scope, varName );
+    }
+
+    // if size not statically constant, the llvm type will indicate zero array length and thus not describe full size of the allocation
+
+    // compute the allocation size:
+    Value* arrayCapV = capExpr->code_gen_expr( context, scope );
+    Value* arrayCap64V = scope->builder->CreateZExtOrBitCast( arrayCapV, Type::getInt64Ty( context.llvmContext ) );
+    Value* elemSizeV = this->element_type()->gen_size( context, scope );
+    Value* objectSizeV = this->inner_code_gen_size( context, scope, elemSizeV, arrayCap64V );
+
+    // allocate array object:
+    Value* allocation = context.gen_malloc( scope, objectSizeV );
+
+    // cast the pointer:
+    Type* llvmType = context.get_llvm_type( this );  // (gets the cached LLVM type if previously accessed)
+    Type* ptrType = PointerType::getUnqual( llvmType );
+    Value* arrayObjPtrV = scope->builder->CreatePointerCast( allocation, ptrType, varName );
+
+    // initialize the memory:
+    initialize_array_obj( context, scope, arrayObjPtrV, arrayCapV );
+
+    return arrayObjPtrV;
 }
 
 Type* TxReferenceType::make_llvm_type( LlvmGenerationContext& context ) const {

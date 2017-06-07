@@ -614,6 +614,7 @@ public:
     }
     virtual llvm::Value* gen_size( LlvmGenerationContext& context, GenScope* scope ) const;
     virtual llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const;
+    virtual llvm::Value* gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const;
     virtual llvm::Constant* gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const;
 
     /*--- to string methods ---*/

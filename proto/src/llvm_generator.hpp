@@ -118,7 +118,10 @@ public:
     bool generate_main( const std::string& userMainIdent, const TxType* mainFuncType );
 
     // "intrinsics":
+    /** Generates a malloc call that allocates storage for the specified LLVM type. */
     llvm::Value* gen_malloc( GenScope* scope, llvm::Type* objT );
+    /** Generates a malloc call that allocates storage for the specified number of bytes. */
+    llvm::Value* gen_malloc( GenScope* scope, llvm::Value* sizeV );
 
     llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, llvm::Value* typeIdV ) const;
     llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType ) const;

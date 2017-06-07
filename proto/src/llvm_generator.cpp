@@ -545,14 +545,26 @@ void LlvmGenerationContext::generate_runtime_data() {
 llvm::Value* LlvmGenerationContext::gen_malloc( GenScope* scope, llvm::Type* objT ) {
     auto int32T = Type::getInt32Ty( this->llvmContext );
     auto mallocParameterType = int32T;
-    auto objSizeV = ConstantExpr::getTruncOrBitCast( ConstantExpr::getSizeOf( objT ), int32T );
-    auto objCountV = ConstantInt::get( int32T, 1 );
+    auto objSizeC = ConstantExpr::getTruncOrBitCast( ConstantExpr::getSizeOf( objT ), mallocParameterType );
+    auto objCountC = ConstantInt::get( int32T, 1 );
     auto objAllocI = CallInst::CreateMalloc( scope->builder->GetInsertBlock(), mallocParameterType,
-                                             objT,
-                                             objSizeV, objCountV, nullptr, "" );
+                                             objT, objSizeC, objCountC, nullptr, "" );
     scope->builder->GetInsertBlock()->getInstList().push_back( objAllocI );
     return objAllocI;
 }
+
+llvm::Value* LlvmGenerationContext::gen_malloc( GenScope* scope, Value* sizeV ) {
+    auto int32T = Type::getInt32Ty( this->llvmContext );
+    auto mallocParameterType = int32T;
+    auto objSizeV = scope->builder->CreateTruncOrBitCast( sizeV, mallocParameterType );
+    auto objCountC = ConstantInt::get( int32T, 1 );
+    auto objT = this->voidT;
+    auto objAllocI = CallInst::CreateMalloc( scope->builder->GetInsertBlock(), mallocParameterType,
+                                             objT, objSizeV, objCountC, nullptr, "" );
+    scope->builder->GetInsertBlock()->getInstList().push_back( objAllocI );
+    return objAllocI;
+}
+
 
 Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV ) const {
     // cast vtable type according to statically declared type (may be parent type of actual type):
@@ -603,15 +615,12 @@ Type* LlvmGenerationContext::get_llvm_type( const TxActualType* txType ) {
         return iter->second;
     }
     Type* llvmType = txType->make_llvm_type( *this );
-    if ( llvmType ) {
-        this->llvmTypeMapping.emplace( txType, llvmType );
-        if (txType->get_type_class() != TXTC_FUNCTION)
-            LOG_DEBUG( this->LOGGER(), "Made LLVM type mapping for type " << txType->str(true) << ": " << to_string(llvmType) );
-        else
-            LOG_TRACE( this->LOGGER(), "Made LLVM type mapping for type " << txType->str(true) << ": " << to_string(llvmType) );
-    }
+    ASSERT ( llvmType, "Failed to make LLVM type mapping for type " << txType );
+    this->llvmTypeMapping.emplace( txType, llvmType );
+    if (txType->get_type_class() != TXTC_FUNCTION)
+        LOG_DEBUG( this->LOGGER(), "Made LLVM type mapping for type " << txType->str(true) << ": " << to_string(llvmType) );
     else
-        this->LOGGER()->error( "No LLVM type mapping for type: %s", txType->str().c_str() );
+        LOG_TRACE( this->LOGGER(), "Made LLVM type mapping for type " << txType->str(true) << ": " << to_string(llvmType) );
 
     Type* llvmTypeBody = txType->make_llvm_type_body( *this, llvmType );
     if ( llvmTypeBody != llvmType ) {

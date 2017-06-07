@@ -104,8 +104,9 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr( LlvmGenerationContext& context
 
 Value* TxHeapAllocNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    Type* objT = context.get_llvm_type( this->get_type() );
-    return context.gen_malloc( scope, objT );
+    return this->get_type()->type()->gen_malloc( context, scope );
+//    Type* objT = context.get_llvm_type( this->get_type() );
+//    return context.gen_malloc( scope, objT );
 }
 
 Value* TxStackAllocNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {

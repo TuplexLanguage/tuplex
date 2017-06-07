@@ -36,6 +36,7 @@ public:
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* gen_size( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const override;
+    virtual llvm::Value* gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const override;
 
 private:
     llvm::Value* inner_code_gen_size( LlvmGenerationContext& context, GenScope* scope, llvm::Value* elemSize, llvm::Value* arrayLen ) const;
