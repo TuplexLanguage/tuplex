@@ -5,17 +5,17 @@ using namespace llvm;
 
 Constant* TxMaybeConversionNode::code_gen_constant( LlvmGenerationContext& context) const {
     TRACE_CODEGEN( this, context );
-    return this->get_spec_expression()->code_gen_constant( context );
+    return this->get_wrapped_expr()->code_gen_constant( context );
 }
 
 Value* TxMaybeConversionNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return this->get_spec_expression()->code_gen_address( context, scope );
+    return this->get_wrapped_expr()->code_gen_address( context, scope );
 }
 
 Value* TxMaybeConversionNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return this->get_spec_expression()->code_gen_value( context, scope );
+    return this->get_wrapped_expr()->code_gen_value( context, scope );
 }
 
 Constant* TxBoolConvNode::code_gen_constant( LlvmGenerationContext& context ) const {

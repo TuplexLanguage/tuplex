@@ -208,6 +208,7 @@ Value* TxFieldValueNode::code_gen_value( LlvmGenerationContext& context, GenScop
 
 Constant* TxFieldValueNode::code_gen_constant( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
+    // TODO: Support constant access of fields that are members of statically constant object instances
     return this->get_field()->get_declaration()->get_definer()->code_gen_constant_init_expr( context );
 }
 

@@ -165,7 +165,8 @@ public:
 
 
 class TxElemDerefNode : public TxExpressionNode {
-    class TxIfStmtNode* boundsCheckNode = nullptr;
+    bool unchecked;
+    class TxStatementNode* panicNode = nullptr;
 
 protected:
     virtual const TxType* define_type() override {
@@ -188,9 +189,9 @@ public:
     TxMaybeConversionNode* array;
     TxMaybeConversionNode* subscript;
 
-    TxElemDerefNode( const TxLocation& parseLocation, TxExpressionNode* operand, TxExpressionNode* subscript )
-            : TxExpressionNode( parseLocation ), array( new TxMaybeConversionNode( operand ) ),
-              subscript( new TxMaybeConversionNode( subscript ) ) {
+    TxElemDerefNode( const TxLocation& parseLocation, TxExpressionNode* operand, TxExpressionNode* subscript, bool unchecked = false )
+            : TxExpressionNode( parseLocation ), unchecked( unchecked ),
+              array( new TxMaybeConversionNode( operand ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
     }
 
     virtual TxElemDerefNode* make_ast_copy() const override {
@@ -198,13 +199,7 @@ public:
                                     this->subscript->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->array->symbol_resolution_pass();
-        this->subscript->symbol_resolution_pass();
-        // TODO: Add bounds checking. If statically constant operands, do static check, otherwise add AST nodes generating runtime check.
-        // TODO: Support negative array indexing.
-    }
+    virtual void symbol_resolution_pass() override;
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
         return this->array;
@@ -226,6 +221,9 @@ public:
 
 
 class TxElemAssigneeNode : public TxAssigneeNode {
+    bool unchecked;
+    class TxStatementNode* panicNode = nullptr;
+
 protected:
     virtual const TxType* define_type() override {
         this->subscript->insert_conversion( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
@@ -247,8 +245,9 @@ public:
     TxMaybeConversionNode* array;
     TxMaybeConversionNode* subscript;
 
-    TxElemAssigneeNode( const TxLocation& parseLocation, TxExpressionNode* array, TxExpressionNode* subscript )
-            : TxAssigneeNode( parseLocation ), array( new TxMaybeConversionNode( array ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
+    TxElemAssigneeNode( const TxLocation& parseLocation, TxExpressionNode* array, TxExpressionNode* subscript, bool unchecked = false )
+            : TxAssigneeNode( parseLocation ), unchecked( unchecked ),
+              array( new TxMaybeConversionNode( array ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
     }
 
     virtual TxElemAssigneeNode* make_ast_copy() const override {
@@ -260,13 +259,7 @@ public:
         return this->array;
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxAssigneeNode::symbol_resolution_pass();
-        array->symbol_resolution_pass();
-        subscript->symbol_resolution_pass();
-        // TODO: Add bounds checking. If statically constant operands, do static check, otherwise add AST nodes generating runtime check.
-        // TODO: Support negative array indexing.
-    }
+    virtual void symbol_resolution_pass() override;
 
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 

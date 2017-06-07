@@ -71,6 +71,7 @@ TxField* TxField::make_field( const TxFieldDeclaration* fieldDeclaration, const 
 
 bool TxField::is_statically_constant() const {
     // A field is statically constant if it is unmodifiable and has a statically constant initializer
+    // TODO: Support constant access of fields that are members of statically constant object instances
     if ( auto initExpr = this->get_declaration()->get_definer()->get_init_expression() )
         return ( !this->get_type()->is_modifiable() && initExpr->is_statically_constant() );
     return false;

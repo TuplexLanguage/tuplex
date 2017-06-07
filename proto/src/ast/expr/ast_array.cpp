@@ -1,11 +1,15 @@
 #include "ast_array.hpp"
 
 #include "ast_lit.hpp"
+#include "ast_field.hpp"
+#include "ast_op_exprs.hpp"
 #include "ast_constexpr.hpp"
 
 #include "ast/ast_wrappers.hpp"
 #include "ast/ast_declpass.hpp"
-#include "ast_field.hpp"
+
+#include "ast/stmt/ast_panicstmt_node.hpp"
+#include "ast/stmt/ast_stmts.hpp"
 
 // Note: similar to helper function in function call node
 static std::vector<TxMaybeConversionNode*>* make_args_vec( const std::vector<TxExpressionNode*>* argsExprList ) {
@@ -176,4 +180,58 @@ void TxUnfilledArrayCompLitNode::symbol_resolution_pass() {
     TxExpressionNode::symbol_resolution_pass();
     this->elementTypeNode->symbol_resolution_pass();
     this->capacityExpr->symbol_resolution_pass();
+}
+
+
+
+//static TxStatementNode* make_bounds_check_node( TxNode* parent, TxMaybeConversionNode* array, TxMaybeConversionNode* subscript,
+//                                                bool isAssignment ) {
+//    TxStatementNode* panicNode;
+//    {
+//        auto & loc = subscript->parseLocation;
+//        auto lengthNode = new TxFieldValueNode( loc, new TxExprWrapperNode( array ), "L" );
+//        auto condExpr = new TxBinaryOperatorNode( loc, new TxExprWrapperNode( subscript ),
+//                                                  TXOP_GE, lengthNode );
+//        auto panicStmt = new TxPanicStmtNode( loc, "Array index out of bounds" );
+//        if ( isAssignment ) {
+//
+//        }
+//        else {
+//            panicNode = new TxIfStmtNode( loc, condExpr, panicStmt );
+//        }
+//    }
+//
+//    run_declaration_pass( panicNode, parent, "boundscheck" );
+//    panicNode->symbol_resolution_pass();
+//    return panicNode;
+//}
+
+void TxElemDerefNode::symbol_resolution_pass() {
+    TxExpressionNode::symbol_resolution_pass();
+    this->array->symbol_resolution_pass();
+    this->subscript->symbol_resolution_pass();
+
+    // TODO: Support negative array indexing.
+
+    if ( !this->unchecked ) {
+        // TODO: When we support accessing fields of constant instances, we can access L of constant arrays in compile time
+        this->panicNode = new TxPanicStmtNode( this->subscript->parseLocation, "Array index out of bounds" );
+        run_declaration_pass( panicNode, this, "panic" );
+        panicNode->symbol_resolution_pass();
+    }
+}
+
+void TxElemAssigneeNode::symbol_resolution_pass() {
+    TxAssigneeNode::symbol_resolution_pass();
+    array->symbol_resolution_pass();
+    subscript->symbol_resolution_pass();
+
+    // TODO: Support negative array indexing.
+
+    if ( !this->unchecked ) {
+        // TODO: When we support accessing fields of constant instances, we can access L of constant arrays in compile time
+        this->panicNode = new TxPanicStmtNode( this->subscript->parseLocation, "Array index out of bounds" );
+        run_declaration_pass( panicNode, this, "panic" );
+        panicNode->symbol_resolution_pass();
+    }
 }

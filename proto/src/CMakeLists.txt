@@ -113,6 +113,7 @@ add_executable(txc
         ast/ast_entitydecls_codegen.cpp
 
         ast/stmt/ast_assertstmt_node.cpp
+        ast/stmt/ast_panicstmt_node.cpp
         ast/stmt/ast_stmts.cpp
         ast/stmt/ast_stmts_codegen.cpp
 

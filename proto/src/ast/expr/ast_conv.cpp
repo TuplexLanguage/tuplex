@@ -122,12 +122,9 @@ TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType*
 
 const TxType* TxMaybeConversionNode::define_type() {
     if ( this->insertedResultType ) {
-        this->conversionExpr = make_conversion( this->originalExpr, this->insertedResultType, this->_explicit );
-        return this->conversionExpr->resolve_type();
+        this->wrappedExpr = make_conversion( this->originalExpr, this->insertedResultType, this->_explicit );
     }
-    else {
-        return this->originalExpr->resolve_type();
-    }
+    return this->wrappedExpr->resolve_type();
 }
 
 void TxMaybeConversionNode::insert_conversion( const TxType* resultType, bool _explicit ) {

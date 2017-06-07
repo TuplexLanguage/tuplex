@@ -9,6 +9,7 @@
 
 
 class TxFunctionCallNode : public TxExpressionNode {
+    bool doesNotReturn;
     const TxType* calleeType = nullptr;
     bool isSelfSuperConstructorInvocation = false;
     TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function/constructor call if non-null
@@ -30,7 +31,8 @@ public:
     std::vector<TxExpressionNode*> const * const origArgsExprList;
     std::vector<TxMaybeConversionNode*>* argsExprList;
 
-    TxFunctionCallNode( const TxLocation& parseLocation, TxExpressionNode* callee, const std::vector<TxExpressionNode*>* argsExprList );
+    TxFunctionCallNode( const TxLocation& parseLocation, TxExpressionNode* callee, const std::vector<TxExpressionNode*>* argsExprList,
+                        bool doesNotReturn = false );
 
     virtual TxFunctionCallNode* make_ast_copy() const override {
         return new TxFunctionCallNode( this->parseLocation, this->callee->make_ast_copy(), make_node_vec_copy( this->origArgsExprList ) );

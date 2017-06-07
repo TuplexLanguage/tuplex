@@ -33,8 +33,9 @@ const TxType* TxConstructorCalleeExprNode::define_type() {
 }
 
 TxFunctionCallNode::TxFunctionCallNode( const TxLocation& parseLocation, TxExpressionNode* callee,
-                                        const std::vector<TxExpressionNode*>* argsExprList )
-        : TxExpressionNode( parseLocation ), callee( callee ), origArgsExprList( argsExprList ), argsExprList( make_args_vec( argsExprList ) ) {
+                                        const std::vector<TxExpressionNode*>* argsExprList, bool doesNotReturn )
+        : TxExpressionNode( parseLocation ), doesNotReturn( doesNotReturn ), callee( callee ), origArgsExprList( argsExprList ),
+          argsExprList( make_args_vec( argsExprList ) ) {
     if ( auto fieldValueNode = dynamic_cast<TxFieldValueNode*>( this->callee ) ) {
         // handle direct constructor invocation - self() and super()
         auto identifier = fieldValueNode->get_full_identifier();

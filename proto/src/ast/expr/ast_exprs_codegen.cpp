@@ -7,15 +7,19 @@ using namespace llvm;
 
 
 static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, Value* functionPtrV, Value* closureRefV,
-                        const std::string& exprLabel ) {
+                        const std::string& exprLabel, bool doesNotReturn ) {
     std::vector<Value*> args;
     args.push_back( closureRefV );
     for ( auto argDef : *node->argsExprList ) {
         args.push_back( argDef->code_gen_expr( context, scope ) );
     }
 
-    if ( scope )
-        return scope->builder->CreateCall( functionPtrV, args, exprLabel );
+    if ( scope ) {
+        auto call = scope->builder->CreateCall( functionPtrV, args, exprLabel );
+        if ( doesNotReturn )
+            call->setDoesNotReturn();
+        return call;
+    }
     else {
         // FUTURE: support calling functions outside of code block (statically constant or instance initialization)
         LOG( context.LOGGER(), ERROR, "calling functions outside of code block not currently supported" );
@@ -23,12 +27,13 @@ static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& c
     }
 }
 
-static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, const std::string& exprLabel ) {
+static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, const std::string& exprLabel,
+                        bool doesNotReturn) {
     auto lambdaV = node->callee->code_gen_value( context, scope );
     //std::cout << "callee: " << lambdaV << std::endl;
     auto functionPtrV = gen_get_struct_member( context, scope, lambdaV, 0 );
     auto closureRefV = gen_get_struct_member( context, scope, lambdaV, 1 );
-    return gen_call( node, context, scope, functionPtrV, closureRefV, exprLabel );
+    return gen_call( node, context, scope, functionPtrV, closureRefV, exprLabel, doesNotReturn );
 }
 
 Constant* TxFunctionCallNode::code_gen_constant( LlvmGenerationContext& context ) const {
@@ -43,7 +48,7 @@ Value* TxFunctionCallNode::code_gen_value( LlvmGenerationContext& context, GenSc
     else {
         // pick field's plain name, if available, for the expression value:
         const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
-        return gen_call( this, context, scope, fieldName );
+        return gen_call( this, context, scope, fieldName, this->doesNotReturn );
     }
 }
 

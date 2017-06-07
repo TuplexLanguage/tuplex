@@ -1,4 +1,7 @@
 #include "ast_array.hpp"
+
+#include "ast/stmt/ast_stmt_node.hpp"
+
 #include "llvm_generator.hpp"
 
 using namespace llvm;
@@ -149,19 +152,11 @@ Constant* TxUnfilledArrayCompLitNode::code_gen_constant( LlvmGenerationContext& 
 
 
 
-static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope, Value* arrayPtrV, Value* subscriptV ) {
+static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope, Value* arrayPtrV, Value* subscriptV,
+                                TxStatementNode* panicNode, bool isAssignment ) {
     ASSERT( subscriptV->getType()->isIntegerTy(), "expected subscript to be an integer: " << subscriptV );
     ASSERT( arrayPtrV->getType()->isPointerTy(), "expected array-operand to be a pointer: " << arrayPtrV );
     ASSERT( arrayPtrV->getType()->getPointerElementType()->isStructTy(), "expected array-operand to be a pointer to struct: " << arrayPtrV );
-
-// semantic pass adds AST nodes performing the bounds check
-//    { // bounds check
-//        Value* lenIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-//                            ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
-//        auto lengthPtrV = GetElementPtrInst::CreateInBounds( arrayPtrV, lenIxs );
-//        auto lengthV = new LoadInst( lengthPtrV );
-//
-//    }
 
     if ( auto arrayPtrC = dyn_cast<Constant>( arrayPtrV ) ) {
         // address of global constant
@@ -173,25 +168,76 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
         }
     }
 
+    ASSERT( scope, "NULL scope in non-const array elem access");
+    if ( panicNode ) {
+        // add bounds check
+        auto parentFunc = scope->builder->GetInsertBlock()->getParent();
+        BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "if_true", parentFunc );
+        BasicBlock* nextBlock = BasicBlock::Create( context.llvmContext, "if_next", parentFunc );
+
+        Value* lenIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                            ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
+        auto lengthPtrV = scope->builder->CreateInBoundsGEP( arrayPtrV, lenIxs );
+        auto lengthV = scope->builder->CreateLoad( lengthPtrV );
+        auto condV = scope->builder->CreateICmpUGE( subscriptV, lengthV );
+        scope->builder->CreateCondBr( condV, trueBlock, nextBlock );
+
+        scope->builder->SetInsertPoint( trueBlock );
+        if ( isAssignment ) {
+            // allow writing one slot past end if capacity suffices
+            BasicBlock* okIncrBlock = BasicBlock::Create( context.llvmContext, "if_ok_incr",  parentFunc );
+            BasicBlock* okCapBlock  = BasicBlock::Create( context.llvmContext, "if_ok_cap",   parentFunc );
+            BasicBlock* panicBlock  = BasicBlock::Create( context.llvmContext, "if_else_panic", parentFunc );
+            auto condAsmtV = scope->builder->CreateICmpEQ( subscriptV, lengthV );
+            scope->builder->CreateCondBr( condAsmtV, okIncrBlock, panicBlock );
+
+            { // check capacity:
+                scope->builder->SetInsertPoint( okIncrBlock );
+                Value* capIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                                    ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) };
+                auto capPtrV = scope->builder->CreateInBoundsGEP( arrayPtrV, capIxs );
+                auto capV = scope->builder->CreateLoad( capPtrV );
+                auto condCapV = scope->builder->CreateICmpULT( subscriptV, capV );
+                scope->builder->CreateCondBr( condCapV, okCapBlock, panicBlock );
+            }
+
+            { // increment length:
+                scope->builder->SetInsertPoint( okCapBlock );
+                auto newLenV = scope->builder->CreateAdd( lengthV, ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) );
+                scope->builder->CreateStore( newLenV, lengthPtrV );
+                scope->builder->CreateBr( nextBlock );
+            }
+
+            { // panic:
+                scope->builder->SetInsertPoint( panicBlock );
+                panicNode->code_gen( context, scope );
+                scope->builder->CreateBr( nextBlock );  // terminate block, though won't be executed
+            }
+        }
+        else {
+            panicNode->code_gen( context, scope );
+            scope->builder->CreateBr( nextBlock );  // terminate block, though won't be executed
+        }
+
+        scope->builder->SetInsertPoint( nextBlock );
+    }
+
     Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                      ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
                      subscriptV };
-    if ( scope )
-        return scope->builder->CreateInBoundsGEP( arrayPtrV, ixs );
-    else
-        return GetElementPtrInst::CreateInBounds( arrayPtrV, ixs );
+    return scope->builder->CreateInBoundsGEP( arrayPtrV, ixs );
 }
 
 Value* TxElemDerefNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     return gen_elem_address( context, scope, this->array->code_gen_address( context, scope ),
-                             this->subscript->code_gen_value( context, scope ) );
+                             this->subscript->code_gen_value( context, scope ), this->panicNode, false );
 }
 
 Value* TxElemDerefNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     Value* elemPtr = gen_elem_address( context, scope, this->array->code_gen_address( context, scope ),
-                                       this->subscript->code_gen_value( context, scope ) );
+                                       this->subscript->code_gen_value( context, scope ), this->panicNode, false );
     if ( scope )
         return scope->builder->CreateLoad( elemPtr );
     else
@@ -200,6 +246,11 @@ Value* TxElemDerefNode::code_gen_value( LlvmGenerationContext& context, GenScope
 
 Constant* TxElemDerefNode::code_gen_constant( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
+
+    if (this->panicNode) {
+        std::cerr << "BOUNDS CHECK NOT YET IMPLEMENTED FOR STATICALLY CONSTANT " << this << std::endl;
+    }
+
     auto arrayC = this->array->code_gen_constant( context );
     auto subscriptC = cast<ConstantInt>( this->subscript->code_gen_constant( context ) );
     ASSERT( arrayC->getType()->isStructTy(), "Can't create constant array elem deref expression with array value that is: "
@@ -210,5 +261,6 @@ Constant* TxElemDerefNode::code_gen_constant( LlvmGenerationContext& context ) c
 
 Value* TxElemAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return gen_elem_address( context, scope, this->array->code_gen_address( context, scope ), this->subscript->code_gen_value( context, scope ) );
+    return gen_elem_address( context, scope, this->array->code_gen_address( context, scope ),
+                             this->subscript->code_gen_value( context, scope ), this->panicNode, true );
 }

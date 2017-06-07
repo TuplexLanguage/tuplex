@@ -83,6 +83,10 @@ public:
     }
 
     virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
+
+    virtual std::string get_identifier() const override {
+        return this->sourceLiteral;
+    }
 };
 
 class TxFloatingLitNode : public TxLiteralElementaryValueNode {
@@ -111,6 +115,10 @@ public:
     }
 
     virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
+
+    virtual std::string get_identifier() const override {
+        return this->literal;
+    }
 };
 
 class TxBoolLitNode : public TxLiteralElementaryValueNode {
@@ -131,6 +139,10 @@ public:
     }
 
     virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
+
+    virtual std::string get_identifier() const override {
+        return ( this->value ? "TRUE" : "FALSE" );
+    }
 };
 
 class TxCharacterLitNode : public TxLiteralElementaryValueNode {
@@ -153,6 +165,10 @@ public:
     }
 
     virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
+
+    virtual std::string get_identifier() const override {
+        return this->literal;
+    }
 };
 
 class TxCStringLitNode : public TxExpressionNode {
@@ -191,5 +207,9 @@ public:
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->cstringTypeNode->visit_ast( visitor, thisCursor, "cstrtype", context );
+    }
+
+    virtual std::string get_identifier() const override {
+        return this->literal;
     }
 };

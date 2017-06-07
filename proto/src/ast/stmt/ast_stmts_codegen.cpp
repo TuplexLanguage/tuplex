@@ -2,6 +2,7 @@
 
 #include "ast_stmts.hpp"
 #include "ast_assertstmt_node.hpp"
+#include "ast_panicstmt_node.hpp"
 #include "symbol/package.hpp"
 #include "driver.hpp"
 
@@ -83,6 +84,11 @@ void TxAssertStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope
         this->ifStmt->code_gen( context, scope );
 }
 
+void TxPanicStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    this->suite->code_gen( context, scope );
+}
+
 void TxSuiteNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     for ( auto stmt : *this->suite )
@@ -99,15 +105,15 @@ void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) c
 
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
     BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "if_true", parentFunc );
-    BasicBlock* elseBlock = BasicBlock::Create( context.llvmContext, "if_else", parentFunc );
     BasicBlock* nextBlock = nullptr;
 
     // generate condition:
     auto condVal = this->cond->code_gen_expr( context, scope );
-    scope->builder->CreateCondBr( condVal, trueBlock, elseBlock );
 
-    // generate else code:
+    // generate branch and else code:
     if ( this->elseClause ) {
+        BasicBlock* elseBlock = BasicBlock::Create( context.llvmContext, "if_else", parentFunc );
+        scope->builder->CreateCondBr( condVal, trueBlock, elseBlock );
         scope->builder->SetInsertPoint( elseBlock );
         this->elseClause->code_gen( context, scope );
 
@@ -116,8 +122,10 @@ void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) c
             scope->builder->CreateBr( nextBlock );  // branch from end of else suite to next-block
         }
     }
-    else
-        nextBlock = elseBlock;
+    else {
+        nextBlock = BasicBlock::Create( context.llvmContext, "if_next", parentFunc );
+        scope->builder->CreateCondBr( condVal, trueBlock, nextBlock );
+    }
 
     // generate true code:
     scope->builder->SetInsertPoint( trueBlock );
@@ -136,17 +144,17 @@ void TxWhileStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope 
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
     BasicBlock* condBlock = BasicBlock::Create( context.llvmContext, "while_cond", parentFunc );
     BasicBlock* loopBlock = BasicBlock::Create( context.llvmContext, "while_loop", parentFunc );
-    BasicBlock* elseBlock = BasicBlock::Create( context.llvmContext, "while_else", parentFunc );
     BasicBlock* nextBlock = nullptr;
 
     // generate condition block:
     scope->builder->CreateBr( condBlock );  // branch from end of preceding block to condition-block
     scope->builder->SetInsertPoint( condBlock );
     auto condVal = this->cond->code_gen_expr( context, scope );
-    scope->builder->CreateCondBr( condVal, loopBlock, elseBlock );
 
     // generate else code:
     if ( this->elseClause ) {
+        BasicBlock* elseBlock = BasicBlock::Create( context.llvmContext, "while_else", parentFunc );
+        scope->builder->CreateCondBr( condVal, loopBlock, elseBlock );
         scope->builder->SetInsertPoint( elseBlock );
         this->elseClause->code_gen( context, scope );
 
@@ -155,8 +163,10 @@ void TxWhileStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope 
             scope->builder->CreateBr( nextBlock );  // branch from end of else suite to next-block
         }
     }
-    else
-        nextBlock = elseBlock;
+    else {
+        nextBlock = BasicBlock::Create( context.llvmContext, "while_next", parentFunc );
+        scope->builder->CreateCondBr( condVal, loopBlock, nextBlock );
+    }
 
     // generate true code:
     CompoundStatementScope css( condBlock, nextBlock );
