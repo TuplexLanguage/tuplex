@@ -25,6 +25,22 @@ static void code_gen_field( LlvmGenerationContext& context, GenScope* scope, TxF
     context.register_llvm_value( declaration->get_unique_full_name(), fieldVal );
 }
 
+Value* TxWhileHeaderNode::code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const {
+    return this->nextCond->code_gen_expr( context, scope );
+}
+
+void TxForHeaderNode::code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const {
+    this->initStmt->code_gen( context, scope );
+}
+
+Value* TxForHeaderNode::code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const {
+    return this->nextCond->code_gen_expr( context, scope );
+}
+
+void TxForHeaderNode::code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const {
+    this->stepStmt->code_gen( context, scope );
+}
+
 void TxInClauseNode::code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const {
     code_gen_field( context, scope, this->iterField );
 }
@@ -33,9 +49,10 @@ Value* TxInClauseNode::code_gen_cond( LlvmGenerationContext& context, GenScope* 
     return this->nextCond->code_gen_expr( context, scope );
 }
 
-void TxInClauseNode::code_gen_step( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxInClauseNode::code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const {
     code_gen_field( context, scope, this->valueField );
 }
+
 
 void TxElseClauseNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
@@ -80,85 +97,44 @@ void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) c
     }
 }
 
-void TxWhileStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
-    TRACE_CODEGEN( this, context );
-
-    auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-    BasicBlock* condBlock = BasicBlock::Create( context.llvmContext, "while_cond", parentFunc );
-    BasicBlock* loopBlock = BasicBlock::Create( context.llvmContext, "while_loop", parentFunc );
-    BasicBlock* postBlock = nullptr;
-
-    // generate condition block:
-    scope->builder->CreateBr( condBlock );  // branch from end of preceding block to condition-block
-    scope->builder->SetInsertPoint( condBlock );
-    auto condVal = this->cond->code_gen_expr( context, scope );
-
-    // generate else code:
-    if ( this->elseClause ) {
-        BasicBlock* elseBlock = BasicBlock::Create( context.llvmContext, "while_else", parentFunc );
-        scope->builder->CreateCondBr( condVal, loopBlock, elseBlock );
-        scope->builder->SetInsertPoint( elseBlock );
-        this->elseClause->code_gen( context, scope );
-
-        if ( !this->ends_with_terminal_stmt() ) {
-            postBlock = BasicBlock::Create( context.llvmContext, "while_post", parentFunc );
-            scope->builder->CreateBr( postBlock );  // branch from end of else suite to next-block
-        }
-    }
-    else {
-        postBlock = BasicBlock::Create( context.llvmContext, "while_post", parentFunc );
-        scope->builder->CreateCondBr( condVal, loopBlock, postBlock );
-    }
-
-    // generate loop code:
-    CompoundStatementScope css( condBlock, postBlock );
-    scope->compStmtStack.push( &css );
-    scope->builder->SetInsertPoint( loopBlock );
-    this->body->code_gen( context, scope );
-    scope->compStmtStack.pop();
-    // note: loopBlock is may not be the "current" block anymore when reaching end of loop body
-    if ( !scope->builder->GetInsertBlock()->getTerminator() )
-        scope->builder->CreateBr( condBlock );  // branch from end of loop body to condition-block
-
-    if ( postBlock )
-        scope->builder->SetInsertPoint( postBlock );
-}
-
 void TxForStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
 
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-    BasicBlock* condBlock = BasicBlock::Create( context.llvmContext, "for_cond", parentFunc );
-    BasicBlock* loopBlock = BasicBlock::Create( context.llvmContext, "for_loop", parentFunc );
+    BasicBlock* condBlock = BasicBlock::Create( context.llvmContext, "loop_cond", parentFunc );
+    BasicBlock* loopBlock = BasicBlock::Create( context.llvmContext, "loop_body", parentFunc );
     BasicBlock* postBlock = nullptr;
 
     // generate initialization:
-    for ( auto clause : *this->inClauses ) {
+    for ( auto clause : *this->loopHeaders ) {
         clause->code_gen_init( context, scope );
     }
     scope->builder->CreateBr( condBlock );
 
     // generate condition block:
     scope->builder->SetInsertPoint( condBlock );
-    // TODO: test all the conditions
-    //for ( auto clause : *this->inClauses ) {
-    //}
-    auto condVal = this->inClauses->front()->code_gen_cond( context, scope );
+    Value* condVal = this->loopHeaders->back()->code_gen_cond( context, scope );
+    if ( this->loopHeaders->size() > 1 ) {
+        // TODO: test all the conditions
+        for ( int i = this->loopHeaders->size()-1 ; i >= 0; i-- ) {
+            condVal = scope->builder->CreateAnd( this->loopHeaders->at(i)->code_gen_cond( context, scope ), condVal );
+        }
+    }
 
     if ( this->elseClause ) {
-        BasicBlock* elseBlock = BasicBlock::Create( context.llvmContext, "for_else", parentFunc );
+        BasicBlock* elseBlock = BasicBlock::Create( context.llvmContext, "loop_else", parentFunc );
         scope->builder->CreateCondBr( condVal, loopBlock, elseBlock );
 
         // generate else code:
         scope->builder->SetInsertPoint( elseBlock );
         this->elseClause->code_gen( context, scope );
         if ( !this->ends_with_terminal_stmt() ) {
-            postBlock = BasicBlock::Create( context.llvmContext, "for_post", parentFunc );
+            postBlock = BasicBlock::Create( context.llvmContext, "loop_post", parentFunc );
             scope->builder->CreateBr( postBlock );  // branch from end of else suite to post-block
         }
     }
     else {
-        postBlock = BasicBlock::Create( context.llvmContext, "for_post", parentFunc );
+        postBlock = BasicBlock::Create( context.llvmContext, "loop_post", parentFunc );
         scope->builder->CreateCondBr( condVal, loopBlock, postBlock );
     }
 
@@ -167,13 +143,17 @@ void TxForStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) 
     scope->compStmtStack.push( &css );
     {
         scope->builder->SetInsertPoint( loopBlock );
-        for ( auto clause : *this->inClauses ) {
-            clause->code_gen_step( context, scope );
+        for ( auto clause : *this->loopHeaders ) {
+            clause->code_gen_prestep( context, scope );
         }
         this->body->code_gen( context, scope );
         // note: loopBlock is may not be the "current" block anymore when reaching end of loop body
-        if ( !scope->builder->GetInsertBlock()->getTerminator() )
+        if ( !scope->builder->GetInsertBlock()->getTerminator() ) {
+            for ( auto clause : *this->loopHeaders ) {
+                clause->code_gen_poststep( context, scope );
+            }
             scope->builder->CreateBr( condBlock );  // branch from end of loop body to cond-block
+        }
     }
     scope->compStmtStack.pop();
 

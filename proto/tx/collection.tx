@@ -9,9 +9,9 @@ public interface Collection<E> derives Sequenceable<E>
 
     public abstract capacity() -> ULong;
 
-    public abstract clear() mod;
+    public abstract clear() ~;
 
     public abstract contains( val : E ) -> Bool;
 
-    public abstract add( val : E ) -> Bool;
+    public abstract add( val : E ) ~ -> Bool;
 }

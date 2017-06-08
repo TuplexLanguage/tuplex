@@ -6,6 +6,7 @@
 #include "ast_stmts.hpp"
 #include "ast/expr/ast_expr_node.hpp"
 
+
 class TxElseClauseNode : public TxStatementNode {
 public:
     TxStatementNode* body;
@@ -39,45 +40,16 @@ public:
     }
 };
 
-class TxCondCompoundStmtNode : public TxStatementNode {
-protected:
+
+class TxIfStmtNode : public TxStatementNode {
     TxMaybeConversionNode* cond;
     TxStatementNode* body;
     TxElseClauseNode* elseClause;
 
 public:
-    TxCondCompoundStmtNode( const TxLocation& parseLocation, TxExpressionNode* cond, TxStatementNode* body,
-                            TxElseClauseNode* elseClause = nullptr )
-            : TxStatementNode( parseLocation ), cond( new TxMaybeConversionNode( cond ) ), body( body ), elseClause( elseClause ) {
-    }
-
-    virtual TxCondCompoundStmtNode* make_ast_copy() const override = 0;
-
-    virtual void symbol_resolution_pass() override {
-        this->cond->insert_conversion( this->registry().get_builtin_type( TXBT_BOOL ) );
-        this->cond->symbol_resolution_pass();
-        this->body->symbol_resolution_pass();
-        if ( this->elseClause )
-            this->elseClause->symbol_resolution_pass();
-    }
-
-    virtual bool ends_with_return_stmt() const override {
-        return ( this->body->ends_with_return_stmt() && this->elseClause && this->elseClause->ends_with_return_stmt() );
-    }
-
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->cond->visit_ast( visitor, thisCursor, "condition", context );
-        this->body->visit_ast( visitor, thisCursor, "then", context );
-        if (this->elseClause)
-            this->elseClause->visit_ast( visitor, thisCursor, "else", context );
-    }
-};
-
-class TxIfStmtNode : public TxCondCompoundStmtNode {
-public:
     TxIfStmtNode( const TxLocation& parseLocation, TxExpressionNode* cond, TxStatementNode* body,
                   TxElseClauseNode* elseClause = nullptr )
-            : TxCondCompoundStmtNode( parseLocation, cond, body, elseClause ) {
+            : TxStatementNode( parseLocation ), cond( new TxMaybeConversionNode( cond ) ), body( body ), elseClause( elseClause ) {
     }
 
     virtual TxIfStmtNode* make_ast_copy() const override {
@@ -91,36 +63,101 @@ public:
     virtual bool ends_with_terminal_stmt() const override {
         return ( this->body->ends_with_terminal_stmt() && this->elseClause && this->elseClause->ends_with_terminal_stmt() );
     }
+    virtual bool ends_with_return_stmt() const override {
+        return ( this->body->ends_with_return_stmt() && this->elseClause && this->elseClause->ends_with_return_stmt() );
+    }
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void symbol_resolution_pass() override {
+        this->cond->insert_conversion( this->registry().get_builtin_type( TXBT_BOOL ) );
+        this->cond->symbol_resolution_pass();
+        this->body->symbol_resolution_pass();
+        if ( this->elseClause )
+            this->elseClause->symbol_resolution_pass();
+    }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->cond->visit_ast( visitor, thisCursor, "condition", context );
+        this->body->visit_ast( visitor, thisCursor, "then", context );
+        if (this->elseClause)
+            this->elseClause->visit_ast( visitor, thisCursor, "else", context );
+    }
 };
 
-class TxWhileStmtNode : public TxCondCompoundStmtNode {
+
+class TxLoopHeaderNode : public TxNode {
 public:
-    TxWhileStmtNode( const TxLocation& parseLocation, TxExpressionNode* cond, TxStatementNode* body,
-                     TxElseClauseNode* elseClause = nullptr )
-            : TxCondCompoundStmtNode( parseLocation, cond, body, elseClause ) {
-    }
+    TxLoopHeaderNode( const TxLocation& parseLocation ) : TxNode( parseLocation ) { }
 
-    virtual TxWhileStmtNode* make_ast_copy() const override {
-        return new TxWhileStmtNode( this->parseLocation, this->cond->originalExpr->make_ast_copy(), this->body->make_ast_copy(),
-                                    ( this->elseClause ? this->elseClause->make_ast_copy() : nullptr ) );
-    }
+    virtual TxLoopHeaderNode* make_ast_copy() const override = 0;
 
-    virtual bool may_end_with_non_return_stmt() const override {
-        // FUTURE: handle break & continue that terminate statement outside this loop
-        return false;
-    }
-    virtual bool ends_with_terminal_stmt() const override {
-        // FUTURE: handle break & continue that terminate statement outside this loop
-        //return ( this->body->ends_with_terminal_stmt() && this->elseClause && this->elseClause->ends_with_terminal_stmt() );
-        return this->ends_with_return_stmt();
-    }
+    //virtual void symbol_resolution_pass() override = 0;
 
-    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void         code_gen_init    ( LlvmGenerationContext& context, GenScope* scope ) const = 0;
+    virtual llvm::Value* code_gen_cond    ( LlvmGenerationContext& context, GenScope* scope ) const = 0;
+    virtual void         code_gen_prestep ( LlvmGenerationContext& context, GenScope* scope ) const = 0;
+    virtual void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const = 0;
 };
 
-class TxInClauseNode : public TxNode {
+class TxWhileHeaderNode : public TxLoopHeaderNode {
+    TxExpressionNode* nextCond;
+
+public:
+    TxWhileHeaderNode( const TxLocation& parseLocation, TxExpressionNode* nextCond )
+        : TxLoopHeaderNode( parseLocation ), nextCond( nextCond )  { }
+
+    virtual TxWhileHeaderNode* make_ast_copy() const override {
+        return new TxWhileHeaderNode( this->parseLocation, this->nextCond->make_ast_copy() );
+    }
+
+    virtual void symbol_resolution_pass() override {
+        this->nextCond->symbol_resolution_pass();
+    }
+
+    void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const { }
+    llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const;
+    void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const { }
+    void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const { }
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->nextCond->visit_ast( visitor, thisCursor, "cond", context );
+    }
+};
+
+class TxForHeaderNode : public TxLoopHeaderNode {
+    TxStatementNode*  initStmt;
+    TxExpressionNode* nextCond;
+    TxStatementNode*  stepStmt;
+
+public:
+    TxForHeaderNode( const TxLocation& parseLocation, TxStatementNode* initStmt, TxExpressionNode* nextCond, TxStatementNode* stepStmt )
+        : TxLoopHeaderNode( parseLocation ), initStmt( initStmt ), nextCond( nextCond ), stepStmt( stepStmt )  { }
+
+    virtual TxForHeaderNode* make_ast_copy() const override {
+        return new TxForHeaderNode( this->parseLocation, this->initStmt->make_ast_copy(), this->nextCond->make_ast_copy(),
+                                    this->stepStmt->make_ast_copy() );
+    }
+
+    virtual void symbol_resolution_pass() override {
+        this->initStmt->symbol_resolution_pass();
+        this->nextCond->symbol_resolution_pass();
+        this->stepStmt->symbol_resolution_pass();
+    }
+
+    void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const;
+    llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const;
+    void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const { }
+    void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->initStmt->visit_ast( visitor, thisCursor, "init", context );
+        this->nextCond->visit_ast( visitor, thisCursor, "cond", context );
+        this->stepStmt->visit_ast( visitor, thisCursor, "step", context );
+    }
+};
+
+class TxInClauseNode : public TxLoopHeaderNode {
     const std::string valueName;
     const std::string iterName;
     TxExpressionNode* origSeqExpr;
@@ -155,7 +192,8 @@ public:
 
     void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const;
     llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const;
-    void         code_gen_step( LlvmGenerationContext& context, GenScope* scope ) const;
+    void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const;
+    void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const { }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->iterField->visit_ast( visitor, thisCursor, "iterator", context );
@@ -164,8 +202,9 @@ public:
     }
 };
 
+
 class TxForStmtNode : public TxStatementNode {
-    std::vector<TxInClauseNode*>* inClauses;
+    std::vector<TxLoopHeaderNode*>* loopHeaders;
     TxStatementNode* body;
     TxElseClauseNode* elseClause;
 
@@ -175,18 +214,20 @@ protected:
     }
 
 public:
-    TxForStmtNode( const TxLocation& parseLocation, std::vector<TxInClauseNode*>* inClauses, TxStatementNode* body,
+    TxForStmtNode( const TxLocation& parseLocation, std::vector<TxLoopHeaderNode*>* loopHeaders, TxStatementNode* body,
                    TxElseClauseNode* elseClause = nullptr )
-            : TxStatementNode( parseLocation ), inClauses( inClauses ), body( body ), elseClause( elseClause ) {
-    }
+            : TxStatementNode( parseLocation ), loopHeaders( loopHeaders ), body( body ), elseClause( elseClause )  { }
+
+    TxForStmtNode( const TxLocation& parseLocation, TxLoopHeaderNode* loopHeader, TxStatementNode* body, TxElseClauseNode* elseClause = nullptr )
+            : TxForStmtNode( parseLocation, new std::vector<TxLoopHeaderNode*>( { loopHeader } ), body, elseClause )  { }
 
     virtual TxForStmtNode* make_ast_copy() const override {
-        return new TxForStmtNode( this->parseLocation, make_node_vec_copy( this->inClauses ), body->make_ast_copy() );
+        return new TxForStmtNode( this->parseLocation, make_node_vec_copy( this->loopHeaders ), body->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
-        for ( auto clause : *this->inClauses )
-            clause->symbol_resolution_pass();
+        for ( auto header : *this->loopHeaders )
+            header->symbol_resolution_pass();
         this->body->symbol_resolution_pass();
         if ( this->elseClause )
             this->elseClause->symbol_resolution_pass();
@@ -209,8 +250,8 @@ public:
     }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        for ( auto clause : *this->inClauses )
-            clause->visit_ast( visitor, thisCursor, "in-clause", context );
+        for ( auto header : *this->loopHeaders )
+            header->visit_ast( visitor, thisCursor, "header", context );
         this->body->visit_ast( visitor, thisCursor, "body", context );
         if ( this->elseClause )
             this->elseClause->visit_ast( visitor, thisCursor, "else", context );

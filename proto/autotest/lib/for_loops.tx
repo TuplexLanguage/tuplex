@@ -1,12 +1,14 @@
 
 for_loops( i : UInt )->Int {
-    str := c"foobar";
+    strA := c"foobar";
+    strB := c"macintosh";
 
-    for ch, iter in str {
-        tmp := [ ch, 0 ];
+    for chA, iterA in strA,
+        chB, iterB in strB {
+        tmp := [ chA, ' ', chB, 0 ];
         tx.c.puts( &tmp[0] );
-        if ch == 'a':
-            iter.next();
+        if chA == 'b':
+            iterA.next();
     }
     return 0;
 

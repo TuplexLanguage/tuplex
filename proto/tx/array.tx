@@ -4,11 +4,11 @@ module tx
 public builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, Updatable<UInt, E>
 {
     public override empty() -> Bool {
-        return self.C == 0;
+        return self.L == 0;
     }
 
     public override count() -> ULong {
-        return self.C;
+        return self.L;
     }
 
     public override capacity() -> ULong {
@@ -28,9 +28,9 @@ public builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, U
         return FALSE;
     }
 
-    public override add( val : E ) -> Bool {
-        ## TODO
-        return FALSE;
+    public override add( val : E ) ~ -> Bool {
+        self[ self.L ] = val;
+        return TRUE;
     }
 
 
@@ -44,8 +44,7 @@ public builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, U
     }
 
     public override get( ix : UInt ) -> E {
-        ## TODO: bounds check
-        return self[ ix ];
+        return self[ ix ];  ## (bounds check is built-in)
     }
 
     public override set( ix : UInt, element : E ) ~ -> E {
@@ -76,7 +75,7 @@ public builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, U
         }
 
         public override has_next() -> Bool {
-            return self.nextIndex < self.array.C;
+            return self.nextIndex < self.array.L;
         }
     
         public override has_prev() -> Bool {
@@ -86,12 +85,14 @@ public builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, U
         public override next() ~ -> E {
             n := self.nextIndex;
             self.nextIndex = self.nextIndex + 1;
-            return self.array.get( n );
+            return self.array[ n ];
+            ##return self.array.get( n );
         }
-    
+
         public override prev() ~ -> E  {
             self.nextIndex = self.nextIndex - 1;
-            return self.array.get( self.nextIndex );
+            return self.array[ self.nextIndex ];
+            ##return self.array.get( self.nextIndex );
         }
     }
 }
