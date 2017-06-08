@@ -1,0 +1,27 @@
+
+for_loops( i : UInt )->Int {
+    str := c"foobar";
+
+    for ch, iter in str {
+        tmp := [ ch, 0 ];
+        tx.c.puts( &tmp[0] );
+        if ch == 'a':
+            iter.next();
+    }
+    return 0;
+
+/*
+    for i in 0:10 {
+    }
+
+    for i in 0:9,
+        j in 9:-1:0 {
+    }
+*/
+}
+
+
+main() -> Int {
+    n := for_loops( 0 );
+    return Int( n );
+}

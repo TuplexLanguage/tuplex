@@ -85,25 +85,39 @@ Proper mutability handling: - DONE
  - in compound expressions, e.g. mut.immut.mut.immut ...
  - mutating and non-mutating methods
 
+Array literals - DONE
 
 Make VALUE type parameters proper instance fields and ensure they're correctly initialized - IN PROGRESS
  - implement correct Array type handling
 
 Support augmenting built-in types' definitions in tuplex code - IN PROGRESS
 
-Array literals - IN PROGRESS
+Bounds checking on array element access (add implicit AST for this in TxElemDerefNode) - DONE
+
+Bounds checking on array element assignment - DONE
+
+Simple for-loops
+
+Review and test array object assignment semantics
+ - correct setting of L
+ - truncation (all elements don't fit in target) ok?
+
+Default initialization of array elements (at least if it's array of arrays)
 
 Range typeclass
 
 Sequence interfaces
 
-Simple for-loops
-
 String datatype
 
 Dynamic-length arrays tests - bounds checking, copying, etc
 
+Ensure fields are always initialized (with the default constructor if no init expr provided)
+ - Remove 'initialization' code from alloca (at least for arrays this will cause double init of C and L)
+
 Advanced for-loops
+
+Support negative array indexing from array end
 
 Implement advanced implicit constructor concept
  - Automatically generate the basic constructor (one argument for each instance member (except const with initializer))

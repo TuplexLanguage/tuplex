@@ -33,6 +33,7 @@
 #include "ast/expr/ast_lambda_node.hpp"
 #include "ast/expr/ast_lit.hpp"
 #include "ast/type/ast_types.hpp"
+#include "ast/stmt/ast_for.hpp"
 #include "ast/stmt/ast_assertstmt_node.hpp"
 
 struct TxModuleMembers {
@@ -181,6 +182,9 @@ YY_DECL;
 %type <TxStatementNode*> experr_stmt
 %type <TxAssigneeNode*> assignee_expr
 
+%type <TxForStmtNode*> for_stmt
+%type <TxInClauseNode*> in_clause
+%type <std::vector<TxInClauseNode*> *> in_clause_list
 
 /* Operator precedence for expression operators (higher line no = higher precedence) */
 %precedence STMT /* used to specify statement / member rule precedence, to be lower than e.g. separator  */
@@ -629,6 +633,7 @@ statement
 
 single_statement
     :   cond_stmt                  %prec STMT    { $$ = $1; }
+    |   for_stmt                   %prec STMT    { $$ = $1; }
     |   simple_stmt                %prec STMT    { $$ = $1; }
     ;
 
@@ -656,6 +661,22 @@ cond_else_stmt   : KW_IF    cond_expr COLON simple_stmt else_clause  %prec KW_EL
 cond_expr        : expr %prec STMT    { $$ = $1; } ;
 
 else_clause      : KW_ELSE statement  { $$ = new TxElseClauseNode(@1, $2); } ;
+
+
+for_stmt         : KW_FOR in_clause_list COLON single_statement   { $$ = new TxForStmtNode(@1, $2, $4); }
+                 | KW_FOR in_clause_list suite                    { $$ = new TxForStmtNode(@1, $2, $3); }
+                 // TODO: else clauses
+                 ;
+
+in_clause_list   : in_clause                        { $$ = new std::vector<TxInClauseNode*>( { $1 } ); }
+                      //  $$->push_back($1); }
+                 | in_clause_list COMMA in_clause   { $$ = $1; $$->push_back($3); }
+                 | error                            { $$ = new std::vector<TxInClauseNode*>(); }
+                 ;
+
+in_clause        : NAME KW_IN expr             { $$ = new TxInClauseNode( @$, $1, $3 ); }
+                 | NAME COMMA NAME KW_IN expr  { $$ = new TxInClauseNode( @$, $1, $3, $5 ); }
+                 ;
 
 
 experr_stmt : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(-1)); }

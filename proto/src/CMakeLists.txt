@@ -115,7 +115,9 @@ add_executable(txc
         ast/stmt/ast_assertstmt_node.cpp
         ast/stmt/ast_panicstmt_node.cpp
         ast/stmt/ast_stmts.cpp
+        ast/stmt/ast_for.cpp
         ast/stmt/ast_stmts_codegen.cpp
+        ast/stmt/ast_for_codegen.cpp
 
         ast/type/ast_typeexpr_node.cpp
         ast/type/ast_types.cpp
