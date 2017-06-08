@@ -8,31 +8,6 @@
 
 using namespace llvm;
 
-///** Create an alloca instruction in the entry block of the current function.
-// * This is used for variables encountered throughout the function that shall be viable for mem2reg.
-// */
-//static AllocaInst *create_entry_block_alloca(GenScope* scope, Type* varType, const std::string &varName) {
-//    auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-//    IRBuilder<> tmpB(&parentFunc->getEntryBlock(), parentFunc->getEntryBlock().begin());
-//    return tmpB.CreateAlloca(varType, 0, varName);
-//}
-
-///** Create an alloca instruction in the appropriate block of the current function.
-// * This is used for variables encountered throughout the function.
-// */
-//static AllocaInst *create_alloca(GenScope* scope, Type* varType, const std::string &varName) {
-//    return scope->builder->CreateAlloca(varType, 0, varName);
-//}
-
-/** @param lval must be of pointer type */
-// Note, also used by Lambda expr
-void do_store( LlvmGenerationContext& context, GenScope* scope, Value* lval, Value* rval ) {
-    if ( rval->getType()->isPointerTy() && lval->getType()->getPointerElementType() == rval->getType()->getPointerElementType() ) {
-        rval = scope->builder->CreateLoad( rval );
-    }
-    scope->builder->CreateStore( rval, lval );
-}
-
 
 void TxFieldStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
@@ -55,7 +30,7 @@ void TxFieldStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope 
             fieldVal = txType->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
             // create implicit assignment statement
             if ( Value* initializer = this->field->initExpression->code_gen_expr( context, scope ) )
-                do_store( context, scope, fieldVal, initializer );
+                scope->builder->CreateStore( initializer, fieldVal );
         }
     }
     else {
@@ -75,7 +50,7 @@ void TxAssignStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope
     auto rval = this->rvalue->code_gen_expr( context, scope );
     auto lval = this->lvalue->code_gen_address( context, scope );
     ASSERT ( lval->getType()->isPointerTy(), "At " << this->parse_loc_string() << ": L-value is not of pointer type:\n" << ::to_string(lval) );
-    do_store( context, scope, lval, rval );
+    scope->builder->CreateStore( rval, lval );
 }
 
 void TxAssertStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -93,93 +68,6 @@ void TxSuiteNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) co
     TRACE_CODEGEN( this, context );
     for ( auto stmt : *this->suite )
         stmt->code_gen( context, scope );
-}
-
-void TxElseClauseNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
-    TRACE_CODEGEN( this, context );
-    return this->body->code_gen( context, scope );
-}
-
-void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
-    TRACE_CODEGEN( this, context );
-
-    auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-    BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "if_true", parentFunc );
-    BasicBlock* nextBlock = nullptr;
-
-    // generate condition:
-    auto condVal = this->cond->code_gen_expr( context, scope );
-
-    // generate branch and else code:
-    if ( this->elseClause ) {
-        BasicBlock* elseBlock = BasicBlock::Create( context.llvmContext, "if_else", parentFunc );
-        scope->builder->CreateCondBr( condVal, trueBlock, elseBlock );
-        scope->builder->SetInsertPoint( elseBlock );
-        this->elseClause->code_gen( context, scope );
-
-        if ( !this->elseClause->ends_with_terminal_stmt() ) {
-            nextBlock = BasicBlock::Create( context.llvmContext, "if_next", parentFunc );
-            scope->builder->CreateBr( nextBlock );  // branch from end of else suite to next-block
-        }
-    }
-    else {
-        nextBlock = BasicBlock::Create( context.llvmContext, "if_next", parentFunc );
-        scope->builder->CreateCondBr( condVal, trueBlock, nextBlock );
-    }
-
-    // generate true code:
-    scope->builder->SetInsertPoint( trueBlock );
-    this->body->code_gen( context, scope );
-    if ( nextBlock ) {
-        // note: trueBlock may not be the "current" block anymore when reaching end of body
-        if ( !scope->builder->GetInsertBlock()->getTerminator() )
-            scope->builder->CreateBr( nextBlock );  // branch from end of true block to next-block
-        scope->builder->SetInsertPoint( nextBlock );
-    }
-}
-
-void TxWhileStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
-    TRACE_CODEGEN( this, context );
-
-    auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-    BasicBlock* condBlock = BasicBlock::Create( context.llvmContext, "while_cond", parentFunc );
-    BasicBlock* loopBlock = BasicBlock::Create( context.llvmContext, "while_loop", parentFunc );
-    BasicBlock* nextBlock = nullptr;
-
-    // generate condition block:
-    scope->builder->CreateBr( condBlock );  // branch from end of preceding block to condition-block
-    scope->builder->SetInsertPoint( condBlock );
-    auto condVal = this->cond->code_gen_expr( context, scope );
-
-    // generate else code:
-    if ( this->elseClause ) {
-        BasicBlock* elseBlock = BasicBlock::Create( context.llvmContext, "while_else", parentFunc );
-        scope->builder->CreateCondBr( condVal, loopBlock, elseBlock );
-        scope->builder->SetInsertPoint( elseBlock );
-        this->elseClause->code_gen( context, scope );
-
-        if ( !this->ends_with_terminal_stmt() ) {
-            nextBlock = BasicBlock::Create( context.llvmContext, "while_next", parentFunc );
-            scope->builder->CreateBr( nextBlock );  // branch from end of else suite to next-block
-        }
-    }
-    else {
-        nextBlock = BasicBlock::Create( context.llvmContext, "while_next", parentFunc );
-        scope->builder->CreateCondBr( condVal, loopBlock, nextBlock );
-    }
-
-    // generate true code:
-    CompoundStatementScope css( condBlock, nextBlock );
-    scope->compStmtStack.push( &css );
-    scope->builder->SetInsertPoint( loopBlock );
-    this->body->code_gen( context, scope );
-    scope->compStmtStack.pop();
-    // note: loopBlock is may not be the "current" block anymore when reaching end of loop body
-    if ( !scope->builder->GetInsertBlock()->getTerminator() )
-        scope->builder->CreateBr( condBlock );  // branch from end of loop body to condition-block
-
-    if ( nextBlock )
-        scope->builder->SetInsertPoint( nextBlock );
 }
 
 void TxCallStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {

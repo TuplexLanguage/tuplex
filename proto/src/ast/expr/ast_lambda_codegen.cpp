@@ -4,14 +4,12 @@
 
 using namespace llvm;
 
-// defined in ast_stmts_codegen.cpp  TODO: review
-extern void do_store( LlvmGenerationContext& context, GenScope* scope, Value* lval, Value* rval );
 
 static Value* gen_local_field( LlvmGenerationContext& context, GenScope* scope, const TxField* field, Value* fieldV ) {
     fieldV->setName( field->get_unique_name() );
     const TxType* txType = field->get_type();
     auto fieldA = txType->type()->gen_alloca( context, scope, field->get_unique_name() + "_" );
-    do_store( context, scope, fieldA, fieldV );
+    scope->builder->CreateStore( fieldV, fieldA );
     context.register_llvm_value( field->get_declaration()->get_unique_full_name(), fieldA );
     return fieldA;
 }

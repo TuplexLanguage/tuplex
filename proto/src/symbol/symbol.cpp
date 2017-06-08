@@ -43,13 +43,9 @@ std::string TxScopeSymbol::make_unique_name( const std::string& baseName, bool s
 }
 
 TxScopeSymbol* TxScopeSymbol::create_code_block_scope( const TxParseOrigin& origin, const std::string& plainName ) {
-    std::string baseName = plainName + '$';
-    std::string uniqueName = this->make_unique_name( baseName );
+    std::string uniqueName = this->make_unique_name( plainName + '$' );
     TxScopeSymbol* scope = new TxScopeSymbol( this, uniqueName );
-    //scope->inExpErrBlock |= isExpErrBlock;
     bool success = this->declare_symbol( origin, scope );
-    ASSERT( success, "failed to insert duplicate subscope name '" << baseName << "." << uniqueName << "'" );
-    (void) success;   // suppresses unused variable warning in release mode
     //LOG_TRACE(this->LOGGER(), "-->            " << scope->get_full_name() );
     return scope;
 }

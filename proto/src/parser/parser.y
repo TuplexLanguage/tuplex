@@ -33,7 +33,7 @@
 #include "ast/expr/ast_lambda_node.hpp"
 #include "ast/expr/ast_lit.hpp"
 #include "ast/type/ast_types.hpp"
-#include "ast/stmt/ast_for.hpp"
+#include "ast/stmt/ast_flow.hpp"
 #include "ast/stmt/ast_assertstmt_node.hpp"
 
 struct TxModuleMembers {
@@ -177,14 +177,13 @@ YY_DECL;
 %type <std::vector<TxStatementNode*> *> statement_list
 %type <TxSuiteNode*> suite
 %type <TxStatementNode*> statement single_statement assignment_stmt return_stmt break_stmt continue_stmt assert_stmt type_decl_stmt
-%type <TxStatementNode*> cond_stmt simple_stmt elementary_stmt cond_else_stmt
+%type <TxStatementNode*> flow_stmt simple_stmt elementary_stmt flow_else_stmt
 %type <TxElseClauseNode*> else_clause
+%type <TxInClauseNode*> in_clause
+%type <std::vector<TxInClauseNode*> *> in_clause_list
 %type <TxStatementNode*> experr_stmt
 %type <TxAssigneeNode*> assignee_expr
 
-%type <TxForStmtNode*> for_stmt
-%type <TxInClauseNode*> in_clause
-%type <std::vector<TxInClauseNode*> *> in_clause_list
 
 /* Operator precedence for expression operators (higher line no = higher precedence) */
 %precedence STMT /* used to specify statement / member rule precedence, to be lower than e.g. separator  */
@@ -625,48 +624,64 @@ statement_list : statement  { $$ = new std::vector<TxStatementNode*>();
 // statement is a syntactically terminated program statement, either with a separator token,
 // or in the case of a suite with a }.
 // Conditional statements can be seen as statements prefixed with a condition clause
-// (which in itself is not "terminated").
+// (which in itself is not syntactically terminated).
 statement
     :   single_statement                         { $$ = $1; }
     |   suite                                    { $$ = $1; }
     ;
 
 single_statement
-    :   cond_stmt                  %prec STMT    { $$ = $1; }
-    |   for_stmt                   %prec STMT    { $$ = $1; }
+    :   flow_stmt                  %prec STMT    { $$ = $1; }
     |   simple_stmt                %prec STMT    { $$ = $1; }
     ;
 
 simple_stmt
     :   type_decl_stmt             %prec STMT    { $$ = $1; }
     |   elementary_stmt SEMICOLON  %prec STMT    { $$ = $1; }
-    |   cond_else_stmt             %prec KW_ELSE { $$ = $1; }
+    |   flow_else_stmt             %prec KW_ELSE { $$ = $1; }
     |   experr_stmt                %prec STMT    { $$ = $1; }
     |   error SEMICOLON            %prec STMT    { $$ = new TxNoOpStmtNode(@1); TX_SYNTAX_ERROR; }
     ;
 
+elementary_stmt
+    :   field_def       { $$ = new TxFieldStmtNode(@1, $1); }
+    |   call_expr       { $$ = new TxCallStmtNode(@1, $1); } // function call without return value assignment
+    |   assignment_stmt { $$ = $1; }
+    |   return_stmt     { $$ = $1; }
+    |   break_stmt      { $$ = $1; }
+    |   continue_stmt   { $$ = $1; }
+    |   assert_stmt     { $$ = $1; }
+    ;
 
-cond_stmt        : KW_IF    cond_expr COLON single_statement  %prec STMT  { $$ = new TxIfStmtNode   (@1, $2, $4); }
-                 | KW_IF    cond_expr suite                   %prec STMT  { $$ = new TxIfStmtNode   (@1, $2, $3); }
-                 | KW_WHILE cond_expr COLON single_statement  %prec STMT  { $$ = new TxWhileStmtNode(@1, $2, $4); }
-                 | KW_WHILE cond_expr suite                   %prec STMT  { $$ = new TxWhileStmtNode(@1, $2, $3); }
+
+experr_stmt : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(-1)); }
+              statement                    { $$ = new TxExpErrStmtNode(@1, END_TXEXPERR(@4), static_cast<TxStatementNode*>($4)); }
+            | KW_EXPERR LIT_DEC_INT COLON  { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(std::stoi($2))); }
+              statement                    { $$ = new TxExpErrStmtNode(@1, END_TXEXPERR(@5), $5); }
+            ;
+
+
+flow_stmt        : KW_IF    cond_expr      COLON single_statement  %prec STMT  { $$ = new TxIfStmtNode   (@1, $2, $4); }
+                 | KW_IF    cond_expr      suite                   %prec STMT  { $$ = new TxIfStmtNode   (@1, $2, $3); }
+                 | KW_WHILE cond_expr      COLON single_statement  %prec STMT  { $$ = new TxWhileStmtNode(@1, $2, $4); }
+                 | KW_WHILE cond_expr      suite                   %prec STMT  { $$ = new TxWhileStmtNode(@1, $2, $3); }
+                 | KW_FOR   in_clause_list COLON single_statement  %prec STMT  { $$ = new TxForStmtNode  (@1, $2, $4); }
+                 | KW_FOR   in_clause_list suite                   %prec STMT  { $$ = new TxForStmtNode  (@1, $2, $3); }
+//                 | KW_FOR field_assignment_def SEMICOLON expr SEMICOLON assignment_stmt suite  { $$ = NULL; }
                  ;
 
-cond_else_stmt   : KW_IF    cond_expr COLON simple_stmt else_clause  %prec KW_ELSE  { $$ = new TxIfStmtNode   (@1, $2, $4, $5); }
-                 | KW_IF    cond_expr suite             else_clause  %prec KW_ELSE  { $$ = new TxIfStmtNode   (@1, $2, $3, $4); }
-                 | KW_WHILE cond_expr COLON simple_stmt else_clause  %prec KW_ELSE  { $$ = new TxWhileStmtNode(@1, $2, $4, $5); }
-                 | KW_WHILE cond_expr suite             else_clause  %prec KW_ELSE  { $$ = new TxWhileStmtNode(@1, $2, $3, $4); }
+flow_else_stmt   : KW_IF    cond_expr      COLON simple_stmt else_clause  { $$ = new TxIfStmtNode   (@1, $2, $4, $5); }
+                 | KW_IF    cond_expr      suite             else_clause  { $$ = new TxIfStmtNode   (@1, $2, $3, $4); }
+                 | KW_WHILE cond_expr      COLON simple_stmt else_clause  { $$ = new TxWhileStmtNode(@1, $2, $4, $5); }
+                 | KW_WHILE cond_expr      suite             else_clause  { $$ = new TxWhileStmtNode(@1, $2, $3, $4); }
+                 | KW_FOR   in_clause_list COLON simple_stmt else_clause  { $$ = new TxForStmtNode  (@1, $2, $4, $5); }
+                 | KW_FOR   in_clause_list suite             else_clause  { $$ = new TxForStmtNode  (@1, $2, $3, $4); }
                  ;
 
 cond_expr        : expr %prec STMT    { $$ = $1; } ;
 
 else_clause      : KW_ELSE statement  { $$ = new TxElseClauseNode(@1, $2); } ;
 
-
-for_stmt         : KW_FOR in_clause_list COLON single_statement   { $$ = new TxForStmtNode(@1, $2, $4); }
-                 | KW_FOR in_clause_list suite                    { $$ = new TxForStmtNode(@1, $2, $3); }
-                 // TODO: else clauses
-                 ;
 
 in_clause_list   : in_clause                        { $$ = new std::vector<TxInClauseNode*>( { $1 } ); }
                       //  $$->push_back($1); }
@@ -678,22 +693,6 @@ in_clause        : NAME KW_IN expr             { $$ = new TxInClauseNode( @$, $1
                  | NAME COMMA NAME KW_IN expr  { $$ = new TxInClauseNode( @$, $1, $3, $5 ); }
                  ;
 
-
-experr_stmt : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(-1)); }
-              statement                    { $$ = new TxExpErrStmtNode(@1, END_TXEXPERR(@4), static_cast<TxStatementNode*>($4)); }
-            | KW_EXPERR LIT_DEC_INT COLON  { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(std::stoi($2))); }
-              statement                    { $$ = new TxExpErrStmtNode(@1, END_TXEXPERR(@5), $5); }
-            ;
-
-elementary_stmt
-    :   field_def       { $$ = new TxFieldStmtNode(@1, $1); }
-    |   call_expr       { $$ = new TxCallStmtNode(@1, $1); } // function call without return value assignment
-    |   assignment_stmt { $$ = $1; }
-    |   return_stmt     { $$ = $1; }
-    |   break_stmt      { $$ = $1; }
-    |   continue_stmt   { $$ = $1; }
-    |   assert_stmt     { $$ = $1; }
-    ;
 
 // TODO: support declaration flags abstract, final, and maybe static
 type_decl_stmt  : type_or_if opt_modifiable NAME type_derivation

@@ -3,7 +3,7 @@
 #include "ast/expr/ast_ref.hpp"
 #include "ast/expr/ast_lit.hpp"
 #include "ast/expr/ast_op_exprs.hpp"
-#include "ast/stmt/ast_stmts.hpp"
+#include "ast_flow.hpp"
 
 
 TxAssertStmtNode::TxAssertStmtNode( const TxLocation& parseLocation, TxExpressionNode* expr )
