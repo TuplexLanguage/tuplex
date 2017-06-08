@@ -34,7 +34,7 @@ void TxForHeaderNode::code_gen_init( LlvmGenerationContext& context, GenScope* s
 }
 
 Value* TxForHeaderNode::code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const {
-    return this->nextCond->code_gen_expr( context, scope );
+    return this->nextCond->expr->code_gen_expr( context, scope );
 }
 
 void TxForHeaderNode::code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const {

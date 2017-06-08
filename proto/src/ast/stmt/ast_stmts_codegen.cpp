@@ -70,9 +70,9 @@ void TxSuiteNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) co
         stmt->code_gen( context, scope );
 }
 
-void TxCallStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxExprStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    this->call->code_gen_expr( context, scope );
+    this->expr->code_gen_expr( context, scope );
 }
 
 void TxReturnStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {

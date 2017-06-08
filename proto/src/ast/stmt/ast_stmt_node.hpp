@@ -11,6 +11,7 @@ protected:
     TxStatementNode* predecessor = nullptr;
     friend class TxSuiteNode;
     friend class TxForStmtNode;
+    friend class TxForHeaderNode;
 
     /** called by TxExpErrStmtNode on it's child statement */
     virtual void set_exp_error_stmt() { }

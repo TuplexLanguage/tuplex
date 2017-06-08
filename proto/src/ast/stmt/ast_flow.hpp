@@ -129,16 +129,20 @@ public:
 };
 
 class TxForHeaderNode : public TxLoopHeaderNode {
-    TxStatementNode*  initStmt;
-    TxExpressionNode* nextCond;
-    TxStatementNode*  stepStmt;
+    TxStatementNode* initStmt;
+    TxExprStmtNode*  nextCond;
+    TxStatementNode* stepStmt;
 
 public:
     TxForHeaderNode( const TxLocation& parseLocation, TxStatementNode* initStmt, TxExpressionNode* nextCond, TxStatementNode* stepStmt )
-        : TxLoopHeaderNode( parseLocation ), initStmt( initStmt ), nextCond( nextCond ), stepStmt( stepStmt )  { }
+        : TxLoopHeaderNode( parseLocation ), initStmt( initStmt ),
+          nextCond( new TxExprStmtNode( nextCond ) ), stepStmt( stepStmt ) {
+        this->nextCond->predecessor = this->initStmt;
+        this->stepStmt->predecessor = this->nextCond;
+    }
 
     virtual TxForHeaderNode* make_ast_copy() const override {
-        return new TxForHeaderNode( this->parseLocation, this->initStmt->make_ast_copy(), this->nextCond->make_ast_copy(),
+        return new TxForHeaderNode( this->parseLocation, this->initStmt->make_ast_copy(), this->nextCond->expr->make_ast_copy(),
                                     this->stepStmt->make_ast_copy() );
     }
 

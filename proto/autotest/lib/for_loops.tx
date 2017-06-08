@@ -11,8 +11,8 @@ for_loops( var : UInt )->Int {
             iterA.next();
     }
 
-    for ix := 0; ix < strA.L; ix = ix + 1 {
-        tmp := [ staA[ix], ' ', strB[ix], 0 ];
+    for ~ix := 0; ix < strA.L; ix = ix + 1 {
+        tmp := [ strA[ix], ' ', strB[ix], 0 ];
         tx.c.puts( &tmp[0] );
     }
 

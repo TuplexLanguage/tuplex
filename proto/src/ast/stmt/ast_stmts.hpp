@@ -85,27 +85,37 @@ public:
     }
 };
 
-class TxCallStmtNode : public TxStatementNode {  // function call without assigning return value (if any)
+/** A statement that executes an expression (without retaining its result value, if any). */
+class TxExprStmtNode : public TxStatementNode {
 public:
-    TxFunctionCallNode* call;
+    TxExpressionNode* expr;
 
-    TxCallStmtNode( const TxLocation& parseLocation, TxFunctionCallNode* call )
-            : TxStatementNode( parseLocation ), call( call ) {
-    }
+    TxExprStmtNode( const TxLocation& parseLocation, TxExpressionNode* expr ) : TxStatementNode( parseLocation ), expr( expr )  { }
 
-    virtual TxCallStmtNode* make_ast_copy() const override {
-        return new TxCallStmtNode( this->parseLocation, this->call->make_ast_copy() );
+    TxExprStmtNode( TxExpressionNode* expr ) : TxExprStmtNode( expr->parseLocation, expr )  { }
+
+    virtual TxExprStmtNode* make_ast_copy() const override {
+        return new TxExprStmtNode( this->parseLocation, this->expr->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
-        //( (TxExpressionNode*) this->call )->symbol_resolution_pass();
-        this->call->symbol_resolution_pass();
+        this->expr->symbol_resolution_pass();
     }
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->call->visit_ast( visitor, thisCursor, "call", context );
+        this->expr->visit_ast( visitor, thisCursor, "expr", context );
+    }
+};
+
+/* Executes a function call without assigning its return value, if any. */
+class TxCallStmtNode : public TxExprStmtNode {
+public:
+    TxCallStmtNode( const TxLocation& parseLocation, TxFunctionCallNode* call ) : TxExprStmtNode( parseLocation, call )  { }
+
+    virtual TxCallStmtNode* make_ast_copy() const override {
+        return new TxCallStmtNode( this->parseLocation, static_cast<TxFunctionCallNode*>( this->expr )->make_ast_copy() );
     }
 };
 
