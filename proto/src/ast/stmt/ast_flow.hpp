@@ -92,7 +92,10 @@ public:
 
     virtual TxLoopHeaderNode* make_ast_copy() const override = 0;
 
-    //virtual void symbol_resolution_pass() override = 0;
+    /** Returns the sub-scope-defining statement of this loop header, or null if none. */
+    virtual TxStatementNode* get_stmt_predecessor() const {
+        return nullptr;
+    }
 
     virtual void         code_gen_init    ( LlvmGenerationContext& context, GenScope* scope ) const = 0;
     virtual llvm::Value* code_gen_cond    ( LlvmGenerationContext& context, GenScope* scope ) const = 0;
@@ -137,6 +140,10 @@ public:
     virtual TxForHeaderNode* make_ast_copy() const override {
         return new TxForHeaderNode( this->parseLocation, this->initStmt->make_ast_copy(), this->nextCond->make_ast_copy(),
                                     this->stepStmt->make_ast_copy() );
+    }
+
+    virtual TxStatementNode* get_stmt_predecessor() const override {
+        return this->initStmt;
     }
 
     virtual void symbol_resolution_pass() override {
@@ -216,7 +223,11 @@ protected:
 public:
     TxForStmtNode( const TxLocation& parseLocation, std::vector<TxLoopHeaderNode*>* loopHeaders, TxStatementNode* body,
                    TxElseClauseNode* elseClause = nullptr )
-            : TxStatementNode( parseLocation ), loopHeaders( loopHeaders ), body( body ), elseClause( elseClause )  { }
+            : TxStatementNode( parseLocation ), loopHeaders( loopHeaders ), body( body ), elseClause( elseClause )  {
+        this->body->predecessor = this->loopHeaders->back()->get_stmt_predecessor();
+        if ( this->elseClause )
+            this->elseClause->predecessor = this->body->predecessor;
+    }
 
     TxForStmtNode( const TxLocation& parseLocation, TxLoopHeaderNode* loopHeader, TxStatementNode* body, TxElseClauseNode* elseClause = nullptr )
             : TxForStmtNode( parseLocation, new std::vector<TxLoopHeaderNode*>( { loopHeader } ), body, elseClause )  { }

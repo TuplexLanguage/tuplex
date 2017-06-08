@@ -1,5 +1,5 @@
 
-for_loops( i : UInt )->Int {
+for_loops( var : UInt )->Int {
     strA := c"foobar";
     strB := c"macintosh";
 
@@ -10,6 +10,12 @@ for_loops( i : UInt )->Int {
         if chA == 'b':
             iterA.next();
     }
+
+    for ix := 0; ix < strA.L; ix = ix + 1 {
+        tmp := [ staA[ix], ' ', strB[ix], 0 ];
+        tx.c.puts( &tmp[0] );
+    }
+
     return 0;
 
 /*
@@ -24,6 +30,12 @@ for_loops( i : UInt )->Int {
 
 
 main() -> Int {
+    {
+        A := 1;
+    }
+    {
+        A := 2;
+    }
     n := for_loops( 0 );
     return Int( n );
 }

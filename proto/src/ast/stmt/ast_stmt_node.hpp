@@ -3,11 +3,15 @@
 #include "ast/ast_node.hpp"
 
 class TxStatementNode : public TxNode {
-    /** The predecessor that defines the scope of this statement. Injected by TxSuiteNode. */
-    TxStatementNode* predecessor = nullptr;
-    friend class TxSuiteNode;
+    TxScopeSymbol* successorScope = nullptr;
+    friend class TxFieldStmtNode;
 
 protected:
+    /** The predecessor that defines the scope of this statement. */
+    TxStatementNode* predecessor = nullptr;
+    friend class TxSuiteNode;
+    friend class TxForStmtNode;
+
     /** called by TxExpErrStmtNode on it's child statement */
     virtual void set_exp_error_stmt() { }
     friend class TxExpErrStmtNode;
@@ -17,6 +21,7 @@ protected:
             // place statement in the effective sub-scope of its predecessor
             this->lexContext._scope = this->predecessor->get_stmt_successor_scope();
         }
+        this->successorScope = this->context().scope();
         this->stmt_declaration_pass();
     }
 
@@ -24,8 +29,8 @@ protected:
     virtual void stmt_declaration_pass() { }
 
     /** Returns the effective sub-scope for statements succeeding this one. */
-    virtual TxScopeSymbol* get_stmt_successor_scope() const {
-        return this->context().scope();  // default behavior
+    inline TxScopeSymbol* get_stmt_successor_scope() const {
+        return successorScope;
     }
 
 public:

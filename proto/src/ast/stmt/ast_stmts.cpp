@@ -6,7 +6,7 @@
 
 void TxSuiteNode::stmt_declaration_pass() {
     if (! dynamic_cast<const TxLambdaExprNode*>(this->parent()))
-        this->lexContext._scope = lexContext.scope()->create_code_block_scope( *this );
+        this->lexContext._scope = lexContext.scope()->create_code_block_scope( *this, "s" );
 }
 
 void TxAssignStmtNode::symbol_resolution_pass() {

@@ -9,8 +9,6 @@
 
 /** Local field declaration */
 class TxFieldStmtNode : public TxStatementNode {
-    /** the effective sub-scope for statements succeeding this one */
-    TxScopeSymbol* blockScope = nullptr;
     TxDeclarationFlags declFlags = TXD_NONE;
 
 protected:
@@ -19,13 +17,9 @@ protected:
     }
 
     virtual void stmt_declaration_pass() override {
-        this->blockScope = lexContext.scope()->create_code_block_scope( *this );
-        this->field->declare_field( this->blockScope, this->declFlags, TXS_STACK );
+        this->successorScope = lexContext.scope()->create_code_block_scope( *this );
+        this->field->declare_field( this->successorScope, this->declFlags, TXS_STACK );
         // (to prevent init expr from referencing this field, it is processed in the 'outer' scope, not in the new block scope)
-    }
-
-    virtual TxScopeSymbol* get_stmt_successor_scope() const override {
-        return this->blockScope;
     }
 
 public:

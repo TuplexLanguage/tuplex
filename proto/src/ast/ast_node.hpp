@@ -138,10 +138,7 @@ public:
      * @parentNode the parent of node; must not be null */
     inline void node_declaration_pass( const TxNode* parentNode ) {
         ASSERT( parentNode, "NULL parentNode" );
-        if (this->is_context_set()) {
-            LOG( this->LOGGER(), ERROR, "Context already set, skipping decl pass for node " << this << " (parent: " << this->parent() << ")" );
-            return;
-        }
+        ASSERT( !this->is_context_set(), "Context already set, skipping decl pass for node " << this << " (parent: " << this->parent() << ")" );
         this->set_context( parentNode );
         this->declaration_pass();
     }
