@@ -180,7 +180,7 @@ protected:
     virtual void declaration_pass() override {
         //auto declScope = this->context().scope()->create_code_block_scope( *this );
         auto declScope = this->context().scope();
-        this->iterField->declare_field( declScope, TXD_NONE, TXS_STACK );
+        this->iterField->declare_field( declScope, ( this->iterName[0]=='$' ? TXD_IMPLICIT : TXD_NONE ), TXS_STACK );
         this->valueField->declare_field( declScope, TXD_NONE, TXS_STACK );
         // TODO: check: (to prevent init expr from referencing this field, it is processed in the 'outer' scope, not in the new block scope)
     }
@@ -221,7 +221,7 @@ class TxForStmtNode : public TxStatementNode {
 
 protected:
     virtual void stmt_declaration_pass() override {
-        this->lexContext._scope = this->context().scope()->create_code_block_scope( *this, "for" );
+        this->lexContext._scope = this->context().scope()->create_code_block_scope( *this, "lp" );
     }
 
 public:

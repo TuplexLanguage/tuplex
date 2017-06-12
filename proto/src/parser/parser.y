@@ -32,6 +32,7 @@
 #include "ast/expr/ast_field.hpp"
 #include "ast/expr/ast_lambda_node.hpp"
 #include "ast/expr/ast_lit.hpp"
+#include "ast/expr/ast_range.hpp"
 #include "ast/type/ast_types.hpp"
 #include "ast/stmt/ast_flow.hpp"
 #include "ast/stmt/ast_assertstmt_node.hpp"
@@ -112,7 +113,7 @@ YY_DECL;
 /* operators: */
 %token END 0  // end of scan
 %token NL SEMICOLON // statement separator
-%token DOT COLON COMMA ELLIPSIS ASTERISK PLUS MINUS FSLASH BSLASH AAND
+%token DOT COLON COMMA DOTDOT ELLIPSIS ASTERISK PLUS MINUS FSLASH BSLASH AAND
 %token PIPE CARET TILDE AT PERCENT DOLLAR EURO LPAREN RPAREN LBRACE
 %token RBRACE LBRACKET RBRACKET QMARK EMARK DASHGT
 %token EQUAL EEQUAL NEQUAL EEEQUAL NEEQUAL LT GT LEQUAL GEQUAL
@@ -204,6 +205,7 @@ YY_DECL;
 %precedence ADDR  /* unary prefix address-of */
 %precedence CARET /* unary postfix de-reference */
 %precedence LBRACKET RBRACKET
+%right DOTDOT
 %right DOT
 %precedence ARRAY_LIT
 %right KW_MODULE KW_IMPORT  /* high token shift precedence */
@@ -543,6 +545,9 @@ expr
     |   expr LBRACKET expr RBRACKET  { $$ = new TxElemDerefNode(@2, $1, $3); }
     |   expr CARET                   { $$ = new TxReferenceDerefNode(@2, $1); }
     |   AAND expr   %prec ADDR       { $$ = new TxReferenceToNode(@1, $2); }
+
+    |   expr DOTDOT expr             { $$ = new TxERangeLitNode(@$, $1, $3); }
+//    |   expr DOTDOT expr DOTDOT expr { $$ = new TxERangeLitNode(@$, $1, $5, $3); }
 
     |   MINUS expr  %prec NEG        { $$ = new TxUnaryMinusNode(@1, $2); }  // unary minus
     |   expr PLUS expr               { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_PLUS, $3); }

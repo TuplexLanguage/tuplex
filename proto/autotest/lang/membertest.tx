@@ -73,7 +73,7 @@ testfunc() {
     obj : ~CompoundType;
     #experr: obj.SFIELD = 133;  ## non-mutable static field
     obj.field1 = 133;
-    obj.field2 = CompoundType.SFIELD2 * 10.;
+    obj.field2 = CompoundType.SFIELD2 * 10.0;
     assert obj.field1 == 133;
     assert obj.field2 == 27.3;
     var := obj.field2;
@@ -84,8 +84,8 @@ testfunc() {
     assert robj.field1 == obj.field1;
     assert robj.field2 == obj.field2;
 
-    robj.field5.blaha = 273.;
-    assert obj.field5.blaha == 273.;
+    robj.field5.blaha = 273.0;
+    assert obj.field5.blaha == 273.0;
 
     assert CompoundType.InnerCompType.PI == 3.14;
     subobj1 : ~CompoundType.InnerCompType;
@@ -93,11 +93,11 @@ testfunc() {
     assert subobj1.PI == 3.14;
     assert subobj2.PI == 3.14;
     obj.field6 = &subobj1;
-    obj.field6.blaha = 513.;
+    obj.field6.blaha = 513.0;
     obj.field6 = &subobj2;
-    obj.field6.blaha = 514.;
-    assert subobj1.blaha == 513.;
-    assert subobj2.blaha == 514.;
+    obj.field6.blaha = 514.0;
+    assert subobj1.blaha == 513.0;
+    assert subobj2.blaha == 514.0;
 
     #experr 1: bad1 : Long = CompoundType.field1;
     #experr 1: bad2 := obj.InnerCompType;

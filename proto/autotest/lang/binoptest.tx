@@ -95,18 +95,16 @@ test_scalar_to_bool_conversion() {
     assert Bool(2UL);
 
     ## floating point -> bool
-    assert !Bool(0.);
     assert !Bool(0.0);
     assert !Bool(.0);
-    assert !Bool(-0.);
     assert !Bool(-0.0);
     assert !Bool(-.0);
     assert Bool(.0000001);
     assert Bool(-.0000001);
-    assert Bool(1.);
-    assert Bool(-1.);
-    assert Bool(2.);
-    assert Bool(-2.);
+    assert Bool(1.0);
+    assert Bool(-1.0);
+    assert Bool(2.0);
+    assert Bool(-2.0);
     ## (1e37 and 1e-37 are according to c std always representable with a float/double/longdouble)
     assert Bool(1e37);
     assert Bool(-1e37);

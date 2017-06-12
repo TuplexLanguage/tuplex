@@ -128,6 +128,10 @@ Implement advanced implicit constructor concept
 Constructor initialization validation check: That each constructor properly initializes all members (without inlined initializers)
 
 
+Remove assumption that bound parameters are "concrete": Shall be ok to bind interfaces and abstract superclasses.
+ - See elementary types that implement Enumerable<E>
+
+
 Implement implicit static initializer function for types' static members and static code
 
 Type conversions (with if statements)

@@ -42,12 +42,12 @@ generics_test()->Int {
     x : LocalTypeX;
     y : LocalTypeY;
 
-    xe1 : x.E           = 1.;
-    xe2 : x.my#SType#E  = 2.;
-    xe3 : x.my#Type#E   = 4.;
-    xg1 : x.G           = 8.;
-    xg2 : x.my#SType#G  = 16.;
-    xg3 : x.my#Type#F   = 32.;
+    xe1 : x.E           = 1.0;
+    xe2 : x.my#SType#E  = 2.0;
+    xe3 : x.my#Type#E   = 4.0;
+    xg1 : x.G           = 8.0;
+    xg2 : x.my#SType#G  = 16.0;
+    xg3 : x.my#Type#F   = 32.0;
 
     ye1 : y.E           = 1;
     ye2 : y.my#SType#E  = 2;
@@ -56,12 +56,12 @@ generics_test()->Int {
     yg2 : y.my#SType#G  = 16;
     yg3 : y.my#Type#F   = 32;
 
-    assert xe1 == 1.;
-    assert xe2 == 2.;
-    assert xe3 == 4.;
-    assert xg1 == 8.;
-    assert xg2 == 16.;
-    assert xg3 == 32.;
+    assert xe1 == 1.0;
+    assert xe2 == 2.0;
+    assert xe3 == 4.0;
+    assert xg1 == 8.0;
+    assert xg2 == 16.0;
+    assert xg3 == 32.0;
 
     assert ye1 == 1;
     assert ye2 == 2;

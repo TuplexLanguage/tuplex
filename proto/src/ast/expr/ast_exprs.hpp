@@ -165,7 +165,7 @@ public:
 
 /** Abstract common superclass for new expression and local init expression */
 class TxMakeObjectNode : public TxExpressionNode {
-
+    friend class TxERangeLitNode;
 protected:
     /** the type of the object to make/allocate */
     TxTypeExpressionNode* typeExpr;

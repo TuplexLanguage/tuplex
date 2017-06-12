@@ -28,7 +28,7 @@ func3( v : Int )->Int {
 func4( v : Int )->Int {
     v : ~Float = Float(v);
     {
-        v : Float = 100.;
+        v : Float = 100.0;
     }
     v = v * 1.5;
     return Int(v);

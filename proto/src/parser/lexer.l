@@ -81,6 +81,7 @@ extern "C" int yywrap() { return 0; }
 "."		{ return token::DOT; }
 ":"		{ return token::COLON; }
 ","		{ return token::COMMA; }
+".."    { return token::DOTDOT; }
 "..."   { return token::ELLIPSIS; }
 "*"		{ return token::ASTERISK; }
 "+"		{ return token::PLUS; }
@@ -186,7 +187,7 @@ extern "C" int yywrap() { return 0; }
 
 {D}+{E}{FS}?		    { yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
 {D}*"."{D}+({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
-{D}+"."{D}*({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
+ /* {D}+"."{D}*({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; } */
 
 '(\\.|[^\\'])'	        { yylval->build(std::string (yytext)); return token::LIT_CHARACTER; }
 
