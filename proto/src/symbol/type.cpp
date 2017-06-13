@@ -632,8 +632,18 @@ bool TxActualType::is_virtual_derivation() const {
 }
 
 bool TxActualType::is_scalar() const {
-    switch ( this->formalTypeId ) {
-    case TXBT_SCALAR:
+    if ( this->typeClass != TXTC_ELEMENTARY )
+        return false;
+    auto type = this;
+    if ( type->is_modifiable() )
+        type = type->get_base_type();
+    if ( type->formalTypeId >= BuiltinTypeId_COUNT ) {
+        // user derivation / alias of an elementary type
+        auto scalar = type->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_SCALAR )->type();
+        return type->is_a( *scalar );
+    }
+    switch ( type->formalTypeId ) {
+        case TXBT_SCALAR:
         case TXBT_INTEGER:
         case TXBT_SIGNED:
         case TXBT_BYTE:
@@ -651,7 +661,7 @@ bool TxActualType::is_scalar() const {
         case TXBT_DOUBLE:
         return true;
     default:
-        return ( this->is_modifiable() && this->get_base_type()->is_scalar() );
+        return false;
     }
 }
 

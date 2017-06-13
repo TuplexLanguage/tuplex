@@ -1,29 +1,6 @@
 module tx
 
 
-public interface Enumerable< E derives Enumerable<E> > : Comparable< E > {
-
-    /** returns the last (highest) ordinal for this type */
-    public static abstract last_ordinal() -> UInt;
-
-    /** returns the value for the specified ordinal (panics upon out-of-bounds) */
-    public static abstract value( ordinal: UInt ) -> E;
-
-
-    /** returns the ordinal for this value */
-    public abstract ordinal() -> UInt;
-
-    public static first() -> E {
-        return E.value( 0 );
-    }
-
-    public static last() -> E {
-        return E.value( E.last_ordinal() );
-    }
-}
-
-
-
 public interface Range< E > : Indicable< UInt, E > {
 
     public abstract override sequencer() -> Ref< ~Iterator<E> >;
@@ -90,9 +67,9 @@ public type ERange< E derives Enumerable<E> > implements Range< E > {
 
         ## FIXME: review
         if self.step >= 0:
-            self._last = UInt( ( Long( self.end.ordinal() )   - self.start.ordinal() + 1L ) / self.step );
+            self._last = UInt( ( self.end.ordinal()   - self.start.ordinal() + 1 ) / Ordinal( self.step ) );
         else
-            self._last = UInt( ( Long( self.start.ordinal() ) - self.end.ordinal()   + 1L ) / -self.step );
+            self._last = UInt( ( self.start.ordinal() - self.end.ordinal()   + 1 ) / Ordinal( -self.step ) );
     }
 
     public override sequencer() -> Ref< ~ERangeIterator > {

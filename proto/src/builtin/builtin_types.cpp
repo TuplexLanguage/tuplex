@@ -96,6 +96,24 @@ public:
 
 /** Abstract superclass for the built-in type defining nodes. */
 class TxBuiltinTypeDefiningNode : public TxTypeExpressionNode {
+    /** helper method for subclasses that constructs a vector of TxType of this instance's interface expressions */
+    std::vector<const TxType*> resolve_interfaces() const {
+        std::vector<const TxType*> ifs;
+        if ( this->sourcecodeDefiner ) {
+            for ( auto ifDef : *this->sourcecodeDefiner->interfaces )
+                ifs.emplace_back( ifDef->resolve_type() );
+        }
+        return ifs;
+    }
+
+    /** helper method for subclasses that constructs a vector of TxTypeSpecialization of this instance's interface expressions */
+    static std::vector<TxTypeSpecialization> resolve_interface_specs( const std::vector<const TxType*>& interfaces ) {
+        std::vector<TxTypeSpecialization> ifSpecs;
+        for ( auto interface : interfaces )
+            ifSpecs.emplace_back( interface->type() );
+        return ifSpecs;
+    }
+
     void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner ) {
         ASSERT( this->is_context_set(), "Builtin type node hasn't run declaration pass: " << this );
         ASSERT( !this->attempt_get_type(), "Builtin type already resolved: " << this );
@@ -145,23 +163,21 @@ protected:
 //            return this->registry().make_type_entity( this->registry().make_actual_type( this->get_declaration(),
 //                                                                                         this->original->get_type()->type() ) );
 //        }
-        auto actType = this->define_builtin_type();
-        actType->formalTypeId = builtinTypeId;
-        this->registry().add_type( actType );
-        return this->registry().make_type_entity( actType );
+        const TxType* baseType = ( this->baseTypeNode ? this->baseTypeNode->resolve_type() : nullptr );
+        const std::vector<const TxType*> interfaces = this->resolve_interfaces();
+        return new TxType( this,
+                           [ this, baseType, interfaces ] () {
+                                auto ifSpecs = resolve_interface_specs( interfaces );
+                                TxActualType* actType = this->make_builtin_type( this->get_declaration(), baseType, ifSpecs,
+                                                                                 this->requires_mutable_type() );
+                                actType->formalTypeId = this->builtinTypeId;
+                                this->registry().add_type( actType );
+                                return actType;
+                           } );
     }
 
-    virtual TxActualType* define_builtin_type() = 0;
-
-    /** helper method for subclasses that constructs a vector of TxTypeSpecialization of this instance's interface expressions */
-    std::vector<TxTypeSpecialization> resolve_interface_specs() const {
-        std::vector<TxTypeSpecialization> ifSpecs;
-        if ( this->sourcecodeDefiner ) {
-            for ( auto ifDef : *this->sourcecodeDefiner->interfaces )
-                ifSpecs.emplace_back( ifDef->resolve_type()->type() );
-        }
-        return ifSpecs;
-    }
+    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
+                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) = 0;
 
 //    /** Returns true if this type expression requires the produced type to be mutable. Used by subclasses upon type creation. */
 //    bool requires_mutable_type() const {
@@ -196,7 +212,7 @@ public:
         for ( auto decl : this->declNodes )
             decl->code_gen( context );
         if ( this->sourcecodeDefiner )
-            this->sourcecodeDefiner->code_gen_type( context );
+            this->sourcecodeDefiner->code_gen_builtin_type( context );
     }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
@@ -244,8 +260,9 @@ class TxAnyTypeDefNode final : public TxBuiltinTypeDefiningNode {
     };
 
 protected:
-    virtual TxActualType* define_builtin_type() override {
-        return new TxAnyType( this->get_declaration() );
+    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
+                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
+        return new TxAnyType( declaration );
     }
 
 public:
@@ -275,8 +292,9 @@ class TxVoidTypeDefNode final : public TxBuiltinTypeDefiningNode {
     };
 
 protected:
-    virtual TxActualType* define_builtin_type() override {
-        return new TxVoidType( this->get_declaration() );
+    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
+                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
+        return new TxVoidType( declaration );
     }
 
 public:
@@ -309,10 +327,9 @@ class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
     };
 
 protected:
-    virtual TxActualType* define_builtin_type() override {
-        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
-        auto ifSpecs = this->resolve_interface_specs();
-        return new TxBuiltinBaseType( this->typeClass, this->get_declaration(), baseTypeSpec, ifSpecs );
+    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
+                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
+        return new TxBuiltinBaseType( this->typeClass, declaration, TxTypeSpecialization( baseType->type() ), ifSpecs );
     }
 public:
     const TxTypeClass typeClass;
@@ -325,10 +342,9 @@ public:
 
 class TxIntegerTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual TxActualType* define_builtin_type() override {
-        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
-        auto ifSpecs = this->resolve_interface_specs();
-        return new TxIntegerType( this->get_declaration(), baseTypeSpec, ifSpecs, this->size, this->sign );
+    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
+                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
+        return new TxIntegerType( declaration, TxTypeSpecialization( baseType->type() ), ifSpecs, this->size, this->sign );
     }
 public:
     const int size;
@@ -341,10 +357,9 @@ public:
 
 class TxFloatingTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual TxActualType* define_builtin_type() override {
-        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
-        auto ifSpecs = this->resolve_interface_specs();
-        return new TxFloatingType( this->get_declaration(), baseTypeSpec, ifSpecs, this->size );
+    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
+                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
+        return new TxFloatingType( declaration, TxTypeSpecialization( baseType->type() ), ifSpecs, this->size );
     }
 public:
     const int size;
@@ -356,10 +371,9 @@ public:
 
 class TxBoolTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual TxActualType* define_builtin_type() override {
-        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
-        auto ifSpecs = this->resolve_interface_specs();
-        return new TxBoolType( this->get_declaration(), baseTypeSpec, ifSpecs );
+    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
+                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
+        return new TxBoolType( declaration, TxTypeSpecialization( baseType->type() ), ifSpecs );
     }
 public:
     TxBoolTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
@@ -370,10 +384,9 @@ public:
 
 class TxTupleTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual TxActualType* define_builtin_type() override {
-        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
-        auto ifSpecs = this->resolve_interface_specs();
-        return new TxTupleType( this->get_declaration(), baseTypeSpec, ifSpecs, this->requires_mutable_type() );
+    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
+                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
+        return new TxTupleType( declaration, TxTypeSpecialization( baseType->type() ), ifSpecs, mutableType );
     }
 public:
     TxTupleTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
@@ -384,10 +397,9 @@ public:
 
 class TxInterfaceTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
-    virtual TxActualType* define_builtin_type() override {
-        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
-        auto ifSpecs = this->resolve_interface_specs();
-        return new TxInterfaceType( this->get_declaration(), baseTypeSpec, ifSpecs );
+    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
+                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
+        return new TxInterfaceType( declaration, TxTypeSpecialization( baseType->type() ), ifSpecs );
     }
 public:
     TxInterfaceTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
@@ -402,10 +414,9 @@ class TxRefTypeDefNode final : public TxBuiltinTypeDefiningNode {
             : TxBuiltinTypeDefiningNode( parseLocation, original, baseTypeNode, declNodes, sourcecodeDefiner ) {
     }
 protected:
-    virtual TxActualType* define_builtin_type() override {
-        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
-        auto ifSpecs = this->resolve_interface_specs();
-        return new TxReferenceType( this->get_declaration(), baseTypeSpec, ifSpecs );
+    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
+                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
+        return new TxReferenceType( declaration, TxTypeSpecialization( baseType->type() ), ifSpecs );
     }
 public:
     TxRefTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
@@ -426,10 +437,9 @@ class TxArrayTypeDefNode final : public TxBuiltinTypeDefiningNode {
             : TxBuiltinTypeDefiningNode( parseLocation, original, baseTypeNode, declNodes, sourcecodeDefiner ) {
     }
 protected:
-    virtual TxActualType* define_builtin_type() override {
-        auto baseTypeSpec = TxTypeSpecialization( this->baseTypeNode->resolve_type()->type() );
-        auto ifSpecs = this->resolve_interface_specs();
-        return new TxArrayType( this->get_declaration(), baseTypeSpec, this->requires_mutable_type(), ifSpecs );
+    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
+                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
+        return new TxArrayType( declaration, TxTypeSpecialization( baseType->type() ), mutableType, ifSpecs );
     }
 public:
     TxArrayTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
@@ -747,13 +757,13 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
 }
 
 /** Initializes the built-in symbols. */
-void BuiltinTypes::initializeBuiltinSymbols() {
+void BuiltinTypes::resolveBuiltinSymbols() {
 
     // TODO: remove when initializeBuiltinSymbols() no longer creates entities needing these to be pre-resolved:
     for ( unsigned id = 0; id < BuiltinTypeId_COUNT; id++ ) {
         // verify that all built-in types are initialized:
         ASSERT( this->builtinTypes[id], "Uninitialized built-in type! id=" << id );
-        this->builtinTypes[id]->typeExpression->resolve_type();
+        this->builtinTypes[id]->typeExpression->resolve_type()->type();
     }
 
     declare_tx_functions();

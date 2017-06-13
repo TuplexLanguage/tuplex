@@ -26,8 +26,9 @@ class TxType : public TxEntity {
 
     const TxActualType* define_type() const;
 
-    // only TypeRegistry may create instances:
+    // only these may create instances:
     friend class TypeRegistry;
+    friend class TxBuiltinTypeDefiningNode;
 
     TxType( const TxActualType* actualType );
 

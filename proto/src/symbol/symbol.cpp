@@ -45,7 +45,7 @@ std::string TxScopeSymbol::make_unique_name( const std::string& baseName, bool s
 TxScopeSymbol* TxScopeSymbol::create_code_block_scope( const TxParseOrigin& origin, const std::string& plainName ) {
     std::string uniqueName = this->make_unique_name( plainName + '$' );
     TxScopeSymbol* scope = new TxScopeSymbol( this, uniqueName );
-    bool success = this->declare_symbol( origin, scope );
+    this->declare_symbol( origin, scope );
     //LOG_TRACE(this->LOGGER(), "-->            " << scope->get_full_name() );
     return scope;
 }
@@ -337,7 +337,7 @@ std::string TxEntitySymbol::declaration_string() const {
 
 std::string TxEntitySymbol::description_string() const {
     if ( this->is_overloaded() )
-        return "   overloaded symbol       " + this->get_full_name().str();
+        return "   overloaded symbol        " + this->get_full_name().str();
     else if ( this->typeDeclaration )  // non-overloaded type name
         if ( auto type = this->typeDeclaration->get_definer()->attempt_get_type() ) {
             if ( type->get_declaration() == this->typeDeclaration ) {

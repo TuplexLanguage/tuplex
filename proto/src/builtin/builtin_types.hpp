@@ -27,7 +27,7 @@ public:
 
     TxParsingUnitNode* createTxModuleAST();
 
-    void initializeBuiltinSymbols();  // TODO: remove
+    void resolveBuiltinSymbols();  // TODO: remove
 
     const TxLocation& get_builtin_location() const {
         return this->builtinLocation;

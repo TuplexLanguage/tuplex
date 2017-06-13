@@ -4,48 +4,32 @@
 
 using namespace llvm;
 
-//uint32_t IntConstant::get_value_UInt() const {
-//    if ( this->_signed ) {
-//        if ( this->value.i64 >= 0 && this->value.i64 <= UINT32_MAX )
-//            return static_cast<uint32_t>( this->value.i64 );
-//    }
-//    else {
-//        if ( this->value.u64 <= UINT32_MAX )
-//            return static_cast<uint32_t>( this->value.u64 );
-//    }
-//    throw std::range_error( "Value of constant integer is not within range of type UInt" );
-//}
-
-Constant* IntConstant::code_gen_constant( LlvmGenerationContext& context ) const {
-    TRACE_CODEGEN( this, context, this->value.i64 );
-    switch ( this->typeId ) {
-    case TXBT_BYTE:
-        return ConstantInt::get( IntegerType::getInt8Ty( context.llvmContext ), this->value.i64, true );
-    case TXBT_SHORT:
-        return ConstantInt::get( IntegerType::getInt16Ty( context.llvmContext ), this->value.i64, true );
-    case TXBT_INT:
-        return ConstantInt::get( IntegerType::getInt32Ty( context.llvmContext ), this->value.i64, true );
-    case TXBT_LONG:
-        return ConstantInt::get( IntegerType::getInt64Ty( context.llvmContext ), this->value.i64, true );
-    case TXBT_UBYTE:
-        return ConstantInt::get( IntegerType::getInt8Ty( context.llvmContext ), this->value.u64, false );
-    case TXBT_USHORT:
-        return ConstantInt::get( IntegerType::getInt16Ty( context.llvmContext ), this->value.u64, false );
-    case TXBT_UINT:
-        return ConstantInt::get( IntegerType::getInt32Ty( context.llvmContext ), this->value.u64, false );
-    case TXBT_ULONG:
-        return ConstantInt::get( IntegerType::getInt64Ty( context.llvmContext ), this->value.u64, false );
-    default:
-        THROW_LOGIC( "Unhandled type id " << this->typeId << " in " << this );
-    }
-}
-
 llvm::Value* TxLiteralElementaryValueNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     return this->code_gen_constant( context );
 }
 
 Constant* TxIntegerLitNode::code_gen_constant( LlvmGenerationContext& context ) const {
-    return this->constValue.code_gen_constant( context );
+    TRACE_CODEGEN( this, context, this->constValue.value.i64 );
+    switch ( this->constValue.typeId ) {
+    case TXBT_BYTE:
+        return ConstantInt::get( IntegerType::getInt8Ty( context.llvmContext ), this->constValue.value.i64, true );
+    case TXBT_SHORT:
+        return ConstantInt::get( IntegerType::getInt16Ty( context.llvmContext ), this->constValue.value.i64, true );
+    case TXBT_INT:
+        return ConstantInt::get( IntegerType::getInt32Ty( context.llvmContext ), this->constValue.value.i64, true );
+    case TXBT_LONG:
+        return ConstantInt::get( IntegerType::getInt64Ty( context.llvmContext ), this->constValue.value.i64, true );
+    case TXBT_UBYTE:
+        return ConstantInt::get( IntegerType::getInt8Ty( context.llvmContext ), this->constValue.value.u64, false );
+    case TXBT_USHORT:
+        return ConstantInt::get( IntegerType::getInt16Ty( context.llvmContext ), this->constValue.value.u64, false );
+    case TXBT_UINT:
+        return ConstantInt::get( IntegerType::getInt32Ty( context.llvmContext ), this->constValue.value.u64, false );
+    case TXBT_ULONG:
+        return ConstantInt::get( IntegerType::getInt64Ty( context.llvmContext ), this->constValue.value.u64, false );
+    default:
+        THROW_LOGIC( "Unhandled type id " << this->constValue.typeId << " in " << this );
+    }
 }
 
 Constant* TxFloatingLitNode::code_gen_constant( LlvmGenerationContext& context ) const {

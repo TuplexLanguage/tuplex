@@ -2,35 +2,6 @@
 
 #include "ast/ast_entitydecls.hpp"
 
-class IntConstant {
-    TxTypeDefiningNode* node;
-    void init_unsigned( uint64_t u64value, BuiltinTypeId typeId );
-
-public:
-    BuiltinTypeId typeId = (BuiltinTypeId) 0;
-    unsigned long radix = 10;
-    bool _signed = false;
-    bool outOfRange = false;
-    union {
-        int64_t i64 = 0;
-        uint64_t u64;
-    } value;
-
-    IntConstant( TxTypeDefiningNode* node, const std::string& valueLiteral, bool hasRadix, BuiltinTypeId typeId = (BuiltinTypeId) 0 );
-
-    IntConstant( TxTypeDefiningNode* node, int64_t i64value, BuiltinTypeId typeId, bool _signed );
-
-//    IntConstant( uint64_t u64value, BuiltinTypeId typeId ) {
-//        this->init_unsigned( u64value, typeId );
-//    }
-
-    TxTypeDefiningNode* get_node() const {
-        return this->node;
-    }
-
-    llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const;
-};
-
 class TxLiteralElementaryValueNode : public TxExpressionNode {
 public:
     TxLiteralElementaryValueNode( const TxLocation& parseLocation )
@@ -52,11 +23,42 @@ public:
 };
 
 class TxIntegerLitNode : public TxLiteralElementaryValueNode {
-    const IntConstant constValue;
+    class IntConstant {
+        void init_unsigned( uint64_t u64value, BuiltinTypeId typeId );
+
+    public:
+        BuiltinTypeId typeId = (BuiltinTypeId) 0;
+        unsigned long radix = 10;
+        bool _signed = false;
+        bool outOfRange = false;
+        union {
+            int64_t i64 = 0;
+            uint64_t u64;
+        } value;
+
+        IntConstant() { }
+
+        void initialize( const std::string& valueLiteral, bool hasRadix, bool negative, BuiltinTypeId typeId = (BuiltinTypeId) 0 );
+
+        void initialize( int64_t i64value, BuiltinTypeId typeId, bool _signed );
+
+        llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const;
+    };
+
+    IntConstant constValue;
+
     const std::string sourceLiteral;
+    bool hasRadix;
+
+    int64_t i64value;
+    bool _signed;
+    BuiltinTypeId typeId;
+
+    bool negative = false;
 
     TxIntegerLitNode( const TxIntegerLitNode& orig )
-            : TxLiteralElementaryValueNode( orig.parseLocation ), constValue( orig.constValue ), sourceLiteral( orig.sourceLiteral ) {
+            : TxLiteralElementaryValueNode( orig.parseLocation ), sourceLiteral( orig.sourceLiteral ), hasRadix( orig.hasRadix ),
+              i64value( orig.i64value ), _signed( orig._signed ), typeId( orig.typeId ) {
     }
 
 protected:
@@ -68,15 +70,22 @@ protected:
 
 public:
     TxIntegerLitNode( const TxLocation& parseLocation, const std::string& sourceLiteral, bool hasRadix )
-            : TxLiteralElementaryValueNode( parseLocation ), constValue( this, sourceLiteral, hasRadix ), sourceLiteral( sourceLiteral ) {
+            : TxLiteralElementaryValueNode( parseLocation ), sourceLiteral( sourceLiteral ), hasRadix( hasRadix ),
+              i64value(), _signed(), typeId() {
     }
 
     TxIntegerLitNode( const TxLocation& parseLocation, int64_t i64value, bool _signed, BuiltinTypeId typeId = (BuiltinTypeId) 0 )
-            : TxLiteralElementaryValueNode( parseLocation ), constValue( this, i64value, typeId, _signed ),sourceLiteral( "" ) {
+            : TxLiteralElementaryValueNode( parseLocation ), sourceLiteral(), hasRadix(),
+              i64value( i64value ), _signed( _signed ), typeId( typeId ) {
     }
 
 //    TxIntegerLitNode(const TxLocation& parseLocation, uint64_t u64value, BuiltinTypeId typeId=(BuiltinTypeId)0)
 //            : TxLiteralValueNode(parseLocation), intValue(u64value, typeId), sourceLiteral("")  { }
+
+    /** sets this integer literal to be negative, as if preceded by a unary minus. */
+    void set_negative() {
+        this->negative = true;
+    }
 
     virtual TxIntegerLitNode* make_ast_copy() const override {
         return new TxIntegerLitNode( *this );

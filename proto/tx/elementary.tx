@@ -1,0 +1,208 @@
+module tx
+
+
+public builtin type ~ Elementary    derives Any {
+}
+
+public builtin type ~ Scalar        derives Elementary {
+}
+
+public builtin type ~ Integer       derives Scalar {
+}
+
+public builtin type ~ Signed        derives Integer {
+}
+
+public builtin type ~ Unsigned      derives Integer {
+}
+
+public builtin type ~ Floatingpoint derives Scalar {
+}
+
+
+public builtin type ~ Byte          derives Signed implements Number<Byte>, Enumerable<Byte> {
+
+    public static override MIN : Byte = -128_B;
+    public static override MAX : Byte =  127_B;
+
+    /** returns the last (highest) ordinal for this type */
+    public static override last_ordinal() -> Ordinal {
+        return 255_UB;
+    }
+
+    /** returns the value for the specified ordinal */
+    public static override value( ordinal: Ordinal ) -> Byte {
+        return Byte( ordinal );
+    }
+
+    /** returns the ordinal for this value */
+    public override ordinal() -> Ordinal {
+        return Ordinal( self );
+    }
+}
+
+public builtin type ~ Short         derives Signed implements Number<Short>, Enumerable<Short> {
+
+    public static override MIN : Short = -32768_S;
+    public static override MAX : Short =  32767_S;
+
+    /** returns the last (highest) ordinal for this type */
+    public static override last_ordinal() -> Ordinal {
+        return 65535_US;
+    }
+
+    /** returns the value for the specified ordinal */
+    public static override value( ordinal: Ordinal ) -> Short {
+        return Short( ordinal );
+    }
+
+    /** returns the ordinal for this value */
+    public override ordinal() -> Ordinal {
+        return Ordinal( self );
+    }
+}
+
+public builtin type ~ Int           derives Signed implements Number<Int>, Enumerable<Int> {
+
+    public static override MIN : Int = -2147483648_I;
+    public static override MAX : Int =  2147483647_I;
+
+    /** returns the last (highest) ordinal for this type */
+    public static override last_ordinal() -> Ordinal {
+        return 4294967295_UI;
+    }
+
+    /** returns the value for the specified ordinal */
+    public static override value( ordinal: Ordinal ) -> Int {
+        return Int( ordinal );
+    }
+
+    /** returns the ordinal for this value */
+    public override ordinal() -> Ordinal {
+        return Ordinal( self );
+    }
+}
+
+public builtin type ~ Long          derives Signed implements Number<Long>, Enumerable<Long> {
+
+    public static override MIN : Long = -9223372036854775808_L;
+    public static override MAX : Long =  9223372036854775807_L;
+
+    /** returns the last (highest) ordinal for this type */
+    public static override last_ordinal() -> Ordinal {
+        return 18446744073709551615_UL;
+    }
+
+    /** returns the value for the specified ordinal */
+    public static override value( ordinal: Ordinal ) -> Long {
+        return Long( ordinal );
+    }
+
+    /** returns the ordinal for this value */
+    public override ordinal() -> Ordinal {
+        return Ordinal( self );
+    }
+}
+
+
+public builtin type ~ UByte          derives Unsigned implements Number<UByte>, Enumerable<UByte> {
+
+    public static override MIN : UByte = 0_UB;
+    public static override MAX : UByte = 127_B;
+
+    /** returns the last (highest) ordinal for this type */
+    public static override last_ordinal() -> Ordinal {
+        return 255_UB;
+    }
+
+    /** returns the value for the specified ordinal */
+    public static override value( ordinal: Ordinal ) -> UByte {
+        return UByte( ordinal );
+    }
+
+    /** returns the ordinal for this value */
+    public override ordinal() -> Ordinal {
+        return Ordinal( self );
+    }
+}
+
+public builtin type ~ UShort         derives Unsigned implements Number<UShort>, Enumerable<UShort> {
+
+    public static override MIN : UShort = 0_US;
+    public static override MAX : UShort = 65535_US;
+
+    /** returns the last (highest) ordinal for this type */
+    public static override last_ordinal() -> Ordinal {
+        return 65535_US;
+    }
+
+    /** returns the value for the specified ordinal */
+    public static override value( ordinal: Ordinal ) -> UShort {
+        return UShort( ordinal );
+    }
+
+    /** returns the ordinal for this value */
+    public override ordinal() -> Ordinal {
+        return Ordinal( self );
+    }
+}
+
+public builtin type ~ UInt           derives Unsigned implements Number<UInt>, Enumerable<UInt> {
+
+    public static override MIN : UInt = 0_UI;
+    public static override MAX : UInt = 4294967295_UI;
+
+    /** returns the last (highest) ordinal for this type */
+    public static override last_ordinal() -> Ordinal {
+        return 4294967295_UI;
+    }
+
+    /** returns the value for the specified ordinal */
+    public static override value( ordinal: Ordinal ) -> UInt {
+        return UInt( ordinal );
+    }
+
+    /** returns the ordinal for this value */
+    public override ordinal() -> Ordinal {
+        return Ordinal( self );
+    }
+}
+
+public builtin type ~ ULong          derives Unsigned implements Number<ULong>, Enumerable<ULong> {
+
+    public static override MIN : ULong = 0_UL;
+    public static override MAX : ULong = 18446744073709551615_UL;
+
+    /** returns the last (highest) ordinal for this type */
+    public static override last_ordinal() -> Ordinal {
+        return 18446744073709551615_UL;
+    }
+
+    /** returns the value for the specified ordinal */
+    public static override value( ordinal: Ordinal ) -> ULong {
+        return ULong( ordinal );
+    }
+
+    /** returns the ordinal for this value */
+    public override ordinal() -> Ordinal {
+        return Ordinal( self );
+    }
+}
+
+
+public builtin type ~ Bool          derives Elementary implements Enumerable<Bool> {
+    /** returns the last (highest) ordinal for this type */
+    public static override last_ordinal() -> Ordinal {
+        return 1;
+    }
+
+    /** returns the value for the specified ordinal */
+    public static override value( ordinal: Ordinal ) -> Bool {
+        return Bool( ordinal );
+    }
+
+    /** returns the ordinal for this value */
+    public override ordinal() -> Ordinal {
+        return Ordinal( self );
+    }
+}

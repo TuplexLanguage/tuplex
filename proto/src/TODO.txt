@@ -96,7 +96,9 @@ Bounds checking on array element access (add implicit AST for this in TxElemDere
 
 Bounds checking on array element assignment - DONE
 
-Simple for-loops
+Simple for-loops - DONE
+
+Dynamic-length arrays tests - bounds checking, copying, etc - IN PROGRESS
 
 Review and test array object assignment semantics
  - correct setting of L
@@ -109,8 +111,6 @@ Range typeclass
 Sequence interfaces
 
 String datatype
-
-Dynamic-length arrays tests - bounds checking, copying, etc
 
 Ensure fields are always initialized (with the default constructor if no init expr provided)
  - Remove 'initialization' code from alloca (at least for arrays this will cause double init of C and L)

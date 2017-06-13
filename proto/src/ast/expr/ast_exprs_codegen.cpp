@@ -52,6 +52,16 @@ Value* TxFunctionCallNode::code_gen_value( LlvmGenerationContext& context, GenSc
     }
 }
 
+Value* TxFunctionCallNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    // automatically allocates stack space for the return value
+    auto valueV = this->code_gen_expr( context, scope );
+    //Value* valuePtrV = this->get_type()->type()->gen_alloca( context, scope, "returnval" );
+    Value* valuePtrV = scope->builder->CreateAlloca( valueV->getType(), nullptr, "returnval" );
+    scope->builder->CreateStore( valueV, valuePtrV );
+    return valuePtrV;
+}
+
 Value* TxConstructorCalleeExprNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     Value* funcPtrV = this->gen_func_ptr( context, scope );

@@ -48,19 +48,23 @@ static const BuiltinTypeId inttypeids[] = { TXBT_BYTE, TXBT_SHORT, TXBT_INT, TXB
 static const BuiltinTypeId sinttypeids[] = { TXBT_BYTE, TXBT_SHORT, TXBT_INT, TXBT_LONG };
 static const BuiltinTypeId uinttypeids[] = { TXBT_UBYTE, TXBT_USHORT, TXBT_UINT, TXBT_ULONG };
 
-IntConstant::IntConstant( TxTypeDefiningNode* node, const std::string& sourceLiteral, bool hasRadix, BuiltinTypeId typeId )
-    : node( node ) {
+void TxIntegerLitNode::IntConstant::initialize( const std::string& sourceLiteral, bool hasRadix, bool negative, BuiltinTypeId typeId ) {
     char* pEnd;
 
     // pre-parse value string:
     std::string valueStr;
     std::string typeStr;
+
+    if ( negative ) {
+        valueStr = '-';
+    }
+
     if ( hasRadix ) {
         auto valuePos = sourceLiteral.find( '#' );
         ASSERT( valuePos != std::string::npos, "Expected '#' radix separator in string: '" << sourceLiteral << "'" );
         std::string radixStr( sourceLiteral, 0, valuePos );
         auto typePos = sourceLiteral.find( '#', ++valuePos );
-        valueStr = strip_ignored_chars( sourceLiteral.substr( valuePos, typePos - valuePos ) );
+        valueStr.append( strip_ignored_chars( sourceLiteral.substr( valuePos, typePos - valuePos ) ) );
         if ( typePos != std::string::npos )
             typeStr = sourceLiteral.substr( typePos + 1 );
 
@@ -73,7 +77,7 @@ IntConstant::IntConstant( TxTypeDefiningNode* node, const std::string& sourceLit
     }
     else {
         this->radix = 10;
-        valueStr = strip_ignored_chars( sourceLiteral );
+        valueStr.append ( strip_ignored_chars( sourceLiteral ) );
         if ( std::isalpha( valueStr.back() ) ) {
             int suffixLen = ( valueStr.length() > 2 && std::isalpha( valueStr.at( valueStr.length() - 2 ) ) ? 2 : 1 );
             typeStr = sourceLiteral.substr( sourceLiteral.length() - suffixLen );
@@ -159,8 +163,7 @@ IntConstant::IntConstant( TxTypeDefiningNode* node, const std::string& sourceLit
     }
 }
 
-IntConstant::IntConstant( TxTypeDefiningNode* node, int64_t i64value, BuiltinTypeId typeId, bool _signed )
-    : node( node ) {
+void TxIntegerLitNode::IntConstant::initialize( int64_t i64value, BuiltinTypeId typeId, bool _signed ) {
     this->_signed = _signed;
     if ( _signed ) {
         this->value.i64 = i64value;
@@ -188,7 +191,7 @@ IntConstant::IntConstant( TxTypeDefiningNode* node, int64_t i64value, BuiltinTyp
     }
 }
 
-void IntConstant::init_unsigned( uint64_t u64value, BuiltinTypeId typeId ) {
+void TxIntegerLitNode::IntConstant::init_unsigned( uint64_t u64value, BuiltinTypeId typeId ) {
     value.u64 = u64value;
     _signed = false;
     if ( typeId ) {
@@ -210,11 +213,17 @@ void IntConstant::init_unsigned( uint64_t u64value, BuiltinTypeId typeId ) {
 }
 
 void TxIntegerLitNode::declaration_pass() {
+    if ( !this->sourceLiteral.empty() ) {
+        this->constValue.initialize( this->sourceLiteral, this->hasRadix, this->negative );
+    }
+    else {
+        this->constValue.initialize( this->i64value, this->typeId, this->_signed );
+    }
+
     if ( this->constValue.radix < 2 || this->constValue.radix > 36 )
         CERROR( this, "Radix outside valid range [2,36]: " << this->constValue.radix );
     else if ( this->constValue.outOfRange )
-        CERROR( this,
-                "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->registry().get_builtin_type(this->constValue.typeId) );
+        CERROR( this, "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->constValue.typeId );
 }
 
 TxTypeExpressionNode* TxCStringLitNode::make_cstring_type_expr( const TxLocation& parseLocation, const std::string& literal ) {

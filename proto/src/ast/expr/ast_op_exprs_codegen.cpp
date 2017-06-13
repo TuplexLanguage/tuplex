@@ -124,6 +124,9 @@ Value* TxBinaryOperatorNode::code_gen_value( LlvmGenerationContext& context, Gen
 llvm::Constant* TxUnaryMinusNode::code_gen_constant( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     auto operand = this->operand->code_gen_constant( context );
+    if ( dynamic_cast<TxIntegerLitNode*>( this->operand->originalExpr ) ) {
+        return operand;  // negation has been applied directly to the literal
+    }
     auto opType = this->get_type()->type();
     if ( dynamic_cast<const TxIntegerType*>( opType ) ) {
         return ConstantExpr::getNeg( operand  );
@@ -137,6 +140,9 @@ llvm::Constant* TxUnaryMinusNode::code_gen_constant( LlvmGenerationContext& cont
 Value* TxUnaryMinusNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     auto operand = this->operand->code_gen_value( context, scope );
+    if ( dynamic_cast<TxIntegerLitNode*>( this->operand->originalExpr ) ) {
+        return operand;  // negation has been applied directly to the literal
+    }
     auto opType = this->get_type()->type();
     if ( dynamic_cast<const TxIntegerType*>( opType ) ) {
         return scope->builder->CreateNeg( operand );

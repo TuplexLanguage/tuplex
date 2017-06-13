@@ -2,6 +2,11 @@
 
 #include "ast_expr_node.hpp"
 
+
+/** Evaluates if originalExpr may be automatically (implicitly) converted to the required type. */
+bool auto_converts_to( TxExpressionNode* originalExpr, const TxType* requiredType );
+
+
 /** A conversion placeholder node which can wrap a specific conversion around an expression if necessary. */
 class TxMaybeConversionNode : public TxExpressionNode {
     const TxType* insertedResultType = nullptr;
@@ -31,7 +36,8 @@ public:
 
     /** If necessary and permitted, inserts a new conversion expression that wraps the original expression.
      * If a conversion node is created, symbol declaration pass is run on it.
-     * Generates a compilation error if the types don't match and conversion is not possible.
+     * Will cause a compilation error to be generated in the resolution pass if the types don't match
+     * so that conversion isn't possible.
      * @param _explicit if true, forces conversion between types that don't permit implicit conversion
      */
     void insert_conversion( const TxType* resultType, bool _explicit = false );

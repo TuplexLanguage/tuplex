@@ -61,6 +61,7 @@ extern "C" int yywrap() { return 0; }
   [^/\*\n]+  yylloc->step(); // eat comment in chunks
   [/\*]      yylloc->step(); // eat lone stars and slashes
   [\n]+    { yylloc->lines(yyleng); yylloc->step(); }
+  <<EOF>>  { BEGIN(INITIAL); return token::END; } // ensures lexer isn't still in comment state upon parsing subsequent file (future: refactor)
 }
 
  /* line comment */

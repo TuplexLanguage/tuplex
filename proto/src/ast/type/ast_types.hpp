@@ -277,15 +277,21 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
     /** Initializes certain implicit type members such as 'Super' for types with a body. */
     void init_implicit_types();
 
-    friend class TxBuiltinTypeDefiningNode;
 //    friend TxTypeDeclNode;
 //    void set_decl_attributes( bool isInterface, bool mutableType ) {
 //        this->interfaceKW = isInterface;
 //        this->mutableType = mutableType;
 //    }
+
+    friend class TxBuiltinTypeDefiningNode;
+
     void set_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner ) {
         this->builtinTypeDefiner = builtinTypeDefiner;
     }
+
+    void code_gen_builtin_type( LlvmGenerationContext& context ) const;
+
+    void inner_code_gen_type( LlvmGenerationContext& context ) const;
 
     /** used by make_ast_copy() */
     TxDerivedTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseType,

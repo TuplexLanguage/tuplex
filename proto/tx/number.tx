@@ -1,0 +1,8 @@
+module tx
+
+
+public interface Number<N derives Number<N>> {
+    public static abstract MAX : N;
+
+    public static abstract MIN : N;
+}

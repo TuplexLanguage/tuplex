@@ -43,14 +43,24 @@ void TxArrayTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
     this->elementTypeNode->code_gen_type( context );
 }
 
-void TxDerivedTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
-    TRACE_CODEGEN( this, context );
+void TxDerivedTypeNode::code_gen_builtin_type( LlvmGenerationContext& context ) const {
+    this->inner_code_gen_type( context );
+}
+
+void TxDerivedTypeNode::inner_code_gen_type( LlvmGenerationContext& context ) const {
     this->baseType->code_gen_type( context );
     for ( auto interface : *this->interfaces )
         interface->code_gen_type( context );
     this->superRefTypeNode->code_gen( context );
     for ( auto member : *this->members )
         member->code_gen( context );
+}
+
+void TxDerivedTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
+    if ( this->builtinTypeDefiner )
+        return;  // will be generated from built-in type AST instead
+    TRACE_CODEGEN( this, context );
+    this->inner_code_gen_type( context );
 }
 
 void TxFunctionTypeNode::code_gen_type( LlvmGenerationContext& context ) const {

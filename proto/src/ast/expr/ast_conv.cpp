@@ -2,6 +2,115 @@
 #include "ast_exprs.hpp"
 #include "ast_maybe_conv_node.hpp"
 #include "ast_ref.hpp"
+#include "ast_constexpr.hpp"
+
+#include <float.h>
+
+/** Evaluates if the operand is a statically constant scalar value that fits in the required type without loss of precision. */
+static bool statically_converts_to( TxExpressionNode* originalExpr, const TxType* originalType, const TxType* requiredType ) {
+    if ( !originalExpr->is_statically_constant() )
+        return false;
+
+    BuiltinTypeId operandTypeId = (BuiltinTypeId)originalType->get_type_id();
+    if ( is_concrete_uinteger_type( operandTypeId ) ) {
+        uint64_t val = eval_unsigned_int_constant( originalExpr );
+        switch ( requiredType->get_type_id() ) {
+        case TXBT_BYTE:
+            return ( val <= 127 );
+        case TXBT_SHORT:
+            return ( val <= 32767 );
+        case TXBT_INT:
+            return ( val <= 2147483647 );
+        case TXBT_LONG:
+            return ( val <= 9223372036854775807 );
+        case TXBT_UBYTE:
+            return ( val <= 255 );
+        case TXBT_USHORT:
+            return ( val <= 65535 );
+        case TXBT_UINT:
+            return ( val <= 4294967295 );
+        case TXBT_ULONG:
+            return true;
+        case TXBT_HALF:
+            return ( val <= 2048 );  // largest integer that can be stored without precision loss
+        case TXBT_FLOAT:
+            return ( val <= 16777216 );  // largest integer that can be stored without precision loss
+        case TXBT_DOUBLE:
+            return ( val <= 9007199254740992 );  // largest integer that can be stored without precision loss
+        default:
+            return false;
+        }
+    }
+    else if ( is_concrete_sinteger_type( operandTypeId ) ) {
+        int64_t val = eval_signed_int_constant( originalExpr );
+        switch ( requiredType->get_type_id() ) {
+        case TXBT_BYTE:
+            return ( val >= -128 && val <= 127 );
+        case TXBT_SHORT:
+            return ( val >= -32768 && val <= 32767 );
+        case TXBT_INT:
+            return ( val >= -2147483648 && val <= 2147483647 );
+        case TXBT_LONG:
+            return true;
+        case TXBT_UBYTE:
+            return ( val >= 0 && val <= 255 );
+        case TXBT_USHORT:
+            return ( val >= 0 && val <= 65535 );
+        case TXBT_UINT:
+            return ( val >= 0 && val <= 4294967295 );
+        case TXBT_ULONG:
+            return ( val >= 0 );
+        case TXBT_HALF:
+            return ( val >= -2048 && val <= 2048 );  // largest integer that can be stored without precision loss
+        case TXBT_FLOAT:
+            return ( val >= -16777216 && val <= 16777216 );  // largest integer that can be stored without precision loss
+        case TXBT_DOUBLE:
+            return ( val >= -9007199254740992 && val <= 9007199254740992 );  // largest integer that can be stored without precision loss
+        default:
+            return false;
+        }
+    }
+    else if ( is_concrete_floating_type( operandTypeId ) ) {
+        double val = eval_floatingpoint_constant( originalExpr );
+        double intpart = 0;
+        switch ( requiredType->get_type_id() ) {
+        case TXBT_BYTE:
+            return ( modf( val, &intpart) == 0 && intpart >= -128 && intpart <= 127 );
+        case TXBT_SHORT:
+            return ( modf( val, &intpart) == 0 && intpart >= -32768 && intpart <= 32767 );
+        case TXBT_INT:
+            return ( modf( val, &intpart) == 0 && intpart >= -2147483648 && intpart <= 2147483647 );
+        case TXBT_LONG:
+            return ( modf( val, &intpart) == 0 && intpart >= INT64_MIN && intpart <= INT64_MAX );
+        case TXBT_UBYTE:
+            return ( modf( val, &intpart) == 0 && intpart >= 0 && intpart <= 255 );
+        case TXBT_USHORT:
+            return ( modf( val, &intpart) == 0 && intpart >= 0 && intpart <= 65535 );
+        case TXBT_UINT:
+            return ( modf( val, &intpart) == 0 && intpart >= 0 && intpart <= 4294967295 );
+        case TXBT_ULONG:
+            return ( modf( val, &intpart) == 0 && intpart >= 0 && intpart <= UINT64_MAX  );
+        case TXBT_HALF:
+            return ( val >= -65503.0 && val <= 65503.0 );
+        case TXBT_FLOAT:
+            return ( val >= FLT_MIN && val <= FLT_MAX );
+        case TXBT_DOUBLE:
+            return true;
+        default:
+            return false;
+        }
+    }
+    return false;
+}
+
+
+bool auto_converts_to( TxExpressionNode* originalExpr, const TxType* requiredType ) {
+    auto originalType = originalExpr->resolve_type();
+    return ( originalType->auto_converts_to( *requiredType )
+             || ( originalType->is_scalar() && requiredType->is_scalar()
+                  && statically_converts_to( originalExpr, originalType, requiredType ) ) );
+}
+
 
 // FUTURE: rework together with overloaded function resolution
 /** Returns null if conversion failed. */
@@ -41,6 +150,13 @@ static TxExpressionNode* inner_wrap_conversion( TxExpressionNode* originalExpr, 
         convExpr->node_declaration_pass( originalExpr->parent() );
         return convExpr;
     }
+    else if ( originalType->is_scalar() && requiredType->is_scalar()
+              && statically_converts_to( originalExpr, originalType, requiredType ) ) {
+        TxExpressionNode* convExpr = new TxScalarConvNode( originalExpr, requiredType );
+        convExpr->node_declaration_pass( originalExpr->parent() );
+        return convExpr;
+    }
+
     return nullptr;
 }
 

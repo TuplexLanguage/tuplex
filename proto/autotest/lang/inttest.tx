@@ -44,38 +44,89 @@ test_int_literals_and_limits() {
     assert 16#- 8000_0000#I == -2147483648;
     assert 16# - 8000_0000_0000_0000#L == -9223372036854775807L-1;
 
-    ## limits
-    ub1 := 255;
-    #experr: var : UByte = 256;
+  ## limits
+  
+    ub0 : UByte = 0;
+    ub1 : UByte = 255;
     #experr: var : UByte = -1;
-    us1 := 256;
-    us2 := 65535;
-    #experr: var : UShort = 65536;
-    #experr: var : UShort = -1;
-    ui1 := 65536;
-    ui2 := 4294967295;
-    #experr: var : UInt = 4294967296;
-    #experr: var : UInt = -1;
-    ul1 := 4294967296;
-    #experr: var : ULong = -1;
+    #experr: var : UByte = 256;
 
-    b_p := 127;
-    #experr: var : Byte = 128;
-    b_n := -128;
+    us0 : UShort = 0;
+    us1 : UShort = 65535;
+    #experr: var : UShort = -1;
+    #experr: var : UShort = 65536;
+
+    ui0 : UInt = 0;
+    ui1 : UInt = 4294967295;
+    #experr: var : UInt = -1;
+    #experr: var : UInt = 4294967296;
+    
+    ul0 : ULong = 0;
+    ul1 : ULong = 18446744073709551615;
+    #experr: var : ULong = -1;
+    #experr: var : ULong = 18446744073709551616;
+
+    sb0 : Byte = -128;
+    sb1 : Byte = 127;
     #experr: var : Byte = -129;
-    s_p := 32767;
-    #experr: var : Short = 32768;
-    s_n := -32768;
+    #experr: var : Byte = 128;
+
+    ss0 : Short = -32768;
+    ss1 : Short = 32767;
     #experr: var : Short = -32769;
-    i_p := 2147483647;
-    #experr: var : Int = 2147483648;
-    i_n := -2147483648;
+    #experr: var : Short = 32768;
+
+    si0 : Int = -2147483648;
+    si1 : Int = 2147483647;
     #experr: var : Int = -2147483649;
-    l_p := 9223372036854775807;
+    #experr: var : Int = 2147483648;
+    
+    sl0 : Long = -9223372036854775808;
+    sl1 : Long = 9223372036854775807;
+    #experr: var : Long = -9223372036854775809;
     #experr: var : Long = 9223372036854775808;
-    ## TODO: unary minus not smart enough for negative Long constants yet:
-    ## l_n := -9223372036854775808;
-    ## #experr: var : Long = -9223372036854775809;
+
+
+    ub0 : UByte = 0UB;
+    ub1 : UByte = 255UB;
+    #experr: var : UByte = -1UB;
+    #experr: var : UByte = 256UB;
+
+    us0 : UShort = 0US;
+    us1 : UShort = 65535US;
+    #experr: var : UShort = -1US;
+    #experr: var : UShort = 65536US;
+
+    ui0 : UInt = 0UI;
+    ui1 : UInt = 4294967295UI;
+    #experr: var : UInt = -1UI;
+    #experr: var : UInt = 4294967296UI;
+    
+    ul0 : ULong = 0UL;
+    ul1 : ULong = 18446744073709551615UL;
+    #experr: var : ULong = -1UL;
+    #experr: var : ULong = 18446744073709551616UL;
+
+    sb0 : Byte = -128B;
+    sb1 : Byte = 127B;
+    #experr: var : Byte = -129B;
+    #experr: var : Byte = 128B;
+
+    ss0 : Short = -32768S;
+    ss1 : Short = 32767S;
+    #experr: var : Short = -32769S;
+    #experr: var : Short = 32768S;
+
+    si0 : Int = -2147483648I;
+    si1 : Int = 2147483647I;
+    #experr: var : Int = -2147483649I;
+    #experr: var : Int = 2147483648I;
+    
+    sl0 : Long = -9223372036854775808L;
+    sl1 : Long = 9223372036854775807L;
+    #experr: var : Long = -9223372036854775809L;
+    #experr: var : Long = 9223372036854775808L;
+
 
     ## TODO: test promotions and demotions
 }
@@ -87,23 +138,19 @@ test_int_comparisons() {
     assert 1B == 1S;
     assert 1B == 1I;
     assert 1B == 1L;
-    /* TODO: support
     assert 1B == 1UB;
     assert 1B == 1US;
     assert 1B == 1UI;
     assert 1B == 1UL;
-    */
 
     assert 1S == 1B;
     assert 1S == 1S;
     assert 1S == 1I;
     assert 1S == 1L;
     assert 1S == 1UB;
-    /* TODO: support
     assert 1S == 1US;
     assert 1S == 1UI;
     assert 1S == 1UL;
-    */
 
     assert 1I == 1B;
     assert 1I == 1S;
@@ -111,10 +158,8 @@ test_int_comparisons() {
     assert 1I == 1L;
     assert 1I == 1UB;
     assert 1I == 1US;
-    /* TODO: support
     assert 1I == 1UI;
     assert 1I == 1UL;
-    */
 
     assert 1L == 1B;
     assert 1L == 1S;
@@ -123,11 +168,9 @@ test_int_comparisons() {
     assert 1L == 1UB;
     assert 1L == 1US;
     assert 1L == 1UI;
-    /* TODO: support
     assert 1L == 1UL;
-    */
 
-    ##assert 1UB == 1B;
+    assert 1UB == 1B;
     assert 1UB == 1S;
     assert 1UB == 1I;
     assert 1UB == 1L;
@@ -136,8 +179,8 @@ test_int_comparisons() {
     assert 1UB == 1UI;
     assert 1UB == 1UL;
 
-    ##assert 1US == 1B;
-    ##assert 1US == 1S;
+    assert 1US == 1B;
+    assert 1US == 1S;
     assert 1US == 1I;
     assert 1US == 1L;
     assert 1US == 1UB;
@@ -145,19 +188,19 @@ test_int_comparisons() {
     assert 1US == 1UI;
     assert 1US == 1UL;
 
-    ##assert 1UI == 1B;
-    ##assert 1UI == 1S;
-    ##assert 1UI == 1I;
+    assert 1UI == 1B;
+    assert 1UI == 1S;
+    assert 1UI == 1I;
     assert 1UI == 1L;
     assert 1UI == 1UB;
     assert 1UI == 1US;
     assert 1UI == 1UI;
     assert 1UI == 1UL;
 
-    ##assert 1UL == 1B;
-    ##assert 1UL == 1S;
-    ##assert 1UL == 1I;
-    ##assert 1UL == 1L;
+    assert 1UL == 1B;
+    assert 1UL == 1S;
+    assert 1UL == 1I;
+    assert 1UL == 1L;
     assert 1UL == 1UB;
     assert 1UL == 1US;
     assert 1UL == 1UI;
@@ -187,7 +230,7 @@ test_int_comparisons() {
 
     ## TODO: further develop overflow checking
     assert -32768 == -32767-1;
-    assert -32769 == -32768-1;
+    ##assert -32769 == -32768-1;  ## overflow
 
 
     assert  1 >  0;

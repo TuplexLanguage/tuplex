@@ -16,6 +16,7 @@
 #include "parser.hpp"
 
 extern FILE * yyin;
+extern void yyrestart ( FILE *input_file );
 extern int yy_flex_debug;
 
 TxDriver::TxDriver( const TxOptions& options )
@@ -30,13 +31,15 @@ TxDriver::~TxDriver() {
 }
 
 int TxDriver::scan_begin( const std::string &filePath ) {
-    yy_flex_debug = this->options.debug_lexer;
+//    FILE * yyin;
     if ( filePath.empty() || filePath == "-" )
         yyin = stdin;
     else if ( !( yyin = fopen( filePath.c_str(), "r" ) ) ) {
         _LOG.error( "Could not open source file '%s': %s", filePath.c_str(), strerror( errno ) );
         return 1;
     }
+    yyrestart( yyin );
+    yy_flex_debug = this->options.debug_lexer;
     _LOG.info( "+ Opened file for parsing: '%s'", filePath.c_str() );
     return 0;
 }
@@ -140,7 +143,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         run_declaration_pass( parserContext->parsingUnit->module, parserContext->parsingUnit, "module" );
     }
 
-    this->package->builtins().initializeBuiltinSymbols();  // FIXME: to be removed
+    this->package->builtins().resolveBuiltinSymbols();  // FIXME: review, maybe remove
 
     this->package->prepare_modules();  // (prepares the declared imports)
 
