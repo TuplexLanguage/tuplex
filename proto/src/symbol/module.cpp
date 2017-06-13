@@ -8,9 +8,6 @@ TxModule::TxModule( TxModule* parent, const std::string& name, const TxParseOrig
         : TxScopeSymbol( parent, name ), declared( declared ), origin( origin ) {
     if ( parent ) {  // if not the root package
         ASSERT( dynamic_cast<TxModule*>( parent ), "Illegal to declare a module under a non-module parent: " << this->get_full_name() );
-        // FUTURE: disallow tx... namespace declarations in "user mode"
-        //if (moduleNamespace.begins_with(BUILTIN_NS))
-        //    parser_error(this->parseLocation, "Illegal namespace name, must not begin with \"" BUILTIN_NS "\"");
         if ( this->get_full_name().str() != BUILTIN_NS ) {
             this->import_symbol( origin, TxIdentifier( BUILTIN_NS ".*" ) );
         }
@@ -30,14 +27,8 @@ bool TxModule::declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbo
 }
 
 TxModule* TxModule::declare_module( const TxParseOrigin& origin, const TxIdentifier& ident, bool builtin ) {
-    this->LOGGER()->debug( "Declaring module %s", ident.str().c_str() );
     if ( !this->get_outer() ) {
         // this is the namespace root - the tuplex package
-        if ( !builtin ) {
-            // this check is currently disabled
-            //if ( ident.begins_with( BUILTIN_NS ) && !this->get_root_scope()->driver().get_options().allow_tx )
-            //    CERROR( origin, "Can't declare or extend built-in namespace from user code: '" << ident << "'" );
-        }
     }
     else {
         if ( ident.begins_with( LOCAL_NS ) )
@@ -139,10 +130,10 @@ bool TxModule::use_symbol( const TxParseOrigin& origin, const TxModule* imported
     // (in which case we must guard against circular aliases here)
     if ( auto symbol = imported->get_symbol( plainName ) ) {
         if ( !dynamic_cast<const TxModule*>( symbol ) ) {  // if not a submodule name
-            auto result = this->usedNames.emplace( plainName, symbol->get_full_name() );
+            this->usedNames[plainName] = symbol->get_full_name();  // adds or replaces existing mapping
             if ( !symbol->get_full_name().begins_with( BUILTIN_NS ) )
                 this->LOGGER()->debug( "Imported symbol %-16s %s", plainName.c_str(), symbol->get_full_name().str().c_str() );
-            return result.second;
+            return true;
         }
     }
     else
@@ -173,7 +164,7 @@ void TxModule::register_import( const TxParseOrigin& origin, const TxIdentifier&
 }
 
 void TxModule::prepare_modules() {
-    this->LOGGER()->debug( "Preparing module %s", this->get_full_name().str().c_str() );
+    this->LOGGER()->debug( "Preparing imports in module '%s'", this->get_full_name().str().c_str() );
     for ( auto & import : this->registeredImports ) {
         if ( !this->import_symbol( import.origin, import.name ) )
             CERROR( import.origin, "Failed to import " << import.name );

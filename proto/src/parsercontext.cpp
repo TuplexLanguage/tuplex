@@ -61,8 +61,14 @@ bool TxParserContext::is_internal_builtin() {
 }
 
 bool TxParserContext::validate_module_name( const TxParseOrigin* origin, const TxIdentifier* moduleName ) {
-    if ( moduleName->str() == LOCAL_NS ) {
-        if ( !this->_driver.parsedSourceFiles.empty() ) {
+    if ( moduleName->begins_with( BUILTIN_NS ) ) {
+        if ( this->parseInputSourceSet != BUILTINS && this->parseInputSourceSet != TX_SOURCES) {
+            this->cerror( origin, "Can't declare or extend built-in namespace from user code: " + std::string( BUILTIN_NS ) );
+            return false;
+        }
+    }
+    else if ( moduleName->str() == LOCAL_NS ) {
+        if ( this->parseInputSourceSet != FIRST_USER_SOURCE ) {
             this->cerror( origin, "Only the first source file may have unspecified module name (implicit module " + std::string( LOCAL_NS ) + ")" );
             return false;
         }

@@ -25,7 +25,7 @@ class TxModule : public TxScopeSymbol {
     /** This module's registered imports. */
     std::vector<ModuleImport> registeredImports;
     /** This module's imported names. It maps plain names to fully qualified names. */
-    std::unordered_map<std::string, const TxIdentifier> usedNames;
+    std::unordered_map<std::string, TxIdentifier> usedNames;
 
     void set_declared() {
         ASSERT( !this->declared, "module " << this << " has already been declared" );

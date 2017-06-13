@@ -7,17 +7,17 @@
 
 using namespace llvm;
 
-/** Returns the input value divided by 4, rounded up. Input must be an integer. */
-static Value* code_gen_4_multiple( LlvmGenerationContext& context, GenScope* scope, Value* input ) {
-    auto two = ConstantInt::get( Type::getInt64Ty( context.llvmContext ), 2 );
-    auto three = ConstantInt::get( Type::getInt64Ty( context.llvmContext ), 3 );
-    if ( auto ci = dyn_cast<Constant>( input ) )
-        return ConstantExpr::getAShr( ConstantExpr::getAdd( ci, three ), two );
-    else if ( scope )
-        return scope->builder->CreateAShr( scope->builder->CreateAdd( input, three ), two );
-    else
-        return BinaryOperator::CreateAShr( BinaryOperator::CreateAdd( input, three ), two );
-}
+///** Returns the input value divided by 4, rounded up. Input must be an integer. */
+//static Value* code_gen_4_multiple( LlvmGenerationContext& context, GenScope* scope, Value* input ) {
+//    auto two = ConstantInt::get( Type::getInt64Ty( context.llvmContext ), 2 );
+//    auto three = ConstantInt::get( Type::getInt64Ty( context.llvmContext ), 3 );
+//    if ( auto ci = dyn_cast<Constant>( input ) )
+//        return ConstantExpr::getAShr( ConstantExpr::getAdd( ci, three ), two );
+//    else if ( scope )
+//        return scope->builder->CreateAShr( scope->builder->CreateAdd( input, three ), two );
+//    else
+//        return BinaryOperator::CreateAShr( BinaryOperator::CreateAdd( input, three ), two );
+//}
 
 StructType* TxActualType::make_vtable_type( LlvmGenerationContext& context ) const {
     LOG_TRACE( context.LOGGER(), "Mapping vtable of type " << this->get_declaration()->get_unique_full_name() << ": " << this->str(true) );

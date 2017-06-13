@@ -21,7 +21,7 @@ extern int yy_flex_debug;
 
 TxDriver::TxDriver( const TxOptions& options )
         : _LOG( Logger::get( "DRIVER" ) ), options( options ),
-          builtinParserContext( new TxParserContext( *this, TxIdentifier( "" ), "" ) ),
+          builtinParserContext( new TxParserContext( *this, TxIdentifier( "" ), "", TxParserContext::BUILTINS ) ),
           llvmContext( new llvm::LLVMContext() )
 {
 }
@@ -68,6 +68,11 @@ int TxDriver::parse( TxParserContext& parserContext ) {
 int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const std::string& outputFileName ) {
     ASSERT( this->parsedSourceFiles.empty(), "Can only run driver instance once" );
 
+    if ( startSourceFiles.empty() ) {
+        this->_LOG.fatal( "No source specified." );
+        return 1;
+    }
+
     this->package = make_root_package( this->builtinParserContext );
 
     // ONLY used for constant evaluation before code generation pass:
@@ -82,17 +87,11 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     /*--- prepare the parse units ---*/
 
     {  // initialize the built-in ASTs
-        TxParserContext* parserContext = new TxParserContext( *this, TxIdentifier( "tx" ), "" );
+        //TxParserContext* parserContext = new TxParserContext( *this, TxIdentifier( "tx" ), "", TxParserContext::BUILTIN_SOURCES );
+        TxParserContext* parserContext = this->builtinParserContext;
         parserContext->parsingUnit = this->package->builtins().createTxModuleAST();
         this->parsedASTs.push_back( parserContext );
     }
-
-    if ( startSourceFiles.empty() ) {
-        this->_LOG.fatal( "No source specified." );
-        return 1;
-    }
-    for ( auto startFile : startSourceFiles )
-        this->sourceFileQueue.push_back( std::pair<TxIdentifier, std::string>( TxIdentifier(), startFile ) );
 
     if ( !this->options.txPath.empty() ) {
         // add the tx namespace sources
@@ -104,13 +103,26 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         this->add_all_in_dir( BUILTIN_NS, txPath, true );
     }
 
+    for ( auto startFile : startSourceFiles )
+        this->sourceFileQueue.push_back( std::pair<TxIdentifier, std::string>( TxIdentifier(), startFile ) );
+
     /*--- parse all source filed (during parsing, files are added to the queue as the are imported) ---*/
 
+    TxParserContext::ParseInputSourceSet pfs = TxParserContext::TX_SOURCES;
     while ( !this->sourceFileQueue.empty() ) {
         TxIdentifier moduleName = this->sourceFileQueue.front().first;  // note, may be empty
+
+        if ( pfs == TxParserContext::TX_SOURCES ) {
+            if ( !moduleName.begins_with( BUILTIN_NS ) )  // if first user source processed
+                pfs = TxParserContext::FIRST_USER_SOURCE;
+        }
+        else if ( pfs == TxParserContext::FIRST_USER_SOURCE ) {
+            pfs = TxParserContext::REST_USER_SOURCES;
+        }
+
         std::string nextFilePath = this->sourceFileQueue.front().second;
-        if ( !this->parsedSourceFiles.count( nextFilePath ) ) {
-            TxParserContext* parserContext = new TxParserContext( *this, moduleName, nextFilePath );
+        if ( !this->parsedSourceFiles.count( nextFilePath ) ) {  // if not already parsed
+            TxParserContext* parserContext = new TxParserContext( *this, moduleName, nextFilePath, pfs );
             int ret = this->parse( *parserContext );
             if ( ret ) {
                 if ( ret == 1 )  // syntax error

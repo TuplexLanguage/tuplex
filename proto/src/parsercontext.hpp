@@ -45,8 +45,11 @@ public:
     /** used by lexer to track nested comments */
     unsigned commentNestLevel = 0;
 
-    TxParserContext( TxDriver& driver, TxIdentifier moduleName, const std::string &filePath )
-            : _driver( driver ), _moduleName( moduleName ) {
+    enum ParseInputSourceSet { BUILTINS, TX_SOURCES, FIRST_USER_SOURCE, REST_USER_SOURCES };
+    const ParseInputSourceSet parseInputSourceSet;
+
+    TxParserContext( TxDriver& driver, TxIdentifier moduleName, const std::string &filePath, ParseInputSourceSet parseInputSourceSet )
+            : _driver( driver ), _moduleName( moduleName ), parseInputSourceSet( parseInputSourceSet ) {
         // FUTURE: make parser not save *pointer* to filename, necessitating this leaky snippet:
         this->_currentInputFilename = new std::string( filePath );
     }

@@ -32,7 +32,8 @@ public builtin type ~ Byte          derives Signed implements Number<Byte>, Enum
 
     /** returns the value for the specified ordinal */
     public static override value( ordinal: Ordinal ) -> Byte {
-        return Byte( ordinal );
+        ##if ordinal > self.last_ordinal():  panic
+        return Byte( ordinal - 128 );
     }
 
     /** returns the ordinal for this value */
@@ -53,7 +54,8 @@ public builtin type ~ Short         derives Signed implements Number<Short>, Enu
 
     /** returns the value for the specified ordinal */
     public static override value( ordinal: Ordinal ) -> Short {
-        return Short( ordinal );
+        ##if ordinal > self.last_ordinal():  panic
+        return Short( ordinal - 32768 );
     }
 
     /** returns the ordinal for this value */
@@ -74,7 +76,8 @@ public builtin type ~ Int           derives Signed implements Number<Int>, Enume
 
     /** returns the value for the specified ordinal */
     public static override value( ordinal: Ordinal ) -> Int {
-        return Int( ordinal );
+        ##if ordinal > self.last_ordinal():  panic
+        return Int( ordinal - 2147483648 );
     }
 
     /** returns the ordinal for this value */
@@ -95,7 +98,7 @@ public builtin type ~ Long          derives Signed implements Number<Long>, Enum
 
     /** returns the value for the specified ordinal */
     public static override value( ordinal: Ordinal ) -> Long {
-        return Long( ordinal );
+        return Long( ordinal - 9223372036854775808 );
     }
 
     /** returns the ordinal for this value */
@@ -108,7 +111,7 @@ public builtin type ~ Long          derives Signed implements Number<Long>, Enum
 public builtin type ~ UByte          derives Unsigned implements Number<UByte>, Enumerable<UByte> {
 
     public static override MIN : UByte = 0_UB;
-    public static override MAX : UByte = 127_B;
+    public static override MAX : UByte = 255_UB;
 
     /** returns the last (highest) ordinal for this type */
     public static override last_ordinal() -> Ordinal {
@@ -117,6 +120,7 @@ public builtin type ~ UByte          derives Unsigned implements Number<UByte>, 
 
     /** returns the value for the specified ordinal */
     public static override value( ordinal: Ordinal ) -> UByte {
+        ##if ordinal > self.last_ordinal():  panic
         return UByte( ordinal );
     }
 
@@ -138,6 +142,7 @@ public builtin type ~ UShort         derives Unsigned implements Number<UShort>,
 
     /** returns the value for the specified ordinal */
     public static override value( ordinal: Ordinal ) -> UShort {
+        ##if ordinal > self.last_ordinal():  panic
         return UShort( ordinal );
     }
 
@@ -154,6 +159,7 @@ public builtin type ~ UInt           derives Unsigned implements Number<UInt>, E
 
     /** returns the last (highest) ordinal for this type */
     public static override last_ordinal() -> Ordinal {
+        ##if ordinal > self.last_ordinal():  panic
         return 4294967295_UI;
     }
 
