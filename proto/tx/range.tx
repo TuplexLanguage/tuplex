@@ -18,7 +18,7 @@ public interface Range< E > : Indicable< UInt, E > {
 
 
 /** A range between two values of an Enumerable type. */
-public type ERange< E derives Enumerable<E> > implements Range< E > {
+public type ERange< E derives Enumerable > implements Range< E > {
 
     /** The ERange iterator. */
     public type ~ ERangeIterator implements Iterator< E > {
@@ -54,6 +54,7 @@ public type ERange< E derives Enumerable<E> > implements Range< E > {
         }
     }
 
+    ## valid indices are all integers between [0, _last]
     _last : UInt;
 
     public start : E;
@@ -61,15 +62,15 @@ public type ERange< E derives Enumerable<E> > implements Range< E > {
     public step  : Long;
 
     public self( start : E, end : E, step : Long ) {
+        assert step != 0;  ## if step == 0:  panic
         self.start = start;
         self.end = end;
         self.step = step;
 
-        ## FIXME: review
         if self.step >= 0:
-            self._last = UInt( ( self.end.ordinal()   - self.start.ordinal() + 1 ) / Ordinal( self.step ) );
+            self._last = UInt( ( self.end.ordinal()   - self.start.ordinal() ) / Ordinal( self.step ) );
         else
-            self._last = UInt( ( self.start.ordinal() - self.end.ordinal()   + 1 ) / Ordinal( -self.step ) );
+            self._last = UInt( ( self.start.ordinal() - self.end.ordinal()   ) / Ordinal( -self.step ) );
     }
 
     public override sequencer() -> Ref< ~ERangeIterator > {
@@ -87,6 +88,7 @@ public type ERange< E derives Enumerable<E> > implements Range< E > {
         return E.value( self.start.ordinal() + UInt( index * self.step ) );
     }
 
+    /** valid indices are all integers between [0, last_index()] */
     public override last_index() -> UInt {
         return self._last;
     }

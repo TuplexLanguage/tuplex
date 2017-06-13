@@ -66,6 +66,11 @@ public:
     /** Returns true if this parser context is for the internally coded built-in constructs (lacking actual source code). */
     bool is_internal_builtin();
 
+    /** Returns true if this parser context is processing user source code. */
+    bool is_user_source() {
+        return ( this->parseInputSourceSet == FIRST_USER_SOURCE || this->parseInputSourceSet == REST_USER_SOURCES );
+    }
+
     /** The path of the file currently being parsed.
      * Used later to pass the file path to the location tracker. */
     std::string* current_input_filepath() const {

@@ -6,23 +6,22 @@
 #include "ast/type/ast_types.hpp"
 #include "ast/ast_declpass.hpp"
 
-class TxERangeLitNode : public TxExpressionNode {
-    TxStackConstructionNode* stackConstr;
-//    TxExpressionNode* startValue;
-//    TxMaybeConversionNode* endValue;
-//    TxMaybeConversionNode* stepValue;
-
-    TxERangeLitNode( const TxLocation& parseLocation, TxStackConstructionNode* stackConstr )
-            : TxExpressionNode( parseLocation ), stackConstr( stackConstr ) {
-    }
+class TxERangeLitNode final : public TxExpressionNode {
+    TxStackConstructionNode* stackConstr = nullptr;
+    TxExpressionNode* startValue;
+    TxExpressionNode* endValue;
+    TxExpressionNode* stepValue;
 
 protected:
+    virtual void declaration_pass() override {
+        if ( !this->stepValue )
+            this->stepValue = new TxIntegerLitNode( endValue->parseLocation, 1, true, TXBT_LONG );
+        this->stackConstr = new TxStackConstructionNode( parseLocation, new TxTypeExprWrapperNode( this ),
+                                                         new std::vector<TxExpressionNode*>( { startValue, endValue, stepValue } ) );
+    }
+
     virtual const TxType* define_type() override {
         auto startValue = this->stackConstr->constructorCall->origArgsExprList->front();
-//        auto elemType = startValue->resolve_type();
-//        this->endValue->insert_conversion( elemType );
-//        if ( this->stepValue )
-//            this->stepValue->insert_conversion( this->registry().get_builtin_type( TXBT_LONG ) );
 
         auto baseTypeNode = new TxNamedTypeNode( this->parseLocation, "tx.ERange" );
         run_declaration_pass( baseTypeNode, this, "basetype" );
@@ -38,20 +37,30 @@ protected:
     }
 
 public:
-    TxERangeLitNode( const TxLocation& parseLocation, TxExpressionNode* startValue, TxExpressionNode* endValue, TxExpressionNode* stepValue )
-            : TxERangeLitNode( parseLocation,
-                               new TxStackConstructionNode( this->parseLocation, new TxTypeExprWrapperNode( this ),
-                                                            new std::vector<TxExpressionNode*>( { startValue, endValue, stepValue } ) ) ) {
+    TxERangeLitNode( const TxLocation& parseLocation, TxExpressionNode* startValue, TxExpressionNode* endValue,
+                     TxExpressionNode* stepValue = nullptr )
+            : TxExpressionNode( parseLocation ), startValue( startValue ), endValue( endValue ), stepValue( stepValue ) {
     }
-//              startValue( startValue ), endValue( endValue ), stepValue( stepValue )  { }
-//              stepValue( stepValue ? new TxMaybeConversionNode( stepValue ) : nullptr )  { }
 
-    TxERangeLitNode( const TxLocation& parseLocation, TxExpressionNode* startValue, TxExpressionNode* endValue )
-            : TxERangeLitNode( parseLocation, startValue, endValue, new TxIntegerLitNode( endValue->parseLocation, 1, true, TXBT_LONG ) ) {
+    /** factory method that folds ( start .. ( step .. end ) ) grammar match into a single range node */
+    static TxERangeLitNode* make_range_node( const TxLocation& parseLocation, TxExpressionNode* startValue, TxExpressionNode* endValue ) {
+        if ( auto otherRange = dynamic_cast<TxERangeLitNode*>( endValue ) ) {
+            if ( otherRange->stepValue ) {
+                // error, too many subsequent .. operators
+                CERROR( otherRange, "Too many subsequent .. operators in range expression" );
+            }
+            TxERangeLitNode tmp( parseLocation, startValue, otherRange->endValue, otherRange->startValue );
+            memcpy( otherRange, &tmp, sizeof( TxERangeLitNode ) );
+            return otherRange;
+        }
+        else {
+            return new TxERangeLitNode( parseLocation, startValue, endValue );
+        }
     }
 
     virtual TxERangeLitNode* make_ast_copy() const override {
-        return new TxERangeLitNode( this->parseLocation, stackConstr->make_ast_copy() );
+        return new TxERangeLitNode( this->parseLocation, this->startValue->make_ast_copy(), this->endValue->make_ast_copy(),
+                                    this->stepValue->make_ast_copy() );
     }
 
 //    virtual bool is_statically_constant() const override final {
@@ -63,15 +72,16 @@ public:
         return true;
     }
 
+    virtual void symbol_resolution_pass() override {
+        TxExpressionNode::symbol_resolution_pass();
+        this->stackConstr->symbol_resolution_pass();
+    }
+
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->stackConstr->visit_ast( visitor, thisCursor, "constr", context );
-//        this->startValue->visit_ast( visitor, thisCursor, "start", context );
-//        this->endValue->visit_ast( visitor, thisCursor, "end", context );
-//        if (this->stepValue)
-//            this->stepValue->visit_ast( visitor, thisCursor, "step", context );
+        this->stackConstr->visit_ast( visitor, thisCursor, "litconstr", context );
     }
 };

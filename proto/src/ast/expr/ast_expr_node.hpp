@@ -2,7 +2,6 @@
 
 #include "ast/ast_entitydefs.hpp"
 
-//#include "ast/ast_fielddef_node.hpp"
 class TxFieldDefNode;
 
 class TxExpressionNode : public TxTypeDefiningNode {

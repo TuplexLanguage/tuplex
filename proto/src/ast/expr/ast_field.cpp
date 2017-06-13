@@ -282,6 +282,23 @@ const TxType* TxFieldValueNode::define_type() {
     return this->registry().get_builtin_type( TXBT_VOID );
 }
 
+void TxFieldValueNode::field_base_resolution_pass() {
+    TxExpressionNode::symbol_resolution_pass();
+    if ( this->baseExpr ) {
+        if ( auto baseField = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) )
+            baseField->field_base_resolution_pass();
+        else
+            this->baseExpr->symbol_resolution_pass();
+    }
+}
+
+void TxFieldValueNode::symbol_resolution_pass() {
+    this->field_base_resolution_pass();
+
+    if ( auto typeDecl = dynamic_cast<const TxTypeDeclaration*>( this->declaration ) )
+        CERROR( this, "'" << get_full_identifier() << "' resolved to a type, not a field: " << typeDecl );
+}
+
 const TxExpressionNode* TxFieldValueNode::get_data_graph_origin_expr() const {
     if ( this->baseExpr ) {
         if ( auto fieldBase = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {

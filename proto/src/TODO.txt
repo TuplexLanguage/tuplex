@@ -131,6 +131,12 @@ Constructor initialization validation check: That each constructor properly init
 Remove assumption that bound parameters are "concrete": Shall be ok to bind interfaces and abstract superclasses.
  - See elementary types that implement Enumerable<E>
 
+Evaluate whether TYPE type parameter constraint types shall be resolved in each type specialization instead of in gen base type,
+ in order to allow them to depend on the binding:
+  - Would (probably) support more specific ERange specification:
+    public type ERange< E derives Enumerable<E> > implements Range< E >
+                                            ^^^
+
 
 Implement implicit static initializer function for types' static members and static code
 

@@ -122,23 +122,26 @@ static TxExpressionNode* inner_wrap_conversion( TxExpressionNode* originalExpr, 
     if ( _explicit || originalType->auto_converts_to( *requiredType ) ) {
         // wrap originalExpr with conversion node
         TxExpressionNode* convExpr = nullptr;
+        auto requiredTypeClass = requiredType->get_type_class();
 
-        if ( requiredType->is_builtin( TXBT_BOOL ) )
-            convExpr = new TxBoolConvNode( originalExpr, requiredType );
+        if ( requiredTypeClass == TXTC_ELEMENTARY ) {
+            if ( requiredType->is_builtin( TXBT_BOOL ) )
+                convExpr = new TxBoolConvNode( originalExpr, requiredType );
 
-        else if ( requiredType->is_scalar() )
-            convExpr = new TxScalarConvNode( originalExpr, requiredType );
+            else if ( requiredType->is_scalar() )
+                convExpr = new TxScalarConvNode( originalExpr, requiredType );
+        }
 
-        else if ( requiredType->get_type_class() == TXTC_REFERENCE )
+        else if ( requiredTypeClass == TXTC_REFERENCE )
             convExpr = new TxReferenceConvNode( originalExpr, requiredType );
 
-        else if ( requiredType->get_type_class() == TXTC_ARRAY )
+        else if ( requiredTypeClass == TXTC_ARRAY )
             convExpr = new TxObjSpecCastNode( originalExpr, requiredType );
 
-        else if ( requiredType->get_type_class() == TXTC_FUNCTION )
+        else if ( requiredTypeClass == TXTC_FUNCTION )
             return originalExpr;
 
-        else if ( requiredType->get_type_class() == TXTC_TUPLE )
+        else if ( requiredTypeClass == TXTC_TUPLE || requiredTypeClass == TXTC_INTERFACE )
             return originalExpr;
 
         else {

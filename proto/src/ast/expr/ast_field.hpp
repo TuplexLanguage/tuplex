@@ -76,12 +76,10 @@ public:
             return *this->symbolName;
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        // not invoking baseExpr->symbol_resolution_pass() since that is only done via define_type()
-        if ( auto typeDecl = dynamic_cast<const TxTypeDeclaration*>( this->declaration ) )
-            CERROR( this, "'" << get_full_identifier() << "' resolved to a type, not a field: " << typeDecl );
-    }
+    virtual void symbol_resolution_pass() override;
+
+    /** if this is a base expression for a TxFieldValueNode, this is invoked instead of symbol_resolution_pass() */
+    void field_base_resolution_pass();
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override;
 

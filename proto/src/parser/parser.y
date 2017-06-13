@@ -198,6 +198,7 @@ YY_DECL;
 %precedence NOT   /* unary logical not */
 %left EEQUAL NEQUAL
 %left LT GT LEQUAL GEQUAL
+%right DOTDOT  // range has lower priority than arithmetic but higher than boolen operators
 %left PLUS MINUS
 %left ASTERISK FSLASH
 %precedence NEG   /* negation--unary minus */
@@ -205,7 +206,6 @@ YY_DECL;
 %precedence ADDR  /* unary prefix address-of */
 %precedence CARET /* unary postfix de-reference */
 %precedence LBRACKET RBRACKET
-%right DOTDOT
 %right DOT
 %precedence ARRAY_LIT
 %right KW_MODULE KW_IMPORT  /* high token shift precedence */
@@ -546,8 +546,7 @@ expr
     |   expr CARET                   { $$ = new TxReferenceDerefNode(@2, $1); }
     |   AAND expr   %prec ADDR       { $$ = new TxReferenceToNode(@1, $2); }
 
-    |   expr DOTDOT expr             { $$ = new TxERangeLitNode(@$, $1, $3); }
-//    |   expr DOTDOT expr DOTDOT expr { $$ = new TxERangeLitNode(@$, $1, $5, $3); }
+    |   expr DOTDOT expr             { $$ = TxERangeLitNode::make_range_node(@$, $1, $3); }
 
     |   MINUS expr  %prec NEG        { $$ = new TxUnaryMinusNode(@1, $2); }  // unary minus
     |   expr PLUS expr               { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_PLUS, $3); }

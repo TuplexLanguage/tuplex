@@ -375,6 +375,8 @@ bool TxActualType::inner_prepare_members() {
                 if ( auto paramDecl = semBaseType->get_type_param_decl( typeDecl->get_unique_name() ) ) {
                     auto constraintType = paramDecl->get_definer()->get_type()->type();
                     auto type = typeDecl->get_definer()->get_type();
+                    if ( typeDecl->get_definer()->get_node_id() == 11553 )
+                        std::cerr << "checking for definer " << typeDecl->get_definer() << std::endl;
                     if ( !type->type()->is_a( *constraintType ) ) {
                         // TODO: do this also for VALUE params, but array type expression needs auto-conversion support for that to work
                         CERROR( typeDecl->get_definer(),

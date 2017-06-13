@@ -175,12 +175,13 @@ class TxInClauseNode : public TxLoopHeaderNode {
     TxFieldDefNode*   iterField = nullptr;
     TxExpressionNode* nextCond = nullptr;
     TxFieldDefNode*   valueField = nullptr;
+    TxDeclarationFlags iterDeclFlags = TXD_NONE;
 
 protected:
     virtual void declaration_pass() override {
         //auto declScope = this->context().scope()->create_code_block_scope( *this );
         auto declScope = this->context().scope();
-        this->iterField->declare_field( declScope, ( this->iterName[0]=='$' ? TXD_IMPLICIT : TXD_NONE ), TXS_STACK );
+        this->iterField->declare_field( declScope, this->iterDeclFlags, TXS_STACK );
         this->valueField->declare_field( declScope, TXD_NONE, TXS_STACK );
         // TODO: check: (to prevent init expr from referencing this field, it is processed in the 'outer' scope, not in the new block scope)
     }
@@ -189,7 +190,9 @@ public:
     TxInClauseNode( const TxLocation& parseLocation, const std::string& valueName, const std::string& initName, TxExpressionNode* seqExpr );
 
     TxInClauseNode( const TxLocation& parseLocation, const std::string& valueName, TxExpressionNode* seqExpr )
-        : TxInClauseNode( parseLocation, valueName, "$iter", seqExpr )  { }
+            : TxInClauseNode( parseLocation, valueName, valueName + "$iter", seqExpr ) {
+        this->iterDeclFlags = TXD_IMPLICIT;
+    }
 
     virtual TxInClauseNode* make_ast_copy() const override {
         return new TxInClauseNode( this->parseLocation, this->valueName, this->origSeqExpr->make_ast_copy() );

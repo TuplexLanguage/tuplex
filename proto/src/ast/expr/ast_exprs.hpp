@@ -91,6 +91,7 @@ public:
     }
 
     virtual void symbol_resolution_pass() override {
+        TxExpressionNode::symbol_resolution_pass();
         this->objectExpr->symbol_resolution_pass();
     }
 
@@ -125,6 +126,8 @@ protected:
 
 public:
     virtual void symbol_resolution_pass() override {
+        TxExpressionNode::symbol_resolution_pass();
+        this->objTypeExpr->symbol_resolution_pass();
     }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
