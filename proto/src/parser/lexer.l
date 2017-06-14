@@ -37,7 +37,7 @@ extern "C" int yywrap() { return 0; }
 %option batch
 %option debug
 
-%s IN_COMMENT
+%s IN_COMMENT STRINGFORMAT
 
 %%
 
@@ -60,8 +60,8 @@ extern "C" int yywrap() { return 0; }
   "/*"       yylloc->step(); parserCtx->commentNestLevel++;
   [^/\*\n]+  yylloc->step(); // eat comment in chunks
   [/\*]      yylloc->step(); // eat lone stars and slashes
-  [\n]+    { yylloc->lines(yyleng); yylloc->step(); }
-  <<EOF>>  { BEGIN(INITIAL); return token::END; } // ensures lexer isn't still in comment state upon parsing subsequent file (future: refactor)
+  [\n]+      yylloc->lines(yyleng); yylloc->step();
+  <<EOF>>    BEGIN(INITIAL); return token::END;  // ensures lexer isn't still in comment state upon parsing subsequent file (future: refactor)
 }
 
  /* line comment */
@@ -94,7 +94,6 @@ extern "C" int yywrap() { return 0; }
 "^"		{ return token::CARET; }
 "~"		{ return token::TILDE; }
 "@"		{ return token::AT; }
-"%"		{ return token::PERCENT; }
 "$"		{ return token::DOLLAR; }
 ""	{ return token::EURO; }
 "("		{ return token::LPAREN; }
@@ -174,6 +173,23 @@ extern "C" int yywrap() { return 0; }
 "finally"   { return token::KW_FINALLY; }
 "raise"     { return token::KW_RAISE; }
 "raises"    { return token::KW_RAISES; }
+
+ /* string format operators */
+ /* %[parameter][flags][width][.precision][length]type */
+ /* %($[0-9]+)?[-+ 0#]*([1-9][0-9]*|\*)?(\.([0-9]+|\*))?[diufFeEgGxXoscaA] */
+<INITIAL>{
+"%"                 { BEGIN(STRINGFORMAT); return token::PERCENT; }
+}
+
+<STRINGFORMAT>{
+($[0-9]+)           { yylval->build(std::string (yytext)); return token::SF_PARAM; }
+[\-\+ 0#]*          { yylval->build(std::string (yytext)); return token::SF_FLAGS; }
+[1-9][0-9]*|\*      { yylval->build(std::string (yytext)); return token::SF_WIDTH; }
+\.([0-9]+|\*)       { yylval->build(std::string (yytext)); return token::SF_PREC; }
+[diufFeEgGxXoscaA]  { yylval->build(std::string (yytext)); return token::SF_TYPE; }
+"%"                 { BEGIN(INITIAL); return token::PERCENT; }
+}
+
 
  /* literals */
 "NULL"                  { return token::KW_NULL; }

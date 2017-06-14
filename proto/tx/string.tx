@@ -1,0 +1,36 @@
+module tx
+
+
+/*
+type Char : UInt {
+}
+*/
+
+
+type String {
+    bytes : &Array<UByte>;
+
+    self() {
+        self.bytes = new Array<UByte, 0>();
+    }
+
+    self( utf8Array : &Array<UByte> ) {
+        self.bytes = new Array<UByte, (utf8Array.L)>();
+        ##self.bytes^ = utf8Array^;
+        if utf8Array.L > 0:
+            for i in 0..utf8Array.L:
+                self.bytes[i] = utf8Array[i];
+    }
+
+    self( str : String ) {
+        self( str.bytes );
+    }
+
+/*
+    self( chr : Char ) {
+        tmp := new ~Array<~UByte, 4>();
+        code_to_utf8( tmp, chr );
+        self.bytes = tmp;
+    }
+*/
+}

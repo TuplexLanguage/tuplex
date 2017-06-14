@@ -46,6 +46,11 @@ Value* gen_get_ref_typeid( LlvmGenerationContext& context, GenScope* scope, Valu
     return tidV;
 }
 
+Constant* gen_ref( LlvmGenerationContext& context, Type* refT, Constant* ptrC, Constant* tidC ) {
+    auto refC = ConstantStruct::get( cast<StructType>(refT), { ptrC, tidC } );
+    return refC;
+}
+
 Value* gen_ref( LlvmGenerationContext& context, GenScope* scope, Type* refT, Value* ptrV, Value* tidV ) {
     if ( scope ) {
         Value* refV = UndefValue::get( refT );
@@ -67,11 +72,11 @@ Value* TxReferenceToNode::code_gen_value( LlvmGenerationContext& context, GenSco
     ptrV = targetNode->code_gen_address( context, scope );
 
     // the reference gets the statically known target type id
-    auto tidV = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), targetNode->get_type()->get_type_id() );
+    auto tidC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), targetNode->get_type()->get_type_id() );
 
     // box the pointer:
     auto refT = this->get_type()->type()->make_llvm_type( context );
-    return gen_ref( context, scope, refT, ptrV, tidV );
+    return gen_ref( context, scope, refT, ptrV, tidC );
 }
 
 Value* TxReferenceDerefNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {

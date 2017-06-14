@@ -32,6 +32,7 @@
 #include "ast/expr/ast_field.hpp"
 #include "ast/expr/ast_lambda_node.hpp"
 #include "ast/expr/ast_lit.hpp"
+#include "ast/expr/ast_string.hpp"
 #include "ast/expr/ast_range.hpp"
 #include "ast/type/ast_types.hpp"
 #include "ast/stmt/ast_flow.hpp"
@@ -135,6 +136,7 @@ YY_DECL;
 
  /* literals: */
 %token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
+%token <std::string> SF_PARAM SF_FLAGS SF_WIDTH SF_PREC SF_TYPE
 
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above.
@@ -574,7 +576,7 @@ value_literal
         |       KW_NULL       { $$ = new TxBoolLitNode(@1, false); }  // TODO: proper Null type
         |       KW_FALSE      { $$ = new TxBoolLitNode(@1, false); }
         |       KW_TRUE       { $$ = new TxBoolLitNode(@1, true); }
-        // |       LIT_STRING    { $$ = new TxStringLitNode(@1, $1); }
+        |       LIT_STRING    { $$ = new TxStringLitNode(@1, $1); }
     ;
 
 array_literal : LBRACKET expr COMMA array_lit_expr_list RBRACKET  { (*$4)[0] = $2;  $$ = new TxFilledArrayLitNode(@1, $4); }

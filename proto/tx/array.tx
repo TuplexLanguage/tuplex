@@ -16,15 +16,16 @@ public builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, U
     }
 
     public override clear() ~ {
-        ## TODO
+        ## TODO: needs to be a built-in primitive?
     }
 
     public override contains( val : E ) -> Bool {
-        /* TODO
-        for i in 0:C-1 {
-            if self[i] == val
+/* TODO: requires equals() or similar in Any
+        for i in 0..self.L-1 {
+            if self[i] == val:
                 return TRUE;
-        */
+        }
+*/
         return FALSE;
     }
 
@@ -40,7 +41,7 @@ public builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, U
     }
 
     public override has( ix : UInt ) -> Bool {
-        return ix < self.C;
+        return ix < self.L;
     }
 
     public override get( ix : UInt ) -> E {
@@ -86,13 +87,11 @@ public builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, U
             n := self.nextIndex;
             self.nextIndex = self.nextIndex + 1;
             return self.array[ n ];
-            ##return self.array.get( n );
         }
 
         public override prev() ~ -> E  {
             self.nextIndex = self.nextIndex - 1;
             return self.array[ self.nextIndex ];
-            ##return self.array.get( self.nextIndex );
         }
     }
 }

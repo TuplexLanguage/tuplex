@@ -55,7 +55,6 @@ class LlvmGenerationContext {
     //llvm::DataLayout dataLayout;
 
     // some common, basic types:
-    llvm::Type* voidT;
     llvm::Type* voidPtrT;
     llvm::Type* voidRefT;
 
@@ -77,7 +76,6 @@ public:
               tuplexPackage( tuplexPackage ),
               llvmContext( llvmContext )
     {
-        this->voidT = llvm::Type::getVoidTy( this->llvmContext );
         this->voidPtrT = llvm::Type::getInt8PtrTy( this->llvmContext );
         this->voidRefT = TxReferenceType::make_ref_llvm_type( *this, llvm::Type::getInt8Ty( this->llvmContext ) );
     }
@@ -86,9 +84,6 @@ public:
         return *this->llvmModulePtr;
     }
 
-    inline llvm::Type* get_voidT() const {
-        return this->voidT;
-    }
     inline llvm::Type* get_voidPtrT() const {
         return this->voidPtrT;
     }

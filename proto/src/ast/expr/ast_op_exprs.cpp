@@ -12,11 +12,11 @@ const TxType* TxBinaryOperatorNode::define_type() {
     if ( ltype->is_scalar() ) {
         if ( rtype->is_scalar() ) {
             if ( ltype != rtype ) {
-                if ( auto_converts_to( rhs->originalExpr, ltype ) ) {
+                if ( auto_converts_to( this->rhs->originalExpr, ltype ) ) {
                     this->rhs->insert_conversion( ltype );
                     arithResultType = this->rhs->resolve_type();
                 }
-                else if ( auto_converts_to( lhs->originalExpr, rtype ) ) {
+                else if ( auto_converts_to( this->lhs->originalExpr, rtype ) ) {
                     this->lhs->insert_conversion( rtype );
                     arithResultType = this->lhs->resolve_type();
                 }

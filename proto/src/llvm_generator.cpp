@@ -392,7 +392,7 @@ void LlvmGenerationContext::initialize_external_functions() {
 
         // create adapter function:
         Function *t_abortF = cast<Function>(
-                this->llvmModule().getOrInsertFunction( "tx.c.abort$func", this->get_voidT(), this->get_voidRefT(), NULL ) );
+                this->llvmModule().getOrInsertFunction( "tx.c.abort$func", Type::getVoidTy( this->llvmContext ), this->get_voidRefT(), NULL ) );
         BasicBlock *bb = BasicBlock::Create( this->llvmModule().getContext(), "entry", t_abortF );
         IRBuilder<> builder( bb );
         GenScope scope( &builder );
@@ -429,7 +429,7 @@ void LlvmGenerationContext::initialize_external_functions() {
     // create adapter function:
     auto cstrRefT = TxReferenceType::make_ref_llvm_type( *this, Type::getInt8Ty( this->llvmContext ) );
     Function *t_putsF = cast<Function>(
-            this->llvmModule().getOrInsertFunction( "tx.c.puts$func", this->get_voidT(), this->get_voidRefT(), cstrRefT, NULL ) );
+            this->llvmModule().getOrInsertFunction( "tx.c.puts$func", Type::getVoidTy( this->llvmContext ), this->get_voidRefT(), cstrRefT, NULL ) );
     BasicBlock *bb = BasicBlock::Create( this->llvmModule().getContext(), "entry", t_putsF );
     IRBuilder<> builder( bb );
     GenScope scope( &builder );
@@ -558,7 +558,7 @@ llvm::Value* LlvmGenerationContext::gen_malloc( GenScope* scope, Value* sizeV ) 
     auto mallocParameterType = int32T;
     auto objSizeV = scope->builder->CreateTruncOrBitCast( sizeV, mallocParameterType );
     auto objCountC = ConstantInt::get( int32T, 1 );
-    auto objT = this->voidT;
+    auto objT = Type::getInt8Ty( this->llvmContext );
     auto objAllocI = CallInst::CreateMalloc( scope->builder->GetInsertBlock(), mallocParameterType,
                                              objT, objSizeV, objCountC, nullptr, "" );
     scope->builder->GetInsertBlock()->getInstList().push_back( objAllocI );

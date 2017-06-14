@@ -87,16 +87,30 @@ Proper mutability handling: - DONE
 
 Array literals - DONE
 
-Make VALUE type parameters proper instance fields and ensure they're correctly initialized - IN PROGRESS
+Make VALUE type parameters proper instance fields - DONE
  - implement correct Array type handling
 
-Support augmenting built-in types' definitions in tuplex code - IN PROGRESS
+Implement proper modifiability determination across expression chains - DONE
+
+Be able to specialize an immutable version of mutable generic types, so that they can accept immutable type bindings - DONE
+ - review inheritance and mutability (including interface adapters)
+
+Generate statically constant operations for statically constant value expressions - DONE
+ - should also enable arbitrary declaration order of global constants 
+
+Support augmenting built-in types' definitions in tuplex code - DONE
 
 Bounds checking on array element access (add implicit AST for this in TxElemDerefNode) - DONE
 
 Bounds checking on array element assignment - DONE
 
-Simple for-loops - DONE
+Sequence interfaces first version - DONE
+
+Range type - DONE
+
+Advanced for-loops - DONE
+
+String datatype
 
 Dynamic-length arrays tests - bounds checking, copying, etc - IN PROGRESS
 
@@ -104,20 +118,16 @@ Review and test array object assignment semantics
  - correct setting of L
  - truncation (all elements don't fit in target) ok?
 
+Ensure VALUE type parameters are always correctly initialized
+
 Default initialization of array elements (at least if it's array of arrays)
-
-Range typeclass
-
-Sequence interfaces
-
-String datatype
 
 Ensure fields are always initialized (with the default constructor if no init expr provided)
  - Remove 'initialization' code from alloca (at least for arrays this will cause double init of C and L)
 
-Advanced for-loops
-
 Support negative array indexing from array end
+
+Panic statement
 
 Implement advanced implicit constructor concept
  - Automatically generate the basic constructor (one argument for each instance member (except const with initializer))
@@ -146,15 +156,11 @@ Dataspace syntax support, continued
 
 break and continue out of nested loops
 
-Generate statically constant operations for statically constant value expressions
- - should also enable arbitrary declaration order of global constants 
-
 Syntactic sugar for ref and array types in type arguments (possibly chained), e.g. Subtype<&Int> instead of Subtype<Ref<Int>>
 
-Implement debugging info
+Foreign function interface
 
-Be able to specialize an immutable version of mutable generic types, so that they can accept immutable type bindings
- - review inheritance and mutability (including interface adapters)
+Implement debugging info
 
 Type reflection, at least for autotesting, some ideas:
     assert static_type(var) == static_type(Ref<Parent>)

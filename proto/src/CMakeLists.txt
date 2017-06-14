@@ -130,6 +130,7 @@ add_executable(txc
         ast/expr/ast_conv.cpp
         ast/expr/ast_lit.cpp
         ast/expr/ast_array.cpp
+        ast/expr/ast_string.cpp
         ast/expr/ast_op_exprs.cpp
         ast/expr/ast_expr_node_codegen.cpp
         ast/expr/ast_exprs_codegen.cpp
@@ -139,6 +140,7 @@ add_executable(txc
         ast/expr/ast_lit_codegen.cpp
         ast/expr/ast_ref_codegen.cpp
         ast/expr/ast_array_codegen.cpp
+        ast/expr/ast_string_codegen.cpp
         ast/expr/ast_range_codegen.cpp
         ast/expr/ast_op_exprs_codegen.cpp
         ast/expr/ast_constexpr_codegen.cpp

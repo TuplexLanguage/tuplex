@@ -286,7 +286,7 @@ class TxVoidTypeDefNode final : public TxBuiltinTypeDefiningNode {
 
         virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override {
             LOG_TRACE( context.LOGGER(), "LLVM type for abstract type " << this << " is VOID" );
-            return context.get_voidT();
+            return llvm::Type::getVoidTy( context.llvmContext );
         }
     };
 
@@ -321,7 +321,7 @@ class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
 
         virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override {
             LOG_TRACE( context.LOGGER(), "LLVM type for abstract type " << this << " is VOID" );
-            return context.get_voidT();
+            return llvm::Type::getVoidTy( context.llvmContext );
         }
     };
 

@@ -21,14 +21,31 @@ protected:
     }
 
     virtual const TxType* define_type() override {
-        auto startValue = this->stackConstr->constructorCall->origArgsExprList->front();
+        TxExpressionNode* limitTypeExpr;
+        {
+            auto ltype = this->startValue->resolve_type();
+            auto rtype = this->endValue->resolve_type();
+            if ( ltype == rtype ) {
+                limitTypeExpr = this->startValue;
+            }
+            else {
+                if ( auto_converts_to( this->endValue, ltype ) ) {
+                    limitTypeExpr = this->startValue;
+                }
+                else if ( auto_converts_to( this->startValue, rtype ) ) {
+                    limitTypeExpr = this->endValue;
+                }
+                else
+                    CERR_THROWRES( this, "Invalid or mutually incompatible range limit types: " << ltype << "  and  " << rtype );
+            }
+        }
 
         auto baseTypeNode = new TxNamedTypeNode( this->parseLocation, "tx.ERange" );
         run_declaration_pass( baseTypeNode, this, "basetype" );
         baseTypeNode->symbol_resolution_pass();
         auto baseType = baseTypeNode->resolve_type();
 
-        auto binding = new TxTypeTypeArgumentNode( new TxTypeExprWrapperNode( startValue ) );
+        auto binding = new TxTypeTypeArgumentNode( new TxTypeExprWrapperNode( limitTypeExpr ) );
         run_declaration_pass( binding, this, "binding" );
         std::vector<const TxTypeArgumentNode*> bindings( { binding } );
 

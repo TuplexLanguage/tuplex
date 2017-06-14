@@ -51,7 +51,7 @@ Function* TxActualType::get_type_user_init_func( LlvmGenerationContext& context 
     std::vector<Type*> typeInitFuncArgTypes {
                                               context.get_voidPtrT()  // void* to type's data
     };
-    FunctionType *typeInitFuncType = FunctionType::get( context.get_voidT(), typeInitFuncArgTypes, false );
+    FunctionType *typeInitFuncType = FunctionType::get( llvm::Type::getVoidTy( context.llvmContext ), typeInitFuncArgTypes, false );
 
     Function *initFunc = cast<Function>( context.llvmModule().getOrInsertFunction( funcName, typeInitFuncType ) );
     BasicBlock::Create( context.llvmModule().getContext(), "entry", initFunc );
@@ -316,10 +316,8 @@ Type* TxFunctionType::make_llvm_type( LlvmGenerationContext& context ) const {
         llvmArgTypes.push_back( context.get_llvm_type( argTxType ) );
         LOG_TRACE( context.LOGGER(), "Mapping arg type " << argTxType << " to " << ::to_string(llvmArgTypes.back()) );
     }
-    Type* llvmRetType = this->has_return_value()
-                        ? context.get_llvm_type( this->returnType )
-                                                 :
-                          context.get_voidT();
+    Type* llvmRetType = this->has_return_value() ? context.get_llvm_type( this->returnType )
+                                                 : llvm::Type::getVoidTy( context.llvmContext );
     FunctionType *funcT = FunctionType::get( llvmRetType, llvmArgTypes, false );
 
     std::vector<Type*> llvmMemberTypes {

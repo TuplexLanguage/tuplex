@@ -49,9 +49,6 @@ static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, cons
     ASSERT( !globalV->hasInitializer(), "global already has initializer: " << globalV );
     globalV->setInitializer( constantInitializer );
     return globalV;
-    //context.LOG.alert("Global field %s", fullName.to_string().c_str());
-    //return new GlobalVariable(context.llvmModule, llvmType, true, GlobalValue::InternalLinkage,
-    //                                constantInitializer, fullName.to_string());
 }
 
 void TxFieldDeclNode::code_gen( LlvmGenerationContext& context ) const {

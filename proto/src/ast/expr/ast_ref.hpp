@@ -13,6 +13,7 @@ extern llvm::Value* gen_get_struct_member( LlvmGenerationContext& context, GenSc
 extern llvm::Value* gen_get_ref_pointer( LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV );
 extern llvm::Value* gen_get_ref_typeid( LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV );
 extern llvm::Value* gen_ref( LlvmGenerationContext& context, GenScope* scope, llvm::Type* refT, llvm::Value* ptrV, llvm::Value* tidV );
+extern llvm::Constant* gen_ref( LlvmGenerationContext& context, llvm::Type* refT, llvm::Constant* ptrC, llvm::Constant* tidC );
 
 class TxReferenceDerefNode : public TxExpressionNode {
     /** internal "cache" to prevent multiple code generations */
