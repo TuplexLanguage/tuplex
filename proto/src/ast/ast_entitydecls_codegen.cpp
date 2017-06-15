@@ -76,7 +76,7 @@ void TxFieldDeclNode::code_gen( LlvmGenerationContext& context ) const {
             }
             else {
                 ASSERT( this->field->initExpression, "instance method does not have an initializer/definition: " << uniqueName );
-                auto initLambdaV = this->field->initExpression->code_gen_constant( context );
+                auto initLambdaV = this->field->initExpression->code_gen_const_value( context );
                 auto funcPtrV = initLambdaV->getAggregateElement( (unsigned) 0 );
                 fieldVal = funcPtrV;  // the naked $func is stored (as opposed to a full lambda object)
                 uniqueName = fieldVal->getName();
@@ -122,7 +122,7 @@ void TxFieldDeclNode::code_gen( LlvmGenerationContext& context ) const {
 Constant* TxFieldDefiningNode::code_gen_constant_init_expr( LlvmGenerationContext& context ) const {
     if (! this->cachedConstantInitializer) {
         ASSERT( this->get_init_expression() && this->get_init_expression()->is_statically_constant(), "Expected constant initializer in " << this );
-        this->cachedConstantInitializer = this->get_init_expression()->code_gen_constant( context );
+        this->cachedConstantInitializer = this->get_init_expression()->code_gen_const_value( context );
     }
     return this->cachedConstantInitializer;
 }

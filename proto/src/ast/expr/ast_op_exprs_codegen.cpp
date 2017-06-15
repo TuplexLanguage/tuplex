@@ -61,10 +61,10 @@ static unsigned get_llvm_op( TxOperationClass op_class, TxOperation op, const Tx
     return llvm_op;
 }
 
-llvm::Constant* TxBinaryOperatorNode::code_gen_constant( LlvmGenerationContext& context ) const {
+llvm::Constant* TxBinaryOperatorNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
-    auto lval = this->lhs->code_gen_constant( context );
-    auto rval = this->rhs->code_gen_constant( context );
+    auto lval = this->lhs->code_gen_const_value( context );
+    auto rval = this->rhs->code_gen_const_value( context );
 
     // pick field's plain name, if available, for the expression value:
     const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
@@ -84,11 +84,11 @@ llvm::Constant* TxBinaryOperatorNode::code_gen_constant( LlvmGenerationContext& 
     }
 }
 
-Value* TxBinaryOperatorNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxBinaryOperatorNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     ASSERT( scope, "NULL scope in non-const binary expression: " << this );
-    auto lval = this->lhs->code_gen_value( context, scope );
-    auto rval = this->rhs->code_gen_value( context, scope );
+    auto lval = this->lhs->code_gen_dyn_value( context, scope );
+    auto rval = this->rhs->code_gen_dyn_value( context, scope );
 
     // pick field's plain name, if available, for the expression value:
     const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
@@ -121,9 +121,9 @@ Value* TxBinaryOperatorNode::code_gen_value( LlvmGenerationContext& context, Gen
     }
 }
 
-llvm::Constant* TxUnaryMinusNode::code_gen_constant( LlvmGenerationContext& context ) const {
+llvm::Constant* TxUnaryMinusNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
-    auto operand = this->operand->code_gen_constant( context );
+    auto operand = this->operand->code_gen_const_value( context );
     if ( dynamic_cast<TxIntegerLitNode*>( this->operand->originalExpr ) ) {
         return operand;  // negation has been applied directly to the literal
     }
@@ -137,9 +137,9 @@ llvm::Constant* TxUnaryMinusNode::code_gen_constant( LlvmGenerationContext& cont
     THROW_LOGIC( "Invalid unary minus operand type: " << opType << " in " << this );
 }
 
-Value* TxUnaryMinusNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxUnaryMinusNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto operand = this->operand->code_gen_value( context, scope );
+    auto operand = this->operand->code_gen_dyn_value( context, scope );
     if ( dynamic_cast<TxIntegerLitNode*>( this->operand->originalExpr ) ) {
         return operand;  // negation has been applied directly to the literal
     }
@@ -153,14 +153,14 @@ Value* TxUnaryMinusNode::code_gen_value( LlvmGenerationContext& context, GenScop
     THROW_LOGIC( "Invalid unary minus operand type: " << opType << " in " << this );
 }
 
-llvm::Constant* TxUnaryLogicalNotNode::code_gen_constant( LlvmGenerationContext& context ) const {
+llvm::Constant* TxUnaryLogicalNotNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
-    auto operand = this->operand->code_gen_constant( context );
+    auto operand = this->operand->code_gen_const_value( context );
     return ConstantExpr::getNot( operand );
 }
 
-Value* TxUnaryLogicalNotNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxUnaryLogicalNotNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto operand = this->operand->code_gen_value( context, scope );
+    auto operand = this->operand->code_gen_dyn_value( context, scope );
     return scope->builder->CreateNot( operand );
 }

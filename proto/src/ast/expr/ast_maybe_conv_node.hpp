@@ -11,10 +11,10 @@ bool auto_converts_to( TxExpressionNode* originalExpr, const TxType* requiredTyp
 class TxMaybeConversionNode : public TxExpressionNode {
     const TxType* insertedResultType = nullptr;
     bool _explicit = false;
-    TxExpressionNode* wrappedExpr;
+    TxExpressionNode* resolvedExpr;
 
-    inline TxExpressionNode* get_wrapped_expr() const {
-        return this->wrappedExpr;
+    inline TxExpressionNode* get_expr() const {
+        return this->resolvedExpr;
     }
 
 protected:
@@ -24,7 +24,7 @@ public:
     TxExpressionNode* const originalExpr;
 
     TxMaybeConversionNode( TxExpressionNode* originalExpr )
-            : TxExpressionNode( originalExpr->parseLocation ), wrappedExpr( originalExpr ), originalExpr( originalExpr ) {
+            : TxExpressionNode( originalExpr->parseLocation ), resolvedExpr( originalExpr ), originalExpr( originalExpr ) {
         ASSERT( originalExpr, "NULL originalExpr" );
         ASSERT( !dynamic_cast<TxMaybeConversionNode*>( originalExpr ),
                 "Can't wrap a TxMaybeConversionNode with another TxMaybeConversionNode: " << originalExpr );
@@ -44,28 +44,33 @@ public:
 
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
-        auto expr = this->get_wrapped_expr();
+        auto expr = this->get_expr();
         expr->symbol_resolution_pass();
     }
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
-        return this->get_wrapped_expr()->get_data_graph_origin_expr();
+        return this->get_expr()->get_data_graph_origin_expr();
     }
 
     virtual bool is_stack_allocation_expression() const override {
-        return this->get_wrapped_expr()->is_stack_allocation_expression();
+        return this->get_expr()->is_stack_allocation_expression();
+    }
+
+    virtual TxFieldStorage get_storage() const override {
+        return this->get_expr()->get_storage();
     }
 
     virtual bool is_statically_constant() const override {
-        return this->get_wrapped_expr()->is_statically_constant();
+        return this->get_expr()->is_statically_constant();
     }
 
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->wrappedExpr->visit_ast( visitor, thisCursor, "convertee", context );
+        this->resolvedExpr->visit_ast( visitor, thisCursor, "convertee", context );
     }
 
     virtual std::string get_identifier() const override {

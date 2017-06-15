@@ -4,11 +4,11 @@
 
 using namespace llvm;
 
-llvm::Value* TxLiteralElementaryValueNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
-    return this->code_gen_constant( context );
+llvm::Value* TxLiteralElementaryValueNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    return this->code_gen_const_value( context );
 }
 
-Constant* TxIntegerLitNode::code_gen_constant( LlvmGenerationContext& context ) const {
+Constant* TxIntegerLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, this->constValue.value.i64 );
     switch ( this->constValue.typeId ) {
     case TXBT_BYTE:
@@ -32,7 +32,7 @@ Constant* TxIntegerLitNode::code_gen_constant( LlvmGenerationContext& context ) 
     }
 }
 
-Constant* TxFloatingLitNode::code_gen_constant( LlvmGenerationContext& context ) const {
+Constant* TxFloatingLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, this->value );
     switch ( this->typeId ) {
     case TXBT_HALF:
@@ -46,37 +46,13 @@ Constant* TxFloatingLitNode::code_gen_constant( LlvmGenerationContext& context )
     }
 }
 
-Constant* TxBoolLitNode::code_gen_constant( LlvmGenerationContext& context ) const {
+Constant* TxBoolLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, std::to_string(this->value) );
     return ( this->value ? ConstantInt::getTrue( context.llvmContext ) : ConstantInt::getFalse( context.llvmContext ) );
 }
 
-Constant* TxCharacterLitNode::code_gen_constant( LlvmGenerationContext& context ) const {
+Constant* TxCharacterLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, '\'' << this->value << "' == " << (int)this->value );
     auto value = ConstantInt::get( context.llvmContext, APInt( 8, this->value, false ) );
     return value;
-}
-
-
-
-Constant* TxCStringLitNode::code_gen_constant( LlvmGenerationContext& context ) const {
-    TRACE_CODEGEN( this, context, '"' << this->value << '"' );
-    std::vector<Constant*> members {
-                                     ConstantInt::get( context.llvmContext, APInt( 32, this->arrayCapacity ) ),
-                                     ConstantInt::get( context.llvmContext, APInt( 32, this->arrayCapacity ) ),
-                                     ConstantDataArray::getString( context.llvmContext, this->value )
-    };
-    auto str = ConstantStruct::getAnon( members );
-    return str;
-}
-
-Value* TxCStringLitNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
-    // experimental, automatically allocates space for literals, used for e.g. string literals
-    auto constant = this->code_gen_value( context, scope );
-    auto constInitializer = cast<Constant>( constant );
-    return new GlobalVariable( context.llvmModule(), constInitializer->getType(), true, GlobalValue::InternalLinkage, constInitializer );
-}
-
-Value* TxCStringLitNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
-    return this->code_gen_constant( context );
 }

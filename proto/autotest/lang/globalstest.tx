@@ -6,8 +6,7 @@ CONSTANT_EXPR : tx.Int = -3+4;
 
 CONSTANT_EXPR2 : tx.Int = CONSTANT + 5;
 
-## TODO: support proper constant code generation for statically constant value expressions
-##CONSTANT_EXPR3 : tx.Int = CONSTANT_EXPR2 + 5;
+CONSTANT_EXPR3 : tx.Int = CONSTANT_EXPR2 + 5;
 
 COPY := CONSTANT;
 
@@ -35,8 +34,7 @@ protected PROTECTED_FIELD := 5;
 FIELDA := FIELDB;
 FIELDB := CONSTANT;
 
-## TODO: support for constant initializer *expressions* with reverse lexical order dependency
-##FIELDC := FIELDD;
+FIELDC := FIELDD;
 FIELDD := CONSTANT + 2;
 
 ## currently function calls (including pure ones) are regarded as non-statically-constant:
@@ -45,6 +43,10 @@ FIELDD := CONSTANT + 2;
 square( a : Int )->Int {
     return a * a;
 }
+
+
+## constant references to globals:
+CONST_REF := &CONSTANT;
 
 
 ## check controlled error message upon recursive definition
@@ -86,11 +88,11 @@ type Compound {
 main() {
     assert CONSTANT + CONSTANT_EXPR == 18;
     assert CONSTANT_EXPR2 == 22;
-    ##assert CONSTANT_EXPR3 == 27;
+    assert CONSTANT_EXPR3 == 27;
     assert COPY == 17;
     assert FIELDA == 17;
     assert FIELDB == 17;
-    ##assert FIELDC == 19;
+    assert FIELDC == 19;
     assert FIELDD == 19;
     assert Compound.OK == 4;
 }

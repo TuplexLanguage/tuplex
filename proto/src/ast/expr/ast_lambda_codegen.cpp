@@ -1,6 +1,7 @@
-#include "llvm_generator.hpp"
-
 #include "ast_lambda_node.hpp"
+#include "ast_ref.hpp"
+
+#include "llvm_generator.hpp"
 
 using namespace llvm;
 
@@ -39,7 +40,7 @@ Function* TxLambdaExprNode::code_gen_forward_decl( LlvmGenerationContext& contex
     return function;
 }
 
-llvm::Constant* TxLambdaExprNode::code_gen_constant( LlvmGenerationContext& context ) const {
+llvm::Constant* TxLambdaExprNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, " function body" );
     Function* function = this->code_gen_forward_decl( context );
     ASSERT( function, "NULL function pointer in " << this );
@@ -60,13 +61,13 @@ llvm::Constant* TxLambdaExprNode::code_gen_constant( LlvmGenerationContext& cont
         {
             this->selfRefNode->typeExpression->code_gen_type( context );
             auto selfT = context.get_llvm_type( this->selfRefNode->get_type() );
-            auto convSelfV = TxReferenceType::gen_ref_conversion( context, &fscope, &(*fArgI), selfT );
+            auto convSelfV = gen_ref_conversion( context, &fscope, &(*fArgI), selfT );
             gen_local_field( context, &fscope, this->selfRefNode->get_field(), convSelfV );
         }
         {
             this->superRefNode->typeExpression->code_gen_type( context );
             auto superT = context.get_llvm_type( this->superRefNode->get_type() );
-            auto convSuperV = TxReferenceType::gen_ref_conversion( context, &fscope, &(*fArgI), superT );
+            auto convSuperV = gen_ref_conversion( context, &fscope, &(*fArgI), superT );
             gen_local_field( context, &fscope, this->superRefNode->get_field(), convSuperV );
         }
     }
@@ -94,7 +95,6 @@ llvm::Constant* TxLambdaExprNode::code_gen_constant( LlvmGenerationContext& cont
     return lambdaV;
 }
 
-Value* TxLambdaExprNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
-    ASSERT( false, "code_gen_value() in TxLambdaExprNode called; code_gen_constant() should be called instead: " << this );
-    return this->code_gen_constant( context );
+Value* TxLambdaExprNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    return this->code_gen_const_value( context );
 }

@@ -45,8 +45,8 @@ public:
         return this->lhs->is_statically_constant() && this->rhs->is_statically_constant();
     }
 
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->lhs->visit_ast( visitor, thisCursor, "lhs", context );
@@ -80,8 +80,8 @@ public:
         return this->operand->is_statically_constant();
     }
 
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->operand->visit_ast( visitor, thisCursor, "operand", context );
@@ -116,8 +116,8 @@ public:
         return this->operand->is_statically_constant();
     }
 
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->operand->visit_ast( visitor, thisCursor, "operand", context );

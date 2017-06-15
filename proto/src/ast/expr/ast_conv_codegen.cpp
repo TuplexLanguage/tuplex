@@ -1,26 +1,33 @@
 #include "ast_conv.hpp"
+#include "ast_ref.hpp"
+
 #include "llvm_generator.hpp"
 
 using namespace llvm;
 
-Constant* TxMaybeConversionNode::code_gen_constant( LlvmGenerationContext& context) const {
+Constant* TxMaybeConversionNode::code_gen_const_address( LlvmGenerationContext& context) const {
     TRACE_CODEGEN( this, context );
-    return this->get_wrapped_expr()->code_gen_constant( context );
+    return this->get_expr()->code_gen_const_address( context );
 }
 
-Value* TxMaybeConversionNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
+Constant* TxMaybeConversionNode::code_gen_const_value( LlvmGenerationContext& context) const {
     TRACE_CODEGEN( this, context );
-    return this->get_wrapped_expr()->code_gen_address( context, scope );
+    return this->get_expr()->code_gen_const_value( context );
 }
 
-Value* TxMaybeConversionNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxMaybeConversionNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return this->get_wrapped_expr()->code_gen_value( context, scope );
+    return this->get_expr()->code_gen_dyn_address( context, scope );
 }
 
-Constant* TxBoolConvNode::code_gen_constant( LlvmGenerationContext& context ) const {
+Value* TxMaybeConversionNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    return this->get_expr()->code_gen_dyn_value( context, scope );
+}
+
+Constant* TxBoolConvNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
-    auto origValue = this->expr->code_gen_constant( context );
+    auto origValue = this->expr->code_gen_const_value( context );
     // accepts scalar types and converts to bool: 0 => FALSE, otherwise => TRUE
     // Note: can't cast, since that will simply truncate to the lowest source bit
     if ( origValue->getType()->isIntegerTy() )
@@ -29,9 +36,9 @@ Constant* TxBoolConvNode::code_gen_constant( LlvmGenerationContext& context ) co
     return ConstantExpr::getFCmp( FCmpInst::FCMP_UNE, cast<Constant>( origValue ), ConstantFP::get( origValue->getType(), 0 ) );
 }
 
-Value* TxBoolConvNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxBoolConvNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
-    auto origValue = this->expr->code_gen_value( context, scope );
+    auto origValue = this->expr->code_gen_dyn_value( context, scope );
     // accepts scalar types and converts to bool: 0 => FALSE, otherwise => TRUE
     // Note: can't cast, since that will simply truncate to the lowest source bit
     if ( origValue->getType()->isIntegerTy() )
@@ -40,9 +47,9 @@ Value* TxBoolConvNode::code_gen_value( LlvmGenerationContext& context, GenScope*
     return ConstantExpr::getFCmp( FCmpInst::FCMP_UNE, cast<Constant>( origValue ), ConstantFP::get( origValue->getType(), 0 ) );
 }
 
-Constant* TxScalarConvNode::code_gen_constant( LlvmGenerationContext& context ) const {
+Constant* TxScalarConvNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, " -> " << this->node->resultType );
-    auto origValue = this->expr->code_gen_constant( context );
+    auto origValue = this->expr->code_gen_const_value( context );
     auto actType = this->resultType->type();
     ASSERT( dynamic_cast<const TxScalarType*>( actType ), "Expected TxScalarType: " << actType );
     auto scalarType = static_cast<const TxScalarType*>( actType );
@@ -60,9 +67,9 @@ Constant* TxScalarConvNode::code_gen_constant( LlvmGenerationContext& context ) 
     return folder.CreateCast( cop, origValue, targetLlvmType );
 }
 
-Value* TxScalarConvNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxScalarConvNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
-    auto origValue = this->expr->code_gen_value( context, scope );
+    auto origValue = this->expr->code_gen_dyn_value( context, scope );
     auto targetLlvmType = context.get_llvm_type( this->resultType );
     ASSERT(targetLlvmType, "In scalar cast, no target LLVM type found for " << this->resultType );
     // FUTURE: manually determine cast instruction
@@ -93,28 +100,34 @@ Value* TxScalarConvNode::code_gen_value( LlvmGenerationContext& context, GenScop
      */
 }
 
-Value* TxReferenceConvNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxReferenceConvNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
-    auto origValue = this->expr->code_gen_value( context, scope );
+    ASSERT( this->expr->get_type()->get_type_class() == TXTC_REFERENCE, "TxReferenceConvNode applied to non-reference type: " << this->expr->get_type() );
 
-    // from another reference:
-    if ( this->expr->get_type()->get_type_class() == TXTC_REFERENCE ) {
-        auto refT = context.get_llvm_type( this->resultType );
-        if ( !refT ) {
-            THROW_LOGIC( "In reference conversion, LLVM type not found for result type " << this->resultType << " in " << this );
-        }
-        uint32_t adapterTypeId = ( this->adapterType ? this->adapterType->get_type_id() : UINT32_MAX );
-        //std::cerr << "Ref conversion\n from " << this->expr->get_type(0) << "\n   to " << this->resultType << " = " << refT
-        //          << "\n adapterTypeId=" << adapterTypeId << std::endl;
-        return TxReferenceType::gen_ref_conversion( context, scope, origValue, refT, adapterTypeId );
+    auto origValueV = this->expr->code_gen_dyn_value( context, scope );
+    auto refT = context.get_llvm_type( this->resultType );
+    if ( !refT ) {
+        THROW_LOGIC( "In reference conversion, LLVM type not found for result type " << this->resultType << " in " << this );
     }
-    ASSERT( this->expr->get_type(), "NULL type in " << this );
-    LOG( context.LOGGER(), ERROR, this->expr->get_type() << " to-reference conversion not supported" );
-    return origValue;
+    // (if UINT32_MAX, pointers original target type id is retained)
+    uint32_t adapterTypeId = ( this->adapterType ? this->adapterType->get_type_id() : UINT32_MAX );
+    //std::cerr << "Ref conversion\n from " << this->expr->get_type(0) << "\n   to " << this->resultType << " = " << refT
+    //          << "\n adapterTypeId=" << adapterTypeId << std::endl;
+    return gen_ref_conversion( context, scope, origValueV, refT, adapterTypeId );
 }
 
-Value* TxObjSpecCastNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Constant* TxReferenceConvNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
-    // this is a semantic conversion; it doesn't actually do anything
-    return this->expr->code_gen_value( context, scope );
+    ASSERT( this->expr->get_type()->get_type_class() == TXTC_REFERENCE, "TxReferenceConvNode applied to non-reference type: " << this->expr->get_type() );
+
+    auto origValueC = this->expr->code_gen_const_value( context );
+    auto refT = context.get_llvm_type( this->resultType );
+    if ( !refT ) {
+        THROW_LOGIC( "In reference conversion, LLVM type not found for result type " << this->resultType << " in " << this );
+    }
+    // (if UINT32_MAX, pointers original target type id is retained)
+    uint32_t adapterTypeId = ( this->adapterType ? this->adapterType->get_type_id() : UINT32_MAX );
+    //std::cerr << "Ref conversion\n from " << this->expr->get_type(0) << "\n   to " << this->resultType << " = " << refT
+    //          << "\n adapterTypeId=" << adapterTypeId << std::endl;
+    return gen_ref_conversion( context, origValueC, refT, adapterTypeId );
 }

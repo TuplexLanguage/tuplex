@@ -36,6 +36,10 @@ public:
         this->expr->symbol_resolution_pass();
     }
 
+    virtual bool is_statically_constant() const override {
+        return this->expr->is_statically_constant();
+    }
+
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->expr->visit_ast( visitor, thisCursor, "convertee", context );
     }
@@ -47,12 +51,8 @@ public:
             : TxConversionNode( expr, scalarResultType ) {
     }
 
-    virtual bool is_statically_constant() const override {
-        return this->expr->is_statically_constant();
-    }
-
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 class TxBoolConvNode : public TxConversionNode {
@@ -61,24 +61,22 @@ public:
             : TxConversionNode( expr, boolResultType ) {
     }
 
-    virtual bool is_statically_constant() const override {
-        return this->expr->is_statically_constant();
-    }
-
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 class TxReferenceConvNode : public TxConversionNode {
     const TxType* adapterType = nullptr;
-    protected:
+
+protected:
     virtual const TxType* define_type() override;
 
 public:
     TxReferenceConvNode( TxExpressionNode* expr, const TxType* refResultType )
             : TxConversionNode( expr, refResultType ) {
     }
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
 };
 
 /** Casts (not converts) between object specializations (across type parameters and inheritance). */
@@ -87,7 +85,24 @@ public:
     TxObjSpecCastNode( TxExpressionNode* expr, const TxType* resultType )
             : TxConversionNode( expr, resultType ) {
     }
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual bool is_stack_allocation_expression() const {
+        return this->expr->is_stack_allocation_expression();
+    }
+    virtual TxFieldStorage get_storage() const override {
+        return this->expr->get_storage();
+    }
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override {
+        return this->expr->code_gen_dyn_value( context, scope );
+    }
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override {
+        return this->expr->code_gen_const_value( context );
+    }
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override {
+        return this->expr->code_gen_dyn_address( context, scope );
+    }
+    virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const override {
+        return this->expr->code_gen_const_address( context );
+    }
 };
 
 /** A non-conversion "placeholder conversion". */
@@ -96,7 +111,22 @@ public:
     TxNoConversionNode( TxExpressionNode* expr, const TxType* resultType )
             : TxConversionNode( expr, resultType ) {
     }
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override {
-        return this->expr->code_gen_value( context, scope );
+    virtual bool is_stack_allocation_expression() const {
+        return this->expr->is_stack_allocation_expression();
+    }
+    virtual TxFieldStorage get_storage() const override {
+        return this->expr->get_storage();
+    }
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override {
+        return this->expr->code_gen_dyn_value( context, scope );
+    }
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override {
+        return this->expr->code_gen_const_value( context );
+    }
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override {
+        return this->expr->code_gen_dyn_address( context, scope );
+    }
+    virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const override {
+        return this->expr->code_gen_const_address( context );
     }
 };

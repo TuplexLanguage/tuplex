@@ -290,23 +290,6 @@ Type* TxReferenceType::make_ref_llvm_type( LlvmGenerationContext& context, Type*
     return llvmType;
 }
 
-Value* TxReferenceType::gen_ref_conversion( LlvmGenerationContext& context, GenScope* scope, Value* origValue,
-                                            Type* targetRefT,
-                                            uint32_t targetTypeId ) {
-    auto newPtrT = cast<StructType>( targetRefT )->getElementType( 0 );
-    Value* tidV = ( targetTypeId == UINT32_MAX ? gen_get_ref_typeid( context, scope, origValue )
-                                                                     :
-                                                 ConstantInt::get( Type::getInt32Ty( context.llvmContext ), targetTypeId ) );
-    Value* origPtrV = gen_get_ref_pointer( context, scope, origValue );
-    Value* newPtrV;
-    // bitcast from one pointer type to another
-    if ( !scope )
-        newPtrV = ConstantExpr::getBitCast( cast<Constant>( origPtrV ), newPtrT );
-    else
-        newPtrV = scope->builder->CreateBitCast( origPtrV, newPtrT );
-
-    return gen_ref( context, scope, targetRefT, newPtrV, tidV );
-}
 
 Type* TxFunctionType::make_llvm_type( LlvmGenerationContext& context ) const {
     auto closureRefT = context.get_voidRefT();

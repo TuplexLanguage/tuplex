@@ -12,7 +12,7 @@ class TxArrayLitNode : public TxExpressionNode {
 public:
     TxArrayLitNode( const TxLocation& parseLocation ) : TxExpressionNode( parseLocation ) { }
 
-    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 /** Represents filled array literals, explicitly specified in source code as well as array initializers created implicitly
@@ -79,8 +79,8 @@ public:
         return this->_constant;
     }
 
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->elementTypeNode )
@@ -119,8 +119,8 @@ public:
         return this->arrayTypeNode->get_type()->is_static();
     }
 
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->arrayTypeNode->visit_ast( visitor, thisCursor, "type", context );
@@ -153,8 +153,8 @@ public:
         return this->capacityExpr->is_statically_constant();
     }
 
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->elementTypeNode->visit_ast( visitor, thisCursor, "elem-type", context );
@@ -205,13 +205,18 @@ public:
         return this->array;
     }
 
+    virtual TxFieldStorage get_storage() const override {
+        return this->array->get_storage();
+    }
+
     virtual bool is_statically_constant() const override {
         return ( this->array->is_statically_constant() && this->subscript->is_statically_constant() );
     }
 
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->array->visit_ast( visitor, thisCursor, "array", context );

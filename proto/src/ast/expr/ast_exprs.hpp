@@ -46,15 +46,21 @@ public:
         return false;
     }
 
+    virtual TxFieldStorage get_storage() const override {
+        if ( this->inlinedExpression )
+            return this->inlinedExpression->get_storage();
+        return TXS_NOSTORAGE;
+    }
+
     virtual bool is_statically_constant() const override {
         if ( this->inlinedExpression )
             return this->inlinedExpression->is_statically_constant();
         return false;
     }
 
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->inlinedExpression )
@@ -101,7 +107,7 @@ public:
     }
 
     /** @return a lambda value */
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     /** @return an object pointer (not a lambda value) */
     virtual llvm::Value* gen_obj_ptr( LlvmGenerationContext& context, GenScope* scope ) const;
@@ -134,11 +140,11 @@ public:
         this->objTypeExpr->visit_ast( visitor, thisCursor, "type", context );
     }
 
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override {
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override {
         THROW_LOGIC( "Unsupported: code_gen() for node type " << this );
     }
 
-    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override = 0;
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override = 0;
 };
 
 class TxHeapAllocNode : public TxMemAllocNode {
@@ -151,7 +157,7 @@ public:
         return new TxHeapAllocNode( this->parseLocation, this->objTypeExpr->make_ast_copy() );
     }
 
-    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 class TxStackAllocNode : public TxMemAllocNode {
@@ -164,7 +170,7 @@ public:
         return new TxStackAllocNode( this->parseLocation, this->objTypeExpr->make_ast_copy() );
     }
 
-    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 /** Abstract common superclass for new expression and local init expression */
@@ -251,7 +257,7 @@ public:
                                           make_node_vec_copy( this->constructorCall->origArgsExprList ) );
     }
 
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 /** Makes a new object in newly allocated stack memory and returns it by value. */
@@ -287,5 +293,5 @@ public:
         return !this->initializationExpression;  // performs stack allocation unless this is an inlined value expression
     }
 
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 };

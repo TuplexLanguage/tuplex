@@ -33,20 +33,28 @@ public:
         return this->exprNode->is_stack_allocation_expression();
     }
 
+    virtual TxFieldStorage get_storage() const override {
+        return this->exprNode->get_storage();
+    }
+
     virtual bool is_statically_constant() const override {
         return this->exprNode->is_statically_constant();
     }
 
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override {
-        return this->exprNode->code_gen_value( context, scope );
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override {
+        return this->exprNode->code_gen_dyn_value( context, scope );
     }
 
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const {
-        return this->exprNode->code_gen_constant( context );
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const {
+        return this->exprNode->code_gen_const_value( context );
     }
 
-    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
-        return this->exprNode->code_gen_address( context, scope );
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
+        return this->exprNode->code_gen_dyn_address( context, scope );
+    }
+
+    virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const {
+        return this->exprNode->code_gen_const_address( context );
     }
 
     virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const {

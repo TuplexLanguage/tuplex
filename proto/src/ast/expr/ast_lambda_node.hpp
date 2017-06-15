@@ -80,12 +80,12 @@ public:
     virtual void symbol_resolution_pass() override;
 
     virtual bool is_statically_constant() const override {
-        return true; //!this->instanceMethod;
+        return true;
     }
 
     llvm::Function* code_gen_forward_decl( LlvmGenerationContext& context ) const;
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->funcHeaderNode->visit_ast( visitor, thisCursor, "functype", context );

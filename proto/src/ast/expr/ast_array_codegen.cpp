@@ -6,23 +6,18 @@
 
 using namespace llvm;
 
-Value* TxArrayLitNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
-    // experimental, automatically allocates global space for constants
-    //std::cerr << "TxArrayLitNode::code_gen_address " << this << std::endl;
-    auto targetVal = this->code_gen_expr( context, scope );
-    if ( auto constInitializer = dyn_cast<Constant>( targetVal ) ) {
-        return new GlobalVariable( context.llvmModule(), constInitializer->getType(), true, GlobalValue::InternalLinkage, constInitializer );
-    }
-    else {
-        return targetVal;
-    }
+Value* TxArrayLitNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
+    if ( this->is_statically_constant() )
+        return this->code_gen_const_address( context );
+    else
+        return this->code_gen_expr( context, scope );
 }
 
-Value* TxFilledArrayLitNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxFilledArrayLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
 
     if ( this->_directArrayArg ) {
-        return this->elemExprList->front()->code_gen_value( context, scope );
+        return this->elemExprList->front()->code_gen_dyn_value( context, scope );
     }
 
     {
@@ -39,7 +34,7 @@ Value* TxFilledArrayLitNode::code_gen_value( LlvmGenerationContext& context, Gen
         }
         else {
             for ( unsigned i = 0; i < this->elemExprList->size(); i++ ) {
-                auto elemV = this->elemExprList->at( i )->code_gen_value( context, scope );
+                auto elemV = this->elemExprList->at( i )->code_gen_dyn_value( context, scope );
                 arrayObjV = scope->builder->CreateInsertValue( arrayObjV, elemV, std::vector<unsigned>( { 2, i } ) );
             }
         }
@@ -66,11 +61,11 @@ Value* TxFilledArrayLitNode::code_gen_value( LlvmGenerationContext& context, Gen
     */
 }
 
-Constant* TxFilledArrayLitNode::code_gen_constant( LlvmGenerationContext& context ) const {
+Constant* TxFilledArrayLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
 
     if ( this->_directArrayArg ) {
-        return this->elemExprList->front()->code_gen_constant( context );
+        return this->elemExprList->front()->code_gen_const_value( context );
     }
     // FUTURE: optimize for arrays of scalars
     //    if (this->elementTypeNode->typeExprNode->get_type()->type()->is_scalar()) {
@@ -83,7 +78,7 @@ Constant* TxFilledArrayLitNode::code_gen_constant( LlvmGenerationContext& contex
     //    }
     std::vector<Constant*> values;
     for ( auto elemExpr : *this->elemExprList )
-        values.push_back( elemExpr->code_gen_constant( context ) );
+        values.push_back( elemExpr->code_gen_const_value( context ) );
     ArrayRef<Constant*> data( values );
 
     Type* elemT = context.get_llvm_type( this->get_type()->element_type() );
@@ -126,25 +121,25 @@ static Constant* unfilled_array_code_gen_constant( LlvmGenerationContext& contex
     return ConstantStruct::getAnon( objMembers );
 }
 
-Value* TxUnfilledArrayLitNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxUnfilledArrayLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     auto txArrayType = static_cast<const TxArrayType*>( this->get_type()->type() );
     return unfilled_array_code_gen_value( context, scope, txArrayType );
 }
 
-Constant* TxUnfilledArrayLitNode::code_gen_constant( LlvmGenerationContext& context ) const {
+Constant* TxUnfilledArrayLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     auto txArrayType = static_cast<const TxArrayType*>( this->get_type()->type() );
     return unfilled_array_code_gen_constant( context, txArrayType );
 }
 
-Value* TxUnfilledArrayCompLitNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxUnfilledArrayCompLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     auto txArrayType = static_cast<const TxArrayType*>( this->get_type()->type() );
     return unfilled_array_code_gen_value( context, scope, txArrayType );
 }
 
-Constant* TxUnfilledArrayCompLitNode::code_gen_constant( LlvmGenerationContext& context ) const {
+Constant* TxUnfilledArrayCompLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     auto txArrayType = static_cast<const TxArrayType*>( this->get_type()->type() );
     return unfilled_array_code_gen_constant( context, txArrayType );
@@ -161,6 +156,8 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
     if ( auto arrayPtrC = dyn_cast<Constant>( arrayPtrV ) ) {
         // address of global constant
         if ( auto intC = dyn_cast<ConstantInt>( subscriptV ) ) {
+            //LOG_NOTE( context.LOGGER(), "constant expression not expected in gen_elem_address(); " << panicNode );
+            // TODO: remove?
             Constant* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                                 ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
                                 intC };
@@ -228,31 +225,40 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
     return scope->builder->CreateInBoundsGEP( arrayPtrV, ixs );
 }
 
-Value* TxElemDerefNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxElemDerefNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return gen_elem_address( context, scope, this->array->code_gen_address( context, scope ),
-                             this->subscript->code_gen_value( context, scope ), this->panicNode, false );
+    return gen_elem_address( context, scope, this->array->code_gen_dyn_address( context, scope ),
+                             this->subscript->code_gen_dyn_value( context, scope ), this->panicNode, false );
 }
 
-Value* TxElemDerefNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxElemDerefNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    Value* elemPtr = gen_elem_address( context, scope, this->array->code_gen_address( context, scope ),
-                                       this->subscript->code_gen_value( context, scope ), this->panicNode, false );
+    Value* elemPtr = gen_elem_address( context, scope, this->array->code_gen_dyn_address( context, scope ),
+                                       this->subscript->code_gen_dyn_value( context, scope ), this->panicNode, false );
     if ( scope )
         return scope->builder->CreateLoad( elemPtr );
     else
         return new LoadInst( elemPtr );
 }
 
-Constant* TxElemDerefNode::code_gen_constant( LlvmGenerationContext& context ) const {
+Constant* TxElemDerefNode::code_gen_const_address( LlvmGenerationContext& context ) const {
+    Constant* arrayPtrC = this->array->code_gen_const_address( context );
+    Constant* subscriptC = this->subscript->code_gen_const_value( context );
+    Constant* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                        ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
+                        subscriptC };
+    return ConstantExpr::getInBoundsGetElementPtr( arrayPtrC->getType()->getPointerElementType(), arrayPtrC, ixs );
+}
+
+Constant* TxElemDerefNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
 
     if (this->panicNode) {
         std::cerr << "BOUNDS CHECK NOT YET IMPLEMENTED FOR STATICALLY CONSTANT " << this << std::endl;
     }
 
-    auto arrayC = this->array->code_gen_constant( context );
-    auto subscriptC = cast<ConstantInt>( this->subscript->code_gen_constant( context ) );
+    auto arrayC = this->array->code_gen_const_value( context );
+    auto subscriptC = cast<ConstantInt>( this->subscript->code_gen_const_value( context ) );
     ASSERT( arrayC->getType()->isStructTy(), "Can't create constant array elem deref expression with array value that is: "
             << arrayC << "  type: " << arrayC->getType() );
     uint32_t ixs[] = { 2, (uint32_t) subscriptC->getLimitedValue( UINT32_MAX ) };
@@ -261,6 +267,6 @@ Constant* TxElemDerefNode::code_gen_constant( LlvmGenerationContext& context ) c
 
 Value* TxElemAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return gen_elem_address( context, scope, this->array->code_gen_address( context, scope ),
-                             this->subscript->code_gen_value( context, scope ), this->panicNode, true );
+    return gen_elem_address( context, scope, this->array->code_gen_dyn_address( context, scope ),
+                             this->subscript->code_gen_dyn_value( context, scope ), this->panicNode, true );
 }

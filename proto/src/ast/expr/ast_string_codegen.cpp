@@ -7,7 +7,7 @@
 using namespace llvm;
 
 
-Constant* TxStringLitNode::code_gen_constant( LlvmGenerationContext& context ) const {
+Constant* TxStringLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, this->literal );
 
     auto stringObjT = cast<StructType>( context.get_llvm_type( this->stringTypeNode->get_type() ) );
@@ -30,13 +30,22 @@ Constant* TxStringLitNode::code_gen_constant( LlvmGenerationContext& context ) c
     return tupleC;
 }
 
-Value* TxStringLitNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
-    return this->code_gen_constant( context );
+Value* TxStringLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    return this->code_gen_const_value( context );
 }
 
-Value* TxStringLitNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
-    // experimental, automatically allocates space for literals, used for e.g. string literals
-    auto constant = this->code_gen_value( context, scope );
-    auto constInitializer = cast<Constant>( constant );
-    return new GlobalVariable( context.llvmModule(), constInitializer->getType(), true, GlobalValue::InternalLinkage, constInitializer );
+
+Constant* TxCStringLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
+    TRACE_CODEGEN( this, context, '"' << this->value << '"' );
+    std::vector<Constant*> members {
+                                     ConstantInt::get( context.llvmContext, APInt( 32, this->arrayCapacity ) ),
+                                     ConstantInt::get( context.llvmContext, APInt( 32, this->arrayCapacity ) ),
+                                     ConstantDataArray::getString( context.llvmContext, this->value )
+    };
+    auto str = ConstantStruct::getAnon( members );
+    return str;
+}
+
+Value* TxCStringLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    return this->code_gen_const_value( context );
 }

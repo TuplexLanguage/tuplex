@@ -83,6 +83,8 @@ public:
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override;
 
+    virtual TxFieldStorage get_storage() const override;
+
     virtual bool is_statically_constant() const override;
 
     // should not be called before symbol is resolved:
@@ -98,9 +100,10 @@ public:
         return constructedType;
     }
 
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
-    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->baseExpr )

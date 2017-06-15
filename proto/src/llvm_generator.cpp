@@ -509,23 +509,23 @@ void LlvmGenerationContext::generate_runtime_data() {
                     llvmField = Constant::getNullValue( fieldType );
                 }
                 else {
-                    std::string fieldName;
+                    std::string valueName;
                     if ( actualFieldEnt->get_storage() & TXS_INSTANCEMETHOD ) {
                         //std::cerr << "inserting instance method: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
-                        fieldName = actualFieldEnt->get_declaration()->get_unique_full_name() + "$func";
+                        valueName = actualFieldEnt->get_declaration()->get_unique_full_name() + "$func";
                     }
                     else if ( field.first == "$adTypeId" ) {
                         ASSERT( txType->get_type_class() == TXTC_INTERFACEADAPTER, "Expected InterfaceAdapter type: " << txType );
                         auto adapterType = static_cast<const TxInterfaceAdapterType*>( txType );
-                        fieldName = adapterType->adapted_type()->get_declaration()->get_unique_full_name() + ".$typeid";
+                        valueName = adapterType->adapted_type()->get_declaration()->get_unique_full_name() + ".$typeid";
                     }
                     else {
                         //std::cerr << "inserting virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
-                        fieldName = actualFieldEnt->get_declaration()->get_unique_full_name();
+                        valueName = actualFieldEnt->get_declaration()->get_unique_full_name();
                     }
-                    auto llvmValue = this->lookup_llvm_value( fieldName );
+                    auto llvmValue = this->lookup_llvm_value( valueName );
                     if ( !llvmValue ) {
-                        ASSERT( false, "llvm value not found for field name: " << fieldName );
+                        ASSERT( false, "llvm value not found for field name: " << valueName );
                     }
                     llvmField = cast<Constant>( llvmValue );
                 }

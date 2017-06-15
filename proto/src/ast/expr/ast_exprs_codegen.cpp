@@ -29,22 +29,22 @@ static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& c
 
 static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, const std::string& exprLabel,
                         bool doesNotReturn) {
-    auto lambdaV = node->callee->code_gen_value( context, scope );
+    auto lambdaV = node->callee->code_gen_dyn_value( context, scope );
     //std::cout << "callee: " << lambdaV << std::endl;
     auto functionPtrV = gen_get_struct_member( context, scope, lambdaV, 0 );
     auto closureRefV = gen_get_struct_member( context, scope, lambdaV, 1 );
     return gen_call( node, context, scope, functionPtrV, closureRefV, exprLabel, doesNotReturn );
 }
 
-Constant* TxFunctionCallNode::code_gen_constant( LlvmGenerationContext& context ) const {
+Constant* TxFunctionCallNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     ASSERT( this->inlinedExpression, "invoked code_gen_constant() on function call that has no inlined expression: " << this );
-    return this->inlinedExpression->code_gen_constant( context );
+    return this->inlinedExpression->code_gen_const_value( context );
 }
 
-Value* TxFunctionCallNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxFunctionCallNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     if ( this->inlinedExpression )
-        return this->inlinedExpression->code_gen_value( context, scope );
+        return this->inlinedExpression->code_gen_dyn_value( context, scope );
     else {
         // pick field's plain name, if available, for the expression value:
         const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
@@ -52,7 +52,7 @@ Value* TxFunctionCallNode::code_gen_value( LlvmGenerationContext& context, GenSc
     }
 }
 
-Value* TxFunctionCallNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxFunctionCallNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     // automatically allocates stack space for the return value
     auto valueV = this->code_gen_expr( context, scope );
@@ -62,7 +62,7 @@ Value* TxFunctionCallNode::code_gen_address( LlvmGenerationContext& context, Gen
     return valuePtrV;
 }
 
-Value* TxConstructorCalleeExprNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxConstructorCalleeExprNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     Value* funcPtrV = this->gen_func_ptr( context, scope );
     auto allocType = this->objectExpr->get_type();
@@ -76,7 +76,7 @@ Value* TxConstructorCalleeExprNode::code_gen_value( LlvmGenerationContext& conte
 
 Value* TxConstructorCalleeExprNode::gen_obj_ptr( LlvmGenerationContext& context, GenScope* scope ) const {
     if ( !this->objectPtrV ) {
-        this->objectPtrV = this->objectExpr->code_gen_address( context, scope );
+        this->objectPtrV = this->objectExpr->code_gen_dyn_address( context, scope );
         ASSERT( this->objectPtrV->getType()->isPointerTy(), "Expected baseValue to be of pointer type but was: " << this->objectPtrV->getType() );
     }
     return this->objectPtrV;
@@ -112,31 +112,31 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr( LlvmGenerationContext& context
     return funcPtrV;
 }
 
-Value* TxHeapAllocNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxHeapAllocNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     return this->get_type()->type()->gen_malloc( context, scope );
 //    Type* objT = context.get_llvm_type( this->get_type() );
 //    return context.gen_malloc( scope, objT );
 }
 
-Value* TxStackAllocNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxStackAllocNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     return this->get_type()->type()->gen_alloca( context, scope );
 }
 
-Value* TxNewConstructionNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxNewConstructionNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     // new constructor returns the constructed object by reference
     TRACE_CODEGEN( this, context );
 
     Value* objAllocV = static_cast<TxConstructorCalleeExprNode*>( this->constructorCall->callee )->gen_obj_ptr( context, scope );
     // initialize the object
     if ( this->initializationExpression ) {
-        auto initValue = this->initializationExpression->code_gen_value( context, scope );
+        auto initValue = this->initializationExpression->code_gen_dyn_value( context, scope );
         ASSERT( scope, "new expression not supported in global/static scope: " << this->parse_loc_string() );
         scope->builder->CreateStore( initValue, objAllocV );
     }
     else {
-        this->constructorCall->code_gen_value( context, scope );
+        this->constructorCall->code_gen_dyn_value( context, scope );
     }
 
     Type* objRefT = context.get_llvm_type( this->get_type() );
@@ -147,17 +147,17 @@ Value* TxNewConstructionNode::code_gen_value( LlvmGenerationContext& context, Ge
     return objRefV;
 }
 
-Value* TxStackConstructionNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxStackConstructionNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     // stack constructor returns the constructed object by value, not by reference
     TRACE_CODEGEN( this, context );
     if ( this->initializationExpression ) {
         // if inlined, the stack constructor doesn't need to actually allocate storage on stack
         // (the receiver of this expression value might do this, if it needs to)
-        return this->initializationExpression->code_gen_value( context, scope );
+        return this->initializationExpression->code_gen_dyn_value( context, scope );
     }
     else {
         Value* objAllocV = static_cast<TxConstructorCalleeExprNode*>( this->constructorCall->callee )->gen_obj_ptr( context, scope );
-        this->constructorCall->code_gen_value( context, scope );
+        this->constructorCall->code_gen_dyn_value( context, scope );
         return objAllocV;
     }
 }

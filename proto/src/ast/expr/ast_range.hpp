@@ -80,10 +80,17 @@ public:
                                     this->stepValue->make_ast_copy() );
     }
 
+// Implementation note: Since we currently implement this by invoking the ERange constructor,
+// it needs to be allocated in memory and thus isn't statically constant.
+
 //    virtual bool is_statically_constant() const override final {
 //        return ( this->startValue->is_statically_constant() && this->endValue->is_statically_constant()
 //                 && ( this->stepValue == nullptr || this->stepValue->is_statically_constant() ) );
 //    }
+
+    virtual TxFieldStorage get_storage() const {
+        return TXS_STACK;
+    }
 
     virtual bool is_stack_allocation_expression() const override {
         return true;
@@ -94,9 +101,8 @@ public:
         this->stackConstr->symbol_resolution_pass();
     }
 
-    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->stackConstr->visit_ast( visitor, thisCursor, "litconstr", context );

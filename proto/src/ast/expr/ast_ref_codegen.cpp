@@ -46,62 +46,97 @@ Value* gen_get_ref_typeid( LlvmGenerationContext& context, GenScope* scope, Valu
     return tidV;
 }
 
-Constant* gen_ref( LlvmGenerationContext& context, Type* refT, Constant* ptrC, Constant* tidC ) {
-    auto refC = ConstantStruct::get( cast<StructType>(refT), { ptrC, tidC } );
-    return refC;
-}
-
 Value* gen_ref( LlvmGenerationContext& context, GenScope* scope, Type* refT, Value* ptrV, Value* tidV ) {
-    if ( scope ) {
-        Value* refV = UndefValue::get( refT );
-        auto castPtrV = scope->builder->CreatePointerCast( ptrV, refT->getStructElementType( 0 ) );
-        refV = scope->builder->CreateInsertValue( refV, castPtrV, 0 );
-        refV = scope->builder->CreateInsertValue( refV, tidV, 1 );
-        return refV;
-    }
-    else {
-        ASSERT( false, "Not yet supported to construct reference to global: " << ptrV );  // TODO
-        return nullptr;
-    }
+    Value* refV = UndefValue::get( refT );
+    auto castPtrV = scope->builder->CreatePointerCast( ptrV, refT->getStructElementType( 0 ) );
+    refV = scope->builder->CreateInsertValue( refV, castPtrV, 0 );
+    refV = scope->builder->CreateInsertValue( refV, tidV, 1 );
+    return refV;
 }
 
-Value* TxReferenceToNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
+
+Constant* gen_get_ref_pointer( LlvmGenerationContext& context, Constant* refC ) {
+    return refC->getAggregateElement( 0U );
+}
+
+Constant* gen_get_ref_typeid( LlvmGenerationContext& context, Constant* refC ) {
+    return refC->getAggregateElement( 1 );
+}
+
+Constant* gen_ref( LlvmGenerationContext& context, Type* refT, Constant* ptrC, Constant* tidC ) {
+    return ConstantStruct::get( cast<StructType>(refT), { ptrC, tidC } );
+}
+
+
+/** Converts a reference value from one type to another. If targetTypeId is specified, it will replace the original type id. */
+Value* gen_ref_conversion( LlvmGenerationContext& context, GenScope* scope, Value* origValue, Type* targetRefT, uint32_t targetTypeId ) {
+    auto newPtrT = cast<StructType>( targetRefT )->getElementType( 0 );
+    Value* tidV = ( targetTypeId == UINT32_MAX ? gen_get_ref_typeid( context, scope, origValue )
+                                               : ConstantInt::get( Type::getInt32Ty( context.llvmContext ), targetTypeId ) );
+    Value* origPtrV = gen_get_ref_pointer( context, scope, origValue );
+    // bitcast from one pointer type to another
+    Value* newPtrV = scope->builder->CreateBitCast( origPtrV, newPtrT );
+
+    return gen_ref( context, scope, targetRefT, newPtrV, tidV );
+}
+
+/** Converts a reference constant from one type to another. If targetTypeId is specified, it will replace the original type id. */
+Constant* gen_ref_conversion( LlvmGenerationContext& context, Constant* origValue, Type* targetRefT, uint32_t targetTypeId ) {
+    auto newPtrT = cast<StructType>( targetRefT )->getElementType( 0 );
+    Constant* tidC = ( targetTypeId == UINT32_MAX ? gen_get_ref_typeid( context, origValue )
+                                                  : ConstantInt::get( Type::getInt32Ty( context.llvmContext ), targetTypeId ) );
+    Constant* origPtrC = gen_get_ref_pointer( context, origValue );
+    // bitcast from one pointer type to another
+    Constant* newPtrC = ConstantExpr::getBitCast( origPtrC, newPtrT );
+    return gen_ref( context, targetRefT, newPtrC, tidC );
+}
+
+
+
+Constant* TxReferenceToNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
-    Value* ptrV = nullptr;
-    TxExpressionNode* targetNode = this->target;
-    ptrV = targetNode->code_gen_address( context, scope );
+    Constant* ptrC = dyn_cast<Constant>( this->target->code_gen_const_address( context ) );
 
     // the reference gets the statically known target type id
-    auto tidC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), targetNode->get_type()->get_type_id() );
+    auto tidC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->target->get_type()->get_type_id() );
+
+    // box the pointer:
+    auto refT = this->get_type()->type()->make_llvm_type( context );
+    return gen_ref( context, refT, ptrC, tidC );
+}
+
+Value* TxReferenceToNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    Value* ptrV = this->target->code_gen_dyn_address( context, scope );
+
+    // the reference gets the statically known target type id
+    auto tidC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->target->get_type()->get_type_id() );
 
     // box the pointer:
     auto refT = this->get_type()->type()->make_llvm_type( context );
     return gen_ref( context, scope, refT, ptrV, tidC );
 }
 
-Value* TxReferenceDerefNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxReferenceDerefNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     if ( !this->refExprValue ) {
-        this->refExprValue = this->reference->code_gen_value( context, scope );
+        this->refExprValue = this->reference->code_gen_dyn_value( context, scope );
         if ( !this->refExprValue )
             return NULL;
     }
     return gen_get_ref_pointer( context, scope, this->refExprValue );
 }
 
-Value* TxReferenceDerefNode::code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const {
-    Value* ptrV = this->code_gen_address( context, scope );
-    if ( scope )
-        return scope->builder->CreateLoad( ptrV );
-    else
-        return new LoadInst( ptrV );
+Value* TxReferenceDerefNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    Value* ptrV = this->code_gen_dyn_address( context, scope );
+    return scope->builder->CreateLoad( ptrV );
 }
 
 Value* TxReferenceDerefNode::code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const {
     // dynamic by reading the reference's target type id
     TRACE_CODEGEN( this, context, " TypeID" );
     if ( !this->refExprValue ) {
-        this->refExprValue = this->reference->code_gen_value( context, scope );
+        this->refExprValue = this->reference->code_gen_dyn_value( context, scope );
         if ( !this->refExprValue )
             return NULL;
     }
@@ -113,6 +148,6 @@ Value* TxReferenceDerefNode::code_gen_typeid( LlvmGenerationContext& context, Ge
 
 Value* TxDerefAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto refval = this->operand->code_gen_value( context, scope );
+    auto refval = this->operand->code_gen_dyn_value( context, scope );
     return gen_get_ref_pointer( context, scope, refval );
 }

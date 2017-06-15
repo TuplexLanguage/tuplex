@@ -309,7 +309,32 @@ const TxExpressionNode* TxFieldValueNode::get_data_graph_origin_expr() const {
     return this->baseExpr;
 }
 
+TxFieldStorage TxFieldValueNode::get_storage() const {
+    return this->field->get_storage();
+}
+
 bool TxFieldValueNode::is_statically_constant() const {
+//    if ( this->field ) {
+//        switch ( this->field->get_storage() ) {
+//        case TXS_INSTANCEMETHOD:
+//        case TXS_INSTANCE:
+//            // TODO: allow an instance field lookup to behave as a static field lookup if it has a statically constant base expression
+//            return false;
+//        case TXS_VIRTUAL:
+//            // TODO: allow a virtual field lookup to behave as a static field lookup (i.e. non-polymorphic)
+//            // if it has a statically constant base expression:
+//                if ( this->baseExpr && !this->baseExpr->is_statically_constant() )
+//                    return false;
+//                else
+//                    return true;
+//            //return false;
+//        case TXS_GLOBAL:
+//        case TXS_STATIC:
+//            return this->field->is_statically_constant();
+//        default:
+//            return false;
+//        }
+//    }
     if ( this->field ) {
         if ( this->field->get_storage() == TXS_INSTANCEMETHOD )
             return false;

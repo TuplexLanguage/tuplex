@@ -64,3 +64,13 @@ TxStringLitNode::TxStringLitNode( const TxLocation& parseLocation, const std::st
           arrayTypeNode( new TxArrayTypeNode( parseLocation, new TxNamedTypeNode( parseLocation, "tx.UByte" ) ) ),
           literal( literal ) {
 }
+
+
+
+TxTypeExpressionNode* TxCStringLitNode::make_cstring_type_expr( const TxLocation& parseLocation, const std::string& literal ) {
+    // (for now) Create AST to declare the implicit type of this c-string literal:
+    TxTypeExpressionNode* elemTypeExpr = new TxNamedTypeNode( parseLocation, "tx.UByte" );
+    TxExpressionNode* capExpr = new TxIntegerLitNode( parseLocation, literal.length() - 2, false, TXBT_UINT );
+    TxTypeExpressionNode* typeExpr = new TxArrayTypeNode( parseLocation, elemTypeExpr, capExpr );
+    return typeExpr;
+}

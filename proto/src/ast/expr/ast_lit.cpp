@@ -225,12 +225,3 @@ void TxIntegerLitNode::declaration_pass() {
     else if ( this->constValue.outOfRange )
         CERROR( this, "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->constValue.typeId );
 }
-
-TxTypeExpressionNode* TxCStringLitNode::make_cstring_type_expr( const TxLocation& parseLocation, const std::string& literal ) {
-    // (for now) Create AST to declare the implicit type of this c-string literal:
-    TxTypeExpressionNode* elemTypeExpr = new TxNamedTypeNode( parseLocation, "tx.UByte" );
-    TxExpressionNode* capExpr = new TxIntegerLitNode( parseLocation, literal.length() - 2, false, TXBT_UINT );
-    TxTypeExpressionNode* typeExpr = new TxArrayTypeNode( parseLocation, elemTypeExpr, capExpr );
-    return typeExpr;
-}
-

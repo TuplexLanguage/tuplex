@@ -11,21 +11,21 @@
 using namespace llvm;
 
 uint64_t eval_unsigned_int_constant( const TxExpressionNode* exprNode ) {
-    Constant* value = exprNode->code_gen_constant( *exprNode->get_parser_context()->get_llvm_gen_context() );
+    Constant* value = exprNode->code_gen_const_value( *exprNode->get_parser_context()->get_llvm_gen_context() );
     ConstantInt* CI = cast<ConstantInt>( value );
     uint64_t constUIntValue = CI->getZExtValue();
     return constUIntValue;
 }
 
 int64_t eval_signed_int_constant( const TxExpressionNode* exprNode ) {
-    Constant* value = exprNode->code_gen_constant( *exprNode->get_parser_context()->get_llvm_gen_context() );
+    Constant* value = exprNode->code_gen_const_value( *exprNode->get_parser_context()->get_llvm_gen_context() );
     ConstantInt* CI = cast<ConstantInt>( value );
     int64_t constIntValue = CI->getSExtValue();
     return constIntValue;
 }
 
 double eval_floatingpoint_constant( const TxExpressionNode* exprNode ) {
-    Constant* value = exprNode->code_gen_constant( *exprNode->get_parser_context()->get_llvm_gen_context() );
+    Constant* value = exprNode->code_gen_const_value( *exprNode->get_parser_context()->get_llvm_gen_context() );
     ConstantFP* CF = cast<ConstantFP>( value );
     double constDoubleValue = CF->getValueAPF().convertToDouble();
     return constDoubleValue;

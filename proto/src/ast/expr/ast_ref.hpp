@@ -8,12 +8,22 @@
 #include "ast/ast_declpass.hpp"
 #include "ast_field.hpp"
 
-extern llvm::Value* gen_get_struct_member( LlvmGenerationContext& context, GenScope* scope, llvm::Value* structV, unsigned ix );
 
-extern llvm::Value* gen_get_ref_pointer( LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV );
-extern llvm::Value* gen_get_ref_typeid( LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV );
-extern llvm::Value* gen_ref( LlvmGenerationContext& context, GenScope* scope, llvm::Type* refT, llvm::Value* ptrV, llvm::Value* tidV );
-extern llvm::Constant* gen_ref( LlvmGenerationContext& context, llvm::Type* refT, llvm::Constant* ptrC, llvm::Constant* tidC );
+llvm::Value* gen_get_struct_member( LlvmGenerationContext& context, GenScope* scope, llvm::Value* structV, unsigned ix );
+
+llvm::Value* gen_get_ref_pointer( LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV );
+llvm::Value* gen_get_ref_typeid( LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV );
+llvm::Value* gen_ref( LlvmGenerationContext& context, GenScope* scope, llvm::Type* refT, llvm::Value* ptrV, llvm::Value* tidV );
+llvm::Constant* gen_ref( LlvmGenerationContext& context, llvm::Type* refT, llvm::Constant* ptrC, llvm::Constant* tidC );
+
+/** Converts a reference value from one type to another. If targetTypeId is specified, it will replace the original type id. */
+llvm::Value* gen_ref_conversion( LlvmGenerationContext& context, GenScope* scope, llvm::Value* origRefV,
+                                 llvm::Type* targetRefT, uint32_t targetTypeId = UINT32_MAX );
+
+/** Converts a reference constant from one type to another. If targetTypeId is specified, it will replace the original type id. */
+llvm::Constant* gen_ref_conversion( LlvmGenerationContext& context, llvm::Constant* origRefC,
+                                    llvm::Type* targetRefT, uint32_t targetTypeId = UINT32_MAX );
+
 
 class TxReferenceDerefNode : public TxExpressionNode {
     /** internal "cache" to prevent multiple code generations */
@@ -50,8 +60,8 @@ public:
         return this->reference;
     }
 
-    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
@@ -108,7 +118,14 @@ public:
         this->target->set_applied_func_args( appliedTypeParameters );
     }
 
-    virtual llvm::Value* code_gen_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual bool is_statically_constant() const override {
+        if ( this->target->get_storage() == TXS_GLOBAL || this->target->get_storage() == TXS_STATIC )
+            return true;
+        return false;
+    }
+
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->targetTypeNode->visit_ast( visitor, thisCursor, "type", context );

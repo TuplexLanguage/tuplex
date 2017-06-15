@@ -83,11 +83,6 @@ public:
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
 
     static llvm::Type* make_ref_llvm_type( LlvmGenerationContext& context, llvm::Type* targetType );
-
-    /** Casts a reference value from one type to another. If targetTypeId is specified, it will replace the original type id. */
-    static llvm::Value* gen_ref_conversion( LlvmGenerationContext& context, GenScope* scope, llvm::Value* origRefV,
-                                            llvm::Type* targetRefT,
-                                            uint32_t targetTypeId = UINT32_MAX );
 };
 
 /** A function type describes the user signature of a function.
