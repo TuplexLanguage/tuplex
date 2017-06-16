@@ -34,15 +34,12 @@ protected:
         auto refType = this->reference->resolve_type();
         if ( refType->get_type_class() != TXTC_REFERENCE )
             CERR_THROWRES( this, "Can't de-reference non-reference expression: " << refType );
-//        if (refType->target_type()->get_type_class() == TXTC_ARRAY) {
-//            std::cerr << "   refType:     " << refType << std::endl;
-//            std::cerr << "   target type: " << refType->target_type() << std::endl;
-//        }
         return refType->target_type();
     }
 
 public:
     TxExpressionNode* reference;
+
     TxReferenceDerefNode( const TxLocation& parseLocation, TxExpressionNode* operand )
             : TxExpressionNode( parseLocation ), reference( operand ) {
     }
@@ -97,19 +94,7 @@ public:
         return new TxReferenceToNode( this->parseLocation, this->target->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->target->symbol_resolution_pass();
-
-        auto targetNode = this->target;
-        if ( auto wrapperNode = dynamic_cast<TxExprWrapperNode*>( targetNode ) )
-            targetNode = wrapperNode->exprNode;
-        if ( !( dynamic_cast<TxFieldValueNode*>( targetNode )
-                || dynamic_cast<TxElemDerefNode*>( targetNode )
-                || targetNode->is_statically_constant() ) ) {
-            CERROR( this, "Can't construct reference to non-addressable expression / rvalue: " << targetNode );
-        }
-    }
+    virtual void symbol_resolution_pass() override;
 
     virtual const std::vector<TxExpressionNode*>* get_applied_func_args() const override {
         return this->target->get_applied_func_args();
@@ -137,35 +122,35 @@ public:
 class TxDerefAssigneeNode : public TxAssigneeNode {
 protected:
     virtual const TxType* define_type() override {
-        auto refType = this->operand->resolve_type();
+        auto refType = this->reference->resolve_type();
         if ( refType->get_type_class() != TXTC_REFERENCE )
             CERR_THROWRES( this, "Can't de-reference non-reference expression: " << refType );
         return refType->target_type();
     }
 
 public:
-    TxExpressionNode* operand;
+    TxExpressionNode* reference;
 
     TxDerefAssigneeNode( const TxLocation& parseLocation, TxExpressionNode* operand )
-            : TxAssigneeNode( parseLocation ), operand( operand ) {
+            : TxAssigneeNode( parseLocation ), reference( operand ) {
     }
 
     virtual TxDerefAssigneeNode* make_ast_copy() const override {
-        return new TxDerefAssigneeNode( this->parseLocation, this->operand->make_ast_copy() );
+        return new TxDerefAssigneeNode( this->parseLocation, this->reference->make_ast_copy() );
     }
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
-        return this->operand;
+        return this->reference;
     }
 
     virtual void symbol_resolution_pass() override {
         TxAssigneeNode::symbol_resolution_pass();
-        operand->symbol_resolution_pass();
+        reference->symbol_resolution_pass();
     }
 
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->operand->visit_ast( visitor, thisCursor, "operand", context );
+        this->reference->visit_ast( visitor, thisCursor, "ref", context );
     }
 };

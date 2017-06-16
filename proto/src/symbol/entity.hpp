@@ -87,9 +87,6 @@ public:
 //     */
 //    int get_decl_storage_index() const;
 
-    /** Returns true if this field is statically constant. */
-    bool is_statically_constant() const;
-
     bool is_modifiable() const;
 
     inline const std::string get_unique_name() const {

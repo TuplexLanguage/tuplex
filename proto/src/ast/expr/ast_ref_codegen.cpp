@@ -117,12 +117,11 @@ Value* TxReferenceToNode::code_gen_dyn_value( LlvmGenerationContext& context, Ge
     return gen_ref( context, scope, refT, ptrV, tidC );
 }
 
+
 Value* TxReferenceDerefNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     if ( !this->refExprValue ) {
         this->refExprValue = this->reference->code_gen_dyn_value( context, scope );
-        if ( !this->refExprValue )
-            return NULL;
     }
     return gen_get_ref_pointer( context, scope, this->refExprValue );
 }
@@ -137,10 +136,7 @@ Value* TxReferenceDerefNode::code_gen_typeid( LlvmGenerationContext& context, Ge
     TRACE_CODEGEN( this, context, " TypeID" );
     if ( !this->refExprValue ) {
         this->refExprValue = this->reference->code_gen_dyn_value( context, scope );
-        if ( !this->refExprValue )
-            return NULL;
     }
-
     Value* tidV = gen_get_ref_typeid( context, scope, this->refExprValue );
     return tidV;
 }
@@ -148,6 +144,6 @@ Value* TxReferenceDerefNode::code_gen_typeid( LlvmGenerationContext& context, Ge
 
 Value* TxDerefAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto refval = this->operand->code_gen_dyn_value( context, scope );
+    auto refval = this->reference->code_gen_dyn_value( context, scope );
     return gen_get_ref_pointer( context, scope, refval );
 }

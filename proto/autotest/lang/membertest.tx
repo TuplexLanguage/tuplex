@@ -28,7 +28,7 @@ type MemberInitTestType {
     static FIELD5 := FIELD6 + 1;
     static FIELD6 := FIELD1 + 1;
 
-  ## public static are virtual, but referencing them without a non-constant base expression is non-polymorphic:
+  ## public static are virtual, but referencing them without a base expression is non-polymorphic:
 
     public static PUB_FIELD1 := 4;
     public static PUB_FIELD2 := PUB_FIELD1 + 1;

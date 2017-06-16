@@ -129,6 +129,7 @@ add_executable(txc
         ast/expr/ast_lambda_node.cpp
         ast/expr/ast_conv.cpp
         ast/expr/ast_lit.cpp
+        ast/expr/ast_ref.cpp
         ast/expr/ast_array.cpp
         ast/expr/ast_string.cpp
         ast/expr/ast_op_exprs.cpp

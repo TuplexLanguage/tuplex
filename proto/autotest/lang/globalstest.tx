@@ -49,6 +49,18 @@ square( a : Int )->Int {
 CONST_REF := &CONSTANT;
 
 
+## constant arrays:
+CONST_ARRAY := [ CONSTANT, CONSTANT_EXPR, CONSTANT_EXPR3 ];
+CONST_ELEM := CONST_ARRAY[1];
+CONST_ELEM_REF := &CONST_ARRAY[1];
+CONST_CAP := CONST_ARRAY.C;
+CONST_LEN := CONST_ARRAY.L;
+
+## constant arrays bounds checking (errors are not actually emitted until code gen):
+#experr 0: BAD_ELEM1 := CONST_ARRAY[3];
+#experr 0: BAD_ELEM2 := CONST_ARRAY[4];
+#experr 0: BAD_ELEM_REF := &CONST_ARRAY[3];
+
 ## check controlled error message upon recursive definition
 ## note - only one of the recursing definitions typically produce an error message
 

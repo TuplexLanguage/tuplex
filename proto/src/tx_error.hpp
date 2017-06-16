@@ -74,6 +74,12 @@ void finalize_expected_error_clause( const TxParseOrigin* origin );
         cerror(origin, msg.str()); \
         throw resolution_error( origin, msg.str() ); \
     } while (false)
+#   define CERR_CODECHECK(origin, message) \
+    do { \
+        std::stringstream msg;  msg << message; \
+        cerror(origin, msg.str()); \
+        throw codecheck_error( origin, msg.str() ); \
+    } while (false)
 #   define CERROR(origin, message) \
     do { \
         std::stringstream msg;  msg << message; \
@@ -89,6 +95,11 @@ void finalize_expected_error_clause( const TxParseOrigin* origin );
     do { \
         std::stringstream msg;  msg << message; \
         throw resolution_error( origin, msg.str() ); \
+    } while (false)
+#   define CERR_CODECHECK(origin, message) \
+    do { \
+        std::stringstream msg;  msg << message; \
+        throw codecheck_error( origin, msg.str() ); \
     } while (false)
 #   define CERROR(origin, message) do { } while (false)
 #   define CWARNING(origin, message) do { } while (false)

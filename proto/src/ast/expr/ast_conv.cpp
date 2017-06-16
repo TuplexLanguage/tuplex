@@ -10,6 +10,11 @@
 static bool statically_converts_to( TxExpressionNode* originalExpr, const TxType* originalType, const TxType* requiredType ) {
     if ( !originalExpr->is_statically_constant() )
         return false;
+    auto storage = originalExpr->get_storage();
+    if ( storage == TXS_VIRTUAL || storage == TXS_INSTANCEMETHOD || storage == TXS_INSTANCE ) {
+        // currently not supported to access member fields before types are prepared
+        return false;
+    }
 
     BuiltinTypeId operandTypeId = (BuiltinTypeId)originalType->get_type_id();
     if ( is_concrete_uinteger_type( operandTypeId ) ) {

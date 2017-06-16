@@ -19,6 +19,7 @@
 #include "util/assert.hpp"
 
 #include "tx_lang_defs.hpp"
+#include "tx_except.hpp"
 #include "llvm_generator.hpp"
 
 #include "ast/ast_modbase.hpp"
@@ -170,11 +171,25 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
 
 /* Compile the AST into a module */
 
-void LlvmGenerationContext::generate_code( const TxParsingUnitNode* staticScopeNode ) {
-    staticScopeNode->code_gen( *this );
+int LlvmGenerationContext::generate_code( const TxParsingUnitNode* staticScopeNode ) {
+    try {
+        staticScopeNode->code_gen( *this );
+        return 0;
+    }
+    catch ( const codecheck_error& err ) {
+        LOG_DEBUG(this->LOGGER(), "Caught code check error in parsing unit " << staticScopeNode << ": " << err);
+        return 1;
+    }
 }
-void LlvmGenerationContext::generate_code( const TxTypeDeclNode* staticScopeNode ) {
-    staticScopeNode->code_gen( *this );
+int LlvmGenerationContext::generate_code( const TxTypeDeclNode* staticScopeNode ) {
+    try {
+        staticScopeNode->code_gen( *this );
+        return 0;
+    }
+    catch ( const codecheck_error& err ) {
+        LOG_DEBUG(this->LOGGER(), "Caught code check error in type decl node " << staticScopeNode << ": " << err);
+        return 1;
+    }
 }
 
 bool LlvmGenerationContext::generate_main( const std::string& userMainIdent, const TxType* mainFuncType ) {

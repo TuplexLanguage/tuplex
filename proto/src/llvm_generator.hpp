@@ -103,8 +103,8 @@ public:
     llvm::Value* lookup_llvm_value( const std::string& identifier ) const;
 
     /** Generate the LLVM code for the provided AST, which must be in global/static scope. */
-    void generate_code( const TxParsingUnitNode* staticScopeNode );
-    void generate_code( const TxTypeDeclNode* staticScopeNode );
+    int generate_code( const TxParsingUnitNode* staticScopeNode );
+    int generate_code( const TxTypeDeclNode* staticScopeNode );
 
     void generate_runtime_data();
 

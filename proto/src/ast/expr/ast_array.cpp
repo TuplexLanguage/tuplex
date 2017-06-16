@@ -214,7 +214,8 @@ void TxElemDerefNode::symbol_resolution_pass() {
     // TODO: Support negative array indexing.
 
     if ( !this->unchecked ) {
-        // TODO: When we support accessing fields of constant instances, we can access L of constant arrays in compile time
+        // Note: In theory, if this expression is statically constant we could perform the bounds checking here.
+        // However accessing the cogegen'd value of Array.L isn't guaranteed before the type preparation has been run.
         this->panicNode = new TxPanicStmtNode( this->subscript->parseLocation, "Array index out of bounds" );
         run_declaration_pass( panicNode, this, "panic" );
         panicNode->symbol_resolution_pass();

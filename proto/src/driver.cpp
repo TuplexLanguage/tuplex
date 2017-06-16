@@ -304,15 +304,22 @@ void TxDriver::add_source_file( const TxIdentifier& moduleName, const std::strin
 int TxDriver::llvm_compile( const std::string& outputFileName ) {
     this->genContext->initialize_builtins();
 
+    int codegen_errors = 0;
+
     // generate the code for the program in lexical order:
     for ( auto parserContext : this->parsedASTs ) {
-        this->genContext->generate_code( parserContext->parsingUnit );
+        codegen_errors += this->genContext->generate_code( parserContext->parsingUnit );
     }
 
     // generate the code for the type specializations that are defined by reinterpreted source:
     for ( auto specNode : this->package->registry().get_enqueued_specializations() ) {
         _LOG.debug( "Generating code for enqueued specialization: %s", specNode->get_declaration()->str().c_str() );
-        this->genContext->generate_code( specNode );
+        codegen_errors += this->genContext->generate_code( specNode );
+    }
+
+    if ( codegen_errors ) {
+        _LOG.error( "- LLVM code generation encountered %d errors", codegen_errors );
+        return codegen_errors;
     }
 
     this->genContext->generate_runtime_data();

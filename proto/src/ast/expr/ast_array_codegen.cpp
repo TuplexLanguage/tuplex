@@ -1,6 +1,7 @@
 #include "ast_array.hpp"
 
 #include "ast/stmt/ast_stmt_node.hpp"
+#include "parsercontext.hpp"
 
 #include "llvm_generator.hpp"
 
@@ -244,6 +245,15 @@ Value* TxElemDerefNode::code_gen_dyn_value( LlvmGenerationContext& context, GenS
 Constant* TxElemDerefNode::code_gen_const_address( LlvmGenerationContext& context ) const {
     Constant* arrayPtrC = this->array->code_gen_const_address( context );
     Constant* subscriptC = this->subscript->code_gen_const_value( context );
+
+    if (this->panicNode) {
+        auto globalArrayPtrC = cast<GlobalVariable>( arrayPtrC);
+        uint64_t index = cast<ConstantInt>( subscriptC )->getZExtValue();
+        uint64_t length = cast<ConstantInt>( globalArrayPtrC->getInitializer()->getAggregateElement( 1 ) )->getZExtValue();
+        if ( index >= length )
+            CERR_CODECHECK( this, "Constant array index out of bounds: " << index << " >= " << length );
+    }
+
     Constant* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
                         subscriptC };
@@ -252,15 +262,16 @@ Constant* TxElemDerefNode::code_gen_const_address( LlvmGenerationContext& contex
 
 Constant* TxElemDerefNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
-
-    if (this->panicNode) {
-        std::cerr << "BOUNDS CHECK NOT YET IMPLEMENTED FOR STATICALLY CONSTANT " << this << std::endl;
-    }
-
     auto arrayC = this->array->code_gen_const_value( context );
     auto subscriptC = cast<ConstantInt>( this->subscript->code_gen_const_value( context ) );
-    ASSERT( arrayC->getType()->isStructTy(), "Can't create constant array elem deref expression with array value that is: "
-            << arrayC << "  type: " << arrayC->getType() );
+
+    if (this->panicNode) {
+        uint64_t index = cast<ConstantInt>( subscriptC )->getZExtValue();
+        uint64_t length = cast<ConstantInt>( arrayC->getAggregateElement( 1 ) )->getZExtValue();
+        if ( index >= length )
+            CERR_CODECHECK( this, "Constant array index out of bounds: " << index << " >= " << length );
+    }
+
     uint32_t ixs[] = { 2, (uint32_t) subscriptC->getLimitedValue( UINT32_MAX ) };
     return ConstantExpr::getExtractValue( arrayC, ixs );
 }
