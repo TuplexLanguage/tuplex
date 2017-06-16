@@ -95,3 +95,6 @@ source_files = [
 
 for src in source_files:
     run_cmd( """txc -quiet -jit -nobc -notx %s""" % ( src, ) )
+
+#for src in source_files:
+#    run_cmd( """txc -quiet -jit -nobc -tx ../.. %s""" % ( src, ) )

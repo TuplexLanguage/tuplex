@@ -346,10 +346,10 @@ bool TxActualType::inner_prepare_members() {
     }
     for ( auto & interfSpec : this->interfaces ) {
         //ASSERT(interfSpec.type->is_prepared(), "Base i/f " << interfSpec.type << " not prepared before sub type " << this);
-        recursionError |= const_cast<TxActualType*>( baseType )->prepare_members();
+        recursionError |= const_cast<TxActualType*>( interfSpec.type )->prepare_members();
         bool added = this->virtualFields.add_interface_fields( interfSpec.type->virtualFields );
         if ( !added )
-            LOG( this->LOGGER(), NOTE, "Type implements interfaces but they don't cause the vtable to be extended: " << this );
+            LOG( this->LOGGER(), NOTE, "Type implements interface " << interfSpec.type << " which doesn't cause the vtable to be extended: " << this );
 //        if (added)
 //            this->modifiesVTable = true;
     }
