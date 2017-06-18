@@ -139,7 +139,7 @@ test_arith_rshift( lval : UByte, rval : UByte, expres : UByte ) {
     assert ( lval >>> rval ) == expres;
 }
 
-test_bitfield_ops() {
+test_bitfield_ops( one : UByte ) {
     assert ( 2#0000_0001 & 2#0000_0000 ) == 0;
     assert ( 2#0000_0000 & 2#0000_0001 ) == 0;
     assert ( 2#1000_0000 & 2#0000_0000 ) == 0;
@@ -250,11 +250,30 @@ test_bitfield_ops() {
     test_arith_rshift( 2#1111_0000, 4, 2#1111_1111 );
     test_arith_rshift( 2#1111_0000, 5, 2#1111_1111 );
     test_arith_rshift( 2#1111_0000, 7, 2#1111_1111 );
+
+    ## basic test with other integer types:
+    assert 1UB >> 1*one == 0;
+    assert 1US >> 1*one == 0;
+    assert 1UI >> 1*one == 0;
+    assert 1UL >> 1*one == 0;
+    assert 4UB >> 2*one == 1;
+    assert 4US >> 2*one == 1;
+    assert 4UI >> 2*one == 1;
+    assert 4UL >> 2*one == 1;
+
+    ##assert -1B >> 1*one == 16#7F;
+    assert -1S >> 1*one == 16#7FFF;
+    assert -1I >> 1*one == 16#7FFFFFFF;
+    assert -1L >> 1*one == 16#7FFFFFFFFFFFFFFF;
+    ##assert -4B >> 2*one == 16#3F;
+    assert -4S >> 2*one == 16#3FFF;
+    assert -4I >> 2*one == 16#3FFFFFFF;
+    assert -4L >> 2*one == 16#3FFFFFFFFFFFFFFF;
 }
 
 main() {
     test_bool_ops();
     test_scalar_to_bool_conversion();
     test_bool_op_prios();
-    test_bitfield_ops();
+    test_bitfield_ops( 1 );
 }

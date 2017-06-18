@@ -54,6 +54,7 @@ const TxType* TxBinaryOperatorNode::define_type() {
             CERR_THROWRES( this, "Left operand of " << this->op << " is not of integer type: " << ltype );
         if ( !is_concrete_uinteger_type( (BuiltinTypeId)rtype->get_type_id() ) )
             CERR_THROWRES( this, "Right operand of " << this->op << " is not of unsigned integer type: " << rtype );
+        this->rhs->insert_conversion( ltype );  // LLVM shift instructions require right operand to be same integer type as left one
         break;
 
     case TXOC_EQUALITY:
