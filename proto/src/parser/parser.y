@@ -118,13 +118,14 @@ YY_DECL;
 %token PIPE CARET TILDE AT PERCENT DOLLAR EURO LPAREN RPAREN LBRACE
 %token RBRACE LBRACKET RBRACKET QMARK EMARK DASHGT
 %token EQUAL EEQUAL NEQUAL EEEQUAL NEEQUAL LT GT LEQUAL GEQUAL
+%token LTLT GTGT GTGTGT
 %token COLEQUAL PLUSEQUAL MINUSEQUAL ASTERISKEQUAL FSLASHEQUAL
 
 /* keywords: */
 %token KW_MODULE KW_IMPORT KW_TYPE KW_INTERFACE
 %token KW_PUBLIC KW_PROTECTED KW_STATIC KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERN
 %token KW_MODIFIABLE KW_REFERENCE KW_DERIVES KW_IMPLEMENTS
-%token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_OR
+%token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_XOR
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE KW_FROM
 %token KW_NULL KW_TRUE KW_FALSE
 %token KW_ASSERT KW_EXPERR
@@ -132,7 +133,7 @@ YY_DECL;
 /* keywords reserved but not currently used */
 %token KW_TUPLE KW_UNION KW_ENUM
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
-%token KW_AND KW_XOR KW_NOT KW_BUILTIN KW_FUNC KW_LAMBDA KW_CLASS KW_EXTENDS
+%token KW_AND KW_OR KW_NOT KW_BUILTIN KW_FUNC KW_LAMBDA KW_CLASS KW_EXTENDS
 
  /* literals: */
 %token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
@@ -195,12 +196,14 @@ YY_DECL;
 %precedence ELLIPSIS
 %left COMMA COLON
 %right EQUAL
-%left PIPE  // boolean (logical, not bitwise) operator
-%left AAND  // boolean (logical, not bitwise) operator
+%left PIPE        // boolean and bitwise operator
+%left KW_XOR      // boolean and bitwise operator
+%left AAND        // boolean and bitwise operator
 %precedence NOT   /* unary logical not */
 %left EEQUAL NEQUAL
 %left LT GT LEQUAL GEQUAL
-%right DOTDOT  // range has lower priority than arithmetic but higher than boolen operators
+%right DOTDOT           // range has lower priority than arithmetic but higher than boolen operators
+%left LTLT GTGT GTGTGT  // bit-shift har lower priority than arithmetic but higher than range and boolen operators
 %left PLUS MINUS
 %left ASTERISK FSLASH
 %precedence NEG   /* negation--unary minus */
@@ -565,6 +568,10 @@ expr
     |   EMARK expr  %prec NOT        { $$ = new TxUnaryLogicalNotNode(@1, $2); }  // unary not
     |   expr AAND expr               { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_AND, $3); }
     |   expr PIPE expr               { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_OR,  $3); }
+    |   expr KW_XOR expr             { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_XOR,  $3); }
+    |   expr LTLT expr      %prec LTLT          { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_LSHIFT, $3); }
+    |   expr GT GT expr     %prec LTLT          { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_RSHIFT, $4); }
+    |   expr GT GT GT expr  %prec LTLT          { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_ARSHIFT, $5); }
     ;
 
 value_literal

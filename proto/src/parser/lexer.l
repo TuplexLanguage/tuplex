@@ -105,6 +105,11 @@ extern "C" int yywrap() { return 0; }
 "="		{ return token::EQUAL; }
 "<"     { return token::LT; }
 ">"     { return token::GT; }
+"<<"    { return token::LTLT; }
+ /*
+">>"    { return token::GTGT; }
+">>>"   { return token::GTGTGT; }
+ */
 "<="    { return token::LEQUAL; }
 ">="    { return token::GEQUAL; }
 "=="		{ return token::EEQUAL; }

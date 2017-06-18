@@ -2,64 +2,79 @@
 #include "ast_constexpr.hpp"
 
 #include "symbol/type_registry.hpp"
+#include "tx_error.hpp"
+#include "tx_lang_defs.hpp"
 
+
+static inline void match_binary_operand_types( TxBinaryOperatorNode* binOpNode, const TxType* ltype, const TxType* rtype ) {
+    if ( ltype != rtype ) {
+        if ( auto_converts_to( binOpNode->rhs->originalExpr, ltype ) ) {
+            binOpNode->rhs->insert_conversion( ltype );
+        }
+        else if ( auto_converts_to( binOpNode->lhs->originalExpr, rtype ) ) {
+            binOpNode->lhs->insert_conversion( rtype );
+        }
+        else
+            CERR_THROWRES( binOpNode, "Mismatching operand types for binary operator " << binOpNode->op << ": " << ltype << ", " << rtype );
+    }
+}
 
 const TxType* TxBinaryOperatorNode::define_type() {
     auto ltype = this->lhs->originalExpr->resolve_type();
     auto rtype = this->rhs->originalExpr->resolve_type();
 
-    const TxType* arithResultType = nullptr;
-    if ( ltype->is_scalar() ) {
-        if ( rtype->is_scalar() ) {
-            if ( ltype != rtype ) {
-                if ( auto_converts_to( this->rhs->originalExpr, ltype ) ) {
-                    this->rhs->insert_conversion( ltype );
-                    arithResultType = this->rhs->resolve_type();
-                }
-                else if ( auto_converts_to( this->lhs->originalExpr, rtype ) ) {
-                    this->lhs->insert_conversion( rtype );
-                    arithResultType = this->lhs->resolve_type();
-                }
-            }
-            else
-                // same type, no additional action necessary
-                arithResultType = ltype;
-        }
-        if ( arithResultType ) {
-            if ( op_class == TXOC_BOOLEAN )
-                CERROR( this, "Can't perform boolean operation on operands of scalar type: " << ltype );
-        }
-        else
-            CERR_THROWRES( this, "Mismatching scalar operand types for binary operator " << this->op << ": " << ltype << ", " << rtype );
-    }
-    else if ( ltype->is_builtin( TXBT_BOOL ) ) {
-        if ( rtype->is_builtin( TXBT_BOOL ) ) {
-            if ( op_class == TXOC_ARITHMETIC )
-                CERROR( this, "Can't perform arithmetic operation on operands of boolean type: " << this->op );
-        }
-        else
-            CERROR( this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype );
-    }
-    else if ( ltype->get_type_class() == TXTC_REFERENCE ) {
-        if ( rtype->get_type_class() == TXTC_REFERENCE ) {
-            if ( op_class != TXOC_EQUALITY )
-                CERROR( this, "Invalid operator for reference operands: " << this->op );
-        }
-        else
-            CERROR( this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype );
-    }
-    else
-        CERR_THROWRES( this, "Unsupported operand types for binary operator " << this->op << ": " << ltype << ", " << rtype );
+    switch ( this->op_class ) {
+    case TXOC_ARITHMETIC:
+    case TXOC_COMPARISON:
+        if ( !ltype->is_scalar() )
+            CERR_THROWRES( this, "Left operand of " << this->op << " is not of scalar type: " << ltype );
+        if ( !rtype->is_scalar() )
+            CERR_THROWRES( this, "Right operand of " << this->op << " is not of scalar type: " << rtype );
 
-    if ( this->op_class == TXOC_ARITHMETIC ) {
-        // Note: After analyzing conversions, the lhs will hold the proper resulting type.
-        if ( !arithResultType )
-            throw resolution_error( this, "Mismatching arithmetic binary operand types" );
-        return arithResultType;
+        match_binary_operand_types( this, ltype, rtype );
+        break;
+
+    case TXOC_LOGICAL:
+        if ( !( is_concrete_sinteger_type( (BuiltinTypeId)ltype->get_type_id() ) ||
+                is_concrete_uinteger_type( (BuiltinTypeId)ltype->get_type_id() ) ||
+                ltype->get_type_id() == TXBT_BOOL ) )
+            CERR_THROWRES( this, "Left operand of " << this->op << " is not of integer or boolean type: " << ltype );
+        if ( !( is_concrete_sinteger_type( (BuiltinTypeId)rtype->get_type_id() ) ||
+                is_concrete_uinteger_type( (BuiltinTypeId)rtype->get_type_id() ) ||
+                rtype->get_type_id() == TXBT_BOOL ) )
+            CERR_THROWRES( this, "Right operand of " << this->op << " is not of integer or boolean type: " << rtype );
+
+        match_binary_operand_types( this, ltype, rtype );
+        break;
+
+    case TXOC_SHIFT:
+        // Note: In LLVM and in common CPUs, for an integer type of N bits, the result of shifting by >= N is undefined.
+        if ( !( is_concrete_sinteger_type( (BuiltinTypeId)ltype->get_type_id() ) ||
+                is_concrete_uinteger_type( (BuiltinTypeId)ltype->get_type_id() ) ) )
+            CERR_THROWRES( this, "Left operand of " << this->op << " is not of integer type: " << ltype );
+        if ( !is_concrete_uinteger_type( (BuiltinTypeId)rtype->get_type_id() ) )
+            CERR_THROWRES( this, "Right operand of " << this->op << " is not of unsigned integer type: " << rtype );
+        break;
+
+    case TXOC_EQUALITY:
+        if ( ltype->get_type_class() != rtype->get_type_class() )
+            CERR_THROWRES( this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype );
+        if ( ltype->get_type_class() == TXTC_ELEMENTARY ) {
+            match_binary_operand_types( this, ltype, rtype );
+        }
+        break;
+
+    default:
+        THROW_LOGIC( "Invalid/unhandled op-class " << this->op_class << " in " << this );
     }
-    else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
+
+    this->lhs->resolve_type();
+    this->rhs->resolve_type();
+
+    if ( this->op_class == TXOC_EQUALITY || this->op_class == TXOC_COMPARISON )
         return this->registry().get_builtin_type( TXBT_BOOL );
-    }
+    else
+        return this->lhs->get_type();
 }
 
 const TxType* TxUnaryMinusNode::define_type() {

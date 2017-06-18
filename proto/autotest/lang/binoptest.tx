@@ -24,20 +24,22 @@ test_bool_ops() {
     b = f != t  ; assert b;
     b = f != f  ; assert !b;
 
-    #experr: b = 0;
-    #experr: b = 1;
-    #experr: b = -1;
-    #experr: b = 0.;
-    #experr: b = 1.;
-    #experr: b = -1.;
-    #experr: b = TRUE & 1;
-    #experr: b = TRUE & 0;
-    #experr: b = TRUE | 1;
-    #experr: b = TRUE | 0;
-    #experr: b = FALSE == 1;
-    #experr: b = FALSE == 0;
-    #experr: b = FALSE == 1;
-    #experr: b = FALSE == 0;
+  ## scalars aren't auto-converted to Bool:
+    #experr 1: b = 0;
+    #experr 1: b = 1;
+    #experr 1: b = -1;
+    #experr 1: b = 0.0;
+    #experr 1: b = 1.0;
+    #experr 1: b = -1.0;
+
+    { #experr 1: e := TRUE & 1; }
+    { #experr 1: e := TRUE & 0; }
+    { #experr 1: e := TRUE | 1; }
+    { #experr 1: e := TRUE | 0; }
+    { #experr 1: e := FALSE == 1; }
+    { #experr 1: e := FALSE == 0; }
+    { #experr 1: e := FALSE != 1; }
+    { #experr 1: e := FALSE != 0; }
 }
 
 test_bool_op_prios() {
@@ -112,8 +114,147 @@ test_scalar_to_bool_conversion() {
     assert Bool(-1e-37);
 }
 
+
+test_and( lval : UByte, rval : UByte, expres : UByte ) {
+    assert ( lval & rval ) == expres;
+}
+
+test_or( lval : UByte, rval : UByte, expres : UByte ) {
+    assert ( lval | rval ) == expres;
+}
+
+test_xor( lval : UByte, rval : UByte, expres : UByte ) {
+    assert ( lval xor rval ) == expres;
+}
+
+test_lshift( lval : UByte, rval : UByte, expres : UByte ) {
+    assert ( lval << rval ) == expres;
+}
+
+test_rshift( lval : UByte, rval : UByte, expres : UByte ) {
+    assert ( lval >> rval ) == expres;
+}
+
+test_arith_rshift( lval : UByte, rval : UByte, expres : UByte ) {
+    assert ( lval >>> rval ) == expres;
+}
+
+test_bitfield_ops() {
+    assert ( 2#0000_0001 & 2#0000_0000 ) == 0;
+    assert ( 2#0000_0000 & 2#0000_0001 ) == 0;
+    assert ( 2#1000_0000 & 2#0000_0000 ) == 0;
+    assert ( 2#0000_0000 & 2#1000_0000 ) == 0;
+    assert ( 2#1010_1010 & 2#0000_1111 ) == 2#0000_1010;
+    assert ( 2#0000_1111 & 2#1010_1010 ) == 2#0000_1010;
+
+    assert ( 2#0000_0001 | 2#0000_0000 ) == 2#0000_0001;
+    assert ( 2#0000_0000 | 2#0000_0001 ) == 2#0000_0001;
+    assert ( 2#1000_0000 | 2#0000_0000 ) == 2#1000_0000;
+    assert ( 2#0000_0000 | 2#1000_0000 ) == 2#1000_0000;
+    assert ( 2#1010_1010 | 2#0000_1111 ) == 2#1010_1111;
+    assert ( 2#0000_1111 | 2#1010_1010 ) == 2#1010_1111;
+
+    assert ( 2#0000_0001 xor 2#0000_0000 ) == 2#0000_0001;
+    assert ( 2#0000_0000 xor 2#0000_0001 ) == 2#0000_0001;
+    assert ( 2#1000_0000 xor 2#0000_0000 ) == 2#1000_0000;
+    assert ( 2#0000_0000 xor 2#1000_0000 ) == 2#1000_0000;
+    assert ( 2#1010_1010 xor 2#0000_1111 ) == 2#1010_0101;
+    assert ( 2#0000_1111 xor 2#1010_1010 ) == 2#1010_0101;
+
+    test_and( 2#0000_0001, 2#0000_0000, 0 );
+    test_and( 2#0000_0000, 2#0000_0001, 0 );
+    test_and( 2#1000_0000, 2#0000_0000, 0 );
+    test_and( 2#0000_0000, 2#1000_0000, 0 );
+    test_and( 2#1010_1010, 2#0000_1111, 2#0000_1010 );
+    test_and( 2#0000_1111, 2#1010_1010, 2#0000_1010 );
+
+    test_or( 2#0000_0001, 2#0000_0000, 2#0000_0001 );
+    test_or( 2#0000_0000, 2#0000_0001, 2#0000_0001 );
+    test_or( 2#1000_0000, 2#0000_0000, 2#1000_0000 );
+    test_or( 2#0000_0000, 2#1000_0000, 2#1000_0000 );
+    test_or( 2#1010_1010, 2#0000_1111, 2#1010_1111 );
+    test_or( 2#0000_1111, 2#1010_1010, 2#1010_1111 );
+
+    test_xor( 2#0000_0001, 2#0000_0000, 2#0000_0001 );
+    test_xor( 2#0000_0000, 2#0000_0001, 2#0000_0001 );
+    test_xor( 2#1000_0000, 2#0000_0000, 2#1000_0000 );
+    test_xor( 2#0000_0000, 2#1000_0000, 2#1000_0000 );
+    test_xor( 2#1010_1010, 2#0000_1111, 2#1010_0101 );
+    test_xor( 2#0000_1111, 2#1010_1010, 2#1010_0101 );
+
+    { #experr 1: e := 3 & TRUE; }
+    { #experr 1: e := FALSE & 3; }
+    { #experr 1: e := 3 | TRUE; }
+    { #experr 1: e := FALSE | 3; }
+    { #experr 1: e := 3 | TRUE; }
+    { #experr 1: e := FALSE | 3; }
+
+
+    ## Note: In LLVM and in common CPUs, for an integer type of N bits, the result of shifting by >= N is undefined.
+
+    assert 2#0000_1111 << 0 == 2#0000_1111;
+    assert 2#0000_1111 << 1 == 2#0001_1110;
+    assert 2#0000_1111 << 4 == 2#1111_0000;
+    assert 2#0000_1111 << 5 == 2#1110_0000;
+    assert 2#0000_1111 << 7 == 2#1000_0000;
+
+    assert 2#1111_0000 >> 0 == 2#1111_0000;
+    assert 2#1111_0000 >> 1 == 2#0111_1000;
+    assert 2#1111_0000 >> 4 == 2#0000_1111;
+    assert 2#1111_0000 >> 5 == 2#0000_0111;
+    assert 2#1111_0000 >> 7 == 2#0000_0001;
+
+    assert 2#1111_0000 >>> 0 == 2#1111_0000;
+    assert 2#1111_0000 >>> 1 == 2#1111_1000;
+    assert 2#1111_0000 >>> 4 == 2#1111_1111;
+    assert 2#1111_0000 >>> 5 == 2#1111_1111;
+    assert 2#1111_0000 >>> 7 == 2#1111_1111;
+
+    { #experr 1: e := 2#0000_1111 << -1; }
+    { #experr 1: e := 2#0000_1111 >> -1; }
+    { #experr 1: e := 2#0000_1111 >>> -1; }
+
+    assert Byte( 2#0000_1111 ) << 0 == Byte( 2#0000_1111 );
+    assert Byte( 2#0000_1111 ) << 1 == Byte( 2#0001_1110 );
+    assert Byte( 2#0000_1111 ) << 4 == Byte( 2#1111_0000 );
+    assert Byte( 2#0000_1111 ) << 5 == Byte( 2#1110_0000 );
+    assert Byte( 2#0000_1111 ) << 7 == Byte( 2#1000_0000 );
+
+    assert Byte( 2#1111_0000 ) >> 0 == Byte( 2#1111_0000 );
+    assert Byte( 2#1111_0000 ) >> 1 == Byte( 2#0111_1000 );
+    assert Byte( 2#1111_0000 ) >> 4 == Byte( 2#0000_1111 );
+    assert Byte( 2#1111_0000 ) >> 5 == Byte( 2#0000_0111 );
+    assert Byte( 2#1111_0000 ) >> 7 == Byte( 2#0000_0001 );
+
+    assert Byte( 2#1111_0000 ) >>> 0 == Byte( 2#1111_0000 );
+    assert Byte( 2#1111_0000 ) >>> 1 == Byte( 2#1111_1000 );
+    assert Byte( 2#1111_0000 ) >>> 4 == Byte( 2#1111_1111 );
+    assert Byte( 2#1111_0000 ) >>> 5 == Byte( 2#1111_1111 );
+    assert Byte( 2#1111_0000 ) >>> 7 == Byte( 2#1111_1111 );
+
+
+    test_lshift( 2#0000_1111, 0, 2#0000_1111 );
+    test_lshift( 2#0000_1111, 1, 2#0001_1110 );
+    test_lshift( 2#0000_1111, 4, 2#1111_0000 );
+    test_lshift( 2#0000_1111, 5, 2#1110_0000 );
+    test_lshift( 2#0000_1111, 7, 2#1000_0000 );
+
+    test_rshift( 2#1111_0000, 0, 2#1111_0000 );
+    test_rshift( 2#1111_0000, 1, 2#0111_1000 );
+    test_rshift( 2#1111_0000, 4, 2#0000_1111 );
+    test_rshift( 2#1111_0000, 5, 2#0000_0111 );
+    test_rshift( 2#1111_0000, 7, 2#0000_0001 );
+
+    test_arith_rshift( 2#1111_0000, 0, 2#1111_0000 );
+    test_arith_rshift( 2#1111_0000, 1, 2#1111_1000 );
+    test_arith_rshift( 2#1111_0000, 4, 2#1111_1111 );
+    test_arith_rshift( 2#1111_0000, 5, 2#1111_1111 );
+    test_arith_rshift( 2#1111_0000, 7, 2#1111_1111 );
+}
+
 main() {
     test_bool_ops();
     test_scalar_to_bool_conversion();
     test_bool_op_prios();
+    test_bitfield_ops();
 }

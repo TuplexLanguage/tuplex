@@ -128,6 +128,21 @@ test_int_literals_and_limits() {
     #experr: var : Long = 9223372036854775808L;
 
 
+  ## forced signed <-> unsigned conversions:
+    assert Byte( 2#0000_0000_UB ) == 0;
+    assert Byte( 2#0000_0001_UB ) == 1;
+    assert Byte( 2#0111_1111_UB ) == 127;
+    assert Byte( 2#1111_1111_UB ) == -1;
+    assert Byte( 2#1000_0000_UB ) == -128;
+
+    assert UByte( 2#0000_0000_B ) == 0;
+    assert UByte( 2#0000_0001_B ) == 1;
+    assert UByte( 2#0111_1111_B ) == 127;
+    assert UByte( 2#1111_1111_S ) == 255;
+    assert UByte( 2#1000_0000_S ) == 128;
+
+    ## TODO: the other integer sizes
+
     ## TODO: test promotions and demotions
 }
 

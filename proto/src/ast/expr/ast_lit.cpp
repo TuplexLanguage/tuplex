@@ -51,22 +51,23 @@ static const BuiltinTypeId uinttypeids[] = { TXBT_UBYTE, TXBT_USHORT, TXBT_UINT,
 void TxIntegerLitNode::IntConstant::initialize( const std::string& sourceLiteral, bool hasRadix, bool negative, BuiltinTypeId typeId ) {
     char* pEnd;
 
-    // pre-parse value string:
+    // pre-parse source string:
     std::string valueStr;
-    std::string typeStr;
-
     if ( negative ) {
         valueStr = '-';
     }
+    const std::string trimmedLiteral( strip_ignored_chars( sourceLiteral ) );
 
+    // parse radix prefix:
     if ( hasRadix ) {
-        auto valuePos = sourceLiteral.find( '#' );
+        auto valuePos = trimmedLiteral.find( '#' );
         ASSERT( valuePos != std::string::npos, "Expected '#' radix separator in string: '" << sourceLiteral << "'" );
-        std::string radixStr( sourceLiteral, 0, valuePos );
-        auto typePos = sourceLiteral.find( '#', ++valuePos );
-        valueStr.append( strip_ignored_chars( sourceLiteral.substr( valuePos, typePos - valuePos ) ) );
-        if ( typePos != std::string::npos )
-            typeStr = sourceLiteral.substr( typePos + 1 );
+        std::string radixStr( trimmedLiteral, 0, valuePos );
+//        auto typePos = sourceLiteral.find( '#', ++valuePos );
+//        valueStr.append( strip_ignored_chars( sourceLiteral.substr( valuePos, typePos - valuePos ) ) );
+//        if ( typePos != std::string::npos )
+//            typeStr = sourceLiteral.substr( typePos + 1 );
+        valueStr.append( trimmedLiteral.substr( valuePos + 1) );
 
         this->radix = strtoul( radixStr.c_str(), &pEnd, 10 );
         if ( errno == ERANGE || *pEnd || this->radix < 2 || this->radix > 36 ) {
@@ -76,36 +77,50 @@ void TxIntegerLitNode::IntConstant::initialize( const std::string& sourceLiteral
         }
     }
     else {
+        valueStr.append ( trimmedLiteral );
         this->radix = 10;
-        valueStr.append ( strip_ignored_chars( sourceLiteral ) );
+    }
+
+    // parse type signifier suffix:
+    std::string typeStr;
+    auto typePos = valueStr.find( '#' );
+    if ( typePos != std::string::npos ) {
+        typeStr = valueStr.substr( typePos + 1 );
+        valueStr.erase( typePos );
+    }
+    else if ( this->radix <= 10 ) {
+        // if radix <= 10, the # before the type signifier may be skipped (e.g. 8#731UI instead of 8#731#UI)
         if ( std::isalpha( valueStr.back() ) ) {
             int suffixLen = ( valueStr.length() > 2 && std::isalpha( valueStr.at( valueStr.length() - 2 ) ) ? 2 : 1 );
-            typeStr = sourceLiteral.substr( sourceLiteral.length() - suffixLen );
+            typeStr = valueStr.substr( valueStr.length() - suffixLen );
             valueStr.erase( valueStr.length() - suffixLen );
         }
     }
-
-    // (if typeId arg is provided, type-indicating suffix in the value string is ignored)
-    if ( !typeId && !typeStr.empty() ) {  // literal has type-specifying suffix
+    if ( !typeStr.empty() ) {  // literal has type-specifying suffix
+        BuiltinTypeId signifierTypeId = (BuiltinTypeId)0;
         this->_signed = ( typeStr.front() != 'U' );
         switch ( typeStr.back() ) {
         case 'B':
-            typeId = ( this->_signed ? TXBT_BYTE : TXBT_UBYTE );
+            signifierTypeId = ( this->_signed ? TXBT_BYTE : TXBT_UBYTE );
             break;
         case 'S':
-            typeId = ( this->_signed ? TXBT_SHORT : TXBT_USHORT );
+            signifierTypeId = ( this->_signed ? TXBT_SHORT : TXBT_USHORT );
             break;
         case 'I':
-            typeId = ( this->_signed ? TXBT_INT : TXBT_UINT );
+            signifierTypeId = ( this->_signed ? TXBT_INT : TXBT_UINT );
             break;
         case 'L':
-            typeId = ( this->_signed ? TXBT_LONG : TXBT_ULONG );
+            signifierTypeId = ( this->_signed ? TXBT_LONG : TXBT_ULONG );
             break;
         default:
-            ASSERT( false, "Invalid integer literal type suffix: ''" << typeStr.back() << "'" );
+            THROW_LOGIC( "Invalid integer literal type suffix: ''" << typeStr.back() << "'" );
         }
+        if ( typeId && typeId != signifierTypeId )
+            THROW_LOGIC( "Both typeId and type signifier suffix specified and they are not equal: " << typeId << " != '" << typeStr.back() << "'" );
+        typeId = signifierTypeId;
     }
 
+    // parse value:
     if ( typeId ) {  // specified type
         ASSERT( std::count( inttypeids, inttypeids + ( sizeof( inttypeids ) / sizeof( inttypeids[0] ) ), typeId ),
                 "Invalid concrete integer type id: " << typeId );

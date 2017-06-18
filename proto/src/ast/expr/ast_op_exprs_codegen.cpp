@@ -28,35 +28,27 @@ static const OpMapping OP_MAPPING[] = {
                                         { TXOP_LE, CmpInst::Predicate::ICMP_SLE, CmpInst::Predicate::ICMP_ULE, CmpInst::Predicate::FCMP_OLE },
                                         { TXOP_AND, Instruction::And, Instruction::And, 0 },
                                         { TXOP_OR, Instruction::Or, Instruction::Or, 0 },
+                                        { TXOP_XOR, Instruction::Xor, Instruction::Xor, 0 },
+                                        { TXOP_LSHIFT, Instruction::Shl, Instruction::Shl, 0 },
+                                        { TXOP_RSHIFT, Instruction::LShr, Instruction::LShr, 0 },
+                                        { TXOP_ARSHIFT, Instruction::AShr, Instruction::AShr, 0 },
 };
 
-static unsigned get_llvm_op( TxOperationClass op_class, TxOperation op, const TxType* resType, const TxType* operandType, bool* float_operation ) {
+// Note: In LLVM and in common CPUs, for an integer type of N bits, the result of shifting by >= N is undefined.
+
+static unsigned get_llvm_op( TxOperationClass op_class, TxOperation op, const TxType* resultType, const TxType* operandType, bool* float_operation ) {
     unsigned llvm_op;
-    if ( op_class == TXOC_ARITHMETIC ) {
-        auto resultType = resType->type();
-        if ( auto intType = dynamic_cast<const TxIntegerType*>( resultType ) ) {
-            llvm_op = intType->sign ? OP_MAPPING[op].l_si_op : OP_MAPPING[op].l_ui_op;
-        }
-        else if ( dynamic_cast<const TxFloatingType*>( resultType ) ) {
-            llvm_op = OP_MAPPING[op].l_f_op;
-            *float_operation = true;
-        }
-        else {
-            ASSERT( false, "Unsupported binary operand type: " << (resultType?resultType->str().c_str():"NULL") );
-            llvm_op = 0;
-        }
+    const TxActualType* computeType = ( op_class == TXOC_ARITHMETIC ? resultType->type() : operandType->type() );
+    if ( auto intType = dynamic_cast<const TxIntegerType*>( computeType ) ) {
+        llvm_op = intType->sign ? OP_MAPPING[op].l_si_op : OP_MAPPING[op].l_ui_op;
     }
-    else {  // TXOC_EQUALITY, TXOC_COMPARISON, TXOC_BOOLEAN
-        if ( dynamic_cast<const TxFloatingType*>( operandType->type() ) ) {
-            llvm_op = OP_MAPPING[op].l_f_op;
-            *float_operation = true;
-        }
-        else if ( auto intType = dynamic_cast<const TxIntegerType*>( operandType->type() ) ) {
-            llvm_op = intType->sign ? OP_MAPPING[op].l_si_op : OP_MAPPING[op].l_ui_op;
-        }
-        else {  // Bool or Ref operands
-            llvm_op = OP_MAPPING[op].l_ui_op;  // as unsigned integers
-        }
+    else if ( dynamic_cast<const TxFloatingType*>( computeType ) ) {
+        llvm_op = OP_MAPPING[op].l_f_op;
+        *float_operation = true;
+    }
+    else {  // Bool or Ref operands
+        ASSERT( op_class != TXOC_ARITHMETIC, "Unsupported binary operand type: " << computeType );
+        llvm_op = OP_MAPPING[op].l_ui_op;  // as unsigned integers
     }
     return llvm_op;
 }
@@ -73,7 +65,7 @@ llvm::Constant* TxBinaryOperatorNode::code_gen_const_value( LlvmGenerationContex
     bool float_operation = false;
     unsigned llvm_op = get_llvm_op( op_class, this->op, this->get_type(), this->lhs->resolve_type(), &float_operation );
 
-    if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_BOOLEAN ) {
+    if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_LOGICAL || op_class == TXOC_SHIFT ) {
         ASSERT( Instruction::isBinaryOp( llvm_op ), "Not a valid LLVM binary op: " << llvm_op );
         Instruction::BinaryOps binop_instr = (Instruction::BinaryOps) llvm_op;
         return ConstantExpr::get( binop_instr, lval, rval );
@@ -97,7 +89,7 @@ Value* TxBinaryOperatorNode::code_gen_dyn_value( LlvmGenerationContext& context,
     bool float_operation = false;
     unsigned llvm_op = get_llvm_op( op_class, this->op, this->get_type(), this->lhs->get_type(), &float_operation );
 
-    if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_BOOLEAN ) {
+    if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_LOGICAL || op_class == TXOC_SHIFT ) {
         ASSERT( Instruction::isBinaryOp( llvm_op ), "Not a valid LLVM binary op: " << llvm_op );
         Instruction::BinaryOps binop_instr = (Instruction::BinaryOps) llvm_op;
         return scope->builder->CreateBinOp( binop_instr, lval, rval, fieldName );

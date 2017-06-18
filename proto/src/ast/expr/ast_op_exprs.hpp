@@ -52,6 +52,10 @@ public:
         this->lhs->visit_ast( visitor, thisCursor, "lhs", context );
         this->rhs->visit_ast( visitor, thisCursor, "rhs", context );
     }
+
+    virtual std::string get_identifier() const override {
+        return to_string( this->op );
+    }
 };
 
 class TxUnaryMinusNode : public TxOperatorValueNode {
