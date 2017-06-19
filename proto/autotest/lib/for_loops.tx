@@ -16,12 +16,12 @@ for_loops( var : UInt )->Int {
         tx.c.puts( &tmp[0] );
     }
 
-    for i in 0..9 {
+    for i in 0..10 {
         tmp := [ i + '0', 0 ];
         tx.c.puts( &tmp[0] );
     }
 
-    for i in 1..2..20,
+    for i in 1..2..21,
         j in 9..-2..0 {
         tmp := [ i + '0', ' ', j + '0', 0 ];
         tx.c.puts( &tmp[0] );

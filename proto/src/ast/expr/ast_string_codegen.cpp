@@ -20,12 +20,11 @@ Constant* TxStringLitNode::code_gen_const_value( LlvmGenerationContext& context 
         ConstantDataArray::get( context.llvmContext, ArrayRef<uint8_t>( this->utf8data.data(), this->utf8data.size() ) )
     };
     auto arrayC = ConstantStruct::getAnon( arrayMembers );
-    auto arrayGlobal = new GlobalVariable( context.llvmModule(), arrayC->getType(), true, GlobalValue::InternalLinkage, arrayC );
+    auto arrayGlobalPtr = new GlobalVariable( context.llvmModule(), arrayC->getType(), true, GlobalValue::InternalLinkage, arrayC );
 
-    // String datatype member is a reference to unknown array length (represented by length 0 in LLVM array type):
-    auto arrayGlobalPtrC = ConstantExpr::getBitCast( arrayGlobal, arrayRefObjT->getTypeAtIndex( 0U ) );
+    // String datatype member is a reference to unknown array length (represented by length 0 in LLVM array type)
 
-    auto arrayRefObjC = gen_ref( context, arrayRefObjT, arrayGlobalPtrC, arrayTIdC );
+    auto arrayRefObjC = gen_ref( context, arrayRefObjT, arrayGlobalPtr, arrayTIdC );
     auto tupleC = ConstantStruct::get( stringObjT, { arrayRefObjC } );
     return tupleC;
 }

@@ -15,6 +15,15 @@ public interface Enumerable< E derives Enumerable<E> > : Comparable< E > {
         return 0;
     }
 
+/*
+    public static first() -> E {
+        return E.value( 0 );
+    }
+
+    public static last() -> E {
+        return E.value( E.limit()-1 );
+    }
+*/
 
     /** returns the last (highest) ordinal for this type */
     public static abstract last_ordinal() -> Ordinal;
@@ -25,12 +34,4 @@ public interface Enumerable< E derives Enumerable<E> > : Comparable< E > {
 
     /** returns the ordinal for this value */
     public abstract ordinal() -> Ordinal;
-
-    public static first() -> E {
-        return E.value( 0 );
-    }
-
-    public static last() -> E {
-        return E.value( E.last_ordinal() );
-    }
 }

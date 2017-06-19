@@ -7,11 +7,11 @@ public builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, U
         return self.L == 0;
     }
 
-    public override count() -> ULong {
+    public override count() -> Ordinal {
         return self.L;
     }
 
-    public override capacity() -> ULong {
+    public override capacity() -> Ordinal {
         return self.C;
     }
 

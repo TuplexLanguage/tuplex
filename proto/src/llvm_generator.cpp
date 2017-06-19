@@ -499,10 +499,14 @@ void LlvmGenerationContext::generate_runtime_data() {
         std::string vtableName( txType->get_declaration()->get_unique_full_name() + "$vtable" );
         if ( auto vtableV = dyn_cast<GlobalVariable>( this->lookup_llvm_value( vtableName ) ) ) {
             bool isGenericBase = txType->get_declaration()->get_definer()->context().is_generic();
+            std::string typeIdStr = std::to_string( txType->get_type_id() );
+            if ( typeIdStr.size() < 5 )
+                typeIdStr.resize( 5, ' ' );
+            // TODO: If we're only filling vtable of generic bases with NULLs, do we really need to create them?
             if ( isGenericBase )
-                LOG_DEBUG( this->LOGGER(), "Populating vtable initializer with null placeholders for generic base type " << txType );
+                LOG_DEBUG( this->LOGGER(), "Type id " << typeIdStr << ": Populating vtable initializer with null placeholders for generic base type " << txType );
             else
-                LOG_DEBUG( this->LOGGER(), "Populating vtable initializer for " << txType );
+                LOG_DEBUG( this->LOGGER(), "Type id " << typeIdStr << ": Populating vtable initializer for " << txType );
             std::vector<Constant*> initMembers;
             auto virtualFields = txType->get_virtual_fields();
             initMembers.resize( virtualFields.get_field_count() );

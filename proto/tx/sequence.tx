@@ -25,7 +25,7 @@ public interface Iterable< E > derives Sequenceable< E > {
  */
 public interface Indicable< K, E > derives Iterable< E > {
 
-    public abstract count() -> ULong;
+    public abstract count() -> Ordinal;
 
     public abstract has( key : K ) -> Bool;
 

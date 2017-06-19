@@ -1,18 +1,15 @@
 module tx
 
 
-public interface Range< E > : Indicable< UInt, E > {
+public interface Range< E > : Indicable< Long, E > {
 
     public abstract override sequencer() -> Ref< ~Iterator<E> >;
 
-    public abstract override count() -> ULong;
+    public abstract override count() -> Ordinal;
 
-    public abstract override has( key : UInt ) -> Bool;
+    public abstract override has( key : Long ) -> Bool;
 
-    public abstract override get( key : UInt ) -> E;
-
-
-    public abstract last_index() -> UInt;
+    public abstract override get( key : Long ) -> E;
 }
 
 
@@ -23,7 +20,7 @@ public type ERange< E derives Enumerable > implements Range< E > {
     /** The ERange iterator. */
     public type ~ ERangeIterator implements Iterator< E > {
         range   : &ERange<E>;
-        nextIndex : ~UInt;
+        nextIndex : ~ULong;
 
         public self( range : &ERange<E> ) {
             self.range = range;
@@ -35,9 +32,9 @@ public type ERange< E derives Enumerable > implements Range< E > {
         }
 
         public override has_next() -> Bool {
-            return self.nextIndex <= self.range.last_index();
+            return self.nextIndex < self.range.count();
         }
-    
+
         public override has_prev() -> Bool {
             return self.nextIndex > 0;
         }
@@ -45,51 +42,60 @@ public type ERange< E derives Enumerable > implements Range< E > {
         public override next() ~ -> E {
             n := self.nextIndex;
             self.nextIndex = self.nextIndex + 1;
-            return self.range.get( n );
+            return self.range.get( Long( n ) );
         }
-    
+
         public override prev() ~ -> E  {
             self.nextIndex = self.nextIndex - 1;
-            return self.range.get( self.nextIndex );
+            return self.range.get( Long( self.nextIndex ) );
         }
     }
 
-    ## valid indices are all integers between [0, _last]
-    _last : UInt;
+    ## valid indices are all integers between [ 0, _indexLimit )
+    _indexLimit : Long;
 
     public start : E;
-    public end   : E;
-    public step  : Long;
+    public limit : E;
+    public stride : Long;
 
-    public self( start : E, end : E, step : Long ) {
-        assert step != 0;  ## if step == 0:  panic
+    public self( start : E, limit : E, stride : Long ) {
+        assert stride != 0;  ## if stride == 0:  panic
         self.start = start;
-        self.end = end;
-        self.step = step;
-
-        if self.step >= 0:
-            self._last = UInt( ( self.end.ordinal()   - self.start.ordinal() ) / Ordinal( self.step ) );
-        else
-            self._last = UInt( ( self.start.ordinal() - self.end.ordinal()   ) / Ordinal( -self.step ) );
+        self.limit = limit;
+        self.stride = stride;
+        self._indexLimit = Long( self.limit.ordinal() - self.start.ordinal() ) / self.stride;
+        if self._indexLimit < 0:
+            self._indexLimit = 0;
     }
 
     public override sequencer() -> Ref< ~ERangeIterator > {
         return new ~ERangeIterator( self );
     }
 
-    public override count() -> ULong {
-        return ULong( self._last ) + 1;
-    }
-    public override has( index : UInt ) -> Bool {
-        return ( index <= self._last );
-    }
-    public override get( index : UInt ) -> E {
-        assert index <= self._last;
-        return E.value( self.start.ordinal() + UInt( index * self.step ) );
+    public override count() -> Ordinal {
+        return Ordinal( self._indexLimit );
     }
 
-    /** valid indices are all integers between [0, last_index()] */
-    public override last_index() -> UInt {
-        return self._last;
+    public override has( index : Long ) -> Bool {
+        if index < 0:
+            return -index <= self._indexLimit;
+        else
+            return index < self._indexLimit;
     }
+
+    public override get( index : Long ) -> E {
+        ~ix := index;
+        if ix < 0 {
+            ix = ix + self._indexLimit;
+            assert ix >= 0;
+        }
+        assert ix < self._indexLimit;
+        return E.value( Ordinal( Long( self.start.ordinal() ) + ix * self.stride ) );
+    }
+/*
+    /** valid indices are all integers between [ 0, index_limit() ) */
+    public override index_limit() -> UInt {
+        return self._indexLimit;
+    }
+*/
 }

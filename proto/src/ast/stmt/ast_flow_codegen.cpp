@@ -62,8 +62,9 @@ void TxElseClauseNode::code_gen( LlvmGenerationContext& context, GenScope* scope
 void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
 
+    std::string id = std::to_string( this->parseLocation.begin.line );
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-    BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "if_true", parentFunc );
+    BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "if_true"+id, parentFunc );
     BasicBlock* postBlock = nullptr;
 
     // generate condition:
@@ -71,18 +72,18 @@ void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) c
 
     // generate branch and else code:
     if ( this->elseClause ) {
-        BasicBlock* elseBlock = BasicBlock::Create( context.llvmContext, "if_else", parentFunc );
+        BasicBlock* elseBlock = BasicBlock::Create( context.llvmContext, "if_else"+id, parentFunc );
         scope->builder->CreateCondBr( condVal, trueBlock, elseBlock );
         scope->builder->SetInsertPoint( elseBlock );
         this->elseClause->code_gen( context, scope );
 
         if ( !this->elseClause->ends_with_terminal_stmt() ) {
-            postBlock = BasicBlock::Create( context.llvmContext, "if_post", parentFunc );
+            postBlock = BasicBlock::Create( context.llvmContext, "if_post"+id, parentFunc );
             scope->builder->CreateBr( postBlock );  // branch from end of else suite to next-block
         }
     }
     else {
-        postBlock = BasicBlock::Create( context.llvmContext, "if_post", parentFunc );
+        postBlock = BasicBlock::Create( context.llvmContext, "if_post"+id, parentFunc );
         scope->builder->CreateCondBr( condVal, trueBlock, postBlock );
     }
 
@@ -100,9 +101,10 @@ void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) c
 void TxForStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
 
+    std::string id = std::to_string( this->parseLocation.begin.line );
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-    BasicBlock* condBlock = BasicBlock::Create( context.llvmContext, "loop_cond", parentFunc );
-    BasicBlock* loopBlock = BasicBlock::Create( context.llvmContext, "loop_body", parentFunc );
+    BasicBlock* condBlock = BasicBlock::Create( context.llvmContext, "loop_cond"+id, parentFunc );
+    BasicBlock* loopBlock = BasicBlock::Create( context.llvmContext, "loop_body"+id, parentFunc );
     BasicBlock* postBlock = nullptr;
 
     // generate initialization:
@@ -122,19 +124,19 @@ void TxForStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) 
     }
 
     if ( this->elseClause ) {
-        BasicBlock* elseBlock = BasicBlock::Create( context.llvmContext, "loop_else", parentFunc );
+        BasicBlock* elseBlock = BasicBlock::Create( context.llvmContext, "loop_else"+id, parentFunc );
         scope->builder->CreateCondBr( condVal, loopBlock, elseBlock );
 
         // generate else code:
         scope->builder->SetInsertPoint( elseBlock );
         this->elseClause->code_gen( context, scope );
         if ( !this->ends_with_terminal_stmt() ) {
-            postBlock = BasicBlock::Create( context.llvmContext, "loop_post", parentFunc );
+            postBlock = BasicBlock::Create( context.llvmContext, "loop_post"+id, parentFunc );
             scope->builder->CreateBr( postBlock );  // branch from end of else suite to post-block
         }
     }
     else {
-        postBlock = BasicBlock::Create( context.llvmContext, "loop_post", parentFunc );
+        postBlock = BasicBlock::Create( context.llvmContext, "loop_post"+id, parentFunc );
         scope->builder->CreateCondBr( condVal, loopBlock, postBlock );
     }
 
