@@ -1,10 +1,8 @@
 module tx
 
 
-/*
 type Char : UInt {
 }
-*/
 
 
 type String {
@@ -18,7 +16,7 @@ type String {
         self.bytes = new Array<UByte, (utf8Array.L)>();
         ##self.bytes^ = utf8Array^;
         if utf8Array.L > 0:
-            for i in 0..utf8Array.L:
+            for i in 0..utf8Array.L-1:
                 self.bytes[i] = utf8Array[i];
     }
 
@@ -26,11 +24,67 @@ type String {
         self( str.bytes );
     }
 
-/*
     self( chr : Char ) {
         tmp := new ~Array<~UByte, 4>();
         code_to_utf8( tmp, chr );
         self.bytes = tmp;
     }
-*/
+
+    self( strings : &Array<String> ) {
+        len : ~UInt = 0;
+        for str in strings:
+            len = len + str.bytes.L + 1;
+        self.bytes = new Array<UByte, (len)>();
+        i : ~UInt = 0;
+        for str in strings {
+            if str.bytes.L > 0:
+                for j in 0..str.bytes.L-1 {
+                    self.bytes[i] = str.bytes[j];
+                    i = i + 1;
+                }
+        }
+    }
+}
+
+
+/** Converts a Char (UTF-32) to a UTF-8. */
+code_to_utf8( buffer : &[]~UByte, code : Char ) -> UByte
+{
+    if (code <= 16#7F) {
+        buffer[0] = UByte( code );
+        return 1;
+    }
+    if (code <= 16#7FF) {
+        buffer[0] = 16#C0 | UByte(code >> 6);             /* 110xxxxx */
+        buffer[1] = 16#80 | UByte(code & 16#3F);          /* 10xxxxxx */
+        return 2;
+    }
+    if (code <= 16#FFFF) {
+        buffer[0] = 16#E0 | UByte(code >> 12);            /* 1110xxxx */
+        buffer[1] = 16#80 | UByte((code >> 6) & 16#3F);   /* 10xxxxxx */
+        buffer[2] = 16#80 | UByte(code & 16#3F);          /* 10xxxxxx */
+        return 3;
+    }
+    if (code <= 16#10FFFF) {
+        buffer[0] = 16#F0 | UByte(code >> 18);            /* 11110xxx */
+        buffer[1] = 16#80 | UByte((code >> 12) & 16#3F);  /* 10xxxxxx */
+        buffer[2] = 16#80 | UByte((code >> 6) & 16#3F);   /* 10xxxxxx */
+        buffer[3] = 16#80 | UByte(code & 16#3F);          /* 10xxxxxx */
+        return 4;
+    }
+    return 0;
+}
+
+/** The output buffer may require a capacity up to twice the input size. */
+iso_8859_1_to_utf8( input : &[]UByte, output : &[]~UByte ) {
+    ##out := [in.L*2]UByte;
+    for chr in input {
+        if chr < 16#80 {
+            output.add( chr );
+        }
+        else {
+            output.add( 16#c0 | (chr >> 6) );
+            output.add( 16#80 | (chr & 16#3f) );
+        }
+    }
 }

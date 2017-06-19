@@ -141,6 +141,15 @@ const TxType* TypeRegistry::get_builtin_type( const BuiltinTypeId id, bool mod )
     return ( mod ? this->get_modifiable_type( nullptr, biType ) : biType );
 }
 
+const TxType* TypeRegistry::get_string_type() {
+    if (! this->stringTypeNode ) {
+        stringTypeNode = new TxNamedTypeNode( this->get_builtin_location(), "tx.String" );
+        run_declaration_pass( stringTypeNode, LexicalContext( this->_package.get_member_symbol( "tx" ), nullptr, false, nullptr ) );
+        return this->stringTypeNode->resolve_type();
+    }
+    return this->stringTypeNode->get_type();
+}
+
 TxType* TypeRegistry::make_type_entity( const TxActualType* actualType ) {
     return new TxType( actualType );
 }

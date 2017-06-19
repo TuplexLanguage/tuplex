@@ -40,6 +40,9 @@ class TypeRegistry {
     /** All the formal types, i.e. all types with distinct runtime data type and distinct formal type id. */
     std::vector<const TxActualType*> formalTypes;
 
+    /** for the convenience method get_string_type() */
+    TxTypeExpressionNode* stringTypeNode = nullptr;
+
     void add_type_usage( TxType* type );
 
     void add_type( TxActualType* type );
@@ -114,7 +117,11 @@ public:
         return this->enqueuedSpecializations;
     }
 
+    /** Gets a built-in (primitive) type. */
     const TxType* get_builtin_type( const BuiltinTypeId id, bool mod = false );
+
+    /** special convenience method for the String type (which is not a primitive type). */
+    const TxType* get_string_type();
 
     /** Returns a read-only iterator that points to the first static type (with unique compile-time id). */
     inline std::vector<const TxActualType*>::const_iterator static_types_cbegin() const {

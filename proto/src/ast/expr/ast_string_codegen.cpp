@@ -10,7 +10,7 @@ using namespace llvm;
 Constant* TxStringLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, this->literal );
 
-    auto stringObjT = cast<StructType>( context.get_llvm_type( this->stringTypeNode->get_type() ) );
+    auto stringObjT = cast<StructType>( context.get_llvm_type( this->registry().get_string_type() ) );
     auto arrayTIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->arrayTypeNode->get_type()->get_type_id() );
     auto arrayRefObjT = cast<StructType>( stringObjT->getTypeAtIndex( 0U ) );
 
@@ -32,6 +32,12 @@ Constant* TxStringLitNode::code_gen_const_value( LlvmGenerationContext& context 
 
 Value* TxStringLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     return this->code_gen_const_value( context );
+}
+
+
+Value* TxConcatenateStringsNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    return this->stackConstr->code_gen_dyn_value( context, scope );
 }
 
 

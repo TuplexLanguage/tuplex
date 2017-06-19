@@ -181,7 +181,9 @@ extern "C" int yywrap() { return 0; }
 
  /* string format operators */
  /* %[parameter][flags][width][.precision][length]type */
- /* %($[0-9]+)?[-+ 0#]*([1-9][0-9]*|\*)?(\.([0-9]+|\*))?[diufFeEgGxXoscaA] */
+%($[0-9]+)?[\-\+ 0#]*([1-9][0-9]*|\*)?(\.([0-9]+|\*))?[diufFeEgGxXoscaA]    { yylval->build(std::string (yytext)); return token::STR_FORMAT; }
+"%%"        { return token::PERCENTPERCENT; }
+ /*
 <INITIAL>{
 "%"                 { BEGIN(STRINGFORMAT); return token::PERCENT; }
 }
@@ -191,10 +193,10 @@ extern "C" int yywrap() { return 0; }
 [\-\+ 0#]*          { yylval->build(std::string (yytext)); return token::SF_FLAGS; }
 [1-9][0-9]*|\*      { yylval->build(std::string (yytext)); return token::SF_WIDTH; }
 \.([0-9]+|\*)       { yylval->build(std::string (yytext)); return token::SF_PREC; }
-[diufFeEgGxXoscaA]  { yylval->build(std::string (yytext)); return token::SF_TYPE; }
-"%"                 { BEGIN(INITIAL); return token::PERCENT; }
+[diufFeEgGxXoscaA]  { BEGIN(INITIAL); yylval->build(std::string (yytext)); return token::SF_TYPE; }
+.                   { BEGIN(INITIAL); yyless(0); }
 }
-
+ */
 
  /* literals */
 "NULL"                  { return token::KW_NULL; }

@@ -60,9 +60,13 @@ static std::vector<uint8_t> iso_8859_1_to_utf8( const std::string& input ) {
 
 TxStringLitNode::TxStringLitNode( const TxLocation& parseLocation, const std::string& literal )
         : TxExpressionNode( parseLocation ), utf8data( iso_8859_1_to_utf8( parse_string( literal ) ) ),
-          stringTypeNode( new TxNamedTypeNode( parseLocation, "String" ) ),
           arrayTypeNode( new TxArrayTypeNode( parseLocation, new TxNamedTypeNode( parseLocation, "tx.UByte" ) ) ),
           literal( literal ) {
+}
+
+
+TxConcatenateStringsNode::TxConcatenateStringsNode( const TxLocation& parseLocation, const std::vector<TxExpressionNode*>& stringNodes )
+        : TxExpressionNode( parseLocation ), stringNodes( stringNodes ) {
 }
 
 

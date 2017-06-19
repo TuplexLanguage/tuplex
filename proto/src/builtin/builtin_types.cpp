@@ -6,6 +6,7 @@
 #include "llvm_generator.hpp"
 #include "parsercontext.hpp"
 
+#include "ast/ast_util.hpp"
 #include "ast/ast_modbase.hpp"
 #include "ast/ast_declpass.hpp"
 #include "ast/type/ast_types.hpp"
@@ -42,14 +43,6 @@ std::vector<std::string> BUILTIN_TYPE_NAMES = {
                                                 "Tuple",
 };
 
-/** Helper function that makes a deep-copy of a vector of nodes to an initializer list. */
-template<class N>
-std::vector<N*> make_node_vec_copy( const std::vector<N*>& nodeVec ) {
-    std::vector<N*> copyVec( nodeVec.size() );
-    std::transform( nodeVec.cbegin(), nodeVec.cend(), copyVec.begin(),
-                    []( N* n ) -> N* {return n->make_ast_copy();} );
-    return copyVec;
-}
 
 /*--- private classes providing indirection for fetching the built-in type objects ---*/
 

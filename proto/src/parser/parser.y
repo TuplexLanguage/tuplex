@@ -137,7 +137,7 @@ YY_DECL;
 
  /* literals: */
 %token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
-%token <std::string> SF_PARAM SF_FLAGS SF_WIDTH SF_PREC SF_TYPE
+%token <std::string> STR_FORMAT SF_PARAM SF_FLAGS SF_WIDTH SF_PREC SF_TYPE
 
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above.
@@ -196,6 +196,7 @@ YY_DECL;
 %precedence ELLIPSIS
 %left COMMA COLON
 %right EQUAL
+%left PERCENTPERCENT  // string concatenation
 %left PIPE        // boolean and bitwise operator
 %left KW_XOR      // boolean and bitwise operator
 %left AAND        // boolean and bitwise operator
@@ -572,6 +573,9 @@ expr
     |   expr LTLT expr      %prec LTLT          { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_LSHIFT, $3); }
     |   expr GT GT expr     %prec LTLT          { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_RSHIFT, $4); }
     |   expr GT GT GT expr  %prec LTLT          { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_ARSHIFT, $5); }
+
+    |   expr PERCENTPERCENT expr     { $$ = TxConcatenateStringsNode::make_strcat_node( @$, $1, $3 ); }
+    //|   string_format_expr           { $$ = $1; }
     ;
 
 value_literal
@@ -619,6 +623,11 @@ expression_list : expr
                       { $$ = $1;
                         $$->push_back($3); }
 ;
+
+
+//string_format_expr
+//    :   expr PERCENT expr  { $$ = new TxConcatenateStringsNode( @$, $1, $3 ); }
+//    ;
 
 
 //// statements

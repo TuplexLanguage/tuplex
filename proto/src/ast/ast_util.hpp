@@ -19,6 +19,15 @@ std::vector<N*>* make_node_vec_copy( const std::vector<N*>* nodeVec ) {
     return copyVec;
 }
 
+/** Helper function that makes a deep-copy of a vector of nodes to an initializer list. */
+template<class N>
+std::vector<N*> make_node_vec_copy( const std::vector<N*>& nodeVec ) {
+    std::vector<N*> copyVec( nodeVec.size() );
+    std::transform( nodeVec.cbegin(), nodeVec.cend(), copyVec.begin(),
+                    []( N* n ) -> N* {return n->make_ast_copy();} );
+    return copyVec;
+}
+
 template<typename Node>
 std::vector<const TxType*> attempt_typevec( const std::vector<Node*>* nodevec ) {
     std::vector<const TxType*> types = std::vector<const TxType*>( nodevec->size() );

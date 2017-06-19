@@ -1,0 +1,11 @@
+module tx
+
+
+print( str : &String ) {
+    tx.c.puts( &str.bytes[0] );
+}
+
+read() -> String {
+    ## char * fgets ( char * str, int num, FILE * stream );
+    return "dummy";
+}
