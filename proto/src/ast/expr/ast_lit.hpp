@@ -4,8 +4,8 @@
 
 class TxLiteralElementaryValueNode : public TxExpressionNode {
 public:
-    TxLiteralElementaryValueNode( const TxLocation& parseLocation )
-            : TxExpressionNode( parseLocation ) {
+    TxLiteralElementaryValueNode( const TxLocation& ploc )
+            : TxExpressionNode( ploc ) {
     }
 
     virtual TxLiteralElementaryValueNode* make_ast_copy() const override = 0;
@@ -57,7 +57,7 @@ class TxIntegerLitNode : public TxLiteralElementaryValueNode {
     bool negative = false;
 
     TxIntegerLitNode( const TxIntegerLitNode& orig )
-            : TxLiteralElementaryValueNode( orig.parseLocation ), sourceLiteral( orig.sourceLiteral ), hasRadix( orig.hasRadix ),
+            : TxLiteralElementaryValueNode( orig.ploc ), sourceLiteral( orig.sourceLiteral ), hasRadix( orig.hasRadix ),
               i64value( orig.i64value ), _signed( orig._signed ), typeId( orig.typeId ) {
     }
 
@@ -69,18 +69,18 @@ protected:
     }
 
 public:
-    TxIntegerLitNode( const TxLocation& parseLocation, const std::string& sourceLiteral, bool hasRadix )
-            : TxLiteralElementaryValueNode( parseLocation ), sourceLiteral( sourceLiteral ), hasRadix( hasRadix ),
+    TxIntegerLitNode( const TxLocation& ploc, const std::string& sourceLiteral, bool hasRadix )
+            : TxLiteralElementaryValueNode( ploc ), sourceLiteral( sourceLiteral ), hasRadix( hasRadix ),
               i64value(), _signed(), typeId() {
     }
 
-    TxIntegerLitNode( const TxLocation& parseLocation, int64_t i64value, bool _signed, BuiltinTypeId typeId = (BuiltinTypeId) 0 )
-            : TxLiteralElementaryValueNode( parseLocation ), sourceLiteral(), hasRadix(),
+    TxIntegerLitNode( const TxLocation& ploc, int64_t i64value, bool _signed, BuiltinTypeId typeId = (BuiltinTypeId) 0 )
+            : TxLiteralElementaryValueNode( ploc ), sourceLiteral(), hasRadix(),
               i64value( i64value ), _signed( _signed ), typeId( typeId ) {
     }
 
-//    TxIntegerLitNode(const TxLocation& parseLocation, uint64_t u64value, BuiltinTypeId typeId=(BuiltinTypeId)0)
-//            : TxLiteralValueNode(parseLocation), intValue(u64value, typeId), sourceLiteral("")  { }
+//    TxIntegerLitNode(const TxLocation& ploc, uint64_t u64value, BuiltinTypeId typeId=(BuiltinTypeId)0)
+//            : TxLiteralValueNode(ploc), intValue(u64value, typeId), sourceLiteral("")  { }
 
     /** sets this integer literal to be negative, as if preceded by a unary minus. */
     void set_negative() {
@@ -109,18 +109,18 @@ protected:
     }
 
 public:
-    TxFloatingLitNode( const TxLocation& parseLocation, const std::string& literal )
-            : TxLiteralElementaryValueNode( parseLocation ), typeId( TXBT_FLOAT ), literal( literal ), value( atof( literal.c_str() ) ) {
+    TxFloatingLitNode( const TxLocation& ploc, const std::string& literal )
+            : TxLiteralElementaryValueNode( ploc ), typeId( TXBT_FLOAT ), literal( literal ), value( atof( literal.c_str() ) ) {
         // TODO: produce different Floating types
     }
 
     /** Creates a floating point literal value of zero. */
-    TxFloatingLitNode( const TxLocation& parseLocation, BuiltinTypeId typeId = TXBT_FLOAT )
-            : TxLiteralElementaryValueNode( parseLocation ), typeId( typeId ), literal( "0" ), value( 0 ) {
+    TxFloatingLitNode( const TxLocation& ploc, BuiltinTypeId typeId = TXBT_FLOAT )
+            : TxLiteralElementaryValueNode( ploc ), typeId( typeId ), literal( "0" ), value( 0 ) {
     }
 
     virtual TxFloatingLitNode* make_ast_copy() const override {
-        return new TxFloatingLitNode( this->parseLocation, this->literal );
+        return new TxFloatingLitNode( this->ploc, this->literal );
     }
 
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
@@ -139,12 +139,12 @@ protected:
 public:
     const bool value;
 
-    TxBoolLitNode( const TxLocation& parseLocation, bool value )
-            : TxLiteralElementaryValueNode( parseLocation ), value( value ) {
+    TxBoolLitNode( const TxLocation& ploc, bool value )
+            : TxLiteralElementaryValueNode( ploc ), value( value ) {
     }
 
     virtual TxBoolLitNode* make_ast_copy() const override {
-        return new TxBoolLitNode( this->parseLocation, this->value );
+        return new TxBoolLitNode( this->ploc, this->value );
     }
 
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
@@ -164,13 +164,13 @@ public:
     const std::string literal;
     const char value;  // TODO: unicode support
 
-    TxCharacterLitNode( const TxLocation& parseLocation, const std::string& literal )
-            : TxLiteralElementaryValueNode( parseLocation ), literal( literal ), value( literal.at( 1 ) ) {
+    TxCharacterLitNode( const TxLocation& ploc, const std::string& literal )
+            : TxLiteralElementaryValueNode( ploc ), literal( literal ), value( literal.at( 1 ) ) {
     }
     // TODO: properly parse char literal
 
     virtual TxCharacterLitNode* make_ast_copy() const override {
-        return new TxCharacterLitNode( this->parseLocation, this->literal );
+        return new TxCharacterLitNode( this->ploc, this->literal );
     }
 
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;

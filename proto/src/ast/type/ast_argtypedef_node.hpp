@@ -17,13 +17,13 @@ public:
     const std::string fieldName;
     TxTypeExpressionNode* typeExpression;
 
-    TxArgTypeDefNode( const TxLocation& parseLocation, const std::string& fieldName, TxTypeExpressionNode* typeExpression )
-            : TxTypeDefiningNode( parseLocation ), fieldName( fieldName ), typeExpression( typeExpression ) {
+    TxArgTypeDefNode( const TxLocation& ploc, const std::string& fieldName, TxTypeExpressionNode* typeExpression )
+            : TxTypeDefiningNode( ploc ), fieldName( fieldName ), typeExpression( typeExpression ) {
         ASSERT( typeExpression, "typeExpression must be specified" );
     }
 
     virtual TxArgTypeDefNode* make_ast_copy() const override {
-        return new TxArgTypeDefNode( this->parseLocation, this->fieldName, this->typeExpression->make_ast_copy() );
+        return new TxArgTypeDefNode( this->ploc, this->fieldName, this->typeExpression->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() {

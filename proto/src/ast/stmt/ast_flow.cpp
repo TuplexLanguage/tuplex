@@ -4,10 +4,10 @@
 #include "ast/expr/ast_field.hpp"
 #include "ast/expr/ast_exprs.hpp"
 
-TxInClauseNode::TxInClauseNode( const TxLocation& parseLocation, const std::string& valueName, const std::string& iterName,
+TxInClauseNode::TxInClauseNode( const TxLocation& ploc, const std::string& valueName, const std::string& iterName,
                                 TxExpressionNode* seqExpr )
-        : TxLoopHeaderNode( parseLocation ), valueName( valueName ), iterName( iterName ), origSeqExpr( seqExpr ) {
-    auto & loc = this->parseLocation;
+        : TxLoopHeaderNode( ploc ), valueName( valueName ), iterName( iterName ), origSeqExpr( seqExpr ) {
+    auto & loc = this->ploc;
     auto iterInitExpr = new TxFunctionCallNode( loc, new TxFieldValueNode( loc, new TxMaybeConversionNode( seqExpr ), "sequencer" ),
                                                 new std::vector<TxExpressionNode*>() );
     this->iterField = new TxFieldDefNode( loc, this->iterName, nullptr, iterInitExpr );

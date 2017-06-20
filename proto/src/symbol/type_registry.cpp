@@ -661,8 +661,8 @@ protected:
     }
 
 public:
-    TxAdapterTypeNode( const TxLocation& parseLocation, const TxActualType* interfaceType, const TxActualType* adaptedType )
-            : TxTypeExpressionNode( parseLocation ), interfaceType( interfaceType ), adaptedType( adaptedType ) {
+    TxAdapterTypeNode( const TxLocation& ploc, const TxActualType* interfaceType, const TxActualType* adaptedType )
+            : TxTypeExpressionNode( ploc ), interfaceType( interfaceType ), adaptedType( adaptedType ) {
     }
 
     /** Creates a copy of this node and all its descendants for purpose of generic specialization. */

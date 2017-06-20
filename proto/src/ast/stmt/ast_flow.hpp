@@ -11,12 +11,12 @@ class TxElseClauseNode : public TxStatementNode {
 public:
     TxStatementNode* body;
 
-    TxElseClauseNode( const TxLocation& parseLocation, TxStatementNode* suite )
-            : TxStatementNode( parseLocation ), body( suite ) {
+    TxElseClauseNode( const TxLocation& ploc, TxStatementNode* suite )
+            : TxStatementNode( ploc ), body( suite ) {
     }
 
     virtual TxElseClauseNode* make_ast_copy() const override {
-        return new TxElseClauseNode( this->parseLocation, this->body->make_ast_copy() );
+        return new TxElseClauseNode( this->ploc, this->body->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -47,13 +47,13 @@ class TxIfStmtNode : public TxStatementNode {
     TxElseClauseNode* elseClause;
 
 public:
-    TxIfStmtNode( const TxLocation& parseLocation, TxExpressionNode* cond, TxStatementNode* body,
+    TxIfStmtNode( const TxLocation& ploc, TxExpressionNode* cond, TxStatementNode* body,
                   TxElseClauseNode* elseClause = nullptr )
-            : TxStatementNode( parseLocation ), cond( new TxMaybeConversionNode( cond ) ), body( body ), elseClause( elseClause ) {
+            : TxStatementNode( ploc ), cond( new TxMaybeConversionNode( cond ) ), body( body ), elseClause( elseClause ) {
     }
 
     virtual TxIfStmtNode* make_ast_copy() const override {
-        return new TxIfStmtNode( this->parseLocation, this->cond->originalExpr->make_ast_copy(), this->body->make_ast_copy(),
+        return new TxIfStmtNode( this->ploc, this->cond->originalExpr->make_ast_copy(), this->body->make_ast_copy(),
                                  ( this->elseClause ? this->elseClause->make_ast_copy() : nullptr ) );
     }
 
@@ -88,7 +88,7 @@ public:
 
 class TxLoopHeaderNode : public TxNode {
 public:
-    TxLoopHeaderNode( const TxLocation& parseLocation ) : TxNode( parseLocation ) { }
+    TxLoopHeaderNode( const TxLocation& ploc ) : TxNode( ploc ) { }
 
     virtual TxLoopHeaderNode* make_ast_copy() const override = 0;
 
@@ -107,11 +107,11 @@ class TxWhileHeaderNode : public TxLoopHeaderNode {
     TxExpressionNode* nextCond;
 
 public:
-    TxWhileHeaderNode( const TxLocation& parseLocation, TxExpressionNode* nextCond )
-        : TxLoopHeaderNode( parseLocation ), nextCond( nextCond )  { }
+    TxWhileHeaderNode( const TxLocation& ploc, TxExpressionNode* nextCond )
+        : TxLoopHeaderNode( ploc ), nextCond( nextCond )  { }
 
     virtual TxWhileHeaderNode* make_ast_copy() const override {
-        return new TxWhileHeaderNode( this->parseLocation, this->nextCond->make_ast_copy() );
+        return new TxWhileHeaderNode( this->ploc, this->nextCond->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -134,15 +134,15 @@ class TxForHeaderNode : public TxLoopHeaderNode {
     TxStatementNode* stepStmt;
 
 public:
-    TxForHeaderNode( const TxLocation& parseLocation, TxStatementNode* initStmt, TxExpressionNode* nextCond, TxStatementNode* stepStmt )
-        : TxLoopHeaderNode( parseLocation ), initStmt( initStmt ),
+    TxForHeaderNode( const TxLocation& ploc, TxStatementNode* initStmt, TxExpressionNode* nextCond, TxStatementNode* stepStmt )
+        : TxLoopHeaderNode( ploc ), initStmt( initStmt ),
           nextCond( new TxExprStmtNode( nextCond ) ), stepStmt( stepStmt ) {
         this->nextCond->predecessor = this->initStmt;
         this->stepStmt->predecessor = this->nextCond;
     }
 
     virtual TxForHeaderNode* make_ast_copy() const override {
-        return new TxForHeaderNode( this->parseLocation, this->initStmt->make_ast_copy(), this->nextCond->expr->make_ast_copy(),
+        return new TxForHeaderNode( this->ploc, this->initStmt->make_ast_copy(), this->nextCond->expr->make_ast_copy(),
                                     this->stepStmt->make_ast_copy() );
     }
 
@@ -187,15 +187,15 @@ protected:
     }
 
 public:
-    TxInClauseNode( const TxLocation& parseLocation, const std::string& valueName, const std::string& initName, TxExpressionNode* seqExpr );
+    TxInClauseNode( const TxLocation& ploc, const std::string& valueName, const std::string& initName, TxExpressionNode* seqExpr );
 
-    TxInClauseNode( const TxLocation& parseLocation, const std::string& valueName, TxExpressionNode* seqExpr )
-            : TxInClauseNode( parseLocation, valueName, valueName + "$iter", seqExpr ) {
+    TxInClauseNode( const TxLocation& ploc, const std::string& valueName, TxExpressionNode* seqExpr )
+            : TxInClauseNode( ploc, valueName, valueName + "$iter", seqExpr ) {
         this->iterDeclFlags = TXD_IMPLICIT;
     }
 
     virtual TxInClauseNode* make_ast_copy() const override {
-        return new TxInClauseNode( this->parseLocation, this->valueName, this->origSeqExpr->make_ast_copy() );
+        return new TxInClauseNode( this->ploc, this->valueName, this->origSeqExpr->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -228,19 +228,19 @@ protected:
     }
 
 public:
-    TxForStmtNode( const TxLocation& parseLocation, std::vector<TxLoopHeaderNode*>* loopHeaders, TxStatementNode* body,
+    TxForStmtNode( const TxLocation& ploc, std::vector<TxLoopHeaderNode*>* loopHeaders, TxStatementNode* body,
                    TxElseClauseNode* elseClause = nullptr )
-            : TxStatementNode( parseLocation ), loopHeaders( loopHeaders ), body( body ), elseClause( elseClause )  {
+            : TxStatementNode( ploc ), loopHeaders( loopHeaders ), body( body ), elseClause( elseClause )  {
         this->body->predecessor = this->loopHeaders->back()->get_stmt_predecessor();
         if ( this->elseClause )
             this->elseClause->predecessor = this->body->predecessor;
     }
 
-    TxForStmtNode( const TxLocation& parseLocation, TxLoopHeaderNode* loopHeader, TxStatementNode* body, TxElseClauseNode* elseClause = nullptr )
-            : TxForStmtNode( parseLocation, new std::vector<TxLoopHeaderNode*>( { loopHeader } ), body, elseClause )  { }
+    TxForStmtNode( const TxLocation& ploc, TxLoopHeaderNode* loopHeader, TxStatementNode* body, TxElseClauseNode* elseClause = nullptr )
+            : TxForStmtNode( ploc, new std::vector<TxLoopHeaderNode*>( { loopHeader } ), body, elseClause )  { }
 
     virtual TxForStmtNode* make_ast_copy() const override {
-        return new TxForStmtNode( this->parseLocation, make_node_vec_copy( this->loopHeaders ), body->make_ast_copy() );
+        return new TxForStmtNode( this->ploc, make_node_vec_copy( this->loopHeaders ), body->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {

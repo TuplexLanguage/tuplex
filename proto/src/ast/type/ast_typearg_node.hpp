@@ -7,8 +7,8 @@
 /** Represents a binding for a type parameter. Can be either a Type or a Value parameter binding. */
 class TxTypeArgumentNode : public TxNode {
 protected:
-    TxTypeArgumentNode( const TxLocation& parseLocation )
-            : TxNode( parseLocation ) {
+    TxTypeArgumentNode( const TxLocation& ploc )
+            : TxNode( ploc ) {
     }
 
 public:
@@ -22,7 +22,7 @@ public:
     TxTypeExpressionNode* typeExprNode;
 
     TxTypeTypeArgumentNode( TxTypeExpressionNode* typeExprNode )
-            : TxTypeArgumentNode( typeExprNode->parseLocation ), typeExprNode( typeExprNode ) {
+            : TxTypeArgumentNode( typeExprNode->ploc ), typeExprNode( typeExprNode ) {
     }
 
     virtual TxTypeTypeArgumentNode* make_ast_copy() const override {
@@ -45,7 +45,7 @@ public:
     TxExpressionNode* valueExprNode;
 
     TxValueTypeArgumentNode( TxExpressionNode* valueExprNode )
-            : TxTypeArgumentNode( valueExprNode->parseLocation ), valueExprNode( valueExprNode ) {
+            : TxTypeArgumentNode( valueExprNode->ploc ), valueExprNode( valueExprNode ) {
     }
 
     virtual TxValueTypeArgumentNode* make_ast_copy() const override {

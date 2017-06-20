@@ -26,32 +26,32 @@ public:
     TxSuiteNode* suite;
     const bool isMethodSyntax;
 
-    TxLambdaExprNode( const TxLocation& parseLocation, TxFunctionTypeNode* funcTypeNode, TxSuiteNode* suite, bool isMethodSyntax = false )
-            : TxLambdaExprNode( parseLocation, new TxFunctionHeaderNode( funcTypeNode ), suite, isMethodSyntax ) {
+    TxLambdaExprNode( const TxLocation& ploc, TxFunctionTypeNode* funcTypeNode, TxSuiteNode* suite, bool isMethodSyntax = false )
+            : TxLambdaExprNode( ploc, new TxFunctionHeaderNode( funcTypeNode ), suite, isMethodSyntax ) {
     }
 
-    TxLambdaExprNode( const TxLocation& parseLocation, TxFunctionHeaderNode* funcHeaderNode, TxSuiteNode* suite, bool isMethodSyntax = false )
-            : TxExpressionNode( parseLocation ), funcHeaderNode( funcHeaderNode ), suite( suite ), isMethodSyntax( isMethodSyntax ) {
+    TxLambdaExprNode( const TxLocation& ploc, TxFunctionHeaderNode* funcHeaderNode, TxSuiteNode* suite, bool isMethodSyntax = false )
+            : TxExpressionNode( ploc ), funcHeaderNode( funcHeaderNode ), suite( suite ), isMethodSyntax( isMethodSyntax ) {
         if ( isMethodSyntax ) {
             // 'self' reference:
-            this->selfTypeNode = new TxNamedTypeNode( this->parseLocation, "Self" );
+            this->selfTypeNode = new TxNamedTypeNode( this->ploc, "Self" );
             TxTypeExpressionNode* selfRefTargetTypeNode;
             if ( this->funcHeaderNode->is_modifying() )
-                selfRefTargetTypeNode = new TxModifiableTypeNode( this->parseLocation, this->selfTypeNode );
+                selfRefTargetTypeNode = new TxModifiableTypeNode( this->ploc, this->selfTypeNode );
             else
                 selfRefTargetTypeNode = this->selfTypeNode;
-            auto selfRefTypeExprN = new TxReferenceTypeNode( this->parseLocation, nullptr, selfRefTargetTypeNode );
-            this->selfRefNode = new TxFieldDefNode( this->parseLocation, "self", selfRefTypeExprN, nullptr );
+            auto selfRefTypeExprN = new TxReferenceTypeNode( this->ploc, nullptr, selfRefTargetTypeNode );
+            this->selfRefNode = new TxFieldDefNode( this->ploc, "self", selfRefTypeExprN, nullptr );
 
             // 'super' reference
-            auto superRefTypeExprN = new TxNamedTypeNode( this->parseLocation, "Super" );
-            this->superRefNode = new TxFieldDefNode( this->parseLocation, "super", superRefTypeExprN, nullptr );
+            auto superRefTypeExprN = new TxNamedTypeNode( this->ploc, "Super" );
+            this->superRefNode = new TxFieldDefNode( this->ploc, "super", superRefTypeExprN, nullptr );
             // FUTURE: if type is modifiable, the super target type should in some cases perhaps be modifiable as well?
         }
     }
 
     virtual TxLambdaExprNode* make_ast_copy() const override {
-        return new TxLambdaExprNode( this->parseLocation, this->funcHeaderNode->make_ast_copy(), this->suite->make_ast_copy(), this->isMethodSyntax );
+        return new TxLambdaExprNode( this->ploc, this->funcHeaderNode->make_ast_copy(), this->suite->make_ast_copy(), this->isMethodSyntax );
     }
 
     void set_instance_method( bool flag ) {

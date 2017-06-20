@@ -13,8 +13,8 @@ protected:
     const std::vector<TxExpressionNode*>* appliedFuncArgs = nullptr;
 
 public:
-    TxExpressionNode( const TxLocation& parseLocation )
-            : TxTypeDefiningNode( parseLocation ) {
+    TxExpressionNode( const TxLocation& ploc )
+            : TxTypeDefiningNode( ploc ) {
     }
 
     virtual TxExpressionNode* make_ast_copy() const override = 0;

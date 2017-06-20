@@ -15,8 +15,8 @@ class TxDeclarationNode : public TxNode {
     friend class TxTypeStmtNode;  // forwards from TxExpErrStmtNode
 
 public:
-    TxDeclarationNode( const TxLocation& parseLocation, const TxDeclarationFlags declFlags )
-            : TxNode( parseLocation ), declFlags( declFlags ) {
+    TxDeclarationNode( const TxLocation& ploc, const TxDeclarationFlags declFlags )
+            : TxNode( ploc ), declFlags( declFlags ) {
     }
 
     virtual TxDeclarationNode* make_ast_copy() const override = 0;
@@ -40,13 +40,13 @@ protected:
 public:
     TxFieldDefNode* field;
 
-    TxFieldDeclNode( const TxLocation& parseLocation, const TxDeclarationFlags declFlags, TxFieldDefNode* field,
+    TxFieldDeclNode( const TxLocation& ploc, const TxDeclarationFlags declFlags, TxFieldDefNode* field,
                      bool isMethodSyntax = false )
-            : TxDeclarationNode( parseLocation, declFlags ), isMethodSyntax( isMethodSyntax ), field( field ) {
+            : TxDeclarationNode( ploc, declFlags ), isMethodSyntax( isMethodSyntax ), field( field ) {
     }
 
     virtual TxFieldDeclNode* make_ast_copy() const override {
-        return new TxFieldDeclNode( this->parseLocation, this->get_decl_flags(), this->field->make_ast_copy(), this->isMethodSyntax );
+        return new TxFieldDeclNode( this->ploc, this->get_decl_flags(), this->field->make_ast_copy(), this->isMethodSyntax );
     }
 
     virtual void symbol_resolution_pass() override;
@@ -88,16 +88,16 @@ public:
     const std::vector<TxDeclarationNode*>* typeParamDecls;
     TxTypeExpressionNode* typeExpression;
 
-    TxTypeDeclNode( const TxLocation& parseLocation, const TxDeclarationFlags declFlags, const std::string& typeName,
+    TxTypeDeclNode( const TxLocation& ploc, const TxDeclarationFlags declFlags, const std::string& typeName,
                     const std::vector<TxDeclarationNode*>* typeParamDecls, TxTypeExpressionNode* typeExpression,
                     bool interfaceKW = false, bool mutableType = false )
-            : TxDeclarationNode( parseLocation, declFlags ), typeName( new TxIdentifier( typeName ) ),
+            : TxDeclarationNode( ploc, declFlags ), typeName( new TxIdentifier( typeName ) ),
               interfaceKW( interfaceKW ), mutableType( mutableType ), typeParamDecls( typeParamDecls ), typeExpression( typeExpression ) {
         validateTypeName( this, declFlags, typeName );
     }
 
     virtual TxTypeDeclNode* make_ast_copy() const override {
-        return new TxTypeDeclNode( this->parseLocation, this->get_decl_flags(), this->typeName->str(),
+        return new TxTypeDeclNode( this->ploc, this->get_decl_flags(), this->typeName->str(),
                                    make_node_vec_copy( this->typeParamDecls ), this->typeExpression->make_ast_copy(),
                                    this->interfaceKW, this->mutableType );
     }
@@ -156,8 +156,8 @@ protected:
 public:
     TxDeclarationNode* body;
 
-    TxExpErrDeclNode( const TxLocation& parseLocation, ExpectedErrorClause* expError, TxDeclarationNode* body )
-            : TxDeclarationNode( parseLocation, ( body ? body->get_decl_flags() : TXD_NONE ) | TXD_EXPERRBLOCK ),
+    TxExpErrDeclNode( const TxLocation& ploc, ExpectedErrorClause* expError, TxDeclarationNode* body )
+            : TxDeclarationNode( ploc, ( body ? body->get_decl_flags() : TXD_NONE ) | TXD_EXPERRBLOCK ),
               expError( expError ), body( body ) {
         if ( body ) {
             body->declFlags |= TXD_EXPERRBLOCK;
@@ -167,7 +167,7 @@ public:
     }
 
     virtual TxExpErrDeclNode* make_ast_copy() const override {
-        return new TxExpErrDeclNode( this->parseLocation, nullptr, ( this->body ? this->body->make_ast_copy() : nullptr ) );
+        return new TxExpErrDeclNode( this->ploc, nullptr, ( this->body ? this->body->make_ast_copy() : nullptr ) );
     }
 
     virtual void symbol_resolution_pass() override {

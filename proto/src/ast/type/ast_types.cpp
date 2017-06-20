@@ -134,17 +134,17 @@ const TxType* TxGenSpecTypeNode::define_type() {
 void TxDerivedTypeNode::init_implicit_types() {
     if ( !this->baseType ) {
         if ( this->get_decl_interface_kw() )
-            this->baseType = new TxNamedTypeNode( this->parseLocation, "tx.Interface" );
+            this->baseType = new TxNamedTypeNode( this->ploc, "tx.Interface" );
         else
-            this->baseType = new TxNamedTypeNode( this->parseLocation, "tx.Tuple" );
+            this->baseType = new TxNamedTypeNode( this->ploc, "tx.Tuple" );
     }
 
     // implicit type member 'Super' for types with a body:
     // (Note, 'Self' is created in the symbol table for all types, as an alias directly to the type.)
     TxTypeExpressionNode* superTypeExprN = new TxTypeExprWrapperNode( this->baseType );
-    auto superRefTypeExprN = new TxReferenceTypeNode( this->parseLocation, nullptr, superTypeExprN );
+    auto superRefTypeExprN = new TxReferenceTypeNode( this->ploc, nullptr, superTypeExprN );
     const std::string superTypeName = "Super";
-    this->superRefTypeNode = new TxTypeDeclNode( this->parseLocation, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN );
+    this->superRefTypeNode = new TxTypeDeclNode( this->ploc, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN );
 }
 
 const TxType* TxDerivedTypeNode::define_type() {

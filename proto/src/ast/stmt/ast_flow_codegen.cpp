@@ -62,7 +62,7 @@ void TxElseClauseNode::code_gen( LlvmGenerationContext& context, GenScope* scope
 void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
 
-    std::string id = std::to_string( this->parseLocation.begin.line );
+    std::string id = std::to_string( this->ploc.begin.line );
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
     BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "if_true"+id, parentFunc );
     BasicBlock* postBlock = nullptr;
@@ -101,7 +101,7 @@ void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) c
 void TxForStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
 
-    std::string id = std::to_string( this->parseLocation.begin.line );
+    std::string id = std::to_string( this->ploc.begin.line );
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
     BasicBlock* condBlock = BasicBlock::Create( context.llvmContext, "loop_cond"+id, parentFunc );
     BasicBlock* loopBlock = BasicBlock::Create( context.llvmContext, "loop_body"+id, parentFunc );

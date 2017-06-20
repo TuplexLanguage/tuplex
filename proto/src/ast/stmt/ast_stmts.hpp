@@ -25,12 +25,12 @@ protected:
 public:
     TxFieldDefNode* field;
 
-    TxFieldStmtNode( const TxLocation& parseLocation, TxFieldDefNode* field )
-            : TxStatementNode( parseLocation ), field( field ) {
+    TxFieldStmtNode( const TxLocation& ploc, TxFieldDefNode* field )
+            : TxStatementNode( ploc ), field( field ) {
     }
 
     virtual TxFieldStmtNode* make_ast_copy() const override {
-        return new TxFieldStmtNode( this->parseLocation, this->field->make_ast_copy() );
+        return new TxFieldStmtNode( this->ploc, this->field->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -58,20 +58,20 @@ protected:
 public:
     TxTypeDeclNode* const typeDecl;
 
-    TxTypeStmtNode( const TxLocation& parseLocation, TxTypeDeclNode* typeDecl )
-            : TxStatementNode( parseLocation ), typeDecl( typeDecl ) {
+    TxTypeStmtNode( const TxLocation& ploc, TxTypeDeclNode* typeDecl )
+            : TxStatementNode( ploc ), typeDecl( typeDecl ) {
     }
 
-    TxTypeStmtNode( const TxLocation& parseLocation, const std::string typeName,
+    TxTypeStmtNode( const TxLocation& ploc, const std::string typeName,
                     const std::vector<TxDeclarationNode*>* typeParamDecls,
                     TxTypeExpressionNode* typeExpression, bool interfaceKW = false, bool mutableType = false )
-            : TxTypeStmtNode( parseLocation, new TxTypeDeclNode( parseLocation, TXD_NONE, typeName, typeParamDecls, typeExpression,
+            : TxTypeStmtNode( ploc, new TxTypeDeclNode( ploc, TXD_NONE, typeName, typeParamDecls, typeExpression,
                                                                  interfaceKW, mutableType ) )
     {
     }
 
     virtual TxTypeStmtNode* make_ast_copy() const override {
-        return new TxTypeStmtNode( this->parseLocation, this->typeDecl->make_ast_copy() );
+        return new TxTypeStmtNode( this->ploc, this->typeDecl->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -90,12 +90,12 @@ class TxExprStmtNode : public TxStatementNode {
 public:
     TxExpressionNode* expr;
 
-    TxExprStmtNode( const TxLocation& parseLocation, TxExpressionNode* expr ) : TxStatementNode( parseLocation ), expr( expr )  { }
+    TxExprStmtNode( const TxLocation& ploc, TxExpressionNode* expr ) : TxStatementNode( ploc ), expr( expr )  { }
 
-    TxExprStmtNode( TxExpressionNode* expr ) : TxExprStmtNode( expr->parseLocation, expr )  { }
+    TxExprStmtNode( TxExpressionNode* expr ) : TxExprStmtNode( expr->ploc, expr )  { }
 
     virtual TxExprStmtNode* make_ast_copy() const override {
-        return new TxExprStmtNode( this->parseLocation, this->expr->make_ast_copy() );
+        return new TxExprStmtNode( this->ploc, this->expr->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -112,17 +112,17 @@ public:
 /* Executes a function call without assigning its return value, if any. */
 class TxCallStmtNode : public TxExprStmtNode {
 public:
-    TxCallStmtNode( const TxLocation& parseLocation, TxFunctionCallNode* call ) : TxExprStmtNode( parseLocation, call )  { }
+    TxCallStmtNode( const TxLocation& ploc, TxFunctionCallNode* call ) : TxExprStmtNode( ploc, call )  { }
 
     virtual TxCallStmtNode* make_ast_copy() const override {
-        return new TxCallStmtNode( this->parseLocation, static_cast<TxFunctionCallNode*>( this->expr )->make_ast_copy() );
+        return new TxCallStmtNode( this->ploc, static_cast<TxFunctionCallNode*>( this->expr )->make_ast_copy() );
     }
 };
 
 class TxTerminalStmtNode : public TxStatementNode {
 protected:
-    TxTerminalStmtNode( const TxLocation& parseLocation )
-            : TxStatementNode( parseLocation ) {
+    TxTerminalStmtNode( const TxLocation& ploc )
+            : TxStatementNode( ploc ) {
     }
 
     virtual void symbol_resolution_pass() override {
@@ -137,15 +137,15 @@ class TxReturnStmtNode : public TxTerminalStmtNode {
 public:
     TxMaybeConversionNode* expr;
 
-    TxReturnStmtNode( const TxLocation& parseLocation )
-            : TxTerminalStmtNode( parseLocation ), expr() {
+    TxReturnStmtNode( const TxLocation& ploc )
+            : TxTerminalStmtNode( ploc ), expr() {
     }
-    TxReturnStmtNode( const TxLocation& parseLocation, TxExpressionNode* expr )
-            : TxTerminalStmtNode( parseLocation ), expr( new TxMaybeConversionNode( expr ) ) {
+    TxReturnStmtNode( const TxLocation& ploc, TxExpressionNode* expr )
+            : TxTerminalStmtNode( ploc ), expr( new TxMaybeConversionNode( expr ) ) {
     }
 
     virtual TxReturnStmtNode* make_ast_copy() const override {
-        return new TxReturnStmtNode( this->parseLocation, this->expr->originalExpr->make_ast_copy() );
+        return new TxReturnStmtNode( this->ploc, this->expr->originalExpr->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -178,12 +178,12 @@ public:
 
 class TxBreakStmtNode : public TxTerminalStmtNode {
 public:
-    TxBreakStmtNode( const TxLocation& parseLocation )
-            : TxTerminalStmtNode( parseLocation ) {
+    TxBreakStmtNode( const TxLocation& ploc )
+            : TxTerminalStmtNode( ploc ) {
     }
 
     virtual TxBreakStmtNode* make_ast_copy() const override {
-        return new TxBreakStmtNode( this->parseLocation );
+        return new TxBreakStmtNode( this->ploc );
     }
 
     virtual bool may_end_with_non_return_stmt() const override {
@@ -198,12 +198,12 @@ public:
 
 class TxContinueStmtNode : public TxTerminalStmtNode {
 public:
-    TxContinueStmtNode( const TxLocation& parseLocation )
-            : TxTerminalStmtNode( parseLocation ) {
+    TxContinueStmtNode( const TxLocation& ploc )
+            : TxTerminalStmtNode( ploc ) {
     }
 
     virtual TxContinueStmtNode* make_ast_copy() const override {
-        return new TxContinueStmtNode( this->parseLocation );
+        return new TxContinueStmtNode( this->ploc );
     }
 
     virtual bool may_end_with_non_return_stmt() const override {
@@ -223,8 +223,8 @@ protected:
 public:
     std::vector<TxStatementNode*>* suite;
 
-    TxSuiteNode( const TxLocation& parseLocation, std::vector<TxStatementNode*>* suite )
-            : TxStatementNode( parseLocation ), suite( suite ) {
+    TxSuiteNode( const TxLocation& ploc, std::vector<TxStatementNode*>* suite )
+            : TxStatementNode( ploc ), suite( suite ) {
         if (suite->size() > 1) {
             // inject predecessor links
             TxStatementNode* pred = suite->front();
@@ -234,12 +234,12 @@ public:
             }
         }
     }
-    TxSuiteNode( const TxLocation& parseLocation )
-            : TxSuiteNode( parseLocation, new std::vector<TxStatementNode*>() ) {
+    TxSuiteNode( const TxLocation& ploc )
+            : TxSuiteNode( ploc, new std::vector<TxStatementNode*>() ) {
     }
 
     virtual TxSuiteNode* make_ast_copy() const override {
-        return new TxSuiteNode( this->parseLocation, make_node_vec_copy( this->suite ) );
+        return new TxSuiteNode( this->ploc, make_node_vec_copy( this->suite ) );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -290,12 +290,12 @@ public:
     TxAssigneeNode* lvalue;
     TxMaybeConversionNode* rvalue;
 
-    TxAssignStmtNode( const TxLocation& parseLocation, TxAssigneeNode* lvalue, TxExpressionNode* rvalue )
-            : TxStatementNode( parseLocation ), lvalue( lvalue ), rvalue( new TxMaybeConversionNode( rvalue ) ) {
+    TxAssignStmtNode( const TxLocation& ploc, TxAssigneeNode* lvalue, TxExpressionNode* rvalue )
+            : TxStatementNode( ploc ), lvalue( lvalue ), rvalue( new TxMaybeConversionNode( rvalue ) ) {
     }
 
     virtual TxAssignStmtNode* make_ast_copy() const override {
-        return new TxAssignStmtNode( this->parseLocation, this->lvalue->make_ast_copy(), this->rvalue->originalExpr->make_ast_copy() );
+        return new TxAssignStmtNode( this->ploc, this->lvalue->make_ast_copy(), this->rvalue->originalExpr->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override;
@@ -317,15 +317,15 @@ protected:
 public:
     TxStatementNode* body;
 
-    TxExpErrStmtNode( const TxLocation& parseLocation, ExpectedErrorClause* expError, TxStatementNode* body )
-            : TxStatementNode( parseLocation ), expError( expError ), body( body ) {
+    TxExpErrStmtNode( const TxLocation& ploc, ExpectedErrorClause* expError, TxStatementNode* body )
+            : TxStatementNode( ploc ), expError( expError ), body( body ) {
         if ( dynamic_cast<const TxExpErrStmtNode*>( body ) )
             CERROR( this, "Can't nest Expected Error constructs in a statement" );
         body->set_exp_error_stmt();
     }
 
     virtual TxExpErrStmtNode* make_ast_copy() const override {
-        return new TxExpErrStmtNode( this->parseLocation, nullptr, this->body->make_ast_copy() );
+        return new TxExpErrStmtNode( this->ploc, nullptr, this->body->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -343,12 +343,12 @@ public:
 
 class TxNoOpStmtNode : public TxStatementNode {
 public:
-    TxNoOpStmtNode( const TxLocation& parseLocation )
-            : TxStatementNode( parseLocation ) {
+    TxNoOpStmtNode( const TxLocation& ploc )
+            : TxStatementNode( ploc ) {
     }
 
     virtual TxNoOpStmtNode* make_ast_copy() const override {
-        return new TxNoOpStmtNode( this->parseLocation );
+        return new TxNoOpStmtNode( this->ploc );
     }
 
     virtual void symbol_resolution_pass() override {

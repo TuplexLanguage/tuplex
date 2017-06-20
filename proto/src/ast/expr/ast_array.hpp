@@ -10,7 +10,7 @@ class TxArrayLitNode : public TxExpressionNode {
 //    bool requires_mutable_type() const;
 //
 public:
-    TxArrayLitNode( const TxLocation& parseLocation ) : TxExpressionNode( parseLocation ) { }
+    TxArrayLitNode( const TxLocation& ploc ) : TxExpressionNode( ploc ) { }
 
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
@@ -33,35 +33,35 @@ public:
     std::vector<TxMaybeConversionNode*> const * const elemExprList;
 
     /** Represents an empty array with the specified element type. */
-    TxFilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, TxExpressionNode* capacityExpr = nullptr )
-            : TxFilledArrayLitNode( parseLocation, elementTypeExpr, new std::vector<TxExpressionNode*>(), capacityExpr ) {
+    TxFilledArrayLitNode( const TxLocation& ploc, TxTypeExpressionNode* elementTypeExpr, TxExpressionNode* capacityExpr = nullptr )
+            : TxFilledArrayLitNode( ploc, elementTypeExpr, new std::vector<TxExpressionNode*>(), capacityExpr ) {
     }
 
     /** Represents a non-empty array with the specified element type. */
-    TxFilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxExpressionNode*>* elemExprList,
+    TxFilledArrayLitNode( const TxLocation& ploc, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxExpressionNode*>* elemExprList,
                     TxExpressionNode* capacityExpr = nullptr );
 
     /** Represents a non-empty array with the element type defined by the first element.
      * The provided element expression list must not be empty. */
-    TxFilledArrayLitNode( const TxLocation& parseLocation, const std::vector<TxExpressionNode*>* elemExprList );
+    TxFilledArrayLitNode( const TxLocation& ploc, const std::vector<TxExpressionNode*>* elemExprList );
 
     /** Creates an array literal node with the specified element type, with elements that are owned by another AST node.
      * The resulting array literal node may not be AST-copied. */
-    TxFilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxMaybeConversionNode*>* elemExprList );
+    TxFilledArrayLitNode( const TxLocation& ploc, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxMaybeConversionNode*>* elemExprList );
 
     /** Creates an array literal node with elements that are owned by another AST node.
      * The element type is defined by the first element.
      * The provided element expression list must not be empty.
      * The resulting array literal node may not be AST-copied. */
-    TxFilledArrayLitNode( const TxLocation& parseLocation, const std::vector<TxMaybeConversionNode*>* elemExprList );
+    TxFilledArrayLitNode( const TxLocation& ploc, const std::vector<TxMaybeConversionNode*>* elemExprList );
 
     virtual TxFilledArrayLitNode* make_ast_copy() const override {
         if ( !this->origElemExprList ) {
             ASSERT( false, "Can't make AST copy of a TxArrayLitNode whose elements are owned by another AST node: " << this );
             return nullptr;
         }
-        //return new TxArrayLitNode( this->parseLocation, make_node_vec_copy( this->origElemExprList ) );
-        return new TxFilledArrayLitNode( this->parseLocation,
+        //return new TxArrayLitNode( this->ploc, make_node_vec_copy( this->origElemExprList ) );
+        return new TxFilledArrayLitNode( this->ploc,
                                          ( this->elementTypeNode ? this->elementTypeNode->typeExprNode->make_ast_copy() : nullptr ),
                                          make_node_vec_copy( this->origElemExprList ),
                                          ( this->capacityExpr ? this->capacityExpr->originalExpr->make_ast_copy() : nullptr ) );
@@ -103,10 +103,10 @@ protected:
 
 public:
     /** Represents an unfilled array with the specified type. */
-    TxUnfilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* arrayTypeExpr );
+    TxUnfilledArrayLitNode( const TxLocation& ploc, TxTypeExpressionNode* arrayTypeExpr );
 
     virtual TxUnfilledArrayLitNode* make_ast_copy() const override {
-        return new TxUnfilledArrayLitNode( this->parseLocation, this->arrayTypeNode->make_ast_copy() );
+        return new TxUnfilledArrayLitNode( this->ploc, this->arrayTypeNode->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override;
@@ -136,10 +136,10 @@ protected:
 
 public:
     /** Represents an unfilled array with the specified type. */
-    TxUnfilledArrayCompLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elemTypeExpr, TxExpressionNode* capacityExpr = nullptr );
+    TxUnfilledArrayCompLitNode( const TxLocation& ploc, TxTypeExpressionNode* elemTypeExpr, TxExpressionNode* capacityExpr = nullptr );
 
     virtual TxUnfilledArrayCompLitNode* make_ast_copy() const override {
-        return new TxUnfilledArrayCompLitNode( this->parseLocation, this->elementTypeNode->typeExprNode->make_ast_copy(),
+        return new TxUnfilledArrayCompLitNode( this->ploc, this->elementTypeNode->typeExprNode->make_ast_copy(),
                                                this->capacityExpr->originalExpr->make_ast_copy() );
     }
 
@@ -189,13 +189,13 @@ public:
     TxMaybeConversionNode* array;
     TxMaybeConversionNode* subscript;
 
-    TxElemDerefNode( const TxLocation& parseLocation, TxExpressionNode* operand, TxExpressionNode* subscript, bool unchecked = false )
-            : TxExpressionNode( parseLocation ), unchecked( unchecked ),
+    TxElemDerefNode( const TxLocation& ploc, TxExpressionNode* operand, TxExpressionNode* subscript, bool unchecked = false )
+            : TxExpressionNode( ploc ), unchecked( unchecked ),
               array( new TxMaybeConversionNode( operand ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
     }
 
     virtual TxElemDerefNode* make_ast_copy() const override {
-        return new TxElemDerefNode( this->parseLocation, this->array->originalExpr->make_ast_copy(),
+        return new TxElemDerefNode( this->ploc, this->array->originalExpr->make_ast_copy(),
                                     this->subscript->originalExpr->make_ast_copy() );
     }
 
@@ -250,13 +250,13 @@ public:
     TxMaybeConversionNode* array;
     TxMaybeConversionNode* subscript;
 
-    TxElemAssigneeNode( const TxLocation& parseLocation, TxExpressionNode* array, TxExpressionNode* subscript, bool unchecked = false )
-            : TxAssigneeNode( parseLocation ), unchecked( unchecked ),
+    TxElemAssigneeNode( const TxLocation& ploc, TxExpressionNode* array, TxExpressionNode* subscript, bool unchecked = false )
+            : TxAssigneeNode( ploc ), unchecked( unchecked ),
               array( new TxMaybeConversionNode( array ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
     }
 
     virtual TxElemAssigneeNode* make_ast_copy() const override {
-        return new TxElemAssigneeNode( this->parseLocation, this->array->originalExpr->make_ast_copy(),
+        return new TxElemAssigneeNode( this->ploc, this->array->originalExpr->make_ast_copy(),
                                        this->subscript->originalExpr->make_ast_copy() );
     }
 

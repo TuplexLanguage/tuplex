@@ -60,12 +60,12 @@ public:
      * @param base is the base expression (preceding expression adjoined with the '.' operator), or NULL if none
      * @param member is the specified literal field name
      */
-    TxFieldValueNode( const TxLocation& parseLocation, TxExpressionNode* base, const std::string& memberName )
-            : TxExpressionNode( parseLocation ), baseExpr( base ), symbolName( new TxIdentifier( memberName ) ) {
+    TxFieldValueNode( const TxLocation& ploc, TxExpressionNode* base, const std::string& memberName )
+            : TxExpressionNode( ploc ), baseExpr( base ), symbolName( new TxIdentifier( memberName ) ) {
     }
 
     virtual TxFieldValueNode* make_ast_copy() const override {
-        return new TxFieldValueNode( this->parseLocation, ( this->baseExpr ? this->baseExpr->make_ast_copy() : nullptr ), this->symbolName->str() );
+        return new TxFieldValueNode( this->ploc, ( this->baseExpr ? this->baseExpr->make_ast_copy() : nullptr ), this->symbolName->str() );
     }
 
     /** Returns the full identifier (dot-separated full name) as specified in the program text, up to and including this name. */
@@ -124,12 +124,12 @@ protected:
 
 public:
     TxFieldValueNode* field;
-    TxFieldAssigneeNode( const TxLocation& parseLocation, TxFieldValueNode* field )
-            : TxAssigneeNode( parseLocation ), field( field ) {
+    TxFieldAssigneeNode( const TxLocation& ploc, TxFieldValueNode* field )
+            : TxAssigneeNode( ploc ), field( field ) {
     }
 
     virtual TxFieldAssigneeNode* make_ast_copy() const override {
-        return new TxFieldAssigneeNode( this->parseLocation, this->field->make_ast_copy() );
+        return new TxFieldAssigneeNode( this->ploc, this->field->make_ast_copy() );
     }
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override {

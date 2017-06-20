@@ -6,7 +6,7 @@
 #include "symbol/entity_type.hpp"
 
 static const TxType* get_mutable_specialization( TxNode* parent, const TxType* origType ) {
-    const TxLocation& loc = parent->parseLocation;
+    const TxLocation& loc = parent->ploc;
     auto newbindings = new std::vector<TxTypeArgumentNode*>();
     auto actType = origType->type();
     for ( auto bdecl : actType->get_bindings() ) {

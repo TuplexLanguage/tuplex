@@ -60,8 +60,8 @@ protected:
 
 public:
 
-    TxBuiltinFieldDefNode( const TxLocation& parseLocation )
-            : TxFieldDefiningNode( parseLocation ), builtinField() {
+    TxBuiltinFieldDefNode( const TxLocation& ploc )
+            : TxFieldDefiningNode( ploc ), builtinField() {
     }
 
     virtual TxFieldDefiningNode* make_ast_copy() const override {
@@ -129,10 +129,10 @@ protected:
     TxDerivedTypeNode* sourcecodeDefiner = nullptr;
 
     /** for use by make_ast_copy() in subclasses */
-    TxBuiltinTypeDefiningNode( const TxLocation& parseLocation, const TxBuiltinTypeDefiningNode* original,
+    TxBuiltinTypeDefiningNode( const TxLocation& ploc, const TxBuiltinTypeDefiningNode* original,
                                TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes,
                                TxDerivedTypeNode* sourcecodeDefiner )
-            : TxTypeExpressionNode( parseLocation ), builtinTypeId( TXBT_NOTSET ), original( original ),
+            : TxTypeExpressionNode( ploc ), builtinTypeId( TXBT_NOTSET ), original( original ),
               baseTypeNode( baseTypeNode ), declNodes( declNodes ), sourcecodeDefiner( sourcecodeDefiner ) {
         if (sourcecodeDefiner)
             sourcecodeDefiner->set_builtin_type_definer( this );
@@ -177,10 +177,10 @@ protected:
 //    }
 
 public:
-    TxBuiltinTypeDefiningNode( const TxLocation& parseLocation, BuiltinTypeId builtinTypeId,
+    TxBuiltinTypeDefiningNode( const TxLocation& ploc, BuiltinTypeId builtinTypeId,
                                TxTypeExpressionNode* baseTypeNode,
                                const std::vector<TxDeclarationNode*>& declNodes )
-            : TxTypeExpressionNode( parseLocation ), builtinTypeId( builtinTypeId ), original( nullptr ),
+            : TxTypeExpressionNode( ploc ), builtinTypeId( builtinTypeId ), original( nullptr ),
               baseTypeNode( baseTypeNode ),
               declNodes( declNodes ) {
     }
@@ -258,8 +258,8 @@ protected:
     }
 
 public:
-    TxAnyTypeDefNode( const TxLocation& parseLocation, const std::vector<TxDeclarationNode*>& declNodes = { } )
-            : TxBuiltinTypeDefiningNode( parseLocation, TXBT_ANY, nullptr, declNodes ) {
+    TxAnyTypeDefNode( const TxLocation& ploc, const std::vector<TxDeclarationNode*>& declNodes = { } )
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_ANY, nullptr, declNodes ) {
     }
 };
 
@@ -290,8 +290,8 @@ protected:
     }
 
 public:
-    TxVoidTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes = { } )
-            : TxBuiltinTypeDefiningNode( parseLocation, TXBT_VOID, baseTypeNode, declNodes ) {
+    TxVoidTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes = { } )
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_VOID, baseTypeNode, declNodes ) {
     }
 };
 
@@ -325,10 +325,10 @@ protected:
     }
 public:
     const TxTypeClass typeClass;
-    TxBuiltinAbstractTypeDefNode( const TxLocation& parseLocation, BuiltinTypeId builtinTypeId, TxTypeExpressionNode* baseTypeNode,
+    TxBuiltinAbstractTypeDefNode( const TxLocation& ploc, BuiltinTypeId builtinTypeId, TxTypeExpressionNode* baseTypeNode,
                                   TxTypeClass typeClass,
                                   const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( parseLocation, builtinTypeId, baseTypeNode, declNodes ), typeClass( typeClass ) {
+            : TxBuiltinTypeDefiningNode( ploc, builtinTypeId, baseTypeNode, declNodes ), typeClass( typeClass ) {
     }
 };
 
@@ -341,9 +341,9 @@ protected:
 public:
     const int size;
     const bool sign;
-    TxIntegerTypeDefNode( const TxLocation& parseLocation, BuiltinTypeId builtinTypeId, TxTypeExpressionNode* baseTypeNode, int size, bool sign,
+    TxIntegerTypeDefNode( const TxLocation& ploc, BuiltinTypeId builtinTypeId, TxTypeExpressionNode* baseTypeNode, int size, bool sign,
                           const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( parseLocation, builtinTypeId, baseTypeNode, declNodes ), size( size ), sign( sign ) {
+            : TxBuiltinTypeDefiningNode( ploc, builtinTypeId, baseTypeNode, declNodes ), size( size ), sign( sign ) {
     }
 };
 
@@ -355,9 +355,9 @@ protected:
     }
 public:
     const int size;
-    TxFloatingTypeDefNode( const TxLocation& parseLocation, BuiltinTypeId builtinTypeId, TxTypeExpressionNode* baseTypeNode, int size,
+    TxFloatingTypeDefNode( const TxLocation& ploc, BuiltinTypeId builtinTypeId, TxTypeExpressionNode* baseTypeNode, int size,
                            const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( parseLocation, builtinTypeId, baseTypeNode, declNodes ), size( size ) {
+            : TxBuiltinTypeDefiningNode( ploc, builtinTypeId, baseTypeNode, declNodes ), size( size ) {
     }
 };
 
@@ -368,9 +368,9 @@ protected:
         return new TxBoolType( declaration, TxTypeSpecialization( baseType->type() ), ifSpecs );
     }
 public:
-    TxBoolTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
+    TxBoolTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
                        const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( parseLocation, TXBT_BOOL, baseTypeNode, declNodes ) {
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_BOOL, baseTypeNode, declNodes ) {
     }
 };
 
@@ -381,9 +381,9 @@ protected:
         return new TxTupleType( declaration, TxTypeSpecialization( baseType->type() ), ifSpecs, mutableType );
     }
 public:
-    TxTupleTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
+    TxTupleTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
                         const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( parseLocation, TXBT_TUPLE, baseTypeNode, declNodes ) {
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_TUPLE, baseTypeNode, declNodes ) {
     }
 };
 
@@ -394,16 +394,16 @@ protected:
         return new TxInterfaceType( declaration, TxTypeSpecialization( baseType->type() ), ifSpecs );
     }
 public:
-    TxInterfaceTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
+    TxInterfaceTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
                             const std::vector<TxDeclarationNode*>& declNodes )
-            : TxBuiltinTypeDefiningNode( parseLocation, TXBT_INTERFACE, baseTypeNode, declNodes ) {
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_INTERFACE, baseTypeNode, declNodes ) {
     }
 };
 
 class TxRefTypeDefNode final : public TxBuiltinTypeDefiningNode {
-    TxRefTypeDefNode( const TxLocation& parseLocation, const TxRefTypeDefNode* original,
+    TxRefTypeDefNode( const TxLocation& ploc, const TxRefTypeDefNode* original,
                       TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes, TxDerivedTypeNode* sourcecodeDefiner )
-            : TxBuiltinTypeDefiningNode( parseLocation, original, baseTypeNode, declNodes, sourcecodeDefiner ) {
+            : TxBuiltinTypeDefiningNode( ploc, original, baseTypeNode, declNodes, sourcecodeDefiner ) {
     }
 protected:
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
@@ -411,22 +411,22 @@ protected:
         return new TxReferenceType( declaration, TxTypeSpecialization( baseType->type() ), ifSpecs );
     }
 public:
-    TxRefTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
+    TxRefTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
                       const std::vector<TxDeclarationNode*>& declNodes,
                       const TxRefTypeDefNode* original = nullptr )
-            : TxBuiltinTypeDefiningNode( parseLocation, TXBT_REFERENCE, baseTypeNode, declNodes ) {
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_REFERENCE, baseTypeNode, declNodes ) {
     }
 
     virtual TxRefTypeDefNode* make_ast_copy() const override {
-        return new TxRefTypeDefNode( this->parseLocation, this, this->baseTypeNode->make_ast_copy(), make_node_vec_copy( this->declNodes ),
+        return new TxRefTypeDefNode( this->ploc, this, this->baseTypeNode->make_ast_copy(), make_node_vec_copy( this->declNodes ),
                                      ( this->sourcecodeDefiner ? this->sourcecodeDefiner->make_ast_copy() : nullptr ) );
     }
 };
 
 class TxArrayTypeDefNode final : public TxBuiltinTypeDefiningNode {
-    TxArrayTypeDefNode( const TxLocation& parseLocation, const TxArrayTypeDefNode* original,
+    TxArrayTypeDefNode( const TxLocation& ploc, const TxArrayTypeDefNode* original,
                         TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes, TxDerivedTypeNode* sourcecodeDefiner )
-            : TxBuiltinTypeDefiningNode( parseLocation, original, baseTypeNode, declNodes, sourcecodeDefiner ) {
+            : TxBuiltinTypeDefiningNode( ploc, original, baseTypeNode, declNodes, sourcecodeDefiner ) {
     }
 protected:
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
@@ -434,14 +434,14 @@ protected:
         return new TxArrayType( declaration, TxTypeSpecialization( baseType->type() ), mutableType, ifSpecs );
     }
 public:
-    TxArrayTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeNode,
+    TxArrayTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
                         const std::vector<TxDeclarationNode*>& declNodes,
                         const TxArrayTypeDefNode* original = nullptr )
-            : TxBuiltinTypeDefiningNode( parseLocation, TXBT_ARRAY, baseTypeNode, declNodes ) {
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_ARRAY, baseTypeNode, declNodes ) {
     }
 
     virtual TxArrayTypeDefNode* make_ast_copy() const override {
-        return new TxArrayTypeDefNode( this->parseLocation, this, this->baseTypeNode->make_ast_copy(), make_node_vec_copy( this->declNodes ),
+        return new TxArrayTypeDefNode( this->ploc, this, this->baseTypeNode->make_ast_copy(), make_node_vec_copy( this->declNodes ),
                                        ( this->sourcecodeDefiner ? this->sourcecodeDefiner->make_ast_copy() : nullptr ) );
     }
 };
@@ -452,8 +452,8 @@ class TxBuiltinConstructorTypeDefNode : public TxFunctionTypeNode {
 protected:
 
 public:
-    TxBuiltinConstructorTypeDefNode( const TxLocation& parseLocation, std::vector<TxArgTypeDefNode*>* arguments, TxTypeExpressionNode* returnType )
-            : TxFunctionTypeNode( parseLocation, false, arguments, returnType ) {
+    TxBuiltinConstructorTypeDefNode( const TxLocation& ploc, std::vector<TxArgTypeDefNode*>* arguments, TxTypeExpressionNode* returnType )
+            : TxFunctionTypeNode( ploc, false, arguments, returnType ) {
     }
 
     virtual TxBuiltinConstructorTypeDefNode* make_ast_copy() const override = 0;
@@ -471,12 +471,12 @@ protected:
     }
 
 public:
-    TxDefConstructorTypeDefNode( const TxLocation& parseLocation, TxTypeExpressionNode* returnTypeNode, TxExpressionNode* initExprNode )
-            : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxArgTypeDefNode*>(), returnTypeNode ), initExprNode( initExprNode ) {
+    TxDefConstructorTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* returnTypeNode, TxExpressionNode* initExprNode )
+            : TxBuiltinConstructorTypeDefNode( ploc, new std::vector<TxArgTypeDefNode*>(), returnTypeNode ), initExprNode( initExprNode ) {
     }
 
     virtual TxDefConstructorTypeDefNode* make_ast_copy() const override {
-        return new TxDefConstructorTypeDefNode( this->parseLocation, this->returnField->typeExpression->make_ast_copy(),
+        return new TxDefConstructorTypeDefNode( this->ploc, this->returnField->typeExpression->make_ast_copy(),
                                                 initExprNode->make_ast_copy() );
     }
 
@@ -496,12 +496,12 @@ protected:
     }
 
 public:
-    TxConvConstructorTypeDefNode( const TxLocation& parseLocation, TxArgTypeDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
-            : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxArgTypeDefNode*>( { fromTypeArg } ), returnTypeNode ) {
+    TxConvConstructorTypeDefNode( const TxLocation& ploc, TxArgTypeDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
+            : TxBuiltinConstructorTypeDefNode( ploc, new std::vector<TxArgTypeDefNode*>( { fromTypeArg } ), returnTypeNode ) {
     }
 
     virtual TxConvConstructorTypeDefNode* make_ast_copy() const override {
-        return new TxConvConstructorTypeDefNode( this->parseLocation, this->arguments->at( 0 )->make_ast_copy(),
+        return new TxConvConstructorTypeDefNode( this->ploc, this->arguments->at( 0 )->make_ast_copy(),
                                                  this->returnField->typeExpression->make_ast_copy() );
     }
 };
@@ -516,12 +516,12 @@ protected:
     }
 
 public:
-    TxArrayConstructorTypeDefNode( const TxLocation& parseLocation, TxArgTypeDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
-            : TxBuiltinConstructorTypeDefNode( parseLocation, new std::vector<TxArgTypeDefNode*>( { fromTypeArg } ), returnTypeNode ) {
+    TxArrayConstructorTypeDefNode( const TxLocation& ploc, TxArgTypeDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
+            : TxBuiltinConstructorTypeDefNode( ploc, new std::vector<TxArgTypeDefNode*>( { fromTypeArg } ), returnTypeNode ) {
     }
 
     virtual TxArrayConstructorTypeDefNode* make_ast_copy() const override {
-        return new TxArrayConstructorTypeDefNode( this->parseLocation, this->arguments->at( 0 )->make_ast_copy(),
+        return new TxArrayConstructorTypeDefNode( this->ploc, this->arguments->at( 0 )->make_ast_copy(),
                                                   this->returnField->typeExpression->make_ast_copy() );
     }
 };
@@ -845,8 +845,8 @@ protected:
     }
 
 public:
-    TxPackageDefinerNode( const TxLocation& parseLocation )
-            : TxNode( parseLocation ) {
+    TxPackageDefinerNode( const TxLocation& ploc )
+            : TxNode( ploc ) {
     }
 
     virtual TxNode* make_ast_copy() const override {

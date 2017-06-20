@@ -46,8 +46,8 @@ protected:
     /** the semantic context this node represents/produces for its sub-AST, this is set in the declaration pass */
     LexicalContext lexContext;
 
-    TxNode( const TxLocation& parseLocation )
-            : nodeId( nextNodeId++ ), lexContext(), parseLocation( parseLocation ) {
+    TxNode( const TxLocation& ploc )
+            : nodeId( nextNodeId++ ), lexContext(), ploc( ploc ) {
     }
 
     virtual ~TxNode() = default;
@@ -62,7 +62,7 @@ protected:
         ASSERT( !this->is_context_set(), "lexicalContext already initialized in " << this->str() );
         this->parentNode = parentNode;
         // TODO: make private and non-const, or separate parserCtx from TxLocation into separate TxNode member:
-        const_cast<TxLocation&>( this->parseLocation ).parserCtx = parentNode->parseLocation.parserCtx;
+        const_cast<TxLocation&>( this->ploc ).parserCtx = parentNode->ploc.parserCtx;
         this->lexContext = this->parentNode->context();
     }
 
@@ -75,14 +75,14 @@ protected:
     }
 
 public:
-    const TxLocation parseLocation;
+    const TxLocation ploc;
 
     virtual const TxNode* get_origin_node() const override final {
         return this;
     }
 
     virtual const TxLocation& get_parse_location() const override final {
-        return this->parseLocation;
+        return this->ploc;
     }
 
     virtual ExpectedErrorClause* exp_err_ctx() const override final {

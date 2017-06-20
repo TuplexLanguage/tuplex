@@ -199,7 +199,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                 else {
                     // wrap originalExpr with a reference-to node
                     //std::cerr << "Adding implicit '&' to: " << originalExpr << std::endl;
-                    auto refToNode = new TxReferenceToNode( originalExpr->parseLocation, originalExpr );
+                    auto refToNode = new TxReferenceToNode( originalExpr->ploc, originalExpr );
                     auto refConvNode = new TxReferenceConvNode( refToNode, requiredType );
                     refConvNode->node_declaration_pass( originalExpr->parent() );
                     refToNode->node_declaration_pass( refConvNode );
@@ -215,7 +215,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
             if ( origRefTargetType->auto_converts_to( *requiredType ) ) {
                 // wrap originalExpr with a dereference node
                 //std::cerr << "Adding implicit '^' to: " << originalExpr << std::endl;
-                auto derefNode = new TxReferenceDerefNode( originalExpr->parseLocation, originalExpr );
+                auto derefNode = new TxReferenceDerefNode( originalExpr->ploc, originalExpr );
                 derefNode->node_declaration_pass( originalExpr->parent() );
                 if ( auto newExpr = inner_wrap_conversion( derefNode, origRefTargetType, requiredType, _explicit ) ) {
                     return newExpr;
@@ -288,7 +288,7 @@ const TxType* TxReferenceConvNode::define_type() {
             ASSERT( this->adapterType->get_type_class() == TXTC_INTERFACEADAPTER, "Not an interface adapter type: " << this->adapterType );
 
             // create reference type to the adapter type  TODO: review if node creation can be moved to constructor / declaration pass
-            auto adapterDefiner = new TxTypeDeclWrapperNode( this->parseLocation, adapterType->get_declaration() );
+            auto adapterDefiner = new TxTypeDeclWrapperNode( this->ploc, adapterType->get_declaration() );
             TxTypeTypeArgumentNode* targetTypeNode = new TxTypeTypeArgumentNode( adapterDefiner );
             run_declaration_pass( targetTypeNode, this, "type" );
             return this->registry().get_reference_type( this, targetTypeNode, nullptr );

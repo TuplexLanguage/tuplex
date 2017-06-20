@@ -8,10 +8,10 @@ class TxAssertStmtNode : public TxStatementNode {
     TxStatementNode* ifStmt;
 
 public:
-    TxAssertStmtNode( const TxLocation& parseLocation, TxExpressionNode* expr );
+    TxAssertStmtNode( const TxLocation& ploc, TxExpressionNode* expr );
 
     virtual TxAssertStmtNode* make_ast_copy() const override {
-        return new TxAssertStmtNode( this->parseLocation, this->expr->make_ast_copy() );
+        return new TxAssertStmtNode( this->ploc, this->expr->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {

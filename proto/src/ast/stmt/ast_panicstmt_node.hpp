@@ -10,14 +10,14 @@
 class TxPanicStmtNode : public TxStatementNode {
     TxStatementNode* suite;
 
-    TxPanicStmtNode( const TxLocation& parseLocation, TxStatementNode* suite )
-        : TxStatementNode( parseLocation ), suite( suite )  { }
+    TxPanicStmtNode( const TxLocation& ploc, TxStatementNode* suite )
+        : TxStatementNode( ploc ), suite( suite )  { }
 
 public:
-    TxPanicStmtNode( const TxLocation& parseLocation, std::string message );
+    TxPanicStmtNode( const TxLocation& ploc, std::string message );
 
     virtual TxPanicStmtNode* make_ast_copy() const override {
-        return new TxPanicStmtNode( this->parseLocation, this->suite->make_ast_copy() );
+        return new TxPanicStmtNode( this->ploc, this->suite->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {

@@ -28,28 +28,28 @@ static std::vector<TxMaybeConversionNode*>* make_args_vec( const std::vector<TxE
 //    return false;
 //}
 
-TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr,
+TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, TxTypeExpressionNode* elementTypeExpr,
                                 const std::vector<TxExpressionNode*>* elemExprList,
                                 TxExpressionNode* capacityExpr )
-        : TxArrayLitNode( parseLocation ), origElemExprList( elemExprList ),
+        : TxArrayLitNode( ploc ), origElemExprList( elemExprList ),
           elementTypeNode( elementTypeExpr ? new TxTypeTypeArgumentNode( elementTypeExpr ) : nullptr ),
           capacityExpr( capacityExpr ? new TxMaybeConversionNode( capacityExpr ) : nullptr ), elemExprList( make_args_vec( elemExprList ) )
 {
 }
 
-TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& parseLocation, const std::vector<TxExpressionNode*>* elemExprList )
-        : TxFilledArrayLitNode( parseLocation, nullptr, elemExprList )
+TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, const std::vector<TxExpressionNode*>* elemExprList )
+        : TxFilledArrayLitNode( ploc, nullptr, elemExprList )
 {
 }
 
-TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& parseLocation, const std::vector<TxMaybeConversionNode*>* elemExprList )
-        : TxFilledArrayLitNode( parseLocation, nullptr, elemExprList )
+TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, const std::vector<TxMaybeConversionNode*>* elemExprList )
+        : TxFilledArrayLitNode( ploc, nullptr, elemExprList )
 {
 }
 
-TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr,
+TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, TxTypeExpressionNode* elementTypeExpr,
                                 const std::vector<TxMaybeConversionNode*>* elemExprList )
-        : TxArrayLitNode( parseLocation ), origElemExprList( nullptr ),
+        : TxArrayLitNode( ploc ), origElemExprList( nullptr ),
           elementTypeNode( elementTypeExpr ? new TxTypeTypeArgumentNode( elementTypeExpr ) : nullptr ),
           capacityExpr( nullptr ), elemExprList( elemExprList ) {
 }
@@ -101,7 +101,7 @@ const TxType* TxFilledArrayLitNode::define_type() {
                 elemTypeNode = new TxTypeTypeArgumentNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) );
                 run_declaration_pass( elemTypeNode, this, "elem-type" );
             }
-            auto tmpcapacityExpr = new TxIntegerLitNode( this->parseLocation, elemExprList->size(), false, TXBT_UINT );
+            auto tmpcapacityExpr = new TxIntegerLitNode( this->ploc, elemExprList->size(), false, TXBT_UINT );
             auto capacityNode = new TxValueTypeArgumentNode( tmpcapacityExpr );
             run_declaration_pass( capacityNode, this, "capacity" );
             arrayType = this->registry().get_array_type( this, elemTypeNode, capacityNode );
@@ -147,8 +147,8 @@ void TxFilledArrayLitNode::symbol_resolution_pass() {
 
 
 
-TxUnfilledArrayLitNode::TxUnfilledArrayLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* arrayTypeExpr )
-        : TxArrayLitNode( parseLocation ), arrayTypeNode( arrayTypeExpr ) {
+TxUnfilledArrayLitNode::TxUnfilledArrayLitNode( const TxLocation& ploc, TxTypeExpressionNode* arrayTypeExpr )
+        : TxArrayLitNode( ploc ), arrayTypeNode( arrayTypeExpr ) {
 }
 
 const TxType* TxUnfilledArrayLitNode::define_type() {
@@ -162,10 +162,10 @@ void TxUnfilledArrayLitNode::symbol_resolution_pass() {
 
 
 
-TxUnfilledArrayCompLitNode::TxUnfilledArrayCompLitNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementTypeExpr,
+TxUnfilledArrayCompLitNode::TxUnfilledArrayCompLitNode( const TxLocation& ploc, TxTypeExpressionNode* elementTypeExpr,
                                                         TxExpressionNode* capacityExpr )
-        : TxArrayLitNode( parseLocation ), elementTypeNode( new TxTypeTypeArgumentNode( elementTypeExpr ) ),
-          capacityExpr( new TxMaybeConversionNode( capacityExpr ? capacityExpr : new TxIntegerLitNode( parseLocation, "0", false ) ) ) {
+        : TxArrayLitNode( ploc ), elementTypeNode( new TxTypeTypeArgumentNode( elementTypeExpr ) ),
+          capacityExpr( new TxMaybeConversionNode( capacityExpr ? capacityExpr : new TxIntegerLitNode( ploc, "0", false ) ) ) {
 }
 
 const TxType* TxUnfilledArrayCompLitNode::define_type() {
@@ -188,7 +188,7 @@ void TxUnfilledArrayCompLitNode::symbol_resolution_pass() {
 //                                                bool isAssignment ) {
 //    TxStatementNode* panicNode;
 //    {
-//        auto & loc = subscript->parseLocation;
+//        auto & loc = subscript->ploc;
 //        auto lengthNode = new TxFieldValueNode( loc, new TxExprWrapperNode( array ), "L" );
 //        auto condExpr = new TxBinaryOperatorNode( loc, new TxExprWrapperNode( subscript ),
 //                                                  TXOP_GE, lengthNode );
@@ -216,7 +216,7 @@ void TxElemDerefNode::symbol_resolution_pass() {
     if ( !this->unchecked ) {
         // Note: In theory, if this expression is statically constant we could perform the bounds checking here.
         // However accessing the cogegen'd value of Array.L isn't guaranteed before the type preparation has been run.
-        this->panicNode = new TxPanicStmtNode( this->subscript->parseLocation, "Array index out of bounds" );
+        this->panicNode = new TxPanicStmtNode( this->subscript->ploc, "Array index out of bounds" );
         run_declaration_pass( panicNode, this, "panic" );
         panicNode->symbol_resolution_pass();
     }
@@ -231,7 +231,7 @@ void TxElemAssigneeNode::symbol_resolution_pass() {
 
     if ( !this->unchecked ) {
         // TODO: When we support accessing fields of constant instances, we can access L of constant arrays in compile time
-        this->panicNode = new TxPanicStmtNode( this->subscript->parseLocation, "Array index out of bounds" );
+        this->panicNode = new TxPanicStmtNode( this->subscript->ploc, "Array index out of bounds" );
         run_declaration_pass( panicNode, this, "panic" );
         panicNode->symbol_resolution_pass();
     }

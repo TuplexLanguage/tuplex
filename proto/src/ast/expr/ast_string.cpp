@@ -58,24 +58,24 @@ static std::vector<uint8_t> iso_8859_1_to_utf8( const std::string& input ) {
     return std::vector<uint8_t>( byteArray, byteArray + len );
 }
 
-TxStringLitNode::TxStringLitNode( const TxLocation& parseLocation, const std::string& literal )
-        : TxExpressionNode( parseLocation ), utf8data( iso_8859_1_to_utf8( parse_string( literal ) ) ),
-          arrayTypeNode( new TxArrayTypeNode( parseLocation, new TxNamedTypeNode( parseLocation, "tx.UByte" ),
-                                              new TxIntegerLitNode( parseLocation, utf8data.size(), false, TXBT_UINT ) ) ),
+TxStringLitNode::TxStringLitNode( const TxLocation& ploc, const std::string& literal )
+        : TxExpressionNode( ploc ), utf8data( iso_8859_1_to_utf8( parse_string( literal ) ) ),
+          arrayTypeNode( new TxArrayTypeNode( ploc, new TxNamedTypeNode( ploc, "tx.UByte" ),
+                                              new TxIntegerLitNode( ploc, utf8data.size(), false, TXBT_UINT ) ) ),
           literal( literal ) {
 }
 
 
-TxConcatenateStringsNode::TxConcatenateStringsNode( const TxLocation& parseLocation, const std::vector<TxExpressionNode*>& stringNodes )
-        : TxExpressionNode( parseLocation ), stringNodes( stringNodes ) {
+TxConcatenateStringsNode::TxConcatenateStringsNode( const TxLocation& ploc, const std::vector<TxExpressionNode*>& stringNodes )
+        : TxExpressionNode( ploc ), stringNodes( stringNodes ) {
 }
 
 
 
-TxTypeExpressionNode* TxCStringLitNode::make_cstring_type_expr( const TxLocation& parseLocation, const std::string& literal ) {
+TxTypeExpressionNode* TxCStringLitNode::make_cstring_type_expr( const TxLocation& ploc, const std::string& literal ) {
     // (for now) Create AST to declare the implicit type of this c-string literal:
-    TxTypeExpressionNode* elemTypeExpr = new TxNamedTypeNode( parseLocation, "tx.UByte" );
-    TxExpressionNode* capExpr = new TxIntegerLitNode( parseLocation, literal.length() - 2, false, TXBT_UINT );
-    TxTypeExpressionNode* typeExpr = new TxArrayTypeNode( parseLocation, elemTypeExpr, capExpr );
+    TxTypeExpressionNode* elemTypeExpr = new TxNamedTypeNode( ploc, "tx.UByte" );
+    TxExpressionNode* capExpr = new TxIntegerLitNode( ploc, literal.length() - 2, false, TXBT_UINT );
+    TxTypeExpressionNode* typeExpr = new TxArrayTypeNode( ploc, elemTypeExpr, capExpr );
     return typeExpr;
 }

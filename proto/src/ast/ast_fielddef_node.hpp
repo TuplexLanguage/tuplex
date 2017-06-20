@@ -30,10 +30,10 @@ public:
     TxTypeExpressionNode* typeExpression;
     TxMaybeConversionNode* initExpression;
 
-    TxFieldDefNode( const TxLocation& parseLocation, const std::string& fieldName,
+    TxFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
                     TxTypeExpressionNode* typeExpression,
                     TxExpressionNode* initExpression, bool modifiable = false )
-            : TxFieldDefiningNode( parseLocation ), fieldName( new TxIdentifier( fieldName ) ), modifiable( modifiable ) {
+            : TxFieldDefiningNode( ploc ), fieldName( new TxIdentifier( fieldName ) ), modifiable( modifiable ) {
         validateFieldName( this, fieldName );
         this->typeExpression = typeExpression;
         if ( initExpression ) {
@@ -49,7 +49,7 @@ public:
     virtual TxFieldDefNode* make_ast_copy() const override {
         TxTypeExpressionNode* typeExpr = ( this->typeExpression ? this->typeExpression->make_ast_copy() : nullptr );
         TxExpressionNode* initExpr = ( this->initExpression ? this->initExpression->originalExpr->make_ast_copy() : nullptr );
-        return new TxFieldDefNode( this->parseLocation, this->fieldName->str(), typeExpr, initExpr, this->modifiable );
+        return new TxFieldDefNode( this->ploc, this->fieldName->str(), typeExpr, initExpr, this->modifiable );
     }
 
     /** Performs the declaration of the field defined by this node. To be run before declaration pass is run on this node. */

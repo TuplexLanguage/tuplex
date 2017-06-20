@@ -20,8 +20,8 @@ protected:
     virtual void typeexpr_declaration_pass() { }
 
 public:
-    TxTypeExpressionNode( const TxLocation& parseLocation )
-            : TxTypeDefiningNode( parseLocation ) {
+    TxTypeExpressionNode( const TxLocation& ploc )
+            : TxTypeDefiningNode( ploc ) {
     }
 
     virtual TxTypeExpressionNode* make_ast_copy() const override = 0;

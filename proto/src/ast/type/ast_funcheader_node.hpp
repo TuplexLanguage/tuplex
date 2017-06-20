@@ -5,7 +5,7 @@
 
 /** Constructs a new TxFieldDefNode based on a TxFieldTypeDefNode (the new copy is independently allocated). */
 inline TxFieldDefNode* make_field_def_node( TxArgTypeDefNode* fieldTypeDef ) {
-    return new TxFieldDefNode( fieldTypeDef->parseLocation, fieldTypeDef->fieldName, fieldTypeDef->typeExpression->make_ast_copy(), nullptr );
+    return new TxFieldDefNode( fieldTypeDef->ploc, fieldTypeDef->fieldName, fieldTypeDef->typeExpression->make_ast_copy(), nullptr );
 }
 
 class TxFunctionHeaderNode : public TxTypeExpressionNode {
@@ -30,7 +30,7 @@ public:
     TxFieldDefNode* returnField;
 
     TxFunctionHeaderNode( TxFunctionTypeNode* funcTypeNode )
-            : TxTypeExpressionNode( funcTypeNode->parseLocation ), funcTypeNode( funcTypeNode ),
+            : TxTypeExpressionNode( funcTypeNode->ploc ), funcTypeNode( funcTypeNode ),
               arguments( new std::vector<TxFieldDefNode*>() ),
               returnField( funcTypeNode->returnField ? make_field_def_node( funcTypeNode->returnField ) : nullptr ) {
         for ( auto arg : *funcTypeNode->arguments )

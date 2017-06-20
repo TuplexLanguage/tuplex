@@ -7,15 +7,15 @@
 #include "ast_flow.hpp"
 
 
-TxAssertStmtNode::TxAssertStmtNode( const TxLocation& parseLocation, TxExpressionNode* expr )
-        : TxStatementNode( parseLocation ), expr( expr ) {
-    auto invertedCond = new TxUnaryLogicalNotNode( expr->parseLocation, expr );
+TxAssertStmtNode::TxAssertStmtNode( const TxLocation& ploc, TxExpressionNode* expr )
+        : TxStatementNode( ploc ), expr( expr ) {
+    auto invertedCond = new TxUnaryLogicalNotNode( expr->ploc, expr );
 
     // print assert failed message:
     /* example C assert failed message:
      txc: /home/christer/proj/workspace/proto/src/ast.cpp:515: TxAssertStmtNode::TxAssertStmtNode(const TxLocation&, TxExpressionNode*): Assertion `!this->expr' failed.
      */
-    auto & pLoc = parseLocation;
+    auto & pLoc = ploc;
     std::stringstream msg;
     //msg << procName << ": ";         // TODO: will need to be determined via system call
     msg << *pLoc.begin.filename << ":" << pLoc.begin.line;

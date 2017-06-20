@@ -5,27 +5,27 @@
 #include "driver.hpp"
 #include "tx_lang_defs.hpp"
 
-static std::string format_location( const TxLocation& parseLocation ) {
+static std::string format_location( const TxLocation& ploc ) {
     const size_t bufSize = 256;
     char buf[bufSize];
-    auto filename = parseLocation.begin.filename ? parseLocation.begin.filename->c_str() : "";
-    if ( parseLocation.begin.line == parseLocation.end.line ) {
-        int lcol = ( parseLocation.end.column > parseLocation.begin.column ) ? parseLocation.end.column : parseLocation.end.column;
+    auto filename = ploc.begin.filename ? ploc.begin.filename->c_str() : "";
+    if ( ploc.begin.line == ploc.end.line ) {
+        int lcol = ( ploc.end.column > ploc.begin.column ) ? ploc.end.column : ploc.end.column;
         snprintf( buf, bufSize, "%s %2d.%2d-%2d", filename,
-                  parseLocation.begin.line,
-                  parseLocation.begin.column, lcol );
+                  ploc.begin.line,
+                  ploc.begin.column, lcol );
     }
     else
         snprintf( buf, bufSize, "%s %2d.%2d-%2d.%2d", filename,
-                  parseLocation.begin.line,
-                  parseLocation.begin.column,
-                  parseLocation.end.line,
-                  parseLocation.end.column );
+                  ploc.begin.line,
+                  ploc.begin.column,
+                  ploc.end.line,
+                  ploc.end.column );
     return std::string( buf );
 }
 
-static std::string format_location_message( const TxLocation& parseLocation, char const *msg ) {
-    return format_location(parseLocation) + " " + msg;
+static std::string format_location_message( const TxLocation& ploc, char const *msg ) {
+    return format_location(ploc) + " " + msg;
 }
 
 static std::string format_location_message( const TxParseOrigin* origin, char const *msg ) {

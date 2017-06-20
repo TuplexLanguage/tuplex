@@ -17,7 +17,7 @@ public:
     TxExpressionNode* const exprNode;
 
     TxExprWrapperNode( TxExpressionNode* exprNode )
-            : TxExpressionNode( exprNode->parseLocation ), exprNode( exprNode ) {
+            : TxExpressionNode( exprNode->ploc ), exprNode( exprNode ) {
     }
 
     virtual TxExprWrapperNode* make_ast_copy() const override {
@@ -80,7 +80,7 @@ public:
     TxTypeDefiningNode* const typeDefNode;
 
     TxTypeExprWrapperNode( TxTypeDefiningNode* typeExprNode )
-            : TxTypeExpressionNode( typeExprNode->parseLocation ), typeDefNode( typeExprNode ) {
+            : TxTypeExpressionNode( typeExprNode->ploc ), typeDefNode( typeExprNode ) {
     }
 
     virtual TxTypeExprWrapperNode* make_ast_copy() const override {
@@ -128,12 +128,12 @@ protected:
     }
 
 public:
-    TxTypeDeclWrapperNode( const TxLocation& parseLocation, const TxEntityDeclaration* typeDecl )
-            : TxTypeExpressionNode( parseLocation ), typeDecl( typeDecl ) {
+    TxTypeDeclWrapperNode( const TxLocation& ploc, const TxEntityDeclaration* typeDecl )
+            : TxTypeExpressionNode( ploc ), typeDecl( typeDecl ) {
     }
 
     virtual TxTypeDeclWrapperNode* make_ast_copy() const override {
-        return new TxTypeDeclWrapperNode( this->parseLocation, this->typeDecl );
+        return new TxTypeDeclWrapperNode( this->ploc, this->typeDecl );
     }
 
     const TxEntityDeclaration* get_wrapped_declaration() const {
@@ -151,8 +151,8 @@ class TxInternalRootNode : public TxNode {
     TxNode* innerNode;
 
 public:
-    TxInternalRootNode( const TxLocation& parseLocation, TxNode* node, const LexicalContext& context )
-            : TxNode( parseLocation ), innerNode( node ) {
+    TxInternalRootNode( const TxLocation& ploc, TxNode* node, const LexicalContext& context )
+            : TxNode( ploc ), innerNode( node ) {
         this->lexContext = context;
     }
 

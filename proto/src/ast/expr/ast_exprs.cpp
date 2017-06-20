@@ -32,16 +32,16 @@ const TxType* TxConstructorCalleeExprNode::define_type() {
     return nullptr;
 }
 
-TxFunctionCallNode::TxFunctionCallNode( const TxLocation& parseLocation, TxExpressionNode* callee,
+TxFunctionCallNode::TxFunctionCallNode( const TxLocation& ploc, TxExpressionNode* callee,
                                         const std::vector<TxExpressionNode*>* argsExprList, bool doesNotReturn )
-        : TxExpressionNode( parseLocation ), doesNotReturn( doesNotReturn ), callee( callee ), origArgsExprList( argsExprList ),
+        : TxExpressionNode( ploc ), doesNotReturn( doesNotReturn ), callee( callee ), origArgsExprList( argsExprList ),
           argsExprList( make_args_vec( argsExprList ) ) {
     if ( auto fieldValueNode = dynamic_cast<TxFieldValueNode*>( this->callee ) ) {
         // handle direct constructor invocation - self() and super()
         auto identifier = fieldValueNode->get_full_identifier();
         if ( identifier == "self" || identifier == "super" ) {
-            auto objectDeref = new TxReferenceDerefNode( this->parseLocation, this->callee );
-            this->callee = new TxConstructorCalleeExprNode( this->parseLocation, objectDeref );
+            auto objectDeref = new TxReferenceDerefNode( this->ploc, this->callee );
+            this->callee = new TxConstructorCalleeExprNode( this->ploc, objectDeref );
             this->isSelfSuperConstructorInvocation = true;
         }
     }
@@ -96,13 +96,13 @@ void TxFunctionCallNode::symbol_resolution_pass() {
         // If the callee is a constructor, we substitute this function call with a stack construction expression:
         if ( !dynamic_cast<TxConstructorCalleeExprNode*>( this->callee ) ) {  // (prevents infinite recursion)
             auto calleeField = static_cast<TxFieldValueNode*>( this->callee );
-            auto typeDeclNode = new TxTypeDeclWrapperNode( this->parseLocation, calleeField->get_constructed_type()->get_declaration() );
-//            auto typeDeclNode = new TxTypeDeclWrapperNode( this->parseLocation, constructorType->get_constructed_type_decl() );
+            auto typeDeclNode = new TxTypeDeclWrapperNode( this->ploc, calleeField->get_constructed_type()->get_declaration() );
+//            auto typeDeclNode = new TxTypeDeclWrapperNode( this->ploc, constructorType->get_constructed_type_decl() );
 
             // Implementation note: Declaration pass is already run on the args, but we need to run it on the new construction node
             // and its new children, and we need to run resolution pass on the whole sub-tree.
             auto wrappedArgs = make_expr_wrapper_vec( this->origArgsExprList );
-            this->inlinedExpression = new TxStackConstructionNode( this->parseLocation, typeDeclNode, wrappedArgs );
+            this->inlinedExpression = new TxStackConstructionNode( this->ploc, typeDeclNode, wrappedArgs );
             run_declaration_pass( this->inlinedExpression, this, "inlinedexpr" );
             for ( auto argExpr : *this->origArgsExprList )
                 argExpr->symbol_resolution_pass();
@@ -139,7 +139,7 @@ void TxFunctionCallNode::symbol_resolution_pass() {
                     arrayArgs->push_back( this->argsExprList->at( i ) );
                 }
                 this->argsExprList->resize( lastCalleeArgIx );
-                const TxLocation& varArgLoc = ( arrayArgs->empty() ? this->parseLocation : arrayArgs->front()->parseLocation );
+                const TxLocation& varArgLoc = ( arrayArgs->empty() ? this->ploc : arrayArgs->front()->ploc );
                 auto elemTypeExpr = new TxTypeExprWrapperNode( arrayArgElemType->get_definer() );
                 auto arrayArgNode = new TxMaybeConversionNode( new TxFilledArrayLitNode( varArgLoc, elemTypeExpr, arrayArgs ) );
                 run_declaration_pass( arrayArgNode, this, "arg" );

@@ -15,6 +15,6 @@ void run_declaration_pass( TxNode* node, const TxNode* parentNode, const std::st
 
 void run_declaration_pass( TxNode* node, const LexicalContext& lexContext ) {
     ASSERT( lexContext.scope(), "uninitialized lex-context" );
-    auto internalRoot = new TxInternalRootNode( node->parseLocation, node, lexContext );
+    auto internalRoot = new TxInternalRootNode( node->ploc, node, lexContext );
     run_declaration_pass( node, internalRoot, "node" );
 }

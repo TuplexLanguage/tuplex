@@ -6,8 +6,8 @@
 
 class TxAssigneeNode : public TxTypeDefiningNode {
 public:
-    TxAssigneeNode( const TxLocation& parseLocation )
-            : TxTypeDefiningNode( parseLocation ) {
+    TxAssigneeNode( const TxLocation& ploc )
+            : TxTypeDefiningNode( ploc ) {
     }
 
     virtual TxAssigneeNode* make_ast_copy() const override = 0;

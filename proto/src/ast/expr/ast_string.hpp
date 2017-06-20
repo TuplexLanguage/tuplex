@@ -20,10 +20,10 @@ protected:
 public:
     const std::string literal;
 
-    TxStringLitNode( const TxLocation& parseLocation, const std::string& literal );
+    TxStringLitNode( const TxLocation& ploc, const std::string& literal );
 
     virtual TxStringLitNode* make_ast_copy() const override {
-        return new TxStringLitNode( this->parseLocation, this->literal );
+        return new TxStringLitNode( this->ploc, this->literal );
     }
 
     virtual bool is_statically_constant() const override final {
@@ -54,7 +54,7 @@ class TxConcatenateStringsNode : public TxExpressionNode {
 
 protected:
     virtual void declaration_pass() override {
-        this->stackConstr = new TxStackConstructionNode( this->parseLocation, new TxTypeExprWrapperNode( this ),
+        this->stackConstr = new TxStackConstructionNode( this->ploc, new TxTypeExprWrapperNode( this ),
                                                          &this->stringNodes );
     }
     virtual const TxType* define_type() override {
@@ -62,18 +62,18 @@ protected:
     }
 
 public:
-    TxConcatenateStringsNode( const TxLocation& parseLocation, const std::vector<TxExpressionNode*>& stringNodes  );
+    TxConcatenateStringsNode( const TxLocation& ploc, const std::vector<TxExpressionNode*>& stringNodes  );
 
-    static TxConcatenateStringsNode* make_strcat_node( const TxLocation& parseLocation, TxExpressionNode* stringA, TxExpressionNode* stringB ) {
+    static TxConcatenateStringsNode* make_strcat_node( const TxLocation& ploc, TxExpressionNode* stringA, TxExpressionNode* stringB ) {
         if ( auto strCatNode = dynamic_cast<TxConcatenateStringsNode*>( stringA ) ) {
             strCatNode->stringNodes.push_back( stringB );
             return strCatNode;
         }
-        return new TxConcatenateStringsNode( parseLocation, { stringA, stringB } );
+        return new TxConcatenateStringsNode( ploc, { stringA, stringB } );
     }
 
     virtual TxConcatenateStringsNode* make_ast_copy() const override {
-        return new TxConcatenateStringsNode( this->parseLocation, make_node_vec_copy( this->stringNodes ) );
+        return new TxConcatenateStringsNode( this->ploc, make_node_vec_copy( this->stringNodes ) );
     }
 
     virtual bool is_statically_constant() const override final {
@@ -109,7 +109,7 @@ class TxCStringLitNode : public TxExpressionNode {
     const size_t arrayCapacity;  // note: array capacity includes the null terminator
     TxTypeExpressionNode* cstringTypeNode;  // implicit type definer
 
-    static TxTypeExpressionNode* make_cstring_type_expr( const TxLocation& parseLocation, const std::string& literal );
+    static TxTypeExpressionNode* make_cstring_type_expr( const TxLocation& ploc, const std::string& literal );
 
 protected:
     virtual const TxType* define_type() override {
@@ -120,15 +120,15 @@ public:
     const std::string literal;
     const std::string value;
 
-    TxCStringLitNode( const TxLocation& parseLocation, const std::string& literal )
-            : TxExpressionNode( parseLocation ), arrayCapacity( literal.length() - 2 ),
-              cstringTypeNode( make_cstring_type_expr( parseLocation, literal ) ),
+    TxCStringLitNode( const TxLocation& ploc, const std::string& literal )
+            : TxExpressionNode( ploc ), arrayCapacity( literal.length() - 2 ),
+              cstringTypeNode( make_cstring_type_expr( ploc, literal ) ),
               literal( literal ), value( literal, 2, literal.length() - 3 ) {
     }
     // TODO: properly parse string literal
 
     virtual TxCStringLitNode* make_ast_copy() const override {
-        return new TxCStringLitNode( this->parseLocation, this->literal );
+        return new TxCStringLitNode( this->ploc, this->literal );
     }
 
     virtual bool is_statically_constant() const override final {

@@ -31,11 +31,11 @@ public:
     std::vector<TxExpressionNode*> const * const origArgsExprList;
     std::vector<TxMaybeConversionNode*>* argsExprList;
 
-    TxFunctionCallNode( const TxLocation& parseLocation, TxExpressionNode* callee, const std::vector<TxExpressionNode*>* argsExprList,
+    TxFunctionCallNode( const TxLocation& ploc, TxExpressionNode* callee, const std::vector<TxExpressionNode*>* argsExprList,
                         bool doesNotReturn = false );
 
     virtual TxFunctionCallNode* make_ast_copy() const override {
-        return new TxFunctionCallNode( this->parseLocation, this->callee->make_ast_copy(), make_node_vec_copy( this->origArgsExprList ) );
+        return new TxFunctionCallNode( this->ploc, this->callee->make_ast_copy(), make_node_vec_copy( this->origArgsExprList ) );
     }
 
     virtual void symbol_resolution_pass() override;
@@ -88,12 +88,12 @@ protected:
     virtual const TxType* define_type() override;
 
 public:
-    TxConstructorCalleeExprNode( const TxLocation& parseLocation, TxExpressionNode* objectExpr )
-            : TxExpressionNode( parseLocation ), objectExpr( objectExpr ) {
+    TxConstructorCalleeExprNode( const TxLocation& ploc, TxExpressionNode* objectExpr )
+            : TxExpressionNode( ploc ), objectExpr( objectExpr ) {
     }
 
     virtual TxConstructorCalleeExprNode* make_ast_copy() const override {
-        return new TxConstructorCalleeExprNode( this->parseLocation, this->objectExpr->make_ast_copy() );
+        return new TxConstructorCalleeExprNode( this->ploc, this->objectExpr->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -126,8 +126,8 @@ protected:
         return this->objTypeExpr->resolve_type();
     }
 
-    TxMemAllocNode( const TxLocation& parseLocation, TxTypeExpressionNode* objTypeExpr )
-            : TxExpressionNode( parseLocation ), objTypeExpr( objTypeExpr ) {
+    TxMemAllocNode( const TxLocation& ploc, TxTypeExpressionNode* objTypeExpr )
+            : TxExpressionNode( ploc ), objTypeExpr( objTypeExpr ) {
     }
 
 public:
@@ -149,12 +149,12 @@ public:
 
 class TxHeapAllocNode : public TxMemAllocNode {
 public:
-    TxHeapAllocNode( const TxLocation& parseLocation, TxTypeExpressionNode* objTypeExpr )
-            : TxMemAllocNode( parseLocation, objTypeExpr ) {
+    TxHeapAllocNode( const TxLocation& ploc, TxTypeExpressionNode* objTypeExpr )
+            : TxMemAllocNode( ploc, objTypeExpr ) {
     }
 
     virtual TxHeapAllocNode* make_ast_copy() const override {
-        return new TxHeapAllocNode( this->parseLocation, this->objTypeExpr->make_ast_copy() );
+        return new TxHeapAllocNode( this->ploc, this->objTypeExpr->make_ast_copy() );
     }
 
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
@@ -162,12 +162,12 @@ public:
 
 class TxStackAllocNode : public TxMemAllocNode {
 public:
-    TxStackAllocNode( const TxLocation& parseLocation, TxTypeExpressionNode* objTypeExpr )
-            : TxMemAllocNode( parseLocation, objTypeExpr ) {
+    TxStackAllocNode( const TxLocation& ploc, TxTypeExpressionNode* objTypeExpr )
+            : TxMemAllocNode( ploc, objTypeExpr ) {
     }
 
     virtual TxStackAllocNode* make_ast_copy() const override {
-        return new TxStackAllocNode( this->parseLocation, this->objTypeExpr->make_ast_copy() );
+        return new TxStackAllocNode( this->ploc, this->objTypeExpr->make_ast_copy() );
     }
 
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
@@ -185,8 +185,8 @@ protected:
     /** Gets the type of the allocated object. Should not be called before resolution. */
     virtual const TxType* get_object_type() const = 0;
 
-    TxMakeObjectNode( const TxLocation& parseLocation, TxTypeExpressionNode* typeExpr, TxFunctionCallNode* constructorCall )
-            : TxExpressionNode( parseLocation ), typeExpr( typeExpr ), constructorCall( constructorCall ) {
+    TxMakeObjectNode( const TxLocation& ploc, TxTypeExpressionNode* typeExpr, TxFunctionCallNode* constructorCall )
+            : TxExpressionNode( ploc ), typeExpr( typeExpr ), constructorCall( constructorCall ) {
     }
 
 public:
@@ -242,18 +242,18 @@ protected:
     }
 
 public:
-    TxNewConstructionNode( const TxLocation& parseLocation, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList )
-            : TxMakeObjectNode( parseLocation, typeExpr,
+    TxNewConstructionNode( const TxLocation& ploc, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList )
+            : TxMakeObjectNode( ploc, typeExpr,
                                 new TxFunctionCallNode(
-                                        parseLocation,
+                                        ploc,
                                         new TxConstructorCalleeExprNode(
-                                                parseLocation, new TxHeapAllocNode( parseLocation, new TxTypeExprWrapperNode( typeExpr ) ) ),
+                                                ploc, new TxHeapAllocNode( ploc, new TxTypeExprWrapperNode( typeExpr ) ) ),
                                         argsExprList ) ) {
         targetTypeNode = new TxTypeTypeArgumentNode( this->typeExpr );
     }
 
     virtual TxNewConstructionNode* make_ast_copy() const override {
-        return new TxNewConstructionNode( this->parseLocation, this->typeExpr->make_ast_copy(),
+        return new TxNewConstructionNode( this->ploc, this->typeExpr->make_ast_copy(),
                                           make_node_vec_copy( this->constructorCall->origArgsExprList ) );
     }
 
@@ -274,18 +274,18 @@ protected:
 
 public:
     /** produced by the expression syntax: <...type-expr...>(...constructor-args...) */
-    TxStackConstructionNode( const TxLocation& parseLocation, TxTypeExpressionNode* typeExpr,
+    TxStackConstructionNode( const TxLocation& ploc, TxTypeExpressionNode* typeExpr,
                              const std::vector<TxExpressionNode*>* argsExprList )
-            : TxMakeObjectNode( parseLocation, typeExpr,
+            : TxMakeObjectNode( ploc, typeExpr,
                                 new TxFunctionCallNode(
-                                        parseLocation,
+                                        ploc,
                                         new TxConstructorCalleeExprNode(
-                                                parseLocation, new TxStackAllocNode( parseLocation, new TxTypeExprWrapperNode( typeExpr ) ) ),
+                                                ploc, new TxStackAllocNode( ploc, new TxTypeExprWrapperNode( typeExpr ) ) ),
                                         argsExprList ) ) {
     }
 
     virtual TxStackConstructionNode* make_ast_copy() const override {
-        return new TxStackConstructionNode( this->parseLocation, this->typeExpr->make_ast_copy(),
+        return new TxStackConstructionNode( this->ploc, this->typeExpr->make_ast_copy(),
                                             make_node_vec_copy( this->constructorCall->origArgsExprList ) );
     }
 

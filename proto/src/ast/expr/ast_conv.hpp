@@ -22,7 +22,7 @@ public:
     TxType const * const resultType;
 
     TxConversionNode( TxExpressionNode* expr, const TxType* resultType )
-            : TxExpressionNode( expr->parseLocation ), expr( expr ), resultType( resultType ) {
+            : TxExpressionNode( expr->ploc ), expr( expr ), resultType( resultType ) {
         ASSERT( resultType, "NULL resultType" );
     }
 

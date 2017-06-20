@@ -24,12 +24,12 @@ protected:
 public:
     TxIdentifiedSymbolNode* baseSymbol;
 
-    TxIdentifiedSymbolNode( const TxLocation& parseLocation, TxIdentifiedSymbolNode* baseSymbol, const std::string& name )
-            : TxTypeDefiningNode( parseLocation ), symbolName( new TxIdentifier( name ) ), baseSymbol( baseSymbol ) {
+    TxIdentifiedSymbolNode( const TxLocation& ploc, TxIdentifiedSymbolNode* baseSymbol, const std::string& name )
+            : TxTypeDefiningNode( ploc ), symbolName( new TxIdentifier( name ) ), baseSymbol( baseSymbol ) {
     }
 
     virtual TxIdentifiedSymbolNode* make_ast_copy() const override {
-        return new TxIdentifiedSymbolNode( this->parseLocation, ( this->baseSymbol ? this->baseSymbol->make_ast_copy() : nullptr ),
+        return new TxIdentifiedSymbolNode( this->ploc, ( this->baseSymbol ? this->baseSymbol->make_ast_copy() : nullptr ),
                                            this->symbolName->str() );
     }
 
@@ -61,16 +61,16 @@ protected:
 public:
     TxIdentifiedSymbolNode* symbolNode;
 
-    TxNamedTypeNode( const TxLocation& parseLocation, TxIdentifiedSymbolNode* symbolNode )
-            : TxTypeExpressionNode( parseLocation ), symbolNode( symbolNode ) {
+    TxNamedTypeNode( const TxLocation& ploc, TxIdentifiedSymbolNode* symbolNode )
+            : TxTypeExpressionNode( ploc ), symbolNode( symbolNode ) {
     }
 
-    TxNamedTypeNode( const TxLocation& parseLocation, const std::string& name )
-            : TxTypeExpressionNode( parseLocation ), symbolNode( new TxIdentifiedSymbolNode( parseLocation, nullptr, name ) ) {
+    TxNamedTypeNode( const TxLocation& ploc, const std::string& name )
+            : TxTypeExpressionNode( ploc ), symbolNode( new TxIdentifiedSymbolNode( ploc, nullptr, name ) ) {
     }
 
     virtual TxNamedTypeNode* make_ast_copy() const override {
-        return new TxNamedTypeNode( this->parseLocation, symbolNode->make_ast_copy() );
+        return new TxNamedTypeNode( this->ploc, symbolNode->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -98,12 +98,12 @@ public:
     TxTypeExpressionNode* baseTypeExpr;
     const std::string memberName;
 
-    TxMemberTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseTypeExpr, const std::string& memberName )
-            : TxTypeExpressionNode( parseLocation ), baseTypeExpr( baseTypeExpr ), memberName( memberName ) {
+    TxMemberTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeExpr, const std::string& memberName )
+            : TxTypeExpressionNode( ploc ), baseTypeExpr( baseTypeExpr ), memberName( memberName ) {
     }
 
     virtual TxMemberTypeNode* make_ast_copy() const override {
-        return new TxMemberTypeNode( this->parseLocation, baseTypeExpr->make_ast_copy(), memberName );
+        return new TxMemberTypeNode( this->ploc, baseTypeExpr->make_ast_copy(), memberName );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -134,13 +134,13 @@ public:
     TxTypeExpressionNode* genTypeExpr;
     const std::vector<TxTypeArgumentNode*>* const typeArgs;
 
-    TxGenSpecTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* genTypeExpr, const std::vector<TxTypeArgumentNode*>* typeArgs )
-            : TxTypeExpressionNode( parseLocation ), genTypeExpr( genTypeExpr ), typeArgs( typeArgs ) {
+    TxGenSpecTypeNode( const TxLocation& ploc, TxTypeExpressionNode* genTypeExpr, const std::vector<TxTypeArgumentNode*>* typeArgs )
+            : TxTypeExpressionNode( ploc ), genTypeExpr( genTypeExpr ), typeArgs( typeArgs ) {
         ASSERT( typeArgs && !typeArgs->empty(), "NULL or empty typeargs" );
     }
 
     virtual TxGenSpecTypeNode* make_ast_copy() const override {
-        return new TxGenSpecTypeNode( this->parseLocation, this->genTypeExpr->make_ast_copy(), make_node_vec_copy( this->typeArgs ) );
+        return new TxGenSpecTypeNode( this->ploc, this->genTypeExpr->make_ast_copy(), make_node_vec_copy( this->typeArgs ) );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -179,16 +179,16 @@ public:
 /** Common superclass for specializations of the built-in types Ref and Array. */
 class TxBuiltinTypeSpecNode : public TxTypeExpressionNode {
 public:
-    TxBuiltinTypeSpecNode( const TxLocation& parseLocation )
-            : TxTypeExpressionNode( parseLocation ) {
+    TxBuiltinTypeSpecNode( const TxLocation& ploc )
+            : TxTypeExpressionNode( ploc ) {
     }
 };
 
 /**
  * Custom AST node needed to handle dataspaces. */
 class TxReferenceTypeNode : public TxBuiltinTypeSpecNode {
-    TxReferenceTypeNode( const TxLocation& parseLocation, const TxIdentifier* dataspace, TxTypeTypeArgumentNode* targetTypeArg )
-            : TxBuiltinTypeSpecNode( parseLocation ), dataspace( dataspace ), targetTypeNode( targetTypeArg ) {
+    TxReferenceTypeNode( const TxLocation& ploc, const TxIdentifier* dataspace, TxTypeTypeArgumentNode* targetTypeArg )
+            : TxBuiltinTypeSpecNode( ploc ), dataspace( dataspace ), targetTypeNode( targetTypeArg ) {
     }
 
 protected:
@@ -200,12 +200,12 @@ public:
     const TxIdentifier* dataspace;
     TxTypeTypeArgumentNode* targetTypeNode;
 
-    TxReferenceTypeNode( const TxLocation& parseLocation, const TxIdentifier* dataspace, TxTypeExpressionNode* targetType )
-            : TxReferenceTypeNode( parseLocation, dataspace, new TxTypeTypeArgumentNode( targetType ) ) {
+    TxReferenceTypeNode( const TxLocation& ploc, const TxIdentifier* dataspace, TxTypeExpressionNode* targetType )
+            : TxReferenceTypeNode( ploc, dataspace, new TxTypeTypeArgumentNode( targetType ) ) {
     }
 
     virtual TxReferenceTypeNode* make_ast_copy() const override {
-        return new TxReferenceTypeNode( this->parseLocation, this->dataspace, this->targetTypeNode->make_ast_copy() );
+        return new TxReferenceTypeNode( this->ploc, this->dataspace, this->targetTypeNode->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -223,8 +223,8 @@ public:
 /**
  * Custom AST node needed to provide syntactic sugar for modifiable declaration. */
 class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
-    TxArrayTypeNode( const TxLocation& parseLocation, TxTypeTypeArgumentNode* elementTypeArg, TxValueTypeArgumentNode* capacityExprArg )
-            : TxBuiltinTypeSpecNode( parseLocation ), elementTypeNode( elementTypeArg ), capacityNode( capacityExprArg ) {
+    TxArrayTypeNode( const TxLocation& ploc, TxTypeTypeArgumentNode* elementTypeArg, TxValueTypeArgumentNode* capacityExprArg )
+            : TxBuiltinTypeSpecNode( ploc ), elementTypeNode( elementTypeArg ), capacityNode( capacityExprArg ) {
     }
 
 protected:
@@ -234,13 +234,13 @@ public:
     TxTypeTypeArgumentNode* elementTypeNode;
     TxValueTypeArgumentNode* capacityNode;
 
-    TxArrayTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* elementType, TxExpressionNode* capacityExpr = nullptr )
-            : TxArrayTypeNode( parseLocation, new TxTypeTypeArgumentNode( elementType ),
+    TxArrayTypeNode( const TxLocation& ploc, TxTypeExpressionNode* elementType, TxExpressionNode* capacityExpr = nullptr )
+            : TxArrayTypeNode( ploc, new TxTypeTypeArgumentNode( elementType ),
                                ( capacityExpr ? new TxValueTypeArgumentNode( new TxMaybeConversionNode( capacityExpr ) ) : nullptr ) ) {
     }
 
     virtual TxArrayTypeNode* make_ast_copy() const override {
-        return new TxArrayTypeNode( this->parseLocation, this->elementTypeNode->make_ast_copy(),
+        return new TxArrayTypeNode( this->ploc, this->elementTypeNode->make_ast_copy(),
                                     ( this->capacityNode ? this->capacityNode->make_ast_copy() : nullptr ) );
     }
 
@@ -294,10 +294,10 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
     void inner_code_gen_type( LlvmGenerationContext& context ) const;
 
     /** used by make_ast_copy() */
-    TxDerivedTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseType,
+    TxDerivedTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType,
                        std::vector<TxTypeExpressionNode*>* interfaces, std::vector<TxDeclarationNode*>* members,
                        bool interfaceKW, bool mutableType )
-            : TxTypeExpressionNode( parseLocation ), baseType( baseType ), interfaces( interfaces ), members( members ) {
+            : TxTypeExpressionNode( ploc ), baseType( baseType ), interfaces( interfaces ), members( members ) {
 //        this->interfaceKW = interfaceKW;
 //        this->mutableType = mutableType;
     }
@@ -314,19 +314,19 @@ public:
     std::vector<TxTypeExpressionNode*>* interfaces;
     std::vector<TxDeclarationNode*>* members;
 
-    TxDerivedTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseType,
+    TxDerivedTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType,
                        std::vector<TxTypeExpressionNode*>* interfaces, std::vector<TxDeclarationNode*>* members )
-            : TxTypeExpressionNode( parseLocation ), baseType( baseType ), interfaces( interfaces ), members( members ) {
+            : TxTypeExpressionNode( ploc ), baseType( baseType ), interfaces( interfaces ), members( members ) {
     }
 
-    TxDerivedTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseType, std::vector<TxDeclarationNode*>* members )
-        : TxDerivedTypeNode(parseLocation, baseType, new std::vector<TxTypeExpressionNode*>(), members) { }
+    TxDerivedTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType, std::vector<TxDeclarationNode*>* members )
+        : TxDerivedTypeNode(ploc, baseType, new std::vector<TxTypeExpressionNode*>(), members) { }
 
-    TxDerivedTypeNode( const TxLocation& parseLocation, std::vector<TxDeclarationNode*>* members )
-        : TxDerivedTypeNode(parseLocation, nullptr, new std::vector<TxTypeExpressionNode*>(), members) { }
+    TxDerivedTypeNode( const TxLocation& ploc, std::vector<TxDeclarationNode*>* members )
+        : TxDerivedTypeNode(ploc, nullptr, new std::vector<TxTypeExpressionNode*>(), members) { }
 
     virtual TxDerivedTypeNode* make_ast_copy() const override {
-        return new TxDerivedTypeNode( this->parseLocation, this->baseType->make_ast_copy(),
+        return new TxDerivedTypeNode( this->ploc, this->baseType->make_ast_copy(),
                                       make_node_vec_copy( this->interfaces ), make_node_vec_copy( this->members ) );
                                       //this->interfaceKW, this->mutableType );
     }
@@ -362,11 +362,11 @@ public:
 //public:
 //    TxTypeExpressionNode* derivedTypeNode;
 //
-//    TxSuperTypeNode(const TxLocation& parseLocation, TxTypeExpressionNode* derivedTypeNode)
-//        : TxTypeExpressionNode(parseLocation), derivedTypeNode(derivedTypeNode)  { }
+//    TxSuperTypeNode(const TxLocation& ploc, TxTypeExpressionNode* derivedTypeNode)
+//        : TxTypeExpressionNode(ploc), derivedTypeNode(derivedTypeNode)  { }
 //
 //    virtual TxSuperTypeNode* make_ast_copy() const override {
-//        return new TxSuperTypeNode( this->parseLocation, this->derivedTypeNode->make_ast_copy() );
+//        return new TxSuperTypeNode( this->ploc, this->derivedTypeNode->make_ast_copy() );
 //    }
 //
 //    virtual void symbol_resolution_pass() override {
@@ -387,7 +387,7 @@ class TxFunctionTypeNode : public TxTypeExpressionNode {
     // (a function type doesn't declare (create entities for) the function args)
 
     static TxArgTypeDefNode* make_return_field( TxTypeExpressionNode* returnType ) {
-        return ( returnType ? new TxArgTypeDefNode( returnType->parseLocation, "$return", returnType ) : nullptr );
+        return ( returnType ? new TxArgTypeDefNode( returnType->ploc, "$return", returnType ) : nullptr );
     }
 
 protected:
@@ -401,15 +401,15 @@ public:
     std::vector<TxArgTypeDefNode*>* arguments;
     TxArgTypeDefNode* returnField;
 
-    TxFunctionTypeNode( const TxLocation& parseLocation, const bool modifying,
+    TxFunctionTypeNode( const TxLocation& ploc, const bool modifying,
                         std::vector<TxArgTypeDefNode*>* arguments, TxTypeExpressionNode* returnType )
-            : TxTypeExpressionNode( parseLocation ), modifying( modifying ),
+            : TxTypeExpressionNode( ploc ), modifying( modifying ),
               arguments( arguments ),
               returnField( make_return_field( returnType ) ) {
     }
 
     virtual TxFunctionTypeNode* make_ast_copy() const override {
-        return new TxFunctionTypeNode( this->parseLocation, this->modifying, make_node_vec_copy( this->arguments ),
+        return new TxFunctionTypeNode( this->ploc, this->modifying, make_node_vec_copy( this->arguments ),
                                        ( this->returnField ? this->returnField->typeExpression->make_ast_copy() : nullptr ) );
     }
 
@@ -469,12 +469,12 @@ protected:
 public:
     TxTypeExpressionNode* baseType;
 
-    TxModifiableTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseType )
-            : TxTypeExpressionNode( parseLocation ), baseType( baseType ) {
+    TxModifiableTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
+            : TxTypeExpressionNode( ploc ), baseType( baseType ) {
     }
 
     virtual TxModifiableTypeNode* make_ast_copy() const override {
-        return new TxModifiableTypeNode( this->parseLocation, this->baseType->make_ast_copy() );
+        return new TxModifiableTypeNode( this->ploc, this->baseType->make_ast_copy() );
     }
 
     virtual bool is_modifiable() const { return true; }
@@ -508,12 +508,12 @@ protected:
     }
 
 public:
-    TxMaybeModTypeNode( const TxLocation& parseLocation, TxTypeExpressionNode* baseType )
-            : TxModifiableTypeNode( parseLocation, baseType ) {
+    TxMaybeModTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
+            : TxModifiableTypeNode( ploc, baseType ) {
     }
 
     virtual TxMaybeModTypeNode* make_ast_copy() const override {
-        return new TxMaybeModTypeNode( this->parseLocation, this->baseType->make_ast_copy() );
+        return new TxMaybeModTypeNode( this->ploc, this->baseType->make_ast_copy() );
     }
 
     virtual bool is_modifiable() const override {

@@ -16,10 +16,10 @@ protected:
 public:
     const TxIdentifier* ident;
 
-    TxImportNode( const TxLocation& parseLocation, const TxIdentifier* identifier );
+    TxImportNode( const TxLocation& ploc, const TxIdentifier* identifier );
 
     virtual TxImportNode* make_ast_copy() const override {
-        return new TxImportNode( this->parseLocation, this->ident );
+        return new TxImportNode( this->ploc, this->ident );
     }
 
     virtual void symbol_resolution_pass() override { }
@@ -45,12 +45,12 @@ protected:
     }
 
 public:
-    TxModuleNode( const TxLocation& parseLocation, const TxIdentifier* identifier,
+    TxModuleNode( const TxLocation& ploc, const TxIdentifier* identifier,
                   std::vector<TxImportNode*>* imports,
                   std::vector<TxDeclarationNode*>* members,
                   std::vector<TxModuleNode*>* subModules,
                   bool builtin = false )
-            : TxNode( parseLocation ), ident( identifier ), imports( imports ), members( members ), subModules( subModules ), builtin( builtin ) {
+            : TxNode( ploc ), ident( identifier ), imports( imports ), members( members ), subModules( subModules ), builtin( builtin ) {
         ASSERT( identifier, "NULL identifier" );  // (sanity check on parser)
     }
 
@@ -72,8 +72,8 @@ class TxParsingUnitNode : public TxNode {
 public:
     TxModuleNode* module;
 
-    TxParsingUnitNode( const TxLocation& parseLocation, TxModuleNode* module )
-            : TxNode( parseLocation ), module( module ) {
+    TxParsingUnitNode( const TxLocation& ploc, TxModuleNode* module )
+            : TxNode( ploc ), module( module ) {
     }
 
     virtual TxParsingUnitNode* make_ast_copy() const override {

@@ -165,7 +165,7 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
             // implicit dereferencing ('^') operation:
             if ( auto baseRefTargetType = baseType->target_type() ) {
                 //std::cerr << "Adding implicit '^' to: " << this->baseExpr << "  six=" << six << std::endl;
-                auto derefNode = new TxReferenceDerefNode( this->baseExpr->parseLocation, this->baseExpr );
+                auto derefNode = new TxReferenceDerefNode( this->baseExpr->ploc, this->baseExpr );
                 derefNode->node_declaration_pass( this );
                 derefNode->symbol_resolution_pass();
                 this->baseExpr = derefNode;

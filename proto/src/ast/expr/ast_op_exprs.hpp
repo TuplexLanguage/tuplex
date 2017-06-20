@@ -9,8 +9,8 @@
 
 class TxOperatorValueNode : public TxExpressionNode {
 public:
-    TxOperatorValueNode( const TxLocation& parseLocation )
-            : TxExpressionNode( parseLocation ) {
+    TxOperatorValueNode( const TxLocation& ploc )
+            : TxExpressionNode( ploc ) {
     }
 };
 
@@ -24,14 +24,14 @@ public:
     TxMaybeConversionNode* rhs;
     const int op_class;
 
-    TxBinaryOperatorNode( const TxLocation& parseLocation, TxExpressionNode* lhs, const TxOperation op, TxExpressionNode* rhs )
-            : TxOperatorValueNode( parseLocation ), op( op ),
+    TxBinaryOperatorNode( const TxLocation& ploc, TxExpressionNode* lhs, const TxOperation op, TxExpressionNode* rhs )
+            : TxOperatorValueNode( ploc ), op( op ),
               lhs( new TxMaybeConversionNode( lhs ) ), rhs( new TxMaybeConversionNode( rhs ) ), op_class( get_op_class( op ) ) {
         ASSERT( is_valid( op ), "Invalid operator value: " << (int)op );
     }
 
     virtual TxBinaryOperatorNode* make_ast_copy() const override {
-        return new TxBinaryOperatorNode( this->parseLocation, this->lhs->originalExpr->make_ast_copy(), this->op,
+        return new TxBinaryOperatorNode( this->ploc, this->lhs->originalExpr->make_ast_copy(), this->op,
                                          this->rhs->originalExpr->make_ast_copy() );
     }
 
@@ -64,15 +64,15 @@ protected:
 
 public:
     TxMaybeConversionNode* operand;
-    TxUnaryMinusNode( const TxLocation& parseLocation, TxExpressionNode* operand )
-            : TxOperatorValueNode( parseLocation ), operand( new TxMaybeConversionNode( operand ) ) {
+    TxUnaryMinusNode( const TxLocation& ploc, TxExpressionNode* operand )
+            : TxOperatorValueNode( ploc ), operand( new TxMaybeConversionNode( operand ) ) {
         if ( auto intLit = dynamic_cast<TxIntegerLitNode*>( this->operand->originalExpr ) ) {
             intLit->set_negative();
         }
     }
 
     virtual TxUnaryMinusNode* make_ast_copy() const override {
-        return new TxUnaryMinusNode( this->parseLocation, this->operand->originalExpr->make_ast_copy() );
+        return new TxUnaryMinusNode( this->ploc, this->operand->originalExpr->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -98,12 +98,12 @@ protected:
 
 public:
     TxExpressionNode* operand;
-    TxUnaryLogicalNotNode( const TxLocation& parseLocation, TxExpressionNode* operand )
-            : TxOperatorValueNode( parseLocation ), operand( operand ) {
+    TxUnaryLogicalNotNode( const TxLocation& ploc, TxExpressionNode* operand )
+            : TxOperatorValueNode( ploc ), operand( operand ) {
     }
 
     virtual TxUnaryLogicalNotNode* make_ast_copy() const override {
-        return new TxUnaryLogicalNotNode( this->parseLocation, this->operand->make_ast_copy() );
+        return new TxUnaryLogicalNotNode( this->ploc, this->operand->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {

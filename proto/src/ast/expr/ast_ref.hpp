@@ -40,12 +40,12 @@ protected:
 public:
     TxExpressionNode* reference;
 
-    TxReferenceDerefNode( const TxLocation& parseLocation, TxExpressionNode* operand )
-            : TxExpressionNode( parseLocation ), reference( operand ) {
+    TxReferenceDerefNode( const TxLocation& ploc, TxExpressionNode* operand )
+            : TxExpressionNode( ploc ), reference( operand ) {
     }
 
     virtual TxReferenceDerefNode* make_ast_copy() const override {
-        return new TxReferenceDerefNode( this->parseLocation, this->reference->make_ast_copy() );
+        return new TxReferenceDerefNode( this->ploc, this->reference->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
@@ -84,14 +84,14 @@ protected:
     }
 
 public:
-    TxReferenceToNode( const TxLocation& parseLocation, TxExpressionNode* target )
-            : TxExpressionNode( parseLocation ), target( target ) {
+    TxReferenceToNode( const TxLocation& ploc, TxExpressionNode* target )
+            : TxExpressionNode( ploc ), target( target ) {
         TxTypeExprWrapperNode* targetTypeExpr = new TxTypeExprWrapperNode( this->target );
         this->targetTypeNode = new TxTypeTypeArgumentNode( targetTypeExpr );
     }
 
     virtual TxReferenceToNode* make_ast_copy() const override {
-        return new TxReferenceToNode( this->parseLocation, this->target->make_ast_copy() );
+        return new TxReferenceToNode( this->ploc, this->target->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override;
@@ -131,12 +131,12 @@ protected:
 public:
     TxExpressionNode* reference;
 
-    TxDerefAssigneeNode( const TxLocation& parseLocation, TxExpressionNode* operand )
-            : TxAssigneeNode( parseLocation ), reference( operand ) {
+    TxDerefAssigneeNode( const TxLocation& ploc, TxExpressionNode* operand )
+            : TxAssigneeNode( ploc ), reference( operand ) {
     }
 
     virtual TxDerefAssigneeNode* make_ast_copy() const override {
-        return new TxDerefAssigneeNode( this->parseLocation, this->reference->make_ast_copy() );
+        return new TxDerefAssigneeNode( this->ploc, this->reference->make_ast_copy() );
     }
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override {

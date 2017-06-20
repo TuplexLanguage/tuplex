@@ -20,8 +20,8 @@ class Constant;
  */
 class TxEntityDefiningNode : public TxNode {
 public:
-    TxEntityDefiningNode( const TxLocation& parseLocation )
-            : TxNode( parseLocation ) {
+    TxEntityDefiningNode( const TxLocation& ploc )
+            : TxNode( ploc ) {
     }
 
     virtual TxEntityDefiningNode* make_ast_copy() const override = 0;
@@ -56,8 +56,8 @@ protected:
     virtual const TxType* define_type() = 0;
 
 public:
-    TxTypeDefiningNode( const TxLocation& parseLocation )
-            : TxEntityDefiningNode( parseLocation ) {
+    TxTypeDefiningNode( const TxLocation& ploc )
+            : TxEntityDefiningNode( ploc ) {
     }
 
     virtual TxTypeDefiningNode* make_ast_copy() const override = 0;
@@ -98,8 +98,8 @@ protected:
     virtual const TxField* define_field() = 0;
 
 public:
-    TxFieldDefiningNode( const TxLocation& parseLocation )
-            : TxEntityDefiningNode( parseLocation ) {
+    TxFieldDefiningNode( const TxLocation& ploc )
+            : TxEntityDefiningNode( ploc ) {
     }
 
     virtual TxFieldDefiningNode* make_ast_copy() const override = 0;

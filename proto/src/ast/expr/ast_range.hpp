@@ -15,8 +15,8 @@ class TxERangeLitNode final : public TxExpressionNode {
 protected:
     virtual void declaration_pass() override {
         if ( !this->stepValue )
-            this->stepValue = new TxIntegerLitNode( endValue->parseLocation, 1, true, TXBT_LONG );
-        this->stackConstr = new TxStackConstructionNode( parseLocation, new TxTypeExprWrapperNode( this ),
+            this->stepValue = new TxIntegerLitNode( endValue->ploc, 1, true, TXBT_LONG );
+        this->stackConstr = new TxStackConstructionNode( ploc, new TxTypeExprWrapperNode( this ),
                                                          new std::vector<TxExpressionNode*>( { startValue, endValue, stepValue } ) );
     }
 
@@ -40,7 +40,7 @@ protected:
             }
         }
 
-        auto baseTypeNode = new TxNamedTypeNode( this->parseLocation, "tx.ERange" );
+        auto baseTypeNode = new TxNamedTypeNode( this->ploc, "tx.ERange" );
         run_declaration_pass( baseTypeNode, this, "basetype" );
         baseTypeNode->symbol_resolution_pass();
         auto baseType = baseTypeNode->resolve_type();
@@ -54,29 +54,29 @@ protected:
     }
 
 public:
-    TxERangeLitNode( const TxLocation& parseLocation, TxExpressionNode* startValue, TxExpressionNode* endValue,
+    TxERangeLitNode( const TxLocation& ploc, TxExpressionNode* startValue, TxExpressionNode* endValue,
                      TxExpressionNode* stepValue = nullptr )
-            : TxExpressionNode( parseLocation ), startValue( startValue ), endValue( endValue ), stepValue( stepValue ) {
+            : TxExpressionNode( ploc ), startValue( startValue ), endValue( endValue ), stepValue( stepValue ) {
     }
 
     /** factory method that folds ( start .. ( step .. end ) ) grammar match into a single range node */
-    static TxERangeLitNode* make_range_node( const TxLocation& parseLocation, TxExpressionNode* startValue, TxExpressionNode* endValue ) {
+    static TxERangeLitNode* make_range_node( const TxLocation& ploc, TxExpressionNode* startValue, TxExpressionNode* endValue ) {
         if ( auto otherRange = dynamic_cast<TxERangeLitNode*>( endValue ) ) {
             if ( otherRange->stepValue ) {
                 // error, too many subsequent .. operators
                 CERROR( otherRange, "Too many subsequent .. operators in range expression" );
             }
-            TxERangeLitNode tmp( parseLocation, startValue, otherRange->endValue, otherRange->startValue );
+            TxERangeLitNode tmp( ploc, startValue, otherRange->endValue, otherRange->startValue );
             memcpy( otherRange, &tmp, sizeof( TxERangeLitNode ) );
             return otherRange;
         }
         else {
-            return new TxERangeLitNode( parseLocation, startValue, endValue );
+            return new TxERangeLitNode( ploc, startValue, endValue );
         }
     }
 
     virtual TxERangeLitNode* make_ast_copy() const override {
-        return new TxERangeLitNode( this->parseLocation, this->startValue->make_ast_copy(), this->endValue->make_ast_copy(),
+        return new TxERangeLitNode( this->ploc, this->startValue->make_ast_copy(), this->endValue->make_ast_copy(),
                                     this->stepValue->make_ast_copy() );
     }
 

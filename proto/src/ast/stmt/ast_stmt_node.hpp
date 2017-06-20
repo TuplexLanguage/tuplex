@@ -35,8 +35,8 @@ protected:
     }
 
 public:
-    TxStatementNode( const TxLocation& parseLocation )
-            : TxNode( parseLocation ) {
+    TxStatementNode( const TxLocation& ploc )
+            : TxNode( ploc ) {
     }
 
     virtual TxStatementNode* make_ast_copy() const override = 0;

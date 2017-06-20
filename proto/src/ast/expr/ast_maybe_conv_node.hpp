@@ -24,7 +24,7 @@ public:
     TxExpressionNode* const originalExpr;
 
     TxMaybeConversionNode( TxExpressionNode* originalExpr )
-            : TxExpressionNode( originalExpr->parseLocation ), resolvedExpr( originalExpr ), originalExpr( originalExpr ) {
+            : TxExpressionNode( originalExpr->ploc ), resolvedExpr( originalExpr ), originalExpr( originalExpr ) {
         ASSERT( originalExpr, "NULL originalExpr" );
         ASSERT( !dynamic_cast<TxMaybeConversionNode*>( originalExpr ),
                 "Can't wrap a TxMaybeConversionNode with another TxMaybeConversionNode: " << originalExpr );
