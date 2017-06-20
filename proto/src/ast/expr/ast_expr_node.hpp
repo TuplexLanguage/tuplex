@@ -67,6 +67,11 @@ public:
     }
 
 
+    /** Generates code that produces the type id (as opposed to the value) of this expression.
+     * This returns a Constant value, unless this dereferences a non-constant reference. */
+    virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const;
+
+
     /** Generates code that produces the value of this expression.
      * If this expression is constant, the value will be of llvm::Constant type. */
     virtual llvm::Value* code_gen_expr( LlvmGenerationContext& context, GenScope* scope ) const final;
@@ -75,21 +80,16 @@ public:
     virtual llvm::Value* code_gen_addr( LlvmGenerationContext& context, GenScope* scope ) const final;
 
 
-    /** Generates code that produces the type id (as opposed to the value) of this expression.
-     * This returns a Constant value, unless this dereferences a non-constant reference. */
-    virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const;
-
-
     /** Generates code that produces the value of this expression. */
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const = 0;
+
+    /** Generates code that produces a pointer to the value of this expression. */
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const;
+
 
     /** Generates code that produces a constant value.
      * Only valid to call on nodes for which is_statically_constant() returns true. */
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const;
-
-
-    /** Generates code that produces a pointer to the value of this expression. */
-    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const;
 
     /** Generates code that produces a constant pointer to the constant value of this expression.
      * Only valid to call on nodes for which is_statically_constant() returns true. */

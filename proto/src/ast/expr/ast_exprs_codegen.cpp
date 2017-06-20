@@ -54,12 +54,16 @@ Value* TxFunctionCallNode::code_gen_dyn_value( LlvmGenerationContext& context, G
 
 Value* TxFunctionCallNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    // automatically allocates stack space for the return value
-    auto valueV = this->code_gen_expr( context, scope );
-    //Value* valuePtrV = this->get_type()->type()->gen_alloca( context, scope, "returnval" );
-    Value* valuePtrV = scope->builder->CreateAlloca( valueV->getType(), nullptr, "returnval" );
-    scope->builder->CreateStore( valueV, valuePtrV );
-    return valuePtrV;
+    if ( this->is_stack_allocation_expression() ) {  // only true if there is an inlined expression
+        return this->inlinedExpression->code_gen_dyn_address( context, scope );
+    }
+    else {
+        // automatically allocates stack space for the return value
+        auto valueV = this->code_gen_expr( context, scope );
+        Value* valuePtrV = scope->builder->CreateAlloca( valueV->getType(), nullptr, "returnval" );
+        scope->builder->CreateStore( valueV, valuePtrV );
+        return valuePtrV;
+    }
 }
 
 Value* TxConstructorCalleeExprNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -115,8 +119,6 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr( LlvmGenerationContext& context
 Value* TxHeapAllocNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     return this->get_type()->type()->gen_malloc( context, scope );
-//    Type* objT = context.get_llvm_type( this->get_type() );
-//    return context.gen_malloc( scope, objT );
 }
 
 Value* TxStackAllocNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -158,7 +160,25 @@ Value* TxStackConstructionNode::code_gen_dyn_value( LlvmGenerationContext& conte
     else {
         Value* objAllocV = static_cast<TxConstructorCalleeExprNode*>( this->constructorCall->callee )->gen_obj_ptr( context, scope );
         this->constructorCall->code_gen_dyn_value( context, scope );
-        return objAllocV;
+        return scope->builder->CreateLoad( objAllocV );
     }
 }
 
+Value* TxStackConstructionNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
+    // stack constructor returns the constructed object by direct pointer, not by reference
+    TRACE_CODEGEN( this, context );
+    ASSERT( !this->initializationExpression, "Can't get *address* of stack construction which has inlined expression in " << this
+            << "   parent: " << this->parent() << std::endl );
+// currently probably not needed:
+//    if ( this->initializationExpression ) {
+//        // automatically allocates stack space for the return value
+//        std::cerr << "Returning address from " << this << "   parent: " << this->parent() << std::endl;
+//        auto valueV = this->initializationExpression->code_gen_dyn_value( context, scope );
+//        Value* valuePtrV = scope->builder->CreateAlloca( valueV->getType(), nullptr, "stackval" );
+//        scope->builder->CreateStore( valueV, valuePtrV );
+//        return valuePtrV;
+//    }
+    Value* objAllocV = static_cast<TxConstructorCalleeExprNode*>( this->constructorCall->callee )->gen_obj_ptr( context, scope );
+    this->constructorCall->code_gen_dyn_value( context, scope );
+    return objAllocV;
+}

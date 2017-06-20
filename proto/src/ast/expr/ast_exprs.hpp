@@ -260,7 +260,7 @@ public:
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
-/** Makes a new object in newly allocated stack memory and returns it by value. */
+/** Makes a new object in newly allocated stack memory and returns it by value/address. */
 class TxStackConstructionNode : public TxMakeObjectNode {
 protected:
     virtual const TxType* get_object_type() const override {
@@ -294,4 +294,6 @@ public:
     }
 
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 };

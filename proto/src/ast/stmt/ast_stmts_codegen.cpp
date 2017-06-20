@@ -21,23 +21,23 @@ void TxFieldStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope 
     // If init expression does a stack allocation of this field's type (instance-equivalent type),
     // this field shall bind to that allocation.
 
-    Value* fieldVal; // = txType->gen_alloca(context, scope, declaration->get_symbol()->get_name());
+    Value* fieldValPtr;
     if ( this->field->initExpression ) {
         if ( this->field->initExpression->is_stack_allocation_expression() ) {
-            fieldVal = this->field->initExpression->code_gen_expr( context, scope );
+            fieldValPtr = this->field->initExpression->code_gen_addr( context, scope );
         }
         else {
-            fieldVal = txType->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
+            fieldValPtr = txType->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
             // create implicit assignment statement
             if ( Value* initializer = this->field->initExpression->code_gen_expr( context, scope ) )
-                scope->builder->CreateStore( initializer, fieldVal );
+                scope->builder->CreateStore( initializer, fieldValPtr );
         }
     }
     else {
-        fieldVal = txType->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
+        fieldValPtr = txType->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
         // We don't automatically invoke default constructor (in future, a code flow validator should check that initialized before first use)
     }
-    context.register_llvm_value( uniqueName, fieldVal );
+    context.register_llvm_value( uniqueName, fieldValPtr );
 }
 
 void TxTypeStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -79,20 +79,21 @@ void TxReturnStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope
     TRACE_CODEGEN( this, context );
     if ( this->expr ) {
         auto exprV = this->expr->code_gen_expr( context, scope );
-        // TODO: this is hackish, can we find systematic solution?
-        auto expectedT = context.get_llvm_type( this->expr->get_type() );
-        if ( exprV->getType() == expectedT )
-            scope->builder->CreateRet( exprV );
-        else if ( exprV->getType()->isPointerTy() && exprV->getType()->getPointerElementType() == expectedT ) {
-            LOG_DEBUG( context.LOGGER(),
-                       "auto-loading return value type " << ::to_string(exprV->getType()) << "  to expected  " << ::to_string(expectedT) );
-            scope->builder->CreateRet( scope->builder->CreateLoad( exprV ) );
-        }
-        else {
-            LOG( context.LOGGER(), ERROR,
-                 "Mismatching return value type: " << ::to_string(exprV->getType()) << " is not as expected " << ::to_string(expectedT) );
-            scope->builder->CreateRet( exprV );
-        }
+        scope->builder->CreateRet( exprV );
+//        // TO DO: this is hackish, can we find systematic solution?
+//        auto expectedT = context.get_llvm_type( this->expr->get_type() );
+//        if ( exprV->getType() == expectedT )
+//            scope->builder->CreateRet( exprV );
+//        else if ( exprV->getType()->isPointerTy() && exprV->getType()->getPointerElementType() == expectedT ) {
+//            LOG_DEBUG( context.LOGGER(),
+//                       "auto-loading return value type " << ::to_string(exprV->getType()) << "  to expected  " << ::to_string(expectedT) );
+//            scope->builder->CreateRet( scope->builder->CreateLoad( exprV ) );
+//        }
+//        else {
+//            LOG( context.LOGGER(), ERROR,
+//                 "Mismatching return value type: " << ::to_string(exprV->getType()) << " is not as expected " << ::to_string(expectedT) );
+//            scope->builder->CreateRet( exprV );
+//        }
     }
     else
         scope->builder->CreateRetVoid();

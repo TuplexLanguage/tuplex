@@ -5,14 +5,8 @@
 #include "ast_assignee_node.hpp"
 
 class TxArrayLitNode : public TxExpressionNode {
-//protected:
-//    /** Returns true if this array literal's context requires it to be mutable. Used by subclasses upon type creation. */
-//    bool requires_mutable_type() const;
-//
 public:
     TxArrayLitNode( const TxLocation& ploc ) : TxExpressionNode( ploc ) { }
-
-    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 /** Represents filled array literals, explicitly specified in source code as well as array initializers created implicitly

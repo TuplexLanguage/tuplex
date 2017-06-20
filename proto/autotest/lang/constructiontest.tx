@@ -49,7 +49,7 @@ type ~ BType derives AType {
 type CType derives BType;
 
 object_construction()->Int {
-    stackObj := AType();  ## FIXME: allocates twice & copies!
+    stackObj := AType();
     assert stackObj.field1 == -17;
     assert stackObj.field2 == 3.14;
     assert stackObj.field3 == FALSE;

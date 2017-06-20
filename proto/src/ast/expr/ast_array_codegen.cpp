@@ -7,13 +7,6 @@
 
 using namespace llvm;
 
-Value* TxArrayLitNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
-    if ( this->is_statically_constant() )
-        return this->code_gen_const_address( context );
-    else
-        return this->code_gen_expr( context, scope );
-}
-
 Value* TxFilledArrayLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
 
