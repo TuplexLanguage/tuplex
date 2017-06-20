@@ -33,12 +33,15 @@ TxScopeSymbol::TxScopeSymbol( TxScopeSymbol* parent, const std::string& name )
 }
 
 std::string TxScopeSymbol::make_unique_name( const std::string& baseName, bool suppressZeroSuffix ) const {
-    int counter = 0;
+    unsigned counter = 0;
+    std::string uniqueName = ( suppressZeroSuffix && !baseName.empty() ) ? baseName : baseName + std::to_string( counter );
+    if ( !this->has_symbol( uniqueName ) )
+        return uniqueName;
     while ( true ) {
-        std::string uniqueName = ( counter == 0 && suppressZeroSuffix && !baseName.empty() ) ? baseName : baseName + std::to_string( counter );
+        counter++;
+        std::string uniqueName = baseName + std::to_string( counter );
         if ( !this->has_symbol( uniqueName ) )
             return uniqueName;
-        counter++;
     }
 }
 
