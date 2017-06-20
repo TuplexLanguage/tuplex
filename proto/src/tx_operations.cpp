@@ -3,7 +3,7 @@
 typedef struct {
     TxOperation op;
     TxOperationClass opclass;
-    const char* name;
+    const std::string name;
 } OpName;
 
 static const OpName OP_NAMES[] = {
@@ -30,10 +30,6 @@ TxOperationClass get_op_class( TxOperation op ) {
     return OP_NAMES[op].opclass;
 }
 
-const char* to_cstring( TxOperation op ) {
+const std::string& to_string( TxOperation op ) {
     return OP_NAMES[op].name;
-}
-
-std::string to_string( TxOperation op ) {
-    return std::string( to_cstring( op ) );
 }

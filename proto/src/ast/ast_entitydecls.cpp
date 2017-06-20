@@ -38,21 +38,21 @@ void TxFieldDeclNode::declaration_pass() {
     }
     else if ( dynamic_cast<TxModule*>( lexContext.scope() ) ) {  // if in global scope
         if ( flags & TXD_STATIC )
-            CERROR( this, "'static' is invalid modifier for module scope field " << this->field->get_identifier() );
+            CERROR( this, "'static' is invalid modifier for module scope field " << this->field->get_descriptor() );
         if ( flags & TXD_FINAL )
-            CERROR( this, "'final' is invalid modifier for module scope field " << this->field->get_identifier() );
+            CERROR( this, "'final' is invalid modifier for module scope field " << this->field->get_descriptor() );
         if ( flags & TXD_OVERRIDE )
-            CERROR( this, "'override' is invalid modifier for module scope field " << this->field->get_identifier() );
+            CERROR( this, "'override' is invalid modifier for module scope field " << this->field->get_descriptor() );
         if ( flags & TXD_ABSTRACT )
-            CERROR( this, "'abstract' is invalid modifier for module scope field " << this->field->get_identifier() );
+            CERROR( this, "'abstract' is invalid modifier for module scope field " << this->field->get_descriptor() );
         storage = TXS_GLOBAL;
     }
     else {
         if ( flags & TXD_ABSTRACT ) {
             if ( !( flags & TXD_STATIC ) )
-                CERROR( this, "'abstract' fields must also be declared 'static': " << this->field->get_identifier() );
+                CERROR( this, "'abstract' fields must also be declared 'static': " << this->field->get_descriptor() );
             if ( !( flags & ( TXD_PROTECTED | TXD_PUBLIC ) ) )
-                CERROR( this, "'abstract' fields cannot be private (since private are non-virtual): " << this->field->get_identifier() );
+                CERROR( this, "'abstract' fields cannot be private (since private are non-virtual): " << this->field->get_descriptor() );
         }
         storage = ( flags & TXD_STATIC ) ? TXS_STATIC : TXS_INSTANCE;
     }
@@ -91,7 +91,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
     auto storage = this->field->get_declaration()->get_storage();
     if ( type->is_modifiable() ) {
         if ( storage == TXS_GLOBAL )
-            CERROR( this, "Global fields may not be modifiable: " << field->get_identifier() );
+            CERROR( this, "Global fields may not be modifiable: " << field->get_descriptor() );
     }
 
     switch ( storage ) {
@@ -100,7 +100,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
         if ( this->field->initExpression ) {
             if ( !( this->field->get_declaration()->get_decl_flags() & TXD_GENBINDING ) )  // hackish... skips tx.Array.C
                 CWARNING( this, "Not yet supported: Inline initializer for instance fields (initialize within constructor instead): "
-                          << this->field->get_identifier() );
+                          << this->field->get_descriptor() );
         }
         if ( type->is_modifiable() ) {
             if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->context().scope() ) ) {
@@ -108,7 +108,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
                 if ( !outerTypeDecl->get_definer()->get_type()->is_mutable() ) {
                     if ( !this->context().reinterpretation_definer() ) {
                         // (suppressed if this is a specialization)
-                        CERROR( this, "Instance field of an immutable type is declared modifiable: " << field->get_identifier() );
+                        CERROR( this, "Instance field of an immutable type is declared modifiable: " << field->get_descriptor() );
                     }
                 }
             }
@@ -123,7 +123,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
                     if ( !outerTypeDecl->get_definer()->get_type()->is_mutable() ) {
                         if ( !this->context().reinterpretation_definer() ) {
                             // (we skip this error for type specializations that have not been declared mutable, this method will be suppressed)
-                            CERROR( this, "Instance method of an immutable type may not be declared modifying: " << field->get_identifier() );
+                            CERROR( this, "Instance method of an immutable type may not be declared modifying: " << field->get_descriptor() );
                         }
                     }
                 }
@@ -134,7 +134,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
         if ( !this->field->initExpression ) {
             if ( !( this->field->get_declaration()->get_decl_flags() & TXD_ABSTRACT ) )
                 if ( this->field->fieldName->str() != "$adTypeId" )
-                    CERROR( this, "Non-abstract virtual fields/methods must have an initializer: " << this->field->get_identifier() );
+                    CERROR( this, "Non-abstract virtual fields/methods must have an initializer: " << this->field->get_descriptor() );
             // FUTURE: When static initializers in types are supported, static/virtual fields' initialization may be deferred.
         }
         else {
@@ -146,7 +146,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
     case TXS_STATIC:
         if ( !this->field->initExpression ) {
             if ( !( this->field->get_declaration()->get_decl_flags() & ( TXD_BUILTIN | TXD_EXTERN ) ) )
-                CERROR( this, "Global/static fields must have an initializer: " << this->field->get_identifier() );
+                CERROR( this, "Global/static fields must have an initializer: " << this->field->get_descriptor() );
             // FUTURE: When static initializers in types are supported, static/virtual fields' initialization may be deferred.
         }
         else {

@@ -4,6 +4,7 @@
 #include <set>
 
 #include "util/logging.hpp"
+#include "util/printable.hpp"
 
 #include "identifier.hpp"
 #include "tx_declaration_flags.hpp"

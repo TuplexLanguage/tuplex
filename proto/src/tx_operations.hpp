@@ -41,11 +41,9 @@ inline bool is_valid( TxOperation op ) {
     return op >= 0 && op < TXOP_END;
 }
 
-extern TxOperationClass get_op_class( TxOperation op );
+TxOperationClass get_op_class( TxOperation op );
 
-extern const char* to_cstring( TxOperation op );
-
-extern std::string to_string( TxOperation op );
+const std::string& to_string( TxOperation op );
 
 template<typename charT, typename traits>
 std::basic_ostream<charT, traits> &

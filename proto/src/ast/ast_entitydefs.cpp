@@ -10,7 +10,7 @@ const TxType* TxTypeDefiningNode::resolve_type() {
         LOG_TRACE( this->LOGGER(), "resolving type  of " << this );
 
         if ( this->startedRslv ) {
-            CERR_THROWRES( this, "Recursive definition of type '" << this->get_identifier() << "'" );
+            CERR_THROWRES( this, "Recursive definition of type '" << this->get_descriptor() << "'" );
         }
         this->startedRslv = true;
         try {
@@ -36,7 +36,7 @@ const TxField* TxFieldDefiningNode::resolve_field() {
         LOG_TRACE( this->LOGGER(), "resolving field of " << this );
 
         if ( this->startedRslv ) {
-            CERR_THROWRES( this, "Recursive definition of field '" << this->get_identifier() << "'" );
+            CERR_THROWRES( this, "Recursive definition of field '" << this->get_descriptor() << "'" );
         }
         this->startedRslv = true;
         try {

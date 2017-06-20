@@ -93,7 +93,7 @@ public:
 
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
 
-    virtual std::string get_identifier() const override {
+    virtual const std::string& get_descriptor() const override {
         return this->sourceLiteral;
     }
 };
@@ -125,12 +125,15 @@ public:
 
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
 
-    virtual std::string get_identifier() const override {
+    virtual const std::string& get_descriptor() const override {
         return this->literal;
     }
 };
 
 class TxBoolLitNode : public TxLiteralElementaryValueNode {
+    static const std::string TRUE;
+    static const std::string FALSE;
+
 protected:
     virtual const TxType* define_type() override {
         return this->registry().get_builtin_type( TXBT_BOOL );
@@ -149,8 +152,8 @@ public:
 
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
 
-    virtual std::string get_identifier() const override {
-        return ( this->value ? "TRUE" : "FALSE" );
+    virtual const std::string& get_descriptor() const override {
+        return ( this->value ? TRUE : FALSE );
     }
 };
 
@@ -175,7 +178,7 @@ public:
 
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
 
-    virtual std::string get_identifier() const override {
+    virtual const std::string& get_descriptor() const override {
         return this->literal;
     }
 };

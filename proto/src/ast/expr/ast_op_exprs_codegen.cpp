@@ -59,7 +59,7 @@ llvm::Constant* TxBinaryOperatorNode::code_gen_const_value( LlvmGenerationContex
     auto rval = this->rhs->code_gen_const_value( context );
 
     // pick field's plain name, if available, for the expression value:
-    const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
+    const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_descriptor() : "" );
 
     auto op_class = get_op_class( this->op );
     bool float_operation = false;
@@ -83,7 +83,7 @@ Value* TxBinaryOperatorNode::code_gen_dyn_value( LlvmGenerationContext& context,
     auto rval = this->rhs->code_gen_dyn_value( context, scope );
 
     // pick field's plain name, if available, for the expression value:
-    const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
+    const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_descriptor() : "" );
 
     auto op_class = get_op_class( this->op );
     bool float_operation = false;

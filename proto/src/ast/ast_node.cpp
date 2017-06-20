@@ -5,12 +5,14 @@
 #include "symbol/package.hpp"
 
 
+const std::string TxNode::EMPTY_STRING = "";
+
 Logger& TxNode::_LOG = Logger::get( "AST" );
 
 unsigned TxNode::nextNodeId = 0;
 
 std::string TxNode::str() const {
-    auto ident = this->get_identifier();
+    auto ident = this->get_descriptor();
     const size_t bsize = 128;
     char buf[bsize];
     std::string filename = ploc.begin.filename ? get_file_name( *ploc.begin.filename ) : "";

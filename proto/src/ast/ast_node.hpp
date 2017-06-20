@@ -34,6 +34,7 @@ struct AstCursor {
 typedef std::function<void( TxNode* node, const AstCursor& parent, const std::string& role, void* context )> AstVisitor;
 
 class TxNode : public virtual TxParseOrigin, public Printable {
+    static const std::string EMPTY_STRING;
     static Logger& _LOG;
     static unsigned nextNodeId;
 
@@ -143,9 +144,9 @@ public:
         this->declaration_pass();
     }
 
-    /** Returns the identifier owned by this node, if any, otherwise an empty string. */
-    virtual std::string get_identifier() const {
-        return std::string();
+    /** Returns a source-similar descriptor of this node, e.g. the identifier or literal. Otherwise an empty string. */
+    virtual const std::string& get_descriptor() const {
+        return EMPTY_STRING;
     }
 
     virtual std::string str() const override;

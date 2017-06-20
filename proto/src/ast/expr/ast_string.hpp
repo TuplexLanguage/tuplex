@@ -42,7 +42,7 @@ public:
         this->arrayTypeNode->visit_ast( visitor, thisCursor, "strtype", context );
     }
 
-    virtual std::string get_identifier() const override {
+    virtual const std::string& get_descriptor() const override {
         return this->literal;
     }
 };
@@ -142,7 +142,7 @@ public:
         this->cstringTypeNode->visit_ast( visitor, thisCursor, "cstrtype", context );
     }
 
-    virtual std::string get_identifier() const override {
+    virtual const std::string& get_descriptor() const override {
         return this->literal;
     }
 };

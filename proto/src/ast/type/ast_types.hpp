@@ -48,7 +48,7 @@ public:
         return ( this->baseSymbol ? TxIdentifier( this->baseSymbol->get_full_identifier(), this->symbolName->str() ) : *this->symbolName );
     }
 
-    virtual std::string get_identifier() const override {
+    virtual const std::string& get_descriptor() const override {
         return this->symbolName->str();
     }
 };
@@ -84,8 +84,8 @@ public:
         this->symbolNode->visit_ast( visitor, thisCursor, "symbol", context );
     }
 
-    virtual std::string get_identifier() const override {
-        return this->symbolNode->get_identifier();
+    virtual const std::string& get_descriptor() const override {
+        return this->symbolNode->get_descriptor();
     }
 };
 
@@ -118,7 +118,7 @@ public:
         //this->memberName->visit_ast( visitor, thisCursor, "member", context );
     }
 
-    virtual std::string get_identifier() const override {
+    virtual const std::string& get_descriptor() const override {
         return this->memberName;
     }
 };
@@ -171,8 +171,8 @@ public:
             typeArg->visit_ast( visitor, thisCursor, "typearg", context );
     }
 
-    virtual std::string get_identifier() const override {
-        return this->genTypeExpr->get_identifier();
+    virtual const std::string& get_descriptor() const override {
+        return this->genTypeExpr->get_descriptor();
     }
 };
 
@@ -421,10 +421,10 @@ public:
             if ( !argType->is_concrete() ) {
                 if ( !this->context().is_generic() )
                     CERROR( argField, "Function argument type is not concrete: "
-                            << argField->get_identifier() << " : " << argType );
+                            << argField->get_descriptor() << " : " << argType );
                 else
                     LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Function argument type is not concrete: "
-                               << argField->get_identifier() << " : " << argType );
+                               << argField->get_descriptor() << " : " << argType );
             }
         }
         if ( this->returnField ) {
@@ -525,7 +525,7 @@ public:
         this->isModifiable = mod;
     }
 
-    virtual std::string get_identifier() const override {
-        return this->baseType->get_identifier();
+    virtual const std::string& get_descriptor() const override {
+        return this->baseType->get_descriptor();
     }
 };

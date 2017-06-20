@@ -73,7 +73,7 @@ public:
         this->resolvedExpr->visit_ast( visitor, thisCursor, "convertee", context );
     }
 
-    virtual std::string get_identifier() const override {
-        return this->originalExpr->get_identifier();
+    virtual const std::string& get_descriptor() const override {
+        return this->originalExpr->get_descriptor();
     }
 };

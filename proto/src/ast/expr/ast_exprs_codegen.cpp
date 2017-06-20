@@ -47,7 +47,7 @@ Value* TxFunctionCallNode::code_gen_dyn_value( LlvmGenerationContext& context, G
         return this->inlinedExpression->code_gen_dyn_value( context, scope );
     else {
         // pick field's plain name, if available, for the expression value:
-        const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_identifier() : "" );
+        const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_descriptor() : "" );
         return gen_call( this, context, scope, fieldName, this->doesNotReturn );
     }
 }

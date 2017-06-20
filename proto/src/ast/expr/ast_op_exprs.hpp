@@ -53,7 +53,7 @@ public:
         this->rhs->visit_ast( visitor, thisCursor, "rhs", context );
     }
 
-    virtual std::string get_identifier() const override {
+    virtual const std::string& get_descriptor() const override {
         return to_string( this->op );
     }
 };

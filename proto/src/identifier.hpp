@@ -5,9 +5,8 @@
 #include <algorithm>
 
 #include "util/assert.hpp"
-#include "util/printable.hpp"
 
-class TxIdentifier : public Printable {
+class TxIdentifier {
     std::string ns;
     std::vector<std::string> segments;
 
@@ -143,6 +142,11 @@ public:
         return this->segments.back();
     }
 
+    /** Gets the full name of this identifier. */
+    inline const std::string& full_name() const {
+        return this->ns;
+    }
+
     /** Returns true if this identifier has 2 or more name segments, false otherwise. */
     inline bool is_qualified() const {
         return this->segments.size() > 1;
@@ -219,7 +223,7 @@ public:
         return this->str() <= other.str();
     }
 
-    inline virtual std::string str() const override {
+    inline const std::string& str() const {
         return this->ns;
     }
 
@@ -238,4 +242,19 @@ template<> struct hash<TxIdentifier> {
         return ( hash<string>()( k.str() ) );
     }
 };
+}
+
+template<typename charT, typename traits>
+std::basic_ostream<charT, traits> &
+operator<<( std::basic_ostream<charT, traits> &lhs, TxIdentifier const &rhs ) {
+    return lhs << rhs.full_name();
+}
+
+template<typename charT, typename traits>
+std::basic_ostream<charT, traits> &
+operator<<( std::basic_ostream<charT, traits> &lhs, TxIdentifier const *rhs ) {
+    if ( rhs )
+        return lhs << rhs->full_name();
+    else
+        return lhs << "NULL";
 }

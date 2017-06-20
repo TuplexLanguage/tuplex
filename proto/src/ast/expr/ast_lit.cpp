@@ -240,3 +240,6 @@ void TxIntegerLitNode::declaration_pass() {
     else if ( this->constValue.outOfRange )
         CERROR( this, "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->constValue.typeId );
 }
+
+const std::string TxBoolLitNode::TRUE = "TRUE";
+const std::string TxBoolLitNode::FALSE = "FALSE";
