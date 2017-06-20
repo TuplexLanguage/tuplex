@@ -21,6 +21,8 @@ enum Level {
 extern const char* LEVEL_NAMES[];
 
 class Logger {
+    static bool colorsEnabled;
+
 protected:
     const std::string name;
     Level threshold;
@@ -30,6 +32,8 @@ protected:
     void emit( Level level, const char* str );
 
 public:
+    static Level globalThreshold;
+
     inline const std::string& get_name() const {
         return this->name;
     }

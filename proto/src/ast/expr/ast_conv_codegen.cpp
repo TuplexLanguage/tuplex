@@ -48,7 +48,7 @@ Value* TxBoolConvNode::code_gen_dyn_value( LlvmGenerationContext& context, GenSc
 }
 
 Constant* TxScalarConvNode::code_gen_const_value( LlvmGenerationContext& context ) const {
-    TRACE_CODEGEN( this, context, " -> " << this->node->resultType );
+    TRACE_CODEGEN( this, context, " -> " << this->resultType );
     auto origValue = this->expr->code_gen_const_value( context );
     auto actType = this->resultType->type();
     ASSERT( dynamic_cast<const TxScalarType*>( actType ), "Expected TxScalarType: " << actType );

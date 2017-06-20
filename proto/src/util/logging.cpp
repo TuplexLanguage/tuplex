@@ -19,9 +19,6 @@ static struct ThresholdLevel THRESHOLD_LEVELS[] {
                                                   { "COMPILER", ALL },
 };
 
-static Level globalThreshold = CONFIG;
-static bool colorsEnabled = true;
-
 const char* LEVEL_NAMES[] {
                             "NONE",
                             "FATAL",
@@ -92,6 +89,10 @@ static const char* LEVEL_COLORS[] = {
 static const char* txtrst = "\e[0m";    // Text Reset
 
 static std::unordered_map<std::string, Logger*> loggers;
+
+bool Logger::colorsEnabled = true;
+
+Level Logger::globalThreshold = CONFIG;
 
 Logger& Logger::get( const std::string& name ) {
     Logger* logger;

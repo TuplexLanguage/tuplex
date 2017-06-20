@@ -58,6 +58,7 @@ void TxScopeSymbol::add_symbol( TxScopeSymbol* symbol ) {
             "Symbol qualifier doesn't match parent scope! " << symbol );
     auto result = this->symbols.emplace( symbol->get_name(), symbol );
     ASSERT( result.second, "Failed to insert new symbol (previously inserted?): " << symbol );
+    (void) result;  // suppress compiler warning when asserts disabled
     this->declOrderNames.push_back( symbol->get_name() );
     this->alphaOrderNames.insert( symbol->get_name() );
 }
