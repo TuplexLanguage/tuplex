@@ -1,11 +1,22 @@
 module tx
 
 
+interface Stringer {
+    abstract string( writer : &tx.Writer );
+}
+
+
+interface Formatter {
+    abstract format( writer : &tx.Writer, format : &StringFormat );
+}
+
+
+/** A UTF-32 character. */
 public type Char : UInt {
 }
 
 
-public type String implements Sequenceable< Char > {
+public type String implements Sequenceable< Char >, Stringer, Formatter {
     type ~ StringSequencer implements Sequencer< Char > {
         string    : &String;
         nextIndex : ~UInt;
@@ -16,47 +27,47 @@ public type String implements Sequenceable< Char > {
         }
 
         public override has_next() -> Bool {
-            return self.nextIndex < self.string.bytes.L;
+            return self.nextIndex < self.string._bytes.L;
         }
 
         public override next() ~ -> Char {
-            return utf8_to_utf32( self.string.bytes, &self.nextIndex );
+            return utf8_to_utf32( self.string._bytes, &self.nextIndex );
         }
     }
 
 
-    bytes : &Array<UByte>;
+    _bytes : &Array<UByte>;
 
     self() {
-        self.bytes = new Array<UByte, 0>();
+        self._bytes = new Array<UByte, 0>();
     }
 
     self( utf8Array : &Array<UByte> ) {
-        self.bytes = new Array<UByte, (utf8Array.L)>();
-        ##self.bytes^ = utf8Array^;
+        self._bytes = new Array<UByte, (utf8Array.L)>();
+        ##self._bytes^ = utf8Array^;
         for i in 0..utf8Array.L:
-            self.bytes[i] = utf8Array[i];
+            self._bytes[i] = utf8Array[i];
     }
 
     self( str : String ) {
-        self( str.bytes );
+        self( str._bytes );
     }
 
     self( chr : Char ) {
         tmp := new ~Array<~UByte, 4>();
         utf32_to_utf8( tmp, chr );
-        self.bytes = tmp;
+        self._bytes = tmp;
     }
 
     self( strings : &Array<String> ) {
         len : ~UInt = 0;
         for str in strings:
-            len = len + str.bytes.L;
-        self.bytes = new Array<UByte, (len)>();
+            len = len + str._bytes.L;
+        self._bytes = new Array<UByte, (len)>();
         i : ~UInt = 0;
         for str in strings {
-            for byte in str.bytes {
-                self.bytes[i] = byte;
+            for byte in str._bytes {
+                self._bytes[i] = byte;
                 i = i + 1;
             }
         }
@@ -66,7 +77,81 @@ public type String implements Sequenceable< Char > {
     public override sequencer() -> Ref< ~Sequencer< Char > > {
         return new ~StringSequencer( self );
     }
+
+    override string( writer : &tx.Writer ) {
+        writer.write( self._bytes );
+    }
+
+    override format( writer : &tx.Writer, format : &StringFormat ) {
+        ## TODO: take format into account
+        writer.write( self._bytes );
+    }
 }
+
+
+
+type StringFormat {
+    static FLAG_MINUS : UByte = 1;
+    static FLAG_PLUS  : UByte = 2;
+    static FLAG_SPACE : UByte = 4;
+    static FLAG_ZERO  : UByte = 8;
+    static FLAG_HASH  : UByte = 16;
+
+    flags     : UByte;
+    width     : UInt;
+    precision : UInt;
+    typeChar  : UByte;
+
+    self( flags : UByte, width : UInt, precision : UInt, typeChar : UByte ) {
+        self.flags = flags;
+        self.width = width;
+        self.precision = precision;
+        self.typeChar = typeChar;
+    }
+
+    self( typeChar : UByte ) {
+        self.flags = 0;
+        self.width = 0;
+        self.precision = 0;
+        self.typeChar = typeChar;
+    }
+}
+
+
+/** Makes a Stringer of a Formatter by applying a given format. */
+type FormattedStringer implements Stringer {
+    format : StringFormat;
+    object : &Formatter;
+
+    self( format : StringFormat, object : &Formatter ) {
+        self.format = format;
+        self.object = object;
+    }
+
+    override string( writer : &tx.Writer ) {
+        self.object.format( writer, self.format );
+    }
+}
+
+
+/** Concatenates multiple Stringers. */
+type MultiStringer implements Stringer {
+    _stringers : &[]&Stringer;
+
+    self( stringers : &[]&Stringer ) {
+        self._stringers = stringers;
+    }
+
+    override string( writer : &tx.Writer ) {
+        for str in self._stringers:
+            str.string( writer );
+    }
+}
+
+
+##format_string( writer : &tx.Writer, format : StringFormat, source : &Sequenceable<Char> ) {
+##}
+
 
 
 
@@ -141,3 +226,18 @@ iso_8859_1_to_utf8( output : &[]~UByte, input : &[]UByte ) {
         }
     }
 }
+
+
+/*
+format_string( flags : &[]UByte, width : UInt, precision : UInt, typeChar : UByte, value : ULong ) {
+}
+
+format_string( flags : &[]UByte, width : UInt, precision : UInt, typeChar : UByte, value : Long ) {
+}
+
+format_string( flags : &[]UByte, width : UInt, precision : UInt, typeChar : UByte, value : Double ) {
+}
+
+format_string( flags : &[]UByte, width : UInt, precision : UInt, typeChar : UByte, value : Bool ) {
+}
+*/

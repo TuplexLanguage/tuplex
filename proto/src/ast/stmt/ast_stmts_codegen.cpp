@@ -80,20 +80,6 @@ void TxReturnStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope
     if ( this->expr ) {
         auto exprV = this->expr->code_gen_expr( context, scope );
         scope->builder->CreateRet( exprV );
-//        // TO DO: this is hackish, can we find systematic solution?
-//        auto expectedT = context.get_llvm_type( this->expr->get_type() );
-//        if ( exprV->getType() == expectedT )
-//            scope->builder->CreateRet( exprV );
-//        else if ( exprV->getType()->isPointerTy() && exprV->getType()->getPointerElementType() == expectedT ) {
-//            LOG_DEBUG( context.LOGGER(),
-//                       "auto-loading return value type " << ::to_string(exprV->getType()) << "  to expected  " << ::to_string(expectedT) );
-//            scope->builder->CreateRet( scope->builder->CreateLoad( exprV ) );
-//        }
-//        else {
-//            LOG( context.LOGGER(), ERROR,
-//                 "Mismatching return value type: " << ::to_string(exprV->getType()) << " is not as expected " << ::to_string(expectedT) );
-//            scope->builder->CreateRet( exprV );
-//        }
     }
     else
         scope->builder->CreateRetVoid();

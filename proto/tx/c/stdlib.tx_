@@ -1,6 +1,16 @@
 module tx.c
 
 
+public extern abort();
+
+
 public extern puts( str : Ref<UByte> ) -> Int;
 
-public extern abort();
+
+public extern fopen( name : Ref<UByte>, mode : Ref<UByte> ) -> ULong;
+
+public extern fclose( file : ULong ) -> Int;
+
+public extern fwrite( buffer : Ref<UByte>, size : ULong, count : ULong, file : ULong ) -> ULong;
+
+public extern fread( buffer : Ref<~UByte>, size : ULong, count : ULong, file : ULong ) -> ULong;

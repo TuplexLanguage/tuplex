@@ -37,7 +37,8 @@ extern "C" int yywrap() { return 0; }
 %option batch
 %option debug
 
-%s IN_COMMENT STRINGFORMAT
+/* exclusive start conditions: */
+%x IN_COMMENT STRINGFORMAT
 
 %%
 
@@ -181,22 +182,27 @@ extern "C" int yywrap() { return 0; }
 
  /* string format operators */
  /* %[parameter][flags][width][.precision][length]type */
-%($[0-9]+)?[\-\+ 0#]*([1-9][0-9]*|\*)?(\.([0-9]+|\*))?[diufFeEgGxXoscaA]    { yylval->build(std::string (yytext)); return token::STR_FORMAT; }
+ /* %($[0-9]+)?[\-\+ 0#]*([1-9][0-9]*|\*)?(\.([0-9]+|\*))?[diufFeEgGxXoscaA]    { yylval->build(std::string (yytext)); return token::STR_FORMAT; } */
 "%%"        { return token::PERCENTPERCENT; }
- /*
+
 <INITIAL>{
 "%"                 { BEGIN(STRINGFORMAT); return token::PERCENT; }
 }
 
 <STRINGFORMAT>{
-($[0-9]+)           { yylval->build(std::string (yytext)); return token::SF_PARAM; }
-[\-\+ 0#]*          { yylval->build(std::string (yytext)); return token::SF_FLAGS; }
+ /* $[0-9]+           { yylval->build(std::string (yytext)); return token::SF_PARAM; } */
+ /* [\-\+ 0#]+          { yylval->build(std::string (yytext)); return token::SF_FLAGS; } */
+"-"                 { return token::SF_MINUS; }
+"+"                 { return token::SF_PLUS; }
+" "                 { return token::SF_SPACE; }
+"0"                 { return token::SF_ZERO; }
+"#"                 { return token::SF_HASH; }
 [1-9][0-9]*|\*      { yylval->build(std::string (yytext)); return token::SF_WIDTH; }
 \.([0-9]+|\*)       { yylval->build(std::string (yytext)); return token::SF_PREC; }
 [diufFeEgGxXoscaA]  { BEGIN(INITIAL); yylval->build(std::string (yytext)); return token::SF_TYPE; }
 .                   { BEGIN(INITIAL); yyless(0); }
 }
- */
+
 
  /* literals */
 "NULL"                  { return token::KW_NULL; }

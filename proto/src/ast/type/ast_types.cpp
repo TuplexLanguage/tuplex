@@ -42,12 +42,12 @@ const TxType* TxIdentifiedSymbolNode::define_type() {
                 return typeDecl->get_definer()->resolve_type();
             if ( entitySym->field_count() == 1 )
                 return entitySym->get_first_field_decl()->get_definer()->resolve_type();
-            CERR_THROWRES( this, "Can't resolve type of overloaded symbol " << this->get_full_identifier() );
+            CERR_THROWRES( this, "Can't resolve type of overloaded symbol '" << this->get_full_identifier() << "'" );
         }
         // Symbol is not an entity (field or type), return Void as placeholder type
         return this->registry().get_builtin_type( TXBT_VOID );
     }
-    CERR_THROWRES( this, "Unknown symbol: " << this->symbolName );
+    CERR_THROWRES( this, "Unknown symbol: '" << this->symbolName << "'" );
 }
 
 const TxType* TxNamedTypeNode::define_type() {
@@ -61,16 +61,16 @@ const TxType* TxNamedTypeNode::define_type() {
                 }
                 return type;
             }
-            CERR_THROWRES( this, "Can't resolve type of symbol " << this->symbolNode->get_full_identifier() );
+            CERR_THROWRES( this, "Can't resolve type of symbol '" << this->symbolNode->get_full_identifier() << "'" );
 // for now we don't allow an identified field to imply its type
 //            if ( entitySym->field_count() == 1 )
 //                return entitySym->get_first_field_decl()->get_definer()->resolve_type();
 //            CERR_THROWRES( this, "Can't resolve type of overloaded symbol " << this->get_full_identifier() );
         }
         // Symbol is not a field or type
-        CERR_THROWRES( this, "Not a type: " << this->symbolNode->get_full_identifier() );
+        CERR_THROWRES( this, "Not a type: '" << this->symbolNode->get_full_identifier() << "'" );
     }
-    CERR_THROWRES( this, "Unknown symbol: " << this->symbolNode->get_full_identifier() );
+    CERR_THROWRES( this, "Unknown symbol: '" << this->symbolNode->get_full_identifier() << "'" );
 }
 
 const TxType* TxMemberTypeNode::define_type() {
@@ -85,16 +85,16 @@ const TxType* TxMemberTypeNode::define_type() {
                 }
                 return type;
             }
-            CERR_THROWRES( this, "Can't resolve type of symbol " << this->memberName );
+            CERR_THROWRES( this, "Can't resolve type of symbol '" << this->memberName << "'" );
 // for now we don't allow an identified field to imply its type
 //            if ( entitySym->field_count() == 1 )
 //                return entitySym->get_first_field_decl()->get_definer()->resolve_type();
 //            CERR_THROWRES( this, "Can't resolve type of overloaded symbol " << this->get_full_identifier() );
         }
         // Symbol is not a field or type
-        CERR_THROWRES( this, "Not a type: " << this->memberName );
+        CERR_THROWRES( this, "Not a type: '" << this->memberName << "'" );
     }
-    CERR_THROWRES( this, "Unknown symbol: " << this->memberName );
+    CERR_THROWRES( this, "Unknown symbol: '" << this->memberName << "'" );
 /* previous identified-type implementation
     if ( auto identifiedTypeDecl = lookup_type( this->context().scope(), *this->symbolName ) ) {
         auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type();

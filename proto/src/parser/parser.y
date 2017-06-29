@@ -120,6 +120,7 @@ YY_DECL;
 %token EQUAL EEQUAL NEQUAL EEEQUAL NEEQUAL LT GT LEQUAL GEQUAL
 %token LTLT GTGT GTGTGT
 %token COLEQUAL PLUSEQUAL MINUSEQUAL ASTERISKEQUAL FSLASHEQUAL
+%token SF_MINUS SF_PLUS SF_SPACE SF_ZERO SF_HASH  // used in string formats
 
 /* keywords: */
 %token KW_MODULE KW_IMPORT KW_TYPE KW_INTERFACE
@@ -189,6 +190,11 @@ YY_DECL;
 %type <TxStatementNode*> experr_stmt
 %type <TxAssigneeNode*> assignee_expr
 
+%type <TxExpressionNode*> string_format_expr
+%type <TxStringFormatNode*> string_format
+%type <StringFormatFlags> opt_sf_flags sf_flag_list sf_flag
+%type <std::string>       opt_sf_width opt_sf_prec opt_sf_type
+
 
 /* Operator precedence for expression operators (higher line no = higher precedence) */
 %precedence STMT /* used to specify statement / member rule precedence, to be lower than e.g. separator  */
@@ -197,6 +203,7 @@ YY_DECL;
 %left COMMA COLON
 %right EQUAL
 %left PERCENTPERCENT  // string concatenation
+%left PERCENT         // string formatting
 %left PIPE        // boolean and bitwise operator
 %left KW_XOR      // boolean and bitwise operator
 %left AAND        // boolean and bitwise operator
@@ -575,7 +582,7 @@ expr
     |   expr GT GT GT expr  %prec LTLT          { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_ARSHIFT, $5); }
 
     |   expr PERCENTPERCENT expr     { $$ = TxConcatenateStringsNode::make_strcat_node( @$, $1, $3 ); }
-    //|   string_format_expr           { $$ = $1; }
+    |   string_format_expr           { $$ = $1; }
     ;
 
 value_literal
@@ -625,9 +632,34 @@ expression_list : expr
 ;
 
 
-//string_format_expr
-//    :   expr PERCENT expr  { $$ = new TxConcatenateStringsNode( @$, $1, $3 ); }
-//    ;
+string_format_expr : string_format expr       %prec PERCENT
+                        { $$ = new TxStackConstructionNode( @$, new TxNamedTypeNode( @$, "tx.FormattedStringer"),
+                                                            new std::vector<TxExpressionNode*>( { $1, $2 } ) ); }
+                   | expr string_format expr  %prec PERCENTPERCENT
+                        { $$ = TxConcatenateStringsNode::make_strcat_node( @$, $1, 
+                                    new TxStackConstructionNode( @2, new TxNamedTypeNode( @2, "tx.FormattedStringer"),
+                                                                        new std::vector<TxExpressionNode*>( { $2, $3 } ) ) ); }
+                   ;
+
+string_format   : PERCENT opt_sf_flags opt_sf_width opt_sf_prec opt_sf_type
+                        { $$ = new TxStringFormatNode( @$, $2, $3, $4, $5.front() ); }
+                ;
+
+opt_sf_flags    : %empty { $$ = SF_NONE; } | sf_flag_list { $$ = $1; } ;
+opt_sf_width    : %empty { $$ = ""; } | SF_WIDTH { $$ = $1; } ;
+opt_sf_prec     : %empty { $$ = ""; } | SF_PREC { $$ = $1; } ;
+opt_sf_type     : %empty { $$ = ""; } | SF_TYPE { $$ = $1; } ;
+
+sf_flag_list    : sf_flag              { $$ = $1; }
+                | sf_flag_list sf_flag { $$ = (StringFormatFlags)($1 | $2); }
+                ;
+
+sf_flag         : SF_MINUS { $$ = SF_MINUS; }
+                | SF_PLUS  { $$ = SF_PLUS; }
+                | SF_SPACE { $$ = SF_SPACE; }
+                | SF_ZERO  { $$ = SF_ZERO; }
+                | SF_HASH  { $$ = SF_HASH; }
+                ;
 
 
 //// statements

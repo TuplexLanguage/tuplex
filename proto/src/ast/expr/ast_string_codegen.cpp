@@ -45,6 +45,28 @@ Value* TxConcatenateStringsNode::code_gen_dyn_address( LlvmGenerationContext& co
 }
 
 
+Value* TxStringFormatNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    return this->stackConstr->code_gen_dyn_value( context, scope );
+}
+
+Value* TxStringFormatNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    return this->stackConstr->code_gen_dyn_address( context, scope );
+}
+
+
+//Value* TxStringFormatterNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+//    TRACE_CODEGEN( this, context );
+//    return this->stackConstr->code_gen_dyn_value( context, scope );
+//}
+//
+//Value* TxStringFormatterNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
+//    TRACE_CODEGEN( this, context );
+//    return this->stackConstr->code_gen_dyn_address( context, scope );
+//}
+
+
 Constant* TxCStringLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, '"' << this->value << '"' );
     std::vector<Constant*> members {

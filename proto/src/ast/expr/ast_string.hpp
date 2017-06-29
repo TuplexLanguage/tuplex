@@ -2,7 +2,9 @@
 
 #include "ast_expr_node.hpp"
 #include "ast_exprs.hpp"
+#include "ast_lit.hpp"
 #include "ast/type/ast_typeexpr_node.hpp"
+#include "ast/type/ast_types.hpp"
 #include "ast/ast_util.hpp"
 
 #include "symbol/type_registry.hpp"
@@ -90,8 +92,6 @@ public:
 
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
-//        for ( auto node : stringNodes )
-//            node->symbol_resolution_pass();
         this->stackConstr->symbol_resolution_pass();
     }
 
@@ -99,11 +99,127 @@ public:
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-//        for ( auto node : stringNodes )
-//            node->visit_ast( visitor, thisCursor, "string", context );
         this->stackConstr->visit_ast( visitor, thisCursor, "constr", context );
     }
 };
+
+
+enum StringFormatFlags {
+    SF_NONE = 0,
+    SF_MINUS = 1,
+    SF_PLUS = 2,
+    SF_SPACE = 4,
+    SF_ZERO = 8,
+    SF_HASH = 16
+};
+
+class TxStringFormatNode : public TxExpressionNode {
+    StringFormatFlags flags;
+    const std::string width;
+    const std::string precision;
+    const char typeCh;
+    TxStackConstructionNode* stackConstr = nullptr;
+
+protected:
+    virtual void declaration_pass() override {
+        auto args = new std::vector<TxExpressionNode*>( {
+            new TxIntegerLitNode( this->ploc, this->flags, false, TXBT_UBYTE ),
+            new TxIntegerLitNode( this->ploc, this->width, false ),
+            new TxIntegerLitNode( this->ploc, this->precision, false ),
+            new TxIntegerLitNode( this->ploc, this->typeCh, false, TXBT_UBYTE ),
+        } );
+        this->stackConstr = new TxStackConstructionNode( this->ploc, new TxNamedTypeNode( this->ploc, "tx.StringFormat"), args );
+    }
+
+    virtual const TxType* define_type() override {
+        return this->stackConstr->resolve_type();
+    }
+
+public:
+    TxStringFormatNode( const TxLocation& ploc, StringFormatFlags flags, const std::string& width, const std::string& precision, const char typeCh )
+        : TxExpressionNode( ploc ), flags( flags ), width( width ), precision( precision ), typeCh( typeCh ) {
+    }
+
+    virtual TxStringFormatNode* make_ast_copy() const override {
+        return new TxStringFormatNode( this->ploc, flags, width, precision, typeCh );
+    }
+
+    virtual bool is_statically_constant() const override final {
+        return false;
+    }
+
+    virtual TxFieldStorage get_storage() const {
+        return TXS_STACK;
+    }
+
+    virtual bool is_stack_allocation_expression() const override {
+        return true;
+    }
+
+    virtual void symbol_resolution_pass() override {
+        TxExpressionNode::symbol_resolution_pass();
+        this->stackConstr->symbol_resolution_pass();
+    }
+
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->stackConstr->visit_ast( visitor, thisCursor, "constr", context );
+    }
+};
+
+
+/*
+class TxStringFormatterNode : public TxExpressionNode {
+    TxStringFormatNode* formatNode;
+    TxExpressionNode* valueNode;
+    TxStackConstructionNode* stackConstr = nullptr;
+
+protected:
+    virtual void declaration_pass() override {
+        this->stackConstr = new TxStackConstructionNode( this->ploc, new TxNamedTypeNode( this->ploc, "tx.StringFormatter"),
+                                                         new std::vector<TxExpressionNode*>( { this->formatNode, this->valueNode } ) );
+    }
+
+    virtual const TxType* define_type() override {
+        return this->stackConstr->resolve_type();
+    }
+
+public:
+    TxStringFormatterNode( const TxLocation& ploc, TxStringFormatNode* formatNode, TxExpressionNode* valueNode )
+        : TxExpressionNode( ploc ), formatNode( formatNode ), valueNode( valueNode ) {
+    }
+
+    virtual TxStringFormatterNode* make_ast_copy() const override {
+        return new TxStringFormatterNode( this->ploc, formatNode, valueNode );
+    }
+
+    virtual bool is_statically_constant() const override final {
+        return false;
+    }
+
+    virtual TxFieldStorage get_storage() const {
+        return TXS_STACK;
+    }
+
+    virtual bool is_stack_allocation_expression() const override {
+        return true;
+    }
+
+    virtual void symbol_resolution_pass() override {
+        TxExpressionNode::symbol_resolution_pass();
+        this->stackConstr->symbol_resolution_pass();
+    }
+
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->stackConstr->visit_ast( visitor, thisCursor, "constr", context );
+    }
+};
+*/
 
 
 class TxCStringLitNode : public TxExpressionNode {
