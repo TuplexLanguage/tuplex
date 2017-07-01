@@ -1,7 +1,7 @@
 module tx
 
 
-public builtin type ~ Elementary    derives Any {
+public builtin type ~ Elementary    derives Any implements Stringer, Formatter {
 }
 
 public builtin type ~ Scalar        derives Elementary {
@@ -40,6 +40,14 @@ public builtin type ~ Byte          derives Signed implements Number<Byte>, Enum
     public override ordinal() -> Ordinal {
         return Ordinal( self );
     }
+
+    override string( writer : &~tx.ByteWriter ) {
+        to_string( writer, self );
+    }
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
+        format_string( writer, format, self );
+    }
 }
 
 public builtin type ~ Short         derives Signed implements Number<Short>, Enumerable<Short> {
@@ -61,6 +69,14 @@ public builtin type ~ Short         derives Signed implements Number<Short>, Enu
     /** returns the ordinal for this value */
     public override ordinal() -> Ordinal {
         return Ordinal( self );
+    }
+
+    override string( writer : &~tx.ByteWriter ) {
+        to_string( writer, self );
+    }
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
+        format_string( writer, format, self );
     }
 }
 
@@ -84,6 +100,14 @@ public builtin type ~ Int           derives Signed implements Number<Int>, Enume
     public override ordinal() -> Ordinal {
         return Ordinal( self );
     }
+
+    override string( writer : &~tx.ByteWriter ) {
+        to_string( writer, self );
+    }
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
+        format_string( writer, format, self );
+    }
 }
 
 public builtin type ~ Long          derives Signed implements Number<Long>, Enumerable<Long> {
@@ -104,6 +128,14 @@ public builtin type ~ Long          derives Signed implements Number<Long>, Enum
     /** returns the ordinal for this value */
     public override ordinal() -> Ordinal {
         return Ordinal( self );
+    }
+
+    override string( writer : &~tx.ByteWriter ) {
+        to_string( writer, self );
+    }
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
+        format_string( writer, format, self );
     }
 }
 
@@ -128,6 +160,14 @@ public builtin type ~ UByte          derives Unsigned implements Number<UByte>, 
     public override ordinal() -> Ordinal {
         return Ordinal( self );
     }
+
+    override string( writer : &~tx.ByteWriter ) {
+        to_string( writer, self );
+    }
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
+        format_string( writer, format, self );
+    }
 }
 
 public builtin type ~ UShort         derives Unsigned implements Number<UShort>, Enumerable<UShort> {
@@ -149,6 +189,14 @@ public builtin type ~ UShort         derives Unsigned implements Number<UShort>,
     /** returns the ordinal for this value */
     public override ordinal() -> Ordinal {
         return Ordinal( self );
+    }
+
+    override string( writer : &~tx.ByteWriter ) {
+        to_string( writer, self );
+    }
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
+        format_string( writer, format, self );
     }
 }
 
@@ -172,6 +220,14 @@ public builtin type ~ UInt           derives Unsigned implements Number<UInt>, E
     public override ordinal() -> Ordinal {
         return Ordinal( self );
     }
+
+    override string( writer : &~tx.ByteWriter ) {
+        to_string( writer, self );
+    }
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
+        format_string( writer, format, self );
+    }
 }
 
 public builtin type ~ ULong          derives Unsigned implements Number<ULong>, Enumerable<ULong> {
@@ -193,6 +249,53 @@ public builtin type ~ ULong          derives Unsigned implements Number<ULong>, 
     public override ordinal() -> Ordinal {
         return Ordinal( self );
     }
+
+    override string( writer : &~tx.ByteWriter ) {
+        to_string( writer, self );
+    }
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
+        format_string( writer, format, self );
+    }
+}
+
+
+public builtin type ~ Half          derives Floatingpoint implements Number<Half> {
+
+    public static override MIN : Half = -65503.0;
+    public static override MAX : Half = 65503.0;
+
+    override string( writer : &~tx.ByteWriter ) {
+        ##to_string( writer, self );
+    }
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
+        ##format_string( writer, format, self );
+    }
+}
+
+
+public builtin type ~ Float         derives Floatingpoint {
+
+    override string( writer : &~tx.ByteWriter ) {
+        to_string( writer, self );
+    }
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
+        format_string( writer, format, self );
+    }
+}
+
+
+public builtin type ~ Double        derives Floatingpoint {
+
+    override string( writer : &~tx.ByteWriter ) {
+        to_string( writer, self );
+    }
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
+        format_string( writer, format, self );
+    }
 }
 
 
@@ -210,5 +313,19 @@ public builtin type ~ Bool          derives Elementary implements Enumerable<Boo
     /** returns the ordinal for this value */
     public override ordinal() -> Ordinal {
         return Ordinal( self );
+    }
+
+    override string( writer : &~tx.ByteWriter ) {
+        if self:
+            writer.write( c"TRUE" );
+        else
+            writer.write( c"FALSE" );
+    }
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
+        if self:
+            writer.write( c"TRUE" );
+        else
+            writer.write( c"FALSE" );
     }
 }

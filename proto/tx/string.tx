@@ -1,16 +1,6 @@
 module tx
 
 
-interface Stringer {
-    abstract string( writer : &~tx.ByteWriter );
-}
-
-
-interface Formatter {
-    abstract format( writer : &~tx.ByteWriter, format : &StringFormat );
-}
-
-
 /** A UTF-32 character. */
 public type Char : UInt {
 }
@@ -96,71 +86,6 @@ public type String implements Sequenceable< Char >, Stringer, Formatter {
 
 
 
-type StringFormat {
-    static FLAG_MINUS : UByte = 1;
-    static FLAG_PLUS  : UByte = 2;
-    static FLAG_SPACE : UByte = 4;
-    static FLAG_ZERO  : UByte = 8;
-    static FLAG_HASH  : UByte = 16;
-
-    flags     : UByte;
-    width     : UInt;
-    precision : UInt;
-    typeChar  : UByte;
-
-    self( flags : UByte, width : UInt, precision : UInt, typeChar : UByte ) {
-        self.flags = flags;
-        self.width = width;
-        self.precision = precision;
-        self.typeChar = typeChar;
-    }
-
-    self( typeChar : UByte ) {
-        self.flags = 0;
-        self.width = 0;
-        self.precision = 0;
-        self.typeChar = typeChar;
-    }
-}
-
-
-/** Makes a Stringer of a Formatter by applying a given format. */
-type FormattedStringer implements Stringer {
-    format : StringFormat;
-    object : &Formatter;
-
-    self( format : StringFormat, object : &Formatter ) {
-        self.format = format;
-        self.object = object;
-    }
-
-    override string( writer : &~tx.ByteWriter ) {
-        self.object.format( writer, self.format );
-    }
-}
-
-
-/** Concatenates multiple Stringers. */
-type MultiStringer implements Stringer {
-    _stringers : &[]&Stringer;
-
-    self( stringers : &[]&Stringer ) {
-        self._stringers = stringers;
-    }
-
-    override string( writer : &~tx.ByteWriter ) {
-        for str in self._stringers:
-            str.string( writer );
-    }
-}
-
-
-##format_string( writer : &~tx.ByteWriter, format : StringFormat, source : &Sequenceable<Char> ) {
-##}
-
-
-
-
 utf8_to_utf32( input : &[]UByte, index : &~UInt ) -> Char {
     ix := index^;
     nextByte : ~UByte = input[ix];
@@ -232,18 +157,3 @@ iso_8859_1_to_utf8( output : &[]~UByte, input : &[]UByte ) {
         }
     }
 }
-
-
-/*
-format_string( flags : &[]UByte, width : UInt, precision : UInt, typeChar : UByte, value : ULong ) {
-}
-
-format_string( flags : &[]UByte, width : UInt, precision : UInt, typeChar : UByte, value : Long ) {
-}
-
-format_string( flags : &[]UByte, width : UInt, precision : UInt, typeChar : UByte, value : Double ) {
-}
-
-format_string( flags : &[]UByte, width : UInt, precision : UInt, typeChar : UByte, value : Bool ) {
-}
-*/

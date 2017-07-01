@@ -33,6 +33,7 @@ chdir( current_script_dir )
 source_files = [
     "array_interface.tx",
     "for_loops.tx",
+    "format_test.tx",
 ]
 
 for src in source_files:

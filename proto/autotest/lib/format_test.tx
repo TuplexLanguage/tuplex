@@ -1,0 +1,73 @@
+
+main()->Int {
+    print( "" );
+    str := "foo";
+    print( str );
+    tmp := %s " is concatenated, ";
+    print( "My printed string" %% tmp %20s " formatted, " %s " and with values: " %+05d 42 );
+##    print( "My printed string%s%20s%s%05d" % ( " is concatenated, ", " formatted, ", " and with values: ", 42 ) );
+    int_format_test();
+    return Int(0);
+}
+
+int_format_test() {
+    print( "%d\t'" %d 42 %% "'" );
+    print( "% d\t'" % d 42 %% "'" );
+    print( "%+d\t'" %+d 42 %% "'" );
+    print( "%5d\t'" %5d 42 %% "'" );
+    print( "% 5d\t'" % 5d 42 %% "'" );
+    print( "%+5d\t'" %+5d 42 %% "'" );
+    print( "%05d\t'" %05d 42 %% "'" );
+    print( "% 05d\t'" % 05d 42 %% "'" );
+    print( "%+05d\t'" %+05d 42 %% "'" );
+    print( "" );
+    print( "%-d\t'" %-d 42 %% "'" );
+    print( "%- d\t'" %- d 42 %% "'" );
+    print( "%-+d\t'" %-+d 42 %% "'" );
+    print( "%-5d\t'" %-5d 42 %% "'" );
+    print( "%- 5d\t'" %- 5d 42 %% "'" );
+    print( "%-+5d\t'" %-+5d 42 %% "'" );
+    print( "%-05d\t'" %-05d 42 %% "'" );
+    print( "%- 05d\t'" %- 05d 42 %% "'" );
+    print( "%-+05d\t'" %-+05d 42 %% "'" );
+    print( "" );
+    print( "%d\t'" %d -42 %% "'" );
+    print( "% d\t'" % d -42 %% "'" );
+    print( "%+d\t'" %+d -42 %% "'" );
+    print( "%5d\t'" %5d -42 %% "'" );
+    print( "% 5d\t'" % 5d -42 %% "'" );
+    print( "%+5d\t'" %+5d -42 %% "'" );
+    print( "%05d\t'" %05d -42 %% "'" );
+    print( "% 05d\t'" % 05d -42 %% "'" );
+    print( "%+05d\t'" %+05d -42 %% "'" );
+    print( "" );
+    print( "%-d\t'" %-d -42 %% "'" );
+    print( "%- d\t'" %- d -42 %% "'" );
+    print( "%-+d\t'" %-+d -42 %% "'" );
+    print( "%-5d\t'" %-5d -42 %% "'" );
+    print( "%- 5d\t'" %- 5d -42 %% "'" );
+    print( "%-+5d\t'" %-+5d -42 %% "'" );
+    print( "%-05d\t'" %-05d -42 %% "'" );
+    print( "%- 05d\t'" %- 05d -42 %% "'" );
+    print( "%-+05d\t'" %-+05d -42 %% "'" );
+    print( "" );
+    print( "%d\t'" %d -42000000000 %% "'" );
+    print( "% d\t'" % d -42000000000 %% "'" );
+    print( "%+d\t'" %+d -42000000000 %% "'" );
+    print( "%5d\t'" %5d -42000000000 %% "'" );
+    print( "% 5d\t'" % 5d -42000000000 %% "'" );
+    print( "%+5d\t'" %+5d -42000000000 %% "'" );
+    print( "%05d\t'" %05d -42000000000 %% "'" );
+    print( "% 05d\t'" % 05d -42000000000 %% "'" );
+    print( "%+05d\t'" %+05d -42000000000 %% "'" );
+    print( "" );
+    print( "%-d\t'" %-d -42000000000 %% "'" );
+    print( "%- d\t'" %- d -42000000000 %% "'" );
+    print( "%-+d\t'" %-+d -42000000000 %% "'" );
+    print( "%-5d\t'" %-5d -42000000000 %% "'" );
+    print( "%- 5d\t'" %- 5d -42000000000 %% "'" );
+    print( "%-+5d\t'" %-+5d -42000000000 %% "'" );
+    print( "%-05d\t'" %-05d -42000000000 %% "'" );
+    print( "%- 05d\t'" %- 05d -42000000000 %% "'" );
+    print( "%-+05d\t'" %-+05d -42000000000 %% "'" );
+}

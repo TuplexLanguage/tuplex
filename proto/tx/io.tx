@@ -4,83 +4,18 @@ module tx
 print( str : &Stringer ) {
     ~buf := GrowableUByteArray();
     str.string( &buf );
-    {
-        ## handle cases of empty string and ensure there is a null terminator:
-        arr := buf.array();
-        if arr.L == 0 | arr[arr.L-1] != 0:
-            buf.add( 0 );
-    }
+    buf.add( 0 );  ## handle empty string and ensure there is a null terminator
     tx.c.puts( buf.array()[0] );
-/*
-    ## copy in order to handle cases of empty string and ensure there is a null terminator:
-    buffer : [str._bytes.L+1]~UByte;
-    for i in 0..str._bytes.L:
-        buffer[i] = str._bytes[i];
-    buffer[str._bytes.L] = 0;
-    tx.c.puts( &buffer[0] );
-*/
-}
-
-print( val : Long ) {
-    cstr : ~[100]~UByte;
-    itoa( val, &cstr );
-    tx.c.puts( &cstr[0] );
 }
 
 print_address( r : Ref ) {
-    cstr : ~[100]~UByte;
-    itoa( Long( tx._address( r ) ), &cstr, 10 );
-    tx.c.puts( &cstr[0] );
+    print( %d tx._address( r ) );
 }
 
 
 read() -> String {
     ## char * fgets ( char * str, int num, FILE * stream );
     return "dummy";
-}
-
-
-
-itoa(val : Long, cstr : &~[]~UByte) {
-    itoa(val, cstr, 10);
-}
-
-itoa(val : Long, cstr : &~[]~UByte, radix : UByte) {
-    v : ~Long;
-    i : ~UInt;
-    if val == 0 {
-        cstr^[0] = '0';
-        cstr^[1] = 0;
-        return;
-    }
-    if val < 0 {
-        v = -val;
-        cstr^[0] = '-';
-        i = 1;
-    }
-    else {
-        v = val;
-        i = 0;
-    }
-    first := i;
-    while v > 0 {
-        nextV := v / radix;
-        digitV := v - nextV * radix;
-        cstr^[i] = UByte(48 + digitV);
-        v = nextV;
-        i = i + 1;
-    }
-    cstr^[i] = UByte(0);
-    
-    ## reverse string:
-    i = i - 1;
-    end := i+first;
-    while i > end/2 {
-        c := cstr^[i];
-        cstr^[i] = cstr^[end-i];
-        cstr^[end-i] = c;
-        i = i - 1;
-    }
 }
 
 

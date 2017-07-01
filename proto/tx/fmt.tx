@@ -1,0 +1,184 @@
+module tx
+
+
+interface Stringer {
+    abstract string( writer : &~tx.ByteWriter );
+}
+
+
+interface Formatter {
+    abstract format( writer : &~tx.ByteWriter, format : &StringFormat );
+}
+
+
+/** Concatenates multiple Stringers. */
+type MultiStringer implements Stringer {
+    _stringers : &[]&Stringer;
+
+    self( stringers : &[]&Stringer ) {
+        self._stringers = stringers;
+    }
+
+    override string( writer : &~tx.ByteWriter ) {
+        for str in self._stringers:
+            str.string( writer );
+    }
+}
+
+
+type StringFormat {
+    static FLAG_MINUS : UByte = 1;
+    static FLAG_PLUS  : UByte = 2;
+    static FLAG_SPACE : UByte = 4;
+    static FLAG_ZERO  : UByte = 8;
+    static FLAG_HASH  : UByte = 16;
+
+    flags     : UByte;
+    width     : UInt;
+    precision : UInt;
+    typeChar  : UByte;
+
+    self( flags : UByte, width : UInt, precision : UInt, typeChar : UByte ) {
+        self.flags = flags;
+        self.width = width;
+        self.precision = precision;
+        self.typeChar = typeChar;
+    }
+
+    self( typeChar : UByte ) {
+        self.flags = 0;
+        self.width = 0;
+        self.precision = 0;
+        self.typeChar = typeChar;
+    }
+}
+
+
+/** Makes a Stringer of a Formatter by applying a given format. */
+type FormattedStringer implements Stringer {
+    format : StringFormat;
+    object : &Formatter;
+
+    self( format : StringFormat, object : &Formatter ) {
+        self.format = format;
+        self.object = object;
+    }
+
+    override string( writer : &~tx.ByteWriter ) {
+        self.object.format( writer, self.format );
+    }
+}
+
+
+to_string( writer : &~tx.ByteWriter, value : ULong, neg : Bool ) {
+    prev : ~ULong = value;
+    val  : ~ULong = value / 10;
+    backward : ~[24]UByte;
+    while prev > 9 {
+        backward[backward.L] = '0' + UByte( prev - (val * 10) );
+        prev = val;
+        val = val / 10;
+    }
+    backward[backward.L] = '0' + UByte( prev - (val * 10) );
+
+    forward : ~[24]UByte;
+    if neg:
+        forward[forward.L] = '-';
+    for i in 0..backward.L {
+        forward[forward.L] = backward[backward.L-1-i];
+    }
+    writer.write( forward );
+}
+
+format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, neg : Bool ) {
+    prev : ~ULong = value;
+    val  : ~ULong = value / 10;
+    backward : ~[24]UByte;
+    while prev > 9 {
+        backward[backward.L] = '0' + UByte( prev - (val * 10) );
+        prev = val;
+        val = val / 10;
+    }
+    backward[backward.L] = '0' + UByte( prev - (val * 10) );
+
+    padding : ~Long = Long(format.width) - backward.L - 1;
+    sign : ~UByte = 0;
+    if neg:
+        sign = '-';
+    else if ( format.flags & StringFormat.FLAG_PLUS ) != 0:
+        sign = '+';
+    else if ( format.flags & StringFormat.FLAG_SPACE ) != 0:
+        sign = ' ';
+    else
+        padding = padding + 1;
+
+    size : ~UInt = 24;
+    if format.width > 23:
+        size = format.width + 1;
+    forward : ~[size]UByte;
+
+    if ( format.flags & StringFormat.FLAG_MINUS ) == 0 {
+        ## right-aligned, padding to the left
+        if ( format.flags & StringFormat.FLAG_ZERO ) != 0 {
+            if sign != 0:
+                forward[forward.L] = sign;
+            for i in 0..padding:
+                forward[forward.L] = '0';
+        }
+        else {
+            for i in 0..padding:
+                forward[forward.L] = ' ';
+            if sign != 0:
+                forward[forward.L] = sign;
+        }
+        for i in 0..backward.L:
+            forward[forward.L] = backward[backward.L-1-i];
+    }
+
+    else {
+        ## left-aligned, padding to the right
+        if sign != 0:
+            forward[forward.L] = sign;
+        for i in 0..backward.L:
+            forward[forward.L] = backward[backward.L-1-i];
+        for i in 0..padding:
+            forward[forward.L] = ' ';
+    }
+
+    writer.write( forward );
+}
+
+
+to_string( writer : &~tx.ByteWriter, value : ULong ) {
+    to_string( writer, value, FALSE );
+}
+
+format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong ) {
+    format_string( writer, format, value, FALSE );
+}
+
+
+to_string( writer : &~tx.ByteWriter, value : Long ) {
+    if value < 0:
+        to_string( writer, ULong( -value ), TRUE );
+    else
+        to_string( writer, ULong( value ), FALSE );
+}
+
+format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : Long ) {
+    if value < 0:
+        format_string( writer, format, ULong( -value ), TRUE );
+    else
+        format_string( writer, format, ULong( value ), FALSE );
+}
+
+
+to_string( writer : &~tx.ByteWriter, value : Double ) {
+    print( "to_string( Double )" );
+    ## TODO
+}
+
+format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : Double ) {
+    print( "format_string( Double )" );
+    ## TODO
+}
