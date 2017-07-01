@@ -96,9 +96,8 @@ protected:
 
     /** Declares a new symbol in this scope. Its name must be unique.
      * Subclasses may override this method and add additional rules.
-     * @return true if successful, false otherwise
      */
-    virtual bool declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol );
+    virtual void declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol );
 
     /** Prepares an entity declaration (adding to an existing or a newly created entity symbol within this scope). */
     virtual TxEntitySymbol* declare_entity( const std::string& plainName, TxNode* definingNode );
@@ -218,13 +217,11 @@ class TxEntitySymbol : public TxScopeSymbol {
     const TxEntityDeclaration* get_distinct_decl() const;
 
 protected:
-    virtual bool declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) override {
-        if ( this->typeDeclaration )
-            return TxScopeSymbol::declare_symbol( origin, symbol );
-        else {
-            ASSERT( false, "Can't add member symbol (" << symbol << ") to a field symbol: " << this->get_full_name() );
-            return false;
+    virtual void declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) override {
+        if ( !this->typeDeclaration ) {
+            CERR_THROWDECL( origin, "Can't add member symbol (" << symbol << ") to a field symbol: " << this->get_full_name() );
         }
+        TxScopeSymbol::declare_symbol( origin, symbol );
     }
 
 public:

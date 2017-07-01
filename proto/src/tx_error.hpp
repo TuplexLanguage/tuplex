@@ -68,6 +68,12 @@ void cwarning( const TxParseOrigin& origin, const std::string& msg );
 void finalize_expected_error_clause( const TxParseOrigin* origin );
 
 #ifndef NO_CERRORS
+#   define CERR_THROWDECL(origin, message) \
+    do { \
+        std::stringstream msg;  msg << message; \
+        cerror(origin, msg.str()); \
+        throw declaration_error( origin, msg.str() ); \
+    } while (false)
 #   define CERR_THROWRES(origin, message) \
     do { \
         std::stringstream msg;  msg << message; \
@@ -91,6 +97,11 @@ void finalize_expected_error_clause( const TxParseOrigin* origin );
         cwarning(origin, msg.str()); \
     } while (false)
 #else
+#   define CERR_THROWDECL(origin, message) \
+    do { \
+        std::stringstream msg;  msg << message; \
+        throw declaration_error( origin, msg.str() ); \
+    } while (false)
 #   define CERR_THROWRES(origin, message) \
     do { \
         std::stringstream msg;  msg << message; \

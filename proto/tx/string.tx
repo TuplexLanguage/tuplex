@@ -2,12 +2,12 @@ module tx
 
 
 interface Stringer {
-    abstract string( writer : &tx.Writer );
+    abstract string( writer : &~tx.ByteWriter );
 }
 
 
 interface Formatter {
-    abstract format( writer : &tx.Writer, format : &StringFormat );
+    abstract format( writer : &~tx.ByteWriter, format : &StringFormat );
 }
 
 
@@ -73,16 +73,22 @@ public type String implements Sequenceable< Char >, Stringer, Formatter {
         }
     }
 
+    self( stringer : &Stringer ) {
+        ~buf := GrowableUByteArray();
+        stringer.string( &buf );
+        self( buf.array() );
+    }
+
 
     public override sequencer() -> Ref< ~Sequencer< Char > > {
         return new ~StringSequencer( self );
     }
 
-    override string( writer : &tx.Writer ) {
+    override string( writer : &~tx.ByteWriter ) {
         writer.write( self._bytes );
     }
 
-    override format( writer : &tx.Writer, format : &StringFormat ) {
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
         ## TODO: take format into account
         writer.write( self._bytes );
     }
@@ -128,7 +134,7 @@ type FormattedStringer implements Stringer {
         self.object = object;
     }
 
-    override string( writer : &tx.Writer ) {
+    override string( writer : &~tx.ByteWriter ) {
         self.object.format( writer, self.format );
     }
 }
@@ -142,14 +148,14 @@ type MultiStringer implements Stringer {
         self._stringers = stringers;
     }
 
-    override string( writer : &tx.Writer ) {
+    override string( writer : &~tx.ByteWriter ) {
         for str in self._stringers:
             str.string( writer );
     }
 }
 
 
-##format_string( writer : &tx.Writer, format : StringFormat, source : &Sequenceable<Char> ) {
+##format_string( writer : &~tx.ByteWriter, format : StringFormat, source : &Sequenceable<Char> ) {
 ##}
 
 

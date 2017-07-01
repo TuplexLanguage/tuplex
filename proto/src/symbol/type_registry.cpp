@@ -717,7 +717,8 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
     auto adapterDeclNode = new TxTypeDeclNode( loc, ( TXD_PUBLIC | TXD_IMPLICIT ), adapterName, nullptr, adapterTypeNode );
 
     auto & adaptedTypeCtx = adaptedType->get_declaration()->get_definer()->context();
-    LexicalContext adapterCtx( ifDecl->get_definer()->context().scope(), adaptedTypeCtx.exp_error(), adaptedTypeCtx.is_generic(),
+    // ifDecl->get_definer()->context().scope()
+    LexicalContext adapterCtx( scope, adaptedTypeCtx.exp_error(), adaptedTypeCtx.is_generic(),
                                adaptedTypeCtx.reinterpretation_definer() );
     run_declaration_pass( adapterDeclNode, adapterCtx );
     {   // override the adaptee type id virtual field member:

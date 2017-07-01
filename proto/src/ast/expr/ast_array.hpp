@@ -7,6 +7,8 @@
 class TxArrayLitNode : public TxExpressionNode {
 public:
     TxArrayLitNode( const TxLocation& ploc ) : TxExpressionNode( ploc ) { }
+
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
 
 /** Represents filled array literals, explicitly specified in source code as well as array initializers created implicitly

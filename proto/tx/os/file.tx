@@ -1,0 +1,79 @@
+module tx.os
+
+import tx.String
+
+
+type ~ File implements tx.ByteWriter, tx.ByteReader {
+    static STATE_UNOPEN : UByte = 0;
+    static STATE_ERROR  : UByte = 1;
+    static STATE_OPEN   : UByte = 2;
+    static STATE_CLOSED : UByte = 3;
+
+    _cfile : ~ULong;
+    _state : ~UByte;
+    _error : ~Int;
+
+    self() {
+        self._cfile = 0;
+        self._state = STATE_UNOPEN;
+        self._error = 0;
+    }
+
+
+    /** Creates the named file for writing and reading. */
+    create( name : String ) ~ -> Int {
+        return self.open_mode( name, "w" );
+    }
+
+    /** Opens the named file for reading. */
+    open( name : String ) ~ -> Int {
+        return self.open_mode( name, "r" );
+    }
+
+    /** Opens the named file in the specified mode. */
+    open_mode( name : String, mode : String ) ~ -> Int {
+        assert self._state == STATE_UNOPEN;  ## TODO: panic
+        
+        self._cfile = tx.c.fopen( &name._bytes[0], &mode._bytes[0] );
+        if self._cfile != 0:
+            self._state = STATE_OPEN;
+        else {
+            self._state = STATE_ERROR;
+            self._error = -1;
+        }
+        return self._error;
+    }
+
+    close() ~ {
+        assert self._state == STATE_OPEN;  ## TODO: panic
+        
+        self._state = STATE_CLOSED;
+        tx.c.fclose( self._cfile );
+    }
+
+
+    override write( buf : &[]UByte ) ~ -> Long {
+        assert self._state == STATE_OPEN;  ## TODO: panic
+
+        exp := buf.L;
+        count := tx.c.fwrite( &buf[0], 1, exp, self._cfile );
+        if count < exp {
+            self._state = STATE_ERROR;
+            self._error = -1;
+        }
+        return Long( count );
+    }
+
+    override read( buf : &~[]UByte ) ~ -> Long {
+        assert self._state == STATE_OPEN;  ## TODO: panic
+
+        exp := buf.C-buf.L;
+        count := tx.c.fread( &buf[buf.L], 1, exp, self._cfile );
+        if count < exp {
+            ## TODO: check if EOF, which isn't an error
+            self._state = STATE_ERROR;
+            self._error = -1;
+        }
+        return Long( count );
+    }
+}

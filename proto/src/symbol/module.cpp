@@ -14,16 +14,14 @@ TxModule::TxModule( TxModule* parent, const std::string& name, const TxParseOrig
     }
 }
 
-bool TxModule::declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) {
+void TxModule::declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) {
     if ( !this->declared ) {
         // only modules allowed within namespace of non-declared "module"
         if ( !dynamic_cast<TxModule*>( symbol ) ) {
-            CERROR( origin, "Can't add non-module symbol " << symbol
-                    << " to undeclared namespace " << this->get_full_name() );
-            return false;
+            CERR_THROWDECL( origin, "Can't add non-module symbol " << symbol << " to undeclared namespace " << this->get_full_name() );
         }
     }
-    return TxScopeSymbol::declare_symbol( origin, symbol );
+    TxScopeSymbol::declare_symbol( origin, symbol );
 }
 
 TxModule* TxModule::declare_module( const TxParseOrigin& origin, const TxIdentifier& ident, bool builtin ) {
@@ -60,10 +58,7 @@ TxModule* TxModule::inner_declare_module( const TxParseOrigin& origin, const TxI
             if ( !nextModule ) {
                 // create undeclared submodule scope
                 nextModule = new TxModule( this, nextName, origin, false );
-                if ( !this->declare_symbol( origin, nextModule ) ) {
-                    delete nextModule;
-                    return nullptr;
-                }
+                this->declare_symbol( origin, nextModule );
             }
             return nextModule->inner_declare_module( origin, ident, builtin );
         }
@@ -88,12 +83,9 @@ TxModule* TxModule::inner_declare_module( const TxParseOrigin& origin, const TxI
     }
     else {
         auto module = new TxModule( this, name, origin, true );
-        if ( this->declare_symbol( origin, module ) ) {
-            this->LOGGER()->debug( "Declared module %s", module->get_full_name().str().c_str() );
-            return module;
-        }
-        delete module;
-        return nullptr;
+        this->declare_symbol( origin, module );
+        this->LOGGER()->debug( "Declared module %s", module->get_full_name().str().c_str() );
+        return module;
     }
 }
 
@@ -184,13 +176,14 @@ void TxModule::dump_symbols() const {
         {
             bool headerprinted = false;
             for ( auto & pair : this->usedNames ) {
-                if ( pair.second.parent() != builtinNamespace || this->get_root_scope()->driver().get_options().dump_tx_symbols ) {
-                    if ( !headerprinted ) {
-                        printf( "--- aliases ---\n" );
-                        headerprinted = true;
-                    }
-                    printf( "%-14s %s\n", pair.first.c_str(), pair.second.str().c_str() );
+                if ( pair.second.begins_with( builtinNamespace ) && !this->get_root_scope()->driver().get_options().dump_tx_symbols )
+                    continue;
+
+                if ( !headerprinted ) {
+                    printf( "--- aliases ---\n" );
+                    headerprinted = true;
                 }
+                printf( "%-14s %s\n", pair.first.c_str(), pair.second.str().c_str() );
             }
         }
         printf( "--- entities ---\n" );

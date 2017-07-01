@@ -47,7 +47,7 @@ protected:
     /** Parse origin for this module's declaration. */
     const TxParseOrigin& origin;
 
-    virtual bool declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) override;
+    virtual void declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) override;
 
 public:
     TxModule( TxModule* parent, const std::string& name, const TxParseOrigin& origin, bool declared );

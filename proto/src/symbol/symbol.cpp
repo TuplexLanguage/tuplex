@@ -60,8 +60,9 @@ void TxScopeSymbol::add_symbol( TxScopeSymbol* symbol ) {
     ASSERT( (this->outer==NULL && symbol->get_full_name().is_plain()) || symbol->get_full_name().parent()==this->get_full_name(),
             "Symbol qualifier doesn't match parent scope! " << symbol );
     auto result = this->symbols.emplace( symbol->get_name(), symbol );
-    ASSERT( result.second, "Failed to insert new symbol (previously inserted?): " << symbol );
-    (void) result;  // suppress compiler warning when asserts disabled
+    if ( !result.second ) {
+        THROW_LOGIC( "Failed to insert new symbol (previously inserted?): " << symbol );
+    }
     this->declOrderNames.push_back( symbol->get_name() );
     this->alphaOrderNames.insert( symbol->get_name() );
 }
@@ -76,11 +77,8 @@ const TxScopeSymbol* TxScopeSymbol::get_symbol( const std::string& name ) const 
 
 /*--- symbol table handling ---*/
 
-bool TxScopeSymbol::declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) {
-    if ( this->has_symbol( symbol->get_name() ) )
-        return false;
+void TxScopeSymbol::declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol ) {
     this->add_symbol( symbol );
-    return true;
 }
 
 TxEntitySymbol* TxScopeSymbol::declare_entity( const std::string& plainName, TxNode* definingNode ) {
@@ -102,7 +100,7 @@ TxEntitySymbol* TxScopeSymbol::declare_entity( const std::string& plainName, TxN
     if ( auto symbol = this->get_symbol( plainName ) ) {
         entitySymbol = dynamic_cast<TxEntitySymbol*>( symbol );
         if ( !entitySymbol ) {
-            CERROR( definingNode, "Failed to declare entity symbol, can't overload entities and non-entities under same symbol: " << symbol );
+            CERR_THROWDECL( definingNode, "Failed to declare entity symbol, can't overload entities and non-entities under same symbol: " << symbol );
             return nullptr;
         }
     }
@@ -155,21 +153,22 @@ const TxFieldDeclaration* TxScopeSymbol::declare_field( const std::string& plain
 }
 
 void TxScopeSymbol::dump_symbols() const {
-    const TxIdentifier builtinNamespace( BUILTIN_NS );
+    if ( this->get_full_name().begins_with( BUILTIN_NS ) && !this->get_root_scope()->driver().get_options().dump_tx_symbols ) {
+        return;
+    }
     std::vector<const TxModule*> subModules;
     for ( auto & symName : this->declOrderNames ) {
         auto symbol = this->symbols.at( symName );
-        if ( auto submod = dynamic_cast<const TxModule*>( symbol ) )
+        if ( auto submod = dynamic_cast<const TxModule*>( symbol ) ) {
             subModules.push_back( submod );
-        else if ( this->get_full_name() != builtinNamespace || this->get_root_scope()->driver().get_options().dump_tx_symbols ) {
+        }
+        else {
             printf( "%s %s\n", symbol->declaration_string().c_str(), symbol->description_string().c_str() );
             symbol->dump_symbols();
         }
     }
-    if ( !subModules.empty() ) {
-        for ( auto mod : subModules )
-            mod->dump_symbols();
-    }
+    for ( auto mod : subModules )
+        mod->dump_symbols();
 }
 
 std::string TxScopeSymbol::description_string() const {
@@ -188,7 +187,7 @@ const TxEntityDeclaration* TxEntitySymbol::get_distinct_decl() const {
 
 bool TxEntitySymbol::add_type( TxTypeDeclaration* typeDeclaration ) {
     if ( this->typeDeclaration ) {
-        CERROR( typeDeclaration->get_definer(), "Can't overload several type declarations under the same name: " << this->get_full_name() );
+        CERR_THROWDECL( typeDeclaration->get_definer(), "Can't overload several type declarations under the same name: " << this->get_full_name() );
         return false;
     }
     this->typeDeclaration = typeDeclaration;

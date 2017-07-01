@@ -7,6 +7,20 @@
 
 using namespace llvm;
 
+
+Value* TxArrayLitNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
+    if ( this->is_statically_constant() ) {
+        return this->code_gen_const_address( context );
+    }
+
+    // automatically allocates local storage for dynamic array literals
+    auto valueV = this->code_gen_dyn_value( context, scope );
+    auto ptrV = scope->builder->CreateAlloca( valueV->getType() );
+    scope->builder->CreateStore( valueV, ptrV );
+    return ptrV;
+}
+
+
 Value* TxFilledArrayLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
 
