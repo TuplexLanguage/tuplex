@@ -202,8 +202,8 @@ YY_DECL;
 %precedence ELLIPSIS
 %left COMMA COLON
 %right EQUAL
-%left PERCENTPERCENT  // string concatenation
-%left PERCENT         // string formatting
+%left PERCENTPERCENT PERCENT // string concatenation and formatting
+%precedence STRFORMAT // unary string formatting
 %left PIPE        // boolean and bitwise operator
 %left KW_XOR      // boolean and bitwise operator
 %left AAND        // boolean and bitwise operator
@@ -581,7 +581,6 @@ expr
     |   expr GT GT expr     %prec LTLT          { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_RSHIFT, $4); }
     |   expr GT GT GT expr  %prec LTLT          { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_ARSHIFT, $5); }
 
-    |   expr PERCENTPERCENT expr     { $$ = TxConcatenateStringsNode::make_strcat_node( @$, $1, $3 ); }
     |   string_format_expr           { $$ = $1; }
     ;
 
@@ -591,10 +590,10 @@ value_literal
         |       LIT_FLOATING  { $$ = new TxFloatingLitNode(@1, $1); }
         |       LIT_CHARACTER { $$ = new TxCharacterLitNode(@1, $1); }
         |       LIT_CSTRING   { $$ = new TxCStringLitNode(@1, $1); }
+        |       LIT_STRING    { $$ = new TxStringLitNode(@1, $1); }
         |       KW_NULL       { $$ = new TxBoolLitNode(@1, false); }  // TODO: proper Null type
         |       KW_FALSE      { $$ = new TxBoolLitNode(@1, false); }
         |       KW_TRUE       { $$ = new TxBoolLitNode(@1, true); }
-        |       LIT_STRING    { $$ = new TxStringLitNode(@1, $1); }
     ;
 
 array_literal : LBRACKET expr COMMA array_lit_expr_list RBRACKET  { (*$4)[0] = $2;  $$ = new TxFilledArrayLitNode(@1, $4); }
@@ -632,13 +631,15 @@ expression_list : expr
 ;
 
 
-string_format_expr : string_format expr       %prec PERCENT
+string_format_expr : string_format expr       %prec STRFORMAT
                         { $$ = new TxStackConstructionNode( @$, new TxNamedTypeNode( @$, "tx.FormattedStringer"),
                                                             new std::vector<TxExpressionNode*>( { $1, $2 } ) ); }
-                   | expr string_format expr  %prec PERCENTPERCENT
+                   | expr string_format expr  %prec PERCENT
                         { $$ = TxConcatenateStringsNode::make_strcat_node( @$, $1, 
                                     new TxStackConstructionNode( @2, new TxNamedTypeNode( @2, "tx.FormattedStringer"),
                                                                         new std::vector<TxExpressionNode*>( { $2, $3 } ) ) ); }
+                   | expr PERCENTPERCENT expr
+                        { $$ = TxConcatenateStringsNode::make_strcat_node( @$, $1, $3 ); }
                    ;
 
 string_format   : PERCENT opt_sf_flags opt_sf_width opt_sf_prec opt_sf_type
