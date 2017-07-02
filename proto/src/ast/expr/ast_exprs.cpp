@@ -130,7 +130,7 @@ void TxFunctionCallNode::symbol_resolution_pass() {
         {
             if ( arrayArgElemType
                  && !( calleeArgTypes.size() == this->origArgsExprList->size()
-                       && get_reinterpretation_degree( calleeArgTypes.back(), this->origArgsExprList->back()->get_type() ) >= 0 ) ) {
+                       && get_reinterpretation_degree( this->origArgsExprList->back(), calleeArgTypes.back() ) >= 0 ) ) {
                 // Calling a var-args function, and last provided arg does not directly match the var-arg tail arg.
                 // transform the passed var-args into an array which is passed as the last argument
                 unsigned lastCalleeArgIx = calleeArgTypes.size() - 1;

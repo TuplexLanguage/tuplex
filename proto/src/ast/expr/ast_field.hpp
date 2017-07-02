@@ -12,7 +12,7 @@
  * ("distance" between the types);
  * or <0 if it can't be cast or implicitly converted to the expected type.
  */
-extern int get_reinterpretation_degree( const TxType *expectedType, const TxType* providedType );
+extern int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType *requiredType );
 
 /** Attempts to resolve an identified entity symbol, that is potentially overloaded,
  * to a specific field by matching with the provided arguments' types.

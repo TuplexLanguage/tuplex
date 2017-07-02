@@ -10,7 +10,20 @@ main()->Int {
     return Int(0);
 }
 
-int_format_test() {
+int_format_test( ) {
+    for i in -23..Byte(24) {
+        print( %10x i %10d i %10o i %10b i );
+    }
+    print( "%d\t'" %d -19 %% "'" );
+    print( "%d\t'" %d -10 %% "'" );
+    print( "%d\t'" %d -9 %% "'" );
+    print( "%d\t'" %d -1 %% "'" );
+    print( "%d\t'" %d 0 %% "'" );
+    print( "%d\t'" %d 1 %% "'" );
+    print( "%d\t'" %d 9 %% "'" );
+    print( "%d\t'" %d 10 %% "'" );
+    print( "%d\t'" %d 19 %% "'" );
+    print( "" );
     print( "%d\t'" %d 42 %% "'" );
     print( "% d\t'" % d 42 %% "'" );
     print( "%+d\t'" %+d 42 %% "'" );

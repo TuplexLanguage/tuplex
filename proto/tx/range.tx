@@ -15,7 +15,7 @@ public interface Range< E > : Indicable< Long, E > {
 
 
 /** A range between two values of an Enumerable type. */
-public type ERange< E derives Enumerable > implements Range< E > {
+public type ERange< E derives Enumerable > implements Range< E >, Stringer {
 
     /** The ERange iterator. */
     public type ~ ERangeIterator implements Iterator< E > {
@@ -92,10 +92,11 @@ public type ERange< E derives Enumerable > implements Range< E > {
         assert ix < self._indexLimit;
         return E.value( Ordinal( Long( self.start.ordinal() ) + ix * self.stride ) );
     }
-/*
-    /** valid indices are all integers between [ 0, index_limit() ) */
-    public override index_limit() -> UInt {
-        return self._indexLimit;
+
+    override string( writer : &~tx.ByteWriter ) {
+        ## TODO: Either support duck-typing in generic types or provide "unchecked { ... }" mechanism (or similar)
+        ## str := %s self.start %% ".." %s self.stride %% ".." %s self.limit;
+        str := "<ERange>";
+        str.string( writer );
     }
-*/
 }

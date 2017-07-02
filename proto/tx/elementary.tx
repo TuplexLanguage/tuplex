@@ -38,7 +38,7 @@ public builtin type ~ Byte          derives Signed implements Number<Byte>, Enum
 
     /** returns the ordinal for this value */
     public override ordinal() -> Ordinal {
-        return Ordinal( self );
+        return Ordinal( Long( self ) + 128 );
     }
 
     override string( writer : &~tx.ByteWriter ) {
@@ -68,7 +68,7 @@ public builtin type ~ Short         derives Signed implements Number<Short>, Enu
 
     /** returns the ordinal for this value */
     public override ordinal() -> Ordinal {
-        return Ordinal( self );
+        return Ordinal( Long( self ) + 32768 );
     }
 
     override string( writer : &~tx.ByteWriter ) {
@@ -98,7 +98,7 @@ public builtin type ~ Int           derives Signed implements Number<Int>, Enume
 
     /** returns the ordinal for this value */
     public override ordinal() -> Ordinal {
-        return Ordinal( self );
+        return Ordinal( Long( self ) + 2147483648 );
     }
 
     override string( writer : &~tx.ByteWriter ) {
@@ -127,7 +127,7 @@ public builtin type ~ Long          derives Signed implements Number<Long>, Enum
 
     /** returns the ordinal for this value */
     public override ordinal() -> Ordinal {
-        return Ordinal( self );
+        return Ordinal( self^ - -9223372036854775808 );
     }
 
     override string( writer : &~tx.ByteWriter ) {

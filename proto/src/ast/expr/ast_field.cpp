@@ -8,29 +8,31 @@
 
 #include "symbol/entity_type.hpp"
 
-int get_reinterpretation_degree( const TxType *expectedType, const TxType* providedType ) {
-    if ( *expectedType == *providedType ) {
-        //std::cerr << "Types equal: " << expectedType << "   ==   " << providedType << std::endl;
+int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType *requiredType ) {
+    const TxType* originalType = originalExpr->resolve_type();
+
+    if ( *originalType == *requiredType ) {
+        //std::cerr << "Types equal: " << originalType << "   ==   " << requiredType << std::endl;
         return 0;
     }
 
     // TODO: check if provided type is narrower than the expected type
 
-    if ( providedType->auto_converts_to( *expectedType ) )
+    if ( auto_converts_to( originalExpr, requiredType ) )
         return 2;
 
-    if ( expectedType->get_type_class() == TXTC_REFERENCE ) {
-        if ( auto expRefTargetType = expectedType->target_type() ) {
-            if ( providedType->is_a( *expRefTargetType ) ) {
+    if ( requiredType->get_type_class() == TXTC_REFERENCE ) {
+        if ( auto expRefTargetType = requiredType->target_type() ) {
+            if ( originalType->is_a( *expRefTargetType ) ) {
                 if ( !expRefTargetType->is_modifiable() )
                     return 3;  // expression will be auto-wrapped with a reference-to node
             }
         }
     }
 
-    if ( providedType->get_type_class() == TXTC_REFERENCE ) {
-        if ( auto provRefTargetType = providedType->target_type() ) {
-            if ( provRefTargetType->auto_converts_to( *expectedType ) ) {
+    if ( originalType->get_type_class() == TXTC_REFERENCE ) {
+        if ( auto provRefTargetType = originalType->target_type() ) {
+            if ( provRefTargetType->auto_converts_to( *requiredType ) ) {
                 return 3;  // expression will be wrapped with a dereference node
             }
         }
@@ -51,15 +53,6 @@ const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntit
 
     if ( entitySymbol->field_count() == 0 )
         return nullptr;
-
-    // prepare vector of provided arguments' original types:
-    std::vector<const TxType*> argTypes;
-    for ( auto argNode : *arguments ) {
-        auto argType = argNode->resolve_type();
-        if ( !argType )
-            return nullptr;
-        argTypes.push_back( argType );
-    }
 
     const TxFieldDeclaration* closestDecl = nullptr;
     uint64_t closestReint = UINT64_MAX;
@@ -98,17 +91,16 @@ const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntit
 
                     // next check that the argument types match, and how close they match:
                     uint16_t reint[4] = { 0, 0, 0, 0 };
-                    for ( unsigned i = 0; i < argTypes.size(); i++ ) {
-                        const TxType* argType = argTypes.at( i );
+                    for ( unsigned i = 0; i < arguments->size(); i++ ) {
+                        TxExpressionNode* argNode = arguments->at( i );
                         const TxType* argDef = ( arrayArgElemType && i >= candArgTypes.size() - 1 ? arrayArgElemType
-                                                                                                    :
-                                                                                                    candArgTypes.at( i ) );
-                        int degree = get_reinterpretation_degree( argDef, argType );
+                                                                                                  : candArgTypes.at( i ) );
+                        int degree = get_reinterpretation_degree( argNode, argDef );
                         if ( degree < 0 ) {
                             if ( arrayArgElemType && i == candArgTypes.size() - 1 && candArgTypes.size() == arguments->size() ) {
                                 // if last provided arg is an array of the correct type, match it against the var-arg tail if present
                                 //std::cerr << " cand-arg: " << candArgTypes.at( i ) << "   prov-arg: " << argType << std::endl;
-                                degree = get_reinterpretation_degree( candArgTypes.at( i ), argType );
+                                degree = get_reinterpretation_degree( argNode, candArgTypes.at( i ) );
                                 if ( degree < 0 )
                                     goto NEXT_CANDIDATE;
                             }

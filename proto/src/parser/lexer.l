@@ -199,8 +199,8 @@ extern "C" int yywrap() { return 0; }
 "#"                 { return token::SF_HASH; }
 [1-9][0-9]*|\*      { yylval->build(std::string (yytext)); return token::SF_WIDTH; }
 \.([0-9]+|\*)       { yylval->build(std::string (yytext)); return token::SF_PREC; }
-[diufFeEgGxXoscaA]  { BEGIN(INITIAL); yylval->build(std::string (yytext)); return token::SF_TYPE; }
-.                   { BEGIN(INITIAL); yyless(0); }
+[diufFeEgGxXoscaAb] { BEGIN(INITIAL); yylval->build(std::string (yytext)); return token::SF_TYPE; }
+.                   { BEGIN(INITIAL); yyless(0); yylloc->columns(-1); }
 }
 
 

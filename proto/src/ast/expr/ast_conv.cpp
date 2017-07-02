@@ -219,11 +219,6 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                 derefNode->node_declaration_pass( originalExpr->parent() );
                 if ( auto newExpr = inner_wrap_conversion( derefNode, origRefTargetType, requiredType, _explicit ) ) {
                     return newExpr;
-//                    if ( newExpr != derefNode )
-//                        return newExpr;
-//                    auto convNode = new TxNoConversionNode( derefNode, origRefTargetType );
-//                    convNode->node_declaration_pass( originalExpr->parent() );
-//                    return convNode;
                 }
             }
         }

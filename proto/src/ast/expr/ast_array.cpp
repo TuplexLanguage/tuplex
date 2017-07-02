@@ -68,7 +68,7 @@ const TxType* TxFilledArrayLitNode::define_type() {
         capacityNode->node_declaration_pass( this );
         arrayType = this->registry().get_array_type( this, elemTypeNode, capacityNode );
         if ( this->elemExprList->size() == 1
-             && get_reinterpretation_degree( arrayType, this->elemExprList->front()->originalExpr->resolve_type() ) >= 0 ) {
+             && get_reinterpretation_degree( this->elemExprList->front()->originalExpr, arrayType ) >= 0 ) {
             // treat as array to array assignment
             this->_directArrayArg = true;
             expectedArgType = arrayType;
