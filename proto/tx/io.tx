@@ -9,7 +9,7 @@ print( str : &Stringer ) {
 }
 
 print_address( r : Ref ) {
-    print( %d tx._address( r ) );
+    print( %016x tx._address( r ) );
 }
 
 

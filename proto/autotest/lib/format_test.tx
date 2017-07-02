@@ -12,7 +12,7 @@ main()->Int {
 
 int_format_test( ) {
     for i in -23..Byte(24) {
-        print( %10x i %10d i %10o i %10b i );
+        print( %010x i %% "  " %010d i %% "  " %010o i %% "  " %010b i );
     }
     print( "%d\t'" %d -19 %% "'" );
     print( "%d\t'" %d -10 %% "'" );

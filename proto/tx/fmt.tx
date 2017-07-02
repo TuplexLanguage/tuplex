@@ -90,46 +90,65 @@ to_string( writer : &~tx.ByteWriter, value : ULong, neg : Bool ) {
     writer.write( forward );
 }
 
+RADIX_DIGITS := c"0123456789abcdef";
+
 format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, neg : Bool ) {
-    prev : ~ULong = value;
-    val  : ~ULong = value / 10;
-    backward : ~[24]UByte;
-    while prev > 9 {
-        backward[backward.L] = '0' + UByte( prev - (val * 10) );
-        prev = val;
-        val = val / 10;
+    radix : ~UByte = 10;
+    prefix : ~[3]UByte;
+    if format.typeChar == 'x' {
+        radix = 16;
+        prefix[0] = 'x';
+        prefix[1] = '0';
     }
-    backward[backward.L] = '0' + UByte( prev - (val * 10) );
+    else if format.typeChar == 'o' {
+        radix = 8;
+        prefix[0] = 'o';
+        prefix[1] = '0';
+    }
+    else if format.typeChar == 'b' {
+        radix = 2;
+        prefix[0] = 'b';
+        prefix[1] = '0';
+    }
 
-    padding : ~Long = Long(format.width) - backward.L - 1;
-    sign : ~UByte = 0;
+    backward : ~[66]UByte;
+    {
+        prev : ~ULong = value;
+        val  : ~ULong = value / radix;
+        while prev >= radix {
+            backward[backward.L] = RADIX_DIGITS[ UByte( prev - (val * radix) ) ];
+            prev = val;
+            val = val / radix;
+        }
+        backward[backward.L] = RADIX_DIGITS[ UByte( prev - (val * radix) ) ];
+    }
+
     if neg:
-        sign = '-';
+        prefix[prefix.L] = '-';
     else if ( format.flags & StringFormat.FLAG_PLUS ) != 0:
-        sign = '+';
+        prefix[prefix.L] = '+';
     else if ( format.flags & StringFormat.FLAG_SPACE ) != 0:
-        sign = ' ';
-    else
-        padding = padding + 1;
+        prefix[prefix.L] = ' ';
 
-    size : ~UInt = 24;
-    if format.width > 23:
-        size = format.width + 1;
-    forward : ~[size]UByte;
+    length := backward.L + prefix.L;  ## string length excluding padding
+    padding : ~UInt = 0;
+    if format.width > length:
+        padding = format.width - length;
+    forward : ~[length+padding]UByte;
 
     if ( format.flags & StringFormat.FLAG_MINUS ) == 0 {
         ## right-aligned, padding to the left
         if ( format.flags & StringFormat.FLAG_ZERO ) != 0 {
-            if sign != 0:
-                forward[forward.L] = sign;
+            for i in 0..prefix.L:
+                forward[forward.L] = prefix[prefix.L-1-i];
             for i in 0..padding:
                 forward[forward.L] = '0';
         }
         else {
             for i in 0..padding:
                 forward[forward.L] = ' ';
-            if sign != 0:
-                forward[forward.L] = sign;
+            for i in 0..prefix.L:
+                forward[forward.L] = prefix[prefix.L-1-i];
         }
         for i in 0..backward.L:
             forward[forward.L] = backward[backward.L-1-i];
@@ -137,8 +156,8 @@ format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, 
 
     else {
         ## left-aligned, padding to the right
-        if sign != 0:
-            forward[forward.L] = sign;
+        for i in 0..prefix.L:
+            forward[forward.L] = prefix[prefix.L-1-i];
         for i in 0..backward.L:
             forward[forward.L] = backward[backward.L-1-i];
         for i in 0..padding:
