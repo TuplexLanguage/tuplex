@@ -8,8 +8,8 @@ using namespace llvm;
 
 static Value* gen_local_field( LlvmGenerationContext& context, GenScope* scope, const TxField* field, Value* fieldV ) {
     fieldV->setName( field->get_unique_name() );
-    const TxType* txType = field->get_type();
-    auto fieldA = txType->type()->gen_alloca( context, scope, field->get_unique_name() + "_" );
+    const TxType* txType = field->get_type()->type();
+    auto fieldA = txType->acttype()->gen_alloca( context, scope, field->get_unique_name() + "_" );
     scope->builder->CreateStore( fieldV, fieldA );
     context.register_llvm_value( field->get_declaration()->get_unique_full_name(), fieldA );
     return fieldA;
@@ -29,9 +29,9 @@ Function* TxLambdaExprNode::code_gen_forward_decl( LlvmGenerationContext& contex
         funcName = "$func";  // anonymous function
 
     //FunctionType *ftype = cast<FunctionType>(context.get_llvm_type(this->funcTypeNode->get_type()));
-    StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->get_type() ) );
+    StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->qualtype() ) );
     FunctionType *funcT = cast<FunctionType>( cast<PointerType>( lambdaT->getElementType( 0 ) )->getPointerElementType() );
-    ASSERT( funcT, "Couldn't get LLVM type for function type " << this->funcHeaderNode->get_type() );
+    ASSERT( funcT, "Couldn't get LLVM type for function type " << this->funcHeaderNode->qualtype() );
 
     Function* function = cast<Function>( context.llvmModule().getOrInsertFunction( funcName, funcT ) );
     // function->setLinkage(GlobalValue::InternalLinkage);  TODO (can cause LLVM to rename function)
@@ -47,7 +47,7 @@ llvm::Constant* TxLambdaExprNode::code_gen_const_value( LlvmGenerationContext& c
 
     // FUTURE: if this is a lambda within a code-block, define the implicit closure object here
 
-    StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->get_type() ) );
+    StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->qualtype() ) );
 
     // generate the function body:
     BasicBlock *entryBlock = BasicBlock::Create( context.llvmContext, "entry", function );
@@ -60,13 +60,13 @@ llvm::Constant* TxLambdaExprNode::code_gen_const_value( LlvmGenerationContext& c
         // (both self and super refer to the same object, but with different ref types)
         {
             this->selfRefNode->typeExpression->code_gen_type( context );
-            auto selfT = context.get_llvm_type( this->selfRefNode->get_type() );
+            auto selfT = context.get_llvm_type( this->selfRefNode->qualtype() );
             auto convSelfV = gen_ref_conversion( context, &fscope, &(*fArgI), selfT );
             gen_local_field( context, &fscope, this->selfRefNode->get_field(), convSelfV );
         }
         {
             this->superRefNode->typeExpression->code_gen_type( context );
-            auto superT = context.get_llvm_type( this->superRefNode->get_type() );
+            auto superT = context.get_llvm_type( this->superRefNode->qualtype() );
             auto convSuperV = gen_ref_conversion( context, &fscope, &(*fArgI), superT );
             gen_local_field( context, &fscope, this->superRefNode->get_field(), convSuperV );
         }

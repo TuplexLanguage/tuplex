@@ -10,7 +10,7 @@
 
 class TxFunctionCallNode : public TxExpressionNode {
     bool doesNotReturn;
-    const TxType* calleeType = nullptr;
+    const TxQualType* calleeType = nullptr;
     bool isSelfSuperConstructorInvocation = false;
     TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function/constructor call if non-null
 
@@ -24,7 +24,7 @@ class TxFunctionCallNode : public TxExpressionNode {
 protected:
     virtual void declaration_pass() override;
 
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     TxExpressionNode* callee;
@@ -85,7 +85,7 @@ protected:
     /** Produces the object - either an allocation, or a self/super reference */
     TxExpressionNode* objectExpr;
 
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     TxConstructorCalleeExprNode( const TxLocation& ploc, TxExpressionNode* objectExpr )
@@ -102,7 +102,7 @@ public:
     }
 
     /** Returns the constructed type. */
-    inline const TxType* get_constructed_type() const {
+    inline const TxQualType* get_constructed_type() const {
         return this->objectExpr->resolve_type();
     }
 
@@ -122,7 +122,7 @@ class TxMemAllocNode : public TxExpressionNode {
 protected:
     TxTypeExpressionNode* objTypeExpr;
 
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         return this->objTypeExpr->resolve_type();
     }
 
@@ -183,7 +183,7 @@ protected:
     TxExpressionNode* initializationExpression = nullptr;  // substitutes the function/constructor call if non-null
 
     /** Gets the type of the allocated object. Should not be called before resolution. */
-    virtual const TxType* get_object_type() const = 0;
+    virtual const TxQualType* get_object_type() const = 0;
 
     TxMakeObjectNode( const TxLocation& ploc, TxTypeExpressionNode* typeExpr, TxFunctionCallNode* constructorCall )
             : TxExpressionNode( ploc ), typeExpr( typeExpr ), constructorCall( constructorCall ) {
@@ -193,18 +193,18 @@ public:
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         this->typeExpr->symbol_resolution_pass();
-        if ( !this->typeExpr->get_type()->is_concrete() ) {
+        if ( !this->typeExpr->qualtype()->type()->is_concrete() ) {
             if ( !this->context().is_generic() )
-                CERROR( this->typeExpr, "Object to allocate is not concrete: " << this->typeExpr->get_type() );
+                CERROR( this->typeExpr, "Object to allocate is not concrete: " << this->typeExpr->qualtype() );
             else
                 LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Object to allocate is not concrete: "
-                           << this->typeExpr->get_type() );
+                           << this->typeExpr->qualtype() );
         }
 
         this->constructorCall->symbol_resolution_pass();
 
-        if ( auto calleeType = this->constructorCall->callee->get_type() ) {
-            if ( auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>( calleeType->type() ) ) {
+        if ( auto calleeType = this->constructorCall->callee->qualtype() ) {
+            if ( auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>( calleeType->type()->acttype() ) ) {
                 // This constructor is an inlineable function that returns the initializer value
                 // (as opposed to a constructor whose code assigns value to the object's members).
                 // We replace the constructor call with the initialization expression:
@@ -232,13 +232,13 @@ protected:
         targetTypeNode->node_declaration_pass( this );  // special case instead of wrapping typeExpr and overriding visit_descendants()
     }
 
-    virtual const TxType* get_object_type() const override {
-        return this->typeExpr->get_type();
+    virtual const TxQualType* get_object_type() const override {
+        return this->typeExpr->qualtype();
     }
 
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         // new constructor returns the constructed object by reference
-        return this->registry().get_reference_type( this, this->targetTypeNode, nullptr );
+        return new TxQualType( this->registry().get_reference_type( this, this->targetTypeNode, nullptr ) );
     }
 
 public:
@@ -263,11 +263,11 @@ public:
 /** Makes a new object in newly allocated stack memory and returns it by value/address. */
 class TxStackConstructionNode : public TxMakeObjectNode {
 protected:
-    virtual const TxType* get_object_type() const override {
-        return this->get_type();
+    virtual const TxQualType* get_object_type() const override {
+        return this->qualtype();
     }
 
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         // stack constructor returns the constructed object by value, not by reference
         return this->typeExpr->resolve_type();
     }

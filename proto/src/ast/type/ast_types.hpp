@@ -8,7 +8,7 @@
 #include "ast/expr/ast_maybe_conv_node.hpp"
 
 #include "symbol/type_registry.hpp"
-#include "symbol/entity_type.hpp"
+#include "symbol/qual_type.hpp"
 
 class TxIdentifiedSymbolNode : public TxTypeDefiningNode {
     const TxIdentifier* symbolName;
@@ -19,7 +19,7 @@ class TxIdentifiedSymbolNode : public TxTypeDefiningNode {
 protected:
     TxScopeSymbol* resolve_symbol();
 
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     TxIdentifiedSymbolNode* baseSymbol;
@@ -56,7 +56,7 @@ public:
 /** Identifies a type directly via its name. */
 class TxNamedTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     TxIdentifiedSymbolNode* symbolNode;
@@ -92,7 +92,7 @@ public:
 /** Identifies a type that is a member of another type, which is determined by an arbitrary type expression. */
 class TxMemberTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     TxTypeExpressionNode* baseTypeExpr;
@@ -128,7 +128,7 @@ public:
  */
 class TxGenSpecTypeNode : public TxTypeExpressionNode {
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     TxTypeExpressionNode* genTypeExpr;
@@ -149,10 +149,10 @@ public:
         for ( TxTypeArgumentNode* ta : *this->typeArgs ) {
             ta->symbol_resolution_pass();
 
-            if (this->genTypeExpr->get_type()->get_type_class() != TXTC_REFERENCE) {
+            if (this->genTypeExpr->qualtype()->get_type_class() != TXTC_REFERENCE) {
                 if ( auto typeTypeArg = dynamic_cast<TxTypeTypeArgumentNode*>( ta ) ) {
-                    auto elemType = typeTypeArg->typeExprNode->get_type();
-                    if ( !elemType->is_concrete() ) {
+                    auto elemType = typeTypeArg->typeExprNode->qualtype();
+                    if ( !elemType->type()->is_concrete() ) {
                         if ( !this->context().is_generic() )
                             CERROR( this, "Type specialization parameter is not concrete: " << elemType );
                         else
@@ -192,8 +192,8 @@ class TxReferenceTypeNode : public TxBuiltinTypeSpecNode {
     }
 
 protected:
-    virtual const TxType* define_type() override {
-        return this->registry().get_reference_type( this, targetTypeNode, this->dataspace );
+    virtual const TxQualType* define_type() override {
+        return new TxQualType( this->registry().get_reference_type( this, targetTypeNode, this->dataspace ) );
     }
 
 public:
@@ -228,7 +228,7 @@ class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
     }
 
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     TxTypeTypeArgumentNode* elementTypeNode;
@@ -250,8 +250,8 @@ public:
         if ( this->capacityNode ) {
             this->capacityNode->symbol_resolution_pass();
         }
-        auto elemType = this->elementTypeNode->typeExprNode->get_type();
-        if ( !elemType->is_concrete() ) {
+        auto elemType = this->elementTypeNode->typeExprNode->qualtype();
+        if ( !elemType->type()->is_concrete() ) {
             if ( !this->context().is_generic() )
                 CERROR( this, "Array element type is not concrete: " << elemType );
             else
@@ -307,7 +307,7 @@ protected:
         this->init_implicit_types();  // (can't run this before interfaceKW is known)
     }
 
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     TxTypeExpressionNode* baseType;
@@ -350,7 +350,7 @@ public:
 //        this->derivedTypeNode->symbol_declaration_pass( lexContext );
 //    }
 //
-//    virtual const TxType* define_type() override {
+//    virtual const TxTypeUsage* define_type() override {
 //        if (auto dType = this->derivedTypeNode->resolve_type()) {
 //            if (auto base = dType->get_semantic_base_type())
 //                return base;
@@ -393,7 +393,7 @@ class TxFunctionTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void typeexpr_declaration_pass() override;
 
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     /** Indicates whether functions of this type may modify its closure when run. */
@@ -417,8 +417,8 @@ public:
         TxTypeExpressionNode::symbol_resolution_pass();
         for ( auto argField : *this->arguments ) {
             argField->symbol_resolution_pass();
-            auto argType = argField->get_type();
-            if ( !argType->is_concrete() ) {
+            auto argType = argField->qualtype();
+            if ( !argType->type()->is_concrete() ) {
                 if ( !this->context().is_generic() )
                     CERROR( argField, "Function argument type is not concrete: "
                             << argField->get_descriptor() << " : " << argType );
@@ -429,8 +429,8 @@ public:
         }
         if ( this->returnField ) {
             this->returnField->symbol_resolution_pass();
-            auto retType = this->returnField->get_type();
-            if ( !retType->is_concrete() ) {
+            auto retType = this->returnField->qualtype();
+            if ( !retType->type()->is_concrete() ) {
                 if ( !this->context().is_generic() )
                     CERROR( returnField, "Function return type is not concrete: " << retType );
                 else
@@ -453,58 +453,56 @@ class TxModifiableTypeNode : public TxTypeExpressionNode {
 protected:
     virtual void typeexpr_declaration_pass() override;
 
-    virtual const TxType* define_type() override {
-        if ( auto bType = this->baseType->resolve_type() ) {
-            if ( bType->is_modifiable() ) {
-                CERROR( this, "'modifiable' specified more than once for type: " << bType );
-                return bType;
-            }
-            else if ( !bType->is_mutable() )
-                CERR_THROWRES( this, "Can't declare immutable type as modifiable: " << bType );
-            return this->registry().get_modifiable_type( this->get_declaration(), bType );
+    virtual const TxQualType* define_type() override {
+        auto bType = this->typeNode->resolve_type();
+        if ( bType->is_modifiable() ) {
+            CERROR( this, "'modifiable' specified more than once for type: " << bType );
+            return bType;
         }
-        return nullptr;
+        if ( !bType->type()->is_mutable() )
+            CERR_THROWRES( this, "Can't declare immutable type as modifiable: " << bType );
+        return new TxQualType( bType->type(), true );
     }
 
 public:
-    TxTypeExpressionNode* baseType;
+    TxTypeExpressionNode* typeNode;
 
-    TxModifiableTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
-            : TxTypeExpressionNode( ploc ), baseType( baseType ) {
+    TxModifiableTypeNode( const TxLocation& ploc, TxTypeExpressionNode* typeNode )
+            : TxTypeExpressionNode( ploc ), typeNode( typeNode ) {
     }
 
     virtual TxModifiableTypeNode* make_ast_copy() const override {
-        return new TxModifiableTypeNode( this->ploc, this->baseType->make_ast_copy() );
+        return new TxModifiableTypeNode( this->ploc, this->typeNode->make_ast_copy() );
     }
 
     virtual bool is_modifiable() const { return true; }
 
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
-        this->baseType->symbol_resolution_pass();
+        this->typeNode->symbol_resolution_pass();
     }
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->baseType->visit_ast( visitor, thisCursor, "basetype", context );
+        this->typeNode->visit_ast( visitor, thisCursor, "type", context );
     }
 };
 
 /** A potentially modifiable type expression, depending on syntactic sugar rules.
- * This node should not have TxModifiableTypeNode as parent, and vice versa. */
+ * One aim is to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
+ * This node should not have TxModifiableTypeNode as parent node, and vice versa. */
 class TxMaybeModTypeNode : public TxModifiableTypeNode {
     bool isModifiable = false;
 
 protected:
     virtual void typeexpr_declaration_pass() override;
 
-    virtual const TxType* define_type() override {
-        // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
+    virtual const TxQualType* define_type() override {
         if ( this->isModifiable )
             return TxModifiableTypeNode::define_type();
         else
-            return this->baseType->resolve_type();
+            return this->typeNode->resolve_type();
     }
 
 public:
@@ -513,7 +511,7 @@ public:
     }
 
     virtual TxMaybeModTypeNode* make_ast_copy() const override {
-        return new TxMaybeModTypeNode( this->ploc, this->baseType->make_ast_copy() );
+        return new TxMaybeModTypeNode( this->ploc, this->typeNode->make_ast_copy() );
     }
 
     virtual bool is_modifiable() const override {
@@ -521,11 +519,11 @@ public:
     }
 
     void set_modifiable( bool mod ) {
-        ASSERT( !this->attempt_get_type(), "Can't set modifiable after type already has been resolved in " << this );
+        ASSERT( !this->attempt_qualtype(), "Can't set modifiable after type already has been resolved in " << this );
         this->isModifiable = mod;
     }
 
     virtual const std::string& get_descriptor() const override {
-        return this->baseType->get_descriptor();
+        return this->typeNode->get_descriptor();
     }
 };

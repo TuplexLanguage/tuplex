@@ -1,6 +1,7 @@
 #include "entity.hpp"
 #include "entity_type.hpp"
 #include "ast/expr/ast_expr_node.hpp"
+#include "qual_type.hpp"
 
 Logger& TxEntity::_LOG = Logger::get( "ENTITY" );
 
@@ -9,20 +10,20 @@ const TxNode* TxEntity::get_origin_node() const {
     return this->declaration->get_definer();
 }
 
-TxField* TxField::make_field( const TxFieldDeclaration* fieldDeclaration, const TxType* fieldType ) {
+TxField* TxField::make_field( const TxFieldDeclaration* fieldDeclaration, const TxQualType* fieldType ) {
     ASSERT( fieldDeclaration, "Fields must be named (have non-null declaration)" );
     ASSERT( fieldType, "NULL type for field " << fieldDeclaration );
     auto symbol = fieldDeclaration->get_symbol();
     if ( fieldType->get_type_class() == TXTC_FUNCTION ) {
-        auto funcArgTypes = fieldType->argument_types();
+        auto funcArgTypes = fieldType->type()->argument_types();
         // check that no two signatures are exactly equal
         for ( auto prevFieldDeclI = symbol->fields_cbegin(); prevFieldDeclI != symbol->fields_cend(); prevFieldDeclI++ ) {
             if ( ( *prevFieldDeclI ) == fieldDeclaration )
                 continue;
             // we only check against the previous fields that have already been resolved at this point:
-            if ( auto prevFieldType = ( *prevFieldDeclI )->get_definer()->attempt_get_type() ) {
+            if ( auto prevFieldType = ( *prevFieldDeclI )->get_definer()->attempt_qualtype() ) {
                 if ( prevFieldType->get_type_class() == TXTC_FUNCTION ) {
-                    auto prevFuncArgTypes = prevFieldType->argument_types();
+                    auto prevFuncArgTypes = prevFieldType->type()->argument_types();
                     if ( funcArgTypes.size() == prevFuncArgTypes.size()
                          && equal( funcArgTypes.begin(), funcArgTypes.end(), prevFuncArgTypes.begin(),
                                    [](const TxType* t1, const TxType* t2) {return *t1 == *t2;} ) ) {

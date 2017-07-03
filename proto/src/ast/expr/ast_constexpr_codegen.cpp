@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <limits.h>
 
+#include "../../symbol/qual_type.hpp"
 #include "llvm_generator.hpp"
 
 #include "ast_constexpr.hpp"
@@ -33,8 +34,8 @@ double eval_floatingpoint_constant( const TxExpressionNode* exprNode ) {
 
 bool is_static_equal( const TxExpressionNode* exprA, const TxExpressionNode* exprB ) {
     if ( exprA->is_statically_constant() && exprB->is_statically_constant() ) {
-        auto atype = exprA->get_type()->type();
-        auto btype = exprB->get_type()->type();
+        auto atype = exprA->qualtype()->type()->acttype();
+        auto btype = exprB->qualtype()->type()->acttype();
         if ( !( atype->has_type_id() && btype->has_type_id() ) )
             return false;  // can currently only compare constant values of built-in types
 

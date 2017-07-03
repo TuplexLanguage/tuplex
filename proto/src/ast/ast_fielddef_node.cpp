@@ -1,14 +1,15 @@
 #include "ast_fielddef_node.hpp"
+
+#include "../symbol/qual_type.hpp"
 #include "ast_wrappers.hpp"
 #include "type/ast_types.hpp"
 #include "ast_declpass.hpp"
 
-#include "symbol/entity_type.hpp"
 
-static const TxType* get_mutable_specialization( TxNode* parent, const TxType* origType ) {
+static const TxQualType* get_mutable_specialization( TxNode* parent, const TxType* origType ) {
     const TxLocation& loc = parent->ploc;
     auto newbindings = new std::vector<TxTypeArgumentNode*>();
-    auto actType = origType->type();
+    auto actType = origType->acttype();
     for ( auto bdecl : actType->get_bindings() ) {
         if ( auto btypedecl = dynamic_cast<const TxTypeDeclaration*>( bdecl ) ) {
             auto btype = btypedecl->get_definer()->resolve_type();
@@ -33,20 +34,19 @@ static const TxType* get_mutable_specialization( TxNode* parent, const TxType* o
     auto genBaseTypeNode = new TxTypeDeclWrapperNode( loc, actType->get_semantic_base_type()->get_declaration() );
     auto mutTypeDef = new TxGenSpecTypeNode( loc, genBaseTypeNode, newbindings );
     run_declaration_pass( mutTypeDef, parent, "mut-type" );
-    const TxType* type = mutTypeDef->resolve_type();
+    const TxQualType* type = mutTypeDef->resolve_type();
     LOG_DEBUG( parent->LOGGER(), "Created mutable specialization for " << parent );
     return type;
 }
 
-const TxType* TxFieldDefNode::define_type() {
+const TxQualType* TxFieldDefNode::define_type() {
     LOG_TRACE( this->LOGGER(), "defining  type  of " << this );
-    const TxType* type;
+    const TxQualType* type;
     if ( this->typeExpression ) {
         type = this->typeExpression->resolve_type();
         // also resolve initExpression from here, which guards against recursive field value initialization:
         if ( this->initExpression ) {
-            auto nonModType = ( type->is_modifiable() ? type->get_base_type() : type );  // rvalue doesn't need to be modifiable
-            this->initExpression->insert_conversion( nonModType );
+            this->initExpression->insert_conversion( type->type() );
             try {
                 this->initExpression->resolve_type();
             }
@@ -60,22 +60,23 @@ const TxType* TxFieldDefNode::define_type() {
         type = this->initExpression->resolve_type();
         if ( this->modifiable ) {
             if ( !type->is_modifiable() ) {
-                if ( !type->is_mutable() ) {
-                    if ( type->is_generic_specialization() && type->get_semantic_base_type()->is_mutable() ) {
+                auto typeEnt = type->type();
+                if ( !typeEnt->is_mutable() ) {
+                    if ( typeEnt->is_generic_specialization() && typeEnt->get_semantic_base_type()->is_mutable() ) {
                         // copying an immutable type to a modifiable field is ok if we can obtain the mutable specialization
                         // corresponding to the source's immutable specialization
-                        type = get_mutable_specialization( this, type );
+                        typeEnt = get_mutable_specialization( this, typeEnt )->type();
                     }
                     else
                         CERR_THROWRES( this, "Can't use immutable type as modifiable: " << type );
                 }
-                type = this->registry().get_modifiable_type( nullptr, type );
+                type = new TxQualType( typeEnt, true );
             }
         }
         else if ( type->is_modifiable() )
             // if initialization expression is modifiable type, and modifiable not explicitly specified,
             // lose modifiable attribute (modifiability must be explicit)
-            type = type->get_base_type();
+            type = new TxQualType( type->type(), false );
     }
     return type;
 }
@@ -83,7 +84,7 @@ const TxType* TxFieldDefNode::define_type() {
 const TxField* TxFieldDefNode::define_field() {
     LOG_TRACE( this->LOGGER(), "defining  field of " << this );
     // FUTURE: consider if EXPERR decls shouldn't get their field created
-    return TxField::make_field( this->declaration, this->attempt_get_type() );
+    return TxField::make_field( this->declaration, this->attempt_qualtype() );
 }
 
 void TxFieldDefNode::symbol_resolution_pass() {
@@ -98,7 +99,7 @@ void TxFieldDefNode::symbol_resolution_pass() {
         this->typeExpression->symbol_resolution_pass();
     }
 
-    if ( !field->get_type()->is_concrete() ) {
+    if ( !field->get_type()->type()->is_concrete() ) {
         if ( !this->context().is_generic() )
             CERROR( this, "Field type is not concrete: "
                     << this->get_descriptor() << " : " << field->get_type() );

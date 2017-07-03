@@ -1,6 +1,7 @@
 #include "util/logging.hpp"
 
 #include "tx_error.hpp"
+#include "tx_logging.hpp"
 
 #include "type.hpp"
 #include "type_registry.hpp"
@@ -38,15 +39,9 @@ void DataTupleDefinition::dump() const {
 /*=== TxTypeSpecialization implementation ===*/
 
 bool TxTypeSpecialization::operator==( const TxTypeSpecialization& other ) const {
-    return ( ( this->type == other.type )  // instance equality required
-             //|| ( this->type && other.type && *this->type == *other.type) )
-             //&& *this->dataspace == *other.dataspace
-             && this->modifiable == other.modifiable );
+    return ( this->type == other.type );  // instance equality required
 }
 
-std::string TxTypeSpecialization::str() const {
-    return "specialization of " + this->type->str();
-}
 
 /*=== TxActualType implementation ===*/
 
@@ -94,29 +89,14 @@ const TxNode* TxActualType::get_origin_node() const {
     return this->get_declaration()->get_definer();
 }
 
-const TxActualType* TxActualType::get_root_any_type() const {
-    return this->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_ANY )->type();
+const TxQualType* TxActualType::get_root_any_qtype() const {
+    return new TxQualType( this->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_ANY ) );
 }
 
 void TxActualType::validate_type() const {
     //std::cerr << "validating type " << this << std::endl;
     if ( this->baseTypeSpec.type ) {
-        if ( this->baseTypeSpec.type->is_modifiable() )
-            CERROR( this, "Can't specialize a 'modifiable' type (specialize its base type instead): " << this->baseTypeSpec.type );
 
-        if ( this->baseTypeSpec.modifiable ) {
-            ASSERT( this->get_type_class() == this->baseTypeSpec.type->get_type_class(),
-                    "'modifiable' specialization must have same TxActualType class as the base type: " << this->baseTypeSpec.type );
-            if ( !this->baseTypeSpec.type->is_mutable() )
-                CERROR( this, "Can't make an immutable type modifiable: " << this->baseTypeSpec.type );
-            //if (this->dataspace)
-            //    CERROR(this->type, "Can't specify dataspace for a 'modifiable' type specialization");
-
-            // verify that this 'modifiable' type usage is an 'equivalent' specialization
-            if ( !this->interfaces.empty() )
-                CERROR( this, "'modifiable' specialization cannot add any interface base types" );
-        }
-        else {
             if ( this->is_mutable() && !this->get_semantic_base_type()->is_mutable() )
                 CERROR( this, "Can't derive a mutable type from an immutable base type: " << this->get_semantic_base_type() );
 
@@ -128,7 +108,6 @@ void TxActualType::validate_type() const {
                     || ( this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseTypeSpec.type->get_type_class() == TXTC_INTERFACE )
                     || this->get_type_class() == this->baseTypeSpec.type->get_type_class(),
                     "Specialized type's type class " << this << " not valid with base type's type class " << this->baseTypeSpec.type->get_type_class() );
-        }
 //        if (this->dataspace && this->baseTypeSpec.type->get_type_class() != TXTC_REFERENCE)
 //            CERROR(this, "Specified dataspace for non-reference base type " << this->baseTypeSpec.type);
 
@@ -137,9 +116,9 @@ void TxActualType::validate_type() const {
                     "anonymous or implicit, empty types may not be derived except as another anonymous or implicit, empty type: " << this );
         }
 
-        // if this is not an empty nor a modifiable derivation, verify that all parameters of base type are either bound, or redeclared:
+        // if this is not an empty derivation, verify that all parameters of base type are either bound, or redeclared:
         // Note: The base type's parameters that have not been bound should normally be automatically redeclared by the type registry.
-        if ( !this->emptyDerivation && !this->is_modifiable() ) {
+        if ( !this->emptyDerivation ) {
             for ( auto & paramDecl : this->get_semantic_base_type()->get_type_params() ) {
                 if ( !this->get_binding( paramDecl->get_unique_name() ) ) {
                     if ( !this->has_type_param( paramDecl->get_unique_name() ) ) {
@@ -186,7 +165,7 @@ void TxActualType::initialize_type() {
                     //std::cerr << "FOUND TYPE GENBINDING: " << typeDecl << std::endl;
                 }
                 else if ( *symname == "$GenericBase" ) {
-                    this->genericBaseType = typeDecl->get_definer()->resolve_type()->type();
+                    this->genericBaseType = typeDecl->get_definer()->resolve_type()->type()->acttype();
                     semBaseType = this->genericBaseType;
                 }
             }
@@ -236,7 +215,7 @@ void TxActualType::initialize_type() {
         if ( !this->bindings.empty() ) {
             this->pureDerivation = true;
         }
-        else if ( !this->is_builtin() && !this->is_modifiable() && this->interfaces.empty() && this->params.empty() ) {
+        else if ( !this->is_builtin() && this->interfaces.empty() && this->params.empty() ) {
             if ( this->get_type_class() == TXTC_FUNCTION ) {
                 // do something?
             }
@@ -280,10 +259,7 @@ void TxActualType::initialize_type() {
     }
 
     // determine datatype change:
-    if ( this->is_modifiable() ) {
-        // a modifiable type is a usage form of its base type, and doesn't affect the instance nor the vtable type
-    }
-    else {
+    {
         if ( this->nonRefBindings ) {
             // Binding of a base type parameter implies reinterpretation of its members and thus
             // the chance of modified instance / vtable types (for non-ref-constrained parameters).
@@ -373,8 +349,8 @@ bool TxActualType::inner_prepare_members() {
 
             if ( typeDecl->get_decl_flags() & TXD_GENBINDING ) {
                 if ( auto paramDecl = semBaseType->get_type_param_decl( typeDecl->get_unique_name() ) ) {
-                    auto constraintType = paramDecl->get_definer()->get_type()->type();
-                    auto type = typeDecl->get_definer()->get_type();
+                    auto constraintType = paramDecl->get_definer()->qualtype()->type();
+                    auto type = typeDecl->get_definer()->qualtype();
                     if ( !type->type()->is_a( *constraintType ) ) {
                         // TODO: do this also for VALUE params, but array type expression needs auto-conversion support for that to work
                         CERROR( typeDecl->get_definer(),
@@ -406,7 +382,7 @@ bool TxActualType::inner_prepare_members() {
             }
 
             auto field = fieldDecl->get_definer()->get_field();
-            auto fieldType = field->get_type()->type();
+            auto fieldType = field->get_type()->type()->acttype();
 
             // validate field's storage and declaration flags, and do layout:
             switch ( fieldDecl->get_storage() ) {
@@ -491,7 +467,7 @@ bool TxActualType::inner_prepare_members() {
     }
 
     // (note, this condition is not the same as is_concrete())
-    if ( !this->is_abstract() && !this->is_modifiable() && this->get_type_class() != TXTC_INTERFACEADAPTER
+    if ( !this->is_abstract() && this->get_type_class() != TXTC_INTERFACEADAPTER
          && !( this->get_declaration()->get_decl_flags() & TXD_GENPARAM ) ) {
         // check that all abstract members of base types & interfaces are implemented:
         auto virtualFields = this->get_virtual_fields();
@@ -527,7 +503,7 @@ static bool has_outer_with_nonref_params( const TxActualType* type ) {
     TxScopeSymbol* scope = type->get_declaration()->get_symbol()->get_outer();
     while ( !dynamic_cast<TxModule*>( scope ) ) {
         if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( scope ) ) {
-            type = entitySymbol->get_type_decl()->get_definer()->get_type()->type();
+            type = entitySymbol->get_type_decl()->get_definer()->qualtype()->type()->acttype();
             if ( has_nonref_params( type ) )
                 return true;
         }
@@ -555,7 +531,7 @@ static bool is_dynamic_binding_dependent( const TxActualType* type ) {
         }
         else {  // const TxTypeDeclaration*
             // a bound TYPE type parameter is always concrete (unless this is declared within a generic outer scope), but may be dynamic
-            if ( is_dynamic_binding_dependent( static_cast<const TxTypeDeclaration*>( b )->get_definer()->resolve_type()->type() ) )
+            if ( is_dynamic_binding_dependent( static_cast<const TxTypeDeclaration*>( b )->get_definer()->resolve_type()->type()->acttype() ) )
                 return true;
         }
     }
@@ -634,15 +610,12 @@ bool TxActualType::is_virtual_derivation() const {
 bool TxActualType::is_scalar() const {
     if ( this->typeClass != TXTC_ELEMENTARY )
         return false;
-    auto type = this;
-    if ( type->is_modifiable() )
-        type = type->get_base_type();
-    if ( type->formalTypeId >= BuiltinTypeId_COUNT ) {
+    if ( this->formalTypeId >= BuiltinTypeId_COUNT ) {
         // user derivation / alias of an elementary type
-        auto scalar = type->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_SCALAR )->type();
-        return type->is_a( *scalar );
+        auto scalar = this->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_SCALAR )->acttype();
+        return this->is_a( *scalar );
     }
-    switch ( type->formalTypeId ) {
+    switch ( this->formalTypeId ) {
         case TXBT_SCALAR:
         case TXBT_INTEGER:
         case TXBT_SIGNED:
@@ -800,7 +773,7 @@ bool TxActualType::inner_equals( const TxActualType* thatType ) const {
                     else if (auto aInitExpr = static_cast<const TxFieldDeclaration*>( aEntDecl )->get_definer()->get_init_expression()) {
                         if (auto bInitExpr = static_cast<const TxFieldDeclaration*>( bEntDecl )->get_definer()->get_init_expression()) {
                             if ( aInitExpr->is_statically_constant() && bInitExpr->is_statically_constant() ) {
-                                if ( auto aBindExprType = aInitExpr->attempt_get_type() ) {
+                                if ( auto aBindExprType = aInitExpr->attempt_qualtype() ) {
                                     if ( aBindExprType->is_builtin( TXBT_UINT) )
                                         return ( eval_UInt_constant( aInitExpr ) == eval_UInt_constant( bInitExpr ) );
                                 }
@@ -839,10 +812,6 @@ bool TxActualType::is_assignable_to( const TxActualType& destination ) const {
     // modifiability is disregarded (since this is in the context of copy-by-value)
     auto thisType = this;
     auto destType = &destination;
-    if ( thisType->is_modifiable() )
-        thisType = thisType->get_base_type();
-    if ( destType->is_modifiable() )
-        destType = destType->get_base_type();
     while ( destType->is_empty_derivation() && !is_explicit_nongen_declaration( destType ) )
         destType = destType->get_base_type();
     if ( thisType->get_type_class() != destType->get_type_class() )
@@ -905,11 +874,13 @@ bool TxActualType::inner_is_a( const TxActualType* thisType, const TxActualType*
                         // - a binding may be to a type that is equal to the parameter's constraint type, i.e. equivalent to unbound parameter
                         auto thisBindPar = get_binding_or_parameter( thisType, paramDecl );
                         // check whether both resolve to same type/value:
-                        auto thisBType = thisBindPar->get_definer()->resolve_type();
-                        auto thatBType = thatBinding->get_definer()->resolve_type();
-                        if ( thisBType->is_modifiable() && !thatBType->is_modifiable() )
-                            thisBType = thisBType->get_base_type();
-                        if ( *thisBType != *thatBType )
+                        const TxQualType* thisBType = thisBindPar->get_definer()->resolve_type();
+                        const TxQualType* thatBType = thatBinding->get_definer()->resolve_type();
+                        if ( thatBType->is_modifiable() ) {
+                            if ( !( thisBType->is_modifiable() && *thisBType->type() == *thatBType->type() ) )
+                                return false;
+                        }
+                        else if ( *thisBType->type() != *thatBType->type() )
                             return false;
                     }
                     else {
@@ -957,14 +928,14 @@ bool TxActualType::is_a( const TxActualType& other ) const {
     const TxActualType* thatType = &other;
     //std::cerr << thisType << "  IS-A\n" << thatType << std::endl;
 
-    // compare modifiability:
-    if ( thisType->is_modifiable() ) {
-        thisType = thisType->get_base_type();
-        if ( thatType->is_modifiable() )
-            thatType = thatType->get_base_type();
-    }
-    else if ( thatType->is_modifiable() )
-        return false;  // a non-modifiable type "is not a" modifiable type
+//    // compare modifiability:
+//    if ( thisType->is_modifiable() ) {
+//        thisType = thisType->get_base_type();
+//        if ( thatType->is_modifiable() )
+//            thatType = thatType->get_base_type();
+//    }
+//    else if ( thatType->is_modifiable() )
+//        return false;  // a non-modifiable type "is not a" modifiable type
 
     // by-pass anonymous, empty specializations:
     while ( !is_explicit_nongen_declaration( thatType ) && thatType->is_empty_derivation() )
@@ -1004,7 +975,7 @@ static void type_bindings_string( std::stringstream& str, const std::vector<cons
             }
             str << "?";
         }
-        else if ( auto btype = b->get_definer()->attempt_get_type() )
+        else if ( auto btype = b->get_definer()->attempt_qualtype() )
             str << btype->str( true );
         else
             str << b->get_unique_full_name();
@@ -1028,12 +999,6 @@ std::string TxActualType::str( bool brief ) const {
 
 void TxActualType::self_string( std::stringstream& str, bool brief ) const {
     bool expl = !( this->get_declaration()->get_decl_flags() & ( TXD_IMPLICIT | TXD_GENPARAM | TXD_GENBINDING ) );
-
-    if ( !expl && this->is_modifiable() ) {
-        str << "MOD ";
-        this->get_base_type()->self_string( str, brief );  // bypass modifiable derivation
-        return;
-    }
 
     str << this->get_declaration()->get_unique_full_name();
 
@@ -1069,7 +1034,7 @@ static bool array_assignable_from( const TxArrayType* toArray, const TxArrayType
     if ( auto toElem = toArray->element_type() ) {
         if ( auto fromElem = fromArray->element_type() ) {
             // note: is-a test insufficient for array elements, since assignable type (same instance data type) required
-            if ( !fromElem->is_assignable_to( *toElem ) )
+            if ( !fromElem->type()->acttype()->is_assignable_to( *toElem->type()->acttype() ) )
                 return false;
         }
         else
@@ -1094,7 +1059,7 @@ static bool ref_assignable_from( const TxReferenceType* toRef, const TxReference
             //std::cerr << "CHECKING REF ASSIGNABLE\n\tFROM " << fromTarget->str(false) << "\n\tTO   " << toTarget->str(false) << std::endl;
             if ( toTarget->is_modifiable() && !fromTarget->is_modifiable() )
                 return false;  // can't lose non-modifiability of target type
-            if ( fromTarget->is_a( *toTarget ) )
+            if ( fromTarget->type()->acttype()->is_a( *toTarget->type()->acttype() ) )
                 return true;
             else
                 return false;
@@ -1154,32 +1119,26 @@ const TxExpressionNode* TxArrayType::capacity() const {
     return nullptr;
 }
 
-const TxActualType* TxArrayType::element_type() const {
+const TxQualType* TxArrayType::element_type() const {
     if ( auto entSym = this->lookup_inherited_instance_member( "tx#Array#E" ) ) {
         if ( auto typeDecl = entSym->get_type_decl() ) {
             //std::cerr << "Array.E type decl: " << typeDecl << std::endl;
-            return typeDecl->get_definer()->resolve_type()->type();
+            return typeDecl->get_definer()->resolve_type();
         }
     }
     LOG( this->LOGGER(), ERROR, "tx#Array#E not found in " << this );
-//    if (auto bindingDecl = this->lookup_type_param_binding("tx.Array.E")) {
-//        return bindingDecl->get_definer()->resolve_type()->type();
-//    }
-    return this->get_root_any_type();  // we know the basic constraint type for element is Any
+    return this->get_root_any_qtype();  // we know the basic constraint type for element is Any
 }
 
-const TxActualType* TxReferenceType::target_type() const {
+const TxQualType* TxReferenceType::target_type() const {
     if ( auto entSym = this->lookup_inherited_instance_member( "tx#Ref#T" ) ) {
         if ( auto typeDecl = entSym->get_type_decl() ) {
             //std::cerr << "Ref.T type decl: " << typeDecl << std::endl;
-            return typeDecl->get_definer()->resolve_type()->type();
+            return typeDecl->get_definer()->resolve_type();
         }
     }
     LOG( this->LOGGER(), ERROR, "tx#Ref#T not found in " << this );
-//    if (auto paramDecl = this->lookup_type_param_binding("tx.Ref.T")) {
-//        return paramDecl->get_definer()->resolve_type()->type();
-//    }
-    return this->get_root_any_type();  // we know the basic constraint type for ref target is Any
+    return this->get_root_any_qtype();  // we know the basic constraint type for ref target is Any
 }
 
 bool TxInterfaceAdapterType::inner_prepare_members() {
@@ -1215,7 +1174,7 @@ TxFunctionType::TxFunctionType( const TxTypeDeclaration* declaration, const TxAc
                                 const std::vector<const TxActualType*>& argumentTypes,
                                 bool modifiableClosure )
         : TxFunctionType( declaration, baseType, argumentTypes,
-                          baseType->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_VOID )->type(),
+                          baseType->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_VOID )->acttype(),
                           modifiableClosure ) {
 }
 
@@ -1235,11 +1194,11 @@ const TxActualType* TxFunctionType::vararg_elem_type() const {
     if ( !argumentTypes.empty() ) {
         auto lastArgType = argumentTypes.back();
         if ( lastArgType->get_type_class() == TXTC_REFERENCE ) {
-            auto refTargetType = static_cast<const TxReferenceType*>( lastArgType )->target_type();
+            auto refTargetType = static_cast<const TxReferenceType*>( lastArgType )->target_type()->type()->acttype();
             if ( refTargetType->get_type_class() == TXTC_ARRAY ) {
                 auto arrayType = static_cast<const TxArrayType*>( refTargetType );
                 if ( !arrayType->capacity() )  // only arrays of unspecified capacity apply to var-args syntactic sugar
-                    return arrayType->element_type();
+                    return arrayType->element_type()->type()->acttype();
             }
         }
     }
@@ -1263,7 +1222,7 @@ const TxArrayType* TxFunctionType::fixed_array_arg_type() const {
 
 TxExpressionNode* TxBuiltinConversionFunctionType::make_inline_expr( TxExpressionNode* calleeExpr,
                                                                      std::vector<TxMaybeConversionNode*>* argsExprList ) const {
-    return make_conversion( argsExprList->front(), this->returnType->get_type_entity(), true );
+    return make_conversion( argsExprList->front(), get_type_entity( this->returnType ), true );
 }
 
 TxExpressionNode* TxBuiltinArrayInitializerType::make_inline_expr( TxExpressionNode* calleeExpr,

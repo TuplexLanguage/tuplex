@@ -11,7 +11,7 @@ void TxSuiteNode::stmt_declaration_pass() {
 
 void TxAssignStmtNode::symbol_resolution_pass() {
     this->lvalue->symbol_resolution_pass();
-    auto ltype = this->lvalue->resolve_type();
+    auto ltype = this->lvalue->resolve_type()->type();
 
     // note: similar rules to passing function arg
     if ( !ltype->is_concrete() ) {
@@ -36,8 +36,7 @@ void TxAssignStmtNode::symbol_resolution_pass() {
     // if assignee is a reference:
     // TODO: check dataspace rules
 
-    auto nonModLType = ( ltype->is_modifiable() ? ltype->get_base_type() : ltype );  // rvalue doesn't need to be modifiable
-    this->rvalue->insert_conversion( nonModLType );
+    this->rvalue->insert_conversion( ltype );
     this->rvalue->symbol_resolution_pass();
 }
 

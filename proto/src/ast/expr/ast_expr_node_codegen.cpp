@@ -1,3 +1,4 @@
+#include "../../symbol/qual_type.hpp"
 #include "ast_expr_node.hpp"
 #include "tx_error.hpp"
 
@@ -6,7 +7,7 @@
 using namespace llvm;
 
 Value* TxExpressionNode::code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const {
-    return this->get_type()->type()->gen_typeid( context, scope );
+    return this->qualtype()->type()->acttype()->gen_typeid( context, scope );
 }
 
 

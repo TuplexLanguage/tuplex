@@ -1,5 +1,6 @@
 #include "ast_op_exprs.hpp"
 #include "ast_constexpr.hpp"
+#include "ast_conv.hpp"
 
 #include "symbol/type_registry.hpp"
 #include "tx_error.hpp"
@@ -19,9 +20,9 @@ static inline void match_binary_operand_types( TxBinaryOperatorNode* binOpNode, 
     }
 }
 
-const TxType* TxBinaryOperatorNode::define_type() {
-    auto ltype = this->lhs->originalExpr->resolve_type();
-    auto rtype = this->rhs->originalExpr->resolve_type();
+const TxQualType* TxBinaryOperatorNode::define_type() {
+    auto ltype = this->lhs->originalExpr->resolve_type()->type();
+    auto rtype = this->rhs->originalExpr->resolve_type()->type();
 
     switch ( this->op_class ) {
     case TXOC_ARITHMETIC:
@@ -73,52 +74,53 @@ const TxType* TxBinaryOperatorNode::define_type() {
     this->rhs->resolve_type();
 
     if ( this->op_class == TXOC_EQUALITY || this->op_class == TXOC_COMPARISON )
-        return this->registry().get_builtin_type( TXBT_BOOL );
+        return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
     else
-        return this->lhs->get_type();
+        return this->lhs->qualtype();
 }
 
-const TxType* TxUnaryMinusNode::define_type() {
+const TxQualType* TxUnaryMinusNode::define_type() {
     auto opType = this->operand->originalExpr->resolve_type();
-    if ( !opType->is_scalar() )
+    if ( !opType->type()->is_scalar() )
         CERR_THROWRES( this, "Operand for unary '-' is not of scalar type: " << opType );
     if ( dynamic_cast<TxIntegerLitNode*>( this->operand->originalExpr ) )
         return opType;
 
     // promote unsigned integers upon negation:
     // (if operand is an unsigned integer, statically constant, and small enough it's converted to signed of same width)
+    const TxType* opTypeEnt;
     switch ( opType->get_type_id() ) {
     case TXBT_UBYTE:
         if ( this->operand->is_statically_constant() && eval_unsigned_int_constant( this->operand ) <= 127 )
-            opType = this->registry().get_builtin_type( TXBT_BYTE );
+            opTypeEnt = this->registry().get_builtin_type( TXBT_BYTE );
         else
-            opType = this->registry().get_builtin_type( TXBT_SHORT );
+            opTypeEnt = this->registry().get_builtin_type( TXBT_SHORT );
         break;
     case TXBT_USHORT:
         if ( this->operand->is_statically_constant() && eval_unsigned_int_constant( this->operand ) <= 32767 )
-            opType = this->registry().get_builtin_type( TXBT_SHORT );
+            opTypeEnt = this->registry().get_builtin_type( TXBT_SHORT );
         else
-            opType = this->registry().get_builtin_type( TXBT_INT );
+            opTypeEnt = this->registry().get_builtin_type( TXBT_INT );
         break;
     case TXBT_UINT:
         if ( this->operand->is_statically_constant() && eval_unsigned_int_constant( this->operand ) <= 2147483647 )
-            opType = this->registry().get_builtin_type( TXBT_INT );
+            opTypeEnt = this->registry().get_builtin_type( TXBT_INT );
         else
-            opType = this->registry().get_builtin_type( TXBT_LONG );
+            opTypeEnt = this->registry().get_builtin_type( TXBT_LONG );
         break;
     case TXBT_ULONG:
         if ( this->operand->is_statically_constant() && eval_unsigned_int_constant( this->operand ) <= 9223372036854775807 )
-            opType = this->registry().get_builtin_type( TXBT_LONG );
+            opTypeEnt = this->registry().get_builtin_type( TXBT_LONG );
         else
             CERR_THROWRES( this, "ULong can't be safely negated with unary '-' (requires explicit cast to signed type)" );
         break;
     default:
         return opType;
     }
-    this->operand->insert_conversion( opType );
+    this->operand->insert_conversion( opTypeEnt );
     return this->operand->resolve_type();
 }
 
-const TxType* TxUnaryLogicalNotNode::define_type() {
-    return this->registry().get_builtin_type( TXBT_BOOL );
+const TxQualType* TxUnaryLogicalNotNode::define_type() {
+    return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
 }

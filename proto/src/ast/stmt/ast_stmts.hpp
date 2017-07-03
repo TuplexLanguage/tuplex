@@ -154,7 +154,7 @@ public:
         if ( auto returnDecl = lookup_field( this->context().scope(), TxIdentifier( "$return" ) ) ) {
             if ( this->expr ) {
                 if ( auto field = returnDecl->get_definer()->resolve_field() )
-                    this->expr->insert_conversion( field->get_type() );
+                    this->expr->insert_conversion( field->get_type()->type() );
                 this->expr->symbol_resolution_pass();
             }
             else

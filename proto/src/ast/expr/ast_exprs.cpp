@@ -6,12 +6,12 @@
 #include "ast_field.hpp"
 
 
-const TxType* TxConstructorCalleeExprNode::define_type() {
+const TxQualType* TxConstructorCalleeExprNode::define_type() {
     ASSERT( this->appliedFuncArgs, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized" );
     {
         auto allocType = this->objectExpr->resolve_type();
         // find the constructor
-        if ( auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member( CONSTR_IDENT ) ) {  // (constructors aren't inherited)
+        if ( auto constructorSymbol = allocType->type()->get_instance_base_type()->get_instance_member( CONSTR_IDENT ) ) {  // (constructors aren't inherited)
             if ( auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs ) ) {
                 ASSERT( constructorDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ),
                         "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );
@@ -55,7 +55,7 @@ void TxFunctionCallNode::declaration_pass() {
     }
 }
 
-const TxType* TxFunctionCallNode::define_type() {
+const TxQualType* TxFunctionCallNode::define_type() {
     // The resolution here shall resolve to the function signature that *closest* matches the argument types,
     // but also takes automatic (implicit) type conversions into account (if needed).
     // The automatic type conversions thus considered shall then be applied upon function invocation.
@@ -67,7 +67,7 @@ const TxType* TxFunctionCallNode::define_type() {
     if ( this->calleeType->get_type_class() != TXTC_FUNCTION ) {
         CERR_THROWRES( this, "Callee of function call expression is not of function type: " << this->calleeType );
     }
-    else if ( /*auto constructorType =*/ dynamic_cast<const TxConstructorType*>( this->calleeType->type() ) ) {
+    else if ( /*auto constructorType =*/ dynamic_cast<const TxConstructorType*>( this->calleeType->type()->acttype() ) ) {
         // constructor functions return void but the constructor invocation expression yields the constructed type:
         if ( auto calleeConstructor = dynamic_cast<TxConstructorCalleeExprNode*>( this->callee ) ) {
             ASSERT( calleeConstructor->get_constructed_type(), "Expected callee field get_constructed_type() to be non-null: " << this->callee );
@@ -83,20 +83,20 @@ const TxType* TxFunctionCallNode::define_type() {
 //        return objectDefiner->resolve_type();
     }
     else
-        return this->calleeType->return_type();
+        return new TxQualType( this->calleeType->type()->return_type() );
 }
 
 void TxFunctionCallNode::symbol_resolution_pass() {
     TxExpressionNode::symbol_resolution_pass();
 
-    auto actualCalleeType = ( this->calleeType ? this->calleeType->type() : nullptr );
+    const TxActualType* actualCalleeType = ( this->calleeType ? this->calleeType->type()->acttype() : nullptr );
     auto constructorType = dynamic_cast<const TxConstructorType*>( actualCalleeType );
     if ( constructorType ) {
         // Stack construction syntactically looks like a function call, e.g. Int(42)
         // If the callee is a constructor, we substitute this function call with a stack construction expression:
         if ( !dynamic_cast<TxConstructorCalleeExprNode*>( this->callee ) ) {  // (prevents infinite recursion)
             auto calleeField = static_cast<TxFieldValueNode*>( this->callee );
-            auto typeDeclNode = new TxTypeDeclWrapperNode( this->ploc, calleeField->get_constructed_type()->get_declaration() );
+            auto typeDeclNode = new TxTypeDeclWrapperNode( this->ploc, calleeField->get_constructed_type()->type()->get_declaration() );
 //            auto typeDeclNode = new TxTypeDeclWrapperNode( this->ploc, constructorType->get_constructed_type_decl() );
 
             // Implementation note: Declaration pass is already run on the args, but we need to run it on the new construction node
@@ -113,11 +113,11 @@ void TxFunctionCallNode::symbol_resolution_pass() {
 
     // Verify arguments and apply implicit conversions if needed:
     if ( this->calleeType && this->calleeType->get_type_class() == TXTC_FUNCTION ) {
-        auto calleeArgTypes = this->calleeType->argument_types();
-        auto arrayArgElemType = this->calleeType->vararg_elem_type();
+        auto calleeArgTypes = this->calleeType->type()->argument_types();
+        auto arrayArgElemType = this->calleeType->type()->vararg_elem_type();
         if ( !arrayArgElemType ) {
-            if ( auto fixedArrayArgType = this->calleeType->fixed_array_arg_type() ) {
-                arrayArgElemType = fixedArrayArgType->element_type();
+            if ( auto fixedArrayArgType = this->calleeType->type()->fixed_array_arg_type() ) {
+                arrayArgElemType = fixedArrayArgType->element_type()->type();
             }
         }
 

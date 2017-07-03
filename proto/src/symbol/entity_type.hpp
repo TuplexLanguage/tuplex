@@ -9,6 +9,16 @@
 
 #include "type.hpp"
 
+class TxQualType;
+
+///** Helper function */
+//inline const TxQualType* get_qualtype( const TxActualType* actType ) {
+//    return actType->get_declaration()->get_definer()->qualtype();
+//}
+
+/** Helper function */
+const TxType* get_type_entity( const TxActualType* actType );
+
 /** A type entity. Represents the types defined in the program.
  * This acts as a proxy for the 'actual' type, whose definition is deferred until its needed in order
  * to facilitate type resolution without causing infinite recursions.
@@ -80,19 +90,19 @@ public:
         return bool( this->_type );
     }
 
-    // TODO: remove explicit usages of this method from AST (declaration & resolution passes)
+    // FUTURE: remove explicit usages of this method from AST (declaration & resolution passes)?
     // TODO: make non-const?
-    const TxActualType* type() const;
+    const TxActualType* acttype() const;
 
     inline const TxType* get_base_type() const {
-        if ( auto base = this->type()->get_base_type() )
-            return base->get_type_entity();
+        if ( auto base = this->acttype()->get_base_type() )
+            return get_type_entity(base);
         return nullptr;
     }
 
     inline const TxType* get_semantic_base_type() const {
-        if ( auto base = this->type()->get_semantic_base_type() )
-            return base->get_type_entity();
+        if ( auto base = this->acttype()->get_semantic_base_type() )
+            return get_type_entity(base);
         return nullptr;
     }
 
@@ -100,65 +110,60 @@ public:
      * which defines a distinct instance data type.
      * This is used to bypass same-instance-type derivations (e.g. empty/mod. specializations). */
     const TxType* get_instance_base_type() const {
-        if ( auto base = this->type()->get_instance_base_type() )
-            return base->get_type_entity();
+        if ( auto base = this->acttype()->get_instance_base_type() )
+            return get_type_entity(base);
         return nullptr;
     }
 
     inline TxTypeClass get_type_class() const {
-        return this->type()->get_type_class();
+        return this->acttype()->get_type_class();
     }
 
     inline uint32_t get_type_id() const {
-        return this->type()->get_type_id();
+        return this->acttype()->get_type_id();
     }
 
     /** Returns true if this type is a built-in type. */
     inline bool is_builtin() const {
-        return this->type()->is_builtin();
+        return this->acttype()->is_builtin();
     }
 
     /** Returns true if this type is the specified built-in type. */
     inline bool is_builtin( BuiltinTypeId biTypeId ) const {
-        return this->type()->is_builtin( biTypeId );
+        return this->acttype()->is_builtin( biTypeId );
     }
 
     /** Returns true if this type is a scalar type. */
     inline bool is_scalar() const {
-        return this->type()->is_scalar();
-    }
-
-    /** Returns true if this type is modifiable (its instances' contents may be modified after initialization). */
-    inline bool is_modifiable() const {
-        return this->type()->is_modifiable();
+        return this->acttype()->is_scalar();
     }
 
     /** Returns true if this type is mutable by declaration.
      * If true its instances can be declared modifiable.
      */
     inline bool is_mutable() const {
-        return this->type()->is_mutable();
+        return this->acttype()->is_mutable();
     }
 
     /** Returns true if this type cannot be extended. */
     inline bool is_final() const {
-        return this->type()->is_final();
+        return this->acttype()->is_final();
     }
 
     /** Returns true if this type is declared abstract. */
     inline bool is_abstract() const {
-        return this->type()->is_abstract();
+        return this->acttype()->is_abstract();
     }
     ;
 
     /** Returns true if this type is generic (i.e. has unbound type parameters). */
     inline bool is_generic() const {
-        return this->type()->is_generic();
+        return this->acttype()->is_generic();
     }
 
     /** Returns true if this type is a generic type parameter. */
     inline bool is_generic_param() const {
-        return this->type()->is_generic_param();
+        return this->acttype()->is_generic_param();
     }
 
     /** Returns true if this type is concrete.
@@ -167,7 +172,7 @@ public:
      * Reference types are always concrete.
      */
     inline bool is_concrete() const {
-        return this->type()->is_concrete();
+        return this->acttype()->is_concrete();
     }
 
     /** Returns true if this type is static, which means it is concrete and non-dynamic.
@@ -175,7 +180,7 @@ public:
      * Reference types are always static.
      */
     inline bool is_static() const {
-        return this->type()->is_static();
+        return this->acttype()->is_static();
     }
 
     /** Returns true if this type is dynamic, which means it is concrete and dependent on one or more
@@ -184,19 +189,19 @@ public:
      * via an expression that computes the dynamic parameter bindings.
      */
     inline bool is_dynamic() const {
-        return this->type()->is_dynamic();
+        return this->acttype()->is_dynamic();
     }
 
     inline bool is_empty_derivation() const {
-        return this->type()->is_empty_derivation();
+        return this->acttype()->is_empty_derivation();
     }
 
     inline bool is_generic_specialization() const {
-        return this->type()->is_generic_specialization();
+        return this->acttype()->is_generic_specialization();
     }
 
     inline bool operator==( const TxType& other ) const {
-        return this->type()->operator==( *other.type() );
+        return this->acttype()->operator==( *other.acttype() );
     }
 
     inline bool operator!=( const TxType& other ) const {
@@ -210,7 +215,7 @@ public:
      * This is a less strict test than is_assignable, since some types that are not directly assignable
      * may be so after an implicit conversion (e.g. Byte -> Int). */
     inline bool auto_converts_to( const TxType& destination ) const {
-        return this->type()->auto_converts_to( *destination.type() );
+        return this->acttype()->auto_converts_to( *destination.acttype() );
     }
 
     /** Returns true if an instance of this type can be assigned to a field of the provided type
@@ -222,53 +227,53 @@ public:
      * however for functions, arrays, references and adapters this test concerns data type equivalence and
      * substitutability rather than is-a relationship. */
     inline bool is_assignable_to( const TxType& destination ) const {
-        return this->type()->is_assignable_to( *destination.type() );
+        return this->acttype()->is_assignable_to( *destination.acttype() );
     }
 
     /** Returns true if the provided type is the same as this, or a specialization of this.
      * Note that true does not guarantee assignability, for example modifiability is not taken into account.
      */
     inline bool is_a( const TxType& other ) const {
-        return this->type()->is_a( *other.type() );
+        return this->acttype()->is_a( *other.acttype() );
     }
 
     /** Returns true if this type has the same vtable as its base type. */
     inline bool is_same_vtable_type() const {
-        return this->type()->is_same_vtable_type();
+        return this->acttype()->is_same_vtable_type();
     }
 
     /** match against this entity's direct instance/static members (not its inherited members). */
     inline TxEntitySymbol* get_instance_member( const std::string& name ) const {
-        return this->type()->get_instance_member( name );
+        return this->acttype()->get_instance_member( name );
     }
 
     inline TxEntitySymbol* lookup_inherited_instance_member( const std::string& name ) const {
-        return this->type()->lookup_inherited_instance_member( name );
+        return this->acttype()->lookup_inherited_instance_member( name );
     }
     inline TxEntitySymbol* lookup_inherited_instance_member( TxScopeSymbol* vantageScope, const std::string& name ) const {
-        return this->type()->lookup_inherited_instance_member( vantageScope, name );
+        return this->acttype()->lookup_inherited_instance_member( vantageScope, name );
     }
 
     inline const TxEntityDeclaration* lookup_param_binding( const TxEntityDeclaration* paramDecl ) const {
-        return this->type()->lookup_param_binding( paramDecl );
+        return this->acttype()->lookup_param_binding( paramDecl );
     }
 
     /** Special case helper method for getting the target type of a reference type.
      */
-    const TxType* target_type() const {
+    const TxQualType* target_type() const {
         if ( this->get_type_class() == TXTC_REFERENCE ) {
-            auto refType = static_cast<const TxReferenceType*>( this->type() );
-            return refType->target_type()->get_type_entity();
+            auto refType = static_cast<const TxReferenceType*>( this->acttype() );
+            return refType->target_type();
         }
         THROW_LOGIC( "Can't get target_type() of non-reference type: " << this );
     }
 
     /** Special case helper method for getting the element type of an array type.
      */
-    const TxType* element_type() const {
+    const TxQualType* element_type() const {
         if ( this->get_type_class() == TXTC_ARRAY ) {
-            auto aType = static_cast<const TxArrayType*>( this->type() );
-            return aType->element_type()->get_type_entity();
+            auto aType = static_cast<const TxArrayType*>( this->acttype() );
+            return aType->element_type();
         }
         THROW_LOGIC( "Can't get element_type() of non-array type: " << this );
     }
@@ -278,9 +283,9 @@ public:
     std::vector<const TxType*> argument_types() const {
         if ( this->get_type_class() == TXTC_FUNCTION ) {
             std::vector<const TxType*> args;
-            auto funcType = static_cast<const TxFunctionType*>( this->type() );
+            auto funcType = static_cast<const TxFunctionType*>( this->acttype() );
             for ( auto a : funcType->argumentTypes ) {
-                args.push_back( a->get_type_entity() );
+                args.push_back( get_type_entity(a) );
             }
             return args;
         }
@@ -292,9 +297,9 @@ public:
      */
     const TxType* vararg_elem_type() const {
         if ( this->get_type_class() == TXTC_FUNCTION ) {
-            auto funcType = static_cast<const TxFunctionType*>( this->type() );
+            auto funcType = static_cast<const TxFunctionType*>( this->acttype() );
             if ( auto vaElemType = funcType->vararg_elem_type() )
-                return vaElemType->get_type_entity();
+                return get_type_entity( vaElemType );
             return nullptr;
         }
         THROW_LOGIC( "Can't get vararg_elem_type() of non-function type: " << this );
@@ -305,9 +310,9 @@ public:
      */
     const TxType* fixed_array_arg_type() const {
         if ( this->get_type_class() == TXTC_FUNCTION ) {
-            auto funcType = static_cast<const TxFunctionType*>( this->type() );
+            auto funcType = static_cast<const TxFunctionType*>( this->acttype() );
             if ( auto arrayArgType = funcType->fixed_array_arg_type() )
-                return arrayArgType->get_type_entity();
+                return get_type_entity( arrayArgType );
             return nullptr;
         }
         THROW_LOGIC( "Can't get fixed_array_arg_type() of non-function type: " << this );
@@ -318,8 +323,8 @@ public:
      */
     const TxType* return_type() const {
         if ( this->get_type_class() == TXTC_FUNCTION ) {
-            auto funcType = static_cast<const TxFunctionType*>( this->type() );
-            return funcType->returnType->get_type_entity();
+            auto funcType = static_cast<const TxFunctionType*>( this->acttype() );
+            return get_type_entity( funcType->returnType );
         }
         THROW_LOGIC( "Can't get return_type() of non-function type: " << this );
     }

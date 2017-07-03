@@ -52,9 +52,9 @@ public:
 
 /** Represents a field definition. */
 class TxField : public TxEntity {
-    const TxType* type;
+    const TxQualType* type;
 
-    TxField( const TxFieldDeclaration* declaration, const TxType* type )
+    TxField( const TxFieldDeclaration* declaration, const TxQualType* type )
             : TxEntity( declaration ), type( type ) {
 //        ASSERT(declaration, "Fields must be named (have non-null declaration)");
 //        ASSERT(type, "NULL type for field " << declaration);
@@ -68,7 +68,7 @@ class TxField : public TxEntity {
 
 public:
     /** Constructs a new field after applying some validation checks. If validation fails, resolution exception is thrown. */
-    static TxField* make_field( const TxFieldDeclaration* declaration, const TxType* type );
+    static TxField* make_field( const TxFieldDeclaration* declaration, const TxQualType* type );
 
     virtual inline const TxFieldDeclaration* get_declaration() const override {
         return static_cast<const TxFieldDeclaration*>( TxEntity::get_declaration() );
@@ -78,7 +78,7 @@ public:
         return this->get_declaration()->get_storage();
     }
 
-    inline const TxType* get_type() const {
+    inline const TxQualType* get_type() const {
         return this->type;
     }
 

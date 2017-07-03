@@ -2,7 +2,7 @@
 
 #include "ast/ast_entitydefs.hpp"
 
-#include "symbol/entity_type.hpp"
+#include "symbol/qual_type.hpp"
 
 class TxAssigneeNode : public TxTypeDefiningNode {
 public:
@@ -13,8 +13,8 @@ public:
     virtual TxAssigneeNode* make_ast_copy() const override = 0;
 
     bool is_mutable() const {
-        if ( !this->get_type()->is_modifiable() && !this->get_type()->is_generic_param() ) {
-            CERROR( this, "Assignee is not modifiable: " << this->get_type()->str(false) );
+        if ( !this->qualtype()->is_modifiable() && !this->qualtype()->type()->is_generic_param() ) {
+            CERROR( this, "Assignee is not modifiable: " << this->qualtype()->str(false) );
             return false;
         }
         if ( auto origin = this->get_data_graph_origin_expr() )

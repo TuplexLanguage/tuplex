@@ -1,10 +1,10 @@
 #pragma once
 
+#include "../symbol/qual_type.hpp"
 #include "ast/ast_node.hpp"
 #include "ast/ast_fielddef_node.hpp"
 #include "ast/ast_util.hpp"
 
-#include "symbol/entity_type.hpp"
 #include "symbol/type_registry.hpp"
 
 /** Common superclass for non-local entity declaration nodes. */
@@ -118,14 +118,14 @@ public:
             return;
         }
         if (this->interfaceKW) {
-            if (this->typeExpression->get_type()->get_type_class() != TXTC_INTERFACE)
-                CERROR(this, "Interface type cannot derive from non-interface type: " << this->typeExpression->get_type());
+            if (this->typeExpression->qualtype()->get_type_class() != TXTC_INTERFACE)
+                CERROR(this, "Interface type cannot derive from non-interface type: " << this->typeExpression->qualtype());
         }
         else {
-            if (this->typeExpression->get_type()->get_type_class() == TXTC_INTERFACE)
-                if ( !( this->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING | TXD_IMPLICIT ) )
-                     && !this->typeExpression->get_type()->is_modifiable() )
-                    CWARNING(this, "Interface type not declared with 'interface' keyword: " << this->typeExpression->get_type());
+            if (this->typeExpression->qualtype()->get_type_class() == TXTC_INTERFACE)
+                if ( !( this->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING | TXD_IMPLICIT ) ) )
+                     //&& !this->typeExpression->get_type()->is_modifiable() )
+                    CWARNING(this, "Interface type not declared with 'interface' keyword: " << this->typeExpression->qualtype());
         }
     }
 

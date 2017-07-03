@@ -16,12 +16,12 @@ inline bool is_complex_pointer( const Type* type ) {
 void TxTypeDeclNode::code_gen( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     if ( this->context().exp_error() ) {
-        LOG_DEBUG( this->LOGGER(), "Skipping codegen for AST of type with ExpErr context: " << this->typeExpression->get_type() );
+        LOG_DEBUG( this->LOGGER(), "Skipping codegen for AST of type with ExpErr context: " << this->typeExpression->qualtype() );
         return;
     }
     if ( this->context().is_generic() ) {
         LOG_DEBUG( context.LOGGER(), "Skipping codegen for AST of generic-dependent type: "
-                   << this->typeExpression << " : " << this->typeExpression->get_type() );
+                   << this->typeExpression << " : " << this->typeExpression->qualtype() );
         // Note that this skips codegen for the entire AST of all generic-dependent types,
         // which means none of their members are generated, including any statically declared inner/local types.
         // FUTURE: Evaluate capability for generic types to have global static members (e.g. inner types independent of the outer type parameters).
@@ -58,7 +58,7 @@ void TxFieldDeclNode::code_gen( LlvmGenerationContext& context ) const {
 
     auto fieldDecl = this->field->get_declaration();
     std::string uniqueName = fieldDecl->get_unique_full_name();
-    auto txType = this->field->get_type()->type();
+    auto txType = this->field->qualtype()->type();
 
     Value* fieldVal = nullptr;
     switch ( fieldDecl->get_storage() ) {
@@ -66,7 +66,7 @@ void TxFieldDeclNode::code_gen( LlvmGenerationContext& context ) const {
         if ( !( fieldDecl->get_decl_flags() & TXD_ABSTRACT )
              // constructors in generic types are suppressed (they are not abstract per se, but aren't code generated):
              && !( ( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) )
-                   && static_cast<TxEntitySymbol*>( fieldDecl->get_symbol()->get_outer() )->get_type_decl()->get_definer()->get_type()->is_generic() ) ) {
+                   && static_cast<TxEntitySymbol*>( fieldDecl->get_symbol()->get_outer() )->get_type_decl()->get_definer()->qualtype()->type()->is_generic() ) ) {
             if ( static_cast<TxLambdaExprNode*>( this->field->initExpression->originalExpr )->is_suppressed_modifying_method() ) {
                 // modifying instance methods in immutable specializations of generic types are suppressed (as if abstract)
                 auto closureType = context.get_llvm_type( txType );

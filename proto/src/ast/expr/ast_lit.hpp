@@ -64,8 +64,8 @@ class TxIntegerLitNode : public TxLiteralElementaryValueNode {
 protected:
     virtual void declaration_pass() override;
 
-    virtual const TxType* define_type() override {
-        return this->registry().get_builtin_type( this->constValue.typeId );
+    virtual const TxQualType* define_type() override {
+        return new TxQualType( this->registry().get_builtin_type( this->constValue.typeId ) );
     }
 
 public:
@@ -104,8 +104,8 @@ class TxFloatingLitNode : public TxLiteralElementaryValueNode {
     const double value;
 
 protected:
-    virtual const TxType* define_type() override {
-        return this->registry().get_builtin_type( this->typeId );
+    virtual const TxQualType* define_type() override {
+        return new TxQualType( this->registry().get_builtin_type( this->typeId ) );
     }
 
 public:
@@ -135,8 +135,8 @@ class TxBoolLitNode : public TxLiteralElementaryValueNode {
     static const std::string FALSE;
 
 protected:
-    virtual const TxType* define_type() override {
-        return this->registry().get_builtin_type( TXBT_BOOL );
+    virtual const TxQualType* define_type() override {
+        return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
     }
 
 public:
@@ -159,8 +159,8 @@ public:
 
 class TxCharacterLitNode : public TxLiteralElementaryValueNode {
 protected:
-    virtual const TxType* define_type() override {
-        return this->registry().get_builtin_type( TXBT_UBYTE );
+    virtual const TxQualType* define_type() override {
+        return new TxQualType( this->registry().get_builtin_type( TXBT_UBYTE ) );
     }
 
 public:

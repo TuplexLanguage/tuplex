@@ -3,13 +3,14 @@
 #include "ast_exprs.hpp"
 #include "ast_constexpr.hpp"
 #include "ast_ref.hpp"
+#include "ast_conv.hpp"
 
 #include "ast/ast_util.hpp"
 
-#include "symbol/entity_type.hpp"
+#include "symbol/qual_type.hpp"
 
 int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType *requiredType ) {
-    const TxType* originalType = originalExpr->resolve_type();
+    const TxType* originalType = originalExpr->resolve_type()->type();
 
     if ( *originalType == *requiredType ) {
         //std::cerr << "Types equal: " << originalType << "   ==   " << requiredType << std::endl;
@@ -23,7 +24,7 @@ int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType *r
 
     if ( requiredType->get_type_class() == TXTC_REFERENCE ) {
         if ( auto expRefTargetType = requiredType->target_type() ) {
-            if ( originalType->is_a( *expRefTargetType ) ) {
+            if ( originalType->is_a( *expRefTargetType->type() ) ) {
                 if ( !expRefTargetType->is_modifiable() )
                     return 3;  // expression will be auto-wrapped with a reference-to node
             }
@@ -32,7 +33,7 @@ int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType *r
 
     if ( originalType->get_type_class() == TXTC_REFERENCE ) {
         if ( auto provRefTargetType = originalType->target_type() ) {
-            if ( provRefTargetType->auto_converts_to( *requiredType ) ) {
+            if ( provRefTargetType->type()->auto_converts_to( *requiredType ) ) {
                 return 3;  // expression will be wrapped with a dereference node
             }
         }
@@ -65,8 +66,9 @@ const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntit
 
             // first screen the fields that are of function type and take the correct number of arguments:
             if ( field->get_type()->get_type_class() == TXTC_FUNCTION ) {
-                auto candArgTypes = field->get_type()->argument_types();
-                auto arrayArgElemType = field->get_type()->vararg_elem_type();
+                const TxType* fieldType = field->get_type()->type();
+                auto candArgTypes = fieldType->argument_types();
+                const TxType* arrayArgElemType = fieldType->vararg_elem_type();
                 const TxType* fixedArrayArgType = nullptr;
 
                 if ( arrayArgElemType ) {
@@ -74,13 +76,13 @@ const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntit
                     if ( arguments->size() < candArgTypes.size() - 1 )
                         continue;  // mismatching number of function args
                 }
-                else if ( ( fixedArrayArgType = field->get_type()->fixed_array_arg_type() ) ) {
+                else if ( ( fixedArrayArgType = fieldType->fixed_array_arg_type() ) ) {
                     // fixed array parameter accepts matching number of arguments
-                    auto lenExpr = static_cast<const TxArrayType*>( fixedArrayArgType->type() )->capacity();
+                    auto lenExpr = static_cast<const TxArrayType*>( fixedArrayArgType->acttype() )->capacity();
                     auto len = eval_unsigned_int_constant( lenExpr );
                     if ( !( arguments->size() == 1 || arguments->size() == len ) )
                         continue;  // mismatching number of function args
-                    arrayArgElemType = fixedArrayArgType->element_type();
+                    arrayArgElemType = fixedArrayArgType->element_type()->type();
                 }
                 else if ( arguments->size() != candArgTypes.size() ) {
                     continue;  // mismatching number of function args
@@ -151,11 +153,11 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
         return this->symbol;
     if ( this->baseExpr ) {
         // baseExpr may or may not refer to a type (e.g. modules don't)
-        auto baseType = this->baseExpr->resolve_type();
+        const TxType* baseType = this->baseExpr->resolve_type()->type();
 
         if ( baseType->get_type_class() == TXTC_REFERENCE ) {
             // implicit dereferencing ('^') operation:
-            if ( auto baseRefTargetType = baseType->target_type() ) {
+            if ( auto baseRefTargetType = baseType->target_type()->type() ) {
                 //std::cerr << "Adding implicit '^' to: " << this->baseExpr << "  six=" << six << std::endl;
                 auto derefNode = new TxReferenceDerefNode( this->baseExpr->ploc, this->baseExpr );
                 derefNode->node_declaration_pass( this );
@@ -206,7 +208,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                 if ( this->appliedFuncArgs ) {
                     auto allocType = typeDecl->get_definer()->resolve_type();
                     // constructors aren't inherited, except for empty/modifiable derivations:
-                    if ( auto constructorSymbol = allocType->get_instance_base_type()->get_instance_member( CONSTR_IDENT ) ) {
+                    if ( auto constructorSymbol = allocType->type()->get_instance_base_type()->get_instance_member( CONSTR_IDENT ) ) {
                         if ( auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs ) ) {
                             ASSERT( constructorDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ),
                                     "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );
@@ -237,7 +239,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
     else {
         if ( this->baseExpr )
             CERR_THROWRES( this, "Unknown symbol '" << this->get_full_identifier()
-                           << "' (base expression type is " << this->baseExpr->get_type() << ")" );
+                           << "' (base expression type is " << this->baseExpr->qualtype() << ")" );
         else
             CERR_THROWRES( this, "Unknown symbol '" << this->get_full_identifier() << "'" );
     }
@@ -246,7 +248,7 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
     return nullptr;
 }
 
-const TxType* TxFieldValueNode::define_type() {
+const TxQualType* TxFieldValueNode::define_type() {
     if ( auto decl = this->resolve_decl() ) {
         if ( auto fieldDecl = dynamic_cast<const TxFieldDeclaration*>( decl ) ) {
             this->field = fieldDecl->get_definer()->resolve_field();
@@ -271,7 +273,7 @@ const TxType* TxFieldValueNode::define_type() {
             return static_cast<const TxTypeDeclaration*>( decl )->get_definer()->resolve_type();
     }
     // Symbol is not a field or type, return Void as placeholder type
-    return this->registry().get_builtin_type( TXBT_VOID );
+    return new TxQualType( this->registry().get_builtin_type( TXBT_VOID ) );
 }
 
 void TxFieldValueNode::field_base_resolution_pass() {

@@ -87,7 +87,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
         return;
     }
 
-    auto type = this->field->get_type();
+    auto type = this->field->qualtype();
     auto storage = this->field->get_declaration()->get_storage();
     if ( type->is_modifiable() ) {
         if ( storage == TXS_GLOBAL )
@@ -105,7 +105,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
         if ( type->is_modifiable() ) {
             if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->context().scope() ) ) {
                 const TxTypeDeclaration* outerTypeDecl = entitySymbol->get_type_decl();
-                if ( !outerTypeDecl->get_definer()->get_type()->is_mutable() ) {
+                if ( !outerTypeDecl->get_definer()->qualtype()->type()->is_mutable() ) {
                     if ( !this->context().reinterpretation_definer() ) {
                         // (suppressed if this is a specialization)
                         CERROR( this, "Instance field of an immutable type is declared modifiable: " << field->get_descriptor() );
@@ -120,7 +120,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
             if ( lambdaExpr->funcHeaderNode->is_modifying() ) {
                 if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->context().scope() ) ) {
                     const TxTypeDeclaration* outerTypeDecl = entitySymbol->get_type_decl();
-                    if ( !outerTypeDecl->get_definer()->get_type()->is_mutable() ) {
+                    if ( !outerTypeDecl->get_definer()->qualtype()->type()->is_mutable() ) {
                         if ( !this->context().reinterpretation_definer() ) {
                             // (we skip this error for type specializations that have not been declared mutable, this method will be suppressed)
                             CERROR( this, "Instance method of an immutable type may not be declared modifying: " << field->get_descriptor() );

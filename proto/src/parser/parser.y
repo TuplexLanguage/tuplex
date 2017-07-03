@@ -554,32 +554,32 @@ expr
     |   make_expr                    { $$ = $1; }
 
     |   NAME                         { $$ = new TxFieldValueNode(@1, NULL, $1); }
-    |   expr DOT NAME                { $$ = new TxFieldValueNode(@3, $1,   $3); }
-    |   expr LBRACKET expr RBRACKET  { $$ = new TxElemDerefNode(@2, $1, $3); }
-    |   expr CARET                   { $$ = new TxReferenceDerefNode(@2, $1); }
-    |   AAND expr   %prec ADDR       { $$ = new TxReferenceToNode(@1, $2); }
+    |   expr DOT NAME                { $$ = new TxFieldValueNode(@$, $1,   $3); }
+    |   expr LBRACKET expr RBRACKET  { $$ = new TxElemDerefNode(@$, $1, $3); }
+    |   expr CARET                   { $$ = new TxReferenceDerefNode(@$, $1); }
+    |   AAND expr   %prec ADDR       { $$ = new TxReferenceToNode(@$, $2); }
 
     |   expr DOTDOT expr             { $$ = TxERangeLitNode::make_range_node(@$, $1, $3); }
 
-    |   MINUS expr  %prec NEG        { $$ = new TxUnaryMinusNode(@1, $2); }  // unary minus
-    |   expr PLUS expr               { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_PLUS, $3); }
-    |   expr MINUS expr              { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_MINUS, $3); }
-    |   expr ASTERISK expr           { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_MUL, $3); }
-    |   expr FSLASH expr             { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_DIV, $3); }
-    |   expr EEQUAL expr             { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_EQ, $3); }
-    |   expr NEQUAL expr             { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_NE, $3); }
-    |   expr LT expr                 { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_LT, $3); }
-    |   expr GT expr                 { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_GT, $3); }
-    |   expr LEQUAL expr             { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_LE, $3); }
-    |   expr GEQUAL expr             { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_GE, $3); }
+    |   MINUS expr  %prec NEG        { $$ = new TxUnaryMinusNode(@$, $2); }  // unary minus
+    |   expr PLUS expr               { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_PLUS, $3); }
+    |   expr MINUS expr              { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_MINUS, $3); }
+    |   expr ASTERISK expr           { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_MUL, $3); }
+    |   expr FSLASH expr             { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_DIV, $3); }
+    |   expr EEQUAL expr             { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_EQ, $3); }
+    |   expr NEQUAL expr             { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_NE, $3); }
+    |   expr LT expr                 { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_LT, $3); }
+    |   expr GT expr                 { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_GT, $3); }
+    |   expr LEQUAL expr             { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_LE, $3); }
+    |   expr GEQUAL expr             { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_GE, $3); }
 
-    |   EMARK expr  %prec NOT        { $$ = new TxUnaryLogicalNotNode(@1, $2); }  // unary not
-    |   expr AAND expr               { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_AND, $3); }
-    |   expr PIPE expr               { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_OR,  $3); }
-    |   expr KW_XOR expr             { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_XOR,  $3); }
-    |   expr LTLT expr      %prec LTLT          { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_LSHIFT, $3); }
-    |   expr GT GT expr     %prec LTLT          { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_RSHIFT, $4); }
-    |   expr GT GT GT expr  %prec LTLT          { $$ = new TxBinaryOperatorNode(@2, $1, TXOP_ARSHIFT, $5); }
+    |   EMARK expr  %prec NOT        { $$ = new TxUnaryLogicalNotNode(@$, $2); }  // unary not
+    |   expr AAND expr               { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_AND, $3); }
+    |   expr PIPE expr               { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_OR,  $3); }
+    |   expr KW_XOR expr             { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_XOR,  $3); }
+    |   expr LTLT expr      %prec LTLT          { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_LSHIFT, $3); }
+    |   expr GT GT expr     %prec LTLT          { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_RSHIFT, $4); }
+    |   expr GT GT GT expr  %prec LTLT          { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_ARSHIFT, $5); }
 
     |   string_format_expr           { $$ = $1; }
     ;
@@ -596,14 +596,14 @@ value_literal
         |       KW_TRUE       { $$ = new TxBoolLitNode(@1, true); }
     ;
 
-array_literal : LBRACKET expr COMMA array_lit_expr_list RBRACKET  { (*$4)[0] = $2;  $$ = new TxFilledArrayLitNode(@1, $4); }
-              | LBRACKET expr RBRACKET  { $$ = new TxFilledArrayLitNode(@1, new std::vector<TxExpressionNode*>( { $2 } )); }
+array_literal : LBRACKET expr COMMA array_lit_expr_list RBRACKET  { (*$4)[0] = $2;  $$ = new TxFilledArrayLitNode(@$, $4); }
+              | LBRACKET expr RBRACKET  { $$ = new TxFilledArrayLitNode(@$, new std::vector<TxExpressionNode*>( { $2 } )); }
 
               // produces a (harmless) shift-reduce warning but unknown how to suppress that:
-              | LBRACKET expr RBRACKET conv_type_expr LPAREN expression_list RPAREN  { $$ = new TxFilledArrayLitNode(@1, $4, $6, $2); }
-              | LBRACKET expr RBRACKET conv_type_expr LPAREN RPAREN                  { $$ = new TxUnfilledArrayCompLitNode(@1, $4, $2); }
-              | LBRACKET RBRACKET conv_type_expr LPAREN expression_list RPAREN       { $$ = new TxFilledArrayLitNode(@1, $3, $5); }
-              | LBRACKET RBRACKET conv_type_expr LPAREN RPAREN                       { $$ = new TxFilledArrayLitNode(@1, $3); }
+              | LBRACKET expr RBRACKET conv_type_expr LPAREN expression_list RPAREN  { $$ = new TxFilledArrayLitNode(@$, $4, $6, $2); }
+              | LBRACKET expr RBRACKET conv_type_expr LPAREN RPAREN                  { $$ = new TxUnfilledArrayCompLitNode(@$, $4, $2); }
+              | LBRACKET RBRACKET conv_type_expr LPAREN expression_list RPAREN       { $$ = new TxFilledArrayLitNode(@$, $3, $5); }
+              | LBRACKET RBRACKET conv_type_expr LPAREN RPAREN                       { $$ = new TxFilledArrayLitNode(@$, $3); }
               ;
               // LBRACKET RBRACKET - empty, unqualified array literal "[]" illegal since element type can't be determined
 
@@ -611,11 +611,11 @@ array_lit_expr_list : expr  { $$ = new std::vector<TxExpressionNode*>();  $$->pu
                     | array_lit_expr_list COMMA expr  { $$ = $1;  $$->push_back($3); }
                     ;
 
-make_expr : KW_NEW type_usage_expr call_params { $$ = new TxNewConstructionNode(@1, $2, $3); }
-          | LT type_usage_expr GT call_params { $$ = new TxStackConstructionNode(@1, $2, $4); }
+make_expr : KW_NEW type_usage_expr call_params { $$ = new TxNewConstructionNode(@$, $2, $3); }
+          | LT type_usage_expr GT call_params { $$ = new TxStackConstructionNode(@$, $2, $4); }
 ;
 
-call_expr : expr call_params  { $$ = new TxFunctionCallNode(@1, $1, $2); }
+call_expr : expr call_params  { $$ = new TxFunctionCallNode(@$, $1, $2); }
 ;  //  FUTURE: Interface(adaptedObj)
 
 call_params : LPAREN expression_list RPAREN  { $$ = $2; }
@@ -666,10 +666,10 @@ sf_flag         : SF_MINUS { $$ = SF_MINUS; }
 //// statements
 
 suite
-    :   LBRACE RBRACE                      { $$ = new TxSuiteNode(@1); }
-    |   LBRACE statement_list RBRACE       { $$ = new TxSuiteNode(@1, $2); }
-    |   LBRACE error RBRACE                { $$ = new TxSuiteNode(@1);     TX_SYNTAX_ERROR; }
-    |   LBRACE statement_list error RBRACE { $$ = new TxSuiteNode(@1, $2); TX_SYNTAX_ERROR; }
+    :   LBRACE RBRACE                      { $$ = new TxSuiteNode(@$); }
+    |   LBRACE statement_list RBRACE       { $$ = new TxSuiteNode(@$, $2); }
+    |   LBRACE error RBRACE                { $$ = new TxSuiteNode(@$);     TX_SYNTAX_ERROR; }
+    |   LBRACE statement_list error RBRACE { $$ = new TxSuiteNode(@$, $2); TX_SYNTAX_ERROR; }
     ;
 
 statement_list : statement  { $$ = new std::vector<TxStatementNode*>();
@@ -790,10 +790,10 @@ assignment_stmt //:    assignee_pattern EQUAL expr
 //nested_assignee  : assignee_expr | '{' assignee_pattern '}' ;
 
 assignee_expr  // expressions capable of (but not guaranteed) to produce an lvalue
-    :   NAME             { $$ = new TxFieldAssigneeNode(@1, new TxFieldValueNode(@1, NULL, $1)); }
-    |   expr DOT NAME    { $$ = new TxFieldAssigneeNode(@1, new TxFieldValueNode(@1, $1,   $3)); }
-    |   expr CARET       { $$ = new TxDerefAssigneeNode(@1, $1); }  // unary value-of suffix
-    |   expr LBRACKET expr RBRACKET { $$ = new TxElemAssigneeNode(@1, $1, $3); }
+    :   NAME             { $$ = new TxFieldAssigneeNode(@$, new TxFieldValueNode(@1, NULL, $1)); }
+    |   expr DOT NAME    { $$ = new TxFieldAssigneeNode(@$, new TxFieldValueNode(@3, $1,   $3)); }
+    |   expr CARET       { $$ = new TxDerefAssigneeNode(@$, $1); }  // unary value-of suffix
+    |   expr LBRACKET expr RBRACKET { $$ = new TxElemAssigneeNode(@$, $1, $3); }
     ;
 
 %%

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../ast_entitydecls.hpp"
+#include "ast/ast_entitydecls.hpp"
 #include "ast/type/ast_types.hpp"
 #include "ast_assignee_node.hpp"
 
@@ -23,7 +23,7 @@ class TxFilledArrayLitNode : public TxArrayLitNode {
     bool _constant = false;
 
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     std::vector<TxMaybeConversionNode*> const * const elemExprList;
@@ -95,7 +95,7 @@ class TxUnfilledArrayLitNode : public TxArrayLitNode {
     TxTypeExpressionNode* arrayTypeNode;
 
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     /** Represents an unfilled array with the specified type. */
@@ -112,7 +112,7 @@ public:
     }
 
     virtual bool is_statically_constant() const override {
-        return this->arrayTypeNode->get_type()->is_static();
+        return this->arrayTypeNode->qualtype()->type()->is_static();
     }
 
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
@@ -128,7 +128,7 @@ class TxUnfilledArrayCompLitNode : public TxArrayLitNode {
     TxMaybeConversionNode* capacityExpr;
 
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     /** Represents an unfilled array with the specified type. */
@@ -165,20 +165,20 @@ class TxElemDerefNode : public TxExpressionNode {
     class TxStatementNode* panicNode = nullptr;
 
 protected:
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         this->subscript->insert_conversion( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
 
         auto opType = this->array->originalExpr->resolve_type();
         if ( opType->get_type_class() == TXTC_REFERENCE ) {
-            auto targType = opType->target_type();
+            auto targType = opType->type()->target_type();
             if ( targType->get_type_class() == TXTC_ARRAY ) {
-                this->array->insert_conversion( targType );
+                this->array->insert_conversion( targType->type() );
             }
         }
         opType = this->array->resolve_type();
         if ( opType->get_type_class() != TXTC_ARRAY )
             CERR_THROWRES( this, "Can't subscript non-array expression: " << opType );
-        return opType->element_type();
+        return opType->type()->element_type();
     }
 
 public:
@@ -226,20 +226,20 @@ class TxElemAssigneeNode : public TxAssigneeNode {
     class TxStatementNode* panicNode = nullptr;
 
 protected:
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         this->subscript->insert_conversion( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
 
         auto opType = this->array->originalExpr->resolve_type();
         if ( opType->get_type_class() == TXTC_REFERENCE ) {
-            auto targType = opType->target_type();
+            auto targType = opType->type()->target_type();
             if ( targType->get_type_class() == TXTC_ARRAY ) {
-                this->array->insert_conversion( targType );
+                this->array->insert_conversion( targType->type() );
             }
         }
         opType = this->array->resolve_type();
         if ( opType->get_type_class() != TXTC_ARRAY )
             CERR_THROWRES( this, "Can't subscript non-array assignee expression: " << opType );
-        return opType->element_type();
+        return opType->type()->element_type();
     }
 
 public:

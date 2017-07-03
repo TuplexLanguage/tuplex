@@ -196,7 +196,7 @@ static void initialize_array_obj( LlvmGenerationContext& context, GenScope* scop
 
 Value* TxArrayType::gen_size( LlvmGenerationContext& context, GenScope* scope ) const {
     ASSERT( this->is_concrete(), "Attempted to codegen size of non-concrete type " << this );
-    Value* elemSize = this->element_type()->gen_size( context, scope );
+    Value* elemSize = this->element_type()->type()->acttype()->gen_size( context, scope );
     Value* arrayCap = this->capacity()->code_gen_expr( context, scope );
     arrayCap = scope->builder->CreateZExtOrBitCast( arrayCap, Type::getInt64Ty( context.llvmContext ) );
     return this->inner_code_gen_size( context, scope, elemSize, arrayCap );
@@ -217,7 +217,7 @@ Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope,
         // compute the allocation size:
         arrayCapV = capExpr->code_gen_expr( context, scope );
         Value* arrayCap64V = scope->builder->CreateZExtOrBitCast( arrayCapV, Type::getInt64Ty( context.llvmContext ) );
-        Value* elemSizeV = this->element_type()->gen_size( context, scope );
+        Value* elemSizeV = this->element_type()->type()->acttype()->gen_size( context, scope );
         Value* objectSizeV = this->inner_code_gen_size( context, scope, elemSizeV, arrayCap64V );
 
         // allocate array object:
@@ -250,7 +250,7 @@ Value* TxArrayType::gen_malloc( LlvmGenerationContext& context, GenScope* scope,
         // compute the allocation size:
         arrayCapV = capExpr->code_gen_expr( context, scope );
         Value* arrayCap64V = scope->builder->CreateZExtOrBitCast( arrayCapV, Type::getInt64Ty( context.llvmContext ) );
-        Value* elemSizeV = this->element_type()->gen_size( context, scope );
+        Value* elemSizeV = this->element_type()->type()->acttype()->gen_size( context, scope );
         Value* objectSizeV = this->inner_code_gen_size( context, scope, elemSizeV, arrayCap64V );
 
         // allocate array object:

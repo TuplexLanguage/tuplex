@@ -23,7 +23,6 @@ class TypeRegistry {
     TxPackage& _package;
 
 //    /** parse location used for built-in constructs without actual source code */
-//    const TxLocation& builtinLocation;
     const TxLocation& get_builtin_location() const;
 
     /** all the type usages */
@@ -59,8 +58,8 @@ class TypeRegistry {
     /** Makes a new type entity and registers it with this registry. */
     TxType* make_type_entity( const TxActualType* actualType );
 
-    /** Makes a new modifiable usage of an actual type. */
-    TxActualType* make_modifiable_type( const TxTypeDeclaration* declaration, const TxActualType* baseType );
+//    /** Makes a new modifiable usage of an actual type. */
+//    TxActualType* make_modifiable_type( const TxTypeDeclaration* declaration, const TxActualType* baseType );
 
     /** Makes a new actual type and registers it with this registry. Used to make all types except original built-ins.
      * The type will be mutable if mutableType arg is true AND the base type is mutable. (Validity check is done elsewhere.) */
@@ -118,7 +117,7 @@ public:
     }
 
     /** Gets a built-in (primitive) type. */
-    const TxType* get_builtin_type( const BuiltinTypeId id, bool mod = false );
+    const TxType* get_builtin_type( const BuiltinTypeId id );
 
     /** special convenience method for the String type (which is not a primitive type). */
     const TxType* get_string_type();
@@ -146,8 +145,8 @@ public:
     const TxType* make_type_derivation( TxTypeExpressionNode* definer, const TxType* baseType,
                                         const std::vector<const TxType*>& interfaces, bool mutableType );
 
-    /** Gets a modifiable 'usage' of a base type. */
-    const TxType* get_modifiable_type( const TxTypeDeclaration* declaration, const TxType* type );
+//    /** Gets a modifiable 'usage' of a base type. */
+//    const TxType* get_modifiable_type( const TxTypeDeclaration* declaration, const TxType* type );
 
     /** Gets/makes a specialization of a generic base type.
      * If such a specialization already exists, that will be returned. */

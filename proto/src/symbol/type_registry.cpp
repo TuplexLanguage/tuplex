@@ -48,7 +48,7 @@ void TypeRegistry::resolve_deferred_types() {
             auto type = this->usedTypes.at( typeIx );
             try {
                 ScopedExpErrClause scopedEEClause( type->get_definer(), type->get_definer()->exp_err_ctx() );
-                type->type();
+                type->acttype();
             }
             catch ( const resolution_error& err ) {
                 LOG( this->LOGGER(), NOTE, "Caught resolution error resolving deferred type " << type << ": " << err );
@@ -136,88 +136,86 @@ void TypeRegistry::prepare_types() {
     }
 }
 
-const TxType* TypeRegistry::get_builtin_type( const BuiltinTypeId id, bool mod ) {
-    auto biType = this->_package.builtins().get_builtin_type( id );
-    return ( mod ? this->get_modifiable_type( nullptr, biType ) : biType );
+const TxType* TypeRegistry::get_builtin_type( const BuiltinTypeId id ) {
+    return this->_package.builtins().get_builtin_type( id );
 }
 
 const TxType* TypeRegistry::get_string_type() {
     if (! this->stringTypeNode ) {
         stringTypeNode = new TxNamedTypeNode( this->get_builtin_location(), "tx.String" );
         run_declaration_pass( stringTypeNode, LexicalContext( this->_package.get_member_symbol( "tx" ), nullptr, false, nullptr ) );
-        return this->stringTypeNode->resolve_type();
+        return this->stringTypeNode->resolve_type()->type();
     }
-    return this->stringTypeNode->get_type();
+    return this->stringTypeNode->qualtype()->type();
 }
 
 TxType* TypeRegistry::make_type_entity( const TxActualType* actualType ) {
     return new TxType( actualType );
 }
 
-TxActualType* TypeRegistry::make_modifiable_type( const TxTypeDeclaration* declaration, const TxActualType* baseType ) {
-    auto newType = baseType->make_specialized_type( declaration, TxTypeSpecialization( baseType, true ) );
-    this->add_type( newType );
-    return newType;
-}
+//TxActualType* TypeRegistry::make_modifiable_type( const TxTypeDeclaration* declaration, const TxActualType* baseType ) {
+//    auto newType = baseType->make_specialized_type( declaration, TxTypeSpecialization( baseType, true ) );
+//    this->add_type( newType );
+//    return newType;
+//}
 
 TxActualType* TypeRegistry::make_actual_type( const TxTypeDeclaration* declaration, const TxActualType* baseType, bool mutableType,
                                               const std::vector<const TxType*>& interfaces ) {
     std::vector<TxTypeSpecialization> interfaceSpecializations;
     for ( auto in : interfaces )
-        interfaceSpecializations.emplace_back( in->type() );
+        interfaceSpecializations.emplace_back( in->acttype() );
     auto newType = baseType->make_specialized_type( declaration, TxTypeSpecialization( baseType ), mutableType, interfaceSpecializations );
     this->add_type( newType );
     return newType;
 }
 
-const TxType* TypeRegistry::get_modifiable_type( const TxTypeDeclaration* declaration, const TxType* type ) {
-    auto actualType = type->type();
-    ASSERT( !actualType->is_modifiable(), "Can't make a modifiable specialization of a modifiable type: " << actualType );
-    ASSERT( !( actualType->is_empty_derivation() && !actualType->get_explicit_declaration() ),
-            "Can't derive from implicit empty base type: " << actualType );
-    // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
-
-    if ( declaration ) {
-        return new TxType( this->make_modifiable_type( declaration, actualType ) );
-    }
-    else {
-        std::string prefix = "~";
-        std::string name = prefix + actualType->get_declaration()->get_unique_name();
-        TxScopeSymbol* scope = actualType->get_declaration()->get_symbol()->get_outer();
-        if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( scope->get_member_symbol( name ) ) ) {
-            if ( auto typeDecl = entitySymbol->get_type_decl() ) {
-                if ( auto existingType = typeDecl->get_definer()->resolve_type() ) {
-                    if ( existingType->is_modifiable() && *existingType->get_base_type()->type() == *actualType )
-                        return existingType;
-                    //std::cerr << "existing: " << existingType << "  new: " << type << std::endl;
-                }
-            }
-            LOG( this->LOGGER(), WARN, "Name collision when trying to declare implicit MOD type, preexisting symbol: " << entitySymbol );
-            name = scope->make_unique_name( name );
-        }
-
-        const TxLocation& loc = actualType->get_parse_location();
-        auto modNode = new TxModifiableTypeNode( loc, new TxNamedTypeNode( loc, actualType->get_declaration()->get_unique_name() ) );
-        TxDeclarationFlags newDeclFlags = ( actualType->get_declaration()->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
-        auto modDeclNode = new TxTypeDeclNode( loc, newDeclFlags, name, nullptr, modNode );
-        auto expErrCtx = actualType->get_declaration()->get_definer()->context().exp_error();
-        run_declaration_pass( modDeclNode, LexicalContext( scope, expErrCtx, false, nullptr ) );
-        modDeclNode->symbol_resolution_pass();  // (causes get_modifiable_type() to be invoked again, with this implicit declaration)
-        return modNode->get_type();
-    }
-}
+//const TxType* TypeRegistry::get_modifiable_type( const TxTypeDeclaration* declaration, const TxType* type ) {
+//    auto actualType = type->type();
+//    ASSERT( !actualType->is_modifiable(), "Can't make a modifiable specialization of a modifiable type: " << actualType );
+//    ASSERT( !( actualType->is_empty_derivation() && !actualType->get_explicit_declaration() ),
+//            "Can't derive from implicit empty base type: " << actualType );
+//    // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
+//
+//    if ( declaration ) {
+//        return new TxType( this->make_modifiable_type( declaration, actualType ) );
+//    }
+//    else {
+//        std::string prefix = "~";
+//        std::string name = prefix + actualType->get_declaration()->get_unique_name();
+//        TxScopeSymbol* scope = actualType->get_declaration()->get_symbol()->get_outer();
+//        if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( scope->get_member_symbol( name ) ) ) {
+//            if ( auto typeDecl = entitySymbol->get_type_decl() ) {
+//                if ( auto existingType = typeDecl->get_definer()->resolve_type() ) {
+//                    if ( existingType->is_modifiable() && *existingType->get_base_type()->type() == *actualType )
+//                        return existingType;
+//                    //std::cerr << "existing: " << existingType << "  new: " << type << std::endl;
+//                }
+//            }
+//            LOG( this->LOGGER(), WARN, "Name collision when trying to declare implicit MOD type, preexisting symbol: " << entitySymbol );
+//            name = scope->make_unique_name( name );
+//        }
+//
+//        const TxLocation& loc = actualType->get_parse_location();
+//        auto modNode = new TxModifiableTypeNode( loc, new TxNamedTypeNode( loc, actualType->get_declaration()->get_unique_name() ) );
+//        TxDeclarationFlags newDeclFlags = ( actualType->get_declaration()->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
+//        auto modDeclNode = new TxTypeDeclNode( loc, newDeclFlags, name, nullptr, modNode );
+//        auto expErrCtx = actualType->get_declaration()->get_definer()->context().exp_error();
+//        run_declaration_pass( modDeclNode, LexicalContext( scope, expErrCtx, false, nullptr ) );
+//        modDeclNode->symbol_resolution_pass();  // (causes get_modifiable_type() to be invoked again, with this implicit declaration)
+//        return modNode->get_type();
+//    }
+//}
 
 const TxType* TypeRegistry::make_empty_derivation( const TxTypeDeclaration* declaration, const TxType* baseType, bool mutableType ) {
     ASSERT( declaration, "empty type specialization doesn't have declaration: " << baseType );
     return new TxType( declaration->get_definer(),
                        [ this, declaration, baseType, mutableType ] () {
-                           return this->make_actual_empty_derivation( declaration, baseType->type(), mutableType );
+                           return this->make_actual_empty_derivation( declaration, baseType->acttype(), mutableType );
                        } );
 }
 
 const TxActualType* TypeRegistry::make_actual_empty_derivation( const TxTypeDeclaration* declaration, const TxActualType* baseType,
                                                                 bool mutableType ) {
-    ASSERT( !baseType->is_modifiable(), "Can't specialize a 'modifiable' base type: " << baseType );
     ASSERT( !( baseType->is_empty_derivation() && !baseType->get_explicit_declaration() ),
             "Can't derive from implicit empty base type: " << baseType );
 
@@ -229,7 +227,7 @@ const TxType* TypeRegistry::make_type_derivation( TxTypeExpressionNode* definer,
     ASSERT( definer->get_declaration(), "type derivation doesn't have declaration: " << definer );
     return new TxType( definer,
                        [ this, definer, baseType, interfaces, mutableType ] () {
-                           return this->make_actual_type_derivation( definer, baseType->type(), interfaces, mutableType );
+                           return this->make_actual_type_derivation( definer, baseType->acttype(), interfaces, mutableType );
                        } );
 }
 
@@ -238,12 +236,6 @@ const TxActualType* TypeRegistry::make_actual_type_derivation( const TxTypeExpre
     ASSERT( !( baseType->is_empty_derivation() && !baseType->get_explicit_declaration() ),
             "Can't derive from implicit empty base type: " << baseType );
 
-    if ( baseType->is_modifiable() )
-        CERR_THROWRES( definer, "Can't derive from a 'modifiable' base type (derive from the actual type instead): " << baseType );
-    for ( auto interface : interfaces ) {
-        if ( interface->is_modifiable() )
-            CERROR( definer, "Can't implement a 'modifiable' interface (implement the actual interface type instead): " << interface );
-    }
     if ( baseType->get_declaration()->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING ) ) {
         // only empty derivation allowed from generic type parameter
         if ( !interfaces.empty() )
@@ -259,14 +251,13 @@ const TxType* TypeRegistry::get_type_specialization( TxTypeDefiningNode* definer
     ASSERT( bindings.at( 0 )->is_context_set(), "context not set for binding " << bindings.at(0) );
     return new TxType( definer,
                        [ this, definer, baseType, bindings, mutableType ] () {
-                           return this->get_actual_type_specialization( definer, baseType->type(), &bindings, mutableType );
+                           return this->get_actual_type_specialization( definer, baseType->acttype(), &bindings, mutableType );
                        } );
 }
 
 const TxActualType* TypeRegistry::get_actual_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
                                                                   const std::vector<const TxTypeArgumentNode*>* bindings, bool mutableType ) {
     // Note: type specialization is never applied to a modifiable-specialization (legal only on non-modifiable base type)
-    ASSERT( !baseType->is_modifiable(), "Can't specialize a 'modifiable' base type: " << baseType );
     ASSERT( !( baseType->is_empty_derivation() && !baseType->get_explicit_declaration() ),
             "Can't derive from implicit empty base type: " << baseType );
 
@@ -293,7 +284,7 @@ std::string encode_type_name( const TxTypeDeclaration* typeDecl ) {
 static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSymbol, const TxActualType* baseType,
                                                   const std::vector<const TxTypeArgumentNode*>* bindings ) {
     if ( auto typeDecl = existingBaseSymbol->get_type_decl() ) {
-        auto existingBaseType = typeDecl->get_definer()->resolve_type()->type();
+        auto existingBaseType = typeDecl->get_definer()->resolve_type()->type()->acttype();
         //std::cerr << "existingBaseType    1: " << existingBaseType << std::endl;
         auto existingGenBaseType = existingBaseType->get_semantic_base_type();
         //std::cerr << "existingGenBaseType 2: " << existingGenBaseType << std::endl;
@@ -309,8 +300,8 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
                 auto binding = bindings->at( ix );
                 if ( auto typeBinding = dynamic_cast<const TxTypeTypeArgumentNode*>( binding ) ) {
                     if ( auto existingBindingTypeDecl = dynamic_cast<const TxTypeDeclaration*>( existingBaseTypeBindings.at( ix ) ) ) {
-                        auto newBindingType = typeBinding->typeExprNode->get_type();
-                        auto existingBindingType = existingBindingTypeDecl->get_definer()->resolve_type();
+                        const TxQualType* newBindingType = typeBinding->typeExprNode->qualtype();
+                        const TxQualType* existingBindingType = existingBindingTypeDecl->get_definer()->resolve_type();
                         if ( newBindingType->shallow_equals( existingBindingType ) )
                             continue;
                     }
@@ -324,7 +315,7 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
                         ASSERT(valueBinding->valueExprNode, "valueBinding->valueExprNode is null for " << existingBaseSymbol);
                         if ( auto existingInitializer = existingFieldDecl->get_definer()->get_init_expression() ) {
                             if ( valueBinding->valueExprNode->is_statically_constant() && existingInitializer->is_statically_constant() ) {
-                                auto actType = valueBinding->valueExprNode->get_type()->type();
+                                auto actType = valueBinding->valueExprNode->qualtype()->type()->acttype();
                                 if ( actType->has_type_id() && is_concrete_uinteger_type( (BuiltinTypeId) actType->get_type_id() ) )
                                     if ( eval_unsigned_int_constant( valueBinding->valueExprNode ) == eval_unsigned_int_constant( existingInitializer ) )
                                         continue;
@@ -361,17 +352,17 @@ static const TxActualType* get_existing_type( const TxActualType* baseType, cons
             auto paramDecl = baseTypeParams.at( ix );
             if ( auto typeBinding = dynamic_cast<const TxTypeTypeArgumentNode*>( binding ) ) {
                 auto typeParamDecl = static_cast<const TxTypeDeclaration*>( paramDecl );
-                auto constraintType = typeParamDecl->get_definer()->get_type();
-                auto bindingType = typeBinding->typeExprNode->get_type();
-                if ( bindingType->get_decl_flags() & TXD_GENPARAM ) {
-                    auto bindingDecl = bindingType->get_declaration();
-                    if ( bindingDecl == constraintType->get_declaration() ) {
+                const TxQualType* constraintType = typeParamDecl->get_definer()->qualtype();
+                const TxQualType* bindingType = typeBinding->typeExprNode->qualtype();
+                if ( bindingType->type()->get_decl_flags() & TXD_GENPARAM ) {
+                    auto bindingDecl = bindingType->type()->get_declaration();
+                    if ( bindingDecl == constraintType->type()->get_declaration() ) {
                         //std::cerr << "binding refers to 'itself' (its parameter declaration): " << bindingDecl << std::endl;
-                        continue;// binding refers to "itself" (its parameter declaration)
+                        continue;  // binding refers to "itself" (its parameter declaration)
                     }
                     // else binding is to a different type parameter and is effectively an explicit unique type
                 }
-                else if ( constraintType == bindingType )
+                else if ( constraintType->shallow_equals( bindingType ) )
                     continue;
             }
             else {  // TxValueTypeArgumentNode
@@ -582,7 +573,7 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     bool outerIsGeneric = definer->parent()->context().is_generic();
     LexicalContext specContext( baseScope, expErrCtx, outerIsGeneric, definer );
     run_declaration_pass( newSpecTypeDecl, specContext );
-    const TxActualType* specializedType = specTypeExpr->resolve_type()->type();
+    const TxActualType* specializedType = specTypeExpr->resolve_type()->type()->acttype();
     LOG_DEBUG( this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << baseType );
 
     // Invoking the resolution pass here can cause infinite recursion
@@ -615,23 +606,23 @@ const TxType* TypeRegistry::get_array_type( TxTypeDefiningNode* definer, const T
 static std::vector<const TxActualType*> make_actual_arg_types( const std::vector<const TxType*>& argumentTypes ) {
     std::vector<const TxActualType*> actTypes;
     for ( auto a : argumentTypes )
-        actTypes.push_back( a->type() );
+        actTypes.push_back( a->acttype() );
     return actTypes;
 }
 
 const TxType* TypeRegistry::get_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
                                                const TxType* returnType,
                                                bool modifiableClosure ) {
-    auto funcType = new TxFunctionType( declaration, this->get_builtin_type( TXBT_FUNCTION )->type(),
+    auto funcType = new TxFunctionType( declaration, this->get_builtin_type( TXBT_FUNCTION )->acttype(),
                                         make_actual_arg_types( argumentTypes ),
-                                        returnType->type(), modifiableClosure );
+                                        returnType->acttype(), modifiableClosure );
     this->add_type( funcType );
     return new TxType( funcType );
 }
 
 const TxType* TypeRegistry::get_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
                                                bool modifiableClosure ) {
-    auto funcType = new TxFunctionType( declaration, this->get_builtin_type( TXBT_FUNCTION )->type(),
+    auto funcType = new TxFunctionType( declaration, this->get_builtin_type( TXBT_FUNCTION )->acttype(),
                                         make_actual_arg_types( argumentTypes ),
                                         modifiableClosure );
     this->add_type( funcType );
@@ -640,7 +631,7 @@ const TxType* TypeRegistry::get_function_type( const TxTypeDeclaration* declarat
 
 const TxType* TypeRegistry::get_constructor_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
                                                   const TxTypeDeclaration* objectTypeDecl ) {
-    auto type = new TxConstructorType( declaration, this->get_builtin_type( TXBT_FUNCTION )->type(),
+    auto type = new TxConstructorType( declaration, this->get_builtin_type( TXBT_FUNCTION )->acttype(),
                                        make_actual_arg_types( argumentTypes ),
                                        objectTypeDecl );
     this->add_type( type );
@@ -654,10 +645,10 @@ class TxAdapterTypeNode final : public TxTypeExpressionNode {
     const TxActualType* adaptedType;
 
 protected:
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         auto adapterActType = new TxInterfaceAdapterType( this->get_declaration(), interfaceType, adaptedType );
         this->registry().add_type( adapterActType );
-        return this->registry().make_type_entity( adapterActType );
+        return new TxQualType( this->registry().make_type_entity( adapterActType ) );
     }
 
 public:
@@ -679,20 +670,16 @@ public:
 
 const TxType* TypeRegistry::get_interface_adapter( const TxType* interface, const TxType* adapted ) {
     // for now we don't defer it, we create it right away
-    auto adapterType = this->get_actual_interface_adapter( interface->type(), adapted->type() );
+    auto adapterType = this->get_actual_interface_adapter( interface->acttype(), adapted->acttype() );
     return adapterType;
 }
 
 const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* interfaceType, const TxActualType* adaptedType ) {
-    auto modIf = interfaceType->is_modifiable();
-
     while ( interfaceType->is_same_vtable_type() )
         interfaceType = interfaceType->get_semantic_base_type();
     while ( adaptedType->is_same_vtable_type() )
         adaptedType = adaptedType->get_semantic_base_type();
 
-    ASSERT( !interfaceType->is_modifiable(), "Shouldn't create adapter for 'modifiable' interface type: " << interfaceType );
-    ASSERT( !adaptedType->is_modifiable(), "Shouldn't create adapter for 'modifiable' adaptee type: " << adaptedType );
     ASSERT( *interfaceType != *adaptedType, "Shouldn't create adapter between equivalent types" );
     ASSERT( !( adaptedType->is_empty_derivation() && !adaptedType->get_explicit_declaration() ),
             "Can't derive from implicit empty base type: " << adaptedType );
@@ -705,7 +692,7 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
         if ( auto typeDecl = existingAdapterSymbol->get_type_decl() ) {
             auto adapterType = typeDecl->get_definer()->resolve_type();
             //std::cerr << "Getting existing interface adapter: " << adapterType << std::endl;
-            return adapterType;
+            return adapterType->type();
         }
     }
 
@@ -735,8 +722,5 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
     auto adapterType = adapterTypeNode->resolve_type();
 //    ASSERT(adapterType->adapted_type()->get_type_id() == adaptedType->get_type_id(),
 //           "Mismatching type ids between adapter and adaptee: " << adapterType->adapted_type()->get_type_id() << " != " << adaptedType->get_type_id());
-    if ( modIf )
-        return this->get_modifiable_type( nullptr, adapterType );
-    else
-        return adapterType;
+    return adapterType->type();
 }

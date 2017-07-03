@@ -98,10 +98,11 @@ Constant* TxReferenceToNode::code_gen_const_value( LlvmGenerationContext& contex
     Constant* ptrC = dyn_cast<Constant>( this->target->code_gen_const_address( context ) );
 
     // the reference gets the statically known target type id
-    auto tidC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->target->get_type()->get_type_id() );
+    auto tidC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->target->qualtype()->get_type_id() );
 
     // box the pointer:
-    auto refT = this->get_type()->type()->make_llvm_type( context );
+    //auto refT = this->get_type()->type()->type()->make_llvm_type( context );
+    auto refT = context.get_llvm_type( this->qualtype() );
     return gen_ref( context, refT, ptrC, tidC );
 }
 
@@ -110,10 +111,11 @@ Value* TxReferenceToNode::code_gen_dyn_value( LlvmGenerationContext& context, Ge
     Value* ptrV = this->target->code_gen_dyn_address( context, scope );
 
     // the reference gets the statically known target type id
-    auto tidC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->target->get_type()->get_type_id() );
+    auto tidC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->target->qualtype()->get_type_id() );
 
     // box the pointer:
-    auto refT = this->get_type()->type()->make_llvm_type( context );
+    //auto refT = this->get_type()->type()->type()->make_llvm_type( context );
+    auto refT = context.get_llvm_type( this->qualtype() );
     return gen_ref( context, scope, refT, ptrV, tidC );
 }
 

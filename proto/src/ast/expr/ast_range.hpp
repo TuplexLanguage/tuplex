@@ -3,6 +3,7 @@
 #include "ast_expr_node.hpp"
 #include "ast_exprs.hpp"
 #include "ast_lit.hpp"
+#include "ast_conv.hpp"
 #include "ast/type/ast_types.hpp"
 #include "ast/ast_declpass.hpp"
 
@@ -20,11 +21,11 @@ protected:
                                                          new std::vector<TxExpressionNode*>( { startValue, endValue, stepValue } ) );
     }
 
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         TxExpressionNode* limitTypeExpr;
         {
-            auto ltype = this->startValue->resolve_type();
-            auto rtype = this->endValue->resolve_type();
+            auto ltype = this->startValue->resolve_type()->type();
+            auto rtype = this->endValue->resolve_type()->type();
             if ( ltype == rtype ) {
                 limitTypeExpr = this->startValue;
             }
@@ -43,14 +44,14 @@ protected:
         auto baseTypeNode = new TxNamedTypeNode( this->ploc, "tx.ERange" );
         run_declaration_pass( baseTypeNode, this, "basetype" );
         baseTypeNode->symbol_resolution_pass();
-        auto baseType = baseTypeNode->resolve_type();
+        auto baseType = baseTypeNode->resolve_type()->type();
 
         auto binding = new TxTypeTypeArgumentNode( new TxTypeExprWrapperNode( limitTypeExpr ) );
         run_declaration_pass( binding, this, "binding" );
         std::vector<const TxTypeArgumentNode*> bindings( { binding } );
 
         auto rangeType = this->registry().get_type_specialization( this, baseType, bindings, false );
-        return rangeType;
+        return new TxQualType( rangeType );
     }
 
 public:

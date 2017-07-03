@@ -2,10 +2,7 @@
 
 #include "ast_expr_node.hpp"
 
-
-/** Evaluates if originalExpr may be automatically (implicitly) converted to the required type. */
-bool auto_converts_to( TxExpressionNode* originalExpr, const TxType* requiredType );
-
+class TxType;
 
 /** A conversion placeholder node which can wrap a specific conversion around an expression if necessary. */
 class TxMaybeConversionNode : public TxExpressionNode {
@@ -18,7 +15,7 @@ class TxMaybeConversionNode : public TxExpressionNode {
     }
 
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     TxExpressionNode* const originalExpr;

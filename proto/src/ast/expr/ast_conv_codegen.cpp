@@ -50,19 +50,16 @@ Value* TxBoolConvNode::code_gen_dyn_value( LlvmGenerationContext& context, GenSc
 Constant* TxScalarConvNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
     auto origValue = this->expr->code_gen_const_value( context );
-    auto actType = this->resultType->type();
-    ASSERT( dynamic_cast<const TxScalarType*>( actType ), "Expected TxScalarType: " << actType );
-    auto scalarType = static_cast<const TxScalarType*>( actType );
-    auto targetLlvmType = scalarType->get_scalar_llvm_type( context );
+    auto targetLlvmType = context.get_llvm_type( this->resultType );
     bool srcSigned = false, dstSigned = false;
-    if ( auto intType = dynamic_cast<const TxIntegerType*>( this->expr->get_type()->type() ) )
+    if ( auto intType = dynamic_cast<const TxIntegerType*>( this->expr->qualtype()->type()->acttype() ) )
         if ( intType->sign )
             srcSigned = true;
-    if ( auto intType = dynamic_cast<const TxIntegerType*>( scalarType ) )
+    if ( auto intType = dynamic_cast<const TxIntegerType*>( this->resultType->acttype() ) )
         if ( intType->sign )
             dstSigned = true;
     Instruction::CastOps cop = CastInst::getCastOpcode( origValue, srcSigned, targetLlvmType, dstSigned );
-    ASSERT( cop, "No CastOps code found for cast from " << this->expr->get_type() << " to " << this->resultType );
+    ASSERT( cop, "No CastOps code found for cast from " << this->expr->qualtype() << " to " << this->resultType );
     ConstantFolder folder;
     return folder.CreateCast( cop, origValue, targetLlvmType );
 }
@@ -71,17 +68,16 @@ Value* TxScalarConvNode::code_gen_dyn_value( LlvmGenerationContext& context, Gen
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
     auto origValue = this->expr->code_gen_dyn_value( context, scope );
     auto targetLlvmType = context.get_llvm_type( this->resultType );
-    ASSERT(targetLlvmType, "In scalar cast, no target LLVM type found for " << this->resultType );
     // FUTURE: manually determine cast instruction
     bool srcSigned = false, dstSigned = false;
-    if ( auto intType = dynamic_cast<const TxIntegerType*>( this->expr->get_type()->type() ) )
+    if ( auto intType = dynamic_cast<const TxIntegerType*>( this->expr->qualtype()->type()->acttype() ) )
         if ( intType->sign )
             srcSigned = true;
-    if ( auto intType = dynamic_cast<const TxIntegerType*>( this->resultType->type() ) )
+    if ( auto intType = dynamic_cast<const TxIntegerType*>( this->resultType->acttype() ) )
         if ( intType->sign )
             dstSigned = true;
     Instruction::CastOps cop = CastInst::getCastOpcode( origValue, srcSigned, targetLlvmType, dstSigned );
-    ASSERT( cop, "No CastOps code found for cast from " << this->expr->get_type() << " to " << this->resultType );
+    ASSERT( cop, "No CastOps code found for cast from " << this->expr->qualtype() << " to " << this->resultType );
     return scope->builder->CreateCast( cop, origValue, targetLlvmType, "" );
     /* for reference, copied from Instruction.def:
      HANDLE_CAST_INST(33, Trunc   , TruncInst   )  // Truncate integers
@@ -102,7 +98,7 @@ Value* TxScalarConvNode::code_gen_dyn_value( LlvmGenerationContext& context, Gen
 
 Value* TxReferenceConvNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
-    ASSERT( this->expr->get_type()->get_type_class() == TXTC_REFERENCE, "TxReferenceConvNode applied to non-reference type: " << this->expr->get_type() );
+    ASSERT( this->expr->qualtype()->get_type_class() == TXTC_REFERENCE, "TxReferenceConvNode applied to non-reference type: " << this->expr->qualtype() );
 
     auto origValueV = this->expr->code_gen_dyn_value( context, scope );
     auto refT = context.get_llvm_type( this->resultType );
@@ -118,7 +114,7 @@ Value* TxReferenceConvNode::code_gen_dyn_value( LlvmGenerationContext& context, 
 
 Constant* TxReferenceConvNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
-    ASSERT( this->expr->get_type()->get_type_class() == TXTC_REFERENCE, "TxReferenceConvNode applied to non-reference type: " << this->expr->get_type() );
+    ASSERT( this->expr->qualtype()->get_type_class() == TXTC_REFERENCE, "TxReferenceConvNode applied to non-reference type: " << this->expr->qualtype() );
 
     auto origValueC = this->expr->code_gen_const_value( context );
     auto refT = context.get_llvm_type( this->resultType );

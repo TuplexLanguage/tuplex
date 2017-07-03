@@ -36,9 +36,9 @@ static const OpMapping OP_MAPPING[] = {
 
 // Note: In LLVM and in common CPUs, for an integer type of N bits, the result of shifting by >= N is undefined.
 
-static unsigned get_llvm_op( TxOperationClass op_class, TxOperation op, const TxType* resultType, const TxType* operandType, bool* float_operation ) {
+static unsigned get_llvm_op( TxOperationClass op_class, TxOperation op, const TxQualType* resultType, const TxQualType* operandType, bool* float_operation ) {
     unsigned llvm_op;
-    const TxActualType* computeType = ( op_class == TXOC_ARITHMETIC ? resultType->type() : operandType->type() );
+    const TxActualType* computeType = ( op_class == TXOC_ARITHMETIC ? resultType->type()->acttype() : operandType->type()->acttype() );
     if ( auto intType = dynamic_cast<const TxIntegerType*>( computeType ) ) {
         llvm_op = intType->sign ? OP_MAPPING[op].l_si_op : OP_MAPPING[op].l_ui_op;
     }
@@ -63,7 +63,7 @@ llvm::Constant* TxBinaryOperatorNode::code_gen_const_value( LlvmGenerationContex
 
     auto op_class = get_op_class( this->op );
     bool float_operation = false;
-    unsigned llvm_op = get_llvm_op( op_class, this->op, this->get_type(), this->lhs->resolve_type(), &float_operation );
+    unsigned llvm_op = get_llvm_op( op_class, this->op, this->qualtype(), this->lhs->resolve_type(), &float_operation );
 
     if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_LOGICAL || op_class == TXOC_SHIFT ) {
         ASSERT( Instruction::isBinaryOp( llvm_op ), "Not a valid LLVM binary op: " << llvm_op );
@@ -87,7 +87,7 @@ Value* TxBinaryOperatorNode::code_gen_dyn_value( LlvmGenerationContext& context,
 
     auto op_class = get_op_class( this->op );
     bool float_operation = false;
-    unsigned llvm_op = get_llvm_op( op_class, this->op, this->get_type(), this->lhs->get_type(), &float_operation );
+    unsigned llvm_op = get_llvm_op( op_class, this->op, this->qualtype(), this->lhs->qualtype(), &float_operation );
 
     if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_LOGICAL || op_class == TXOC_SHIFT ) {
         ASSERT( Instruction::isBinaryOp( llvm_op ), "Not a valid LLVM binary op: " << llvm_op );
@@ -103,7 +103,7 @@ Value* TxBinaryOperatorNode::code_gen_dyn_value( LlvmGenerationContext& context,
         }
         else {
             ASSERT( CmpInst::isIntPredicate( cmp_pred ), "Not a valid LLVM Int comparison predicate: " << llvm_op );
-            if ( this->lhs->get_type()->get_type_class() == TXTC_REFERENCE ) {
+            if ( this->lhs->qualtype()->get_type_class() == TXTC_REFERENCE ) {
                 // both operands are references, compare their pointer values
                 lval = gen_get_ref_pointer( context, scope, lval );
                 rval = gen_get_ref_pointer( context, scope, rval );
@@ -119,7 +119,7 @@ llvm::Constant* TxUnaryMinusNode::code_gen_const_value( LlvmGenerationContext& c
     if ( dynamic_cast<TxIntegerLitNode*>( this->operand->originalExpr ) ) {
         return operand;  // negation has been applied directly to the literal
     }
-    auto opType = this->get_type()->type();
+    const TxActualType* opType = this->qualtype()->type()->acttype();
     if ( dynamic_cast<const TxIntegerType*>( opType ) ) {
         return ConstantExpr::getNeg( operand  );
     }
@@ -135,7 +135,7 @@ Value* TxUnaryMinusNode::code_gen_dyn_value( LlvmGenerationContext& context, Gen
     if ( dynamic_cast<TxIntegerLitNode*>( this->operand->originalExpr ) ) {
         return operand;  // negation has been applied directly to the literal
     }
-    auto opType = this->get_type()->type();
+    const TxActualType* opType = this->qualtype()->type()->acttype();
     if ( dynamic_cast<const TxIntegerType*>( opType ) ) {
         return scope->builder->CreateNeg( operand );
     }

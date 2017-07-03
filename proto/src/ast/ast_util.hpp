@@ -4,7 +4,7 @@
 #include <algorithm>
 
 class TxNode;
-class TxType;
+class TxQualType;
 
 void print_node_root_path( const TxNode* toNode );
 
@@ -29,17 +29,17 @@ std::vector<N*> make_node_vec_copy( const std::vector<N*>& nodeVec ) {
 }
 
 template<typename Node>
-std::vector<const TxType*> attempt_typevec( const std::vector<Node*>* nodevec ) {
-    std::vector<const TxType*> types = std::vector<const TxType*>( nodevec->size() );
-    std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(), []( Node* node ) -> const TxType* {return node->attempt_get_type();} );
+std::vector<const TxQualType*> attempt_typevec( const std::vector<Node*>* nodevec ) {
+    std::vector<const TxQualType*> types = std::vector<const TxQualType*>( nodevec->size() );
+    std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(), []( Node* node ) -> const TxQualType* {return node->attempt_qualtype();} );
     return types;
 }
 
 template<typename Node>
-std::vector<const TxType*> resolve_typevec( const std::vector<Node*>* nodevec ) {
-    std::vector<const TxType*> types = std::vector<const TxType*>( nodevec->size() );
-    std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(), []( Node* node ) -> const TxType* {
-        node->resolve_type()->type(); return node->attempt_get_type(); } );
+std::vector<const TxQualType*> resolve_typevec( const std::vector<Node*>* nodevec ) {
+    std::vector<const TxQualType*> types = std::vector<const TxQualType*>( nodevec->size() );
+    std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(), []( Node* node ) -> const TxQualType* {
+        node->resolve_type()->type(); return node->attempt_qualtype(); } );
     return types;
 }
 

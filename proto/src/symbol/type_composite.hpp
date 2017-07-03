@@ -28,7 +28,7 @@ public:
     }
 
     /** Returns the element type if bound, or tx.Array.E generic type parameter if unbound. */
-    const TxActualType* element_type() const;
+    const TxQualType* element_type() const;
 
     /** Returns nullptr if unbound. */
     const TxExpressionNode* capacity() const;
@@ -63,7 +63,7 @@ public:
     }
 
     /** Returns the target type if bound, or tx.Ref.T generic type parameter if unbound. */
-    const TxActualType* target_type() const;
+    const TxQualType* target_type() const;
 
     /** References are never abstract. */
     virtual bool is_abstract() const override {

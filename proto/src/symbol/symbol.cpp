@@ -9,8 +9,8 @@
 #include "declaration.hpp"
 #include "entity.hpp"
 #include "entity_type.hpp"
-
 #include "driver.hpp"
+#include "qual_type.hpp"
 
 
 Logger& TxScopeSymbol::_LOG = Logger::get( "SYMBOL" );
@@ -238,7 +238,7 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol( const std::string& name ) {
                         // symbol distinctly (non-overloaded) refers to a GENPARAM
                         // Resolves e.g:  my#SType#E = my.SType.E  to binding  -P---- ---B--  my.$SType<tx#~Float,tx#~Double>.E
                         if ( auto thisDecl = get_symbols_declaration( this ) ) {
-                            if ( auto thisType = thisDecl->get_definer()->get_type() ) {
+                            if ( auto thisType = thisDecl->get_definer()->qualtype()->type() ) {
                                 if ( auto bindingDecl = thisType->lookup_param_binding( hashedDecl ) ) {
                                     //this->LOGGER()->debug( "Resolved %-16s = %-16s to binding\t%s", name.c_str(),
                                     //                       hashedSym->get_full_name().str().c_str(), bindingDecl->str().c_str() );
@@ -257,7 +257,7 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol( const std::string& name ) {
         return this->TxScopeSymbol::get_member_symbol( name );
     else if ( !this->is_overloaded() ) {
         // this symbol represents a distinct field; look up its instance members
-        if ( auto type = this->get_first_field_decl()->get_definer()->get_type() ) {
+        if ( auto type = this->get_first_field_decl()->get_definer()->qualtype()->type() ) {
             if ( auto member = type->lookup_inherited_instance_member( name ) )
                 return member;
         }
@@ -276,22 +276,22 @@ static std::string field_description( const TxFieldDeclaration* fieldDecl ) {
             if ( !( field->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ) ) {
                 if ( auto outerEntity = dynamic_cast<TxEntitySymbol*>( field->get_symbol()->get_outer() ) ) {
                     if ( auto typeDecl = outerEntity->get_type_decl() ) {
-                        if ( auto outerType = typeDecl->get_definer()->get_type() ) {  // assumes already resolved
+                        if ( auto outerType = typeDecl->get_definer()->qualtype() ) {  // assumes already resolved
                             char storageType = ' ';
                             int storageIx = -1;
                             switch ( field->get_storage() ) {
                             case TXS_STATIC:
                                 storageType = 's';
-                                storageIx = outerType->type()->get_static_fields().get_field_index( field->get_unique_name() );
+                                storageIx = outerType->type()->acttype()->get_static_fields().get_field_index( field->get_unique_name() );
                                 break;
                             case TXS_VIRTUAL:
                                 case TXS_INSTANCEMETHOD:
                                 storageType = 'v';
-                                storageIx = outerType->type()->get_virtual_fields().get_field_index( field->get_unique_name() );
+                                storageIx = outerType->type()->acttype()->get_virtual_fields().get_field_index( field->get_unique_name() );
                                 break;
                             case TXS_INSTANCE:
                                 storageType = 'i';
-                                storageIx = outerType->type()->get_instance_fields().get_field_index( field->get_unique_name() );
+                                storageIx = outerType->type()->acttype()->get_instance_fields().get_field_index( field->get_unique_name() );
                                 break;
                             default:
                                 //ASSERT(false, "Only fields of static/virtual/instancemethod/instance storage classes have a storage index: " << *this);
@@ -342,9 +342,9 @@ std::string TxEntitySymbol::description_string() const {
     if ( this->is_overloaded() )
         return "   overloaded symbol        " + this->get_full_name().str();
     else if ( this->typeDeclaration )  // non-overloaded type name
-        if ( auto type = this->typeDeclaration->get_definer()->attempt_get_type() ) {
-            if ( type->get_declaration() == this->typeDeclaration ) {
-                if ( auto basetype = type->get_semantic_base_type() ) {
+        if ( auto type = this->typeDeclaration->get_definer()->attempt_qualtype() ) {
+            if ( type->type()->get_declaration() == this->typeDeclaration ) {
+                if ( auto basetype = type->type()->get_semantic_base_type() ) {
                     auto name = type->str();
                     if ( name.size() < 48 )
                         name.resize( 48, ' ' );

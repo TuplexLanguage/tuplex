@@ -98,6 +98,7 @@ add_executable(txc
         symbol/declaration.cpp
         symbol/entity.cpp
         symbol/entity_type.cpp
+        symbol/qual_type.cpp
         symbol/type_registry.cpp
         symbol/type_codegen.cpp
 

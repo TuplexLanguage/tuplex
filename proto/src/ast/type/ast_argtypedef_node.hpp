@@ -8,7 +8,7 @@
  */
 class TxArgTypeDefNode : public TxTypeDefiningNode {
 protected:
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         LOG_TRACE( this->LOGGER(), "defining  type  of " << this );
         return this->typeExpression->resolve_type();
     }

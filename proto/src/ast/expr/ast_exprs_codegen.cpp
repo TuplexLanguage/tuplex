@@ -69,12 +69,12 @@ Value* TxFunctionCallNode::code_gen_dyn_address( LlvmGenerationContext& context,
 Value* TxConstructorCalleeExprNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     Value* funcPtrV = this->gen_func_ptr( context, scope );
-    auto allocType = this->objectExpr->get_type();
-    Constant* instanceTypeIdV = allocType->type()->gen_typeid( context, scope );
+    auto allocType = this->objectExpr->qualtype()->type()->acttype();
+    Constant* instanceTypeIdV = allocType->gen_typeid( context, scope );
     // construct the lambda object:
     auto closureRefT = context.get_voidRefT();
     auto closureRefV = gen_ref( context, scope, closureRefT, this->gen_obj_ptr( context, scope ), instanceTypeIdV );
-    auto lambdaT = cast<StructType>( context.get_llvm_type( this->get_type() ) );
+    auto lambdaT = cast<StructType>( context.get_llvm_type( this->qualtype() ) );
     return gen_lambda( context, scope, lambdaT, funcPtrV, closureRefV );
 }
 
@@ -92,7 +92,7 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr( LlvmGenerationContext& context
     // find the constructor
     // (constructors aren't inherited, but we bypass equivalent specializations to find the code-generated constructor)
     auto uniqueName = this->declaration->get_unique_name();
-    const TxActualType* allocType = this->objectExpr->get_type()->type();
+    const TxActualType* allocType = this->objectExpr->qualtype()->type()->acttype();
     while ( allocType->is_equivalent_derivation() )  // as we don't generate code for equivalent specializations
         allocType = allocType->get_semantic_base_type();
     auto uniqueFullName = allocType->get_declaration()->get_unique_full_name() + "." + uniqueName;
@@ -100,7 +100,7 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr( LlvmGenerationContext& context
 
     Value* funcPtrV = context.lookup_llvm_value( uniqueFullName );
     if ( !funcPtrV ) {
-        if ( auto txType = this->get_type()->type() ) {
+        if ( const TxActualType* txType = this->qualtype()->type()->acttype() ) {
             // forward declaration situation
             if ( auto txFuncType = dynamic_cast<const TxFunctionType*>( txType ) ) {
                 LOG_DEBUG( context.LOGGER(), "Forward-declaring constructor function " << uniqueFullName << ": " << txFuncType );
@@ -118,12 +118,12 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr( LlvmGenerationContext& context
 
 Value* TxHeapAllocNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return this->get_type()->type()->gen_malloc( context, scope );
+    return this->qualtype()->type()->acttype()->gen_malloc( context, scope );
 }
 
 Value* TxStackAllocNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return this->get_type()->type()->gen_alloca( context, scope );
+    return this->qualtype()->type()->acttype()->gen_alloca( context, scope );
 }
 
 Value* TxNewConstructionNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -141,10 +141,8 @@ Value* TxNewConstructionNode::code_gen_dyn_value( LlvmGenerationContext& context
         this->constructorCall->code_gen_dyn_value( context, scope );
     }
 
-    Type* objRefT = context.get_llvm_type( this->get_type() );
-    if ( !objRefT )
-        return nullptr;
-    Constant* objTypeIdV = this->get_object_type()->type()->gen_typeid( context, scope );
+    Type* objRefT = context.get_llvm_type( this->qualtype() );
+    Constant* objTypeIdV = this->get_object_type()->type()->acttype()->gen_typeid( context, scope );
     auto objRefV = gen_ref( context, scope, objRefT, objAllocV, objTypeIdV );
     return objRefV;
 }

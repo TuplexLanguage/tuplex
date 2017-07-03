@@ -16,7 +16,7 @@ public:
 
 class TxBinaryOperatorNode : public TxOperatorValueNode {
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     const TxOperation op;
@@ -60,7 +60,7 @@ public:
 
 class TxUnaryMinusNode : public TxOperatorValueNode {
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     TxMaybeConversionNode* operand;
@@ -94,7 +94,7 @@ public:
 
 class TxUnaryLogicalNotNode : public TxOperatorValueNode {
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     TxExpressionNode* operand;
@@ -109,11 +109,10 @@ public:
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         operand->symbol_resolution_pass();
-        auto type = operand->get_type();
         // assume arithmetic, scalar negation:
-        if ( !type->is_builtin( TXBT_BOOL ) )
+        if ( !operand->qualtype()->type()->is_builtin( TXBT_BOOL ) )
             // should we support any auto-conversion to Bool?
-            CERROR( this, "Operand of unary '!' is not of Bool type: " << (type ? type->str().c_str() : "NULL") );
+            CERROR( this, "Operand of unary '!' is not of Bool type: " << operand->qualtype() );
     }
 
     virtual bool is_statically_constant() const override {

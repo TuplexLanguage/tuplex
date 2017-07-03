@@ -361,8 +361,8 @@ void LlvmGenerationContext::initialize_builtin_functions() {
        // create function:
         const std::string funcName( "tx._address" );
         //auto argT = TxReferenceType::make_ref_llvm_type(*this, Type::getInt8Ty(this->llvmContext));
-        auto argT = this->get_llvm_type( this->tuplexPackage.registry().get_builtin_type( TXBT_REFERENCE )->type() );
-        auto retT = this->get_llvm_type( this->tuplexPackage.registry().get_builtin_type( TXBT_ULONG )->type() );
+        auto argT = this->get_llvm_type( this->tuplexPackage.registry().get_builtin_type( TXBT_REFERENCE )->acttype() );
+        auto retT = this->get_llvm_type( this->tuplexPackage.registry().get_builtin_type( TXBT_ULONG )->acttype() );
         Function *func = cast<Function>( this->llvmModule().getOrInsertFunction( funcName, retT, this->get_voidRefT(), argT, NULL ) );
         BasicBlock *bb = BasicBlock::Create( this->llvmModule().getContext(), "entry", func );
         IRBuilder<> builder( bb );
@@ -617,8 +617,12 @@ StructType* LlvmGenerationContext::get_llvm_vtable_type( const TxActualType* txT
     THROW_LOGIC( "No vtable mapped for type " << txType );
 }
 
+Type* LlvmGenerationContext::get_llvm_type( const TxQualType* txType ) {
+    return this->get_llvm_type( txType->type()->acttype() );
+}
+
 Type* LlvmGenerationContext::get_llvm_type( const TxType* txType ) {
-    return this->get_llvm_type( txType->type() );
+    return this->get_llvm_type( txType->acttype() );
 }
 
 Type* LlvmGenerationContext::get_llvm_type( const TxActualType* txType ) {

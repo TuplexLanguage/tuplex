@@ -12,6 +12,7 @@
 #include "tx_lang_defs.hpp"
 
 #include "entity.hpp"
+#include "type_class.hpp"
 
 class TxActualType;
 class TxType;
@@ -26,30 +27,6 @@ class Value;
 class Constant;
 class Function;
 }
-
-/** The type classes of Tuplex. Each type class is handled specially by the compiler. */
-enum TxTypeClass {
-    /** Represents the Any root type. */
-    TXTC_ANY,
-    /** The built-in, non-aggregate types (e.g. Bool, Scalar). */
-    TXTC_ELEMENTARY,
-    /** The Ref types. */
-    TXTC_REFERENCE,
-    /** The Array types. */
-    TXTC_ARRAY,
-    /** The Tuple types. */
-    TXTC_TUPLE,
-    /** The Union types. */
-    TXTC_UNION,
-    /** The function types, including methods and lambdas. */
-    TXTC_FUNCTION,
-    /** The interface types. */
-    TXTC_INTERFACE,
-    /** The internal, implicit interface adapter types. */
-    TXTC_INTERFACEADAPTER,
-    /** The internal Void type (represents the "return type" of functions that do not return a value). */
-    TXTC_VOID,
-};
 
 class DataTupleDefinition {
 public:
@@ -142,19 +119,17 @@ public:
  It's the base data type that the vtable mechanics use.
  For semantic inheritance mechanics, the generic base type is used.
  */
-class TxTypeSpecialization : public Printable {
+class TxTypeSpecialization {
 public:
     TxActualType const * const type;
-    const bool modifiable;
-    //TxIdentifier const * const dataspace;  // only set for reference specializations
 
     /** Only legal to use by the Any type. */
     TxTypeSpecialization()
-            : type(), modifiable() {
+            : type() {
     }
 
-    TxTypeSpecialization( const TxActualType* baseType, bool modifiable = false )
-            : type( baseType ), modifiable( modifiable ) {
+    TxTypeSpecialization( const TxActualType* baseType )
+            : type( baseType ) {
         ASSERT( baseType, "NULL baseType" );
     }
 
@@ -163,8 +138,6 @@ public:
     inline bool operator!=( const TxTypeSpecialization& other ) const {
         return !this->operator==( other );
     }
-
-    std::string str() const;
 };
 
 /** An instance of this class represents a type definition.
@@ -235,8 +208,7 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     friend class ScopedRecursionGuardClause;
 
     static inline bool determine_builtin( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec) {
-        return ( ( declaration->get_decl_flags() & TXD_BUILTIN )
-                 || ( baseTypeSpec.modifiable && baseTypeSpec.type->is_builtin() ) );
+        return ( declaration->get_decl_flags() & TXD_BUILTIN );
     }
 
 protected:
@@ -274,7 +246,7 @@ protected:
     friend class TxBuiltinTypeDefiningNode;
 
     /** Gets the Any root type. */
-    const TxActualType* get_root_any_type() const;
+    const TxQualType* get_root_any_qtype() const;
 
     /** Prepares this type's members, including data layout. Called after resolution phase has completed.
      * @return true if a data type recursion has been discovered */
@@ -303,9 +275,9 @@ public:
      * @return true if a data type recursion has been discovered */
     virtual bool prepare_members();
 
-    inline const TxType* get_type_entity() const {
-        return this->get_declaration()->get_definer()->get_type();
-    }
+//    inline const TxType* get_type_entity() const {
+//        return this->get_declaration()->get_definer()->get_type()->type();
+//    }
 
     inline const TxTypeDeclaration* get_declaration() const {
         return this->declaration;
@@ -363,24 +335,11 @@ public:
 
     /** Returns true if this type is the specified built-in type. */
     inline bool is_builtin( BuiltinTypeId biTypeId ) const {
-        return ( this->formalTypeId == (uint32_t) biTypeId  // Note: type ids of built-in types are always set
-                 || ( this->is_modifiable() && this->get_base_type()->formalTypeId == (uint32_t) biTypeId ) );
+        return ( this->formalTypeId == (uint32_t) biTypeId );  // Note: type ids of built-in types are always set
     }
 
     /** Returns true if this type is a scalar type. */
     bool is_scalar() const;
-
-    /** Returns true if this type is modifiable (its instances' contents may be modified after initialization).
-     * This can only be the case for pure specializations:
-     * Declaring a "modifiable" type in source obtains a pure specialization of the sought base type
-     * with the modifiable flag set.
-     * (The base type must of course be mutable for such a specialization to be legal.)
-     * A corollary is that a non-pure-specialization type is never immediately modifiable,
-     * it must first be specialized as such.
-     */
-    inline bool is_modifiable() const {
-        return this->baseTypeSpec.modifiable;
-    }
 
     /** Returns true if this type is mutable by declaration.
      * If true its instances can be declared modifiable.
@@ -497,10 +456,7 @@ public:
     }
 
     /** Returns true if an instance of this type can implicitly convert to an instance of the destination type.
-     * Note that this does not test whether destination is modifiable;
-     * it only tests type instance compatibility for assignment.
-     * (For example, an initializer to an unmodifiable field is still valid if assignable to its type.)
-     * This is a less strict test than is_assignable, since some types that are not directly assignable
+     * This may be less strict test than is_assignable, since some types that are not directly assignable
      * may be so after an implicit conversion (e.g. Byte -> Int). */
     virtual bool auto_converts_to( const TxActualType& destination ) const {
         return this->is_assignable_to( destination );  // default implementation is equal to assignability
@@ -550,7 +506,7 @@ public:
     /** Gets the (unbound) type parameters of this type (this type is a generic type if this is non-empty). */
     inline const std::vector<const TxEntityDeclaration*>& get_type_params() const {
         ASSERT( this->hasInitialized, "Can't get type params of uninitized type " << this );
-        return ( ( this->is_empty_derivation() || this->is_modifiable() ) ? this->get_base_type()->get_type_params() : this->params );
+        return ( this->is_empty_derivation() ? this->get_base_type()->get_type_params() : this->params );
     }
 
     /** Returns true if this type has an (unbound) type parameter with the specified (plain) name. */

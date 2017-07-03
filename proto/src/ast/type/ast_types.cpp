@@ -7,8 +7,8 @@ TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
     if (this->symbol)
         return this->symbol;
     if ( this->baseSymbol ) {
-        // baseSymbol may or may not refer to a type (e.g. modules don't)
-        auto baseType = this->baseSymbol->resolve_type();
+        // baseSymbol may or may not refer to a type (e.g. modules don't), TXTC_VOID is the placeholder if not
+        auto baseType = this->baseSymbol->resolve_type()->type();
 
         TxScopeSymbol* vantageScope = this->context().scope();
         if ( auto baseSymbolNode = dynamic_cast<TxIdentifiedSymbolNode*>( this->baseSymbol ) ) {
@@ -35,7 +35,7 @@ TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
     return this->symbol;
 }
 
-const TxType* TxIdentifiedSymbolNode::define_type() {
+const TxQualType* TxIdentifiedSymbolNode::define_type() {
     if ( auto symbol = this->resolve_symbol() ) {
         if ( auto entitySym = dynamic_cast<const TxEntitySymbol*>( symbol) ) {
             if ( auto typeDecl = entitySym->get_type_decl() )
@@ -45,19 +45,19 @@ const TxType* TxIdentifiedSymbolNode::define_type() {
             CERR_THROWRES( this, "Can't resolve type of overloaded symbol '" << this->get_full_identifier() << "'" );
         }
         // Symbol is not an entity (field or type), return Void as placeholder type
-        return this->registry().get_builtin_type( TXBT_VOID );
+        return new TxQualType( this->registry().get_builtin_type( TXBT_VOID ) );
     }
     CERR_THROWRES( this, "Unknown symbol: '" << this->symbolName << "'" );
 }
 
-const TxType* TxNamedTypeNode::define_type() {
+const TxQualType* TxNamedTypeNode::define_type() {
     if ( auto symbol = this->symbolNode->resolve_symbol() ) {
         if ( auto entitySym = dynamic_cast<const TxEntitySymbol*>( symbol) ) {
             if ( auto typeDecl = entitySym->get_type_decl() ) {
                 auto type = typeDecl->get_definer()->resolve_type();
                 if ( auto decl = this->get_declaration() ) {
                     // create empty specialization (uniquely named but identical type)
-                    return this->registry().make_empty_derivation( decl, type, this->requires_mutable_type() );
+                    return new TxQualType( this->registry().make_empty_derivation( decl, type->type(), this->requires_mutable_type() ) );
                 }
                 return type;
             }
@@ -73,15 +73,15 @@ const TxType* TxNamedTypeNode::define_type() {
     CERR_THROWRES( this, "Unknown symbol: '" << this->symbolNode->get_full_identifier() << "'" );
 }
 
-const TxType* TxMemberTypeNode::define_type() {
-    auto baseType = this->baseTypeExpr->resolve_type();
+const TxQualType* TxMemberTypeNode::define_type() {
+    auto baseType = this->baseTypeExpr->resolve_type()->type();
     if (auto memberSymbol = baseType->lookup_inherited_instance_member( this->context().scope(), this->memberName )) {
         if ( auto entitySym = dynamic_cast<const TxEntitySymbol*>( memberSymbol) ) {
             if ( auto typeDecl = entitySym->get_type_decl() ) {
                 auto type = typeDecl->get_definer()->resolve_type();
                 if ( auto decl = this->get_declaration() ) {
                     // create empty specialization (uniquely named but identical type)
-                    return this->registry().make_empty_derivation( decl, type, this->requires_mutable_type() );
+                    return new TxQualType( this->registry().make_empty_derivation( decl, type->type(), this->requires_mutable_type() ) );
                 }
                 return type;
             }
@@ -109,7 +109,7 @@ const TxType* TxMemberTypeNode::define_type() {
 */
 }
 
-const TxType* TxArrayTypeNode::define_type() {
+const TxQualType* TxArrayTypeNode::define_type() {
     if ( this->requires_mutable_type() ) {
         if ( auto elemTypeArg = dynamic_cast<TxMaybeModTypeNode*>( this->elementTypeNode->typeExprNode ) )
             elemTypeArg->set_modifiable( true );
@@ -117,18 +117,18 @@ const TxType* TxArrayTypeNode::define_type() {
     if ( this->capacityNode ) {
         static_cast<TxMaybeConversionNode*>( this->capacityNode->valueExprNode )->insert_conversion(
                 this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
-        return this->registry().get_array_type( this, this->elementTypeNode, this->capacityNode, this->requires_mutable_type() );
+        return new TxQualType( this->registry().get_array_type( this, this->elementTypeNode, this->capacityNode, this->requires_mutable_type() ) );
     }
     else
-        return this->registry().get_array_type( this, this->elementTypeNode, this->requires_mutable_type() );
+        return new TxQualType( this->registry().get_array_type( this, this->elementTypeNode, this->requires_mutable_type() ) );
 }
 
-const TxType* TxGenSpecTypeNode::define_type() {
-    auto genType = this->genTypeExpr->resolve_type();
+const TxQualType* TxGenSpecTypeNode::define_type() {
+    auto genType = this->genTypeExpr->resolve_type()->type();
     // copy vector because of const conversion:
     auto tmp = std::vector<const TxTypeArgumentNode*>( this->typeArgs->size() );
     std::copy( this->typeArgs->cbegin(), this->typeArgs->cend(), tmp.begin() );
-    return this->registry().get_type_specialization( this, genType, tmp, this->requires_mutable_type() );
+    return new TxQualType( this->registry().get_type_specialization( this, genType, tmp, this->requires_mutable_type() ) );
 }
 
 void TxDerivedTypeNode::init_implicit_types() {
@@ -147,21 +147,21 @@ void TxDerivedTypeNode::init_implicit_types() {
     this->superRefTypeNode = new TxTypeDeclNode( this->ploc, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN );
 }
 
-const TxType* TxDerivedTypeNode::define_type() {
+const TxQualType* TxDerivedTypeNode::define_type() {
     ASSERT( this->get_declaration(), "No declaration for derived type " << *this );
 
     if ( this->builtinTypeDefiner ) {
         return this->builtinTypeDefiner->resolve_type();
     }
 
-    const TxType* baseObjType = this->baseType->resolve_type();
+    auto baseObjType = this->baseType->resolve_type()->type();
     std::vector<const TxType*> interfaceTypes;
     interfaceTypes.reserve( this->interfaces->size() );
     for ( auto interface : *this->interfaces ) {
-        interfaceTypes.emplace_back( interface->resolve_type() );
+        interfaceTypes.emplace_back( interface->resolve_type()->type() );
     }
 
-    return this->registry().make_type_derivation( this, baseObjType, interfaceTypes, this->requires_mutable_type() );
+    return new TxQualType( this->registry().make_type_derivation( this, baseObjType, interfaceTypes, this->requires_mutable_type() ) );
 }
 
 void TxDerivedTypeNode::symbol_resolution_pass() {
@@ -206,22 +206,24 @@ void TxFunctionTypeNode::typeexpr_declaration_pass() {
     }
 }
 
-const TxType* TxFunctionTypeNode::define_type() {
+const TxQualType* TxFunctionTypeNode::define_type() {
     std::vector<const TxType*> argumentTypes;
     for ( auto argDefNode : *this->arguments ) {
-        argumentTypes.push_back( argDefNode->resolve_type() );
+        argumentTypes.push_back( argDefNode->resolve_type()->type() );
     }
+    const TxType* type;
     if ( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() )
-        return this->registry().get_constructor_type( this->get_declaration(), argumentTypes, this->context().enclosing_lambda()->get_constructed() );
+        type = this->registry().get_constructor_type( this->get_declaration(), argumentTypes, this->context().enclosing_lambda()->get_constructed() );
     else if ( this->returnField )
-        return this->registry().get_function_type( this->get_declaration(), argumentTypes, this->returnField->resolve_type(), modifying );
+        type = this->registry().get_function_type( this->get_declaration(), argumentTypes, this->returnField->resolve_type()->type(), modifying );
     else
-        return this->registry().get_function_type( this->get_declaration(), argumentTypes, modifying );
+        type = this->registry().get_function_type( this->get_declaration(), argumentTypes, modifying );
+    return new TxQualType( type );
 }
 
 void TxModifiableTypeNode::typeexpr_declaration_pass() {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
-    if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->baseType ) ) {
+    if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->typeNode ) ) {
         if ( auto maybeModElem = dynamic_cast<TxMaybeModTypeNode*>( arrayBaseType->elementTypeNode->typeExprNode ) ) {
             // (can this spuriously add Modifiable node to predeclared modifiable type, generating error?)
             this->LOGGER()->debug( "Implicitly declaring Array Element modifiable at %s", this->str().c_str() );
@@ -233,7 +235,7 @@ void TxModifiableTypeNode::typeexpr_declaration_pass() {
 void TxMaybeModTypeNode::typeexpr_declaration_pass() {
     // syntactic sugar to make these equivalent: ~[]~ElemT  ~[]ElemT  []~ElemT
     if ( !this->isModifiable ) {
-        if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->baseType ) )
+        if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->typeNode ) )
             if ( typeid(*arrayBaseType->elementTypeNode->typeExprNode) == typeid(TxModifiableTypeNode) ) {
                 this->LOGGER()->debug( "Implicitly declaring Array modifiable at %s", this->str().c_str() );
                 this->isModifiable = true;
@@ -244,6 +246,6 @@ void TxMaybeModTypeNode::typeexpr_declaration_pass() {
         TxModifiableTypeNode::typeexpr_declaration_pass();
     else {
         // "pass through" entity declaration to the underlying type
-        this->baseType->set_declaration( this->get_declaration() );
+        this->typeNode->set_declaration( this->get_declaration() );
     }
 }

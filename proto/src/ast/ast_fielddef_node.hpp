@@ -20,7 +20,7 @@ class TxFieldDefNode : public TxFieldDefiningNode {
     }
 
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
     virtual const TxField* define_field() override;
 

@@ -10,8 +10,8 @@ using namespace llvm;
 Constant* TxStringLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, this->literal );
 
-    auto stringObjT = cast<StructType>( context.get_llvm_type( this->get_type() ) );
-    auto arrayTIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->arrayTypeNode->get_type()->get_type_id() );
+    auto stringObjT = cast<StructType>( context.get_llvm_type( this->qualtype() ) );
+    auto arrayTIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->arrayTypeNode->qualtype()->get_type_id() );
     auto arrayRefObjT = cast<StructType>( stringObjT->getTypeAtIndex( 0U ) );
 
     std::vector<Constant*> arrayMembers {

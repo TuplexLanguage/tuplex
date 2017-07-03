@@ -2,6 +2,11 @@
 #include "package.hpp"
 #include "type_registry.hpp"
 #include "ast/type/ast_typeexpr_node.hpp"
+#include "qual_type.hpp"
+
+const TxType* get_type_entity( const TxActualType* actType ) {
+    return actType->get_declaration()->get_definer()->qualtype()->type();
+}
 
 inline static const TxTypeDeclaration* get_definer_declaration( const TxTypeDefiningNode* definer ) {
     if ( auto typeExprNode = dynamic_cast<const TxTypeExpressionNode*>( definer ) )
@@ -11,16 +16,14 @@ inline static const TxTypeDeclaration* get_definer_declaration( const TxTypeDefi
 
 TxType::TxType( const TxActualType* actualType )
         : TxEntity( actualType->get_declaration() ), definer( actualType->get_declaration()->get_definer() ), actualTypeProducer(),
-          _type( actualType ),
-          startedRslv( true ), hasResolved( true )
+          _type( actualType ), startedRslv( true ), hasResolved( true )
 {
     actualType->get_declaration()->get_symbol()->get_root_scope()->registry().add_type_usage( this );
 }
 
 TxType::TxType( TxTypeDefiningNode* definer, std::function<const TxActualType*( void )> actualTypeProducer )
         : TxEntity( get_definer_declaration( definer ) ), definer( definer ), actualTypeProducer( actualTypeProducer ),
-          _type(),
-          startedRslv(), hasResolved()
+          _type(), startedRslv(), hasResolved()
 {
     definer->registry().add_type_usage( this );
 }
@@ -39,7 +42,7 @@ const TxActualType* TxType::define_type() const {
     return this->actualTypeProducer();
 }
 
-const TxActualType* TxType::type() const {
+const TxActualType* TxType::acttype() const {
     if ( !this->_type ) {
         if ( this->hasResolved ) {
             throw resolution_error( this, "Previous ACTUAL type resolution failed in " + this->str() );

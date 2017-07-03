@@ -2,6 +2,7 @@
 
 #include "../ast_entitydecls.hpp"
 
+
 /** Wraps the provided original expression with a new conversion expression node if necessary and permitted.
  * Assumes declaration pass has already run on originalExpr.
  * If a conversion node is created, symbol declaration pass is run on it.
@@ -11,11 +12,15 @@
  */
 TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType* resultType, bool _explicit );
 
+/** Evaluates if originalExpr may be automatically (implicitly) converted to the required type. */
+bool auto_converts_to( TxExpressionNode* originalExpr, const TxType* requiredType );
+
+
 /** A specific conversion of an expression to a resulting type. */
 class TxConversionNode : public TxExpressionNode {
 protected:
-    virtual const TxType* define_type() override {
-        return this->resultType;
+    virtual const TxQualType* define_type() override {
+        return new TxQualType( this->resultType );
     }
 public:
     TxExpressionNode* expr;
@@ -69,7 +74,7 @@ class TxReferenceConvNode : public TxConversionNode {
     const TxType* adapterType = nullptr;
 
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     TxReferenceConvNode( TxExpressionNode* expr, const TxType* refResultType )

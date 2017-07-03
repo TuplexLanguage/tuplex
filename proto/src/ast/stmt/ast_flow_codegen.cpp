@@ -15,7 +15,7 @@ static void code_gen_field( LlvmGenerationContext& context, GenScope* scope, TxF
         fieldVal = field->initExpression->code_gen_expr( context, scope );
     }
     else {
-        auto txType = field->get_type()->type();
+        auto txType = field->qualtype()->type()->acttype();
         fieldVal = txType->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
         // create implicit assignment statement
         if ( Value* initializer = field->initExpression->code_gen_expr( context, scope ) )

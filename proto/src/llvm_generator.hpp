@@ -93,6 +93,7 @@ public:
 
     void initialize_builtins();
 
+    llvm::Type* get_llvm_type( const TxQualType* txType );
     llvm::Type* get_llvm_type( const TxType* txType );
     llvm::Type* get_llvm_type( const TxActualType* txType );
 

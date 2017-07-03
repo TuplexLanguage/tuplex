@@ -110,14 +110,13 @@ static bool statically_converts_to( TxExpressionNode* originalExpr, const TxType
 
 
 bool auto_converts_to( TxExpressionNode* originalExpr, const TxType* requiredType ) {
-    auto originalType = originalExpr->resolve_type();
+    auto originalType = originalExpr->resolve_type()->type();
     return ( originalType->auto_converts_to( *requiredType )
              || ( originalType->is_scalar() && requiredType->is_scalar()
                   && statically_converts_to( originalExpr, originalType, requiredType ) ) );
 }
 
 
-// FUTURE: rework together with overloaded function resolution
 /** Returns null if conversion failed. */
 static TxExpressionNode* inner_wrap_conversion( TxExpressionNode* originalExpr, const TxType* originalType,
                                                 const TxType* requiredType, bool _explicit ) {
@@ -179,7 +178,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
                                                       const TxType* requiredType,
                                                       bool _explicit ) {
     // Note: Symbol declaration and resolution passes are not run on the created wrapper nodes.
-    auto originalType = originalExpr->resolve_type();
+    auto originalType = originalExpr->resolve_type()->type();
 
     if ( auto newExpr = inner_wrap_conversion( originalExpr, originalType, requiredType, _explicit ) )
         return newExpr;
@@ -187,7 +186,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
     // implicit reference-to ('&') operation:
     if ( requiredType->get_type_class() == TXTC_REFERENCE ) {
         if ( auto reqRefTargetType = requiredType->target_type() ) {
-            if ( originalType->is_a( *reqRefTargetType ) ) {
+            if ( originalType->is_a( *reqRefTargetType->type() ) ) {
                 if ( reqRefTargetType->is_modifiable() ) {
 //                    if ( !originalType->is_modifiable() ) {
 //                        // Note, is_a() will have already returned false for attempt to convert reference with non-mod-target to one with mod target
@@ -211,7 +210,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
 
     // implicit dereferencing ('^') operation:
     if ( originalType->get_type_class() == TXTC_REFERENCE ) {
-        if ( auto origRefTargetType = originalType->target_type() ) {
+        if ( auto origRefTargetType = originalType->target_type()->type() ) {
             if ( origRefTargetType->auto_converts_to( *requiredType ) ) {
                 // wrap originalExpr with a dereference node
                 //std::cerr << "Adding implicit '^' to: " << originalExpr << std::endl;
@@ -239,7 +238,7 @@ TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType*
 }
 
 
-const TxType* TxMaybeConversionNode::define_type() {
+const TxQualType* TxMaybeConversionNode::define_type() {
     if ( this->insertedResultType ) {
         this->resolvedExpr = make_conversion( this->originalExpr, this->insertedResultType, this->_explicit );
     }
@@ -248,7 +247,7 @@ const TxType* TxMaybeConversionNode::define_type() {
 
 void TxMaybeConversionNode::insert_conversion( const TxType* resultType, bool _explicit ) {
     ASSERT( this->originalExpr->is_context_set(), "declaration pass not yet run on originalExpr" );
-    ASSERT( !this->attempt_get_type(), "type already resolved for " << this );
+    ASSERT( !this->attempt_qualtype(), "type already resolved for " << this );
 
     if ( this->insertedResultType ) {
         LOG( this->LOGGER(), ALERT, this << ": Skipping overwrite previously inserted conversion node" );
@@ -271,11 +270,10 @@ static bool equivalent_interface_target_types( const TxType* typeA, const TxType
     return ( *typeA == *typeB );
 }
 
-const TxType* TxReferenceConvNode::define_type() {
-    auto resultTargetType = this->resultType->target_type();
+const TxQualType* TxReferenceConvNode::define_type() {
+    auto resultTargetType = this->resultType->target_type()->type();
     if ( resultTargetType->get_type_class() == TXTC_INTERFACE ) {
-        auto origType = this->expr->resolve_type();
-        auto origTargetType = origType->target_type();
+        auto origTargetType = this->expr->resolve_type()->type()->target_type()->type();
         if ( !equivalent_interface_target_types( resultTargetType, origTargetType ) ) {
             // create / retrieve interface adapter type
             //std::cerr << "Converting interface reference to adapter:\n\tfrom & " << origTargetType << "\n\tto   & " << resultTargetType << std::endl;
@@ -286,7 +284,7 @@ const TxType* TxReferenceConvNode::define_type() {
             auto adapterDefiner = new TxTypeDeclWrapperNode( this->ploc, adapterType->get_declaration() );
             TxTypeTypeArgumentNode* targetTypeNode = new TxTypeTypeArgumentNode( adapterDefiner );
             run_declaration_pass( targetTypeNode, this, "type" );
-            return this->registry().get_reference_type( this, targetTypeNode, nullptr );
+            return new TxQualType( this->registry().get_reference_type( this, targetTypeNode, nullptr ) );
         }
     }
     return TxConversionNode::define_type();  // returns the required resultType

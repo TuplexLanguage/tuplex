@@ -21,7 +21,7 @@ protected:
         }
     }
 
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         return this->funcTypeNode->resolve_type();
     }
 

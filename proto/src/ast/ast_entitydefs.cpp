@@ -1,7 +1,7 @@
 #include "ast_entitydefs.hpp"
 
 
-const TxType* TxTypeDefiningNode::resolve_type() {
+const TxQualType* TxTypeDefiningNode::resolve_type() {
     ASSERT( this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this );
     if ( !this->type ) {
         if ( this->hasResolved ) {

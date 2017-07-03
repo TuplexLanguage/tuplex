@@ -2,7 +2,7 @@
 
 #include "ast_node.hpp"
 
-class TxType;
+class TxQualType;
 class TxField;
 
 namespace llvm {
@@ -26,34 +26,34 @@ public:
 
     virtual TxEntityDefiningNode* make_ast_copy() const override = 0;
 
-    /** Resolves and returns the type of the entity/value this node produces/uses.
+    /** Resolves and returns the qual-type of the entity/value this node produces/uses.
      * If this node's entity has not already been resolved, it will be resolved in this invocation.
      * If the resolution fails, an error message will have been generated and resolution_error exception is thrown.
      * This method never returns NULL. */
-    virtual const TxType* resolve_type() = 0;
+    virtual const TxQualType* resolve_type() = 0;
 
-    /** Returns the type of the entity/value this node produces/uses.
+    /** Returns the qual-type of the entity/value this node produces/uses.
      * This node must have been resolved before this call.
      * This method never returns NULL, provided this node has been successfully resolved. */
-    virtual const TxType* get_type() const = 0;
+    virtual const TxQualType* qualtype() const = 0;
 
-    /** Returns the type of the entity/value this node produces/uses if already successfully resolved,
+    /** Returns the qual-type of the entity/value this node produces/uses if already successfully resolved,
      * otherwise NULL. */
-    virtual const TxType* attempt_get_type() const = 0;
+    virtual const TxQualType* attempt_qualtype() const = 0;
 };
 
 class TxTypeDefiningNode : public TxEntityDefiningNode {
-    const TxType* type = nullptr;
+    const TxQualType* type = nullptr;
     bool startedRslv = false;  // guard against recursive resolution
     bool hasResolved = false;  // to prevent multiple identical error messages
 
 protected:
-    /** Defines the type of this expression (as specific as can be known), constructing/obtaining the TxType instance.
+    /** Defines the type of this expression (as specific as can be known), constructing/obtaining the TxTypeUsage instance.
      * The implementation should only traverse the minimum nodes needed to define the type
      * (e.g. not require the actual target type of a reference to be defined).
      * This should only be invoked once, from the TxTypeDefiningNode class.
      * @return a valid type pointer (exception must be thrown upon failure) */
-    virtual const TxType* define_type() = 0;
+    virtual const TxQualType* define_type() = 0;
 
 public:
     TxTypeDefiningNode( const TxLocation& ploc )
@@ -62,15 +62,16 @@ public:
 
     virtual TxTypeDefiningNode* make_ast_copy() const override = 0;
 
-    /** Returns the type (as specific as can be known) of the value this node produces/uses.
+    /** Returns the qual-type of the value this node produces/uses.
      * @return a valid type pointer (exception is thrown upon failure) */
-    virtual const TxType* resolve_type() override final;
+    virtual const TxQualType* resolve_type() override final;
 
-    virtual const TxType* attempt_get_type() const override {
+    virtual const TxQualType* qualtype() const override {
+        ASSERT( this->type, "entity definer not resolved: " << this );
         return this->type;
     }
-    virtual const TxType* get_type() const override {
-        ASSERT( this->type, "entity definer not resolved: " << this );
+
+    virtual const TxQualType* attempt_qualtype() const override {
         return this->type;
     }
 };
@@ -78,7 +79,7 @@ public:
 class TxExpressionNode;
 
 class TxFieldDefiningNode : public TxEntityDefiningNode {
-    const TxType* type = nullptr;
+    const TxQualType* type = nullptr;
     const TxField* field = nullptr;
     bool startedRslv = false;  // guard against recursive resolution
     bool hasResolved = false;  // to prevent multiple identical error messages
@@ -86,12 +87,12 @@ class TxFieldDefiningNode : public TxEntityDefiningNode {
     mutable llvm::Constant* cachedConstantInitializer = nullptr;
 
 protected:
-    /** Defines the type of this field (as specific as can be known), constructing/obtaining the TxType instance.
+    /** Defines the type of this field (as specific as can be known), constructing/obtaining the TxTypeUsage instance.
      * The implementation should only traverse the minimum nodes needed to define the type
      * (e.g. not require the actual target type of a reference to be defined).
      * This should only be invoked once, from the TxFieldDefiningNode class.
      * @return a valid type pointer (exception must be thrown upon failure) */
-    virtual const TxType* define_type() = 0;
+    virtual const TxQualType* define_type() = 0;
 
     /** Defines the field of this node, constructing/obtaining the TxField instance.
      * This should only be invoked once, from the TxFieldDefiningNode class. */
@@ -110,16 +111,17 @@ public:
 
     /** Returns the type (as specific as can be known) of the value this field-defining node produces/uses.
      * @return a valid type pointer (exception is thrown upon failure) */
-    virtual const TxType* resolve_type() final {
+    virtual const TxQualType* resolve_type() final {
         this->resolve_field();
         return this->type;
     }
 
-    virtual const TxType* attempt_get_type() const override final {
+    virtual const TxQualType* qualtype() const override final {
+        ASSERT( this->type, "entity definer not resolved: " << this );
         return this->type;
     }
-    virtual const TxType* get_type() const override final {
-        ASSERT( this->type, "entity definer not resolved: " << this );
+
+    virtual const TxQualType* attempt_qualtype() const override final {
         return this->type;
     }
 

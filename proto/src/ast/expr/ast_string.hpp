@@ -15,8 +15,8 @@ class TxStringLitNode : public TxExpressionNode {
     TxTypeExpressionNode* arrayTypeNode;
 
 protected:
-    virtual const TxType* define_type() override {
-        return this->registry().get_string_type();
+    virtual const TxQualType* define_type() override {
+        return new TxQualType( this->registry().get_string_type() );
     }
 
 public:
@@ -60,7 +60,7 @@ protected:
         //                                                 &this->stringNodes );
         this->stackConstr = new TxStackConstructionNode( this->ploc, new TxNamedTypeNode( this->ploc, "tx.MultiStringer"), &this->stringNodes );
     }
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         return this->stackConstr->resolve_type();
     }
 
@@ -132,7 +132,7 @@ protected:
         this->stackConstr = new TxStackConstructionNode( this->ploc, new TxNamedTypeNode( this->ploc, "tx.StringFormat"), args );
     }
 
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         return this->stackConstr->resolve_type();
     }
 
@@ -179,7 +179,7 @@ class TxCStringLitNode : public TxExpressionNode {
     static TxTypeExpressionNode* make_cstring_type_expr( const TxLocation& ploc, const std::string& literal );
 
 protected:
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         return this->cstringTypeNode->resolve_type();
     }
 

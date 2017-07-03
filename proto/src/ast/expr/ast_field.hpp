@@ -12,7 +12,7 @@
  * ("distance" between the types);
  * or <0 if it can't be cast or implicitly converted to the expected type.
  */
-extern int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType *requiredType );
+extern int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType*requiredType );
 
 /** Attempts to resolve an identified entity symbol, that is potentially overloaded,
  * to a specific field by matching with the provided arguments' types.
@@ -44,13 +44,13 @@ class TxFieldValueNode : public TxExpressionNode {
     TxScopeSymbol* symbol = nullptr;
 
     /** If this field value resolves to a constructor, this is the constructed type */
-    const TxType* constructedType = nullptr;
+    const TxQualType* constructedType = nullptr;
 
     TxScopeSymbol* resolve_symbol();
     const TxEntityDeclaration* resolve_decl();
 
 protected:
-    virtual const TxType* define_type() override;
+    virtual const TxQualType* define_type() override;
 
 public:
     TxExpressionNode* baseExpr;
@@ -96,7 +96,7 @@ public:
     }
 
     /** If this field value resolves to a constructor, returns the constructed type, otherwise null. */
-    inline const TxType* get_constructed_type() const {
+    inline const TxQualType* get_constructed_type() const {
         return constructedType;
     }
 
@@ -118,7 +118,7 @@ public:
 
 class TxFieldAssigneeNode : public TxAssigneeNode {
 protected:
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         return this->field->resolve_type();
     }
 

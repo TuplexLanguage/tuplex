@@ -9,7 +9,7 @@
  */
 class TxExprWrapperNode : public TxExpressionNode {
 protected:
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         return this->exprNode->resolve_type();
     }
 
@@ -72,7 +72,7 @@ public:
  */
 class TxTypeExprWrapperNode : public TxTypeExpressionNode {
 protected:
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         return this->typeDefNode->resolve_type();
     }
 
@@ -123,7 +123,7 @@ class TxTypeDeclWrapperNode : public TxTypeExpressionNode {
     TxEntityDeclaration const * const typeDecl;
 
 protected:
-    virtual const TxType* define_type() override {
+    virtual const TxQualType* define_type() override {
         return this->typeDecl->get_definer()->resolve_type();
     }
 

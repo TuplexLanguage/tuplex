@@ -16,7 +16,7 @@ void TxFieldStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope 
     auto declaration = this->field->get_declaration();
     auto uniqueName = declaration->get_unique_full_name();
     ASSERT( declaration->get_storage() == TXS_STACK, "TxFieldStmtNode can only apply to TX_STACK storage fields: " << uniqueName );
-    auto txType = this->field->get_type()->type();
+    auto txType = this->field->qualtype()->type()->acttype();
 
     // If init expression does a stack allocation of this field's type (instance-equivalent type),
     // this field shall bind to that allocation.

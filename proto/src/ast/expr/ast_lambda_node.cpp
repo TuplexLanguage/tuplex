@@ -27,7 +27,7 @@ void TxLambdaExprNode::declaration_pass() {
 bool TxLambdaExprNode::is_suppressed_modifying_method() {
     return ( this->funcHeaderNode->is_modifying()
              && this->context().reinterpretation_definer()
-             && !this->selfTypeNode->resolve_type()->is_mutable() );
+             && !this->selfTypeNode->resolve_type()->type()->is_mutable() );
 }
 
 void TxLambdaExprNode::symbol_resolution_pass() {
@@ -48,7 +48,7 @@ void TxLambdaExprNode::symbol_resolution_pass() {
     }
     else {
         if ( this->funcHeaderNode->is_modifying() )
-            CERROR( this, "Only instance methods can be declared 'modifying': " << this->funcHeaderNode->get_type() );
+            CERROR( this, "Only instance methods can be declared 'modifying': " << this->funcHeaderNode->qualtype() );
         // TODO: review if there are non-method functions with closure that can declare 'modifying'?
     }
 
