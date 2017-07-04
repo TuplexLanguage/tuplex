@@ -41,6 +41,10 @@ test_float_literals() {
         xd := 0x1.ABp4#H;  assert xd == 0x1A.B#H;
         xe := 0x1.ABp4#F;  assert xe == 0x1A.B#F;
         xf := 0x1.ABp4#D;  assert xf == 0x1A.B#D;
+
+        y0 := 1e14;   assert y0 == 100000000000000.0;
+        y1 := 1e-14;  assert y1 == 0.00000000000001;
+        y2 := 78e14;  assert y2 == 7800000000000000.0;
     }
 
     {

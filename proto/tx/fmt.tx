@@ -70,6 +70,9 @@ type FormattedStringer implements Stringer {
 }
 
 
+/** Converts an integer to a string in conventional decimal format.
+ * @neg if true, a '-' is prepended to the string to indicate negative value
+ */
 to_string( writer : &~tx.ByteWriter, value : ULong, neg : Bool ) {
     prev : ~ULong = value;
     val  : ~ULong = value / 10;
@@ -92,6 +95,9 @@ to_string( writer : &~tx.ByteWriter, value : ULong, neg : Bool ) {
 
 RADIX_DIGITS := c"0123456789abcdef";
 
+/** Converts an integer to a string with the specified format.
+ * @neg if true, a '-' is prepended to the string to indicate negative value
+ */
 format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, neg : Bool ) {
     radix : ~UByte = 10;
     prefix : ~[3]UByte;
@@ -168,15 +174,18 @@ format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, 
 }
 
 
+/** Converts an unsigned integer to a string in conventional decimal format. */
 to_string( writer : &~tx.ByteWriter, value : ULong ) {
     to_string( writer, value, FALSE );
 }
 
+/** Converts an unsigned integer to a string with the specified format. */
 format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong ) {
     format_string( writer, format, value, FALSE );
 }
 
 
+/** Converts a signed integer to a string in conventional decimal format. */
 to_string( writer : &~tx.ByteWriter, value : Long ) {
     if value < 0:
         to_string( writer, ULong( -value ), TRUE );
@@ -184,6 +193,7 @@ to_string( writer : &~tx.ByteWriter, value : Long ) {
         to_string( writer, ULong( value ), FALSE );
 }
 
+/** Converts a signed integer to a string with the specified format. */
 format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : Long ) {
     if value < 0:
         format_string( writer, format, ULong( -value ), TRUE );
@@ -192,12 +202,44 @@ format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : Long ) 
 }
 
 
-to_string( writer : &~tx.ByteWriter, value : Double ) {
-    print( "to_string( Double )" );
-    ## TODO
+
+/** Converts floating point value to a string in conventional decimal format.
+ * @neg if true, a '-' is prepended to the string to indicate negative value
+ */
+to_string( writer : &~tx.ByteWriter, value : Double, neg : Bool ) {
+    ## TODO: a non-simplistic implementation
+    if value < 1e-300D {
+        ## assume zero
+        "0.0".string( writer );
+    } 
+    else if (value < 1e20) & (value >= 1e-3) {
+        ## Note: ULong can handle 19 full decimals of precision
+        ~buf := GrowableUByteArray();
+        intval := ULong( value );
+        to_string( &buf, intval, neg );
+        frac := value - Double( intval );
+        fracintval := ULong( frac * 1e6 );
+        buf.add( '.' );
+        to_string( &buf, fracintval, FALSE );
+        writer.write( buf.array() );
+    }
+    else {
+        ## TODO: use scientific notation
+        "<scientific-notation-floats-not-yet-implemented>".string( writer );
+    }
 }
 
+/** Converts a floating point value to a string in conventional decimal format. */
+to_string( writer : &~tx.ByteWriter, value : Double ) {
+    if value < 0:
+        to_string( writer, -value, TRUE );
+    else
+        to_string( writer, value, FALSE );
+}
+
+/** Converts a floating point value to a string with the specified format. */
 format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : Double ) {
-    print( "format_string( Double )" );
+    ##print( "format_string( Double )" );
     ## TODO
+    to_string( writer, value );
 }
