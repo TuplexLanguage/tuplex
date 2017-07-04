@@ -1,9 +1,10 @@
 #include "ast_lit.hpp"
 
-#include <cstdint>
 #include <cerrno>
+#include <cstdint>
+#include <float.h>
 
-#include "../type/ast_types.hpp"
+#include "ast/type/ast_types.hpp"
 
 static bool is_signed_out_of_range( const int64_t i64, const BuiltinTypeId typeId ) {
     switch ( typeId ) {
@@ -60,20 +61,22 @@ void TxIntegerLitNode::IntConstant::initialize( const std::string& sourceLiteral
 
     // parse radix prefix:
     if ( hasRadix ) {
-        auto valuePos = trimmedLiteral.find( '#' );
-        ASSERT( valuePos != std::string::npos, "Expected '#' radix separator in string: '" << sourceLiteral << "'" );
-        std::string radixStr( trimmedLiteral, 0, valuePos );
-//        auto typePos = sourceLiteral.find( '#', ++valuePos );
-//        valueStr.append( strip_ignored_chars( sourceLiteral.substr( valuePos, typePos - valuePos ) ) );
-//        if ( typePos != std::string::npos )
-//            typeStr = sourceLiteral.substr( typePos + 1 );
-        valueStr.append( trimmedLiteral.substr( valuePos + 1) );
+        if ( trimmedLiteral.at(0) == '0' && ( trimmedLiteral.at(1) == 'x' || trimmedLiteral.at(1) == 'X' ) ) {
+            valueStr.append( trimmedLiteral.substr( 2 ) );
+            this->radix = 16;
+        }
+        else {
+            auto valuePos = trimmedLiteral.find( '#' );
+            ASSERT( valuePos != std::string::npos, "Expected '#' radix separator in string: '" << sourceLiteral << "'" );
+            std::string radixStr( trimmedLiteral, 0, valuePos );
+            valueStr.append( trimmedLiteral.substr( valuePos + 1) );
 
-        this->radix = strtoul( radixStr.c_str(), &pEnd, 10 );
-        if ( errno == ERANGE || *pEnd || this->radix < 2 || this->radix > 36 ) {
-            errno = 0;
-            this->outOfRange = true;
-            return;
+            this->radix = strtoul( radixStr.c_str(), &pEnd, 10 );
+            if ( errno == ERANGE || *pEnd || this->radix < 2 || this->radix > 36 ) {
+                errno = 0;
+                this->outOfRange = true;
+                return;
+            }
         }
     }
     else {
@@ -240,6 +243,62 @@ void TxIntegerLitNode::declaration_pass() {
     else if ( this->constValue.outOfRange )
         CERROR( this, "Integer literal '" << sourceLiteral << "' badly formatted or outside value range of type " << this->constValue.typeId );
 }
+
+
+TxFloatingLitNode::FloatConstant::FloatConstant( const std::string& literal ) {
+    this->outOfRange = false;
+    char* tailptr = nullptr;
+    this->value = strtod( literal.c_str(), &tailptr );
+    ASSERT( tailptr, "expected non-null tailptr, literal='" << literal << "'" );
+    if ( char fs = tailptr[0] ) {
+        if ( fs == '#' )
+            fs = tailptr[1];
+        switch ( fs ) {
+        case 'D':
+            this->typeId = TXBT_DOUBLE;
+            break;
+        case 'F':
+            this->typeId = TXBT_FLOAT;
+            if ( fabs( this->value ) > FLT_MAX )
+                this->outOfRange = true;
+            break;
+        case 'H':
+            this->typeId = TXBT_HALF;
+            if ( fabs( this->value ) > 65503.0 )
+                this->outOfRange = true;
+            break;
+        default:
+            THROW_LOGIC( "Invalid floating point type signifier '" << fs << "' / malformed floating point literal '" << literal << "'" );
+        }
+    }
+    else {
+        // Note: We don't implicitly deduce Half type since it has poor precision; default is Float.
+        if ( fabs( this->value ) <= FLT_MAX )
+            this->typeId = TXBT_FLOAT;
+        else
+            this->typeId = TXBT_DOUBLE;
+    }
+}
+
+TxFloatingLitNode::FloatConstant::FloatConstant( double value, BuiltinTypeId typeId )
+        : typeId( typeId ), value( value ) {
+    this->outOfRange = false;
+    switch ( typeId ) {
+    case TXBT_HALF:
+        if ( fabs( value ) > 65503.0 )
+            this->outOfRange = true;
+        break;
+    case TXBT_FLOAT:
+        if ( fabs( value ) > FLT_MAX )
+            this->outOfRange = true;
+        break;
+    case TXBT_DOUBLE:
+        break;
+    default:
+        THROW_LOGIC( "Type id not a concrete floating point type: " << typeId );
+    }
+}
+
 
 const std::string TxBoolLitNode::TRUE = "TRUE";
 const std::string TxBoolLitNode::FALSE = "FALSE";

@@ -1,0 +1,117 @@
+
+test_float_literals() {
+    {
+        x1 := 0.0;
+        x2 := .0;
+        #experr 1: xe := 0.;
+    }
+
+    {
+        x1 := 0x0.0;  assert x1 == 0.0;
+        x2 := 0X0.0;  assert x2 == 0.0;
+        x3 := 0x.0;   assert x3 == 0.0;
+        #experr 1: xe := 0x0.;
+
+        x4 := 0xFF.8;   assert x4 == 255.5;
+        x5 := -0XFF.8;  assert x5 == -255.5;
+        x6 := -0x.8;    assert x6 == -.5;
+
+        x7 := 0xFF.8#H;   assert x7 == 255.5H;
+        x8 := 0xFF.8#F;   assert x8 == 255.5F;
+        x9 := 0xFF.8#D;   assert x9 == 255.5D;
+    }
+
+    {
+        x0 := 1.23e0;  assert x0 == 1.23;
+        x1 := 1.23E1;  assert x1 == 12.3;
+        x2 := 1.23e2;  assert x2 == 123.0;
+        x3 := 1.23e-1;  assert x3 == 0.123;
+        x4 := 1.23e-2;  assert x4 == 0.0123;
+
+        x5 := 0x1.ABp0;  assert x5 == 0x1.AB;
+        x6 := 0x1.ABP4;  assert x6 == 0x1A.B;
+        x7 := 0x1.ABp8;  assert x7 == 0x1AB.0;
+        x8 := 0x1.ABp-4;  assert x8 == 0x0.1AB;
+        x9 := 0x1.ABp-8;  assert x9 == 0x0.01AB;
+
+        xa := 1.23e2H;  assert xa == 123.0H;
+        xb := 1.23e2F;  assert xb == 123.0F;
+        xc := 1.23e2D;  assert xc == 123.0D;
+
+        xd := 0x1.ABp4#H;  assert xd == 0x1A.B#H;
+        xe := 0x1.ABp4#F;  assert xe == 0x1A.B#F;
+        xf := 0x1.ABp4#D;  assert xf == 0x1A.B#D;
+    }
+
+    {
+        h1 := 0.0H;  assert h1 == 0;
+        h2 := .0H;   assert h2 == 0;
+
+        f1 := 0.0F;  assert f1 == 0;
+        f2 := .0F;   assert f2 == 0;
+
+        d1 := 0.0D;  assert d1 == 0;
+        d2 := .0D;   assert d2 == 0;
+
+        #experr 1: e1 := 0.0Q;
+        #experr 1: e1 := 0.0U;
+        #experr 1: e1 := 0.0B;
+        #experr 1: e1 := 0.0S;
+        #experr 1: e1 := 0.0I;
+        #experr 1: e1 := 0.0L;
+    }
+
+    {
+        h1 : Half = 42.0;    assert h1 == 42;
+        h2 : Half = 42.0F;   assert h2 == 42;
+        h3 : Half = 42.0D;   assert h3 == 42;
+
+        f1 : Float = 42.0;   assert f1 == 42;
+        f2 : Float = 42.0H;  assert f2 == 42;
+        f3 : Float = 42.0D;  assert f3 == 42;
+
+        d1 : Double = 42.0;  assert d1 == 42;
+        d2 : Double = 42.0H; assert d2 == 42;
+        d3 : Double = 42.0F; assert d3 == 42;
+    }
+
+    {
+        h1 : Half = -42.0;    assert h1 == -42;
+        h2 : Half = -42.0F;   assert h2 == -42;
+        h3 : Half = -42.0D;   assert h3 == -42;
+
+        f1 : Float = -42.0;   assert f1 == -42;
+        f2 : Float = -42.0H;  assert f2 == -42;
+        f3 : Float = -42.0D;  assert f3 == -42;
+
+        d1 : Double = -42.0;  assert d1 == -42;
+        d2 : Double = -42.0H; assert d2 == -42;
+        d3 : Double = -42.0F; assert d3 == -42;
+    }
+}
+
+/* FP16 runtime conversions not supported without runtime library...
+to_half( f : Float ) -> Half {
+    #experr 1: r : Half = f;
+    return Half( f );
+}
+
+to_half( d : Double ) -> Half {
+    #experr 1: r : Half = d;
+    return Half( d );
+}
+*/
+
+to_float( d : Double ) -> Float {
+    #experr 1: r : Float = d;
+    return Float( d );
+}
+
+test_float_conversions() {
+    assert to_float( 123.45D ) == 123.45F;
+}
+
+main() {
+    test_float_literals();
+    test_float_conversions();
+}

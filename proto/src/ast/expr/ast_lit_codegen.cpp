@@ -8,6 +8,8 @@ llvm::Value* TxLiteralElementaryValueNode::code_gen_dyn_value( LlvmGenerationCon
     return this->code_gen_const_value( context );
 }
 
+// FUTURE: Implement integer and float constant code-gen using APInt and APFloat.
+
 Constant* TxIntegerLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, this->constValue.value.i64 );
     switch ( this->constValue.typeId ) {
@@ -34,15 +36,15 @@ Constant* TxIntegerLitNode::code_gen_const_value( LlvmGenerationContext& context
 
 Constant* TxFloatingLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, this->value );
-    switch ( this->typeId ) {
+    switch ( this->constValue.typeId ) {
     case TXBT_HALF:
-        return ConstantFP::get( Type::getHalfTy( context.llvmContext ), this->literal );
+        return ConstantFP::get( Type::getHalfTy( context.llvmContext ), this->constValue.value );
     case TXBT_FLOAT:
-        return ConstantFP::get( Type::getFloatTy( context.llvmContext ), this->literal );
+        return ConstantFP::get( Type::getFloatTy( context.llvmContext ), this->constValue.value );
     case TXBT_DOUBLE:
-        return ConstantFP::get( Type::getDoubleTy( context.llvmContext ), this->literal );
+        return ConstantFP::get( Type::getDoubleTy( context.llvmContext ), this->constValue.value );
     default:
-        THROW_LOGIC( "Unhandled type id " << this->typeId << " in " << this );
+        THROW_LOGIC( "Unhandled type id " << this->constValue.typeId << " in " << this );
     }
 }
 

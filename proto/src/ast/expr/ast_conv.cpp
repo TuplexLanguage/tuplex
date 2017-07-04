@@ -16,8 +16,8 @@ static bool statically_converts_to( TxExpressionNode* originalExpr, const TxType
         return false;
     }
 
-    BuiltinTypeId operandTypeId = (BuiltinTypeId)originalType->get_type_id();
-    if ( is_concrete_uinteger_type( operandTypeId ) ) {
+    BuiltinTypeId originalTypeId = (BuiltinTypeId)originalType->get_type_id();
+    if ( is_concrete_uinteger_type( originalTypeId ) ) {
         uint64_t val = eval_unsigned_int_constant( originalExpr );
         switch ( requiredType->get_type_id() ) {
         case TXBT_BYTE:
@@ -46,7 +46,7 @@ static bool statically_converts_to( TxExpressionNode* originalExpr, const TxType
             return false;
         }
     }
-    else if ( is_concrete_sinteger_type( operandTypeId ) ) {
+    else if ( is_concrete_sinteger_type( originalTypeId ) ) {
         int64_t val = eval_signed_int_constant( originalExpr );
         switch ( requiredType->get_type_id() ) {
         case TXBT_BYTE:
@@ -66,16 +66,16 @@ static bool statically_converts_to( TxExpressionNode* originalExpr, const TxType
         case TXBT_ULONG:
             return ( val >= 0 );
         case TXBT_HALF:
-            return ( val >= -2048 && val <= 2048 );  // largest integer that can be stored without precision loss
+            return ( abs( val ) <= 2048 );  // largest integer that can be stored without precision loss
         case TXBT_FLOAT:
-            return ( val >= -16777216 && val <= 16777216 );  // largest integer that can be stored without precision loss
+            return ( abs( val ) <= 16777216 );  // largest integer that can be stored without precision loss
         case TXBT_DOUBLE:
-            return ( val >= -9007199254740992 && val <= 9007199254740992 );  // largest integer that can be stored without precision loss
+            return ( abs( val ) <= 9007199254740992 );  // largest integer that can be stored without precision loss
         default:
             return false;
         }
     }
-    else if ( is_concrete_floating_type( operandTypeId ) ) {
+    else if ( is_concrete_floating_type( originalTypeId ) ) {
         double val = eval_floatingpoint_constant( originalExpr );
         double intpart = 0;
         switch ( requiredType->get_type_id() ) {
@@ -96,9 +96,9 @@ static bool statically_converts_to( TxExpressionNode* originalExpr, const TxType
         case TXBT_ULONG:
             return ( modf( val, &intpart) == 0 && intpart >= 0 && intpart <= UINT64_MAX  );
         case TXBT_HALF:
-            return ( val >= -65503.0 && val <= 65503.0 );
+            return ( fabs( val ) <= 65503.0 );
         case TXBT_FLOAT:
-            return ( val >= FLT_MIN && val <= FLT_MAX );
+            return ( fabs( val ) <= FLT_MAX );
         case TXBT_DOUBLE:
             return true;
         default:

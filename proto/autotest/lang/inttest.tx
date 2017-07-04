@@ -30,19 +30,25 @@ test_int_literals_and_limits() {
     #experr: var : UInt   = -1UI;
     #experr: var : ULong  = - 1UL;
 
-    ## radix tests
-    rb := 2#1111_1111#UB;
-    rs := 8#177777#US;
-    ri := 16#FFFF_FFFF#UI;
-    rl := 16#FFFF_FFFF_FFFF_FFFF#UL;
-    assert rb == 255;
-    assert rs == 65535;
-    assert ri == 4294967295;
-    assert rl == 18446744073709551615;
-    assert 2#-1000_0000#B == -128;
-    assert 8# -100000#S == -32768;
-    assert 16#- 8000_0000#I == -2147483648;
-    assert 16# - 8000_0000_0000_0000#L == -9223372036854775807L-1;
+    { ## radix tests
+        rb := 2#1111_1111#UB;
+        rs := 8#177777#US;
+        ri := 16#FFFF_FFFF#UI;
+        rl := 16#FFFF_FFFF_FFFF_FFFF#UL;
+        assert rb == 255;
+        assert rs == 65535;
+        assert ri == 4294967295;
+        assert rl == 18446744073709551615;
+        assert 2#-1000_0000#B == -128;
+        assert 8# -100000#S == -32768;
+        assert 16#- 8000_0000#I == -2147483648;
+        assert 16# - 8000_0000_0000_0000#L == -9223372036854775807L-1;
+
+        xi := 0xFFFF_FFFF#UI;
+        xl := 0xFFFF_FFFF_FFFF_FFFF#UL;
+        assert 0x7FFF_FFFF#I == 2147483647;
+        assert 0x7FFF_FFFF_FFFF_FFFF#L == 9223372036854775807L;
+    }
 
   ## limits
   

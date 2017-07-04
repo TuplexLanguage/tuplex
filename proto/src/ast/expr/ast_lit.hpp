@@ -41,8 +41,6 @@ class TxIntegerLitNode : public TxLiteralElementaryValueNode {
         void initialize( const std::string& valueLiteral, bool hasRadix, bool negative, BuiltinTypeId typeId = (BuiltinTypeId) 0 );
 
         void initialize( int64_t i64value, BuiltinTypeId typeId, bool _signed );
-
-        llvm::Constant* code_gen_constant( LlvmGenerationContext& context ) const;
     };
 
     IntConstant constValue;
@@ -77,6 +75,8 @@ public:
     TxIntegerLitNode( const TxLocation& ploc, int64_t i64value, bool _signed, BuiltinTypeId typeId = (BuiltinTypeId) 0 )
             : TxLiteralElementaryValueNode( ploc ), sourceLiteral(), hasRadix(),
               i64value( i64value ), _signed( _signed ), typeId( typeId ) {
+        ASSERT( typeId == 0 || is_concrete_sinteger_type( typeId ) || is_concrete_uinteger_type( typeId ),
+                "Type id not a concrete integer type: " << typeId << " in " << this );
     }
 
 //    TxIntegerLitNode(const TxLocation& ploc, uint64_t u64value, BuiltinTypeId typeId=(BuiltinTypeId)0)
@@ -98,25 +98,36 @@ public:
     }
 };
 
+
 class TxFloatingLitNode : public TxLiteralElementaryValueNode {
-    BuiltinTypeId typeId;
+    class FloatConstant {
+    public:
+        BuiltinTypeId typeId;
+        double value;
+        bool outOfRange;
+
+        FloatConstant( const std::string& literal );
+
+        FloatConstant( double value, BuiltinTypeId typeId );
+    };
+
     const std::string literal;
-    const double value;
+    FloatConstant constValue;
 
 protected:
     virtual const TxQualType* define_type() override {
-        return new TxQualType( this->registry().get_builtin_type( this->typeId ) );
+        return new TxQualType( this->registry().get_builtin_type( this->constValue.typeId ) );
     }
 
 public:
     TxFloatingLitNode( const TxLocation& ploc, const std::string& literal )
-            : TxLiteralElementaryValueNode( ploc ), typeId( TXBT_FLOAT ), literal( literal ), value( atof( literal.c_str() ) ) {
-        // TODO: produce different Floating types
+            : TxLiteralElementaryValueNode( ploc ), literal( literal ), constValue( literal ) {
     }
 
     /** Creates a floating point literal value of zero. */
     TxFloatingLitNode( const TxLocation& ploc, BuiltinTypeId typeId = TXBT_FLOAT )
-            : TxLiteralElementaryValueNode( ploc ), typeId( typeId ), literal( "0" ), value( 0 ) {
+            : TxLiteralElementaryValueNode( ploc ), literal( "0" ), constValue( 0.0, typeId ) {
+        ASSERT( is_concrete_floating_type( typeId ), "Type id not a concrete floating point type: " << typeId << " in " << this );
     }
 
     virtual TxFloatingLitNode* make_ast_copy() const override {
@@ -129,6 +140,7 @@ public:
         return this->literal;
     }
 };
+
 
 class TxBoolLitNode : public TxLiteralElementaryValueNode {
     static const std::string TRUE;

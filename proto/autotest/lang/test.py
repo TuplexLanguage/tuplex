@@ -46,6 +46,7 @@ source_files = [
     "errtest.tx",
 
     "inttest.tx",
+    "floattest.tx",
     "declsyntaxtest.tx",
     "globalstest.tx",
     "ifelsetest.tx",

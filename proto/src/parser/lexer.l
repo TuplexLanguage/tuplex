@@ -2,7 +2,8 @@ D			[0-9]
 L			[a-zA-Z_]
 H			[a-fA-F0-9]
 E			[Ee][+-]?{D}+
-FS			[U]?[HFDQ]
+P           [Pp][+-]?{H}+
+FS			[HFD]
 IS			[U]?[BSIL]
 WS          [ \t]
 
@@ -209,15 +210,18 @@ extern "C" int yywrap() { return 0; }
 "TRUE"                  { return token::KW_TRUE; }
 "FALSE"                 { return token::KW_FALSE; }
 
-{L}({L}|{D}|"#")*       { yylval->build(std::string (yytext)); return token::NAME; }
+{L}({L}|{D}|#)*       { yylval->build(std::string (yytext)); return token::NAME; }
                         /* return yy::TxParser::make_NAME(std::string(yytext), loc); */
 
-[1-9]{D}*"#"{WS}*("-"{WS}*)?({L}|{D})+("#"{IS})?  { yylval->build(std::string (yytext)); return token::LIT_RADIX_INT; }
-{D}({D}|"_")*{IS}?	    { yylval->build(std::string (yytext)); return token::LIT_DEC_INT; }
+[1-9]{D}*#{WS}*("-"{WS}*)?({L}|{D})+(#{IS})?  { yylval->build(std::string (yytext)); return token::LIT_RADIX_INT; }
+0[xX]{H}({H}|_)*(#{IS})?                      { yylval->build(std::string (yytext)); return token::LIT_RADIX_INT; }
+{D}({D}|_)*{IS}?	                          { yylval->build(std::string (yytext)); return token::LIT_DEC_INT; }
 
-{D}+{E}{FS}?		    { yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
-{D}*"."{D}+({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
+{D}+{E}{FS}?		        { yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
+{D}*"."{D}+({E})?{FS}?	    { yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
  /* {D}+"."{D}*({E})?{FS}?	{ yylval->build(std::string (yytext)); return token::LIT_FLOATING; } */
+0[xX]{H}+{P}{FS}?           { yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
+0[xX]{H}*"."{H}+({P})?(#{FS})? { yylval->build(std::string (yytext)); return token::LIT_FLOATING; }
 
 '(\\.|[^\\'])'	        { yylval->build(std::string (yytext)); return token::LIT_CHARACTER; }
 
