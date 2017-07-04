@@ -161,10 +161,10 @@ TxType* TypeRegistry::make_type_entity( const TxActualType* actualType ) {
 
 TxActualType* TypeRegistry::make_actual_type( const TxTypeDeclaration* declaration, const TxActualType* baseType, bool mutableType,
                                               const std::vector<const TxType*>& interfaces ) {
-    std::vector<TxTypeSpecialization> interfaceSpecializations;
+    std::vector<const TxActualType*> interfaceSpecializations;
     for ( auto in : interfaces )
         interfaceSpecializations.emplace_back( in->acttype() );
-    auto newType = baseType->make_specialized_type( declaration, TxTypeSpecialization( baseType ), mutableType, interfaceSpecializations );
+    auto newType = baseType->make_specialized_type( declaration, baseType, mutableType, interfaceSpecializations );
     this->add_type( newType );
     return newType;
 }

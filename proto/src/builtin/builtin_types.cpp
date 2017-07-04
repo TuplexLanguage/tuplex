@@ -100,8 +100,8 @@ class TxBuiltinTypeDefiningNode : public TxTypeExpressionNode {
     }
 
     /** helper method for subclasses that constructs a vector of TxTypeSpecialization of this instance's interface expressions */
-    static std::vector<TxTypeSpecialization> resolve_interface_specs( const std::vector<const TxType*>& interfaces ) {
-        std::vector<TxTypeSpecialization> ifSpecs;
+    static std::vector<const TxActualType*> resolve_interface_specs( const std::vector<const TxType*>& interfaces ) {
+        std::vector<const TxActualType*> ifSpecs;
         for ( auto interface : interfaces )
             ifSpecs.emplace_back( interface->acttype() );
         return ifSpecs;
@@ -170,7 +170,7 @@ protected:
     }
 
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
-                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) = 0;
+                                             const std::vector<const TxActualType*>& ifSpecs, bool mutableType ) = 0;
 
 //    /** Returns true if this type expression requires the produced type to be mutable. Used by subclasses upon type creation. */
 //    bool requires_mutable_type() const {
@@ -229,16 +229,16 @@ void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner, TxTypeDe
 class TxAnyTypeDefNode final : public TxBuiltinTypeDefiningNode {
     /** Used solely for the Any root type object. */
     class TxAnyType final : public TxActualType {
-        TxAnyType( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec )
-                : TxActualType( TXTC_ANY, declaration, baseTypeSpec, true ) {
+        TxAnyType( const TxTypeDeclaration* declaration, const TxActualType* baseType )
+                : TxActualType( TXTC_ANY, declaration, baseType, true ) {
         }
 
-        TxAnyType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                          bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
+        TxAnyType* make_specialized_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
+                                          bool mutableType, const std::vector<const TxActualType*>& interfaces ) const override {
             // Note: Only for equivalent derivations - e.g. empty, 'modifiable', and GENPARAM constraints.
-            if ( !dynamic_cast<const TxAnyType*>( baseTypeSpec.type ) )
-                throw std::logic_error( "Specified a base type for TxAnyType that was not a TxAnyType: " + baseTypeSpec.type->str() );
-            return new TxAnyType( declaration, baseTypeSpec );
+            if ( !dynamic_cast<const TxAnyType*>( baseType ) )
+                throw std::logic_error( "Specified a base type for TxAnyType that was not a TxAnyType: " + baseType->str() );
+            return new TxAnyType( declaration, baseType );
         }
 
     public:
@@ -253,7 +253,7 @@ class TxAnyTypeDefNode final : public TxBuiltinTypeDefiningNode {
 
 protected:
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
-                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
+                                             const std::vector<const TxActualType*>& ifSpecs, bool mutableType ) override {
         return new TxAnyType( declaration );
     }
 
@@ -267,8 +267,8 @@ public:
 class TxVoidTypeDefNode final : public TxBuiltinTypeDefiningNode {
     /** Used solely for the Void type object. */
     class TxVoidType final : public TxActualType {
-        TxVoidType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                           bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
+        TxVoidType* make_specialized_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
+                                           bool mutableType, const std::vector<const TxActualType*>& interfaces ) const override {
             throw std::logic_error( "Can't specialize Void" );
         }
 
@@ -285,7 +285,7 @@ class TxVoidTypeDefNode final : public TxBuiltinTypeDefiningNode {
 
 protected:
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
-                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
+                                             const std::vector<const TxActualType*>& ifSpecs, bool mutableType ) override {
         return new TxVoidType( declaration );
     }
 
@@ -299,17 +299,17 @@ public:
 class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
     /** Used for the built-in types' abstract base types. */
     class TxBuiltinBaseType final : public TxActualType {
-        TxBuiltinBaseType* make_specialized_type( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                                                  bool mutableType, const std::vector<TxTypeSpecialization>& interfaces ) const override {
-            if ( !dynamic_cast<const TxBuiltinBaseType*>( baseTypeSpec.type ) )
-                throw std::logic_error( "Specified a base type for TxBuiltinBaseType that was not a TxBuiltinBaseType: " + baseTypeSpec.type->str() );
-            return new TxBuiltinBaseType( baseTypeSpec.type->get_type_class(), declaration, baseTypeSpec, interfaces );
+        TxBuiltinBaseType* make_specialized_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
+                                                  bool mutableType, const std::vector<const TxActualType*>& interfaces ) const override {
+            if ( !dynamic_cast<const TxBuiltinBaseType*>( baseType ) )
+                throw std::logic_error( "Specified a base type for TxBuiltinBaseType that was not a TxBuiltinBaseType: " + baseType->str() );
+            return new TxBuiltinBaseType( baseType->get_type_class(), declaration, baseType, interfaces );
         }
 
     public:
-        TxBuiltinBaseType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec,
-                           const std::vector<TxTypeSpecialization>& interfaces )
-                : TxActualType( typeClass, declaration, baseTypeSpec, true, interfaces ) {
+        TxBuiltinBaseType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxActualType* baseType,
+                           const std::vector<const TxActualType*>& interfaces )
+                : TxActualType( typeClass, declaration, baseType, true, interfaces ) {
         }
 
         virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override {
@@ -320,8 +320,8 @@ class TxBuiltinAbstractTypeDefNode final : public TxBuiltinTypeDefiningNode {
 
 protected:
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
-                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
-        return new TxBuiltinBaseType( this->typeClass, declaration, TxTypeSpecialization( baseType->acttype() ), ifSpecs );
+                                             const std::vector<const TxActualType*>& ifSpecs, bool mutableType ) override {
+        return new TxBuiltinBaseType( this->typeClass, declaration, baseType->acttype(), ifSpecs );
     }
 public:
     const TxTypeClass typeClass;
@@ -335,8 +335,8 @@ public:
 class TxIntegerTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
-                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
-        return new TxIntegerType( declaration, TxTypeSpecialization( baseType->acttype() ), ifSpecs, this->size, this->sign );
+                                             const std::vector<const TxActualType*>& ifSpecs, bool mutableType ) override {
+        return new TxIntegerType( declaration, baseType->acttype(), ifSpecs, this->size, this->sign );
     }
 public:
     const int size;
@@ -350,8 +350,8 @@ public:
 class TxFloatingTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
-                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
-        return new TxFloatingType( declaration, TxTypeSpecialization( baseType->acttype() ), ifSpecs, this->size );
+                                             const std::vector<const TxActualType*>& ifSpecs, bool mutableType ) override {
+        return new TxFloatingType( declaration, baseType->acttype(), ifSpecs, this->size );
     }
 public:
     const int size;
@@ -364,8 +364,8 @@ public:
 class TxBoolTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
-                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
-        return new TxBoolType( declaration, TxTypeSpecialization( baseType->acttype() ), ifSpecs );
+                                             const std::vector<const TxActualType*>& ifSpecs, bool mutableType ) override {
+        return new TxBoolType( declaration, baseType->acttype(), ifSpecs );
     }
 public:
     TxBoolTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
@@ -377,8 +377,8 @@ public:
 class TxTupleTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
-                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
-        return new TxTupleType( declaration, TxTypeSpecialization( baseType->acttype() ), ifSpecs, mutableType );
+                                             const std::vector<const TxActualType*>& ifSpecs, bool mutableType ) override {
+        return new TxTupleType( declaration, baseType->acttype(), ifSpecs, mutableType );
     }
 public:
     TxTupleTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
@@ -390,8 +390,8 @@ public:
 class TxInterfaceTypeDefNode final : public TxBuiltinTypeDefiningNode {
 protected:
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
-                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
-        return new TxInterfaceType( declaration, TxTypeSpecialization( baseType->acttype() ), ifSpecs );
+                                             const std::vector<const TxActualType*>& ifSpecs, bool mutableType ) override {
+        return new TxInterfaceType( declaration, baseType->acttype(), ifSpecs );
     }
 public:
     TxInterfaceTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
@@ -407,8 +407,8 @@ class TxRefTypeDefNode final : public TxBuiltinTypeDefiningNode {
     }
 protected:
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
-                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
-        return new TxReferenceType( declaration, TxTypeSpecialization( baseType->acttype() ), ifSpecs );
+                                             const std::vector<const TxActualType*>& ifSpecs, bool mutableType ) override {
+        return new TxReferenceType( declaration, baseType->acttype(), ifSpecs );
     }
 public:
     TxRefTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
@@ -430,8 +430,8 @@ class TxArrayTypeDefNode final : public TxBuiltinTypeDefiningNode {
     }
 protected:
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
-                                             const std::vector<TxTypeSpecialization>& ifSpecs, bool mutableType ) override {
-        return new TxArrayType( declaration, TxTypeSpecialization( baseType->acttype() ), mutableType, ifSpecs );
+                                             const std::vector<const TxActualType*>& ifSpecs, bool mutableType ) override {
+        return new TxArrayType( declaration, baseType->acttype(), mutableType, ifSpecs );
     }
 public:
     TxArrayTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,

@@ -85,7 +85,8 @@ public:
     void dump() const;
 };
 
-/** Describes a specialization of a base type.
+/** An instance of this class represents a type definition.
+ *
  * In a specialization of a generic base type, the base type's type parameters must either have a binding,
  * or be redeclared with the same name and matching constraints in the specialized type
  * (keeping the parameter open for further specialization, with identical or narrowed type parameter
@@ -119,29 +120,6 @@ public:
  It's the base data type that the vtable mechanics use.
  For semantic inheritance mechanics, the generic base type is used.
  */
-class TxTypeSpecialization {
-public:
-    TxActualType const * const type;
-
-    /** Only legal to use by the Any type. */
-    TxTypeSpecialization()
-            : type() {
-    }
-
-    TxTypeSpecialization( const TxActualType* baseType )
-            : type( baseType ) {
-        ASSERT( baseType, "NULL baseType" );
-    }
-
-    bool operator==( const TxTypeSpecialization& other ) const;
-
-    inline bool operator!=( const TxTypeSpecialization& other ) const {
-        return !this->operator==( other );
-    }
-};
-
-/** An instance of this class represents a type definition.
- */
 class TxActualType : public virtual TxParseOrigin, public Printable {
     static Logger& _LOG;
 
@@ -164,8 +142,8 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     /** Bindings of the base type's type parameters. Should not be accessed directly, use type_bindings() accessor instead. */
     std::vector<const TxEntityDeclaration*> bindings;
 
-    const TxTypeSpecialization baseTypeSpec;  // including bindings for all type parameters of base type
-    const std::vector<TxTypeSpecialization> interfaces;
+    TxActualType const * const baseType;
+    const std::vector<const TxActualType*> interfaces;
 
     /** Set for non-generic specializations of a generic base type.
      * This also implies a pure specialization, even if extendsInstanceDatatype technically is true. */
@@ -207,7 +185,7 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     mutable bool recursionGuard = false;
     friend class ScopedRecursionGuardClause;
 
-    static inline bool determine_builtin( const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec) {
+    static inline bool determine_builtin( const TxTypeDeclaration* declaration, const TxActualType* baseType) {
         return ( declaration->get_decl_flags() & TXD_BUILTIN );
     }
 
@@ -224,21 +202,21 @@ protected:
     /** Only to be used for Any and Void types. */
     TxActualType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, bool mutableType )
             : typeClass( typeClass ), builtin( declaration->get_decl_flags() & TXD_BUILTIN ), mutableType( mutableType ),
-              declaration( declaration ), baseTypeSpec(), interfaces() {
+              declaration( declaration ), baseType(), interfaces() {
         this->initialize_type();
     }
 
-    TxActualType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxTypeSpecialization& baseTypeSpec, bool mutableType,
-                  const std::vector<TxTypeSpecialization>& interfaces = std::vector<TxTypeSpecialization>() )
-            : typeClass( typeClass ), builtin( determine_builtin( declaration, baseTypeSpec ) ), mutableType( mutableType ),
-              declaration( declaration ), baseTypeSpec( baseTypeSpec ), interfaces( interfaces ) {
+    TxActualType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxActualType* baseType, bool mutableType,
+                  const std::vector<const TxActualType*>& interfaces = std::vector<const TxActualType*>() )
+            : typeClass( typeClass ), builtin( determine_builtin( declaration, baseType ) ), mutableType( mutableType ),
+              declaration( declaration ), baseType( baseType ), interfaces( interfaces ) {
         this->initialize_type();
     }
 
     /** Creates a specialization of this type. To be used by the type registry. */
     virtual TxActualType* make_specialized_type( const TxTypeDeclaration* declaration,
-                                                 const TxTypeSpecialization& baseTypeSpec,  // (contains redundant ref to this obj...)
-                                                 bool mutableType = true, const std::vector<TxTypeSpecialization>& interfaces = {} ) const = 0;
+                                                 const TxActualType* baseType,  // (contains redundant ref to this obj...)
+                                                 bool mutableType = true, const std::vector<const TxActualType*>& interfaces = {} ) const = 0;
     // FUTURE: refactor how TxActualType objects are created and remove this method
 
     friend class TypeRegistry;  // allows access for registry's type construction
@@ -301,13 +279,13 @@ public:
 
     /** Returns true if this type has a base type (parent). ('Any' is the only type that has no base type.) */
     inline bool has_base_type() const {
-        return this->baseTypeSpec.type;
+        return this->baseType;
     }
 
     /** Gets the base type (parent) of this type.
      * ('Any' is the only type that has no base type, in which case null is returned.) */
     inline const TxActualType* get_base_type() const {
-        return this->baseTypeSpec.type;
+        return this->baseType;
     }
 
     /** Gets the 'semantic' base type (parent) of this type,
@@ -315,7 +293,7 @@ public:
      * in which case the generic base type is returned (instead of the implicitly generated specialization thereof). */
     inline const TxActualType* get_semantic_base_type() const {
         ASSERT( this->hasInitialized, "Can't get semantic base type of uninitized type " << this );
-        return this->genericBaseType ? this->genericBaseType : this->baseTypeSpec.type;
+        return this->genericBaseType ? this->genericBaseType : this->baseType;
     }
 
     /** Gets the "instance base type" of this type, which is either this type, or the closest ancestor type

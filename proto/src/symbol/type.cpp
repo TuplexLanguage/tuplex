@@ -36,12 +36,6 @@ void DataTupleDefinition::dump() const {
     }
 }
 
-/*=== TxTypeSpecialization implementation ===*/
-
-bool TxTypeSpecialization::operator==( const TxTypeSpecialization& other ) const {
-    return ( this->type == other.type );  // instance equality required
-}
-
 
 /*=== TxActualType implementation ===*/
 
@@ -66,7 +60,7 @@ Logger& TxActualType::_LOG = Logger::get( "ENTITY" );
 //    ASSERT(this->interfaces.empty(), "can't implement interfaces");
 //    ASSERT(this->staticTypeId == UINT32_MAX, "can't have a set staticTypeId: " << this->staticTypeId);
 //    ASSERT(this->params.empty(), "can't have type parameters");
-//    ASSERT(!this->baseTypeSpec.modifiable, "can't be modifiable");
+//    ASSERT(!this->baseType.modifiable, "can't be modifiable");
 //    ASSERT(this->genericBaseType == newBaseType->get_semantic_base_type(), "mismatching generic base types: "
 //            << this->genericBaseType << " != " << newBaseType->get_semantic_base_type());
 //    ASSERT(this->virtualFields.fields.empty(), "non-empty virtual fields");
@@ -75,7 +69,7 @@ Logger& TxActualType::_LOG = Logger::get( "ENTITY" );
 //
 //    this->bindings.clear();
 //
-//    const_cast<TxTypeSpecialization*>( &this->baseTypeSpec )->type = newBaseType;
+//    const_cast<TxTypeSpecialization*>( &this->baseType )->type = newBaseType;
 //    this->genericBaseType = nullptr;
 //
 //    nonRefBindings = false;
@@ -95,23 +89,22 @@ const TxQualType* TxActualType::get_root_any_qtype() const {
 
 void TxActualType::validate_type() const {
     //std::cerr << "validating type " << this << std::endl;
-    if ( this->baseTypeSpec.type ) {
+    if ( this->baseType ) {
+        if ( this->is_mutable() && !this->get_semantic_base_type()->is_mutable() )
+            CERROR( this, "Can't derive a mutable type from an immutable base type: " << this->get_semantic_base_type() );
 
-            if ( this->is_mutable() && !this->get_semantic_base_type()->is_mutable() )
-                CERROR( this, "Can't derive a mutable type from an immutable base type: " << this->get_semantic_base_type() );
+        if ( this->baseType->formalTypeId == TXBT_ANY
+             && !( this->builtin || ( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )
+                   || this->get_type_class() == TXTC_REFERENCE || this->get_type_class() == TXTC_ARRAY ) )
+            CERROR( this, "Can't derive directly from the Any root type: " << this->get_declaration() );
+        ASSERT( this->baseType->formalTypeId == TXBT_ANY
+                || ( this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseType->get_type_class() == TXTC_INTERFACE )
+                || this->get_type_class() == this->baseType->get_type_class(),
+                "Specialized type's type class " << this << " not valid with base type's type class " << this->baseType->get_type_class() );
+//        if (this->dataspace && this->baseType->get_type_class() != TXTC_REFERENCE)
+//            CERROR(this, "Specified dataspace for non-reference base type " << this->baseType);
 
-            if ( this->baseTypeSpec.type->formalTypeId == TXBT_ANY
-                 && !( this->builtin || ( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )
-                       || this->get_type_class() == TXTC_REFERENCE || this->get_type_class() == TXTC_ARRAY ) )
-                CERROR( this, "Can't derive directly from the Any root type: " << this->get_declaration() );
-            ASSERT( this->baseTypeSpec.type->formalTypeId == TXBT_ANY
-                    || ( this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseTypeSpec.type->get_type_class() == TXTC_INTERFACE )
-                    || this->get_type_class() == this->baseTypeSpec.type->get_type_class(),
-                    "Specialized type's type class " << this << " not valid with base type's type class " << this->baseTypeSpec.type->get_type_class() );
-//        if (this->dataspace && this->baseTypeSpec.type->get_type_class() != TXTC_REFERENCE)
-//            CERROR(this, "Specified dataspace for non-reference base type " << this->baseTypeSpec.type);
-
-        if ( this->baseTypeSpec.type->is_empty_derivation() && !this->baseTypeSpec.type->get_explicit_declaration() ) {
+        if ( this->baseType->is_empty_derivation() && !this->baseType->get_explicit_declaration() ) {
             ASSERT( !( this->is_empty_derivation() && !this->get_explicit_declaration() ),
                     "anonymous or implicit, empty types may not be derived except as another anonymous or implicit, empty type: " << this );
         }
@@ -136,9 +129,9 @@ void TxActualType::validate_type() const {
     // TODO: validate interfaces
     // check that generic interfaces can't be implemented multiple times throughout a type hierarchy,
     // unless their type arguments are exactly the same
-    for ( auto & interfSpec : this->interfaces ) {
-        if ( interfSpec.type->get_type_class() != TXTC_INTERFACE )
-            CERROR( this, "Only the first derived-from type can be a non-interface type: " << interfSpec.type );
+    for ( auto & interf : this->interfaces ) {
+        if ( interf->get_type_class() != TXTC_INTERFACE )
+            CERROR( this, "Only the first derived-from type can be a non-interface type: " << interf );
     }
 }
 
@@ -148,7 +141,7 @@ void TxActualType::initialize_type() {
     ASSERT( this->declaration, "No declaration for actual type " << this );
 
     auto typeDeclNamespace = this->get_declaration()->get_symbol();
-    const TxActualType* semBaseType = this->baseTypeSpec.type;
+    const TxActualType* semBaseType = this->baseType;
 
     // perform shallow pass on type's member declarations to determine derivation characteristics:
     bool hasExplicitFieldMembers = false;
@@ -320,12 +313,12 @@ bool TxActualType::inner_prepare_members() {
         this->virtualFields = baseType->virtualFields;
         this->instanceFields = baseType->instanceFields;
     }
-    for ( auto & interfSpec : this->interfaces ) {
+    for ( auto & interf : this->interfaces ) {
         //ASSERT(interfSpec.type->is_prepared(), "Base i/f " << interfSpec.type << " not prepared before sub type " << this);
-        recursionError |= const_cast<TxActualType*>( interfSpec.type )->prepare_members();
-        bool added = this->virtualFields.add_interface_fields( interfSpec.type->virtualFields );
+        recursionError |= const_cast<TxActualType*>( interf )->prepare_members();
+        bool added = this->virtualFields.add_interface_fields( interf->virtualFields );
         if ( !added )
-            LOG( this->LOGGER(), NOTE, "Type implements interface " << interfSpec.type << " which doesn't cause the vtable to be extended: " << this );
+            LOG( this->LOGGER(), NOTE, "Type implements interface " << interf << " which doesn't cause the vtable to be extended: " << this );
 //        if (added)
 //            this->modifiesVTable = true;
     }
@@ -684,8 +677,8 @@ TxEntitySymbol* TxActualType::lookup_inherited_instance_member( TxScopeSymbol* v
     for ( const TxActualType* type = this; type; type = type->get_base_type() ) {
         if ( auto memberEnt = type->get_instance_member( vantageScope, name ) )
             return memberEnt;
-        for ( auto & interfSpec : type->interfaces ) {
-            if ( auto memberEnt = interfSpec.type->lookup_inherited_instance_member( vantageScope, name ) )
+        for ( auto & interf : type->interfaces ) {
+            if ( auto memberEnt = interf->lookup_inherited_instance_member( vantageScope, name ) )
                 return memberEnt;
         }
     }
@@ -754,7 +747,7 @@ bool TxActualType::inner_equals( const TxActualType* thatType ) const {
         return true;
     if ( ( this->get_declaration()->get_decl_flags() & TXD_IMPLICIT ) && ( thatType->get_declaration()->get_decl_flags() & TXD_IMPLICIT ) ) {
         // both are implicitly declared; compare structure:
-        if ( this->baseTypeSpec.modifiable == thatType->baseTypeSpec.modifiable
+        if ( this->baseType.modifiable == thatType->baseType.modifiable
              && this->is_mutable() == thatType->is_mutable()
              && this->get_semantic_base_type() == thatType->get_semantic_base_type()  // specializations of same semantic base
              && ( ( this->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK ) ==
@@ -907,8 +900,8 @@ bool TxActualType::inner_is_a( const TxActualType* thisType, const TxActualType*
 
     // check whether any ancestor type is-a the other type:
     if ( thatType->get_type_class() == TXTC_INTERFACE ) {
-        for ( auto & interfSpec : thisType->interfaces ) {
-            if ( inner_is_a( interfSpec.type, thatType ) )
+        for ( auto & interf : thisType->interfaces ) {
+            if ( inner_is_a( interf, thatType ) )
                 return true;
         }
     }
