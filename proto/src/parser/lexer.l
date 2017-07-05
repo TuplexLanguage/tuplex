@@ -142,6 +142,7 @@ extern "C" int yywrap() { return 0; }
 "ref"		{ return token::KW_REFERENCE; }
 "derives"   { return token::KW_DERIVES; }
 
+"panic"     { return token::KW_PANIC; }
 "assert"    { return token::KW_ASSERT; }
 "#experr"   { return token::KW_EXPERR; }
 

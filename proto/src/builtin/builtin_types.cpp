@@ -763,8 +763,7 @@ void BuiltinTypes::resolveBuiltinSymbols() {
 }
 
 void BuiltinTypes::declare_tx_functions() {
-
-//    auto txCfuncModule = this->registry.get_package().declare_module( this->registry.get_package().root_origin(), TxIdentifier(BUILTIN_NS ".c"), true);
+    {  // special built-in function in tx.c module:
     auto txCfuncModule = this->registry.package().lookup_module( "tx.c" );
     LexicalContext ctx( txCfuncModule );
     {   // declare tx.c.puts:
@@ -796,14 +795,12 @@ void BuiltinTypes::declare_tx_functions() {
         auto c_abort_decl = txCfuncModule->declare_field( "abort", c_abort_def, TXD_PUBLIC, TXS_GLOBAL, TxIdentifier( "" ) );
         c_abort_def->set_field( TxField::make_field( c_abort_decl, c_abort_func_type_def->resolve_type() ) );
     }
+    }
 
-//    auto module = this->registry.get_package().lookup_module("tx");
-//    LexicalContext moduleCtx( module );
-
-    // public _address( r : Ref ) ULong
-    {   // declare tx._address:
-        auto txModule = this->registry.package().lookup_module( "tx" );
-        LexicalContext ctx( txModule );
+    {  // special built-in function in tx module:
+    auto txModule = this->registry.package().lookup_module( "tx" );
+    LexicalContext ctx( txModule );
+    {   // declare tx._address( r : Ref ) -> ULong
         auto refTypeNode = new TxReferenceTypeNode( this->builtinLocation, nullptr, new TxNamedTypeNode( this->builtinLocation, "tx.Any" ) );
         auto argNode = new TxArgTypeDefNode( this->builtinLocation, "r", refTypeNode );
         auto address_func_type_def = new TxFunctionTypeNode( this->builtinLocation, false, new std::vector<TxArgTypeDefNode*>( { argNode } ),
@@ -817,13 +814,22 @@ void BuiltinTypes::declare_tx_functions() {
         auto address_decl = txModule->declare_field( "_address", address_def, TXD_PUBLIC, TXS_GLOBAL, TxIdentifier( "" ) );
         address_def->set_field( TxField::make_field( address_decl, address_func_type_def->resolve_type() ) );
     }
-// TODO
-//    std::vector<const TxType*> argumentTypes( { this->builtinTypes[REFERENCE]->typeExpression->get_type() } );
-//    auto funcTypeDef = new TxBuiltinFieldDefNode( this->builtinLocation );
-//    auto funcDecl = module->declare_field("_address", funcTypeDef, TXD_PUBLIC | TXD_BUILTIN, TXS_GLOBAL, TxIdentifier(""));
-//    auto type = new TxFunctionType(nullptr, this->builtinTypes[FUNCTION]->typeExpression->get_type(), argumentTypes,
-//                                   this->builtinTypes[ULONG]->typeExpression->get_type());
-//    funcTypeDef->set_field( TxField::make_field(funcDecl, type) );
+
+    {   // declare tx._typeid( r : Ref ) -> UInt
+        auto refTypeNode = new TxReferenceTypeNode( this->builtinLocation, nullptr, new TxNamedTypeNode( this->builtinLocation, "tx.Any" ) );
+        auto argNode = new TxArgTypeDefNode( this->builtinLocation, "r", refTypeNode );
+        auto address_func_type_def = new TxFunctionTypeNode( this->builtinLocation, false, new std::vector<TxArgTypeDefNode*>( { argNode } ),
+                                                             new TxNamedTypeNode( this->builtinLocation, "tx.UInt" ) );
+        auto address_func_type_decl = new TxTypeDeclNode( this->builtinLocation, TXD_PUBLIC | TXD_IMPLICIT, "_typeid$func", nullptr,
+                                                          address_func_type_def );
+        run_declaration_pass( address_func_type_decl, ctx );
+        address_func_type_decl->symbol_resolution_pass();
+
+        auto address_def = new TxBuiltinFieldDefNode( this->builtinLocation );
+        auto address_decl = txModule->declare_field( "_typeid", address_def, TXD_PUBLIC, TXS_GLOBAL, TxIdentifier( "" ) );
+        address_def->set_field( TxField::make_field( address_decl, address_func_type_def->resolve_type() ) );
+    }
+    }
 }
 
 BuiltinTypes::BuiltinTypes( TypeRegistry& registry )

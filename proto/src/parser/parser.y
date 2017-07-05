@@ -37,6 +37,7 @@
 #include "ast/type/ast_types.hpp"
 #include "ast/stmt/ast_flow.hpp"
 #include "ast/stmt/ast_assertstmt_node.hpp"
+#include "ast/stmt/ast_panicstmt_node.hpp"
 
 struct TxModuleMembers {
     std::vector<TxDeclarationNode*> declarations;
@@ -129,7 +130,7 @@ YY_DECL;
 %token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_XOR
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE KW_FROM
 %token KW_NULL KW_TRUE KW_FALSE
-%token KW_ASSERT KW_EXPERR
+%token KW_PANIC KW_ASSERT KW_EXPERR
 
 /* keywords reserved but not currently used */
 %token KW_TUPLE KW_UNION KW_ENUM
@@ -181,13 +182,13 @@ YY_DECL;
 %type <std::vector<TxExpressionNode*> *> expression_list call_params array_lit_expr_list
 %type <std::vector<TxStatementNode*> *> statement_list
 %type <TxSuiteNode*> suite
-%type <TxStatementNode*> statement single_statement assignment_stmt return_stmt break_stmt continue_stmt assert_stmt type_decl_stmt
+%type <TxStatementNode*> statement single_statement assignment_stmt return_stmt break_stmt continue_stmt type_decl_stmt
 %type <TxStatementNode*> flow_stmt simple_stmt elementary_stmt terminal_stmt flow_else_stmt
+%type <TxStatementNode*> assert_stmt panic_stmt experr_stmt
 %type <TxElseClauseNode*> else_clause
 %type <TxInClauseNode*> in_clause
 %type <TxForHeaderNode*> for_header
 %type <std::vector<TxLoopHeaderNode*> *> in_clause_list
-%type <TxStatementNode*> experr_stmt
 %type <TxAssigneeNode*> assignee_expr
 
 %type <TxExpressionNode*> string_format_expr
@@ -705,6 +706,7 @@ elementary_stmt
     |   call_expr       { $$ = new TxCallStmtNode(@1, $1); } // function call without return value assignment
     |   assignment_stmt { $$ = $1; }
     |   assert_stmt     { $$ = $1; }
+    |   panic_stmt      { $$ = $1; }
     ;
 
 terminal_stmt
@@ -776,6 +778,9 @@ continue_stmt  : KW_CONTINUE  { $$ = new TxContinueStmtNode(@1); }  ;
 assert_stmt : KW_ASSERT expr  { $$ = new TxAssertStmtNode(@1, $2); }
             // | KW_ASSERT expr COMMA expr
             ;
+
+panic_stmt : KW_PANIC expr  { $$ = new TxPanicStmtNode(@1, $2); }
+           ;
 
 
 assignment_stmt //:    assignee_pattern EQUAL expr

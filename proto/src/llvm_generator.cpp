@@ -357,7 +357,7 @@ void LlvmGenerationContext::initialize_meta_type_data() {
 }
 
 void LlvmGenerationContext::initialize_builtin_functions() {
-    {  // public _address( ref : Ref ) ULong
+    {  // public _address( ref : Ref ) -> ULong
        // create function:
         const std::string funcName( "tx._address" );
         //auto argT = TxReferenceType::make_ref_llvm_type(*this, Type::getInt8Ty(this->llvmContext));
@@ -378,7 +378,7 @@ void LlvmGenerationContext::initialize_builtin_functions() {
         // store lambda object:
         auto nullClosureRefV = Constant::getNullValue( this->get_voidRefT() );
         std::vector<Type*> lambdaMemberTypes {
-                                               func->getType(),      // function pointer
+                func->getType(),      // function pointer
                 this->get_voidRefT()  // null closure object pointer
         };
         auto lambdaT = StructType::get( this->llvmContext, lambdaMemberTypes );
@@ -387,7 +387,34 @@ void LlvmGenerationContext::initialize_builtin_functions() {
         this->register_llvm_value( funcName, lambdaA );
     }
 
-    {  // TODO: public _typeid( ref : Ref ) ULong
+    {  // public _typeid( ref : Ref ) -> UInt
+       // create function:
+        const std::string funcName( "tx._typeid" );
+        //auto argT = TxReferenceType::make_ref_llvm_type(*this, Type::getInt8Ty(this->llvmContext));
+        auto argT = this->get_llvm_type( this->tuplexPackage.registry().get_builtin_type( TXBT_REFERENCE )->acttype() );
+        auto retT = this->get_llvm_type( this->tuplexPackage.registry().get_builtin_type( TXBT_UINT )->acttype() );
+        Function *func = cast<Function>( this->llvmModule().getOrInsertFunction( funcName, retT, this->get_voidRefT(), argT, NULL ) );
+        BasicBlock *bb = BasicBlock::Create( this->llvmModule().getContext(), "entry", func );
+        IRBuilder<> builder( bb );
+        GenScope scope( &builder );
+        Function::arg_iterator args = func->arg_begin();
+        args++;  // the implicit closure pointer (null)
+        Value *arg_1 = &(*args);
+        arg_1->setName( "ref" );
+        Value* tidV = gen_get_ref_typeid( *this, &scope, arg_1 );
+        //auto castI = builder.CreatePtrToInt( ptrV, Type::getInt64Ty( this->llvmContext ) );
+        ReturnInst::Create( this->llvmModule().getContext(), tidV, bb );
+
+        // store lambda object:
+        auto nullClosureRefV = Constant::getNullValue( this->get_voidRefT() );
+        std::vector<Type*> lambdaMemberTypes {
+                func->getType(),      // function pointer
+                this->get_voidRefT()  // null closure object pointer
+        };
+        auto lambdaT = StructType::get( this->llvmContext, lambdaMemberTypes );
+        auto lambdaV = ConstantStruct::get( lambdaT, func, nullClosureRefV, NULL );
+        auto lambdaA = new GlobalVariable( this->llvmModule(), lambdaT, true, GlobalValue::InternalLinkage, lambdaV, funcName );
+        this->register_llvm_value( funcName, lambdaA );
     }
 }
 

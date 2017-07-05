@@ -151,6 +151,20 @@ Ref type casts (with if statements)
 
 Dataspace syntax support, continued
 
+max & min intrinsics
+
+modulo & remainder intrinsics
+
+Basic Floatingpoint intrinsics:
+ - floor & ceiling
+ - fraction
+ - sign
+ - epsilon
+
+Assignment-operators:
+ - arithmetic ( += etc )
+ - bitwise and logical
+
 break and continue out of nested loops
 
 Syntactic sugar for ref and array types in type arguments (possibly chained), e.g. Subtype<&Int> instead of Subtype<Ref<Int>>
