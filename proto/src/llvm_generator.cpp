@@ -14,6 +14,10 @@
 #include <llvm/Bitcode/ReaderWriter.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/FileSystem.h>
+#include <llvm/Support/TargetRegistry.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Target/TargetOptions.h>
+#include <llvm/Target/TargetMachine.h>
 
 #include "util/util.hpp"
 #include "util/assert.hpp"
@@ -195,6 +199,40 @@ int LlvmGenerationContext::generate_code( const TxTypeDeclNode* staticScopeNode 
 bool LlvmGenerationContext::generate_main( const std::string& userMainIdent, const TxType* mainFuncType ) {
     this->entryFunction = this->gen_main_function( userMainIdent, ( mainFuncType->return_type()->get_type_class() != TXTC_VOID ) );
     return this->entryFunction;
+}
+
+void LlvmGenerationContext::initialize_target() {
+    // (code derived from Kaleidoscope tutorial)
+    auto targetTriple = sys::getDefaultTargetTriple();
+
+    // For this example, we’ll initialize all the targets for emitting object code.
+    InitializeAllTargetInfos();
+    InitializeAllTargets();
+    InitializeAllTargetMCs();
+    InitializeAllAsmParsers();
+    InitializeAllAsmPrinters();
+
+    std::string error;
+    auto target = TargetRegistry::lookupTarget( targetTriple, error );
+
+    // Print an error and exit if we couldn't find the requested target.
+    // This generally occurs if we've forgotten to initialize the
+    // TargetRegistry or we have a bogus target triple.
+    if ( !target ) {
+        this->LOGGER()->error( "LLVM target lookup error: " );
+        errs() << error;
+        return;
+    }
+
+    // For our example, we’ll use the generic CPU without any additional features, options or relocation model.
+    auto cpu = "generic";
+    auto features = "";
+    TargetOptions opt;
+    auto relocModel = Optional<Reloc::Model>();
+    auto targetMachine = target->createTargetMachine( targetTriple, cpu, features, opt, relocModel );
+
+    this->llvmModulePtr->setDataLayout( targetMachine->createDataLayout() );
+    this->llvmModulePtr->setTargetTriple( targetTriple );
 }
 
 int LlvmGenerationContext::verify_code() {

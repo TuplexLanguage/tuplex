@@ -122,6 +122,8 @@ public:
     llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, llvm::Value* typeIdV ) const;
     llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType ) const;
 
+    void initialize_target();
+
     /** Verfies the generated LLVM code.
      * Should only be used for debugging, may mess with LLVM's state.
      * @return 0 upon success

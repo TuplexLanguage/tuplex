@@ -338,6 +338,8 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
     }
     _LOG.info( "+ LLVM code generated (not yet written)" );
 
+    this->genContext->initialize_target();
+
     if ( this->options.dump_ir )
         this->genContext->print_IR();
 
