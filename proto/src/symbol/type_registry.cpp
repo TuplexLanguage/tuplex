@@ -130,13 +130,13 @@ void TypeRegistry::prepare_types() {
 
         if ( type->is_generic_dependent() ) {
             // FUTURE: review whether generic base types should be a vtable parent of their specializations
-            LOG_DEBUG( this->LOGGER(), "Not registering generic-dependent type as formal type: " << type );
+            LOG_TRACE( this->LOGGER(), "Not registering generic-dependent type as formal type: " << type );
             continue;
         }
 
         type->formalTypeId = this->formalTypes.size();
         this->formalTypes.push_back( type );
-        //std::cerr << "Registering formal type " << type << " with distinct type id " << type->formalTypeId << std::endl;
+        LOG_TRACE( this->LOGGER(), "Registering formal type with id " << type->formalTypeId << ": " << type );
     }
     LOG_INFO( this->LOGGER(), "Number of formal types: " << this->formalTypes.size() << "   Number of vtable types: " << this->vtableTypes.size() );
 }

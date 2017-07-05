@@ -32,7 +32,7 @@ type ~ File implements tx.ByteWriter, tx.ByteReader {
 
     /** Opens the named file in the specified mode. */
     open_mode( name : String, mode : String ) ~ -> Int {
-        assert self._state == STATE_UNOPEN;  ## TODO: panic
+        if self._state != STATE_UNOPEN:  panic "Invalid operation when state is " %d self._state;
         
         self._cfile = tx.c.fopen( &name._bytes[0], &mode._bytes[0] );
         if self._cfile != 0:
@@ -45,7 +45,7 @@ type ~ File implements tx.ByteWriter, tx.ByteReader {
     }
 
     close() ~ {
-        assert self._state == STATE_OPEN;  ## TODO: panic
+        if self._state != STATE_OPEN:  panic "Invalid operation when state is " %d self._state;
         
         self._state = STATE_CLOSED;
         tx.c.fclose( self._cfile );
@@ -53,7 +53,7 @@ type ~ File implements tx.ByteWriter, tx.ByteReader {
 
 
     override write( buf : &[]UByte ) ~ -> Long {
-        assert self._state == STATE_OPEN;  ## TODO: panic
+        if self._state != STATE_OPEN:  panic "Invalid operation when state is " %d self._state;
 
         exp := buf.L;
         count := tx.c.fwrite( &buf[0], 1, exp, self._cfile );
@@ -65,7 +65,7 @@ type ~ File implements tx.ByteWriter, tx.ByteReader {
     }
 
     override read( buf : &~[]UByte ) ~ -> Long {
-        assert self._state == STATE_OPEN;  ## TODO: panic
+        if self._state != STATE_OPEN:  panic "Invalid operation when state is " %d self._state;
 
         exp := buf.C-buf.L;
         count := tx.c.fread( &buf[buf.L], 1, exp, self._cfile );

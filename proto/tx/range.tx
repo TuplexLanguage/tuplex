@@ -87,9 +87,9 @@ public type ERange< E derives Enumerable > implements Range< E >, Stringer {
         ~ix := index;
         if ix < 0 {
             ix = ix + self._indexLimit;
-            assert ix >= 0;
+            if ix < 0:  panic "Invalid range index: " %d index %% " < -" %d self._indexLimit;
         }
-        assert ix < self._indexLimit;
+        if ix >= self._indexLimit:  panic "Invalid range index: " %d ix %% " >= " %d self._indexLimit;
         return E.value( Ordinal( Long( self.start.ordinal() ) + ix * self.stride ) );
     }
 
