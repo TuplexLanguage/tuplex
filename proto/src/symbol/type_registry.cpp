@@ -82,6 +82,7 @@ void TypeRegistry::add_type( TxActualType* type ) {
         ASSERT( type->formalTypeId == this->formalTypes.size(), "adding built-in type in wrong order: type id="
                 << type->formalTypeId << "; staticTypes.size()=" << this->formalTypes.size() );
         this->formalTypes.push_back( type );
+        this->vtableTypes.push_back( type );
     }
     this->createdTypes.push_back( type );
 }
@@ -119,21 +120,25 @@ void TypeRegistry::prepare_types() {
         if ( type->get_type_class() == TXTC_REFERENCE )
             continue;
 
-        if ( type->is_equivalent_derivation() ) {  // includes empty and modifiable derivations
+        if ( type->is_equivalent_derivation() ) {  // includes empty derivations
             //std::cerr << "Not registering distinct type id for equivalent derivation: " << type << std::endl;
             continue;
         }
 
-//        if ( type->is_generic_dependent() ) {
-//            // FUTURE: review whether generic base types should be a vtable parent of their specializations
-//            LOG_DEBUG( this->LOGGER(), "Not registering generic-dependent type as formal type: " << type );
-//            continue;
-//        }
+        type->vtableId = this->vtableTypes.size();
+        this->vtableTypes.push_back( type );
+
+        if ( type->is_generic_dependent() ) {
+            // FUTURE: review whether generic base types should be a vtable parent of their specializations
+            LOG_DEBUG( this->LOGGER(), "Not registering generic-dependent type as formal type: " << type );
+            continue;
+        }
 
         type->formalTypeId = this->formalTypes.size();
         this->formalTypes.push_back( type );
         //std::cerr << "Registering formal type " << type << " with distinct type id " << type->formalTypeId << std::endl;
     }
+    LOG_INFO( this->LOGGER(), "Number of formal types: " << this->formalTypes.size() << "   Number of vtable types: " << this->vtableTypes.size() );
 }
 
 const TxType* TypeRegistry::get_builtin_type( const BuiltinTypeId id ) {
@@ -316,7 +321,7 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
                         if ( auto existingInitializer = existingFieldDecl->get_definer()->get_init_expression() ) {
                             if ( valueBinding->valueExprNode->is_statically_constant() && existingInitializer->is_statically_constant() ) {
                                 auto actType = valueBinding->valueExprNode->qualtype()->type()->acttype();
-                                if ( actType->has_type_id() && is_concrete_uinteger_type( (BuiltinTypeId) actType->get_type_id() ) )
+                                if ( actType->has_formal_type_id() && is_concrete_uinteger_type( (BuiltinTypeId) actType->get_formal_type_id() ) )
                                     if ( eval_unsigned_int_constant( valueBinding->valueExprNode ) == eval_unsigned_int_constant( existingInitializer ) )
                                         continue;
                             }
@@ -570,7 +575,14 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     auto newSpecTypeDecl = new TxTypeDeclNode( definer->get_parse_location(), newDeclFlags, uniqueSpecTypeNameStr, bindingDeclNodes, specTypeExpr,
                                                baseDeclNode->interfaceKW, mutableType );
 
-    bool outerIsGeneric = definer->parent()->context().is_generic();
+    // Note: The specialized type only has a generic context if its generic base type's declaration has an outer generic-dependent context.
+    //       (If we could resolve bindings here, we could determine whether they are generic-dependent;
+    //        instead we do this in type->is_generic_dependent().)
+    // Note: Base type's definer's parent is its declaration node; we're checking whether its outer scope is a generic context.
+    ASSERT( dynamic_cast<const TxTypeDeclNode*>( baseType->get_declaration()->get_definer()->parent() ),
+            "Expected base type definer's parent node to be a TxTypeDeclNode but is: " << baseType->get_declaration()->get_definer()->parent() );
+    bool outerIsGeneric = baseType->get_declaration()->get_definer()->parent()->parent()->context().is_generic();
+                          // || definer->parent()->context().is_generic();
     LexicalContext specContext( baseScope, expErrCtx, outerIsGeneric, definer );
     run_declaration_pass( newSpecTypeDecl, specContext );
     const TxActualType* specializedType = specTypeExpr->resolve_type()->type()->acttype();
@@ -705,6 +717,7 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
 
     auto & adaptedTypeCtx = adaptedType->get_declaration()->get_definer()->context();
     // ifDecl->get_definer()->context().scope()
+    // FIXME: review whether generic is gotten from correct scope:
     LexicalContext adapterCtx( scope, adaptedTypeCtx.exp_error(), adaptedTypeCtx.is_generic(),
                                adaptedTypeCtx.reinterpretation_definer() );
     run_declaration_pass( adapterDeclNode, adapterCtx );

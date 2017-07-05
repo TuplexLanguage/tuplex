@@ -48,7 +48,7 @@ class LlvmGenerationContext {
     llvm::Function* entryFunction = nullptr;
     std::map<const std::string, llvm::Value*> llvmSymbolTable;
     std::map<const TxActualType*, llvm::Type*> llvmTypeMapping;
-    std::map<uint32_t, llvm::StructType*> llvmVTableTypeMapping;
+    std::vector<llvm::StructType*> llvmVTableTypes;
 
     std::unique_ptr<llvm::Module> llvmModulePtr;
 

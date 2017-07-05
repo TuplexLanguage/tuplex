@@ -1,7 +1,7 @@
 
 main()->Int {
     print( "" );
-    str := "foo";
+    str := "simple print string";
     print( str );
     tmp := %s " is concatenated, ";
     print( "My printed string" %% tmp %20s " formatted, " %s " and with values: " %+05d 42 );

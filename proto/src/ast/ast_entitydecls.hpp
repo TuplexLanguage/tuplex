@@ -102,32 +102,7 @@ public:
                                    this->interfaceKW, this->mutableType );
     }
 
-    virtual void symbol_resolution_pass() override {
-        if ( this->_builtinCode ) {
-            // the definer has been merged with the built-in type
-            return;
-        }
-        if ( this->typeParamDecls )
-            for ( auto paramDecl : *this->typeParamDecls )
-                paramDecl->symbol_resolution_pass();
-        try {
-            this->typeExpression->symbol_resolution_pass();
-        }
-        catch ( const resolution_error& err ) {
-            LOG( this->LOGGER(), DEBUG, "Caught resolution error in " << this->typeExpression << ": " << err );
-            return;
-        }
-        if (this->interfaceKW) {
-            if (this->typeExpression->qualtype()->get_type_class() != TXTC_INTERFACE)
-                CERROR(this, "Interface type cannot derive from non-interface type: " << this->typeExpression->qualtype());
-        }
-        else {
-            if (this->typeExpression->qualtype()->get_type_class() == TXTC_INTERFACE)
-                if ( !( this->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING | TXD_IMPLICIT ) ) )
-                     //&& !this->typeExpression->get_type()->is_modifiable() )
-                    CWARNING(this, "Interface type not declared with 'interface' keyword: " << this->typeExpression->qualtype());
-        }
-    }
+    virtual void symbol_resolution_pass() override;
 
     virtual const TxTypeDeclaration* get_declaration() const override {
         return this->typeExpression->get_declaration();

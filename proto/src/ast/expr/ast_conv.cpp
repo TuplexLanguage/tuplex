@@ -16,10 +16,10 @@ static bool statically_converts_to( TxExpressionNode* originalExpr, const TxType
         return false;
     }
 
-    BuiltinTypeId originalTypeId = (BuiltinTypeId)originalType->get_type_id();
+    BuiltinTypeId originalTypeId = (BuiltinTypeId)originalType->get_formal_type_id();
     if ( is_concrete_uinteger_type( originalTypeId ) ) {
         uint64_t val = eval_unsigned_int_constant( originalExpr );
-        switch ( requiredType->get_type_id() ) {
+        switch ( requiredType->get_formal_type_id() ) {
         case TXBT_BYTE:
             return ( val <= 127 );
         case TXBT_SHORT:
@@ -48,7 +48,7 @@ static bool statically_converts_to( TxExpressionNode* originalExpr, const TxType
     }
     else if ( is_concrete_sinteger_type( originalTypeId ) ) {
         int64_t val = eval_signed_int_constant( originalExpr );
-        switch ( requiredType->get_type_id() ) {
+        switch ( requiredType->get_formal_type_id() ) {
         case TXBT_BYTE:
             return ( val >= -128 && val <= 127 );
         case TXBT_SHORT:
@@ -78,7 +78,7 @@ static bool statically_converts_to( TxExpressionNode* originalExpr, const TxType
     else if ( is_concrete_floating_type( originalTypeId ) ) {
         double val = eval_floatingpoint_constant( originalExpr );
         double intpart = 0;
-        switch ( requiredType->get_type_id() ) {
+        switch ( requiredType->get_formal_type_id() ) {
         case TXBT_BYTE:
             return ( modf( val, &intpart) == 0 && intpart >= -128 && intpart <= 127 );
         case TXBT_SHORT:

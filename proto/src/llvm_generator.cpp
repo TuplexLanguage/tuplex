@@ -312,37 +312,45 @@ void LlvmGenerationContext::initialize_meta_type_data() {
 
     // create static meta type data:
     std::vector<Constant*> metaTypes;
-    for ( auto txType = this->tuplexPackage.registry().static_types_cbegin(); txType != this->tuplexPackage.registry().static_types_cend();
-            txType++ ) {
-//        auto utinitF = (*txType)->get_type_user_init_func(*this);
+    for ( auto txType = this->tuplexPackage.registry().vtable_types_cbegin(); txType != this->tuplexPackage.registry().vtable_types_cend();
+            txType++ )
+    {
+        const TxActualType* acttype = *txType;
+//        auto utinitF = acttype->get_type_user_init_func(*this);
 //        if (! utinitF->getEntryBlock().getTerminator()) {
 //            // inserting default void return instruction for entry block of function
 //            ReturnInst::Create(this->llvmContext, &utinitF->getEntryBlock());
 //        }
-        auto vtableT = ( *txType )->make_vtable_type( *this );
+
+        // create the vtable type:
+        auto vtableT = acttype->make_vtable_type( *this );
         if ( !vtableT )
             continue;
-        auto typeId = ( *txType )->get_type_id();
-        //std::cerr << "vtable type for " << (*txType) << " (id " << typeId << "): " << vtableT << std::endl;
-        this->llvmVTableTypeMapping.emplace( typeId, vtableT );
-        std::string vtableName( ( *txType )->get_declaration()->get_unique_full_name() + "$vtable" );
-        GlobalVariable* vtableV = new GlobalVariable( this->llvmModule(), vtableT, true, GlobalValue::ExternalLinkage,
-                                                      nullptr,
-                                                      vtableName );
-        this->register_llvm_value( vtableV->getName(), vtableV );
+        //std::cerr << "vtable type for " << acttype << " (vtable id=" << acttype->get_vtable_id() << "): " << vtableT << std::endl;
+        ASSERT( this->llvmVTableTypes.size() == acttype->get_vtable_id(), "Wrong vtable type id / order for " << acttype );
+        this->llvmVTableTypes.push_back( vtableT );
 
-        std::vector<Constant*> members {
-                                         ConstantInt::get( int32T, typeId ),
-                                         ConstantExpr::getBitCast( vtableV, emptyStructPtrT ),
-        // dummyUserInitF  // utinitF
-        };
-        metaTypes.push_back( ConstantStruct::get( metaType, members ) );
+        // if the type is a formal type, create an actual vtable instance:
+        if ( acttype->has_formal_type_id() ) {
+            auto typeId = acttype->get_formal_type_id();
+            std::string vtableName( acttype->get_declaration()->get_unique_full_name() + "$vtable" );
+            GlobalVariable* vtableV = new GlobalVariable( this->llvmModule(), vtableT, true, GlobalValue::ExternalLinkage, nullptr, vtableName );
+            this->register_llvm_value( vtableV->getName(), vtableV );
 
-        // register the constant typeId values for later inclusion in the initialization code:
-        std::string typeIdName( ( *txType )->get_declaration()->get_unique_full_name() + ".$typeid" );
-        this->register_llvm_value( typeIdName, ConstantInt::get( int32T, typeId ) );
+            std::vector<Constant*> members {
+                                             ConstantInt::get( int32T, typeId ),
+                                             ConstantExpr::getBitCast( vtableV, emptyStructPtrT ),
+            // dummyUserInitF  // utinitF
+            };
+            metaTypes.push_back( ConstantStruct::get( metaType, members ) );
+
+//            // register the constant typeId values for later inclusion in the initialization code:
+//            std::string typeIdName( acttype->get_declaration()->get_unique_full_name() + ".$typeid" );
+//            this->register_llvm_value( typeIdName, ConstantInt::get( int32T, typeId ) );
+        }
     }
-    auto typeCount = this->tuplexPackage.registry().get_static_type_count();
+
+    auto typeCount = this->tuplexPackage.registry().formal_type_count();
     auto mtArrayType = ArrayType::get( metaType, typeCount );
     auto mtArrayInit = ConstantArray::get( mtArrayType, metaTypes );
 
@@ -519,19 +527,19 @@ void LlvmGenerationContext::initialize_external_functions() {
 //}
 
 void LlvmGenerationContext::generate_runtime_data() {
-    for ( auto txTypeI = this->tuplexPackage.registry().static_types_cbegin(); txTypeI != this->tuplexPackage.registry().static_types_cend();
+    for ( auto txTypeI = this->tuplexPackage.registry().formal_types_cbegin(); txTypeI != this->tuplexPackage.registry().formal_types_cend();
             txTypeI++ ) {
         const TxActualType* txType = *txTypeI;
         ASSERT( txType->is_prepared(), "Non-prepared type: " << txType );
         std::string vtableName( txType->get_declaration()->get_unique_full_name() + "$vtable" );
         if ( auto vtableV = dyn_cast<GlobalVariable>( this->lookup_llvm_value( vtableName ) ) ) {
             bool isGenericBase = txType->get_declaration()->get_definer()->context().is_generic();
-            std::string typeIdStr = std::to_string( txType->get_type_id() );
+            std::string typeIdStr = std::to_string( txType->get_formal_type_id() );
             if ( typeIdStr.size() < 5 )
                 typeIdStr.resize( 5, ' ' );
             // TODO: If we're only filling vtable of generic bases with NULLs, do we really need to create them?
             if ( isGenericBase )
-                LOG_DEBUG( this->LOGGER(), "Type id " << typeIdStr << ": Populating vtable initializer with null placeholders for generic base type " << txType );
+                LOG_INFO( this->LOGGER(), "Type id " << typeIdStr << ": Populating vtable initializer with null placeholders for generic base type " << txType );
             else
                 LOG_DEBUG( this->LOGGER(), "Type id " << typeIdStr << ": Populating vtable initializer for " << txType );
             std::vector<Constant*> initMembers;
@@ -539,7 +547,7 @@ void LlvmGenerationContext::generate_runtime_data() {
             initMembers.resize( virtualFields.get_field_count() );
             for ( auto & field : virtualFields.fieldMap ) {
                 auto actualFieldEnt = virtualFields.get_field( field.second );
-                Constant* llvmField;
+                Constant* llvmFieldC;
                 if ( ( actualFieldEnt->get_decl_flags() & TXD_ABSTRACT ) || isGenericBase ) {
                     //std::cerr << "inserting NULL for abstract virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                     Type* fieldType;
@@ -552,18 +560,22 @@ void LlvmGenerationContext::generate_runtime_data() {
                     }
                     else
                         fieldType = PointerType::getUnqual( this->get_llvm_type( actualFieldEnt->get_type()->type() ) );
-                    llvmField = Constant::getNullValue( fieldType );
+                    llvmFieldC = Constant::getNullValue( fieldType );
+                }
+                else if ( field.first == "$adTypeId" ) {
+                    ASSERT( txType->get_type_class() == TXTC_INTERFACEADAPTER, "Expected InterfaceAdapter type: " << txType );
+                    auto adapterType = static_cast<const TxInterfaceAdapterType*>( txType );
+                    llvmFieldC = ConstantInt::get( Type::getInt32Ty( this->llvmContext ), adapterType->adapted_type()->get_formal_type_id() );
+                    //valueName = adapterType->adapted_type()->get_declaration()->get_unique_full_name() + ".$typeid";
+                    //auto llvmValue = this->lookup_llvm_value( valueName );
+                    //std::cerr << "$typeid=" << llvmValue << " for adapted type " << adapterType->adapted_type()
+                    //          << " with id " << adapterType->adapted_type()->get_formal_type_id() << std::endl;
                 }
                 else {
                     std::string valueName;
                     if ( actualFieldEnt->get_storage() & TXS_INSTANCEMETHOD ) {
                         //std::cerr << "inserting instance method: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                         valueName = actualFieldEnt->get_declaration()->get_unique_full_name() + "$func";
-                    }
-                    else if ( field.first == "$adTypeId" ) {
-                        ASSERT( txType->get_type_class() == TXTC_INTERFACEADAPTER, "Expected InterfaceAdapter type: " << txType );
-                        auto adapterType = static_cast<const TxInterfaceAdapterType*>( txType );
-                        valueName = adapterType->adapted_type()->get_declaration()->get_unique_full_name() + ".$typeid";
                     }
                     else {
                         //std::cerr << "inserting virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
@@ -573,11 +585,11 @@ void LlvmGenerationContext::generate_runtime_data() {
                     if ( !llvmValue ) {
                         ASSERT( false, "llvm value not found for field name: " << valueName );
                     }
-                    llvmField = cast<Constant>( llvmValue );
+                    llvmFieldC = cast<Constant>( llvmValue );
                 }
                 //std::cerr << "inserting field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                 auto ix = field.second;
-                initMembers[ix] = llvmField;
+                initMembers[ix] = llvmFieldC;
             }
             Constant* initializer = ConstantStruct::getAnon( this->llvmContext, initMembers );
             vtableV->setInitializer( initializer );
@@ -634,14 +646,11 @@ Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualTyp
 }
 
 Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualType* statDeclType ) const {
-    return gen_get_vtable( scope, statDeclType, ConstantInt::get( Type::getInt32Ty( this->llvmContext ), statDeclType->get_type_id() ) );
+    return gen_get_vtable( scope, statDeclType, ConstantInt::get( Type::getInt32Ty( this->llvmContext ), statDeclType->get_formal_type_id() ) );
 }
 
 StructType* LlvmGenerationContext::get_llvm_vtable_type( const TxActualType* txType ) const {
-    auto iter = this->llvmVTableTypeMapping.find( txType->get_type_id() );
-    if ( iter != this->llvmVTableTypeMapping.end() )
-        return iter->second;
-    THROW_LOGIC( "No vtable mapped for type " << txType );
+    return this->llvmVTableTypes.at( txType->get_vtable_id() );
 }
 
 Type* LlvmGenerationContext::get_llvm_type( const TxQualType* txType ) {

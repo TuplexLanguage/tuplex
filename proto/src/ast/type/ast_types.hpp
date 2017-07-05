@@ -152,11 +152,8 @@ public:
             if (this->genTypeExpr->qualtype()->get_type_class() != TXTC_REFERENCE) {
                 if ( auto typeTypeArg = dynamic_cast<TxTypeTypeArgumentNode*>( ta ) ) {
                     auto elemType = typeTypeArg->typeExprNode->qualtype();
-                    if ( !elemType->type()->is_concrete() ) {
-                        if ( !this->context().is_generic() )
-                            CERROR( this, "Type specialization parameter is not concrete: " << elemType );
-                        else
-                            LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Type specialization parameter is not concrete: " << elemType );
+                    if ( is_not_properly_concrete( this, elemType->type() ) ) {
+                        CERROR( this, "Type specialization parameter is not concrete: " << elemType );
                     }
                 }
             }
@@ -251,11 +248,8 @@ public:
             this->capacityNode->symbol_resolution_pass();
         }
         auto elemType = this->elementTypeNode->typeExprNode->qualtype();
-        if ( !elemType->type()->is_concrete() ) {
-            if ( !this->context().is_generic() )
-                CERROR( this, "Array element type is not concrete: " << elemType );
-            else
-                LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Array element type is not concrete: " << elemType );
+        if ( is_not_properly_concrete( this, elemType->type() ) ) {
+            CERROR( this, "Array element type is not concrete: " << elemType );
         }
     }
 
@@ -418,23 +412,15 @@ public:
         for ( auto argField : *this->arguments ) {
             argField->symbol_resolution_pass();
             auto argType = argField->qualtype();
-            if ( !argType->type()->is_concrete() ) {
-                if ( !this->context().is_generic() )
-                    CERROR( argField, "Function argument type is not concrete: "
-                            << argField->get_descriptor() << " : " << argType );
-                else
-                    LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Function argument type is not concrete: "
-                               << argField->get_descriptor() << " : " << argType );
+            if ( is_not_properly_concrete( this, argType->type() ) ) {
+                CERROR( argField, "Function argument type is not concrete: " << argField->get_descriptor() << " : " << argType );
             }
         }
         if ( this->returnField ) {
             this->returnField->symbol_resolution_pass();
             auto retType = this->returnField->qualtype();
-            if ( !retType->type()->is_concrete() ) {
-                if ( !this->context().is_generic() )
-                    CERROR( returnField, "Function return type is not concrete: " << retType );
-                else
-                    LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Function return type is not concrete: " << retType );
+            if ( is_not_properly_concrete( this, retType->type() ) ) {
+                CERROR( returnField, "Function return type is not concrete: " << retType );
             }
         }
     }

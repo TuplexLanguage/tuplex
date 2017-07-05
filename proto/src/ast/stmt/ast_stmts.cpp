@@ -14,11 +14,8 @@ void TxAssignStmtNode::symbol_resolution_pass() {
     auto ltype = this->lvalue->resolve_type()->type();
 
     // note: similar rules to passing function arg
-    if ( !ltype->is_concrete() ) {
-        if ( !this->context().is_generic() )
-            CERROR( this->lvalue, "Assignee is not concrete: " << ltype );
-        else
-            LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Assignee is not concrete: " << ltype );
+    if ( is_not_properly_concrete( this, ltype ) ) {
+        CERROR( this->lvalue, "Assignee is not concrete: " << ltype );
     }
 
     if ( !( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() ) ) {

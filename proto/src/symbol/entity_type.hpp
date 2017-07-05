@@ -119,8 +119,8 @@ public:
         return this->acttype()->get_type_class();
     }
 
-    inline uint32_t get_type_id() const {
-        return this->acttype()->get_type_id();
+    inline uint32_t get_formal_type_id() const {
+        return this->acttype()->get_formal_type_id();
     }
 
     /** Returns true if this type is a built-in type. */

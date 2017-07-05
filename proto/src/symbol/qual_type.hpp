@@ -33,7 +33,7 @@ public:
     }
 
     inline uint32_t get_type_id() const {
-        return this->type()->get_type_id();
+        return this->type()->get_formal_type_id();
     }
 
     /** Performs as accurate equals as possible without forcing actualization of this type or that type.

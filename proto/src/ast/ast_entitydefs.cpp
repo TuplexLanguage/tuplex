@@ -1,4 +1,5 @@
 #include "ast_entitydefs.hpp"
+#include "expr/ast_expr_node.hpp"
 
 
 const TxQualType* TxTypeDefiningNode::resolve_type() {
@@ -52,4 +53,8 @@ const TxField* TxFieldDefiningNode::resolve_field() {
         this->hasResolved = true;
     }
     return this->field;
+}
+
+bool TxFieldDefiningNode::is_statically_constant() const {
+    return this->get_init_expression() && this->get_init_expression()->is_statically_constant();
 }

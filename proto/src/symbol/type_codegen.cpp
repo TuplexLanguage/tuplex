@@ -77,7 +77,7 @@ Value* TxActualType::gen_malloc( LlvmGenerationContext& context, GenScope* scope
 }
 
 Constant* TxActualType::gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const {
-    return ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->get_type_id() );
+    return ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->get_formal_type_id() );
 }
 
 Type* TxBoolType::make_llvm_type( LlvmGenerationContext& context ) const {

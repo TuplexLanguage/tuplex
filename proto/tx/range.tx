@@ -59,7 +59,7 @@ public type ERange< E derives Enumerable > implements Range< E >, Stringer {
     public stride : Long;
 
     public self( start : E, limit : E, stride : Long ) {
-        assert stride != 0;  ## if stride == 0:  panic
+        if stride == 0:  panic ( "Zero stride in ERange" );
         self.start = start;
         self.limit = limit;
         self.stride = stride;

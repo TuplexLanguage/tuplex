@@ -135,6 +135,9 @@ public:
 
     virtual TxExpressionNode* get_init_expression() const = 0;
 
+    /** Returns true if this field has a constant initialization expression that can be evaluated at compile time. */
+    virtual bool is_statically_constant() const;
+
     /** Generates / retrieves the code generated constant value of this field's init expression,
      * if it has one and it is constant.
      * May be called multiple times, it caches the result to ensures the constant value is only generated once.

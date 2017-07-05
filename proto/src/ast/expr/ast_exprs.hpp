@@ -193,12 +193,8 @@ public:
     virtual void symbol_resolution_pass() override {
         TxExpressionNode::symbol_resolution_pass();
         this->typeExpr->symbol_resolution_pass();
-        if ( !this->typeExpr->qualtype()->type()->is_concrete() ) {
-            if ( !this->context().is_generic() )
-                CERROR( this->typeExpr, "Object to allocate is not concrete: " << this->typeExpr->qualtype() );
-            else
-                LOG_DEBUG( this->LOGGER(), "(Not error since generic context) Object to allocate is not concrete: "
-                           << this->typeExpr->qualtype() );
+        if ( is_not_properly_concrete( this, this->typeExpr->qualtype()->type() ) ) {
+            CERROR( this->typeExpr, "Object to allocate is not concrete: " << this->typeExpr->qualtype() );
         }
 
         this->constructorCall->symbol_resolution_pass();

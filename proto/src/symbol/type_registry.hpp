@@ -36,7 +36,12 @@ class TypeRegistry {
     /** all the types created */
     std::vector<TxActualType*> createdTypes;
 
-    /** All the formal types, i.e. all types with distinct runtime data type and distinct formal type id. */
+    /** All the vtable types, i.e. all the distinct (non-equivalent) types with a vtable type.
+     * Note, abstract types will have a vtable type id although they will not have an actual vtable entry in runtime.
+     * All the formal types are also vtable types. */
+    std::vector<const TxActualType*> vtableTypes;
+
+    /** All the formal types, i.e. all the concrete types with a distinct runtime data type and a distinct vtable instance. */
     std::vector<const TxActualType*> formalTypes;
 
     /** for the convenience method get_string_type() */
@@ -122,16 +127,34 @@ public:
     /** special convenience method for the String type (which is not a primitive type). */
     const TxType* get_string_type();
 
-    /** Returns a read-only iterator that points to the first static type (with unique compile-time id). */
-    inline std::vector<const TxActualType*>::const_iterator static_types_cbegin() const {
+
+    /** Returns a read-only iterator that points to the first vtable type.
+     * The vtable types are the distinct types */
+    inline std::vector<const TxActualType*>::const_iterator vtable_types_cbegin() const {
+        return this->vtableTypes.cbegin();
+    }
+    /** Returns a read-only iterator that points to one past the last type. */
+    inline std::vector<const TxActualType*>::const_iterator vtable_types_cend() const {
+        return this->vtableTypes.cend();
+    }
+
+    /** Returns the number of types. */
+    inline uint32_t vtable_type_count() const {
+        return this->vtableTypes.size();
+    }
+
+
+    /** Returns a read-only iterator that points to the first formal type. */
+    inline std::vector<const TxActualType*>::const_iterator formal_types_cbegin() const {
         return this->formalTypes.cbegin();
     }
-    /** Returns a read-only iterator that points to one past the last static type. */
-    inline std::vector<const TxActualType*>::const_iterator static_types_cend() const {
+    /** Returns a read-only iterator that points to one past the last formal type. */
+    inline std::vector<const TxActualType*>::const_iterator formal_types_cend() const {
         return this->formalTypes.cend();
     }
 
-    inline uint32_t get_static_type_count() const {
+    /** Returns the number of formal types. */
+    inline uint32_t formal_type_count() const {
         return this->formalTypes.size();
     }
 

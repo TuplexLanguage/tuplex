@@ -36,13 +36,13 @@ const TxQualType* TxBinaryOperatorNode::define_type() {
         break;
 
     case TXOC_LOGICAL:
-        if ( !( is_concrete_sinteger_type( (BuiltinTypeId)ltype->get_type_id() ) ||
-                is_concrete_uinteger_type( (BuiltinTypeId)ltype->get_type_id() ) ||
-                ltype->get_type_id() == TXBT_BOOL ) )
+        if ( !( is_concrete_sinteger_type( (BuiltinTypeId)ltype->get_formal_type_id() ) ||
+                is_concrete_uinteger_type( (BuiltinTypeId)ltype->get_formal_type_id() ) ||
+                ltype->get_formal_type_id() == TXBT_BOOL ) )
             CERR_THROWRES( this, "Left operand of " << this->op << " is not of integer or boolean type: " << ltype );
-        if ( !( is_concrete_sinteger_type( (BuiltinTypeId)rtype->get_type_id() ) ||
-                is_concrete_uinteger_type( (BuiltinTypeId)rtype->get_type_id() ) ||
-                rtype->get_type_id() == TXBT_BOOL ) )
+        if ( !( is_concrete_sinteger_type( (BuiltinTypeId)rtype->get_formal_type_id() ) ||
+                is_concrete_uinteger_type( (BuiltinTypeId)rtype->get_formal_type_id() ) ||
+                rtype->get_formal_type_id() == TXBT_BOOL ) )
             CERR_THROWRES( this, "Right operand of " << this->op << " is not of integer or boolean type: " << rtype );
 
         match_binary_operand_types( this, ltype, rtype );
@@ -50,10 +50,10 @@ const TxQualType* TxBinaryOperatorNode::define_type() {
 
     case TXOC_SHIFT:
         // Note: In LLVM and in common CPUs, for an integer type of N bits, the result of shifting by >= N is undefined.
-        if ( !( is_concrete_sinteger_type( (BuiltinTypeId)ltype->get_type_id() ) ||
-                is_concrete_uinteger_type( (BuiltinTypeId)ltype->get_type_id() ) ) )
+        if ( !( is_concrete_sinteger_type( (BuiltinTypeId)ltype->get_formal_type_id() ) ||
+                is_concrete_uinteger_type( (BuiltinTypeId)ltype->get_formal_type_id() ) ) )
             CERR_THROWRES( this, "Left operand of " << this->op << " is not of integer type: " << ltype );
-        if ( !is_concrete_uinteger_type( (BuiltinTypeId)rtype->get_type_id() ) )
+        if ( !is_concrete_uinteger_type( (BuiltinTypeId)rtype->get_formal_type_id() ) )
             CERR_THROWRES( this, "Right operand of " << this->op << " is not of unsigned integer type: " << rtype );
         this->rhs->insert_conversion( ltype );  // LLVM shift instructions require right operand to be same integer type as left one
         break;

@@ -128,6 +128,10 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     /** true if this is a built-in type */
     const bool builtin;
 
+    /** The vtable id of this type, if it has a distinct vtable type (not an equivalent specialization).
+     * Note, abstract types will have a vtable type id although they will not have an actual vtable entry in runtime. */
+    uint32_t vtableId = UINT32_MAX;
+
     /** The formal type id of this type, if it is defined at compile time and a distinct type (not an equivalent specialization). */
     uint32_t formalTypeId = UINT32_MAX;
 
@@ -261,17 +265,31 @@ public:
         return this->declaration;
     }
 
-    /** Gets the formal type id of this type. (Equivalent specializations return their base type's id.)
+    /** Gets the vtable id of this type. (Equivalent specializations return their base type's vtable id.)
      * For non-built-in types, this is only valid to call after the type preparation phase. */
-    inline uint32_t get_type_id() const {
+    inline uint32_t get_vtable_id() const {
         //ASSERT(this->prepared, "Can't get formal type id of unprepared type: " << this);
-        ASSERT( this->formalTypeId != UINT32_MAX || this->is_equivalent_derivation(), "Type id not set for " << this );
-        return ( this->formalTypeId == UINT32_MAX ? this->get_semantic_base_type()->get_type_id() : this->formalTypeId );
+        ASSERT( this->vtableId != UINT32_MAX || this->is_equivalent_derivation(), "VTable id not set for " << this );
+        return ( this->vtableId == UINT32_MAX ? this->get_semantic_base_type()->get_vtable_id() : this->vtableId );
     }
 
     /** Returns true if this type instance has a formal type id assigned.
      * If called before the type preparation phase, only built-in types return true. */
-    inline bool has_type_id() const {
+    inline bool has_vtable_id() const {
+        return ( this->vtableId != UINT32_MAX );
+    }
+
+    /** Gets the formal type id of this type. (Equivalent specializations return their base type's id.)
+     * For non-built-in types, this is only valid to call after the type preparation phase. */
+    inline uint32_t get_formal_type_id() const {
+        //ASSERT(this->prepared, "Can't get formal type id of unprepared type: " << this);
+        ASSERT( this->formalTypeId != UINT32_MAX || this->is_equivalent_derivation(), "Type id not set for " << this );
+        return ( this->formalTypeId == UINT32_MAX ? this->get_semantic_base_type()->get_formal_type_id() : this->formalTypeId );
+    }
+
+    /** Returns true if this type instance has a formal type id assigned.
+     * If called before the type preparation phase, only built-in types return true. */
+    inline bool has_formal_type_id() const {
         return ( this->formalTypeId != UINT32_MAX );
     }
 
@@ -366,9 +384,10 @@ public:
         return !this->get_type_params().empty();
     }
 
-    /** Returns true if this type is dependent on unbound generic type parameters.
-     * This is true if this type is generic (i.e. has unbound type parameters), or is declared within the scope
-     * of another generic type (i.e. which has unbound type parameters).
+    /** Returns true if this type is dependent on any unbound non-reference generic type parameters;
+     * except for references which always yield false whether generic or not.
+     * This is true if this type has unbound non-reference type parameters, or is defined within the scope
+     * of another generic type (i.e. which has unbound non-reference type parameters).
      */
     bool is_generic_dependent() const;
 

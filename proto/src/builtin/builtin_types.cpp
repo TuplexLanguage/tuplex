@@ -164,6 +164,7 @@ protected:
                                 TxActualType* actType = this->make_builtin_type( this->get_declaration(), baseType, ifSpecs,
                                                                                  this->requires_mutable_type() );
                                 actType->formalTypeId = this->builtinTypeId;
+                                actType->vtableId = this->builtinTypeId;
                                 this->registry().add_type( actType );
                                 return actType;
                            } ) );

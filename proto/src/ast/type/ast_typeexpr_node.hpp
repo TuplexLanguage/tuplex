@@ -45,3 +45,7 @@ public:
      */
     virtual void code_gen_type( LlvmGenerationContext& context ) const = 0;
 };
+
+
+class TxType;
+bool is_not_properly_concrete( const TxNode* node, const TxType* type );

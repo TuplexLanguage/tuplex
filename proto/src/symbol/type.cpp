@@ -229,7 +229,6 @@ void TxActualType::initialize_type() {
             auto pname = bindingDecl->get_unique_name();
             if ( auto paramDecl = semBaseType->get_type_param_decl( pname ) ) {
                 auto constraintType = paramDecl->get_definer()->resolve_type()->type();
-                ASSERT( constraintType, "NULL constraint type for param " << paramDecl << " of " << semBaseType );
                 //std::cerr << this << ": Constraint type for param " << paramDecl << ": " << "checking bound type "
                 //          << boundType << "\tagainst constraint type " << constraintType << std::endl;
 
@@ -583,9 +582,47 @@ bool TxActualType::is_dynamic() const {
 }
 
 bool TxActualType::is_generic_dependent() const {
-    if ( this->is_generic() )
+    if ( this->get_type_class() == TXTC_REFERENCE )
+        return false;
+
+    if ( this->is_generic_param() )
         return true;
-    return this->get_declaration()->get_definer()->context().is_generic();
+
+    const TxActualType* type = this;
+    while ( type->is_equivalent_derivation() )
+        type = type->get_base_type();
+
+    if ( type->is_generic() )  // TODO: evaluate whether ref-constrained params should not cause this to return true
+        return true;
+
+    bool genCtx = type->get_declaration()->get_definer()->context().is_generic();
+    if (genCtx) {
+        //if ( this->get_declaration()->get_unique_full_name().find( "tx.Array<$,13>0" ) != std::string::npos )
+        //std::cerr << "Has generic context: " << type << std::endl;
+        return true;
+    }
+
+    if ( type->is_generic_specialization() ) {
+        // a type that specializes a generic base type does not define new members - testing the non-ref bindings is sufficient
+        if ( type->nonRefBindings ) {
+            for ( auto bdecl : this->get_bindings() ) {
+                if ( auto typebdecl = dynamic_cast<const TxTypeDeclaration*>( bdecl ) ) {
+                    auto pname = bdecl->get_unique_name();
+                    auto paramDecl = this->genericBaseType->get_type_param_decl( pname );
+                    auto constraintType = paramDecl->get_definer()->resolve_type()->type();
+                    if ( constraintType->get_type_class() != TXTC_REFERENCE
+                         && typebdecl->get_definer()->qualtype()->type()->acttype()->is_generic_dependent() )
+                        return true;
+                }
+                else {
+                    // Note: Don't currently know how to determine whether the bound value is generic-dependent
+                    //       (parse the expression?)
+                }
+            }
+        }
+    }
+
+    return false;
 }
 
 bool TxActualType::is_empty_derivation() const {
@@ -1014,6 +1051,11 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
         }
     }
     else if ( this->get_type_class() == TXTC_REFERENCE || this->get_type_class() == TXTC_ARRAY ) {
+        if ( !this->get_bindings().empty() ) {
+            type_bindings_string( str, this->get_bindings() );
+        }
+    }
+    else {
         if ( !this->get_bindings().empty() ) {
             type_bindings_string( str, this->get_bindings() );
         }

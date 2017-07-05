@@ -200,6 +200,34 @@ void TxTypeDeclNode::declaration_pass() {
     this->typeExpression->set_declaration( declaration );
 }
 
+void TxTypeDeclNode::symbol_resolution_pass() {
+    if ( this->_builtinCode ) {
+        // the definer has been merged with the built-in type
+        return;
+    }
+    if ( this->typeParamDecls ) {
+        for ( auto paramDeclNode : *this->typeParamDecls )
+            paramDeclNode->symbol_resolution_pass();
+    }
+    try {
+        this->typeExpression->symbol_resolution_pass();
+    }
+    catch ( const resolution_error& err ) {
+        LOG( this->LOGGER(), DEBUG, "Caught resolution error in " << this->typeExpression << ": " << err );
+        return;
+    }
+    if (this->interfaceKW) {
+        if (this->typeExpression->qualtype()->get_type_class() != TXTC_INTERFACE)
+            CERROR(this, "Interface type cannot derive from non-interface type: " << this->typeExpression->qualtype());
+    }
+    else {
+        if (this->typeExpression->qualtype()->get_type_class() == TXTC_INTERFACE)
+            if ( !( this->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING | TXD_IMPLICIT ) ) )
+                 //&& !this->typeExpression->get_type()->is_modifiable() )
+                CWARNING(this, "Interface type not declared with 'interface' keyword: " << this->typeExpression->qualtype());
+    }
+}
+
 void TxExpErrDeclNode::declaration_pass() {
     this->lexContext.expErrCtx = this->expError;
     if ( this->body ) {
