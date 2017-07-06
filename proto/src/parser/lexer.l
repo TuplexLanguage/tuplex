@@ -1,4 +1,5 @@
 D			[0-9]
+A           [a-zA-Z]
 L			[a-zA-Z_]
 H			[a-fA-F0-9]
 E			[Ee][+-]?{D}+
@@ -194,7 +195,7 @@ extern "C" int yywrap() { return 0; }
 
 <STRINGFORMAT>{
  /* $[0-9]+           { yylval->build(std::string (yytext)); return token::SF_PARAM; } */
- /* [\-\+ 0#]+          { yylval->build(std::string (yytext)); return token::SF_FLAGS; } */
+ /* [\-\+ 0#]+        { yylval->build(std::string (yytext)); return token::SF_FLAGS; } */
 "-"                 { return token::SF_MINUS; }
 "+"                 { return token::SF_PLUS; }
 " "                 { return token::SF_SPACE; }
@@ -202,7 +203,7 @@ extern "C" int yywrap() { return 0; }
 "#"                 { return token::SF_HASH; }
 [1-9][0-9]*|\*      { yylval->build(std::string (yytext)); return token::SF_WIDTH; }
 \.([0-9]+|\*)       { yylval->build(std::string (yytext)); return token::SF_PREC; }
-[diufFeEgGxXoscaAb] { BEGIN(INITIAL); yylval->build(std::string (yytext)); return token::SF_TYPE; }
+{A}                 { BEGIN(INITIAL); yylval->build(std::string (yytext)); return token::SF_TYPE; } /* [xXoObBdiufFeEgGscaA] */
 .                   { BEGIN(INITIAL); yyless(0); yylloc->columns(-1); }
 }
 
