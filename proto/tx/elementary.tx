@@ -1,43 +1,43 @@
 module tx
 
 
-public builtin type ~ Elementary    derives Any implements Stringer, Formatter {
+builtin type ~ Elementary    derives Any implements Stringer, Formatter {
 }
 
-public builtin type ~ Scalar        derives Elementary {
+builtin type ~ Scalar        derives Elementary {
 }
 
-public builtin type ~ Integer       derives Scalar {
+builtin type ~ Integer       derives Scalar {
 }
 
-public builtin type ~ Signed        derives Integer {
+builtin type ~ Signed        derives Integer {
 }
 
-public builtin type ~ Unsigned      derives Integer {
+builtin type ~ Unsigned      derives Integer {
 }
 
-public builtin type ~ Floatingpoint derives Scalar {
+builtin type ~ Floatingpoint derives Scalar {
 }
 
 
-public builtin type ~ Byte          derives Signed implements Number<Byte>, Enumerable<Byte> {
+builtin type ~ Byte          derives Signed implements Number<Byte>, Enumerable<Byte> {
 
-    public static override MIN : Byte = -128_B;
-    public static override MAX : Byte =  127_B;
+    virtual override MIN : Byte = -128_B;
+    virtual override MAX : Byte =  127_B;
 
     /** returns the last (highest) ordinal for this type */
-    public static override last_ordinal() -> Ordinal {
+    virtual override last_ordinal() -> Ordinal {
         return 255_UB;
     }
 
     /** returns the value for the specified ordinal */
-    public static override value( ordinal: Ordinal ) -> Byte {
+    virtual override value( ordinal: Ordinal ) -> Byte {
         ##if ordinal > self.last_ordinal():  panic
         return Byte( ordinal - 128 );
     }
 
     /** returns the ordinal for this value */
-    public override ordinal() -> Ordinal {
+    override ordinal() -> Ordinal {
         return Ordinal( Long( self ) + 128 );
     }
 
@@ -50,24 +50,24 @@ public builtin type ~ Byte          derives Signed implements Number<Byte>, Enum
     }
 }
 
-public builtin type ~ Short         derives Signed implements Number<Short>, Enumerable<Short> {
+builtin type ~ Short         derives Signed implements Number<Short>, Enumerable<Short> {
 
-    public static override MIN : Short = -32768_S;
-    public static override MAX : Short =  32767_S;
+    virtual override MIN : Short = -32768_S;
+    virtual override MAX : Short =  32767_S;
 
     /** returns the last (highest) ordinal for this type */
-    public static override last_ordinal() -> Ordinal {
+    virtual override last_ordinal() -> Ordinal {
         return 65535_US;
     }
 
     /** returns the value for the specified ordinal */
-    public static override value( ordinal: Ordinal ) -> Short {
+    virtual override value( ordinal: Ordinal ) -> Short {
         ##if ordinal > self.last_ordinal():  panic
         return Short( ordinal - 32768 );
     }
 
     /** returns the ordinal for this value */
-    public override ordinal() -> Ordinal {
+    override ordinal() -> Ordinal {
         return Ordinal( Long( self ) + 32768 );
     }
 
@@ -80,24 +80,24 @@ public builtin type ~ Short         derives Signed implements Number<Short>, Enu
     }
 }
 
-public builtin type ~ Int           derives Signed implements Number<Int>, Enumerable<Int> {
+builtin type ~ Int           derives Signed implements Number<Int>, Enumerable<Int> {
 
-    public static override MIN : Int = -2147483648_I;
-    public static override MAX : Int =  2147483647_I;
+    virtual override MIN : Int = -2147483648_I;
+    virtual override MAX : Int =  2147483647_I;
 
     /** returns the last (highest) ordinal for this type */
-    public static override last_ordinal() -> Ordinal {
+    virtual override last_ordinal() -> Ordinal {
         return 4294967295_UI;
     }
 
     /** returns the value for the specified ordinal */
-    public static override value( ordinal: Ordinal ) -> Int {
+    virtual override value( ordinal: Ordinal ) -> Int {
         ##if ordinal > self.last_ordinal():  panic
         return Int( ordinal - 2147483648 );
     }
 
     /** returns the ordinal for this value */
-    public override ordinal() -> Ordinal {
+    override ordinal() -> Ordinal {
         return Ordinal( Long( self ) + 2147483648 );
     }
 
@@ -110,23 +110,23 @@ public builtin type ~ Int           derives Signed implements Number<Int>, Enume
     }
 }
 
-public builtin type ~ Long          derives Signed implements Number<Long>, Enumerable<Long> {
+builtin type ~ Long          derives Signed implements Number<Long>, Enumerable<Long> {
 
-    public static override MIN : Long = -9223372036854775808_L;
-    public static override MAX : Long =  9223372036854775807_L;
+    virtual override MIN : Long = -9223372036854775808_L;
+    virtual override MAX : Long =  9223372036854775807_L;
 
     /** returns the last (highest) ordinal for this type */
-    public static override last_ordinal() -> Ordinal {
+    virtual override last_ordinal() -> Ordinal {
         return 18446744073709551615_UL;
     }
 
     /** returns the value for the specified ordinal */
-    public static override value( ordinal: Ordinal ) -> Long {
+    virtual override value( ordinal: Ordinal ) -> Long {
         return Long( ordinal - 9223372036854775808 );
     }
 
     /** returns the ordinal for this value */
-    public override ordinal() -> Ordinal {
+    override ordinal() -> Ordinal {
         return Ordinal( self^ - -9223372036854775808 );
     }
 
@@ -140,24 +140,24 @@ public builtin type ~ Long          derives Signed implements Number<Long>, Enum
 }
 
 
-public builtin type ~ UByte          derives Unsigned implements Number<UByte>, Enumerable<UByte> {
+builtin type ~ UByte          derives Unsigned implements Number<UByte>, Enumerable<UByte> {
 
-    public static override MIN : UByte = 0_UB;
-    public static override MAX : UByte = 255_UB;
+    virtual override MIN : UByte = 0_UB;
+    virtual override MAX : UByte = 255_UB;
 
     /** returns the last (highest) ordinal for this type */
-    public static override last_ordinal() -> Ordinal {
+    virtual override last_ordinal() -> Ordinal {
         return 255_UB;
     }
 
     /** returns the value for the specified ordinal */
-    public static override value( ordinal: Ordinal ) -> UByte {
+    virtual override value( ordinal: Ordinal ) -> UByte {
         ##if ordinal > self.last_ordinal():  panic
         return UByte( ordinal );
     }
 
     /** returns the ordinal for this value */
-    public override ordinal() -> Ordinal {
+    override ordinal() -> Ordinal {
         return Ordinal( self );
     }
 
@@ -170,24 +170,24 @@ public builtin type ~ UByte          derives Unsigned implements Number<UByte>, 
     }
 }
 
-public builtin type ~ UShort         derives Unsigned implements Number<UShort>, Enumerable<UShort> {
+builtin type ~ UShort         derives Unsigned implements Number<UShort>, Enumerable<UShort> {
 
-    public static override MIN : UShort = 0_US;
-    public static override MAX : UShort = 65535_US;
+    virtual override MIN : UShort = 0_US;
+    virtual override MAX : UShort = 65535_US;
 
     /** returns the last (highest) ordinal for this type */
-    public static override last_ordinal() -> Ordinal {
+    virtual override last_ordinal() -> Ordinal {
         return 65535_US;
     }
 
     /** returns the value for the specified ordinal */
-    public static override value( ordinal: Ordinal ) -> UShort {
+    virtual override value( ordinal: Ordinal ) -> UShort {
         ##if ordinal > self.last_ordinal():  panic
         return UShort( ordinal );
     }
 
     /** returns the ordinal for this value */
-    public override ordinal() -> Ordinal {
+    override ordinal() -> Ordinal {
         return Ordinal( self );
     }
 
@@ -200,24 +200,24 @@ public builtin type ~ UShort         derives Unsigned implements Number<UShort>,
     }
 }
 
-public builtin type ~ UInt           derives Unsigned implements Number<UInt>, Enumerable<UInt> {
+builtin type ~ UInt           derives Unsigned implements Number<UInt>, Enumerable<UInt> {
 
-    public static override MIN : UInt = 0_UI;
-    public static override MAX : UInt = 4294967295_UI;
+    virtual override MIN : UInt = 0_UI;
+    virtual override MAX : UInt = 4294967295_UI;
 
     /** returns the last (highest) ordinal for this type */
-    public static override last_ordinal() -> Ordinal {
+    virtual override last_ordinal() -> Ordinal {
         ##if ordinal > self.last_ordinal():  panic
         return 4294967295_UI;
     }
 
     /** returns the value for the specified ordinal */
-    public static override value( ordinal: Ordinal ) -> UInt {
+    virtual override value( ordinal: Ordinal ) -> UInt {
         return UInt( ordinal );
     }
 
     /** returns the ordinal for this value */
-    public override ordinal() -> Ordinal {
+    override ordinal() -> Ordinal {
         return Ordinal( self );
     }
 
@@ -230,23 +230,23 @@ public builtin type ~ UInt           derives Unsigned implements Number<UInt>, E
     }
 }
 
-public builtin type ~ ULong          derives Unsigned implements Number<ULong>, Enumerable<ULong> {
+builtin type ~ ULong          derives Unsigned implements Number<ULong>, Enumerable<ULong> {
 
-    public static override MIN : ULong = 0_UL;
-    public static override MAX : ULong = 18446744073709551615_UL;
+    virtual override MIN : ULong = 0_UL;
+    virtual override MAX : ULong = 18446744073709551615_UL;
 
     /** returns the last (highest) ordinal for this type */
-    public static override last_ordinal() -> Ordinal {
+    virtual override last_ordinal() -> Ordinal {
         return 18446744073709551615_UL;
     }
 
     /** returns the value for the specified ordinal */
-    public static override value( ordinal: Ordinal ) -> ULong {
+    virtual override value( ordinal: Ordinal ) -> ULong {
         return ULong( ordinal );
     }
 
     /** returns the ordinal for this value */
-    public override ordinal() -> Ordinal {
+    override ordinal() -> Ordinal {
         return Ordinal( self );
     }
 
@@ -260,10 +260,10 @@ public builtin type ~ ULong          derives Unsigned implements Number<ULong>, 
 }
 
 
-public builtin type ~ Half          derives Floatingpoint implements Number<Half> {
+builtin type ~ Half          derives Floatingpoint implements Number<Half> {
 
-    public static override MIN : Half = -65503.0;
-    public static override MAX : Half = 65503.0;
+    virtual override MIN : Half = -65503.0;
+    virtual override MAX : Half = 65503.0;
 
     override string( writer : &~tx.ByteWriter ) {
         ##to_string( writer, self );
@@ -275,7 +275,7 @@ public builtin type ~ Half          derives Floatingpoint implements Number<Half
 }
 
 
-public builtin type ~ Float         derives Floatingpoint {
+builtin type ~ Float         derives Floatingpoint {
 
     override string( writer : &~tx.ByteWriter ) {
         to_string( writer, self );
@@ -287,7 +287,7 @@ public builtin type ~ Float         derives Floatingpoint {
 }
 
 
-public builtin type ~ Double        derives Floatingpoint {
+builtin type ~ Double        derives Floatingpoint {
 
     override string( writer : &~tx.ByteWriter ) {
         to_string( writer, self );
@@ -299,19 +299,19 @@ public builtin type ~ Double        derives Floatingpoint {
 }
 
 
-public builtin type ~ Bool          derives Elementary implements Enumerable<Bool> {
+builtin type ~ Bool          derives Elementary implements Enumerable<Bool> {
     /** returns the last (highest) ordinal for this type */
-    public static override last_ordinal() -> Ordinal {
+    virtual override last_ordinal() -> Ordinal {
         return 1;
     }
 
     /** returns the value for the specified ordinal */
-    public static override value( ordinal: Ordinal ) -> Bool {
+    virtual override value( ordinal: Ordinal ) -> Bool {
         return Bool( ordinal );
     }
 
     /** returns the ordinal for this value */
-    public override ordinal() -> Ordinal {
+    override ordinal() -> Ordinal {
         return Ordinal( self );
     }
 

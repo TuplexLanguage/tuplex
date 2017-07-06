@@ -30,7 +30,7 @@ interface ByteReader {
 
 
 /** A growable UByte array. */
-public type ~ GrowableUByteArray implements ByteWriter {
+type ~ GrowableUByteArray implements ByteWriter {
     ## FUTURE: Implement same interfaces as Array
     ## FUTURE: Generalize on element type when we can author Writer<E> (requires the modifiability refactoring)
 
@@ -59,7 +59,7 @@ public type ~ GrowableUByteArray implements ByteWriter {
         return arr.L;
     }
 
-    public add( val : UByte ) ~ -> Bool {
+    add( val : UByte ) ~ -> Bool {
         self.write( [ val ] );
         return TRUE;
     }

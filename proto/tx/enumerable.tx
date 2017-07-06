@@ -2,12 +2,12 @@ module tx
 
 
 /** The type of ordinals as used by enumerables. */
-public type ~ Ordinal : ULong;
+type ~ Ordinal : ULong;
 
 
-public interface Enumerable< E derives Enumerable<E> > : Comparable< E > {
+interface Enumerable< E derives Enumerable<E> > : Comparable< E > {
 
-    public override compare( other : E ) -> Int {
+    override compare( other : E ) -> Int {
         so := self.ordinal();
         oo := other.ordinal();
         if so < oo:  return -1; 
@@ -16,22 +16,22 @@ public interface Enumerable< E derives Enumerable<E> > : Comparable< E > {
     }
 
 /*
-    public static first() -> E {
+    virtual first() -> E {
         return E.value( 0 );
     }
 
-    public static last() -> E {
+    virtual last() -> E {
         return E.value( E.limit()-1 );
     }
 */
 
     /** returns the last (highest) ordinal for this type */
-    public static abstract last_ordinal() -> Ordinal;
+    virtual abstract last_ordinal() -> Ordinal;
 
     /** returns the value for the specified ordinal (panics upon out-of-bounds) */
-    public static abstract value( ordinal : Ordinal ) -> E;
+    virtual abstract value( ordinal : Ordinal ) -> E;
 
 
     /** returns the ordinal for this value */
-    public abstract ordinal() -> Ordinal;
+    abstract ordinal() -> Ordinal;
 }

@@ -1,8 +1,8 @@
 module tx
 
 
-public interface Number<N derives Number<N>> {
-    public static abstract MAX : N;
+interface Number<N derives Number<N>> {
+    virtual abstract MAX : N;
 
-    public static abstract MIN : N;
+    virtual abstract MIN : N;
 }

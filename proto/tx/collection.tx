@@ -1,17 +1,17 @@
 module tx
 
 
-public interface Collection<E> derives Sequenceable<E>
+interface Collection<E> derives Sequenceable<E>
 {
-    public abstract empty() -> Bool;
+    abstract empty() -> Bool;
 
-    public abstract count() -> ULong;
+    abstract count() -> ULong;
 
-    public abstract capacity() -> ULong;
+    abstract capacity() -> ULong;
 
-    public abstract clear() ~;
+    abstract clear() ~;
 
-    public abstract contains( val : E ) -> Bool;
+    abstract contains( val : E ) -> Bool;
 
-    public abstract add( val : E ) ~ -> Bool;
+    abstract add( val : E ) ~ -> Bool;
 }

@@ -30,10 +30,10 @@
 
 ## an abstract (non-interface) type can have both abstract and concrete members:
 abstract type AbstractType derives Tuple {
-    public static foo : Int = 2;
-    public static abstract bar : Int;
-    #experr 1: public static abstract bad : Int = 3;  ## can't specify initializer for abstract field
-    #experr 3: static abstract mac : Int;             ## 'abstract' fields cannot be private (since private are non-virtual)
+    public virtual foo : Int = 2;
+    public virtual abstract bar : Int;
+    #experr 1: public virtual abstract bad : Int = 3;  ## can't specify initializer for abstract field
+    ## currently don't have private: #experr 3: virtual abstract mac : Int;  ## 'abstract' fields cannot be private (since private are non-virtual)
     
     public instanceField : Int;
     #experr: public abstract abstrInstanceField : Int;  ## instance fields can't be abstract
@@ -50,10 +50,10 @@ abstract type AbstractType derives Tuple {
 
 ## a concrete type can't have abstract members:
 type ConcreteType derives Tuple {
-    public static foo : Int = 2;
-    #experr 1: public static abstract bar : Int;      ## a concrete type can't have abstract members
-    #experr 2: public static abstract bad : Int = 3;  ## can't specify initializer for abstract field
-    #experr 3: static abstract mac : Int;             ## 'abstract' fields cannot be private (since private are non-virtual)
+    public virtual foo : Int = 2;
+    #experr 1: public virtual abstract bar : Int;      ## a concrete type can't have abstract members
+    #experr 2: public virtual abstract bad : Int = 3;  ## can't specify initializer for abstract field
+    ## currently don't have private: #experr 3: virtual abstract mac : Int;   ## 'abstract' fields cannot be private (since private are non-virtual)
 
     public instanceField : Int;
     #experr: public abstract abstrInstanceField : Int;  ## instance fields can't be abstract
@@ -77,7 +77,7 @@ interface IntfA {
     public mixin_method_2()->Int { return 2; }
 
     #experr 1: instField : Int;  ## interface can't have instance members
-    public static ifField : Int = 17;
+    public virtual ifField : Int = 17;
 }
 
 type Type derives Tuple implements IntfA {

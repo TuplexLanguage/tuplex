@@ -18,7 +18,7 @@ void TxFieldDeclNode::declaration_pass() {
         outerTypeDecl = entitySymbol->get_type_decl();
 
     if ( this->isMethodSyntax && outerTypeDecl ) {
-        // Note: instance method storage is handled specially (technically the function pointer is a static field)
+        // Note: instance method storage is handled specially (technically the function pointer is a virtual/static field)
 
         TxLambdaExprNode* lambdaExpr = nullptr;
         if ( auto initExpr = dynamic_cast<TxMaybeConversionNode*>( field->initExpression ) )
@@ -27,8 +27,8 @@ void TxFieldDeclNode::declaration_pass() {
         if ( !lambdaExpr && !( flags & TXD_ABSTRACT ) )
             CERROR( this, "Missing modifier 'abstract' for method that has no body" );
 
-        if ( flags & TXD_STATIC ) {
-            storage = TXS_STATIC;
+        if ( flags & TXD_VIRTUAL ) {
+            storage = TXS_VIRTUAL;
         }
         else {
             if ( lambdaExpr )
@@ -37,8 +37,8 @@ void TxFieldDeclNode::declaration_pass() {
         }
     }
     else if ( dynamic_cast<TxModule*>( lexContext.scope() ) ) {  // if in global scope
-        if ( flags & TXD_STATIC )
-            CERROR( this, "'static' is invalid modifier for module scope field " << this->field->get_descriptor() );
+        if ( flags & TXD_VIRTUAL )
+            CERROR( this, "'virtual' is invalid modifier for module scope field " << this->field->get_descriptor() );
         if ( flags & TXD_FINAL )
             CERROR( this, "'final' is invalid modifier for module scope field " << this->field->get_descriptor() );
         if ( flags & TXD_OVERRIDE )
@@ -49,20 +49,21 @@ void TxFieldDeclNode::declaration_pass() {
     }
     else {
         if ( flags & TXD_ABSTRACT ) {
-            if ( !( flags & TXD_STATIC ) )
-                CERROR( this, "'abstract' fields must also be declared 'static': " << this->field->get_descriptor() );
+            if ( !( flags & TXD_VIRTUAL ) )
+                CERROR( this, "'abstract' fields must also be declared 'virtual': " << this->field->get_descriptor() );
             if ( !( flags & ( TXD_PROTECTED | TXD_PUBLIC ) ) )
                 CERROR( this, "'abstract' fields cannot be private (since private are non-virtual): " << this->field->get_descriptor() );
         }
-        storage = ( flags & TXD_STATIC ) ? TXS_STATIC : TXS_INSTANCE;
+        storage = ( flags & TXD_VIRTUAL ) ? TXS_VIRTUAL : TXS_INSTANCE;
     }
 
-    // TXS_STATIC may be changed to TXS_VIRTUAL depending on context:
-    if ( storage == TXS_STATIC
-         && ( flags & ( TXD_PUBLIC | TXD_PROTECTED ) )          // private fields are non-virtual
-         && !( flags & TXD_INITIALIZER )                        // initializers are static
-         && ( ( flags & ( TXD_OVERRIDE | TXD_FINAL ) ) != TXD_FINAL ) ) { // if final but doesn't override, its effectively non-virtual
-        storage = TXS_VIRTUAL;
+    // TXS_VIRTUAL may be changed to TXS_STATIC depending on context:
+    if ( storage == TXS_VIRTUAL
+         && ( !( flags & ( TXD_PUBLIC | TXD_PROTECTED ) )          // private fields are static
+              || ( flags & TXD_INITIALIZER )                       // initializers are static
+              || ( ( flags & ( TXD_OVERRIDE | TXD_FINAL ) ) == TXD_FINAL ) // if final but doesn't override, its effectively static
+         ) ) {
+        storage = TXS_STATIC;
     }
 
     std::string declName = this->field->fieldName->str();

@@ -125,7 +125,7 @@ YY_DECL;
 
 /* keywords: */
 %token KW_MODULE KW_IMPORT KW_TYPE KW_INTERFACE
-%token KW_PUBLIC KW_PROTECTED KW_STATIC KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERN
+%token KW_PUBLIC KW_PROTECTED KW_VIRTUAL KW_STATIC KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERN
 %token KW_MODIFIABLE KW_REFERENCE KW_DERIVES KW_IMPLEMENTS
 %token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_XOR
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE KW_FROM
@@ -147,7 +147,7 @@ YY_DECL;
 %type <TxIdentifier*> compound_identifier import_identifier 
 %type <TxIdentifier*> opt_module_decl opt_dataspace
 
-%type <TxDeclarationFlags> declaration_flags opt_visibility opt_extern opt_static opt_abstract opt_override opt_final opt_builtin
+%type <TxDeclarationFlags> declaration_flags opt_visibility opt_extern opt_virtual opt_abstract opt_override opt_final opt_builtin
 %type <bool> opt_modifiable type_or_if
 %type <TxParsingUnitNode*> parsing_unit
 %type <TxModuleNode*> sub_module
@@ -318,7 +318,7 @@ experr_decl : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErro
             ;
 
 
-declaration_flags : opt_visibility opt_builtin opt_extern opt_static opt_abstract opt_override opt_final  { $$ = ($1 | $2 | $3 | $4 | $5 | $6 | $7); } ;
+declaration_flags : opt_visibility opt_builtin opt_extern opt_virtual opt_abstract opt_override opt_final  { $$ = ($1 | $2 | $3 | $4 | $5 | $6 | $7); } ;
 
 opt_visibility : %empty        { $$ = TXD_NONE; }
                | KW_PUBLIC     { $$ = TXD_PUBLIC; }
@@ -326,7 +326,7 @@ opt_visibility : %empty        { $$ = TXD_NONE; }
                ;
 opt_builtin    : %empty { $$ = TXD_NONE; } | KW_BUILTIN  { $$ = TXD_BUILTIN;  } ;
 opt_extern     : %empty { $$ = TXD_NONE; } | KW_EXTERN   { $$ = TXD_EXTERN;   } ;
-opt_static     : %empty { $$ = TXD_NONE; } | KW_STATIC   { $$ = TXD_STATIC;   } ;
+opt_virtual    : %empty { $$ = TXD_NONE; } | KW_VIRTUAL  { $$ = TXD_VIRTUAL;  } ;
 opt_abstract   : %empty { $$ = TXD_NONE; } | KW_ABSTRACT { $$ = TXD_ABSTRACT; } ;
 opt_override   : %empty { $$ = TXD_NONE; } | KW_OVERRIDE { $$ = TXD_OVERRIDE; } ;
 opt_final      : %empty { $$ = TXD_NONE; } | KW_FINAL    { $$ = TXD_FINAL;    } ;

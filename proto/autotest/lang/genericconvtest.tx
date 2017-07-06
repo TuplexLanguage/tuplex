@@ -1,20 +1,20 @@
 
 public abstract interface Enumerable< E derives Enumerable<E> > {
     /** returns the last (highest) ordinal for this type */
-    public static abstract last_ordinal() -> UInt;
+    public virtual abstract last_ordinal() -> UInt;
 
     /** returns the value for the specified ordinal (panics upon out-of-bounds) */
-    public static abstract value( ordinal: UInt ) -> E;
+    public virtual abstract value( ordinal: UInt ) -> E;
 
     /** returns the ordinal for this value */
     public abstract ordinal() -> UInt;
 
 
-    public static first() -> E {
+    public virtual first() -> E {
         return E.value( 0 );
     }
 
-    public static last() -> E {
+    public virtual last() -> E {
         return E.value( E.last_ordinal() );
     }
 }

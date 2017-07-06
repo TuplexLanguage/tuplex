@@ -1,25 +1,25 @@
 module tx
 
 
-public builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, Updatable<UInt, E>
+builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, Updatable<UInt, E>
 {
-    public override empty() -> Bool {
+    override empty() -> Bool {
         return self.L == 0;
     }
 
-    public override count() -> Ordinal {
+    override count() -> Ordinal {
         return self.L;
     }
 
-    public override capacity() -> Ordinal {
+    override capacity() -> Ordinal {
         return self.C;
     }
 
-    public override clear() ~ {
+    override clear() ~ {
         ## TODO: needs to be a built-in primitive?
     }
 
-    public override contains( val : E ) -> Bool {
+    override contains( val : E ) -> Bool {
 /* TODO: requires equals() or similar in Any
         for i in 0..self.L-1 {
             if self[i] == val:
@@ -29,32 +29,32 @@ public builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, U
         return FALSE;
     }
 
-    public override add( val : E ) ~ -> Bool {
+    override add( val : E ) ~ -> Bool {
         self[ self.L ] = val;
         return TRUE;
     }
 
 
 
-    public override sequencer() -> Ref< ~Iterator< E > > {
+    override sequencer() -> Ref< ~Iterator< E > > {
         return new ~ArrayIterator( self );
     }
 
-    public override has( ix : UInt ) -> Bool {
+    override has( ix : UInt ) -> Bool {
         return ix < self.L;
     }
 
-    public override get( ix : UInt ) -> E {
+    override get( ix : UInt ) -> E {
         return self[ ix ];  ## (bounds check is built-in)
     }
 
-    public override set( ix : UInt, element : E ) ~ -> E {
+    override set( ix : UInt, element : E ) ~ -> E {
         prev := self[ ix ];
         self[ ix ] = element;
         return prev;
     }
 
-    public override swap( ixA : UInt, ixB : UInt ) ~ {
+    override swap( ixA : UInt, ixB : UInt ) ~ {
         tmp := self[ ixA ];
         self[ ixA ] = self[ ixB ];
         self[ ixB ] = tmp;
@@ -62,34 +62,34 @@ public builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, U
 
 
 
-    public type ~ ArrayIterator implements Iterator< E > {
+    type ~ ArrayIterator implements Iterator< E > {
         array     : &Array<E>;
         nextIndex : ~UInt;
 
-        public self( array : &Array<E> ) {
+        self( array : &Array<E> ) {
             self.array = array;
             self.nextIndex = 0;
         }
 
-        public override sequencer() ~ -> Ref< ~ArrayIterator > {
+        override sequencer() ~ -> Ref< ~ArrayIterator > {
             return self;
         }
 
-        public override has_next() -> Bool {
+        override has_next() -> Bool {
             return self.nextIndex < self.array.L;
         }
     
-        public override has_prev() -> Bool {
+        override has_prev() -> Bool {
             return self.nextIndex > 0;
         }
 
-        public override next() ~ -> E {
+        override next() ~ -> E {
             n := self.nextIndex;
             self.nextIndex = self.nextIndex + 1;
             return self.array[ n ];
         }
 
-        public override prev() ~ -> E  {
+        override prev() ~ -> E  {
             self.nextIndex = self.nextIndex - 1;
             return self.array[ self.nextIndex ];
         }

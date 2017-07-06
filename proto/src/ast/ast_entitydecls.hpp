@@ -17,6 +17,8 @@ class TxDeclarationNode : public TxNode {
 public:
     TxDeclarationNode( const TxLocation& ploc, const TxDeclarationFlags declFlags )
             : TxNode( ploc ), declFlags( declFlags ) {
+        if ( !( declFlags & TXD_PROTECTED ) )
+            this->declFlags |= TXD_PUBLIC;  // public is currently the default
     }
 
     virtual TxDeclarationNode* make_ast_copy() const override = 0;

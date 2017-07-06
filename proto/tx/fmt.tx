@@ -27,11 +27,11 @@ type MultiStringer implements Stringer {
 
 
 type StringFormat {
-    static FLAG_MINUS : UByte = 1;
-    static FLAG_PLUS  : UByte = 2;
-    static FLAG_SPACE : UByte = 4;
-    static FLAG_ZERO  : UByte = 8;
-    static FLAG_HASH  : UByte = 16;
+    virtual final FLAG_MINUS : UByte = 1;
+    virtual final FLAG_PLUS  : UByte = 2;
+    virtual final FLAG_SPACE : UByte = 4;
+    virtual final FLAG_ZERO  : UByte = 8;
+    virtual final FLAG_HASH  : UByte = 16;
 
     flags     : UByte;
     width     : UInt;

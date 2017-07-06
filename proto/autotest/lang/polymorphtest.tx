@@ -4,8 +4,8 @@ puts(cstr : &[]UByte) {
 }
 
 type ~ AType derives Tuple {
-    public static SFIELD := 41;
-    public static SFIELD2 := 2.72;
+    public virtual SFIELD := 41;
+    public virtual SFIELD2 := 2.72;
     field1 : ~Long;
     field2 : ~Float;
 
@@ -32,8 +32,8 @@ type ~ AType derives Tuple {
 }
 
 type ~ BType derives AType {
-    public static override SFIELD := 42;
-    public static override SFIELD2 := 3.14;
+    public virtual override SFIELD := 42;
+    public virtual override SFIELD2 := 3.14;
     field1 : ~Long;
     field2 : ~Float;
 
@@ -61,7 +61,7 @@ type ~ BType derives AType {
         return super.multimethod( a ) * 3;
     }
 
-    #experr: static override multimethod : Bool;
+    #experr: virtual override multimethod : Bool;
     */
 }
 

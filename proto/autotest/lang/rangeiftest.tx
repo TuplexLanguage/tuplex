@@ -5,7 +5,7 @@ public interface Comparable< E > derives Interface {
 
 public interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
 
-    public static abstract value( ordinal: ULong ) -> E;
+    public virtual abstract value( ordinal: ULong ) -> E;
 
     public abstract ordinal() -> ULong;
 
@@ -22,7 +22,7 @@ public interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
 }
 
 public type MyUInt implements Enumerable< MyUInt > {
-    public static override value( ordinal: ULong ) -> MyUInt {
+    public virtual override value( ordinal: ULong ) -> MyUInt {
         return MyUInt( UInt( ordinal ) );
     }
 

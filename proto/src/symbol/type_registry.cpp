@@ -19,7 +19,7 @@
 
 
 /** the flags that may be inherited when specializing a type */
-static const TxDeclarationFlags DECL_FLAG_FILTER = TXD_STATIC | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_FINAL | TXD_IMPLICIT
+static const TxDeclarationFlags DECL_FLAG_FILTER = TXD_VIRTUAL | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_FINAL | TXD_IMPLICIT
                                                    | TXD_EXPERRBLOCK;
 
 Logger& TypeRegistry::_LOG = Logger::get( "REGISTRY" );
@@ -723,7 +723,7 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
     run_declaration_pass( adapterDeclNode, adapterCtx );
     {   // override the adaptee type id virtual field member:
         // TODO: instead pass this as param decl node to adapterDeclNode
-        TxDeclarationFlags fieldDeclFlags = TXD_PUBLIC | TXD_STATIC | TXD_OVERRIDE | TXD_IMPLICIT;
+        TxDeclarationFlags fieldDeclFlags = TXD_PUBLIC | TXD_VIRTUAL | TXD_OVERRIDE | TXD_IMPLICIT;
         auto fieldDecl = new TxFieldDeclNode( loc, fieldDeclFlags,
                                               new TxFieldDefNode( loc, "$adTypeId", new TxNamedTypeNode( loc, "tx.UInt" ), nullptr ) );
         LexicalContext ctx( adapterCtx, adapterDeclNode->get_declaration()->get_symbol() );

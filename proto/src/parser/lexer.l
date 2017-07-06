@@ -130,6 +130,7 @@ extern "C" int yywrap() { return 0; }
 "import"	{ return token::KW_IMPORT; }
 "public"	{ return token::KW_PUBLIC; }
 "protected"	{ return token::KW_PROTECTED; }
+"virtual"   { return token::KW_VIRTUAL; }
 "static"	{ return token::KW_STATIC; }
 "extern"    { return token::KW_EXTERN; }
 "type"		{ return token::KW_TYPE; }

@@ -2,25 +2,25 @@ module tx
 
 
 /** A UTF-32 character. */
-public type Char : UInt {
+type Char : UInt {
 }
 
 
-public type String implements Sequenceable< Char >, Stringer, Formatter {
+type String implements Sequenceable< Char >, Stringer, Formatter {
     type ~ StringSequencer implements Sequencer< Char > {
         string    : &String;
         nextIndex : ~UInt;
 
-        public self( string  : &String ) {
+        self( string  : &String ) {
             self.string = string;
             self.nextIndex = 0;
         }
 
-        public override has_next() -> Bool {
+        override has_next() -> Bool {
             return self.nextIndex < self.string._bytes.L;
         }
 
-        public override next() ~ -> Char {
+        override next() ~ -> Char {
             return utf8_to_utf32( self.string._bytes, &self.nextIndex );
         }
     }
@@ -70,7 +70,7 @@ public type String implements Sequenceable< Char >, Stringer, Formatter {
     }
 
 
-    public override sequencer() -> Ref< ~Sequencer< Char > > {
+    override sequencer() -> Ref< ~Sequencer< Char > > {
         return new ~StringSequencer( self );
     }
 

@@ -556,7 +556,7 @@ static TxTypeDeclNode* make_builtin_floating( const TxLocation& parseLoc, Builti
 
 static TxFieldDeclNode* make_default_initializer( const TxLocation& loc, BuiltinTypeId toTypeId, TxExpressionNode* initializerExpr ) {
     auto toTypeNode = new TxNamedTypeNode( loc, BUILTIN_TYPE_NAMES[toTypeId] );
-    return new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
+    return new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_BUILTIN | TXD_INITIALIZER,
                                 new TxFieldDefNode( loc, CONSTR_IDENT,
                                                     new TxDefConstructorTypeDefNode( loc, toTypeNode, initializerExpr ),
                                                     nullptr ),  // no function body, initialization is inlined
@@ -567,7 +567,7 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
     auto toTypeNode = new TxNamedTypeNode( loc, BUILTIN_TYPE_NAMES[toTypeId] );
     auto fromTypeNode = new TxNamedTypeNode( loc, BUILTIN_TYPE_NAMES[fromTypeId] );
     return new TxFieldDeclNode(
-            loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
+            loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_BUILTIN | TXD_INITIALIZER,
             new TxFieldDefNode( loc, CONSTR_IDENT,
                                 new TxConvConstructorTypeDefNode( loc, new TxArgTypeDefNode( loc, "arg", fromTypeNode ), toTypeNode ),
                                 nullptr ),  // no function body, initialization is inlined
@@ -579,7 +579,7 @@ static std::vector<TxDeclarationNode*> make_array_constructors( const TxLocation
     {
         auto argNode = new TxArgTypeDefNode( loc, "val", new TxNamedTypeNode( loc, "Self" ) );
         auto returnTypeNode = new TxNamedTypeNode( loc, "Self" );
-        constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
+        constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_BUILTIN | TXD_INITIALIZER,
                                                      new TxFieldDefNode( loc, CONSTR_IDENT,
                                                                          new TxArrayConstructorTypeDefNode( loc, argNode, returnTypeNode ),
                                                                          nullptr ),  // no function body, initialization is inlined
@@ -588,7 +588,7 @@ static std::vector<TxDeclarationNode*> make_array_constructors( const TxLocation
     {
         auto returnTypeNode = new TxNamedTypeNode( loc, "Self" );
         auto initExprNode = new TxUnfilledArrayLitNode( loc, new TxNamedTypeNode( loc, "Self" ) );
-        constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_STATIC | TXD_BUILTIN | TXD_INITIALIZER,
+        constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_BUILTIN | TXD_INITIALIZER,
                                                      new TxFieldDefNode( loc, CONSTR_IDENT,
                                                                          new TxDefConstructorTypeDefNode( loc, returnTypeNode, initExprNode ),
                                                                          nullptr ),  // no function body, initialization is inlined
@@ -717,7 +717,7 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     // create the interface base type:
     {
         // the adaptee type id virtual field member, which is abstract here but concrete in adapter subtypes:
-        const TxDeclarationFlags adapteeIdFieldFlags = TXD_PUBLIC | TXD_BUILTIN | TXD_STATIC | TXD_ABSTRACT | TXD_IMPLICIT;
+        const TxDeclarationFlags adapteeIdFieldFlags = TXD_PUBLIC | TXD_BUILTIN | TXD_VIRTUAL | TXD_ABSTRACT | TXD_IMPLICIT;
         auto adapteeIdFType = new TxNamedTypeNode( loc, "UInt" );
         auto adapteeIdField = new TxFieldDefNode( loc, "$adTypeId", adapteeIdFType, nullptr );
         auto adapteeIdFDecl = new TxFieldDeclNode( loc, adapteeIdFieldFlags, adapteeIdField );

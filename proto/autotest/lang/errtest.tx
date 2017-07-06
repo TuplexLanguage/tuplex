@@ -15,13 +15,13 @@ CONSTANT := 42;
     public self( f : Float ) {
         self.instfield = f;
     }
-    static FOO : Int = 2.73;  ## bad type conversion
-    static BAR := 7  ## missing semicolon
+    virtual FOO : Int = 2.73;  ## bad type conversion
+    virtual BAR := 7  ## missing semicolon
 }
 
 #experr 1: type BadType3 derives UnknownType {
-    static good := 21;
-    static found := 22;
+    virtual good := 21;
+    virtual found := 22;
 }
 
 type OkType derives Tuple {
@@ -30,11 +30,11 @@ type OkType derives Tuple {
         #experr: super();
         self.instfield = f;
     }
-    static good := 14;
-    #experr 1: static FOO : Int = 2.73;  ## bad type conversion
-    #experr 1: static BAR := 7  ## missing semicolon
-    static missed := 17;
-    static found := 18;
+    virtual good := 14;
+    #experr 1: virtual FOO : Int = 2.73;  ## bad type conversion
+    #experr 1: virtual BAR := 7  ## missing semicolon
+    virtual missed := 17;
+    virtual found := 18;
 }
 
 #experr: bad_func1();

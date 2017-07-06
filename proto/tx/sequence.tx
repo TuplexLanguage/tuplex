@@ -4,18 +4,18 @@ module tx
 
 /** A sequenceable object supports step-wise single direction traversal of its contained elements.
  */
-public interface Sequenceable< E > derives Interface {
+interface Sequenceable< E > derives Interface {
     
-    public abstract sequencer() -> Ref< ~Sequencer< E > >;
+    abstract sequencer() -> Ref< ~Sequencer< E > >;
 }
 
 
 
 /** An iterable sequence supports step-wise forward and backward traversal.
  */
-public interface Iterable< E > derives Sequenceable< E > {
+interface Iterable< E > derives Sequenceable< E > {
 
-    public abstract override sequencer() -> Ref< ~Iterator< E > >;
+    abstract override sequencer() -> Ref< ~Iterator< E > >;
 }
 
 
@@ -23,46 +23,46 @@ public interface Iterable< E > derives Sequenceable< E > {
 /** An indicable sequence is finite and supports random-access.
  * Sequences, sets, and maps are Indicable.
  */
-public interface Indicable< K, E > derives Iterable< E > {
+interface Indicable< K, E > derives Iterable< E > {
 
-    public abstract count() -> Ordinal;
+    abstract count() -> Ordinal;
 
-    public abstract has( key : K ) -> Bool;
+    abstract has( key : K ) -> Bool;
 
-    public abstract get( key : K ) -> E;
+    abstract get( key : K ) -> E;
 }
 
 /** A modifiable Indicable. */
-public interface Updatable< K, E > derives Indicable< K, E > {
+interface Updatable< K, E > derives Indicable< K, E > {
 
     /** Sets the element at the slot identified by key. Returns the replaced element. */
-    public abstract set( key : K, element : E ) mod -> E;
+    abstract set( key : K, element : E ) mod -> E;
 
     /** Swaps two elements, putting each in the slot previously occupied by the other. */
-    public abstract swap( keyA : K, keyB : K ) mod;
+    abstract swap( keyA : K, keyB : K ) mod;
 }
 
 
 
-public interface Sequencer< E > derives Sequenceable< E > {
+interface Sequencer< E > derives Sequenceable< E > {
 
-    public override sequencer() ~ -> Ref< ~Sequencer< E > > { return self; }
+    override sequencer() ~ -> Ref< ~Sequencer< E > > { return self; }
 
-    public abstract has_next() -> Bool;
+    abstract has_next() -> Bool;
 
-    public abstract next() ~ -> E;
+    abstract next() ~ -> E;
 }
 
 
 
-public interface Iterator< E > derives Sequencer< E > {
+interface Iterator< E > derives Sequencer< E > {
 
-    public override sequencer() ~ -> Ref< ~Iterator< E > > { return self; }
+    override sequencer() ~ -> Ref< ~Iterator< E > > { return self; }
 
-    public abstract has_prev() -> Bool;
+    abstract has_prev() -> Bool;
 
-    public abstract prev() ~ -> E;
+    abstract prev() ~ -> E;
 
 ##    /** Replaces the value returned by the most-recent call to next() / prev(). Returns the replaced element. */
-##    public abstract set( element : E ) -> E;
+##    abstract set( element : E ) -> E;
 }

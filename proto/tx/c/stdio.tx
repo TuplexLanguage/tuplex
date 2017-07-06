@@ -3,19 +3,19 @@
 module tx.c
 
 
-public fopen( name : Ref<UByte>, mode : Ref<UByte> ) -> ULong {
+fopen( name : Ref<UByte>, mode : Ref<UByte> ) -> ULong {
     return 1;
 }
 
-public fclose( file : ULong ) -> Int {
+fclose( file : ULong ) -> Int {
     return 0;
 }
 
-public fwrite( buffer : Ref<UByte>, size : ULong, count : ULong, file : ULong ) -> ULong {
+fwrite( buffer : Ref<UByte>, size : ULong, count : ULong, file : ULong ) -> ULong {
     puts( buffer );
     return count;
 }
 
-public fread( buffer : Ref<~UByte>, size : ULong, count : ULong, file : ULong ) -> ULong {
+fread( buffer : Ref<~UByte>, size : ULong, count : ULong, file : ULong ) -> ULong {
     return 0;
 }

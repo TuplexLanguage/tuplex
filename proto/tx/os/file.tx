@@ -4,10 +4,10 @@ import tx.String
 
 
 type ~ File implements tx.ByteWriter, tx.ByteReader {
-    static STATE_UNOPEN : UByte = 0;
-    static STATE_ERROR  : UByte = 1;
-    static STATE_OPEN   : UByte = 2;
-    static STATE_CLOSED : UByte = 3;
+    virtual final STATE_UNOPEN : UByte = 0;
+    virtual final STATE_ERROR  : UByte = 1;
+    virtual final STATE_OPEN   : UByte = 2;
+    virtual final STATE_CLOSED : UByte = 3;
 
     _cfile : ~ULong;
     _state : ~UByte;

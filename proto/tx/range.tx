@@ -1,51 +1,51 @@
 module tx
 
 
-public interface Range< E > : Indicable< Long, E > {
+interface Range< E > : Indicable< Long, E > {
 
-    public abstract override sequencer() -> Ref< ~Iterator<E> >;
+    abstract override sequencer() -> Ref< ~Iterator<E> >;
 
-    public abstract override count() -> Ordinal;
+    abstract override count() -> Ordinal;
 
-    public abstract override has( key : Long ) -> Bool;
+    abstract override has( key : Long ) -> Bool;
 
-    public abstract override get( key : Long ) -> E;
+    abstract override get( key : Long ) -> E;
 }
 
 
 
 /** A range between two values of an Enumerable type. */
-public type ERange< E derives Enumerable > implements Range< E >, Stringer {
+type ERange< E derives Enumerable > implements Range< E >, Stringer {
 
     /** The ERange iterator. */
-    public type ~ ERangeIterator implements Iterator< E > {
+    type ~ ERangeIterator implements Iterator< E > {
         range   : &ERange<E>;
         nextIndex : ~ULong;
 
-        public self( range : &ERange<E> ) {
+        self( range : &ERange<E> ) {
             self.range = range;
             self.nextIndex = 0;
         }
 
-        public override sequencer() ~ -> Ref< ~ERangeIterator > {
+        override sequencer() ~ -> Ref< ~ERangeIterator > {
             return self;
         }
 
-        public override has_next() -> Bool {
+        override has_next() -> Bool {
             return self.nextIndex < self.range.count();
         }
 
-        public override has_prev() -> Bool {
+        override has_prev() -> Bool {
             return self.nextIndex > 0;
         }
 
-        public override next() ~ -> E {
+        override next() ~ -> E {
             n := self.nextIndex;
             self.nextIndex = self.nextIndex + 1;
             return self.range.get( Long( n ) );
         }
 
-        public override prev() ~ -> E  {
+        override prev() ~ -> E  {
             self.nextIndex = self.nextIndex - 1;
             return self.range.get( Long( self.nextIndex ) );
         }
@@ -54,11 +54,11 @@ public type ERange< E derives Enumerable > implements Range< E >, Stringer {
     ## valid indices are all integers between [ 0, _indexLimit )
     _indexLimit : Long;
 
-    public start : E;
-    public limit : E;
-    public stride : Long;
+    start : E;
+    limit : E;
+    stride : Long;
 
-    public self( start : E, limit : E, stride : Long ) {
+    self( start : E, limit : E, stride : Long ) {
         if stride == 0:  panic ( "Zero stride in ERange" );
         self.start = start;
         self.limit = limit;
@@ -68,22 +68,22 @@ public type ERange< E derives Enumerable > implements Range< E >, Stringer {
             self._indexLimit = 0;
     }
 
-    public override sequencer() -> Ref< ~ERangeIterator > {
+    override sequencer() -> Ref< ~ERangeIterator > {
         return new ~ERangeIterator( self );
     }
 
-    public override count() -> Ordinal {
+    override count() -> Ordinal {
         return Ordinal( self._indexLimit );
     }
 
-    public override has( index : Long ) -> Bool {
+    override has( index : Long ) -> Bool {
         if index < 0:
             return -index <= self._indexLimit;
         else
             return index < self._indexLimit;
     }
 
-    public override get( index : Long ) -> E {
+    override get( index : Long ) -> E {
         ~ix := index;
         if ix < 0 {
             ix = ix + self._indexLimit;
