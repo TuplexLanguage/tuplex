@@ -5,8 +5,6 @@
 #include "ast/type/ast_funcheader_node.hpp"
 #include "ast/ast_fielddef_node.hpp"
 
-// (requires types, expressions, and statements to be included before this)
-
 class TxLambdaExprNode : public TxExpressionNode {
     bool instanceMethod = false;
     TxTypeExpressionNode* selfTypeNode = nullptr;

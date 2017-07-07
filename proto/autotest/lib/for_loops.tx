@@ -6,25 +6,25 @@ for_loops( var : UInt )->Int {
     for chA, iterA in strA,
         chB, iterB in strB {
         tmp := [ chA, ' ', chB, 0 ];
-        tx.c.puts( &tmp[0] );
+        tx.c.puts( tmp );
         if chA == 'b':
             iterA.next();
     }
 
     for ~ix := 0; ix < strA.L; ix = ix + 1 {
         tmp := [ strA[ix], ' ', strB[ix], 0 ];
-        tx.c.puts( &tmp[0] );
+        tx.c.puts( tmp );
     }
 
     for i in 0..10 {
         tmp := [ i + '0', 0 ];
-        tx.c.puts( &tmp[0] );
+        tx.c.puts( tmp );
     }
 
     for i in 1..2..21,
         j in 9..-2..0 {
         tmp := [ i + '0', ' ', j + '0', 0 ];
-        tx.c.puts( &tmp[0] );
+        tx.c.puts( tmp );
     }
 
     return 0;

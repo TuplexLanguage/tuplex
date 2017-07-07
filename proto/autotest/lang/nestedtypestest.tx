@@ -29,7 +29,7 @@ type SingleRef derives Tuple : Sequenceable {
         }
         public override next() ~ ->Int {
             if self.done:
-                tx.c.puts( c"Panic: No next element"[0] );
+                tx.c.puts( c"Panic: No next element" );
             self.done = TRUE;
             return self.element;
         }

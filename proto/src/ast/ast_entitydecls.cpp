@@ -7,10 +7,18 @@
 void TxFieldDeclNode::declaration_pass() {
     TxDeclarationFlags flags = this->get_decl_flags();
 
-    if ( field->initExpression ) {
+    if ( this->field->initExpression ) {
+        if ( flags & TXD_EXTERNC )
+            CERROR( this, "'externc' is invalid modifier for field / method that has an initializer / body: " << this->field->initExpression );
         if ( flags & TXD_ABSTRACT )
-            CERROR( this, "'abstract' is invalid modifier for field / method that has an initializer / body: " << field->initExpression );
+            CERROR( this, "'abstract' is invalid modifier for field / method that has an initializer / body: " << this->field->initExpression );
     }
+//    else if ( flags & TXD_EXTERNC ) {
+//        // create the FFI wrapper
+//        initExpression = new TxLambdaExprNode(...);
+//        initExpression->set_field_def_node( this );
+//        this->field->initExpression = new TxMaybeConversionNode( initExpression );
+//    }
 
     TxFieldStorage storage;
     const TxTypeDeclaration* outerTypeDecl = nullptr;
@@ -20,8 +28,11 @@ void TxFieldDeclNode::declaration_pass() {
     if ( this->isMethodSyntax && outerTypeDecl ) {
         // Note: instance method storage is handled specially (technically the function pointer is a virtual/static field)
 
+        if ( flags & TXD_EXTERNC )
+            CERROR( this, "'externc' is not a valid modifier for a method: " << this->field->get_descriptor() );
+
         TxLambdaExprNode* lambdaExpr = nullptr;
-        if ( auto initExpr = dynamic_cast<TxMaybeConversionNode*>( field->initExpression ) )
+        if ( auto initExpr = dynamic_cast<TxMaybeConversionNode*>( this->field->initExpression ) )
             lambdaExpr = dynamic_cast<TxLambdaExprNode*>( initExpr->originalExpr );
 
         if ( !lambdaExpr && !( flags & TXD_ABSTRACT ) )
@@ -48,6 +59,8 @@ void TxFieldDeclNode::declaration_pass() {
         storage = TXS_GLOBAL;
     }
     else {
+        if ( flags & TXD_EXTERNC )
+            CERROR( this, "'externc' is not a valid modifier for a non-global field: " << this->field->get_descriptor() );
         if ( flags & TXD_ABSTRACT ) {
             if ( !( flags & TXD_VIRTUAL ) )
                 CERROR( this, "'abstract' fields must also be declared 'virtual': " << this->field->get_descriptor() );
@@ -146,7 +159,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
     case TXS_GLOBAL:
     case TXS_STATIC:
         if ( !this->field->initExpression ) {
-            if ( !( this->field->get_declaration()->get_decl_flags() & ( TXD_BUILTIN | TXD_EXTERN ) ) )
+            if ( !( this->field->get_declaration()->get_decl_flags() & ( TXD_BUILTIN | TXD_EXTERNC ) ) )
                 CERROR( this, "Global/static fields must have an initializer: " << this->field->get_descriptor() );
             // FUTURE: When static initializers in types are supported, static/virtual fields' initialization may be deferred.
         }

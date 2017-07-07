@@ -133,7 +133,7 @@ extern "C" int yywrap() { return 0; }
 "protected"	{ return token::KW_PROTECTED; }
 "virtual"   { return token::KW_VIRTUAL; }
 "static"	{ return token::KW_STATIC; }
-"extern"    { return token::KW_EXTERN; }
+"externc"   { return token::KW_EXTERNC; }
 "type"		{ return token::KW_TYPE; }
 "class"		{ return token::KW_CLASS; }
 "interface"	{ return token::KW_INTERFACE; }

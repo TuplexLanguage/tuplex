@@ -1,6 +1,6 @@
 
 puts(cstr : &[]UByte) {
-    tx.c.puts( cstr^[0] );
+    tx.c.puts( cstr );
 }
 
 type ~ AType derives Tuple {

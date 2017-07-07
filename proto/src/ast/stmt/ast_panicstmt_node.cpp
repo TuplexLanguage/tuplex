@@ -39,10 +39,10 @@ TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, std::string message )
     msg << ": Panic: " << message;
     std::string panicMsg = "c\"" + msg.str() + "\"";
     auto msgExpr = new TxCStringLitNode( this->ploc, panicMsg );
-    auto convStrExpr = new TxReferenceToNode( this->ploc, new TxElemDerefNode( this->ploc, msgExpr,
-                                                                               new TxIntegerLitNode( this->ploc, 0, false ), true ) );
+    //auto convStrExpr = new TxReferenceToNode( this->ploc, new TxElemDerefNode( this->ploc, msgExpr,
+    //                                                                           new TxIntegerLitNode( this->ploc, 0, false ), true ) );
     auto putsCallee = new TxFieldValueNode( this->ploc, nullptr, "tx.c.puts" );
-    auto putsCallExpr = new TxFunctionCallNode( this->ploc, putsCallee, new std::vector<TxExpressionNode*>( { convStrExpr } ) );
+    auto putsCallExpr = new TxFunctionCallNode( this->ploc, putsCallee, new std::vector<TxExpressionNode*>( { msgExpr } ) );
     TxStatementNode* putsStmt = new TxCallStmtNode( this->ploc, putsCallExpr );
     // TODO: emit it to stderr instead of stdout
 

@@ -623,8 +623,7 @@ static std::vector<const TxActualType*> make_actual_arg_types( const std::vector
 }
 
 const TxType* TypeRegistry::get_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
-                                               const TxType* returnType,
-                                               bool modifiableClosure ) {
+                                               const TxType* returnType, bool modifiableClosure ) {
     auto funcType = new TxFunctionType( declaration, this->get_builtin_type( TXBT_FUNCTION )->acttype(),
                                         make_actual_arg_types( argumentTypes ),
                                         returnType->acttype(), modifiableClosure );
@@ -644,10 +643,22 @@ const TxType* TypeRegistry::get_function_type( const TxTypeDeclaration* declarat
 const TxType* TypeRegistry::get_constructor_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
                                                   const TxTypeDeclaration* objectTypeDecl ) {
     auto type = new TxConstructorType( declaration, this->get_builtin_type( TXBT_FUNCTION )->acttype(),
-                                       make_actual_arg_types( argumentTypes ),
-                                       objectTypeDecl );
+                                       make_actual_arg_types( argumentTypes ), objectTypeDecl );
     this->add_type( type );
     return new TxType( type );
+}
+
+const TxType* TypeRegistry::get_externc_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
+                                                       const TxType* returnType ) {
+    TxActualType* acttype;
+    if ( returnType )
+        acttype = new TxExternCFunctionType( declaration, this->get_builtin_type( TXBT_FUNCTION )->acttype(),
+                                             make_actual_arg_types( argumentTypes ), returnType->acttype() );
+    else
+        acttype = new TxExternCFunctionType( declaration, this->get_builtin_type( TXBT_FUNCTION )->acttype(),
+                                             make_actual_arg_types( argumentTypes ), this->get_builtin_type( TXBT_VOID )->acttype() );
+    this->add_type( acttype );
+    return new TxType( acttype );
 }
 
 /*----- interface adapter -----*/

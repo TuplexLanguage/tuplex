@@ -241,7 +241,7 @@ int LlvmGenerationContext::verify_code() {
     raw_string_ostream ostr( errInfo );
     bool ret = verifyModule( this->llvmModule(), &ostr );
     if ( ret ) {
-        this->LOGGER()->error( "LLVM code verification failed: %s", errInfo.c_str() );
+        this->LOGGER()->error( "LLVM code verification failed: \"%s\"", errInfo.c_str() );
         return 1;
     }
     else
@@ -299,7 +299,7 @@ const TxType* LlvmGenerationContext::lookup_builtin( BuiltinTypeId id ) {
 void LlvmGenerationContext::initialize_builtins() {
     this->initialize_meta_type_data();
     this->initialize_builtin_functions();
-    this->initialize_external_functions();
+    //this->initialize_external_functions();
 }
 
 //static Function* gen_dummy_type_user_init_func(LlvmGenerationContext& context) {
@@ -405,11 +405,11 @@ void LlvmGenerationContext::initialize_meta_type_data() {
 void LlvmGenerationContext::initialize_builtin_functions() {
     {  // public _address( ref : Ref ) -> ULong
        // create function:
-        const std::string funcName( "tx._address" );
+        const std::string lambdaName( "tx._address" );
         //auto argT = TxReferenceType::make_ref_llvm_type(*this, Type::getInt8Ty(this->llvmContext));
         auto argT = this->get_llvm_type( this->tuplexPackage.registry().get_builtin_type( TXBT_REFERENCE )->acttype() );
         auto retT = this->get_llvm_type( this->tuplexPackage.registry().get_builtin_type( TXBT_ULONG )->acttype() );
-        Function *func = cast<Function>( this->llvmModule().getOrInsertFunction( funcName, retT, this->get_voidRefT(), argT, NULL ) );
+        Function *func = cast<Function>( this->llvmModule().getOrInsertFunction( lambdaName+"$func", retT, this->get_voidRefT(), argT, NULL ) );
         BasicBlock *bb = BasicBlock::Create( this->llvmModule().getContext(), "entry", func );
         IRBuilder<> builder( bb );
         GenScope scope( &builder );
@@ -429,17 +429,17 @@ void LlvmGenerationContext::initialize_builtin_functions() {
         };
         auto lambdaT = StructType::get( this->llvmContext, lambdaMemberTypes );
         auto lambdaV = ConstantStruct::get( lambdaT, func, nullClosureRefV, NULL );
-        auto lambdaA = new GlobalVariable( this->llvmModule(), lambdaT, true, GlobalValue::InternalLinkage, lambdaV, funcName );
-        this->register_llvm_value( funcName, lambdaA );
+        auto lambdaA = new GlobalVariable( this->llvmModule(), lambdaT, true, GlobalValue::InternalLinkage, lambdaV, lambdaName );
+        this->register_llvm_value( lambdaName, lambdaA );
     }
 
     {  // public _typeid( ref : Ref ) -> UInt
        // create function:
-        const std::string funcName( "tx._typeid" );
+        const std::string lambdaName( "tx._typeid" );
         //auto argT = TxReferenceType::make_ref_llvm_type(*this, Type::getInt8Ty(this->llvmContext));
         auto argT = this->get_llvm_type( this->tuplexPackage.registry().get_builtin_type( TXBT_REFERENCE )->acttype() );
         auto retT = this->get_llvm_type( this->tuplexPackage.registry().get_builtin_type( TXBT_UINT )->acttype() );
-        Function *func = cast<Function>( this->llvmModule().getOrInsertFunction( funcName, retT, this->get_voidRefT(), argT, NULL ) );
+        Function *func = cast<Function>( this->llvmModule().getOrInsertFunction( lambdaName+"$func", retT, this->get_voidRefT(), argT, NULL ) );
         BasicBlock *bb = BasicBlock::Create( this->llvmModule().getContext(), "entry", func );
         IRBuilder<> builder( bb );
         GenScope scope( &builder );
@@ -459,8 +459,8 @@ void LlvmGenerationContext::initialize_builtin_functions() {
         };
         auto lambdaT = StructType::get( this->llvmContext, lambdaMemberTypes );
         auto lambdaV = ConstantStruct::get( lambdaT, func, nullClosureRefV, NULL );
-        auto lambdaA = new GlobalVariable( this->llvmModule(), lambdaT, true, GlobalValue::InternalLinkage, lambdaV, funcName );
-        this->register_llvm_value( funcName, lambdaA );
+        auto lambdaA = new GlobalVariable( this->llvmModule(), lambdaT, true, GlobalValue::InternalLinkage, lambdaV, lambdaName );
+        this->register_llvm_value( lambdaName, lambdaA );
     }
 }
 
@@ -571,13 +571,12 @@ void LlvmGenerationContext::generate_runtime_data() {
         ASSERT( txType->is_prepared(), "Non-prepared type: " << txType );
         std::string vtableName( txType->get_declaration()->get_unique_full_name() + "$vtable" );
         if ( auto vtableV = dyn_cast<GlobalVariable>( this->lookup_llvm_value( vtableName ) ) ) {
-            bool isGenericBase = txType->get_declaration()->get_definer()->context().is_generic();
+            bool isGeneric = txType->is_generic();
             std::string typeIdStr = std::to_string( txType->get_formal_type_id() );
             if ( typeIdStr.size() < 5 )
                 typeIdStr.resize( 5, ' ' );
-            // TODO: If we're only filling vtable of generic bases with NULLs, do we really need to create them?
-            if ( isGenericBase )
-                LOG_INFO( this->LOGGER(), "Type id " << typeIdStr << ": Populating vtable initializer with null placeholders for generic base type " << txType );
+            if ( isGeneric )  // the only generic types that have a formal type id are Ref and Array
+                LOG_DEBUG( this->LOGGER(), "Type id " << typeIdStr << ": Populating vtable initializer with null placeholders for generic base type " << txType );
             else
                 LOG_DEBUG( this->LOGGER(), "Type id " << typeIdStr << ": Populating vtable initializer for " << txType );
             std::vector<Constant*> initMembers;
@@ -586,7 +585,7 @@ void LlvmGenerationContext::generate_runtime_data() {
             for ( auto & field : virtualFields.fieldMap ) {
                 auto actualFieldEnt = virtualFields.get_field( field.second );
                 Constant* llvmFieldC;
-                if ( ( actualFieldEnt->get_decl_flags() & TXD_ABSTRACT ) || isGenericBase ) {
+                if ( ( actualFieldEnt->get_decl_flags() & TXD_ABSTRACT ) || isGeneric ) {
                     //std::cerr << "inserting NULL for abstract virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                     Type* fieldType;
                     if ( actualFieldEnt->get_storage() & TXS_INSTANCEMETHOD ) {

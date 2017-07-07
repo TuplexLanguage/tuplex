@@ -9,6 +9,7 @@
 TxPackage* make_root_package( TxParserContext* parserContext );
 
 class TxParsingUnitNode;
+class TxModuleNode;
 class TypeRegistry;
 class TxTypeDeclNode;
 
@@ -19,6 +20,8 @@ class BuiltinTypes {
     const TxLocation& builtinLocation;
 
     TxTypeDeclNode* builtinTypes[BuiltinTypeId_COUNT];
+
+    TxModuleNode* create_tx_c_module();
 
     void declare_tx_functions();
 

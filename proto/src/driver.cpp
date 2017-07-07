@@ -346,10 +346,10 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
     int retCode = 0;
     if ( this->options.run_verifier ) {
         retCode = this->genContext->verify_code();
-        if ( retCode )
-            return retCode;
-        else
+        if ( !retCode )
             _LOG.info( "+ LLVM code verification OK" );
+        //else
+        //    return retCode;
     }
 
     if ( this->options.run_jit ) {

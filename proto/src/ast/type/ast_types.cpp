@@ -194,8 +194,17 @@ void TxDerivedTypeNode::visit_descendants( AstVisitor visitor, const AstCursor& 
 void TxFunctionTypeNode::typeexpr_declaration_pass() {
     // overrides in order to create implicit declaration for the function type
     if ( !this->get_declaration() ) {
+        TxDeclarationFlags fieldFlags = TXD_NONE;
+        if (auto fieldDefNode = dynamic_cast<const TxFieldDefNode*>( this->parent() ) ) {
+            fieldFlags = fieldDefNode->get_declaration()->get_decl_flags();
+        }
+//        else if ( auto funcHeaderNode = dynamic_cast<const TxFunctionHeaderNode*>( this->parent() ) ) {
+//            if ( funcHeaderNode->get_declaration() )
+//                fieldFlags = funcHeaderNode->get_declaration()->get_decl_flags();
+//        }
+        TxDeclarationFlags inheritedFlagsFilter = TXD_EXTERNC | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_EXPERRBLOCK;
+        TxDeclarationFlags flags = ( fieldFlags & inheritedFlagsFilter ) | TXD_IMPLICIT;
         std::string funcTypeName = lexContext.scope()->make_unique_name( "$Ftype", true );
-        TxDeclarationFlags flags = TXD_IMPLICIT;  // TXD_PUBLIC, TXD_EXPERRBLOCK ?
         auto declaration = lexContext.scope()->declare_type( funcTypeName, this, flags );
         if ( !declaration ) {
             CERROR( this, "Failed to declare type " << funcTypeName );
@@ -214,6 +223,10 @@ const TxQualType* TxFunctionTypeNode::define_type() {
     const TxType* type;
     if ( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() )
         type = this->registry().get_constructor_type( this->get_declaration(), argumentTypes, this->context().enclosing_lambda()->get_constructed() );
+    else if ( this->get_declaration()->get_decl_flags() & TXD_EXTERNC ) {
+        type = this->registry().get_externc_function_type( this->get_declaration(), argumentTypes,
+                                                           ( this->returnField ? this->returnField->resolve_type()->type() : nullptr ) );
+    }
     else if ( this->returnField )
         type = this->registry().get_function_type( this->get_declaration(), argumentTypes, this->returnField->resolve_type()->type(), modifying );
     else

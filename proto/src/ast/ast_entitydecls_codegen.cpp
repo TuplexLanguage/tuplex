@@ -47,9 +47,10 @@ static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, cons
                                     constantInitializer, &context.llvmModule() );
     }
 
-    // handle case when there has been a "forward-declaration" of this field:
+    // Also handles the case when there has been a "forward-declaration" of this field:
+    // Note: If the global exists but has the wrong type: return the function with a constantexpr cast to the right type.
     Constant* maybe = context.llvmModule().getOrInsertGlobal( uniqueName, llvmType );
-    //std::cout << "maybe type: " << *maybe->getType() << "  value: " << *maybe << std::endl;
+    //std::cout << "maybe type: " << maybe->getType() << "  value: " << maybe << "  llvmType: " << llvmType << std::endl;
     auto globalV = cast<GlobalVariable>( maybe );  // bails if bitcast has been inserted, which means wrong type has been chosen
     globalV->setConstant( true );
     globalV->setLinkage( GlobalValue::InternalLinkage );
@@ -88,21 +89,60 @@ void TxFieldDeclNode::code_gen( LlvmGenerationContext& context ) const {
                 fieldVal = funcPtrV;  // the naked $func is stored (as opposed to a full lambda object)
                 uniqueName = fieldVal->getName();
             }
-            break;
+            context.register_llvm_value( uniqueName, fieldVal );
         }
         return;
 
     case TXS_GLOBAL:
+        if ( fieldDecl->get_decl_flags() & TXD_EXTERNC ) {
+            // FIXME: Also support externc field declarations such as stdout
+            // create the external C function declaration
+            std::string externalName( fieldDecl->get_unique_name() );
+            if ( txType->get_type_class() == TXTC_FUNCTION ) {
+                LOG_DEBUG( context.LOGGER(), "Codegen for extern-C function declaration '" << externalName << "': " << txType );
+                StructType* lambdaT = cast<StructType>( context.get_llvm_type( txType ) );
+                FunctionType* externFuncType = cast<FunctionType>( lambdaT->getElementType( 0 )->getPointerElementType() );
+                //std::cerr << "Extern-C function type: " << externFuncType << std::endl;
+                Function* extern_c_func = Function::Create( externFuncType, GlobalValue::ExternalLinkage, externalName, &context.llvmModule() );
+                extern_c_func->setCallingConv( CallingConv::C );
+
+                // construct the lambda object in the Tuplex name space:
+                auto nullClosureRefV = Constant::getNullValue( lambdaT->getStructElementType( 1 ) );
+                auto lambdaC = ConstantStruct::get( lambdaT, extern_c_func, nullClosureRefV, NULL );
+                fieldVal = make_constant_nonlocal_field( context, uniqueName, lambdaC, lambdaT );
+            }
+            else {
+                Type *externFieldT = txType->acttype()->make_llvm_externc_type( context );
+                auto externDeclC = cast<GlobalVariable>( context.llvmModule().getOrInsertGlobal( externalName, externFieldT ) );
+
+                // construct the alias in the Tuplex name space:
+                if ( auto aliasV = context.llvmModule().getNamedAlias( uniqueName ) ) {
+                    // has been forward-declared
+                    //std::cerr << "forward-declared externc: " << aliasV << std::endl;
+                    aliasV->setAliasee( externDeclC );
+                    fieldVal = aliasV;
+                }
+                else {
+                    fieldVal = GlobalAlias::create( GlobalValue::InternalLinkage, uniqueName, externDeclC );
+                    //std::cerr << "newly declared externc: " << fieldVal << std::endl;
+                }
+                //fieldVal = make_constant_nonlocal_field( context, uniqueName, externDeclC, fieldT );
+            }
+
+            context.register_llvm_value( uniqueName, fieldVal );
+            return;
+        }
+        // no break
     case TXS_STATIC:
     case TXS_VIRTUAL:
         if ( !( fieldDecl->get_decl_flags() & ( TXD_ABSTRACT | TXD_INITIALIZER ) ) ) {
             if ( this->field->initExpression ) {
                 if ( this->field->initExpression->is_statically_constant() ) {
-                    auto uniqueName = field->get_declaration()->get_unique_full_name();
-                    Constant* constantInitializer = field->code_gen_constant_init_expr( context );
+                    Constant* constantInitializer = this->field->code_gen_constant_init_expr( context );
                     Type* llvmType = context.get_llvm_type( txType );
                     fieldVal = make_constant_nonlocal_field( context, uniqueName, constantInitializer, llvmType );
-                    break;
+                    context.register_llvm_value( uniqueName, fieldVal );
+                    return;
                 }
                 // TODO: support non-constant initializers for static and virtual fields
             }
@@ -119,8 +159,6 @@ void TxFieldDeclNode::code_gen( LlvmGenerationContext& context ) const {
     case TXS_STACK:
         THROW_LOGIC( "TxFieldDeclNode can not apply to fields with storage " << fieldDecl->get_storage() << ": " << uniqueName );
     }
-
-    context.register_llvm_value( uniqueName, fieldVal );
 }
 
 

@@ -125,7 +125,7 @@ YY_DECL;
 
 /* keywords: */
 %token KW_MODULE KW_IMPORT KW_TYPE KW_INTERFACE
-%token KW_PUBLIC KW_PROTECTED KW_VIRTUAL KW_STATIC KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERN
+%token KW_PUBLIC KW_PROTECTED KW_VIRTUAL KW_STATIC KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERNC
 %token KW_MODIFIABLE KW_REFERENCE KW_DERIVES KW_IMPLEMENTS
 %token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_XOR
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE KW_FROM
@@ -147,7 +147,7 @@ YY_DECL;
 %type <TxIdentifier*> compound_identifier import_identifier 
 %type <TxIdentifier*> opt_module_decl opt_dataspace
 
-%type <TxDeclarationFlags> declaration_flags opt_visibility opt_extern opt_virtual opt_abstract opt_override opt_final opt_builtin
+%type <TxDeclarationFlags> declaration_flags opt_visibility opt_externc opt_virtual opt_abstract opt_override opt_final opt_builtin
 %type <bool> opt_modifiable type_or_if
 %type <TxParsingUnitNode*> parsing_unit
 %type <TxModuleNode*> sub_module
@@ -318,14 +318,15 @@ experr_decl : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErro
             ;
 
 
-declaration_flags : opt_visibility opt_builtin opt_extern opt_virtual opt_abstract opt_override opt_final  { $$ = ($1 | $2 | $3 | $4 | $5 | $6 | $7); } ;
+declaration_flags : opt_visibility opt_builtin opt_externc opt_virtual opt_abstract opt_override opt_final
+                        { $$ = ($1 | $2 | $3 | $4 | $5 | $6 | $7); } ;
 
 opt_visibility : %empty        { $$ = TXD_NONE; }
                | KW_PUBLIC     { $$ = TXD_PUBLIC; }
                | KW_PROTECTED  { $$ = TXD_PROTECTED; }
                ;
 opt_builtin    : %empty { $$ = TXD_NONE; } | KW_BUILTIN  { $$ = TXD_BUILTIN;  } ;
-opt_extern     : %empty { $$ = TXD_NONE; } | KW_EXTERN   { $$ = TXD_EXTERN;   } ;
+opt_externc    : %empty { $$ = TXD_NONE; } | KW_EXTERNC  { $$ = TXD_EXTERNC;  } ;
 opt_virtual    : %empty { $$ = TXD_NONE; } | KW_VIRTUAL  { $$ = TXD_VIRTUAL;  } ;
 opt_abstract   : %empty { $$ = TXD_NONE; } | KW_ABSTRACT { $$ = TXD_ABSTRACT; } ;
 opt_override   : %empty { $$ = TXD_NONE; } | KW_OVERRIDE { $$ = TXD_OVERRIDE; } ;
@@ -504,12 +505,12 @@ array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
 
 /// function type and function declarations:
 
-lambda_expr : function_signature suite  { $$ = new TxLambdaExprNode(@1, $1, $2); } ;
+lambda_expr : function_signature suite  { $$ = new TxLambdaExprNode(@$, $1, $2); } ;
 
 function_signature : func_args opt_modifiable DASHGT type_expression
-                        { $$ = new TxFunctionTypeNode(@1, $2, $1, $4); }
+                        { $$ = new TxFunctionTypeNode(@$, $2, $1, $4); }
                    | func_args opt_modifiable
-                        { $$ = new TxFunctionTypeNode(@1, $2, $1, NULL); }
+                        { $$ = new TxFunctionTypeNode(@$, $2, $1, NULL); }
                    ;
 
 func_args : LPAREN func_args_list RPAREN  { $$ = $2; }
@@ -526,18 +527,18 @@ func_args_list : func_arg_def
                ;
 
 func_arg_def   : NAME COLON type_expression
-                        { $$ = new TxArgTypeDefNode(@1, $1, $3); }
+                        { $$ = new TxArgTypeDefNode(@$, $1, $3); }
                | NAME COLON type_expression ELLIPSIS
-                        { $$ = new TxArgTypeDefNode(@1, $1,
+                        { $$ = new TxArgTypeDefNode(@$, $1,
                                     new TxReferenceTypeNode(@3, nullptr, new TxArrayTypeNode(@3, new TxMaybeModTypeNode(@3, $3)))); }
                | NAME COLON mod_token type_expression ELLIPSIS
-                        { $$ = new TxArgTypeDefNode(@1, $1,
+                        { $$ = new TxArgTypeDefNode(@$, $1,
                                     new TxReferenceTypeNode(@3, nullptr, new TxArrayTypeNode(@3, new TxModifiableTypeNode(@3, $4)))); }
                ;
 
 
 method_def  : NAME function_signature suite
-                { $$ = new TxFieldDefNode(@1, $1, nullptr, new TxLambdaExprNode(@1, $2, $3, true)); }
+                { $$ = new TxFieldDefNode(@1, $1, nullptr, new TxLambdaExprNode(@$, $2, $3, true)); }
             | NAME function_signature SEMICOLON  // abstract method (KW_ABSTRACT should be specified)
                 { $$ = new TxFieldDefNode(@1, $1, $2,      nullptr); }
             ;

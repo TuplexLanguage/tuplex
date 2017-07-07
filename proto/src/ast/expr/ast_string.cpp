@@ -3,10 +3,9 @@
 #include "ast_lit.hpp"
 #include "ast/type/ast_types.hpp"
 
-static std::string parse_string( const std::string source ) {
+std::string parse_string_literal( const std::string& source, unsigned startOffset, unsigned endOffset ) {
     std::string result;
-    // note: skips leading and trailing " characters
-    for ( auto it = next( source.cbegin() ); it != prev( source.cend() ); ++it ) {
+    for ( auto it = source.cbegin()+startOffset; it != source.cend()-endOffset; ++it ) {
         if ( *it == '\\' ) {
             ++it;
             switch ( *it ) {
@@ -59,7 +58,7 @@ static std::vector<uint8_t> iso_8859_1_to_utf8( const std::string& input ) {
 }
 
 TxStringLitNode::TxStringLitNode( const TxLocation& ploc, const std::string& literal )
-        : TxExpressionNode( ploc ), utf8data( iso_8859_1_to_utf8( parse_string( literal ) ) ),
+        : TxExpressionNode( ploc ), utf8data( iso_8859_1_to_utf8( parse_string_literal( literal, 1, 1 ) ) ),
           arrayTypeNode( new TxArrayTypeNode( ploc, new TxNamedTypeNode( ploc, "tx.UByte" ),
                                               new TxIntegerLitNode( ploc, utf8data.size(), false, TXBT_UINT ) ) ),
           literal( literal ) {
@@ -72,10 +71,18 @@ TxConcatenateStringsNode::TxConcatenateStringsNode( const TxLocation& ploc, cons
 
 
 
-TxTypeExpressionNode* TxCStringLitNode::make_cstring_type_expr( const TxLocation& ploc, const std::string& literal ) {
+static TxTypeExpressionNode* make_cstring_type_expr( const TxLocation& ploc, unsigned arrayCap ) {
     // (for now) Create AST to declare the implicit type of this c-string literal:
     TxTypeExpressionNode* elemTypeExpr = new TxNamedTypeNode( ploc, "tx.UByte" );
-    TxExpressionNode* capExpr = new TxIntegerLitNode( ploc, literal.length() - 2, false, TXBT_UINT );
+    TxExpressionNode* capExpr = new TxIntegerLitNode( ploc, arrayCap, false, TXBT_UINT );
     TxTypeExpressionNode* typeExpr = new TxArrayTypeNode( ploc, elemTypeExpr, capExpr );
     return typeExpr;
+}
+
+TxCStringLitNode::TxCStringLitNode( const TxLocation& ploc, const std::string& literal )
+        : TxExpressionNode( ploc ),
+          literal( literal ),
+          value( parse_string_literal( literal, 2, 1 ) ),
+          arrayCapacity( this->value.length() + 1 ),
+          cstringTypeNode( make_cstring_type_expr( ploc, arrayCapacity ) ) {
 }

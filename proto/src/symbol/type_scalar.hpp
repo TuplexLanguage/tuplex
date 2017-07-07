@@ -17,11 +17,8 @@ public:
             : TxActualType( TXTC_ELEMENTARY, declaration, baseType, true, interfaces ) {
     }
 
-//    inline virtual bool operator==( const TxActualType& other ) const override {
-//        return ( this == &other );
-//    }
-
-    virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
+    virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override final;
+    virtual llvm::Type* make_llvm_externc_type( LlvmGenerationContext& context ) const override final;
 };
 
 class TxScalarType : public TxActualType {
@@ -38,14 +35,11 @@ public:
         return this->_size;
     }
 
-//    inline virtual bool operator==( const TxActualType& other ) const override final {
-//        return ( this == &other );
-//    }
-
     /** This is legal to invoke during analysis passes. It is used for constant expression evaluation. */
     virtual llvm::Type* get_scalar_llvm_type( LlvmGenerationContext& context ) const = 0;
 
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override final;
+    virtual llvm::Type* make_llvm_externc_type( LlvmGenerationContext& context ) const override final;
 };
 
 class TxIntegerType final : public TxScalarType {

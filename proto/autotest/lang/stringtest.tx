@@ -4,7 +4,7 @@ helloWorld := c"hello world!"
 helloWorld2 := helloWorld
 
 func puts(str : &[]UByte) {
-    tx.c.puts(&str^[0])
+    tx.c.puts( str )
 }
 
 func str_test() {

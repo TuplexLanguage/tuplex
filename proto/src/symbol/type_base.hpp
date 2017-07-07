@@ -559,12 +559,18 @@ public:
 
     /** Returns the llvm::Type for an instance of this type (possibly only an opaque struct declaration). */
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const = 0;
+
     /** Invoked after make_llvm_type() to augment a possibly forward-declared llvm::Type "header" (named, opaque struct).
      * Default implementation returns the "header" type without modifying it;
      * types that actually predefine an opaque header should override and augment the type or return a new, full type. */
     virtual llvm::Type* make_llvm_type_body( LlvmGenerationContext& context, llvm::Type* header ) const {
         return header;
     }
+
+    /** Returns the llvm::Type that an instance of this type is converted to/from when passed to/from an extern-c function. */
+    virtual llvm::Type* make_llvm_externc_type( LlvmGenerationContext& context ) const;
+
+
     virtual llvm::Value* gen_size( LlvmGenerationContext& context, GenScope* scope ) const;
     virtual llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const;
     virtual llvm::Value* gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const;

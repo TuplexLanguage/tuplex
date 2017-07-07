@@ -179,10 +179,7 @@ public:
     const std::string literal;
     const char value;  // TODO: unicode support
 
-    TxCharacterLitNode( const TxLocation& ploc, const std::string& literal )
-            : TxLiteralElementaryValueNode( ploc ), literal( literal ), value( literal.at( 1 ) ) {
-    }
-    // TODO: properly parse char literal
+    TxCharacterLitNode( const TxLocation& ploc, const std::string& literal );
 
     virtual TxCharacterLitNode* make_ast_copy() const override {
         return new TxCharacterLitNode( this->ploc, this->literal );

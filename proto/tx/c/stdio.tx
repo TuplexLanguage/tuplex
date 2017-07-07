@@ -1,9 +1,26 @@
-/** Placeholder functions until foreign language interface is available */
-
 module tx.c
 
 
-fopen( name : Ref<UByte>, mode : Ref<UByte> ) -> ULong {
+externc stdout : ULong;
+
+externc stderr : ULong;
+
+/* these declarations are built-in so they are skipped here
+externc puts( cstr : &[]UByte ) -> Int;
+*/
+
+
+externc fopen( name : &[]UByte, mode : &[]UByte ) -> ULong;
+
+externc fclose( file : ULong ) -> Int;
+
+externc fwrite( buffer : &[]UByte, size : ULong, count : ULong, file : ULong ) -> ULong;
+
+externc fread( buffer : &[]UByte, size : ULong, count : ULong, file : ULong ) -> ULong;
+
+
+/** Placeholder functions in lieu of foreign language interface
+fopen( name : &[]UByte, mode : &[]UByte ) -> ULong {
     return 1;
 }
 
@@ -11,11 +28,12 @@ fclose( file : ULong ) -> Int {
     return 0;
 }
 
-fwrite( buffer : Ref<UByte>, size : ULong, count : ULong, file : ULong ) -> ULong {
+fwrite( buffer : &[]UByte, size : ULong, count : ULong, file : ULong ) -> ULong {
     puts( buffer );
     return count;
 }
 
-fread( buffer : Ref<~UByte>, size : ULong, count : ULong, file : ULong ) -> ULong {
+fread( buffer : &[]UByte, size : ULong, count : ULong, file : ULong ) -> ULong {
     return 0;
 }
+*/

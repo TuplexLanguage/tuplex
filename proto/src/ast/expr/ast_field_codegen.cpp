@@ -101,12 +101,19 @@ static Value* field_addr_code_gen( LlvmGenerationContext& context, GenScope* sco
     case TXS_STATIC:
     case TXS_GLOBAL:
         {
-            Value* val = context.lookup_llvm_value( fieldEntity->get_declaration()->get_unique_full_name() );
+            Value* val = context.lookup_llvm_value( fieldEntity->get_unique_full_name() );
             if ( !val ) {
                 // forward declaration situation
-                LOG_DEBUG( context.LOGGER(), "Forward-declaring field " << fieldEntity->get_declaration()->get_unique_full_name() );
                 Type *fieldT = context.get_llvm_type( fieldEntity->get_type() );
-                val = context.llvmModule().getOrInsertGlobal( fieldEntity->get_declaration()->get_unique_full_name(), fieldT );
+                if ( ( fieldEntity->get_decl_flags() & TXD_EXTERNC ) && fieldEntity->get_type()->get_type_class() != TXTC_FUNCTION ) {
+                    LOG_NOTE( context.LOGGER(), "Forward-declaring extern-C field alias " << fieldEntity->get_unique_full_name() );
+                    val = GlobalAlias::create( fieldT->getPointerTo(), 0, GlobalValue::InternalLinkage, fieldEntity->get_unique_full_name(),
+                                               &context.llvmModule() );
+                }
+                else {
+                    LOG_NOTE( context.LOGGER(), "Forward-declaring field " << fieldEntity->get_unique_full_name() );
+                    val = context.llvmModule().getOrInsertGlobal( fieldEntity->get_unique_full_name(), fieldT );
+                }
             }
             return val;
         }

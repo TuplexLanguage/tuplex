@@ -34,7 +34,7 @@ type ~ File implements tx.ByteWriter, tx.ByteReader {
     open_mode( name : String, mode : String ) ~ -> Int {
         if self._state != STATE_UNOPEN:  panic "Invalid operation when state is " %d self._state;
         
-        self._cfile = tx.c.fopen( &name._bytes[0], &mode._bytes[0] );
+        self._cfile = tx.c.fopen( name._bytes, mode._bytes );
         if self._cfile != 0:
             self._state = STATE_OPEN;
         else {
@@ -56,7 +56,7 @@ type ~ File implements tx.ByteWriter, tx.ByteReader {
         if self._state != STATE_OPEN:  panic "Invalid operation when state is " %d self._state;
 
         exp := buf.L;
-        count := tx.c.fwrite( &buf[0], 1, exp, self._cfile );
+        count := tx.c.fwrite( buf, 1, exp, self._cfile );
         if count < exp {
             self._state = STATE_ERROR;
             self._error = -1;
@@ -67,9 +67,13 @@ type ~ File implements tx.ByteWriter, tx.ByteReader {
     override read( buf : &~[]UByte ) ~ -> Long {
         if self._state != STATE_OPEN:  panic "Invalid operation when state is " %d self._state;
 
-        exp := buf.C-buf.L;
-        count := tx.c.fread( &buf[buf.L], 1, exp, self._cfile );
-        if count < exp {
+        ## currently we force full initialization of the array before the call,
+        ## otherwise L will be invalid and it will not be readable afterwards:
+        for i in 0..buf.C:
+            buf[i] = 0;
+
+        count := tx.c.fread( buf, 1, buf.C, self._cfile );
+        if count < buf.C {
             ## TODO: check if EOF, which isn't an error
             self._state = STATE_ERROR;
             self._error = -1;

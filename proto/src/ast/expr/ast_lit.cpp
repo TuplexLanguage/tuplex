@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <float.h>
 
+#include "ast_string.hpp"
 #include "ast/type/ast_types.hpp"
 
 static bool is_signed_out_of_range( const int64_t i64, const BuiltinTypeId typeId ) {
@@ -302,3 +303,8 @@ TxFloatingLitNode::FloatConstant::FloatConstant( double value, BuiltinTypeId typ
 
 const std::string TxBoolLitNode::TRUE = "TRUE";
 const std::string TxBoolLitNode::FALSE = "FALSE";
+
+
+TxCharacterLitNode::TxCharacterLitNode( const TxLocation& ploc, const std::string& literal )
+        : TxLiteralElementaryValueNode( ploc ), literal( literal ), value( parse_string_literal( literal, 1, 1 ).front() ) {
+}

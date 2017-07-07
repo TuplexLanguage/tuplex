@@ -14,23 +14,69 @@ static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& c
         args.push_back( argDef->code_gen_expr( context, scope ) );
     }
 
-    if ( scope ) {
-        auto call = scope->builder->CreateCall( functionPtrV, args, exprLabel );
-        if ( doesNotReturn )
-            call->setDoesNotReturn();
-        return call;
+    auto call = scope->builder->CreateCall( functionPtrV, args, exprLabel );
+    if ( doesNotReturn )
+        call->setDoesNotReturn();
+    return call;
+}
+
+static Value* gen_externc_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, Value* functionPtrV,
+                                const std::string& exprLabel, bool doesNotReturn ) {
+    //std::cout << "gen_externc_call() to " << functionPtrV << std::endl;
+    std::vector<Value*> args;
+    for ( auto argDef : *node->argsExprList ) {
+        // convert type if necessary and allowed:
+
+        // Note: Passing arrays by value is not supported, only by reference/pointer.
+        if ( argDef->qualtype()->get_type_class() == TXTC_REFERENCE ) {
+            auto argV = argDef->code_gen_expr( context, scope );
+            argV = gen_get_ref_pointer( context, scope, argV );
+
+            auto targetType = argDef->qualtype()->type()->target_type();
+            if ( targetType->get_type_class() == TXTC_ARRAY ) {
+                auto elemType = targetType->type()->element_type();
+                if ( elemType->get_type_class() == TXTC_ELEMENTARY ) {
+                    if ( auto structPtrT = dyn_cast<PointerType>( argV->getType() ) ) {  // address of struct
+                        ASSERT( structPtrT->getPointerElementType()->isStructTy(), "expected pointer element to be a struct: " << argV );
+                        argV = scope->builder->CreateStructGEP( structPtrT->getPointerElementType(), argV, 2 );
+                        auto elemT = cast<ArrayType>( argV->getType()->getPointerElementType() )->getArrayElementType();
+                        argV = scope->builder->CreatePointerCast( argV, elemT->getPointerTo() );
+                    }
+                    else
+                        THROW_LOGIC( "Expected pointer type: " << argV );
+                }
+                else {
+                    CERR_CODECHECK( node, "Not supported to convert array of type " << elemType << " in external C function call" );
+                }
+            }
+            else if ( targetType->get_type_class() != TXTC_ELEMENTARY ) {
+                CERR_CODECHECK( node, "Not supported to convert references to type " << targetType << " in external C function call" );
+            }
+            args.push_back( argV );
+        }
+        else if ( argDef->qualtype()->get_type_class() == TXTC_ELEMENTARY ) {
+            args.push_back( argDef->code_gen_expr( context, scope ) );
+        }
+        else {
+            CERR_CODECHECK( node, "Not supported to convert type " << argDef->qualtype() << " in external C function call" );
+        }
     }
-    else {
-        // FUTURE: support calling functions outside of code block (statically constant or instance initialization)
-        LOG( context.LOGGER(), ERROR, "calling functions outside of code block not currently supported" );
-        return nullptr;
-    }
+
+    auto call = scope->builder->CreateCall( functionPtrV, args, exprLabel );
+    if ( doesNotReturn )
+        call->setDoesNotReturn();
+    return call;
 }
 
 static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, const std::string& exprLabel,
                         bool doesNotReturn) {
     auto lambdaV = node->callee->code_gen_dyn_value( context, scope );
-    //std::cout << "callee: " << lambdaV << std::endl;
+    if ( dynamic_cast<const TxExternCFunctionType*>( node->callee->qualtype()->type()->acttype() ) ) {
+        // this is a call to an external C function
+        auto functionPtrV = gen_get_struct_member( context, scope, lambdaV, 0 );
+        return gen_externc_call( node, context, scope, functionPtrV, exprLabel, doesNotReturn );
+    }
+
     auto functionPtrV = gen_get_struct_member( context, scope, lambdaV, 0 );
     auto closureRefV = gen_get_struct_member( context, scope, lambdaV, 1 );
     return gen_call( node, context, scope, functionPtrV, closureRefV, exprLabel, doesNotReturn );

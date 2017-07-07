@@ -15,7 +15,7 @@ ret_array()->&[]UByte {
 }
 
 puts(cstr : &[]UByte) {
-    tx.c.puts(cstr^[0]);
+    tx.c.puts(cstr);
 }
 
 basic_array_syntax()->Int {

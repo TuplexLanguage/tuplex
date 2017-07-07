@@ -58,6 +58,10 @@ Function* TxActualType::get_type_user_init_func( LlvmGenerationContext& context 
     return initFunc;
 }
 
+Type* TxActualType::make_llvm_externc_type( LlvmGenerationContext& context ) const {
+    THROW_LOGIC( "This type does not support conversion to/from an extern C type in extern-c function calls: " << this );
+}
+
 Value* TxActualType::gen_size( LlvmGenerationContext& context, GenScope* scope ) const {
     ASSERT( this->is_static(), "Attempted to codegen size of non-static type " << this );
     Type* llvmType = context.get_llvm_type( this );  // (gets the cached LLVM type if previously accessed)
@@ -80,13 +84,26 @@ Constant* TxActualType::gen_typeid( LlvmGenerationContext& context, GenScope* sc
     return ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->get_formal_type_id() );
 }
 
+
 Type* TxBoolType::make_llvm_type( LlvmGenerationContext& context ) const {
     return Type::getInt1Ty( context.llvmContext );
 }
 
+Type* TxBoolType::make_llvm_externc_type( LlvmGenerationContext& context ) const {
+    // Bool is mapped to a C int
+    return Type::getInt32Ty( context.llvmContext );
+}
+
+
 llvm::Type* TxScalarType::make_llvm_type( LlvmGenerationContext& context ) const {
     return this->get_scalar_llvm_type( context );
 }
+
+llvm::Type* TxScalarType::make_llvm_externc_type( LlvmGenerationContext& context ) const {
+    // scalar types are mapped 1:1 in Tuplex and C
+    return this->get_scalar_llvm_type( context );
+}
+
 
 llvm::Type* TxIntegerType::get_scalar_llvm_type( LlvmGenerationContext& context ) const {
     switch ( this->_size ) {
@@ -116,18 +133,14 @@ llvm::Type* TxFloatingType::get_scalar_llvm_type( LlvmGenerationContext& context
     }
 }
 
+
+
 Type* TxArrayType::make_llvm_type( LlvmGenerationContext& context ) const {
     //std::cout << "ArrayType make_llvm_type() " << ((void*)this) << std::endl;
     auto txElemType = this->element_type();
-    if ( !txElemType ) {
-        LOG( context.LOGGER(), ERROR, "Generic arrays with unspecified element type can't be directly mapped: " << this );
-        return nullptr;
-    }
+    if ( !txElemType )
+        THROW_LOGIC( "Generic arrays with unspecified element type can't be directly mapped to LLVM type: " << this );
     Type* elemType = context.get_llvm_type( txElemType );
-    if ( !elemType ) {
-        LOG( context.LOGGER(), ERROR, "No LLVM type mapping for array element type: " << txElemType );
-        return nullptr;
-    }
 
     uint32_t arrayCap;
     if ( auto capExpr = this->capacity() ) {
@@ -150,6 +163,14 @@ Type* TxArrayType::make_llvm_type( LlvmGenerationContext& context ) const {
     auto llvmType = StructType::get( context.llvmContext, llvmMemberTypes );
     LOG_DEBUG( context.LOGGER(), "Mapping array type " << this << " -> " << str(llvmType) );
     return llvmType;
+}
+
+Type* TxArrayType::make_llvm_externc_type( LlvmGenerationContext& context ) const {
+    auto txElemType = this->element_type();
+    if ( !txElemType )
+        THROW_LOGIC( "Generic arrays with unspecified element type can't be directly mapped: " << this );
+    Type* elemType = txElemType->type()->acttype()->make_llvm_externc_type( context );
+    return elemType;
 }
 
 Value* TxArrayType::inner_code_gen_size( LlvmGenerationContext& context, GenScope* scope, Value* elemSize, Value* arrayCapi64V ) const {
@@ -269,22 +290,27 @@ Value* TxArrayType::gen_malloc( LlvmGenerationContext& context, GenScope* scope,
 }
 
 Type* TxReferenceType::make_llvm_type( LlvmGenerationContext& context ) const {
-    // Note: a reference itself is always 'concrete'
-    if ( auto txTargetType = this->target_type() ) {
-        if ( Type* targetType = context.get_llvm_type( txTargetType ) ) {
-            if ( targetType->isVoidTy() ) {
-                // happens when the target type was resolved to Any
-                targetType = Type::getInt8Ty( context.llvmContext );  // i8* represents void*
-            }
-            LOG_DEBUG( context.LOGGER(), "Mapping reference type " << this );
-            return make_ref_llvm_type( context, targetType );
-        }
-        else
-            LOG( context.LOGGER(), ERROR, "No LLVM type mapping for reference target type: " << txTargetType );
+    auto txTargetType = this->target_type();
+    if ( !txTargetType )
+        THROW_LOGIC( "Generic references with unspecified element type can't be directly mapped to LLVM type: " << this );
+    Type* targetType = context.get_llvm_type( txTargetType );
+    if ( targetType->isVoidTy() ) {
+        // happens when the target type was resolved to Any
+        targetType = Type::getInt8Ty( context.llvmContext );  // i8* represents void*
     }
-    else
-        LOG( context.LOGGER(), ERROR, "Unknown target type of reference type " << this );
-    return nullptr;
+    return make_ref_llvm_type( context, targetType );
+}
+
+Type* TxReferenceType::make_llvm_externc_type( LlvmGenerationContext& context ) const {
+    auto txTargetType = this->target_type();
+    if ( !txTargetType )
+        THROW_LOGIC( "Generic references with unspecified element type can't be directly mapped to LLVM type: " << this );
+    Type* targetType = txTargetType->type()->acttype()->make_llvm_externc_type( context );
+    if ( targetType->isVoidTy() ) {
+        // happens when the target type was resolved to Any
+        targetType = Type::getInt8Ty( context.llvmContext );  // i8* represents void*
+    }
+    return PointerType::getUnqual( targetType );
 }
 
 Type* TxReferenceType::make_ref_llvm_type( LlvmGenerationContext& context, Type* targetType ) {
@@ -311,11 +337,38 @@ Type* TxFunctionType::make_llvm_type( LlvmGenerationContext& context ) const {
 
     std::vector<Type*> llvmMemberTypes {
                                          PointerType::getUnqual( funcT ),  // function pointer
-                                         closureRefT                     // closure object pointer
+                                         closureRefT                       // closure object pointer
     };
     auto llvmType = StructType::get( context.llvmContext, llvmMemberTypes );
     return llvmType;
 }
+
+Type* TxExternCFunctionType::make_llvm_type( LlvmGenerationContext& context ) const {
+    // Note: In contrast to regular functions, externc functions don't have a closure object pointer as first argument.
+    //       However the lambda object is always created with a closure reference field, even if unused in this case.
+    auto closureRefT = context.get_voidRefT();
+    auto *funcT = this->make_llvm_externc_type( context );
+    std::vector<Type*> llvmMemberTypes {
+                                         PointerType::getUnqual( funcT ),  // function pointer
+                                         closureRefT                       // closure object pointer
+    };
+    auto llvmType = StructType::get( context.llvmContext, llvmMemberTypes );
+    return llvmType;
+}
+
+Type* TxExternCFunctionType::make_llvm_externc_type( LlvmGenerationContext& context ) const {
+    // Note: In contrast to regular functions, externc functions don't have a closure object pointer as first argument.
+    std::vector<Type*> llvmArgTypes;
+    for ( auto argTxType : this->argumentTypes ) {
+        llvmArgTypes.push_back( argTxType->make_llvm_externc_type( context ) );
+        //LOG_INFO( context.LOGGER(), "Mapping C arg type " << argTxType << " to " << ::to_string(llvmArgTypes.back()) );
+    }
+    Type* llvmRetType = this->has_return_value() ? this->returnType->make_llvm_externc_type( context )
+                                                 : llvm::Type::getVoidTy( context.llvmContext );
+    FunctionType *funcT = FunctionType::get( llvmRetType, llvmArgTypes, false );
+    return funcT;
+}
+
 
 Type* TxTupleType::make_llvm_type( LlvmGenerationContext& context ) const {
     if (! this->is_concrete()) {

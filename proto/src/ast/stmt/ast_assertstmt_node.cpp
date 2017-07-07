@@ -25,9 +25,9 @@ TxAssertStmtNode::TxAssertStmtNode( const TxLocation& ploc, TxExpressionNode* ex
     //msg << ": " << customMessage;    // TODO: supported custom assert message
     std::string assertFailedMsg = "c\"" + msg.str() + "\"";
     auto msgExpr = new TxCStringLitNode( pLoc, assertFailedMsg );
-    auto convStrExpr = new TxReferenceToNode( pLoc, new TxElemDerefNode( pLoc, msgExpr, new TxIntegerLitNode( pLoc, 0, false ), true ) );
+    //auto convStrExpr = new TxReferenceToNode( pLoc, new TxElemDerefNode( pLoc, msgExpr, new TxIntegerLitNode( pLoc, 0, false ), true ) );
     auto putsCallee = new TxFieldValueNode( pLoc, nullptr, "tx.c.puts" );
-    auto putsCallExpr = new TxFunctionCallNode( pLoc, putsCallee, new std::vector<TxExpressionNode*>( { convStrExpr } ) );
+    auto putsCallExpr = new TxFunctionCallNode( pLoc, putsCallee, new std::vector<TxExpressionNode*>( { msgExpr } ) );
     TxStatementNode* putsStmt = new TxCallStmtNode( pLoc, putsCallExpr );
     // TODO: emit it to stderr instead of stdout
 

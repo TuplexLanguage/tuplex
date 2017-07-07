@@ -5,7 +5,7 @@ print( str : &Stringer ) {
     ~buf := GrowableUByteArray();
     str.string( &buf );
     buf.add( 0 );  ## handle empty string and ensure there is a null terminator
-    tx.c.puts( buf.array()[0] );
+    tx.c.puts( buf.array() );
 }
 
 print_address( r : Ref ) {

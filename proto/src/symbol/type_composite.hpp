@@ -8,7 +8,7 @@
 
 #include "type_base.hpp"
 
-class TxArrayType : public TxActualType {
+class TxArrayType final : public TxActualType {
 protected:
     virtual TxArrayType* make_specialized_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
                                                 bool mutableType, const std::vector<const TxActualType*>& interfaces ) const override {
@@ -34,6 +34,7 @@ public:
     const TxExpressionNode* capacity() const;
 
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
+    virtual llvm::Type* make_llvm_externc_type( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* gen_size( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const override;
     virtual llvm::Value* gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const override;
@@ -43,7 +44,7 @@ private:
 };
 
 /** Note, all reference specializations are mutable. */
-class TxReferenceType : public TxActualType {
+class TxReferenceType final : public TxActualType {
 protected:
     virtual TxReferenceType* make_specialized_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
                                                     bool mutableType, const std::vector<const TxActualType*>& interfaces ) const override {
@@ -81,14 +82,18 @@ public:
     }
 
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
+    virtual llvm::Type* make_llvm_externc_type( LlvmGenerationContext& context ) const override;
 
     static llvm::Type* make_ref_llvm_type( LlvmGenerationContext& context, llvm::Type* targetType );
 };
 
 /** A function type describes the user signature of a function.
- * It does not include the implicit "receiver" / "closure" reference argument.
- * This means that free functions, methods and lambda expressions can have the same function type,
+ * This signature does not include the implicit "receiver" / "closure" reference argument.
+ * This means that free functions, methods, external C functions, and lambda expressions can have the same function type,
  * although their closures work differently.
+ *
+ * Note that function objects in a Tuplex program are lambda objects, containing a function pointer and a closure pointer
+ * (regardless of whether the latter is actually used by the callee in question).
  */
 class TxFunctionType : public TxActualType {
     /** Indicates whether functions of this type may modify its closure when run. */
@@ -141,8 +146,9 @@ public:
     inline virtual bool operator==( const TxActualType& other ) const override {
         if ( auto otherF = dynamic_cast<const TxFunctionType*>( &other ) ) {
             //std::cerr << "EQUAL RETURN TYPES?\n\t" << this->returnType << "\n\t" << otherF->returnType << std::endl;
-            return ( ( this->returnType == otherF->returnType
-                       || ( *this->returnType == *otherF->returnType ) )
+            return ( typeid(*this) == typeid(*otherF)
+                     && ( this->returnType == otherF->returnType
+                          || ( *this->returnType == *otherF->returnType ) )
                      && this->argumentTypes.size() == otherF->argumentTypes.size()
                      && std::equal( this->argumentTypes.cbegin(), this->argumentTypes.cend(),
                                     otherF->argumentTypes.cbegin(),
@@ -151,6 +157,7 @@ public:
         return false;
     }
 
+    /** Makes the LLVM type of this function as seen from calling code, i.e. as a lambda object. */
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
 
 protected:
@@ -178,12 +185,26 @@ class TxConstructorType : public TxFunctionType {
     }
 };
 
+class TxExternCFunctionType : public TxFunctionType {
+public:
+    TxExternCFunctionType( const TxTypeDeclaration* declaration, const TxActualType* baseType,
+                           const std::vector<const TxActualType*>& argumentTypes, const TxActualType* returnType )
+            : TxFunctionType( declaration, baseType, argumentTypes, returnType ) {
+    }
+
+    /** Makes the LLVM type of this function as seen from calling code, i.e. as a lambda object. */
+    virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
+    /** Makes the LLVM type of this function as declared in code generation. */
+    virtual llvm::Type* make_llvm_externc_type( LlvmGenerationContext& context ) const override;
+};
+
+
 class TxMaybeConversionNode;
 
 class TxInlineFunctionType : public TxFunctionType {
 public:
-    TxInlineFunctionType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*> argumentTypes,
-                          const TxActualType* returnType )
+    TxInlineFunctionType( const TxTypeDeclaration* declaration, const TxActualType* baseType,
+                          const std::vector<const TxActualType*> argumentTypes, const TxActualType* returnType )
             : TxFunctionType( declaration, baseType, argumentTypes, returnType ) {
     }
 
@@ -227,6 +248,7 @@ public:
 
     virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;
 };
+
 
 class TxTupleType : public TxActualType {
 protected:

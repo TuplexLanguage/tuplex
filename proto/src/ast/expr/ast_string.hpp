@@ -10,6 +10,11 @@
 #include "symbol/type_registry.hpp"
 
 
+/** Parses a string / char literal, replacing escape sequences with the intended characters.
+ * Skips the specified number of characters at the start and end of the source string. */
+std::string parse_string_literal( const std::string& source, unsigned startOffset, unsigned endOffset  );
+
+
 class TxStringLitNode : public TxExpressionNode {
     std::vector<uint8_t> utf8data;
     TxTypeExpressionNode* arrayTypeNode;
@@ -173,10 +178,14 @@ public:
 
 
 class TxCStringLitNode : public TxExpressionNode {
+public:
+    const std::string literal;
+    const std::string value;
+
+private:
     const size_t arrayCapacity;  // note: array capacity includes the null terminator
     TxTypeExpressionNode* cstringTypeNode;  // implicit type definer
 
-    static TxTypeExpressionNode* make_cstring_type_expr( const TxLocation& ploc, const std::string& literal );
 
 protected:
     virtual const TxQualType* define_type() override {
@@ -184,15 +193,7 @@ protected:
     }
 
 public:
-    const std::string literal;
-    const std::string value;
-
-    TxCStringLitNode( const TxLocation& ploc, const std::string& literal )
-            : TxExpressionNode( ploc ), arrayCapacity( literal.length() - 2 ),
-              cstringTypeNode( make_cstring_type_expr( ploc, literal ) ),
-              literal( literal ), value( literal, 2, literal.length() - 3 ) {
-    }
-    // TODO: properly parse string literal
+    TxCStringLitNode( const TxLocation& ploc, const std::string& literal );
 
     virtual TxCStringLitNode* make_ast_copy() const override {
         return new TxCStringLitNode( this->ploc, this->literal );

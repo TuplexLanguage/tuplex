@@ -63,8 +63,10 @@ bool TxParserContext::is_internal_builtin() {
 bool TxParserContext::validate_module_name( const TxParseOrigin* origin, const TxIdentifier* moduleName ) {
     if ( moduleName->begins_with( BUILTIN_NS ) ) {
         if ( this->parseInputSourceSet != BUILTINS && this->parseInputSourceSet != TX_SOURCES) {
-            this->cerror( origin, "Can't declare or extend built-in namespace from user code: " + std::string( BUILTIN_NS ) );
-            return false;
+            if ( ! this->_driver.get_options().allow_tx ) {
+                this->cerror( origin, "Can't declare or extend built-in namespace from user code: " + std::string( BUILTIN_NS ) );
+                return false;
+            }
         }
     }
     else if ( moduleName->str() == LOCAL_NS ) {

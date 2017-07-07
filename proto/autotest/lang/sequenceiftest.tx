@@ -24,7 +24,7 @@ type SingleRef<S derives Ref> implements Sequenceable<S> {
         }
         public override next() ~ ->S {
             if self.done:
-                tx.c.puts( c"Panic: No next element"[0] );
+                tx.c.puts( c"Panic: No next element" );
             self.done = TRUE;
             return self.element;
         }

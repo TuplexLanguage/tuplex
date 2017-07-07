@@ -1,0 +1,5 @@
+module tx.c
+
+/* abort() declaration is built-in so it is skipped here 
+externc abort();
+8/

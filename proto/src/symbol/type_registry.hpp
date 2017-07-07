@@ -195,6 +195,9 @@ public:
     const TxType* get_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
                                      bool modifying );
 
+    const TxType* get_externc_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
+                                             const TxType* returnType );
+
     const TxType* get_constructor_type( const TxTypeDeclaration* declaration, const std::vector<const TxType*>& argumentTypes,
                                         const TxTypeDeclaration* constructedObjTypeDecl );
 };
