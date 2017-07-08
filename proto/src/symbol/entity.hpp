@@ -10,6 +10,10 @@
 #include "declaration.hpp"
 #include "symbol.hpp"
 
+namespace llvm {
+class Value;
+}
+
 class TxConstantProxy;
 
 /** Represents a resolved program entity - a type or a field.
@@ -54,17 +58,12 @@ public:
 class TxField : public TxEntity {
     const TxQualType* type;
 
+    /** The code-gen value for this field. Generated exactly once and stored here. */
+    mutable llvm::Value* llvmValue = nullptr;
+
     TxField( const TxFieldDeclaration* declaration, const TxQualType* type )
             : TxEntity( declaration ), type( type ) {
-//        ASSERT(declaration, "Fields must be named (have non-null declaration)");
-//        ASSERT(type, "NULL type for field " << declaration);
     }
-
-//    const TxTypeDeclaration* get_outer_type_decl() const {
-//        if ( auto outerEntity = dynamic_cast<TxEntitySymbol*>( this->get_symbol()->get_outer() ) )
-//            return outerEntity->get_type_decl();
-//        return nullptr;
-//    }
 
 public:
     /** Constructs a new field after applying some validation checks. If validation fails, resolution exception is thrown. */
@@ -99,5 +98,14 @@ public:
 
     virtual std::string str() const override {
         return this->get_declaration()->get_unique_full_name();
+    }
+
+    inline llvm::Value* get_llvm_value() const {
+        return this->llvmValue;
+    }
+
+    inline void set_llvm_value( llvm::Value* llvmValue ) const {
+        ASSERT( !this->llvmValue, "LLVM value already set for field " << this << ": " << this->llvmValue << "; new value: " << llvmValue );
+        this->llvmValue = llvmValue;
     }
 };

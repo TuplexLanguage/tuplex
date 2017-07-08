@@ -73,7 +73,7 @@ public:
 
     /** Returns true if this method is suppressed (as if it were abstract) due to being a modifying instance method
      * in an immutable specialization of a mutable generic type. */
-    bool is_suppressed_modifying_method();
+    bool is_suppressed_modifying_method() const;
 
     virtual void symbol_resolution_pass() override;
 

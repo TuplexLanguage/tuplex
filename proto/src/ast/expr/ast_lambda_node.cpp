@@ -24,7 +24,7 @@ void TxLambdaExprNode::declaration_pass() {
     // FUTURE: define implicit closure object when in code block
 }
 
-bool TxLambdaExprNode::is_suppressed_modifying_method() {
+bool TxLambdaExprNode::is_suppressed_modifying_method() const {
     return ( this->funcHeaderNode->is_modifying()
              && this->context().reinterpretation_definer()
              && !this->selfTypeNode->resolve_type()->type()->is_mutable() );

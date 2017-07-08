@@ -5,25 +5,25 @@
 using namespace llvm;
 
 
-static void code_gen_field( LlvmGenerationContext& context, GenScope* scope, TxFieldDefNode* field ) {
-    auto declaration = field->get_declaration();
-
-    // If init expression does a stack allocation of this field's type (instance-equivalent type),
-    // this field shall bind to that allocation.
-    Value* fieldVal;
-    if ( field->initExpression->is_stack_allocation_expression() ) {
-        fieldVal = field->initExpression->code_gen_expr( context, scope );
-    }
-    else {
-        auto txType = field->qualtype()->type()->acttype();
-        fieldVal = txType->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
-        // create implicit assignment statement
-        if ( Value* initializer = field->initExpression->code_gen_expr( context, scope ) )
-            scope->builder->CreateStore( initializer, fieldVal );
-    }
-
-    context.register_llvm_value( declaration->get_unique_full_name(), fieldVal );
-}
+//static void code_gen_field( LlvmGenerationContext& context, GenScope* scope, TxFieldDefNode* field ) {
+//    auto declaration = field->get_declaration();
+//
+//    // If init expression does a stack allocation of this field's type (instance-equivalent type),
+//    // this field shall bind to that allocation.
+//    Value* fieldVal;
+//    if ( field->initExpression->is_stack_allocation_expression() ) {
+//        fieldVal = field->initExpression->code_gen_expr( context, scope );
+//    }
+//    else {
+//        auto txType = field->qualtype()->type()->acttype();
+//        fieldVal = txType->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
+//        // create implicit assignment statement
+//        if ( Value* initializer = field->initExpression->code_gen_expr( context, scope ) )
+//            scope->builder->CreateStore( initializer, fieldVal );
+//    }
+//
+//    context.register_llvm_value( declaration->get_unique_full_name(), fieldVal );
+//}
 
 Value* TxWhileHeaderNode::code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const {
     return this->nextCond->code_gen_expr( context, scope );
@@ -42,7 +42,7 @@ void TxForHeaderNode::code_gen_poststep( LlvmGenerationContext& context, GenScop
 }
 
 void TxInClauseNode::code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const {
-    code_gen_field( context, scope, this->iterField );
+    this->iterField->code_gen_local_field( context, scope );
 }
 
 Value* TxInClauseNode::code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -50,7 +50,7 @@ Value* TxInClauseNode::code_gen_cond( LlvmGenerationContext& context, GenScope* 
 }
 
 void TxInClauseNode::code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const {
-    code_gen_field( context, scope, this->valueField );
+    this->valueField->code_gen_local_field( context, scope );
 }
 
 

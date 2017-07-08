@@ -52,8 +52,6 @@ class LlvmGenerationContext {
 
     std::unique_ptr<llvm::Module> llvmModulePtr;
 
-    //llvm::DataLayout dataLayout;
-
     // some common, basic types:
     llvm::Type* voidPtrT;
     llvm::Type* voidRefT;
@@ -63,7 +61,6 @@ class LlvmGenerationContext {
     void initialize_meta_type_data();
     void initialize_builtin_functions();
     void initialize_external_functions();
-    llvm::Function* gen_static_init_function();
     llvm::Function* gen_main_function( const std::string userMain, bool hasIntReturnValue );
 
 public:

@@ -11,7 +11,8 @@ static Value* gen_local_field( LlvmGenerationContext& context, GenScope* scope, 
     const TxType* txType = field->get_type()->type();
     auto fieldA = txType->acttype()->gen_alloca( context, scope, field->get_unique_name() + "_" );
     scope->builder->CreateStore( fieldV, fieldA );
-    context.register_llvm_value( field->get_declaration()->get_unique_full_name(), fieldA );
+    //context.register_llvm_value( field->get_declaration()->get_unique_full_name(), fieldA );
+    field->set_llvm_value( fieldA );
     return fieldA;
 }
 

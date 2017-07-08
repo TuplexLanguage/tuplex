@@ -101,7 +101,8 @@ static Value* field_addr_code_gen( LlvmGenerationContext& context, GenScope* sco
     case TXS_STATIC:
     case TXS_GLOBAL:
         {
-            Value* val = context.lookup_llvm_value( fieldEntity->get_unique_full_name() );
+            Value* val = fieldEntity->get_llvm_value();
+//            Value* val = context.lookup_llvm_value( fieldEntity->get_unique_full_name() );
             if ( !val ) {
                 // forward declaration situation
                 Type *fieldT = context.get_llvm_type( fieldEntity->get_type() );
@@ -135,7 +136,8 @@ static Value* field_addr_code_gen( LlvmGenerationContext& context, GenScope* sco
         break;
 
     case TXS_STACK:
-        return context.lookup_llvm_value( fieldEntity->get_declaration()->get_unique_full_name() );
+        return fieldEntity->get_llvm_value();
+        //return context.lookup_llvm_value( fieldEntity->get_unique_full_name() );
 
     default:
         THROW_LOGIC( "Can't generate address for field with storage type " << fieldEntity->get_storage() << ": " << fieldEntity );
@@ -173,7 +175,8 @@ Constant* TxFieldValueNode::code_gen_const_address( LlvmGenerationContext& conte
     case TXS_STATIC:
     case TXS_GLOBAL:
     {
-        Constant* fieldC = cast<Constant>( context.lookup_llvm_value( this->field->get_declaration()->get_unique_full_name() ) );
+        Constant* fieldC = cast<Constant>( this->field->get_llvm_value() );
+        //Constant* fieldC = cast<Constant>( context.lookup_llvm_value( this->field->get_declaration()->get_unique_full_name() ) );
         if ( !fieldC ) {
             // forward declaration situation
             LOG_DEBUG( context.LOGGER(), "Forward-declaring field " << this->field->get_declaration()->get_unique_full_name() );
@@ -191,7 +194,7 @@ Constant* TxFieldValueNode::code_gen_const_value( LlvmGenerationContext& context
     TRACE_CODEGEN( this, context );
 
     if ( this->field->get_declaration()->get_definer()->get_init_expression() ) {
-        return this->field->get_declaration()->get_definer()->code_gen_constant_init_expr( context );
+        return this->field->get_declaration()->get_definer()->code_gen_const_init_value( context );
     }
     else if ( this->field->get_storage() == TXS_INSTANCE ) {
         auto baseObjC = this->baseExpr->code_gen_const_value( context );

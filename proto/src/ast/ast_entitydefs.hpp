@@ -84,8 +84,6 @@ class TxFieldDefiningNode : public TxEntityDefiningNode {
     bool startedRslv = false;  // guard against recursive resolution
     bool hasResolved = false;  // to prevent multiple identical error messages
 
-    mutable llvm::Constant* cachedConstantInitializer = nullptr;
-
 protected:
     /** Defines the type of this field (as specific as can be known), constructing/obtaining the TxTypeUsage instance.
      * The implementation should only traverse the minimum nodes needed to define the type
@@ -142,5 +140,5 @@ public:
      * if it has one and it is constant.
      * May be called multiple times, it caches the result to ensures the constant value is only generated once.
      * Only valid to call on nodes for which is_statically_constant() returns true. */
-    virtual llvm::Constant* code_gen_constant_init_expr( LlvmGenerationContext& context ) const;
+    virtual llvm::Constant* code_gen_const_init_value( LlvmGenerationContext& context ) const { return nullptr ; }
 };

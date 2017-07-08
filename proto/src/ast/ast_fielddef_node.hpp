@@ -5,8 +5,13 @@
 #include "expr/ast_expr_node.hpp"
 #include "expr/ast_maybe_conv_node.hpp"
 
+namespace llvm {
+class Constant;
+}
+
 class TxFieldDefNode : public TxFieldDefiningNode {
     const TxFieldDeclaration* declaration = nullptr;
+    mutable llvm::Constant* cachedConstantInitializer = nullptr;
 
     static bool validateFieldName( TxNode* node, const std::string& name ) {
     // TODO
@@ -18,6 +23,8 @@ class TxFieldDefNode : public TxFieldDefiningNode {
         }
         return true;
     }
+
+    llvm::Value* make_constant_nonlocal_field( LlvmGenerationContext& context, llvm::Constant* constantInitializer ) const;
 
 protected:
     virtual const TxQualType* define_type() override;
@@ -83,4 +90,14 @@ public:
     virtual const std::string& get_descriptor() const override {
         return this->fieldName->str();
     }
+
+    void code_gen_local_field( LlvmGenerationContext& context, GenScope* scope ) const;
+
+    void code_gen_non_local_field( LlvmGenerationContext& context ) const;
+
+    /** Generates / retrieves the code generated constant value of this field's init expression,
+     * if it has one and it is constant.
+     * May be called multiple times, it caches the result to ensures the constant value is only generated once.
+     * Only valid to call on nodes for which is_statically_constant() returns true. */
+    virtual llvm::Constant* code_gen_const_init_value( LlvmGenerationContext& context ) const override;
 };

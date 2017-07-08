@@ -144,7 +144,9 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr( LlvmGenerationContext& context
     auto uniqueFullName = allocType->get_declaration()->get_unique_full_name() + "." + uniqueName;
     //std::cerr << "Code-generated constructor name: " << uniqueFullName << " (from: " << this->get_spec(0).declaration->get_unique_full_name() << ")" << std::endl;
 
-    Value* funcPtrV = context.lookup_llvm_value( uniqueFullName );
+    auto constrField = this->declaration->get_definer()->get_field();
+    Value* funcPtrV = constrField->get_llvm_value();
+    //Value* funcPtrV = context.lookup_llvm_value( uniqueFullName );
     if ( !funcPtrV ) {
         if ( const TxActualType* txType = this->qualtype()->type()->acttype() ) {
             // forward declaration situation

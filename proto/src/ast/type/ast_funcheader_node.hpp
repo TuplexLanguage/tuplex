@@ -55,7 +55,7 @@ public:
             this->returnField->symbol_resolution_pass();
     }
 
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override;
+    virtual void code_gen_type( LlvmGenerationContext& context ) const override { }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->funcTypeNode->visit_ast( visitor, thisCursor, "functype", context );

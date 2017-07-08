@@ -1,12 +1,14 @@
 module tx.c
 
 
+/* these declarations are built-in so they are skipped here
 externc stdout : ULong;
 
 externc stderr : ULong;
 
-/* these declarations are built-in so they are skipped here
 externc puts( cstr : &[]UByte ) -> Int;
+
+externc fputs( cstr : &[]UByte, file : ULong ) -> Int;
 */
 
 
@@ -19,7 +21,7 @@ externc fwrite( buffer : &[]UByte, size : ULong, count : ULong, file : ULong ) -
 externc fread( buffer : &[]UByte, size : ULong, count : ULong, file : ULong ) -> ULong;
 
 
-/** Placeholder functions in lieu of foreign language interface
+/** previous placeholder functions in lieu of foreign language interface
 fopen( name : &[]UByte, mode : &[]UByte ) -> ULong {
     return 1;
 }

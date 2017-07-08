@@ -753,13 +753,34 @@ TxModuleNode* BuiltinTypes::create_tx_c_module() {
     std::vector<TxDeclarationNode*>* members = new std::vector<TxDeclarationNode*>();
 
     {   // declare tx.c.puts:
-        auto argType = new TxReferenceTypeNode( loc, nullptr, new TxArrayTypeNode( loc, new TxNamedTypeNode( loc, "tx.UByte" ) ) );
-        auto args = new std::vector<TxArgTypeDefNode*>( { new TxArgTypeDefNode( loc, "cstr", argType ) } );
+        auto cstrArgType = new TxReferenceTypeNode( loc, nullptr, new TxArrayTypeNode( loc, new TxNamedTypeNode( loc, "tx.UByte" ) ) );
+        auto args = new std::vector<TxArgTypeDefNode*>( { new TxArgTypeDefNode( loc, "cstr", cstrArgType ) } );
         auto putsDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_EXTERNC | TXD_BUILTIN,
                                              new TxFieldDefNode( loc, "puts", new TxFunctionTypeNode( loc, false, args,
                                                                                                       new TxNamedTypeNode( loc, "tx.Int" ) ),
                                                                  nullptr ) );
         members->push_back( putsDecl );
+    }
+
+    {   // declare tx.c.fputs:
+        auto cstrArgType = new TxReferenceTypeNode( loc, nullptr, new TxArrayTypeNode( loc, new TxNamedTypeNode( loc, "tx.UByte" ) ) );
+        auto fileArgType = new TxNamedTypeNode( loc, "tx.ULong" );
+        auto args = new std::vector<TxArgTypeDefNode*>( { new TxArgTypeDefNode( loc, "cstr", cstrArgType ),
+                                                          new TxArgTypeDefNode( loc, "file", fileArgType ) } );
+        auto fputsDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_EXTERNC | TXD_BUILTIN,
+                                              new TxFieldDefNode( loc, "fputs", new TxFunctionTypeNode( loc, false, args,
+                                                                                                        new TxNamedTypeNode( loc, "tx.Int" ) ),
+                                                                  nullptr ) );
+        members->push_back( fputsDecl );
+    }
+
+    {   // declare tx.c.stdout and tx.c.stderr:
+        auto stdoutDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_EXTERNC | TXD_BUILTIN,
+                                               new TxFieldDefNode( loc, "stdout", new TxNamedTypeNode( loc, "tx.ULong" ), nullptr ) );
+        auto stderrDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_EXTERNC | TXD_BUILTIN,
+                                               new TxFieldDefNode( loc, "stderr", new TxNamedTypeNode( loc, "tx.ULong" ), nullptr ) );
+        members->push_back( stdoutDecl );
+        members->push_back( stderrDecl );
     }
 
     {  // declare tx.c.abort:

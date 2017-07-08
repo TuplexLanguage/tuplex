@@ -33,90 +33,90 @@
 using namespace llvm;
 
 // currently not used, but has working runtime initialization logic, including malloc:
-Function* LlvmGenerationContext::gen_static_init_function() {
-    auto typeCountA = this->lookup_llvm_value( "tx.runtime.TYPE_COUNT" );
-    ASSERT( typeCountA, "tx.runtime.TYPE_COUNT not found" );
-    auto metaTypesA = this->lookup_llvm_value( "tx.runtime.META_TYPES" );
-    ASSERT( metaTypesA, "tx.runtime.META_TYPES not found" );
-
-    auto int8T = Type::getInt8Ty( this->llvmContext );
-    auto int32T = Type::getInt32Ty( this->llvmContext );
-    auto int8PtrT = Type::getInt8PtrTy( this->llvmContext );
-    //auto int32PtrT = Type::getInt32PtrTy(this->llvmContext);
-    auto int8PtrArrPtrT = PointerType::getUnqual( ArrayType::get( int8PtrT, 0 ) );
-    auto constZeroV = ConstantInt::get( int32T, 0 );
-    auto constOneV = ConstantInt::get( int32T, 1 );
-    auto mallocParameterType = int32T;
-
-    Function *init_func = cast<Function>( this->llvmModule().getOrInsertFunction( "tx.runtime.thread_init",
-                                                                                int32T,
-                                                                                NULL ) );
-    BasicBlock *entryBlock = BasicBlock::Create( this->llvmModule().getContext(), "entry", init_func );
-    IRBuilder<> builder( entryBlock );
-    auto typeCountV = builder.CreateLoad( typeCountA, "TYPE_COUNT" );
-
-    Value* vtablePtrArr;
-    {
-        GlobalVariable* vtablePtrArrPtr = new GlobalVariable( this->llvmModule(), int8PtrArrPtrT, false, GlobalValue::ExternalLinkage,
-                                                              ConstantPointerNull::get( int8PtrArrPtrT ),
-                                                              "tx.runtime.VTABLES" );
-        this->register_llvm_value( vtablePtrArrPtr->getName(), vtablePtrArrPtr );
-        auto int8PtrSizeV = ConstantExpr::getTruncOrBitCast( ConstantExpr::getSizeOf( int8PtrT ), int32T );
-        auto vtablePtrAllocI = CallInst::CreateMalloc( builder.GetInsertBlock(), mallocParameterType,
-                                                       int8PtrT,
-                                                       int8PtrSizeV, typeCountV, nullptr, "" );
-        builder.GetInsertBlock()->getInstList().push_back( vtablePtrAllocI );
-        vtablePtrArr = builder.CreatePointerCast( vtablePtrAllocI, int8PtrArrPtrT, "vtPtrArr" );
-        builder.CreateStore( vtablePtrArr, vtablePtrArrPtr );
-    }
-
-    // loop through meta type array and initialize every type's thread-local static data:
-    BasicBlock* condBlock = BasicBlock::Create( this->llvmContext, "while_cond", init_func );
-    BasicBlock* loopBlock = BasicBlock::Create( this->llvmContext, "while_loop", init_func );
-    BasicBlock* postBlock = BasicBlock::Create( this->llvmContext, "while_post", init_func );
-
-    auto indexA = builder.CreateAlloca( int32T, nullptr, "index" );
-    builder.CreateStore( constZeroV, indexA );
-    builder.CreateBr( condBlock );  // branch from end of preceding block to condition-block
-
-    builder.SetInsertPoint( condBlock );
-    auto indexV = builder.CreateLoad( indexA );
-    {
-        auto condV = builder.CreateICmpNE( indexV, typeCountV );
-        builder.CreateCondBr( condV, loopBlock, postBlock );
-    }
-
-    builder.SetInsertPoint( loopBlock );
-    {
-        Value* mtSizeIxs[] = { constZeroV, indexV, ConstantInt::get( int32T, 1 ) };
-        auto allocSizeA = builder.CreateInBoundsGEP( metaTypesA, mtSizeIxs );
-        auto allocSizeV = builder.CreateLoad( allocSizeA, "size" );
-        auto vtableI = CallInst::CreateMalloc( builder.GetInsertBlock(), mallocParameterType,
-                                               int8T,
-                                               constOneV, allocSizeV, nullptr, "vtable" );
-        builder.GetInsertBlock()->getInstList().push_back( vtableI );
-        builder.CreateMemSet( vtableI, ConstantInt::get( int8T, 0 ), allocSizeV, 0 );  // FIX ME: init the vtable
-
-        {   // store the vtable pointer:
-            Value* vtIxs[] = { constZeroV, indexV };
-            auto vtPtrA = builder.CreateInBoundsGEP( vtablePtrArr, vtIxs );
-            builder.CreateStore( vtableI, vtPtrA );
-        }
-
-        // bump the index:
-        auto newIndexV = builder.CreateAdd( indexV, constOneV, "newindex" );
-        builder.CreateStore( newIndexV, indexA );
-        builder.CreateBr( condBlock );  // branch from end of loop body to condition-block
-    }
-
-    builder.SetInsertPoint( postBlock );
-    {
-        //Value* retVal = builder.CreatePtrToInt(vtablePtrArr, int32T);
-        builder.CreateRet( typeCountV );
-    }
-
-    return init_func;
-}
+//Function* LlvmGenerationContext::gen_static_init_function() {
+//    auto typeCountA = this->lookup_llvm_value( "tx.runtime.TYPE_COUNT" );
+//    ASSERT( typeCountA, "tx.runtime.TYPE_COUNT not found" );
+//    auto metaTypesA = this->lookup_llvm_value( "tx.runtime.META_TYPES" );
+//    ASSERT( metaTypesA, "tx.runtime.META_TYPES not found" );
+//
+//    auto int8T = Type::getInt8Ty( this->llvmContext );
+//    auto int32T = Type::getInt32Ty( this->llvmContext );
+//    auto int8PtrT = Type::getInt8PtrTy( this->llvmContext );
+//    //auto int32PtrT = Type::getInt32PtrTy(this->llvmContext);
+//    auto int8PtrArrPtrT = PointerType::getUnqual( ArrayType::get( int8PtrT, 0 ) );
+//    auto constZeroV = ConstantInt::get( int32T, 0 );
+//    auto constOneV = ConstantInt::get( int32T, 1 );
+//    auto mallocParameterType = int32T;
+//
+//    Function *init_func = cast<Function>( this->llvmModule().getOrInsertFunction( "tx.runtime.thread_init",
+//                                                                                int32T,
+//                                                                                NULL ) );
+//    BasicBlock *entryBlock = BasicBlock::Create( this->llvmModule().getContext(), "entry", init_func );
+//    IRBuilder<> builder( entryBlock );
+//    auto typeCountV = builder.CreateLoad( typeCountA, "TYPE_COUNT" );
+//
+//    Value* vtablePtrArr;
+//    {
+//        GlobalVariable* vtablePtrArrPtr = new GlobalVariable( this->llvmModule(), int8PtrArrPtrT, false, GlobalValue::ExternalLinkage,
+//                                                              ConstantPointerNull::get( int8PtrArrPtrT ),
+//                                                              "tx.runtime.VTABLES" );
+//        this->register_llvm_value( vtablePtrArrPtr->getName(), vtablePtrArrPtr );
+//        auto int8PtrSizeV = ConstantExpr::getTruncOrBitCast( ConstantExpr::getSizeOf( int8PtrT ), int32T );
+//        auto vtablePtrAllocI = CallInst::CreateMalloc( builder.GetInsertBlock(), mallocParameterType,
+//                                                       int8PtrT,
+//                                                       int8PtrSizeV, typeCountV, nullptr, "" );
+//        builder.GetInsertBlock()->getInstList().push_back( vtablePtrAllocI );
+//        vtablePtrArr = builder.CreatePointerCast( vtablePtrAllocI, int8PtrArrPtrT, "vtPtrArr" );
+//        builder.CreateStore( vtablePtrArr, vtablePtrArrPtr );
+//    }
+//
+//    // loop through meta type array and initialize every type's thread-local static data:
+//    BasicBlock* condBlock = BasicBlock::Create( this->llvmContext, "while_cond", init_func );
+//    BasicBlock* loopBlock = BasicBlock::Create( this->llvmContext, "while_loop", init_func );
+//    BasicBlock* postBlock = BasicBlock::Create( this->llvmContext, "while_post", init_func );
+//
+//    auto indexA = builder.CreateAlloca( int32T, nullptr, "index" );
+//    builder.CreateStore( constZeroV, indexA );
+//    builder.CreateBr( condBlock );  // branch from end of preceding block to condition-block
+//
+//    builder.SetInsertPoint( condBlock );
+//    auto indexV = builder.CreateLoad( indexA );
+//    {
+//        auto condV = builder.CreateICmpNE( indexV, typeCountV );
+//        builder.CreateCondBr( condV, loopBlock, postBlock );
+//    }
+//
+//    builder.SetInsertPoint( loopBlock );
+//    {
+//        Value* mtSizeIxs[] = { constZeroV, indexV, ConstantInt::get( int32T, 1 ) };
+//        auto allocSizeA = builder.CreateInBoundsGEP( metaTypesA, mtSizeIxs );
+//        auto allocSizeV = builder.CreateLoad( allocSizeA, "size" );
+//        auto vtableI = CallInst::CreateMalloc( builder.GetInsertBlock(), mallocParameterType,
+//                                               int8T,
+//                                               constOneV, allocSizeV, nullptr, "vtable" );
+//        builder.GetInsertBlock()->getInstList().push_back( vtableI );
+//        builder.CreateMemSet( vtableI, ConstantInt::get( int8T, 0 ), allocSizeV, 0 );  // FIX ME: init the vtable
+//
+//        {   // store the vtable pointer:
+//            Value* vtIxs[] = { constZeroV, indexV };
+//            auto vtPtrA = builder.CreateInBoundsGEP( vtablePtrArr, vtIxs );
+//            builder.CreateStore( vtableI, vtPtrA );
+//        }
+//
+//        // bump the index:
+//        auto newIndexV = builder.CreateAdd( indexV, constOneV, "newindex" );
+//        builder.CreateStore( newIndexV, indexA );
+//        builder.CreateBr( condBlock );  // branch from end of loop body to condition-block
+//    }
+//
+//    builder.SetInsertPoint( postBlock );
+//    {
+//        //Value* retVal = builder.CreatePtrToInt(vtablePtrArr, int32T);
+//        builder.CreateRet( typeCountV );
+//    }
+//
+//    return init_func;
+//}
 
 /** Add main function so can be fully compiled
  * define i32 @main(i32 %argc, i8 **%argv)
@@ -430,7 +430,7 @@ void LlvmGenerationContext::initialize_builtin_functions() {
         auto lambdaT = StructType::get( this->llvmContext, lambdaMemberTypes );
         auto lambdaV = ConstantStruct::get( lambdaT, func, nullClosureRefV, NULL );
         auto lambdaA = new GlobalVariable( this->llvmModule(), lambdaT, true, GlobalValue::InternalLinkage, lambdaV, lambdaName );
-        this->register_llvm_value( lambdaName, lambdaA );
+        //this->register_llvm_value( lambdaName, lambdaA );
     }
 
     {  // public _typeid( ref : Ref ) -> UInt
@@ -460,109 +460,88 @@ void LlvmGenerationContext::initialize_builtin_functions() {
         auto lambdaT = StructType::get( this->llvmContext, lambdaMemberTypes );
         auto lambdaV = ConstantStruct::get( lambdaT, func, nullClosureRefV, NULL );
         auto lambdaA = new GlobalVariable( this->llvmModule(), lambdaT, true, GlobalValue::InternalLinkage, lambdaV, lambdaName );
-        this->register_llvm_value( lambdaName, lambdaA );
+        //this->register_llvm_value( lambdaName, lambdaA );
     }
 }
 
-void LlvmGenerationContext::initialize_external_functions() {
-    {   // declare external C abort():
-        std::vector<Type*> c_abort_args;
-        FunctionType* c_abort_func_type = FunctionType::get(
-                                                             /*Result=*/Type::getVoidTy( this->llvmContext ),
-                                                             /*Params=*/c_abort_args,
-                                                             /*isVarArg=*/false );
-        Function* c_abortF = Function::Create(
-                                               /*Type=*/c_abort_func_type,
-                                               /*Linkage=*/GlobalValue::ExternalLinkage, // (external, no body)
-                /*Name=*/"abort",
-                &this->llvmModule() );
-        c_abortF->setCallingConv( CallingConv::C );
-
-        // create adapter function:
-        Function *t_abortF = cast<Function>(
-                this->llvmModule().getOrInsertFunction( "tx.c.abort$func", Type::getVoidTy( this->llvmContext ), this->get_voidRefT(), NULL ) );
-        BasicBlock *bb = BasicBlock::Create( this->llvmModule().getContext(), "entry", t_abortF );
-        IRBuilder<> builder( bb );
-        GenScope scope( &builder );
-        CallInst *c_abortCall = builder.CreateCall( c_abortF );
-        c_abortCall->setTailCall( false );
-        ReturnInst::Create( this->llvmModule().getContext(), bb );
-
-        // store lambda object:
-        auto nullClosureRefV = Constant::getNullValue( this->get_voidRefT() );
-        std::vector<Type*> lambdaMemberTypes {
-                                               t_abortF->getType(),   // function pointer
-                this->get_voidRefT()  // null closure object pointer
-        };
-        auto lambdaT = StructType::get( this->llvmContext, lambdaMemberTypes );
-        auto lambdaV = ConstantStruct::get( lambdaT, t_abortF, nullClosureRefV, NULL );
-        auto lambdaA = new GlobalVariable( this->llvmModule(), lambdaT, true, GlobalValue::InternalLinkage, lambdaV, "tx.c.abort" );
-        this->register_llvm_value( "tx.c.abort", lambdaA );
-    }
-
-    // declare external C puts():
-    std::vector<Type*> c_puts_args( { Type::getInt8PtrTy( this->llvmContext ) } );
-    FunctionType* c_puts_func_type = FunctionType::get(
-                                                        /*Result=*/Type::getInt32Ty( this->llvmContext ),
-                                                        /*Params=*/c_puts_args,
-                                                        /*isVarArg=*/false );
-
-    Function* c_putsF = Function::Create(
-                                          /*Type=*/c_puts_func_type,
-                                          /*Linkage=*/GlobalValue::ExternalLinkage, // (external, no body)
-            /*Name=*/"puts",
-            &this->llvmModule() );
-    c_putsF->setCallingConv( CallingConv::C );
-
-    // create adapter function:
-    auto cstrRefT = TxReferenceType::make_ref_llvm_type( *this, Type::getInt8Ty( this->llvmContext ) );
-    Function *t_putsF = cast<Function>(
-            this->llvmModule().getOrInsertFunction( "tx.c.puts$func", Type::getVoidTy( this->llvmContext ), this->get_voidRefT(), cstrRefT, NULL ) );
-    BasicBlock *bb = BasicBlock::Create( this->llvmModule().getContext(), "entry", t_putsF );
-    IRBuilder<> builder( bb );
-    GenScope scope( &builder );
-    Function::arg_iterator args = t_putsF->arg_begin();
-    args++;  // the implicit closure pointer (null)
-    Value *arg_1 = &(*args);
-    arg_1->setName( "cstr" );
-    Value* ptrV = gen_get_ref_pointer( *this, &scope, arg_1 );
-    CallInst *cPutsCall = builder.CreateCall( c_putsF, ptrV );
-    cPutsCall->setTailCall( false );
-    ReturnInst::Create( this->llvmModule().getContext(), bb );
-
-    // store lambda object:
-    auto nullClosureRefV = Constant::getNullValue( this->get_voidRefT() );
-    std::vector<Type*> lambdaMemberTypes {
-                                           t_putsF->getType(),   // function pointer
-            this->get_voidRefT()  // null closure object pointer
-    };
-    auto lambdaT = StructType::get( this->llvmContext, lambdaMemberTypes );
-    auto lambdaV = ConstantStruct::get( lambdaT, t_putsF, nullClosureRefV, NULL );
-    auto lambdaA = new GlobalVariable( this->llvmModule(), lambdaT, true, GlobalValue::InternalLinkage, lambdaV, "tx.c.puts" );
-    this->register_llvm_value( "tx.c.puts", lambdaA );
-
-// varargs example:
-//    ArrayRef<Type*> FuncTy_7_args;
-//    FunctionType* FuncTy_7 = FunctionType::get(
-//      /*Result=*/Type::getInt32Ty(this->llvmContext),
-//      /*Params=*/FuncTy_7_args,
-//      /*isVarArg=*/true);
+//void LlvmGenerationContext::initialize_external_functions() {
+//    {   // declare external C abort():
+//        std::vector<Type*> c_abort_args;
+//        FunctionType* c_abort_func_type = FunctionType::get(
+//                                                             /*Result=*/Type::getVoidTy( this->llvmContext ),
+//                                                             /*Params=*/c_abort_args,
+//                                                             /*isVarArg=*/false );
+//        Function* c_abortF = Function::Create(
+//                                               /*Type=*/c_abort_func_type,
+//                                               /*Linkage=*/GlobalValue::ExternalLinkage, // (external, no body)
+//                /*Name=*/"abort",
+//                &this->llvmModule() );
+//        c_abortF->setCallingConv( CallingConv::C );
 //
-//    Function* func_foo = Function::Create(
-//      /*Type=*/FuncTy_7,
-//      /*Linkage=*/GlobalValue::ExternalLinkage, // (external, no body)
-//      /*Name=*/"foo",
-//      &this->llvmModule);
-//     func_foo->setCallingConv(CallingConv::C);
-}
-
-///** Looks up a field declaration. If the symbol is overloaded, returns its first field declaration. */
-//static const TxField* lookup_field_simple(TxScopeSymbol* scope, const TxIdentifier& ident) {
-//    TxScopeSymbol* symbol = lookup_symbol(scope, ident);
-//    if (auto entSym = dynamic_cast<TxEntitySymbol*>(symbol))
-//        return entSym->get_first_field_decl()->get_field_definer()->get_field();
-//    return nullptr;
+//        // create adapter function:
+//        Function *t_abortF = cast<Function>(
+//                this->llvmModule().getOrInsertFunction( "tx.c.abort$func", Type::getVoidTy( this->llvmContext ), this->get_voidRefT(), NULL ) );
+//        BasicBlock *bb = BasicBlock::Create( this->llvmModule().getContext(), "entry", t_abortF );
+//        IRBuilder<> builder( bb );
+//        GenScope scope( &builder );
+//        CallInst *c_abortCall = builder.CreateCall( c_abortF );
+//        c_abortCall->setTailCall( false );
+//        ReturnInst::Create( this->llvmModule().getContext(), bb );
+//
+//        // store lambda object:
+//        auto nullClosureRefV = Constant::getNullValue( this->get_voidRefT() );
+//        std::vector<Type*> lambdaMemberTypes {
+//                                               t_abortF->getType(),   // function pointer
+//                this->get_voidRefT()  // null closure object pointer
+//        };
+//        auto lambdaT = StructType::get( this->llvmContext, lambdaMemberTypes );
+//        auto lambdaV = ConstantStruct::get( lambdaT, t_abortF, nullClosureRefV, NULL );
+//        auto lambdaA = new GlobalVariable( this->llvmModule(), lambdaT, true, GlobalValue::InternalLinkage, lambdaV, "tx.c.abort" );
+//        this->register_llvm_value( "tx.c.abort", lambdaA );
+//    }
+//
+//    // declare external C puts():
+//    std::vector<Type*> c_puts_args( { Type::getInt8PtrTy( this->llvmContext ) } );
+//    FunctionType* c_puts_func_type = FunctionType::get(
+//                                                        /*Result=*/Type::getInt32Ty( this->llvmContext ),
+//                                                        /*Params=*/c_puts_args,
+//                                                        /*isVarArg=*/false );
+//
+//    Function* c_putsF = Function::Create(
+//                                          /*Type=*/c_puts_func_type,
+//                                          /*Linkage=*/GlobalValue::ExternalLinkage, // (external, no body)
+//            /*Name=*/"puts",
+//            &this->llvmModule() );
+//    c_putsF->setCallingConv( CallingConv::C );
+//
+//    // create adapter function:
+//    auto cstrRefT = TxReferenceType::make_ref_llvm_type( *this, Type::getInt8Ty( this->llvmContext ) );
+//    Function *t_putsF = cast<Function>(
+//            this->llvmModule().getOrInsertFunction( "tx.c.puts$func", Type::getVoidTy( this->llvmContext ), this->get_voidRefT(), cstrRefT, NULL ) );
+//    BasicBlock *bb = BasicBlock::Create( this->llvmModule().getContext(), "entry", t_putsF );
+//    IRBuilder<> builder( bb );
+//    GenScope scope( &builder );
+//    Function::arg_iterator args = t_putsF->arg_begin();
+//    args++;  // the implicit closure pointer (null)
+//    Value *arg_1 = &(*args);
+//    arg_1->setName( "cstr" );
+//    Value* ptrV = gen_get_ref_pointer( *this, &scope, arg_1 );
+//    CallInst *cPutsCall = builder.CreateCall( c_putsF, ptrV );
+//    cPutsCall->setTailCall( false );
+//    ReturnInst::Create( this->llvmModule().getContext(), bb );
+//
+//    // store lambda object:
+//    auto nullClosureRefV = Constant::getNullValue( this->get_voidRefT() );
+//    std::vector<Type*> lambdaMemberTypes {
+//                                           t_putsF->getType(),   // function pointer
+//            this->get_voidRefT()  // null closure object pointer
+//    };
+//    auto lambdaT = StructType::get( this->llvmContext, lambdaMemberTypes );
+//    auto lambdaV = ConstantStruct::get( lambdaT, t_putsF, nullClosureRefV, NULL );
+//    auto lambdaA = new GlobalVariable( this->llvmModule(), lambdaT, true, GlobalValue::InternalLinkage, lambdaV, "tx.c.puts" );
+//    this->register_llvm_value( "tx.c.puts", lambdaA );
 //}
+
 
 void LlvmGenerationContext::generate_runtime_data() {
     for ( auto txTypeI = this->tuplexPackage.registry().formal_types_cbegin(); txTypeI != this->tuplexPackage.registry().formal_types_cend();
@@ -618,9 +597,10 @@ void LlvmGenerationContext::generate_runtime_data() {
                         //std::cerr << "inserting virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                         valueName = actualFieldEnt->get_declaration()->get_unique_full_name();
                     }
-                    auto llvmValue = this->lookup_llvm_value( valueName );
+                    //auto llvmValue = this->lookup_llvm_value( valueName );
+                    auto llvmValue = actualFieldEnt->get_llvm_value();
                     if ( !llvmValue ) {
-                        ASSERT( false, "llvm value not found for field name: " << valueName );
+                        THROW_LOGIC( "llvm value not found for field name: " << valueName );
                     }
                     llvmFieldC = cast<Constant>( llvmValue );
                 }

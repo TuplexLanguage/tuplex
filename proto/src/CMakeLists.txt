@@ -110,6 +110,7 @@ add_executable(txc
         ast/ast_entitydecls.cpp
         ast/ast_entitydefs.cpp
         ast/ast_fielddef_node.cpp
+        ast/ast_fielddef_codegen.cpp
         ast/ast_modbase_codegen.cpp
         ast/ast_entitydecls_codegen.cpp
 

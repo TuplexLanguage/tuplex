@@ -11,33 +11,35 @@ using namespace llvm;
 
 void TxFieldStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    if ( this->field->typeExpression )
-        this->field->typeExpression->code_gen_type( context );
-    auto declaration = this->field->get_declaration();
-    auto uniqueName = declaration->get_unique_full_name();
-    ASSERT( declaration->get_storage() == TXS_STACK, "TxFieldStmtNode can only apply to TX_STACK storage fields: " << uniqueName );
-    auto txType = this->field->qualtype()->type()->acttype();
+    this->field->code_gen_local_field( context, scope );
 
-    // If init expression does a stack allocation of this field's type (instance-equivalent type),
-    // this field shall bind to that allocation.
-
-    Value* fieldValPtr;
-    if ( this->field->initExpression ) {
-        if ( this->field->initExpression->is_stack_allocation_expression() ) {
-            fieldValPtr = this->field->initExpression->code_gen_addr( context, scope );
-        }
-        else {
-            fieldValPtr = txType->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
-            // create implicit assignment statement
-            if ( Value* initializer = this->field->initExpression->code_gen_expr( context, scope ) )
-                scope->builder->CreateStore( initializer, fieldValPtr );
-        }
-    }
-    else {
-        fieldValPtr = txType->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
-        // We don't automatically invoke default constructor (in future, a code flow validator should check that initialized before first use)
-    }
-    context.register_llvm_value( uniqueName, fieldValPtr );
+//    if ( this->field->typeExpression )
+//        this->field->typeExpression->code_gen_type( context );
+//    auto declaration = this->field->get_declaration();
+//    auto uniqueName = declaration->get_unique_full_name();
+//    ASSERT( declaration->get_storage() == TXS_STACK, "TxFieldStmtNode can only apply to TX_STACK storage fields: " << uniqueName );
+//    auto txType = this->field->qualtype()->type()->acttype();
+//
+//    // If init expression does a stack allocation of this field's type (instance-equivalent type),
+//    // this field shall bind to that allocation.
+//
+//    Value* fieldValPtr;
+//    if ( this->field->initExpression ) {
+//        if ( this->field->initExpression->is_stack_allocation_expression() ) {
+//            fieldValPtr = this->field->initExpression->code_gen_addr( context, scope );
+//        }
+//        else {
+//            fieldValPtr = txType->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
+//            // create implicit assignment statement
+//            if ( Value* initializer = this->field->initExpression->code_gen_expr( context, scope ) )
+//                scope->builder->CreateStore( initializer, fieldValPtr );
+//        }
+//    }
+//    else {
+//        fieldValPtr = txType->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
+//        // We don't automatically invoke default constructor (in future, a code flow validator should check that initialized before first use)
+//    }
+//    context.register_llvm_value( uniqueName, fieldValPtr );
 }
 
 void TxTypeStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
