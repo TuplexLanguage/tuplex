@@ -34,6 +34,7 @@
 #include "ast/expr/ast_lit.hpp"
 #include "ast/expr/ast_string.hpp"
 #include "ast/expr/ast_range.hpp"
+#include "ast/expr/ast_intrinsics.hpp"
 #include "ast/type/ast_types.hpp"
 #include "ast/stmt/ast_flow.hpp"
 #include "ast/stmt/ast_assertstmt_node.hpp"
@@ -130,7 +131,7 @@ YY_DECL;
 %token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_XOR
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE KW_FROM
 %token KW_NULL KW_TRUE KW_FALSE
-%token KW_PANIC KW_ASSERT KW_EXPERR
+%token KW_PANIC KW_ASSERT KW_EXPERR KW__ADDRESS KW__TYPEID
 
 /* keywords reserved but not currently used */
 %token KW_TUPLE KW_UNION KW_ENUM
@@ -177,7 +178,7 @@ YY_DECL;
 %type <TxTypeExpressionNode*> named_type specialized_type reference_type array_type
 
 %type <TxFunctionTypeNode*> function_signature
-%type <TxExpressionNode*> expr make_expr lambda_expr value_literal array_literal array_dimensions cond_expr
+%type <TxExpressionNode*> expr make_expr lambda_expr value_literal array_literal array_dimensions cond_expr intrinsics_expr
 %type <TxFunctionCallNode*> call_expr
 %type <std::vector<TxExpressionNode*> *> expression_list call_params array_lit_expr_list
 %type <std::vector<TxStatementNode*> *> statement_list
@@ -554,6 +555,7 @@ expr
     |   lambda_expr                  { $$ = $1; }
     |   call_expr                    { $$ = $1; }
     |   make_expr                    { $$ = $1; }
+    |   intrinsics_expr              { $$ = $1; }
 
     |   NAME                         { $$ = new TxFieldValueNode(@1, NULL, $1); }
     |   expr DOT NAME                { $$ = new TxFieldValueNode(@$, $1,   $3); }
@@ -631,6 +633,10 @@ expression_list : expr
                       { $$ = $1;
                         $$->push_back($3); }
 ;
+
+intrinsics_expr : KW__ADDRESS LPAREN expr RPAREN  { $$ = new TxRefAddressNode(@$, $3); }
+                | KW__TYPEID  LPAREN expr RPAREN  { $$ = new TxRefTypeIdNode(@$, $3); }
+                ;
 
 
 string_format_expr : string_format expr       %prec STRFORMAT

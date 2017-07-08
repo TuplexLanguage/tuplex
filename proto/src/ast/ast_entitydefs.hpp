@@ -135,10 +135,4 @@ public:
 
     /** Returns true if this field has a constant initialization expression that can be evaluated at compile time. */
     virtual bool is_statically_constant() const;
-
-    /** Generates / retrieves the code generated constant value of this field's init expression,
-     * if it has one and it is constant.
-     * May be called multiple times, it caches the result to ensures the constant value is only generated once.
-     * Only valid to call on nodes for which is_statically_constant() returns true. */
-    virtual llvm::Constant* code_gen_const_init_value( LlvmGenerationContext& context ) const { return nullptr ; }
 };

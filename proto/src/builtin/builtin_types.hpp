@@ -23,8 +23,6 @@ class BuiltinTypes {
 
     TxModuleNode* create_tx_c_module();
 
-    void declare_tx_functions();
-
 public:
     BuiltinTypes( TypeRegistry& registry );
 

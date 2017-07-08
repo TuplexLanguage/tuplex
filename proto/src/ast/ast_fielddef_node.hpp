@@ -99,5 +99,5 @@ public:
      * if it has one and it is constant.
      * May be called multiple times, it caches the result to ensures the constant value is only generated once.
      * Only valid to call on nodes for which is_statically_constant() returns true. */
-    virtual llvm::Constant* code_gen_const_init_value( LlvmGenerationContext& context ) const override;
+    llvm::Constant* code_gen_const_init_value( LlvmGenerationContext& context ) const;
 };

@@ -56,11 +56,8 @@ class LlvmGenerationContext {
     llvm::Type* voidPtrT;
     llvm::Type* voidRefT;
 
-    const TxType* lookup_builtin( BuiltinTypeId id );
     void initialize_basic_llvm_types();
     void initialize_meta_type_data();
-    void initialize_builtin_functions();
-    void initialize_external_functions();
     llvm::Function* gen_main_function( const std::string userMain, bool hasIntReturnValue );
 
 public:

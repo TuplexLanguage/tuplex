@@ -194,7 +194,7 @@ Constant* TxFieldValueNode::code_gen_const_value( LlvmGenerationContext& context
     TRACE_CODEGEN( this, context );
 
     if ( this->field->get_declaration()->get_definer()->get_init_expression() ) {
-        return this->field->get_declaration()->get_definer()->code_gen_const_init_value( context );
+        return static_cast<TxFieldDefNode*>( this->field->get_declaration()->get_definer() )->code_gen_const_init_value( context );
     }
     else if ( this->field->get_storage() == TXS_INSTANCE ) {
         auto baseObjC = this->baseExpr->code_gen_const_value( context );
