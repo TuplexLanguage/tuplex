@@ -9,11 +9,15 @@
 #include "ast_field.hpp"
 
 
-llvm::Value* gen_get_struct_member( LlvmGenerationContext& context, GenScope* scope, llvm::Value* structV, unsigned ix );
+llvm::Value*    gen_get_struct_member( LlvmGenerationContext& context, GenScope* scope, llvm::Value* structV, unsigned ix );
+llvm::Constant* gen_get_struct_member( LlvmGenerationContext& context, llvm::Constant* structC, unsigned ix );
 
 llvm::Value* gen_get_ref_pointer( LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV );
-llvm::Value* gen_get_ref_typeid( LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV );
-llvm::Value* gen_ref( LlvmGenerationContext& context, GenScope* scope, llvm::Type* refT, llvm::Value* ptrV, llvm::Value* tidV );
+llvm::Value* gen_get_ref_typeid ( LlvmGenerationContext& context, GenScope* scope, llvm::Value* refV );
+llvm::Constant* gen_get_ref_pointer( LlvmGenerationContext& context, llvm::Constant* refC );
+llvm::Constant* gen_get_ref_typeid ( LlvmGenerationContext& context, llvm::Constant* refC );
+
+llvm::Value*    gen_ref( LlvmGenerationContext& context, GenScope* scope, llvm::Type* refT, llvm::Value* ptrV, llvm::Value* tidV );
 llvm::Constant* gen_ref( LlvmGenerationContext& context, llvm::Type* refT, llvm::Constant* ptrC, llvm::Constant* tidC );
 
 /** Converts a reference value from one type to another. If targetTypeId is specified, it will replace the original type id. */

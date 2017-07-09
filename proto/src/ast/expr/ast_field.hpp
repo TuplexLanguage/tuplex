@@ -12,7 +12,7 @@
  * ("distance" between the types);
  * or <0 if it can't be cast or implicitly converted to the expected type.
  */
-extern int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType*requiredType );
+int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType*requiredType );
 
 /** Attempts to resolve an identified entity symbol, that is potentially overloaded,
  * to a specific field by matching with the provided arguments' types.
@@ -32,10 +32,8 @@ extern int get_reinterpretation_degree( TxExpressionNode* originalExpr, const Tx
  *
  * Note: This function doesn't generate compiler errors; if no match is found null is returned.
  */
-extern const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntitySymbol* entitySymbol,
-                                                const std::vector<TxExpressionNode*>* arguments );
-
-extern llvm::Value* gen_lambda( LlvmGenerationContext& context, GenScope* scope, llvm::Type* lambdaT, llvm::Value* funcV, llvm::Value* closureRefV );
+const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntitySymbol* entitySymbol,
+                                         const std::vector<TxExpressionNode*>* arguments );
 
 
 class TxFieldValueNode : public TxExpressionNode {

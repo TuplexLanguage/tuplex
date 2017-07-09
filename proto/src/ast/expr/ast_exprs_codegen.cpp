@@ -1,5 +1,6 @@
 #include "ast_exprs.hpp"
 #include "ast_ref.hpp"
+#include "ast_lambda_node.hpp"
 
 #include "llvm_generator.hpp"
 

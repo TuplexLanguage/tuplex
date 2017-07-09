@@ -6,6 +6,20 @@
 using namespace llvm;
 
 
+Value* gen_lambda( LlvmGenerationContext& context, GenScope* scope, Type* lambdaT, Value* funcV, Value* closureRefV ) {
+    Value* lambdaV = UndefValue::get( lambdaT );
+    auto castFuncV = scope->builder->CreatePointerCast( funcV, lambdaT->getStructElementType( 0 ) );
+    lambdaV = scope->builder->CreateInsertValue( lambdaV, castFuncV, 0 );
+    lambdaV = scope->builder->CreateInsertValue( lambdaV, closureRefV, 1 );
+    return lambdaV;
+}
+
+Constant* gen_lambda( LlvmGenerationContext& context, Type* lambdaT, Constant* funcC, Constant* closureRefC ) {
+    auto lambdaC = ConstantStruct::get( cast<StructType>( lambdaT ), funcC, closureRefC, NULL );
+    return lambdaC;
+}
+
+
 static Value* gen_local_field( LlvmGenerationContext& context, GenScope* scope, const TxField* field, Value* fieldV ) {
     fieldV->setName( field->get_unique_name() );
     const TxType* txType = field->get_type()->type();
@@ -90,10 +104,9 @@ llvm::Constant* TxLambdaExprNode::code_gen_const_value( LlvmGenerationContext& c
     ASSERT( entryBlock->getTerminator(), "Function entry block has no terminator" );
 
     // construct the lambda object:
-    auto nullClosureRefV = Constant::getNullValue( lambdaT->getElementType( 1 ) );
-    auto lambdaV = ConstantStruct::get( lambdaT, function, nullClosureRefV, NULL );
-    //auto lambdaV = gen_lambda(context, scope, lambdaT, function, nullClosureRefV);
-    return lambdaV;
+    auto nullClosureRefC = Constant::getNullValue( lambdaT->getElementType( 1 ) );
+    auto lambdaC = gen_lambda(context, lambdaT, function, nullClosureRefC);
+    return lambdaC;
 }
 
 Value* TxLambdaExprNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {

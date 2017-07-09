@@ -5,6 +5,12 @@
 #include "ast/type/ast_funcheader_node.hpp"
 #include "ast/ast_fielddef_node.hpp"
 
+
+llvm::Value* gen_lambda( LlvmGenerationContext& context, GenScope* scope, llvm::Type* lambdaT, llvm::Value* funcV, llvm::Value* closureRefV );
+
+llvm::Constant* gen_lambda( LlvmGenerationContext& context, llvm::Type* lambdaT, llvm::Constant* funcC, llvm::Constant* closureRefC );
+
+
 class TxLambdaExprNode : public TxExpressionNode {
     bool instanceMethod = false;
     TxTypeExpressionNode* selfTypeNode = nullptr;

@@ -5,15 +5,6 @@
 
 using namespace llvm;
 
-Value* gen_lambda( LlvmGenerationContext& context, GenScope* scope, Type* lambdaT, Value* funcV, Value* closureRefV ) {
-    Value* lambdaV = UndefValue::get( lambdaT );
-    auto castFuncV = scope->builder->CreatePointerCast( funcV, lambdaT->getStructElementType( 0 ) );
-    lambdaV = scope->builder->CreateInsertValue( lambdaV, castFuncV, 0 );
-    lambdaV = scope->builder->CreateInsertValue( lambdaV, closureRefV, 1 );
-    return lambdaV;
-}
-
-
 /** Gets a virtual field value via the vtable.
  * Note that this returns a value of pointer type for all virtual fields, except for $adTypeId which has type i32.
  */

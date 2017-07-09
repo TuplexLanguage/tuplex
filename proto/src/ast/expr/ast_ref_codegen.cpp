@@ -8,42 +8,43 @@ using namespace llvm;
 
 
 Value* gen_get_struct_member( LlvmGenerationContext& context, GenScope* scope, Value* structV, unsigned ix ) {
-    Value* memberV;
-    if ( auto structPtrT = dyn_cast<PointerType>( structV->getType() ) ) {  // address of struct
-        ASSERT( structPtrT->getPointerElementType()->isStructTy(), "expected pointer element to be a struct: " << structV );
-        (void) structPtrT;   // suppresses unused variable warning in release mode
-        if ( scope ) {
-            auto memberA = scope->builder->CreateStructGEP( structPtrT->getPointerElementType(), structV, ix );
-            memberV = scope->builder->CreateLoad( memberA );
-        }
-        else {
-            Value *idxs[] = {
-                              ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                              ConstantInt::get( Type::getInt32Ty( context.llvmContext ), ix )
-            };
-            auto memberA = GetElementPtrInst::CreateInBounds( structV, idxs );
-            memberV = new LoadInst( memberA );
-        }
+    if ( structV->getType()->isPointerTy() ) {  // address of struct
+        auto memberA = scope->builder->CreateStructGEP( structV->getType()->getPointerElementType(), structV, ix );
+        return scope->builder->CreateLoad( memberA );
     }
     else {  // direct / "register" struct
         ASSERT( structV->getType()->isStructTy(), "expected value to be a struct: " << structV );
-        memberV = ( scope ? scope->builder->CreateExtractValue( structV, ix )
-                          : ExtractValueInst::Create( structV, ix ) );
-        //std::cerr << "gen_get_struct_member(), structV: " << structV << "   ix: " << ix << std::endl;
-        //std::cerr << "                         memberV: " << memberV << std::endl;
+        return scope->builder->CreateExtractValue( structV, ix );
     }
-    return memberV;
 }
 
+Constant* gen_get_struct_member( LlvmGenerationContext& context, Constant* structC, unsigned ix ) {
+    return structC->getAggregateElement( ix );
+}
+
+
 Value* gen_get_ref_pointer( LlvmGenerationContext& context, GenScope* scope, Value* refV ) {
-    Value* ptrV = gen_get_struct_member( context, scope, refV, 0 );
-    ASSERT( ptrV->getType()->isPointerTy(), "expected ref.ptr element to be a pointer: " << refV );
-    return ptrV;
+    if ( refV->getType()->isPointerTy() ) {  // address of struct
+        auto refPtrA = scope->builder->CreateStructGEP( refV->getType()->getPointerElementType(), refV, 0 );
+        auto refPtrV = scope->builder->CreateLoad( refPtrA );
+        return refPtrV;
+    }
+    else {  // direct / "register" struct
+        auto refPtrV = scope->builder->CreateExtractValue( refV, 0 );
+        return refPtrV;
+    }
 }
 
 Value* gen_get_ref_typeid( LlvmGenerationContext& context, GenScope* scope, Value* refV ) {
-    Value* tidV = gen_get_struct_member( context, scope, refV, 1 );
-    return tidV;
+    if ( refV->getType()->isPointerTy() ) {  // address of struct
+        auto refPtrA = scope->builder->CreateStructGEP( refV->getType()->getPointerElementType(), refV, 1 );
+        auto refPtrV = scope->builder->CreateLoad( refPtrA );
+        return refPtrV;
+    }
+    else {  // direct / "register" struct
+        auto refPtrV = scope->builder->CreateExtractValue( refV, 1 );
+        return refPtrV;
+    }
 }
 
 Value* gen_ref( LlvmGenerationContext& context, GenScope* scope, Type* refT, Value* ptrV, Value* tidV ) {

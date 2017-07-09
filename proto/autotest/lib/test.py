@@ -31,6 +31,7 @@ current_script_dir = dirname( abspath( __file__ ) )
 chdir( current_script_dir )
 
 source_files = [
+    "helloworld.tx",
     "scalars_test.tx",
     "array_interface.tx",
     "for_loops.tx",

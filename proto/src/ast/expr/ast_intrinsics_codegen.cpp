@@ -7,14 +7,6 @@
 using namespace llvm;
 
 
-Value* TxRefAddressNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
-    TRACE_CODEGEN( this, context );
-    auto refV = this->refExpr->code_gen_expr( context, scope );
-    auto ptrV = gen_get_ref_pointer( context, scope, refV );
-    auto addrV = scope->builder->CreatePtrToInt( ptrV, Type::getInt64Ty( context.llvmContext ) );
-    return addrV;
-}
-
 Value* TxRefAddressNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     auto refPtrV = this->refExpr->code_gen_addr( context, scope );
@@ -24,13 +16,18 @@ Value* TxRefAddressNode::code_gen_dyn_address( LlvmGenerationContext& context, G
     return addrPtrV;
 }
 
-
-Value* TxRefTypeIdNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+Value* TxRefAddressNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto refV = this->refExpr->code_gen_dyn_value( context, scope );
-    auto tidV = gen_get_ref_typeid( context, scope, refV );
-    return tidV;
+    auto ptrV = gen_get_ref_pointer( context, scope, this->refExpr->code_gen_expr( context, scope ) );
+    return scope->builder->CreatePtrToInt( ptrV, Type::getInt64Ty( context.llvmContext ) );
 }
+
+Constant* TxRefAddressNode::code_gen_const_value( LlvmGenerationContext& context ) const {
+    TRACE_CODEGEN( this, context );
+    auto ptrC = gen_get_ref_pointer( context, this->refExpr->code_gen_const_value( context ) );
+    return ConstantExpr::getPtrToInt( ptrC, Type::getInt64Ty( context.llvmContext ) );
+}
+
 
 Value* TxRefTypeIdNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
@@ -40,9 +37,12 @@ Value* TxRefTypeIdNode::code_gen_dyn_address( LlvmGenerationContext& context, Ge
     return refMembPtrV;
 }
 
+Value* TxRefTypeIdNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    return gen_get_ref_typeid( context, scope, this->refExpr->code_gen_dyn_value( context, scope ) );
+}
+
 Constant* TxRefTypeIdNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
-    auto refC = this->refExpr->code_gen_const_value( context );
-    auto tidC = refC->getAggregateElement( 1 );
-    return tidC;
+    return gen_get_ref_typeid( context, this->refExpr->code_gen_const_value( context ) );
 }
