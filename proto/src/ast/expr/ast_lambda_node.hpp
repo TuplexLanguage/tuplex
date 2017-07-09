@@ -14,8 +14,8 @@ llvm::Constant* gen_lambda( LlvmGenerationContext& context, llvm::Type* lambdaT,
 class TxLambdaExprNode : public TxExpressionNode {
     bool instanceMethod = false;
     TxTypeExpressionNode* selfTypeNode = nullptr;
-    TxFieldDefNode* selfRefNode = nullptr;
-    TxFieldDefNode* superRefNode = nullptr;
+    TxLocalFieldDefNode* selfRefNode = nullptr;
+    TxLocalFieldDefNode* superRefNode = nullptr;
     const TxTypeDeclaration* constructedObjTypeDecl = nullptr;
 
 protected:
@@ -45,11 +45,11 @@ public:
             else
                 selfRefTargetTypeNode = this->selfTypeNode;
             auto selfRefTypeExprN = new TxReferenceTypeNode( this->ploc, nullptr, selfRefTargetTypeNode );
-            this->selfRefNode = new TxFieldDefNode( this->ploc, "self", selfRefTypeExprN, nullptr );
+            this->selfRefNode = new TxLocalFieldDefNode( this->ploc, "self", selfRefTypeExprN, nullptr );
 
             // 'super' reference
             auto superRefTypeExprN = new TxNamedTypeNode( this->ploc, "Super" );
-            this->superRefNode = new TxFieldDefNode( this->ploc, "super", superRefTypeExprN, nullptr );
+            this->superRefNode = new TxLocalFieldDefNode( this->ploc, "super", superRefTypeExprN, nullptr );
             // FUTURE: if type is modifiable, the super target type should in some cases perhaps be modifiable as well?
         }
     }

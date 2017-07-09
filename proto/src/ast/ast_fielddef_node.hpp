@@ -10,8 +10,6 @@ class Constant;
 }
 
 class TxFieldDefNode : public TxFieldDefiningNode {
-    const TxFieldDeclaration* declaration = nullptr;
-    mutable llvm::Constant* cachedConstantInitializer = nullptr;
 
     static bool validateFieldName( TxNode* node, const std::string& name ) {
     // TODO
@@ -24,9 +22,12 @@ class TxFieldDefNode : public TxFieldDefiningNode {
         return true;
     }
 
+protected:
+    const TxFieldDeclaration* declaration = nullptr;
+    mutable llvm::Constant* cachedConstantInitializer = nullptr;
+
     llvm::Value* make_constant_nonlocal_field( LlvmGenerationContext& context, llvm::Constant* constantInitializer ) const;
 
-protected:
     virtual const TxQualType* define_type() override;
 
     virtual const TxField* define_field() override;
@@ -53,11 +54,7 @@ public:
         }
     }
 
-    virtual TxFieldDefNode* make_ast_copy() const override {
-        TxTypeExpressionNode* typeExpr = ( this->typeExpression ? this->typeExpression->make_ast_copy() : nullptr );
-        TxExpressionNode* initExpr = ( this->initExpression ? this->initExpression->originalExpr->make_ast_copy() : nullptr );
-        return new TxFieldDefNode( this->ploc, this->fieldName->str(), typeExpr, initExpr, this->modifiable );
-    }
+    virtual TxFieldDefNode* make_ast_copy() const override = 0;
 
     /** Performs the declaration of the field defined by this node. To be run before declaration pass is run on this node. */
     inline void declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
@@ -91,13 +88,43 @@ public:
         return this->fieldName->str();
     }
 
-    void code_gen_local_field( LlvmGenerationContext& context, GenScope* scope ) const;
-
-    void code_gen_non_local_field( LlvmGenerationContext& context ) const;
-
     /** Generates / retrieves the code generated constant value of this field's init expression,
      * if it has one and it is constant.
      * May be called multiple times, it caches the result to ensures the constant value is only generated once.
      * Only valid to call on nodes for which is_statically_constant() returns true. */
     llvm::Constant* code_gen_const_init_value( LlvmGenerationContext& context ) const;
+};
+
+class TxLocalFieldDefNode : public TxFieldDefNode {
+public:
+    TxLocalFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
+                      TxTypeExpressionNode* typeExpression,
+                      TxExpressionNode* initExpression, bool modifiable = false )
+            : TxFieldDefNode( ploc, fieldName, typeExpression, initExpression, modifiable ) {
+    }
+
+    virtual TxLocalFieldDefNode* make_ast_copy() const override {
+        TxTypeExpressionNode* typeExpr = ( this->typeExpression ? this->typeExpression->make_ast_copy() : nullptr );
+        TxExpressionNode* initExpr = ( this->initExpression ? this->initExpression->originalExpr->make_ast_copy() : nullptr );
+        return new TxLocalFieldDefNode( this->ploc, this->fieldName->str(), typeExpr, initExpr, this->modifiable );
+    }
+
+    void code_gen_field( LlvmGenerationContext& context, GenScope* scope ) const;
+};
+
+class TxNonLocalFieldDefNode : public TxFieldDefNode {
+public:
+    TxNonLocalFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
+                      TxTypeExpressionNode* typeExpression,
+                      TxExpressionNode* initExpression, bool modifiable = false )
+            : TxFieldDefNode( ploc, fieldName, typeExpression, initExpression, modifiable ) {
+    }
+
+    virtual TxNonLocalFieldDefNode* make_ast_copy() const override {
+        TxTypeExpressionNode* typeExpr = ( this->typeExpression ? this->typeExpression->make_ast_copy() : nullptr );
+        TxExpressionNode* initExpr = ( this->initExpression ? this->initExpression->originalExpr->make_ast_copy() : nullptr );
+        return new TxNonLocalFieldDefNode( this->ploc, this->fieldName->str(), typeExpr, initExpr, this->modifiable );
+    }
+
+    void code_gen_field( LlvmGenerationContext& context ) const;
 };

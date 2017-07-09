@@ -30,5 +30,5 @@ void TxTypeDeclNode::code_gen( LlvmGenerationContext& context ) const {
 
 void TxFieldDeclNode::code_gen( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
-    this->field->code_gen_non_local_field( context );
+    this->fieldDef->code_gen_field( context );
 }

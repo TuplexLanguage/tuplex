@@ -172,9 +172,9 @@ class TxInClauseNode : public TxLoopHeaderNode {
     const std::string valueName;
     const std::string iterName;
     TxExpressionNode* origSeqExpr;
-    TxFieldDefNode*   iterField = nullptr;
+    TxLocalFieldDefNode*   iterField = nullptr;
     TxExpressionNode* nextCond = nullptr;
-    TxFieldDefNode*   valueField = nullptr;
+    TxLocalFieldDefNode*   valueField = nullptr;
     TxDeclarationFlags iterDeclFlags = TXD_NONE;
 
 protected:

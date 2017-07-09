@@ -18,24 +18,24 @@ protected:
 
     virtual void stmt_declaration_pass() override {
         this->successorScope = lexContext.scope()->create_code_block_scope( *this );
-        this->field->declare_field( this->successorScope, this->declFlags, TXS_STACK );
+        this->fieldDef->declare_field( this->successorScope, this->declFlags, TXS_STACK );
         // (to prevent init expr from referencing this field, it is processed in the 'outer' scope, not in the new block scope)
     }
 
 public:
-    TxFieldDefNode* field;
+    TxLocalFieldDefNode* fieldDef;
 
-    TxFieldStmtNode( const TxLocation& ploc, TxFieldDefNode* field )
-            : TxStatementNode( ploc ), field( field ) {
+    TxFieldStmtNode( const TxLocation& ploc, TxLocalFieldDefNode* fieldDef )
+            : TxStatementNode( ploc ), fieldDef( fieldDef ) {
     }
 
     virtual TxFieldStmtNode* make_ast_copy() const override {
-        return new TxFieldStmtNode( this->ploc, this->field->make_ast_copy() );
+        return new TxFieldStmtNode( this->ploc, this->fieldDef->make_ast_copy() );
     }
 
     virtual void symbol_resolution_pass() override {
-        this->field->symbol_resolution_pass();
-        if ( !field->initExpression ) {
+        this->fieldDef->symbol_resolution_pass();
+        if ( !fieldDef->initExpression ) {
             // TODO: instead check that TXS_STACK fields are initialized before first use
             //CWARNING(this, "Local field without initializer: " << this->field->get_source_field_name());
         }
@@ -44,7 +44,7 @@ public:
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->field->visit_ast( visitor, thisCursor, "fielddecl", context );
+        this->fieldDef->visit_ast( visitor, thisCursor, "fielddef", context );
     }
 };
 

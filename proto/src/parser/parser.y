@@ -168,7 +168,7 @@ YY_DECL;
 %type <TxTypeArgumentNode *> type_arg
 %type <std::vector<TxTypeArgumentNode*> *> type_arg_list
 
-%type <TxFieldDefNode*> field_def field_assignment_def method_def
+%type <TxNonLocalFieldDefNode*> field_def field_assignment_def method_def
 
 %type <TxArgTypeDefNode*> func_arg_def
 %type <std::vector<TxArgTypeDefNode*> *> func_args func_args_list
@@ -191,6 +191,7 @@ YY_DECL;
 %type <TxForHeaderNode*> for_header
 %type <std::vector<TxLoopHeaderNode*> *> in_clause_list
 %type <TxAssigneeNode*> assignee_expr
+%type <TxLocalFieldDefNode*> local_field_def
 
 %type <TxExpressionNode*> string_format_expr
 %type <TxStringFormatNode*> string_format
@@ -338,17 +339,16 @@ type_or_if : KW_TYPE        { $$ = false; }
            | KW_INTERFACE   { $$ = true;  }
            ;
 
-field_def : NAME COLON type_usage_expr  { $$ = new TxFieldDefNode(@1, $1, $3, nullptr); }
+field_def : NAME COLON type_usage_expr  { $$ = new TxNonLocalFieldDefNode(@1, $1, $3, nullptr); }
           | field_assignment_def        { $$ = $1; }
           ;
 
 field_assignment_def : NAME COLON type_usage_expr EQUAL expr
-                           { $$ = new TxFieldDefNode(@1, $1, $3,      $5); }
+                           { $$ = new TxNonLocalFieldDefNode(@1, $1, $3,      $5); }
                      | NAME COLEQUAL expr
-                           { $$ = new TxFieldDefNode(@1, $1, nullptr, $3); }
+                           { $$ = new TxNonLocalFieldDefNode(@1, $1, nullptr, $3); }
                      | TILDE NAME COLEQUAL expr
-                           { $$ = new TxFieldDefNode(@1, $2, nullptr, $4, true); }
-                     // TODO |   assignee_pattern COLEQUAL expr
+                           { $$ = new TxNonLocalFieldDefNode(@1, $2, nullptr, $4, true); }
 ;
 
 
@@ -383,7 +383,7 @@ type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->
                 ;
 type_param      : NAME  { $$ = new TxTypeDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, new TxNamedTypeNode(@1, "tx.Any")); }
                 | NAME KW_DERIVES conv_type_expr { $$ = new TxTypeDeclNode (@1, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
-                | NAME COLON type_expression     { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, new TxFieldDefNode(@1, $1, $3, nullptr)); }
+                | NAME COLON type_expression     { $$ = new TxFieldDeclNode(@1, TXD_PUBLIC | TXD_GENPARAM, new TxNonLocalFieldDefNode(@1, $1, $3, nullptr)); }
                 ;
 
 type_declaration : declaration_flags type_or_if opt_modifiable NAME type_derivation  
@@ -539,9 +539,9 @@ func_arg_def   : NAME COLON type_expression
 
 
 method_def  : NAME function_signature suite
-                { $$ = new TxFieldDefNode(@1, $1, nullptr, new TxLambdaExprNode(@$, $2, $3, true)); }
+                { $$ = new TxNonLocalFieldDefNode(@$, $1, nullptr, new TxLambdaExprNode(@$, $2, $3, true)); }
             | NAME function_signature SEMICOLON  // abstract method (KW_ABSTRACT should be specified)
-                { $$ = new TxFieldDefNode(@1, $1, $2,      nullptr); }
+                { $$ = new TxNonLocalFieldDefNode(@$, $1, $2,      nullptr); }
             ;
 
 
@@ -709,7 +709,7 @@ simple_stmt
     ;
 
 elementary_stmt
-    :   field_def       { $$ = new TxFieldStmtNode(@1, $1); }
+    :   local_field_def { $$ = new TxFieldStmtNode(@1, $1); }
     |   call_expr       { $$ = new TxCallStmtNode(@1, $1); } // function call without return value assignment
     |   assignment_stmt { $$ = $1; }
     |   assert_stmt     { $$ = $1; }
@@ -766,6 +766,11 @@ in_clause        : NAME KW_IN expr             { $$ = new TxInClauseNode( @$, $1
 for_header       : elementary_stmt SEMICOLON expr SEMICOLON elementary_stmt  { $$ = new TxForHeaderNode( @$, $1, $3, $5 ); }
                  ;
 
+local_field_def  : NAME COLON type_usage_expr             { $$ = new TxLocalFieldDefNode(@$, $1, $3,      nullptr); }
+                 | NAME COLON type_usage_expr EQUAL expr  { $$ = new TxLocalFieldDefNode(@$, $1, $3,      $5); }
+                 | NAME COLEQUAL expr                     { $$ = new TxLocalFieldDefNode(@$, $1, nullptr, $3); }
+                 | TILDE NAME COLEQUAL expr               { $$ = new TxLocalFieldDefNode(@$, $2, nullptr, $4, true); }
+;
 
 // TODO: support declaration flags abstract, final, and maybe static
 type_decl_stmt  : type_or_if opt_modifiable NAME type_derivation

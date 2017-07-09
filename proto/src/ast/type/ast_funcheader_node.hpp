@@ -3,9 +3,9 @@
 #include "ast/type/ast_types.hpp"
 #include "ast/ast_fielddef_node.hpp"
 
-/** Constructs a new TxFieldDefNode based on a TxFieldTypeDefNode (the new copy is independently allocated). */
-inline TxFieldDefNode* make_field_def_node( TxArgTypeDefNode* fieldTypeDef ) {
-    return new TxFieldDefNode( fieldTypeDef->ploc, fieldTypeDef->fieldName, fieldTypeDef->typeExpression->make_ast_copy(), nullptr );
+/** Constructs a new TxLocalFieldDefNode based on a TxFieldTypeDefNode (the new copy is independently allocated). */
+inline TxLocalFieldDefNode* make_field_def_node( TxArgTypeDefNode* fieldTypeDef ) {
+    return new TxLocalFieldDefNode( fieldTypeDef->ploc, fieldTypeDef->fieldName, fieldTypeDef->typeExpression->make_ast_copy(), nullptr );
 }
 
 class TxFunctionHeaderNode : public TxTypeExpressionNode {
@@ -26,12 +26,12 @@ protected:
     }
 
 public:
-    std::vector<TxFieldDefNode*>* arguments;
-    TxFieldDefNode* returnField;
+    std::vector<TxLocalFieldDefNode*>* arguments;
+    TxLocalFieldDefNode* returnField;
 
     TxFunctionHeaderNode( TxFunctionTypeNode* funcTypeNode )
             : TxTypeExpressionNode( funcTypeNode->ploc ), funcTypeNode( funcTypeNode ),
-              arguments( new std::vector<TxFieldDefNode*>() ),
+              arguments( new std::vector<TxLocalFieldDefNode*>() ),
               returnField( funcTypeNode->returnField ? make_field_def_node( funcTypeNode->returnField ) : nullptr ) {
         for ( auto arg : *funcTypeNode->arguments )
             this->arguments->push_back( make_field_def_node( arg ) );

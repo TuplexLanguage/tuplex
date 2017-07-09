@@ -7,7 +7,7 @@
 using namespace llvm;
 
 
-void TxFieldDefNode::code_gen_local_field( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     if ( this->typeExpression )
         this->typeExpression->code_gen_type( context );
@@ -25,7 +25,7 @@ void TxFieldDefNode::code_gen_local_field( LlvmGenerationContext& context, GenSc
             fieldPtrV = this->initExpression->code_gen_addr( context, scope );
         }
         else {
-            fieldPtrV = acttype->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
+            fieldPtrV = acttype->gen_alloca( context, scope, this->declaration->get_symbol()->get_name() );
             // create implicit assignment statement
             if ( this->cachedConstantInitializer )
                 scope->builder->CreateStore( this->cachedConstantInitializer, fieldPtrV );
@@ -38,7 +38,7 @@ void TxFieldDefNode::code_gen_local_field( LlvmGenerationContext& context, GenSc
         }
     }
     else {
-        fieldPtrV = acttype->gen_alloca( context, scope, declaration->get_symbol()->get_name() );
+        fieldPtrV = acttype->gen_alloca( context, scope, this->declaration->get_symbol()->get_name() );
         // We don't automatically invoke default constructor (in future, a code flow validator should check that initialized before first use)
     }
     //context.register_llvm_value( uniqueName, fieldValPtr );
@@ -53,7 +53,7 @@ Constant* TxFieldDefNode::code_gen_const_init_value( LlvmGenerationContext& cont
     return this->cachedConstantInitializer;
 }
 
-void TxFieldDefNode::code_gen_non_local_field( LlvmGenerationContext& context ) const {
+void TxNonLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
     if ( this->typeExpression )
         this->typeExpression->code_gen_type( context );

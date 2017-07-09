@@ -40,27 +40,27 @@ protected:
     virtual void declaration_pass() override;
 
 public:
-    TxFieldDefNode* field;
+    TxNonLocalFieldDefNode* fieldDef;
 
-    TxFieldDeclNode( const TxLocation& ploc, const TxDeclarationFlags declFlags, TxFieldDefNode* field,
+    TxFieldDeclNode( const TxLocation& ploc, const TxDeclarationFlags declFlags, TxNonLocalFieldDefNode* field,
                      bool isMethodSyntax = false )
-            : TxDeclarationNode( ploc, declFlags ), isMethodSyntax( isMethodSyntax ), field( field ) {
+            : TxDeclarationNode( ploc, declFlags ), isMethodSyntax( isMethodSyntax ), fieldDef( field ) {
     }
 
     virtual TxFieldDeclNode* make_ast_copy() const override {
-        return new TxFieldDeclNode( this->ploc, this->get_decl_flags(), this->field->make_ast_copy(), this->isMethodSyntax );
+        return new TxFieldDeclNode( this->ploc, this->get_decl_flags(), this->fieldDef->make_ast_copy(), this->isMethodSyntax );
     }
 
     virtual void symbol_resolution_pass() override;
 
     virtual const TxFieldDeclaration* get_declaration() const override {
-        return this->field->get_declaration();
+        return this->fieldDef->get_declaration();
     }
 
     virtual void code_gen( LlvmGenerationContext& context ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->field->visit_ast( visitor, thisCursor, "field", context );
+        this->fieldDef->visit_ast( visitor, thisCursor, "field", context );
     }
 };
 

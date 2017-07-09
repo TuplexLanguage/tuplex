@@ -516,9 +516,9 @@ static TxTypeDeclNode* make_builtin_floating( const TxLocation& parseLoc, Builti
 static TxFieldDeclNode* make_default_initializer( const TxLocation& loc, BuiltinTypeId toTypeId, TxExpressionNode* initializerExpr ) {
     auto toTypeNode = new TxNamedTypeNode( loc, BUILTIN_TYPE_NAMES[toTypeId] );
     return new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_BUILTIN | TXD_INITIALIZER,
-                                new TxFieldDefNode( loc, CONSTR_IDENT,
-                                                    new TxDefConstructorTypeDefNode( loc, toTypeNode, initializerExpr ),
-                                                    nullptr ),  // no function body, initialization is inlined
+                                new TxNonLocalFieldDefNode( loc, CONSTR_IDENT,
+                                                            new TxDefConstructorTypeDefNode( loc, toTypeNode, initializerExpr ),
+                                                            nullptr ),  // no function body, initialization is inlined
                                 false );  // not method syntax since elementary types' initializers are inlineable, pure functions
 }
 
@@ -527,9 +527,9 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
     auto fromTypeNode = new TxNamedTypeNode( loc, BUILTIN_TYPE_NAMES[fromTypeId] );
     return new TxFieldDeclNode(
             loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_BUILTIN | TXD_INITIALIZER,
-            new TxFieldDefNode( loc, CONSTR_IDENT,
-                                new TxConvConstructorTypeDefNode( loc, new TxArgTypeDefNode( loc, "arg", fromTypeNode ), toTypeNode ),
-                                nullptr ),  // no function body, initialization is inlined
+            new TxNonLocalFieldDefNode( loc, CONSTR_IDENT,
+                                        new TxConvConstructorTypeDefNode( loc, new TxArgTypeDefNode( loc, "arg", fromTypeNode ), toTypeNode ),
+                                        nullptr ),  // no function body, initialization is inlined
             false );  // not method syntax since elementary types' initializers are inlineable, pure functions
 }
 
@@ -539,18 +539,18 @@ static std::vector<TxDeclarationNode*> make_array_constructors( const TxLocation
         auto argNode = new TxArgTypeDefNode( loc, "val", new TxNamedTypeNode( loc, "Self" ) );
         auto returnTypeNode = new TxNamedTypeNode( loc, "Self" );
         constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_BUILTIN | TXD_INITIALIZER,
-                                                     new TxFieldDefNode( loc, CONSTR_IDENT,
-                                                                         new TxArrayConstructorTypeDefNode( loc, argNode, returnTypeNode ),
-                                                                         nullptr ),  // no function body, initialization is inlined
+                                                     new TxNonLocalFieldDefNode( loc, CONSTR_IDENT,
+                                                                                 new TxArrayConstructorTypeDefNode( loc, argNode, returnTypeNode ),
+                                                                                 nullptr ),  // no function body, initialization is inlined
                                                      false ) );  // not method syntax since this initializer is an inlineable, pure function
     }
     {
         auto returnTypeNode = new TxNamedTypeNode( loc, "Self" );
         auto initExprNode = new TxUnfilledArrayLitNode( loc, new TxNamedTypeNode( loc, "Self" ) );
         constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_BUILTIN | TXD_INITIALIZER,
-                                                     new TxFieldDefNode( loc, CONSTR_IDENT,
-                                                                         new TxDefConstructorTypeDefNode( loc, returnTypeNode, initExprNode ),
-                                                                         nullptr ),  // no function body, initialization is inlined
+                                                     new TxNonLocalFieldDefNode( loc, CONSTR_IDENT,
+                                                                                 new TxDefConstructorTypeDefNode( loc, returnTypeNode, initExprNode ),
+                                                                                 nullptr ),  // no function body, initialization is inlined
                                                      false ) );  // not method syntax since this initializer is an inlineable, pure function
     }
     return constructors;
@@ -656,13 +656,13 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     {
         auto arrayMembers = make_array_constructors( loc );
         arrayMembers.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_IMPLICIT,
-                                                     new TxFieldDefNode( loc, "L", new TxNamedTypeNode( loc, "UInt" ), nullptr, false ) ) );
+                                                     new TxNonLocalFieldDefNode( loc, "L", new TxNamedTypeNode( loc, "UInt" ), nullptr, false ) ) );
 
         auto paramNodes = new std::vector<TxDeclarationNode*>(
                 {
                   new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM, "E", nullptr, new TxNamedTypeNode( loc, "Any" ) ),
                   new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM,
-                                       new TxFieldDefNode( loc, "C", new TxNamedTypeNode( loc, "UInt" ),
+                                       new TxNonLocalFieldDefNode( loc, "C", new TxNamedTypeNode( loc, "UInt" ),
                                                            nullptr, false ) ),
                 } );
         this->builtinTypes[TXBT_ARRAY] = new TxTypeDeclNode(
@@ -675,7 +675,7 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
         // the adaptee type id virtual field member, which is abstract here but concrete in adapter subtypes:
         const TxDeclarationFlags adapteeIdFieldFlags = TXD_PUBLIC | TXD_BUILTIN | TXD_VIRTUAL | TXD_ABSTRACT | TXD_IMPLICIT;
         auto adapteeIdFType = new TxNamedTypeNode( loc, "UInt" );
-        auto adapteeIdField = new TxFieldDefNode( loc, "$adTypeId", adapteeIdFType, nullptr );
+        auto adapteeIdField = new TxNonLocalFieldDefNode( loc, "$adTypeId", adapteeIdFType, nullptr );
         auto adapteeIdFDecl = new TxFieldDeclNode( loc, adapteeIdFieldFlags, adapteeIdField );
 
         auto ifTypeDef = new TxInterfaceTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), { adapteeIdFDecl } );
@@ -712,9 +712,9 @@ TxModuleNode* BuiltinTypes::create_tx_c_module() {
         auto cstrArgType = new TxReferenceTypeNode( loc, nullptr, new TxArrayTypeNode( loc, new TxNamedTypeNode( loc, "tx.UByte" ) ) );
         auto args = new std::vector<TxArgTypeDefNode*>( { new TxArgTypeDefNode( loc, "cstr", cstrArgType ) } );
         auto putsDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_EXTERNC | TXD_BUILTIN,
-                                             new TxFieldDefNode( loc, "puts", new TxFunctionTypeNode( loc, false, args,
-                                                                                                      new TxNamedTypeNode( loc, "tx.Int" ) ),
-                                                                 nullptr ) );
+                                             new TxNonLocalFieldDefNode( loc, "puts", new TxFunctionTypeNode( loc, false, args,
+                                                                                                              new TxNamedTypeNode( loc, "tx.Int" ) ),
+                                                                         nullptr ) );
         members->push_back( putsDecl );
     }
 
@@ -723,18 +723,19 @@ TxModuleNode* BuiltinTypes::create_tx_c_module() {
         auto fileArgType = new TxNamedTypeNode( loc, "tx.ULong" );
         auto args = new std::vector<TxArgTypeDefNode*>( { new TxArgTypeDefNode( loc, "cstr", cstrArgType ),
                                                           new TxArgTypeDefNode( loc, "file", fileArgType ) } );
-        auto fputsDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_EXTERNC | TXD_BUILTIN,
-                                              new TxFieldDefNode( loc, "fputs", new TxFunctionTypeNode( loc, false, args,
-                                                                                                        new TxNamedTypeNode( loc, "tx.Int" ) ),
-                                                                  nullptr ) );
+        auto fputsDecl = new TxFieldDeclNode(
+                loc, TXD_PUBLIC | TXD_EXTERNC | TXD_BUILTIN,
+                new TxNonLocalFieldDefNode( loc, "fputs", new TxFunctionTypeNode( loc, false, args,
+                                                                                  new TxNamedTypeNode( loc, "tx.Int" ) ),
+                                            nullptr ) );
         members->push_back( fputsDecl );
     }
 
     {   // declare tx.c.stdout and tx.c.stderr:
         auto stdoutDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_EXTERNC | TXD_BUILTIN,
-                                               new TxFieldDefNode( loc, "stdout", new TxNamedTypeNode( loc, "tx.ULong" ), nullptr ) );
+                                               new TxNonLocalFieldDefNode( loc, "stdout", new TxNamedTypeNode( loc, "tx.ULong" ), nullptr ) );
         auto stderrDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_EXTERNC | TXD_BUILTIN,
-                                               new TxFieldDefNode( loc, "stderr", new TxNamedTypeNode( loc, "tx.ULong" ), nullptr ) );
+                                               new TxNonLocalFieldDefNode( loc, "stderr", new TxNamedTypeNode( loc, "tx.ULong" ), nullptr ) );
         members->push_back( stdoutDecl );
         members->push_back( stderrDecl );
     }
@@ -742,8 +743,8 @@ TxModuleNode* BuiltinTypes::create_tx_c_module() {
     {  // declare tx.c.abort:
         auto args = new std::vector<TxArgTypeDefNode*>( { } );
         auto abortDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_EXTERNC | TXD_BUILTIN,
-                                              new TxFieldDefNode( loc, "abort", new TxFunctionTypeNode( loc, false, args, nullptr ),
-                                                                  nullptr ) );
+                                              new TxNonLocalFieldDefNode( loc, "abort", new TxFunctionTypeNode( loc, false, args, nullptr ),
+                                                                          nullptr ) );
         members->push_back( abortDecl );
     }
 

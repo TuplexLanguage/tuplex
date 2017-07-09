@@ -411,7 +411,7 @@ static TxDeclarationNode* make_value_type_param_decl_node( const TxLocation& par
     if (valueDefiner)
         valueDefiner = new TxExprWrapperNode( valueDefiner );
     auto paramTypeNode = new TxTypeDeclWrapperNode( parseLoc, paramValueTypeDecl );
-    auto fieldDef = new TxFieldDefNode( parseLoc, paramName, paramTypeNode, valueDefiner, false );
+    auto fieldDef = new TxNonLocalFieldDefNode( parseLoc, paramName, paramTypeNode, valueDefiner, false );
     auto declNode = new TxFieldDeclNode( parseLoc, flags | TXD_PUBLIC, fieldDef );
     return declNode;
 }
@@ -736,7 +736,7 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
         // TODO: instead pass this as param decl node to adapterDeclNode
         TxDeclarationFlags fieldDeclFlags = TXD_PUBLIC | TXD_VIRTUAL | TXD_OVERRIDE | TXD_IMPLICIT;
         auto fieldDecl = new TxFieldDeclNode( loc, fieldDeclFlags,
-                                              new TxFieldDefNode( loc, "$adTypeId", new TxNamedTypeNode( loc, "tx.UInt" ), nullptr ) );
+                                              new TxNonLocalFieldDefNode( loc, "$adTypeId", new TxNamedTypeNode( loc, "tx.UInt" ), nullptr ) );
         LexicalContext ctx( adapterCtx, adapterDeclNode->get_declaration()->get_symbol() );
         run_declaration_pass( fieldDecl, ctx );
         fieldDecl->symbol_resolution_pass();
