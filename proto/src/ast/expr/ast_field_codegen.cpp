@@ -93,7 +93,6 @@ static Value* field_addr_code_gen( LlvmGenerationContext& context, GenScope* sco
     case TXS_GLOBAL:
         {
             Value* val = fieldEntity->get_llvm_value();
-//            Value* val = context.lookup_llvm_value( fieldEntity->get_unique_full_name() );
             if ( !val ) {
                 // forward declaration situation
                 Type *fieldT = context.get_llvm_type( fieldEntity->get_type() );
@@ -128,7 +127,6 @@ static Value* field_addr_code_gen( LlvmGenerationContext& context, GenScope* sco
 
     case TXS_STACK:
         return fieldEntity->get_llvm_value();
-        //return context.lookup_llvm_value( fieldEntity->get_unique_full_name() );
 
     default:
         THROW_LOGIC( "Can't generate address for field with storage type " << fieldEntity->get_storage() << ": " << fieldEntity );
@@ -167,10 +165,9 @@ Constant* TxFieldValueNode::code_gen_const_address( LlvmGenerationContext& conte
     case TXS_GLOBAL:
     {
         Constant* fieldC = cast<Constant>( this->field->get_llvm_value() );
-        //Constant* fieldC = cast<Constant>( context.lookup_llvm_value( this->field->get_declaration()->get_unique_full_name() ) );
         if ( !fieldC ) {
             // forward declaration situation
-            LOG_DEBUG( context.LOGGER(), "Forward-declaring field " << this->field->get_declaration()->get_unique_full_name() );
+            LOG_NOTE( context.LOGGER(), "Forward-declaring field " << this->field->get_declaration()->get_unique_full_name() );
             Type *fieldT = context.get_llvm_type( this->field->get_type() );
             fieldC = context.llvmModule().getOrInsertGlobal( this->field->get_declaration()->get_unique_full_name(), fieldT );
         }

@@ -302,7 +302,7 @@ void TxDriver::add_source_file( const TxIdentifier& moduleName, const std::strin
 }
 
 int TxDriver::llvm_compile( const std::string& outputFileName ) {
-    this->genContext->initialize_builtins();
+    this->genContext->initialize_runtime_data();
 
     int codegen_errors = 0;
 

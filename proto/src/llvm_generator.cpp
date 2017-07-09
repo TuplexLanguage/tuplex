@@ -136,24 +136,7 @@ int LlvmGenerationContext::write_bitcode( const std::string& filepath ) {
 
 /***** generate runtime type data *****/
 
-void LlvmGenerationContext::initialize_builtins() {
-    this->initialize_meta_type_data();
-}
-
-//static Function* gen_dummy_type_user_init_func(LlvmGenerationContext& context) {
-//    std::string funcName("$dummy.$tuinit");
-//    auto voidT = context.get_voidT();
-//    std::vector<Type*> typeInitFuncArgTypes {
-//        Type::getInt8PtrTy(context.llvmContext)  // void* to type's data
-//    };
-//    FunctionType *typeInitFuncType = FunctionType::get(voidType, typeInitFuncArgTypes, false);
-//    Function *initFunc = cast<Function>(context.llvmModule().getOrInsertFunction(funcName, typeInitFuncType));
-//    auto eb = BasicBlock::Create(context.llvmContext, "entry", initFunc);
-//    ReturnInst::Create(context.llvmContext, eb);
-//    return initFunc;
-//}
-
-void LlvmGenerationContext::initialize_meta_type_data() {
+void LlvmGenerationContext::initialize_runtime_data() {
     /* This is a possible future C declaration equivalent of the constructed runtime type data:
 
      typedef void (*TypeInitializerF)(void* memory);

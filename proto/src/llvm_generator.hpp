@@ -56,8 +56,10 @@ class LlvmGenerationContext {
     llvm::Type* voidPtrT;
     llvm::Type* voidRefT;
 
-    void initialize_basic_llvm_types();
-    void initialize_meta_type_data();
+    // simple symbol table for 'internal' llvm values (not in the normal AST symbol table):
+    void register_llvm_value( const std::string& identifier, llvm::Value* val );
+    llvm::Value* lookup_llvm_value( const std::string& identifier ) const;
+
     llvm::Function* gen_main_function( const std::string userMain, bool hasIntReturnValue );
 
 public:
@@ -85,27 +87,11 @@ public:
         return this->voidRefT;
     }
 
-    void initialize_builtins();
-
     llvm::Type* get_llvm_type( const TxQualType* txType );
     llvm::Type* get_llvm_type( const TxType* txType );
     llvm::Type* get_llvm_type( const TxActualType* txType );
 
     llvm::StructType* get_llvm_vtable_type( const TxActualType* txType ) const;
-
-    // simple symbol table for llvm values:
-    void register_llvm_value( const std::string& identifier, llvm::Value* val );
-    llvm::Value* lookup_llvm_value( const std::string& identifier ) const;
-
-    /** Generate the LLVM code for the provided AST, which must be in global/static scope. */
-    int generate_code( const TxParsingUnitNode* staticScopeNode );
-    int generate_code( const TxTypeDeclNode* staticScopeNode );
-
-    void generate_runtime_data();
-
-    /** Create the top level function to call as program entry.
-     * (This is the built-in main, which calls the user main function.)  */
-    bool generate_main( const std::string& userMainIdent, const TxType* mainFuncType );
 
     // "intrinsics":
     /** Generates a malloc call that allocates storage for the specified LLVM type. */
@@ -115,6 +101,18 @@ public:
 
     llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, llvm::Value* typeIdV ) const;
     llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType ) const;
+
+    /** Generate the LLVM code for the provided AST, which must be in global/static scope. */
+    int generate_code( const TxParsingUnitNode* staticScopeNode );
+    int generate_code( const TxTypeDeclNode* staticScopeNode );
+
+    void initialize_runtime_data();
+
+    void generate_runtime_data();
+
+    /** Create the top level function to call as program entry.
+     * (This is the built-in main, which calls the user main function.)  */
+    bool generate_main( const std::string& userMainIdent, const TxType* mainFuncType );
 
     void initialize_target();
 

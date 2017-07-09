@@ -147,12 +147,11 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr( LlvmGenerationContext& context
 
     auto constrField = this->declaration->get_definer()->get_field();
     Value* funcPtrV = constrField->get_llvm_value();
-    //Value* funcPtrV = context.lookup_llvm_value( uniqueFullName );
     if ( !funcPtrV ) {
         if ( const TxActualType* txType = this->qualtype()->type()->acttype() ) {
             // forward declaration situation
             if ( auto txFuncType = dynamic_cast<const TxFunctionType*>( txType ) ) {
-                LOG_DEBUG( context.LOGGER(), "Forward-declaring constructor function " << uniqueFullName << ": " << txFuncType );
+                LOG_NOTE( context.LOGGER(), "Forward-declaring constructor function " << uniqueFullName << ": " << txFuncType );
                 StructType *lambdaT = cast<StructType>( context.get_llvm_type( txFuncType ) );
                 FunctionType *funcT = cast<FunctionType>( cast<PointerType>( lambdaT->getElementType( 0 ) )->getPointerElementType() );
                 auto funcName = uniqueFullName;
