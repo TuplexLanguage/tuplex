@@ -93,19 +93,6 @@ static Value* field_addr_code_gen( LlvmGenerationContext& context, GenScope* sco
     case TXS_GLOBAL:
         {
             Value* val = fieldEntity->code_gen_field_decl( context );
-//            if ( !val ) {
-//                // forward declaration situation
-//                Type *fieldT = context.get_llvm_type( fieldEntity->get_type() );
-//                if ( ( fieldEntity->get_decl_flags() & TXD_EXTERNC ) && fieldEntity->get_type()->get_type_class() != TXTC_FUNCTION ) {
-//                    LOG_NOTE( context.LOGGER(), "Forward-declaring extern-C field alias " << fieldEntity->get_unique_full_name() );
-//                    val = GlobalAlias::create( fieldT->getPointerTo(), 0, GlobalValue::InternalLinkage, fieldEntity->get_unique_full_name(),
-//                                               &context.llvmModule() );
-//                }
-//                else {
-//                    LOG_NOTE( context.LOGGER(), "Forward-declaring global/static field " << fieldEntity->get_unique_full_name() );
-//                    val = context.llvmModule().getOrInsertGlobal( fieldEntity->get_unique_full_name(), fieldT );
-//                }
-//            }
             return val;
         }
 
@@ -165,12 +152,6 @@ Constant* TxFieldValueNode::code_gen_const_address( LlvmGenerationContext& conte
     case TXS_GLOBAL:
     {
         Constant* fieldC = cast<Constant>( this->field->code_gen_field_decl( context ) );
-//        if ( !fieldC ) {
-//            // forward declaration situation
-//            LOG_NOTE( context.LOGGER(), "Forward-declaring const field " << this->field->get_declaration()->get_unique_full_name() );
-//            Type *fieldT = context.get_llvm_type( this->field->get_type() );
-//            fieldC = context.llvmModule().getOrInsertGlobal( this->field->get_declaration()->get_unique_full_name(), fieldT );
-//        }
         return fieldC;
     }
     default:

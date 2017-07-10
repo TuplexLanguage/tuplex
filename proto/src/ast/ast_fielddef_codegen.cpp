@@ -7,6 +7,26 @@
 using namespace llvm;
 
 
+Constant* TxFieldDefNode::code_gen_const_init_value( LlvmGenerationContext& context, bool genBody ) const {
+    if (! this->cachedConstantInitializer) {
+        ASSERT( this->initExpression && this->initExpression->is_statically_constant(), "Expected constant initializer in " << this );
+        if ( !genBody ) {
+            if ( auto lambdaExpr = dynamic_cast<TxLambdaExprNode*>( this->initExpression->originalExpr ) ) {
+                this->cachedConstantInitializer = lambdaExpr->code_gen_const_decl( context );
+                return this->cachedConstantInitializer;
+            }
+        }
+        this->cachedConstantInitializer = this->initExpression->code_gen_const_value( context );
+
+    }
+    else if ( genBody ) {
+        if ( dynamic_cast<TxLambdaExprNode*>( this->initExpression->originalExpr ) )
+            this->initExpression->code_gen_const_value( context );
+    }
+    return this->cachedConstantInitializer;
+}
+
+
 Value* TxLocalFieldDefNode::code_gen_field_decl( LlvmGenerationContext& context ) const {
     return this->get_field()->get_llvm_value();
 }
@@ -48,24 +68,6 @@ void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenSco
     this->get_field()->set_llvm_value( fieldPtrV );
 }
 
-Constant* TxFieldDefNode::code_gen_const_init_value( LlvmGenerationContext& context, bool genBody ) const {
-    if (! this->cachedConstantInitializer) {
-        ASSERT( this->initExpression && this->initExpression->is_statically_constant(), "Expected constant initializer in " << this );
-        if ( !genBody ) {
-            if ( auto lambdaExpr = dynamic_cast<TxLambdaExprNode*>( this->initExpression->originalExpr ) ) {
-                this->cachedConstantInitializer = lambdaExpr->code_gen_const_decl( context );
-                return this->cachedConstantInitializer;
-            }
-        }
-        this->cachedConstantInitializer = this->initExpression->code_gen_const_value( context );
-
-    }
-    else if ( genBody ) {
-        if ( dynamic_cast<TxLambdaExprNode*>( this->initExpression->originalExpr ) )
-            this->initExpression->code_gen_const_value( context );
-    }
-    return this->cachedConstantInitializer;
-}
 
 Value* TxNonLocalFieldDefNode::code_gen_field_decl( LlvmGenerationContext& context ) const {
     if ( !this->get_field()->has_llvm_value() ) {
@@ -84,12 +86,28 @@ void TxNonLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context ) co
     }
 }
 
+
+static Value* make_constant_nonlocal_field( LlvmGenerationContext& context, Type* llvmType, Constant* constantInitializer,
+                                            const std::string& name ) {
+    // Also handles the case when there has been a "forward-declaration" of this field:
+    // Note: If the global exists but has the wrong type: return the function with a constantexpr cast to the right type.
+    Constant* maybe = context.llvmModule().getOrInsertGlobal( name, llvmType );
+    //std::cout << "maybe type: " << maybe->getType() << "  value: " << maybe << "  llvmType: " << llvmType << std::endl;
+    auto globalV = cast<GlobalVariable>( maybe );  // bails if bitcast has been inserted, which means wrong type has been chosen
+    globalV->setConstant( true );
+    globalV->setLinkage( GlobalValue::InternalLinkage );
+    ASSERT( !globalV->hasInitializer(), "global already has initializer: " << globalV );
+    globalV->setInitializer( constantInitializer );
+    return globalV;
+}
+
 void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& context, bool genBody ) const {
     TRACE_CODEGEN( this, context );
     if ( this->typeExpression )
         this->typeExpression->code_gen_type( context );
 
     auto fieldDecl = this->get_declaration();
+    auto uniqueName = fieldDecl->get_unique_full_name();
     auto txType = this->qualtype()->type();
 
     switch ( fieldDecl->get_storage() ) {
@@ -131,7 +149,7 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
                 // construct the lambda object (a Tuplex object in Tuplex name space):
                 auto nullClosureRefV = Constant::getNullValue( lambdaT->getStructElementType( 1 ) );
                 auto lambdaC = ConstantStruct::get( lambdaT, extern_c_func, nullClosureRefV, NULL );
-                this->get_field()->set_llvm_value( this->make_constant_nonlocal_field( context, lambdaC ) );
+                this->get_field()->set_llvm_value( make_constant_nonlocal_field( context, lambdaT, lambdaC, uniqueName ) );
             }
             else {
                 // create the external C field declaration
@@ -149,13 +167,13 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
             if ( this->initExpression ) {
                 if ( this->initExpression->is_statically_constant() ) {
                     Constant* constantInitializer = this->code_gen_const_init_value( context, genBody );
-                    this->get_field()->set_llvm_value( this->make_constant_nonlocal_field( context, constantInitializer ) );
+                    this->get_field()->set_llvm_value( make_constant_nonlocal_field( context, context.get_llvm_type( txType ),
+                                                                                     constantInitializer, uniqueName ) );
                     return;
                 }
                 // TODO: support non-constant initializers for static and virtual fields
             }
-            LOG( context.LOGGER(), WARN, "Skipping codegen for global/static/virtual field without constant initializer: "
-                 << fieldDecl->get_unique_full_name() );
+            LOG( context.LOGGER(), WARN, "Skipping codegen for global/static/virtual field without constant initializer: " << uniqueName );
         }
         return;
 
@@ -167,29 +185,4 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
     case TXS_STACK:
         THROW_LOGIC( "TxFieldDeclNode can not apply to fields with storage " << fieldDecl->get_storage() << ": " << fieldDecl );
     }
-}
-
-Value* TxNonLocalFieldDefNode::make_constant_nonlocal_field( LlvmGenerationContext& context, Constant* constantInitializer ) const {
-    Type* llvmType = context.get_llvm_type( this->qualtype()->type() );
-
-    // if is complex pointer:
-    if ( constantInitializer->getType()->isPointerTy() && !constantInitializer->getType()->getPointerElementType()->isSingleValueType() ) {
-        LOG_NOTE( context.LOGGER(), "Global field " << this->declaration->get_unique_full_name() << " with complex ptr constant initializer" );
-        // TODO: review and perhaps remove/refactor
-        ASSERT( !context.llvmModule().getNamedGlobal( this->declaration->get_unique_full_name() ),
-                "Can't declare llvm alias since global variable with same name already declared: " << this->declaration );
-        return GlobalAlias::create( llvmType, 0, GlobalValue::InternalLinkage, this->declaration->get_unique_full_name(),
-                                    constantInitializer, &context.llvmModule() );
-    }
-
-    // Also handles the case when there has been a "forward-declaration" of this field:
-    // Note: If the global exists but has the wrong type: return the function with a constantexpr cast to the right type.
-    Constant* maybe = context.llvmModule().getOrInsertGlobal( this->declaration->get_unique_full_name(), llvmType );
-    //std::cout << "maybe type: " << maybe->getType() << "  value: " << maybe << "  llvmType: " << llvmType << std::endl;
-    auto globalV = cast<GlobalVariable>( maybe );  // bails if bitcast has been inserted, which means wrong type has been chosen
-    globalV->setConstant( true );
-    globalV->setLinkage( GlobalValue::InternalLinkage );
-    ASSERT( !globalV->hasInitializer(), "global already has initializer: " << globalV );
-    globalV->setInitializer( constantInitializer );
-    return globalV;
 }

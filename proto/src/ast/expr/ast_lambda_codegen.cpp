@@ -44,15 +44,13 @@ Function* TxLambdaExprNode::code_gen_function_decl( LlvmGenerationContext& conte
         funcName = this->context().scope()->get_full_name().str() + "$func";  // anonymous function
     }
 
-    //FunctionType *ftype = cast<FunctionType>(context.get_llvm_type(this->funcTypeNode->get_type()));
     StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->qualtype() ) );
     FunctionType *funcT = cast<FunctionType>( cast<PointerType>( lambdaT->getElementType( 0 ) )->getPointerElementType() );
     ASSERT( funcT, "Couldn't get LLVM type for function type " << this->funcHeaderNode->qualtype() );
 
     Function* function = cast<Function>( context.llvmModule().getOrInsertFunction( funcName, funcT ) );
-    // function->setLinkage(GlobalValue::InternalLinkage);  TODO (can cause LLVM to rename function)
-    //Function *function = Function::Create(ftype, GlobalValue::InternalLinkage, funcName.c_str(), &context.llvmModule);
-    // note: function is of LLVM function pointer type (since it is an LLVM global value)
+    function->setLinkage(GlobalValue::InternalLinkage);  // (Note, could earlier cause LLVM to rename function)
+    // Note: function is of LLVM function pointer type (since it is an LLVM global value)
     return function;
 }
 

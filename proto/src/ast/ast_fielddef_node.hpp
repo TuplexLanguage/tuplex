@@ -10,17 +10,6 @@ class Constant;
 }
 
 class TxFieldDefNode : public TxFieldDefiningNode {
-    static bool validateFieldName( TxNode* node, const std::string& name ) {
-    // TODO
-    //    if (! islower( name.at(0) ))
-    //        CWARNING(node, "The first letter of field names should be lowercase: " << name);
-        if ( name.empty() ) {
-            CERROR( node, "Name string is empty." );
-            return false;
-        }
-        return true;
-    }
-
 protected:
     const TxFieldDeclaration* declaration = nullptr;
     mutable llvm::Constant* cachedConstantInitializer = nullptr;
@@ -39,7 +28,6 @@ public:
                     TxTypeExpressionNode* typeExpression,
                     TxExpressionNode* initExpression, bool modifiable = false )
             : TxFieldDefiningNode( ploc ), fieldName( new TxIdentifier( fieldName ) ), modifiable( modifiable ) {
-        validateFieldName( this, fieldName );
         this->typeExpression = typeExpression;
         if ( initExpression ) {
             initExpression->set_field_def_node( this );
@@ -116,8 +104,6 @@ public:
 
 class TxNonLocalFieldDefNode : public TxFieldDefNode {
     void inner_code_gen_field( LlvmGenerationContext& context, bool genBody ) const;
-
-    llvm::Value* make_constant_nonlocal_field( LlvmGenerationContext& context, llvm::Constant* constantInitializer ) const;
 
 public:
     TxNonLocalFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
