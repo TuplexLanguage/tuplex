@@ -10,7 +10,6 @@ class Constant;
 }
 
 class TxFieldDefNode : public TxFieldDefiningNode {
-
     static bool validateFieldName( TxNode* node, const std::string& name ) {
     // TODO
     //    if (! islower( name.at(0) ))
@@ -25,8 +24,6 @@ class TxFieldDefNode : public TxFieldDefiningNode {
 protected:
     const TxFieldDeclaration* declaration = nullptr;
     mutable llvm::Constant* cachedConstantInitializer = nullptr;
-
-    llvm::Value* make_constant_nonlocal_field( LlvmGenerationContext& context, llvm::Constant* constantInitializer ) const;
 
     virtual const TxQualType* define_type() override;
 
@@ -88,11 +85,14 @@ public:
         return this->fieldName->str();
     }
 
+    /** Generates this field, potentially only as a declaration without initializer. Invoked from code referencing this field. */
+    virtual llvm::Value* code_gen_field_decl( LlvmGenerationContext& context ) const = 0;
+
     /** Generates / retrieves the code generated constant value of this field's init expression,
      * if it has one and it is constant.
      * May be called multiple times, it caches the result to ensures the constant value is only generated once.
      * Only valid to call on nodes for which is_statically_constant() returns true. */
-    llvm::Constant* code_gen_const_init_value( LlvmGenerationContext& context ) const;
+    llvm::Constant* code_gen_const_init_value( LlvmGenerationContext& context, bool genBody=false ) const;
 };
 
 class TxLocalFieldDefNode : public TxFieldDefNode {
@@ -109,10 +109,16 @@ public:
         return new TxLocalFieldDefNode( this->ploc, this->fieldName->str(), typeExpr, initExpr, this->modifiable );
     }
 
+    virtual llvm::Value* code_gen_field_decl( LlvmGenerationContext& context ) const override;
+
     void code_gen_field( LlvmGenerationContext& context, GenScope* scope ) const;
 };
 
 class TxNonLocalFieldDefNode : public TxFieldDefNode {
+    void inner_code_gen_field( LlvmGenerationContext& context, bool genBody ) const;
+
+    llvm::Value* make_constant_nonlocal_field( LlvmGenerationContext& context, llvm::Constant* constantInitializer ) const;
+
 public:
     TxNonLocalFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
                       TxTypeExpressionNode* typeExpression,
@@ -126,5 +132,9 @@ public:
         return new TxNonLocalFieldDefNode( this->ploc, this->fieldName->str(), typeExpr, initExpr, this->modifiable );
     }
 
+    /** Generates this field, potentially only as a declaration without initializer. Invoked from code referencing this field. */
+    virtual llvm::Value* code_gen_field_decl( LlvmGenerationContext& context ) const override;
+
+    /** Fully generates this field, declaration and body. Invoked from it's AST parent. */
     void code_gen_field( LlvmGenerationContext& context ) const;
 };

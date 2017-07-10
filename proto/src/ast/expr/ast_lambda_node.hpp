@@ -18,6 +18,14 @@ class TxLambdaExprNode : public TxExpressionNode {
     TxLocalFieldDefNode* superRefNode = nullptr;
     const TxTypeDeclaration* constructedObjTypeDecl = nullptr;
 
+    /** Generates the function declaration. */
+    llvm::Function* code_gen_function_decl( LlvmGenerationContext& context ) const;
+
+    /** Generates the function body. code_gen_function_decl() must have been called prior to this call. */
+    void code_gen_function_body( LlvmGenerationContext& context ) const;
+
+    mutable llvm::Function* functionPtr = nullptr;
+
 protected:
     virtual void declaration_pass() override;
 
@@ -87,7 +95,10 @@ public:
         return true;
     }
 
-    llvm::Function* code_gen_forward_decl( LlvmGenerationContext& context ) const;
+    /** Only generates the declaration of this expression, not its body.
+     * May be invoked multiple times. */
+    virtual llvm::Constant* code_gen_const_decl( LlvmGenerationContext& context ) const;
+
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 

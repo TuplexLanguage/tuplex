@@ -100,7 +100,13 @@ public:
         return this->get_declaration()->get_unique_full_name();
     }
 
+    /** Generates this field, potentially only as a declaration without initializer. Invoked from code referencing this field. */
+    llvm::Value* code_gen_field_decl( LlvmGenerationContext& context ) const;
+
+    inline bool has_llvm_value() const { return this->llvmValue; }
+
     inline llvm::Value* get_llvm_value() const {
+        ASSERT( this->llvmValue, "LLVM value NOT set for field " << this << ": " << this->llvmValue << "; new value: " << llvmValue );
         return this->llvmValue;
     }
 

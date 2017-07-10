@@ -1,7 +1,8 @@
 #include "entity.hpp"
 #include "entity_type.hpp"
-#include "ast/expr/ast_expr_node.hpp"
 #include "qual_type.hpp"
+#include "ast/ast_fielddef_node.hpp"
+#include "ast/expr/ast_expr_node.hpp"
 
 Logger& TxEntity::_LOG = Logger::get( "ENTITY" );
 
@@ -49,27 +50,10 @@ TxField* TxField::make_field( const TxFieldDeclaration* fieldDeclaration, const 
     return new TxField( fieldDeclaration, fieldType );
 }
 
-//int TxField::get_decl_storage_index() const {
-//    if ( auto typeDecl = this->get_outer_type_decl() ) {
-//        if ( auto outerType = typeDecl->get_definer()->get_type() ) {  // assumes already resolved
-//            switch ( this->get_storage() ) {
-//            case TXS_STATIC:
-//                return outerType->type()->get_static_fields().get_field_index( this->get_unique_name() );
-//            case TXS_VIRTUAL:
-//            case TXS_INSTANCEMETHOD:
-//                ASSERT( !( this->get_decl_flags() & TXD_CONSTRUCTOR ), "constructor does not have an instance method index: " << this );
-//                return outerType->type()->get_virtual_fields().get_field_index( this->get_unique_name() );
-//            case TXS_INSTANCE:
-//                return outerType->type()->get_instance_fields().get_field_index( this->get_unique_name() );
-//            default:
-//                //ASSERT(false, "Only fields of static/virtual/instancemethod/instance storage classes have a storage index: " << *this);
-//                return -1;
-//            }
-//        }
-//    }
-//    return -1;
-//}
-
 bool TxField::is_modifiable() const {
     return this->get_type()->is_modifiable();
+}
+
+llvm::Value* TxField::code_gen_field_decl( LlvmGenerationContext& context ) const {
+    return static_cast<TxFieldDefNode*>( this->get_declaration()->get_definer() )->code_gen_field_decl( context );
 }

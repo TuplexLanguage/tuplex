@@ -7,6 +7,10 @@
 using namespace llvm;
 
 
+Value* TxLocalFieldDefNode::code_gen_field_decl( LlvmGenerationContext& context ) const {
+    return this->get_field()->get_llvm_value();
+}
+
 void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     if ( this->typeExpression )
@@ -41,19 +45,46 @@ void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenSco
         fieldPtrV = acttype->gen_alloca( context, scope, this->declaration->get_symbol()->get_name() );
         // We don't automatically invoke default constructor (in future, a code flow validator should check that initialized before first use)
     }
-    //context.register_llvm_value( uniqueName, fieldValPtr );
     this->get_field()->set_llvm_value( fieldPtrV );
 }
 
-Constant* TxFieldDefNode::code_gen_const_init_value( LlvmGenerationContext& context ) const {
+Constant* TxFieldDefNode::code_gen_const_init_value( LlvmGenerationContext& context, bool genBody ) const {
     if (! this->cachedConstantInitializer) {
         ASSERT( this->initExpression && this->initExpression->is_statically_constant(), "Expected constant initializer in " << this );
+        if ( !genBody ) {
+            if ( auto lambdaExpr = dynamic_cast<TxLambdaExprNode*>( this->initExpression->originalExpr ) ) {
+                this->cachedConstantInitializer = lambdaExpr->code_gen_const_decl( context );
+                return this->cachedConstantInitializer;
+            }
+        }
         this->cachedConstantInitializer = this->initExpression->code_gen_const_value( context );
+
+    }
+    else if ( genBody ) {
+        if ( dynamic_cast<TxLambdaExprNode*>( this->initExpression->originalExpr ) )
+            this->initExpression->code_gen_const_value( context );
     }
     return this->cachedConstantInitializer;
 }
 
+Value* TxNonLocalFieldDefNode::code_gen_field_decl( LlvmGenerationContext& context ) const {
+    if ( !this->get_field()->has_llvm_value() ) {
+        this->inner_code_gen_field( context, false );
+    }
+    return this->get_field()->get_llvm_value();
+}
+
 void TxNonLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context ) const {
+    if ( !this->get_field()->has_llvm_value() ) {
+        this->inner_code_gen_field( context, true );
+    }
+    else if (this->initExpression ) {
+        if ( dynamic_cast<TxLambdaExprNode*>( this->initExpression->originalExpr ) )
+            this->initExpression->code_gen_const_value( context );
+    }
+}
+
+void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& context, bool genBody ) const {
     TRACE_CODEGEN( this, context );
     if ( this->typeExpression )
         this->typeExpression->code_gen_type( context );
@@ -74,15 +105,13 @@ void TxNonLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context ) co
                 auto closureType = context.get_llvm_type( txType );
                 Type* fieldType = closureType->getStructElementType( 0 );
                 fieldVal = Constant::getNullValue( fieldType );
-                //uniqueName += "$func";
             }
             else {
                 ASSERT( this->initExpression, "instance method does not have an initializer/definition: " << fieldDecl->get_unique_full_name() );
-                auto initLambdaV = this->code_gen_const_init_value( context );
+                auto initLambdaV = this->code_gen_const_init_value( context, genBody );
                 auto funcPtrV = initLambdaV->getAggregateElement( (unsigned) 0 );
                 fieldVal = funcPtrV;  // the naked $func is stored (as opposed to a full lambda object)
             }
-            //context.register_llvm_value( uniqueName, fieldVal );
             this->get_field()->set_llvm_value( fieldVal );
         }
         return;
@@ -96,7 +125,6 @@ void TxNonLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context ) co
                 LOG_DEBUG( context.LOGGER(), "Codegen for extern-C function declaration '" << externalName << "': " << txType );
                 StructType* lambdaT = cast<StructType>( context.get_llvm_type( txType ) );
                 FunctionType* externFuncType = cast<FunctionType>( lambdaT->getElementType( 0 )->getPointerElementType() );
-                //std::cerr << "Extern-C function type: " << externFuncType << std::endl;
                 Function* extern_c_func = Function::Create( externFuncType, GlobalValue::ExternalLinkage, externalName, &context.llvmModule() );
                 extern_c_func->setCallingConv( CallingConv::C );
 
@@ -120,7 +148,7 @@ void TxNonLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context ) co
         if ( !( fieldDecl->get_decl_flags() & ( TXD_ABSTRACT | TXD_INITIALIZER ) ) ) {
             if ( this->initExpression ) {
                 if ( this->initExpression->is_statically_constant() ) {
-                    Constant* constantInitializer = this->code_gen_const_init_value( context );
+                    Constant* constantInitializer = this->code_gen_const_init_value( context, genBody );
                     this->get_field()->set_llvm_value( this->make_constant_nonlocal_field( context, constantInitializer ) );
                     return;
                 }
@@ -141,16 +169,11 @@ void TxNonLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context ) co
     }
 }
 
-/** Convenience function that returns true if type is a pointer to a non-single value type. */
-inline bool is_complex_pointer( const Type* type ) {
-    bool ret = ( type->isPointerTy() && !type->getPointerElementType()->isSingleValueType() );
-    //std::cout << "is_complex_pointer(): " << ret << ": type: " << type << std::endl;
-    return ret;
-}
-
-Value* TxFieldDefNode::make_constant_nonlocal_field( LlvmGenerationContext& context, Constant* constantInitializer ) const {
+Value* TxNonLocalFieldDefNode::make_constant_nonlocal_field( LlvmGenerationContext& context, Constant* constantInitializer ) const {
     Type* llvmType = context.get_llvm_type( this->qualtype()->type() );
-    if ( is_complex_pointer( constantInitializer->getType() ) ) {
+
+    // if is complex pointer:
+    if ( constantInitializer->getType()->isPointerTy() && !constantInitializer->getType()->getPointerElementType()->isSingleValueType() ) {
         LOG_NOTE( context.LOGGER(), "Global field " << this->declaration->get_unique_full_name() << " with complex ptr constant initializer" );
         // TODO: review and perhaps remove/refactor
         ASSERT( !context.llvmModule().getNamedGlobal( this->declaration->get_unique_full_name() ),
@@ -170,4 +193,3 @@ Value* TxFieldDefNode::make_constant_nonlocal_field( LlvmGenerationContext& cont
     globalV->setInitializer( constantInitializer );
     return globalV;
 }
-

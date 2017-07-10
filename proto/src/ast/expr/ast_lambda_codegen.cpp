@@ -25,13 +25,12 @@ static Value* gen_local_field( LlvmGenerationContext& context, GenScope* scope, 
     const TxType* txType = field->get_type()->type();
     auto fieldA = txType->acttype()->gen_alloca( context, scope, field->get_unique_name() + "_" );
     scope->builder->CreateStore( fieldV, fieldA );
-    //context.register_llvm_value( field->get_declaration()->get_unique_full_name(), fieldA );
     field->set_llvm_value( fieldA );
     return fieldA;
 }
 
-Function* TxLambdaExprNode::code_gen_forward_decl( LlvmGenerationContext& context ) const {
-    TRACE_CODEGEN( this, context, " forward declaration" );
+Function* TxLambdaExprNode::code_gen_function_decl( LlvmGenerationContext& context ) const {
+    TRACE_CODEGEN( this, context, " function declaration" );
     std::string funcName;
     if ( this->fieldDefNode ) {
         auto declaration = this->fieldDefNode->get_declaration();
@@ -40,8 +39,10 @@ Function* TxLambdaExprNode::code_gen_forward_decl( LlvmGenerationContext& contex
         else
             funcName = declaration->get_unique_full_name() + "$func";
     }
-    else
-        funcName = "$func";  // anonymous function
+    else {
+        //std::cerr << "Anonymous function in " << this << std::endl;
+        funcName = this->context().scope()->get_full_name().str() + "$func";  // anonymous function
+    }
 
     //FunctionType *ftype = cast<FunctionType>(context.get_llvm_type(this->funcTypeNode->get_type()));
     StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->qualtype() ) );
@@ -55,22 +56,24 @@ Function* TxLambdaExprNode::code_gen_forward_decl( LlvmGenerationContext& contex
     return function;
 }
 
-llvm::Constant* TxLambdaExprNode::code_gen_const_value( LlvmGenerationContext& context ) const {
-    TRACE_CODEGEN( this, context, " function body" );
-    Function* function = this->code_gen_forward_decl( context );
-    ASSERT( function, "NULL function pointer in " << this );
+void TxLambdaExprNode::code_gen_function_body( LlvmGenerationContext& context ) const {
+    TRACE_CODEGEN( this, context );
+    if ( this->is_suppressed_modifying_method() ) {
+        //std::cerr << "skipping suppressed method " << this << std::endl;
+        return;
+    }
+    ASSERT( this->functionPtr, "NULL functionPtr in " << this );
 
     // FUTURE: if this is a lambda within a code-block, define the implicit closure object here
 
-    StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->qualtype() ) );
-
     // generate the function body:
-    BasicBlock *entryBlock = BasicBlock::Create( context.llvmContext, "entry", function );
+
+    BasicBlock *entryBlock = BasicBlock::Create( context.llvmContext, "entry", this->functionPtr );
     IRBuilder<> builder( entryBlock );
     GenScope fscope( &builder );
 
     // name the concrete args (and self, if present) and allocate them on the stack:
-    Function::arg_iterator fArgI = function->arg_begin();
+    Function::arg_iterator fArgI = this->functionPtr->arg_begin();
     if ( this->is_instance_method() ) {
         // (both self and super refer to the same object, but with different ref types)
         {
@@ -98,14 +101,24 @@ llvm::Constant* TxLambdaExprNode::code_gen_const_value( LlvmGenerationContext& c
     this->suite->code_gen( context, &fscope );
 
     if ( !this->funcHeaderNode->returnField && !fscope.builder->GetInsertBlock()->getTerminator() ) {
-        LOG_DEBUG( context.LOGGER(), "inserting default void return instruction for last block of function " << function->getName().str() );
+        LOG_DEBUG( context.LOGGER(), "inserting default void return instruction for last block of function " << this->functionPtr->getName().str() );
         fscope.builder->CreateRetVoid();
     }
     ASSERT( entryBlock->getTerminator(), "Function entry block has no terminator" );
+}
 
+Constant* TxLambdaExprNode::code_gen_const_decl( LlvmGenerationContext& context ) const {
+    if ( !this->functionPtr )
+        this->functionPtr = this->code_gen_function_decl( context );
     // construct the lambda object:
+    StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->qualtype() ) );
     auto nullClosureRefC = Constant::getNullValue( lambdaT->getElementType( 1 ) );
-    auto lambdaC = gen_lambda(context, lambdaT, function, nullClosureRefC);
+    return gen_lambda(context, lambdaT, this->functionPtr, nullClosureRefC);
+}
+
+Constant* TxLambdaExprNode::code_gen_const_value( LlvmGenerationContext& context ) const {
+    auto lambdaC = this->code_gen_const_decl( context );
+    this->code_gen_function_body( context );
     return lambdaC;
 }
 

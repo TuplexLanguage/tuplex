@@ -278,11 +278,7 @@ void LlvmGenerationContext::generate_runtime_data() {
                         //std::cerr << "inserting virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                         valueName = actualFieldEnt->get_declaration()->get_unique_full_name();
                     }
-                    //auto llvmValue = this->lookup_llvm_value( valueName );
                     auto llvmValue = actualFieldEnt->get_llvm_value();
-                    if ( !llvmValue ) {
-                        THROW_LOGIC( "llvm value not found for field name: " << valueName );
-                    }
                     llvmFieldC = cast<Constant>( llvmValue );
                 }
                 //std::cerr << "inserting field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
