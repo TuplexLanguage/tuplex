@@ -148,21 +148,7 @@ public:
         return new TxReturnStmtNode( this->ploc, this->expr->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        // TODO: Fix so that this won't find false positive using outer function's $return typeDecl
-        // TODO: Illegal to return reference to STACK dataspace
-        if ( auto returnDecl = search_field( this->context().scope(), TxIdentifier( "$return" ) ) ) {
-            if ( this->expr ) {
-                if ( auto field = returnDecl->get_definer()->resolve_field() )
-                    this->expr->insert_conversion( field->get_type()->type() );
-                this->expr->symbol_resolution_pass();
-            }
-            else
-                CERROR( this, "Return statement has no value expression although function returns " << returnDecl );
-        }
-        else if ( this->expr )
-            CERROR( this, "Return statement has value expression although function has no return type" );
-    }
+    virtual void symbol_resolution_pass() override;
 
     virtual bool ends_with_return_stmt() const override {
         return true;

@@ -4,6 +4,22 @@
 #include "parsercontext.hpp"
 
 
+void TxReturnStmtNode::symbol_resolution_pass() {
+    // TODO: Illegal to return reference to STACK dataspace
+    auto funcHeader = this->context().enclosing_lambda()->funcHeaderNode;
+    if ( funcHeader->returnField ) {
+        auto retField = funcHeader->returnField->resolve_field();
+        if ( this->expr ) {
+            this->expr->insert_conversion( retField->qualtype()->type() );
+            this->expr->symbol_resolution_pass();
+        }
+        else
+            CERROR( this, "Return statement has no value expression although function returns " << retField->qualtype() );
+    }
+    else if ( this->expr )
+        CERROR( this, "Return statement has value expression although function has no return type" );
+}
+
 void TxSuiteNode::stmt_declaration_pass() {
     if (! dynamic_cast<const TxLambdaExprNode*>(this->parent()))
         this->lexContext._scope = lexContext.scope()->create_code_block_scope( *this, "s" );

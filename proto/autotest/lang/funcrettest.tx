@@ -16,8 +16,11 @@ main()->Int {
 }
 
 pi()->Float { return 3.14; }
+
 #experr: bad1()->Int { }
 #experr: bad2()->Int { return; }
+#experr: bad3() { return 1; }
+#experr: bad4()->Int { return 3.14; }
 
 abs1(x : Int)->Int {
     if x < 0:
@@ -77,6 +80,18 @@ test2(c : Bool)->Int {
         if c: break;
         return 1;
     }
+    else
+        return 2;
+}
+
+test3(c : Bool)->Int {
+    #experr: local_bad1 := ()->Int { };
+    #experr: local_bad2 := ()->Int { return; };
+    #experr: local_bad3 := () { return 1; };
+    #experr: local_bad4 := ()->Int { return 3.14; };
+
+    if c:
+        return 1;
     else
         return 2;
 }

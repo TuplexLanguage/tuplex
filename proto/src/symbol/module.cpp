@@ -1,5 +1,6 @@
 #include "module.hpp"
 
+#include "symbol_lookup.hpp"
 #include "package.hpp"
 #include "entity.hpp"
 #include "driver.hpp"

@@ -51,7 +51,7 @@ TxField* TxField::make_field( const TxFieldDeclaration* fieldDeclaration, const 
 }
 
 bool TxField::is_modifiable() const {
-    return this->get_type()->is_modifiable();
+    return this->qualtype()->is_modifiable();
 }
 
 llvm::Value* TxField::code_gen_field_decl( LlvmGenerationContext& context ) const {

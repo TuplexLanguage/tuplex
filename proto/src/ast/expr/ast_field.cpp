@@ -8,6 +8,7 @@
 #include "ast/ast_util.hpp"
 
 #include "symbol/qual_type.hpp"
+#include "symbol/symbol_lookup.hpp"
 
 int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType *requiredType ) {
     const TxType* originalType = originalExpr->resolve_type()->type();
@@ -65,8 +66,8 @@ const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntit
             auto field = fieldDecl->get_definer()->resolve_field();
 
             // first screen the fields that are of function type and take the correct number of arguments:
-            if ( field->get_type()->get_type_class() == TXTC_FUNCTION ) {
-                const TxType* fieldType = field->get_type()->type();
+            if ( field->qualtype()->get_type_class() == TXTC_FUNCTION ) {
+                const TxType* fieldType = field->qualtype()->type();
                 auto candArgTypes = fieldType->argument_types();
                 const TxType* arrayArgElemType = fieldType->vararg_elem_type();
                 const TxType* fixedArrayArgType = nullptr;
@@ -176,7 +177,7 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
                 }
             }
             else {
-                // base is a type or value expression  FIXME: if type, don't include instance members in lookup
+                // base is a type or value expression
                 this->symbol = lookup_inherited_member( vantageScope, baseType->acttype(), this->symbolName->str() );
             }
         }
@@ -271,7 +272,7 @@ const TxQualType* TxFieldValueNode::define_type() {
                     }
                 }
             }
-            return this->field->get_type();
+            return this->field->qualtype();
         }
         else
             return static_cast<const TxTypeDeclaration*>( decl )->get_definer()->resolve_type();
@@ -320,7 +321,7 @@ bool TxFieldValueNode::is_statically_constant() const {
         if ( auto initExpr = this->field->get_declaration()->get_definer()->get_init_expression() ) {
             if ( storage == TXS_VIRTUAL || storage == TXS_INSTANCEMETHOD )
                 return false;
-            return ( !this->field->get_type()->is_modifiable() && initExpr->is_statically_constant() );
+            return ( !this->field->qualtype()->is_modifiable() && initExpr->is_statically_constant() );
         }
         else if ( storage == TXS_INSTANCE ) {
             return ( this->baseExpr && this->baseExpr->is_statically_constant() );

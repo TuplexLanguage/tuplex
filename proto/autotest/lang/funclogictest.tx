@@ -6,6 +6,7 @@ main()->Int {
     assert func2(42) == 84;
     assert func3(42) == 63;
     assert func4(42) == 63;
+    assert outer_func(2) == 2*(4+32);
     return 0;
 }
 
@@ -32,4 +33,15 @@ func4( v : Int )->Int {
     }
     v = v * 1.5;
     return Int(v);
+}
+
+outer_func( v : Int ) -> Int {
+    acc : ~Int = 0;
+    acc = ( v : Int )->Int { return v*2; } ( v*2 );
+    local_func :=  ( v : Int )->Int { return v*4; };
+    acc = acc + local_func( v*8 );
+
+    local_func :=  ( v : Int )->Int { return v*4; };
+
+    return acc;
 }

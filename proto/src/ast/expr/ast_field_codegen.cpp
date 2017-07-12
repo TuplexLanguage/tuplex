@@ -33,7 +33,7 @@ static Value* instance_method_value_code_gen( LlvmGenerationContext& context, Ge
                                               Value* runtimeBaseTypeIdV, const TxField* fieldEntity,
                                               Value* baseValue,
                                               bool nonvirtualLookup ) {
-    auto lambdaT = cast<StructType>( context.get_llvm_type( fieldEntity->get_type() ) );
+    auto lambdaT = cast<StructType>( context.get_llvm_type( fieldEntity->qualtype() ) );
     Value* funcPtrV;
     if ( nonvirtualLookup ) {
         Value* staticBaseTypeIdV = staticBaseType->gen_typeid( context, scope );

@@ -99,8 +99,8 @@ void TxFieldDefNode::symbol_resolution_pass() {
         this->typeExpression->symbol_resolution_pass();
     }
 
-    if ( is_not_properly_concrete( this, field->get_type()->type() ) ) {
-        CERROR( this, "Field type is not concrete: " << this->get_descriptor() << " : " << field->get_type() );
+    if ( is_not_properly_concrete( this, field->qualtype()->type() ) ) {
+        CERROR( this, "Field type is not concrete: " << this->get_descriptor() << " : " << field->qualtype() );
     }
     if ( this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR ) {
         // TODO: check that constructor function type has void return value

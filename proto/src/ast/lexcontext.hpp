@@ -90,6 +90,7 @@ public:
         return expErrCtx;
     }
 
+    /** Returns the closest enclosing lambda of this context (the function body this is direct member of). */
     inline TxLambdaExprNode* enclosing_lambda() const {
         return this->enclosingLambda;
     }

@@ -92,6 +92,7 @@ add_executable(txc
         builtin/builtin_types.cpp
 
         symbol/symbol.cpp
+        symbol/symbol_lookup.cpp
         symbol/type.cpp
         symbol/package.cpp
         symbol/module.cpp

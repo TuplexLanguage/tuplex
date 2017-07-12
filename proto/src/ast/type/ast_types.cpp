@@ -2,6 +2,7 @@
 
 #include "ast/ast_wrappers.hpp"
 #include "ast/expr/ast_lambda_node.hpp"
+#include "symbol/symbol_lookup.hpp"
 
 TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
     if (this->symbol)

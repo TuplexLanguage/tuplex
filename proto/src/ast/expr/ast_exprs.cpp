@@ -4,6 +4,7 @@
 #include "ast_ref.hpp"
 #include "ast/ast_util.hpp"
 #include "ast_field.hpp"
+#include "symbol/symbol_lookup.hpp"
 
 
 const TxQualType* TxConstructorCalleeExprNode::define_type() {
@@ -19,7 +20,7 @@ const TxQualType* TxConstructorCalleeExprNode::define_type() {
                         "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );
                 this->declaration = constructorDecl;
                 auto constructorField = constructorDecl->get_definer()->resolve_field();
-                return constructorField->get_type();
+                return constructorField->qualtype();
             }
         }
         if ( this->appliedFuncArgs->size() == 0 ) {

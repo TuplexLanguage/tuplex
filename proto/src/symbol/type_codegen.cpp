@@ -23,7 +23,7 @@ StructType* TxActualType::make_vtable_type( LlvmGenerationContext& context ) con
     LOG_TRACE( context.LOGGER(), "Mapping vtable of type " << this->get_declaration()->get_unique_full_name() << ": " << this->str(true) );
     std::vector<Type*> members;
     for ( auto memberTxField : this->get_virtual_fields().fields ) {
-        auto memberTxType = memberTxField->get_type();
+        auto memberTxType = memberTxField->qualtype();
         auto lMemberType = context.get_llvm_type( memberTxType->type() );
         if ( memberTxField->get_storage() == TXS_INSTANCEMETHOD )
             lMemberType = lMemberType->getStructElementType( 0 );
@@ -383,7 +383,7 @@ Type* TxTupleType::make_llvm_type_body( LlvmGenerationContext& context, Type* he
     LOG_TRACE( context.LOGGER(), "Mapping tuple type " << this->get_declaration()->get_unique_full_name() << ": " << this->str(true) );
     std::vector<Type*> fieldTypes;
     for ( auto memberTxField : this->get_instance_fields().fields ) {
-        auto memberTxType = memberTxField->get_type()->type();
+        auto memberTxType = memberTxField->qualtype()->type();
         auto memberLlvmType = context.get_llvm_type( memberTxType );
         fieldTypes.push_back( memberLlvmType );
         LOG_TRACE( context.LOGGER(), "Mapping member type " << memberTxType << " to " << ::to_string(memberLlvmType) );

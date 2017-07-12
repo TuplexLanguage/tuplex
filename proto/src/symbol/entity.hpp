@@ -77,7 +77,7 @@ public:
         return this->get_declaration()->get_storage();
     }
 
-    inline const TxQualType* get_type() const {
+    inline const TxQualType* qualtype() const {
         return this->type;
     }
 

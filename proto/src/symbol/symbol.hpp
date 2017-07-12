@@ -20,6 +20,20 @@ class TxNode;
 class TxTypeDefiningNode;
 class TxFieldDefiningNode;
 
+
+inline std::string hashify( const std::string str ) {
+    std::string hname( str );
+    std::replace( hname.begin(), hname.end(), '.', '#' );
+    return hname;
+}
+
+inline std::string dehashify( const std::string str ) {
+    std::string hname( str );
+    std::replace( hname.begin(), hname.end(), '#', '.' );
+    return hname;
+}
+
+
 /** Represents a Tuplex symbol and namespace/scope.
  * For example package (global namespace), modules, entities, code blocks.
  * A symbol has a unique qualified name, an outer (parent) scope (unless root),
@@ -260,8 +274,6 @@ public:
         return this->fieldDeclarations.cend();
     }
 
-    virtual TxScopeSymbol* get_member_symbol( const std::string& name ) override;
-
     virtual void dump_symbols() const override;
 
     virtual std::string declaration_string() const override;
@@ -272,33 +284,3 @@ public:
         return this->declaration_string() + " " + this->get_full_name().str();
     }
 };
-
-inline std::string hashify( const std::string str ) {
-    std::string hname( str );
-    std::replace( hname.begin(), hname.end(), '.', '#' );
-    return hname;
-}
-
-inline std::string dehashify( const std::string str ) {
-    std::string hname( str );
-    std::replace( hname.begin(), hname.end(), '#', '.' );
-    return hname;
-}
-
-/** Looks up a name (qualified or simple) among the members of the specified scope.
- * Unlike search_symbol() this doesn't do a global search of the leading name segment.
- * Unlike lookup_inherited_member() this doesn't search parent types for inherited symbols. */
-TxScopeSymbol* lookup_member( TxScopeSymbol* vantageScope, TxScopeSymbol* scope, const TxIdentifier& ident );
-
-class TxActualType;
-/** match against the type's direct members, and then its inherited members, returning the first found */
-TxEntitySymbol* lookup_inherited_member( TxScopeSymbol* vantageScope, const TxActualType* type, const std::string& name );
-
-/** Searches for the symbol with the specified name, starting from vantageScope and proceeding through its outer scopes,
- * finally doing a global search assuming the name is a global fully qualified name.
- */
-TxScopeSymbol* search_symbol( TxScopeSymbol* vantageScope, const TxIdentifier& ident );
-
-const TxTypeDeclaration* search_type( TxScopeSymbol* vantageScope, const TxIdentifier& ident );
-
-const TxFieldDeclaration* search_field( TxScopeSymbol* vantageScope, const TxIdentifier& ident );

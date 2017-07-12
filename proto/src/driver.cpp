@@ -327,12 +327,12 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
     bool mainGenerated = false;
     if ( auto funcDecl = this->package->getMainFunc() ) {
         auto funcField = funcDecl->get_definer()->resolve_field();
-        if ( funcField->get_type()->get_type_class() == TXTC_FUNCTION ) {
-            auto retType = funcField->get_type()->type()->return_type();
+        if ( funcField->qualtype()->get_type_class() == TXTC_FUNCTION ) {
+            auto retType = funcField->qualtype()->type()->return_type();
             if ( retType->get_type_class() != TXTC_VOID
                  && !retType->is_a( *this->package->registry().get_builtin_type( TXBT_INTEGER ) ) )
                 this->_LOG.error( "main() method had invalid return type: %s", retType->str().c_str() );
-            else if ( ( mainGenerated = this->genContext->generate_main( funcDecl->get_unique_full_name(), funcField->get_type()->type() ) ) )
+            else if ( ( mainGenerated = this->genContext->generate_main( funcDecl->get_unique_full_name(), funcField->qualtype()->type() ) ) )
                 this->_LOG.debug( "Created program entry for user method %s", funcDecl->get_unique_full_name().c_str() );
         }
     }

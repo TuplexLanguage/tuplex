@@ -22,7 +22,7 @@ Constant* gen_lambda( LlvmGenerationContext& context, Type* lambdaT, Constant* f
 
 static Value* gen_local_field( LlvmGenerationContext& context, GenScope* scope, const TxField* field, Value* fieldV ) {
     fieldV->setName( field->get_unique_name() );
-    const TxType* txType = field->get_type()->type();
+    const TxType* txType = field->qualtype()->type();
     auto fieldA = txType->acttype()->gen_alloca( context, scope, field->get_unique_name() + "_" );
     scope->builder->CreateStore( fieldV, fieldA );
     field->set_llvm_value( fieldA );

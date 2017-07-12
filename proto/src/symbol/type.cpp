@@ -7,6 +7,7 @@
 #include "type_registry.hpp"
 #include "entity_type.hpp"
 #include "package.hpp"
+#include "symbol_lookup.hpp"
 
 #include "ast/expr/ast_expr_node.hpp"
 #include "ast/expr/ast_constexpr.hpp"
@@ -374,7 +375,7 @@ bool TxActualType::inner_prepare_members() {
             }
 
             auto field = fieldDecl->get_definer()->get_field();
-            auto fieldType = field->get_type()->type()->acttype();
+            auto fieldType = field->qualtype()->type()->acttype();
 
             // validate field's storage and declaration flags, and do layout:
             switch ( fieldDecl->get_storage() ) {
@@ -426,9 +427,9 @@ bool TxActualType::inner_prepare_members() {
                     auto overriddenField = this->virtualFields.get_field( field->get_unique_name() );
                     if ( overriddenField->get_decl_flags() & TXD_FINAL )
                         CERROR( field, "Can't override a base type field that is declared 'final': " << field );
-                    if ( !( field->get_type()->type()->is_assignable_to( *overriddenField->get_type()->type() ) ) )
-                        CERROR( field, "Overriding member's type " << field->get_type() << std::endl
-                                << "   not assignable to overridden member's type " << overriddenField->get_type() );
+                    if ( !( field->qualtype()->type()->is_assignable_to( *overriddenField->qualtype()->type() ) ) )
+                        CERROR( field, "Overriding member's type " << field->qualtype() << std::endl
+                                << "   not assignable to overridden member's type " << overriddenField->qualtype() );
                     if ( !expErrField || expErrWholeType )
                         this->virtualFields.override_field( field->get_unique_name(), field );
                 }
@@ -439,7 +440,7 @@ bool TxActualType::inner_prepare_members() {
                         this->virtualFields.add_field( field );
                 }
                 this->LOGGER()->debug( "Adding/overriding virtual field %-40s  %s  %u", field->str().c_str(),
-                                       field->get_type()->str().c_str(),
+                                       field->qualtype()->str().c_str(),
                                        this->virtualFields.get_field_count() );
                 break;
             default:

@@ -249,14 +249,14 @@ void LlvmGenerationContext::generate_runtime_data() {
                     //std::cerr << "inserting NULL for abstract virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                     Type* fieldType;
                     if ( actualFieldEnt->get_storage() & TXS_INSTANCEMETHOD ) {
-                        auto closureType = this->get_llvm_type( actualFieldEnt->get_type()->type() );
+                        auto closureType = this->get_llvm_type( actualFieldEnt->qualtype()->type() );
                         fieldType = closureType->getStructElementType( 0 );
                     }
                     else if ( field.first == "$adTypeId" ) {
-                        fieldType = this->get_llvm_type( actualFieldEnt->get_type()->type() );
+                        fieldType = this->get_llvm_type( actualFieldEnt->qualtype()->type() );
                     }
                     else
-                        fieldType = PointerType::getUnqual( this->get_llvm_type( actualFieldEnt->get_type()->type() ) );
+                        fieldType = PointerType::getUnqual( this->get_llvm_type( actualFieldEnt->qualtype()->type() ) );
                     llvmFieldC = Constant::getNullValue( fieldType );
                 }
                 else if ( field.first == "$adTypeId" ) {
