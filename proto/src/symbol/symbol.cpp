@@ -210,7 +210,7 @@ bool TxEntitySymbol::add_field( TxFieldDeclaration* fieldDeclaration ) {
     return true;
 }
 
-static TxScopeSymbol* search_symbol( TxScopeSymbol* vantageScope, const TxIdentifier& ident );
+static TxScopeSymbol* inner_search_symbol( TxScopeSymbol* vantageScope, const TxIdentifier& ident );
 
 static const TxEntityDeclaration* get_symbols_declaration( TxEntitySymbol* entitySymbol ) {
     const TxEntityDeclaration* decl = entitySymbol->get_type_decl();
@@ -225,13 +225,12 @@ static const TxEntityDeclaration* get_symbols_declaration( TxEntitySymbol* entit
 }
 
 TxScopeSymbol* TxEntitySymbol::get_member_symbol( const std::string& name ) {
-    // overrides in order to handle instance members
-    // (if this symbol is a type, static member lookup of the type takes precedence if overloaded)
+    // overrides in order to handle hashified generic bindings
 
     if ( name.find_first_of( '#' ) != std::string::npos ) {
         // sought name is a hashified, fully qualified name (e.g. my#SType#E)
         auto fullName = dehashify( name );
-        if ( auto hashedSym = search_symbol( this, TxIdentifier( fullName ) ) ) {  // FUTURE: review if this may breach visibility
+        if ( auto hashedSym = inner_search_symbol( this, TxIdentifier( fullName ) ) ) {  // FUTURE: review if this may breach visibility
             if ( auto hashedEntSym = dynamic_cast<TxEntitySymbol*>( hashedSym ) ) {
                 if ( auto hashedDecl = get_symbols_declaration( hashedEntSym ) ) {
                     if ( hashedDecl->get_decl_flags() & TXD_GENPARAM ) {
@@ -253,18 +252,21 @@ TxScopeSymbol* TxEntitySymbol::get_member_symbol( const std::string& name ) {
         }
     }
 
-    if ( this->get_type_decl() )
-        return this->TxScopeSymbol::get_member_symbol( name );
-    else if ( !this->is_overloaded() ) {
-        // this symbol represents a distinct field; look up its instance members
-        if ( auto type = this->get_first_field_decl()->get_definer()->qualtype()->type() ) {
-            if ( auto member = type->lookup_inherited_instance_member( name ) )
-                return member;
-        }
-        else
-            this->LOGGER()->warning( "Type not resolved of %s", this->str().c_str() );
-    }
-    return nullptr;
+    return this->TxScopeSymbol::get_member_symbol( name );
+
+// search of inherited symbols no longer implemented here
+//    if ( this->get_type_decl() )
+//        return this->TxScopeSymbol::get_member_symbol( name );
+//    else if ( !this->is_overloaded() ) {
+//        // this symbol represents a distinct field; look up its instance members
+//        if ( auto type = this->get_first_field_decl()->get_definer()->qualtype()->type() ) {
+//            if ( auto member = type->lookup_inherited_member( name ) )
+//                return member;
+//        }
+//        else
+//            this->LOGGER()->warning( "Type not resolved of %s", this->str().c_str() );
+//    }
+//    return nullptr;
 }
 
 static std::string field_description( const TxFieldDeclaration* fieldDecl ) {
@@ -372,7 +374,31 @@ std::string TxEntitySymbol::description_string() const {
 
 /*=== symbol table lookup functions ===*/
 
-static TxScopeSymbol* search_symbol( TxScopeSymbol* vantageScope, const TxIdentifier& ident );
+/* Notes on namespace / lookup semantics:
+
+Private virtual can be truly virtual.
+Public virtual is virtual, but referencing them without a base expression is non-polymorphic.
+
+## Type resolution is virtual and non-polymorphic
+Type . Type
+SFIELD . Type  => decltype(SFIELD).TYPE
+field . Type   => decltype(field).TYPE
+ref . Type     => decltype(ref).TYPE
+
+## The types of all the following are determined statically:
+Type . SFIELD  ## of course non-polymorphic
+Type . field   ## invalid; produces field's declared type
+
+SFIELD . SFIELD  ## "polymorphic" (but statically known)
+SFIELD . field   ## non-polymorphic
+
+field . SFIELD  ## "polymorphic" (but statically known)
+field . field   ## non-polymorphic
+
+ref . SFIELD  ## polymorphic     (determined by the actual object type)
+ref . field   ## non-polymorphic (determined by the declared type of ref)
+
+*/
 
 static TxScopeSymbol* inner_lookup_member( TxScopeSymbol* scope, const TxIdentifier& ident ) {
     //std::cout << "From '" << scope->get_full_name() << "': lookup_member(" << ident << ")" << std::endl;
@@ -385,37 +411,78 @@ static TxScopeSymbol* inner_lookup_member( TxScopeSymbol* scope, const TxIdentif
     return nullptr;
 }
 
-static TxScopeSymbol* search_symbol( TxScopeSymbol* vantageScope, const TxIdentifier& ident ) {
+static TxEntitySymbol* inner_lookup_inherited_member( const TxActualType* type, const std::string& name ) {
+    ASSERT( name != CONSTR_IDENT, "Can't look up constructors as *inherited* members; in: " << type );
+    //std::cerr << "lookup_inherited_member(" << name << ")" << std::endl;
+    for ( ; type; type = type->get_base_type() ) {
+        if ( auto memberEnt = dynamic_cast<TxEntitySymbol*>( inner_lookup_member( type->get_declaration()->get_symbol(), name ) ) )
+            return memberEnt;
+        for ( auto & interf : type->get_interfaces() ) {
+            if ( auto memberEnt = inner_lookup_inherited_member( interf, name ) )
+                return memberEnt;
+        }
+    }
+    return nullptr;
+}
+
+static TxScopeSymbol* inner_search_symbol( TxScopeSymbol* vantageScope, const TxIdentifier& ident ) {
+    // Inherited symbols take precedence over symbols in outer namespaces.
+    // As we search the lexical namespaces from inner-most and outwards, if the namespace is a type then look for inherited symbols.
+
     for ( auto scope = vantageScope; scope; scope = scope->get_outer() ) {
         if ( auto symbol = inner_lookup_member( scope, ident ) )
             return symbol;
-        if ( dynamic_cast<TxModule*>( scope ) )
+
+        if ( auto entSym = dynamic_cast<TxEntitySymbol*>( scope ) ) {
+            auto entDecl = entSym->get_type_decl();
+            // Note: We don't (and shouldn't need to) force resolve here, since when e.g. resolving base types recursion error would occur.
+            if ( auto qtype = entDecl->get_definer()->attempt_qualtype() ) {
+                if ( auto atype = qtype->type()->attempt_acttype() ) {
+                    if ( auto member = inner_lookup_inherited_member( atype, ident.segment( 0 ) ) ) {
+                        if ( ident.is_plain() )
+                            return member;
+                        else
+                            return inner_lookup_member( member, TxIdentifier( ident, 1 ) );
+                    }
+                }
+            }
+        }
+
+        if ( dynamic_cast<TxModule*>( scope ) ) {
             // if member lookup within a module fails, skip parent modules and do global lookup via root namespace (package)
             return inner_lookup_member( scope->get_root_scope(), ident );
+        }
     }
+
     return nullptr;
 }
 
 TxScopeSymbol* lookup_member( TxScopeSymbol* vantageScope, TxScopeSymbol* scope, const TxIdentifier& ident ) {
     auto symbol = inner_lookup_member( scope, ident );
-    // TODO: implement visibility check
+    // FUTURE: implement visibility check
     return symbol;
 }
 
-TxScopeSymbol* lookup_symbol( TxScopeSymbol* vantageScope, const TxIdentifier& ident ) {
-    auto symbol = search_symbol( vantageScope, ident );
-    // TODO: implement visibility check
+TxEntitySymbol* lookup_inherited_member( TxScopeSymbol* vantageScope, const TxActualType* type, const std::string& name )  {
+    auto symbol = inner_lookup_inherited_member( type, name );
+    // FUTURE: implement visibility check
     return symbol;
 }
 
-const TxTypeDeclaration* lookup_type( TxScopeSymbol* vantageScope, const TxIdentifier& ident ) {
-    if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( lookup_symbol( vantageScope, ident ) ) )
+TxScopeSymbol* search_symbol( TxScopeSymbol* vantageScope, const TxIdentifier& ident ) {
+    auto symbol = inner_search_symbol( vantageScope, ident );
+    // FUTURE: implement visibility check
+    return symbol;
+}
+
+const TxTypeDeclaration* search_type( TxScopeSymbol* vantageScope, const TxIdentifier& ident ) {
+    if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( search_symbol( vantageScope, ident ) ) )
         return entitySymbol->get_type_decl();
     return nullptr;
 }
 
-const TxFieldDeclaration* lookup_field( TxScopeSymbol* vantageScope, const TxIdentifier& ident ) {
-    if ( auto entitySymbol = dynamic_cast<const TxEntitySymbol*>( lookup_symbol( vantageScope, ident ) ) ) {
+const TxFieldDeclaration* search_field( TxScopeSymbol* vantageScope, const TxIdentifier& ident ) {
+    if ( auto entitySymbol = dynamic_cast<const TxEntitySymbol*>( search_symbol( vantageScope, ident ) ) ) {
         if ( entitySymbol->field_count() == 1 )
             return entitySymbol->get_first_field_decl();
         if ( entitySymbol->field_count() > 1 )

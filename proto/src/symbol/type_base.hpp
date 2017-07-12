@@ -319,6 +319,10 @@ public:
      * This is used to bypass same-instance-type derivations (e.g. empty/mod. specializations). */
     const TxActualType* get_instance_base_type() const;
 
+    inline const std::vector<const TxActualType*>& get_interfaces() const {
+        return this->interfaces;
+    }
+
     /** Returns the type class this type belongs to. */
     inline TxTypeClass get_type_class() const {
         return this->typeClass;
@@ -483,22 +487,12 @@ private:
     bool derives_interface( const TxActualType* interfaceType ) const;
 
 public:
-    /*--- namespace lookup ---*/
-
-    /** match against this entity's direct instance/static members (not its inherited members). */
-    virtual TxEntitySymbol* get_instance_member( const std::string& name ) const;
-    virtual TxEntitySymbol* get_instance_member( TxScopeSymbol* vantageScope, const std::string& name ) const;
-
-    /** match against this entity's direct instance/static members, and then its inherited members, returning the first found */
-    virtual TxEntitySymbol* lookup_inherited_instance_member( const std::string& name ) const;
-    virtual TxEntitySymbol* lookup_inherited_instance_member( TxScopeSymbol* vantageScope, const std::string& name ) const;
+    /*--- type parameter handling ---*/
 
     /** Specialized lookup: searches the type hierarchy's parameter bindings to find the binding for a parameter. */
     const TxEntityDeclaration* lookup_param_binding( const TxEntityDeclaration* paramDecl ) const;
     const TxFieldDeclaration* lookup_value_param_binding( const std::string& fullParamName ) const;
     const TxTypeDeclaration* lookup_type_param_binding( const std::string& fullParamName ) const;
-
-    /*--- type parameter handling ---*/
 
     /** Gets the (unbound) type parameters of this type (this type is a generic type if this is non-empty). */
     inline const std::vector<const TxEntityDeclaration*>& get_type_params() const {

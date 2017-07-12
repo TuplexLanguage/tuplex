@@ -72,6 +72,7 @@ source_files = [
     "arraymodifiability.tx",
     #"stringtest.tx",
 
+    "lookuptest.tx",
     "membertest.tx",
     "membermodifiability.tx",
     "polymorphtest.tx",

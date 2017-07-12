@@ -176,6 +176,10 @@ public:
         if ( this->sourcecodeDefiner )
             this->sourcecodeDefiner->visit_ast( visitor, thisCursor, "source", context );
     }
+
+    virtual const std::string& get_descriptor() const override {
+        return this->parent()->get_descriptor();  // the descriptor of the type declaration
+    }
 };
 
 void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner, TxTypeDefiningNode* builtinDefiner ) {

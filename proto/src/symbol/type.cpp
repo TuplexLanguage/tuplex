@@ -691,36 +691,6 @@ const TxActualType* TxActualType::get_instance_base_type() const {
     return ( this->is_same_instance_type() ? this->get_semantic_base_type()->get_instance_base_type() : this );
 }
 
-TxEntitySymbol* TxActualType::get_instance_member( const std::string& name ) const {
-    return this->get_instance_member( this->get_declaration()->get_symbol(), name );
-}
-
-TxEntitySymbol* TxActualType::get_instance_member( TxScopeSymbol* vantageScope, const std::string& name ) const {
-    if ( auto member = lookup_member( vantageScope, this->get_declaration()->get_symbol(), name ) ) {
-        if ( auto memberEnt = dynamic_cast<TxEntitySymbol*>( member ) )
-            return memberEnt;
-        else
-            LOG( this->LOGGER(), WARN, "Looked-up member is not an entity: " << member );
-    }
-    return nullptr;
-}
-
-TxEntitySymbol* TxActualType::lookup_inherited_instance_member( const std::string& name ) const {
-    return this->lookup_inherited_instance_member( this->get_declaration()->get_symbol(), name );
-}
-
-TxEntitySymbol* TxActualType::lookup_inherited_instance_member( TxScopeSymbol* vantageScope, const std::string& name ) const {
-    ASSERT( name != CONSTR_IDENT, "Can't look up constructors as *inherited* members; in: " << this );
-    for ( const TxActualType* type = this; type; type = type->get_base_type() ) {
-        if ( auto memberEnt = type->get_instance_member( vantageScope, name ) )
-            return memberEnt;
-        for ( auto & interf : type->interfaces ) {
-            if ( auto memberEnt = interf->lookup_inherited_instance_member( vantageScope, name ) )
-                return memberEnt;
-        }
-    }
-    return nullptr;
-}
 
 static const TxEntityDeclaration* get_type_param_decl( const std::vector<const TxEntityDeclaration*>& params, const std::string& fullParamName ) {
     for ( auto & paramDecl : params )
@@ -1155,7 +1125,7 @@ const TxExpressionNode* TxArrayType::capacity() const {
 }
 
 const TxQualType* TxArrayType::element_type() const {
-    if ( auto entSym = this->lookup_inherited_instance_member( "tx#Array#E" ) ) {
+    if ( auto entSym = lookup_inherited_member( this->get_declaration()->get_symbol(), this, "tx#Array#E" ) ) {
         if ( auto typeDecl = entSym->get_type_decl() ) {
             //std::cerr << "Array.E type decl: " << typeDecl << std::endl;
             return typeDecl->get_definer()->resolve_type();
@@ -1166,7 +1136,7 @@ const TxQualType* TxArrayType::element_type() const {
 }
 
 const TxQualType* TxReferenceType::target_type() const {
-    if ( auto entSym = this->lookup_inherited_instance_member( "tx#Ref#T" ) ) {
+    if ( auto entSym = lookup_inherited_member( this->get_declaration()->get_symbol(), this, "tx#Ref#T" ) ) {
         if ( auto typeDecl = entSym->get_type_decl() ) {
             //std::cerr << "Ref.T type decl: " << typeDecl << std::endl;
             return typeDecl->get_definer()->resolve_type();

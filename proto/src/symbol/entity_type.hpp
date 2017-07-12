@@ -94,6 +94,10 @@ public:
     // TODO: make non-const?
     const TxActualType* acttype() const;
 
+    inline const TxActualType* attempt_acttype() const {
+        return this->_type;
+    }
+
     inline const TxType* get_base_type() const {
         if ( auto base = this->acttype()->get_base_type() )
             return get_type_entity(base);
@@ -240,18 +244,6 @@ public:
     /** Returns true if this type has the same vtable as its base type. */
     inline bool is_same_vtable_type() const {
         return this->acttype()->is_same_vtable_type();
-    }
-
-    /** match against this entity's direct instance/static members (not its inherited members). */
-    inline TxEntitySymbol* get_instance_member( const std::string& name ) const {
-        return this->acttype()->get_instance_member( name );
-    }
-
-    inline TxEntitySymbol* lookup_inherited_instance_member( const std::string& name ) const {
-        return this->acttype()->lookup_inherited_instance_member( name );
-    }
-    inline TxEntitySymbol* lookup_inherited_instance_member( TxScopeSymbol* vantageScope, const std::string& name ) const {
-        return this->acttype()->lookup_inherited_instance_member( vantageScope, name );
     }
 
     inline const TxEntityDeclaration* lookup_param_binding( const TxEntityDeclaration* paramDecl ) const {

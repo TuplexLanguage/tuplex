@@ -10,8 +10,10 @@ const TxQualType* TxConstructorCalleeExprNode::define_type() {
     ASSERT( this->appliedFuncArgs, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized" );
     {
         auto allocType = this->objectExpr->resolve_type();
-        // find the constructor
-        if ( auto constructorSymbol = allocType->type()->get_instance_base_type()->get_instance_member( CONSTR_IDENT ) ) {  // (constructors aren't inherited)
+        // find the constructor (note, constructors aren't inherited)
+        auto instanceBaseType = allocType->type()->get_instance_base_type();
+        auto constrMember = lookup_member( this->context().scope(), instanceBaseType->get_declaration()->get_symbol(), CONSTR_IDENT );
+        if ( auto constructorSymbol = dynamic_cast<TxEntitySymbol*> ( constrMember ) ) {
             if ( auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs ) ) {
                 ASSERT( constructorDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ),
                         "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );

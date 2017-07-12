@@ -6,11 +6,13 @@
 TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
     if (this->symbol)
         return this->symbol;
+//    if ( get_node_id() == 1621 )
+//        std::cerr << "Here " << this << std::endl;
+    TxScopeSymbol* vantageScope = this->context().scope();
     if ( this->baseSymbol ) {
         // baseSymbol may or may not refer to a type (e.g. modules don't), TXTC_VOID is the placeholder if not
         auto baseType = this->baseSymbol->resolve_type()->type();
 
-        TxScopeSymbol* vantageScope = this->context().scope();
         if ( auto baseSymbolNode = dynamic_cast<TxIdentifiedSymbolNode*>( this->baseSymbol ) ) {
             if ( baseType->get_type_class() == TXTC_VOID ) {
                 // base is a non-entity symbol
@@ -20,17 +22,17 @@ TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
             }
             else {
                 // base is a type expression
-                this->symbol = baseType->lookup_inherited_instance_member( vantageScope, this->symbolName->str() );
+                this->symbol = lookup_inherited_member( vantageScope, baseType->acttype(), this->symbolName->str() );
             }
         }
         else {
             // base is a type expression
-            this->symbol = baseType->lookup_inherited_instance_member( vantageScope, this->symbolName->str() );
+            this->symbol = lookup_inherited_member( vantageScope, baseType->acttype(), this->symbolName->str() );
         }
     }
     else {
         // capable of looking up both simple names and fully qualified names
-        this->symbol = lookup_symbol( this->context().scope(), *this->symbolName );
+        this->symbol = search_symbol( vantageScope, *this->symbolName );
     }
     return this->symbol;
 }
@@ -75,8 +77,8 @@ const TxQualType* TxNamedTypeNode::define_type() {
 
 const TxQualType* TxMemberTypeNode::define_type() {
     auto baseType = this->baseTypeExpr->resolve_type()->type();
-    if (auto memberSymbol = baseType->lookup_inherited_instance_member( this->context().scope(), this->memberName )) {
-        if ( auto entitySym = dynamic_cast<const TxEntitySymbol*>( memberSymbol) ) {
+    if ( auto memberSymbol = lookup_inherited_member( this->context().scope(), baseType->acttype(), this->memberName ) ) {
+        if ( auto entitySym = dynamic_cast<const TxEntitySymbol*>( memberSymbol ) ) {
             if ( auto typeDecl = entitySym->get_type_decl() ) {
                 auto type = typeDecl->get_definer()->resolve_type();
                 if ( auto decl = this->get_declaration() ) {
@@ -172,6 +174,9 @@ void TxDerivedTypeNode::symbol_resolution_pass() {
     }
 
     this->superRefTypeNode->symbol_resolution_pass();
+
+    // Before processing members, ensure this type definition is fully resolved (needed for inherited name lookups):
+    this->resolve_type()->type()->acttype();
 
     for ( auto member : *this->members ) {
         member->symbol_resolution_pass();

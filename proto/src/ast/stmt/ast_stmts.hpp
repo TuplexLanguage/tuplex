@@ -151,7 +151,7 @@ public:
     virtual void symbol_resolution_pass() override {
         // TODO: Fix so that this won't find false positive using outer function's $return typeDecl
         // TODO: Illegal to return reference to STACK dataspace
-        if ( auto returnDecl = lookup_field( this->context().scope(), TxIdentifier( "$return" ) ) ) {
+        if ( auto returnDecl = search_field( this->context().scope(), TxIdentifier( "$return" ) ) ) {
             if ( this->expr ) {
                 if ( auto field = returnDecl->get_definer()->resolve_field() )
                     this->expr->insert_conversion( field->get_type()->type() );

@@ -151,6 +151,7 @@ const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntit
 TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
     if (this->symbol)
         return this->symbol;
+    TxScopeSymbol* vantageScope = this->context().scope();
     if ( this->baseExpr ) {
         // baseExpr may or may not refer to a type (e.g. modules don't)
         const TxType* baseType = this->baseExpr->resolve_type()->type();
@@ -167,7 +168,6 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
             }
         }
 
-        TxScopeSymbol* vantageScope = this->context().scope();
         if ( auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {
             if ( baseType->get_type_class() == TXTC_VOID ) {
                 // base is a non-entity symbol
@@ -177,16 +177,16 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
             }
             else {
                 // base is a type or value expression  FIXME: if type, don't include instance members in lookup
-                this->symbol = baseType->lookup_inherited_instance_member( vantageScope, this->symbolName->str() );
+                this->symbol = lookup_inherited_member( vantageScope, baseType->acttype(), this->symbolName->str() );
             }
         }
         else {
             // base is a value expression
-            this->symbol = baseType->lookup_inherited_instance_member( vantageScope, this->symbolName->str() );
+            this->symbol = lookup_inherited_member( vantageScope, baseType->acttype(), this->symbolName->str() );
         }
     }
     else {
-        this->symbol = lookup_symbol( this->context().scope(), *this->symbolName );
+        this->symbol = search_symbol( vantageScope, *this->symbolName );
     }
     return this->symbol;
 }
@@ -194,6 +194,8 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
 const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
     if ( this->declaration )
         return this->declaration;
+//    if ( get_node_id() == 1584 )
+//        std::cerr << "Here " << this << std::endl;
     if ( auto symbol = this->resolve_symbol() ) {
         if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( symbol ) ) {
             // if symbol can be resolved to actual field, then do so
@@ -208,7 +210,9 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                 if ( this->appliedFuncArgs ) {
                     auto allocType = typeDecl->get_definer()->resolve_type();
                     // constructors aren't inherited, except for empty/modifiable derivations:
-                    if ( auto constructorSymbol = allocType->type()->get_instance_base_type()->get_instance_member( CONSTR_IDENT ) ) {
+                    auto instanceBaseType = allocType->type()->get_instance_base_type();
+                    auto constrMember = lookup_member( this->context().scope(), instanceBaseType->get_declaration()->get_symbol(), CONSTR_IDENT );
+                    if ( auto constructorSymbol = dynamic_cast<TxEntitySymbol*> ( constrMember ) ) {
                         if ( auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs ) ) {
                             ASSERT( constructorDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ),
                                     "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );

@@ -69,17 +69,6 @@ class TxTypeDeclNode : public TxDeclarationNode {
     /** if true, this node's subtree is merged with a built-in type definition */
     bool _builtinCode = false;
 
-    static bool validateTypeName( TxNode* node, TxDeclarationFlags declFlags, const std::string& name ) {
-    // TODO
-    //    if (! isupper( name.at(0) ))
-    //        CWARNING(node, "The first letter of type names should be uppercase: " << name);
-        if ( name.empty() ) {
-            CERROR( node, "Name string is empty." );
-            return false;
-        }
-        return true;
-    }
-
 protected:
     virtual void declaration_pass() override;
 
@@ -95,7 +84,6 @@ public:
                     bool interfaceKW = false, bool mutableType = false )
             : TxDeclarationNode( ploc, declFlags ), typeName( new TxIdentifier( typeName ) ),
               interfaceKW( interfaceKW ), mutableType( mutableType ), typeParamDecls( typeParamDecls ), typeExpression( typeExpression ) {
-        validateTypeName( this, declFlags, typeName );
     }
 
     virtual TxTypeDeclNode* make_ast_copy() const override {

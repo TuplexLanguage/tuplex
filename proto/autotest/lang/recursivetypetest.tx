@@ -47,15 +47,15 @@ type B {
 ## data type can't contain itself, directly or indirectly:
 
 type AA {
-    #experr: bbobj : BB;
+    bbobj : BB;
 }
 type BB {
     aaref : &AA;
-    aaobj : AA;
+    #experr 1: aaobj : AA;
 }
 
 type CC {
-    #experr: ccobj : CC;
+    #experr 1: ccobj : CC;
 }
 
 

@@ -112,6 +112,13 @@ Advanced for-loops - DONE
 
 String datatype - DONE
 
+Panic statement - DONE
+
+Foreign function interface - DONE
+
+Make VALUE type parameter specializations share a general (but non-generic) supertype
+ - for VALUEs below a threshold (e.g. <= 4), coge-gen individual specializations for efficiency
+
 Array object assignment, review and test semantics
  - correct setting of L
  - truncation (all elements don't fit in target) ok?
@@ -126,8 +133,6 @@ Ensure fields are always initialized (with the default constructor if no init ex
  - Remove 'initialization' code from alloca (at least for arrays this will cause double init of C and L)
 
 Support negative array indexing from array end
-
-Panic statement
 
 Implement advanced implicit constructor concept
  - Automatically generate the basic constructor (one argument for each instance member (except const with initializer))
@@ -170,8 +175,6 @@ break and continue out of nested loops
 Syntactic sugar for ref and array types in type arguments (possibly chained), e.g. Subtype<&Int> instead of Subtype<Ref<Int>>
 
 Implement implicit static initializer function for types' static members and static code
-
-Foreign function interface
 
 Implement debugging info
 
