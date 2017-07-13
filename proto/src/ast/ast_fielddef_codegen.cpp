@@ -70,6 +70,8 @@ void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenSco
 
 
 Value* TxNonLocalFieldDefNode::code_gen_field_decl( LlvmGenerationContext& context ) const {
+    if ( get_node_id()==16913)
+        std::cerr<<"here " << this << std::endl;
     if ( !this->get_field()->has_llvm_value() ) {
         this->inner_code_gen_field( context, false );
     }
@@ -112,11 +114,13 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
 
     switch ( fieldDecl->get_storage() ) {
     case TXS_INSTANCEMETHOD:
-        if ( !( fieldDecl->get_decl_flags() & TXD_ABSTRACT )
-             // constructors in generic types are suppressed (they are not abstract per se, but aren't code generated):
-             && !( ( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) )
-                   && static_cast<TxEntitySymbol*>( fieldDecl->get_symbol()->get_outer() )
-                           ->get_type_decl()->get_definer()->qualtype()->type()->is_generic() ) ) {
+        if ( !( fieldDecl->get_decl_flags() & TXD_ABSTRACT ) ) {
+            // constructors in generic types (that are not pure VALUE specializations) are suppressed as if abstract
+            // (they are not abstract per se, but aren't code generated):
+            auto enclosingType = static_cast<TxEntitySymbol*>( fieldDecl->get_symbol()->get_outer() )
+                                   ->get_type_decl()->get_definer()->qualtype()->type();
+            if ( !( ( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) )
+                    && enclosingType->is_type_generic() ) ) {
             Value* fieldVal = nullptr;
             if ( static_cast<TxLambdaExprNode*>( this->initExpression->originalExpr )->is_suppressed_modifying_method() ) {
                 // modifying instance methods in immutable specializations of generic types are suppressed (as if abstract)
@@ -131,6 +135,7 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
                 fieldVal = funcPtrV;  // the naked $func is stored (as opposed to a full lambda object)
             }
             this->get_field()->set_llvm_value( fieldVal );
+            }
         }
         return;
 

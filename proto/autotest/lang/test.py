@@ -86,6 +86,7 @@ source_files = [
     "genericstest2.tx",
     "genericstest3.tx",
     "genericstest4.tx",
+    "generics_value.tx",
     "genericmodifiability.tx",
 
     "sequenceiftest.tx",

@@ -152,11 +152,13 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr( LlvmGenerationContext& context
 
 Value* TxHeapAllocNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    this->objTypeExpr->code_gen_type( context );
     return this->qualtype()->type()->acttype()->gen_malloc( context, scope );
 }
 
 Value* TxStackAllocNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    this->objTypeExpr->code_gen_type( context );
     return this->qualtype()->type()->acttype()->gen_alloca( context, scope );
 }
 

@@ -56,7 +56,7 @@ public:
 
 /** Represents a field definition. */
 class TxField : public TxEntity {
-    const TxQualType* type;
+    TxQualType const * const type;
 
     /** The code-gen value for this field. Generated exactly once and stored here. */
     mutable llvm::Value* llvmValue = nullptr;
@@ -80,11 +80,6 @@ public:
     inline const TxQualType* qualtype() const {
         return this->type;
     }
-
-//    /** Gets the storage "index" of this field within its declaration scope's data tuple.
-//     * This field must not have global or stack storage class.
-//     */
-//    int get_decl_storage_index() const;
 
     bool is_modifiable() const;
 

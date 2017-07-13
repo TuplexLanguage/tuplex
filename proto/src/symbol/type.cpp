@@ -55,31 +55,6 @@ class ScopedRecursionGuardClause {
 
 Logger& TxActualType::_LOG = Logger::get( "ENTITY" );
 
-//void TxActualType::rewire( const TxActualType* newBaseType ) {
-//    ASSERT(this->typeClass == newBaseType->typeClass, "Mismatching type classes: " << this->typeClass << " != " << newBaseType->typeClass);
-//    ASSERT(!this->builtin, "can't be built-in");
-//    ASSERT(this->interfaces.empty(), "can't implement interfaces");
-//    ASSERT(this->staticTypeId == UINT32_MAX, "can't have a set staticTypeId: " << this->staticTypeId);
-//    ASSERT(this->params.empty(), "can't have type parameters");
-//    ASSERT(!this->baseType.modifiable, "can't be modifiable");
-//    ASSERT(this->genericBaseType == newBaseType->get_semantic_base_type(), "mismatching generic base types: "
-//            << this->genericBaseType << " != " << newBaseType->get_semantic_base_type());
-//    ASSERT(this->virtualFields.fields.empty(), "non-empty virtual fields");
-//    ASSERT(this->staticFields.fields.empty(), "non-empty static fields");
-//    ASSERT(this->instanceFields.fields.empty(), "non-empty instance fields");
-//
-//    this->bindings.clear();
-//
-//    const_cast<TxTypeSpecialization*>( &this->baseType )->type = newBaseType;
-//    this->genericBaseType = nullptr;
-//
-//    nonRefBindings = false;
-//    extendsInstanceDatatype = false;
-//    modifiesVTable = false;
-//    emptyDerivation = true;
-//    pureDerivation = false;
-//}
-
 const TxNode* TxActualType::get_origin_node() const {
     return this->get_declaration()->get_definer();
 }
@@ -147,15 +122,18 @@ void TxActualType::initialize_type() {
     // perform shallow pass on type's member declarations to determine derivation characteristics:
     bool hasExplicitFieldMembers = false;
     bool hasImplicitFieldMembers = false;
+    bool hasTypeBindings = false;
     for ( auto symname = typeDeclNamespace->decl_order_names_cbegin(); symname != typeDeclNamespace->decl_order_names_cend(); symname++ ) {
         if ( auto entitySym = dynamic_cast<TxEntitySymbol*>( typeDeclNamespace->get_member_symbol( *symname ) ) ) {
             if ( auto typeDecl = entitySym->get_type_decl() ) {
                 if ( typeDecl->get_decl_flags() & TXD_GENPARAM ) {
                     this->params.emplace_back( typeDecl );
+                    this->typeGeneric = true;
                     //std::cerr << "FOUND TYPE GENPARAM: " << typeDecl << std::endl;
                 }
                 else if ( typeDecl->get_decl_flags() & TXD_GENBINDING ) {
                     this->bindings.emplace_back( typeDecl );
+                    hasTypeBindings = true;
                     //std::cerr << "FOUND TYPE GENBINDING: " << typeDecl << std::endl;
                 }
                 else if ( *symname == "$GenericBase" ) {
@@ -167,19 +145,20 @@ void TxActualType::initialize_type() {
             for ( auto fieldDeclI = entitySym->fields_cbegin(); fieldDeclI != entitySym->fields_cend(); fieldDeclI++ ) {
                 auto fieldDecl = *fieldDeclI;
 
-                if ( fieldDecl->get_decl_flags() & TXD_IMPLICIT )
-                    hasImplicitFieldMembers = true;
-                else
-                    hasExplicitFieldMembers = true;
-
                 if ( fieldDecl->get_decl_flags() & TXD_GENPARAM ) {
                     //std::cerr << "FOUND VALUE GENPARAM: " << typeDecl << std::endl;
                     this->params.emplace_back( fieldDecl );
+                    //this->valueGeneric = true;
                 }
                 else if ( fieldDecl->get_decl_flags() & TXD_GENBINDING ) {
                     //std::cerr << "FOUND VALUE GENBINDING: " << typeDecl << std::endl;
                     this->bindings.emplace_back( fieldDecl );
+                    this->pureValueSpec = true;
                 }
+                else if ( fieldDecl->get_decl_flags() & TXD_IMPLICIT )
+                    hasImplicitFieldMembers = true;
+                else
+                    hasExplicitFieldMembers = true;
 
                 switch ( fieldDecl->get_storage() ) {
                 case TXS_INSTANCE:
@@ -223,6 +202,10 @@ void TxActualType::initialize_type() {
                 ASSERT( !this->genericBaseType, "Empty derivation had a $GenericBase: " << this->genericBaseType );
             }
         }
+    }
+
+    if ( hasExplicitFieldMembers || hasImplicitFieldMembers || hasTypeBindings ) {
+        this->pureValueSpec = false;
     }
 
     { // validate the type parameter bindings (as much as we can without resolving this type's bindings at this point)
@@ -394,8 +377,15 @@ bool TxActualType::inner_prepare_members() {
                 if ( const_cast<TxActualType*>( fieldType )->prepare_members() )
                     CERROR( field, "Recursive data type via field " << field->get_declaration()->get_unique_full_name() );
 
-//                if ( false && ( fieldDecl->get_decl_flags() & TXD_GENBINDING ) )
-//                    LOG_NOTE( this->LOGGER(), "Skipping layout of GENBINDING instance field: " << field );
+                else if ( !( !expErrField || expErrWholeType ) )
+                    LOG_DEBUG( this->LOGGER(), "Skipping layout of exp-error instance field: " << field );
+
+                else if ( fieldDecl->get_decl_flags() & TXD_GENBINDING ) {
+                    ASSERT( this->instanceFields.get_field( field->get_unique_name() )->get_decl_flags() & TXD_GENPARAM,
+                            "Previous instance field entry is not a GENPARAM: " << this->instanceFields.get_field( field->get_unique_name() ) );
+                    this->instanceFields.override_field( field );
+                }
+
 //                else if ( false && ( fieldDecl->get_decl_flags() & TXD_GENPARAM )
 //                          //&& this->get_type_class() == TXTC_ARRAY && this->staticTypeId != TXBT_ARRAY
 //                          ) {
@@ -403,7 +393,7 @@ bool TxActualType::inner_prepare_members() {
 //                    // this handles specializations of Array where the capacity (C) has not been bound and another C field shall not be added
 //                    LOG_NOTE( this->LOGGER(), "Skipping layout of Array GENPARAM instance field: " << field );
 //                }
-                else if ( !expErrField || expErrWholeType )
+                else
                     this->instanceFields.add_field( field );
                 break;
             case TXS_VIRTUAL:
@@ -431,7 +421,7 @@ bool TxActualType::inner_prepare_members() {
                         CERROR( field, "Overriding member's type " << field->qualtype() << std::endl
                                 << "   not assignable to overridden member's type " << overriddenField->qualtype() );
                     if ( !expErrField || expErrWholeType )
-                        this->virtualFields.override_field( field->get_unique_name(), field );
+                        this->virtualFields.override_field( field );
                 }
                 else {
                     if ( fieldDecl->get_decl_flags() & TXD_OVERRIDE )
@@ -475,8 +465,7 @@ bool TxActualType::inner_prepare_members() {
     return recursionError;
 }
 
-/** Returns true if this type has one or more (unbound) TYPE parameters that are not constrained to be a Ref type,
- * or an unbound VALUE parameter. These mean the size of this type is neither statically nor dynamically known. */
+/** Returns true if this type has one or more (unbound) TYPE parameters that are not constrained to be a Ref type. */
 static bool has_nonref_params( const TxActualType* type ) {
     for ( auto & paramDecl : type->get_type_params() ) {
         if ( auto paramTypeDecl = dynamic_cast<const TxTypeDeclaration*>( paramDecl ) ) {
@@ -485,13 +474,11 @@ static bool has_nonref_params( const TxActualType* type ) {
             if ( constraintType->get_type_class() != TXTC_REFERENCE )
                 return true;
         }
-        else
-            return true;
+        // while unbound VALUE parameters can affect data type size, they do not necessarily affect code generation
     }
     return false;
 }
 
-/** Returns true if any the type's enclosing types is dependent on non-ref type parameters. */
 static bool has_outer_with_nonref_params( const TxActualType* type ) {
     TxScopeSymbol* scope = type->get_declaration()->get_symbol()->get_outer();
     while ( !dynamic_cast<TxModule*>( scope ) ) {
@@ -582,7 +569,7 @@ bool TxActualType::is_dynamic() const {
     return is_dynamic_binding_dependent( type );
 }
 
-bool TxActualType::is_generic_dependent() const {
+bool TxActualType::is_type_generic_dependent() const {
     if ( this->get_type_class() == TXTC_REFERENCE )
         return false;
 
@@ -593,7 +580,7 @@ bool TxActualType::is_generic_dependent() const {
     while ( type->is_equivalent_derivation() )
         type = type->get_base_type();
 
-    if ( type->is_generic() )  // TODO: evaluate whether ref-constrained params should not cause this to return true
+    if ( type->is_type_generic() )  // TODO: evaluate whether ref-constrained params should not cause this to return true
         return true;
 
     bool genCtx = type->get_declaration()->get_definer()->context().is_generic();
@@ -612,7 +599,7 @@ bool TxActualType::is_generic_dependent() const {
                     auto paramDecl = this->genericBaseType->get_type_param_decl( pname );
                     auto constraintType = paramDecl->get_definer()->resolve_type()->type();
                     if ( constraintType->get_type_class() != TXTC_REFERENCE
-                         && typebdecl->get_definer()->qualtype()->type()->acttype()->is_generic_dependent() )
+                         && typebdecl->get_definer()->qualtype()->type()->acttype()->is_type_generic_dependent() )
                         return true;
                 }
                 else {
@@ -688,31 +675,40 @@ bool TxActualType::is_scalar() const {
 //    return true;
 //}
 
-const TxActualType* TxActualType::get_instance_base_type() const {
-    return ( this->is_same_instance_type() ? this->get_semantic_base_type()->get_instance_base_type() : this );
-}
+//const TxActualType* TxActualType::get_instance_base_type() const {
+//    return ( this->is_same_instance_type() ? this->get_base_type()->get_instance_base_type() : this );
+//}
 
 
-static const TxEntityDeclaration* get_type_param_decl( const std::vector<const TxEntityDeclaration*>& params, const std::string& fullParamName ) {
-    for ( auto & paramDecl : params )
-        if ( fullParamName == paramDecl->get_unique_full_name() )
-            return paramDecl;
-    return nullptr;
-}
+//static const TxEntityDeclaration* get_type_param_decl( const std::vector<const TxEntityDeclaration*>& params, const std::string& fullParamName ) {
+//    for ( auto & paramDecl : params )
+//        if ( fullParamName == paramDecl->get_unique_full_name() )
+//            return paramDecl;
+//    return nullptr;
+//}
 
 static TxEntitySymbol* lookup_inherited_binding( const TxActualType* type, const std::string& fullParamName ) {
     TxIdentifier ident( fullParamName );
     auto parentName = ident.parent().str();
     auto paramName = ident.name();
+    // search hierarchy for the top-most binding with the specified plain name
+    // (this skips potential shadowing type parameters further down the type hierarchy)
+    TxEntitySymbol* foundBoundSym = nullptr;
     const TxActualType* semBaseType = type->get_semantic_base_type();
     while ( semBaseType ) {
-        if ( get_type_param_decl( semBaseType->get_type_params(), fullParamName ) ) {
-            // semBaseType is the (nearest) type that declares the sought parameter
+        if ( auto paramDecl = semBaseType->get_type_param_decl( paramName ) ) {
             if ( auto binding = type->get_binding( paramName ) )
-                return binding->get_symbol();
+                foundBoundSym = binding->get_symbol();
+            if ( paramDecl->get_unique_full_name() == fullParamName )  // halt search when original type param declaration found
+                return foundBoundSym;
         }
-        else if ( semBaseType->get_declaration()->get_unique_full_name() == parentName )
-            LOG( type->LOGGER(), WARN, "Type parameter apparently unbound: " << fullParamName );
+//        if ( get_type_param_decl( semBaseType->get_type_params(), fullParamName ) ) {
+//            // semBaseType is the (nearest) type that declares the sought parameter
+//            if ( auto binding = type->get_binding( paramName ) )
+//                return binding->get_symbol();
+//        }
+//        else if ( semBaseType->get_declaration()->get_unique_full_name() == parentName )
+//            LOG( type->LOGGER(), WARN, "Type parameter apparently unbound: " << fullParamName );
 
         type = type->get_base_type();
         semBaseType = type->get_semantic_base_type();
@@ -1169,7 +1165,7 @@ bool TxInterfaceAdapterType::inner_prepare_members() {
         else {
             auto targetField = adapteeVirtualFields.get_field( f.first );
             // FIXME: verify that type matches
-            this->virtualFields.override_field( f.first, targetField );
+            this->virtualFields.override_field( /*f.first,*/ targetField );
         }
     }
 

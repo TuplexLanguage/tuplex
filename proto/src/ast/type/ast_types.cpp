@@ -142,12 +142,14 @@ void TxDerivedTypeNode::init_implicit_types() {
             this->baseType = new TxNamedTypeNode( this->ploc, "tx.Tuple" );
     }
 
-    // implicit type member 'Super' for types with a body:
-    // (Note, 'Self' is created in the symbol table for all types, as an alias directly to the type.)
-    TxTypeExpressionNode* superTypeExprN = new TxTypeExprWrapperNode( this->baseType );
-    auto superRefTypeExprN = new TxReferenceTypeNode( this->ploc, nullptr, superTypeExprN );
-    const std::string superTypeName = "Super";
-    this->superRefTypeNode = new TxTypeDeclNode( this->ploc, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN );
+    if (! this->builtinTypeDefiner ) {
+        // implicit type member 'Super' for types with a body:
+        // (Note, 'Self' is created in the symbol table for all types, as an alias directly to the type.)
+        TxTypeExpressionNode* superTypeExprN = new TxTypeExprWrapperNode( this->baseType );
+        auto superRefTypeExprN = new TxReferenceTypeNode( this->ploc, nullptr, superTypeExprN );
+        const std::string superTypeName = "Super";
+        this->superRefTypeNode = new TxTypeDeclNode( this->ploc, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN );
+    }
 }
 
 const TxQualType* TxDerivedTypeNode::define_type() {
@@ -174,7 +176,8 @@ void TxDerivedTypeNode::symbol_resolution_pass() {
         interface->symbol_resolution_pass();
     }
 
-    this->superRefTypeNode->symbol_resolution_pass();
+    if ( this->superRefTypeNode )
+        this->superRefTypeNode->symbol_resolution_pass();
 
     // Before processing members, ensure this type definition is fully resolved (needed for inherited name lookups):
     this->resolve_type()->type()->acttype();
@@ -191,7 +194,8 @@ void TxDerivedTypeNode::visit_descendants( AstVisitor visitor, const AstCursor& 
     for ( auto interface : *this->interfaces )
         interface->visit_ast( visitor, thisCursor, "interface", context );
 
-    this->superRefTypeNode->visit_ast( visitor, thisCursor, "superreftype", context );
+    if ( this->superRefTypeNode )
+        this->superRefTypeNode->visit_ast( visitor, thisCursor, "superreftype", context );
 
     for ( auto member : *this->members )
         member->visit_ast( visitor, thisCursor, "member", context );

@@ -35,6 +35,11 @@ int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType*re
 const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntitySymbol* entitySymbol,
                                          const std::vector<TxExpressionNode*>* arguments );
 
+/** Attempts to resolve a constructor, that is potentially overloaded, for the specified type.
+ */
+const TxFieldDeclaration* resolve_constructor( TxExpressionNode* origin, const TxQualType* allocType,
+                                               const std::vector<TxExpressionNode*>* arguments );
+
 
 class TxFieldValueNode : public TxExpressionNode {
     const TxField* field = nullptr;

@@ -149,6 +149,31 @@ const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntit
     return nullptr;
 }
 
+
+static const TxType* get_construction_type( const TxType* allocType ) {
+    auto acttype = allocType->acttype();
+    while ( acttype->is_same_instance_type() || acttype->is_pure_value_specialization() ) {
+        acttype = acttype->get_base_type();
+    }
+    return get_type_entity( acttype );
+}
+
+const TxFieldDeclaration* resolve_constructor( TxExpressionNode* origin, const TxQualType* allocType,
+                                               const std::vector<TxExpressionNode*>* appliedFuncArgs ) {
+    // constructors aren't inherited, except for empty and VALUE derivations
+    auto constructionBaseType = get_construction_type( allocType->type() );
+    auto constrMember = lookup_member( origin->context().scope(), constructionBaseType->get_declaration()->get_symbol(), CONSTR_IDENT );
+    if ( auto constructorSymbol = dynamic_cast<TxEntitySymbol*>( constrMember ) ) {
+        if ( auto constructorDecl = resolve_field( origin, constructorSymbol, appliedFuncArgs ) ) {
+            ASSERT( constructorDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ),
+                    "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );
+            return constructorDecl;
+        }
+    }
+    return nullptr;
+}
+
+
 TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
     if (this->symbol)
         return this->symbol;
@@ -163,7 +188,7 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
                 //std::cerr << "Adding implicit '^' to: " << this->baseExpr << "  six=" << six << std::endl;
                 auto derefNode = new TxReferenceDerefNode( this->baseExpr->ploc, this->baseExpr );
                 derefNode->node_declaration_pass( this );
-                derefNode->symbol_resolution_pass();
+                derefNode->resolve_type();
                 this->baseExpr = derefNode;
                 baseType = baseRefTargetType;
             }
@@ -206,21 +231,26 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                     return this->declaration;
                 }
             }
-            // if symbol is a type, and arguments are applied, and they match a constructor, the resolve to that constructor
+            // if symbol is a type, and arguments are applied, and they match a constructor, then resolve to that constructor
             if ( auto typeDecl = entitySymbol->get_type_decl() ) {
                 if ( this->appliedFuncArgs ) {
                     auto allocType = typeDecl->get_definer()->resolve_type();
-                    // constructors aren't inherited, except for empty/modifiable derivations:
-                    auto instanceBaseType = allocType->type()->get_instance_base_type();
-                    auto constrMember = lookup_member( this->context().scope(), instanceBaseType->get_declaration()->get_symbol(), CONSTR_IDENT );
-                    if ( auto constructorSymbol = dynamic_cast<TxEntitySymbol*> ( constrMember ) ) {
-                        if ( auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs ) ) {
-                            ASSERT( constructorDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ),
-                                    "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );
-                            this->constructedType = allocType;
-                            this->declaration = constructorDecl;
-                            return this->declaration;
-                        }
+                    // find the constructor (note, constructors aren't inherited):
+//                    auto instanceBaseType = allocType->type()->get_instance_base_type();
+//                    auto constrMember = lookup_member( this->context().scope(), instanceBaseType->get_declaration()->get_symbol(), CONSTR_IDENT );
+//                    if ( auto constructorSymbol = dynamic_cast<TxEntitySymbol*> ( constrMember ) ) {
+//                        if ( auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs ) ) {
+//                            ASSERT( constructorDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ),
+//                                    "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );
+//                            this->constructedType = allocType;
+//                            this->declaration = constructorDecl;
+//                            return this->declaration;
+//                        }
+//                    }
+                    if ( auto constructorDecl = resolve_constructor( this, allocType, this->appliedFuncArgs ) ) {
+                        this->declaration = constructorDecl;
+                        this->constructedType = allocType;
+                        return this->declaration;
                     }
                     CERR_THROWRES( this,"No matching constructor in type " << allocType
                                    << " for args (" << join( resolve_typevec( this->appliedFuncArgs ), ", ") << ")" );

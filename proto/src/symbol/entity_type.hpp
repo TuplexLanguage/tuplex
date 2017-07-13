@@ -110,14 +110,14 @@ public:
         return nullptr;
     }
 
-    /** Gets the "instance base type" of this type, which is either this type, or the closest ancestor type
-     * which defines a distinct instance data type.
-     * This is used to bypass same-instance-type derivations (e.g. empty/mod. specializations). */
-    const TxType* get_instance_base_type() const {
-        if ( auto base = this->acttype()->get_instance_base_type() )
-            return get_type_entity(base);
-        return nullptr;
-    }
+//    /** Gets the "instance base type" of this type, which is either this type, or the closest ancestor type
+//     * which defines a distinct instance data type.
+//     * This is used to bypass same-instance-type derivations (e.g. empty/mod. specializations). */
+//    const TxType* get_instance_base_type() const {
+//        if ( auto base = this->acttype()->get_instance_base_type() )
+//            return get_type_entity(base);
+//        return nullptr;
+//    }
 
     inline TxTypeClass get_type_class() const {
         return this->acttype()->get_type_class();
@@ -165,6 +165,11 @@ public:
         return this->acttype()->is_generic();
     }
 
+    /** Returns true if this type is type-generic (i.e. has unbound TYPE type parameters). */
+    inline bool is_type_generic() const {
+        return this->acttype()->is_type_generic();
+    }
+
     /** Returns true if this type is a generic type parameter. */
     inline bool is_generic_param() const {
         return this->acttype()->is_generic_param();
@@ -202,6 +207,10 @@ public:
 
     inline bool is_generic_specialization() const {
         return this->acttype()->is_generic_specialization();
+    }
+
+    inline bool is_pure_value_specialization() const {
+        return this->acttype()->is_pure_value_specialization();
     }
 
     inline bool operator==( const TxType& other ) const {

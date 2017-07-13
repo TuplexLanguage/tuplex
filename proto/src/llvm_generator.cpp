@@ -231,7 +231,7 @@ void LlvmGenerationContext::generate_runtime_data() {
         ASSERT( txType->is_prepared(), "Non-prepared type: " << txType );
         std::string vtableName( txType->get_declaration()->get_unique_full_name() + "$vtable" );
         if ( auto vtableV = dyn_cast<GlobalVariable>( this->lookup_llvm_value( vtableName ) ) ) {
-            bool isGeneric = txType->is_generic();
+            bool isGeneric = txType->is_type_generic();
             std::string typeIdStr = std::to_string( txType->get_formal_type_id() );
             if ( typeIdStr.size() < 5 )
                 typeIdStr.resize( 5, ' ' );

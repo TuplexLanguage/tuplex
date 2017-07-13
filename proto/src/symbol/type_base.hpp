@@ -44,8 +44,8 @@ public:
     }
 
     /** Overrides an existing field name of this tuple with a new field definition. */
-    void override_field( const std::string& name, const TxField* field ) {
-        auto index = this->fieldMap.at( name );
+    void override_field( const TxField* field ) {
+        auto index = this->fieldMap.at( field->get_unique_name() );
         //std::cerr << "Overriding field " << name << " at index " << index << ": " << field << std::endl;
         this->fields[index] = field;
     }
@@ -93,12 +93,11 @@ public:
  * constraints).
  *
  * Use cases:
- * 1. Modifiable - modifiable is true, pass-through bindings
- * 2. Empty extension - modifiable is false, pass-through type parameters
- * 3. Type parameter specialization - modifiable is false, one or more bindings are set
+ * 1. Empty extension - pass-through type parameters
+ * 2. Type parameter specialization - one or more bindings are set
  *
- * 2 is used for explicitly unique'd subtypes, and derived types that don't bind type parameters.
- * 3 is used for specializing generic types, including derived types (that extend with additional members).
+ * 1 is used for explicitly unique'd subtypes, and derived types that don't bind type parameters.
+ * 2 is used for specializing generic types, including derived types (that extend with additional members).
 
 
  type Bar<R> { ... }
@@ -157,6 +156,12 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
      * If this is a Ref type, this is always false (regardless of the Ref's bound target type). */
     bool nonRefBindings = false;
 
+    /** False unless this type has at least one VALUE binding and no other extensions. */
+    bool pureValueSpec = false;
+
+    /** False unless this type is generic and has at least one unbound TYPE type parameter. */
+    bool typeGeneric = false;
+
     /** true when initialize_type() has completed its initializations */
     bool hasInitialized = false;
 
@@ -180,7 +185,7 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     static bool inner_is_a( const TxActualType* thisType, const TxActualType* otherType );
 
     /** Returns true if this is a generic type or a direct specialization of a generic type.
-     * Note - does not bypass empty/modifiable derivations. */
+     * Note - does not bypass empty derivations. */
     inline bool is_gen_or_spec() const {
         return ( !this->params.empty() || !this->bindings.empty() );
     }
@@ -314,11 +319,6 @@ public:
         return this->genericBaseType ? this->genericBaseType : this->baseType;
     }
 
-    /** Gets the "instance base type" of this type, which is either this type, or the closest ancestor type
-     * which defines a distinct instance data type.
-     * This is used to bypass same-instance-type derivations (e.g. empty/mod. specializations). */
-    const TxActualType* get_instance_base_type() const;
-
     inline const std::vector<const TxActualType*>& get_interfaces() const {
         return this->interfaces;
     }
@@ -388,12 +388,17 @@ public:
         return !this->get_type_params().empty();
     }
 
+    /** Returns true if this type is type-generic (i.e. has unbound TYPE type parameters). */
+    inline bool is_type_generic() const {
+        return this->typeGeneric;
+    }
+
     /** Returns true if this type is dependent on any unbound non-reference generic type parameters;
      * except for references which always yield false whether generic or not.
      * This is true if this type has unbound non-reference type parameters, or is defined within the scope
      * of another generic type (i.e. which has unbound non-reference type parameters).
      */
-    bool is_generic_dependent() const;
+    bool is_type_generic_dependent() const;
 
     /** Returns true if this type is a generic type parameter.
      * (Note: Generic type bindings are not distinct type instances, they are aliases.)
@@ -415,7 +420,7 @@ public:
     }
 
     /** Returns true if this type is an empty derivation of a base type,
-     * i.e. does not specialize any type parameters of the base type, nor modifiable,
+     * i.e. does not specialize any type parameters of the base type,
      * nor extends the base type with any members, nor derives any additional interfaces.
      * This implies that this type is fully equivalent to its base type.
      * (An empty specialization is by implication a pure specialization.)
@@ -428,7 +433,7 @@ public:
      * If true, this type does not need a distinct vtable nor distinct code generation.
      *
      * Added bound non-ref type parameters, added virtual members, added instance members cause this to return false;
-     * interfaces, modifiability, and bound ref-constrained type parameters do not.
+     * interfaces, and bound ref-constrained type parameters do not.
      * (Returns false for Any which has no base type.)
      */
     bool is_equivalent_derivation() const;
@@ -436,10 +441,20 @@ public:
     /** Returns true if this type is a virtual derivation of a base type,
      * i.e. is effectively the same *instance data type* as the base type.
      * Added instance fields and bound non-ref type parameters cause this to return false;
-     * modifiability, bound ref-constrained type parameters, added interfaces, added virtual members do not.
+     * Bound ref-constrained type parameters, added interfaces, added virtual members do not.
      * (Returns false for Any which has no base type.)
      */
     bool is_virtual_derivation() const;
+
+    /** Returns true if this type is a pure value specialization of a base type,
+     * i.e. is a specialization of a generic base type with only VALUE type parameter bindings and no other extensions.
+     * Bound VALUE parameters may affect instance data type size (e.g. arrays),
+     * but don't affect other semantics and doesn't require distinct code-generation.
+     * (Returns false for Any which has no base type.)
+     */
+    inline bool is_pure_value_specialization() const {
+        return this->pureValueSpec;
+    }
 
     /** Returns true if this type is a specialization of a generic base type. */
     inline bool is_generic_specialization() const { return this->genericBaseType; }
@@ -564,6 +579,8 @@ public:
     /** Returns the llvm::Type that an instance of this type is converted to/from when passed to/from an extern-c function. */
     virtual llvm::Type* make_llvm_externc_type( LlvmGenerationContext& context ) const;
 
+    /** Code-generates initialization of bound VALUE parameters for an allocated instance. */
+    virtual void initialize_specialized_obj( LlvmGenerationContext& context, GenScope* scope, llvm::Value* objPtrV ) const { }
 
     virtual llvm::Value* gen_size( LlvmGenerationContext& context, GenScope* scope ) const;
     virtual llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const;

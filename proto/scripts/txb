@@ -38,6 +38,10 @@ done
 
 bctarget="${basepath}.bc"
 objtarget="${basepath}.o"
+
+echo -e $color_cyan "Optimizing " $bctarget $color_off
+checked opt -O3 $bctarget -o $bctarget
+
 echo -e $color_cyan "LL-compiling " $bctarget $color_off
 checked llc -filetype=obj $bctarget
 

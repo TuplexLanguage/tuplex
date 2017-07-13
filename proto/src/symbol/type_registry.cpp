@@ -128,9 +128,9 @@ void TypeRegistry::prepare_types() {
         type->vtableId = this->vtableTypes.size();
         this->vtableTypes.push_back( type );
 
-        if ( type->is_generic_dependent() ) {
+        if ( type->is_type_generic_dependent() ) {
             // FUTURE: review whether generic base types should be a vtable parent of their specializations
-            LOG_TRACE( this->LOGGER(), "Not registering generic-dependent type as formal type: " << type );
+            LOG_TRACE( this->LOGGER(), "Not registering type-generic-dependent type as formal type: " << type );
             continue;
         }
 
@@ -348,8 +348,11 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
 
 static const TxActualType* get_existing_type( const TxActualType* baseType, const std::vector<const TxTypeArgumentNode*>* bindings,
                                               TxScopeSymbol* baseScope, const std::string& newBaseName ) {
+//    if ( newBaseName.find( "Array<$>" ) != std::string::npos )
+//        if ( static_cast<const TxTypeTypeArgumentNode*>(bindings->at(0))->typeExprNode->qualtype()->type()->get_declaration()->get_unique_full_name().find( "tx.Array.E" ) != std::string::npos )
+//            std::cerr << "get_existing_type(): " << newBaseName << " of " << baseType << ", bind: " << static_cast<const TxTypeTypeArgumentNode*>(bindings->at(0))->typeExprNode->qualtype()->type()->get_declaration()->get_unique_full_name() << std::endl;
     auto baseTypeParams = baseType->get_type_params();
-    if ( bindings->size() == baseTypeParams.size() ) {
+    if ( bindings->size() <= baseTypeParams.size() ) {
         // if generic type specialization is equivalent to the generic base type, reuse it:
         bool matchOK = true;
         for ( unsigned ix = 0; ix < bindings->size(); ix++ ) {
@@ -429,10 +432,6 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
         CERR_THROWRES( definer, "Can't specialize a generic type parameter: " << baseType );
     }
 
-    // re-base the new type on new non-generic specialization of the base type:
-    // (this replaces the type parameter bindings with direct declarations within the new type)
-    LOG_DEBUG( this->LOGGER(), "Re-basing the new type of [ " << definer << " ] by specializing the generic base type " << baseType );
-
     // Note: The same generic type specialization may be produced by multiple statements,
     //       both within ExpErr constructs and without. Therefore the type name must distinguish between them.
     // If either the generic type or its specialization site is defined within an exp-err-context,
@@ -441,14 +440,16 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
     if (! expErrCtx)
         expErrCtx = baseDecl->get_definer()->exp_err_ctx();
 
-    std::stringstream newBaseTypeName;
+    std::stringstream typeSpecTypeName;
     if ( expErrCtx )
-        newBaseTypeName << "$EE$";
+        typeSpecTypeName << "$EE$";
     if (mutableType && baseType->get_type_class() != TXTC_REFERENCE && baseType->get_type_class() != TXTC_INTERFACE ) {
         // (References and interfaces are always mutable, don't distinguish them be name)
-        newBaseTypeName << "M$";  // distinguish mutable and immutable specializations by name
+        typeSpecTypeName << "M$";  // distinguish mutable and immutable specializations by name
     }
-    newBaseTypeName << baseDecl->get_unique_name() << "<";
+    typeSpecTypeName << baseDecl->get_unique_name() << "<";
+    std::stringstream valueSpecTypeName;
+    valueSpecTypeName << typeSpecTypeName.str();
 
     // do shallow validation that bindings match base type's parameters:
     auto baseTypeParams = baseType->get_type_params();
@@ -456,11 +457,12 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
         CERR_THROWRES( definer, "Too many type arguments specifified for generic base type " << baseType );
     }
 
+    std::vector<const TxTypeArgumentNode*> typeBindings;
+    std::vector<const TxTypeArgumentNode*> valueBindings;
+
     for ( unsigned ix = 0; ix < bindings->size(); ix++ ) {
         auto binding = bindings->at( ix );
         auto paramDecl = baseTypeParams.at( ix );
-        if ( ix )
-            newBaseTypeName << ",";
         ASSERT( binding->is_context_set(), "Binding must have run declaration pass before being used in type specialization: " << binding );
         paramDecl->get_definer()->resolve_type();  // ensure param is resolved (and verify that it does resolve)
 
@@ -469,7 +471,9 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
                 CERR_THROWRES( binding, "Can't bind a VALUE base type parameter using a TYPE: " << paramDecl->get_unique_full_name() );
 
             typeArg->typeExprNode->resolve_type();  // ensure binding is resolved (and verify that it does resolve)
-            newBaseTypeName << "$";
+            typeSpecTypeName  << ( typeBindings.empty() ? "$" : ",$" );
+            valueSpecTypeName << ( ix == 0 ? "$" : ",$" );
+            typeBindings.push_back( typeArg );
         }
         else {  // binding is TxValueTypeArgumentNode
             auto valueArg = static_cast<const TxValueTypeArgumentNode*>( binding );
@@ -477,24 +481,44 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
                 CERR_THROWRES( binding, "Can't bind a TYPE base type parameter using a VALUE: " << paramDecl->get_unique_full_name() );
 
             valueArg->valueExprNode->resolve_type();  // ensure binding is resolved (and verify that it does resolve)
+            if ( ix > 0 )
+                valueSpecTypeName << ",";
             if ( valueArg->valueExprNode->is_statically_constant() ) {
                 uint32_t bindingValue = eval_unsigned_int_constant( valueArg->valueExprNode );
-                newBaseTypeName << bindingValue;  // statically known value
+                valueSpecTypeName << bindingValue;  // statically known value
             }
             else {
-                newBaseTypeName << "?";  // dynamic value
+                valueSpecTypeName << "?";  // dynamic value
                 // implementation note: a distinct compile time type is registered which holds this specific dynamic value expression
             }
+            valueBindings.push_back( valueArg );
         }
     }
-    newBaseTypeName << ">";
-    auto newBaseTypeNameStr = newBaseTypeName.str();
+    typeSpecTypeName << ">";
+    valueSpecTypeName << ">";
+
+    std::string newTypeNameStr;
+//    newTypeNameStr = valueSpecTypeName.str();
+    if ( !valueBindings.empty() ) {
+        // This specialization binds VALUE type parameters, so a new base type which binds only the TYPE parameters
+        // is injected as intermediate base type.
+        baseType = get_inner_type_specialization( definer, baseType, &typeBindings, mutableType );
+        bindings = &valueBindings;
+        newTypeNameStr = valueSpecTypeName.str();
+        //std::cerr << "Made intermediate type " << baseType << ";  value spec name='" << newTypeNameStr << "'" << std::endl;
+        // create shallow type specialization (without a distinct AST copy and code-generation) with explicit (unique) name
+    }
+    else
+        newTypeNameStr = typeSpecTypeName.str();
+
+    LOG_DEBUG( this->LOGGER(), "Re-basing the new type of [ " << definer << " ] by specializing the generic base type " << baseType
+              << " to " << newTypeNameStr );
 
     // if equivalent specialized type already exists then reuse it, otherwise create new one:
     auto baseScope = baseDecl->get_symbol()->get_outer();
-    const TxActualType* specializedType = get_existing_type( baseType, bindings, baseScope, newBaseTypeNameStr );
+    const TxActualType* specializedType = get_existing_type( baseType, bindings, baseScope, newTypeNameStr );
     if ( !specializedType ) {
-        specializedType = make_type_specialization( definer, baseType, bindings, expErrCtx, newBaseTypeNameStr, mutableType );
+        specializedType = make_type_specialization( definer, baseType, bindings, expErrCtx, newTypeNameStr, mutableType );
     }
     return specializedType;
 }
@@ -514,6 +538,7 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
         newDeclFlags = ( baseDecl->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT;
 
     // create binding declaration nodes:
+    bool typeBindings = false;
     auto bindingDeclNodes = new std::vector<TxDeclarationNode*>();
     for ( unsigned ix = 0; ix < bindings->size(); ix++ ) {
         auto binding = bindings->at( ix );
@@ -525,6 +550,7 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
             TxTypeExpressionNode* btypeExprNode = new TxTypeExprWrapperNode( btypeDefNode );
             bindingDeclNodes->push_back( new TxTypeDeclNode( typeArg->get_parse_location(), TXD_GENBINDING | TXD_PUBLIC, paramName, nullptr,
                                                              btypeExprNode ) );
+            typeBindings = true;
             LOG_TRACE( this->LOGGER(), "Re-bound base type " << baseDecl->get_unique_full_name() << " parameter '" << paramName
                        << "' with " << typeArg->typeExprNode );
         }
@@ -563,11 +589,19 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     ASSERT( dynamic_cast<const TxTypeDeclNode*>( baseTypeExpr->parent() ),
             "baseType definer's parent is not a TxTypeDeclNode: " << baseTypeExpr->parent() );
     auto baseDeclNode = static_cast<const TxTypeDeclNode*>( baseTypeExpr->parent() );
-    auto specTypeExpr = baseTypeExpr->make_ast_copy();
+    TxTypeExpressionNode* specTypeExpr;
+//    specTypeExpr = baseTypeExpr->make_ast_copy();
+    if ( typeBindings )
+        specTypeExpr = baseTypeExpr->make_ast_copy();
+    else {
+        // shallow specialization when only VALUE params are bound
+        auto shallowBaseTypeExpr = new TxTypeDeclWrapperNode( definer->get_parse_location(), baseDecl );
+        specTypeExpr = new TxDerivedTypeNode( definer->get_parse_location(), shallowBaseTypeExpr, new std::vector<TxDeclarationNode*>() );
+    }
 
     {   // pass on the generic base type to the new specialization via member named $GenericBase:
-        auto baseTypeExpr = new TxTypeDeclWrapperNode( definer->get_parse_location(), baseDecl );
-        auto declNode = new TxTypeDeclNode( definer->get_parse_location(), TXD_PUBLIC | TXD_IMPLICIT, "$GenericBase", nullptr, baseTypeExpr );
+        auto genBaseTypeExpr = new TxTypeDeclWrapperNode( definer->get_parse_location(), baseDecl );
+        auto declNode = new TxTypeDeclNode( definer->get_parse_location(), TXD_PUBLIC | TXD_IMPLICIT, "$GenericBase", nullptr, genBaseTypeExpr );
         bindingDeclNodes->push_back( declNode );
     }
 

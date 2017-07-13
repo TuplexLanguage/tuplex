@@ -204,9 +204,11 @@ void TxTypeDeclNode::declaration_pass() {
 
     if ( !lexContext.is_generic() && this->typeParamDecls ) {
         for ( auto paramDeclNode : *this->typeParamDecls ) {
-            if (paramDeclNode->get_decl_flags() & TXD_GENPARAM) {
-                this->lexContext.generic = true;
-                break;
+            if ( paramDeclNode->get_decl_flags() & TXD_GENPARAM ) {
+                if ( dynamic_cast<TxTypeDeclNode*>( paramDeclNode ) ) {  // experimental: represents type-generic
+                    this->lexContext.generic = true;
+                    break;
+                }
             }
         }
     }

@@ -197,7 +197,7 @@ bool TxEntitySymbol::add_type( TxTypeDeclaration* typeDeclaration ) {
          && this->get_name() != "$GenericBase" && !begins_with( this->get_name(), "$Ftype" ) ) {
         auto definer = typeDeclaration->get_definer();
         if ( TxEntitySymbol* entitySymbol = this->declare_entity( "Self", definer ) ) {
-            auto selfDeclaration = new TxTypeDeclaration( entitySymbol, TXD_IMPLICIT, definer );
+            auto selfDeclaration = new TxTypeDeclaration( entitySymbol, TXD_PUBLIC | TXD_IMPLICIT, definer );
             entitySymbol->add_type( selfDeclaration );
         }
     }
@@ -211,53 +211,51 @@ bool TxEntitySymbol::add_field( TxFieldDeclaration* fieldDeclaration ) {
 }
 
 static std::string field_description( const TxFieldDeclaration* fieldDecl ) {
-    if ( auto field = fieldDecl->get_definer()->attempt_get_field() ) {
-        if ( auto type = field->qualtype() ) {
-            const unsigned bufsize = 256;
-            char buf[bufsize];
+    const unsigned bufsize = 256;
+    char buf[bufsize];
 
-            if ( !( field->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ) ) {
-                if ( auto outerEntity = dynamic_cast<TxEntitySymbol*>( field->get_symbol()->get_outer() ) ) {
-                    if ( auto typeDecl = outerEntity->get_type_decl() ) {
-                        if ( auto outerType = typeDecl->get_definer()->qualtype() ) {  // assumes already resolved
-                            char storageType = ' ';
-                            int storageIx = -1;
-                            switch ( field->get_storage() ) {
-                            case TXS_STATIC:
-                                storageType = 's';
-                                storageIx = outerType->type()->acttype()->get_static_fields().get_field_index( field->get_unique_name() );
-                                break;
-                            case TXS_VIRTUAL:
-                                case TXS_INSTANCEMETHOD:
-                                storageType = 'v';
-                                storageIx = outerType->type()->acttype()->get_virtual_fields().get_field_index( field->get_unique_name() );
-                                break;
-                            case TXS_INSTANCE:
-                                storageType = 'i';
-                                storageIx = outerType->type()->acttype()->get_instance_fields().get_field_index( field->get_unique_name() );
-                                break;
-                            default:
-                                //ASSERT(false, "Only fields of static/virtual/instancemethod/instance storage classes have a storage index: " << *this);
-                                break;
-                            }
-                            if ( storageIx >= 0 ) {
-                                snprintf( buf, bufsize, "FIELD [%c%2d]  %-48s : %s",
-                                          storageType,
-                                          storageIx, fieldDecl->get_unique_full_name().c_str(), type->str().c_str() );
-                                return std::string( buf );
-                            }
+    if ( auto field = fieldDecl->get_definer()->attempt_get_field() ) {
+        auto type = field->qualtype();
+
+        if ( !( field->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ) ) {
+            if ( auto outerEntity = dynamic_cast<TxEntitySymbol*>( field->get_symbol()->get_outer() ) ) {
+                if ( auto typeDecl = outerEntity->get_type_decl() ) {
+                    if ( auto outerType = typeDecl->get_definer()->qualtype() ) {  // assumes already resolved
+                        char storageType = ' ';
+                        int storageIx = -1;
+                        switch ( field->get_storage() ) {
+                        case TXS_STATIC:
+                            storageType = 's';
+                            storageIx = outerType->type()->acttype()->get_static_fields().get_field_index( field->get_unique_name() );
+                            break;
+                        case TXS_VIRTUAL:
+                            case TXS_INSTANCEMETHOD:
+                            storageType = 'v';
+                            storageIx = outerType->type()->acttype()->get_virtual_fields().get_field_index( field->get_unique_name() );
+                            break;
+                        case TXS_INSTANCE:
+                            storageType = 'i';
+                            storageIx = outerType->type()->acttype()->get_instance_fields().get_field_index( field->get_unique_name() );
+                            break;
+                        default:
+                            //ASSERT(false, "Only fields of static/virtual/instancemethod/instance storage classes have a storage index: " << *this);
+                            break;
+                        }
+                        if ( storageIx >= 0 ) {
+                            snprintf( buf, bufsize, "FIELD [%c%2d]  %-48s : %s",
+                                      storageType, storageIx, fieldDecl->get_unique_full_name().c_str(), type->str().c_str() );
+                            return std::string( buf );
                         }
                     }
                 }
             }
-
-            snprintf( buf, bufsize, "FIELD        %-48s : %s",
-                      fieldDecl->get_unique_full_name().c_str(),
-                      type->str().c_str() );
-            return std::string( buf );
         }
+
+        snprintf( buf, bufsize, "FIELD        %-48s : %s", fieldDecl->get_unique_full_name().c_str(), type->str().c_str() );
+        return std::string( buf );
     }
-    return "FIELD        -undef-";
+    snprintf( buf, bufsize, "FIELD        %-48s : -unresolved-", fieldDecl->get_unique_full_name().c_str() );
+    return std::string( buf );
 }
 
 void TxEntitySymbol::dump_symbols() const {
@@ -284,7 +282,7 @@ std::string TxEntitySymbol::declaration_string() const {
 std::string TxEntitySymbol::description_string() const {
     if ( this->is_overloaded() )
         return "   overloaded symbol        " + this->get_full_name().str();
-    else if ( this->typeDeclaration )  // non-overloaded type name
+    else if ( this->typeDeclaration ) {  // non-overloaded type name
         if ( auto type = this->typeDeclaration->get_definer()->attempt_qualtype() ) {
             if ( type->type()->get_declaration() == this->typeDeclaration ) {
                 if ( auto basetype = type->type()->get_semantic_base_type() ) {
@@ -304,11 +302,12 @@ std::string TxEntitySymbol::description_string() const {
             }
         }
         else
-            return "TYPE         -undef-";
-    else if ( this->field_count() ) {  // non-overloaded field name
+            return "TYPE         " + this->get_full_name().str() + " : -unresolved-";
+    }
+    else if ( this->field_count() ) {  // non-overloaded field name (we check for overload above)
         return field_description( this->get_first_field_decl() );
     }
     else
-        // declaration not yet assigned to this entity symbol
+        // declaration not assigned to this entity symbol
         return "-undef entity-";
 }

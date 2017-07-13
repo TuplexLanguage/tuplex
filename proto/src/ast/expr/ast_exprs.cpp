@@ -11,17 +11,22 @@ const TxQualType* TxConstructorCalleeExprNode::define_type() {
     ASSERT( this->appliedFuncArgs, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized" );
     {
         auto allocType = this->objectExpr->resolve_type();
-        // find the constructor (note, constructors aren't inherited)
-        auto instanceBaseType = allocType->type()->get_instance_base_type();
-        auto constrMember = lookup_member( this->context().scope(), instanceBaseType->get_declaration()->get_symbol(), CONSTR_IDENT );
-        if ( auto constructorSymbol = dynamic_cast<TxEntitySymbol*> ( constrMember ) ) {
-            if ( auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs ) ) {
-                ASSERT( constructorDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ),
-                        "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );
-                this->declaration = constructorDecl;
-                auto constructorField = constructorDecl->get_definer()->resolve_field();
-                return constructorField->qualtype();
-            }
+        // find the constructor (note, constructors aren't inherited):
+//        auto instanceBaseType = allocType->type()->get_instance_base_type();
+//        auto constrMember = lookup_member( this->context().scope(), instanceBaseType->get_declaration()->get_symbol(), CONSTR_IDENT );
+//        if ( auto constructorSymbol = dynamic_cast<TxEntitySymbol*> ( constrMember ) ) {
+//            if ( auto constructorDecl = resolve_field( this, constructorSymbol, this->appliedFuncArgs ) ) {
+//                ASSERT( constructorDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ),
+//                        "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );
+//                this->declaration = constructorDecl;
+//                auto constructorField = constructorDecl->get_definer()->resolve_field();
+//                return constructorField->qualtype();
+//            }
+//        }
+        if ( auto constructorDecl = resolve_constructor( this, allocType, this->appliedFuncArgs ) ) {
+            this->declaration = constructorDecl;
+            auto constructorField = constructorDecl->get_definer()->resolve_field();
+            return constructorField->qualtype();
         }
         if ( this->appliedFuncArgs->size() == 0 ) {
             // TODO: support default value constructor

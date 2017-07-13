@@ -12,6 +12,8 @@
 #include "ast/type/ast_types.hpp"
 #include "ast/expr/ast_lit.hpp"
 #include "ast/expr/ast_array.hpp"
+#include "ast/expr/ast_lambda_node.hpp"
+#include "ast/stmt/ast_stmts.hpp"
 
 /*--- statically allocated built-in type objects ---*/
 
@@ -48,6 +50,17 @@ std::vector<std::string> BUILTIN_TYPE_NAMES = {
 
 /** Abstract superclass for the built-in type defining nodes. */
 class TxBuiltinTypeDefiningNode : public TxTypeExpressionNode {
+    TxTypeDeclNode* superRefTypeNode = nullptr;
+
+    /** creates nodes for the implicit type member 'Super' */
+    TxTypeDeclNode* make_super_type_node() const {
+        // (Note, 'Self' is created in the symbol table for all types, as an alias directly to the type.)
+        TxTypeExpressionNode* superTypeExprN = new TxTypeExprWrapperNode( this->baseTypeNode );
+        auto superRefTypeExprN = new TxReferenceTypeNode( this->ploc, nullptr, superTypeExprN );
+        const std::string superTypeName = "Super";
+        return new TxTypeDeclNode( this->ploc, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN );
+    }
+
     /** helper method for subclasses that constructs a vector of TxType of this instance's interface expressions */
     std::vector<const TxType*> resolve_interfaces() const {
         std::vector<const TxType*> ifs;
@@ -93,6 +106,9 @@ protected:
                                TxDerivedTypeNode* sourcecodeDefiner )
             : TxTypeExpressionNode( ploc ), builtinTypeId( TXBT_NOTSET ), original( original ),
               baseTypeNode( baseTypeNode ), declNodes( declNodes ), sourcecodeDefiner( sourcecodeDefiner ) {
+        if ( this->baseTypeNode ) {
+            this->superRefTypeNode = make_super_type_node();
+        }
         if (sourcecodeDefiner)
             sourcecodeDefiner->set_builtin_type_definer( this );
     }
@@ -143,6 +159,9 @@ public:
             : TxTypeExpressionNode( ploc ), builtinTypeId( builtinTypeId ), original( nullptr ),
               baseTypeNode( baseTypeNode ),
               declNodes( declNodes ) {
+        if ( this->baseTypeNode ) {
+            this->superRefTypeNode = make_super_type_node();
+        }
     }
 
     virtual TxBuiltinTypeDefiningNode* make_ast_copy() const override {
@@ -153,6 +172,9 @@ public:
 
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
+        if ( this->baseTypeNode ) {
+            this->superRefTypeNode->symbol_resolution_pass();
+        }
         for ( auto decl : this->declNodes )
             decl->symbol_resolution_pass();
         if ( this->sourcecodeDefiner )
@@ -160,8 +182,10 @@ public:
     }
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override {
-        if ( this->baseTypeNode )
+        if ( this->baseTypeNode ) {
             this->baseTypeNode->code_gen_type( context );
+            this->superRefTypeNode->code_gen( context );
+        }
         for ( auto decl : this->declNodes )
             decl->code_gen( context );
         if ( this->sourcecodeDefiner )
@@ -169,8 +193,10 @@ public:
     }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        if ( this->baseTypeNode )
+        if ( this->baseTypeNode ) {
             this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
+            this->superRefTypeNode->visit_ast( visitor, thisCursor, "super", context );
+        }
         for ( auto decl : this->declNodes )
             decl->visit_ast( visitor, thisCursor, "decl", context );
         if ( this->sourcecodeDefiner )
@@ -539,21 +565,20 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
 
 static std::vector<TxDeclarationNode*> make_array_constructors( const TxLocation& loc ) {
     std::vector<TxDeclarationNode*> constructors;
-    {
+    { // default constructor - this does nothing (it presumes memory allocation logic will initialize Array.C)
+        auto constrType = new TxFunctionTypeNode( loc, false, new std::vector<TxArgTypeDefNode*>(), nullptr );
+        auto lambdaExpr = new TxLambdaExprNode( loc, constrType, new TxSuiteNode( loc ), true );
+        constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_CONSTRUCTOR,
+                                                     new TxNonLocalFieldDefNode( loc, CONSTR_IDENT,
+                                                                                 nullptr, lambdaExpr ),
+                                                     true ) );  // method syntax since regular constructor
+    }
+    { // copy constructor
         auto argNode = new TxArgTypeDefNode( loc, "val", new TxNamedTypeNode( loc, "Self" ) );
         auto returnTypeNode = new TxNamedTypeNode( loc, "Self" );
         constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_BUILTIN | TXD_INITIALIZER,
                                                      new TxNonLocalFieldDefNode( loc, CONSTR_IDENT,
                                                                                  new TxArrayConstructorTypeDefNode( loc, argNode, returnTypeNode ),
-                                                                                 nullptr ),  // no function body, initialization is inlined
-                                                     false ) );  // not method syntax since this initializer is an inlineable, pure function
-    }
-    {
-        auto returnTypeNode = new TxNamedTypeNode( loc, "Self" );
-        auto initExprNode = new TxUnfilledArrayLitNode( loc, new TxNamedTypeNode( loc, "Self" ) );
-        constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_BUILTIN | TXD_INITIALIZER,
-                                                     new TxNonLocalFieldDefNode( loc, CONSTR_IDENT,
-                                                                                 new TxDefConstructorTypeDefNode( loc, returnTypeNode, initExprNode ),
                                                                                  nullptr ),  // no function body, initialization is inlined
                                                      false ) );  // not method syntax since this initializer is an inlineable, pure function
     }
@@ -659,15 +684,14 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     // create the array base type:
     {
         auto arrayMembers = make_array_constructors( loc );
-        arrayMembers.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_IMPLICIT,
+        arrayMembers.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_IMPLICIT | TXD_BUILTIN,
                                                      new TxNonLocalFieldDefNode( loc, "L", new TxNamedTypeNode( loc, "UInt" ), nullptr, false ) ) );
 
         auto paramNodes = new std::vector<TxDeclarationNode*>(
                 {
                   new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM, "E", nullptr, new TxNamedTypeNode( loc, "Any" ) ),
                   new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_GENPARAM,
-                                       new TxNonLocalFieldDefNode( loc, "C", new TxNamedTypeNode( loc, "UInt" ),
-                                                           nullptr, false ) ),
+                                       new TxNonLocalFieldDefNode( loc, "C", new TxNamedTypeNode( loc, "UInt" ), nullptr, false ) ),
                 } );
         this->builtinTypes[TXBT_ARRAY] = new TxTypeDeclNode(
                 loc, TXD_PUBLIC | TXD_BUILTIN, "Array", paramNodes,

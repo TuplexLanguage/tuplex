@@ -63,21 +63,40 @@ Type* TxActualType::make_llvm_externc_type( LlvmGenerationContext& context ) con
 }
 
 Value* TxActualType::gen_size( LlvmGenerationContext& context, GenScope* scope ) const {
-    ASSERT( this->is_static(), "Attempted to codegen size of non-static type " << this );
+    if ( !this->is_static() ) {
+        if ( this->is_concrete() )
+            CERR_CODECHECK( this, "Currently not supported: Non-array types with VALUE bindings that are not statically constant: " << this );
+        else
+            THROW_LOGIC( "Attempted to codegen size of non-concrete type " << this );
+    }
     Type* llvmType = context.get_llvm_type( this );  // (gets the cached LLVM type if previously accessed)
     return ConstantExpr::getSizeOf( llvmType );
 }
 
 Value* TxActualType::gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
-    ASSERT( this->is_static(), "Attempted to codegen alloca of non-static type " << this );
+    if ( !this->is_static() ) {
+        if ( this->is_concrete() )
+            CERR_CODECHECK( this, "Currently not supported: Non-array types with VALUE bindings that are not statically constant: " << this );
+        else
+            THROW_LOGIC( "Attempted to codegen size of non-concrete type " << this );
+    }
     Type* llvmType = context.get_llvm_type( this );  // (gets the cached LLVM type if previously accessed)
-    return scope->builder->CreateAlloca( llvmType, nullptr, varName );
+    Value* objPtrV = scope->builder->CreateAlloca( llvmType, nullptr, varName );
+    this->initialize_specialized_obj( context, scope, objPtrV );
+    return objPtrV;
 }
 
 Value* TxActualType::gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
-    ASSERT( this->is_static(), "Attempted to codegen alloca of non-static type " << this );
+    if ( !this->is_static() ) {
+        if ( this->is_concrete() )
+            CERR_CODECHECK( this, "Currently not supported: Non-array types with VALUE bindings that are not statically constant: " << this );
+        else
+            THROW_LOGIC( "Attempted to codegen size of non-concrete type " << this );
+    }
     Type* llvmType = context.get_llvm_type( this );  // (gets the cached LLVM type if previously accessed)
-    return context.gen_malloc( scope, llvmType );
+    Value* objPtrV = context.gen_malloc( scope, llvmType );
+    this->initialize_specialized_obj( context, scope, objPtrV );
+    return objPtrV;
 }
 
 Constant* TxActualType::gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -215,28 +234,58 @@ static void initialize_array_obj( LlvmGenerationContext& context, GenScope* scop
     }
 }
 
+void TxArrayType::initialize_specialized_obj( LlvmGenerationContext& context, GenScope* scope, Value* objPtrV ) const {
+    auto capExpr = this->capacity();
+    Value* arrayCapV = capExpr->code_gen_expr( context, scope );
+    initialize_array_obj( context, scope, objPtrV, arrayCapV );
+
+    /* TODO: Initialize array elements if they are arrays or tuples
+    for ( uint32_t fieldIx = 0; fieldIx < this->instanceFields.fields.size(); ++fieldIx ) {
+        auto field = this->instanceFields.fields.at( fieldIx );
+        if ( field->get_decl_flags() & TXD_GENBINDING ) {
+            Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                             ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };
+            auto fieldPtrV = scope->builder->CreateInBoundsGEP( objPtrV, ixs );
+            // type expressions aren't code generated prior to this: auto initV = field->get_llvm_value();
+            auto initV = field->get_declaration()->get_definer()->get_init_expression()->code_gen_expr( context, scope );
+            scope->builder->CreateStore( initV, fieldPtrV );
+        }
+        else {
+            auto fieldType = field->qualtype()->type()->acttype();
+            if ( fieldType->get_type_class() == TXTC_TUPLE || fieldType->get_type_class() == TXTC_ARRAY ) {
+                Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                                 ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };
+                auto fieldPtrV = scope->builder->CreateInBoundsGEP( objPtrV, ixs );
+                fieldType->initialize_specialized_obj( context, scope, fieldPtrV );
+            }
+        }
+    }
+    */
+}
+
 Value* TxArrayType::gen_size( LlvmGenerationContext& context, GenScope* scope ) const {
     ASSERT( this->is_concrete(), "Attempted to codegen size of non-concrete type " << this );
     Value* elemSize = this->element_type()->type()->acttype()->gen_size( context, scope );
-    Value* arrayCap = this->capacity()->code_gen_expr( context, scope );
+    Value* arrayCap = this->capacity()->code_gen_expr( context, scope );  // FIXME
     arrayCap = scope->builder->CreateZExtOrBitCast( arrayCap, Type::getInt64Ty( context.llvmContext ) );
     return this->inner_code_gen_size( context, scope, elemSize, arrayCap );
 }
 
 Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
     Value* allocationPtr;
-    Value* arrayCapV;
 
-    auto capExpr = this->capacity();
+    auto capField = this->instanceFields.fields.at( 0 );
+    ASSERT( capField->get_unique_name() == "C", "Expected Array's first instance field to be C but is: " << capField );
+    //std::cerr << "capField decl: " << capField->get_declaration() << std::endl;
+    auto capExpr = capField->get_declaration()->get_definer()->get_init_expression();
+    //auto capExpr = this->capacity();
+    Value* arrayCapV = capExpr->code_gen_expr( context, scope );
     if ( capExpr->is_statically_constant() ) {
-        arrayCapV = capExpr->code_gen_const_value( context );
         allocationPtr = TxActualType::gen_alloca( context, scope, varName );
     }
     else {
         // if size not statically constant, the llvm type will indicate zero array length and thus not describe full size of the allocation
-
         // compute the allocation size:
-        arrayCapV = capExpr->code_gen_expr( context, scope );
         Value* arrayCap64V = scope->builder->CreateZExtOrBitCast( arrayCapV, Type::getInt64Ty( context.llvmContext ) );
         Value* elemSizeV = this->element_type()->type()->acttype()->gen_size( context, scope );
         Value* objectSizeV = this->inner_code_gen_size( context, scope, elemSizeV, arrayCap64V );
@@ -258,18 +307,19 @@ Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope,
 
 Value* TxArrayType::gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
     Value* allocationPtr;
-    Value* arrayCapV;
 
-    auto capExpr = this->capacity();
+    auto capField = this->instanceFields.fields.at( 0 );
+    ASSERT( capField->get_unique_name() == "C", "Expected Array's first instance field to be C but is: " << capField );
+    //std::cerr << "capField decl: " << capField->get_declaration() << std::endl;
+    auto capExpr = capField->get_declaration()->get_definer()->get_init_expression();
+    //auto capExpr = this->capacity();
+    Value* arrayCapV = capExpr->code_gen_expr( context, scope );
     if ( capExpr->is_statically_constant() ) {
-        arrayCapV = capExpr->code_gen_const_value( context );
         allocationPtr = TxActualType::gen_malloc( context, scope, varName );
     }
     else {
         // if size not statically constant, the llvm type will indicate zero array length and thus not describe full size of the allocation
-
         // compute the allocation size:
-        arrayCapV = capExpr->code_gen_expr( context, scope );
         Value* arrayCap64V = scope->builder->CreateZExtOrBitCast( arrayCapV, Type::getInt64Ty( context.llvmContext ) );
         Value* elemSizeV = this->element_type()->type()->acttype()->gen_size( context, scope );
         Value* objectSizeV = this->inner_code_gen_size( context, scope, elemSizeV, arrayCap64V );
@@ -370,11 +420,31 @@ Type* TxExternCFunctionType::make_llvm_externc_type( LlvmGenerationContext& cont
 }
 
 
-Type* TxTupleType::make_llvm_type( LlvmGenerationContext& context ) const {
-    if (! this->is_concrete()) {
-        // (we do need llvm types of abstract types, at least for super-references)
-        LOG_DEBUG( context.LOGGER(), "making LLVM type of non-concrete type " << this );
+void TxTupleType::initialize_specialized_obj( LlvmGenerationContext& context, GenScope* scope, Value* objPtrV ) const {
+    for ( uint32_t fieldIx = 0; fieldIx < this->instanceFields.fields.size(); ++fieldIx ) {
+        auto field = this->instanceFields.fields.at( fieldIx );
+        if ( field->get_decl_flags() & TXD_GENBINDING ) {
+            Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                             ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };
+            auto fieldPtrV = scope->builder->CreateInBoundsGEP( objPtrV, ixs );
+            // type expressions aren't code generated prior to this: auto initV = field->get_llvm_value();
+            auto initV = field->get_declaration()->get_definer()->get_init_expression()->code_gen_expr( context, scope );
+            scope->builder->CreateStore( initV, fieldPtrV );
+        }
+        else {
+            auto fieldType = field->qualtype()->type()->acttype();
+            if ( fieldType->get_type_class() == TXTC_TUPLE || fieldType->get_type_class() == TXTC_ARRAY ) {
+                Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                                 ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };
+                auto fieldPtrV = scope->builder->CreateInBoundsGEP( objPtrV, ixs );
+                fieldType->initialize_specialized_obj( context, scope, fieldPtrV );
+            }
+        }
     }
+}
+
+Type* TxTupleType::make_llvm_type( LlvmGenerationContext& context ) const {
+    // (Note, we also need llvm types of abstract types, at least for super-references.)
     StructType* opaqueType = StructType::create( context.llvmContext, this->get_declaration()->get_unique_full_name() );
     return opaqueType;
 }

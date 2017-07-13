@@ -106,7 +106,9 @@ Constant* TxFilledArrayLitNode::code_gen_const_value( LlvmGenerationContext& con
 static Value* unfilled_array_code_gen_value( LlvmGenerationContext& context, GenScope* scope, const TxArrayType* txArrayType ) {
     Type* arrayObjT = txArrayType->make_llvm_type( context );
     Value* arrayObjV = UndefValue::get( arrayObjT );
-    Value* arrayCapV = txArrayType->capacity()->code_gen_expr( context, scope );
+    auto capacityExpr = txArrayType->capacity();
+    ASSERT( capacityExpr, "Unfilled array literal's implementation requires known capacity: " << txArrayType );
+    Value* arrayCapV = capacityExpr->code_gen_expr( context, scope );
 
     arrayObjV = scope->builder->CreateInsertValue( arrayObjV, arrayCapV, 0 );
     arrayObjV = scope->builder->CreateInsertValue( arrayObjV, ConstantInt::get( context.llvmContext, APInt( 32, 0 ) ), 1 );
