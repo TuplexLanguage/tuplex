@@ -109,10 +109,10 @@ array_modifiability() {
     ## array type aliasing
     {
         type ImmArr1 : Array<UByte,3>;
-        ~a60 := ImmArr1( [ 1, 2, 3 ] );  ## TODO: review, seems to not get ImmArr type
+        #experr 1: ~a60 := ImmArr1( [ 1, 2, 3 ] );
 
         type ImmArr3 : Array<~UByte,3>;
-        ~a62 := ImmArr3( [ 1, 2, 3 ] );  ## TODO: review, seems to not get ImmArr type
+        #experr 1: ~a62 := ImmArr3( [ 1, 2, 3 ] );
 
         #experr 1: type ImmArr2 : ~Array<UByte,3>;
         #experr 1: type ImmArr4 : ~Array<~UByte,3>;

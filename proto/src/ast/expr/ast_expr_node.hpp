@@ -66,6 +66,9 @@ public:
         this->appliedFuncArgs = appliedFuncArgs;
     }
 
+    /** Returns the constructed type, if this expression resolves to a constructor/initializer invocation, otherwise null. */
+    virtual const TxQualType* get_constructed_type() const { return nullptr; }
+
 
     /** Generates code that produces the type id (as opposed to the value) of this expression.
      * This returns a Constant value, unless this dereferences a non-constant reference. */

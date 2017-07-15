@@ -6,8 +6,8 @@
 #include "ast_declpass.hpp"
 
 
-static const TxQualType* get_mutable_specialization( TxNode* parent, const TxType* origType ) {
-    const TxLocation& loc = parent->ploc;
+static const TxQualType* make_mutable_specialization( TxNode* node, const TxType* origType, const TxType* newSemBase=nullptr ) {
+    const TxLocation& loc = node->ploc;
     auto newbindings = new std::vector<TxTypeArgumentNode*>();
     auto actType = origType->acttype();
     for ( auto bdecl : actType->get_bindings() ) {
@@ -31,22 +31,34 @@ static const TxQualType* get_mutable_specialization( TxNode* parent, const TxTyp
             newbindings->push_back( new TxValueTypeArgumentNode( newbind ) );
         }
     }
-    auto genBaseTypeNode = new TxTypeDeclWrapperNode( loc, actType->get_semantic_base_type()->get_declaration() );
+    auto genBaseTypeDecl = ( newSemBase ? newSemBase->acttype()->get_declaration() : actType->get_semantic_base_type()->get_declaration() );
+    auto genBaseTypeNode = new TxTypeDeclWrapperNode( loc, genBaseTypeDecl );
     auto mutTypeDef = new TxGenSpecTypeNode( loc, genBaseTypeNode, newbindings );
-    run_declaration_pass( mutTypeDef, parent, "mut-type" );
-    const TxQualType* type = mutTypeDef->resolve_type();
-    LOG_DEBUG( parent->LOGGER(), "Created mutable specialization for " << parent );
-    return type;
+    run_declaration_pass( mutTypeDef, node, "mut-type" );
+    const TxQualType* qtype = mutTypeDef->resolve_type();
+    LOG_DEBUG( node->LOGGER(), "Created mutable specialization for " << node << ": " << qtype );
+    return qtype;
+}
+
+static const TxQualType* get_mutable_specialization( TxNode* node, const TxType* type ) {
+    if ( !type->is_generic_specialization() )
+        CERR_THROWRES( node, "Can't specialize mutable type from base type: " << type );;
+    if ( type->get_semantic_base_type()->is_mutable() )
+        return make_mutable_specialization( node, type );
+    else {
+        auto newSemBase = get_mutable_specialization( node, type->get_semantic_base_type() );
+        return make_mutable_specialization( node, type, newSemBase->type() );
+    }
 }
 
 const TxQualType* TxFieldDefNode::define_type() {
     LOG_TRACE( this->LOGGER(), "defining  type  of " << this );
-    const TxQualType* type;
+    const TxQualType* qtype;
     if ( this->typeExpression ) {
-        type = this->typeExpression->resolve_type();
+        qtype = this->typeExpression->resolve_type();
         // also resolve initExpression from here, which guards against recursive field value initialization:
         if ( this->initExpression ) {
-            this->initExpression->insert_conversion( type->type() );
+            this->initExpression->insert_conversion( qtype->type() );
             try {
                 this->initExpression->resolve_type();
             }
@@ -57,28 +69,30 @@ const TxQualType* TxFieldDefNode::define_type() {
         }
     }
     else {
-        type = this->initExpression->resolve_type();
+        qtype = this->initExpression->resolve_type();
         if ( this->modifiable ) {
-            if ( !type->is_modifiable() ) {
-                auto typeEnt = type->type();
+            if ( !qtype->is_modifiable() ) {
+                auto typeEnt = qtype->type();
                 if ( !typeEnt->is_mutable() ) {
-                    if ( typeEnt->is_generic_specialization() && typeEnt->get_semantic_base_type()->is_mutable() ) {
+                    if ( typeEnt->is_generic_specialization() && typeEnt->get_source_base_type()->is_mutable() ) {
                         // copying an immutable type to a modifiable field is ok if we can obtain the mutable specialization
                         // corresponding to the source's immutable specialization
-                        typeEnt = get_mutable_specialization( this, typeEnt )->type();
+                        qtype = new TxQualType( get_mutable_specialization( this, typeEnt )->type(), true );
+                        //std::cerr << "Made mutable specialization from " << typeEnt << "  to " << qtype->type()->acttype() << std::endl;
                     }
                     else
-                        CERR_THROWRES( this, "Can't use immutable type as modifiable: " << type );
+                        CERR_THROWRES( this, "Can't use immutable type as modifiable: " << qtype );
                 }
-                type = new TxQualType( typeEnt, true );
+                else
+                    qtype = new TxQualType( typeEnt, true );
             }
         }
-        else if ( type->is_modifiable() )
+        else if ( qtype->is_modifiable() )
             // if initialization expression is modifiable type, and modifiable not explicitly specified,
             // lose modifiable attribute (modifiability must be explicit)
-            type = new TxQualType( type->type(), false );
+            qtype = new TxQualType( qtype->type(), false );
     }
-    return type;
+    return qtype;
 }
 
 const TxField* TxFieldDefNode::define_field() {

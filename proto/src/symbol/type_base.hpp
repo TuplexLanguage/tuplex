@@ -319,6 +319,16 @@ public:
         return this->genericBaseType ? this->genericBaseType : this->baseType;
     }
 
+    /** Gets the original source base type (parent) of this type,
+     * which is the original generic base type definition, bypassing any partial specializations. */
+    inline const TxActualType* get_source_base_type() const {
+        ASSERT( this->hasInitialized, "Can't get source base type of uninitized type " << this );
+        auto type = this;
+        while ( type->genericBaseType )
+            type = type->genericBaseType;
+        return type;
+    }
+
     inline const std::vector<const TxActualType*>& get_interfaces() const {
         return this->interfaces;
     }

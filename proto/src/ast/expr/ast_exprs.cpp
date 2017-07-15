@@ -75,20 +75,9 @@ const TxQualType* TxFunctionCallNode::define_type() {
     if ( this->calleeType->get_type_class() != TXTC_FUNCTION ) {
         CERR_THROWRES( this, "Callee of function call expression is not of function type: " << this->calleeType );
     }
-    else if ( /*auto constructorType =*/ dynamic_cast<const TxConstructorType*>( this->calleeType->type()->acttype() ) ) {
-        // constructor functions return void but the constructor invocation expression yields the constructed type:
-        if ( auto calleeConstructor = dynamic_cast<TxConstructorCalleeExprNode*>( this->callee ) ) {
-            ASSERT( calleeConstructor->get_constructed_type(), "Expected callee field get_constructed_type() to be non-null: " << this->callee );
-            return calleeConstructor->get_constructed_type();
-        }
-        else {
-            ASSERT( dynamic_cast<TxFieldValueNode*>( this->callee ), "Expected callee to be a TxFieldValueNode but was: " << this->callee );
-            auto calleeField = static_cast<TxFieldValueNode*>( this->callee );
-            ASSERT( calleeField->get_constructed_type(), "Expected callee field get_constructed_type() to be non-null: " << this->callee );
-            return calleeField->get_constructed_type();
-        }
-//        auto objectDefiner = constructorType->get_constructed_type_decl()->get_definer();
-//        return objectDefiner->resolve_type();
+    else if ( auto constructedType = this->callee->get_constructed_type() ) {
+        // constructor functions return void but the constructor invocation expression yields the constructed type
+        return constructedType;
     }
     else
         return new TxQualType( this->calleeType->type()->return_type() );

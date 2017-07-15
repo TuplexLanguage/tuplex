@@ -130,6 +130,7 @@ protected:
 public:
     TxTypeDeclWrapperNode( const TxLocation& ploc, const TxEntityDeclaration* typeDecl )
             : TxTypeExpressionNode( ploc ), typeDecl( typeDecl ) {
+        ASSERT( typeDecl, "NULL typeDecl; ploc: " << ploc );
     }
 
     virtual TxTypeDeclWrapperNode* make_ast_copy() const override {

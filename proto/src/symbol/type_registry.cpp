@@ -419,6 +419,15 @@ static TxDeclarationNode* make_value_type_param_decl_node( const TxLocation& par
     return declNode;
 }
 
+static std::string trim_base_type_name( const std::string baseName ) {
+    auto startPos = ( begins_with( baseName, "M$" ) ? 2 : 0 );
+    auto endPos = baseName.find_last_of( '>' );
+    if ( endPos == std::string::npos )
+        return std::string( baseName, startPos ) + '<';
+    else
+        return std::string( baseName, startPos, endPos-startPos ) + ',';
+}
+
 const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDefiningNode* definer, const TxActualType* baseType,
                                                                  const std::vector<const TxTypeArgumentNode*>* bindings, bool mutableType ) {
     // Note: A non-parameterized type (without any declared type parameters) is not necessarily non-generic:
@@ -447,7 +456,7 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
         // (References and interfaces are always mutable, don't distinguish them be name)
         typeSpecTypeName << "M$";  // distinguish mutable and immutable specializations by name
     }
-    typeSpecTypeName << baseDecl->get_unique_name() << "<";
+    typeSpecTypeName << trim_base_type_name( baseDecl->get_unique_name() );
     std::stringstream valueSpecTypeName;
     valueSpecTypeName << typeSpecTypeName.str();
 
@@ -502,10 +511,12 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
     if ( !valueBindings.empty() ) {
         // This specialization binds VALUE type parameters, so a new base type which binds only the TYPE parameters
         // is injected as intermediate base type.
-        baseType = get_inner_type_specialization( definer, baseType, &typeBindings, mutableType );
+        if ( !typeBindings.empty() ) {
+            baseType = get_inner_type_specialization( definer, baseType, &typeBindings, mutableType );
+            //std::cerr << "Made intermediate type " << baseType << ";  value spec name='" << newTypeNameStr << "'" << std::endl;
+        }
         bindings = &valueBindings;
         newTypeNameStr = valueSpecTypeName.str();
-        //std::cerr << "Made intermediate type " << baseType << ";  value spec name='" << newTypeNameStr << "'" << std::endl;
         // create shallow type specialization (without a distinct AST copy and code-generation) with explicit (unique) name
     }
     else
@@ -600,7 +611,9 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     }
 
     {   // pass on the generic base type to the new specialization via member named $GenericBase:
-        auto genBaseTypeExpr = new TxTypeDeclWrapperNode( definer->get_parse_location(), baseDecl );
+        // identify the "source" semantic base type - the nearest one without bindings:
+        auto semBaseType = baseType;
+        auto genBaseTypeExpr = new TxTypeDeclWrapperNode( definer->get_parse_location(), semBaseType->get_declaration() );
         auto declNode = new TxTypeDeclNode( definer->get_parse_location(), TXD_PUBLIC | TXD_IMPLICIT, "$GenericBase", nullptr, genBaseTypeExpr );
         bindingDeclNodes->push_back( declNode );
     }

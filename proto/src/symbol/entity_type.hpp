@@ -110,6 +110,12 @@ public:
         return nullptr;
     }
 
+    inline const TxType* get_source_base_type() const {
+        if ( auto base = this->acttype()->get_source_base_type() )
+            return get_type_entity(base);
+        return nullptr;
+    }
+
 //    /** Gets the "instance base type" of this type, which is either this type, or the closest ancestor type
 //     * which defines a distinct instance data type.
 //     * This is used to bypass same-instance-type derivations (e.g. empty/mod. specializations). */

@@ -91,11 +91,9 @@ void TxActualType::validate_type() const {
             for ( auto & paramDecl : this->get_semantic_base_type()->get_type_params() ) {
                 if ( !this->get_binding( paramDecl->get_unique_name() ) ) {
                     if ( !this->has_type_param( paramDecl->get_unique_name() ) ) {
-                        //this->params.emplace_back(paramDecl);
                         if ( this->get_type_class() != TXTC_INTERFACEADAPTER ) {
                             CERROR( this, "Missing binding or redeclaration of base type's type parameter "
                                     << paramDecl->get_unique_name() << " in " << this );
-                            //LOG(this->LOGGER(), NOTE, "Implicitly inheriting (redeclaring) type parameter %s in type %s", paramDecl->get_unique_full_name().c_str(), this->to_string().c_str());
                         }
                     }
                 }

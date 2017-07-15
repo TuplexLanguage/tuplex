@@ -98,8 +98,7 @@ public:
         return dynamic_cast<const TxFieldDeclaration*>( this->declaration );
     }
 
-    /** If this field value resolves to a constructor, returns the constructed type, otherwise null. */
-    inline const TxQualType* get_constructed_type() const {
+    virtual const TxQualType* get_constructed_type() const override {
         return constructedType;
     }
 

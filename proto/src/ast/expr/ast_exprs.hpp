@@ -101,8 +101,7 @@ public:
         this->objectExpr->symbol_resolution_pass();
     }
 
-    /** Returns the constructed type. */
-    inline const TxQualType* get_constructed_type() const {
+    virtual const TxQualType* get_constructed_type() const override {
         return this->objectExpr->resolve_type();
     }
 

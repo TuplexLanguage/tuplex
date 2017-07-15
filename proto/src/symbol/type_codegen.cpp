@@ -264,7 +264,7 @@ void TxArrayType::initialize_specialized_obj( LlvmGenerationContext& context, Ge
 }
 
 Value* TxArrayType::gen_size( LlvmGenerationContext& context, GenScope* scope ) const {
-    ASSERT( this->is_concrete(), "Attempted to codegen size of non-concrete type " << this );
+    ASSERT( !this->is_generic(), "Attempted to codegen size of generic array type " << this );
     Value* elemSize = this->element_type()->type()->acttype()->gen_size( context, scope );
     Value* arrayCap = this->capacity()->code_gen_expr( context, scope );  // FIXME
     arrayCap = scope->builder->CreateZExtOrBitCast( arrayCap, Type::getInt64Ty( context.llvmContext ) );
@@ -272,14 +272,15 @@ Value* TxArrayType::gen_size( LlvmGenerationContext& context, GenScope* scope ) 
 }
 
 Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
-    Value* allocationPtr;
-
+    ASSERT( !this->is_generic(), "Attempted to alloca generic array type " << this );
     auto capField = this->instanceFields.fields.at( 0 );
     ASSERT( capField->get_unique_name() == "C", "Expected Array's first instance field to be C but is: " << capField );
     //std::cerr << "capField decl: " << capField->get_declaration() << std::endl;
     auto capExpr = capField->get_declaration()->get_definer()->get_init_expression();
-    //auto capExpr = this->capacity();
+    ASSERT( capExpr, "No capacity 'C' initialization expression for type " << this );
     Value* arrayCapV = capExpr->code_gen_expr( context, scope );
+
+    Value* allocationPtr;
     if ( capExpr->is_statically_constant() ) {
         allocationPtr = TxActualType::gen_alloca( context, scope, varName );
     }
@@ -306,14 +307,15 @@ Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope,
 }
 
 Value* TxArrayType::gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
-    Value* allocationPtr;
-
+    ASSERT( !this->is_generic(), "Attempted to malloc generic array type " << this );
     auto capField = this->instanceFields.fields.at( 0 );
     ASSERT( capField->get_unique_name() == "C", "Expected Array's first instance field to be C but is: " << capField );
     //std::cerr << "capField decl: " << capField->get_declaration() << std::endl;
     auto capExpr = capField->get_declaration()->get_definer()->get_init_expression();
-    //auto capExpr = this->capacity();
+    ASSERT( capExpr, "No capacity 'C' initialization expression for type " << this );
     Value* arrayCapV = capExpr->code_gen_expr( context, scope );
+
+    Value* allocationPtr;
     if ( capExpr->is_statically_constant() ) {
         allocationPtr = TxActualType::gen_malloc( context, scope, varName );
     }
