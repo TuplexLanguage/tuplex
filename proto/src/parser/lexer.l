@@ -176,7 +176,6 @@ extern "C" int yywrap() { return 0; }
 "builtin"	{ return token::KW_BUILTIN; }
 "extends"   { return token::KW_EXTENDS; }
 "implements" { return token::KW_IMPLEMENTS; }
-"func"      { return token::KW_FUNC; }
 "lambda"    { return token::KW_LAMBDA; }
 "tuple"     { return token::KW_TUPLE; }
 "union"     { return token::KW_UNION; }

@@ -83,6 +83,5 @@ TxCStringLitNode::TxCStringLitNode( const TxLocation& ploc, const std::string& l
         : TxExpressionNode( ploc ),
           literal( literal ),
           value( parse_string_literal( literal, 2, 1 ) ),
-          arrayCapacity( this->value.length() + 1 ),
-          cstringTypeNode( make_cstring_type_expr( ploc, arrayCapacity ) ) {
+          cstringTypeNode( make_cstring_type_expr( ploc, this->value.length() + 1 ) ) {
 }

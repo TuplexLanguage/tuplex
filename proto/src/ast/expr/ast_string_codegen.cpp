@@ -10,17 +10,11 @@ using namespace llvm;
 Constant* TxStringLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, this->literal );
 
-    auto stringObjT = cast<StructType>( context.get_llvm_type( this->qualtype() ) );
-    auto arrayTIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->arrayTypeNode->qualtype()->get_type_id() );
+    StructType* stringObjT = cast<StructType>( context.get_llvm_type( this->qualtype() ) );
+    Constant* arrayTIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->arrayTypeNode->qualtype()->get_type_id() );
     auto arrayRefObjT = cast<StructType>( stringObjT->getTypeAtIndex( 0U ) );
 
-    std::vector<Constant*> arrayMembers {
-        ConstantInt::get( context.llvmContext, APInt( 32, this->utf8data.size() ) ),
-        ConstantInt::get( context.llvmContext, APInt( 32, this->utf8data.size() ) ),
-        ConstantDataArray::get( context.llvmContext, ArrayRef<uint8_t>( this->utf8data.data(), this->utf8data.size() ) )
-    };
-    auto arrayC = ConstantStruct::getAnon( arrayMembers );
-    auto arrayGlobalPtr = new GlobalVariable( context.llvmModule(), arrayC->getType(), true, GlobalValue::InternalLinkage, arrayC );
+    auto arrayGlobalPtr = context.gen_const_byte_array_address( this->utf8data );
 
     // String datatype member is a reference to unknown array length (represented by length 0 in LLVM array type)
     auto arrayGenPtr = ConstantExpr::getBitCast( arrayGlobalPtr, arrayRefObjT->getTypeAtIndex( 0U ) );
@@ -31,6 +25,13 @@ Constant* TxStringLitNode::code_gen_const_value( LlvmGenerationContext& context 
 
 Value* TxStringLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     return this->code_gen_const_value( context );
+}
+
+Constant* TxStringLitNode::code_gen_const_address( LlvmGenerationContext& context ) const {
+    // allocates global storage for string literals, a single shared instance for each unique value
+    StructType* stringObjT = cast<StructType>( context.get_llvm_type( this->qualtype() ) );
+    Constant* arrayTIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->arrayTypeNode->qualtype()->get_type_id() );
+    return context.gen_const_string_obj_address( stringObjT, arrayTIdC, this->utf8data );
 }
 
 
@@ -56,22 +57,12 @@ Value* TxStringFormatNode::code_gen_dyn_address( LlvmGenerationContext& context,
 }
 
 
-//Value* TxStringFormatterNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
-//    TRACE_CODEGEN( this, context );
-//    return this->stackConstr->code_gen_dyn_value( context, scope );
-//}
-//
-//Value* TxStringFormatterNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
-//    TRACE_CODEGEN( this, context );
-//    return this->stackConstr->code_gen_dyn_address( context, scope );
-//}
-
-
 Constant* TxCStringLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, '"' << this->value << '"' );
+    auto arrayCapacity = this->value.length() + 1;  // note: array capacity includes the null terminator
     std::vector<Constant*> members {
-                                     ConstantInt::get( context.llvmContext, APInt( 32, this->arrayCapacity ) ),
-                                     ConstantInt::get( context.llvmContext, APInt( 32, this->arrayCapacity ) ),
+                                     ConstantInt::get( context.llvmContext, APInt( 32, arrayCapacity ) ),
+                                     ConstantInt::get( context.llvmContext, APInt( 32, arrayCapacity ) ),
                                      ConstantDataArray::getString( context.llvmContext, this->value )
     };
     auto str = ConstantStruct::getAnon( members );
@@ -80,4 +71,9 @@ Constant* TxCStringLitNode::code_gen_const_value( LlvmGenerationContext& context
 
 Value* TxCStringLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     return this->code_gen_const_value( context );
+}
+
+Constant* TxCStringLitNode::code_gen_const_address( LlvmGenerationContext& context ) const {
+    // allocates global storage for string literals, a single shared instance for each unique value
+    return context.gen_const_cstring_address( this->value );
 }

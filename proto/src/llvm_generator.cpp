@@ -350,6 +350,50 @@ StructType* LlvmGenerationContext::get_llvm_vtable_type( const TxActualType* txT
     return this->llvmVTableTypes.at( txType->get_vtable_id() );
 }
 
+Constant* LlvmGenerationContext::gen_const_cstring_address( const std::string& value ) {
+    std::vector<uint8_t> array( value.data(), value.data() + value.size() + 1 );
+    return this->gen_const_byte_array_address( array );
+}
+
+Constant* LlvmGenerationContext::gen_const_byte_array_address( const std::vector<uint8_t>& arrayData ) {
+    auto iter = this->byteArrayTable.find( arrayData );
+    if ( iter != this->byteArrayTable.end() ) {
+        //std::cerr << "reusing byte array constant \"" << arrayData.data() << "\"" << std::endl;
+        return iter->second;
+    }
+
+    std::vector<Constant*> arrayMembers {
+        ConstantInt::get( this->llvmContext, APInt( 32, arrayData.size() ) ),
+        ConstantInt::get( this->llvmContext, APInt( 32, arrayData.size() ) ),
+        ConstantDataArray::get( this->llvmContext, ArrayRef<uint8_t>( arrayData.data(), arrayData.size() ) )
+    };
+    auto arrayC = ConstantStruct::getAnon( arrayMembers );
+
+    auto arrayGlobal = new GlobalVariable( this->llvmModule(), arrayC->getType(), true, GlobalValue::InternalLinkage, arrayC );
+    this->byteArrayTable.emplace( arrayData, arrayGlobal );
+    return arrayGlobal;
+}
+
+Constant* LlvmGenerationContext::gen_const_string_obj_address( StructType* stringObjT, Constant* arrayTIdC, const std::vector<uint8_t>& arrayData ) {
+    auto iter = this->stringObjTable.find( arrayData );
+    if ( iter != this->stringObjTable.end() ) {
+        //std::cerr << "reusing string object constant \"" << arrayData.data() << "\"" << std::endl;
+        return iter->second;
+    }
+
+    auto arrayRefObjT = cast<StructType>( stringObjT->getTypeAtIndex( 0U ) );
+
+    auto arrayGlobalPtr = this->gen_const_byte_array_address( arrayData );
+
+    // String datatype member is a reference to unknown array length (represented by length 0 in LLVM array type)
+    auto arrayGenPtr = ConstantExpr::getBitCast( arrayGlobalPtr, arrayRefObjT->getTypeAtIndex( 0U ) );
+    auto arrayRefObjC = gen_ref( *this, arrayRefObjT, arrayGenPtr, arrayTIdC );
+    auto stringObjC = ConstantStruct::get( stringObjT, { arrayRefObjC } );
+
+    auto stringGlobal = new GlobalVariable( this->llvmModule(), stringObjC->getType(), true, GlobalValue::InternalLinkage, stringObjC );
+    this->stringObjTable.emplace( arrayData, stringGlobal );
+    return stringGlobal;
+}
 
 
 /***** LLVM types and values "symbol table" *****/

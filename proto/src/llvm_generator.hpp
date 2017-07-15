@@ -50,6 +50,11 @@ class LlvmGenerationContext {
     std::map<const TxActualType*, llvm::Type*> llvmTypeMapping;
     std::vector<llvm::StructType*> llvmVTableTypes;
 
+    /** table of byte array constants (also used for cstrings) to share identical instances */
+    std::map<const std::vector<uint8_t>, llvm::Constant*> byteArrayTable;
+    /** table of String object constants to share identical instances */
+    std::map<const std::vector<uint8_t>, llvm::Constant*> stringObjTable;
+
     std::unique_ptr<llvm::Module> llvmModulePtr;
 
     // some common, basic types:
@@ -92,6 +97,14 @@ public:
     llvm::Type* get_llvm_type( const TxActualType* txType );
 
     llvm::StructType* get_llvm_vtable_type( const TxActualType* txType ) const;
+
+    /** Allocates global storage for constant strings, a single shared instance for each unique value. */
+    llvm::Constant* gen_const_cstring_address( const std::string& value );
+    /** Allocates global storage for constant byte arrays, a single shared instance for each unique value. */
+    llvm::Constant* gen_const_byte_array_address( const std::vector<uint8_t>& array );
+    /** Allocates global storage for constant String objects, a single shared instance for each unique value. */
+    llvm::Constant* gen_const_string_obj_address( llvm::StructType* stringObjT, llvm::Constant* arrayTIdC, const std::vector<uint8_t>& array );
+
 
     // "intrinsics":
     /** Generates a malloc call that allocates storage for the specified LLVM type. */
