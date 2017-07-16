@@ -285,11 +285,16 @@ std::string TxEntitySymbol::description_string() const {
     else if ( this->typeDeclaration ) {  // non-overloaded type name
         if ( auto type = this->typeDeclaration->get_definer()->attempt_qualtype() ) {
             if ( type->type()->get_declaration() == this->typeDeclaration ) {
-                if ( auto basetype = type->type()->get_semantic_base_type() ) {
+                const TxType *sembasetype = nullptr;
+                try {
+                    sembasetype = type->type()->get_semantic_base_type();
+                }
+                catch ( const resolution_error& err ) { }
+                if ( sembasetype ) {
                     auto name = type->str();
                     if ( name.size() < 48 )
                         name.resize( 48, ' ' );
-                    return "TYPE         " + name + " : " + basetype->str();
+                    return "TYPE         " + name + " : " + sembasetype->str();
                 }
                 else
                     return "TYPE         " + type->str( false );

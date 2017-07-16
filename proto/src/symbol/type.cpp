@@ -63,6 +63,30 @@ const TxQualType* TxActualType::get_root_any_qtype() const {
     return new TxQualType( this->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_ANY ) );
 }
 
+static bool check_code_concrete( const TxActualType* thisType, const TxActualType* baseType ) {
+    if ( thisType->is_generic_param() )
+        return true;
+    for ( auto & paramDecl : baseType->get_type_params() ) {
+        if ( dynamic_cast<const TxTypeDeclaration*>( paramDecl ) ) {
+            auto constraintType = paramDecl->get_definer()->resolve_type()->type();
+            if ( constraintType->get_type_class() != TXTC_REFERENCE ) {
+                if ( !thisType->get_binding( paramDecl->get_unique_name() ) ) {
+                    //if ( !this->has_type_param( paramDecl->get_unique_name() ) ) {
+                        //if ( this->get_type_class() != TXTC_INTERFACEADAPTER ) {
+                            //if ( !this->emptyDerivation ) {
+                                CERROR( thisType, "Missing binding of base type's non-ref TYPE parameter "
+                                        << paramDecl->get_unique_name() << " in " << thisType );
+                                return false;
+                            //}
+                        //}
+                    //}
+                }
+            }
+        }
+    }
+    return true;
+}
+
 void TxActualType::validate_type() const {
     //std::cerr << "validating type " << this << std::endl;
     if ( this->baseType ) {
@@ -85,20 +109,21 @@ void TxActualType::validate_type() const {
                     "anonymous or implicit, empty types may not be derived except as another anonymous or implicit, empty type: " << this );
         }
 
-        // if this is not an empty derivation, verify that all parameters of base type are either bound, or redeclared:
+        // Verify that all parameters of base type that affect code generation are bound:
         // Note: The base type's parameters that have not been bound should normally be automatically redeclared by the type registry.
-        if ( !this->emptyDerivation ) {
-            for ( auto & paramDecl : this->get_semantic_base_type()->get_type_params() ) {
-                if ( !this->get_binding( paramDecl->get_unique_name() ) ) {
-                    if ( !this->has_type_param( paramDecl->get_unique_name() ) ) {
-                        if ( this->get_type_class() != TXTC_INTERFACEADAPTER ) {
-                            CERROR( this, "Missing binding or redeclaration of base type's type parameter "
-                                    << paramDecl->get_unique_name() << " in " << this );
-                        }
-                    }
-                }
-            }
-        }
+        check_code_concrete( this, this->get_semantic_base_type() );
+//        if ( !this->emptyDerivation ) {
+//            for ( auto & paramDecl : this->get_semantic_base_type()->get_type_params() ) {
+//                if ( !this->get_binding( paramDecl->get_unique_name() ) ) {
+//                    if ( !this->has_type_param( paramDecl->get_unique_name() ) ) {
+//                        if ( this->get_type_class() != TXTC_INTERFACEADAPTER ) {
+//                            CERROR( this, "Missing binding or redeclaration of base type's type parameter "
+//                                    << paramDecl->get_unique_name() << " in " << this );
+//                        }
+//                    }
+//                }
+//            }
+//        }
     }
     // TODO: validate interfaces
     // check that generic interfaces can't be implemented multiple times throughout a type hierarchy,
@@ -106,6 +131,8 @@ void TxActualType::validate_type() const {
     for ( auto & interf : this->interfaces ) {
         if ( interf->get_type_class() != TXTC_INTERFACE )
             CERROR( this, "Only the first derived-from type can be a non-interface type: " << interf );
+        else
+            check_code_concrete( this, interf );
     }
 }
 
@@ -578,7 +605,7 @@ bool TxActualType::is_type_generic_dependent() const {
     while ( type->is_equivalent_derivation() )
         type = type->get_base_type();
 
-    if ( type->is_type_generic() )  // TODO: evaluate whether ref-constrained params should not cause this to return true
+    if ( type->is_type_generic() )
         return true;
 
     bool genCtx = type->get_declaration()->get_definer()->context().is_generic();

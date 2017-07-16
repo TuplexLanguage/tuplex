@@ -231,11 +231,11 @@ void LlvmGenerationContext::generate_runtime_data() {
         ASSERT( txType->is_prepared(), "Non-prepared type: " << txType );
         std::string vtableName( txType->get_declaration()->get_unique_full_name() + "$vtable" );
         if ( auto vtableV = dyn_cast<GlobalVariable>( this->lookup_llvm_value( vtableName ) ) ) {
-            bool isGeneric = txType->is_type_generic();
+            bool isTypeGeneric = txType->is_type_generic();
             std::string typeIdStr = std::to_string( txType->get_formal_type_id() );
             if ( typeIdStr.size() < 5 )
                 typeIdStr.resize( 5, ' ' );
-            if ( isGeneric )  // the only generic types that have a formal type id are Ref and Array
+            if ( isTypeGeneric )  // the only generic types that have a formal type id are Ref and Array
                 LOG_DEBUG( this->LOGGER(), "Type id " << typeIdStr << ": Populating vtable initializer with null placeholders for generic base type " << txType );
             else
                 LOG_DEBUG( this->LOGGER(), "Type id " << typeIdStr << ": Populating vtable initializer for " << txType );
@@ -245,7 +245,7 @@ void LlvmGenerationContext::generate_runtime_data() {
             for ( auto & field : virtualFields.fieldMap ) {
                 auto actualFieldEnt = virtualFields.get_field( field.second );
                 Constant* llvmFieldC;
-                if ( ( actualFieldEnt->get_decl_flags() & TXD_ABSTRACT ) || isGeneric ) {
+                if ( ( actualFieldEnt->get_decl_flags() & TXD_ABSTRACT ) || isTypeGeneric ) {
                     //std::cerr << "inserting NULL for abstract virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
                     Type* fieldType;
                     if ( actualFieldEnt->get_storage() & TXS_INSTANCEMETHOD ) {

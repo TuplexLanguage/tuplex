@@ -119,22 +119,21 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
             // (they are not abstract per se, but aren't code generated):
             auto enclosingType = static_cast<TxEntitySymbol*>( fieldDecl->get_symbol()->get_outer() )
                                    ->get_type_decl()->get_definer()->qualtype()->type();
-            if ( !( ( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) )
-                    && enclosingType->is_type_generic() ) ) {
-            Value* fieldVal = nullptr;
-            if ( static_cast<TxLambdaExprNode*>( this->initExpression->originalExpr )->is_suppressed_modifying_method() ) {
-                // modifying instance methods in immutable specializations of generic types are suppressed (as if abstract)
-                auto closureType = context.get_llvm_type( txType );
-                Type* fieldType = closureType->getStructElementType( 0 );
-                fieldVal = Constant::getNullValue( fieldType );
-            }
-            else {
-                ASSERT( this->initExpression, "instance method does not have an initializer/definition: " << fieldDecl->get_unique_full_name() );
-                auto initLambdaV = this->code_gen_const_init_value( context, genBody );
-                auto funcPtrV = initLambdaV->getAggregateElement( (unsigned) 0 );
-                fieldVal = funcPtrV;  // the naked $func is stored (as opposed to a full lambda object)
-            }
-            this->get_field()->set_llvm_value( fieldVal );
+            if ( !( ( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ) && enclosingType->is_type_generic() ) ) {
+                Value* fieldVal = nullptr;
+                if ( static_cast<TxLambdaExprNode*>( this->initExpression->originalExpr )->is_suppressed_modifying_method() ) {
+                    // modifying instance methods in immutable specializations of generic types are suppressed (as if abstract)
+                    auto closureType = context.get_llvm_type( txType );
+                    Type* fieldType = closureType->getStructElementType( 0 );
+                    fieldVal = Constant::getNullValue( fieldType );
+                }
+                else {
+                    ASSERT( this->initExpression, "instance method does not have an initializer/definition: " << fieldDecl->get_unique_full_name() );
+                    auto initLambdaV = this->code_gen_const_init_value( context, genBody );
+                    auto funcPtrV = initLambdaV->getAggregateElement( (unsigned) 0 );
+                    fieldVal = funcPtrV;  // the naked $func is stored (as opposed to a full lambda object)
+                }
+                this->get_field()->set_llvm_value( fieldVal );
             }
         }
         return;

@@ -63,7 +63,7 @@ array_stack_construction( i : UByte ) {
     a21 := <Array<Int,3>>( [ 1I, 2, 3 ] );
     a22 := <Array<Int,0>>( []Int() );
     a23 := <Array<Int,0>>();           ## syntactic sugar allows omitting brackets
-    a24 := <Array<Int,3>>( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
+    ## TODO: a24 := <Array<Int,3>>( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
     #experr 1: ae := <Array<Int,3>>( [ 1, 2 ] );
     #experr 1: ae := <Array<Int,3>>( [ 1, 2, 3, 4 ] );
     #experr 1: ae := <Array<Int,3>>( [ 1.1, 2.2, 3.3 ] );
@@ -103,7 +103,7 @@ array_new_construction( i : UByte ) {
     #experr 1: a2 := new [ Int(1), 2, 3 ];
     #experr 1: ae := new [];  ## invalid, no element type info
 
-    a3 := new [3]Int( 1, 2, 3 );
+    ## TODO: a3 := new [3]Int( 1, 2, 3 );
     a4 := new [0]Int();           ## empty array of Ints
   ## not supported to automatically infer array length
     #experr 2: a5 := new []Int( 1, 2, 3 );
@@ -127,7 +127,7 @@ array_new_construction( i : UByte ) {
 ##    a16 := new [3]Long( a6 );  ## safe element-wise conversion
 ##    a17 := new []Long( a6 );   ## safe element-wise conversion
 
-    foofunc( a3 );
+    ##foofunc( a3 );
     foofunc( a4 );
     foofunc( a10 );
     foofunc( a11 );
@@ -138,7 +138,7 @@ array_new_construction( i : UByte ) {
     a21 := new Array<Int,3>( [ 1I, 2, 3 ] );
     a22 := new Array<Int,0>( []Int() );
     a23 := new Array<Int,0>();           ## syntactic sugar allows omitting brackets
-    a24 := new Array<Int,3>( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
+    ## TODO: a24 := new Array<Int,3>( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
     #experr 1: ae := new Array<Int,3>( [ 1, 2 ] );
     #experr 1: ae := new Array<Int,3>( [ 1, 2, 3, 4 ] );
     #experr 1: ae := new Array<Int,3>( [ 1.1, 2.2, 3.3 ] );

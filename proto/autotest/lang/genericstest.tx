@@ -1,3 +1,5 @@
+## Original generics test script   TODO: refactor
+
 module my
 
 ##import tx.proto.print.*

@@ -8,8 +8,8 @@
 ## interfaces can't derive from non-interface type classes
 
 #experr 1: interface BadDerivation3 : Tuple;
-#experr 1: interface BadDerivation4 : Array;
-#experr 1: interface BadDerivation5 : Ref;
+#experr 1: interface BadDerivation4 : Array<UByte>;
+#experr 1: interface BadDerivation5 : Ref<UByte>;
 #experr 1: interface BadDerivation6 : Function;
 #experr 1: interface BadDerivation7 : Elementary;
 #experr 1: interface BadDerivation8 : Int;

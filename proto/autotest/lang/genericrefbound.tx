@@ -1,10 +1,11 @@
-module my
-
 ## tests specializations of ref-bound generic type
+## TODO: Expand
+
+module my
 
 type ~ AType<S derives Ref> derives Tuple {
     public memref : S;
-    public type GenAlias : S;
+    #experr 1: public type GenAlias : S;  ## not currently allowed
     public type GenRef : Ref<S>;
 
     public self(s : S) {

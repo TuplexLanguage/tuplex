@@ -82,12 +82,12 @@ source_files = [
     "interfaceadaptertest.tx",
     "nestedtypestest.tx",
     
-    "genericstest.tx",
-    "genericstest2.tx",
-    "genericstest3.tx",
-    "genericstest4.tx",
-    "generics_value.tx",
+    "generictypespec.tx",
+    "genericvaluespec.tx",
     "genericmodifiability.tx",
+    "genericnested.tx",
+    "genericrefbound.tx",
+    "genericstest.tx",
 
     "sequenceiftest.tx",
     "rangeiftest.tx",

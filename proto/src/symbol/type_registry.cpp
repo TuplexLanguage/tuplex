@@ -111,8 +111,13 @@ void TypeRegistry::prepare_types() {
             LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr context as formal type: " << type);
             continue;
         }
-        // there shouldn't be a TXD_EXPERRBLOCK declaration without exp-err-ctx set:
-        ASSERT( !(type->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK), "Unexpected TXD_EXPERRBLOCK flag in type "<< type);
+        if ( type->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK ) {
+            // there shouldn't be a TXD_EXPERRBLOCK declaration without exp-err-ctx set unless it is declared within a reinterpreted construct:
+            ASSERT( type->get_declaration()->get_definer()->context().is_reinterpretation(),
+                    "Unexpected TXD_EXPERRBLOCK flag in non-reinterpreted type "<< type );
+            LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr flag as formal type: " << type );
+            continue;
+        }
 
         if ( type->get_type_class() == TXTC_FUNCTION )
             continue;
@@ -288,14 +293,16 @@ std::string encode_type_name( const TxTypeDeclaration* typeDecl ) {
 
 static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSymbol, const TxActualType* baseType,
                                                   const std::vector<const TxTypeArgumentNode*>* bindings ) {
-    if ( auto typeDecl = existingBaseSymbol->get_type_decl() ) {
+    auto typeDecl = existingBaseSymbol->get_type_decl();
+    ASSERT( typeDecl, "NULL typeDecl for " << existingBaseSymbol );
+    {
         auto existingBaseType = typeDecl->get_definer()->resolve_type()->type()->acttype();
-        //std::cerr << "existingBaseType    1: " << existingBaseType << std::endl;
+        //if (baseType->get_type_class()!=TXTC_REFERENCE) std::cerr << "existingBaseType    1: " << existingBaseType << std::endl;
         auto existingGenBaseType = existingBaseType->get_semantic_base_type();
-        //std::cerr << "existingGenBaseType 2: " << existingGenBaseType << std::endl;
-        if ( existingGenBaseType->is_empty_derivation() ) {
+        //if (baseType->get_type_class()!=TXTC_REFERENCE) std::cerr << "existingGenBaseType 2: " << existingGenBaseType << std::endl;
+        if ( ( existingGenBaseType->get_declaration()->get_decl_flags() & TXD_IMPLICIT ) && existingGenBaseType->is_empty_derivation() ) {
             existingGenBaseType = existingGenBaseType->get_semantic_base_type();
-            //std::cerr << "existingGenBaseType 3: " << existingGenBaseType << std::endl;
+            //if (baseType->get_type_class()!=TXTC_REFERENCE) std::cerr << "existingGenBaseType 3: " << existingGenBaseType << std::endl;
         }
         if ( *existingGenBaseType == *baseType ) {
             auto existingBaseTypeBindings = existingBaseType->get_bindings();
@@ -330,7 +337,7 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
                         }
                     }
                 }
-                //std::cerr << "NOT ACCEPTING PRE-EXISTING TYPE " << existingBaseType << " SINCE " << std::endl;
+                //if (baseType->get_type_class()!=TXTC_REFERENCE) std::cerr << "NOT ACCEPTING PRE-EXISTING TYPE " << existingBaseType << std::endl;
                 matchOK = false;
                 break;
             }
@@ -340,7 +347,9 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
                 return existingBaseType;
             }
         }
-        //LOG(existingBaseSymbol->get_root_scope()->registry().LOGGER(), INFO, "Found existing but mismatching type with sought name: " << existingBaseType);
+//        else
+//            LOG_NOTE( existingBaseSymbol->get_root_scope()->registry().LOGGER(),
+//                      "Found existing but mismatching type with sought name: " << existingBaseType );
     }
 
     return nullptr;
@@ -507,7 +516,6 @@ const TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeDef
     valueSpecTypeName << ">";
 
     std::string newTypeNameStr;
-//    newTypeNameStr = valueSpecTypeName.str();
     if ( !valueBindings.empty() ) {
         // This specialization binds VALUE type parameters, so a new base type which binds only the TYPE parameters
         // is injected as intermediate base type.
@@ -559,16 +567,16 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
         if ( auto typeArg = dynamic_cast<const TxTypeTypeArgumentNode*>( binding ) ) {
             TxTypeDefiningNode* btypeDefNode = typeArg->typeExprNode;
             TxTypeExpressionNode* btypeExprNode = new TxTypeExprWrapperNode( btypeDefNode );
-            bindingDeclNodes->push_back( new TxTypeDeclNode( typeArg->get_parse_location(), TXD_GENBINDING | TXD_PUBLIC, paramName, nullptr,
-                                                             btypeExprNode ) );
+            bindingDeclNodes->push_back( new TxTypeDeclNode( typeArg->get_parse_location(),
+                                                             TXD_GENBINDING | TXD_PUBLIC, paramName, nullptr, btypeExprNode ) );
             typeBindings = true;
             LOG_TRACE( this->LOGGER(), "Re-bound base type " << baseDecl->get_unique_full_name() << " parameter '" << paramName
                        << "' with " << typeArg->typeExprNode );
         }
         else {
             auto valueArg = static_cast<const TxValueTypeArgumentNode*>( binding );
-            bindingDeclNodes->push_back( make_value_type_param_decl_node( valueArg->get_parse_location(), paramName, TXD_GENBINDING,
-                                                                          paramDecl, valueArg->valueExprNode ) );
+            bindingDeclNodes->push_back( make_value_type_param_decl_node( valueArg->get_parse_location(), paramName,
+                                                                          TXD_GENBINDING | TXD_PUBLIC, paramDecl, valueArg->valueExprNode ) );
             LOG_TRACE( this->LOGGER(), "Re-bound base type " << baseDecl->get_unique_full_name() << " parameter '" << paramName
                        << "' with " << valueArg->valueExprNode );
         }
@@ -583,12 +591,12 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
                    << " in type " << newSpecTypeNameStr );
         if ( auto typeDecl = dynamic_cast<const TxTypeDeclaration*>( unboundParamDecl ) ) {
             bindingDeclNodes->push_back( make_type_type_param_decl_node( definer->get_parse_location(), typeDecl->get_unique_name(),
-                                                                         TXD_GENPARAM, typeDecl ) );
+                                                                         TXD_GENPARAM | TXD_IMPLICIT | TXD_PUBLIC, typeDecl ) );
         }
         else {
             auto fieldDecl = static_cast<const TxFieldDeclaration*>( unboundParamDecl );
             bindingDeclNodes->push_back( make_value_type_param_decl_node( definer->get_parse_location(), fieldDecl->get_unique_name(),
-                                                                          TXD_GENPARAM, fieldDecl ) );
+                                                                          TXD_GENPARAM | TXD_IMPLICIT | TXD_PUBLIC, fieldDecl ) );
         }
     }
 
@@ -633,7 +641,7 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
     LexicalContext specContext( baseScope, expErrCtx, outerIsGeneric, definer );
     run_declaration_pass( newSpecTypeDecl, specContext );
     const TxActualType* specializedType = specTypeExpr->resolve_type()->type()->acttype();
-    LOG_DEBUG( this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << baseType );
+    //LOG_NOTE( this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << baseType );
 
     // Invoking the resolution pass here can cause infinite recursion
     // (since the same source text construct may be recursively reprocessed,
