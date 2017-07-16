@@ -6,13 +6,15 @@
  * The context of this node refers to its outer scope. This node's entity, if any, refers to its inner scope.
  */
 class TxTypeExpressionNode : public TxTypeDefiningNode {
+    bool interfaceKW = false;
+    bool mutableType = false;
     const TxTypeDeclaration* declaration = nullptr;
 
 protected:
     /** Returns true if this type expression requires the produced type to be mutable. Used by subclasses upon type creation. */
-    bool requires_mutable_type() const;
+    bool requires_mutable_type() const { return this->mutableType; }
 
-    bool get_decl_interface_kw() const;
+    bool get_decl_interface_kw() const { return this->interfaceKW; }
 
     virtual void declaration_pass() override final;
 
@@ -24,6 +26,10 @@ public:
             : TxTypeDefiningNode( ploc ) {
     }
 
+    virtual void set_interface( bool ifkw ) { this->interfaceKW = ifkw; }
+
+    virtual void set_requires_mutable( bool mut ) { this->mutableType = mut; }
+
     virtual TxTypeExpressionNode* make_ast_copy() const override = 0;
 
     /** Gets the type declaration of this type expression, if any. */
@@ -31,7 +37,7 @@ public:
         return this->declaration;
     }
 
-    inline void set_declaration( const TxTypeDeclaration* declaration ) {  // FUTURE: refactor & remove
+    inline void set_declaration( const TxTypeDeclaration* declaration ) {
         this->declaration = declaration;
     }
 

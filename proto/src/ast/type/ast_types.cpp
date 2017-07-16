@@ -7,8 +7,6 @@
 TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
     if (this->symbol)
         return this->symbol;
-//    if ( get_node_id() == 1621 )
-//        std::cerr << "Here " << this << std::endl;
     TxScopeSymbol* vantageScope = this->context().scope();
     if ( this->baseSymbol ) {
         // baseSymbol may or may not refer to a type (e.g. modules don't), TXTC_VOID is the placeholder if not
@@ -98,18 +96,6 @@ const TxQualType* TxMemberTypeNode::define_type() {
         CERR_THROWRES( this, "Not a type: '" << this->memberName << "'" );
     }
     CERR_THROWRES( this, "Unknown symbol: '" << this->memberName << "'" );
-/* previous identified-type implementation
-    if ( auto identifiedTypeDecl = lookup_type( this->context().scope(), *this->symbolName ) ) {
-        auto identifiedType = identifiedTypeDecl->get_definer()->resolve_type();
-        if ( auto declEnt = this->get_declaration() ) {
-            // create empty specialization (uniquely named but identical type)
-            return this->registry().make_empty_derivation( declEnt, identifiedType );
-        }
-        return identifiedType;
-    }
-    else
-        CERR_THROWRES( this, "Unknown type: " << this->symbolName << " (from " << this->context().scope() << ")" );
-*/
 }
 
 const TxQualType* TxArrayTypeNode::define_type() {
@@ -208,10 +194,6 @@ void TxFunctionTypeNode::typeexpr_declaration_pass() {
         if (auto fieldDefNode = dynamic_cast<const TxFieldDefNode*>( this->parent() ) ) {
             fieldFlags = fieldDefNode->get_declaration()->get_decl_flags();
         }
-//        else if ( auto funcHeaderNode = dynamic_cast<const TxFunctionHeaderNode*>( this->parent() ) ) {
-//            if ( funcHeaderNode->get_declaration() )
-//                fieldFlags = funcHeaderNode->get_declaration()->get_decl_flags();
-//        }
         TxDeclarationFlags inheritedFlagsFilter = TXD_EXTERNC | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_EXPERRBLOCK;
         TxDeclarationFlags flags = ( fieldFlags & inheritedFlagsFilter ) | TXD_IMPLICIT;
         std::string funcTypeName = lexContext.scope()->make_unique_name( "$Ftype", true );
@@ -261,7 +243,7 @@ void TxMaybeModTypeNode::typeexpr_declaration_pass() {
         if ( auto arrayBaseType = dynamic_cast<TxArrayTypeNode*>( this->typeNode ) )
             if ( typeid(*arrayBaseType->elementTypeNode->typeExprNode) == typeid(TxModifiableTypeNode) ) {
                 this->LOGGER()->debug( "Implicitly declaring Array modifiable at %s", this->str().c_str() );
-                this->isModifiable = true;
+                this->set_modifiable( true );
             }
     }
 

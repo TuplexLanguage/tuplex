@@ -27,8 +27,11 @@ public:
     TxFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
                     TxTypeExpressionNode* typeExpression,
                     TxExpressionNode* initExpression, bool modifiable = false )
-            : TxFieldDefiningNode( ploc ), fieldName( new TxIdentifier( fieldName ) ), modifiable( modifiable ) {
-        this->typeExpression = typeExpression;
+            : TxFieldDefiningNode( ploc ), fieldName( new TxIdentifier( fieldName ) ), modifiable( modifiable ),
+              typeExpression( typeExpression ) {
+        if ( typeExpression ) {
+            typeExpression->set_requires_mutable( modifiable );
+        }
         if ( initExpression ) {
             initExpression->set_field_def_node( this );
             this->initExpression = new TxMaybeConversionNode( initExpression );

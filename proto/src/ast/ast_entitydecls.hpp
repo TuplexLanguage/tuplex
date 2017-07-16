@@ -84,6 +84,8 @@ public:
                     bool interfaceKW = false, bool mutableType = false )
             : TxDeclarationNode( ploc, declFlags ), typeName( new TxIdentifier( typeName ) ),
               interfaceKW( interfaceKW ), mutableType( mutableType ), typeParamDecls( typeParamDecls ), typeExpression( typeExpression ) {
+        typeExpression->set_interface( interfaceKW );
+        typeExpression->set_requires_mutable( mutableType );
     }
 
     virtual TxTypeDeclNode* make_ast_copy() const override {

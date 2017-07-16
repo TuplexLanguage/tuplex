@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../ast_entitydecls.hpp"
+#include "ast/ast_entitydecls.hpp"
 #include "ast/ast_entitydefs.hpp"
 #include "ast/type/ast_typeexpr_node.hpp"
 #include "ast/type/ast_typearg_node.hpp"
@@ -271,12 +271,6 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
     /** Initializes certain implicit type members such as 'Super' for types with a body. */
     void init_implicit_types();
 
-//    friend TxTypeDeclNode;
-//    void set_decl_attributes( bool isInterface, bool mutableType ) {
-//        this->interfaceKW = isInterface;
-//        this->mutableType = mutableType;
-//    }
-
     friend class TxBuiltinTypeDefiningNode;
 
     void set_builtin_type_definer( TxTypeDefiningNode* builtinTypeDefiner ) {
@@ -292,8 +286,6 @@ class TxDerivedTypeNode : public TxTypeExpressionNode {
                        std::vector<TxTypeExpressionNode*>* interfaces, std::vector<TxDeclarationNode*>* members,
                        bool interfaceKW, bool mutableType )
             : TxTypeExpressionNode( ploc ), baseType( baseType ), interfaces( interfaces ), members( members ) {
-//        this->interfaceKW = interfaceKW;
-//        this->mutableType = mutableType;
     }
 
 protected:
@@ -325,55 +317,12 @@ public:
                                       //this->interfaceKW, this->mutableType );
     }
 
-//    inline bool is_interface() const { return this->interfaceKW; }
-//
-//    inline bool is_mutable() const { return this->mutableType; }
-
     virtual void symbol_resolution_pass() override;
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override;
 };
-
-///**
-// * Custom AST node needed to resolve to a type's super type. */
-//class TxSuperTypeNode : public TxTypeExpressionNode {
-//protected:
-//    virtual void symbol_declaration_pass_descendants( LexicalContext& lexContext ) override {
-//        this->derivedTypeNode->symbol_declaration_pass( lexContext );
-//    }
-//
-//    virtual const TxTypeUsage* define_type() override {
-//        if (auto dType = this->derivedTypeNode->resolve_type()) {
-//            if (auto base = dType->get_semantic_base_type())
-//                return base;
-//            CERROR(this, "Can't refer to 'super type' of a type that has no base type: " << dType);
-//        }
-//        return nullptr;
-//    }
-//
-//public:
-//    TxTypeExpressionNode* derivedTypeNode;
-//
-//    TxSuperTypeNode(const TxLocation& ploc, TxTypeExpressionNode* derivedTypeNode)
-//        : TxTypeExpressionNode(ploc), derivedTypeNode(derivedTypeNode)  { }
-//
-//    virtual TxSuperTypeNode* make_ast_copy() const override {
-//        return new TxSuperTypeNode( this->ploc, this->derivedTypeNode->make_ast_copy() );
-//    }
-//
-//    virtual void symbol_resolution_pass() override {
-//        TxTypeExpressionNode::symbol_resolution_pass();
-//        this->derivedTypeNode->symbol_resolution_pass();
-//    }
-//
-//    virtual llvm::Value* code_gen(LlvmGenerationContext& context, GenScope* scope) const override;
-//
-//    virtual void visit_descendants( AstVisitor visitor, const AstParent& thisCursor, const std::string& role, void* context ) const override {
-//        this->derivedTypeNode->visit_ast( visitor, thisCursor, "derivedtype", context );
-//    }
-//};
 
 /** Defines a function type. */
 class TxFunctionTypeNode : public TxTypeExpressionNode {
@@ -437,6 +386,12 @@ public:
 
 class TxModifiableTypeNode : public TxTypeExpressionNode {
 protected:
+    TxModifiableTypeNode( const TxLocation& ploc, TxTypeExpressionNode* typeNode, bool reqMut )
+            : TxTypeExpressionNode( ploc ), typeNode( typeNode ) {
+        TxTypeExpressionNode::set_requires_mutable( reqMut );
+        this->typeNode->set_requires_mutable( reqMut );
+    }
+
     virtual void typeexpr_declaration_pass() override;
 
     virtual const TxQualType* define_type() override {
@@ -454,7 +409,16 @@ public:
     TxTypeExpressionNode* typeNode;
 
     TxModifiableTypeNode( const TxLocation& ploc, TxTypeExpressionNode* typeNode )
-            : TxTypeExpressionNode( ploc ), typeNode( typeNode ) {
+            : TxModifiableTypeNode( ploc, typeNode, true ) {
+    }
+
+    virtual void set_interface( bool ifkw ) override {
+        TxTypeExpressionNode::set_interface( ifkw );
+        this->typeNode->set_interface( ifkw );
+    }
+
+    virtual void set_requires_mutable( bool mut ) override {
+        // do nothing, this is implicitly true for this node type
     }
 
     virtual TxModifiableTypeNode* make_ast_copy() const override {
@@ -493,7 +457,12 @@ protected:
 
 public:
     TxMaybeModTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
-            : TxModifiableTypeNode( ploc, baseType ) {
+            : TxModifiableTypeNode( ploc, baseType, false ) {
+    }
+
+    virtual void set_requires_mutable( bool mut ) override {
+        TxTypeExpressionNode::set_requires_mutable( mut );
+        this->typeNode->set_requires_mutable( mut );
     }
 
     virtual TxMaybeModTypeNode* make_ast_copy() const override {
@@ -507,6 +476,7 @@ public:
     void set_modifiable( bool mod ) {
         ASSERT( !this->attempt_qualtype(), "Can't set modifiable after type already has been resolved in " << this );
         this->isModifiable = mod;
+        this->set_requires_mutable( mod );
     }
 
     virtual const std::string& get_descriptor() const override {
