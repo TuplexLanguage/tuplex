@@ -126,6 +126,7 @@ void TxDerivedTypeNode::init_implicit_types() {
             this->baseType = new TxNamedTypeNode( this->ploc, "tx.Interface" );
         else
             this->baseType = new TxNamedTypeNode( this->ploc, "tx.Tuple" );
+        this->baseType->set_requires_mutable( this->requires_mutable_type() );
     }
 
     if (! this->builtinTypeDefiner ) {
@@ -136,6 +137,12 @@ void TxDerivedTypeNode::init_implicit_types() {
         const std::string superTypeName = "Super";
         this->superRefTypeNode = new TxTypeDeclNode( this->ploc, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN );
     }
+}
+
+void TxDerivedTypeNode::set_requires_mutable( bool mut ) {
+    TxTypeExpressionNode::set_requires_mutable( mut );
+    if ( this->baseType )
+        this->baseType->set_requires_mutable( mut );
 }
 
 const TxQualType* TxDerivedTypeNode::define_type() {

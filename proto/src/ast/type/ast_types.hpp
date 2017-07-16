@@ -311,6 +311,8 @@ public:
     TxDerivedTypeNode( const TxLocation& ploc, std::vector<TxDeclarationNode*>* members )
         : TxDerivedTypeNode(ploc, nullptr, new std::vector<TxTypeExpressionNode*>(), members) { }
 
+    virtual void set_requires_mutable( bool mut ) override;
+
     virtual TxDerivedTypeNode* make_ast_copy() const override {
         return new TxDerivedTypeNode( this->ploc, this->baseType->make_ast_copy(),
                                       make_node_vec_copy( this->interfaces ), make_node_vec_copy( this->members ) );

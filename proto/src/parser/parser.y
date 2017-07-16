@@ -773,11 +773,14 @@ local_field_def  : NAME COLON type_usage_expr             { $$ = new TxLocalFiel
 ;
 
 // TODO: support declaration flags abstract, final, and maybe static
-type_decl_stmt  : type_or_if opt_modifiable NAME type_derivation
-                    { $$ = new TxTypeStmtNode(@1, $3, NULL, $4, $1, $2); }
-                | type_or_if opt_modifiable NAME LT type_param_list GT type_derivation
-                    { $$ = new TxTypeStmtNode(@1, $3, $5,   $7, $1, $2); }
-                ;
+type_decl_stmt   : type_or_if opt_modifiable NAME type_derivation
+                     { $$ = new TxTypeStmtNode(@1, $3, NULL, $4, $1, $2); }
+                 | type_or_if opt_modifiable NAME LT type_param_list GT type_derivation
+                     { $$ = new TxTypeStmtNode(@1, $3, $5,   $7, $1, $2); }
+
+                 // error recovery, handles when an error occurs before a type body's LBRACE:
+                 | error type_body  { $$ = new TxNoOpStmtNode(@1); TX_SYNTAX_ERROR; }
+                 ;
 
 
 return_stmt : KW_RETURN expr  { $$ = new TxReturnStmtNode(@1, $2); }

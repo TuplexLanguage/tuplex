@@ -22,9 +22,15 @@ type ImmutableType<M,N> {
 
 type StillImmType : ImmutableType<~Int,~Float>;  ## stays immutable although type bindings are mutable 
 
+## can't derive mutable type from immutable base type:
 #experr 1: type ~ BadSyntax  : ~ImmutableType<~Int,~Float>;
-#experr 1: type ~ BadMutType1 : ImmutableType<~Int,~Float>;  ## can't derive mutable type from immutable base type
-#experr 1: type ~ BadMutType2 : ImmutableType<Int,Float>;  ## can't derive mutable type from immutable base type
+#experr 1: type ~ BadMutType1 : ImmutableType<~Int,~Float>;
+#experr 1: type ~ BadMutType2 : ImmutableType<Int,Float>;
+#experr 1: type ~ BadMutType3 : StillImmType;
+#experr 1: type ~ AlsoBadSyntax  : ~ImmutableType<~Float,~Int> { }
+#experr 1: type ~ AlsoBadMutType1 : ImmutableType<~Float,~Int> { }
+#experr 1: type ~ AlsoBadMutType2 : ImmutableType<Float,Int> { }
+#experr 1: type ~ AlsoBadMutType3 : StillImmType { }
 
 type ~ GType<S,T,U> {
     sfield : S;
@@ -65,8 +71,12 @@ type ~ GType<S,T,U> {
 main()->Int {
     type ImmSpec  : GType<Int,Float,Bool>;
     type ~MutSpec : GType<~Int,~Float,Bool>;
+    type ImmSpec2  : GType<Float,Float,Bool> { }
+    type ~MutSpec2 : GType<~Float,~Float,Bool> { }
     #experr 1: type BadSyntax : ~GType<~Int,~Float,Bool>;
     #experr 2: type ~BadSpec : GType<Int,Float,Bool>;
+    #experr 1: type AlsoBadSyntax : ~GType<~Float,~Int,Bool> { }
+    #experr 2: type ~AlsoBadSpec : GType<Float,Int,Bool> { }
 
     {
         nonmodI := <GType<Int,Float,Bool>>( 2, 3.14, TRUE );
