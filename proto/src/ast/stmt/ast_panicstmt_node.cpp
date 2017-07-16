@@ -13,10 +13,9 @@ TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, TxExpressionNode* mess
     header << '"' << *this->ploc.begin.filename << ":" << this->ploc.begin.line << ": Panic: " << '"';
     auto headerExpr = new TxStringLitNode( this->ploc, header.str() );
     auto panicMsgExpr = TxConcatenateStringsNode::make_strcat_node( this->ploc, headerExpr, messageExpr );
-    auto printCallee = new TxFieldValueNode( this->ploc, nullptr, "tx.print" );
+    auto printCallee = new TxFieldValueNode( this->ploc, nullptr, "tx.print_err" );
     auto printCallExpr = new TxFunctionCallNode( this->ploc, printCallee, new std::vector<TxExpressionNode*>( { panicMsgExpr } ) );
     TxStatementNode* printStmt = new TxCallStmtNode( this->ploc, printCallExpr );
-    // TODO: emit it to stderr instead of stdout
 
     // we call c library abort() upon assertion failure
     auto abortCallee = new TxFieldValueNode( this->ploc, nullptr, "tx.c.abort" );
@@ -37,14 +36,12 @@ TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, std::string message )
     //msg << procName << ": ";         // TODO: will need to be determined via system call
     msg << *this->ploc.begin.filename << ":" << this->ploc.begin.line;
     msg << ": Panic: " << message;
-    std::string panicMsg = "c\"" + msg.str() + "\"";
+    std::string panicMsg = "c\"" + msg.str() + "\n\"";
     auto msgExpr = new TxCStringLitNode( this->ploc, panicMsg );
-    //auto convStrExpr = new TxReferenceToNode( this->ploc, new TxElemDerefNode( this->ploc, msgExpr,
-    //                                                                           new TxIntegerLitNode( this->ploc, 0, false ), true ) );
-    auto putsCallee = new TxFieldValueNode( this->ploc, nullptr, "tx.c.puts" );
-    auto putsCallExpr = new TxFunctionCallNode( this->ploc, putsCallee, new std::vector<TxExpressionNode*>( { msgExpr } ) );
+    auto stderrArg = new TxFieldValueNode( this->ploc, nullptr, "tx.c.stderr" );
+    auto putsCallee = new TxFieldValueNode( this->ploc, nullptr, "tx.c.fputs" );
+    auto putsCallExpr = new TxFunctionCallNode( this->ploc, putsCallee, new std::vector<TxExpressionNode*>( { msgExpr, stderrArg } ) );
     TxStatementNode* putsStmt = new TxCallStmtNode( this->ploc, putsCallExpr );
-    // TODO: emit it to stderr instead of stdout
 
     // we call c library abort() upon assertion failure
     auto abortCallee = new TxFieldValueNode( this->ploc, nullptr, "tx.c.abort" );

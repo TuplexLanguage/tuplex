@@ -8,6 +8,14 @@ print( str : &Stringer ) {
     tx.c.puts( buf.array() );
 }
 
+print_err( str : &Stringer ) {
+    ~buf := GrowableUByteArray();
+    str.string( &buf );
+    buf.add( '\n' );
+    buf.add( 0 );
+    tx.c.fputs( buf.array(), tx.c.stderr );
+}
+
 print_address( r : Ref ) {
     print( %016x _address( r ) );
 }

@@ -23,13 +23,12 @@ TxAssertStmtNode::TxAssertStmtNode( const TxLocation& ploc, TxExpressionNode* ex
     msg << ": Assertion failed";
     //msg << ": `" << srcExpr << "`";  // TODO: source text needed for this
     //msg << ": " << customMessage;    // TODO: supported custom assert message
-    std::string assertFailedMsg = "c\"" + msg.str() + "\"";
+    std::string assertFailedMsg = "c\"" + msg.str() + "\n\"";
     auto msgExpr = new TxCStringLitNode( pLoc, assertFailedMsg );
-    //auto convStrExpr = new TxReferenceToNode( pLoc, new TxElemDerefNode( pLoc, msgExpr, new TxIntegerLitNode( pLoc, 0, false ), true ) );
-    auto putsCallee = new TxFieldValueNode( pLoc, nullptr, "tx.c.puts" );
-    auto putsCallExpr = new TxFunctionCallNode( pLoc, putsCallee, new std::vector<TxExpressionNode*>( { msgExpr } ) );
+    auto stderrArg = new TxFieldValueNode( this->ploc, nullptr, "tx.c.stderr" );
+    auto putsCallee = new TxFieldValueNode( pLoc, nullptr, "tx.c.fputs" );
+    auto putsCallExpr = new TxFunctionCallNode( pLoc, putsCallee, new std::vector<TxExpressionNode*>( { msgExpr, stderrArg } ) );
     TxStatementNode* putsStmt = new TxCallStmtNode( pLoc, putsCallExpr );
-    // TODO: emit it to stderr instead of stdout
 
     // we call c library abort() upon assertion failure
     auto abortCallee = new TxFieldValueNode( pLoc, nullptr, "tx.c.abort" );
