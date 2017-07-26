@@ -26,7 +26,7 @@ TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, TxExpressionNode* mess
     this->suite = new TxSuiteNode( this->ploc, new std::vector<TxStatementNode*>( { printStmt, abortStmt } ) );
 }
 
-TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, std::string message )
+TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, const std::string& message )
         : TxStatementNode( ploc ) {
     // print assert failed message:
     /* example C assert failed message:
@@ -34,7 +34,9 @@ TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, std::string message )
      */
     std::stringstream msg;
     //msg << procName << ": ";         // TODO: will need to be determined via system call
-    msg << *this->ploc.begin.filename << ":" << this->ploc.begin.line;
+    if ( this->ploc.begin.filename )
+        msg << *this->ploc.begin.filename;
+    msg << ":" << this->ploc.begin.line;
     msg << ": Panic: " << message;
     std::string panicMsg = "c\"" + msg.str() + "\n\"";
     auto msgExpr = new TxCStringLitNode( this->ploc, panicMsg );

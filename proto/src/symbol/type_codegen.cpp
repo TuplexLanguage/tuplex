@@ -73,7 +73,7 @@ Value* TxActualType::gen_size( LlvmGenerationContext& context, GenScope* scope )
     return ConstantExpr::getSizeOf( llvmType );
 }
 
-Value* TxActualType::gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
+Value* TxActualType::gen_alloca( LlvmGenerationContext& context, GenScope* scope, unsigned aligment, const std::string &varName ) const {
     if ( !this->is_static() ) {
         if ( this->is_concrete() )
             CERR_CODECHECK( this, "Currently not supported: Non-array types with VALUE bindings that are not statically constant: " << this );
@@ -81,9 +81,13 @@ Value* TxActualType::gen_alloca( LlvmGenerationContext& context, GenScope* scope
             THROW_LOGIC( "Attempted to codegen size of non-concrete type " << this );
     }
     Type* llvmType = context.get_llvm_type( this );  // (gets the cached LLVM type if previously accessed)
-    Value* objPtrV = scope->builder->CreateAlloca( llvmType, nullptr, varName );
+    Value* objPtrV = scope->builder->Insert( new AllocaInst( llvmType, nullptr, aligment ), varName );
     this->initialize_specialized_obj( context, scope, objPtrV );
     return objPtrV;
+}
+
+Value* TxActualType::gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
+    return this->gen_alloca( context, scope, 0, varName );
 }
 
 Value* TxActualType::gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName ) const {
@@ -282,7 +286,8 @@ Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope,
 
     Value* allocationPtr;
     if ( capExpr->is_statically_constant() ) {
-        allocationPtr = TxActualType::gen_alloca( context, scope, varName );
+        allocationPtr = TxActualType::gen_alloca( context, scope, 8, varName );  // allocate array object, alignment of 8
+        return allocationPtr;
     }
     else {
         // if size not statically constant, the llvm type will indicate zero array length and thus not describe full size of the allocation
@@ -291,8 +296,9 @@ Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope,
         Value* elemSizeV = this->element_type()->type()->acttype()->gen_size( context, scope );
         Value* objectSizeV = this->inner_code_gen_size( context, scope, elemSizeV, arrayCap64V );
 
-        // allocate array object:
-        allocationPtr = scope->builder->CreateAlloca( Type::getInt8Ty( context.llvmContext ), objectSizeV, "arrayalloca" );
+        // allocate array object, alignment of 8:
+        //allocationPtr = scope->builder->CreateAlloca( Type::getInt8Ty( context.llvmContext ), objectSizeV, "arrayalloca" );
+        allocationPtr = scope->builder->Insert( new AllocaInst( Type::getInt8Ty( context.llvmContext ), objectSizeV, 8 ), "arrayalloca" );
     }
 
     // cast the pointer:
@@ -317,7 +323,8 @@ Value* TxArrayType::gen_malloc( LlvmGenerationContext& context, GenScope* scope,
 
     Value* allocationPtr;
     if ( capExpr->is_statically_constant() ) {
-        allocationPtr = TxActualType::gen_malloc( context, scope, varName );
+        allocationPtr = TxActualType::gen_malloc( context, scope, varName );  // we assume malloc will provide alignment of at least 8
+        return allocationPtr;
     }
     else {
         // if size not statically constant, the llvm type will indicate zero array length and thus not describe full size of the allocation
@@ -327,7 +334,7 @@ Value* TxArrayType::gen_malloc( LlvmGenerationContext& context, GenScope* scope,
         Value* objectSizeV = this->inner_code_gen_size( context, scope, elemSizeV, arrayCap64V );
 
         // allocate array object:
-        allocationPtr = context.gen_malloc( scope, objectSizeV );
+        allocationPtr = context.gen_malloc( scope, objectSizeV );  // we assume malloc will provide alignment of at least 8
     }
 
     // cast the pointer:

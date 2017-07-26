@@ -102,7 +102,7 @@ const TxQualType* TxFilledArrayLitNode::define_type() {
                 elemTypeNode = new TxTypeTypeArgumentNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) );
                 run_declaration_pass( elemTypeNode, this, "elem-type" );
             }
-            auto tmpcapacityExpr = new TxIntegerLitNode( this->ploc, elemExprList->size(), false, TXBT_UINT );
+            auto tmpcapacityExpr = new TxIntegerLitNode( this->ploc, elemExprList->size(), false, ARRAY_SUBSCRIPT_TYPE_ID );
             auto capacityNode = new TxValueTypeArgumentNode( tmpcapacityExpr );
             run_declaration_pass( capacityNode, this, "capacity" );
             auto arrayEntType = this->registry().get_array_type( this, elemTypeNode, capacityNode );

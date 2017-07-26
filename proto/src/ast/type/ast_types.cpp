@@ -198,8 +198,8 @@ void TxFunctionTypeNode::typeexpr_declaration_pass() {
     // overrides in order to create implicit declaration for the function type
     if ( !this->get_declaration() ) {
         TxDeclarationFlags fieldFlags = TXD_NONE;
-        if (auto fieldDefNode = dynamic_cast<const TxFieldDefNode*>( this->parent() ) ) {
-            fieldFlags = fieldDefNode->get_declaration()->get_decl_flags();
+        if ( auto enclFieldDefNode = this->enclosing_node<TxFieldDefNode>() ) {
+            fieldFlags = enclFieldDefNode->get_declaration()->get_decl_flags();
         }
         TxDeclarationFlags inheritedFlagsFilter = TXD_EXTERNC | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_EXPERRBLOCK;
         TxDeclarationFlags flags = ( fieldFlags & inheritedFlagsFilter ) | TXD_IMPLICIT;

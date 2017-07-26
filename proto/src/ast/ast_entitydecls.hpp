@@ -62,6 +62,10 @@ public:
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->fieldDef->visit_ast( visitor, thisCursor, "field", context );
     }
+
+    virtual const std::string& get_descriptor() const override {
+        return this->fieldDef->get_descriptor();
+    }
 };
 
 /** Both non-local and local type declarations */

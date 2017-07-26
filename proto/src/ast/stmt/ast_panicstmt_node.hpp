@@ -16,7 +16,7 @@ class TxPanicStmtNode : public TxStatementNode {
 public:
     TxPanicStmtNode( const TxLocation& ploc, TxExpressionNode* messageExpr );
 
-    TxPanicStmtNode( const TxLocation& ploc, std::string message );
+    TxPanicStmtNode( const TxLocation& ploc, const std::string& message );
 
     virtual TxPanicStmtNode* make_ast_copy() const override {
         return new TxPanicStmtNode( this->ploc, this->suite->make_ast_copy() );

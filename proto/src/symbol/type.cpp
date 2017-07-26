@@ -449,7 +449,7 @@ bool TxActualType::inner_prepare_members() {
                         this->virtualFields.override_field( field );
                 }
                 else {
-                    if ( fieldDecl->get_decl_flags() & TXD_OVERRIDE )
+                    if ( ( fieldDecl->get_decl_flags() & ( TXD_OVERRIDE | TXD_BUILTIN ) ) == TXD_OVERRIDE )  // (suppressed for built-ins)
                         CWARNING( field, "Field doesn't override but is declared 'override': " << field );
                     if ( !expErrField || expErrWholeType )
                         this->virtualFields.add_field( field );
@@ -466,7 +466,7 @@ bool TxActualType::inner_prepare_members() {
 
                 if ( fieldDecl->get_decl_flags() & TXD_ABSTRACT )
                     CERROR( field, "Can't declare a non-virtual field as abstract: " << field );
-                if ( fieldDecl->get_decl_flags() & TXD_OVERRIDE )
+                if ( ( fieldDecl->get_decl_flags() & ( TXD_OVERRIDE | TXD_BUILTIN ) ) == TXD_OVERRIDE )  // (suppressed for built-ins)
                     CWARNING( field, "Field doesn't override but is declared 'override': " << field );
                 if ( !expErrField || expErrWholeType )
                     this->staticFields.add_field( field );
@@ -490,8 +490,8 @@ bool TxActualType::inner_prepare_members() {
     return recursionError;
 }
 
-/** Returns true if this type has one or more (unbound) TYPE parameters that are not constrained to be a Ref type. */
-static bool has_nonref_params( const TxActualType* type ) {
+/** Returns true if this type has one or more (unbound) parameters that are not constrained to be a Ref type. */
+static bool has_nonref_params( const TxActualType* type, bool allowValueParams ) {
     for ( auto & paramDecl : type->get_type_params() ) {
         if ( auto paramTypeDecl = dynamic_cast<const TxTypeDeclaration*>( paramDecl ) ) {
             auto constraintType = paramTypeDecl->get_definer()->resolve_type();
@@ -499,17 +499,22 @@ static bool has_nonref_params( const TxActualType* type ) {
             if ( constraintType->get_type_class() != TXTC_REFERENCE )
                 return true;
         }
-        // while unbound VALUE parameters can affect data type size, they do not necessarily affect code generation
+        else if ( !allowValueParams ) {
+            return true;
+            // Note, while unbound VALUE parameters can affect data type size, they do not necessarily affect code generation
+        }
     }
     return false;
 }
 
+/** Returns true if this type is defined within an outer scope that has one or more (unbound) TYPE parameters
+ * that are not constrained to be a Ref type. */
 static bool has_outer_with_nonref_params( const TxActualType* type ) {
     TxScopeSymbol* scope = type->get_declaration()->get_symbol()->get_outer();
     while ( !dynamic_cast<TxModule*>( scope ) ) {
         if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( scope ) ) {
             type = entitySymbol->get_type_decl()->get_definer()->qualtype()->type()->acttype();
-            if ( has_nonref_params( type ) )
+            if ( has_nonref_params( type, true ) )
                 return true;
         }
         scope = scope->get_outer();
@@ -520,12 +525,6 @@ static bool has_outer_with_nonref_params( const TxActualType* type ) {
 /** Returns true if this type is dependent on a VALUE type parameter binding with a dynamic value (not known at compile time),
  * either directly (one of its own bindings), or via a TYPE binding that is dynamic. */
 static bool is_dynamic_binding_dependent( const TxActualType* type ) {
-//    if ( recursionGuard ) {
-//        LOG( this->LOGGER(), DEBUG,
-//             "Infinite recursion (probably due to erroneously recursive type definition) detected in is_concrete() of type " << this );
-//        return false;
-//    }
-//    ScopedRecursionGuardClause guard( this );
     for ( auto b : type->get_bindings() ) {
         if ( auto f = dynamic_cast<const TxFieldDeclaration*>( b ) ) {
             if ( auto initExpr = f->get_definer()->get_init_expression() ) {
@@ -555,7 +554,7 @@ bool TxActualType::is_concrete() const {
             return false;
     }
 
-    if ( has_nonref_params( type ) )
+    if ( has_nonref_params( type, false ) )
         return false;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
     return !has_outer_with_nonref_params( type );
 }
@@ -570,7 +569,7 @@ bool TxActualType::is_static() const {
             return false;
     }
 
-    if ( has_nonref_params( type ) )
+    if ( has_nonref_params( type, false ) )
         return false;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
     if ( has_outer_with_nonref_params( type ) )
         return false;
@@ -587,7 +586,7 @@ bool TxActualType::is_dynamic() const {
             return false;
     }
 
-    if ( has_nonref_params( type ) )
+    if ( has_nonref_params( type, false ) )
         return false;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
     if ( has_outer_with_nonref_params( type ) )
         return false;
@@ -610,18 +609,18 @@ bool TxActualType::is_type_generic_dependent() const {
 
     bool genCtx = type->get_declaration()->get_definer()->context().is_generic();
     if (genCtx) {
-        //if ( this->get_declaration()->get_unique_full_name().find( "tx.Array<$,13>0" ) != std::string::npos )
+        //if ( type->get_declaration()->get_unique_full_name().find( "tx.Array<$,13>0" ) != std::string::npos )
         //std::cerr << "Has generic context: " << type << std::endl;
         return true;
     }
 
-    if ( type->is_generic_specialization() ) {
+    while ( type->is_generic_specialization() ) {
         // a type that specializes a generic base type does not define new members - testing the non-ref bindings is sufficient
         if ( type->nonRefBindings ) {
-            for ( auto bdecl : this->get_bindings() ) {
+            for ( auto bdecl : type->get_bindings() ) {
                 if ( auto typebdecl = dynamic_cast<const TxTypeDeclaration*>( bdecl ) ) {
                     auto pname = bdecl->get_unique_name();
-                    auto paramDecl = this->genericBaseType->get_type_param_decl( pname );
+                    auto paramDecl = type->genericBaseType->get_type_param_decl( pname );
                     auto constraintType = paramDecl->get_definer()->resolve_type()->type();
                     if ( constraintType->get_type_class() != TXTC_REFERENCE
                          && typebdecl->get_definer()->qualtype()->type()->acttype()->is_type_generic_dependent() )
@@ -633,6 +632,10 @@ bool TxActualType::is_type_generic_dependent() const {
                 }
             }
         }
+
+        // examine whether base type (not "generic base type") has generic-dependent bindings,
+        // this catches certain specializations done from a generic-dependent context not included in context().is_generic()
+        type = type->get_base_type();
     }
 
     return false;
@@ -970,15 +973,15 @@ std::string TxActualType::str() const {
     return this->str( true );
 }
 
-//static void type_params_string(std::stringstream& str, const std::vector<const TxEntityDeclaration*>& params) {
-//    str << "<";
-//    int ix = 0;
-//    for (auto & p : params) {
-//        if (ix++)  str << ",";
-//        str << p->get_unique_name();
-//    }
-//    str << ">";
-//}
+static void type_params_string(std::stringstream& str, const std::vector<const TxEntityDeclaration*>& params) {
+    str << " {";
+    int ix = 0;
+    for (auto & p : params) {
+        if (ix++)  str << ",";
+        str << p->get_unique_name();
+    }
+    str << "}";
+}
 
 static void type_bindings_string( std::stringstream& str, const std::vector<const TxEntityDeclaration*>& bindings ) {
     str << " <";
@@ -1029,9 +1032,9 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
         return;
     }
 
+    if (! this->params.empty())
+        type_params_string(str, this->params);
     if ( !expl && !brief ) {
-        //if (! this->params.empty())
-        //    type_params_string(str, this->params);
         if ( !this->get_bindings().empty() ) {
             type_bindings_string( str, this->get_bindings() );
         }

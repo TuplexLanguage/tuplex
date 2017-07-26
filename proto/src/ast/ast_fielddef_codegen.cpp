@@ -70,8 +70,6 @@ void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenSco
 
 
 Value* TxNonLocalFieldDefNode::code_gen_field_decl( LlvmGenerationContext& context ) const {
-    if ( get_node_id()==16913)
-        std::cerr<<"here " << this << std::endl;
     if ( !this->get_field()->has_llvm_value() ) {
         this->inner_code_gen_field( context, false );
     }
@@ -130,6 +128,7 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
                 else {
                     ASSERT( this->initExpression, "instance method does not have an initializer/definition: " << fieldDecl->get_unique_full_name() );
                     auto initLambdaV = this->code_gen_const_init_value( context, genBody );
+                    //fieldVal = initLambdaV;
                     auto funcPtrV = initLambdaV->getAggregateElement( (unsigned) 0 );
                     fieldVal = funcPtrV;  // the naked $func is stored (as opposed to a full lambda object)
                 }

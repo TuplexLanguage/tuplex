@@ -90,7 +90,7 @@ const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntit
                 }
 
                 {
-                    //LOG_INFO(entitySymbol->LOGGER(), "Candidate function: " << field->get_type());
+                    //LOG_INFO( entitySymbol->LOGGER(), "Candidate function: " << field->qualtype() );
 
                     // next check that the argument types match, and how close they match:
                     uint16_t reint[4] = { 0, 0, 0, 0 };
@@ -165,6 +165,7 @@ const TxFieldDeclaration* resolve_constructor( TxExpressionNode* origin, const T
     auto constrMember = lookup_member( origin->context().scope(), constructionBaseType->get_declaration()->get_symbol(), CONSTR_IDENT );
     if ( auto constructorSymbol = dynamic_cast<TxEntitySymbol*>( constrMember ) ) {
         if ( auto constructorDecl = resolve_field( origin, constructorSymbol, appliedFuncArgs ) ) {
+            //std::cerr << "Resolved constructor " << constructorDecl << ": " << constructorDecl->get_definer()->qualtype() << " at " << origin << std::endl;
             ASSERT( constructorDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ),
                     "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );
             return constructorDecl;

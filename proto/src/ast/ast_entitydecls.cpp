@@ -77,6 +77,7 @@ void TxFieldDeclNode::declaration_pass() {
               || ( ( flags & ( TXD_OVERRIDE | TXD_FINAL ) ) == TXD_FINAL ) // if final but doesn't override, its effectively static
          ) ) {
         storage = TXS_STATIC;
+        // Note: If declared virtual, the virtual declaration flag is still set on this declaration
     }
 
     std::string declName = this->fieldDef->fieldName->str();
@@ -86,6 +87,18 @@ void TxFieldDeclNode::declaration_pass() {
             CERROR( this, "Illegal declaration name for non-constructor member: " << declName );
         declName = CONSTR_IDENT;
         flags = flags | TXD_CONSTRUCTOR;
+    }
+    else if ( declName == CONSTR_IDENT ) {  // built-in
+        ASSERT( flags & TXD_BUILTIN, "Built-in flag not set: " << flags << " at " << this << " in " << this->context().scope() );
+        if ( flags & TXD_INITIALIZER ) {
+            ASSERT( storage == TXS_STATIC,
+                    "Initializer not a static field: " << storage << " at " << this << " in " << this->context().scope() );
+        }
+        else {
+            ASSERT( flags & TXD_CONSTRUCTOR, "Constructor flag not set: " << flags << " at " << this << " in " << this->context().scope() );
+            ASSERT( storage == TXS_INSTANCEMETHOD,
+                    "Constructor not an instance method: " << storage << " at " << this << " in " << this->context().scope() );
+        }
     }
 
     this->fieldDef->declare_field( declName, lexContext.scope(), flags, storage );

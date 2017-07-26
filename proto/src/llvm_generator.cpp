@@ -225,72 +225,85 @@ void LlvmGenerationContext::initialize_runtime_data() {
 
 
 void LlvmGenerationContext::generate_runtime_data() {
-    for ( auto txTypeI = this->tuplexPackage.registry().formal_types_cbegin(); txTypeI != this->tuplexPackage.registry().formal_types_cend();
-            txTypeI++ ) {
-        const TxActualType* txType = *txTypeI;
-        ASSERT( txType->is_prepared(), "Non-prepared type: " << txType );
-        std::string vtableName( txType->get_declaration()->get_unique_full_name() + "$vtable" );
-        if ( auto vtableV = dyn_cast<GlobalVariable>( this->lookup_llvm_value( vtableName ) ) ) {
-            bool isTypeGeneric = txType->is_type_generic();
-            std::string typeIdStr = std::to_string( txType->get_formal_type_id() );
+    for ( auto acttypeI = this->tuplexPackage.registry().formal_types_cbegin();
+            acttypeI != this->tuplexPackage.registry().formal_types_cend();
+            acttypeI++ )
+    {
+        const TxActualType* acttype = *acttypeI;
+        ASSERT( acttype->is_prepared(), "Non-prepared type: " << acttype );
+
+        std::string vtableName( acttype->get_declaration()->get_unique_full_name() + "$vtable" );
+        auto vtableV = dyn_cast<GlobalVariable>( this->lookup_llvm_value( vtableName ) );
+        ASSERT( vtableV, "No vtable found for " << vtableName );
+
+        bool isTypeGeneric = acttype->is_type_generic();
+
+        {
+            std::string typeIdStr = std::to_string( acttype->get_formal_type_id() );
             if ( typeIdStr.size() < 5 )
                 typeIdStr.resize( 5, ' ' );
             if ( isTypeGeneric )  // the only generic types that have a formal type id are Ref and Array
-                LOG_DEBUG( this->LOGGER(), "Type id " << typeIdStr << ": Populating vtable initializer with null placeholders for generic base type " << txType );
+                LOG_DEBUG( this->LOGGER(), "Type id " << typeIdStr
+                           << ": Populating vtable initializer with null placeholders for generic base type " << acttype );
             else
-                LOG_DEBUG( this->LOGGER(), "Type id " << typeIdStr << ": Populating vtable initializer for " << txType );
-            std::vector<Constant*> initMembers;
-            auto virtualFields = txType->get_virtual_fields();
-            initMembers.resize( virtualFields.get_field_count() );
-            for ( auto & field : virtualFields.fieldMap ) {
-                auto actualFieldEnt = virtualFields.get_field( field.second );
-                Constant* llvmFieldC;
-                if ( ( actualFieldEnt->get_decl_flags() & TXD_ABSTRACT ) || isTypeGeneric ) {
-                    //std::cerr << "inserting NULL for abstract virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
-                    Type* fieldType;
-                    if ( actualFieldEnt->get_storage() & TXS_INSTANCEMETHOD ) {
-                        auto closureType = this->get_llvm_type( actualFieldEnt->qualtype()->type() );
-                        fieldType = closureType->getStructElementType( 0 );
-                    }
-                    else if ( field.first == "$adTypeId" ) {
-                        fieldType = this->get_llvm_type( actualFieldEnt->qualtype()->type() );
-                    }
-                    else
-                        fieldType = PointerType::getUnqual( this->get_llvm_type( actualFieldEnt->qualtype()->type() ) );
-                    llvmFieldC = Constant::getNullValue( fieldType );
+                LOG_DEBUG( this->LOGGER(), "Type id " << typeIdStr << ": Populating vtable initializer for " << acttype );
+        }
+
+        auto virtualFields = acttype->get_virtual_fields();
+        std::vector<Constant*> initMembers( virtualFields.get_field_count() );  // initializes full length to enable random access assignment
+        ASSERT( virtualFields.get_field_count() == virtualFields.fieldMap.size(),
+                "Unexpected shadowed fields in virtual fields of " << acttype );
+
+        for ( auto & field : virtualFields.fieldMap ) {
+            auto actualFieldEnt = virtualFields.get_field( field.second );
+            Constant* llvmFieldC;
+
+            if ( ( actualFieldEnt->get_decl_flags() & TXD_ABSTRACT ) || isTypeGeneric ) {
+                //std::cerr << "inserting NULL for abstract virtual field: " << field.first << " at ix " << field.second << std::endl;
+                Type* fieldType;
+                if ( actualFieldEnt->get_storage() & TXS_INSTANCEMETHOD ) {
+                    auto closureType = this->get_llvm_type( actualFieldEnt->qualtype()->type() );
+                    fieldType = closureType->getStructElementType( 0 );
                 }
                 else if ( field.first == "$adTypeId" ) {
-                    ASSERT( txType->get_type_class() == TXTC_INTERFACEADAPTER, "Expected InterfaceAdapter type: " << txType );
-                    auto adapterType = static_cast<const TxInterfaceAdapterType*>( txType );
-                    llvmFieldC = ConstantInt::get( Type::getInt32Ty( this->llvmContext ), adapterType->adapted_type()->get_formal_type_id() );
-                    //valueName = adapterType->adapted_type()->get_declaration()->get_unique_full_name() + ".$typeid";
-                    //auto llvmValue = this->lookup_llvm_value( valueName );
-                    //std::cerr << "$typeid=" << llvmValue << " for adapted type " << adapterType->adapted_type()
-                    //          << " with id " << adapterType->adapted_type()->get_formal_type_id() << std::endl;
+                    fieldType = this->get_llvm_type( actualFieldEnt->qualtype()->type() );
                 }
-                else {
-                    std::string valueName;
-                    if ( actualFieldEnt->get_storage() & TXS_INSTANCEMETHOD ) {
-                        //std::cerr << "inserting instance method: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
-                        valueName = actualFieldEnt->get_declaration()->get_unique_full_name() + "$func";
-                    }
-                    else {
-                        //std::cerr << "inserting virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
-                        valueName = actualFieldEnt->get_declaration()->get_unique_full_name();
-                    }
-                    auto llvmValue = actualFieldEnt->get_llvm_value();
-                    llvmFieldC = cast<Constant>( llvmValue );
-                }
-                //std::cerr << "inserting field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
-                auto ix = field.second;
-                initMembers[ix] = llvmFieldC;
+                else
+                    fieldType = PointerType::getUnqual( this->get_llvm_type( actualFieldEnt->qualtype()->type() ) );
+                llvmFieldC = Constant::getNullValue( fieldType );
             }
-            Constant* initializer = ConstantStruct::getAnon( this->llvmContext, initMembers );
-            vtableV->setInitializer( initializer );
-            //std::cerr << "initializing " << vtableV << " with " << initializer << std::endl;
+
+            else if ( field.first == "$adTypeId" ) {
+                ASSERT( acttype->get_type_class() == TXTC_INTERFACEADAPTER, "Expected InterfaceAdapter type: " << acttype );
+                auto adapterType = static_cast<const TxInterfaceAdapterType*>( acttype );
+                llvmFieldC = ConstantInt::get( Type::getInt32Ty( this->llvmContext ), adapterType->adapted_type()->get_formal_type_id() );
+                //valueName = adapterType->adapted_type()->get_declaration()->get_unique_full_name() + ".$typeid";
+                //auto llvmValue = this->lookup_llvm_value( valueName );
+                //std::cerr << "$typeid=" << llvmValue << " for adapted type " << adapterType->adapted_type()
+                //          << " with id " << adapterType->adapted_type()->get_formal_type_id() << std::endl;
+            }
+
+            else {
+//                std::string valueName;
+//                if ( actualFieldEnt->get_storage() & TXS_INSTANCEMETHOD ) {
+//                    //std::cerr << "inserting instance method: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
+//                    valueName = actualFieldEnt->get_declaration()->get_unique_full_name() + "$func";
+//                }
+//                else {
+//                    //std::cerr << "inserting virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
+//                    valueName = actualFieldEnt->get_declaration()->get_unique_full_name();
+//                }
+                llvmFieldC = cast<Constant>( actualFieldEnt->get_llvm_value() );
+            }
+
+            //std::cerr << "inserting field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
+            auto ix = field.second;
+            initMembers[ix] = llvmFieldC;
         }
-        else
-            this->LOGGER()->error( "No vtable found for %s", vtableName.c_str() );
+
+        Constant* initializer = ConstantStruct::getAnon( this->llvmContext, initMembers );
+        vtableV->setInitializer( initializer );
+        //std::cerr << "initializing " << vtableV << " with " << initializer << std::endl;
     }
 }
 

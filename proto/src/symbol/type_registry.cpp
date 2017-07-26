@@ -51,7 +51,7 @@ void TypeRegistry::resolve_deferred_types() {
                 type->acttype();
             }
             catch ( const resolution_error& err ) {
-                LOG( this->LOGGER(), NOTE, "Caught resolution error resolving deferred type " << type << ": " << err );
+                LOG( this->LOGGER(), INFO, "Caught resolution error resolving deferred type " << type << ": " << err );
             }
         }
 
@@ -65,7 +65,7 @@ void TypeRegistry::resolve_deferred_types() {
             }
             catch ( const resolution_error& err ) {
                 // if this happens, investigate why it wasn't caught before this type was added to the types queue
-                LOG( this->LOGGER(), ALERT, "Caught resolution error resolving enqueued type specialization " << specDecl << ": " << err );
+                LOG( this->LOGGER(), INFO, "Caught resolution error resolving enqueued type specialization " << specDecl << ": " << err );
             }
         }
     }while ( typeIx != this->usedTypes.size() );
@@ -97,7 +97,7 @@ void TypeRegistry::prepare_types() {
         }
         catch ( const resolution_error& err ) {
             // if this happens, investigate why it wasn't caught before this type was added to the types list
-            LOG( this->LOGGER(), ALERT, "Caught resolution error preparing members of type " << type << ": " << err );
+            LOG( this->LOGGER(), INFO, "Caught resolution error preparing members of type " << type << ": " << err );
             continue;
         }
 

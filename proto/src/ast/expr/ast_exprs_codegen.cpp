@@ -115,6 +115,17 @@ Value* TxFunctionCallNode::code_gen_dyn_address( LlvmGenerationContext& context,
 
 Value* TxConstructorCalleeExprNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+//    auto constrField = this->declaration->get_definer()->get_field();
+//    Value* constrFieldLambdaV = constrField->code_gen_field_decl( context );
+//    auto funcPtrV = gen_get_struct_member( context, scope, constrFieldLambdaV, 0 );
+//    auto allocType = this->objectExpr->qualtype()->type()->acttype();
+//    Constant* instanceTypeIdV = allocType->gen_typeid( context, scope );
+//    // construct the lambda object:
+//    auto closureRefT = context.get_voidRefT();
+//    auto closureRefV = gen_ref( context, scope, closureRefT, this->gen_obj_ptr( context, scope ), instanceTypeIdV );
+//    auto lambdaT = cast<StructType>( context.get_llvm_type( this->qualtype() ) );
+//    return gen_lambda( context, scope, lambdaT, funcPtrV, closureRefV );
+
     Value* funcPtrV = this->gen_func_ptr( context, scope );
     auto allocType = this->objectExpr->qualtype()->type()->acttype();
     Constant* instanceTypeIdV = allocType->gen_typeid( context, scope );

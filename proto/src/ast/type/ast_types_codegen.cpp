@@ -72,3 +72,8 @@ void TxModifiableTypeNode::code_gen_type( LlvmGenerationContext& context ) const
     TRACE_CODEGEN( this, context );
     this->typeNode->code_gen_type( context );
 }
+
+void TxConstTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
+    TRACE_CODEGEN( this, context );
+    this->typeNode->code_gen_type( context );
+}

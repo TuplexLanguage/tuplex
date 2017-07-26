@@ -22,12 +22,25 @@ public type MFRef<Q> : Ref<Q>;
 public type MGRef<T> : MFRef<T>;
 
 
+## reverse order array type parameter binding:
+
 public type NAArray<E> : [10]E;
+public type NAArrayInt : NAArray<Int>;
 
 public type NBArray<E> : Array<E,10>;
+public type NBArrayInt : NBArray<Int>;
 
 public type NCArray<E> derives Array<E,10> {
 }
+public type NCArrayInt : NCArray<Int>;
+
+/* as of this writing, the above causes such a type hierarchy:
+    tx.Array            {E,C}
+    tx.Array<$>1        {C}     <$local.NBArray.E>
+    tx.Array<$,10>0             <10>
+    $local.NBArray      {E}
+    $local.NBArray<$>0          <tx.Int>
+*/
 
 
 

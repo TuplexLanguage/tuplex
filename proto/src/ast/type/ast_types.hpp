@@ -485,3 +485,50 @@ public:
         return this->typeNode->get_descriptor();
     }
 };
+
+/** Removes the 'modifiable' modifier on a type. Should only be relevant in combination with TYPE type parameters. */
+class TxConstTypeNode : public TxTypeExpressionNode {
+protected:
+    virtual const TxQualType* define_type() override {
+        auto qtype = this->typeNode->resolve_type();
+        if ( !qtype->is_modifiable() )
+            return qtype;
+        else
+            return new TxQualType( qtype->type(), false );
+    }
+
+public:
+    TxTypeExpressionNode* typeNode;
+
+    TxConstTypeNode( const TxLocation& ploc, TxTypeExpressionNode* typeNode )
+            : TxTypeExpressionNode( ploc ), typeNode( typeNode ) {
+    }
+
+    virtual void set_interface( bool ifkw ) override {
+        TxTypeExpressionNode::set_interface( ifkw );
+        this->typeNode->set_interface( ifkw );
+    }
+
+    virtual void set_requires_mutable( bool mut ) override {
+        // Note, will not compile for this type expression
+        TxTypeExpressionNode::set_requires_mutable( mut );
+        this->typeNode->set_requires_mutable( mut );
+    }
+
+    virtual TxConstTypeNode* make_ast_copy() const override {
+        return new TxConstTypeNode( this->ploc, this->typeNode->make_ast_copy() );
+    }
+
+    virtual bool is_modifiable() const { return false; }
+
+    virtual void symbol_resolution_pass() override {
+        TxTypeExpressionNode::symbol_resolution_pass();
+        this->typeNode->symbol_resolution_pass();
+    }
+
+    virtual void code_gen_type( LlvmGenerationContext& context ) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->typeNode->visit_ast( visitor, thisCursor, "type", context );
+    }
+};

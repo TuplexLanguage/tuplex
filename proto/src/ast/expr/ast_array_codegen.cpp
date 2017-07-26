@@ -291,3 +291,12 @@ Value* TxElemAssigneeNode::code_gen_address( LlvmGenerationContext& context, Gen
     return gen_elem_address( context, scope, this->array->code_gen_dyn_address( context, scope ),
                              this->subscript->code_gen_dyn_value( context, scope ), this->panicNode, true );
 }
+
+Value* TxArrayLenAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    Value* arrayPtrV = this->array->code_gen_dyn_address( context, scope );
+    Value* lenIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                        ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
+    auto lengthPtrV = scope->builder->CreateInBoundsGEP( arrayPtrV, lenIxs );
+    return lengthPtrV;
+}

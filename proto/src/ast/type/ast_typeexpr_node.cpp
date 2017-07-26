@@ -18,9 +18,8 @@ bool is_not_properly_concrete( const TxNode* node, const TxType* type ) {
         //if ( type->acttype()->is_generic() || !type->acttype()->is_generic_dependent() )
         if ( !node->context().is_generic() && !type->acttype()->is_generic_param() )
             return true;
-    }
-    else {
-        LOG_DEBUG( node->LOGGER(), "(Not error since generic context) Object is not concrete: " << type );
+        else
+            LOG_DEBUG( node->LOGGER(), node << " " << node->context().scope() << " (Not error since generic context) Object is not concrete: " << type );
     }
     return false;
 }

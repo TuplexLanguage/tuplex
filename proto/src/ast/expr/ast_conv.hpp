@@ -80,6 +80,7 @@ public:
     TxReferenceConvNode( TxExpressionNode* expr, const TxType* refResultType )
             : TxConversionNode( expr, refResultType ) {
     }
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
 };

@@ -294,6 +294,26 @@ public:
     }
 };
 
+class TxArrayCopyStmtNode : public TxAssignStmtNode {
+    class TxStatementNode* panicNode;
+
+public:
+    TxArrayCopyStmtNode( const TxLocation& ploc, TxAssigneeNode* lvalue, TxExpressionNode* rvalue );
+
+    virtual TxArrayCopyStmtNode* make_ast_copy() const override {
+        return new TxArrayCopyStmtNode( this->ploc, this->lvalue->make_ast_copy(), this->rvalue->originalExpr->make_ast_copy() );
+    }
+
+    virtual void symbol_resolution_pass() override;
+
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        TxAssignStmtNode::visit_descendants( visitor, thisCursor, role, context );
+        this->panicNode->visit_ast( visitor, thisCursor, "panic", context );
+    }
+};
+
 class TxExpErrStmtNode : public TxStatementNode {
     ExpectedErrorClause* expError;
 

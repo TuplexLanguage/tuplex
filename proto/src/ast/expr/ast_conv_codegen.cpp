@@ -96,6 +96,19 @@ Value* TxScalarConvNode::code_gen_dyn_value( LlvmGenerationContext& context, Gen
      */
 }
 
+Value* TxReferenceConvNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context, " -> " << this->resultType );
+    ASSERT( this->expr->qualtype()->get_type_class() == TXTC_REFERENCE, "TxReferenceConvNode applied to non-reference type: " << this->expr->qualtype() );
+
+    auto origValueV = this->expr->code_gen_dyn_value( context, scope );
+    auto newRefT = context.get_llvm_type( this->resultType );
+    Value* origPtrV = gen_get_ref_pointer( context, scope, origValueV );
+    // bitcast from one pointer type to another
+    auto newPtrT = cast<StructType>( newRefT )->getElementType( 0 );
+    Value* newPtrV = scope->builder->CreateBitCast( origPtrV, newPtrT );
+    return newPtrV;
+}
+
 Value* TxReferenceConvNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context, " -> " << this->resultType );
     ASSERT( this->expr->qualtype()->get_type_class() == TXTC_REFERENCE, "TxReferenceConvNode applied to non-reference type: " << this->expr->qualtype() );

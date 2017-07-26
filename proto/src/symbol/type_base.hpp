@@ -593,6 +593,7 @@ public:
     virtual void initialize_specialized_obj( LlvmGenerationContext& context, GenScope* scope, llvm::Value* objPtrV ) const { }
 
     virtual llvm::Value* gen_size( LlvmGenerationContext& context, GenScope* scope ) const;
+    virtual llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, unsigned alignment, const std::string &varName = "" ) const;
     virtual llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const;
     virtual llvm::Value* gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const;
     virtual llvm::Constant* gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const;

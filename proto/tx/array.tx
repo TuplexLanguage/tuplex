@@ -15,10 +15,6 @@ builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, Updatabl
         return self.C;
     }
 
-    override clear() ~ {
-        ## TODO: needs to be a built-in primitive?
-    }
-
     override contains( val : E ) -> Bool {
 /* TODO: requires equals() or similar in Any
         for i in 0..self.L-1 {
@@ -33,6 +29,10 @@ builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, Updatabl
         self[ self.L ] = val;
         return TRUE;
     }
+
+/* built-in:
+    override clear() ~ { ... }
+*/
 
 
 

@@ -5,6 +5,7 @@
 #include "driver.hpp"
 
 #include "llvm_generator.hpp"
+#include "llvm/IR/IntrinsicInst.h"
 
 using namespace llvm;
 
@@ -21,8 +22,8 @@ void TxTypeStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope )
 
 void TxAssignStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto rval = this->rvalue->code_gen_expr( context, scope );
     auto lval = this->lvalue->code_gen_address( context, scope );
+    auto rval = this->rvalue->code_gen_expr( context, scope );
     ASSERT ( lval->getType()->isPointerTy(), "At " << this->parse_loc_string() << ": L-value is not of pointer type:\n" << ::to_string(lval) );
     scope->builder->CreateStore( rval, lval );
 }
@@ -67,4 +68,56 @@ void TxBreakStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope 
 void TxContinueStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     scope->builder->CreateBr( scope->compStmtStack.top()->continueBlock );
+}
+
+
+void TxArrayCopyStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    auto lvalArrayPtrV = this->lvalue->code_gen_address( context, scope );
+    auto rvalArrayPtrV = this->rvalue->code_gen_addr( context, scope );
+
+    Value* lenIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                        ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
+    auto srcLenPtrV = scope->builder->CreateInBoundsGEP( rvalArrayPtrV, lenIxs );
+    auto srcLenV = scope->builder->CreateLoad( srcLenPtrV );
+
+    { // add bounds check:
+        auto parentFunc = scope->builder->GetInsertBlock()->getParent();
+        BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "if_true", parentFunc );
+        BasicBlock* nextBlock = BasicBlock::Create( context.llvmContext, "if_next", parentFunc );
+
+        Value* capIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                            ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) };
+        auto dstCapPtrV = scope->builder->CreateInBoundsGEP( lvalArrayPtrV, capIxs );
+        auto dstCapV = scope->builder->CreateLoad( dstCapPtrV );
+
+        auto condV = scope->builder->CreateICmpULT( dstCapV, srcLenV );
+        scope->builder->CreateCondBr( condV, trueBlock, nextBlock );
+
+        { // if assignee has insufficient capacity
+            scope->builder->SetInsertPoint( trueBlock );
+            panicNode->code_gen( context, scope );
+            scope->builder->CreateBr( nextBlock );  // terminate block, though won't be executed
+        }
+
+        scope->builder->SetInsertPoint( nextBlock );
+    }
+
+    // set assignee's length equal to source's length:
+    auto dstLenPtrV = scope->builder->CreateInBoundsGEP( lvalArrayPtrV, lenIxs );
+    scope->builder->CreateStore( srcLenV, dstLenPtrV );
+
+    // compute array data size:
+    auto arrayT = cast<StructType>( lvalArrayPtrV->getType()->getPointerElementType() )->getContainedType( 2 );
+    auto elemT = cast<ArrayType>( arrayT )->getArrayElementType();
+    auto elemSizeC = ConstantExpr::getSizeOf( elemT );
+    auto srcLen64V = scope->builder->CreateZExtOrBitCast( srcLenV, Type::getInt64Ty( context.llvmContext ) );
+    auto arrayDataSizeV = scope->builder->CreateMul( elemSizeC, srcLen64V, "datasize" );
+
+    // mem-copy array contents:
+    Value* dataIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ) };
+    auto dstDataPtrV = scope->builder->CreateInBoundsGEP( lvalArrayPtrV, dataIxs );
+    auto srcDataPtrV = scope->builder->CreateInBoundsGEP( rvalArrayPtrV, dataIxs );
+    scope->builder->CreateMemCpy( dstDataPtrV, srcDataPtrV, arrayDataSizeV, 8 );
 }

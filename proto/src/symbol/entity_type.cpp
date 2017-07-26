@@ -33,7 +33,7 @@ const TxTypeDeclaration* TxType::get_declaration() const {
         return decl;
     if ( this->_type )
         return this->_type->get_declaration();
-    LOG( this->definer->LOGGER(), ALERT, "Declaration not known for unresolved TxType, definer is " << this->definer );
+    LOG( this->definer->LOGGER(), INFO, "Declaration not known for unresolved TxType, definer is " << this->definer );
     //ASSERT(false, "Declaration not known for unresolved TxType, definer is " << this->definer);
     return nullptr;
 }

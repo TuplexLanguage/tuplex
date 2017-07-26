@@ -22,12 +22,11 @@ array_stack_construction( i : UByte ) {
     a4 := [0]Int();           ## empty array of Ints
     a5 := []Int( 1, 2, 3 );
     a6 := []Int();            ## empty array of Ints
-    #experr 1: ae := [2]Int( 1, 2, 3 );
-    #experr 1: ae := [4]Int( 1, 2, 3 );
-    #experr 1: ae := [0]Int( 1, 2, 3 );
-    #experr 1: ae := [-1]Int( 1, 2, 3 );
-    #experr 1: ae := [2.5]Int( 1, 2, 3 );
-    #experr 1: ae := [i]Int( 1, 2, 3 );
+    #experr 1: ae := [0]Int( 1, 2, 3 );   ## mismatching number of elements
+    #experr 1: ae := [2]Int( 1, 2, 3 );   ## mismatching number of elements
+    #experr 1: ae := [i*3]Int( 1, 2, 3 ); ## capacity not statically constant
+    #experr 1: ae := [-1]Int( 1, 2, 3 );  ## capacity of wrong type
+    #experr 1: ae := [2.5]Int( 1, 2, 3 ); ## capacity of wrong type
 
     ## explicit array type (fully specified or with implicit length) with object initializer:
     a10 := [3]Int( [ 1I, 2, 3 ] );  ## literal array initializer
@@ -37,7 +36,7 @@ array_stack_construction( i : UByte ) {
     a14 := []Int( a10 );            ## field initializer
     a15 := []Int( &a10 );           ## auto-dereferencing
 
-    ## TODO: initialize from non-array sequences
+## TODO: initialize from non-array sequences
 
 ## TODO: conversions
 ##    a16 := [3]Long( a6 );  ## safe element-wise conversion
@@ -63,36 +62,42 @@ array_stack_construction( i : UByte ) {
     a21 := <Array<Int,3>>( [ 1I, 2, 3 ] );
     a22 := <Array<Int,0>>( []Int() );
     a23 := <Array<Int,0>>();           ## syntactic sugar allows omitting brackets
-    ## TODO: a24 := <Array<Int,3>>( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
-    #experr 1: ae := <Array<Int,3>>( [ 1, 2 ] );
-    #experr 1: ae := <Array<Int,3>>( [ 1, 2, 3, 4 ] );
+    a24 := <Array<Int,3>>( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
     #experr 1: ae := <Array<Int,3>>( [ 1.1, 2.2, 3.3 ] );
 
     type MyFA : Array<Float,3>;
     aa := MyFA( [ 1.1, 2.2, 3.3 ] );
-    #experr 1: ae := MyFA( [ 1.1, 2.2 ] );
-    #experr 1: ae := MyFA( [ 1.1, 2.2, 3.3, 4.4 ] );
     #experr 1: ae := MyFA( [ 1, 2, 3 ] );
 
     ## not supported to automatically infer generic type parameters:
-    #experr 2: ae := <Array<Int>>( [ 1, 2, 3 ] );
-    #experr 2: ae := <Array>( [ 1, 2, 3 ] );
+    #experr 2: ae := <Array<Int>>( [ 1I, 2, 3 ] );
+    #experr 2: ae := <Array>( [ 1I, 2, 3 ] );
 
 
-  ## Construction with dynamic Array length
+  ## Construction of emtpy arrays with dynamic length:
     a30 := [i*0]Int();
     a31 := [i*3]Int();
     a32 := <Array<Int,(i*0)>>();
     a33 := <Array<Int,(i*3)>>();
 
 
-  ## TODO: partial initialization and initialization from non-array sequences
-/*
-    #experr 1: ae := [i*3]Int( []Int() );
-    #experr 1: ae := [i*3]Int( 1, 2, 3 );
-    #experr 1: ae := <Array<Int,i*3>>( []Int() );
-    #experr 1: ae := <Array<Int,i*3>>( [ 1I, 2, 3 ] );
-*/
+  ## Partial initialization via constructor:
+    a40 := <Array<Int,(i*3)>>( []Int() );
+    a41 := <Array<Int,(i*3)>>( [ 1I ] );
+    a42 := <Array<Int,(i*3)>>( [ 1I, 2 ] );
+    a43 := MyFA( [ 1.1 ] );
+    a44 := MyFA( [ 1.1, 2.2 ] );
+
+
+## TODO: support partial initialization of explicitly typed array literals (relevant iff modifiable assignee)
+    #experr 1: ae := [3]Int( 1 );
+    #experr 1: ae := [3]Int( 1, 2 );
+    #experr 1: ae := [4]Int( [ 1I, 2, 3 ] );  ## literal array initializer
+    #experr 1: ae := [4]Int( a10 );           ## field initializer
+    #experr 1: ae := [4]Int( &a10 );          ## auto-dereferencing
+
+
+## TODO: initialization from non-array sequences
 }
 
 
@@ -103,25 +108,25 @@ array_new_construction( i : UByte ) {
     #experr 1: a2 := new [ Int(1), 2, 3 ];
     #experr 1: ae := new [];  ## invalid, no element type info
 
-    ## TODO: a3 := new [3]Int( 1, 2, 3 );
+    a3 := new [3]Int( 1, 2, 3 );
     a4 := new [0]Int();           ## empty array of Ints
   ## not supported to automatically infer array length
-    #experr 2: a5 := new []Int( 1, 2, 3 );
+    #experr 1: a5 := new []Int( 1, 2, 3 );
     #experr 1: a6 := new []Int();            ## empty array of Ints
 
-    #experr 1: ae := new [2]Int( 1, 2, 3 );
-    #experr 1: ae := new [4]Int( 1, 2, 3 );
-    #experr 1: ae := new [0]Int( 1, 2, 3 );
-    #experr 1: ae := new [-1]Int( 1, 2, 3 );
-    #experr 1: ae := new [2.5]Int( 1, 2, 3 );
-    #experr 1: ae := new [i]Int( 1, 2, 3 );
+    #experr 0: ae := new [0]Int( 1, 2, 3 );    ## raises runtime panic
+    #experr 0: ae := new [2]Int( 1, 2, 3 );    ## raises runtime panic
+    #experr 1: ae := new [-1]Int( 1, 2, 3 );   ## capacity of wrong type
+    #experr 1: ae := new [2.5]Int( 1, 2, 3 );  ## capacity of wrong type
 
     ## explicit array type (fully specified or with implicit length) with object initializer:
     a10 := new [3]Int( [ 1I, 2, 3 ] );
     a11 := new [3]Int( a10 );
-  ## not supported to automatically inferarray length
-    #experr 1: a12 := new []Int( [ 1I, 2, 3 ] );
-    #experr 1: a13 := new []Int( a10 );
+    a12 := new [3]Int( &a10 );
+  ## not supported to automatically infer array length
+    #experr 1: a13 := new []Int( [ 1I, 2, 3 ] );
+    #experr 1: a14 := new []Int( a10 );
+    #experr 1: a15 := new []Int( &a10 );
 
 ## TODO: conversions
 ##    a16 := new [3]Long( a6 );  ## safe element-wise conversion
@@ -138,20 +143,16 @@ array_new_construction( i : UByte ) {
     a21 := new Array<Int,3>( [ 1I, 2, 3 ] );
     a22 := new Array<Int,0>( []Int() );
     a23 := new Array<Int,0>();           ## syntactic sugar allows omitting brackets
-    ## TODO: a24 := new Array<Int,3>( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
-    #experr 1: ae := new Array<Int,3>( [ 1, 2 ] );
-    #experr 1: ae := new Array<Int,3>( [ 1, 2, 3, 4 ] );
+    a24 := new Array<Int,3>( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
     #experr 1: ae := new Array<Int,3>( [ 1.1, 2.2, 3.3 ] );
 
     type MyFA : Array<Float,3>;
     aa := new MyFA( [ 1.1, 2.2, 3.3 ] );
-    #experr 1: ae := new MyFA( [ 1.1, 2.2 ] );
-    #experr 1: ae := new MyFA( [ 1.1, 2.2, 3.3, 4.4 ] );
     #experr 1: ae := new MyFA( [ 1, 2, 3 ] );
 
     ## not supported to automatically infer generic type parameters:
-    #experr 2: aa := new Array<Int>( [ 1, 2, 3 ] );
-    #experr 2: aa := new Array( [ 1, 2, 3 ] );
+    #experr 1: aa := new Array<Int>( [ 1I, 2, 3 ] );
+    #experr 1: aa := new Array( [ 1I, 2, 3 ] );
 
 
   ## Construction with dynamic Array length:
@@ -159,15 +160,26 @@ array_new_construction( i : UByte ) {
     a31 := new [i*3]Int();
     a32 := new Array<Int,(i*0)>();
     a33 := new Array<Int,(i*3)>();
+    a34 := new [i*3]Int( 1, 2, 3 );
 
 
-  ## TODO: partial initialization and initialization from non-array sequences
-/*
-    a31 := new [i*3]Int( []Int() );
-    a31 := new [i*3]Int( 1, 2, 3 );
-    a40 := new Array<Int,i*3>( []Int() );
-    a41 := new Array<Int,i*3>( [ 1I, 2, 3 ] );
-*/
+  ## Partial initialization via constructor:
+    a40 := new Array<Int,(i*3)>( []Int() );
+    a41 := new Array<Int,(i*3)>( [ 1I ] );
+    a42 := new Array<Int,(i*3)>( [ 1I, 2 ] );
+    a43 := new MyFA( [ 1.1 ] );
+    a44 := new MyFA( [ 1.1, 2.2 ] );
+
+
+  ## Partial initialization via constructor using "explicitly typed array literal syntax":
+    a50 := new [3]Int( 1 );
+    a51 := new [3]Int( 1, 2 );
+    a52 := new [4]Int( [ 1I, 2, 3 ] );  ## literal array initializer
+    a53 := new [4]Int( a10 );           ## field initializer
+    a54 := new [4]Int( &a10 );          ## auto-dereferencing
+
+
+## TODO: initialization from non-array sequences
 }
 
 

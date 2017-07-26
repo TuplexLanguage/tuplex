@@ -12,6 +12,8 @@
 #include "ast/type/ast_types.hpp"
 #include "ast/expr/ast_lit.hpp"
 #include "ast/expr/ast_array.hpp"
+#include "ast/expr/ast_ref.hpp"
+#include "ast/expr/ast_field.hpp"
 #include "ast/expr/ast_lambda_node.hpp"
 #include "ast/stmt/ast_stmts.hpp"
 
@@ -563,26 +565,46 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
             false );  // not method syntax since elementary types' initializers are inlineable, pure functions
 }
 
-static std::vector<TxDeclarationNode*> make_array_constructors( const TxLocation& loc ) {
-    std::vector<TxDeclarationNode*> constructors;
+static std::vector<TxDeclarationNode*> make_array_methods( const TxLocation& loc ) {
+    std::vector<TxDeclarationNode*> methods;
     { // default constructor - this does nothing (it presumes memory allocation logic will initialize Array.C)
         auto constrType = new TxFunctionTypeNode( loc, false, new std::vector<TxArgTypeDefNode*>(), nullptr );
         auto lambdaExpr = new TxLambdaExprNode( loc, constrType, new TxSuiteNode( loc ), true );
-        constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_CONSTRUCTOR,
-                                                     new TxNonLocalFieldDefNode( loc, CONSTR_IDENT,
-                                                                                 nullptr, lambdaExpr ),
-                                                     true ) );  // method syntax since regular constructor
+        methods.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_CONSTRUCTOR,
+                                                new TxNonLocalFieldDefNode( loc, CONSTR_IDENT, nullptr, lambdaExpr ),
+                                                true ) );  // method syntax since regular constructor
     }
     { // copy constructor
-        auto argNode = new TxArgTypeDefNode( loc, "val", new TxNamedTypeNode( loc, "Self" ) );
-        auto returnTypeNode = new TxNamedTypeNode( loc, "Self" );
-        constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_BUILTIN | TXD_INITIALIZER,
-                                                     new TxNonLocalFieldDefNode( loc, CONSTR_IDENT,
-                                                                                 new TxArrayConstructorTypeDefNode( loc, argNode, returnTypeNode ),
-                                                                                 nullptr ),  // no function body, initialization is inlined
-                                                     false ) );  // not method syntax since this initializer is an inlineable, pure function
+        auto copyStmt = new TxArrayCopyStmtNode( loc, new TxDerefAssigneeNode( loc, new TxFieldValueNode( loc, nullptr, "self" ) ),
+                                                 new TxFieldValueNode( loc, nullptr, "src" ) );
+        auto arrayTypeNode = new TxArrayTypeNode( loc, new TxConstTypeNode( loc, new TxNamedTypeNode( loc, "E" ) ) );
+        auto argTypeNode = new TxReferenceTypeNode( loc, nullptr, arrayTypeNode );
+        auto argNode = new TxArgTypeDefNode( loc, "src", argTypeNode );
+        auto constrType = new TxFunctionTypeNode( loc, false, new std::vector<TxArgTypeDefNode*>( { argNode } ), nullptr );
+        auto lambdaExpr = new TxLambdaExprNode( loc, constrType, new TxSuiteNode( loc, new std::vector<TxStatementNode*>( { copyStmt } ) ), true );
+        methods.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_CONSTRUCTOR,
+                                                new TxNonLocalFieldDefNode( loc, CONSTR_IDENT, nullptr, lambdaExpr ),
+                                                true ) );  // method syntax since regular constructor
+        /*
+         auto argNode = new TxArgTypeDefNode( loc, "val", new TxNamedTypeNode( loc, "Self" ) );
+         auto returnTypeNode = new TxNamedTypeNode( loc, "Self" );
+         constructors.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_BUILTIN | TXD_INITIALIZER,
+         new TxNonLocalFieldDefNode( loc, CONSTR_IDENT,
+         new TxArrayConstructorTypeDefNode( loc, argNode, returnTypeNode ),
+         nullptr ),  // no function body, initialization is inlined
+         false ) );  // not method syntax since this initializer is an inlineable, pure function
+         */
     }
-    return constructors;
+    { //  override clear() ~
+        auto clearStmt = new TxAssignStmtNode( loc, new TxArrayLenAssigneeNode( loc, new TxFieldValueNode( loc, nullptr, "self" ) ),
+                                               new TxIntegerLitNode( loc, 0, false, TXBT_UINT ) );
+        auto methodType = new TxFunctionTypeNode( loc, true, new std::vector<TxArgTypeDefNode*>(), nullptr );
+        auto lambdaExpr = new TxLambdaExprNode( loc, methodType, new TxSuiteNode( loc, new std::vector<TxStatementNode*>( { clearStmt } ) ), true );
+        methods.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_OVERRIDE,
+                                                new TxNonLocalFieldDefNode( loc, "clear", nullptr, lambdaExpr ),
+                                                true ) );  // method syntax
+    }
+    return methods;
 }
 
 TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
@@ -683,7 +705,7 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
 
     // create the array base type:
     {
-        auto arrayMembers = make_array_constructors( loc );
+        auto arrayMembers = make_array_methods( loc );
         arrayMembers.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_IMPLICIT | TXD_BUILTIN,
                                                      new TxNonLocalFieldDefNode( loc, "L", new TxNamedTypeNode( loc, "UInt" ), nullptr, false ) ) );
 
@@ -831,10 +853,6 @@ public:
 
     virtual void symbol_resolution_pass() override {
     }
-
-//    virtual llvm::Value* code_gen( LlvmGenerationContext& context, GenScope* scope ) const override {
-//        return nullptr;
-//    }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }

@@ -56,7 +56,6 @@ public:
             ASSERT( false, "Can't make AST copy of a TxArrayLitNode whose elements are owned by another AST node: " << this );
             return nullptr;
         }
-        //return new TxArrayLitNode( this->ploc, make_node_vec_copy( this->origElemExprList ) );
         return new TxFilledArrayLitNode( this->ploc,
                                          ( this->elementTypeNode ? this->elementTypeNode->typeExprNode->make_ast_copy() : nullptr ),
                                          make_node_vec_copy( this->origElemExprList ),
@@ -267,5 +266,51 @@ public:
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->array->visit_ast( visitor, thisCursor, "array", context );
         this->subscript->visit_ast( visitor, thisCursor, "subscript", context );
+    }
+};
+
+
+/** Internal assignee node for modifying the L field of an array (without mutability/modifiability or capacity checks) */
+class TxArrayLenAssigneeNode : public TxAssigneeNode {
+protected:
+    virtual const TxQualType* define_type() override {
+        auto opType = this->array->originalExpr->resolve_type();
+        if ( opType->get_type_class() == TXTC_REFERENCE ) {
+            auto targType = opType->type()->target_type();
+            if ( targType->get_type_class() == TXTC_ARRAY ) {
+                this->array->insert_conversion( targType->type() );
+            }
+        }
+        opType = this->array->resolve_type();
+        if ( opType->get_type_class() != TXTC_ARRAY )
+            CERR_THROWRES( this, "Can't modify L of non-array assignee expression: " << opType );
+
+        return new TxQualType( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ), true );
+    }
+
+public:
+    TxMaybeConversionNode* array;
+
+    TxArrayLenAssigneeNode( const TxLocation& ploc, TxExpressionNode* array )
+            : TxAssigneeNode( ploc ), array( new TxMaybeConversionNode( array ) ) {
+    }
+
+    virtual TxArrayLenAssigneeNode* make_ast_copy() const override {
+        return new TxArrayLenAssigneeNode( this->ploc, this->array->originalExpr->make_ast_copy() );
+    }
+
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
+        return this->array;
+    }
+
+    virtual void symbol_resolution_pass() override {
+        TxAssigneeNode::symbol_resolution_pass();
+        array->symbol_resolution_pass();
+    }
+
+    virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->array->visit_ast( visitor, thisCursor, "array", context );
     }
 };

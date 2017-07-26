@@ -140,6 +140,7 @@ extern "C" int yywrap() { return 0; }
 "abstract"	{ return token::KW_ABSTRACT; }
 "final"		{ return token::KW_FINAL; }
 "override"  { return token::KW_OVERRIDE; }
+"const"     { return token::KW_CONST; }
 "mod"		{ return token::KW_MODIFIABLE; }
 "ref"		{ return token::KW_REFERENCE; }
 "derives"   { return token::KW_DERIVES; }
