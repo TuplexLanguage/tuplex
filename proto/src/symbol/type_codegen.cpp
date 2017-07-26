@@ -74,7 +74,11 @@ Value* TxActualType::gen_alloca( LlvmGenerationContext& context, GenScope* scope
             THROW_LOGIC( "Attempted to codegen size of non-concrete type " << this );
     }
     Type* llvmType = context.get_llvm_type( this );  // (gets the cached LLVM type if previously accessed)
+
+    scope->use_alloca_insertion_point();
     Value* objPtrV = scope->builder->Insert( new AllocaInst( llvmType, nullptr, aligment ), varName );
+    scope->use_current_insertion_point();
+
     this->initialize_specialized_obj( context, scope, objPtrV );
     return objPtrV;
 }
@@ -284,12 +288,16 @@ Value* TxArrayType::gen_alloca( LlvmGenerationContext& context, GenScope* scope,
     }
     else {
         // if size not statically constant, the llvm type will indicate zero array length and thus not describe full size of the allocation
+        // NOTE: Proper use of alloca (in entry block) requires statically known array capacity
+        // FUTURE: This can overflow stack when allocating dynamic-capacity arrays in loops. Do alloca and then "free" after block ends?
+
         // compute the allocation size:
         Value* arrayCap64V = scope->builder->CreateZExtOrBitCast( arrayCapV, Type::getInt64Ty( context.llvmContext ) );
         Value* elemSizeV = this->element_type()->type()->acttype()->gen_size( context, scope );
         Value* objectSizeV = this->inner_code_gen_size( context, scope, elemSizeV, arrayCap64V );
 
         // allocate array object, alignment of 8:
+        // NOTE: Can't perform alloca in entry block since dependent on dynamic capacity expression evaluation.
         //allocationPtr = scope->builder->CreateAlloca( Type::getInt8Ty( context.llvmContext ), objectSizeV, "arrayalloca" );
         allocationPtr = scope->builder->Insert( new AllocaInst( Type::getInt8Ty( context.llvmContext ), objectSizeV, 8 ), "arrayalloca" );
     }

@@ -107,7 +107,11 @@ Value* TxFunctionCallNode::code_gen_dyn_address( LlvmGenerationContext& context,
     else {
         // automatically allocates stack space for the return value
         auto valueV = this->code_gen_expr( context, scope );
+
+        scope->use_alloca_insertion_point();
         Value* valuePtrV = scope->builder->CreateAlloca( valueV->getType(), nullptr, "returnval" );
+        scope->use_current_insertion_point();
+
         scope->builder->CreateStore( valueV, valuePtrV );
         return valuePtrV;
     }
@@ -214,15 +218,6 @@ Value* TxStackConstructionNode::code_gen_dyn_address( LlvmGenerationContext& con
     TRACE_CODEGEN( this, context );
     ASSERT( !this->initializationExpression, "Can't get *address* of stack construction which has inlined expression in " << this
             << "   parent: " << this->parent() << std::endl );
-// currently probably not needed:
-//    if ( this->initializationExpression ) {
-//        // automatically allocates stack space for the return value
-//        std::cerr << "Returning address from " << this << "   parent: " << this->parent() << std::endl;
-//        auto valueV = this->initializationExpression->code_gen_dyn_value( context, scope );
-//        Value* valuePtrV = scope->builder->CreateAlloca( valueV->getType(), nullptr, "stackval" );
-//        scope->builder->CreateStore( valueV, valuePtrV );
-//        return valuePtrV;
-//    }
     Value* objAllocV = static_cast<TxConstructorCalleeExprNode*>( this->constructorCall->callee )->gen_obj_ptr( context, scope );
     this->constructorCall->code_gen_dyn_value( context, scope );
     return objAllocV;

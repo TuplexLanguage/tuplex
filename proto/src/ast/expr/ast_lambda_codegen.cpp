@@ -105,7 +105,7 @@ void TxLambdaExprNode::code_gen_function_body( LlvmGenerationContext& context ) 
         LOG_DEBUG( context.LOGGER(), "inserting default void return instruction for last block of function " << this->functionPtr->getName().str() );
         fscope.builder->CreateRetVoid();
     }
-    ASSERT( entryBlock->getTerminator(), "Function entry block has no terminator" );
+    //ASSERT( entryBlock->getTerminator(), "Function entry block has no terminator" );
 }
 
 Constant* TxLambdaExprNode::code_gen_const_decl( LlvmGenerationContext& context ) const {

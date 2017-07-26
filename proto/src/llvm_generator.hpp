@@ -30,13 +30,21 @@ public:
 };
 
 class GenScope {
+    //llvm::IRBuilderBase::InsertPoint allocaInsertionPoint;
+    llvm::Instruction* lastAllocaInstr = nullptr;
+    llvm::BasicBlock* entryBlock;
+    llvm::BasicBlock* currentBlock;
+
 public:
-    llvm::IRBuilder<> *builder = nullptr;
+    llvm::IRBuilder<> * const builder;
     std::stack<CompoundStatementScope*> compStmtStack;
 
     GenScope( llvm::IRBuilder<> *builder )
-            : builder( builder ) {
+            : entryBlock( builder->GetInsertBlock() ), currentBlock(), builder( builder ) {
     }
+
+    void use_alloca_insertion_point();
+    void use_current_insertion_point();
 };
 
 /** An instance of this class represents a Tuplex to LLVM IR compilation context,

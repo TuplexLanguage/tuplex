@@ -33,6 +33,20 @@
 using namespace llvm;
 
 
+void GenScope::use_alloca_insertion_point() {
+    this->currentBlock = this->builder->GetInsertBlock();
+    if ( this->lastAllocaInstr && this->lastAllocaInstr->getNextNode() )
+        this->builder->SetInsertPoint( this->lastAllocaInstr->getNextNode() );
+    else
+        this->builder->SetInsertPoint( this->entryBlock, this->entryBlock->begin() );
+}
+
+void GenScope::use_current_insertion_point() {
+    this->lastAllocaInstr = this->builder->GetInsertPoint()->getPrevNode();
+    this->builder->SetInsertPoint( this->currentBlock );  // at end of current block
+}
+
+
 /***** Compile the AST into a module *****/
 
 int LlvmGenerationContext::generate_code( const TxParsingUnitNode* staticScopeNode ) {

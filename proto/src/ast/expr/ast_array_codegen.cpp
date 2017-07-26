@@ -14,10 +14,11 @@ Value* TxArrayLitNode::code_gen_dyn_address( LlvmGenerationContext& context, Gen
     }
 
     // automatically allocates local storage for dynamic array literals
+    // NOTE: Proper use of alloca (in entry block) requires statically known array capacity
     auto valueV = this->code_gen_dyn_value( context, scope );
-    auto ptrV = scope->builder->CreateAlloca( valueV->getType() );
-    scope->builder->CreateStore( valueV, ptrV );
-    return ptrV;
+    auto memPtrV = this->qualtype()->type()->acttype()->gen_alloca( context, scope, "arraylit" );
+    scope->builder->CreateStore( valueV, memPtrV );
+    return memPtrV;
 }
 
 
