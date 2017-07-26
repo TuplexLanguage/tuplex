@@ -59,7 +59,7 @@ class LlvmGenerationContext {
 
     // some common, basic types:
     llvm::Type* voidPtrT;
-    llvm::Type* voidRefT;
+    llvm::Type* closureRefT;
 
     // simple symbol table for 'internal' llvm values (not in the normal AST symbol table):
     void register_llvm_value( const std::string& identifier, llvm::Value* val );
@@ -78,7 +78,7 @@ public:
               llvmContext( llvmContext )
     {
         this->voidPtrT = llvm::Type::getInt8PtrTy( this->llvmContext );
-        this->voidRefT = TxReferenceType::make_ref_llvm_type( *this, llvm::Type::getInt8Ty( this->llvmContext ) );
+        this->closureRefT = TxReferenceType::make_ref_llvm_type( *this, llvm::Type::getInt8Ty( this->llvmContext ), "ClosRef" );
     }
 
     inline llvm::Module& llvmModule() const {
@@ -88,8 +88,8 @@ public:
     inline llvm::Type* get_voidPtrT() const {
         return this->voidPtrT;
     }
-    inline llvm::Type* get_voidRefT() const {
-        return this->voidRefT;
+    inline llvm::Type* get_closureRefT() const {
+        return this->closureRefT;
     }
 
     llvm::Type* get_llvm_type( const TxQualType* txType );

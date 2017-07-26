@@ -504,7 +504,7 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
     auto userMainFName = userMain + "$func";
     auto func = this->llvmModule().getFunction( userMainFName );
     if ( func ) {
-        auto nullClosureRefV = Constant::getNullValue( this->get_voidRefT() );
+        auto nullClosureRefV = Constant::getNullValue( this->get_closureRefT() );
         Value* args[] = { nullClosureRefV };
         CallInst *user_main_call = CallInst::Create( func, args, "", bb );
         user_main_call->setTailCall( false );

@@ -574,7 +574,7 @@ public:
     /*--- LLVM code generation methods ---*/
 
     virtual llvm::StructType* make_vtable_type( LlvmGenerationContext& context ) const;
-    virtual llvm::Function* get_type_user_init_func( LlvmGenerationContext& context ) const;
+    //virtual llvm::Function* get_type_user_init_func( LlvmGenerationContext& context ) const;
 
     /** Returns the llvm::Type for an instance of this type (possibly only an opaque struct declaration). */
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const = 0;

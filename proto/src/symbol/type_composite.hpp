@@ -86,6 +86,7 @@ public:
     virtual llvm::Type* make_llvm_externc_type( LlvmGenerationContext& context ) const override;
 
     static llvm::Type* make_ref_llvm_type( LlvmGenerationContext& context, llvm::Type* targetType );
+    static llvm::Type* make_ref_llvm_type( LlvmGenerationContext& context, llvm::Type* targetType, const std::string& name );
 };
 
 /** A function type describes the user signature of a function.

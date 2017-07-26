@@ -48,7 +48,7 @@ static Value* instance_method_value_code_gen( LlvmGenerationContext& context, Ge
     ASSERT( baseValue->getType()->isPointerTy(), "Expected baseValue to be of pointer type but was: " << baseValue->getType() );
 
     // construct the lambda object:
-    auto closureRefT = context.get_voidRefT();
+    auto closureRefT = context.get_closureRefT();
     if ( staticBaseType->get_type_class() == TXTC_INTERFACE ) {
         // if base is an interface (in practice, interface adapter), populate the lambda with the adaptee type id instead
         auto adapteeTypeIdField = staticBaseType->get_virtual_fields().get_field( "$adTypeId" );

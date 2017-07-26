@@ -26,24 +26,20 @@ Constant* gen_get_struct_member( LlvmGenerationContext& context, Constant* struc
 Value* gen_get_ref_pointer( LlvmGenerationContext& context, GenScope* scope, Value* refV ) {
     if ( refV->getType()->isPointerTy() ) {  // address of struct
         auto refPtrA = scope->builder->CreateStructGEP( refV->getType()->getPointerElementType(), refV, 0 );
-        auto refPtrV = scope->builder->CreateLoad( refPtrA );
-        return refPtrV;
+        return scope->builder->CreateLoad( refPtrA, "ptr" );
     }
     else {  // direct / "register" struct
-        auto refPtrV = scope->builder->CreateExtractValue( refV, 0 );
-        return refPtrV;
+        return scope->builder->CreateExtractValue( refV, 0, "ptr" );
     }
 }
 
 Value* gen_get_ref_typeid( LlvmGenerationContext& context, GenScope* scope, Value* refV ) {
     if ( refV->getType()->isPointerTy() ) {  // address of struct
         auto refPtrA = scope->builder->CreateStructGEP( refV->getType()->getPointerElementType(), refV, 1 );
-        auto refPtrV = scope->builder->CreateLoad( refPtrA );
-        return refPtrV;
+        return scope->builder->CreateLoad( refPtrA, "tid" );
     }
     else {  // direct / "register" struct
-        auto refPtrV = scope->builder->CreateExtractValue( refV, 1 );
-        return refPtrV;
+        return scope->builder->CreateExtractValue( refV, 1, "tid" );
     }
 }
 

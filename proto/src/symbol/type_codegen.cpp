@@ -38,25 +38,18 @@ StructType* TxActualType::make_vtable_type( LlvmGenerationContext& context ) con
     return vtableT;
 }
 
-//Constant* TxActualType::code_gen_vtable_size(LlvmGenerationContext& context) const {
-//    Type* llvmType = this->make_vtable_llvm_type(context);
-//    if (! llvmType)
-//        return nullptr;
-//    return ConstantExpr::getSizeOf(llvmType);
+//Function* TxActualType::get_type_user_init_func( LlvmGenerationContext& context ) const {
+//    std::string funcName( this->get_declaration()->get_unique_full_name() + ".$tuinit" );
+//
+//    std::vector<Type*> typeInitFuncArgTypes {
+//                                              context.get_voidPtrT()  // void* to type's data
+//    };
+//    FunctionType *typeInitFuncType = FunctionType::get( llvm::Type::getVoidTy( context.llvmContext ), typeInitFuncArgTypes, false );
+//
+//    Function *initFunc = cast<Function>( context.llvmModule().getOrInsertFunction( funcName, typeInitFuncType ) );
+//    BasicBlock::Create( context.llvmModule().getContext(), "entry", initFunc );
+//    return initFunc;
 //}
-
-Function* TxActualType::get_type_user_init_func( LlvmGenerationContext& context ) const {
-    std::string funcName( this->get_declaration()->get_unique_full_name() + ".$tuinit" );
-
-    std::vector<Type*> typeInitFuncArgTypes {
-                                              context.get_voidPtrT()  // void* to type's data
-    };
-    FunctionType *typeInitFuncType = FunctionType::get( llvm::Type::getVoidTy( context.llvmContext ), typeInitFuncArgTypes, false );
-
-    Function *initFunc = cast<Function>( context.llvmModule().getOrInsertFunction( funcName, typeInitFuncType ) );
-    BasicBlock::Create( context.llvmModule().getContext(), "entry", initFunc );
-    return initFunc;
-}
 
 Type* TxActualType::make_llvm_externc_type( LlvmGenerationContext& context ) const {
     THROW_LOGIC( "This type does not support conversion to/from an extern C type in extern-c function calls: " << this );
@@ -377,15 +370,22 @@ Type* TxReferenceType::make_ref_llvm_type( LlvmGenerationContext& context, Type*
                                          PointerType::getUnqual( targetType ),
                                          Type::getInt32Ty( context.llvmContext )  // type header for reference target type
     };
-    auto llvmType = StructType::get( context.llvmContext, llvmMemberTypes );
-    return llvmType;
+    return StructType::get( context.llvmContext, llvmMemberTypes );
+}
+
+Type* TxReferenceType::make_ref_llvm_type( LlvmGenerationContext& context, Type* targetType, const std::string& name ) {
+    std::vector<Type*> llvmMemberTypes {
+                                         PointerType::getUnqual( targetType ),
+                                         Type::getInt32Ty( context.llvmContext )  // type header for reference target type
+    };
+    return StructType::create( context.llvmContext, llvmMemberTypes, name );
 }
 
 
 Type* TxFunctionType::make_llvm_type( LlvmGenerationContext& context ) const {
-    auto closureRefT = context.get_voidRefT();
+    auto closureRefT = context.get_closureRefT();
     std::vector<Type*> llvmArgTypes;
-    llvmArgTypes.push_back( closureRefT );  // first argument is always the closure object pointer
+    llvmArgTypes.push_back( closureRefT );  // first argument is always the closure object ref
     for ( auto argTxType : this->argumentTypes ) {
         llvmArgTypes.push_back( context.get_llvm_type( argTxType ) );
         LOG_TRACE( context.LOGGER(), "Mapping arg type " << argTxType << " to " << ::to_string(llvmArgTypes.back()) );
@@ -403,9 +403,9 @@ Type* TxFunctionType::make_llvm_type( LlvmGenerationContext& context ) const {
 }
 
 Type* TxExternCFunctionType::make_llvm_type( LlvmGenerationContext& context ) const {
-    // Note: In contrast to regular functions, externc functions don't have a closure object pointer as first argument.
+    // Note: In contrast to regular functions, externc functions don't have a closure object ref as first argument.
     //       However the lambda object is always created with a closure reference field, even if unused in this case.
-    auto closureRefT = context.get_voidRefT();
+    auto closureRefT = context.get_closureRefT();
     auto *funcT = this->make_llvm_externc_type( context );
     std::vector<Type*> llvmMemberTypes {
                                          PointerType::getUnqual( funcT ),  // function pointer
