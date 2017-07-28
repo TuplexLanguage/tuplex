@@ -151,23 +151,9 @@ int LlvmGenerationContext::write_bitcode( const std::string& filepath ) {
 /***** generate runtime type data *****/
 
 void LlvmGenerationContext::initialize_runtime_data() {
-    /* This is a possible future C declaration equivalent of the constructed runtime type data:
-
-     typedef void (*TypeInitializerF)(void* memory);
-
-     typedef struct {
-     uint32_t typeId;
-     void* vtable;
-     uint32_t size;
-     TypeInitializerF initializer;
-     } MetaType;
-
-     extern uint32_t TYPE_COUNT;
-     extern MetaType META_TYPES[];
-     */
+    auto int32T = Type::getInt32Ty( this->llvmContext );
 
     // define the MetaType LLVM data type:
-    auto int32T = Type::getInt32Ty( this->llvmContext );
 //    std::vector<Type*> typeInitFuncArgTypes {
 //        this->get_voidPtrT()  // void* to type's data
 //    };
@@ -176,10 +162,10 @@ void LlvmGenerationContext::initialize_runtime_data() {
 
     auto emptyStructPtrT = PointerType::getUnqual( StructType::get( this->llvmContext ) );
     std::vector<Type*> memberTypes {
-                                     int32T,  // type id
             emptyStructPtrT,  // vtable pointer
-    //int32T,  // data structure size
-    //typeInitFuncT,  // initialization function
+            int32T,           // instance size (for Array types, element instance size)
+            int32T,           // type id
+            //typeInitFuncT,  // initialization function
     };
     StructType* metaType = StructType::get( this->llvmContext, memberTypes );
 
@@ -199,27 +185,28 @@ void LlvmGenerationContext::initialize_runtime_data() {
         auto vtableT = acttype->make_vtable_type( *this );
         if ( !vtableT )
             continue;
-        //std::cerr << "vtable type for " << acttype << " (vtable id=" << acttype->get_vtable_id() << "): " << vtableT << std::endl;
+
         ASSERT( this->llvmVTableTypes.size() == acttype->get_vtable_id(), "Wrong vtable type id / order for " << acttype );
         this->llvmVTableTypes.push_back( vtableT );
 
         // if the type is a formal type, create an actual vtable instance:
         if ( acttype->has_formal_type_id() ) {
-            auto typeId = acttype->get_formal_type_id();
             std::string vtableName( acttype->get_declaration()->get_unique_full_name() + "$vtable" );
             GlobalVariable* vtableV = new GlobalVariable( this->llvmModule(), vtableT, true, GlobalValue::ExternalLinkage, nullptr, vtableName );
             this->register_llvm_value( vtableV->getName(), vtableV );
 
+            auto instanceSizeC = ( acttype->is_static() ? ConstantExpr::getTrunc( acttype->gen_static_element_size( *this ),
+                                                                                  Type::getInt32Ty( this->llvmContext ) )
+                                                        : ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ) );
+            auto typeIdC = ConstantInt::get( int32T, acttype->get_formal_type_id() );
+
             std::vector<Constant*> members {
-                                             ConstantInt::get( int32T, typeId ),
                                              ConstantExpr::getBitCast( vtableV, emptyStructPtrT ),
-            // dummyUserInitF  // utinitF
+                                             instanceSizeC,
+                                             typeIdC,
+                                             //dummyUserInitF  // utinitF
             };
             metaTypes.push_back( ConstantStruct::get( metaType, members ) );
-
-//            // register the constant typeId values for later inclusion in the initialization code:
-//            std::string typeIdName( acttype->get_declaration()->get_unique_full_name() + ".$typeid" );
-//            this->register_llvm_value( typeIdName, ConstantInt::get( int32T, typeId ) );
         }
     }
 
@@ -291,22 +278,9 @@ void LlvmGenerationContext::generate_runtime_data() {
                 ASSERT( acttype->get_type_class() == TXTC_INTERFACEADAPTER, "Expected InterfaceAdapter type: " << acttype );
                 auto adapterType = static_cast<const TxInterfaceAdapterType*>( acttype );
                 llvmFieldC = ConstantInt::get( Type::getInt32Ty( this->llvmContext ), adapterType->adapted_type()->get_formal_type_id() );
-                //valueName = adapterType->adapted_type()->get_declaration()->get_unique_full_name() + ".$typeid";
-                //auto llvmValue = this->lookup_llvm_value( valueName );
-                //std::cerr << "$typeid=" << llvmValue << " for adapted type " << adapterType->adapted_type()
-                //          << " with id " << adapterType->adapted_type()->get_formal_type_id() << std::endl;
             }
 
             else {
-//                std::string valueName;
-//                if ( actualFieldEnt->get_storage() & TXS_INSTANCEMETHOD ) {
-//                    //std::cerr << "inserting instance method: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
-//                    valueName = actualFieldEnt->get_declaration()->get_unique_full_name() + "$func";
-//                }
-//                else {
-//                    //std::cerr << "inserting virtual field: " << field.first << " at ix " << field.second << ": " << actualFieldEnt << std::endl;
-//                    valueName = actualFieldEnt->get_declaration()->get_unique_full_name();
-//                }
                 llvmFieldC = cast<Constant>( actualFieldEnt->get_llvm_value() );
             }
 
@@ -348,6 +322,17 @@ llvm::Value* LlvmGenerationContext::gen_malloc( GenScope* scope, Value* sizeV ) 
 }
 
 
+Value* LlvmGenerationContext::gen_get_element_size( GenScope* scope, Value* runtimeBaseTypeIdV ) const {
+    Value* metaTypesV = this->lookup_llvm_value( "tx.runtime.META_TYPES" );
+    Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
+                     runtimeBaseTypeIdV,
+                     ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 1 ) };
+    auto instanceSizeA = scope->builder->CreateInBoundsGEP( metaTypesV, ixs );
+    auto instanceSizeV = scope->builder->CreateLoad( instanceSizeA );
+    return instanceSizeV;
+}
+
+
 Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV ) const {
     // cast vtable type according to statically declared type (may be parent type of actual type):
     Type* vtablePtrT = PointerType::getUnqual( this->get_llvm_vtable_type( statDeclType ) );
@@ -356,8 +341,9 @@ Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualTyp
     Value* metaTypesV = this->lookup_llvm_value( "tx.runtime.META_TYPES" );
     Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
                      runtimeBaseTypeIdV,
-                     ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 1 ) };
+                     ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ) };
     if ( !scope ) {
+        std::cerr << "NO SCOPE" << std::endl;
         auto vtablePtrA = GetElementPtrInst::CreateInBounds( metaTypesV, ixs );
         auto vtablePtr = new LoadInst( vtablePtrA );
         return CastInst::CreatePointerCast( vtablePtr, vtablePtrT, "vtableptr" );

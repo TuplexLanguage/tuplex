@@ -120,6 +120,11 @@ public:
     /** Generates a malloc call that allocates storage for the specified number of bytes. */
     llvm::Value* gen_malloc( GenScope* scope, llvm::Value* sizeV );
 
+    /** Generates code that gets the instance/element size for a given type id value.
+     * NOTE: For arrays this returns the instance size of their element type.
+     */
+    llvm::Value* gen_get_element_size( GenScope* scope, llvm::Value* typeIdV ) const;
+
     llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, llvm::Value* typeIdV ) const;
     llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType ) const;
 

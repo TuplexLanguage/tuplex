@@ -131,7 +131,8 @@ YY_DECL;
 %token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_XOR
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE KW_FROM
 %token KW_NULL KW_TRUE KW_FALSE
-%token KW_PANIC KW_ASSERT KW_EXPERR KW__ADDRESS KW__TYPEID
+%token KW_PANIC KW_ASSERT KW_EXPERR
+%token KW__ADDRESS KW__TYPEID KW__SIZEOF
 
 /* keywords reserved but not currently used */
 %token KW_TUPLE KW_UNION KW_ENUM
@@ -565,25 +566,26 @@ expr
 
     |   expr DOTDOT expr             { $$ = TxERangeLitNode::make_range_node(@$, $1, $3); }
 
+    |   expr EEQUAL expr             { $$ = new TxEqualityOperatorNode(@$, $1, $3); }
+    |   expr NEQUAL expr             { $$ = new TxUnaryLogicalNotNode(@$, new TxEqualityOperatorNode(@$, $1, $3)); }
+
     |   MINUS expr  %prec NEG        { $$ = new TxUnaryMinusNode(@$, $2); }  // unary minus
-    |   expr PLUS expr               { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_PLUS, $3); }
-    |   expr MINUS expr              { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_MINUS, $3); }
-    |   expr ASTERISK expr           { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_MUL, $3); }
-    |   expr FSLASH expr             { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_DIV, $3); }
-    |   expr EEQUAL expr             { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_EQ, $3); }
-    |   expr NEQUAL expr             { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_NE, $3); }
-    |   expr LT expr                 { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_LT, $3); }
-    |   expr GT expr                 { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_GT, $3); }
-    |   expr LEQUAL expr             { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_LE, $3); }
-    |   expr GEQUAL expr             { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_GE, $3); }
+    |   expr PLUS expr               { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_PLUS, $3); }
+    |   expr MINUS expr              { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_MINUS, $3); }
+    |   expr ASTERISK expr           { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_MUL, $3); }
+    |   expr FSLASH expr             { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_DIV, $3); }
+    |   expr LT expr                 { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_LT, $3); }
+    |   expr GT expr                 { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_GT, $3); }
+    |   expr LEQUAL expr             { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_LE, $3); }
+    |   expr GEQUAL expr             { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_GE, $3); }
 
     |   EMARK expr  %prec NOT        { $$ = new TxUnaryLogicalNotNode(@$, $2); }  // unary not
-    |   expr AAND expr               { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_AND, $3); }
-    |   expr PIPE expr               { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_OR,  $3); }
-    |   expr KW_XOR expr             { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_XOR,  $3); }
-    |   expr LTLT expr      %prec LTLT          { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_LSHIFT, $3); }
-    |   expr GT GT expr     %prec LTLT          { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_RSHIFT, $4); }
-    |   expr GT GT GT expr  %prec LTLT          { $$ = new TxBinaryOperatorNode(@$, $1, TXOP_ARSHIFT, $5); }
+    |   expr AAND expr               { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_AND, $3); }
+    |   expr PIPE expr               { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_OR,  $3); }
+    |   expr KW_XOR expr             { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_XOR,  $3); }
+    |   expr LTLT expr      %prec LTLT          { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_LSHIFT, $3); }
+    |   expr GT GT expr     %prec LTLT          { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_RSHIFT, $4); }
+    |   expr GT GT GT expr  %prec LTLT          { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_ARSHIFT, $5); }
 
     |   string_format_expr           { $$ = $1; }
     ;
@@ -636,6 +638,7 @@ expression_list : expr
 
 intrinsics_expr : KW__ADDRESS LPAREN expr RPAREN  { $$ = new TxRefAddressNode(@$, $3); }
                 | KW__TYPEID  LPAREN expr RPAREN  { $$ = new TxRefTypeIdNode(@$, $3); }
+                | KW__SIZEOF  LPAREN expr RPAREN  { $$ = new TxSizeofExprNode(@$, $3); }
                 ;
 
 

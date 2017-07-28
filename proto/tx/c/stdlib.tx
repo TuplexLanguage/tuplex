@@ -1,5 +1,8 @@
 module tx.c
 
-/* abort() declaration is built-in so it is skipped here 
+/* these declarations are built-in so it is skipped here 
 externc abort();
-8/
+
+## int memcmp ( const void * ptr1, const void * ptr2, size_t num );
+externc memcmp( ptr1 : &[]UByte, ptr2 : &[]UByte, num : ULong );
+*/

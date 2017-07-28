@@ -2,15 +2,16 @@
 
 #include <string>
 
+/** Classes of operations on values of elementary types. */
 enum TxOperationClass {
     TXOC_NONE,
     TXOC_ARITHMETIC,
-    TXOC_EQUALITY,
     TXOC_COMPARISON,
     TXOC_LOGICAL,
     TXOC_SHIFT,
 };
 
+/** Operations on values of elementary types. */
 enum TxOperation {
     TXOP_NONE,
     // TXOC_ARITHMETIC: scalar operand and result types:
@@ -18,9 +19,6 @@ enum TxOperation {
     TXOP_MINUS,
     TXOP_MUL,
     TXOP_DIV,
-    // TXOC_EQUALITY: any operand types; boolean result type:
-    TXOP_EQ,
-    TXOP_NE,
     // TXOC_COMPARISON: scalar operand types; boolean result type:
     TXOP_GT,
     TXOP_GE,

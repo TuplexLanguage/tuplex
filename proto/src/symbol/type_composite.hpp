@@ -36,12 +36,12 @@ public:
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
     virtual llvm::Type* make_llvm_externc_type( LlvmGenerationContext& context ) const override;
     virtual void initialize_specialized_obj( LlvmGenerationContext& context, GenScope* scope, llvm::Value* objPtrV ) const override;
-    virtual llvm::Value* gen_size( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual llvm::Constant* gen_static_element_size( LlvmGenerationContext& context ) const override;
+    virtual llvm::Constant* gen_static_size( LlvmGenerationContext& context ) const override;
+
     virtual llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const override;
     virtual llvm::Value* gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const override;
-
-private:
-    llvm::Value* inner_code_gen_size( LlvmGenerationContext& context, GenScope* scope, llvm::Value* elemSize, llvm::Value* arrayLen ) const;
 };
 
 /** Note, all reference specializations are mutable. */

@@ -64,6 +64,7 @@ public:
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Constant* code_gen_typeid( LlvmGenerationContext& context ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->reference->visit_ast( visitor, thisCursor, "ref", context );
@@ -113,6 +114,7 @@ public:
         return false;
     }
 
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
@@ -124,6 +126,9 @@ public:
 
 
 class TxDerefAssigneeNode : public TxAssigneeNode {
+    /** internal "cache" to prevent multiple code generations */
+    mutable llvm::Value* refExprValue = nullptr;
+
 protected:
     virtual const TxQualType* define_type() override {
         auto refType = this->reference->resolve_type()->type();
@@ -153,6 +158,7 @@ public:
     }
 
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->reference->visit_ast( visitor, thisCursor, "ref", context );

@@ -7,7 +7,7 @@
 #include "tx_lang_defs.hpp"
 
 
-static inline void match_binary_operand_types( TxBinaryOperatorNode* binOpNode, const TxType* ltype, const TxType* rtype ) {
+static inline void match_binary_operand_types( TxBinaryElemOperatorNode* binOpNode, const TxType* ltype, const TxType* rtype ) {
     if ( ltype != rtype ) {
         if ( auto_converts_to( binOpNode->rhs->originalExpr, ltype ) ) {
             binOpNode->rhs->insert_conversion( ltype );
@@ -20,9 +20,14 @@ static inline void match_binary_operand_types( TxBinaryOperatorNode* binOpNode, 
     }
 }
 
-const TxQualType* TxBinaryOperatorNode::define_type() {
+const TxQualType* TxBinaryElemOperatorNode::define_type() {
     auto ltype = this->lhs->originalExpr->resolve_type()->type();
     auto rtype = this->rhs->originalExpr->resolve_type()->type();
+
+    if ( ltype->get_type_class() != TXTC_ELEMENTARY )
+        CERR_THROWRES( this, "Left operand of " << this->op << " is not an elementary type: " << ltype );
+    if ( rtype->get_type_class() != TXTC_ELEMENTARY )
+        CERR_THROWRES( this, "Right operand of " << this->op << " is not an elementary type: " << rtype );
 
     switch ( this->op_class ) {
     case TXOC_ARITHMETIC:
@@ -58,14 +63,6 @@ const TxQualType* TxBinaryOperatorNode::define_type() {
         this->rhs->insert_conversion( ltype );  // LLVM shift instructions require right operand to be same integer type as left one
         break;
 
-    case TXOC_EQUALITY:
-        if ( ltype->get_type_class() != rtype->get_type_class() )
-            CERR_THROWRES( this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype );
-        if ( ltype->get_type_class() == TXTC_ELEMENTARY ) {
-            match_binary_operand_types( this, ltype, rtype );
-        }
-        break;
-
     default:
         THROW_LOGIC( "Invalid/unhandled op-class " << this->op_class << " in " << this );
     }
@@ -73,7 +70,7 @@ const TxQualType* TxBinaryOperatorNode::define_type() {
     this->lhs->resolve_type();
     this->rhs->resolve_type();
 
-    if ( this->op_class == TXOC_EQUALITY || this->op_class == TXOC_COMPARISON )
+    if ( this->op_class == TXOC_COMPARISON )
         return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
     else
         return this->lhs->qualtype();
@@ -122,5 +119,56 @@ const TxQualType* TxUnaryMinusNode::define_type() {
 }
 
 const TxQualType* TxUnaryLogicalNotNode::define_type() {
+    return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
+}
+
+
+const TxQualType* TxEqualityOperatorNode::define_type() {
+    auto ltype = this->lhs->originalExpr->resolve_type()->type();
+    auto rtype = this->rhs->originalExpr->resolve_type()->type();
+
+    // NOTE: We shall not auto-dereference or auto-reference the operands in this operation
+
+    if ( ltype->get_type_class() != rtype->get_type_class() )
+        CERR_THROWRES( this, "Mismatching operand types for equality operator: " << ltype << ", " << rtype );
+
+    switch ( ltype->get_type_class() ) {
+    case TXTC_ELEMENTARY:
+        if ( ltype != rtype ) {
+            if ( auto_converts_to( this->rhs->originalExpr, ltype ) ) {
+                this->rhs->insert_conversion( ltype );
+            }
+            else if ( auto_converts_to( this->lhs->originalExpr, rtype ) ) {
+                this->lhs->insert_conversion( rtype );
+            }
+            else
+                CERR_THROWRES( this, "Mismatching operand types for equality operator: " << ltype << ", " << rtype );
+        }
+        break;
+
+    case TXTC_REFERENCE:
+        // comparison of pointer values
+        break;
+    case TXTC_ARRAY:
+        {   // bitwise comparison of length and data
+            auto lelemtype = ltype->element_type();
+            auto relemtype = rtype->element_type();
+            if ( lelemtype != relemtype )
+                CERR_THROWRES( this, "Mismatching Array element types for equality operator: " << lelemtype << ", " << relemtype );
+        }
+        break;
+    case TXTC_TUPLE:
+        // bitwise comparison of data
+        if ( ltype != rtype )
+            CERR_THROWRES( this, "Mismatching Tuple types for equality operator: " << ltype << ", " << rtype );
+        break;
+
+    default:
+        CERR_THROWRES( this, "Equality operator not supported for type class " << ltype->get_type_class() << ": " << ltype );
+    }
+
+    this->lhs->resolve_type();
+    this->rhs->resolve_type();
+
     return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
 }

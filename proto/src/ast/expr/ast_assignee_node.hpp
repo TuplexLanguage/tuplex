@@ -31,4 +31,7 @@ public:
 
     /** Generates code that produces the value of this expression, which is an assignable L-value, i.e. address. */
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const = 0;
+
+    /** Generates code that produces the type id of this assignee. */
+    virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const;
 };

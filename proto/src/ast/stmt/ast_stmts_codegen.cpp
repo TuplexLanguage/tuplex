@@ -107,17 +107,21 @@ void TxArrayCopyStmtNode::code_gen( LlvmGenerationContext& context, GenScope* sc
     auto dstLenPtrV = scope->builder->CreateInBoundsGEP( lvalArrayPtrV, lenIxs );
     scope->builder->CreateStore( srcLenV, dstLenPtrV );
 
-    // compute array data size:
-    auto arrayT = cast<StructType>( lvalArrayPtrV->getType()->getPointerElementType() )->getContainedType( 2 );
-    auto elemT = cast<ArrayType>( arrayT )->getArrayElementType();
-    auto elemSizeC = ConstantExpr::getSizeOf( elemT );
-    auto srcLen64V = scope->builder->CreateZExtOrBitCast( srcLenV, Type::getInt64Ty( context.llvmContext ) );
-    auto arrayDataSizeV = scope->builder->CreateMul( elemSizeC, srcLen64V, "datasize" );
+    {
+        // Current implementation is to memcpy the data. (This will include uninitialized padding bytes.)
+        // FUTURE: For non-elementary element types, copy each element according to type's copy constructor, if allowed.
+        // compute array data size:
+        auto lvalTypeIdV = this->lvalue->code_gen_typeid( context, scope );
+        auto elemSizeV = context.gen_get_element_size( scope, lvalTypeIdV );
+        auto elemSize64V = scope->builder->CreateZExtOrBitCast( elemSizeV, Type::getInt64Ty( context.llvmContext ) );
+        auto srcLen64V = scope->builder->CreateZExtOrBitCast( srcLenV, Type::getInt64Ty( context.llvmContext ) );
+        auto dataSizeV = scope->builder->CreateMul( elemSize64V, srcLen64V, "datasize" );
 
-    // mem-copy array contents:
-    Value* dataIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ) };
-    auto dstDataPtrV = scope->builder->CreateInBoundsGEP( lvalArrayPtrV, dataIxs );
-    auto srcDataPtrV = scope->builder->CreateInBoundsGEP( rvalArrayPtrV, dataIxs );
-    scope->builder->CreateMemCpy( dstDataPtrV, srcDataPtrV, arrayDataSizeV, 8 );
+        // mem-copy array contents:
+        Value* dataIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                             ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ) };
+        auto dstDataPtrV = scope->builder->CreateInBoundsGEP( lvalArrayPtrV, dataIxs );
+        auto srcDataPtrV = scope->builder->CreateInBoundsGEP( rvalArrayPtrV, dataIxs );
+        scope->builder->CreateMemCpy( dstDataPtrV, srcDataPtrV, dataSizeV, 8 );
+    }
 }

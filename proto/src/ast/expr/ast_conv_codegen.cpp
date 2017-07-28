@@ -5,6 +5,16 @@
 
 using namespace llvm;
 
+Constant* TxMaybeConversionNode::code_gen_typeid( LlvmGenerationContext& context) const {
+    TRACE_CODEGEN( this, context );
+    return this->get_expr()->code_gen_typeid( context );
+}
+
+Value* TxMaybeConversionNode::code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    return this->get_expr()->code_gen_typeid( context, scope );
+}
+
 Constant* TxMaybeConversionNode::code_gen_const_address( LlvmGenerationContext& context) const {
     TRACE_CODEGEN( this, context );
     return this->get_expr()->code_gen_const_address( context );

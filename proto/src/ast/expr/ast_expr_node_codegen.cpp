@@ -7,7 +7,11 @@
 using namespace llvm;
 
 Value* TxExpressionNode::code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const {
-    return this->qualtype()->type()->acttype()->gen_typeid( context, scope );
+    return this->code_gen_typeid( context );
+}
+
+Constant* TxExpressionNode::code_gen_typeid( LlvmGenerationContext& context ) const {
+    return this->qualtype()->type()->acttype()->gen_typeid( context );
 }
 
 

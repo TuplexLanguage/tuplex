@@ -61,6 +61,8 @@ public:
         return this->get_expr()->is_statically_constant();
     }
 
+    virtual llvm::Constant* code_gen_typeid( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const override;
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;

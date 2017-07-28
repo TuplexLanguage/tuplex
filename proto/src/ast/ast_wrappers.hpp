@@ -61,6 +61,10 @@ public:
         return this->exprNode->code_gen_typeid( context, scope );
     }
 
+    virtual llvm::Constant* code_gen_typeid( LlvmGenerationContext& context ) const {
+        return this->exprNode->code_gen_typeid( context );
+    }
+
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         // Traversal does not proceed to the wrapped node from here since it is visited via its original AST location.
     }

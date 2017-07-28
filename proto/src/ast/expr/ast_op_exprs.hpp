@@ -14,7 +14,8 @@ public:
     }
 };
 
-class TxBinaryOperatorNode : public TxOperatorValueNode {
+/** A binary operation on two values of elementary types. */
+class TxBinaryElemOperatorNode : public TxOperatorValueNode {
 protected:
     virtual const TxQualType* define_type() override;
 
@@ -24,14 +25,14 @@ public:
     TxMaybeConversionNode* rhs;
     const int op_class;
 
-    TxBinaryOperatorNode( const TxLocation& ploc, TxExpressionNode* lhs, const TxOperation op, TxExpressionNode* rhs )
+    TxBinaryElemOperatorNode( const TxLocation& ploc, TxExpressionNode* lhs, const TxOperation op, TxExpressionNode* rhs )
             : TxOperatorValueNode( ploc ), op( op ),
               lhs( new TxMaybeConversionNode( lhs ) ), rhs( new TxMaybeConversionNode( rhs ) ), op_class( get_op_class( op ) ) {
         ASSERT( is_valid( op ), "Invalid operator value: " << (int)op );
     }
 
-    virtual TxBinaryOperatorNode* make_ast_copy() const override {
-        return new TxBinaryOperatorNode( this->ploc, this->lhs->originalExpr->make_ast_copy(), this->op,
+    virtual TxBinaryElemOperatorNode* make_ast_copy() const override {
+        return new TxBinaryElemOperatorNode( this->ploc, this->lhs->originalExpr->make_ast_copy(), this->op,
                                          this->rhs->originalExpr->make_ast_copy() );
     }
 
@@ -124,5 +125,42 @@ public:
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->operand->visit_ast( visitor, thisCursor, "operand", context );
+    }
+};
+
+
+/** Equality comparison between two values. */
+class TxEqualityOperatorNode : public TxOperatorValueNode {
+protected:
+    virtual const TxQualType* define_type() override;
+
+public:
+    TxMaybeConversionNode* lhs;
+    TxMaybeConversionNode* rhs;
+
+    TxEqualityOperatorNode( const TxLocation& ploc, TxExpressionNode* lhs, TxExpressionNode* rhs )
+            : TxOperatorValueNode( ploc ), lhs( new TxMaybeConversionNode( lhs ) ), rhs( new TxMaybeConversionNode( rhs ) ) {
+    }
+
+    virtual TxEqualityOperatorNode* make_ast_copy() const override {
+        return new TxEqualityOperatorNode( this->ploc, this->lhs->originalExpr->make_ast_copy(), this->rhs->originalExpr->make_ast_copy() );
+    }
+
+    virtual void symbol_resolution_pass() override {
+        TxExpressionNode::symbol_resolution_pass();
+        lhs->symbol_resolution_pass();
+        rhs->symbol_resolution_pass();
+    }
+
+    virtual bool is_statically_constant() const override {
+        return this->lhs->is_statically_constant() && this->rhs->is_statically_constant();
+    }
+
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->lhs->visit_ast( visitor, thisCursor, "lhs", context );
+        this->rhs->visit_ast( visitor, thisCursor, "rhs", context );
     }
 };

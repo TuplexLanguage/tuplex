@@ -182,14 +182,14 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
         // add bounds check
         auto parentFunc = scope->builder->GetInsertBlock()->getParent();
         BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "if_true", parentFunc );
-        BasicBlock* nextBlock = BasicBlock::Create( context.llvmContext, "if_next", parentFunc );
+        BasicBlock* postBlock = BasicBlock::Create( context.llvmContext, "if_post", parentFunc );
 
         Value* lenIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                             ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
         auto lengthPtrV = scope->builder->CreateInBoundsGEP( arrayPtrV, lenIxs );
         auto lengthV = scope->builder->CreateLoad( lengthPtrV );
         auto condV = scope->builder->CreateICmpUGE( subscriptV, lengthV );
-        scope->builder->CreateCondBr( condV, trueBlock, nextBlock );
+        scope->builder->CreateCondBr( condV, trueBlock, postBlock );
 
         scope->builder->SetInsertPoint( trueBlock );
         if ( isAssignment ) {
@@ -214,21 +214,21 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
                 scope->builder->SetInsertPoint( okCapBlock );
                 auto newLenV = scope->builder->CreateAdd( lengthV, ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) );
                 scope->builder->CreateStore( newLenV, lengthPtrV );
-                scope->builder->CreateBr( nextBlock );
+                scope->builder->CreateBr( postBlock );
             }
 
             { // panic:
                 scope->builder->SetInsertPoint( panicBlock );
                 panicNode->code_gen( context, scope );
-                scope->builder->CreateBr( nextBlock );  // terminate block, though won't be executed
+                scope->builder->CreateBr( postBlock );  // terminate block, though won't be executed
             }
         }
         else {
             panicNode->code_gen( context, scope );
-            scope->builder->CreateBr( nextBlock );  // terminate block, though won't be executed
+            scope->builder->CreateBr( postBlock );  // terminate block, though won't be executed
         }
 
-        scope->builder->SetInsertPoint( nextBlock );
+        scope->builder->SetInsertPoint( postBlock );
     }
 
     Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),

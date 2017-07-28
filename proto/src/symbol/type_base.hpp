@@ -592,11 +592,19 @@ public:
     /** Code-generates initialization of bound VALUE parameters for an allocated instance. */
     virtual void initialize_specialized_obj( LlvmGenerationContext& context, GenScope* scope, llvm::Value* objPtrV ) const { }
 
-    virtual llvm::Value* gen_size( LlvmGenerationContext& context, GenScope* scope ) const;
+    /** Generates the formal id of this type. */
+    virtual llvm::Constant* gen_typeid( LlvmGenerationContext& context ) const;
+
+    /** Generates the instance/element size of this type. Used by the runtime type info. Only valid for statically concrete types.
+     * NOTE: For arrays this returns the instance size of their *element* type. */
+    virtual llvm::Constant* gen_static_element_size( LlvmGenerationContext& context ) const;
+
+    /** Generates the size of an instance of this type. Only valid for statically concrete types. */
+    virtual llvm::Constant* gen_static_size( LlvmGenerationContext& context ) const;
+
     virtual llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, unsigned alignment, const std::string &varName = "" ) const;
     virtual llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const;
     virtual llvm::Value* gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const;
-    virtual llvm::Constant* gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const;
 
     /*--- to string methods ---*/
 

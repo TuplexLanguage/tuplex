@@ -71,8 +71,11 @@ public:
 
 
     /** Generates code that produces the type id (as opposed to the value) of this expression.
-     * This returns a Constant value, unless this dereferences a non-constant reference. */
+     * This typically returns a Constant value unless the expression contains reference dereferencing. */
     virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const;
+
+    /** Generates code that produces the type id (as opposed to the value) of this expression. */
+    virtual llvm::Constant* code_gen_typeid( LlvmGenerationContext& context ) const;
 
 
     /** Generates code that produces the value of this expression.

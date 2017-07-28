@@ -234,6 +234,7 @@ protected:
             if ( targType->get_type_class() == TXTC_ARRAY ) {
                 this->array->insert_conversion( targType->type() );
             }
+            // TODO: May cause code_gen_typeid() to return a too-general type, override code_gen_typeid()
         }
         opType = this->array->resolve_type();
         if ( opType->get_type_class() != TXTC_ARRAY )

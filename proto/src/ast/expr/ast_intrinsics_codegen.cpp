@@ -46,3 +46,16 @@ Constant* TxRefTypeIdNode::code_gen_const_value( LlvmGenerationContext& context 
     TRACE_CODEGEN( this, context );
     return gen_get_ref_typeid( context, this->refExpr->code_gen_const_value( context ) );
 }
+
+
+Value* TxSizeofExprNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    auto typeIdV = this->expr->code_gen_typeid( context, scope );
+    return context.gen_get_element_size( scope, typeIdV );
+}
+
+//Constant* TxSizeofExprNode::code_gen_const_value( LlvmGenerationContext& context ) const {
+//    TRACE_CODEGEN( this, context );
+//    auto typeIdC = this->expr->code_gen_typeid( context );
+//    return context.gen_get_element_size( typeIdC );
+//}

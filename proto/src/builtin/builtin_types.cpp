@@ -798,6 +798,21 @@ TxModuleNode* BuiltinTypes::create_tx_c_module() {
         members->push_back( abortDecl );
     }
 
+    {  // declare tx.c.memcmp:
+        auto data1ArgType = new TxReferenceTypeNode( loc, nullptr, new TxArrayTypeNode( loc, new TxNamedTypeNode( loc, "tx.UByte" ) ) );
+        auto data2ArgType = new TxReferenceTypeNode( loc, nullptr, new TxArrayTypeNode( loc, new TxNamedTypeNode( loc, "tx.UByte" ) ) );
+        auto lenArgType = new TxNamedTypeNode( loc, "tx.ULong" );
+        auto args = new std::vector<TxArgTypeDefNode*>( { new TxArgTypeDefNode( loc, "data1", data1ArgType ),
+                                                          new TxArgTypeDefNode( loc, "data2", data2ArgType ),
+                                                          new TxArgTypeDefNode( loc, "len",   lenArgType ) } );
+        auto memcmpDecl = new TxFieldDeclNode(
+                loc, TXD_PUBLIC | TXD_EXTERNC | TXD_BUILTIN,
+                new TxNonLocalFieldDefNode( loc, "memcmp", new TxFunctionTypeNode( loc, false, args,
+                                                                                   new TxNamedTypeNode( loc, "tx.Int" ) ),
+                                            nullptr ) );
+        members->push_back( memcmpDecl );
+    }
+
     auto tx_c_module = new TxModuleNode( this->builtinLocation, new TxIdentifier( "c" ), nullptr, members, nullptr, true );
     return tx_c_module;
 }
