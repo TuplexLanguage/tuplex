@@ -150,7 +150,7 @@ int LlvmGenerationContext::write_bitcode( const std::string& filepath ) {
 
 /***** generate runtime type data *****/
 
-void LlvmGenerationContext::initialize_runtime_data() {
+void LlvmGenerationContext::generate_runtime_type_info() {
     auto int32T = Type::getInt32Ty( this->llvmContext );
 
     // define the MetaType LLVM data type:
@@ -165,16 +165,18 @@ void LlvmGenerationContext::initialize_runtime_data() {
             emptyStructPtrT,  // vtable pointer
             int32T,           // instance size (for Array types, element instance size)
             int32T,           // type id
+            int32T,           // element type id (for Array types)
+            Type::getInt8Ty( this->llvmContext )  // type class id
             //typeInitFuncT,  // initialization function
     };
     StructType* metaType = StructType::get( this->llvmContext, memberTypes );
 
     // create static meta type data:
     std::vector<Constant*> metaTypes;
-    for ( auto txType = this->tuplexPackage.registry().vtable_types_cbegin(); txType != this->tuplexPackage.registry().vtable_types_cend();
-            txType++ )
+    for ( auto acttypeI = this->tuplexPackage.registry().vtable_types_cbegin(); acttypeI != this->tuplexPackage.registry().vtable_types_cend();
+            acttypeI++ )
     {
-        const TxActualType* acttype = *txType;
+        const TxActualType* acttype = *acttypeI;
 //        auto utinitF = acttype->get_type_user_init_func(*this);
 //        if (! utinitF->getEntryBlock().getTerminator()) {
 //            // inserting default void return instruction for entry block of function
@@ -199,11 +201,16 @@ void LlvmGenerationContext::initialize_runtime_data() {
                                                                                   Type::getInt32Ty( this->llvmContext ) )
                                                         : ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ) );
             auto typeIdC = ConstantInt::get( int32T, acttype->get_formal_type_id() );
+            Constant* elementTypeIdC = ConstantInt::get( int32T,
+                    ( acttype->get_type_class() == TXTC_ARRAY ? static_cast<const TxArrayType*>( acttype )->element_type()->get_type_id() : 0 ) );
+            auto typeClassC = ConstantInt::get( Type::getInt8Ty( this->llvmContext ), acttype->get_type_class() );
 
             std::vector<Constant*> members {
                                              ConstantExpr::getBitCast( vtableV, emptyStructPtrT ),
                                              instanceSizeC,
                                              typeIdC,
+                                             elementTypeIdC,
+                                             typeClassC,
                                              //dummyUserInitF  // utinitF
             };
             metaTypes.push_back( ConstantStruct::get( metaType, members ) );
@@ -225,7 +232,7 @@ void LlvmGenerationContext::initialize_runtime_data() {
 }
 
 
-void LlvmGenerationContext::generate_runtime_data() {
+void LlvmGenerationContext::generate_runtime_vtables() {
     for ( auto acttypeI = this->tuplexPackage.registry().formal_types_cbegin();
             acttypeI != this->tuplexPackage.registry().formal_types_cend();
             acttypeI++ )
@@ -327,6 +334,28 @@ Value* LlvmGenerationContext::gen_get_element_size( GenScope* scope, Value* runt
     Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
                      runtimeBaseTypeIdV,
                      ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 1 ) };
+    auto instanceSizeA = scope->builder->CreateInBoundsGEP( metaTypesV, ixs );
+    auto instanceSizeV = scope->builder->CreateLoad( instanceSizeA );
+    return instanceSizeV;
+}
+
+
+Value* LlvmGenerationContext::gen_get_element_id( GenScope* scope, Value* runtimeBaseTypeIdV ) const {
+    Value* metaTypesV = this->lookup_llvm_value( "tx.runtime.META_TYPES" );
+    Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
+                     runtimeBaseTypeIdV,
+                     ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 3 ) };
+    auto instanceSizeA = scope->builder->CreateInBoundsGEP( metaTypesV, ixs );
+    auto instanceSizeV = scope->builder->CreateLoad( instanceSizeA );
+    return instanceSizeV;
+}
+
+
+Value* LlvmGenerationContext::gen_get_type_class( GenScope* scope, Value* runtimeBaseTypeIdV ) const {
+    Value* metaTypesV = this->lookup_llvm_value( "tx.runtime.META_TYPES" );
+    Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
+                     runtimeBaseTypeIdV,
+                     ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 4 ) };
     auto instanceSizeA = scope->builder->CreateInBoundsGEP( metaTypesV, ixs );
     auto instanceSizeV = scope->builder->CreateLoad( instanceSizeA );
     return instanceSizeV;
@@ -480,9 +509,9 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
     Function *main_func = cast<Function>(
             this->llvmModule().getOrInsertFunction(
                     "main",
-                    IntegerType::getInt32Ty( this->llvmModule().getContext() ),
-                    IntegerType::getInt32Ty( this->llvmModule().getContext() ),
-                    PointerType::getUnqual( PointerType::getUnqual( IntegerType::getInt8Ty( this->llvmModule().getContext() ) ) ),
+                    IntegerType::getInt32Ty( this->llvmContext ),
+                    IntegerType::getInt32Ty( this->llvmContext ),
+                    PointerType::getUnqual( PointerType::getUnqual( IntegerType::getInt8Ty( this->llvmContext ) ) ),
                     NULL ) );
     {
         Function::arg_iterator args = main_func->arg_begin();
@@ -493,7 +522,7 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
         arg_1->setName( "argv" );
         args++;
     }
-    BasicBlock *bb = BasicBlock::Create( this->llvmModule().getContext(), "entry", main_func );
+    BasicBlock *bb = BasicBlock::Create( this->llvmContext, "entry", main_func );
 
 //    // initialize statics / runtime environment
 //    Function *initFunc = this->gen_static_init_function();
@@ -509,22 +538,179 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
         CallInst *user_main_call = CallInst::Create( func, args, "", bb );
         user_main_call->setTailCall( false );
         user_main_call->setIsNoInline();
-        auto int32T = Type::getInt32Ty( this->llvmModule().getContext() );
+        auto int32T = Type::getInt32Ty( this->llvmContext );
         if ( hasIntReturnValue ) {
             // truncate return value to i32
             CastInst* truncVal = CastInst::CreateIntegerCast( user_main_call, int32T, true, "", bb );
-            ReturnInst::Create( this->llvmModule().getContext(), truncVal, bb );
+            ReturnInst::Create( this->llvmContext, truncVal, bb );
         }
         else {
-            ReturnInst::Create( this->llvmModule().getContext(), ConstantInt::get( int32T, 0, true ), bb );
+            ReturnInst::Create( this->llvmContext, ConstantInt::get( int32T, 0, true ), bb );
         }
     }
     else {
         this->LOGGER()->error( "LLVM function not found for name: %s", userMain.c_str() );
-        ReturnInst::Create( this->llvmModule().getContext(), ConstantInt::get( this->llvmModule().getContext(), APInt( 32, 0, true ) ), bb );
+        ReturnInst::Create( this->llvmContext, ConstantInt::get( this->llvmContext, APInt( 32, 0, true ) ), bb );
     }
 
     return main_func;
+}
+
+
+void LlvmGenerationContext::declare_builtin_code() {
+    Type* i32T = IntegerType::getInt32Ty( this->llvmContext );
+    StructType* genArrayT = StructType::get( i32T, i32T, ArrayType::get( StructType::get( this->llvmContext ), 0 ), nullptr );
+    PointerType* genArrayPtrT = PointerType::getUnqual( genArrayT );
+    {
+        Function* function = cast<Function>( this->llvmModule().getOrInsertFunction(
+                "$array_elementary_equals",
+                IntegerType::getInt1Ty( this->llvmContext ), // return value - Bool
+                genArrayPtrT,
+                genArrayPtrT,
+                i32T,
+                NULL ) );
+        function->setLinkage( GlobalValue::InternalLinkage );
+    }
+    {
+        Function* function = cast<Function>( this->llvmModule().getOrInsertFunction(
+                "$array_any_equals",
+                IntegerType::getInt1Ty( this->llvmContext ), // return value - Bool
+                genArrayPtrT,
+                genArrayPtrT,
+                i32T,
+                i32T,
+                NULL ) );
+        function->setLinkage( GlobalValue::InternalLinkage );
+    }
+}
+
+void LlvmGenerationContext::generate_builtin_code() {
+    this->gen_array_elementary_equals_function();
+    this->gen_array_any_equals_function();
+}
+
+void LlvmGenerationContext::gen_array_any_equals_function() {
+    // This function is invoked when it is NOT known what one or both of the arrays' element types are.
+
+    Function* function = this->llvmModule().getFunction( "$array_any_equals" );
+    Function::arg_iterator args = function->arg_begin();
+    Value* arrayA = &( *args );
+    arrayA->setName( "arrayA" );
+    args++;
+    Value* arrayB = &( *args );
+    arrayB->setName( "arrayB" );
+    args++;
+    Value* arrATypeIdV = &( *args );
+    arrATypeIdV->setName( "arrayATypeId" );
+    args++;
+    Value* arrBTypeIdV = &( *args );
+    arrBTypeIdV->setName( "arrayATypeId" );
+
+    BasicBlock *entryBlock = BasicBlock::Create( this->llvmContext, "entry", function );
+    IRBuilder<> builder( entryBlock );
+    GenScope scope( &builder );
+
+    auto parentFunc = builder.GetInsertBlock()->getParent();
+    BasicBlock* elemTyClEqBlock = BasicBlock::Create( this->llvmContext, "if_ArrElTyClEq",  parentFunc );
+    BasicBlock* elemElemBlock   = BasicBlock::Create( this->llvmContext, "if_ArrElemElem",  parentFunc );
+    BasicBlock* elemSameElemBlock = BasicBlock::Create( this->llvmContext, "if_ArrElemSameElem",  parentFunc );
+    BasicBlock* elemOtherBlock  = BasicBlock::Create( this->llvmContext, "if_ArrElemOther", parentFunc );
+    BasicBlock* arrUneqBlock    = BasicBlock::Create( this->llvmContext, "if_ArrUneq",      parentFunc );
+
+    // When one or both the operands are dereferenced references to generic arrays (&Array),
+    // the references' types must be examined in runtime for array element type class equality,
+    // and if elementary also for element type equality.
+    auto arrAElemTyIdV = this->gen_get_element_id( &scope, arrATypeIdV );
+    auto arrAElemTyClV = this->gen_get_type_class( &scope, arrAElemTyIdV );
+    auto arrBElemTyIdV = this->gen_get_element_id( &scope, arrBTypeIdV );
+    auto arrBElemTyClV = this->gen_get_type_class( &scope, arrBElemTyIdV );
+    auto elTyClEqCondV = builder.CreateICmpEQ( arrAElemTyClV, arrBElemTyClV );
+    builder.CreateCondBr( elTyClEqCondV, elemTyClEqBlock, arrUneqBlock );
+
+    {
+        builder.SetInsertPoint( elemTyClEqBlock );
+        auto elemTyClC = ConstantInt::get( Type::getInt8Ty( this->llvmContext ), TXTC_ELEMENTARY );
+        auto elemElemCondV = builder.CreateICmpEQ( arrAElemTyClV, elemTyClC );
+        builder.CreateCondBr( elemElemCondV, elemElemBlock, elemOtherBlock );
+    }
+    {
+        // both element types are Elementary, check that the types are equal
+        builder.SetInsertPoint( elemElemBlock );
+        auto elTyEqCondV = builder.CreateICmpEQ( arrAElemTyIdV, arrBElemTyIdV );
+        builder.CreateCondBr( elTyEqCondV, elemSameElemBlock, arrUneqBlock );
+    }
+    {
+        // both element types are of the same Elementary type, call $array_elementary_equals()
+        builder.SetInsertPoint( elemSameElemBlock );
+        std::vector<Value*> args( { arrayA, arrayB, arrATypeIdV } );
+        auto arrEqFuncA = this->llvmModule().getFunction( "$array_elementary_equals" );
+        ASSERT( arrEqFuncA, "$array_elementary_equals() function not found" );
+        builder.CreateRet( builder.CreateCall( arrEqFuncA, args ) );
+    }
+    {
+        builder.SetInsertPoint( elemOtherBlock );
+        // TODO: invoke virtual method arrayA.equals( arrayB )
+        builder.CreateRet( ConstantInt::get( Type::getInt1Ty( this->llvmContext ), 0 ) );  // return FALSE for now
+    }
+    {
+        builder.SetInsertPoint( arrUneqBlock );
+        builder.CreateRet( ConstantInt::get( Type::getInt1Ty( this->llvmContext ), 0 ) );  // return FALSE
+    }
+}
+
+void LlvmGenerationContext::gen_array_elementary_equals_function() {
+    // This function is invoked when it is known that both the arrays' element types are of the same Elementary type.
+
+    Function* function = this->llvmModule().getFunction( "$array_elementary_equals" );
+    Function::arg_iterator args = function->arg_begin();
+    Value* arrayA = &( *args );
+    arrayA->setName( "arrayA" );
+    args++;
+    Value* arrayB = &( *args );
+    arrayB->setName( "arrayB" );
+    args++;
+    Value* arrATypeIdV = &( *args );
+    arrATypeIdV->setName( "arrayATypeId" );
+
+    BasicBlock *entryBlock = BasicBlock::Create( this->llvmContext, "entry", function );
+    IRBuilder<> builder( entryBlock );
+    GenScope scope( &builder );
+
+    auto parentFunc = builder.GetInsertBlock()->getParent();
+    BasicBlock* lenEqBlock   = BasicBlock::Create( this->llvmContext, "if_ArrLenEq", parentFunc );
+    BasicBlock* arrUneqBlock = BasicBlock::Create( this->llvmContext, "if_ArrUneq",  parentFunc );
+
+    Value* lenIxs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
+                        ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 1 ) };
+    auto arrALengthV = builder.CreateLoad( builder.CreateInBoundsGEP( arrayA, lenIxs ) );
+    {
+        auto arrBLengthV = builder.CreateLoad( builder.CreateInBoundsGEP( arrayB, lenIxs ) );
+        auto lenCondV = builder.CreateICmpEQ( arrALengthV, arrBLengthV );
+        builder.CreateCondBr( lenCondV, lenEqBlock, arrUneqBlock );
+    }
+    {
+        builder.SetInsertPoint( lenEqBlock );
+
+        auto elemSizeV = this->gen_get_element_size( &scope, arrATypeIdV );
+        auto elemSize64V = builder.CreateZExtOrBitCast( elemSizeV, Type::getInt64Ty( this->llvmContext ) );
+        auto arrALength64V = builder.CreateZExtOrBitCast( arrALengthV, Type::getInt64Ty( this->llvmContext ) );
+        auto dataSizeV = builder.CreateMul( elemSize64V, arrALength64V, "datasize" );
+
+        Value* dataIxs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
+                             ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 2 ) };
+        auto arrADataA = builder.CreatePointerCast( builder.CreateInBoundsGEP( arrayA, dataIxs ), this->get_voidPtrT() );
+        auto arrBDataA = builder.CreatePointerCast( builder.CreateInBoundsGEP( arrayB, dataIxs ), this->get_voidPtrT() );
+        std::vector<Value*> args( { arrADataA, arrBDataA, dataSizeV } );
+        auto memcmpFuncA = this->llvmModule().getFunction( "memcmp" );
+        ASSERT( memcmpFuncA, "memcmp() function not found in " << this );
+        auto callV = builder.CreateCall( memcmpFuncA, args );
+        auto condV = builder.CreateICmpEQ( callV, ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ) );
+        builder.CreateRet( condV );
+    }
+    {
+        builder.SetInsertPoint( arrUneqBlock );
+        builder.CreateRet( ConstantInt::get( Type::getInt1Ty( this->llvmContext ), 0 ) );
+    }
 }
 
 // currently not used, but has working runtime initialization logic, including malloc:

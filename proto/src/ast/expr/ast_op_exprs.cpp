@@ -127,10 +127,22 @@ const TxQualType* TxEqualityOperatorNode::define_type() {
     auto ltype = this->lhs->originalExpr->resolve_type()->type();
     auto rtype = this->rhs->originalExpr->resolve_type()->type();
 
-    // NOTE: We shall not auto-dereference or auto-reference the operands in this operation
+    // NOTE: We shall not auto-dereference or auto-reference the operands in this operation.
+
+    // Object type classes may be compared directly via this operation.
+    // Note that they don't have to be concrete.
+    // For non-object type classes, the equals() method is invoked instead, e.g:
+    //     r : &SomeInterface;  s : &SomeInterface;
+    //     r.equals( s )
+
 
     if ( ltype->get_type_class() != rtype->get_type_class() )
         CERR_THROWRES( this, "Mismatching operand types for equality operator: " << ltype << ", " << rtype );
+    // TODO: Review how to handle e.g.
+    //     r : &Any;  s : &Array<Int>;
+    //     r^ == s^
+    //     x : &Number;  y : Float;
+    //     x^ == y
 
     switch ( ltype->get_type_class() ) {
     case TXTC_ELEMENTARY:
@@ -149,19 +161,45 @@ const TxQualType* TxEqualityOperatorNode::define_type() {
     case TXTC_REFERENCE:
         // comparison of pointer values
         break;
+
     case TXTC_ARRAY:
-        {   // bitwise comparison of length and data
+        {   // comparison of length and then of each element
             auto lelemtype = ltype->element_type();
             auto relemtype = rtype->element_type();
-            if ( lelemtype != relemtype )
+            if ( lelemtype->get_type_class() == TXTC_ANY || relemtype->get_type_class() == TXTC_ANY ) {
+                // if either operand's element type is 'Any', type checking must be done in runtime
+                // Example:
+                //     r : &Array;  s : &Array<Int>;
+                //     r^ == s^
+            }
+            else if ( lelemtype->get_type_class() != relemtype->get_type_class() ) {
                 CERR_THROWRES( this, "Mismatching Array element types for equality operator: " << lelemtype << ", " << relemtype );
+            }
+            else if ( lelemtype->get_type_class() == TXTC_ELEMENTARY ) {
+                if ( lelemtype->type()->is_concrete() && relemtype->type()->is_concrete() ) {
+                    if ( lelemtype->get_type_id() != relemtype->get_type_id() )
+                        CERR_THROWRES( this, "Mismatching Array element types for equality operator: " << lelemtype << ", " << relemtype );
+                }
+            }
+            else if ( lelemtype->get_type_class() == TXTC_REFERENCE ) {
+                // Since the built-in comparison of arrays of references compares the pointers (identity equality), we don't
+                // strictly need to check the ref target types here.
+                // However if they are mutually exclusive, the comparison will always yield false.
+                // The element types are mutually exclusive if neither type "is-a" the other type.
+                if ( !( lelemtype->type()->target_type()->type()->is_a( *relemtype->type()->target_type()->type() ) ||
+                        relemtype->type()->target_type()->type()->is_a( *lelemtype->type()->target_type()->type() ) ) )
+                    CERR_THROWRES( this, "Mismatching Array element ref target types for equality operator: " << lelemtype << ", " << relemtype );
+            }
         }
         break;
+
     case TXTC_TUPLE:
-        // bitwise comparison of data
+        // invocation of equals() method
         if ( ltype != rtype )
             CERR_THROWRES( this, "Mismatching Tuple types for equality operator: " << ltype << ", " << rtype );
         break;
+
+    // TODO: Review whether TXTC_FUNCTION is comparable here?
 
     default:
         CERR_THROWRES( this, "Equality operator not supported for type class " << ltype->get_type_class() << ": " << ltype );

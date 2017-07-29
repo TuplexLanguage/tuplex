@@ -209,7 +209,7 @@ Value* TxEqualityOperatorNode::code_gen_dyn_value( LlvmGenerationContext& contex
     // pick field's plain name, if available, for the expression value:
     const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_descriptor() : "" );
 
-    auto lhsType = this->lhs->resolve_type()->type()->acttype();
+    auto lhsType = this->lhs->qualtype()->type()->acttype();
     auto lhsTypeclass = lhsType->get_type_class();
 
     if ( lhsTypeclass == TXTC_ELEMENTARY ) {
@@ -222,73 +222,62 @@ Value* TxEqualityOperatorNode::code_gen_dyn_value( LlvmGenerationContext& contex
             return scope->builder->CreateICmp( CmpInst::Predicate::ICMP_EQ, lval, rval, fieldName );
         }
     }
+
     else if ( lhsTypeclass == TXTC_REFERENCE ) {
         // both operands are references, compare their pointer values
         auto lvalPtr = gen_get_ref_pointer( context, scope, this->lhs->code_gen_dyn_value( context, scope ) );
         auto rvalPtr = gen_get_ref_pointer( context, scope, this->rhs->code_gen_dyn_value( context, scope ) );
         return scope->builder->CreateICmp( CmpInst::Predicate::ICMP_EQ, lvalPtr, rvalPtr, fieldName );
     }
+
     else if ( lhsTypeclass == TXTC_ARRAY ) {
+        // In current implementation we know that either at least one operand is Any,
+        // or both operands' elements will be of the same type class.
         auto lvalA = this->lhs->code_gen_dyn_address( context, scope );
         auto rvalA = this->rhs->code_gen_dyn_address( context, scope );
-        // TODO: When the operands are dereferenced references to generic arrays (&Array), the references' types
-        //       must be examined in runtime for *array element type* equality!
+        auto lvalTypeIdV = this->lhs->code_gen_typeid( context, scope );
 
-        Value* eqResultA = this->registry().get_builtin_type( TXBT_BOOL )->acttype()->gen_alloca( context, scope, "arrEq");
+        auto rhsType = this->rhs->qualtype()->type()->acttype();
+        auto lelemtype = static_cast<const TxArrayType*>( lhsType )->element_type()->type()->acttype();
+        auto relemtype = static_cast<const TxArrayType*>( rhsType )->element_type()->type()->acttype();
 
-        auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-        BasicBlock* lenEqBlock   = BasicBlock::Create( context.llvmContext, "if_ArrLenEq", parentFunc );
-        BasicBlock* arrEqBlock   = BasicBlock::Create( context.llvmContext, "if_ArrEq",    parentFunc );
-        BasicBlock* arrUneqBlock = BasicBlock::Create( context.llvmContext, "if_ArrUneq",  parentFunc );
-        BasicBlock* postBlock    = BasicBlock::Create( context.llvmContext, "if_ArrPost",  parentFunc );
-
-        Value* lenIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                            ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
-        auto lvalLengthV = scope->builder->CreateLoad( scope->builder->CreateInBoundsGEP( lvalA, lenIxs ) );
-        {
-            auto rvalLengthV = scope->builder->CreateLoad( scope->builder->CreateInBoundsGEP( rvalA, lenIxs ) );
-            auto lenCondV = scope->builder->CreateICmpEQ( lvalLengthV, rvalLengthV );
-            scope->builder->CreateCondBr( lenCondV, lenEqBlock, arrUneqBlock );
-        }
-        {
-            scope->builder->SetInsertPoint( lenEqBlock );
-
-            auto lvalTypeIdV = this->lhs->code_gen_typeid( context, scope );
-            auto elemSizeV = context.gen_get_element_size( scope, lvalTypeIdV );
-            auto elemSize64V = scope->builder->CreateZExtOrBitCast( elemSizeV, Type::getInt64Ty( context.llvmContext ) );
-            auto lvalLength64V = scope->builder->CreateZExtOrBitCast( lvalLengthV, Type::getInt64Ty( context.llvmContext ) );
-            auto dataSizeV = scope->builder->CreateMul( elemSize64V, lvalLength64V, "datasize" );
-
-            Value* dataIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                                 ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ) };
-            auto lvalDataA = scope->builder->CreatePointerCast( scope->builder->CreateInBoundsGEP( lvalA, dataIxs ), context.get_voidPtrT() );
-            auto rvalDataA = scope->builder->CreatePointerCast( scope->builder->CreateInBoundsGEP( rvalA, dataIxs ), context.get_voidPtrT() );
-            std::vector<Value*> args( { lvalDataA, rvalDataA, dataSizeV } );
-            auto memcmpFuncA = context.llvmModule().getFunction( "memcmp" );
-            ASSERT( memcmpFuncA, "memcmp() function not found in " << this );
-            auto callV = scope->builder->CreateCall( memcmpFuncA, args );
-
-            auto condV = scope->builder->CreateICmpEQ( callV, ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) );
-            scope->builder->CreateCondBr( condV, arrEqBlock, arrUneqBlock );
-        }
-        {
-            scope->builder->SetInsertPoint( arrEqBlock );
-            scope->builder->CreateStore( ConstantInt::get( Type::getInt1Ty( context.llvmContext ), 1 ), eqResultA );
-            scope->builder->CreateBr( postBlock );
-        }
-        {
-            scope->builder->SetInsertPoint( arrUneqBlock );
-            scope->builder->CreateStore( ConstantInt::get( Type::getInt1Ty( context.llvmContext ), 0 ), eqResultA );
-            scope->builder->CreateBr( postBlock );
+        if ( lelemtype->get_type_class() == TXTC_ELEMENTARY && relemtype->get_type_class() == TXTC_ELEMENTARY
+                && lelemtype->is_concrete() && relemtype->is_concrete()
+                && lelemtype->get_formal_type_id() == relemtype->get_formal_type_id() ) {
+            // statically known that both arrays' elements are the same elementary, concrete types - invoke built-in comparison
+            Type* i32T = IntegerType::getInt32Ty( context.llvmContext );
+            StructType* genArrayT = StructType::get( i32T, i32T, ArrayType::get( StructType::get( context.llvmContext ), 0 ), nullptr );
+            PointerType* genArrayPtrT = PointerType::getUnqual( genArrayT );
+            std::vector<Value*> args( { scope->builder->CreatePointerCast( lvalA, genArrayPtrT ),
+                                        scope->builder->CreatePointerCast( rvalA, genArrayPtrT ),
+                                        lvalTypeIdV } );
+            auto arrEqFuncA = context.llvmModule().getFunction( "$array_elementary_equals" );
+            ASSERT( arrEqFuncA, "$array_elementary_equals() function not found in " << this );
+            return scope->builder->CreateCall( arrEqFuncA, args );
         }
 
-        scope->builder->SetInsertPoint( postBlock );
-        auto eqResultV = scope->builder->CreateLoad( eqResultA );
-        return eqResultV;
+        else if ( lelemtype->get_type_class() == TXTC_ANY || lelemtype->get_type_class() == TXTC_ELEMENTARY ||
+                  relemtype->get_type_class() == TXTC_ANY || relemtype->get_type_class() == TXTC_ELEMENTARY ) {
+            // When one or both the operands are dereferenced references to generic arrays (&Array),
+            // or at least one operand's element type is elementary but both operands' concrete types aren't statically known,
+            // the types must be examined in runtime for array element type class equality,
+            // and if both elementary also for element type equality.
+            auto rvalTypeIdV = this->lhs->code_gen_typeid( context, scope );
+            std::vector<Value*> args( { lvalA, rvalA, lvalTypeIdV, rvalTypeIdV } );
+            auto arrEqFuncA = context.llvmModule().getFunction( "$array_any_equals" );
+            ASSERT( arrEqFuncA, "$array_any_equals() function not found in " << this );
+            return scope->builder->CreateCall( arrEqFuncA, args );
+        }
+
+        else {
+            // TODO: invoke the standard Array.equals() method which compares each element
+        }
+        CERR_CODECHECK( this, "Equality operator not yet supported for array element type class " << lelemtype->get_type_class()
+                        << ": " << lelemtype );
     }
 //    else if ( lhsTypeclass == TXTC_TUPLE ) {
+//        TODO: invoke equals()
 //    }
-    else {
-        CERR_CODECHECK( this, "Equality operator not yet supported for type class " << lhsTypeclass << ": " << this->lhs->qualtype() );
-    }
+
+    CERR_CODECHECK( this, "Equality operator not yet supported for type class " << lhsTypeclass << ": " << this->lhs->qualtype() );
 }

@@ -129,7 +129,13 @@ public:
 };
 
 
-/** Equality comparison between two values. */
+/** Equality comparison between two values.
+ *  Object type classes may be compared directly via this operation.
+ *  Note that they don't have to be concrete.
+ *  For non-object type classes, the equals() method is invoked instead, e.g:
+ *      r : &SomeInterface;  s : &SomeInterface;
+ *      r.equals( s )
+ */
 class TxEqualityOperatorNode : public TxOperatorValueNode {
 protected:
     virtual const TxQualType* define_type() override;

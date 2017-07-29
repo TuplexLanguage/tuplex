@@ -57,7 +57,9 @@ class TxBuiltinTypeDefiningNode : public TxTypeExpressionNode {
     /** creates nodes for the implicit type member 'Super' */
     TxTypeDeclNode* make_super_type_node() const {
         // (Note, 'Self' is created in the symbol table for all types, as an alias directly to the type.)
-        TxTypeExpressionNode* superTypeExprN = new TxTypeExprWrapperNode( this->baseTypeNode );
+        // let Any have itself as super type:
+        TxTypeExpressionNode* superTypeExprN = ( this->baseTypeNode ? (TxTypeExpressionNode*) new TxTypeExprWrapperNode( this->baseTypeNode )
+                                                                    : (TxTypeExpressionNode*) new TxNamedTypeNode( ploc, "tx.Any" ) );
         auto superRefTypeExprN = new TxReferenceTypeNode( this->ploc, nullptr, superTypeExprN );
         const std::string superTypeName = "Super";
         return new TxTypeDeclNode( this->ploc, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN );
@@ -108,9 +110,7 @@ protected:
                                TxDerivedTypeNode* sourcecodeDefiner )
             : TxTypeExpressionNode( ploc ), builtinTypeId( TXBT_NOTSET ), original( original ),
               baseTypeNode( baseTypeNode ), declNodes( declNodes ), sourcecodeDefiner( sourcecodeDefiner ) {
-        if ( this->baseTypeNode ) {
-            this->superRefTypeNode = make_super_type_node();
-        }
+        this->superRefTypeNode = make_super_type_node();
         if (sourcecodeDefiner)
             sourcecodeDefiner->set_builtin_type_definer( this );
     }
@@ -161,9 +161,7 @@ public:
             : TxTypeExpressionNode( ploc ), builtinTypeId( builtinTypeId ), original( nullptr ),
               baseTypeNode( baseTypeNode ),
               declNodes( declNodes ) {
-        if ( this->baseTypeNode ) {
-            this->superRefTypeNode = make_super_type_node();
-        }
+        this->superRefTypeNode = make_super_type_node();
     }
 
     virtual TxBuiltinTypeDefiningNode* make_ast_copy() const override {
@@ -174,9 +172,7 @@ public:
 
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
-        if ( this->baseTypeNode ) {
-            this->superRefTypeNode->symbol_resolution_pass();
-        }
+        this->superRefTypeNode->symbol_resolution_pass();
         for ( auto decl : this->declNodes )
             decl->symbol_resolution_pass();
         if ( this->sourcecodeDefiner )
@@ -184,10 +180,9 @@ public:
     }
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override {
-        if ( this->baseTypeNode ) {
+        if ( this->baseTypeNode )
             this->baseTypeNode->code_gen_type( context );
-            this->superRefTypeNode->code_gen( context );
-        }
+        this->superRefTypeNode->code_gen( context );
         for ( auto decl : this->declNodes )
             decl->code_gen( context );
         if ( this->sourcecodeDefiner )
@@ -195,10 +190,9 @@ public:
     }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        if ( this->baseTypeNode ) {
+        if ( this->baseTypeNode )
             this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
-            this->superRefTypeNode->visit_ast( visitor, thisCursor, "super", context );
-        }
+        this->superRefTypeNode->visit_ast( visitor, thisCursor, "super", context );
         for ( auto decl : this->declNodes )
             decl->visit_ast( visitor, thisCursor, "decl", context );
         if ( this->sourcecodeDefiner )

@@ -302,7 +302,8 @@ void TxDriver::add_source_file( const TxIdentifier& moduleName, const std::strin
 }
 
 int TxDriver::llvm_compile( const std::string& outputFileName ) {
-    this->genContext->initialize_runtime_data();
+    this->genContext->generate_runtime_type_info();
+    this->genContext->declare_builtin_code();
 
     int codegen_errors = 0;
 
@@ -322,7 +323,8 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
         return codegen_errors;
     }
 
-    this->genContext->generate_runtime_data();
+    this->genContext->generate_builtin_code();
+    this->genContext->generate_runtime_vtables();
 
     bool mainGenerated = false;
     if ( auto funcDecl = this->package->getMainFunc() ) {

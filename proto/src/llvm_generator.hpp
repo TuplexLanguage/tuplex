@@ -74,6 +74,8 @@ class LlvmGenerationContext {
     llvm::Value* lookup_llvm_value( const std::string& identifier ) const;
 
     llvm::Function* gen_main_function( const std::string userMain, bool hasIntReturnValue );
+    void gen_array_any_equals_function();
+    void gen_array_elementary_equals_function();
 
 public:
     TxPackage& tuplexPackage;
@@ -122,8 +124,17 @@ public:
 
     /** Generates code that gets the instance/element size for a given type id value.
      * NOTE: For arrays this returns the instance size of their element type.
-     */
+     * @return an i32 value */
     llvm::Value* gen_get_element_size( GenScope* scope, llvm::Value* typeIdV ) const;
+
+    /** Generates code that gets the element type id for a given Array type id.
+     * Only valid to call for array types.
+     * @return an i32 value */
+    llvm::Value* gen_get_element_id( GenScope* scope, llvm::Value* typeIdV ) const;
+
+    /** Generates code that gets the type class id for a given type id.
+     * @return an i8 value */
+    llvm::Value* gen_get_type_class( GenScope* scope, llvm::Value* typeIdV ) const;
 
     llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, llvm::Value* typeIdV ) const;
     llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType ) const;
@@ -132,9 +143,12 @@ public:
     int generate_code( const TxParsingUnitNode* staticScopeNode );
     int generate_code( const TxTypeDeclNode* staticScopeNode );
 
-    void initialize_runtime_data();
+    void generate_runtime_type_info();
 
-    void generate_runtime_data();
+    void declare_builtin_code();
+    void generate_builtin_code();
+
+    void generate_runtime_vtables();
 
     /** Create the top level function to call as program entry.
      * (This is the built-in main, which calls the user main function.)  */
