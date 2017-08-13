@@ -170,3 +170,39 @@ public:
         this->rhs->visit_ast( visitor, thisCursor, "rhs", context );
     }
 };
+
+/** Equality comparison whether two Ref values refer to the same instance (identity equality). */
+class TxRefEqualityOperatorNode : public TxOperatorValueNode {
+protected:
+    virtual const TxQualType* define_type() override;
+
+public:
+    TxMaybeConversionNode* lhs;
+    TxMaybeConversionNode* rhs;
+
+    TxRefEqualityOperatorNode( const TxLocation& ploc, TxExpressionNode* lhs, TxExpressionNode* rhs )
+            : TxOperatorValueNode( ploc ), lhs( new TxMaybeConversionNode( lhs ) ), rhs( new TxMaybeConversionNode( rhs ) ) {
+    }
+
+    virtual TxRefEqualityOperatorNode* make_ast_copy() const override {
+        return new TxRefEqualityOperatorNode( this->ploc, this->lhs->originalExpr->make_ast_copy(), this->rhs->originalExpr->make_ast_copy() );
+    }
+
+    virtual void symbol_resolution_pass() override {
+        TxExpressionNode::symbol_resolution_pass();
+        lhs->symbol_resolution_pass();
+        rhs->symbol_resolution_pass();
+    }
+
+    virtual bool is_statically_constant() const override {
+        return this->lhs->is_statically_constant() && this->rhs->is_statically_constant();
+    }
+
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->lhs->visit_ast( visitor, thisCursor, "lhs", context );
+        this->rhs->visit_ast( visitor, thisCursor, "rhs", context );
+    }
+};

@@ -49,6 +49,7 @@ source_files = [
     "floattest.tx",
     "declsyntaxtest.tx",
     "globalstest.tx",
+    "equalstest.tx",
     "ifelsetest.tx",
     "whiletest.tx",
 

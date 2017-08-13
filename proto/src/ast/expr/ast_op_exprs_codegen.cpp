@@ -281,3 +281,24 @@ Value* TxEqualityOperatorNode::code_gen_dyn_value( LlvmGenerationContext& contex
 
     CERR_CODECHECK( this, "Equality operator not yet supported for type class " << lhsTypeclass << ": " << this->lhs->qualtype() );
 }
+
+Constant* TxRefEqualityOperatorNode::code_gen_const_value( LlvmGenerationContext& context ) const {
+    TRACE_CODEGEN( this, context );
+
+    // both operands are references, compare their pointer values
+    auto lval = gen_get_ref_pointer( context, this->lhs->code_gen_const_value( context ) );
+    auto rval = gen_get_ref_pointer( context, this->rhs->code_gen_const_value( context ) );
+    return ConstantExpr::getICmp( CmpInst::Predicate::ICMP_EQ, lval, rval );
+}
+
+Value* TxRefEqualityOperatorNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+
+    // pick field's plain name, if available, for the expression value:
+    const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_descriptor() : "" );
+
+    // both operands are references, compare their pointer values
+    auto lvalPtr = gen_get_ref_pointer( context, scope, this->lhs->code_gen_dyn_value( context, scope ) );
+    auto rvalPtr = gen_get_ref_pointer( context, scope, this->rhs->code_gen_dyn_value( context, scope ) );
+    return scope->builder->CreateICmp( CmpInst::Predicate::ICMP_EQ, lvalPtr, rvalPtr, fieldName );
+}

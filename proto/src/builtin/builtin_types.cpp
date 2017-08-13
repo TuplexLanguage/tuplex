@@ -15,6 +15,7 @@
 #include "ast/expr/ast_ref.hpp"
 #include "ast/expr/ast_field.hpp"
 #include "ast/expr/ast_lambda_node.hpp"
+#include "ast/expr/ast_op_exprs.hpp"
 #include "ast/stmt/ast_stmts.hpp"
 
 /*--- statically allocated built-in type objects ---*/
@@ -559,6 +560,22 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
             false );  // not method syntax since elementary types' initializers are inlineable, pure functions
 }
 
+static std::vector<TxDeclarationNode*> make_any_methods( const TxLocation& loc ) {
+    std::vector<TxDeclarationNode*> methods;
+    { //  define equals()
+        auto eqStmt = new TxReturnStmtNode( loc, new TxRefEqualityOperatorNode( loc, new TxFieldValueNode( loc, nullptr, "self" ),
+                                                                                new TxFieldValueNode( loc, nullptr, "other" ) ) );
+        auto argNode = new TxArgTypeDefNode( loc, "other", new TxReferenceTypeNode( loc, nullptr, new TxNamedTypeNode( loc, "tx.Any" ) ) );
+        auto methodType = new TxFunctionTypeNode( loc, false, new std::vector<TxArgTypeDefNode*>( { argNode } ),
+                                                  new TxNamedTypeNode( loc, "tx.Bool" ) );
+        auto lambdaExpr = new TxLambdaExprNode( loc, methodType, new TxSuiteNode( loc, new std::vector<TxStatementNode*>( { eqStmt } ) ), true );
+        methods.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN,
+                                                new TxNonLocalFieldDefNode( loc, "equals", nullptr, lambdaExpr ),
+                                                true ) );  // method syntax
+    }
+    return methods;
+}
+
 static std::vector<TxDeclarationNode*> make_array_methods( const TxLocation& loc ) {
     std::vector<TxDeclarationNode*> methods;
     { // default constructor - this does nothing (it presumes memory allocation logic will initialize Array.C)
@@ -605,8 +622,9 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     auto & loc = this->builtinLocation;
 
     { // create the Any root type:
+        auto anyMembers = make_any_methods( loc );
         auto anyTypeDecl = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Any", nullptr,
-                                               new TxAnyTypeDefNode( loc ), false, true );
+                                               new TxAnyTypeDefNode( loc, anyMembers ), false, true );
         this->builtinTypes[TXBT_ANY] = anyTypeDecl;
     }
 

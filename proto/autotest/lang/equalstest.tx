@@ -1,0 +1,51 @@
+
+test_ref_eq_operator() -> Int {
+    ubyteA : UByte = 0;
+    ubyteB : UByte = 0;
+
+    r1 := &ubyteA;
+    r2 := &ubyteA;
+    assert r1 === r1;
+    assert r2 === r2;
+    assert r1 === r2;
+    assert r2 === r1;
+
+    r3 := &ubyteB;
+    assert r3 === r3;
+    assert r1 !== r3;
+    assert r2 !== r3;
+    
+    #experr 1: be : Bool = 42 === 42;
+    #experr 1: be : Bool = ubyteA === ubyteA;
+    #experr 1: be : Bool = ubyteA === r1;
+    #experr 1: be : Bool = r1 === ubyteA;
+
+    return 0;
+}
+
+test_ref_equals() -> Int {
+    ubyteA : UByte = 0;
+    ubyteB : UByte = 0;
+
+    r1 := &ubyteA;
+    r2 := &ubyteA;
+    assert r1.equals( r1 );
+    assert r2.equals( r2 );
+    assert r1.equals( r2 );
+    assert r2.equals( r1 );
+
+    r3 := &ubyteB;
+    assert r3.equals( r3 );
+    assert ! r1.equals( r3 );
+    assert ! r2.equals( r3 );
+    
+    return 0;
+}
+
+## TODO: implement and test value equals(), e.g:  42.equals( 42 )
+
+main() -> Int {
+    test_ref_eq_operator();
+    test_ref_equals();
+    return 0;
+}

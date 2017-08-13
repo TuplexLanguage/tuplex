@@ -214,6 +214,7 @@ YY_DECL;
 %precedence NOT   /* unary logical not */
 %left EEQUAL NEQUAL
 %left LT GT LEQUAL GEQUAL
+%left EEEQUAL NEEQUAL
 %right DOTDOT           // range has lower priority than arithmetic but higher than boolen operators
 %left LTLT GTGT GTGTGT  // bit-shift har lower priority than arithmetic but higher than range and boolen operators
 %left PLUS MINUS
@@ -568,6 +569,9 @@ expr
 
     |   expr EEQUAL expr             { $$ = new TxEqualityOperatorNode(@$, $1, $3); }
     |   expr NEQUAL expr             { $$ = new TxUnaryLogicalNotNode(@$, new TxEqualityOperatorNode(@$, $1, $3)); }
+
+    |   expr EEEQUAL expr            { $$ = new TxRefEqualityOperatorNode(@$, $1, $3); }
+    |   expr NEEQUAL expr            { $$ = new TxUnaryLogicalNotNode(@$, new TxRefEqualityOperatorNode(@$, $1, $3)); }
 
     |   MINUS expr  %prec NEG        { $$ = new TxUnaryMinusNode(@$, $2); }  // unary minus
     |   expr PLUS expr               { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_PLUS, $3); }

@@ -210,3 +210,20 @@ const TxQualType* TxEqualityOperatorNode::define_type() {
 
     return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
 }
+
+const TxQualType* TxRefEqualityOperatorNode::define_type() {
+    auto ltype = this->lhs->originalExpr->resolve_type()->type();
+    auto rtype = this->rhs->originalExpr->resolve_type()->type();
+
+    // NOTE: For now we don't auto-reference the operands in this operation.
+
+    if ( ltype->get_type_class() != TXTC_REFERENCE )
+        CERR_THROWRES( this, "Left operand for identity equality operator is not a reference: " << ltype );
+    if ( rtype->get_type_class() != TXTC_REFERENCE )
+        CERR_THROWRES( this, "Right operand for identity equality operator is not a reference: " << rtype );
+
+    this->lhs->resolve_type();
+    this->rhs->resolve_type();
+
+    return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
+}
