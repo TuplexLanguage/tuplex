@@ -33,6 +33,10 @@
 
     <!-- MAIN CONTENT -->
     <div id="main_content_wrap" class="outer">
+      <aside class="aside">
+        {% capture my_include %}{% include aside.md %}{% endcapture %}
+        {{ my_include | markdownify }}
+      </aside>
       <section id="main_content" class="inner">
         {{ content }}
       </section>

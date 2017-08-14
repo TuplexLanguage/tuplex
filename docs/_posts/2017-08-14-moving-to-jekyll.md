@@ -1,6 +1,11 @@
 ---
 layout: default
-title: Moving to Jekyll
+title: Moving Site to Github
 categories: jekyll
 ---
-The task for today is to move documentation and posts to Jekyll..
+{{ page.date | date: "%Y-%m-%d" }}
+## {{ page.title }}
+
+The task for today is to set up Jekyll and Github pages and start moving documentation and posts to it.
+
+Starting out with the Slate theme. Not exactly what I'm looking for but it seems readable enough. ;-)

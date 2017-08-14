@@ -2,3 +2,30 @@
 ---
 
 @import "{{ site.theme }}";
+
+.outer {
+    position: relative;
+    width: 100%;
+    min-width: 950px;
+}
+
+.aside {
+    position: absolute;
+    float: left;
+    width: 200px;
+    height: 100%;
+    padding-top:   10px;
+    padding-right: 10px;
+    padding-bottom:10px;
+    padding-left:  10px;
+    background: #d4cccc
+    /*
+    */
+}
+
+.inner {
+  position: relative;
+  left: 70px;
+  padding: 10px 10px;
+  margin: 0 auto;
+}
