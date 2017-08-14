@@ -3,8 +3,8 @@ module tx
 
 builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, Updatable<UInt, E>
 {
-/*
-    equals( other : &Any ) -> Bool {
+/* TODO
+    override equals( other : &Any ) -> Bool {
         if other is oa : &Array {
             if self.L != oa.L:
                 return FALSE;

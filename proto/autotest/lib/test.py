@@ -32,6 +32,7 @@ chdir( current_script_dir )
 
 source_files = [
     "helloworld.tx",
+    "string_test.tx",
     "scalars_test.tx",
     "array_interface.tx",
     "for_loops.tx",

@@ -589,6 +589,19 @@ void LlvmGenerationContext::generate_builtin_code() {
     this->gen_array_any_equals_function();
 }
 
+Value* LlvmGenerationContext::gen_equals_invocation( GenScope* scope, Value* lvalA, Value* lvalTypeIdV, Value* rvalA, Value* rvalTypeIdV ) {
+    const TxActualType* anyType = this->tuplexPackage.registry().get_builtin_type( TXBT_ANY )->acttype();
+    auto equalsField = anyType->get_virtual_fields().get_field( "equals" );
+    auto methodLambdaV = instance_method_value_code_gen( *this, scope, anyType, lvalTypeIdV, lvalA,
+                                                         equalsField->qualtype()->type()->acttype(), equalsField->get_unique_name(), false );
+    auto functionPtrV = gen_get_struct_member( *this, scope, methodLambdaV, 0 );
+    auto closureRefV = gen_get_struct_member( *this, scope, methodLambdaV, 1 );
+    auto otherRefT = TxReferenceType::make_ref_llvm_type( *this, llvm::StructType::get( this->llvmContext ) );  // ref to Any
+    auto otherRefV = gen_ref( *this, scope, otherRefT, rvalA, rvalTypeIdV );
+    std::vector<Value*> args( { closureRefV, otherRefV } );
+    return scope->builder->CreateCall( functionPtrV, args, "equals" );
+}
+
 void LlvmGenerationContext::gen_array_any_equals_function() {
     // This function is invoked when it is NOT known what one or both of the arrays' element types are.
 
@@ -649,8 +662,9 @@ void LlvmGenerationContext::gen_array_any_equals_function() {
     }
     {
         builder.SetInsertPoint( elemOtherBlock );
-        // TODO: invoke virtual method arrayA.equals( arrayB )
-        builder.CreateRet( ConstantInt::get( Type::getInt1Ty( this->llvmContext ), 0 ) );  // return FALSE for now
+        // invoke virtual method arrayA.equals( arrayB )
+        auto resultV = this->gen_equals_invocation( &scope, arrayA, arrATypeIdV, arrayB, arrBTypeIdV );
+        builder.CreateRet( resultV );
     }
     {
         builder.SetInsertPoint( arrUneqBlock );
@@ -690,7 +704,6 @@ void LlvmGenerationContext::gen_array_elementary_equals_function() {
     }
     {
         builder.SetInsertPoint( lenEqBlock );
-
         auto elemSizeV = this->gen_get_element_size( &scope, arrATypeIdV );
         auto elemSize64V = builder.CreateZExtOrBitCast( elemSizeV, Type::getInt64Ty( this->llvmContext ) );
         auto arrALength64V = builder.CreateZExtOrBitCast( arrALengthV, Type::getInt64Ty( this->llvmContext ) );

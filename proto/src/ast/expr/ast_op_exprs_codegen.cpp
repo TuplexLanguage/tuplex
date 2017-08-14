@@ -157,7 +157,7 @@ llvm::Constant* TxEqualityOperatorNode::code_gen_const_value( LlvmGenerationCont
     auto lval = this->lhs->code_gen_const_value( context );
     auto rval = this->rhs->code_gen_const_value( context );
 
-    auto lhsType = this->lhs->resolve_type()->type()->acttype();
+    auto lhsType = this->lhs->qualtype()->type()->acttype();
     auto lhsTypeclass = lhsType->get_type_class();
 
     if ( lhsTypeclass == TXTC_ELEMENTARY ) {
@@ -167,12 +167,6 @@ llvm::Constant* TxEqualityOperatorNode::code_gen_const_value( LlvmGenerationCont
         else {  // integer or boolean
             return ConstantExpr::getICmp( CmpInst::Predicate::ICMP_EQ, lval, rval );
         }
-    }
-    else if ( lhsTypeclass == TXTC_REFERENCE ) {
-        // both operands are references, compare their pointer values
-        lval = gen_get_ref_pointer( context, lval );
-        rval = gen_get_ref_pointer( context, rval );
-        return ConstantExpr::getICmp( CmpInst::Predicate::ICMP_EQ, lval, rval );
     }
     else if ( lhsTypeclass == TXTC_ARRAY ) {
         uint32_t lenIxs[] = { 1 };
@@ -195,10 +189,8 @@ llvm::Constant* TxEqualityOperatorNode::code_gen_const_value( LlvmGenerationCont
         }
         return lenCondC;
     }
-//    else if ( lhsTypeclass == TXTC_TUPLE ) {
-//    }
     else {
-        CERR_CODECHECK( this, "Constant equality operator not yet supported for type class " << lhsTypeclass << ": " << this->lhs->qualtype() );
+        CERR_CODECHECK( this, "Constant equality operator not supported for type class " << lhsTypeclass << ": " << this->lhs->qualtype() );
     }
 }
 
@@ -221,13 +213,6 @@ Value* TxEqualityOperatorNode::code_gen_dyn_value( LlvmGenerationContext& contex
         else {  // integer or boolean
             return scope->builder->CreateICmp( CmpInst::Predicate::ICMP_EQ, lval, rval, fieldName );
         }
-    }
-
-    else if ( lhsTypeclass == TXTC_REFERENCE ) {
-        // both operands are references, compare their pointer values
-        auto lvalPtr = gen_get_ref_pointer( context, scope, this->lhs->code_gen_dyn_value( context, scope ) );
-        auto rvalPtr = gen_get_ref_pointer( context, scope, this->rhs->code_gen_dyn_value( context, scope ) );
-        return scope->builder->CreateICmp( CmpInst::Predicate::ICMP_EQ, lvalPtr, rvalPtr, fieldName );
     }
 
     else if ( lhsTypeclass == TXTC_ARRAY ) {
@@ -270,16 +255,20 @@ Value* TxEqualityOperatorNode::code_gen_dyn_value( LlvmGenerationContext& contex
         }
 
         else {
-            // TODO: invoke the standard Array.equals() method which compares each element
+            // invoke the standard Array.equals() method which compares each element
+            auto rvalTypeIdV = this->lhs->code_gen_typeid( context, scope );
+            return context.gen_equals_invocation( scope, lvalA, lvalTypeIdV, rvalA, rvalTypeIdV );
         }
-        CERR_CODECHECK( this, "Equality operator not yet supported for array element type class " << lelemtype->get_type_class()
-                        << ": " << lelemtype );
     }
-//    else if ( lhsTypeclass == TXTC_TUPLE ) {
-//        TODO: invoke equals()
-//    }
 
-    CERR_CODECHECK( this, "Equality operator not yet supported for type class " << lhsTypeclass << ": " << this->lhs->qualtype() );
+    else {
+        // invoke the standard Any.equals() method
+        auto lvalA = this->lhs->code_gen_dyn_address( context, scope );
+        auto rvalA = this->rhs->code_gen_dyn_address( context, scope );
+        auto lvalTypeIdV = this->lhs->code_gen_typeid( context, scope );
+        auto rvalTypeIdV = this->lhs->code_gen_typeid( context, scope );
+        return context.gen_equals_invocation( scope, lvalA, lvalTypeIdV, rvalA, rvalTypeIdV );
+    }
 }
 
 Constant* TxRefEqualityOperatorNode::code_gen_const_value( LlvmGenerationContext& context ) const {

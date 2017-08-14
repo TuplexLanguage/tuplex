@@ -44,8 +44,198 @@ test_ref_equals() -> Int {
 
 ## TODO: implement and test value equals(), e.g:  42.equals( 42 )
 
+test_elem_eq( one : UByte ) {
+    {
+        assert 0 == 0;
+        assert 1 == 1;
+        assert 0 != 1;
+    
+        ub1 := 1 * one;
+        ub2 := 42 * one;
+    
+        assert ub1 == one;
+        assert ub1 != ub2;
+    
+        i1 := 1I * one;
+        i2 := 42I * one;
+    
+        assert ub1 == i1;
+        assert ub1 != i2;
+        assert i1 == ub1;
+        assert i2 != ub1;
+    
+        f1 := 1.0F * Float(one);
+        f2 := 42.0F * Float(one);
+    
+        #experr 1: assert ub1 == f1;
+        #experr 1: assert f1 == ub1;
+    
+        d1 := 1.0D * Float(one);
+        d2 := 42.0D * Float(one);
+    
+        assert f1 == f1;
+        assert f1 != f2;
+        assert f1 == d1;
+        assert d1 == f1;
+        assert d1 == d1;
+        assert d1 != d2;
+    
+        flag : Bool = one == 1;
+        assert TRUE == flag;
+        assert flag == TRUE;
+        assert FALSE != flag;
+        assert flag != FALSE;
+        #experr 1: assert ub1 == flag;
+        #experr 1: assert flag == ub1;
+    }
+
+    { ## via reference dereferencing
+        ubyteA : UByte = 1 * one;
+        ubyteB : UByte = 42 * one;
+        intA : Int = 1 * one;
+        intB : Int = 42 * one;
+    
+        rb1 := &ubyteA;
+        rb2 := &ubyteB;
+        assert rb1^ == rb1^;
+        assert rb1^ != rb2^;
+        assert rb2^ != rb1^;
+
+        ri1 := &intA;
+        ri2 := &intB;
+        assert ri1^ == ri1^;
+        assert ri1^ != ri2^;
+        assert ri2^ != ri1^;
+
+        assert ri1^ == rb1^;
+        assert rb1^ == ri1^;
+        assert rb1^ != ri2^;
+        assert rb2^ != ri1^;
+        
+        ## FUTURE: support auto-dereferencing?
+        #experr 1: assert ri1 == ri1;
+        #experr 1: assert ri1 == ri1^;
+        #experr 1: assert ri1^ == ri1;
+    }
+}
+
+
+interface Face { }
+
+type Body implements Face {
+    member : Int;
+    self( m : Int ) {
+        self.member = m;
+    }
+}
+
+test_obj_eq( one : UByte ) {
+    bod1 := Body( 1*one );
+    bod2 := Body( 42*one );
+
+    assert bod1 == bod1;
+    assert bod1 != bod2;
+    
+    fac1 : &Face = &bod1;
+    fac2 : &Face = &bod2;
+    
+    #experr 1: assert fac1 == fac1;  ## FUTURE: support auto-dereferencing?
+    assert fac1^ == fac1^;
+    assert fac1^ != fac2^;
+
+    ## TODO: Support implementing value-equals (requires conditional cast)
+    ##bod3 := Body( 1*one );
+    ##fac3 : &Face = &bod3;
+    ##assert bod1 == bod3;
+    ##assert fac1^ == fac3^;
+}
+
+
+comp_ref( a1 : &Array, a2 : &Array ) -> Bool {
+    return a1 === a2;
+}
+
+comp_arr( a1 : &Array, a2 : &Array ) -> Bool {
+    return a1^ == a2^;
+}
+
+test_array_eq( v : Int ) -> Int {
+    assert [ 1 ]  == [ 1 ];
+    #experr 1: e : Bool = [ 1UI ] != [ 1I ];
+
+    assert []Int()    == []Int();
+    assert []Int( 0 ) != []Int();
+    assert []Int()    != []Int( 0 );
+    assert []Int( 0 ) == []Int( 0 );
+    #experr 1: e : Bool = []Int() == []UInt();
+    #experr 1: e : Bool = []Short() == []Int();
+
+
+    assert [ 1, 2 ]    == [ 1, 2 ];
+    assert [ 1, 2, 3 ] != [ 1, 2 ];
+    assert [ 1, 2 ]    != [ 1, 2, 3 ];
+    assert [ 1.1, 2.2, 3.3 ] == [ 1.1, 2.2, 3.3 ];
+
+    assert [ TRUE  ] == [ TRUE ];
+    assert [ FALSE ] == [ FALSE ];
+    assert [ TRUE  ] != [ FALSE ];
+    assert [ FALSE ] != [ TRUE ];
+    assert [ FALSE, TRUE  ] == [ FALSE, TRUE ];
+    assert [ TRUE,  FALSE ] != [ FALSE, TRUE ];
+
+    b1 := [ TRUE, TRUE,  TRUE ];
+    b2 := [ TRUE, FALSE, TRUE ];
+    assert b1 == b1;
+    assert b1 != b2;
+    assert comp_ref( b1, b1 );
+    assert !comp_ref( b1, b2 );
+    assert comp_arr( b1, b1 );
+    assert !comp_arr( b1, b2 );
+
+
+    a1 := [ 1I*v, 2,   3 ];
+    a2 := [ 1I,   2*v, 3 ];
+    a3 := [ 1I,   3*v, 3 ];
+    a4 := [ 1I,   2,   3*v, 4 ];
+    assert a1 == a1;
+    assert a1 == a2;
+    assert a1 != a3;
+    assert a1 != a4;
+
+    assert comp_ref( a1, a1 );
+    assert !comp_ref( a1, a2 );
+    assert comp_arr( a1, a1 );
+    assert comp_arr( a1, a2 );
+    assert !comp_arr( a1, a3 );
+    assert !comp_arr( a1, a4 );
+
+    return 0;
+}
+
+test_cstring_eq() {
+    empty  := c"";
+    empty2 := c"";
+    foo    := c"foo";
+    foo2   := c"foo";
+    foobar := c"foobar";
+
+    assert c"" == c"";
+    assert empty == empty;
+    assert empty == empty2;
+    assert empty != foo;
+    assert foo == foo;
+    assert foo == foo2;
+    assert foo != foobar;
+    assert foobar == foobar;
+    assert foobar != foo;
+}
+
 main() -> Int {
     test_ref_eq_operator();
     test_ref_equals();
+    test_elem_eq( 1 );
+    test_obj_eq( 1 );
+    test_array_eq( 1 );
+    test_cstring_eq();
     return 0;
 }

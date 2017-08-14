@@ -70,6 +70,14 @@ type String implements Sequenceable< Char >, Stringer, Formatter {
     }
 
 
+/* TODO
+    override equals( other : &Any ) -> Bool {
+        if other is os : &String {
+            return self._bytes == os._bytes;
+        }
+        return FALSE;
+    }
+*/
     override sequencer() -> Ref< ~Sequencer< Char > > {
         return new ~StringSequencer( self );
     }

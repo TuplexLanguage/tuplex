@@ -15,7 +15,7 @@ type Node derives Tuple {
     }
 
     is_root()->Bool {
-        return self == self.parent;
+        return self === self.parent;
     }
 
     get_depth()->Int {

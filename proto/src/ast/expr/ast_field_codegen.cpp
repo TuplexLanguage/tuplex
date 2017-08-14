@@ -9,7 +9,7 @@ using namespace llvm;
  * Note that this returns a value of pointer type for all virtual fields, except for $adTypeId which has type i32.
  */
 static Value* virtual_field_addr_code_gen( LlvmGenerationContext& context, GenScope* scope,
-                                           const TxActualType* staticBaseType, Value* runtimeBaseTypeIdV, const TxField* fieldEntity ) {
+                                           const TxActualType* staticBaseType, Value* runtimeBaseTypeIdV, const std::string& fieldName ) {
     // retrieve the vtable of the base's actual (runtime) type:
     Value* vtableBase = context.gen_get_vtable( scope, staticBaseType, runtimeBaseTypeIdV );
     if ( !vtableBase ) {
@@ -17,7 +17,7 @@ static Value* virtual_field_addr_code_gen( LlvmGenerationContext& context, GenSc
     }
 
     // get the virtual field:
-    uint32_t fieldIx = staticBaseType->get_virtual_fields().get_field_index( fieldEntity->get_unique_name() );
+    uint32_t fieldIx = staticBaseType->get_virtual_fields().get_field_index( fieldName );
     //std::cerr << "(static type id " << staticBaseType->get_type_id() << ") Getting TXS_VIRTUAL ix " << fieldIx << " value off LLVM base value: " << vtableBase << std::endl;
     Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                      ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };
@@ -28,35 +28,34 @@ static Value* virtual_field_addr_code_gen( LlvmGenerationContext& context, GenSc
 }
 
 /** Returns an instance method lambda object value. */
-static Value* instance_method_value_code_gen( LlvmGenerationContext& context, GenScope* scope,
-                                              const TxActualType* staticBaseType,
-                                              Value* runtimeBaseTypeIdV, const TxField* fieldEntity,
-                                              Value* baseValue,
-                                              bool nonvirtualLookup ) {
-    auto lambdaT = cast<StructType>( context.get_llvm_type( fieldEntity->qualtype() ) );
+Value* instance_method_value_code_gen( LlvmGenerationContext& context, GenScope* scope,
+                                       const TxActualType* staticBaseType, Value* runtimeBaseTypeIdV, Value* basePtrV,
+                                       const TxActualType* fieldType, const std::string& fieldName,
+                                       bool nonvirtualLookup ) {
+    auto lambdaT = cast<StructType>( context.get_llvm_type( fieldType ) );
     Value* funcPtrV;
     if ( nonvirtualLookup ) {
         Value* staticBaseTypeIdV = staticBaseType->gen_typeid( context );
-        funcPtrV = virtual_field_addr_code_gen( context, scope, staticBaseType, staticBaseTypeIdV, fieldEntity );
+        funcPtrV = virtual_field_addr_code_gen( context, scope, staticBaseType, staticBaseTypeIdV, fieldName );
     }
     else
-        funcPtrV = virtual_field_addr_code_gen( context, scope, staticBaseType, runtimeBaseTypeIdV, fieldEntity );
+        funcPtrV = virtual_field_addr_code_gen( context, scope, staticBaseType, runtimeBaseTypeIdV, fieldName );
     // cast pointer type (necessary for certain (e.g. Ref-binding) specializations' methods):
     funcPtrV = scope->builder->CreatePointerCast( funcPtrV, lambdaT->getElementType( 0 ) );
     ASSERT( funcPtrV->getType()->getPointerElementType()->isFunctionTy(),
             "Expected funcPtrV to be pointer-to-function type but was: " << funcPtrV->getType() );
-    ASSERT( baseValue->getType()->isPointerTy(), "Expected baseValue to be of pointer type but was: " << baseValue->getType() );
+    ASSERT( basePtrV->getType()->isPointerTy(), "Expected basePtrV to be of pointer type but was: " << basePtrV->getType() );
 
     // construct the lambda object:
     auto closureRefT = context.get_closureRefT();
     if ( staticBaseType->get_type_class() == TXTC_INTERFACE ) {
         // if base is an interface (in practice, interface adapter), populate the lambda with the adaptee type id instead
-        auto adapteeTypeIdField = staticBaseType->get_virtual_fields().get_field( "$adTypeId" );
-        auto adapteeTypeIdV = virtual_field_addr_code_gen( context, scope, staticBaseType, runtimeBaseTypeIdV, adapteeTypeIdField );
+        //auto adapteeTypeIdField = staticBaseType->get_virtual_fields().get_field( "$adTypeId" );
+        auto adapteeTypeIdV = virtual_field_addr_code_gen( context, scope, staticBaseType, runtimeBaseTypeIdV, "$adTypeId" );
         //std::cerr << "Invoking interface method " << fieldEntity << ", replacing type id " << runtimeBaseTypeIdV << " with " << adapteeTypeIdV << std::endl;
         runtimeBaseTypeIdV = adapteeTypeIdV;
     }
-    auto closureRefV = gen_ref( context, scope, closureRefT, baseValue, runtimeBaseTypeIdV );
+    auto closureRefV = gen_ref( context, scope, closureRefT, basePtrV, runtimeBaseTypeIdV );
     return gen_lambda( context, scope, lambdaT, funcPtrV, closureRefV );
 }
 
@@ -82,7 +81,7 @@ static Value* field_addr_code_gen( LlvmGenerationContext& context, GenScope* sco
             auto baseType = baseExpr->qualtype()->type()->acttype();
             Value* baseTypeIdV = nonvirtualLookup ? baseType->gen_typeid( context )  // static
                                                   : baseExpr->code_gen_typeid( context, scope );  // runtime (static unless reference)
-            return virtual_field_addr_code_gen( context, scope, baseType, baseTypeIdV, fieldEntity );
+            return virtual_field_addr_code_gen( context, scope, baseType, baseTypeIdV, fieldEntity->get_unique_name() );
         }
         else {
             THROW_LOGIC( "Can't access virtual field without base value/expression: " << fieldEntity );
@@ -133,8 +132,9 @@ Value* TxFieldValueNode::code_gen_dyn_value( LlvmGenerationContext& context, Gen
             // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference, and not 'super'
             bool nonvirtualLookup = is_non_virtual_lookup( baseExpr );  // true for super.foo lookups
             Value* runtimeBaseTypeIdV = baseExpr->code_gen_typeid( context, scope );  // (static unless reference)
-            Value* baseValue = baseExpr->code_gen_dyn_address( context, scope );  // expected to be of pointer type
-            return instance_method_value_code_gen( context, scope, baseExpr->qualtype()->type()->acttype(), runtimeBaseTypeIdV, this->field, baseValue,
+            Value* basePtrV = baseExpr->code_gen_dyn_address( context, scope );  // expected to be of pointer type
+            return instance_method_value_code_gen( context, scope, baseExpr->qualtype()->type()->acttype(), runtimeBaseTypeIdV, basePtrV,
+                                                   this->field->qualtype()->type()->acttype(), this->field->get_unique_name(),
                                                    nonvirtualLookup );
         }
         else {

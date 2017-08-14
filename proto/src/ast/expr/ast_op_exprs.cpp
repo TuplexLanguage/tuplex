@@ -127,7 +127,8 @@ const TxQualType* TxEqualityOperatorNode::define_type() {
     auto ltype = this->lhs->originalExpr->resolve_type()->type();
     auto rtype = this->rhs->originalExpr->resolve_type()->type();
 
-    // NOTE: We shall not auto-dereference or auto-reference the operands in this operation.
+    // TODO: auto-dereference reference operands? (maybe required if comparison of arrays of references is to work)
+    // (References' pointer values are compared using the === identity equality operator.)
 
     // Object type classes may be compared directly via this operation.
     // Note that they don't have to be concrete.
@@ -136,8 +137,9 @@ const TxQualType* TxEqualityOperatorNode::define_type() {
     //     r.equals( s )
 
 
-    if ( ltype->get_type_class() != rtype->get_type_class() )
-        CERR_THROWRES( this, "Mismatching operand types for equality operator: " << ltype << ", " << rtype );
+    if ( ltype->get_type_class() == TXTC_REFERENCE || rtype->get_type_class() == TXTC_REFERENCE )
+        CERR_THROWRES( this, "Value equality operator == not applicable to reference operands: " << ltype << ", " << rtype );
+        //CERR_THROWRES( this, "Mismatching operand type classes for equality operator: " << ltype << ", " << rtype );
     // TODO: Review how to handle e.g.
     //     r : &Any;  s : &Array<Int>;
     //     r^ == s^
@@ -156,10 +158,6 @@ const TxQualType* TxEqualityOperatorNode::define_type() {
             else
                 CERR_THROWRES( this, "Mismatching operand types for equality operator: " << ltype << ", " << rtype );
         }
-        break;
-
-    case TXTC_REFERENCE:
-        // comparison of pointer values
         break;
 
     case TXTC_ARRAY:
@@ -193,16 +191,8 @@ const TxQualType* TxEqualityOperatorNode::define_type() {
         }
         break;
 
-    case TXTC_TUPLE:
-        // invocation of equals() method
-        if ( ltype != rtype )
-            CERR_THROWRES( this, "Mismatching Tuple types for equality operator: " << ltype << ", " << rtype );
-        break;
-
-    // TODO: Review whether TXTC_FUNCTION is comparable here?
-
     default:
-        CERR_THROWRES( this, "Equality operator not supported for type class " << ltype->get_type_class() << ": " << ltype );
+        break;
     }
 
     this->lhs->resolve_type();

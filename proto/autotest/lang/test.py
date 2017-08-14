@@ -71,7 +71,6 @@ source_files = [
     "arraydynamictest.tx",
     "arrayinittest.tx",
     "arraymodifiability.tx",
-    #"stringtest.tx",
 
     "lookuptest.tx",
     "membertest.tx",

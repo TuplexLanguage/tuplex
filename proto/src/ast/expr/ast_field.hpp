@@ -41,6 +41,13 @@ const TxFieldDeclaration* resolve_constructor( TxExpressionNode* origin, const T
                                                const std::vector<TxExpressionNode*>* arguments );
 
 
+/** Returns an instance method lambda object value. */
+llvm::Value* instance_method_value_code_gen( LlvmGenerationContext& context, GenScope* scope,
+                                       const TxActualType* staticBaseType, llvm::Value* runtimeBaseTypeIdV, llvm::Value* basePtrV,
+                                       const TxActualType* fieldType, const std::string& fieldName,
+                                       bool nonvirtualLookup );
+
+
 class TxFieldValueNode : public TxExpressionNode {
     const TxField* field = nullptr;
     const TxEntityDeclaration* declaration = nullptr;

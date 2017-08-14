@@ -122,6 +122,10 @@ public:
     /** Generates a malloc call that allocates storage for the specified number of bytes. */
     llvm::Value* gen_malloc( GenScope* scope, llvm::Value* sizeV );
 
+    /** Generates a dynamic call to lval.equals(rval) and returns the returned value (a boolean, i1). */
+    llvm::Value* gen_equals_invocation( GenScope* scope, llvm::Value* lvalA, llvm::Value* lvalTypeIdV,
+                                        llvm::Value* rvalA, llvm::Value* rvalTypeIdV );
+
     /** Generates code that gets the instance/element size for a given type id value.
      * NOTE: For arrays this returns the instance size of their element type.
      * @return an i32 value */

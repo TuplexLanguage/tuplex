@@ -159,7 +159,9 @@ public:
     }
 
     virtual bool is_statically_constant() const override {
-        return this->lhs->is_statically_constant() && this->rhs->is_statically_constant();
+        auto tc = this->lhs->originalExpr->qualtype()->type()->get_type_class();
+        return this->lhs->is_statically_constant() && this->rhs->is_statically_constant()
+                && ( tc == TXTC_ELEMENTARY || tc == TXTC_ARRAY );
     }
 
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
