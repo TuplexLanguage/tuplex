@@ -1,5 +1,5 @@
 ---
-layout: post
+layout: default
 title: Moving to Jekyll
 categories: jekyll
 ---
