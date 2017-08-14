@@ -1,3 +1,3 @@
 ## The Tuplex Programming Language
 
-<a href="{{ site.baseurl }}/index.html">Tuplex Home Page</a>
+<a href="https://tuplexlanguage.github.io/tuplex/index.html">Tuplex Home Page</a>
