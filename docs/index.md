@@ -2,8 +2,7 @@
 layout: default
 overview: true
 ---
-The Tuplex Programming Language
-===============================
+<H1>The Tuplex Programming Language</H1>
 
 <ul>
   {% for post in site.posts %}
