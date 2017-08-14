@@ -1,2 +1,5 @@
-theme: jekyll-theme-slate
+title: Tuplex
+description: The Tuplex Programming Language
 show_downloads: true
+google_analytics:
+theme: jekyll-theme-slate
