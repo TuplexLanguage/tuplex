@@ -78,6 +78,12 @@ type String implements Sequenceable< Char >, Stringer, Formatter {
         return FALSE;
     }
 */
+
+    ## TODO: implement Collection<Char>
+    count() -> ULong {
+        return self._bytes.L;  ## FIXME: properly count the utf8 characters
+    }
+
     override sequencer() -> Ref< ~Sequencer< Char > > {
         return new ~StringSequencer( self );
     }
@@ -87,8 +93,35 @@ type String implements Sequenceable< Char >, Stringer, Formatter {
     }
 
     override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
-        ## TODO: take format into account
-        writer.write( self._bytes );
+        padding : ~UInt = 0;
+        nofChars := UInt( self.count() );
+        if format.width > nofChars:
+            padding = format.width - nofChars;
+        result : ~[ self._bytes.L + padding ]UByte;
+
+        if ( format.flags & StringFormat.FLAG_MINUS ) == 0 {
+            ## right-aligned, padding to the left
+            if ( format.flags & StringFormat.FLAG_ZERO ) != 0 {
+                for i in 0..padding:
+                    result[result.L] = '0';
+            }
+            else {
+                for i in 0..padding:
+                    result[result.L] = ' ';
+            }
+            for b in self._bytes:
+                result[result.L] = b;
+        }
+    
+        else {
+            ## left-aligned, padding to the right
+            for b in self._bytes:
+                result[result.L] = b;
+            for i in 0..padding:
+                result[result.L] = ' ';
+        }
+    
+        writer.write( result );
     }
 }
 

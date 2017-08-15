@@ -1,0 +1,19 @@
+# a comment - this is ignored
+# Examples:
+# no .a files
+#*.a
+# but do track lib.a, even though you're ignoring .a files above
+#!lib.a
+# ignore doc/notes.txt, but not doc/server/arch.txt
+#doc/*.txt
+# ignore all .txt files in the doc/ directory
+#doc/**/*.txt
+# only ignore the root TODO file, not subdir/TODO
+#/TODO
+
+# emacs backup files
+*~
+
+# Jekyll build files
+_site/
+Gemfile.lock

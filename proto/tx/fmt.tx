@@ -54,7 +54,7 @@ type StringFormat {
 }
 
 
-/** Makes a Stringer of a Formatter by applying a given format. */
+/** Makes a Stringer of a Formatter by applying a given format to produce the string. */
 type FormattedStringer implements Stringer {
     format : StringFormat;
     object : &Formatter;
@@ -64,10 +64,32 @@ type FormattedStringer implements Stringer {
         self.object = object;
     }
 
+    self( format : StringFormat, object : &Stringer ) {
+        self.format = format;
+        self.object = new StringerFormatter( object );  ## FUTURE: redesign or free memory
+    }
+
     override string( writer : &~tx.ByteWriter ) {
         self.object.format( writer, self.format );
     }
 }
+
+
+/** Makes a Formatter of a Stringer by applying the format to the produced string.
+ * This can be used in place of String, the difference is that this object will lazily produce the Stringer's string. */
+type StringerFormatter implements Formatter {
+    object : &Stringer;
+
+    self( object : &Stringer ) {
+        self.object = object;
+    }
+
+    override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
+        str := String( self.object );
+        str.format( writer, format );
+    }
+}
+
 
 
 /** Converts an integer to a string in conventional decimal format.
