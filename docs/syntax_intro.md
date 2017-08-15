@@ -3,7 +3,7 @@ layout: default
 ---
 ## Syntax Introduction
 
-(This is a fast syntax introduction which presumes the reader is familiar with programming in imperative languages.)
+(This is a quick syntax introduction which presumes the reader is familiar with programming in imperative languages.)
 
 Functions (and methods and lambdas) are defined using `()->`.
 
@@ -47,14 +47,13 @@ The syntax of scalar and boolean expressions, as well as function calls, is stra
 
 #### Other Basic Syntax Elements
 
-Line comments begin with ##.
+- Line comments begin with ##.
+- Multi-line comments are enclosed between /* and */. Comments can be nested.
+- Statements are terminated with ';' semicolon.
+- Bodies of types, functions, and suites of statements are enclosed in '{}' braces.
 
-Multi-line comments are enclosed between /* and */. Comments can be nested.
 
-Statements are terminated with ';' semicolon.
-
-Bodies of modules, types, functions, and suites of statements are enclosed in '{}' braces.
-
+#### Imports
 
 In single-file programs it isn't necessary to declare a module name. In order to use types and functions of other modules however they must be imported. Import statements must appear at the beginning of a file or module.
 
