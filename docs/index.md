@@ -5,21 +5,17 @@ overview: true
 What is Tuplex?
 ---------------
 
-<p>
-Tuplex is a statically compiled, strongly typed, imperative programming language.
-</p>
-<p>
-It features a sophisticated unified generic type system. It strives to be easy to write, easy to read, easy to avoid memory and concurrency bugs, and fast to execute.
-</p>
+Tuplex is a statically compiled, strongly typed, imperative programming language with some semantic, syntactic, and data representation innovations.
+
+It features a sophisticated unified generic type system.
+
+It strives to be easy to write, easy to read, easy to avoid memory and concurrency bugs, and fast to execute.
+
 Tuplex originated as a research project with a two-fold purpose:
-<ul>
-  <li>
-    Combining a uniform, easy to write and read syntax with powerful and efficient array, tuple, and custom container handling
-  </li>
-  <li>
-    A language test bed for developing the concept of <em>dataspaces</em> which guarantee data race safety in concurrent programs
-  </li>
-</ul>
+
+* Combining a uniform, easy to write and read syntax, with powerful and efficient array, tuple, and custom container handling
+
+* A language test bed for developing a proof-of-concept of <em>dataspaces</em> which guarantee data race safety in concurrent programs
 
 
 Hello World Example
@@ -33,8 +29,23 @@ Not beating around the bush, this is the <em>Hello, World!</em> program in Tuple
 
 The syntax is a relative of C, Java, and Python, with some influences from Rust, Go, and Ada.
 
-About Easiness
---------------
+
+Notes
+-----
+
+### Status
+
+The compiler is in a working state, and quite extensive programs can be written in Tuplex. The foundation library is already quite extensive and makes use of the language's most advanced features. There is also a very easy-to-use foreign function interface to C.
+
+BUT, a large test suite notwithstanding it is not yet fully stable, and there are some core features to be completed:
+- Conditional type casting
+- Equality comparison of complex arrays
+- Safe initialization of complex arrays (arrays-of-arrays and arrays-of-tuples)
+- Complete the foundation library tie-up of the Collection, Sequence, etc interfaces with the Array and String types
+
+These are interdepenent under the hood and will hopefully be done quite soon.
+
+### About Easiness
 
 What does the Tuplex design consider "easy to write and read" to mean?
 <ul>
@@ -55,41 +66,4 @@ What does the Tuplex design consider "easy to write and read" to mean?
   </li>
 </ul>
 
-Some Highlights
----------------
-
-### Formatting Strings
-
-The string concatenation `%%` and formatting `%s` operators are first-class expression operators. This allows them to be used in arbitrary expressions, and printing to the console is just one use-case. The `%s` operators accepts all the conventional C printf formatting codes.
-
-`%s operand` will create a string representation of the operand (similar to .to_string() in some other languages).
-
-`%???s operand` `%???d operand` etc will create a formatted string representation using the specified formatting codes.
-
-If a formatting operator is preceded by another string, it concatenates the left string with the formatted result. This way simple concatenations as well as advanced formatting can be strung together seamlessly.
-
-    print( "Hello" %% ", world!" );
-    mystring := "number-to-formatted-string: " %-05d -4444;
-    print( mystring %% " and lets append this" %40s " and this with min-width" );
-    stream.write( "write formatted values to stream: " %-20s mystring %8f 3.14 );
-
-### Ranges
-
-Ranges are first class citizens, enabling them to be used and manipulated as values themselves, in for loop syntax, in array/sequence element selection, and in sequence generation.
-
-    myrange := 1..10;    ## default step is 1
-    for i in myrange,
-        j in 9..-2..0  ## here step is -2
-    {
-        print( %s i %% ", " %s j );
-    }
-
-    ## Note: The support of the following is not yet complete.
-
-    even := c"0123456789"[ 0..2..10 ];  ## selects every second character
-    for c in even
-    {
-        print( %s c );
-    }
-
-    myarray := [ myrange... ];  ## expands the range in-place
+Tuplex has a working, expressive and unambiguous grammar. However, once the core features which are syntactic first class citizens are completed, an overhaul is planned. As constructs have been implemented the syntax has grown somewhat in complexity and is not quite as "easy" as has been aimed for. Another objective is to make semicolons optional and support an indentation-based block structure like e.g. Python (while retaining the option to use braces if desired, e.g. Haskell provides a choice like this).

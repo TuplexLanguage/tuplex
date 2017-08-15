@@ -60,3 +60,9 @@ These capabilities aren't "essential", but would complement the rest of the lang
 * Safe unions (so-called sum types) as a built-in language feature
 * Vectors (SIMD types) as first-class citizens
 * Zero-boiler-plate object proxying (type delegation)
+
+### What Tuplex does not aim to provide
+
+* Direct access to memory addresses, registers etc
+* Abstraction from data representation details such as sizes of elementary data types
+* Dynamic code loading (except for OS-level dynamic link libraries)
