@@ -10,9 +10,9 @@
     
     <title>{{ site.title | default: site.github.repository_name }}</title>
 
+    <!--
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
     <script src="{{ '/assets/js/main.js' | relative_url }}"></script>
-    <!--
     -->
     <!--[if lt IE 9]>
       <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
@@ -30,8 +30,8 @@
       </script>
     {% endif %}
   </head>
-  <body>
 
+  <body>
       <header>
         <h1>{{ site.title | default: site.github.repository_name }}</h1>
         <!--<p>{{ site.description | default: site.github.project_tagline }}</p>-->
@@ -55,24 +55,26 @@
       </div><!-- end banner -->
 
       <div class="wrapper">
-      <aside>
-        {% capture my_include %}{% include aside.md %}{% endcapture %}
-        {{ my_include | markdownify }}
-      </aside>
-      <section>
-        {{ content }}
-      </section>
-      <nav>
-        <ul></ul>
-      </nav>
-      <footer>
-        {% if site.github.is_project_page %}
+        <aside id="flow_navbar">
+          {% capture my_include %}{% include aside.md %}{% endcapture %}
+          {{ my_include | markdownify }}
+        </aside>
+        <!-- <div id="spacing_leftbar"></div>  This is needed if using a fixed navbar -->
+        <section>
+          {{ content }}
+        </section>
+        <!--
+        <nav>
+          <ul></ul>
+        </nav>
+        -->
+        <footer id="new_footer">
+          {% if site.github.is_project_page %}
           <p>Project maintained by <a href="{{ site.github.owner_url }}">{{ site.github.owner_name }}</a></p>
-        {% endif %}
-        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://twitter.com/michigangraham">mattgraham</a></small></p>
-      </footer>
+          {% endif %}
+          <p><small>Hosted on GitHub Pages<br>Original theme by <a href="https://twitter.com/michigangraham">mattgraham</a></small></p>
+        </footer>
     </div>
     <!--[if !IE]><script>fixScale(document);</script><![endif]-->
-
   </body>
 </html>

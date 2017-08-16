@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Moving Site to Github
+title: Moving Site to GitHub
 ---
 {{ page.date | date: "%Y-%m-%d" }}
 ## {{ page.title }}

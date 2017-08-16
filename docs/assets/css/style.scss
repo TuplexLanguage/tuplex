@@ -3,6 +3,10 @@
 
 @import "{{ site.theme }}";
 
+body {
+  color:#333;
+}
+
 header {
   padding: 20px 20px 25px 20px;
   min-height: 0px;
@@ -11,10 +15,10 @@ header {
 #banner {
   top: 90px;
 
-  .home {
+  .home {  // home button
     position:fixed;
-    left:50%;
-    margin-left:-325px;
+    //left:50%;
+    //margin-left:-325px;
     padding: 10px 12px;
     margin-top: 6px;
     line-height:14px;
@@ -22,89 +26,115 @@ header {
     background-color: #FFE788;
   }
 
-  .fork {
-    margin-left:-200px;
+  .fork {  // GitHub button
+    //margin-left:-200px;
+    left: 120px;
+    margin-left: initial;
   }
 }
 
 .wrapper {
-  width:650px;
-  margin:0 auto;
-  position:relative;
+    width: initial;
+    position: initial;
+    margin-top: 150px;
+    //min-width: 300px;
 }
 
 section {
-  width:590px;
-  min-width:400px;
-  padding: 30px 30px 50px 30px;
-  margin: 20px 0;
-  margin-top: 150px;
-  position:relative;
-  background: #fbfbfb;
-  border-radius: 3px;
-  border: 1px solid #cbcbcb;
-  box-shadow: 0px 1px 2px rgba(0,0,0,.09), inset 0px 0px 2px 2px rgba(255,255,255,.5), inset 0 0 5px 5px rgba(255,255,255,.4);
+    margin-top: initial;
+    vertical-align: top;
+    display: inline-block;
+    width: initial;
+    max-width: 580px;
+    //min-width: 300px;
 }
 
+
+#flow_navbar {
+    vertical-align: top;
+    display: inline-block;
+    width: 200px;
+    padding: 10px 10px 10px 10px;
+
+    color: #400000;
+    
+    h1, h2, h3, h4, h5, h6 {
+        color:#322;
+    }
+
+    a {
+        color:#3399cc;
+        font-weight:800;
+        text-decoration:none;
+    }
+
+    ul, ol {
+        line-height:24px;
+        padding-left: 10px;
+
+        li {
+            line-height: 24px;
+        }
+    }
+}
+
+#spacing_leftbar {
+    margin-bottom: 400px;  // mimics height of nav aside
+    vertical-align: top;
+    display: inline-block;
+    width: 200px;
+    padding: 10px 10px 10px 10px;
+}
+
+#fixed_navbar {
+    z-index: 90;
+    position: fixed;
+    width: 200px;
+    padding: 10px 10px 10px 10px;
+
+    color: #400000;
+
+    /*
+    border-radius: 3px;
+    border: 1px solid #d0d0d0;
+    box-shadow: 0px 1px 2px rgba(0,0,0,.09), inset 0px 0px 2px 2px rgba(220,220,220,.2), inset 0 0 5px 5px rgba(220,220,220,.4);
+   */
+
+    ul, ol {
+        line-height:24px;
+        padding-left: 10px;
+
+        li {
+            line-height: 24px;
+        }
+    }
+}
+
+#new_footer {  // use this to make it always be at the bottom
+    position: relative;
+    width:auto;
+    left:auto;
+    bottom:auto;
+    text-align: center;
+    line-height: 16px;
+}
+
+footer {  // adjusts theme's default footer, which is at a fixed screen position to the bottom left
+    left: initial;
+    margin-left: initial;
+    width: 200px;
+    bottom: 0px;
+
+    z-index: 0;
+}
+
+/* adjusted the theme's built-in headings-navigation (required js)
 nav {
   width: 200px;
   position: fixed;
   top: 180px;
   margin-left: 300px;
   text-align: left;
-}
-
-aside {
-  width: 180px;
-  height: 100%;
-  position: fixed;
-  float: left;
-  top: 150px;
-  left: 50%;
-  margin-left:-530px;
-  padding: 10px 10px 10px 10px;
-  color: #400000;
-  overflow-x: scroll;
-  /*
-  border-radius: 3px;
-  border: 1px solid #d0d0d0;
-  box-shadow: 0px 1px 2px rgba(0,0,0,.09), inset 0px 0px 2px 2px rgba(220,220,220,.2), inset 0 0 5px 5px rgba(220,220,220,.4);
-  */
-
-  ul, ol {
-    line-height:24px;
-    padding-left: 10px;
-
-    li {
-      line-height: 24px;
-    }
-  }
-}
-
-/* from the theme:
-code {
-  font-family: 'Lucida Sans', Monaco, Bitstream Vera Sans Mono, Lucida Console, Terminal;
-  font-size:13px;
-  color:#efefef;
-  text-shadow: 0px 1px 0px #000;
-  margin: 0 4px;
-  padding: 2px 6px;
-  background: #333;
-  border-radius: 2px;
-}
-
-pre {
-  padding:8px 15px;
-  background: #333333;
-  border-radius: 3px;
-  border:1px solid #c7c7c7;
-  overflow: auto;
-  overflow-y: hidden;
-
-  code {
-    margin: 0px;
-    padding: 0px;
-  }
 }
 */
 
