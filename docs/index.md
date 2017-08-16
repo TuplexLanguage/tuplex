@@ -68,4 +68,4 @@ What does the Tuplex design consider "easy to write and read" to mean?
   </li>
 </ul>
 
-Tuplex has a working, expressive and unambiguous grammar. However, once the core features which are syntactic first class citizens are completed, an overhaul is planned. As constructs have been implemented the syntax has grown somewhat in complexity and is not quite as "easy" as has been aimed for. Another objective is to make semicolons optional and support an indentation-based block structure like e.g. Python (while retaining the option to use braces if desired, e.g. Haskell provides a choice like this).
+Tuplex has a working, expressive and unambiguous grammar. However, once the core features that have syntactic constructs are completed, an overhaul is planned. As constructs have been implemented the syntax has grown a bit in complexity and is not quite as "easy" as aimed for. One of the objectives is to make semicolons optional and support an indentation-based block structure like e.g. Python (while retaining the option to use braces if desired, e.g. Haskell provides a choice like this).
