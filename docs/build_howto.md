@@ -35,7 +35,7 @@ After build these might be the first files you'd like to check out:
 
 `proto/bin/txc`
 
-The compiler. You may want to add this to your path. Run with -h to print the command line usage. See also Paths section below.
+The compiler. You may want to add this to your path. *Run with -h to print the command line usage.* See also the Paths section below.
 
 `proto/autotest/lib/helloworld.tx`
 
@@ -43,14 +43,16 @@ An example program that prints "Hello, world!".
 
 There are also a bunch of other test programs in `proto/autotest/`, this is the suite of test source files used in the automated tests of the compiler (i.e. unit tests). These have plenty of syntax examples covering the implemented capabilities of the language.
 
-To run the auto test suite manually, use the following command:
+To run the auto test suite manually, use the following command: `python autotest/test.py`
 
-    python autotest/test.py
+`proto/tx`
+
+The Tuplex foundation library source code (under the reserved namespace `tx`). This contains quite advanced code and ties together the built-in types with interfaces and implementations for collections, iteration, I/O, and more.
 
 
 ### Paths
 
-The txc compiler has two special paths, used to locate source modules.
+The txc compiler has two special paths that are controlled by command options and used to locate source modules.
 
 * The foundation library code: The `tx` module and some of its submodules. These are expected to be found in a directory named `tx` in the current directory, or in a location specified by the `-tx <path>` option. If you run the compiler with `proto/` as the current directory you can skip this option since it is located there.
 

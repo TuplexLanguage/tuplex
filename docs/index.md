@@ -5,17 +5,19 @@ overview: true
 What is Tuplex?
 ---------------
 
-Tuplex is a statically compiled, strongly typed, imperative programming language with some semantic, syntactic, and data representation innovations.
+Tuplex is a statically compiled, imperative, strongly typed programming language with innovations in semantics, data representation, and syntax.
 
-It features a sophisticated unified generic type system.
+It features a sophisticated and unified generic type system.
 
-It strives to be easy to write, easy to read, easy to avoid memory and concurrency bugs, and fast to execute.
+It strives to be easy to write, easy to read, easy to avoid memory and concurrency bugs, while being fast to execute.
 
 Tuplex originated as a research project with a two-fold purpose:
 
-* Combining a uniform, easy to write and read syntax, with powerful and efficient array, tuple, and custom container handling
+* Designing a uniform, easy to write and read syntax, with powerful and efficient array, tuple, and custom container handling
 
 * A language test bed for developing a proof-of-concept of <em>dataspaces</em> which guarantee data race safety in concurrent programs
+
+The compiler is developed using LLVM, enabling it to use LLVM's extensive suite of optimizations and hardware targets.
 
 
 Hello World Example
@@ -43,7 +45,7 @@ BUT, a large test suite notwithstanding it is not yet fully stable, and there ar
 - Safe initialization of complex arrays (arrays-of-arrays and arrays-of-tuples)
 - Complete the foundation library tie-up of the Collection, Sequence, etc interfaces with the Array and String types
 
-These are interdepenent under the hood and will hopefully be done quite soon.
+These are interdepenent under the hood and are currently in progress.
 
 ### About Easiness
 
