@@ -1,6 +1,7 @@
 ---
 layout: default
 overview: true
+title: Tuplex Home
 ---
 What is Tuplex?
 ---------------
