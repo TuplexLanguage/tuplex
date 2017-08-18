@@ -36,10 +36,10 @@ interface Indicable< K, E > derives Iterable< E > {
 interface Updatable< K, E > derives Indicable< K, E > {
 
     /** Sets the element at the slot identified by key. Returns the replaced element. */
-    abstract set( key : K, element : E ) mod -> E;
+    abstract set( key : K, element : E ) ~ -> E;
 
     /** Swaps two elements, putting each in the slot previously occupied by the other. */
-    abstract swap( keyA : K, keyB : K ) mod;
+    abstract swap( keyA : K, keyB : K ) ~;
 }
 
 

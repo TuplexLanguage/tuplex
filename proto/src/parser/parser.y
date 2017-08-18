@@ -126,18 +126,21 @@ YY_DECL;
 
 /* keywords: */
 %token KW_MODULE KW_IMPORT KW_TYPE KW_INTERFACE
-%token KW_PUBLIC KW_PROTECTED KW_VIRTUAL KW_STATIC KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERNC
-%token KW_CONST KW_MODIFIABLE KW_REFERENCE KW_DERIVES KW_IMPLEMENTS
-%token KW_WHILE KW_FOR KW_IF KW_ELSE KW_SWITCH KW_CASE KW_WITH KW_IN KW_IS KW_AS KW_XOR
-%token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE KW_FROM
+%token KW_BUILTIN KW_VIRTUAL KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERNC
+%token KW_MUTABLE KW_REFERENCE KW_DERIVES KW_IMPLEMENTS
+%token KW_WHILE KW_FOR KW_IF KW_ELSE KW_IN KW_IS KW_AS
+%token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE
+%token KW_XOR
 %token KW_NULL KW_TRUE KW_FALSE
 %token KW_PANIC KW_ASSERT KW_EXPERR
 %token KW__ADDRESS KW__TYPEID KW__SIZEOF
 
 /* keywords reserved but not currently used */
-%token KW_TUPLE KW_UNION KW_ENUM
+%token KW_PUBLIC KW_PROTECTED
+%token KW_STATIC KW_CONST 
+%token KW_SWITCH KW_CASE KW_WITH
+%token KW_AND KW_OR KW_NOT KW_EXTENDS
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
-%token KW_AND KW_OR KW_NOT KW_BUILTIN KW_LAMBDA KW_CLASS KW_EXTENDS
 
  /* literals: */
 %token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
@@ -150,7 +153,7 @@ YY_DECL;
 %type <TxIdentifier*> opt_module_decl opt_dataspace
 
 %type <TxDeclarationFlags> declaration_flags opt_visibility opt_externc opt_virtual opt_abstract opt_override opt_final opt_builtin
-%type <bool> opt_modifiable type_or_if
+%type <bool> opt_mutable type_or_if
 %type <TxParsingUnitNode*> parsing_unit
 %type <TxModuleNode*> sub_module
 
@@ -359,9 +362,9 @@ field_assignment_def : NAME COLON type_usage_expr EQUAL expr
 derives_token    : KW_DERIVES    | COLON ;
 implements_token : KW_IMPLEMENTS | COLON ;
 ref_token        : KW_REFERENCE  | AAND ;
-mod_token        : KW_MODIFIABLE | TILDE ;
+mut_token        : KW_MUTABLE    | TILDE ;
 
-opt_modifiable   : %empty { $$ = false; } | mod_token { $$ = true; } ;
+opt_mutable   : %empty { $$ = false; } | mut_token { $$ = true; } ;
 
 type_body
     :   LBRACE RBRACE                   { $$ = new std::vector<TxDeclarationNode*>(); }
@@ -388,9 +391,9 @@ type_param      : NAME  { $$ = new TxTypeDeclNode(@$, TXD_PUBLIC | TXD_GENPARAM,
                 | NAME COLON type_expression     { $$ = new TxFieldDeclNode(@$, TXD_PUBLIC | TXD_GENPARAM, new TxNonLocalFieldDefNode(@$, $1, $3, nullptr)); }
                 ;
 
-type_declaration : declaration_flags type_or_if opt_modifiable NAME type_derivation  
+type_declaration : declaration_flags type_or_if opt_mutable NAME type_derivation  
                         { $$ = new TxTypeDeclNode(@$, $1, $4, NULL, $5, $2, $3); }
-                 | declaration_flags type_or_if opt_modifiable NAME LT type_param_list GT type_derivation
+                 | declaration_flags type_or_if opt_mutable NAME LT type_param_list GT type_derivation
                         { $$ = new TxTypeDeclNode(@$, $1, $4, $6,   $8, $2, $3); }
 
                  // error recovery, handles when an error occurs before a type body's LBRACE:
@@ -442,16 +445,16 @@ type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->
 
 type_arg        : value_literal       { $$ = new TxValueTypeArgumentNode($1); }  // unambiguous value expr
                 | LPAREN expr RPAREN  { $$ = new TxValueTypeArgumentNode($2); }  // parens prevent conflation with type expr
-                | opt_modifiable conv_type_expr   { $$ = new TxTypeTypeArgumentNode(( $1 ? new TxModifiableTypeNode(@$, $2)
+                | opt_mutable conv_type_expr   { $$ = new TxTypeTypeArgumentNode(( $1 ? new TxModifiableTypeNode(@$, $2)
                                                                                          : new TxMaybeModTypeNode(@2, $2) )); }
                 // TODO: support reference and array types (possibly chained):
                 // | type_usage_expr     { $$ = new TxTypeTypeArgumentNode($1); }
-                // | opt_modifiable AAND conv_type_expr
-                // | opt_modifiable LBRACKET RBRACKET conv_type_expr
+                // | opt_mutable AAND conv_type_expr
+                // | opt_mutable LBRACKET RBRACKET conv_type_expr
                 ;
 
 // a type usage is a non-modifiable or modifiable usage of a type expression:
-type_usage_expr : opt_modifiable type_expression  %prec EXPR
+type_usage_expr : opt_mutable type_expression  %prec EXPR
                          { $$ = ( $1 ? new TxModifiableTypeNode(@$, $2)
                                      : new TxMaybeModTypeNode(@2, $2) ); }
                 ;
@@ -488,7 +491,7 @@ array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
                  ;
 
 //data_tuple_type  // simple tuple type with no static fields; fields implicitly public
-//    : KW_TUPLE opt_modifiable LBRACE field_type_list RBRACE
+//    : KW_TUPLE opt_mutable LBRACE field_type_list RBRACE
 //            { $$ = new TxTupleTypeNode(@$, $3, $7); }
 //    ;
 
@@ -510,9 +513,9 @@ array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
 
 lambda_expr : function_signature suite  { $$ = new TxLambdaExprNode(@$, $1, $2); } ;
 
-function_signature : func_args opt_modifiable DASHGT type_expression
+function_signature : func_args opt_mutable DASHGT type_expression
                         { $$ = new TxFunctionTypeNode(@$, $2, $1, $4); }
-                   | func_args opt_modifiable
+                   | func_args opt_mutable
                         { $$ = new TxFunctionTypeNode(@$, $2, $1, NULL); }
                    ;
 
@@ -534,7 +537,7 @@ func_arg_def   : NAME COLON type_expression
                | NAME COLON type_expression ELLIPSIS
                         { $$ = new TxArgTypeDefNode(@$, $1,
                                     new TxReferenceTypeNode(@3, nullptr, new TxArrayTypeNode(@3, new TxMaybeModTypeNode(@3, $3)))); }
-               | NAME COLON mod_token type_expression ELLIPSIS
+               | NAME COLON mut_token type_expression ELLIPSIS
                         { $$ = new TxArgTypeDefNode(@$, $1,
                                     new TxReferenceTypeNode(@3, nullptr, new TxArrayTypeNode(@3, new TxModifiableTypeNode(@3, $4)))); }
                ;
@@ -780,9 +783,9 @@ local_field_def  : NAME COLON type_usage_expr             { $$ = new TxLocalFiel
 ;
 
 // TODO: support declaration flags abstract, final, and maybe static
-type_decl_stmt   : type_or_if opt_modifiable NAME type_derivation
+type_decl_stmt   : type_or_if opt_mutable NAME type_derivation
                      { $$ = new TxTypeStmtNode(@1, $3, NULL, $4, $1, $2); }
-                 | type_or_if opt_modifiable NAME LT type_param_list GT type_derivation
+                 | type_or_if opt_mutable NAME LT type_param_list GT type_derivation
                      { $$ = new TxTypeStmtNode(@1, $3, $5,   $7, $1, $2); }
 
                  // error recovery, handles when an error occurs before a type body's LBRACE:

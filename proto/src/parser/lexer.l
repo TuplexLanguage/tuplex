@@ -129,21 +129,18 @@ extern "C" int yywrap() { return 0; }
  /* keywords */
 "module"	{ return token::KW_MODULE; }
 "import"	{ return token::KW_IMPORT; }
-"public"	{ return token::KW_PUBLIC; }
-"protected"	{ return token::KW_PROTECTED; }
+"type"      { return token::KW_TYPE; }
+"interface" { return token::KW_INTERFACE; }
+"builtin"   { return token::KW_BUILTIN; }
 "virtual"   { return token::KW_VIRTUAL; }
-"static"	{ return token::KW_STATIC; }
 "externc"   { return token::KW_EXTERNC; }
-"type"		{ return token::KW_TYPE; }
-"class"		{ return token::KW_CLASS; }
-"interface"	{ return token::KW_INTERFACE; }
 "abstract"	{ return token::KW_ABSTRACT; }
 "final"		{ return token::KW_FINAL; }
 "override"  { return token::KW_OVERRIDE; }
-"const"     { return token::KW_CONST; }
-"mod"		{ return token::KW_MODIFIABLE; }
+"mut"		{ return token::KW_MUTABLE; }
 "ref"		{ return token::KW_REFERENCE; }
 "derives"   { return token::KW_DERIVES; }
+"implements" { return token::KW_IMPLEMENTS; }
 
 "panic"     { return token::KW_PANIC; }
 "assert"    { return token::KW_ASSERT; }
@@ -155,33 +152,34 @@ extern "C" int yywrap() { return 0; }
 "if"		{ return token::KW_IF; }
 "is"		{ return token::KW_IS; }
 "else"		{ return token::KW_ELSE; }
-"switch"	{ return token::KW_SWITCH; }
-"with"		{ return token::KW_WITH; }
-"as"		{ return token::KW_AS; }
-"case"		{ return token::KW_CASE; }
 "break"		{ return token::KW_BREAK; }
 "continue"	{ return token::KW_CONTINUE; }
 "return"	{ return token::KW_RETURN; }
 "new"		{ return token::KW_NEW; }
 "delete"    { return token::KW_DELETE; }
-"from"		{ return token::KW_FROM; }
-"or"		{ return token::KW_OR; }
+
+"xor"       { return token::KW_XOR; }
 
 "_address"  { return token::KW__ADDRESS; }
 "_typeid"   { return token::KW__TYPEID; }
 "_sizeof"   { return token::KW__SIZEOF; }
 
  /* reserved but not currently used: */
-"and"		{ return token::KW_AND; }
-"xor"		{ return token::KW_XOR; }
-"not"		{ return token::KW_NOT; }
-"builtin"	{ return token::KW_BUILTIN; }
+"public"    { return token::KW_PUBLIC; }
+"protected" { return token::KW_PROTECTED; }
+"static"    { return token::KW_STATIC; }
+"const"     { return token::KW_CONST; }
 "extends"   { return token::KW_EXTENDS; }
-"implements" { return token::KW_IMPLEMENTS; }
-"lambda"    { return token::KW_LAMBDA; }
-"tuple"     { return token::KW_TUPLE; }
-"union"     { return token::KW_UNION; }
-"enum"      { return token::KW_ENUM; }
+
+"with"      { return token::KW_WITH; }
+"as"        { return token::KW_AS; }
+"switch"    { return token::KW_SWITCH; }
+"case"      { return token::KW_CASE; }
+
+"and"		{ return token::KW_AND; }
+"or"        { return token::KW_OR; }
+"not"		{ return token::KW_NOT; }
+
 "try"       { return token::KW_TRY; }
 "except"    { return token::KW_EXCEPT; }
 "finally"   { return token::KW_FINALLY; }

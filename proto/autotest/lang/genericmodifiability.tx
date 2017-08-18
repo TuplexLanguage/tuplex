@@ -15,7 +15,7 @@ type ImmutableType<M,N> {
         return self.mfield;
     }
 
-    #experr 2: set_n( n : N ) mod {  ## can't declare modifying method on immutable type
+    #experr 2: set_n( n : N ) ~ {  ## can't declare modifying method on immutable type
         #experr 0: self.nfield = n;    ## field is not modifiable
     }
 }
@@ -59,11 +59,11 @@ type ~ GType<S,T,U> {
         return self.ufield;
     }
 
-    set_s( s : S ) mod {
+    set_s( s : S ) ~ {
         self.sfield = s;
     }
 
-    set_t( t : T ) mod {
+    set_t( t : T ) ~ {
         self.tfield = t;
     }
 }

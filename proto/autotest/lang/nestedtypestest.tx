@@ -1,11 +1,11 @@
 ## Similar to sequence interface test but without generics
 
 interface Sequenceable derives Interface {
-    abstract sequencer() mod ->Ref<~Sequencer>;
+    abstract sequencer() ~ ->Ref<~Sequencer>;
 }
 
 interface Sequencer derives Sequenceable {
-    override sequencer() mod ->Ref<~Sequencer> { return self; }
+    override sequencer() ~ ->Ref<~Sequencer> { return self; }
 
     abstract emptyFunc();
     abstract hasNext()->Bool;

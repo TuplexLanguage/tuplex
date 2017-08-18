@@ -17,7 +17,6 @@ COPY := CONSTANT;
 #experr 1: ~NONCONSTA := 8;
 #experr 1: ~NONCONSTB : Int = 8;  ## (syntax error)
 #experr 1: NONCONSTC : ~Int = 8;
-#experr 1: NONCONSTD : mod Int = 8;
 
 
 #experr 1: virtual  TOO_VIRTUAL   : Int = 5;

@@ -13,7 +13,7 @@ type ImmutableType {
         return self.ifield;
     }
 
-    #experr 2: set_i( i : Int ) mod {  ## can't declare modifying method on immutable type
+    #experr 2: set_i( i : Int ) ~ {  ## can't declare modifying method on immutable type
         #experr 0: self.ifield = i;    ## field is not modifiable
     }
 }
@@ -40,11 +40,11 @@ type ~ AType {  ## mutable type
         return self.ffield;
     }
 
-    set_i( i : Int ) mod {
+    set_i( i : Int ) ~ {
         #experr 1: self.ifield = i;  ## field is not modifiable
     }
 
-    set_f( f : Float ) mod {
+    set_f( f : Float ) ~ {
         self.ffield = f;
     }
 }

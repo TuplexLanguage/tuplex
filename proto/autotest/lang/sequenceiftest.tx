@@ -1,9 +1,9 @@
 interface ~ Sequenceable<E derives Ref> derives Interface {
-    abstract sequencer() mod ->Ref<~Sequencer<E>>;
+    abstract sequencer() ~ ->Ref<~Sequencer<E>>;
 }
 
 interface ~ Sequencer<E derives Ref> derives Sequenceable<E> {
-    override sequencer() mod ->Ref<~Sequencer<E>> { return self; }
+    override sequencer() ~ ->Ref<~Sequencer<E>> { return self; }
 
     abstract hasNext()->Bool;
     abstract next()->E;
