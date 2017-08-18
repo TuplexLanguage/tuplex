@@ -1,10 +1,10 @@
 ## Similar to sequence interface test but without generics
 
-interface Sequenceable derives Interface {
+interface Sequenceable <: Interface {
     abstract sequencer() ~ ->Ref<~Sequencer>;
 }
 
-interface Sequencer derives Sequenceable {
+interface Sequencer <: Sequenceable {
     override sequencer() ~ ->Ref<~Sequencer> { return self; }
 
     abstract emptyFunc();
@@ -12,9 +12,9 @@ interface Sequencer derives Sequenceable {
     abstract next()->Int;
 }
 
-type SingleRef derives Tuple : Sequenceable {
+type SingleRef <: Tuple, Sequenceable {
 
-    type ~ SingleSeq derives Tuple : Sequencer {
+    type ~ SingleSeq <: Tuple, Sequencer {
         element : Int;
         done : ~Bool;
 

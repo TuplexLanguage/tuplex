@@ -47,7 +47,7 @@ type Outer<S> {
 test_nested() {
     n1 : Outer<Long>.Nested<Byte, Short>;
     
-    type Redecl<W> : Outer<Long>.Nested<Byte,W>;
+    type Redecl<W> <: Outer<Long>.Nested<Byte,W>;
     n2 : Redecl<Short>;
     n3 : n2.T;
 }
@@ -63,7 +63,7 @@ main()->Int {
     v2a : v1a.Inner;
     v3a : Outer<Float>.Inner = v2a;
 
-    type OuterFl : Outer<Float>;
+    type OuterFl <: Outer<Float>;
     v1b : OuterFl;
     v2b : v1b.Inner;
     v3b : OuterFl.Inner = v3a;

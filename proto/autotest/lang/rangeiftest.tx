@@ -21,7 +21,7 @@ interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
 */
 }
 
-type MyUInt implements Enumerable< MyUInt > {
+type MyUInt <: Tuple, Enumerable< MyUInt > {
     virtual override value( ordinal: ULong ) -> MyUInt {
         return MyUInt( UInt( ordinal ) );
     }

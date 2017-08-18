@@ -4,35 +4,35 @@ module my
 
 ##import tx.proto.print.*
 
-type MARef<T> : &T;
+type MARef<T> <: &T;
 
-type MBRef<T> : Ref<T>;
+type MBRef<T> <: Ref<T>;
 
-type MCRef<T> derives Ref<T> {
+type MCRef<T> <: Ref<T> {
     virtual SFIELD := 3;
 }
 
-type MDRef<T derives Any> : Ref<T>;
+type MDRef<T derives Any> <: Ref<T>;
 
-type MERef<T derives Any> derives Ref<T> {
+type MERef<T derives Any> <: Ref<T> {
     virtual SFIELD := 3;
 }
 
-type MFRef<Q> : Ref<Q>;
-type MGRef<T> : MFRef<T>;
+type MFRef<Q> <: Ref<Q>;
+type MGRef<T> <: MFRef<T>;
 
 
 ## reverse order array type parameter binding:
 
-type NAArray<E> : [10]E;
-type NAArrayInt : NAArray<Int>;
+type NAArray<E> <: [10]E;
+type NAArrayInt <: NAArray<Int>;
 
-type NBArray<E> : Array<E,10>;
-type NBArrayInt : NBArray<Int>;
+type NBArray<E> <: Array<E,10>;
+type NBArrayInt <: NBArray<Int>;
 
-type NCArray<E> derives Array<E,10> {
+type NCArray<E> <: Array<E,10> {
 }
-type NCArrayInt : NCArray<Int>;
+type NCArrayInt <: NCArray<Int>;
 
 /* as of this writing, the above causes such a type hierarchy:
     tx.Array            {E,C}
@@ -44,16 +44,16 @@ type NCArrayInt : NCArray<Int>;
 
 
 
-type Type<E,F> derives Tuple {
+type Type<E,F> <: Tuple {
     var : &E;
 }
 
-type SType<E,G> : Type<E,G>;
+type SType<E,G> <: Type<E,G>;
 
 generics_test()->Int {
-    type LocalTypeX : SType<~Float,~Double>;
-    type LocalTypeY : SType<~Int,~Long>;
-    type LocalTypeZ : SType<~Int,~Long>;
+    type LocalTypeX <: SType<~Float,~Double>;
+    type LocalTypeY <: SType<~Int,~Long>;
+    type LocalTypeZ <: SType<~Int,~Long>;
     x : LocalTypeX;
     y : LocalTypeY;
 
@@ -90,7 +90,7 @@ generics_test()->Int {
 
 /*
 dynamic_generics_test(len : UInt)->Int {
-    type DynamicType SType<Float,(len)>;
+    type DynamicType <: SType<Float,(len)>;
     a : DynamicType;
     return Int(a.K);
 }

@@ -98,7 +98,7 @@ extern "C" int yywrap() { return 0; }
 "~"		{ return token::TILDE; }
 "@"		{ return token::AT; }
 "$"		{ return token::DOLLAR; }
-""	{ return token::EURO; }
+""	    { return token::EURO; }
 "("		{ return token::LPAREN; }
 ")"		{ return token::RPAREN; }
 "["		{ return token::LBRACKET; }
@@ -125,6 +125,8 @@ extern "C" int yywrap() { return 0; }
 "*="		{ return token::ASTERISKEQUAL; }
 "/="		{ return token::FSLASHEQUAL; }
 "->"        { return token::DASHGT; }
+":>"        { return token::COLONGT; }
+"<:"        { return token::LTCOLON; }
 
  /* keywords */
 "module"	{ return token::KW_MODULE; }
@@ -140,7 +142,6 @@ extern "C" int yywrap() { return 0; }
 "mut"		{ return token::KW_MUTABLE; }
 "ref"		{ return token::KW_REFERENCE; }
 "derives"   { return token::KW_DERIVES; }
-"implements" { return token::KW_IMPLEMENTS; }
 
 "panic"     { return token::KW_PANIC; }
 "assert"    { return token::KW_ASSERT; }
@@ -170,6 +171,7 @@ extern "C" int yywrap() { return 0; }
 "static"    { return token::KW_STATIC; }
 "const"     { return token::KW_CONST; }
 "extends"   { return token::KW_EXTENDS; }
+"implements" { return token::KW_IMPLEMENTS; }
 
 "with"      { return token::KW_WITH; }
 "as"        { return token::KW_AS; }

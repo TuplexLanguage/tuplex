@@ -118,14 +118,14 @@ main()->Int {
     modA.set_f( 2.72 );
 
     #experr 1: type ErrTypeA : ~AType;  ## wrong placed ~
-    type ~MutTypeA : AType;
+    type ~MutTypeA <: AType;
     ~modA := MutTypeA( 2, 3.14 );
     modA.get_i();
     modA.get_f();
     modA.set_i( 5 );  ## error is in the function body, not in this call
     modA.set_f( 2.72 );
 
-    type ImmTypeA : AType;
+    type ImmTypeA <: AType;
     ok := ImmTypeA( 2, 3.14 );
     #experr 1: ~bad := ImmTypeA( 2, 3.14 );
 

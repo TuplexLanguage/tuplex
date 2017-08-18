@@ -2,10 +2,10 @@ module tx
 
 
 /** The type of ordinals as used by enumerables. */
-type ~ Ordinal : ULong;
+type ~ Ordinal <: ULong;
 
 
-interface Enumerable< E derives Enumerable<E> > : Comparable< E > {
+interface Enumerable< E derives Enumerable<E> > <: Comparable< E > {
 
     override compare( other : E ) -> Int {
         so := self.ordinal();

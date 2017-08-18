@@ -80,7 +80,7 @@ interface IntfA {
     virtual ifField : Int = 17;
 }
 
-type Type derives Tuple implements IntfA {
+type Type derives Tuple, IntfA {
     fld : Int;
 
     self(f : Int) { self.fld = f; }
@@ -99,17 +99,17 @@ type Type derives Tuple implements IntfA {
 }
 
 ## can't inherit object type in 2nd position
-#experr: interface EType derives IntfA implements Tuple {
+#experr: interface EType derives IntfA, Tuple {
 }
 
 ## must declare abstract if missing concrete members
-#experr 1: type IncompleteType derives Tuple implements IntfA {
+#experr 1: type IncompleteType derives Tuple, IntfA {
 }
-abstract type AbstrIncomplType derives Tuple implements IntfA {
+abstract type AbstrIncomplType derives Tuple, IntfA {
 }
 
 ## implementation member type must match interface member's type
-abstract type ErrImplType derives Tuple : IntfA {
+abstract type ErrImplType <: Tuple, IntfA {
     override mixin_method_2()->Int { return 10; }
     #experr 1: override mixin_method_1()->UByte { return 20; }
     #experr 1: override get_value()->Float { return 3.14; }
@@ -136,17 +136,17 @@ interface IntfZ {
 }
 
 
-type TypeOk : Tuple : IntfX, IntfY {
+type TypeOk <: Tuple, IntfX, IntfY {
     override get_value()->Int { return 14; }
 }
 
 ## colliding mixin methods  ## TODO: should this be an error?
-type TypeErr1 : Tuple : IntfX, IntfZ {
+type TypeErr1 <: Tuple, IntfX, IntfZ {
     override get_value()->Int { return 14; }
 }
 
 ## double implementation  ## TODO: should this be an error/warning?
-type TypeErr2 : Tuple : IntfX, IntfX {
+type TypeErr2 <: Tuple, IntfX, IntfX {
     override get_value()->Int { return 14; }
 }
 

@@ -6,7 +6,7 @@ module my
 type ~ AType<S derives Ref> derives Tuple {
     memref : S;
     #experr 1: type GenAlias : S;  ## not currently allowed
-    type GenRef : Ref<S>;
+    type GenRef <: Ref<S>;
 
     self(s : S) {
         self.memref = s;
@@ -17,19 +17,19 @@ type ~ AType<S derives Ref> derives Tuple {
     }
 }
 
-type RInt : Ref<Int>;
+type RInt <: Ref<Int>;
 
-type ATypeRInt : AType<RInt>;
+type ATypeRInt <: AType<RInt>;
 
-#experr: type BadAType derives AType<Float> { ## doesn't match parameter's constraint type
+#experr: type BadAType <: AType<Float> { ## doesn't match parameter's constraint type
 }
 
 main()->Int {
-    #experr: type Err AType<Byte>;  ## doesn't match parameter's constraint type
+    #experr: type Err <: AType<Byte>;  ## doesn't match parameter's constraint type
     #experr: err : AType<Short>;     ## doesn't match parameter's constraint type
 
     ## fix experr for this case:
-    ## #experr: type Err AType<AType>; ## doesn't match parameter's constraint type
+    ## #experr: type Err <: AType<AType>; ## doesn't match parameter's constraint type
 
     val : Int = 42;
     aobj : ATypeRInt;

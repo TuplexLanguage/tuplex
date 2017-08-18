@@ -1,7 +1,7 @@
 module tx
 
 
-builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, Updatable<UInt, E>
+builtin type ~ Array<E, C : UInt> derives Any, Collection<E>, Updatable<UInt, E>
 {
 /* TODO
     override equals( other : &Any ) -> Bool {
@@ -75,7 +75,7 @@ builtin type ~ Array<E, C : UInt> derives Any implements Collection<E>, Updatabl
 
 
 
-    type ~ ArrayIterator implements Iterator< E > {
+    type ~ ArrayIterator <: Tuple, Iterator< E > {
         array     : &Array<E>;
         nextIndex : ~UInt;
 

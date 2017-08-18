@@ -27,9 +27,9 @@ ref_test( x : Int ) -> &GenBase {
 }
 
 main() -> Int {
-    type GBF3 : GenBase<Float, 3>;
-    type GBF6 : GenBase<Float, 6>;
-    type GBI3 : GenBase<Int,3>;
+    type GBF3 <: GenBase<Float, 3>;
+    type GBF6 <: GenBase<Float, 6>;
+    type GBI3 <: GenBase<Int,3>;
 
     a1 := GBF3();
     a2 := GBF6();

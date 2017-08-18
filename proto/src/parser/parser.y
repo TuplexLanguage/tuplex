@@ -118,7 +118,7 @@ YY_DECL;
 %token NL SEMICOLON // statement separator
 %token DOT COLON COMMA DOTDOT ELLIPSIS ASTERISK PLUS MINUS FSLASH BSLASH AAND
 %token PIPE CARET TILDE AT PERCENT DOLLAR EURO LPAREN RPAREN LBRACE
-%token RBRACE LBRACKET RBRACKET QMARK EMARK DASHGT
+%token RBRACE LBRACKET RBRACKET QMARK EMARK DASHGT LTCOLON COLONGT
 %token EQUAL EEQUAL NEQUAL EEEQUAL NEEQUAL LT GT LEQUAL GEQUAL
 %token LTLT GTGT GTGTGT
 %token COLEQUAL PLUSEQUAL MINUSEQUAL ASTERISKEQUAL FSLASHEQUAL
@@ -127,8 +127,8 @@ YY_DECL;
 /* keywords: */
 %token KW_MODULE KW_IMPORT KW_TYPE KW_INTERFACE
 %token KW_BUILTIN KW_VIRTUAL KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERNC
-%token KW_MUTABLE KW_REFERENCE KW_DERIVES KW_IMPLEMENTS
-%token KW_WHILE KW_FOR KW_IF KW_ELSE KW_IN KW_IS KW_AS
+%token KW_MUTABLE KW_REFERENCE KW_DERIVES
+%token KW_WHILE KW_FOR KW_IF KW_ELSE KW_IN KW_AS
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE
 %token KW_XOR
 %token KW_NULL KW_TRUE KW_FALSE
@@ -137,9 +137,9 @@ YY_DECL;
 
 /* keywords reserved but not currently used */
 %token KW_PUBLIC KW_PROTECTED
-%token KW_STATIC KW_CONST 
-%token KW_SWITCH KW_CASE KW_WITH
-%token KW_AND KW_OR KW_NOT KW_EXTENDS
+%token KW_STATIC KW_CONST KW_EXTENDS KW_IMPLEMENTS
+%token KW_SWITCH KW_CASE KW_WITH KW_IS
+%token KW_AND KW_OR KW_NOT
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
 
  /* literals: */
@@ -177,7 +177,7 @@ YY_DECL;
 %type <TxArgTypeDefNode*> func_arg_def
 %type <std::vector<TxArgTypeDefNode*> *> func_args func_args_list
 
-%type <TxTypeExpressionNode*> type_usage_expr
+%type <TxTypeExpressionNode*> qual_type_expr
 %type <TxTypeExpressionNode*> type_expression type_derivation conv_type_expr produced_type
 %type <TxTypeExpressionNode*> named_type specialized_type reference_type array_type
 
@@ -344,11 +344,11 @@ type_or_if : KW_TYPE        { $$ = false; }
            | KW_INTERFACE   { $$ = true;  }
            ;
 
-field_def : NAME COLON type_usage_expr  { $$ = new TxNonLocalFieldDefNode(@1, $1, $3, nullptr); }
-          | field_assignment_def        { $$ = $1; }
+field_def : NAME COLON qual_type_expr  { $$ = new TxNonLocalFieldDefNode(@1, $1, $3, nullptr); }
+          | field_assignment_def       { $$ = $1; }
           ;
 
-field_assignment_def : NAME COLON type_usage_expr EQUAL expr
+field_assignment_def : NAME COLON qual_type_expr EQUAL expr
                            { $$ = new TxNonLocalFieldDefNode(@1, $1, $3,      $5); }
                      | NAME COLEQUAL expr
                            { $$ = new TxNonLocalFieldDefNode(@1, $1, nullptr, $3); }
@@ -359,8 +359,7 @@ field_assignment_def : NAME COLON type_usage_expr EQUAL expr
 
 //// types:
 
-derives_token    : KW_DERIVES    | COLON ;
-implements_token : KW_IMPLEMENTS | COLON ;
+derives_token    : KW_DERIVES    | LTCOLON ;
 ref_token        : KW_REFERENCE  | AAND ;
 mut_token        : KW_MUTABLE    | TILDE ;
 
@@ -387,8 +386,8 @@ type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->
                 | type_param_list COMMA type_param  { $$ = $1; $$->push_back($3); }
                 ;
 type_param      : NAME  { $$ = new TxTypeDeclNode(@$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, new TxNamedTypeNode(@1, "tx.Any")); }
-                | NAME KW_DERIVES conv_type_expr { $$ = new TxTypeDeclNode (@$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
-                | NAME COLON type_expression     { $$ = new TxFieldDeclNode(@$, TXD_PUBLIC | TXD_GENPARAM, new TxNonLocalFieldDefNode(@$, $1, $3, nullptr)); }
+                | NAME derives_token conv_type_expr { $$ = new TxTypeDeclNode (@$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
+                | NAME COLON type_expression        { $$ = new TxFieldDeclNode(@$, TXD_PUBLIC | TXD_GENPARAM, new TxNonLocalFieldDefNode(@$, $1, $3, nullptr)); }
                 ;
 
 type_declaration : declaration_flags type_or_if opt_mutable NAME type_derivation  
@@ -404,15 +403,9 @@ type_derivation : derives_token type_expression SEMICOLON  { $$ = $2; }
 
                 | derives_token type_expression type_body  { $$ = new TxDerivedTypeNode(@$, $2, $3); }
     
-                | derives_token type_expression implements_token conv_type_list type_body
+                | derives_token type_expression COMMA conv_type_list type_body
                     { $$ = new TxDerivedTypeNode(@$, $2, $4, $5); }
-    
-                | derives_token implements_token conv_type_list type_body
-                    { $$ = new TxDerivedTypeNode(@$, nullptr, $3, $4); }
-    
-                | KW_IMPLEMENTS conv_type_list type_body
-                    { $$ = new TxDerivedTypeNode(@$, nullptr, $2, $3); }
-    
+
                 | type_body         { $$ = new TxDerivedTypeNode(@$, $1); }
                 ;
 
@@ -448,13 +441,13 @@ type_arg        : value_literal       { $$ = new TxValueTypeArgumentNode($1); } 
                 | opt_mutable conv_type_expr   { $$ = new TxTypeTypeArgumentNode(( $1 ? new TxModifiableTypeNode(@$, $2)
                                                                                          : new TxMaybeModTypeNode(@2, $2) )); }
                 // TODO: support reference and array types (possibly chained):
-                // | type_usage_expr     { $$ = new TxTypeTypeArgumentNode($1); }
+                // | qual_type_expr     { $$ = new TxTypeTypeArgumentNode($1); }
                 // | opt_mutable AAND conv_type_expr
                 // | opt_mutable LBRACKET RBRACKET conv_type_expr
                 ;
 
-// a type usage is a non-modifiable or modifiable usage of a type expression:
-type_usage_expr : opt_mutable type_expression  %prec EXPR
+// a qualified type expression, or "type usage variant", is a type expression with possible qualifiers (e.g. mutable):
+qual_type_expr  : opt_mutable type_expression  %prec EXPR
                          { $$ = ( $1 ? new TxModifiableTypeNode(@$, $2)
                                      : new TxMaybeModTypeNode(@2, $2) ); }
                 ;
@@ -475,13 +468,13 @@ produced_type   :  specialized_type   { $$ = $1; }
 //    |  range_type
 //    |  shared_obj_type
 
-reference_type : opt_dataspace ref_token type_usage_expr
+reference_type : opt_dataspace ref_token qual_type_expr
                     { /* (custom ast node needed to handle dataspaces) */
                       $$ = new TxReferenceTypeNode(@$, $1, $3);
                     } ;
 opt_dataspace : %empty { $$ = NULL; } | QMARK { $$ = NULL; } | NAME { $$ = new TxIdentifier($1); } ;
 
-array_type : array_dimensions type_usage_expr
+array_type : array_dimensions qual_type_expr
                     { /* (custom ast node needed to provide syntactic sugar for modifiable decl) */
                       $$ = new TxArrayTypeNode(@$, $2, $1);
                     } ;
@@ -496,8 +489,8 @@ array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
 //    ;
 
 //union_type     : KW_UNION LBRACE type_expr_list RBRACE ;
-//type_expr_list : type_usage_expr
-//               | type_expr_list COMMA type_usage_expr
+//type_expr_list : qual_type_expr
+//               | type_expr_list COMMA qual_type_expr
 //               ;
 //
 //enum_type       : KW_ENUM LBRACE enum_value_list RBRACE ;
@@ -624,8 +617,8 @@ array_lit_expr_list : expr  { $$ = new std::vector<TxExpressionNode*>();  $$->pu
                     | array_lit_expr_list COMMA expr  { $$ = $1;  $$->push_back($3); }
                     ;
 
-make_expr : KW_NEW type_usage_expr call_params { $$ = new TxNewConstructionNode(@$, $2, $3); }
-          | LT type_usage_expr GT call_params { $$ = new TxStackConstructionNode(@$, $2, $4); }
+make_expr : KW_NEW qual_type_expr call_params { $$ = new TxNewConstructionNode(@$, $2, $3); }
+          | LT qual_type_expr GT call_params  { $$ = new TxStackConstructionNode(@$, $2, $4); }
 ;
 
 call_expr : expr call_params  { $$ = new TxFunctionCallNode(@$, $1, $2); }
@@ -776,8 +769,8 @@ in_clause        : NAME KW_IN expr             { $$ = new TxInClauseNode( @$, $1
 for_header       : elementary_stmt SEMICOLON expr SEMICOLON elementary_stmt  { $$ = new TxForHeaderNode( @$, $1, $3, $5 ); }
                  ;
 
-local_field_def  : NAME COLON type_usage_expr             { $$ = new TxLocalFieldDefNode(@$, $1, $3,      nullptr); }
-                 | NAME COLON type_usage_expr EQUAL expr  { $$ = new TxLocalFieldDefNode(@$, $1, $3,      $5); }
+local_field_def  : NAME COLON qual_type_expr              { $$ = new TxLocalFieldDefNode(@$, $1, $3,      nullptr); }
+                 | NAME COLON qual_type_expr EQUAL expr   { $$ = new TxLocalFieldDefNode(@$, $1, $3,      $5); }
                  | NAME COLEQUAL expr                     { $$ = new TxLocalFieldDefNode(@$, $1, nullptr, $3); }
                  | TILDE NAME COLEQUAL expr               { $$ = new TxLocalFieldDefNode(@$, $2, nullptr, $4, true); }
 ;

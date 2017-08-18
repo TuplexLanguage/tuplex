@@ -1,7 +1,7 @@
 module tx
 
 
-builtin type ~ Elementary    derives Any implements Stringer, Formatter {
+builtin type ~ Elementary    derives Any, Stringer, Formatter {
 }
 
 builtin type ~ Scalar        derives Elementary {
@@ -20,7 +20,7 @@ builtin type ~ Floatingpoint derives Scalar {
 }
 
 
-builtin type ~ Byte          derives Signed implements Number<Byte>, Enumerable<Byte> {
+builtin type ~ Byte          derives Signed, Number<Byte>, Enumerable<Byte> {
 
     virtual override MIN : Byte = -128_B;
     virtual override MAX : Byte =  127_B;
@@ -50,7 +50,7 @@ builtin type ~ Byte          derives Signed implements Number<Byte>, Enumerable<
     }
 }
 
-builtin type ~ Short         derives Signed implements Number<Short>, Enumerable<Short> {
+builtin type ~ Short         derives Signed, Number<Short>, Enumerable<Short> {
 
     virtual override MIN : Short = -32768_S;
     virtual override MAX : Short =  32767_S;
@@ -80,7 +80,7 @@ builtin type ~ Short         derives Signed implements Number<Short>, Enumerable
     }
 }
 
-builtin type ~ Int           derives Signed implements Number<Int>, Enumerable<Int> {
+builtin type ~ Int           derives Signed, Number<Int>, Enumerable<Int> {
 
     virtual override MIN : Int = -2147483648_I;
     virtual override MAX : Int =  2147483647_I;
@@ -110,7 +110,7 @@ builtin type ~ Int           derives Signed implements Number<Int>, Enumerable<I
     }
 }
 
-builtin type ~ Long          derives Signed implements Number<Long>, Enumerable<Long> {
+builtin type ~ Long          derives Signed, Number<Long>, Enumerable<Long> {
 
     virtual override MIN : Long = -9223372036854775808_L;
     virtual override MAX : Long =  9223372036854775807_L;
@@ -140,7 +140,7 @@ builtin type ~ Long          derives Signed implements Number<Long>, Enumerable<
 }
 
 
-builtin type ~ UByte          derives Unsigned implements Number<UByte>, Enumerable<UByte> {
+builtin type ~ UByte          derives Unsigned, Number<UByte>, Enumerable<UByte> {
 
     virtual override MIN : UByte = 0_UB;
     virtual override MAX : UByte = 255_UB;
@@ -170,7 +170,7 @@ builtin type ~ UByte          derives Unsigned implements Number<UByte>, Enumera
     }
 }
 
-builtin type ~ UShort         derives Unsigned implements Number<UShort>, Enumerable<UShort> {
+builtin type ~ UShort         derives Unsigned, Number<UShort>, Enumerable<UShort> {
 
     virtual override MIN : UShort = 0_US;
     virtual override MAX : UShort = 65535_US;
@@ -200,7 +200,7 @@ builtin type ~ UShort         derives Unsigned implements Number<UShort>, Enumer
     }
 }
 
-builtin type ~ UInt           derives Unsigned implements Number<UInt>, Enumerable<UInt> {
+builtin type ~ UInt           derives Unsigned, Number<UInt>, Enumerable<UInt> {
 
     virtual override MIN : UInt = 0_UI;
     virtual override MAX : UInt = 4294967295_UI;
@@ -230,7 +230,7 @@ builtin type ~ UInt           derives Unsigned implements Number<UInt>, Enumerab
     }
 }
 
-builtin type ~ ULong          derives Unsigned implements Number<ULong>, Enumerable<ULong> {
+builtin type ~ ULong          derives Unsigned, Number<ULong>, Enumerable<ULong> {
 
     virtual override MIN : ULong = 0_UL;
     virtual override MAX : ULong = 18446744073709551615_UL;
@@ -260,7 +260,7 @@ builtin type ~ ULong          derives Unsigned implements Number<ULong>, Enumera
 }
 
 
-builtin type ~ Half          derives Floatingpoint implements Number<Half> {
+builtin type ~ Half          derives Floatingpoint, Number<Half> {
 
     virtual override MIN : Half = -65503.0;
     virtual override MAX : Half = 65503.0;
@@ -299,7 +299,7 @@ builtin type ~ Double        derives Floatingpoint {
 }
 
 
-builtin type ~ Bool          derives Elementary implements Enumerable<Bool> {
+builtin type ~ Bool          derives Elementary, Enumerable<Bool> {
     /** returns the last (highest) ordinal for this type */
     virtual override last_ordinal() -> Ordinal {
         return 1;

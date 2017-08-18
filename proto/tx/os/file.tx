@@ -3,7 +3,7 @@ module tx.os
 import tx.String
 
 
-type ~ File implements tx.ByteWriter, tx.ByteReader {
+type ~ File <: Tuple, tx.ByteWriter, tx.ByteReader {
     virtual final STATE_UNOPEN : UByte = 0;
     virtual final STATE_ERROR  : UByte = 1;
     virtual final STATE_OPEN   : UByte = 2;

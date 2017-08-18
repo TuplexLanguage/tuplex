@@ -2,12 +2,12 @@ module tx
 
 
 /** A UTF-32 character. */
-type Char : UInt {
+type Char <: UInt {
 }
 
 
-type String implements Sequenceable< Char >, Stringer, Formatter {
-    type ~ StringSequencer implements Sequencer< Char > {
+type String <: Tuple, Sequenceable< Char >, Stringer, Formatter {
+    type ~ StringSequencer <: Tuple, Sequencer< Char > {
         string    : &String;
         nextIndex : ~UInt;
 

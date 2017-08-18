@@ -12,7 +12,7 @@ interface Formatter {
 
 
 /** Concatenates multiple Stringers. */
-type MultiStringer implements Stringer {
+type MultiStringer <: Tuple, Stringer {
     _stringers : &[]&Stringer;
 
     self( stringers : &[]&Stringer ) {
@@ -55,7 +55,7 @@ type StringFormat {
 
 
 /** Makes a Stringer of a Formatter by applying a given format to produce the string. */
-type FormattedStringer implements Stringer {
+type FormattedStringer <: Tuple, Stringer {
     format : StringFormat;
     object : &Formatter;
 
@@ -77,7 +77,7 @@ type FormattedStringer implements Stringer {
 
 /** Makes a Formatter of a Stringer by applying the format to the produced string.
  * This can be used in place of String, the difference is that this object will lazily produce the Stringer's string. */
-type StringerFormatter implements Formatter {
+type StringerFormatter <: Tuple, Formatter {
     object : &Stringer;
 
     self( object : &Stringer ) {

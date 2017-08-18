@@ -1,7 +1,7 @@
 module tx
 
 
-interface Range< E > : Indicable< Long, E > {
+interface Range< E > <: Indicable< Long, E > {
 
     abstract override sequencer() -> Ref< ~Iterator<E> >;
 
@@ -15,10 +15,10 @@ interface Range< E > : Indicable< Long, E > {
 
 
 /** A range between two values of an Enumerable type. */
-type ERange< E derives Enumerable > implements Range< E >, Stringer {
+type ERange< E derives Enumerable > <: Tuple, Range< E >, Stringer {
 
     /** The ERange iterator. */
-    type ~ ERangeIterator implements Iterator< E > {
+    type ~ ERangeIterator <: Tuple, Iterator< E > {
         range   : &ERange<E>;
         nextIndex : ~ULong;
 

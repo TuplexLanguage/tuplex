@@ -122,7 +122,7 @@ test_elem_eq( one : UByte ) {
 
 interface Face { }
 
-type Body implements Face {
+type Body <: Tuple, Face {
     member : Int;
     self( m : Int ) {
         self.member = m;

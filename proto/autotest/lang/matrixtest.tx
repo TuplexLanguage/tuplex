@@ -1,7 +1,7 @@
 ## Tests building nested types with VALUE type parameters.
 
 type ~Matrix<E, R : UInt, C : UInt> {
-    type ~ Row : Array<E, (C)>;
+    type ~ Row <: Array<E, (C)>;
 
     rows : ~Array< ~Row, (R) >;
 
@@ -52,7 +52,7 @@ main()->Int {
     m23a := <Matrix<Int, (rows), (cols)>>();
     m23b := <Matrix<Int, (2*rows/2), (2*cols/2)>>( m23a );
 
-    type ~ Matrix23 : Matrix<Int, (1+rows-1), (1+cols-1)>;
+    type ~ Matrix23 <: Matrix<Int, (1+rows-1), (1+cols-1)>;
     m23c : ~Matrix23 = Matrix23( m23a );
     m23d := Matrix23( m23a );
     m23c = m23d;

@@ -9,18 +9,18 @@ type Single<A> {
 
 ## test redeclarations:
 
-#experr 1: type SAliasE1 : Single;
-#experr 1: type SAliasE2<A> : Single;
+#experr 1: type SAliasE1 <: Single;
+#experr 1: type SAliasE2<A> <: Single;
 
-type SAlias<A> : Single<A>;
+type SAlias<A> <: Single<A>;
 
-type SExt<A> : Single<A> {
+type SExt<A> <: Single<A> {
     foo : Float;
 }
 
-type SAliasInt : Single<Int>;
+type SAliasInt <: Single<Int>;
 
-type SExtInt : Single<Int> {
+type SExtInt <: Single<Int> {
     foo : Float;
 }
 
@@ -41,7 +41,7 @@ test_single() {
     }
 
     {
-        type SingleIntRef : &Single<Int>;
+        type SingleIntRef <: &Single<Int>;
         iref1 : SingleIntRef = &inst1;
         iref2 : SingleIntRef = &inst2;
         iref3 : SingleIntRef = &inst3;
@@ -68,27 +68,27 @@ type ~ Duo<A,B> {
 #experr 2: type DAliasE5<A,B> : Duo<A>;
 #experr 1: type DAliasE6<A> : Duo<A,B>;
 
-type DAlias<A,B> : Duo<A,B>;
+type DAlias<A,B> <: Duo<A,B>;
 
-type DExt<A,B> : Duo<A,B> {
+type DExt<A,B> <: Duo<A,B> {
     foo : Float;
 }
 
-type DAliasIF : Duo<Int,Float>;
+type DAliasIF <: Duo<Int,Float>;
 
-type DExtIF : Duo<Int,Float> {
+type DExtIF <: Duo<Int,Float> {
     foo : Float;
 }
 
-type DPart<A> : Duo<A,Float>;
+type DPart<A> <: Duo<A,Float>;
 
-type DPExt<A> : Duo<A,Float> {
+type DPExt<A> <: Duo<A,Float> {
     foo : Float;
 }
 
-type DPAliasIF : DPart<Int>;
+type DPAliasIF <: DPart<Int>;
 
-type DPExtIF : DPExt<Int> {
+type DPExtIF <: DPExt<Int> {
     foo : Float;
 }
 
@@ -119,7 +119,7 @@ test_duo() {
     }
 
     {
-        type DuoIFRef : &Duo<Int,Float>;
+        type DuoIFRef <: &Duo<Int,Float>;
         iref1 : DuoIFRef = &inst1;
         iref2 : DuoIFRef = &inst2;
         iref3 : DuoIFRef = &inst3;
@@ -142,13 +142,13 @@ type ImmFirst< A, B, C > {
     cmemb : C;
 }
 
-type ImmSecnd<B,C> : ImmFirst<Int,B,C> {
+type ImmSecnd<B,C> <: ImmFirst<Int,B,C> {
 }
 
-type ImmThird<C> : ImmSecnd<UInt,C> {
+type ImmThird<C> <: ImmSecnd<UInt,C> {
 }
 
-type ImmFourth : ImmThird<Float> {
+type ImmFourth <: ImmThird<Float> {
 }
 
 test_immfourth() {
@@ -167,15 +167,15 @@ type ~ First< A, B, C > {
     method()->Int { return 2; }
 }
 
-type ~ Secnd<B,C> : First<~Int,B,C> {
+type ~ Secnd<B,C> <: First<~Int,B,C> {
     foo : Float;
 }
 
-type ~ Third<C> : Secnd<~UInt,C> {
+type ~ Third<C> <: Secnd<~UInt,C> {
     foo : Float;
 }
 
-type ~ Fourth : Third<~Float> {
+type ~ Fourth <: Third<~Float> {
     foo : Float;
 }
 
@@ -195,7 +195,7 @@ interface AnIf<C,D> {
     abstract get_d() -> D;
 }
 
-type ~ Combo<X,Y> : Duo<X,Y> implements AnIf<X,Y> {
+type ~ Combo<X,Y> <: Duo<X,Y>, AnIf<X,Y> {
     xmemb : X;
     ymemb : Y;
 
