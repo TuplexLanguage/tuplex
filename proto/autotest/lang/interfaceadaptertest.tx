@@ -1,15 +1,15 @@
 ## interface adapter tests (including interface adapter modifiability)
 
 interface IntfA {
-    public abstract get_value()->Int;
+    abstract get_value()->Int;
 
     ## "mixin" or default-implementation interface methods:
-    public mixin_method_1()->Int { return 1; }
-    public mixin_method_2()->Int { return 2; }
+    mixin_method_1()->Int { return 1; }
+    mixin_method_2()->Int { return 2; }
 }
 
 interface IntfB {
-    public abstract set_value( v : Int );
+    abstract set_value( v : Int );
 }
 
 type ~ Type : Tuple : IntfA, IntfB {
@@ -17,15 +17,15 @@ type ~ Type : Tuple : IntfA, IntfB {
 
     self(f : Int) { self.fld = f; }
 
-    public override get_value()->Int {
+    override get_value()->Int {
         return self.fld;
     }
 
-    public override set_value( v : Int ) ~ {
+    override set_value( v : Int ) ~ {
         self.fld = v;
     }
 
-    public override mixin_method_2()->Int {
+    override mixin_method_2()->Int {
         return 3;
     }
 }

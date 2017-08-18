@@ -3,6 +3,9 @@ layout: default
 ---
 ## Advanced Type Declarations
 
+
+
+
 *This doc is todo, some examples from the test suite are provided in the mean time.*
 
 ```

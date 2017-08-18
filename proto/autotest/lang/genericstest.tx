@@ -4,35 +4,35 @@ module my
 
 ##import tx.proto.print.*
 
-public type MARef<T> : &T;
+type MARef<T> : &T;
 
-public type MBRef<T> : Ref<T>;
+type MBRef<T> : Ref<T>;
 
-public type MCRef<T> derives Ref<T> {
+type MCRef<T> derives Ref<T> {
     virtual SFIELD := 3;
 }
 
-public type MDRef<T derives Any> : Ref<T>;
+type MDRef<T derives Any> : Ref<T>;
 
-public type MERef<T derives Any> derives Ref<T> {
+type MERef<T derives Any> derives Ref<T> {
     virtual SFIELD := 3;
 }
 
-public type MFRef<Q> : Ref<Q>;
-public type MGRef<T> : MFRef<T>;
+type MFRef<Q> : Ref<Q>;
+type MGRef<T> : MFRef<T>;
 
 
 ## reverse order array type parameter binding:
 
-public type NAArray<E> : [10]E;
-public type NAArrayInt : NAArray<Int>;
+type NAArray<E> : [10]E;
+type NAArrayInt : NAArray<Int>;
 
-public type NBArray<E> : Array<E,10>;
-public type NBArrayInt : NBArray<Int>;
+type NBArray<E> : Array<E,10>;
+type NBArrayInt : NBArray<Int>;
 
-public type NCArray<E> derives Array<E,10> {
+type NCArray<E> derives Array<E,10> {
 }
-public type NCArrayInt : NCArray<Int>;
+type NCArrayInt : NCArray<Int>;
 
 /* as of this writing, the above causes such a type hierarchy:
     tx.Array            {E,C}

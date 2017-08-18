@@ -12,7 +12,7 @@ CONSTANT := 42;
 
 #experr 2: type BadType2 derives Tuple {
     instfield : Float;
-    public self( f : Float ) {
+    self( f : Float ) {
         self.instfield = f;
     }
     virtual FOO : Int = 2.73;  ## bad type conversion
@@ -26,7 +26,7 @@ CONSTANT := 42;
 
 type OkType derives Tuple {
     instfield : Float;
-    public self( f : Float ) {
+    self( f : Float ) {
         #experr: super();
         self.instfield = f;
     }

@@ -20,10 +20,7 @@ COPY := CONSTANT;
 #experr 1: NONCONSTD : mod Int = 8;
 
 
-public PUBLIC_FIELD := 5;
-protected PROTECTED_FIELD := 5;
-
-#experr 1: virtual   TOO_STATIC   : Int = 5;
+#experr 1: virtual  TOO_VIRTUAL   : Int = 5;
 #experr 1: override TOO_OVERRIDE : Int = 5;
 #experr 1: final    TOO_FINAL    : Int = 5;
 #experr 1: abstract TOO_ABSTRACT;

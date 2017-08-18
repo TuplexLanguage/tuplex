@@ -1,12 +1,12 @@
-public interface ~ Sequenceable<E derives Ref> derives Interface {
-    public abstract sequencer() mod ->Ref<~Sequencer<E>>;
+interface ~ Sequenceable<E derives Ref> derives Interface {
+    abstract sequencer() mod ->Ref<~Sequencer<E>>;
 }
 
-public interface ~ Sequencer<E derives Ref> derives Sequenceable<E> {
-    public override sequencer() mod ->Ref<~Sequencer<E>> { return self; }
+interface ~ Sequencer<E derives Ref> derives Sequenceable<E> {
+    override sequencer() mod ->Ref<~Sequencer<E>> { return self; }
 
-    public abstract hasNext()->Bool;
-    public abstract next()->E;
+    abstract hasNext()->Bool;
+    abstract next()->E;
 }
 
 type SingleRef<S derives Ref> implements Sequenceable<S> {
@@ -19,10 +19,10 @@ type SingleRef<S derives Ref> implements Sequenceable<S> {
             self.element = element;
             self.done = FALSE;
         }
-        public override hasNext()->Bool {
+        override hasNext()->Bool {
             return !self.done;
         }
-        public override next() ~ ->S {
+        override next() ~ ->S {
             if self.done:
                 tx.c.puts( c"Panic: No next element" );
             self.done = TRUE;
@@ -36,7 +36,7 @@ type SingleRef<S derives Ref> implements Sequenceable<S> {
         self.element = element;
     }
 
-    public override sequencer()->Ref<~Sequencer<S>> {
+    override sequencer()->Ref<~Sequencer<S>> {
         el : S = self.element;
         return new ~SingleSeq( el );
     }

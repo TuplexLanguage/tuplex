@@ -1,12 +1,12 @@
 
 type ~ CompoundType derives Tuple {
-    public virtual SFIELD := -1;
+    virtual SFIELD := -1;
     virtual SFIELD2 := 2.73;
     field0 : Long;
     field1 : ~Long;
     field2 : ~Float;
-    protected field3 : [20]Int;
-    ##public field4 := c"abra" ## not yet supported
+    field3 : [20]Int;
+    ##field4 := c"abra"; ## inline init not yet supported
     field5 : ~InnerCompType;
     field6 : ~&~InnerCompType;
     type ~ InnerCompType derives Tuple {

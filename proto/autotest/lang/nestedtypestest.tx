@@ -1,15 +1,15 @@
 ## Similar to sequence interface test but without generics
 
-public interface Sequenceable derives Interface {
-    public abstract sequencer() mod ->Ref<~Sequencer>;
+interface Sequenceable derives Interface {
+    abstract sequencer() mod ->Ref<~Sequencer>;
 }
 
-public interface Sequencer derives Sequenceable {
-    public override sequencer() mod ->Ref<~Sequencer> { return self; }
+interface Sequencer derives Sequenceable {
+    override sequencer() mod ->Ref<~Sequencer> { return self; }
 
-    public abstract emptyFunc();
-    public abstract hasNext()->Bool;
-    public abstract next()->Int;
+    abstract emptyFunc();
+    abstract hasNext()->Bool;
+    abstract next()->Int;
 }
 
 type SingleRef derives Tuple : Sequenceable {
@@ -22,12 +22,12 @@ type SingleRef derives Tuple : Sequenceable {
             self.element = element;
             self.done = FALSE;
         }
-        public override emptyFunc() {
+        override emptyFunc() {
         }
-        public override hasNext()->Bool {
+        override hasNext()->Bool {
             return !self.done;
         }
-        public override next() ~ ->Int {
+        override next() ~ ->Int {
             if self.done:
                 tx.c.puts( c"Panic: No next element" );
             self.done = TRUE;
@@ -41,7 +41,7 @@ type SingleRef derives Tuple : Sequenceable {
         self.element = element;
     }
 
-    public override sequencer()->Ref<~Sequencer> {
+    override sequencer()->Ref<~Sequencer> {
         el : Int = self.element;
         seq := new ~SingleSeq( el );
         seq.emptyFunc();

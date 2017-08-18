@@ -4,60 +4,60 @@ puts(cstr : &[]UByte) {
 }
 
 type ~ AType derives Tuple {
-    public virtual SFIELD := 41;
-    public virtual SFIELD2 := 2.72;
+    virtual SFIELD := 41;
+    virtual SFIELD2 := 2.72;
     field1 : ~Long;
     field2 : ~Float;
 
-    public self() {
+    self() {
     }
 
-    public print() {
+    print() {
         puts(c"AType");
     }
 
-    public method(a : Int)->Int {
+    method(a : Int)->Int {
         return a * 2;
     }
 
     ## overloaded method name:
     ## TODO: Support this. For now, error is generated.
 
-    #experr: public multimethod(a : Int)->Int {
+    #experr: multimethod(a : Int)->Int {
         return Int( a * 3 );
     }
-    #experr: public multimethod(a : Float)->Int {
+    #experr: multimethod(a : Float)->Int {
         return Int( a * 3.5 );
     }
 }
 
 type ~ BType derives AType {
-    public virtual override SFIELD := 42;
-    public virtual override SFIELD2 := 3.14;
+    virtual override SFIELD := 42;
+    virtual override SFIELD2 := 3.14;
     field1 : ~Long;
     field2 : ~Float;
 
-    public override print() {
+    override print() {
         puts(c"BType");
     }
 
-    public override method(a : Int)->Int {
+    override method(a : Int)->Int {
         return super.method( a ) * 2;
     }
 
     ## currently a warning, not an error:
-    ##public override bad_method() {}
+    ##override bad_method() {}
 
-    public b_method() {}
+    b_method() {}
 
 
     ## overriding overloaded method (in reverse order):
     ## TODO: Support this.
     /*
-    public override multimethod(a : Float)->Int {
+    override multimethod(a : Float)->Int {
         return super.multimethod( a ) * 2;
     }
-    public override multimethod(a : Int)->Int {
+    override multimethod(a : Int)->Int {
         return super.multimethod( a ) * 3;
     }
 

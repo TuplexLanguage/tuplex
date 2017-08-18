@@ -77,7 +77,7 @@ main()->Int {
     type MyType {
         virtual mystaticF := func () { }
         
-        public virtual myvirtualF := func () { }
+        virtual myvirtualF := func () { }
         
         myinlineinstanceF := func () { self.valid() }
         ## doesn't need actual storage in instance struct

@@ -4,15 +4,15 @@
 module my
 
 type ~ AType<S derives Ref> derives Tuple {
-    public memref : S;
-    #experr 1: public type GenAlias : S;  ## not currently allowed
-    public type GenRef : Ref<S>;
+    memref : S;
+    #experr 1: type GenAlias : S;  ## not currently allowed
+    type GenRef : Ref<S>;
 
-    public self(s : S) {
+    self(s : S) {
         self.memref = s;
     }
 
-    public getref()->S {
+    getref()->S {
         return self^.memref;
     }
 }

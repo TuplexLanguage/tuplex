@@ -30,13 +30,13 @@
 
 ## an abstract (non-interface) type can have both abstract and concrete members:
 abstract type AbstractType derives Tuple {
-    public virtual foo : Int = 2;
-    public virtual abstract bar : Int;
-    #experr 1: public virtual abstract bad : Int = 3;  ## can't specify initializer for abstract field
+    virtual foo : Int = 2;
+    virtual abstract bar : Int;
+    #experr 1: virtual abstract bad : Int = 3;  ## can't specify initializer for abstract field
     ## currently don't have private: #experr 3: virtual abstract mac : Int;  ## 'abstract' fields cannot be private (since private are non-virtual)
     
-    public instanceField : Int;
-    #experr: public abstract abstrInstanceField : Int;  ## instance fields can't be abstract
+    instanceField : Int;
+    #experr: abstract abstrInstanceField : Int;  ## instance fields can't be abstract
 
     abstract abstr_method()->Int;
 
@@ -50,13 +50,13 @@ abstract type AbstractType derives Tuple {
 
 ## a concrete type can't have abstract members:
 type ConcreteType derives Tuple {
-    public virtual foo : Int = 2;
-    #experr 1: public virtual abstract bar : Int;      ## a concrete type can't have abstract members
-    #experr 2: public virtual abstract bad : Int = 3;  ## can't specify initializer for abstract field
+    virtual foo : Int = 2;
+    #experr 1: virtual abstract bar : Int;      ## a concrete type can't have abstract members
+    #experr 2: virtual abstract bad : Int = 3;  ## can't specify initializer for abstract field
     ## currently don't have private: #experr 3: virtual abstract mac : Int;   ## 'abstract' fields cannot be private (since private are non-virtual)
 
-    public instanceField : Int;
-    #experr: public abstract abstrInstanceField : Int;  ## instance fields can't be abstract
+    instanceField : Int;
+    #experr: abstract abstrInstanceField : Int;  ## instance fields can't be abstract
 
     #experr 1: abstract abstr_method()->Int;          ## a concrete type can't have abstract members:
 
@@ -70,14 +70,14 @@ type ConcreteType derives Tuple {
 ## interface tests
 
 interface IntfA {
-    public abstract get_value()->Int;
+    abstract get_value()->Int;
 
     ## "mixin" or default-implementation interface methods:
-    public mixin_method_1()->Int { return 1; }
-    public mixin_method_2()->Int { return 2; }
+    mixin_method_1()->Int { return 1; }
+    mixin_method_2()->Int { return 2; }
 
     #experr 1: instField : Int;  ## interface can't have instance members
-    public virtual ifField : Int = 17;
+    virtual ifField : Int = 17;
 }
 
 type Type derives Tuple implements IntfA {
@@ -85,17 +85,17 @@ type Type derives Tuple implements IntfA {
 
     self(f : Int) { self.fld = f; }
 
-    public override get_value()->Int {
+    override get_value()->Int {
         assert self.mixin_method_1() == 1;
         ##assert super.mixin_method_2() == 2;  ## TODO: support referring to interfaces via 'super'
         return self.fld;
     }
 
-    public override mixin_method_2()->Int {
+    override mixin_method_2()->Int {
         return 3;
     }
 
-    #experr 1: public abstract abstr_method()->Int;  ## Type isn't declared abstract
+    #experr 1: abstract abstr_method()->Int;  ## Type isn't declared abstract
 }
 
 ## can't inherit object type in 2nd position
@@ -110,9 +110,9 @@ abstract type AbstrIncomplType derives Tuple implements IntfA {
 
 ## implementation member type must match interface member's type
 abstract type ErrImplType derives Tuple : IntfA {
-    public override mixin_method_2()->Int { return 10; }
-    #experr 1: public override mixin_method_1()->UByte { return 20; }
-    #experr 1: public override get_value()->Float { return 3.14; }
+    override mixin_method_2()->Int { return 10; }
+    #experr 1: override mixin_method_1()->UByte { return 20; }
+    #experr 1: override get_value()->Float { return 3.14; }
 }
 
 
@@ -120,34 +120,34 @@ abstract type ErrImplType derives Tuple : IntfA {
 ## implementing multiple interfaces
 
 interface IntfX {
-    public abstract get_value()->Int;
+    abstract get_value()->Int;
 
-    public mixin_method_1()->Int { return 1; }
+    mixin_method_1()->Int { return 1; }
 }
 
 interface IntfY {
-    public abstract get_value()->Int;
+    abstract get_value()->Int;
 }
 
 interface IntfZ {
-    public abstract get_value()->Int;
+    abstract get_value()->Int;
 
-    public mixin_method_1()->Int { return 5; }
+    mixin_method_1()->Int { return 5; }
 }
 
 
 type TypeOk : Tuple : IntfX, IntfY {
-    public override get_value()->Int { return 14; }
+    override get_value()->Int { return 14; }
 }
 
 ## colliding mixin methods  ## TODO: should this be an error?
 type TypeErr1 : Tuple : IntfX, IntfZ {
-    public override get_value()->Int { return 14; }
+    override get_value()->Int { return 14; }
 }
 
 ## double implementation  ## TODO: should this be an error/warning?
 type TypeErr2 : Tuple : IntfX, IntfX {
-    public override get_value()->Int { return 14; }
+    override get_value()->Int { return 14; }
 }
 
 

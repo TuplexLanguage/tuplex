@@ -4,12 +4,12 @@ type ~ AType derives Tuple {
     field2 : Float;
     field3 : ~Bool;
 
-    public self() {
+    self() {
         ## FUTURE: default constructor for Tuple base type: super();
         self(17, 3.14);
         self.field3 = FALSE;
     }
-    public self(f1 : Long, f2 : Float) {
+    self(f1 : Long, f2 : Float) {
         if (f1 < 0) {
             self.field1 = f1;
         } else
@@ -18,7 +18,7 @@ type ~ AType derives Tuple {
         self.field3 = TRUE;
     }
 
-    public method(a : Int)->Int {
+    method(a : Int)->Int {
         #experr: self.field1 = a;  ## non-mod field only modifiable within constructor
         #experr: self(3, 3.3);     ## constructor only callable from other constructor
         return a * 2;
@@ -28,16 +28,16 @@ type ~ AType derives Tuple {
 type ~ BType derives AType {
     field4 : Double;
 
-    public self(f4 : Double) {
+    self(f4 : Double) {
         super();
         self.field4 = f4;
     }
-    public self(f1 : Long, f2 : Float) {
+    self(f1 : Long, f2 : Float) {
         super(f1, f2);
         self.field4 = f2;
     }
 
-    public override method(a : Int)->Int {
+    override method(a : Int)->Int {
         #experr: self.field1 = a;          ## non-mod field only modifiable within constructor
         #experr: self.field4 = Double(a);  ## non-mod field only modifiable within constructor
         #experr: self(3.3);      ## constructor only callable from other constructor

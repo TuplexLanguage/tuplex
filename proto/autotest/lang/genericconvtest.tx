@@ -1,32 +1,32 @@
 
-public abstract interface Enumerable< E derives Enumerable<E> > {
+abstract interface Enumerable< E derives Enumerable<E> > {
     /** returns the last (highest) ordinal for this type */
-    public virtual abstract last_ordinal() -> UInt;
+    virtual abstract last_ordinal() -> UInt;
 
     /** returns the value for the specified ordinal (panics upon out-of-bounds) */
-    public virtual abstract value( ordinal: UInt ) -> E;
+    virtual abstract value( ordinal: UInt ) -> E;
 
     /** returns the ordinal for this value */
-    public abstract ordinal() -> UInt;
+    abstract ordinal() -> UInt;
 
 
-    public virtual first() -> E {
+    virtual first() -> E {
         return E.value( 0 );
     }
 
-    public virtual last() -> E {
+    virtual last() -> E {
         return E.value( E.last_ordinal() );
     }
 }
 
-public type ERange< E derives Enumerable<E> > derives Tuple {
+type ERange< E derives Enumerable<E> > derives Tuple {
     _last : UInt;
 
-    public start : E;
-    public end   : E;
-    public step  : Long;
+    start : E;
+    end   : E;
+    step  : Long;
 
-    public self( start : E, end : E, step : Long ) {
+    self( start : E, end : E, step : Long ) {
         self.start = start;
         self.end = end;
         self.step = step;
@@ -37,10 +37,10 @@ public type ERange< E derives Enumerable<E> > derives Tuple {
             self._last = UInt( ( Long( self.start.ordinal() ) - self.end.ordinal()   + 1L ) / -self.step );
     }
 
-    public last_index() -> UInt {
+    last_index() -> UInt {
         return self._last;
     }
-    public at( index : UInt ) -> E {
+    at( index : UInt ) -> E {
         assert index <= self._last;
         return E.value( self.start.ordinal() + UInt( index * self.step ) );
     }
