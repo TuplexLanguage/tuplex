@@ -5,7 +5,11 @@ title: On Mutability
 {{ page.date | date: "%Y-%m-%d" }}
 ## {{ page.title }}
 
-Labels: Mutability, Modifiability, Type System
+Labels: Mutability, Modifiability, Type System, Syntax
+
+> **Updated 2017-08-24:**
+> - Revised syntax for mutable field declarations with implicit type.
+> - Added section on mutable methods, lambdas, and closures
 
 ### Immutability is the default for fields and types
 
@@ -19,21 +23,30 @@ If a type is immutable then fields of that type may never be declared mutable.
 
 The tilde `~` symbol is used to denote mutability in type and field declarations.
 
-    ## the built-in type definition of Int is mutable:
-    ## (see tx/elementary.tx)
-    ## builtin type ~ Int derives Signed ...
-
-
     imm0 := 42;         ## immutable field (implicit type)
     imm1 : Int = 42;    ## immutable field (explicit type)
 
     mut0 : ~Int = 42;   ## mutable field (explicit type)
-    ~mut1 := 42;        ## mutable field (implicit type)
+    mut1 := ~ 42;       ## mutable field (implicit type)
+    mut2 := ~ imm0;     ## creating a mutable copy of imm0
 
-    ~err : Int = 42;    ## invalid, field decl conflicts with explicit type
-    err := ~42;         ## invalid, literal constants can't be mutable
+    err : ~Int = ~42;   ## error, can't add qualifier to both field and type
 
-    ~mut2 := imm0;      ## creating a mutable copy of imm0
+
+    ## An immutable type - the default - is declared like so:
+    type MyImmType {
+         immfield : Int;
+    }  
+
+    ## A mutable type is declared like so:
+    type ~ MyMutType {
+         mutfield : ~Int;
+    }
+
+The type definition of `Int` and all the other built-in elementary types are mutable.<br>(See `tx/elementary.tx`.)
+
+    builtin type ~ Int derives Signed ...
+
 
 #### Initialization
 
@@ -101,7 +114,33 @@ For immutable map instances, only non-modifying methods may be invoked.
 
     mymap :=  ConstMap( ... ); ## creates a constant instance
     mymap :=  MutMap( ... );   ## also creates constant instance, but of MutMap
-    ~mymap := ConstMap( ... ); ## error
-    ~mymap := MutMap( ... );   ## creates a mutable instance
+    mymap := ~ConstMap( ... ); ## error
+    mymap := ~MutMap( ... );   ## creates a mutable instance
 
 It's analogous for the built-in arrays - they must have a mutable element type in order to be mutable.
+
+
+### Mutable methods, lambdas, and closures
+
+In order to preserve immutability on objects of types with methods, we must distinguish between the methods that modify the object and those that don't. In order to be permitted to modify the object's contents, the method must be declared as mutating. (For readers familiar with C++ this is analogous to non-const and const methods.)
+
+    type ~ Stack< E > {
+        count() -> UInt      ## non-mutating (read-only) method
+        { ... }
+
+        push( value : E ) ~  ## mutating method
+        { ... }
+
+        pop() ~ -> E         ## mutating method with return value
+        { ... }
+    }
+
+In mutating methods, the `self` reference will refer to a mutable object; in the non-mutating method it will refer to an immutable object.
+
+(As described in the previous section, any mutating methods in generic types are suppressed in the non-mutable type specializations of that type.)
+
+#### Applies to all lambda types
+
+This concept is actually not specific to methods. Methods are a special case of functions with a closure, where the closure is simply the `self` reference. In Tuplex any function / lambda (and function / lambda types) can be declared mutable, which means they may modify their closure.
+
+A non-mutating function / lambda with no mutable arguments is thus a pure function.

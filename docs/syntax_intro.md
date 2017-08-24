@@ -35,7 +35,7 @@ The syntax of scalar and boolean expressions, as well as function calls, is stra
     result := (2.0 + square( someLen )) / 3.14;
     if result > 20.0:
         puts( c"big!" );     ## C-string i.e. one character per byte
-    ~tmp := Int( result );   ## explicit cast from floating-point to Int
+    tmp := ~ Int( result );  ## explicit cast from floating-point to Int
     while tmp > 0 {
         puts( c"iteration!" );
         tmp = tmp - 1;
@@ -81,7 +81,7 @@ Now let's put it all together into a working program:
         result := (2.0 + square( someLen )) / 3.14;
         if result > 20.0:
             puts( c"big!" );     ## C-string i.e. one character per byte
-        ~tmp := Int( result );   ## explicit cast from floating-point to Int
+        tmp := ~ Int( result );  ## explicit cast from floating-point to Int
         while tmp > 0 {
             puts( c"iteration!" );
             tmp = tmp - 1;
