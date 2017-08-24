@@ -240,8 +240,8 @@ YY_DECL;
 parsing_unit : opt_module_decl
                opt_import_stmts
                opt_module_members
-                   { auto module = new TxModuleNode( @1, $1, $2, &$3->declarations, &$3->modules );
-                     $$ = new TxParsingUnitNode( @2, module );
+                   { auto module = new TxModuleNode( @$, $1, $2, &$3->declarations, &$3->modules );
+                     $$ = new TxParsingUnitNode( @$, module );
                      parserCtx->validate_module_name( module, $1 );
                      parserCtx->parsingUnit = $$;
                    }
@@ -266,7 +266,7 @@ module_members : member_declaration
 
 sub_module : KW_MODULE compound_identifier
                LBRACE  opt_import_stmts  opt_module_members  RBRACE
-                 { $$ = new TxModuleNode( @1, $2, $4, &$5->declarations, &$5->modules );
+                 { $$ = new TxModuleNode( @$, $2, $4, &$5->declarations, &$5->modules );
                    parserCtx->validate_module_name( $$, $2 );
                  }
     ;
@@ -295,7 +295,7 @@ import_statements  : import_statement
                      { $$ = $1; if ($2) $$->push_back($2); }
                    ;
 
-import_statement   : KW_IMPORT import_identifier opt_sc  { $$ = new TxImportNode(@1, $2); }
+import_statement   : KW_IMPORT import_identifier opt_sc  { $$ = new TxImportNode(@$, $2); }
                    | KW_IMPORT error opt_sc                { $$ = NULL; }
                    ;
 
@@ -319,9 +319,9 @@ member_declaration
     ;
 
 experr_decl : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(-1)); }
-              member_declaration           { $$ = new TxExpErrDeclNode(@1, END_TXEXPERR(@4), $4); }
+              member_declaration           { $$ = new TxExpErrDeclNode(@$, END_TXEXPERR(@4), $4); }
             | KW_EXPERR LIT_DEC_INT COLON  { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(std::stoi($2))); }
-              member_declaration           { $$ = new TxExpErrDeclNode(@1, END_TXEXPERR(@5), $5); }
+              member_declaration           { $$ = new TxExpErrDeclNode(@$, END_TXEXPERR(@5), $5); }
             ;
 
 
@@ -344,16 +344,16 @@ type_or_if : KW_TYPE        { $$ = false; }
            | KW_INTERFACE   { $$ = true;  }
            ;
 
-field_def : NAME COLON qual_type_expr  { $$ = new TxNonLocalFieldDefNode(@1, $1, $3, nullptr); }
+field_def : NAME COLON qual_type_expr  { $$ = new TxNonLocalFieldDefNode(@$, $1, $3, nullptr); }
           | field_assignment_def       { $$ = $1; }
           ;
 
 field_assignment_def : NAME COLON qual_type_expr EQUAL expr
-                           { $$ = new TxNonLocalFieldDefNode(@1, $1, $3,      $5); }
+                           { $$ = new TxNonLocalFieldDefNode(@$, $1, $3,      $5); }
                      | NAME COLEQUAL expr
-                           { $$ = new TxNonLocalFieldDefNode(@1, $1, nullptr, $3); }
+                           { $$ = new TxNonLocalFieldDefNode(@$, $1, nullptr, $3); }
                      | TILDE NAME COLEQUAL expr
-                           { $$ = new TxNonLocalFieldDefNode(@1, $2, nullptr, $4, true); }
+                           { $$ = new TxNonLocalFieldDefNode(@$, $2, nullptr, $4, true); }
 ;
 
 
@@ -385,7 +385,7 @@ member_list : member_declaration
 type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->push_back($1); }
                 | type_param_list COMMA type_param  { $$ = $1; $$->push_back($3); }
                 ;
-type_param      : NAME  { $$ = new TxTypeDeclNode(@$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, new TxNamedTypeNode(@1, "tx.Any")); }
+type_param      : NAME  { $$ = new TxTypeDeclNode(@$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, new TxNamedTypeNode(@$, "tx.Any")); }
                 | NAME derives_token conv_type_expr { $$ = new TxTypeDeclNode (@$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
                 | NAME COLON type_expression        { $$ = new TxFieldDeclNode(@$, TXD_PUBLIC | TXD_GENPARAM, new TxNonLocalFieldDefNode(@$, $1, $3, nullptr)); }
                 ;
@@ -483,24 +483,6 @@ array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
                  | LBRACKET RBRACKET  { $$ = NULL; }
                  ;
 
-//data_tuple_type  // simple tuple type with no static fields; fields implicitly public
-//    : KW_TUPLE opt_mutable LBRACE field_type_list RBRACE
-//            { $$ = new TxTupleTypeNode(@$, $3, $7); }
-//    ;
-
-//union_type     : KW_UNION LBRACE type_expr_list RBRACE ;
-//type_expr_list : qual_type_expr
-//               | type_expr_list COMMA qual_type_expr
-//               ;
-//
-//enum_type       : KW_ENUM LBRACE enum_value_list RBRACE ;
-//enum_value_list : NAME
-//                | enum_value_list COMMA NAME
-//                ;
-//
-//range_type : expr ':' ( expr ':' )? expr ;  // Enum and Scalar types are legal
-
-
 
 /// function type and function declarations:
 
@@ -555,7 +537,7 @@ expr
     |   make_expr                    { $$ = $1; }
     |   intrinsics_expr              { $$ = $1; }
 
-    |   NAME                         { $$ = new TxFieldValueNode(@1, NULL, $1); }
+    |   NAME                         { $$ = new TxFieldValueNode(@$, NULL, $1); }
     |   expr DOT NAME                { $$ = new TxFieldValueNode(@$, $1,   $3); }
     |   expr LBRACKET expr RBRACKET  { $$ = new TxElemDerefNode(@$, $1, $3); }
     |   expr CARET                   { $$ = new TxReferenceDerefNode(@$, $1); }
@@ -622,7 +604,7 @@ make_expr : KW_NEW qual_type_expr call_params { $$ = new TxNewConstructionNode(@
 ;
 
 call_expr : expr call_params  { $$ = new TxFunctionCallNode(@$, $1, $2); }
-;  //  FUTURE: Interface(adaptedObj)
+;
 
 call_params : LPAREN expression_list RPAREN  { $$ = $2; }
             | LPAREN RPAREN  { $$ = new std::vector<TxExpressionNode*>(); }
@@ -708,7 +690,7 @@ simple_stmt
     |   terminal_stmt   SEMICOLON  %prec STMT    { $$ = $1; }
     |   flow_else_stmt             %prec KW_ELSE { $$ = $1; }
     |   experr_stmt                %prec STMT    { $$ = $1; }
-    |   error SEMICOLON            %prec STMT    { $$ = new TxNoOpStmtNode(@1); TX_SYNTAX_ERROR; }
+    |   error SEMICOLON            %prec STMT    { $$ = new TxNoOpStmtNode(@$); TX_SYNTAX_ERROR; }
     ;
 
 elementary_stmt
@@ -726,35 +708,36 @@ terminal_stmt
     ;
 
 experr_stmt : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(-1)); }
-              statement                    { $$ = new TxExpErrStmtNode(@1, END_TXEXPERR(@4), static_cast<TxStatementNode*>($4)); }
+              statement                    { $$ = new TxExpErrStmtNode(@$, END_TXEXPERR(@4), static_cast<TxStatementNode*>($4)); }
             | KW_EXPERR LIT_DEC_INT COLON  { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(std::stoi($2))); }
-              statement                    { $$ = new TxExpErrStmtNode(@1, END_TXEXPERR(@5), $5); }
+              statement                    { $$ = new TxExpErrStmtNode(@$, END_TXEXPERR(@5), $5); }
             ;
 
-
-flow_stmt        : KW_IF    cond_expr      COLON single_statement  %prec STMT  { $$ = new TxIfStmtNode (@1, $2, $4); }
-                 | KW_IF    cond_expr      suite                   %prec STMT  { $$ = new TxIfStmtNode (@1, $2, $3); }
-                 | KW_WHILE cond_expr      COLON single_statement  %prec STMT  { $$ = new TxForStmtNode(@1, new TxWhileHeaderNode(@2, $2), $4); }
-                 | KW_WHILE cond_expr      suite                   %prec STMT  { $$ = new TxForStmtNode(@1, new TxWhileHeaderNode(@2, $2), $3); }
-                 | KW_FOR   in_clause_list COLON single_statement  %prec STMT  { $$ = new TxForStmtNode(@1, $2, $4); }
-                 | KW_FOR   in_clause_list suite                   %prec STMT  { $$ = new TxForStmtNode(@1, $2, $3); }
-                 | KW_FOR   for_header     COLON single_statement  %prec STMT  { $$ = new TxForStmtNode(@1, $2, $4); }
-                 | KW_FOR   for_header     suite                   %prec STMT  { $$ = new TxForStmtNode(@1, $2, $3); }
+flow_stmt        : KW_IF    cond_expr      COLON single_statement  %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $4); }
+                 | KW_IF    cond_expr      suite                   %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $3); }
+                 | KW_WHILE cond_expr      COLON single_statement  %prec STMT  { $$ = new TxForStmtNode(@$, new TxWhileHeaderNode(@2, $2), $4); }
+                 | KW_WHILE cond_expr      suite                   %prec STMT  { $$ = new TxForStmtNode(@$, new TxWhileHeaderNode(@2, $2), $3); }
+                 | KW_FOR   in_clause_list COLON single_statement  %prec STMT  { $$ = new TxForStmtNode(@$, $2, $4); }
+                 | KW_FOR   in_clause_list suite                   %prec STMT  { $$ = new TxForStmtNode(@$, $2, $3); }
+                 | KW_FOR   for_header     COLON single_statement  %prec STMT  { $$ = new TxForStmtNode(@$, $2, $4); }
+                 | KW_FOR   for_header     suite                   %prec STMT  { $$ = new TxForStmtNode(@$, $2, $3); }
                  ;
 
-flow_else_stmt   : KW_IF    cond_expr      COLON simple_stmt else_clause  { $$ = new TxIfStmtNode (@1, $2, $4, $5); }
-                 | KW_IF    cond_expr      suite             else_clause  { $$ = new TxIfStmtNode (@1, $2, $3, $4); }
-                 | KW_WHILE cond_expr      COLON simple_stmt else_clause  { $$ = new TxForStmtNode(@1, new TxWhileHeaderNode(@2, $2), $4, $5); }
-                 | KW_WHILE cond_expr      suite             else_clause  { $$ = new TxForStmtNode(@1, new TxWhileHeaderNode(@2, $2), $3, $4); }
-                 | KW_FOR   in_clause_list COLON simple_stmt else_clause  { $$ = new TxForStmtNode(@1, $2, $4, $5); }
-                 | KW_FOR   in_clause_list suite             else_clause  { $$ = new TxForStmtNode(@1, $2, $3, $4); }
-                 | KW_FOR   for_header     COLON simple_stmt else_clause  { $$ = new TxForStmtNode(@1, $2, $4, $5); }
-                 | KW_FOR   for_header     suite             else_clause  { $$ = new TxForStmtNode(@1, $2, $3, $4); }
+flow_else_stmt   : KW_IF    cond_expr      COLON simple_stmt else_clause  { $$ = new TxIfStmtNode (@$, $2, $4, $5); }
+                 | KW_IF    cond_expr      suite             else_clause  { $$ = new TxIfStmtNode (@$, $2, $3, $4); }
+                 | KW_WHILE cond_expr      COLON simple_stmt else_clause  { $$ = new TxForStmtNode(@$, new TxWhileHeaderNode(@2, $2), $4, $5); }
+                 | KW_WHILE cond_expr      suite             else_clause  { $$ = new TxForStmtNode(@$, new TxWhileHeaderNode(@2, $2), $3, $4); }
+                 | KW_FOR   in_clause_list COLON simple_stmt else_clause  { $$ = new TxForStmtNode(@$, $2, $4, $5); }
+                 | KW_FOR   in_clause_list suite             else_clause  { $$ = new TxForStmtNode(@$, $2, $3, $4); }
+                 | KW_FOR   for_header     COLON simple_stmt else_clause  { $$ = new TxForStmtNode(@$, $2, $4, $5); }
+                 | KW_FOR   for_header     suite             else_clause  { $$ = new TxForStmtNode(@$, $2, $3, $4); }
                  ;
 
 cond_expr        : expr %prec STMT    { $$ = $1; } ;
 
-else_clause      : KW_ELSE statement  { $$ = new TxElseClauseNode(@1, $2); } ;
+else_clause      : KW_ELSE COLON statement  { $$ = new TxElseClauseNode(@$, $3); }
+                 | KW_ELSE statement  { $$ = new TxElseClauseNode(@$, $2); }  // colon is currently optional since unambiguous
+                 ;
 
 
 in_clause_list   : in_clause                        { $$ = new std::vector<TxLoopHeaderNode*>( { $1 } ); }
@@ -777,32 +760,32 @@ local_field_def  : NAME COLON qual_type_expr              { $$ = new TxLocalFiel
 
 // TODO: support declaration flags abstract, final, and maybe static
 type_decl_stmt   : type_or_if opt_mutable NAME type_derivation
-                     { $$ = new TxTypeStmtNode(@1, $3, NULL, $4, $1, $2); }
+                     { $$ = new TxTypeStmtNode(@$, $3, NULL, $4, $1, $2); }
                  | type_or_if opt_mutable NAME LT type_param_list GT type_derivation
-                     { $$ = new TxTypeStmtNode(@1, $3, $5,   $7, $1, $2); }
+                     { $$ = new TxTypeStmtNode(@$, $3, $5,   $7, $1, $2); }
 
                  // error recovery, handles when an error occurs before a type body's LBRACE:
-                 | error type_body  { $$ = new TxNoOpStmtNode(@1); TX_SYNTAX_ERROR; }
+                 | error type_body  { $$ = new TxNoOpStmtNode(@$); TX_SYNTAX_ERROR; }
                  ;
 
 
-return_stmt : KW_RETURN expr  { $$ = new TxReturnStmtNode(@1, $2); }
-            | KW_RETURN       { $$ = new TxReturnStmtNode(@1); }
+return_stmt : KW_RETURN expr  { $$ = new TxReturnStmtNode(@$, $2); }
+            | KW_RETURN       { $$ = new TxReturnStmtNode(@$); }
             ;
 
-break_stmt     : KW_BREAK     { $$ = new TxBreakStmtNode(@1); }  ;
-continue_stmt  : KW_CONTINUE  { $$ = new TxContinueStmtNode(@1); }  ;
+break_stmt     : KW_BREAK     { $$ = new TxBreakStmtNode(@$); }  ;
+continue_stmt  : KW_CONTINUE  { $$ = new TxContinueStmtNode(@$); }  ;
 
-assert_stmt : KW_ASSERT expr  { $$ = new TxAssertStmtNode(@1, $2); }
+assert_stmt : KW_ASSERT expr  { $$ = new TxAssertStmtNode(@$, $2); }
             // | KW_ASSERT expr COMMA expr
             ;
 
-panic_stmt : KW_PANIC expr  { $$ = new TxPanicStmtNode(@1, $2); }
+panic_stmt : KW_PANIC expr  { $$ = new TxPanicStmtNode(@$, $2); }
            ;
 
 
 assignment_stmt //:    assignee_pattern EQUAL expr
-                :    assignee_expr EQUAL expr  { $$ = new TxAssignStmtNode(@1, $1, $3); }
+                :    assignee_expr EQUAL expr  { $$ = new TxAssignStmtNode(@$, $1, $3); }
 //                |    assignee_expr PLUSEQUAL expr
 //                |    assignee_expr MINUSEQUAL expr
 //                |    assignee_expr ASTERISKEQUAL expr
