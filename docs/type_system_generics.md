@@ -1,48 +1,12 @@
 ---
 layout: default
 ---
-## Advanced Type Declarations
 
-
-
+## Type System: Generics
 
 *This doc is todo, some examples from the test suite are provided in the mean time.*
 
 ```
-#########################################
-## Interfaces and (Tuple) object types
-
-interface IntfA {
-    abstract get_value()->Int;
-
-    ## "mixin" or default-implementation interface methods:
-    mixin_method_1()->Int { return 1; }
-    mixin_method_2()->Int { return 2; }
-}
-
-interface IntfB {
-    abstract set_value( v : Int );
-}
-
-type ~ Type : Tuple : IntfA, IntfB {
-    fld : ~Int;
-
-    self(f : Int) { self.fld = f; }
-
-    override get_value()->Int {
-        return self.fld;
-    }
-
-    override set_value( v : Int ) ~ {
-        self.fld = v;
-    }
-
-    override mixin_method_2()->Int {
-        return 3;
-    }
-}
-
-
 #########################################
 ## Multiple levels of TYPE parameters, immutable and mutable:
 

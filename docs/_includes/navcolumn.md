@@ -6,7 +6,8 @@
 * <a href="{{ site.baseurl }}/syntax_intro.html">Syntax Introduction</a>
 * <a href="{{ site.baseurl }}/formatting_strings.html">Formatting Strings</a>
 * <a href="{{ site.baseurl }}/ranges.html">Ranges</a>
-* <a href="{{ site.baseurl }}/advanced_types.html">Advanced Types</a>
+* <a href="{{ site.baseurl }}/type_system_basics.html">Type System I: Basics</a>
+* <a href="{{ site.baseurl }}/type_system_generics.html">Type System II: Generics</a>
 
 ### Blog Entries
 
