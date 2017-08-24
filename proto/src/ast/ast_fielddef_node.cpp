@@ -34,6 +34,7 @@ static const TxQualType* make_mutable_specialization( TxNode* node, const TxType
     auto genBaseTypeDecl = ( newSemBase ? newSemBase->acttype()->get_declaration() : actType->get_semantic_base_type()->get_declaration() );
     auto genBaseTypeNode = new TxTypeDeclWrapperNode( loc, genBaseTypeDecl );
     auto mutTypeDef = new TxGenSpecTypeNode( loc, genBaseTypeNode, newbindings );
+    mutTypeDef->set_requires_mutable( true );
     run_declaration_pass( mutTypeDef, node, "mut-type" );
     const TxQualType* qtype = mutTypeDef->resolve_type();
     LOG_DEBUG( node->LOGGER(), "Created mutable specialization for " << node << ": " << qtype );

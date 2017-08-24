@@ -53,8 +53,8 @@ sign2(x : Int)->Int {
 }
 
 sum(x : Int)->Int {
-    ~sum := 0I;
-    ~xi := x;
+    sum := ~ 0I;
+    xi := ~ x;
     while (TRUE) {
         if xi <= 0:
             break;

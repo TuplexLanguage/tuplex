@@ -34,7 +34,7 @@ test_while_syntax() {
     
     while TRUE { break; } else assert FALSE;
 
-    ~i := 0;
+    i := ~ 0;
 
     while FALSE: break;
     else i = i + 1;
@@ -51,7 +51,7 @@ test_while_logic() {
     }
 
     {    
-        ~e := FALSE;
+        e := ~ FALSE;
         while FALSE {
             assert FALSE;
         }
@@ -79,7 +79,7 @@ test_while_logic() {
     {
         i : ~Int = 0;
         iterations : ~Int = 0;
-        ~e := FALSE;
+        e := ~ FALSE;
         while i < 9 {
             i = i + 1;
             if i == 2 { continue; }

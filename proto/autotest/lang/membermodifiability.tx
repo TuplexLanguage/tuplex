@@ -63,11 +63,11 @@ type ~ Node {  ## mutable type
 }
 
 test_transitivity() {
-    ~n0 := Node();
-    ~n1 := Node( &n0, &n0 );
+    n0 := ~ Node();
+    n1 := ~ Node( &n0, &n0 );
     n2a := Node( &n1, &n1 );
-    ~n2b  := Node( &n1, &n1 );
-    ~n3 := Node( &n2a, &n2b );
+    n2b := ~ Node( &n1, &n1 );
+    n3 := ~ Node( &n2a, &n2b );
 
                n1.hiNode = &n0;
     #experr 1: n1.loNode = &n0;
@@ -111,7 +111,7 @@ main()->Int {
     #experr 1: nonmodA.set_i( 5 );
     #experr 1: nonmodA.set_f( 2.72 );
 
-    ~modA := AType( 2, 3.14 );
+    modA := ~ AType( 2, 3.14 );
     modA.get_i();
     modA.get_f();
     modA.set_i( 5 );  ## error is in the function body, not in this call
@@ -119,7 +119,7 @@ main()->Int {
 
     #experr 1: type ErrTypeA : ~AType;  ## wrong placed ~
     type ~MutTypeA <: AType;
-    ~modA := MutTypeA( 2, 3.14 );
+    modA := ~ MutTypeA( 2, 3.14 );
     modA.get_i();
     modA.get_f();
     modA.set_i( 5 );  ## error is in the function body, not in this call

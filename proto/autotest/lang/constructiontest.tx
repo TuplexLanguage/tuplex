@@ -147,9 +147,9 @@ builtin_construction()->Int {
 }
 
 mod_test()->Int {
-    ~iv := Int(3);
+    iv := ~ Int(3);
     iv = 4;
-    ~ir := new ~Int(3);
+    ir := ~ new ~Int(3);
     ir^ = 4;
     ir = new ~Int(5);
     iv2 := (new Int(3))^ + Int(3);

@@ -46,7 +46,7 @@ type OkType derives Tuple {
 main()->Int {
     #experr: bad tokens;
 
-    ~i := 3;
+    i := ~ 3;
 
     #experr: i = i + 3 bad tokens;
 

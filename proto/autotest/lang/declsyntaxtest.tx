@@ -12,10 +12,12 @@ main() {
 
     m1 : ~Int;
     m2 : ~Int = 5;
-    ~m3 := 5;
+    m3 := ~ 5;
     #experr: ~m4 : Int;
     #experr: ~m4 : ~Int;
     #experr: ~m4 : ~Int = 5;
+    #experr: m4 : Int = ~5;
+    #experr: m4 : ~Int = ~5;
     ## assert m1 == 0;
     assert m2 == 5;
     assert m3 == 5;

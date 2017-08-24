@@ -2,14 +2,14 @@ module tx
 
 
 print( str : &Stringer ) {
-    ~buf := GrowableUByteArray();
+    buf := ~ GrowableUByteArray();
     str.string( &buf );
     buf.add( 0 );  ## handle empty string and ensure there is a null terminator
     tx.c.puts( buf.array() );
 }
 
 print_err( str : &Stringer ) {
-    ~buf := GrowableUByteArray();
+    buf := ~ GrowableUByteArray();
     str.string( &buf );
     buf.add( '\n' );
     buf.add( 0 );

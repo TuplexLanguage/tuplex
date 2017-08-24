@@ -151,7 +151,6 @@ extern "C" int yywrap() { return 0; }
 "for"		{ return token::KW_FOR; }
 "in"		{ return token::KW_IN; }
 "if"		{ return token::KW_IF; }
-"is"		{ return token::KW_IS; }
 "else"		{ return token::KW_ELSE; }
 "break"		{ return token::KW_BREAK; }
 "continue"	{ return token::KW_CONTINUE; }
@@ -175,6 +174,7 @@ extern "C" int yywrap() { return 0; }
 
 "with"      { return token::KW_WITH; }
 "as"        { return token::KW_AS; }
+"is"        { return token::KW_IS; }
 "switch"    { return token::KW_SWITCH; }
 "case"      { return token::KW_CASE; }
 

@@ -64,7 +64,7 @@ type String <: Tuple, Sequenceable< Char >, Stringer, Formatter {
     }
 
     self( stringer : &Stringer ) {
-        ~buf := GrowableUByteArray();
+        buf := ~ GrowableUByteArray();
         stringer.string( &buf );
         self( buf.array() );
     }

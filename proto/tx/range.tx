@@ -84,7 +84,7 @@ type ERange< E derives Enumerable > <: Tuple, Range< E >, Stringer {
     }
 
     override get( index : Long ) -> E {
-        ~ix := index;
+        ix := ~ index;
         if ix < 0 {
             ix = ix + self._indexLimit;
             if ix < 0:  panic "Invalid range index: " %d index %% " < -" %d self._indexLimit;

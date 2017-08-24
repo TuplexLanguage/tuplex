@@ -1,5 +1,5 @@
 first() {
-    ~v := 0UL;
+    v := ~ 0UL;
 
     if TRUE {
         v = v + 1;
@@ -43,7 +43,7 @@ first() {
 }
 
 second() {
-    ~v := 0UL;
+    v := ~ 0UL;
 
     if TRUE:
         v = v + 1;

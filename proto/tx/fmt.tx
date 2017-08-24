@@ -236,7 +236,7 @@ to_string( writer : &~tx.ByteWriter, value : Double, neg : Bool ) {
     } 
     else if (value < 1e20) & (value >= 1e-3) {
         ## Note: ULong can handle 19 full decimals of precision
-        ~buf := GrowableUByteArray();
+        buf := ~ GrowableUByteArray();
         intval := ULong( value );
         to_string( &buf, intval, neg );
         frac := value - Double( intval );

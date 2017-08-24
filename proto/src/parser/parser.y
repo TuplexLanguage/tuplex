@@ -128,7 +128,7 @@ YY_DECL;
 %token KW_MODULE KW_IMPORT KW_TYPE KW_INTERFACE
 %token KW_BUILTIN KW_VIRTUAL KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERNC
 %token KW_MUTABLE KW_REFERENCE KW_DERIVES
-%token KW_WHILE KW_FOR KW_IF KW_ELSE KW_IN KW_AS
+%token KW_WHILE KW_FOR KW_IF KW_ELSE KW_IN
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE
 %token KW_XOR
 %token KW_NULL KW_TRUE KW_FALSE
@@ -138,7 +138,7 @@ YY_DECL;
 /* keywords reserved but not currently used */
 %token KW_PUBLIC KW_PROTECTED
 %token KW_STATIC KW_CONST KW_EXTENDS KW_IMPLEMENTS
-%token KW_SWITCH KW_CASE KW_WITH KW_IS
+%token KW_SWITCH KW_CASE KW_WITH KW_AS KW_IS
 %token KW_AND KW_OR KW_NOT
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
 
@@ -352,8 +352,8 @@ field_assignment_def : NAME COLON qual_type_expr EQUAL expr
                            { $$ = new TxNonLocalFieldDefNode(@$, $1, $3,      $5); }
                      | NAME COLEQUAL expr
                            { $$ = new TxNonLocalFieldDefNode(@$, $1, nullptr, $3); }
-                     | TILDE NAME COLEQUAL expr
-                           { $$ = new TxNonLocalFieldDefNode(@$, $2, nullptr, $4, true); }
+                     | NAME COLEQUAL mut_token expr
+                           { $$ = new TxNonLocalFieldDefNode(@$, $1, nullptr, $4, true); }
 ;
 
 
@@ -755,7 +755,7 @@ for_header       : elementary_stmt SEMICOLON expr SEMICOLON elementary_stmt  { $
 local_field_def  : NAME COLON qual_type_expr              { $$ = new TxLocalFieldDefNode(@$, $1, $3,      nullptr); }
                  | NAME COLON qual_type_expr EQUAL expr   { $$ = new TxLocalFieldDefNode(@$, $1, $3,      $5); }
                  | NAME COLEQUAL expr                     { $$ = new TxLocalFieldDefNode(@$, $1, nullptr, $3); }
-                 | TILDE NAME COLEQUAL expr               { $$ = new TxLocalFieldDefNode(@$, $2, nullptr, $4, true); }
+                 | NAME COLEQUAL mut_token expr           { $$ = new TxLocalFieldDefNode(@$, $1, nullptr, $4, true); }
 ;
 
 // TODO: support declaration flags abstract, final, and maybe static
