@@ -1,6 +1,11 @@
 module tx
 
 
+/** An Array instance contains zero or more elements of the same type serially arranged in memory.
+ * Array is the base class for the ARRAY type class.
+ * @param <E> The element type
+ * @param <C> The array capacity, a UInt value
+ */
 builtin type ~ Array<E, C : UInt> derives Any, Collection<E>, Updatable<UInt, E>
 {
 /* TODO

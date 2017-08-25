@@ -1,5 +1,7 @@
 <a href="{{ site.baseurl }}/essential_features.html">Essential Features</a>
 
+<a href="{{ site.baseurl }}/about.html">About</a>
+
 ### Guides
 
 * <a href="{{ site.baseurl }}/build_howto.html">Building the Compiler</a>
