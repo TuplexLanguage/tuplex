@@ -47,7 +47,7 @@ Like all OO-type systems, a type derives the characteristics of its parent, and 
 
 Tuplex is single inheritance with addition of interfaces (like Java and C#).
 
-* The BASETYPE of a type must be a proper object supertype (type classes Tuple or Array).
+* The **basetype** of a type must be a proper object supertype (type classes Tuple or Array).
 
 * Any additional supertypes must be interfaces.
 
