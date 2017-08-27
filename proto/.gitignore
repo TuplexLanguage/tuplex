@@ -17,10 +17,11 @@
 .settings/
 
 # ignore all files in the build/ directory
-build/
+generated/
 bin/
 cov/
 test/
+releases/
 
 # CMake files
 CMakeFiles/

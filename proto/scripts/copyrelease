@@ -1,0 +1,26 @@
+#/bin/bash
+
+# Cause subsequent commands which fail to exit the shell script immediately:
+set -e
+
+mkdir -p releases
+
+# if [ -d releases/latest ]; then
+#   mv releases/latest ;
+# fi
+
+DATE=$(date +"%y%m%d")
+DEST=releases/tx_rel_$DATE
+# mkdir releases/tx_rel_$DATE
+
+echo "Copying to "$DEST
+
+mkdir $DEST
+cp -r -t $DEST bin tx scripts autotest
+
+rm -f releases/latest
+ln -r -s $DEST releases/latest
+
+tar cf $DEST.tar $DEST
+zip $DEST.tar.zip $DEST.tar
+rm $DEST.tar
