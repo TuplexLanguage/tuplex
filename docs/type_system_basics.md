@@ -18,7 +18,7 @@ interface NAME ( <: INTERFACE ( , INTERFACE )* )? ( ; | BODY )
 
 * A tilde `~` declares an object type to be mutable, which means instances of it are allowed to be made mutable.
 
-* The `<:` token denotes type derivation (like in the language Julia). If unspecified, object types will by default derive from `Tuple` and interfaces from `Interface`.
+* The `<:` token denotes type derivation (like in the Julia language). If unspecified, object types will by default derive from `Tuple` and interfaces from `Interface`.
 
 Declaring a plain old data type (a tuple of fields), mutable or not, is very simple:
 

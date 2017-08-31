@@ -7,6 +7,9 @@ title: A Consistent Type System Foundation
 
 Labels: Type Classes, Types
 
+> **Updated 2017-08-31:**
+> Added type hierarchy diagram
+
 The type system is the cornerstone of a programming language. It is the essential enabler for how a program's sought behavior can be expressed and it is the chief controller preventing behavior that is unintended.
 
 Different languages emphasize these two roles to varying degrees. Sometimes one is given clear priority over the other. Some dynamically types languages take the extreme approach of not having the type system control anything at all, which can make for a very easy and low-friction programming experience for smaller and simpler tasks. But until the code is actually executed you never know exactly what is going to happen.
@@ -33,11 +36,14 @@ Like all OO-type systems, a type derives the characteristics of its parent, and 
 
 ### Any
 
-Being part of the common type hierarchy, all types ultimately derive from the global root type at the top, named Any. All types thus derive the characteristics of Any. They aren't very many. Currently planned are hashcode() and equals().
+Being part of the common type hierarchy, all types ultimately derive from the global root type at the top, named Any. All types thus derive the characteristics of Any. They aren't very many. Currently considered are key() and equals().
 
 Any is never directly derived from in user code. It serves as the super type for the built-in base type of each type class.
 
 ### Type Classes
+
+![Type hierarchy diagram]({{ site.baseurl }}/assets/BuiltinTypes.png)
+<p align="center"><i>The blue types are the type class base types.<br>Some subtypes included for illustration.</i></p>
 
 `Any` is a special type class with only one member, the Any type.
 

@@ -16,6 +16,9 @@ It's been in development since 2014.
 
 I have a varied background, from bespoke DSP software development tools R&D at Ericsson, to leading AAA game engine development at a large studio, to managing large cross-functional projects in major organizations. All the while, programming has been a major passion and especially the field of artificial language design.
 
-Tuplex is a condensation of the imperative language concepts I find most important, and exporing my innovation of the dataspace semantics.
+Tuplex is a condensation of the imperative language concepts I find most important, and exploration of my innovation of the dataspace semantics.
 
 I'm a member of the [www.reddit.com/r/ProgrammingLanguages/](https://www.reddit.com/r/ProgrammingLanguages) community and you can find me there as u/leswahn.
+
+<img style="vertical-align:middle" src="assets/Twitter_Social_Icon_Circle_Color.svg" alt="Twitter" height="20">
+[@leswahn](https://twitter.com/leswahn)
