@@ -38,5 +38,5 @@ TxAssertStmtNode::TxAssertStmtNode( const TxLocation& ploc, TxExpressionNode* ex
     TxStatementNode* abortStmt = new TxCallStmtNode( pLoc, abortCallExpr );
 
     auto failureSuite = new TxSuiteNode( pLoc, new std::vector<TxStatementNode*>( { putsStmt, abortStmt } ) );
-    this->ifStmt = new TxIfStmtNode( pLoc, invertedCond, failureSuite );
+    this->ifStmt = new TxIfStmtNode( pLoc, new TxCondClauseNode( pLoc, invertedCond ), failureSuite );
 }

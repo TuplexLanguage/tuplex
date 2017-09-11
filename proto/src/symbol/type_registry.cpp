@@ -423,7 +423,7 @@ static TxDeclarationNode* make_value_type_param_decl_node( const TxLocation& par
     if (valueDefiner)
         valueDefiner = new TxExprWrapperNode( valueDefiner );
     auto paramTypeNode = new TxTypeDeclWrapperNode( parseLoc, paramValueTypeDecl );
-    auto fieldDef = new TxNonLocalFieldDefNode( parseLoc, paramName, paramTypeNode, valueDefiner, false );
+    auto fieldDef = new TxNonLocalFieldDefNode( parseLoc, paramName, paramTypeNode, valueDefiner );
     auto declNode = new TxFieldDeclNode( parseLoc, flags | TXD_PUBLIC, fieldDef );
     return declNode;
 }

@@ -121,7 +121,7 @@ Make VALUE type parameter specializations share a general (but non-generic) supe
 Required for proper equals(), including for arrays-of-arrays:
     Conditional reference type casting:
        if other is oa : &Array { ... }
-    
+
     Virtual dereferencing of abstract references for array subscripting, implicitly creating a reference to the element:
        r : &Array;  s : &Array;
        r[0] == s[0]
@@ -137,14 +137,18 @@ Array initialization from sequence
     arr := [ seq... ];
     arr := [ 0..2... ];
 
+Auto-conversion of array initialization elements (literals; also from sequences?)
+
 Dynamic-length arrays tests - bounds checking, copying, etc - PARTIALLY DONE
+
+Support negative array indexing from array end
 
 Ensure VALUE type parameters are always correctly initialized
 
+
+
 Ensure fields are always initialized (with the default constructor if no init expr provided)
  - Remove 'initialization' code from alloca (at least for arrays this will cause double init of C and L)
-
-Support negative array indexing from array end
 
 Implement advanced implicit constructor concept
  - Automatically generate the basic constructor (one argument for each instance member (except const with initializer))
@@ -153,6 +157,7 @@ Implement advanced implicit constructor concept
  - Default (zero arguments) constructor if base type and all members without inlined initializers allow default construction?
 
 Constructor initialization validation check: That each constructor properly initializes all members (without inlined initializers)
+
 
 For VALUEs below a threshold (e.g. <= 4), coge-gen individual specializations for efficiency
 

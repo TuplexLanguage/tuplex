@@ -1,12 +1,27 @@
 #include "ast_flow.hpp"
+#include "ast/expr/ast_ref.hpp"
 
 #include "llvm_generator.hpp"
 
 using namespace llvm;
 
 
-Value* TxWhileHeaderNode::code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const {
-    return this->nextCond->code_gen_expr( context, scope );
+Value* TxCondClauseNode::code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const {
+    return this->condExpr->code_gen_expr( context, scope );
+}
+
+Value* TxIsClauseNode::code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const {
+    auto refExprValue = this->origValueExpr->code_gen_dyn_value( context, scope );
+    Value* runtimeTargetTypeIdV = gen_get_ref_typeid( context, scope, refExprValue );
+    // Currently only supports exact type equality, not is-a:
+    Constant* reqTargetTypeIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ),
+                                                   this->typeExpr->qualtype()->type()->target_type()->get_type_id() );
+    auto typeEqCondV = scope->builder->CreateICmpEQ( runtimeTargetTypeIdV, reqTargetTypeIdC );
+    return typeEqCondV;
+}
+
+void TxIsClauseNode::code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const {
+    this->valueField->code_gen_field( context, scope );
 }
 
 void TxForHeaderNode::code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -47,8 +62,11 @@ void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) c
     BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "if_true"+id, parentFunc );
     BasicBlock* postBlock = nullptr;
 
+    // generate initialization:
+    this->header->code_gen_init( context, scope );
+
     // generate condition:
-    auto condVal = this->cond->code_gen_expr( context, scope );
+    auto condVal = this->header->code_gen_cond( context, scope );
 
     // generate branch and else code:
     if ( this->elseClause ) {
@@ -69,7 +87,10 @@ void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) c
 
     // generate true code:
     scope->builder->SetInsertPoint( trueBlock );
+    this->header->code_gen_prestep( context, scope );
     this->body->code_gen( context, scope );
+    this->header->code_gen_poststep( context, scope );
+
     if ( postBlock ) {
         // note: trueBlock may not be the "current" block anymore when reaching end of body
         if ( !scope->builder->GetInsertBlock()->getTerminator() )

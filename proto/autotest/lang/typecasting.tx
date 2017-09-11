@@ -1,0 +1,53 @@
+
+interface IntfA {
+    abstract get_value()->Int;
+
+    ## "mixin" or default-implementation interface methods:
+    mixin_method_1()->Int { return 1; }
+    mixin_method_2()->Int { return 2; }
+}
+
+interface IntfB <: IntfA {         ## extends the interface IntfA
+    abstract set_value( v : Int );
+}
+
+type ~ MyType <: Tuple, IntfB {    ## a Tuple type that implements IntfB
+    field : ~Int;
+
+    self(f : Int) {
+        self.field = f;
+    }
+
+    override get_value()->Int {
+        return self.field;
+    }
+
+    override set_value( v : Int ) ~ {
+        self.field = v;
+    }
+
+    override mixin_method_2()->Int {
+        return 3;
+    }
+}
+
+
+func( r : &Any )->Int {
+    if r is i : &Int :
+        return i;
+
+    if r is f : &Float :
+        return -Int(f);
+
+    #experr 2: if r^ is i : Int :  return i;  ## cast of non-reference
+
+    ##experr 1: if r is a : &IntfA :  return a.get_value();  ## cast to interface
+
+    return 0;
+}
+
+main()->Int {
+    i : Int = 42;
+    f : Float = 3.14;
+    return func( f );
+}

@@ -59,7 +59,7 @@ const TxQualType* TxFieldDefNode::define_type() {
         qtype = this->typeExpression->resolve_type();
         // also resolve initExpression from here, which guards against recursive field value initialization:
         if ( this->initExpression ) {
-            this->initExpression->insert_conversion( qtype->type() );
+            this->initExpression->insert_conversion( qtype->type(), this->_explicit );
             try {
                 this->initExpression->resolve_type();
             }

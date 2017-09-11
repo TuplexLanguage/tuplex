@@ -81,6 +81,7 @@ source_files = [
     "interfacetest.tx",
     "interfaceadaptertest.tx",
     "nestedtypestest.tx",
+    "typecasting.tx",
     
     "generictypespec.tx",
     "genericvaluespec.tx",

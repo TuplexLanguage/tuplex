@@ -182,7 +182,7 @@ YY_DECL;
 %type <TxTypeExpressionNode*> named_type specialized_type reference_type array_type
 
 %type <TxFunctionTypeNode*> function_signature
-%type <TxExpressionNode*> expr make_expr lambda_expr value_literal array_literal array_dimensions cond_expr intrinsics_expr
+%type <TxExpressionNode*> expr make_expr lambda_expr value_literal array_literal array_dimensions intrinsics_expr
 %type <TxFunctionCallNode*> call_expr
 %type <std::vector<TxExpressionNode*> *> expression_list call_params array_lit_expr_list
 %type <std::vector<TxStatementNode*> *> statement_list
@@ -191,9 +191,8 @@ YY_DECL;
 %type <TxStatementNode*> flow_stmt simple_stmt elementary_stmt terminal_stmt flow_else_stmt
 %type <TxStatementNode*> assert_stmt panic_stmt experr_stmt
 %type <TxElseClauseNode*> else_clause
-%type <TxInClauseNode*> in_clause
-%type <TxForHeaderNode*> for_header
-%type <std::vector<TxLoopHeaderNode*> *> in_clause_list
+%type <TxFlowHeaderNode*> cond_clause is_clause in_clause for_header
+%type <std::vector<TxFlowHeaderNode*> *> in_clause_list
 %type <TxAssigneeNode*> assignee_expr
 %type <TxLocalFieldDefNode*> local_field_def
 
@@ -349,11 +348,11 @@ field_def : NAME COLON qual_type_expr  { $$ = new TxNonLocalFieldDefNode(@$, $1,
           ;
 
 field_assignment_def : NAME COLON qual_type_expr EQUAL expr
-                           { $$ = new TxNonLocalFieldDefNode(@$, $1, $3,      $5); }
+                           { $$ = new TxNonLocalFieldDefNode(@$, $1, $3,    $5); }
                      | NAME COLEQUAL expr
-                           { $$ = new TxNonLocalFieldDefNode(@$, $1, nullptr, $3); }
+                           { $$ = new TxNonLocalFieldDefNode(@$, $1, false, $3); }
                      | NAME COLEQUAL mut_token expr
-                           { $$ = new TxNonLocalFieldDefNode(@$, $1, nullptr, $4, true); }
+                           { $$ = new TxNonLocalFieldDefNode(@$, $1, true,  $4); }
 ;
 
 
@@ -519,9 +518,9 @@ func_arg_def   : NAME COLON type_expression
 
 
 method_def  : NAME function_signature suite
-                { $$ = new TxNonLocalFieldDefNode(@$, $1, nullptr, new TxLambdaExprNode(@$, $2, $3, true)); }
+                { $$ = new TxNonLocalFieldDefNode(@$, $1, false, new TxLambdaExprNode(@$, $2, $3, true)); }
             | NAME function_signature SEMICOLON  // abstract method (KW_ABSTRACT should be specified)
-                { $$ = new TxNonLocalFieldDefNode(@$, $1, $2,      nullptr); }
+                { $$ = new TxNonLocalFieldDefNode(@$, $1, $2,    nullptr); }
             ;
 
 
@@ -713,36 +712,43 @@ experr_stmt : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErro
               statement                    { $$ = new TxExpErrStmtNode(@$, END_TXEXPERR(@5), $5); }
             ;
 
-flow_stmt        : KW_IF    cond_expr      COLON single_statement  %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $4); }
-                 | KW_IF    cond_expr      suite                   %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $3); }
-                 | KW_WHILE cond_expr      COLON single_statement  %prec STMT  { $$ = new TxForStmtNode(@$, new TxWhileHeaderNode(@2, $2), $4); }
-                 | KW_WHILE cond_expr      suite                   %prec STMT  { $$ = new TxForStmtNode(@$, new TxWhileHeaderNode(@2, $2), $3); }
+
+flow_stmt        : KW_IF    cond_clause    COLON single_statement  %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $4); }
+                 | KW_IF    cond_clause    suite                   %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $3); }
+                 | KW_IF    is_clause      COLON single_statement  %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $4); }
+                 | KW_IF    is_clause      suite                   %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $3); }
+                 | KW_WHILE cond_clause    COLON single_statement  %prec STMT  { $$ = new TxForStmtNode(@$, $2, $4); }
+                 | KW_WHILE cond_clause    suite                   %prec STMT  { $$ = new TxForStmtNode(@$, $2, $3); }
                  | KW_FOR   in_clause_list COLON single_statement  %prec STMT  { $$ = new TxForStmtNode(@$, $2, $4); }
                  | KW_FOR   in_clause_list suite                   %prec STMT  { $$ = new TxForStmtNode(@$, $2, $3); }
                  | KW_FOR   for_header     COLON single_statement  %prec STMT  { $$ = new TxForStmtNode(@$, $2, $4); }
                  | KW_FOR   for_header     suite                   %prec STMT  { $$ = new TxForStmtNode(@$, $2, $3); }
                  ;
 
-flow_else_stmt   : KW_IF    cond_expr      COLON simple_stmt else_clause  { $$ = new TxIfStmtNode (@$, $2, $4, $5); }
-                 | KW_IF    cond_expr      suite             else_clause  { $$ = new TxIfStmtNode (@$, $2, $3, $4); }
-                 | KW_WHILE cond_expr      COLON simple_stmt else_clause  { $$ = new TxForStmtNode(@$, new TxWhileHeaderNode(@2, $2), $4, $5); }
-                 | KW_WHILE cond_expr      suite             else_clause  { $$ = new TxForStmtNode(@$, new TxWhileHeaderNode(@2, $2), $3, $4); }
+flow_else_stmt   : KW_IF    cond_clause    COLON simple_stmt else_clause  { $$ = new TxIfStmtNode (@$, $2, $4, $5); }
+                 | KW_IF    cond_clause    suite             else_clause  { $$ = new TxIfStmtNode (@$, $2, $3, $4); }
+                 | KW_IF    is_clause      COLON simple_stmt else_clause  { $$ = new TxIfStmtNode (@$, $2, $4, $5); }
+                 | KW_IF    is_clause      suite             else_clause  { $$ = new TxIfStmtNode (@$, $2, $3, $4); }
+                 | KW_WHILE cond_clause    COLON simple_stmt else_clause  { $$ = new TxForStmtNode(@$, $2, $4, $5); }
+                 | KW_WHILE cond_clause    suite             else_clause  { $$ = new TxForStmtNode(@$, $2, $3, $4); }
                  | KW_FOR   in_clause_list COLON simple_stmt else_clause  { $$ = new TxForStmtNode(@$, $2, $4, $5); }
                  | KW_FOR   in_clause_list suite             else_clause  { $$ = new TxForStmtNode(@$, $2, $3, $4); }
                  | KW_FOR   for_header     COLON simple_stmt else_clause  { $$ = new TxForStmtNode(@$, $2, $4, $5); }
                  | KW_FOR   for_header     suite             else_clause  { $$ = new TxForStmtNode(@$, $2, $3, $4); }
                  ;
 
-cond_expr        : expr %prec STMT    { $$ = $1; } ;
-
 else_clause      : KW_ELSE COLON statement  { $$ = new TxElseClauseNode(@$, $3); }
                  | KW_ELSE statement  { $$ = new TxElseClauseNode(@$, $2); }  // colon is currently optional since unambiguous
                  ;
 
 
-in_clause_list   : in_clause                        { $$ = new std::vector<TxLoopHeaderNode*>( { $1 } ); }
+cond_clause      : expr %prec STMT    { $$ = new TxCondClauseNode( @1, $1 ); } ;
+
+is_clause        : expr KW_IS NAME COLON qual_type_expr  { $$ = new TxIsClauseNode(@$, $1, $3, $5); } ;
+
+in_clause_list   : in_clause                        { $$ = new std::vector<TxFlowHeaderNode*>( { $1 } ); }
                  | in_clause_list COMMA in_clause   { $$ = $1; $$->push_back($3); }
-                 | error                            { $$ = new std::vector<TxLoopHeaderNode*>(); }
+                 | error                            { $$ = new std::vector<TxFlowHeaderNode*>(); }
                  ;
 
 in_clause        : NAME KW_IN expr             { $$ = new TxInClauseNode( @$, $1, $3 ); }
@@ -752,11 +758,13 @@ in_clause        : NAME KW_IN expr             { $$ = new TxInClauseNode( @$, $1
 for_header       : elementary_stmt SEMICOLON expr SEMICOLON elementary_stmt  { $$ = new TxForHeaderNode( @$, $1, $3, $5 ); }
                  ;
 
-local_field_def  : NAME COLON qual_type_expr              { $$ = new TxLocalFieldDefNode(@$, $1, $3,      nullptr); }
-                 | NAME COLON qual_type_expr EQUAL expr   { $$ = new TxLocalFieldDefNode(@$, $1, $3,      $5); }
-                 | NAME COLEQUAL expr                     { $$ = new TxLocalFieldDefNode(@$, $1, nullptr, $3); }
-                 | NAME COLEQUAL mut_token expr           { $$ = new TxLocalFieldDefNode(@$, $1, nullptr, $4, true); }
+
+local_field_def  : NAME COLON qual_type_expr              { $$ = new TxLocalFieldDefNode(@$, $1, $3,    nullptr); }
+                 | NAME COLON qual_type_expr EQUAL expr   { $$ = new TxLocalFieldDefNode(@$, $1, $3,    $5); }
+                 | NAME COLEQUAL expr                     { $$ = new TxLocalFieldDefNode(@$, $1, false, $3); }
+                 | NAME COLEQUAL mut_token expr           { $$ = new TxLocalFieldDefNode(@$, $1, true,  $4); }
 ;
+
 
 // TODO: support declaration flags abstract, final, and maybe static
 type_decl_stmt   : type_or_if opt_mutable NAME type_derivation
