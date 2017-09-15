@@ -50,6 +50,7 @@ int main( int argc, char **argv )
                 printf( "  %-22s %s\n", "-da", "Dump AST" );
                 printf( "  %-22s %s\n", "-ds", "Dump symbol table" );
                 printf( "  %-22s %s\n", "-dsx", "Dump full symbol table including built-in symbols" );
+                printf( "  %-22s %s\n", "-dt", "Dump types" );
                 printf( "  %-22s %s\n", "-di", "Dump intermediate representation (LLVM IR)" );
                 printf( "  %-22s %s\n", "-dl", "Print debugging output from lexer (token scanner)" );
                 printf( "  %-22s %s\n", "-dy", "Print debugging output from grammar parser" );
@@ -86,6 +87,8 @@ int main( int argc, char **argv )
                 options.dump_symbol_table = true;
             else if ( !strcmp( argv[a], "-dsx" ) )
                 options.dump_symbol_table = options.dump_tx_symbols = true;
+            else if ( !strcmp( argv[a], "-dt" ) )
+                options.dump_types = true;
             else if ( !strcmp( argv[a], "-di" ) )
                 options.dump_ir = true;
             else if ( !strcmp( argv[a], "-dl" ) )

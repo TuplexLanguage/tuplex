@@ -168,6 +168,9 @@ llvm::Constant* TxEqualityOperatorNode::code_gen_const_value( LlvmGenerationCont
             return ConstantExpr::getICmp( CmpInst::Predicate::ICMP_EQ, lval, rval );
         }
     }
+    else if ( lhsTypeclass == TXTC_REFERENCE ) {
+        return ConstantExpr::getICmp( CmpInst::Predicate::ICMP_EQ, lval, rval );
+    }
     else if ( lhsTypeclass == TXTC_ARRAY ) {
         uint32_t lenIxs[] = { 1 };
         auto lvalLengthC = ConstantExpr::getExtractValue( lval, lenIxs );
@@ -215,6 +218,13 @@ Value* TxEqualityOperatorNode::code_gen_dyn_value( LlvmGenerationContext& contex
         }
     }
 
+    else if ( lhsTypeclass == TXTC_REFERENCE ) {
+        // both operands are references, compare their pointer values
+        auto lvalPtr = gen_get_ref_pointer( context, scope, this->lhs->code_gen_dyn_value( context, scope ) );
+        auto rvalPtr = gen_get_ref_pointer( context, scope, this->rhs->code_gen_dyn_value( context, scope ) );
+        return scope->builder->CreateICmp( CmpInst::Predicate::ICMP_EQ, lvalPtr, rvalPtr, fieldName );
+    }
+
     else if ( lhsTypeclass == TXTC_ARRAY ) {
         // In current implementation we know that either at least one operand is Any,
         // or both operands' elements will be of the same type class.
@@ -228,7 +238,7 @@ Value* TxEqualityOperatorNode::code_gen_dyn_value( LlvmGenerationContext& contex
 
         if ( lelemtype->get_type_class() == TXTC_ELEMENTARY && relemtype->get_type_class() == TXTC_ELEMENTARY
                 && lelemtype->is_concrete() && relemtype->is_concrete()
-                && lelemtype->get_formal_type_id() == relemtype->get_formal_type_id() ) {
+                && lelemtype->get_runtime_type_id() == relemtype->get_runtime_type_id() ) {
             // statically known that both arrays' elements are the same elementary, concrete types - invoke built-in comparison
             Type* i32T = IntegerType::getInt32Ty( context.llvmContext );
             StructType* genArrayT = StructType::get( i32T, i32T, ArrayType::get( StructType::get( context.llvmContext ), 0 ), nullptr );

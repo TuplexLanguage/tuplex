@@ -36,17 +36,17 @@ bool is_static_equal( const TxExpressionNode* exprA, const TxExpressionNode* exp
     if ( exprA->is_statically_constant() && exprB->is_statically_constant() ) {
         auto atype = exprA->qualtype()->type()->acttype();
         auto btype = exprB->qualtype()->type()->acttype();
-        if ( !( atype->has_formal_type_id() && btype->has_formal_type_id() ) )
+        if ( !( atype->has_runtime_type_id() && btype->has_runtime_type_id() ) )
             return false;  // can currently only compare constant values of built-in types
 
-        if ( ( is_concrete_uinteger_type( (BuiltinTypeId)atype->get_formal_type_id() ) && is_concrete_uinteger_type( (BuiltinTypeId)btype->get_formal_type_id() ) )
-                || ( atype->get_formal_type_id() == TXBT_BOOL && btype->get_formal_type_id() == TXBT_BOOL ) )
+        if ( ( is_concrete_uinteger_type( atype ) && is_concrete_uinteger_type( btype ) )
+                || ( atype->get_runtime_type_id() == TXBT_BOOL && btype->get_runtime_type_id() == TXBT_BOOL ) )
             return ( eval_unsigned_int_constant( exprA ) == eval_unsigned_int_constant( exprB ) );
 
-        if ( is_concrete_sinteger_type( (BuiltinTypeId)atype->get_formal_type_id() ) && is_concrete_sinteger_type( (BuiltinTypeId)btype->get_formal_type_id() ) )
+        if ( is_concrete_sinteger_type( atype ) && is_concrete_sinteger_type( btype ) )
             return ( eval_signed_int_constant( exprA ) == eval_signed_int_constant( exprB ) );
 
-        if ( is_concrete_floating_type( (BuiltinTypeId)atype->get_formal_type_id() ) && is_concrete_floating_type( (BuiltinTypeId)btype->get_formal_type_id() ) )
+        if ( is_concrete_floating_type( atype ) && is_concrete_floating_type( btype ) )
             return ( eval_floatingpoint_constant( exprA ) == eval_floatingpoint_constant( exprB ) );
     }
     return false;

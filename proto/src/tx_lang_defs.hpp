@@ -44,7 +44,7 @@ enum BuiltinTypeId
 
 const BuiltinTypeId ARRAY_SUBSCRIPT_TYPE_ID = TXBT_UINT;
 
-inline bool is_concrete_uinteger_type( BuiltinTypeId id ) {
+inline bool is_builtin_concrete_uinteger_type( BuiltinTypeId id ) {
     switch( id ) {
     case TXBT_UBYTE:
     case TXBT_USHORT:
@@ -56,7 +56,7 @@ inline bool is_concrete_uinteger_type( BuiltinTypeId id ) {
     }
 }
 
-inline bool is_concrete_sinteger_type( BuiltinTypeId id ) {
+inline bool is_builtin_concrete_sinteger_type( BuiltinTypeId id ) {
     switch( id ) {
     case TXBT_BYTE:
     case TXBT_SHORT:
@@ -68,7 +68,7 @@ inline bool is_concrete_sinteger_type( BuiltinTypeId id ) {
     }
 }
 
-inline bool is_concrete_floating_type( BuiltinTypeId id ) {
+inline bool is_builtin_concrete_floating_type( BuiltinTypeId id ) {
     switch( id ) {
     case TXBT_HALF:
     case TXBT_FLOAT:

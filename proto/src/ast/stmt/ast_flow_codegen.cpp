@@ -11,12 +11,13 @@ Value* TxCondClauseNode::code_gen_cond( LlvmGenerationContext& context, GenScope
 }
 
 Value* TxIsClauseNode::code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const {
-    auto refExprValue = this->origValueExpr->code_gen_dyn_value( context, scope );
-    Value* runtimeTargetTypeIdV = gen_get_ref_typeid( context, scope, refExprValue );
-    // Currently only supports exact type equality, not is-a:
+    auto refExprV = this->origValueExpr->code_gen_dyn_value( context, scope );
     Constant* reqTargetTypeIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ),
                                                    this->typeExpr->qualtype()->type()->target_type()->get_type_id() );
-    auto typeEqCondV = scope->builder->CreateICmpEQ( runtimeTargetTypeIdV, reqTargetTypeIdC );
+    auto typeEqCondV = context.gen_isa( scope, refExprV, reqTargetTypeIdC );
+//    // exact type equality, not is-a:
+//    Value* runtimeTargetTypeIdV = gen_get_ref_typeid( context, scope, refExprV );
+//    auto typeEqCondV = scope->builder->CreateICmpEQ( runtimeTargetTypeIdV, reqTargetTypeIdC );
     return typeEqCondV;
 }
 

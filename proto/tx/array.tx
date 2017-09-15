@@ -8,9 +8,9 @@ module tx
  */
 builtin type ~ Array<E, C : UInt> derives Any, Collection<E>, Updatable<UInt, E>
 {
-/* TODO
     override equals( other : &Any ) -> Bool {
-        if other is oa : &Array {
+        ##print( "equals() this type id=" %s _typeid(self) %% " other=" %s _typeid(other) );
+        if other is oa : &Array<E> {
             if self.L != oa.L:
                 return FALSE;
             for i in 0..self.L:
@@ -20,7 +20,7 @@ builtin type ~ Array<E, C : UInt> derives Any, Collection<E>, Updatable<UInt, E>
         }
         return FALSE;
     }
-*/
+
     override empty() -> Bool {
         return self.L == 0;
     }

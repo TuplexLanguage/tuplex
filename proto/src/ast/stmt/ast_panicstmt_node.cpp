@@ -28,18 +28,14 @@ TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, TxExpressionNode* mess
 
 TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, const std::string& message )
         : TxStatementNode( ploc ) {
-    // print assert failed message:
-    /* example C assert failed message:
-     txc: /home/christer/proj/workspace/proto/src/ast.cpp:515: TxAssertStmtNode::TxAssertStmtNode(const TxLocation&, TxExpressionNode*): Assertion `!this->expr' failed.
-     */
     std::stringstream msg;
-    //msg << procName << ": ";         // TODO: will need to be determined via system call
     if ( this->ploc.begin.filename )
         msg << *this->ploc.begin.filename;
     msg << ":" << this->ploc.begin.line;
     msg << ": Panic: " << message;
     std::string panicMsg = "c\"" + msg.str() + "\n\"";
     auto msgExpr = new TxCStringLitNode( this->ploc, panicMsg );
+
     auto stderrArg = new TxFieldValueNode( this->ploc, nullptr, "tx.c.stderr" );
     auto putsCallee = new TxFieldValueNode( this->ploc, nullptr, "tx.c.fputs" );
     auto putsCallExpr = new TxFunctionCallNode( this->ploc, putsCallee, new std::vector<TxExpressionNode*>( { msgExpr, stderrArg } ) );

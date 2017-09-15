@@ -36,13 +36,22 @@ class TypeRegistry {
     /** all the types created */
     std::vector<TxActualType*> createdTypes;
 
-    /** All the vtable types, i.e. all the distinct (non-equivalent) types with a vtable type.
-     * Note, abstract types will have a vtable type id although they will not have an actual vtable entry in runtime.
-     * All the formal types are also vtable types. */
-    std::vector<const TxActualType*> vtableTypes;
+    /** All the runtime types. This is all types that have meaning in runtime, and hence have a runtime type id.
+     * The runtime types are a subset of all the types created during compilation. */
+    std::vector<const TxActualType*> runtimeTypes;
 
-    /** All the formal types, i.e. all the concrete types with a distinct runtime data type and a distinct vtable instance. */
-    std::vector<const TxActualType*> formalTypes;
+    /** Number of built-in types.
+     * The built-in types are a subset of the data types. */
+    uint32_t builtinTypesCount = 0;
+
+    /** Number of data types, i.e. all the distinct types which are concretely used (instances and/or statically) in runtime.
+     * The data types are a subset of the vtable types. */
+    uint32_t dataTypesCount = 0;
+
+    /** Number of vtable types, i.e. all the distinct (non-equivalent) types with a vtable type.
+     * Note, abstract types will have a vtable type id although they will not have an actual vtable entry in runtime.
+     * The vtable types are a subset of the runtime types. */
+    uint32_t vtableTypesCount = 0;
 
     /** for the convenience method get_string_type() */
     TxTypeExpressionNode* stringTypeNode = nullptr;
@@ -121,6 +130,8 @@ public:
         return this->enqueuedSpecializations;
     }
 
+    void dump_types() const;
+
     /** Gets a built-in (primitive) type. */
     const TxType* get_builtin_type( const BuiltinTypeId id );
 
@@ -128,34 +139,57 @@ public:
     const TxType* get_string_type();
 
 
-    /** Returns a read-only iterator that points to the first vtable type.
-     * The vtable types are the distinct types */
-    inline std::vector<const TxActualType*>::const_iterator vtable_types_cbegin() const {
-        return this->vtableTypes.cbegin();
+    /** Returns a read-only iterator that points to the first runtime type. */
+    inline std::vector<const TxActualType*>::const_iterator runtime_types_cbegin() const {
+        return this->runtimeTypes.cbegin();
     }
-    /** Returns a read-only iterator that points to one past the last type. */
+
+    /** Returns a read-only iterator that points to one past the last runtime type.
+     * Note, the type set order is: built-in types < data types < vtable types < runtime types */
+    inline std::vector<const TxActualType*>::const_iterator runtime_types_cend() const {
+        return this->runtimeTypes.cend();
+    }
+
+    /** Returns a read-only iterator that points to one past the last data type.
+     * Note, the type set order is: built-in types < data types < vtable types < runtime types */
     inline std::vector<const TxActualType*>::const_iterator vtable_types_cend() const {
-        return this->vtableTypes.cend();
+        return this->runtimeTypes.cbegin() + this->vtableTypesCount;
     }
 
-    /** Returns the number of types. */
-    inline uint32_t vtable_type_count() const {
-        return this->vtableTypes.size();
+    /** Returns a read-only iterator that points to one past the last data type.
+     * Note, the type set order is: built-in types < data types < vtable types < runtime types */
+    inline std::vector<const TxActualType*>::const_iterator data_types_cend() const {
+        return this->runtimeTypes.cbegin() + this->dataTypesCount;
     }
 
-
-    /** Returns a read-only iterator that points to the first formal type. */
-    inline std::vector<const TxActualType*>::const_iterator formal_types_cbegin() const {
-        return this->formalTypes.cbegin();
-    }
-    /** Returns a read-only iterator that points to one past the last formal type. */
-    inline std::vector<const TxActualType*>::const_iterator formal_types_cend() const {
-        return this->formalTypes.cend();
+    /** Returns a read-only iterator that points to one past the last data type.
+     * Note, the type set order is: built-in types < data types < vtable types < runtime types */
+    inline std::vector<const TxActualType*>::const_iterator builtin_types_cend() const {
+        return this->runtimeTypes.cbegin() + this->builtinTypesCount;
     }
 
-    /** Returns the number of formal types. */
-    inline uint32_t formal_type_count() const {
-        return this->formalTypes.size();
+    /** Returns the number of runtime types.
+     * Note, the type set order is: built-in types < data types < vtable types < runtime types */
+    inline uint32_t runtime_types_count() const {
+        return this->runtimeTypes.size();
+    }
+
+    /** Returns the number of vtable types.
+     * Note, the type set order is: built-in types < data types < vtable types < runtime types */
+    inline uint32_t vtable_types_count() const {
+        return this->vtableTypesCount;
+    }
+
+    /** Returns the number of data types.
+     * Note, the type set order is: built-in types < data types < vtable types < runtime types */
+    inline uint32_t data_types_count() const {
+        return this->dataTypesCount;
+    }
+
+    /** Returns the number of built-in types.
+     * Note, the type set order is: built-in types < data types < vtable types < runtime types */
+    inline uint32_t builtin_types_count() const {
+        return this->builtinTypesCount;
     }
 
     /*--- retrievers / creators for derived types ---*/

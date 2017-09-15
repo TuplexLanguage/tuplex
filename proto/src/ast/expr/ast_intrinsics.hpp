@@ -115,3 +115,46 @@ public:
         this->expr->visit_ast( visitor, thisCursor, "expr", context );
     }
 };
+
+
+#include "ast/type/ast_types.hpp"
+
+/** intrinsic for _sizeof( expr ) -> UInt */
+class TxSupertypesExprNode : public TxExpressionNode {
+    TxTypeExpressionNode* typeExpr;
+protected:
+    virtual const TxQualType* define_type() override {
+        return typeExpr->resolve_type();
+    }
+
+public:
+    TxExpressionNode* expr;
+
+    TxSupertypesExprNode( const TxLocation& ploc, TxExpressionNode* expr )
+            : TxExpressionNode( ploc ), expr( expr )  {
+        this->typeExpr = new TxReferenceTypeNode( this->ploc, nullptr, new TxArrayTypeNode( this->ploc, new TxNamedTypeNode( this->ploc, "tx.UInt" ) ) );
+    }
+
+    virtual TxSupertypesExprNode* make_ast_copy() const override {
+        return new TxSupertypesExprNode( this->ploc, this->expr->make_ast_copy() );
+    }
+
+    virtual bool is_statically_constant() const override final {
+        return false; //this->expr->is_statically_constant();
+    }
+
+    virtual void symbol_resolution_pass() override {
+        TxExpressionNode::symbol_resolution_pass();
+        this->typeExpr->symbol_resolution_pass();
+        this->expr->symbol_resolution_pass();
+    }
+
+    //virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+    //virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
+
+    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->typeExpr->visit_ast( visitor, thisCursor, "type", context );
+        this->expr->visit_ast( visitor, thisCursor, "expr", context );
+    }
+};

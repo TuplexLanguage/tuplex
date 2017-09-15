@@ -11,11 +11,6 @@
 
 class TxQualType;
 
-///** Helper function */
-//inline const TxQualType* get_qualtype( const TxActualType* actType ) {
-//    return actType->get_declaration()->get_definer()->qualtype();
-//}
-
 /** Helper function */
 const TxType* get_type_entity( const TxActualType* actType );
 
@@ -129,8 +124,8 @@ public:
         return this->acttype()->get_type_class();
     }
 
-    inline uint32_t get_formal_type_id() const {
-        return this->acttype()->get_formal_type_id();
+    inline uint32_t get_runtime_type_id() const {
+        return this->acttype()->get_runtime_type_id();
     }
 
     /** Returns true if this type is a built-in type. */

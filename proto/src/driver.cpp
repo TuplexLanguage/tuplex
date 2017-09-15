@@ -18,6 +18,37 @@
 extern FILE * yyin;
 extern void yyrestart ( FILE *input_file );
 extern int yy_flex_debug;
+typedef struct yy_buffer_state *YY_BUFFER_STATE;
+YY_BUFFER_STATE yy_scan_string( const char *yy_str );
+void yy_delete_buffer (YY_BUFFER_STATE b );
+
+
+const char *CORE_TX_SOURCE_STR =
+    // #include "lang.tx"
+    R"=====(
+module tx;
+
+
+/** Returns TRUE if v has tid among its supertypes / -interfaces. */
+isa( v : &Any, tid : UInt )->Bool {
+    supers : &Array<UInt> = _supertypes( v^ );
+    lower := ~ 0UI;
+    upper := ~ supers.L;
+    while lower != upper {
+        pos := ( lower + upper ) / 2;
+        st := supers[pos];
+        if st == tid:
+            return TRUE;
+        else if st > tid:
+            upper = pos;
+        else:
+            lower = pos + 1;
+    }
+    return FALSE;
+}
+    )====="
+;
+
 
 TxDriver::TxDriver( const TxOptions& options )
         : _LOG( Logger::get( "DRIVER" ) ), options( options ),
@@ -87,9 +118,23 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     /*--- prepare the parse units ---*/
 
     {  // initialize the built-in ASTs
-        //TxParserContext* parserContext = new TxParserContext( *this, TxIdentifier( "tx" ), "", TxParserContext::BUILTIN_SOURCES );
         TxParserContext* parserContext = this->builtinParserContext;
         parserContext->parsingUnit = this->package->builtins().createTxModuleAST();
+        this->parsedASTs.push_back( parserContext );
+    }
+
+    {  // parse the built-in source:
+        TxParserContext* parserContext = new TxParserContext( *this, TxIdentifier( "" ), "", TxParserContext::BUILTINS );
+        auto memBuffer = yy_scan_string( CORE_TX_SOURCE_STR );
+        yy_flex_debug = this->options.debug_lexer;
+        yy::TxParser parser( parserContext );
+        int ret = parser.parse();
+        yy_delete_buffer( memBuffer );
+        if ( ret ) {
+            _LOG.fatal( "Exiting due to unrecovered syntax error" );
+            return ret;
+        }
+        ASSERT( parserContext->parsingUnit, "parsingUnit not set by parser" );
         this->parsedASTs.push_back( parserContext );
     }
 
@@ -216,6 +261,12 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
                   << std::endl;
         this->package->dump_symbols();
         std::cout << "END SYMBOL TABLE DUMP\n";
+    }
+
+    if ( this->options.dump_types ) {
+        std::cout << "TYPES DUMP:\n";
+        this->package->registry().dump_types();
+        std::cout << "END TYPES DUMP\n";
     }
 
     if ( error_count )

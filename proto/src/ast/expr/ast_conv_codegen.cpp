@@ -129,7 +129,7 @@ Value* TxReferenceConvNode::code_gen_dyn_value( LlvmGenerationContext& context, 
         THROW_LOGIC( "In reference conversion, LLVM type not found for result type " << this->resultType << " in " << this );
     }
     // (if UINT32_MAX, pointers original target type id is retained)
-    uint32_t adapterTypeId = ( this->adapterType ? this->adapterType->get_formal_type_id() : UINT32_MAX );
+    uint32_t adapterTypeId = ( this->adapterType ? this->adapterType->get_runtime_type_id() : UINT32_MAX );
     //std::cerr << "Ref conversion\n from " << this->expr->get_type(0) << "\n   to " << this->resultType << " = " << refT
     //          << "\n adapterTypeId=" << adapterTypeId << std::endl;
     return gen_ref_conversion( context, scope, origValueV, refT, adapterTypeId );
@@ -145,7 +145,7 @@ Constant* TxReferenceConvNode::code_gen_const_value( LlvmGenerationContext& cont
         THROW_LOGIC( "In reference conversion, LLVM type not found for result type " << this->resultType << " in " << this );
     }
     // (if UINT32_MAX, pointers original target type id is retained)
-    uint32_t adapterTypeId = ( this->adapterType ? this->adapterType->get_formal_type_id() : UINT32_MAX );
+    uint32_t adapterTypeId = ( this->adapterType ? this->adapterType->get_runtime_type_id() : UINT32_MAX );
     //std::cerr << "Ref conversion\n from " << this->expr->get_type(0) << "\n   to " << this->resultType << " = " << refT
     //          << "\n adapterTypeId=" << adapterTypeId << std::endl;
     return gen_ref_conversion( context, origValueC, refT, adapterTypeId );

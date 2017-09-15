@@ -20,6 +20,12 @@ test_ref_eq_operator() -> Int {
     #experr 1: be : Bool = ubyteA === r1;
     #experr 1: be : Bool = r1 === ubyteA;
 
+    p1 : &Any = r1;
+    p2 : &Any = r1;
+    assert p1^ == p2^;
+    #experr 1: assert p1^ == p2;
+    #experr 1: assert p1 == p2^;
+
     return 0;
 }
 
@@ -94,7 +100,7 @@ test_elem_eq( one : UByte ) {
         ubyteB : UByte = 42 * one;
         intA : Int = 1 * one;
         intB : Int = 42 * one;
-    
+
         rb1 := &ubyteA;
         rb2 := &ubyteB;
         assert rb1^ == rb1^;
@@ -111,9 +117,8 @@ test_elem_eq( one : UByte ) {
         assert rb1^ == ri1^;
         assert rb1^ != ri2^;
         assert rb2^ != ri1^;
-        
-        ## FUTURE: support auto-dereferencing?
-        #experr 1: assert ri1 == ri1;
+
+        assert ri1 == ri1;
         #experr 1: assert ri1 == ri1^;
         #experr 1: assert ri1^ == ri1;
     }
@@ -127,6 +132,13 @@ type Body <: Tuple, Face {
     self( m : Int ) {
         self.member = m;
     }
+    
+    override equals( o : &Any )->Bool {
+        if o is b : &Body :
+            return self.member == b.member;
+        else:
+            return FALSE;
+    }
 }
 
 test_obj_eq( one : UByte ) {
@@ -139,15 +151,18 @@ test_obj_eq( one : UByte ) {
     fac1 : &Face = &bod1;
     fac2 : &Face = &bod2;
     
-    #experr 1: assert fac1 == fac1;  ## FUTURE: support auto-dereferencing?
-    assert fac1^ == fac1^;
-    assert fac1^ != fac2^;
+    assert fac1 == fac1;
+    ##experr 1: assert fac1^ == fac1^;
+    ##experr 1: assert fac1^ != fac2^;
 
-    ## TODO: Support implementing value-equals (requires conditional cast)
-    ##bod3 := Body( 1*one );
-    ##fac3 : &Face = &bod3;
-    ##assert bod1 == bod3;
+    ## Test value-equals:
+    bod3 := Body( 1*one );
+    fac3 : &Face = &bod3;
+    assert bod1 == bod3;
+    assert bod1.equals( bod3 );
+    ## TODO: Support type casting of interfaces / interface adapters:
     ##assert fac1^ == fac3^;
+    ##assert fac1^.equals( fac3^ );
 }
 
 

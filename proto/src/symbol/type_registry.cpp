@@ -78,21 +78,44 @@ void TypeRegistry::add_type_usage( TxType* type ) {
 
 void TypeRegistry::add_type( TxActualType* type ) {
     ASSERT( !this->startedPreparingTypes, "Can't create new types when type preparation phase has started: " << type );
-    if ( type->formalTypeId < BuiltinTypeId_COUNT ) {
-        ASSERT( type->formalTypeId == this->formalTypes.size(), "adding built-in type in wrong order: type id="
-                << type->formalTypeId << "; staticTypes.size()=" << this->formalTypes.size() );
-        this->formalTypes.push_back( type );
-        this->vtableTypes.push_back( type );
+    if ( type->runtimeTypeId < BuiltinTypeId_COUNT ) {
+        ASSERT( type->runtimeTypeId == this->runtimeTypes.size(), "adding built-in type in wrong order: type id="
+                << type->runtimeTypeId << "; staticTypes.size()=" << this->runtimeTypes.size() );
+        this->runtimeTypes.push_back( type );
     }
     this->createdTypes.push_back( type );
 }
 
 void TypeRegistry::prepare_types() {
     this->startedPreparingTypes = true;
-    std::map<uint32_t, TxActualType*> statics;
+
+    /* The total set of types is subdivided into categories based on their runtime representation,
+     * which also drives their Id order:
+     * built-in types < data types < vtable types < runtime types < all types
+     *
+     * The runtime types are all the valid types that will hence exist in runtime.
+     * This excludes expected-error types and implicit type aliases.
+     *
+     * The vtable types are all runtime types that have a static vtable-type-definition.
+     * This excludes references, functions, and generic parameters (which are explicit aliases).
+     *
+     * The data types are all vtable types that can be instantiated, i.e. are concrete.
+     * This excludes abstract types, interfaces, and generic types.
+     *
+     * The built-in types are special in that they are all considered to be data types,
+     * even though some of them are abstract/generic.
+     *
+     * (Note that not all vtable types will have their own runtime vtable;
+     * each distinct vtable is only generated once and referenced by all equivalent descendant types.)
+     */
+    std::vector<TxActualType*> dataTypes;
+    std::vector<TxActualType*> vtableTypes;
+    std::vector<TxActualType*> validTypes;
+
     for ( auto type : this->createdTypes ) {
         try {
-            //std::cerr << "Preparing type: " << type << std::endl;
+//            if (type->get_declaration()->get_unique_name() == "Single")
+//                std::cerr << "Preparing type: " << type << std::endl;
             type->prepare_members();
         }
         catch ( const resolution_error& err ) {
@@ -101,49 +124,124 @@ void TypeRegistry::prepare_types() {
             continue;
         }
 
-        if ( type->formalTypeId < BuiltinTypeId_COUNT )  // the built-in types are already handled
+        if ( type->runtimeTypeId < BuiltinTypeId_COUNT )  // the built-in types are already handled
             continue;
 
-        // Types that are distinct in instance data type, or vtable, get distinct type id and vtable.
-        // Certain types that will not be represented as runtime types are filtered out here:
-
         if ( type->get_declaration()->get_definer()->exp_err_ctx() ) {
-            LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr context as formal type: " << type);
+            LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr context as runtime type: " << type);
             continue;
         }
         if ( type->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK ) {
             // there shouldn't be a TXD_EXPERRBLOCK declaration without exp-err-ctx set unless it is declared within a reinterpreted construct:
             ASSERT( type->get_declaration()->get_definer()->context().is_reinterpretation(),
                     "Unexpected TXD_EXPERRBLOCK flag in non-reinterpreted type "<< type );
-            LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr flag as formal type: " << type );
+            LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr flag as runtime type: " << type );
             continue;
         }
 
-        if ( type->get_type_class() == TXTC_FUNCTION )
-            continue;
+        if ( type->is_empty_derivation() ) {
+            if ( type->get_declaration()->get_decl_flags() & TXD_IMPLICIT ) {
+                // we filter out the implicit Super types  TODO: Make Super a type alias instead (like Self)
+                continue;
+            }
+            else if ( type->get_declaration()->get_decl_flags() & TXD_GENPARAM ) {
+                validTypes.push_back( type );
+                continue;
+            }
+        }
 
-        if ( type->get_type_class() == TXTC_REFERENCE )
-            continue;
-
-        if ( type->is_equivalent_derivation() ) {  // includes empty derivations
-            //std::cerr << "Not registering distinct type id for equivalent derivation: " << type << std::endl;
+        if ( type->get_type_class() == TXTC_FUNCTION ) {
+            validTypes.push_back( type );
             continue;
         }
 
-        type->vtableId = this->vtableTypes.size();
-        this->vtableTypes.push_back( type );
+        if ( type->get_type_class() == TXTC_REFERENCE ) {
+            validTypes.push_back( type );
+            continue;
+        }
+
+        if ( type->get_type_class() == TXTC_INTERFACE ) {
+            vtableTypes.push_back( type );
+            continue;
+        }
+
+        // Notes:
+        //  - Not including full-sized runtime type information about equivalent types is a potential footprint optimization,
+        //    but also leads to problems.
+        //  - Pure value specializations need distinct runtime type information
+        //    (though they don't necessitate distinct code generation and vtable).
 
         if ( type->is_type_generic_dependent() ) {
-            // FUTURE: review whether generic base types should be a vtable parent of their specializations
-            LOG_TRACE( this->LOGGER(), "Not registering type-generic-dependent type as formal type: " << type );
+            vtableTypes.push_back( type );
+            continue;
+        }
+        else if ( type->is_value_generic() ) {
+            // TODO: This should really be  type->is_value_generic_dependent()
+            vtableTypes.push_back( type );
             continue;
         }
 
-        type->formalTypeId = this->formalTypes.size();
-        this->formalTypes.push_back( type );
-        LOG_TRACE( this->LOGGER(), "Registering formal type with id " << type->formalTypeId << ": " << type );
+        if ( type->is_abstract() ) {
+            vtableTypes.push_back( type );
+            continue;
+        }
+
+        ASSERT( type->is_concrete(), "non-concrete data type: " << type );
+        dataTypes.push_back( type );
     }
-    LOG_INFO( this->LOGGER(), "Number of formal types: " << this->formalTypes.size() << "   Number of vtable types: " << this->vtableTypes.size() );
+
+    // (built-in types have already been added to runtime types)
+    this->builtinTypesCount = this->runtimeTypes.size();
+    for ( auto type : dataTypes ) {
+        type->runtimeTypeId = this->runtimeTypes.size();
+        this->runtimeTypes.push_back( type );
+    }
+    this->dataTypesCount = this->runtimeTypes.size();
+    for ( auto type : vtableTypes ) {
+        type->runtimeTypeId = this->runtimeTypes.size();
+        this->runtimeTypes.push_back( type );
+    }
+    this->vtableTypesCount = this->runtimeTypes.size();
+    for ( auto type : validTypes ) {
+        type->runtimeTypeId = this->runtimeTypes.size();
+        this->runtimeTypes.push_back( type );
+    }
+
+    LOG_INFO( this->LOGGER(), "Number of data types: " << this->data_types_count()
+              << "   Number of vtable types: " << this->vtable_types_count()
+              << "   Number of runtime types: " << this->runtime_types_count() );
+}
+
+static void print_type( const TxActualType* type ) {
+    std::string stat;
+    if ( type->is_static() )
+        stat = "stat-concr";
+    else if ( type->is_dynamic() )
+        stat = "dyn-concr";
+    else if ( !type->is_same_vtable_type() )
+        stat = "abstr/vtab";
+    printf( "%4d  %s  %-10s  %10s  %s\n", type->get_runtime_type_id(), ::to_string( type->get_declaration()->get_decl_flags() ).c_str(),
+            to_string( type->get_type_class() ).c_str(), stat.c_str(), type->str(false).c_str() );
+}
+
+void TypeRegistry::dump_types() const {
+    auto typeI = this->runtime_types_cbegin();
+    std::cout << "runtime types > vtable types > data types > built-in types:" << std::endl;
+    for ( ; typeI != this->builtin_types_cend(); typeI++ ) {
+        print_type( *typeI );
+    }
+    std::cout << "runtime types > vtable types > data types:" << std::endl;
+    for ( ; typeI != this->data_types_cend(); typeI++ ) {
+        print_type( *typeI );
+    }
+    std::cout << "runtime types > vtable types:" << std::endl;
+    for ( ; typeI != this->vtable_types_cend(); typeI++ ) {
+        print_type( *typeI );
+    }
+    std::cout << "runtime types:" << std::endl;
+    for ( ; typeI != this->runtime_types_cend(); typeI++ ) {
+        print_type( *typeI );
+    }
 }
 
 const TxType* TypeRegistry::get_builtin_type( const BuiltinTypeId id ) {
@@ -163,12 +261,6 @@ TxType* TypeRegistry::make_type_entity( const TxActualType* actualType ) {
     return new TxType( actualType );
 }
 
-//TxActualType* TypeRegistry::make_modifiable_type( const TxTypeDeclaration* declaration, const TxActualType* baseType ) {
-//    auto newType = baseType->make_specialized_type( declaration, TxTypeSpecialization( baseType, true ) );
-//    this->add_type( newType );
-//    return newType;
-//}
-
 TxActualType* TypeRegistry::make_actual_type( const TxTypeDeclaration* declaration, const TxActualType* baseType, bool mutableType,
                                               const std::vector<const TxType*>& interfaces ) {
     std::vector<const TxActualType*> interfaceSpecializations;
@@ -178,43 +270,6 @@ TxActualType* TypeRegistry::make_actual_type( const TxTypeDeclaration* declarati
     this->add_type( newType );
     return newType;
 }
-
-//const TxType* TypeRegistry::get_modifiable_type( const TxTypeDeclaration* declaration, const TxType* type ) {
-//    auto actualType = type->type();
-//    ASSERT( !actualType->is_modifiable(), "Can't make a modifiable specialization of a modifiable type: " << actualType );
-//    ASSERT( !( actualType->is_empty_derivation() && !actualType->get_explicit_declaration() ),
-//            "Can't derive from implicit empty base type: " << actualType );
-//    // 'modifiable' is always a distinct 'specialization' (no parameter bindings (or type extensions))
-//
-//    if ( declaration ) {
-//        return new TxType( this->make_modifiable_type( declaration, actualType ) );
-//    }
-//    else {
-//        std::string prefix = "~";
-//        std::string name = prefix + actualType->get_declaration()->get_unique_name();
-//        TxScopeSymbol* scope = actualType->get_declaration()->get_symbol()->get_outer();
-//        if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( scope->get_member_symbol( name ) ) ) {
-//            if ( auto typeDecl = entitySymbol->get_type_decl() ) {
-//                if ( auto existingType = typeDecl->get_definer()->resolve_type() ) {
-//                    if ( existingType->is_modifiable() && *existingType->get_base_type()->type() == *actualType )
-//                        return existingType;
-//                    //std::cerr << "existing: " << existingType << "  new: " << type << std::endl;
-//                }
-//            }
-//            LOG( this->LOGGER(), WARN, "Name collision when trying to declare implicit MOD type, preexisting symbol: " << entitySymbol );
-//            name = scope->make_unique_name( name );
-//        }
-//
-//        const TxLocation& loc = actualType->get_parse_location();
-//        auto modNode = new TxModifiableTypeNode( loc, new TxNamedTypeNode( loc, actualType->get_declaration()->get_unique_name() ) );
-//        TxDeclarationFlags newDeclFlags = ( actualType->get_declaration()->get_decl_flags() & DECL_FLAG_FILTER ); // | TXD_IMPLICIT;
-//        auto modDeclNode = new TxTypeDeclNode( loc, newDeclFlags, name, nullptr, modNode );
-//        auto expErrCtx = actualType->get_declaration()->get_definer()->context().exp_error();
-//        run_declaration_pass( modDeclNode, LexicalContext( scope, expErrCtx, false, nullptr ) );
-//        modDeclNode->symbol_resolution_pass();  // (causes get_modifiable_type() to be invoked again, with this implicit declaration)
-//        return modNode->get_type();
-//    }
-//}
 
 const TxType* TypeRegistry::make_empty_derivation( const TxTypeDeclaration* declaration, const TxType* baseType, bool mutableType ) {
     ASSERT( declaration, "empty type specialization doesn't have declaration: " << baseType );
@@ -328,7 +383,7 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
                         if ( auto existingInitializer = existingFieldDecl->get_definer()->get_init_expression() ) {
                             if ( valueBinding->valueExprNode->is_statically_constant() && existingInitializer->is_statically_constant() ) {
                                 auto actType = valueBinding->valueExprNode->qualtype()->type()->acttype();
-                                if ( actType->has_formal_type_id() && is_concrete_uinteger_type( (BuiltinTypeId) actType->get_formal_type_id() ) )
+                                if ( actType->has_runtime_type_id() && is_concrete_uinteger_type( actType ) )
                                     if ( eval_unsigned_int_constant( valueBinding->valueExprNode ) == eval_unsigned_int_constant( existingInitializer ) )
                                         continue;
                             }

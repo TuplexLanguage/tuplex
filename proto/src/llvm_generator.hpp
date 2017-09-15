@@ -56,7 +56,8 @@ class LlvmGenerationContext {
     llvm::Function* entryFunction = nullptr;
     std::map<const std::string, llvm::Value*> llvmSymbolTable;
     std::map<const TxActualType*, llvm::Type*> llvmTypeMapping;
-    std::vector<llvm::StructType*> llvmVTableTypes;
+    std::map<const TxActualType*, llvm::GlobalVariable*> llvmVTables;
+    std::map<const TxActualType*, llvm::StructType*> llvmVTableTypes;
 
     /** table of byte array constants (also used for cstrings) to share identical instances */
     std::map<const std::vector<uint8_t>, llvm::Constant*> byteArrayTable;
@@ -73,6 +74,11 @@ class LlvmGenerationContext {
     void register_llvm_value( const std::string& identifier, llvm::Value* val );
     llvm::Value* lookup_llvm_value( const std::string& identifier ) const;
 
+    llvm::StructType* get_vtable_meta_type( const TxActualType* acttype );
+    llvm::GlobalVariable* get_vtable( const TxActualType* acttype );
+
+    llvm::Value* gen_get_type_info( GenScope* scope, llvm::Value* runtimeBaseTypeIdV, unsigned fieldIndex );
+
     llvm::Function* gen_main_function( const std::string userMain, bool hasIntReturnValue );
     void gen_array_any_equals_function();
     void gen_array_elementary_equals_function();
@@ -83,7 +89,6 @@ public:
 
     LlvmGenerationContext( TxPackage& tuplexPackage, llvm::LLVMContext& llvmContext )
             : llvmModulePtr( new llvm::Module("top", llvmContext ) ),
-              //dataLayout( llvmModulePtr ),
               tuplexPackage( tuplexPackage ),
               llvmContext( llvmContext )
     {
@@ -106,8 +111,6 @@ public:
     llvm::Type* get_llvm_type( const TxType* txType );
     llvm::Type* get_llvm_type( const TxActualType* txType );
 
-    llvm::StructType* get_llvm_vtable_type( const TxActualType* txType ) const;
-
     /** Allocates global storage for constant strings, a single shared instance for each unique value. */
     llvm::Constant* gen_const_cstring_address( const std::string& value );
     /** Allocates global storage for constant byte arrays, a single shared instance for each unique value. */
@@ -126,22 +129,33 @@ public:
     llvm::Value* gen_equals_invocation( GenScope* scope, llvm::Value* lvalA, llvm::Value* lvalTypeIdV,
                                         llvm::Value* rvalA, llvm::Value* rvalTypeIdV );
 
+    llvm::Value* gen_isa( GenScope* scope, llvm::Value* refV, llvm::Value* typeIdV );
+
+    void gen_panic_call( GenScope* scope, const std::string& message );
+    void gen_panic_call( GenScope* scope, const std::string& message, llvm::Value* ulongValV );
+
+    llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, llvm::Value* typeIdV );
+    llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType );
+
     /** Generates code that gets the instance/element size for a given type id value.
      * NOTE: For arrays this returns the instance size of their element type.
      * @return an i32 value */
-    llvm::Value* gen_get_element_size( GenScope* scope, llvm::Value* typeIdV ) const;
+    llvm::Value* gen_get_element_size( GenScope* scope, llvm::Value* typeIdV );
 
     /** Generates code that gets the element type id for a given Array type id.
      * Only valid to call for array types.
      * @return an i32 value */
-    llvm::Value* gen_get_element_id( GenScope* scope, llvm::Value* typeIdV ) const;
+    llvm::Value* gen_get_element_id( GenScope* scope, llvm::Value* typeIdV );
 
     /** Generates code that gets the type class id for a given type id.
      * @return an i8 value */
-    llvm::Value* gen_get_type_class( GenScope* scope, llvm::Value* typeIdV ) const;
+    llvm::Value* gen_get_type_class( GenScope* scope, llvm::Value* typeIdV );
 
-    llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, llvm::Value* typeIdV ) const;
-    llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType ) const;
+    /** Generates code that gets the super-types array for a given type id.
+     * @return a pointer to a Tuplex array of Int: { i32, i32, [0 x i32] }* */
+    llvm::Value* gen_get_supertypes_array( GenScope* scope, llvm::Value* typeIdV ) const;
+
+    llvm::Value* gen_get_supertypes_array_ref( GenScope* scope, llvm::Value* runtimeBaseTypeIdV, llvm::Constant* arrayTypeIdC );
 
     /** Generate the LLVM code for the provided AST, which must be in global/static scope. */
     int generate_code( const TxParsingUnitNode* staticScopeNode );

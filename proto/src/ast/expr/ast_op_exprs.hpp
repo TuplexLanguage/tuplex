@@ -130,11 +130,25 @@ public:
 
 
 /** Equality comparison between two values.
- *  Object type classes may be compared directly via this operation.
- *  Note that they don't have to be concrete.
- *  For non-object type classes, the equals() method is invoked instead, e.g:
- *      r : &SomeInterface;  s : &SomeInterface;
- *      r.equals( s )
+ *
+ * Semantically, == and equals() are regarded as the same (value comparing) operation.
+ *
+ * == redirects to equals() for values that aren't elementary nor reference types.
+ *
+ * For elementary values, == is a built-in, bitwise comparison.
+ * For reference values, == is a built-in, bitwise comparison, i.e. shallow compare.
+ *
+ * Array.equals() applies == on each element (so array of references will do shallow compare)
+ *   Note: Even if Array.equals() had been defined as deep-compare, the question would have been how deep.
+ *   Note: If having called equals() instead, and the references were to tuples, the default equals() is also shallow.
+ *         If deep-compare of arrays of references to tuples is desired, the tuples must also override equals().
+ *
+ * Tuple.equals() defaults to Any.equals() which compares object identity.
+ *
+ * To do deep compare of references, either deference them (provided their type is known):
+ * ref1^ == ref2^
+ * or invoke the equals() method:
+ * ref1.equals( ref2 )
  */
 class TxEqualityOperatorNode : public TxOperatorValueNode {
 protected:

@@ -75,7 +75,7 @@ public:
     TxIntegerLitNode( const TxLocation& ploc, int64_t i64value, bool _signed, BuiltinTypeId typeId = (BuiltinTypeId) 0 )
             : TxLiteralElementaryValueNode( ploc ), sourceLiteral(), hasRadix(),
               i64value( i64value ), _signed( _signed ), typeId( typeId ) {
-        ASSERT( typeId == 0 || is_concrete_sinteger_type( typeId ) || is_concrete_uinteger_type( typeId ),
+        ASSERT( typeId == 0 || is_builtin_concrete_sinteger_type( typeId ) || is_builtin_concrete_uinteger_type( typeId ),
                 "Type id not a concrete integer type: " << typeId << " in " << this );
     }
 
@@ -127,7 +127,7 @@ public:
     /** Creates a floating point literal value of zero. */
     TxFloatingLitNode( const TxLocation& ploc, BuiltinTypeId typeId = TXBT_FLOAT )
             : TxLiteralElementaryValueNode( ploc ), literal( "0" ), constValue( 0.0, typeId ) {
-        ASSERT( is_concrete_floating_type( typeId ), "Type id not a concrete floating point type: " << typeId << " in " << this );
+        ASSERT( is_builtin_concrete_floating_type( typeId ), "Type id not a concrete floating point type: " << typeId << " in " << this );
     }
 
     virtual TxFloatingLitNode* make_ast_copy() const override {

@@ -163,6 +163,7 @@ extern "C" int yywrap() { return 0; }
 "_address"  { return token::KW__ADDRESS; }
 "_typeid"   { return token::KW__TYPEID; }
 "_sizeof"   { return token::KW__SIZEOF; }
+"_supertypes"  { return token::KW__SUPERTYPES; }
 
  /* reserved but not currently used: */
 "public"    { return token::KW_PUBLIC; }

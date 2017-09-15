@@ -63,7 +63,7 @@ Constant* gen_get_ref_typeid( LlvmGenerationContext& context, Constant* refC ) {
 }
 
 Constant* gen_ref( LlvmGenerationContext& context, Type* refT, Constant* ptrC, Constant* tidC ) {
-    return ConstantStruct::get( cast<StructType>(refT), { ptrC, tidC } );
+    return ConstantStruct::get( cast<StructType>(refT), { ConstantExpr::getPointerCast( ptrC, refT->getStructElementType( 0 ) ), tidC } );
 }
 
 

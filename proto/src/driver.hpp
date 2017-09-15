@@ -26,6 +26,7 @@ public:
     bool dump_ast = false;
     bool dump_symbol_table = false;
     bool dump_tx_symbols = false;
+    bool dump_types = false;
     bool dump_ir = false;
     bool run_verifier = false;
     bool run_jit = false;

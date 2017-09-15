@@ -56,7 +56,7 @@ Type* TxActualType::make_llvm_externc_type( LlvmGenerationContext& context ) con
 }
 
 Constant* TxActualType::gen_typeid( LlvmGenerationContext& context ) const {
-    return ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->get_formal_type_id() );
+    return ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->get_runtime_type_id() );
 }
 
 Constant* TxActualType::gen_static_element_size( LlvmGenerationContext& context ) const {
@@ -254,7 +254,7 @@ static Value* gen_compute_array_size( LlvmGenerationContext& context, GenScope* 
 }
 
 Constant* TxArrayType::gen_static_element_size( LlvmGenerationContext& context ) const {
-    ASSERT( !this->is_generic(), "Attempted to codegen size of generic array type " << this );
+    ASSERT( !this->is_type_generic(), "Attempted to codegen size of type-generic array type " << this );
     auto elemType = this->element_type()->type()->acttype();
     return elemType->gen_static_size( context );
 }

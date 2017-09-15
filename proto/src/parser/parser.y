@@ -133,7 +133,7 @@ YY_DECL;
 %token KW_XOR
 %token KW_NULL KW_TRUE KW_FALSE
 %token KW_PANIC KW_ASSERT KW_EXPERR
-%token KW__ADDRESS KW__TYPEID KW__SIZEOF
+%token KW__ADDRESS KW__TYPEID KW__SIZEOF KW__SUPERTYPES
 
 /* keywords reserved but not currently used */
 %token KW_PUBLIC KW_PROTECTED
@@ -222,8 +222,8 @@ YY_DECL;
 %left PLUS MINUS
 %left ASTERISK FSLASH
 %precedence NEG   /* negation--unary minus */
-%precedence LPAREN RPAREN  LBRACE RBRACE
 %precedence ADDR  /* unary prefix address-of */
+%precedence LPAREN RPAREN  LBRACE RBRACE
 %precedence CARET /* unary postfix de-reference */
 %precedence LBRACKET RBRACKET
 %right DOT
@@ -620,6 +620,7 @@ expression_list : expr
 intrinsics_expr : KW__ADDRESS LPAREN expr RPAREN  { $$ = new TxRefAddressNode(@$, $3); }
                 | KW__TYPEID  LPAREN expr RPAREN  { $$ = new TxRefTypeIdNode(@$, $3); }
                 | KW__SIZEOF  LPAREN expr RPAREN  { $$ = new TxSizeofExprNode(@$, $3); }
+                | KW__SUPERTYPES LPAREN expr RPAREN  { $$ = new TxSupertypesExprNode(@$, $3); }
                 ;
 
 

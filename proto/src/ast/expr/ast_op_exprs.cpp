@@ -41,13 +41,13 @@ const TxQualType* TxBinaryElemOperatorNode::define_type() {
         break;
 
     case TXOC_LOGICAL:
-        if ( !( is_concrete_sinteger_type( (BuiltinTypeId)ltype->get_formal_type_id() ) ||
-                is_concrete_uinteger_type( (BuiltinTypeId)ltype->get_formal_type_id() ) ||
-                ltype->get_formal_type_id() == TXBT_BOOL ) )
+        if ( !( is_concrete_sinteger_type( ltype->acttype() ) ||
+                is_concrete_uinteger_type( ltype->acttype() ) ||
+                ltype->get_runtime_type_id() == TXBT_BOOL ) )
             CERR_THROWRES( this, "Left operand of " << this->op << " is not of integer or boolean type: " << ltype );
-        if ( !( is_concrete_sinteger_type( (BuiltinTypeId)rtype->get_formal_type_id() ) ||
-                is_concrete_uinteger_type( (BuiltinTypeId)rtype->get_formal_type_id() ) ||
-                rtype->get_formal_type_id() == TXBT_BOOL ) )
+        if ( !( is_concrete_sinteger_type( rtype->acttype() ) ||
+                is_concrete_uinteger_type( rtype->acttype() ) ||
+                rtype->get_runtime_type_id() == TXBT_BOOL ) )
             CERR_THROWRES( this, "Right operand of " << this->op << " is not of integer or boolean type: " << rtype );
 
         match_binary_operand_types( this, ltype, rtype );
@@ -55,10 +55,10 @@ const TxQualType* TxBinaryElemOperatorNode::define_type() {
 
     case TXOC_SHIFT:
         // Note: In LLVM and in common CPUs, for an integer type of N bits, the result of shifting by >= N is undefined.
-        if ( !( is_concrete_sinteger_type( (BuiltinTypeId)ltype->get_formal_type_id() ) ||
-                is_concrete_uinteger_type( (BuiltinTypeId)ltype->get_formal_type_id() ) ) )
+        if ( !( is_concrete_sinteger_type( ltype->acttype() ) ||
+                is_concrete_uinteger_type( ltype->acttype() ) ) )
             CERR_THROWRES( this, "Left operand of " << this->op << " is not of integer type: " << ltype );
-        if ( !is_concrete_uinteger_type( (BuiltinTypeId)rtype->get_formal_type_id() ) )
+        if ( !is_concrete_uinteger_type( rtype->acttype() ) )
             CERR_THROWRES( this, "Right operand of " << this->op << " is not of unsigned integer type: " << rtype );
         this->rhs->insert_conversion( ltype );  // LLVM shift instructions require right operand to be same integer type as left one
         break;
@@ -127,24 +127,18 @@ const TxQualType* TxEqualityOperatorNode::define_type() {
     auto ltype = this->lhs->originalExpr->resolve_type()->type();
     auto rtype = this->rhs->originalExpr->resolve_type()->type();
 
-    // TODO: auto-dereference reference operands? (maybe required if comparison of arrays of references is to work)
-    // (References' pointer values are compared using the === identity equality operator.)
+// currently we allow the == operator for reference equality (for instance this enables Array.equals() to use == on the elements)
+//    if ( ltype->get_type_class() == TXTC_REFERENCE || rtype->get_type_class() == TXTC_REFERENCE )
+//        CERR_THROWRES( this, "Value equality operator == not applicable to reference operands: " << ltype << ", " << rtype );
 
-    // Object type classes may be compared directly via this operation.
-    // Note that they don't have to be concrete.
-    // For non-object type classes, the equals() method is invoked instead, e.g:
-    //     r : &SomeInterface;  s : &SomeInterface;
-    //     r.equals( s )
+    if ( ltype->get_type_class() != rtype->get_type_class() )
+        CERR_THROWRES( this, "Mismatching operand type classes for equality operator: " << ltype << ", " << rtype );
 
-
-    if ( ltype->get_type_class() == TXTC_REFERENCE || rtype->get_type_class() == TXTC_REFERENCE )
-        CERR_THROWRES( this, "Value equality operator == not applicable to reference operands: " << ltype << ", " << rtype );
-        //CERR_THROWRES( this, "Mismatching operand type classes for equality operator: " << ltype << ", " << rtype );
-    // TODO: Review how to handle e.g.
-    //     r : &Any;  s : &Array<Int>;
-    //     r^ == s^
-    //     x : &Number;  y : Float;
-    //     x^ == y
+// operands don't have to be concrete - if not then equals() is invoked
+//    if ( !ltype->is_concrete() )
+//        CERR_THROWRES( this->lhs, "Left operand of equality operator is not concrete (equals() may be used instead): " << ltype );
+//    if ( !rtype->is_concrete() )
+//        CERR_THROWRES( this->rhs, "Right operand of equality operator is not concrete (equals() may be used instead): " << rtype );
 
     switch ( ltype->get_type_class() ) {
     case TXTC_ELEMENTARY:

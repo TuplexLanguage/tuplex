@@ -7,12 +7,15 @@
 using namespace llvm;
 
 
-static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, Value* functionPtrV, Value* closureRefV,
-                        const std::string& exprLabel, bool doesNotReturn ) {
+Value* gen_lambda_call( LlvmGenerationContext& context, GenScope* scope, Value* lambdaV,
+                        std::vector<Value*>& passedArgs, const std::string& exprLabel, bool doesNotReturn ) {
+    auto functionPtrV = gen_get_struct_member( context, scope, lambdaV, 0 );
+    auto closureRefV = gen_get_struct_member( context, scope, lambdaV, 1 );
+
     std::vector<Value*> args;
     args.push_back( closureRefV );
-    for ( auto argDef : *node->argsExprList ) {
-        args.push_back( argDef->code_gen_expr( context, scope ) );
+    for ( auto arg : passedArgs ) {
+        args.push_back( arg );
     }
 
     auto call = scope->builder->CreateCall( functionPtrV, args, exprLabel );
@@ -21,7 +24,7 @@ static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& c
     return call;
 }
 
-static Value* gen_externc_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, Value* functionPtrV,
+static Value* gen_externc_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, Value* lambdaV,
                                 const std::string& exprLabel, bool doesNotReturn ) {
     //std::cout << "gen_externc_call() to " << functionPtrV << std::endl;
     std::vector<Value*> args;
@@ -63,6 +66,7 @@ static Value* gen_externc_call( const TxFunctionCallNode* node, LlvmGenerationCo
         }
     }
 
+    auto functionPtrV = gen_get_struct_member( context, scope, lambdaV, 0 );
     auto call = scope->builder->CreateCall( functionPtrV, args, exprLabel );
     if ( doesNotReturn )
         call->setDoesNotReturn();
@@ -74,13 +78,15 @@ static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& c
     auto lambdaV = node->callee->code_gen_dyn_value( context, scope );
     if ( dynamic_cast<const TxExternCFunctionType*>( node->callee->qualtype()->type()->acttype() ) ) {
         // this is a call to an external C function
-        auto functionPtrV = gen_get_struct_member( context, scope, lambdaV, 0 );
-        return gen_externc_call( node, context, scope, functionPtrV, exprLabel, doesNotReturn );
+        return gen_externc_call( node, context, scope, lambdaV, exprLabel, doesNotReturn );
     }
-
-    auto functionPtrV = gen_get_struct_member( context, scope, lambdaV, 0 );
-    auto closureRefV = gen_get_struct_member( context, scope, lambdaV, 1 );
-    return gen_call( node, context, scope, functionPtrV, closureRefV, exprLabel, doesNotReturn );
+    else {
+        std::vector<Value*> args;
+        for ( auto argDef : *node->argsExprList ) {
+            args.push_back( argDef->code_gen_expr( context, scope ) );
+        }
+        return gen_lambda_call( context, scope, lambdaV, args, exprLabel, doesNotReturn );
+    }
 }
 
 Constant* TxFunctionCallNode::code_gen_const_value( LlvmGenerationContext& context ) const {

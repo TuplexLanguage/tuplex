@@ -118,13 +118,8 @@ Foreign function interface - DONE
 
 Make VALUE type parameter specializations share a general (but non-generic) supertype - DONE
 
-Required for proper equals(), including for arrays-of-arrays:
-    Conditional reference type casting:
-       if other is oa : &Array { ... }
-
-    Virtual dereferencing of abstract references for array subscripting, implicitly creating a reference to the element:
-       r : &Array;  s : &Array;
-       r[0] == s[0]
+Conditional reference type casting: - DONE
+    if other is oa : &Array { ... }
 
 Array object assignment, review and test semantics
  - correct setting of L
@@ -161,6 +156,10 @@ Constructor initialization validation check: That each constructor properly init
 
 For VALUEs below a threshold (e.g. <= 4), coge-gen individual specializations for efficiency
 
+
+Virtual dereferencing of abstract references for array subscripting, implicitly creating a reference to the element?
+    r : &Array;  s : &Array;
+    r[0] == s[0]
 
 Remove assumption that bound parameters are "concrete": Shall be ok to bind interfaces and abstract superclasses.
  - See elementary types that implement Enumerable<E>

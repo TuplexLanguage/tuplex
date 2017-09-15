@@ -38,6 +38,34 @@ void DataTupleDefinition::dump() const {
 }
 
 
+bool is_concrete_uinteger_type( const TxActualType* type ) {
+    if ( type->is_builtin() ) {
+        return is_builtin_concrete_uinteger_type( (BuiltinTypeId)type->get_runtime_type_id() );
+    }
+    else {
+        return type->is_a( *type->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_INTEGER )->acttype() );
+    }
+}
+
+bool is_concrete_sinteger_type( const TxActualType* type ) {
+    if ( type->is_builtin() ) {
+        return is_builtin_concrete_sinteger_type( (BuiltinTypeId)type->get_runtime_type_id() );
+    }
+    else {
+        return type->is_a( *type->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_UNSIGNED )->acttype() );
+    }
+}
+
+bool is_concrete_floating_type( const TxActualType* type ) {
+    if ( type->is_builtin() ) {
+        return is_builtin_concrete_floating_type( (BuiltinTypeId)type->get_runtime_type_id() );
+    }
+    else {
+        return type->is_a( *type->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_FLOATINGPOINT )->acttype() );
+    }
+}
+
+
 /*=== TxActualType implementation ===*/
 
 /** Used to ensure proper resetting recursionGuard in type (RAII style). */
@@ -93,11 +121,11 @@ void TxActualType::validate_type() const {
         if ( this->is_mutable() && !this->get_semantic_base_type()->is_mutable() )
             CERROR( this, "Can't derive a mutable type from an immutable base type: " << this->get_semantic_base_type() );
 
-        if ( this->baseType->formalTypeId == TXBT_ANY
+        if ( this->baseType->runtimeTypeId == TXBT_ANY
              && !( this->builtin || ( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )
                    || this->get_type_class() == TXTC_REFERENCE || this->get_type_class() == TXTC_ARRAY ) )
             CERROR( this, "Can't derive directly from the Any root type: " << this->get_declaration() );
-        ASSERT( this->baseType->formalTypeId == TXBT_ANY
+        ASSERT( this->baseType->runtimeTypeId == TXBT_ANY
                 || ( this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseType->get_type_class() == TXTC_INTERFACE )
                 || this->get_type_class() == this->baseType->get_type_class(),
                 "Specialized type's type class " << this << " not valid with base type's type class " << this->baseType->get_type_class() );
@@ -173,7 +201,7 @@ void TxActualType::initialize_type() {
                 if ( fieldDecl->get_decl_flags() & TXD_GENPARAM ) {
                     //std::cerr << "FOUND VALUE GENPARAM: " << typeDecl << std::endl;
                     this->params.emplace_back( fieldDecl );
-                    //this->valueGeneric = true;
+                    this->valueGeneric = true;
                 }
                 else if ( fieldDecl->get_decl_flags() & TXD_GENBINDING ) {
                     //std::cerr << "FOUND VALUE GENBINDING: " << typeDecl << std::endl;
@@ -190,7 +218,7 @@ void TxActualType::initialize_type() {
                     // Note: VALUE bindings are only declared as instance members in generic base type,
                     // so that they are not "extensions" to the specialized subtypes.
                     if ( !( fieldDecl->get_decl_flags() & TXD_GENBINDING ) ) {
-                        this->extendsInstanceDatatype = true;
+                        this->modifiesInstanceDatatype = true;
                     }
                     break;
                 case TXS_INSTANCEMETHOD:
@@ -233,6 +261,8 @@ void TxActualType::initialize_type() {
         this->pureValueSpec = false;
     }
 
+    bool nonRefTypeBindings = false;
+    bool valueBindings = false;
     { // validate the type parameter bindings (as much as we can without resolving this type's bindings at this point)
         for ( auto & bindingDecl : this->bindings ) {
             auto pname = bindingDecl->get_unique_name();
@@ -245,12 +275,12 @@ void TxActualType::initialize_type() {
                     if ( !dynamic_cast<const TxTypeDeclaration*>( bindingDecl ) )
                         CERROR( bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " is not a type: " << bindingDecl );
                     if ( constraintType->get_type_class() != TXTC_REFERENCE && this->get_type_class() != TXTC_REFERENCE )
-                        this->nonRefBindings = true;
+                        nonRefTypeBindings = true;
                 }
                 else {
                     if ( !dynamic_cast<const TxFieldDeclaration*>( bindingDecl ) )
                         CERROR( bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " is not a field/value: " << bindingDecl );
-                    this->nonRefBindings = true;
+                    valueBindings = true;
                 }
             }
             else
@@ -261,30 +291,35 @@ void TxActualType::initialize_type() {
 
     // determine datatype change:
     {
-        if ( this->nonRefBindings ) {
-            // Binding of a base type parameter implies reinterpretation of its members and thus
-            // the chance of modified instance / vtable types (for non-ref-constrained parameters).
-            // Note, may cause false positives (a full graph analysis of contained members would be needed for full accuracy)
-            this->extendsInstanceDatatype = true;
-            this->modifiesVTable = true;
+        if ( valueBindings ) {
+            this->modifiesInstanceDatatype = true;
         }
         else if ( this->is_builtin() ) {
             // Built-in implies a distinct instance type compared to the base type.
-            this->extendsInstanceDatatype = true;
+            this->modifiesInstanceDatatype = true;
         }
         else if ( this->get_type_class() == TXTC_FUNCTION ) {
             // function type implies a distinct instance type compared to the base type (for now)
-            this->extendsInstanceDatatype = true;
+            this->modifiesInstanceDatatype = true;
+        }
+
+        if ( nonRefTypeBindings ) {
+            // Binding of a base type parameter implies reinterpretation of its members and thus
+            // the chance of modified instance / vtable types (for non-ref-constrained type parameters).
+            // Note, may cause false positives (a full graph analysis of contained members would be needed for full accuracy)
+            this->modifiesInstanceDatatype = true;
+            this->modifiesVTable = true;
         }
         else if ( this->get_type_class() == TXTC_INTERFACEADAPTER ) {
             this->modifiesVTable = true;
         }
-
-        if ( !this->interfaces.empty() ) {
+        else if ( !this->interfaces.empty() ) {
             // If there are interfaces we assume that will cause the vtable will be extended in preparation.
             // This may cause false positives, but we need to determine this flag in the type's initialization phase.
             this->modifiesVTable = true;
         }
+
+        this->nonRefBindings = ( nonRefTypeBindings || valueBindings );
     }
 
     this->hasInitialized = true;
@@ -325,7 +360,7 @@ bool TxActualType::inner_prepare_members() {
         //ASSERT(interfSpec.type->is_prepared(), "Base i/f " << interfSpec.type << " not prepared before sub type " << this);
         recursionError |= const_cast<TxActualType*>( interf )->prepare_members();
         bool added = this->virtualFields.add_interface_fields( interf->virtualFields );
-        if ( !added )
+        if ( !added && !expErrWholeType )
             LOG( this->LOGGER(), NOTE, "Type implements interface " << interf << " which doesn't cause the vtable to be extended: " << this );
 //        if (added)
 //            this->modifiesVTable = true;
@@ -542,55 +577,42 @@ static bool is_dynamic_binding_dependent( const TxActualType* type ) {
     return false;
 }
 
-bool TxActualType::is_concrete() const {
-//    if (this->get_type_class() == TXTC_ARRAY)
-//        std::cerr << this << std::endl;
-    const TxActualType* type = this;
+static const TxActualType* isa_concrete_type( const TxActualType* type ) {
     if ( type->is_abstract() )
-        return false;
+        return nullptr;
+    if ( has_nonref_params( type, false ) )
+        return nullptr;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
     while ( type->is_equivalent_derivation() ) {
         type = type->get_base_type();
         if ( type->is_abstract() )
-            return false;
+            return nullptr;
+        if ( has_nonref_params( type, false ) )
+            return nullptr;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
     }
 
-    if ( has_nonref_params( type, false ) )
-        return false;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
-    return !has_outer_with_nonref_params( type );
+    // TODO: has_outer_with_nonref_params() doesn't work for implicit partial specializations, e.g. in genericstest.tx:
+    //       tx.Array<$,10>2 <10> : tx.Array<$>3 {C} <my.NBArray.E> : tx.Array {E,C}
+    //       Their scope is the original generic type's scope, not the scope where they're construed.
+    return ( !has_outer_with_nonref_params( type ) ? type : nullptr );
+    //return ( !type->is_type_generic_dependent() ? type : nullptr );
+}
+
+bool TxActualType::is_concrete() const {
+    return isa_concrete_type( this );
 }
 
 bool TxActualType::is_static() const {
-    const TxActualType* type = this;
-    if ( type->is_abstract() )
+    if ( auto type = isa_concrete_type( this) )
+        return !is_dynamic_binding_dependent( type );
+    else
         return false;
-    while ( type->is_equivalent_derivation() ) {
-        type = type->get_base_type();
-        if ( type->is_abstract() )
-            return false;
-    }
-
-    if ( has_nonref_params( type, false ) )
-        return false;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
-    if ( has_outer_with_nonref_params( type ) )
-        return false;
-    return !is_dynamic_binding_dependent( type );
 }
 
 bool TxActualType::is_dynamic() const {
-    const TxActualType* type = this;
-    if ( type->is_abstract() )
+    if ( auto type = isa_concrete_type( this) )
+        return is_dynamic_binding_dependent( type );
+    else
         return false;
-    while ( type->is_equivalent_derivation() ) {
-        type = type->get_base_type();
-        if ( type->is_abstract() )
-            return false;
-    }
-
-    if ( has_nonref_params( type, false ) )
-        return false;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
-    if ( has_outer_with_nonref_params( type ) )
-        return false;
-    return is_dynamic_binding_dependent( type );
 }
 
 bool TxActualType::is_type_generic_dependent() const {
@@ -601,11 +623,13 @@ bool TxActualType::is_type_generic_dependent() const {
         return true;
 
     const TxActualType* type = this;
-    while ( type->is_equivalent_derivation() )
-        type = type->get_base_type();
-
     if ( type->is_type_generic() )
         return true;
+    while ( type->is_equivalent_derivation() ) {
+        type = type->get_base_type();
+        if ( type->is_type_generic() )
+            return true;
+    }
 
     bool genCtx = type->get_declaration()->get_definer()->context().is_generic();
     if (genCtx) {
@@ -656,12 +680,12 @@ bool TxActualType::is_virtual_derivation() const {
 bool TxActualType::is_scalar() const {
     if ( this->typeClass != TXTC_ELEMENTARY )
         return false;
-    if ( this->formalTypeId >= BuiltinTypeId_COUNT ) {
+    if ( this->runtimeTypeId >= BuiltinTypeId_COUNT ) {
         // user derivation / alias of an elementary type
         auto scalar = this->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_SCALAR )->acttype();
         return this->is_a( *scalar );
     }
-    switch ( this->formalTypeId ) {
+    switch ( this->runtimeTypeId ) {
         case TXBT_SCALAR:
         case TXBT_INTEGER:
         case TXBT_SIGNED:

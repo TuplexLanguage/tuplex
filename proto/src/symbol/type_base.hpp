@@ -85,6 +85,14 @@ public:
     void dump() const;
 };
 
+
+bool is_concrete_uinteger_type( const TxActualType* type );
+
+bool is_concrete_sinteger_type( const TxActualType* type );
+
+bool is_concrete_floating_type( const TxActualType* type );
+
+
 /** An instance of this class represents a type definition.
  *
  * In a specialization of a generic base type, the base type's type parameters must either have a binding,
@@ -127,12 +135,8 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     /** true if this is a built-in type */
     const bool builtin;
 
-    /** The vtable id of this type, if it has a distinct vtable type (not an equivalent specialization).
-     * Note, abstract types will have a vtable type id although they will not have an actual vtable entry in runtime. */
-    uint32_t vtableId = UINT32_MAX;
-
-    /** The formal type id of this type, if it is defined at compile time and a distinct type (not an equivalent specialization). */
-    uint32_t formalTypeId = UINT32_MAX;
+    /** The runtime type id of this type. */
+    uint32_t runtimeTypeId = UINT32_MAX;
 
     /** If true, this type is mutable, in which case its instances may be declared modifiable. */
     const bool mutableType;
@@ -161,6 +165,9 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
 
     /** False unless this type is generic and has at least one unbound TYPE type parameter. */
     bool typeGeneric = false;
+
+    /** False unless this type is generic and has at least one unbound VALUE type parameter. */
+    bool valueGeneric = false;
 
     /** true when initialize_type() has completed its initializations */
     bool hasInitialized = false;
@@ -199,7 +206,7 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     }
 
 protected:
-    bool extendsInstanceDatatype = false;
+    bool modifiesInstanceDatatype = false;
     bool modifiesVTable = false;
     bool emptyDerivation = false;
     bool pureDerivation = false;
@@ -270,32 +277,17 @@ public:
         return this->declaration;
     }
 
-    /** Gets the vtable id of this type. (Equivalent specializations return their base type's vtable id.)
+    /** Gets the runtime type id of this type.
      * For non-built-in types, this is only valid to call after the type preparation phase. */
-    inline uint32_t get_vtable_id() const {
-        //ASSERT(this->prepared, "Can't get formal type id of unprepared type: " << this);
-        ASSERT( this->vtableId != UINT32_MAX || this->is_equivalent_derivation(), "VTable id not set for " << this );
-        return ( this->vtableId == UINT32_MAX ? this->get_semantic_base_type()->get_vtable_id() : this->vtableId );
+    inline uint32_t get_runtime_type_id() const {
+        ASSERT( this->runtimeTypeId != UINT32_MAX, "Type id not set for " << this );
+        return this->runtimeTypeId;
     }
 
-    /** Returns true if this type instance has a formal type id assigned.
+    /** Returns true if this type instance has a runtime type id assigned.
      * If called before the type preparation phase, only built-in types return true. */
-    inline bool has_vtable_id() const {
-        return ( this->vtableId != UINT32_MAX );
-    }
-
-    /** Gets the formal type id of this type. (Equivalent specializations return their base type's id.)
-     * For non-built-in types, this is only valid to call after the type preparation phase. */
-    inline uint32_t get_formal_type_id() const {
-        //ASSERT(this->prepared, "Can't get formal type id of unprepared type: " << this);
-        ASSERT( this->formalTypeId != UINT32_MAX || this->is_equivalent_derivation(), "Type id not set for " << this );
-        return ( this->formalTypeId == UINT32_MAX ? this->get_semantic_base_type()->get_formal_type_id() : this->formalTypeId );
-    }
-
-    /** Returns true if this type instance has a formal type id assigned.
-     * If called before the type preparation phase, only built-in types return true. */
-    inline bool has_formal_type_id() const {
-        return ( this->formalTypeId != UINT32_MAX );
+    inline bool has_runtime_type_id() const {
+        return ( this->runtimeTypeId != UINT32_MAX );
     }
 
     /*--- characteristics ---*/
@@ -345,7 +337,7 @@ public:
 
     /** Returns true if this type is the specified built-in type. */
     inline bool is_builtin( BuiltinTypeId biTypeId ) const {
-        return ( this->formalTypeId == (uint32_t) biTypeId );  // Note: type ids of built-in types are always set
+        return ( this->runtimeTypeId == (uint32_t) biTypeId );  // Note: type ids of built-in types are always set
     }
 
     /** Returns true if this type is a scalar type. */
@@ -403,6 +395,11 @@ public:
         return this->typeGeneric;
     }
 
+    /** Returns true if this type is value-generic (i.e. has unbound VALUE type parameters). */
+    inline bool is_value_generic() const {
+        return this->valueGeneric;
+    }
+
     /** Returns true if this type is dependent on any unbound non-reference generic type parameters;
      * except for references which always yield false whether generic or not.
      * This is true if this type has unbound non-reference type parameters, or is defined within the scope
@@ -426,7 +423,7 @@ public:
     /** Returns true if this type has the same instance data type as its base type. */
     inline bool is_same_instance_type() const {
         ASSERT( this->hasInitialized, "Can't determine same instance type of uninitialized type " << this );
-        return this->has_base_type() && !this->extendsInstanceDatatype;
+        return this->has_base_type() && !this->modifiesInstanceDatatype;
     }
 
     /** Returns true if this type is an empty derivation of a base type,

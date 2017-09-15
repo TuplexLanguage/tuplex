@@ -45,7 +45,7 @@ inline std::string to_string( TxTypeClass tc ) {
     case TXTC_INTERFACE:
         return "INTERFACE";
     case TXTC_INTERFACEADAPTER:
-        return "INTERFACEADAPTER";
+        return "INFADAPTER";
     case TXTC_VOID:
         return "VOID";
     }

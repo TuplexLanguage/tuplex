@@ -8,6 +8,13 @@
 #include "ast/type/ast_typearg_node.hpp"
 
 
+/** Generates code for a call to a lambda.
+ * Note, the passed args vector shall contain only the user-passed args (not the closure).
+ */
+llvm::Value* gen_lambda_call( LlvmGenerationContext& context, GenScope* scope, llvm::Value* lambdaV,
+                              std::vector<llvm::Value*>& passedArgs, const std::string& exprLabel, bool doesNotReturn );
+
+
 class TxFunctionCallNode : public TxExpressionNode {
     bool doesNotReturn;
     const TxQualType* calleeType = nullptr;

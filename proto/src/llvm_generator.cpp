@@ -28,7 +28,9 @@
 
 #include "ast/ast_modbase.hpp"
 #include "ast/expr/ast_ref.hpp"
+#include "ast/expr/ast_exprs.hpp"
 #include "symbol/package.hpp"
+#include "symbol/symbol_lookup.hpp"
 
 using namespace llvm;
 
@@ -150,107 +152,198 @@ int LlvmGenerationContext::write_bitcode( const std::string& filepath ) {
 
 /***** generate runtime type data *****/
 
+static void add_base_types( std::set<uint32_t>& supertypes, const TxActualType* type ) {
+    auto ret = supertypes.emplace( type->get_runtime_type_id() );
+    if ( !ret.second )
+        return;
+    if ( type->has_base_type() ) {
+        if ( type->is_generic_specialization() )
+            add_base_types( supertypes, type->get_semantic_base_type() );
+        add_base_types( supertypes, type->get_base_type() );
+        for ( auto intf : type->get_interfaces() ) {
+            add_base_types( supertypes, intf );
+        }
+    }
+}
+
+/** construct array of sorted supertype ids (used for dynamic is-a) */
+static Constant* gen_supertype_ids( LlvmGenerationContext* context, const TxActualType* acttype ) {
+    auto int32T = Type::getInt32Ty( context->llvmContext );
+    std::set<uint32_t> supertypes;
+    add_base_types( supertypes, acttype );  // (also adds the type itself)
+    std::vector<uint32_t> supertypesvec( supertypes.cbegin(), supertypes.cend() );
+//    if ( acttype->get_type_class() == TXTC_ARRAY ) {
+//        std::cerr << "Supertypes of " << acttype << " with id " << acttype->get_runtime_type_id() << std::endl;
+//        for ( auto t : supertypesvec )  std::cerr << "  super type id: " << t << std::endl;
+//    }
+    auto typesArrayLenC = ConstantInt::get( int32T, supertypesvec.size() );
+    auto typesArrayT = StructType::get( int32T, int32T, ArrayType::get( int32T, supertypesvec.size() ), NULL );
+    Constant* typesArrayC = ConstantStruct::get( typesArrayT, typesArrayLenC, typesArrayLenC,
+                                                 ConstantDataArray::get( context->llvmContext, supertypesvec ), NULL );
+    std::string supertypesName( acttype->get_declaration()->get_unique_full_name() + "$supers" );
+    GlobalVariable* superTypesC = new GlobalVariable( context->llvmModule(), typesArrayT, true, GlobalValue::ExternalLinkage,
+                                                      typesArrayC, supertypesName );
+    return superTypesC;
+}
+
+/** Makes or gets previously made vtable meta type for the specified type. */
+StructType* LlvmGenerationContext::get_vtable_meta_type( const TxActualType* acttype ) {
+    auto pairI = this->llvmVTableTypes.find(acttype);
+    if ( pairI != this->llvmVTableTypes.end() ) {
+        return pairI->second;
+    }
+    else {
+        auto vtableT = acttype->make_vtable_type( *this );
+        this->llvmVTableTypes.emplace( acttype, vtableT );
+        return vtableT;
+    }
+}
+
+/** Makes or gets previously made vtable for the specified type. */
+GlobalVariable* LlvmGenerationContext::get_vtable( const TxActualType* acttype ) {
+    auto pairI = this->llvmVTables.find(acttype);
+    if ( pairI != this->llvmVTables.end() ) {
+        return pairI->second;
+    }
+    else {
+        auto vtableT = this->get_vtable_meta_type( acttype );
+        std::string vtableName( acttype->get_declaration()->get_unique_full_name() + "$vtable" );
+        auto vtableC = new GlobalVariable( this->llvmModule(), vtableT, true, GlobalValue::ExternalLinkage, nullptr, vtableName );
+        this->llvmVTables.emplace( acttype, vtableC );
+        return vtableC;
+    }
+}
+
 void LlvmGenerationContext::generate_runtime_type_info() {
     auto int32T = Type::getInt32Ty( this->llvmContext );
 
-    // define the MetaType LLVM data type:
-//    std::vector<Type*> typeInitFuncArgTypes {
-//        this->get_voidPtrT()  // void* to type's data
-//    };
-//    FunctionType *typeInitFuncT = FunctionType::get(this->get_voidT(), typeInitFuncArgTypes, false);
-//    auto dummyUserInitF = gen_dummy_type_user_init_func(*this);
-
     auto emptyStructPtrT = PointerType::getUnqual( StructType::get( this->llvmContext ) );
-    std::vector<Type*> memberTypes {
+    std::vector<Type*> metaTypeFields {
             emptyStructPtrT,  // vtable pointer
             int32T,           // instance size (for Array types, element instance size)
             int32T,           // type id
             int32T,           // element type id (for Array types)
-            Type::getInt8Ty( this->llvmContext )  // type class id
-            //typeInitFuncT,  // initialization function
+            Type::getInt8Ty( this->llvmContext ),  // type class id
     };
-    StructType* metaType = StructType::get( this->llvmContext, memberTypes );
+    StructType* typeInfoT = StructType::create( metaTypeFields, "tx.runtime.$TypeInfo" );
 
-    // create static meta type data:
-    std::vector<Constant*> metaTypes;
-    for ( auto acttypeI = this->tuplexPackage.registry().vtable_types_cbegin(); acttypeI != this->tuplexPackage.registry().vtable_types_cend();
+    auto superTypesPtrT = PointerType::getUnqual( StructType::get( int32T, int32T, ArrayType::get( int32T, 0 ), NULL ) );
+    std::vector<Constant*> supertypeArrays;
+
+    // create runtime type info for the data types:
+    std::vector<Constant*> typeInfos;
+    for ( auto acttypeI = this->tuplexPackage.registry().runtime_types_cbegin();
+            acttypeI != this->tuplexPackage.registry().data_types_cend();
             acttypeI++ )
     {
         const TxActualType* acttype = *acttypeI;
-//        auto utinitF = acttype->get_type_user_init_func(*this);
-//        if (! utinitF->getEntryBlock().getTerminator()) {
-//            // inserting default void return instruction for entry block of function
-//            ReturnInst::Create(this->llvmContext, &utinitF->getEntryBlock());
-//        }
 
-        // create the vtable type:
-        auto vtableT = acttype->make_vtable_type( *this );
-        if ( !vtableT )
-            continue;
-
-        ASSERT( this->llvmVTableTypes.size() == acttype->get_vtable_id(), "Wrong vtable type id / order for " << acttype );
-        this->llvmVTableTypes.push_back( vtableT );
-
-        // if the type is a formal type, create an actual vtable instance:
-        if ( acttype->has_formal_type_id() ) {
-            std::string vtableName( acttype->get_declaration()->get_unique_full_name() + "$vtable" );
-            GlobalVariable* vtableV = new GlobalVariable( this->llvmModule(), vtableT, true, GlobalValue::ExternalLinkage, nullptr, vtableName );
-            this->register_llvm_value( vtableV->getName(), vtableV );
-
-            auto instanceSizeC = ( acttype->is_static() ? ConstantExpr::getTrunc( acttype->gen_static_element_size( *this ),
-                                                                                  Type::getInt32Ty( this->llvmContext ) )
-                                                        : ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ) );
-            auto typeIdC = ConstantInt::get( int32T, acttype->get_formal_type_id() );
-            Constant* elementTypeIdC = ConstantInt::get( int32T,
-                    ( acttype->get_type_class() == TXTC_ARRAY ? static_cast<const TxArrayType*>( acttype )->element_type()->get_type_id() : 0 ) );
-            auto typeClassC = ConstantInt::get( Type::getInt8Ty( this->llvmContext ), acttype->get_type_class() );
-
-            std::vector<Constant*> members {
-                                             ConstantExpr::getBitCast( vtableV, emptyStructPtrT ),
-                                             instanceSizeC,
-                                             typeIdC,
-                                             elementTypeIdC,
-                                             typeClassC,
-                                             //dummyUserInitF  // utinitF
-            };
-            metaTypes.push_back( ConstantStruct::get( metaType, members ) );
+        Constant* instanceSizeC;
+        if ( acttype->is_static() || ( acttype->get_type_class() == TXTC_ARRAY && !acttype->is_type_generic() ) ) {
+            LOG_TRACE( this->LOGGER(), "Creating runtime type info for data type " << acttype );
+            if ( acttype->get_type_class() == TXTC_ARRAY ) {
+                // arrays are a special case, where the value-generic (non-concrete) supertype can have statically known element size
+                instanceSizeC = ConstantExpr::getTrunc( acttype->gen_static_element_size( *this ),
+                                                        Type::getInt32Ty( this->llvmContext ) );
+            }
+            else {
+                instanceSizeC = ConstantExpr::getTrunc( acttype->gen_static_element_size( *this ),
+                                                        Type::getInt32Ty( this->llvmContext ) );
+            }
         }
+        else {
+            LOG_TRACE( this->LOGGER(), "Creating runtime type info for data type " << acttype << "  \t(not statically concrete)" );
+            instanceSizeC = ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 );
+        }
+
+        // ensure the vtable meta type is created:
+        this->get_vtable_meta_type( acttype );
+
+        // create the vtable instance:
+        auto vtype = acttype;
+        while ( vtype->is_same_vtable_type() )
+            vtype = vtype->get_semantic_base_type();
+        // Note: Concrete types may use a (possibly shared) vtable instance of an abstract ancestor type which isn't itself a "data type".
+        GlobalVariable* vtableC = this->get_vtable( vtype );
+
+        auto typeIdC = ConstantInt::get( int32T, acttype->get_runtime_type_id() );
+
+        Constant* elementTypeIdC = ConstantInt::get( int32T,
+                ( acttype->get_type_class() == TXTC_ARRAY ? static_cast<const TxArrayType*>( acttype )->element_type()->get_type_id() : 0 ) );
+
+        auto typeClassC = ConstantInt::get( Type::getInt8Ty( this->llvmContext ), acttype->get_type_class() );
+
+        std::vector<Constant*> members {
+                                         ConstantExpr::getBitCast( vtableC, emptyStructPtrT ),
+                                         instanceSizeC,
+                                         typeIdC,
+                                         elementTypeIdC,
+                                         typeClassC,
+        };
+        typeInfos.push_back( ConstantStruct::get( typeInfoT, members ) );
+
+        // create the super type id array:
+        auto superTypesC = gen_supertype_ids( this, acttype );
+        supertypeArrays.push_back( ConstantExpr::getBitCast( superTypesC, superTypesPtrT ) );
     }
 
-    auto typeCount = this->tuplexPackage.registry().formal_type_count();
-    auto mtArrayType = ArrayType::get( metaType, typeCount );
-    auto mtArrayInit = ConstantArray::get( mtArrayType, metaTypes );
+    // create the vtable meta types for the remaining vtable types:
+    for ( auto acttypeI = this->tuplexPackage.registry().data_types_cend();
+            acttypeI != this->tuplexPackage.registry().vtable_types_cend();
+            acttypeI++ )
+    {
+        const TxActualType* acttype = *acttypeI;
+        LOG_TRACE( this->LOGGER(), "Creating runtime type info for vtable type " << acttype );
 
-    Value* typeCountV = new GlobalVariable( this->llvmModule(), int32T, true, GlobalValue::ExternalLinkage,
-                                            ConstantInt::get( int32T, typeCount ),
-                                            "tx.runtime.TYPE_COUNT" );
-    Value* metaTypesV = new GlobalVariable( this->llvmModule(), mtArrayType, true, GlobalValue::ExternalLinkage,
-                                            mtArrayInit,
-                                            "tx.runtime.META_TYPES" );
-    this->register_llvm_value( typeCountV->getName(), typeCountV );
-    this->register_llvm_value( metaTypesV->getName(), metaTypesV );
+        // ensure the vtable meta type is created:
+        this->get_vtable_meta_type( acttype );
+
+        // create the super type id array:
+        auto superTypesC = gen_supertype_ids( this, acttype );
+        supertypeArrays.push_back( ConstantExpr::getBitCast( superTypesC, superTypesPtrT ) );
+    }
+
+    // generate the runtime type info:
+    {
+        auto typeCount = typeInfos.size();
+        auto typeCountC = new GlobalVariable( this->llvmModule(), int32T, true, GlobalValue::ExternalLinkage,
+                                              ConstantInt::get( int32T, typeCount ),
+                                              "tx.runtime.TYPE_COUNT" );
+        this->register_llvm_value( typeCountC->getName(), typeCountC );
+
+        auto tiArrayT = ArrayType::get( typeInfoT, typeCount );
+        auto tiArrayC = ConstantArray::get( tiArrayT, typeInfos );
+        auto typeInfosC = new GlobalVariable( this->llvmModule(), tiArrayT, true, GlobalValue::ExternalLinkage,
+                                              tiArrayC,
+                                              "tx.runtime.TYPE_INFOS" );
+        this->register_llvm_value( typeInfosC->getName(), typeInfosC );
+    }
+    {
+        auto stArrayT = ArrayType::get( superTypesPtrT, supertypeArrays.size() );
+        auto stArrayC = ConstantArray::get( stArrayT, supertypeArrays );
+        auto supertypesC = new GlobalVariable( this->llvmModule(), stArrayT, true, GlobalValue::ExternalLinkage,
+                                               stArrayC,
+                                               "tx.runtime.SUPER_TYPES" );
+        this->register_llvm_value( supertypesC->getName(), supertypesC );
+    }
 }
 
 
 void LlvmGenerationContext::generate_runtime_vtables() {
-    for ( auto acttypeI = this->tuplexPackage.registry().formal_types_cbegin();
-            acttypeI != this->tuplexPackage.registry().formal_types_cend();
-            acttypeI++ )
+    for ( auto & elem : this->llvmVTables )
     {
-        const TxActualType* acttype = *acttypeI;
+        auto acttype = elem.first;
+        auto vtableC = elem.second;
         ASSERT( acttype->is_prepared(), "Non-prepared type: " << acttype );
-
-        std::string vtableName( acttype->get_declaration()->get_unique_full_name() + "$vtable" );
-        auto vtableV = dyn_cast<GlobalVariable>( this->lookup_llvm_value( vtableName ) );
-        ASSERT( vtableV, "No vtable found for " << vtableName );
+        ASSERT( !acttype->is_same_vtable_type(), "vtable instance type does not have distinct vtable: " << acttype );
 
         bool isTypeGeneric = acttype->is_type_generic();
 
         {
-            std::string typeIdStr = std::to_string( acttype->get_formal_type_id() );
+            std::string typeIdStr = std::to_string( acttype->get_runtime_type_id() );
             if ( typeIdStr.size() < 5 )
                 typeIdStr.resize( 5, ' ' );
-            if ( isTypeGeneric )  // the only generic types that have a formal type id are Ref and Array
+            if ( isTypeGeneric )  // the only generic types that are data types and have distinct vtable is Array
                 LOG_DEBUG( this->LOGGER(), "Type id " << typeIdStr
                            << ": Populating vtable initializer with null placeholders for generic base type " << acttype );
             else
@@ -284,7 +377,7 @@ void LlvmGenerationContext::generate_runtime_vtables() {
             else if ( field.first == "$adTypeId" ) {
                 ASSERT( acttype->get_type_class() == TXTC_INTERFACEADAPTER, "Expected InterfaceAdapter type: " << acttype );
                 auto adapterType = static_cast<const TxInterfaceAdapterType*>( acttype );
-                llvmFieldC = ConstantInt::get( Type::getInt32Ty( this->llvmContext ), adapterType->adapted_type()->get_formal_type_id() );
+                llvmFieldC = ConstantInt::get( Type::getInt32Ty( this->llvmContext ), adapterType->adapted_type()->get_runtime_type_id() );
             }
 
             else {
@@ -297,7 +390,7 @@ void LlvmGenerationContext::generate_runtime_vtables() {
         }
 
         Constant* initializer = ConstantStruct::getAnon( this->llvmContext, initMembers );
-        vtableV->setInitializer( initializer );
+        vtableC->setInitializer( initializer );
         //std::cerr << "initializing " << vtableV << " with " << initializer << std::endl;
     }
 }
@@ -329,68 +422,80 @@ llvm::Value* LlvmGenerationContext::gen_malloc( GenScope* scope, Value* sizeV ) 
 }
 
 
-Value* LlvmGenerationContext::gen_get_element_size( GenScope* scope, Value* runtimeBaseTypeIdV ) const {
-    Value* metaTypesV = this->lookup_llvm_value( "tx.runtime.META_TYPES" );
+/*** runtime type info access ***/
+
+Value* LlvmGenerationContext::gen_get_type_info( GenScope* scope, Value* runtimeBaseTypeIdV, unsigned fieldIndex ) {
+#ifdef DEVMODE
+    { // add bounds check:
+        auto parentFunc = scope->builder->GetInsertBlock()->getParent();
+        BasicBlock* trueBlock = BasicBlock::Create( this->llvmContext, "if_rtti_outofbounds", parentFunc );
+        BasicBlock* nextBlock = BasicBlock::Create( this->llvmContext, "if_rtti_inbounds", parentFunc );
+
+        auto typeInfoLenC = cast<GlobalVariable>( this->lookup_llvm_value( "tx.runtime.TYPE_COUNT" ) );
+        auto condV = scope->builder->CreateICmpUGE( runtimeBaseTypeIdV, typeInfoLenC->getInitializer() );
+        scope->builder->CreateCondBr( condV, trueBlock, nextBlock );
+        { // if type id out of bounds (not a data type)
+            scope->builder->SetInsertPoint( trueBlock );
+            auto indexV = scope->builder->CreateZExt( runtimeBaseTypeIdV, Type::getInt64Ty( this->llvmContext ) );
+            this->gen_panic_call( scope, "RTTI type array index out of bounds: %d\n", indexV );
+            scope->builder->CreateBr( nextBlock );  // terminate block, though won't be executed
+        }
+        scope->builder->SetInsertPoint( nextBlock );
+    }
+#endif
+
+    auto typeInfoC = this->lookup_llvm_value( "tx.runtime.TYPE_INFOS" );
     Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
                      runtimeBaseTypeIdV,
-                     ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 1 ) };
-    auto instanceSizeA = scope->builder->CreateInBoundsGEP( metaTypesV, ixs );
-    auto instanceSizeV = scope->builder->CreateLoad( instanceSizeA );
-    return instanceSizeV;
+                     ConstantInt::get( Type::getInt32Ty( this->llvmContext ), fieldIndex ) };
+    auto valA = scope->builder->CreateInBoundsGEP( typeInfoC, ixs );
+    return scope->builder->CreateLoad( valA );
 }
 
 
-Value* LlvmGenerationContext::gen_get_element_id( GenScope* scope, Value* runtimeBaseTypeIdV ) const {
-    Value* metaTypesV = this->lookup_llvm_value( "tx.runtime.META_TYPES" );
-    Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
-                     runtimeBaseTypeIdV,
-                     ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 3 ) };
-    auto instanceSizeA = scope->builder->CreateInBoundsGEP( metaTypesV, ixs );
-    auto instanceSizeV = scope->builder->CreateLoad( instanceSizeA );
-    return instanceSizeV;
+Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualType* statDeclType ) {
+    return gen_get_vtable( scope, statDeclType, ConstantInt::get( Type::getInt32Ty( this->llvmContext ), statDeclType->get_runtime_type_id() ) );
 }
 
-
-Value* LlvmGenerationContext::gen_get_type_class( GenScope* scope, Value* runtimeBaseTypeIdV ) const {
-    Value* metaTypesV = this->lookup_llvm_value( "tx.runtime.META_TYPES" );
-    Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
-                     runtimeBaseTypeIdV,
-                     ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 4 ) };
-    auto instanceSizeA = scope->builder->CreateInBoundsGEP( metaTypesV, ixs );
-    auto instanceSizeV = scope->builder->CreateLoad( instanceSizeA );
-    return instanceSizeV;
-}
-
-
-Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV ) const {
+Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV ) {
     // cast vtable type according to statically declared type (may be parent type of actual type):
-    Type* vtablePtrT = PointerType::getUnqual( this->get_llvm_vtable_type( statDeclType ) );
-    //std::cerr << "got vtable ptr type for " << statDeclType << " (id " << statDeclType->get_type_id() << "): " << vtablePtrT << std::endl;
+    StructType* vtableT = this->llvmVTableTypes.at( statDeclType );
+    Type* vtablePtrT = PointerType::getUnqual( vtableT );
+    auto vtablePtrV = this->gen_get_type_info( scope, runtimeBaseTypeIdV, 0 );
+//    std::cerr << "getting vtable ptr for " << statDeclType << ", static id " << statDeclType->get_runtime_type_id()
+//            << ", runtime id " << runtimeBaseTypeIdV << ": " << vtablePtrV << std::endl;
+    return scope->builder->CreatePointerCast( vtablePtrV, vtablePtrT, "vtableptr" );
+}
 
-    Value* metaTypesV = this->lookup_llvm_value( "tx.runtime.META_TYPES" );
+Value* LlvmGenerationContext::gen_get_element_size( GenScope* scope, Value* runtimeBaseTypeIdV ) {
+    return this->gen_get_type_info( scope, runtimeBaseTypeIdV, 1 );
+}
+
+Value* LlvmGenerationContext::gen_get_element_id( GenScope* scope, Value* runtimeBaseTypeIdV ) {
+    return this->gen_get_type_info( scope, runtimeBaseTypeIdV, 3 );
+}
+
+Value* LlvmGenerationContext::gen_get_type_class( GenScope* scope, Value* runtimeBaseTypeIdV ) {
+    return this->gen_get_type_info( scope, runtimeBaseTypeIdV, 4 );
+}
+
+
+Value* LlvmGenerationContext::gen_get_supertypes_array( GenScope* scope, Value* runtimeBaseTypeIdV ) const {
+    Value* superTypesV = this->lookup_llvm_value( "tx.runtime.SUPER_TYPES" );
     Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
-                     runtimeBaseTypeIdV,
-                     ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ) };
-    if ( !scope ) {
-        std::cerr << "NO SCOPE" << std::endl;
-        auto vtablePtrA = GetElementPtrInst::CreateInBounds( metaTypesV, ixs );
-        auto vtablePtr = new LoadInst( vtablePtrA );
-        return CastInst::CreatePointerCast( vtablePtr, vtablePtrT, "vtableptr" );
-    }
-    else {
-        auto vtablePtrA = scope->builder->CreateInBoundsGEP( metaTypesV, ixs );
-        auto vtablePtr = scope->builder->CreateLoad( vtablePtrA );
-        return scope->builder->CreatePointerCast( vtablePtr, vtablePtrT, "vtableptr" );
-    }
+                     runtimeBaseTypeIdV };
+    auto valA = scope->builder->CreateInBoundsGEP( superTypesV, ixs );
+    return scope->builder->CreateLoad( valA );
 }
 
-Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualType* statDeclType ) const {
-    return gen_get_vtable( scope, statDeclType, ConstantInt::get( Type::getInt32Ty( this->llvmContext ), statDeclType->get_formal_type_id() ) );
+Value* LlvmGenerationContext::gen_get_supertypes_array_ref( GenScope* scope, Value* runtimeBaseTypeIdV, Constant* arrayTypeIdC ) {
+    auto stPtrV = this->gen_get_supertypes_array( scope, runtimeBaseTypeIdV );
+    auto refT = TxReferenceType::make_ref_llvm_type( *this, stPtrV->getType()->getPointerElementType() );
+    return gen_ref( *this, scope, refT, stPtrV, arrayTypeIdC );
 }
 
-StructType* LlvmGenerationContext::get_llvm_vtable_type( const TxActualType* txType ) const {
-    return this->llvmVTableTypes.at( txType->get_vtable_id() );
-}
+
+/*** global constants generation ***/
 
 Constant* LlvmGenerationContext::gen_const_cstring_address( const std::string& value ) {
     std::vector<uint8_t> array( value.data(), value.data() + value.size() + 1 );
@@ -438,6 +543,79 @@ Constant* LlvmGenerationContext::gen_const_string_obj_address( StructType* strin
 }
 
 
+/*** global core functions invocation ***/
+
+Value* LlvmGenerationContext::gen_equals_invocation( GenScope* scope, Value* lvalA, Value* lvalTypeIdV, Value* rvalA, Value* rvalTypeIdV ) {
+    const TxActualType* anyType = this->tuplexPackage.registry().get_builtin_type( TXBT_ANY )->acttype();
+    auto equalsField = anyType->get_virtual_fields().get_field( "equals" );
+    auto methodLambdaV = instance_method_value_code_gen( *this, scope, anyType, lvalTypeIdV, lvalA,
+                                                         equalsField->qualtype()->type()->acttype(), equalsField->get_unique_name(), false );
+    auto functionPtrV = gen_get_struct_member( *this, scope, methodLambdaV, 0 );
+    auto closureRefV = gen_get_struct_member( *this, scope, methodLambdaV, 1 );
+    auto otherRefT = TxReferenceType::make_ref_llvm_type( *this, llvm::StructType::get( this->llvmContext ) );  // ref to Any
+    auto otherRefV = gen_ref( *this, scope, otherRefT, rvalA, rvalTypeIdV );
+    std::vector<Value*> args( { closureRefV, otherRefV } );
+    return scope->builder->CreateCall( functionPtrV, args, "equals" );
+}
+
+Value* LlvmGenerationContext::gen_isa( GenScope* scope, Value* refV, Value* typeIdV ) {
+    auto refT = TxReferenceType::make_ref_llvm_type( *this, llvm::StructType::get( this->llvmContext ) );  // ref to Any
+    auto isaFuncC = this->llvmModule().getOrInsertFunction( "tx.isa$func", Type::getInt1Ty( this->llvmContext ),
+                                                            this->closureRefT, refT, Type::getInt32Ty( this->llvmContext ), NULL );
+    auto castRefV = gen_ref_conversion( *this, scope, refV, refT );
+    std::vector<Value*> args( { ConstantStruct::getNullValue( this->closureRefT ), castRefV, typeIdV } );
+    return scope->builder->CreateCall( isaFuncC, args, "isa" );
+}
+
+void LlvmGenerationContext::gen_panic_call( GenScope* scope, const std::string& message ) {
+    auto panicSymbol = dynamic_cast<TxEntitySymbol*>( search_symbol( &this->tuplexPackage, "tx.panic" ) );
+    ASSERT( panicSymbol, "Function not found: tx.panic" );
+    for ( auto declI = panicSymbol->fields_cbegin(); declI != panicSymbol->fields_cend(); declI++ ) {
+        auto panicFunc = (*declI)->get_definer()->get_field();
+        auto panicFuncType = dynamic_cast<const TxFunctionType*>( panicFunc->qualtype()->type()->acttype() );
+        if ( panicFuncType->argumentTypes.size() == 1 ) {
+            auto panicLambdaV = panicFunc->code_gen_field_decl( *this );
+
+            auto msgRefType = static_cast<const TxReferenceType*>(panicFuncType->argumentTypes.at( 0 ) );
+            auto msgRefTargTid = msgRefType->target_type()->get_type_id();
+            auto msgRefT = this->get_llvm_type( msgRefType );
+            auto msgPtrC = this->gen_const_cstring_address( message );
+            auto msgRefC = gen_ref( *this, msgRefT, msgPtrC, ConstantInt::get( Type::getInt32Ty( this->llvmContext ), msgRefTargTid ) );
+
+            std::vector<Value*> args( { (Value*)msgRefC } );
+            gen_lambda_call( *this, scope, panicLambdaV, args, "", true );
+            return;
+        }
+    }
+    THROW_LOGIC( "tx.panic() function of proper signature not found" );
+}
+
+void LlvmGenerationContext::gen_panic_call( GenScope* scope, const std::string& message, Value* ulongValV ) {
+    auto panicSymbol = dynamic_cast<TxEntitySymbol*>( search_symbol( &this->tuplexPackage, "tx.panic" ) );
+    ASSERT( panicSymbol, "Function not found: tx.panic" );
+    for ( auto declI = panicSymbol->fields_cbegin(); declI != panicSymbol->fields_cend(); declI++ ) {
+        auto panicFunc = (*declI)->get_definer()->get_field();
+        auto panicFuncType = dynamic_cast<const TxFunctionType*>( panicFunc->qualtype()->type()->acttype() );
+        if ( panicFuncType->argumentTypes.size() == 2 ) {
+            auto panicLambdaV = panicFunc->code_gen_field_decl( *this );
+
+            // TODO: make panic statement call the panic function
+            // TODO: make creating CString references easier
+            auto msgRefType = static_cast<const TxReferenceType*>(panicFuncType->argumentTypes.at( 0 ) );
+            auto msgRefTargTid = msgRefType->target_type()->get_type_id();
+            auto msgRefT = this->get_llvm_type( msgRefType );
+            auto msgPtrC = this->gen_const_cstring_address( message );
+            auto msgRefC = gen_ref( *this, msgRefT, msgPtrC, ConstantInt::get( Type::getInt32Ty( this->llvmContext ), msgRefTargTid ) );
+
+            std::vector<Value*> args( { (Value*)msgRefC, ulongValV } );
+            gen_lambda_call( *this, scope, panicLambdaV, args, "", true );
+            return;
+        }
+    }
+    THROW_LOGIC( "tx.panic() function of proper signature not found" );
+}
+
+
 /***** LLVM types and values "symbol table" *****/
 
 void LlvmGenerationContext::register_llvm_value( const std::string& identifier, Value* val ) {
@@ -454,8 +632,8 @@ Value* LlvmGenerationContext::lookup_llvm_value( const std::string& identifier )
         return val;
     }
     catch ( const std::out_of_range& oor ) {
-        LOG_DEBUG( this->LOGGER(), "Unknown LLVM value identifier " << identifier );
-        return nullptr;
+        LOG( this->LOGGER(), FATAL, "Unknown LLVM value identifier " << identifier );
+        throw;
     }
 }
 
@@ -589,19 +767,6 @@ void LlvmGenerationContext::generate_builtin_code() {
     this->gen_array_any_equals_function();
 }
 
-Value* LlvmGenerationContext::gen_equals_invocation( GenScope* scope, Value* lvalA, Value* lvalTypeIdV, Value* rvalA, Value* rvalTypeIdV ) {
-    const TxActualType* anyType = this->tuplexPackage.registry().get_builtin_type( TXBT_ANY )->acttype();
-    auto equalsField = anyType->get_virtual_fields().get_field( "equals" );
-    auto methodLambdaV = instance_method_value_code_gen( *this, scope, anyType, lvalTypeIdV, lvalA,
-                                                         equalsField->qualtype()->type()->acttype(), equalsField->get_unique_name(), false );
-    auto functionPtrV = gen_get_struct_member( *this, scope, methodLambdaV, 0 );
-    auto closureRefV = gen_get_struct_member( *this, scope, methodLambdaV, 1 );
-    auto otherRefT = TxReferenceType::make_ref_llvm_type( *this, llvm::StructType::get( this->llvmContext ) );  // ref to Any
-    auto otherRefV = gen_ref( *this, scope, otherRefT, rvalA, rvalTypeIdV );
-    std::vector<Value*> args( { closureRefV, otherRefV } );
-    return scope->builder->CreateCall( functionPtrV, args, "equals" );
-}
-
 void LlvmGenerationContext::gen_array_any_equals_function() {
     // This function is invoked when it is NOT known what one or both of the arrays' element types are.
 
@@ -624,23 +789,37 @@ void LlvmGenerationContext::gen_array_any_equals_function() {
     GenScope scope( &builder );
 
     auto parentFunc = builder.GetInsertBlock()->getParent();
-    BasicBlock* elemTyClEqBlock = BasicBlock::Create( this->llvmContext, "if_ArrElTyClEq",  parentFunc );
-    BasicBlock* elemElemBlock   = BasicBlock::Create( this->llvmContext, "if_ArrElemElem",  parentFunc );
-    BasicBlock* elemSameElemBlock = BasicBlock::Create( this->llvmContext, "if_ArrElemSameElem",  parentFunc );
-    BasicBlock* elemOtherBlock  = BasicBlock::Create( this->llvmContext, "if_ArrElemOther", parentFunc );
-    BasicBlock* arrUneqBlock    = BasicBlock::Create( this->llvmContext, "if_ArrUneq",      parentFunc );
+    BasicBlock* elemDaTyIdsBlock  = BasicBlock::Create( this->llvmContext, "if_ArrElDaTyIds",   parentFunc );
+    BasicBlock* elemTyClEqBlock   = BasicBlock::Create( this->llvmContext, "if_ArrElTyClEq",    parentFunc );
+    BasicBlock* elemElemBlock     = BasicBlock::Create( this->llvmContext, "if_ArrElemElem",    parentFunc );
+    BasicBlock* elemSameElemBlock = BasicBlock::Create( this->llvmContext, "if_ArrElemSameElem",parentFunc );
+    BasicBlock* elemOtherBlock    = BasicBlock::Create( this->llvmContext, "if_ArrElemOther",   parentFunc );
+    BasicBlock* arrUneqBlock      = BasicBlock::Create( this->llvmContext, "if_ArrUneq",        parentFunc );
 
     // When one or both the operands are dereferenced references to generic arrays (&Array),
     // the references' types must be examined in runtime for array element type class equality,
     // and if elementary also for element type equality.
     auto arrAElemTyIdV = this->gen_get_element_id( &scope, arrATypeIdV );
-    auto arrAElemTyClV = this->gen_get_type_class( &scope, arrAElemTyIdV );
     auto arrBElemTyIdV = this->gen_get_element_id( &scope, arrBTypeIdV );
-    auto arrBElemTyClV = this->gen_get_type_class( &scope, arrBElemTyIdV );
-    auto elTyClEqCondV = builder.CreateICmpEQ( arrAElemTyClV, arrBElemTyClV );
-    builder.CreateCondBr( elTyClEqCondV, elemTyClEqBlock, arrUneqBlock );
 
     {
+        // check if both element types are data types, i.e. have RTTI; otherwise revert to arrayA.equals( arrayB)
+        auto typeInfoLenC = cast<GlobalVariable>( this->lookup_llvm_value( "tx.runtime.TYPE_COUNT" ) )->getInitializer();
+        auto elADaTyIdCondV = builder.CreateICmpULT( arrAElemTyIdV, typeInfoLenC );
+        auto elBDaTyIdCondV = builder.CreateICmpULT( arrBElemTyIdV, typeInfoLenC );
+        auto elDaTyIdsCondV = builder.CreateAnd( elADaTyIdCondV, elBDaTyIdCondV );
+        builder.CreateCondBr( elDaTyIdsCondV, elemDaTyIdsBlock, elemOtherBlock );
+    }
+
+    {
+        // both element types are data types, i.e. have RTTI
+        builder.SetInsertPoint( elemDaTyIdsBlock );
+        auto arrAElemTyClV = this->gen_get_type_class( &scope, arrAElemTyIdV );
+        auto arrBElemTyClV = this->gen_get_type_class( &scope, arrBElemTyIdV );
+        auto elTyClEqCondV = builder.CreateICmpEQ( arrAElemTyClV, arrBElemTyClV );
+        builder.CreateCondBr( elTyClEqCondV, elemTyClEqBlock, arrUneqBlock );
+
+        // both element types are of the same type class
         builder.SetInsertPoint( elemTyClEqBlock );
         auto elemTyClC = ConstantInt::get( Type::getInt8Ty( this->llvmContext ), TXTC_ELEMENTARY );
         auto elemElemCondV = builder.CreateICmpEQ( arrAElemTyClV, elemTyClC );
@@ -725,167 +904,3 @@ void LlvmGenerationContext::gen_array_elementary_equals_function() {
         builder.CreateRet( ConstantInt::get( Type::getInt1Ty( this->llvmContext ), 0 ) );
     }
 }
-
-// currently not used, but has working runtime initialization logic, including malloc:
-//Function* LlvmGenerationContext::gen_static_init_function() {
-//    auto typeCountA = this->lookup_llvm_value( "tx.runtime.TYPE_COUNT" );
-//    ASSERT( typeCountA, "tx.runtime.TYPE_COUNT not found" );
-//    auto metaTypesA = this->lookup_llvm_value( "tx.runtime.META_TYPES" );
-//    ASSERT( metaTypesA, "tx.runtime.META_TYPES not found" );
-//
-//    auto int8T = Type::getInt8Ty( this->llvmContext );
-//    auto int32T = Type::getInt32Ty( this->llvmContext );
-//    auto int8PtrT = Type::getInt8PtrTy( this->llvmContext );
-//    //auto int32PtrT = Type::getInt32PtrTy(this->llvmContext);
-//    auto int8PtrArrPtrT = PointerType::getUnqual( ArrayType::get( int8PtrT, 0 ) );
-//    auto constZeroV = ConstantInt::get( int32T, 0 );
-//    auto constOneV = ConstantInt::get( int32T, 1 );
-//    auto mallocParameterType = int32T;
-//
-//    Function *init_func = cast<Function>( this->llvmModule().getOrInsertFunction( "tx.runtime.thread_init",
-//                                                                                int32T,
-//                                                                                NULL ) );
-//    BasicBlock *entryBlock = BasicBlock::Create( this->llvmModule().getContext(), "entry", init_func );
-//    IRBuilder<> builder( entryBlock );
-//    auto typeCountV = builder.CreateLoad( typeCountA, "TYPE_COUNT" );
-//
-//    Value* vtablePtrArr;
-//    {
-//        GlobalVariable* vtablePtrArrPtr = new GlobalVariable( this->llvmModule(), int8PtrArrPtrT, false, GlobalValue::ExternalLinkage,
-//                                                              ConstantPointerNull::get( int8PtrArrPtrT ),
-//                                                              "tx.runtime.VTABLES" );
-//        this->register_llvm_value( vtablePtrArrPtr->getName(), vtablePtrArrPtr );
-//        auto int8PtrSizeV = ConstantExpr::getTruncOrBitCast( ConstantExpr::getSizeOf( int8PtrT ), int32T );
-//        auto vtablePtrAllocI = CallInst::CreateMalloc( builder.GetInsertBlock(), mallocParameterType,
-//                                                       int8PtrT,
-//                                                       int8PtrSizeV, typeCountV, nullptr, "" );
-//        builder.GetInsertBlock()->getInstList().push_back( vtablePtrAllocI );
-//        vtablePtrArr = builder.CreatePointerCast( vtablePtrAllocI, int8PtrArrPtrT, "vtPtrArr" );
-//        builder.CreateStore( vtablePtrArr, vtablePtrArrPtr );
-//    }
-//
-//    // loop through meta type array and initialize every type's thread-local static data:
-//    BasicBlock* condBlock = BasicBlock::Create( this->llvmContext, "while_cond", init_func );
-//    BasicBlock* loopBlock = BasicBlock::Create( this->llvmContext, "while_loop", init_func );
-//    BasicBlock* postBlock = BasicBlock::Create( this->llvmContext, "while_post", init_func );
-//
-//    auto indexA = builder.CreateAlloca( int32T, nullptr, "index" );
-//    builder.CreateStore( constZeroV, indexA );
-//    builder.CreateBr( condBlock );  // branch from end of preceding block to condition-block
-//
-//    builder.SetInsertPoint( condBlock );
-//    auto indexV = builder.CreateLoad( indexA );
-//    {
-//        auto condV = builder.CreateICmpNE( indexV, typeCountV );
-//        builder.CreateCondBr( condV, loopBlock, postBlock );
-//    }
-//
-//    builder.SetInsertPoint( loopBlock );
-//    {
-//        Value* mtSizeIxs[] = { constZeroV, indexV, ConstantInt::get( int32T, 1 ) };
-//        auto allocSizeA = builder.CreateInBoundsGEP( metaTypesA, mtSizeIxs );
-//        auto allocSizeV = builder.CreateLoad( allocSizeA, "size" );
-//        auto vtableI = CallInst::CreateMalloc( builder.GetInsertBlock(), mallocParameterType,
-//                                               int8T,
-//                                               constOneV, allocSizeV, nullptr, "vtable" );
-//        builder.GetInsertBlock()->getInstList().push_back( vtableI );
-//        builder.CreateMemSet( vtableI, ConstantInt::get( int8T, 0 ), allocSizeV, 0 );  // FIX ME: init the vtable
-//
-//        {   // store the vtable pointer:
-//            Value* vtIxs[] = { constZeroV, indexV };
-//            auto vtPtrA = builder.CreateInBoundsGEP( vtablePtrArr, vtIxs );
-//            builder.CreateStore( vtableI, vtPtrA );
-//        }
-//
-//        // bump the index:
-//        auto newIndexV = builder.CreateAdd( indexV, constOneV, "newindex" );
-//        builder.CreateStore( newIndexV, indexA );
-//        builder.CreateBr( condBlock );  // branch from end of loop body to condition-block
-//    }
-//
-//    builder.SetInsertPoint( postBlock );
-//    {
-//        //Value* retVal = builder.CreatePtrToInt(vtablePtrArr, int32T);
-//        builder.CreateRet( typeCountV );
-//    }
-//
-//    return init_func;
-//}
-
-//void LlvmGenerationContext::initialize_external_functions() {
-//    {   // declare external C abort():
-//        std::vector<Type*> c_abort_args;
-//        FunctionType* c_abort_func_type = FunctionType::get(
-//                                                             /*Result=*/Type::getVoidTy( this->llvmContext ),
-//                                                             /*Params=*/c_abort_args,
-//                                                             /*isVarArg=*/false );
-//        Function* c_abortF = Function::Create(
-//                                               /*Type=*/c_abort_func_type,
-//                                               /*Linkage=*/GlobalValue::ExternalLinkage, // (external, no body)
-//                /*Name=*/"abort",
-//                &this->llvmModule() );
-//        c_abortF->setCallingConv( CallingConv::C );
-//
-//        // create adapter function:
-//        Function *t_abortF = cast<Function>(
-//                this->llvmModule().getOrInsertFunction( "tx.c.abort$func", Type::getVoidTy( this->llvmContext ), this->get_voidRefT(), NULL ) );
-//        BasicBlock *bb = BasicBlock::Create( this->llvmModule().getContext(), "entry", t_abortF );
-//        IRBuilder<> builder( bb );
-//        GenScope scope( &builder );
-//        CallInst *c_abortCall = builder.CreateCall( c_abortF );
-//        c_abortCall->setTailCall( false );
-//        ReturnInst::Create( this->llvmModule().getContext(), bb );
-//
-//        // store lambda object:
-//        auto nullClosureRefV = Constant::getNullValue( this->get_voidRefT() );
-//        std::vector<Type*> lambdaMemberTypes {
-//                                               t_abortF->getType(),   // function pointer
-//                this->get_voidRefT()  // null closure object pointer
-//        };
-//        auto lambdaT = StructType::get( this->llvmContext, lambdaMemberTypes );
-//        auto lambdaV = ConstantStruct::get( lambdaT, t_abortF, nullClosureRefV, NULL );
-//        auto lambdaA = new GlobalVariable( this->llvmModule(), lambdaT, true, GlobalValue::InternalLinkage, lambdaV, "tx.c.abort" );
-//        this->register_llvm_value( "tx.c.abort", lambdaA );
-//    }
-//
-//    // declare external C puts():
-//    std::vector<Type*> c_puts_args( { Type::getInt8PtrTy( this->llvmContext ) } );
-//    FunctionType* c_puts_func_type = FunctionType::get(
-//                                                        /*Result=*/Type::getInt32Ty( this->llvmContext ),
-//                                                        /*Params=*/c_puts_args,
-//                                                        /*isVarArg=*/false );
-//
-//    Function* c_putsF = Function::Create(
-//                                          /*Type=*/c_puts_func_type,
-//                                          /*Linkage=*/GlobalValue::ExternalLinkage, // (external, no body)
-//            /*Name=*/"puts",
-//            &this->llvmModule() );
-//    c_putsF->setCallingConv( CallingConv::C );
-//
-//    // create adapter function:
-//    auto cstrRefT = TxReferenceType::make_ref_llvm_type( *this, Type::getInt8Ty( this->llvmContext ) );
-//    Function *t_putsF = cast<Function>(
-//            this->llvmModule().getOrInsertFunction( "tx.c.puts$func", Type::getVoidTy( this->llvmContext ), this->get_voidRefT(), cstrRefT, NULL ) );
-//    BasicBlock *bb = BasicBlock::Create( this->llvmModule().getContext(), "entry", t_putsF );
-//    IRBuilder<> builder( bb );
-//    GenScope scope( &builder );
-//    Function::arg_iterator args = t_putsF->arg_begin();
-//    args++;  // the implicit closure pointer (null)
-//    Value *arg_1 = &(*args);
-//    arg_1->setName( "cstr" );
-//    Value* ptrV = gen_get_ref_pointer( *this, &scope, arg_1 );
-//    CallInst *cPutsCall = builder.CreateCall( c_putsF, ptrV );
-//    cPutsCall->setTailCall( false );
-//    ReturnInst::Create( this->llvmModule().getContext(), bb );
-//
-//    // store lambda object:
-//    auto nullClosureRefV = Constant::getNullValue( this->get_voidRefT() );
-//    std::vector<Type*> lambdaMemberTypes {
-//                                           t_putsF->getType(),   // function pointer
-//            this->get_voidRefT()  // null closure object pointer
-//    };
-//    auto lambdaT = StructType::get( this->llvmContext, lambdaMemberTypes );
-//    auto lambdaV = ConstantStruct::get( lambdaT, t_putsF, nullClosureRefV, NULL );
-//    auto lambdaA = new GlobalVariable( this->llvmModule(), lambdaT, true, GlobalValue::InternalLinkage, lambdaV, "tx.c.puts" );
-//    this->register_llvm_value( "tx.c.puts", lambdaA );
-//}

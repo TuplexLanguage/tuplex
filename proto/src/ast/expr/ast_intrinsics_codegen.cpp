@@ -59,3 +59,10 @@ Value* TxSizeofExprNode::code_gen_dyn_value( LlvmGenerationContext& context, Gen
 //    auto typeIdC = this->expr->code_gen_typeid( context );
 //    return context.gen_get_element_size( typeIdC );
 //}
+
+Value* TxSupertypesExprNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    auto typeIdV = this->expr->code_gen_typeid( context, scope );
+    auto arrayTypeIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->qualtype()->type()->target_type()->get_type_id() );
+    return context.gen_get_supertypes_array_ref( scope, typeIdV, arrayTypeIdC );
+}
