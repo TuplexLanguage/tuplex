@@ -133,9 +133,10 @@ public:
  *
  * Semantically, == and equals() are regarded as the same (value comparing) operation.
  *
- * == redirects to equals() for values that aren't elementary nor reference types.
+ * == redirects to equals() for values that aren't elementary, reference, or function types.
  *
  * For elementary values, == is a built-in, bitwise comparison.
+ * For function values, == is a built-in, bitwise comparison of function pointer and closure identity.
  * For reference values, == is a built-in, bitwise comparison, i.e. shallow compare.
  *
  * Array.equals() applies == on each element (so array of references will do shallow compare)
@@ -166,17 +167,9 @@ public:
         return new TxEqualityOperatorNode( this->ploc, this->lhs->originalExpr->make_ast_copy(), this->rhs->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        lhs->symbol_resolution_pass();
-        rhs->symbol_resolution_pass();
-    }
+    virtual void symbol_resolution_pass() override;
 
-    virtual bool is_statically_constant() const override {
-        auto tc = this->lhs->originalExpr->qualtype()->type()->get_type_class();
-        return this->lhs->is_statically_constant() && this->rhs->is_statically_constant()
-                && ( tc == TXTC_ELEMENTARY || tc == TXTC_ARRAY );
-    }
+    virtual bool is_statically_constant() const override;
 
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;

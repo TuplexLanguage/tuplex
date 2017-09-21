@@ -159,6 +159,13 @@ public:
         return false;
     }
 
+    inline virtual bool is_a( const TxActualType& other ) const override {
+        if ( other.get_type_class() == TXTC_ANY )
+            return true;
+        else
+            return *this == other;
+    }
+
     /** Makes the LLVM type of this function as seen from calling code, i.e. as a lambda object. */
     virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override;
 
@@ -304,7 +311,8 @@ public:
 
 /** Constitutes a type adapter from the adapted type to the interface type.
  * The interface type is the direct base type of the adapter type.
- * The type adapter is abstract - no instances of it are created - it is to be used as a reference target type. */
+ * Technically, the type adapter is as concrete/abstract/generic-dependent as its adapted type.
+ * However no instances of it are ever created - it is to be used as a reference target type. */
 class TxInterfaceAdapterType : public TxActualType {
     // as adapters are intrinsically abstract, no instances are created and can't be any more assignable than interfaces
     const TxActualType* adaptedType;

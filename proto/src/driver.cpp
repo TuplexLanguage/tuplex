@@ -28,10 +28,13 @@ const char *CORE_TX_SOURCE_STR =
     R"=====(
 module tx;
 
-
 /** Returns TRUE if v has tid among its supertypes / -interfaces. */
-isa( v : &Any, tid : UInt )->Bool {
-    supers : &Array<UInt> = _supertypes( v^ );
+isa( valueRef : &Any, tid : UInt )->Bool {
+    return isa( _typeid( valueRef ), tid );
+}
+
+isa( valueTid : UInt, tid : UInt )->Bool {
+    supers : &Array<UInt> = _supertypes( valueTid );
     lower := ~ 0UI;
     upper := ~ supers.L;
     while lower != upper {
@@ -45,6 +48,16 @@ isa( v : &Any, tid : UInt )->Bool {
             lower = pos + 1;
     }
     return FALSE;
+}
+
+builtin type Function derives Any
+{
+    override equals( other : &Any ) -> Bool {
+        if other is o : &Self {
+            return self^ == o^;
+        }
+        return FALSE;
+    }
 }
     )====="
 ;

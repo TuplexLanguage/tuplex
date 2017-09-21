@@ -48,21 +48,39 @@ Constant* TxRefTypeIdNode::code_gen_const_value( LlvmGenerationContext& context 
 }
 
 
+Value* TxTypeExprTypeIdNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    return this->code_gen_const_value( context );
+}
+
+Constant* TxTypeExprTypeIdNode::code_gen_const_value( LlvmGenerationContext& context ) const {
+    TRACE_CODEGEN( this, context );
+    return ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->typeExpr->qualtype()->get_type_id() );
+}
+
+
 Value* TxSizeofExprNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     auto typeIdV = this->expr->code_gen_typeid( context, scope );
-    return context.gen_get_element_size( scope, typeIdV );
+    return context.gen_get_element_size( scope, this->expr->qualtype()->type()->acttype(), typeIdV );
 }
 
-//Constant* TxSizeofExprNode::code_gen_const_value( LlvmGenerationContext& context ) const {
-//    TRACE_CODEGEN( this, context );
-//    auto typeIdC = this->expr->code_gen_typeid( context );
-//    return context.gen_get_element_size( typeIdC );
-//}
+Constant* TxSizeofExprNode::code_gen_const_value( LlvmGenerationContext& context ) const {
+    TRACE_CODEGEN( this, context );
+    auto typeIdC = this->expr->code_gen_typeid( context );
+    return cast<Constant>( context.gen_get_element_size( nullptr, this->expr->qualtype()->type()->acttype(), typeIdC ) );
+}
+
 
 Value* TxSupertypesExprNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto typeIdV = this->expr->code_gen_typeid( context, scope );
+    auto typeIdV = this->expr->code_gen_dyn_value( context, scope );
     auto arrayTypeIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->qualtype()->type()->target_type()->get_type_id() );
-    return context.gen_get_supertypes_array_ref( scope, typeIdV, arrayTypeIdC );
+    return context.gen_get_supertypes_array_ref( scope, this->expr->qualtype()->type()->acttype(), typeIdV, arrayTypeIdC );
 }
+
+//Value* TxSupertypesExprNode::code_gen_const_value( LlvmGenerationContext& context ) const {
+//    TRACE_CODEGEN( this, context );
+//    auto typeIdC = this->expr->code_gen_const_value( context );
+//    auto arrayTypeIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->qualtype()->type()->target_type()->get_type_id() );
+//    return context.gen_get_supertypes_array_ref( this->expr->qualtype()->type()->acttype(), typeIdC, arrayTypeIdC );
+//}

@@ -112,7 +112,7 @@ void TxArrayCopyStmtNode::code_gen( LlvmGenerationContext& context, GenScope* sc
         // FUTURE: For non-elementary element types, copy each element according to type's copy constructor, if allowed.
         // compute array data size:
         auto lvalTypeIdV = this->lvalue->code_gen_typeid( context, scope );
-        auto elemSizeV = context.gen_get_element_size( scope, lvalTypeIdV );
+        auto elemSizeV = context.gen_get_element_size( scope, this->lvalue->qualtype()->type()->acttype(), lvalTypeIdV );
         auto elemSize64V = scope->builder->CreateZExtOrBitCast( elemSizeV, Type::getInt64Ty( context.llvmContext ) );
         auto srcLen64V = scope->builder->CreateZExtOrBitCast( srcLenV, Type::getInt64Ty( context.llvmContext ) );
         auto dataSizeV = scope->builder->CreateMul( elemSize64V, srcLen64V, "datasize" );

@@ -53,6 +53,10 @@ class TypeRegistry {
      * The vtable types are a subset of the runtime types. */
     uint32_t vtableTypesCount = 0;
 
+    uint32_t refTypesLimit = 0;
+
+    uint32_t funcTypesLimit = 0;
+
     /** for the convenience method get_string_type() */
     TxTypeExpressionNode* stringTypeNode = nullptr;
 
@@ -172,6 +176,18 @@ public:
      * Note, the type set order is: built-in types < data types < vtable types < runtime types */
     inline uint32_t runtime_types_count() const {
         return this->runtimeTypes.size();
+    }
+
+    /** Returns the Function type id limit (one past the top function type id).
+     * Note, greater than reference type id limit and less than runtime type count. */
+    inline uint32_t func_types_limit() const {
+        return this->funcTypesLimit;
+    }
+
+    /** Returns the Ref type id limit (one past the top reference type id).
+     * Note, greater than vtable types count and less than function type id limit. */
+    inline uint32_t ref_types_limit() const {
+        return this->refTypesLimit;
     }
 
     /** Returns the number of vtable types.

@@ -68,12 +68,12 @@ static bool is_non_virtual_lookup( const TxExpressionNode* baseExpr ) {
         return false;
 }
 
-/** Generate code to obtain field value, potentially based on a base value (pointer). */
-static Value* field_addr_code_gen( LlvmGenerationContext& context, GenScope* scope,
-                                   const TxExpressionNode* baseExpr, const TxField* fieldEntity ) {
-    ASSERT( !( fieldEntity->get_decl_flags() & TXD_CONSTRUCTOR ), "Can't get 'field value' of constructor " << fieldEntity );
 
-    switch ( fieldEntity->get_storage() ) {
+Value* TxFieldValueNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
+    // Generate code to obtain field value, potentially based on a base value (pointer).
+    ASSERT( !( field->get_decl_flags() & TXD_CONSTRUCTOR ), "Can't get 'field value' of constructor " << field );
+
+    switch ( field->get_storage() ) {
     case TXS_VIRTUAL:
         if ( baseExpr ) {
             // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference
@@ -81,17 +81,18 @@ static Value* field_addr_code_gen( LlvmGenerationContext& context, GenScope* sco
             auto baseType = baseExpr->qualtype()->type()->acttype();
             Value* baseTypeIdV = nonvirtualLookup ? baseType->gen_typeid( context )  // static
                                                   : baseExpr->code_gen_typeid( context, scope );  // runtime (static unless reference)
-            return virtual_field_addr_code_gen( context, scope, baseType, baseTypeIdV, fieldEntity->get_unique_name() );
+            return virtual_field_addr_code_gen( context, scope, baseType, baseTypeIdV, field->get_unique_name() );
         }
         else {
-            THROW_LOGIC( "Can't access virtual field without base value/expression: " << fieldEntity );
+            // TODO: allow un-based access to virtual (non-instance) methods within same type?
+            CERR_CODECHECK( this, "Can't access virtual field without base value/expression: " << field );
         }
         break;
 
     case TXS_STATIC:
     case TXS_GLOBAL:
         {
-            Value* val = fieldEntity->code_gen_field_decl( context );
+            Value* val = field->code_gen_field_decl( context );
             return val;
         }
 
@@ -99,29 +100,24 @@ static Value* field_addr_code_gen( LlvmGenerationContext& context, GenScope* sco
         if ( baseExpr ) {
             auto baseValue = baseExpr->code_gen_dyn_address( context, scope );
             auto staticBaseType = baseExpr->qualtype()->type()->acttype();
-            uint32_t fieldIx = staticBaseType->get_instance_fields().get_field_index( fieldEntity->get_unique_name() );
-            ASSERT( fieldIx != UINT32_MAX, "Unknown field index for field " << fieldEntity->get_unique_name() << " in " << staticBaseType );
+            uint32_t fieldIx = staticBaseType->get_instance_fields().get_field_index( field->get_unique_name() );
+            ASSERT( fieldIx != UINT32_MAX, "Unknown field index for field " << field->get_unique_name() << " in " << staticBaseType );
             //std::cerr << "Getting TXS_INSTANCE ix " << fieldIx << " value off LLVM base value: " << baseValue << std::endl;
             Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                              ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };
             return scope->builder->CreateInBoundsGEP( baseValue, ixs );
         }
         else {
-            THROW_LOGIC( "Can't access instance field without base value/expression: " << fieldEntity );
+            THROW_LOGIC( "Can't access instance field without base value/expression: " << field );
         }
         break;
 
     case TXS_STACK:
-        return fieldEntity->get_llvm_value();
+        return field->get_llvm_value();
 
     default:
-        THROW_LOGIC( "Can't generate address for field with storage type " << fieldEntity->get_storage() << ": " << fieldEntity );
+        THROW_LOGIC( "Can't generate address for field with storage type " << field->get_storage() << ": " << field );
     }
-}
-
-
-Value* TxFieldValueNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
-    return field_addr_code_gen( context, scope, this->baseExpr, this->field );
 }
 
 Value* TxFieldValueNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -130,6 +126,7 @@ Value* TxFieldValueNode::code_gen_dyn_value( LlvmGenerationContext& context, Gen
     if ( this->field->get_storage() == TXS_INSTANCEMETHOD ) {
         if ( baseExpr ) {
             // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference, and not 'super'
+            // TODO: leaf type accesses are also non-virtual
             bool nonvirtualLookup = is_non_virtual_lookup( baseExpr );  // true for super.foo lookups
             Value* runtimeBaseTypeIdV = baseExpr->code_gen_typeid( context, scope );  // (static unless reference)
             Value* basePtrV = baseExpr->code_gen_dyn_address( context, scope );  // expected to be of pointer type

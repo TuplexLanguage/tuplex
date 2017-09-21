@@ -1,0 +1,167 @@
+## tests equality operator and equals() method for the different type classes
+
+square( a : Int )->Int { return a * a; }
+
+interface Face { }
+
+type Body <: Tuple, Face {
+    member : Int;
+    self( m : Int ) {
+        self.member = m;
+    }
+
+    override equals( o : &Any )->Bool {
+        if o is b : &Body :
+            return self.member == b.member;
+        return FALSE;
+    }
+}
+
+
+type SimpleGenTest<L,R> {
+    virtual test_eq( left : &L, same : &R, diff : &R ) {
+        Self.test_eq_op( left, same, diff );
+        if !isa( _typeid( left ), _typeid< Ref > ):
+            Self.test_equals( left, same, diff );
+    }
+
+    virtual test_eq_op( left : &L, same : &R, diff : &R ) {
+        assert left^ == left^;
+        assert same^ == same^;
+        assert diff^ == diff^;
+        assert left^ == same^;
+        assert left^ != diff^;
+    }
+
+    virtual test_equals( left : &L, same : &R, diff : &R ) {
+        assert left.equals( left );
+        assert same.equals( same );
+        assert diff.equals( diff );
+        assert left.equals( same );
+        assert !left.equals( diff );
+    }
+}
+
+type GenTest<L,R> {
+
+    virtual test_eq_val( left : &L, same : &R, diff : &R ) {
+        tester : SimpleGenTest<L,R>;
+        tester.test_eq( left, same, diff );
+    }
+
+    virtual test_eq_ref( left : &L, same : &R, diff : &R ) {
+        tester : SimpleGenTest<Ref<L>,Ref<R>>;
+        lr := &left;  sr := &same;  dr := &diff;
+        tester.test_eq( lr, lr, sr );
+        tester.test_eq( lr, lr, dr );
+    }
+
+    virtual test_eq_arr_cop( left : &L, same : &R, diff : &R ) {
+        tester : SimpleGenTest<Array<L,3>,Array<R,3>>;
+        l := [ left^, left^, left^ ];
+        s := [ same^, same^, same^ ];
+        d := [ diff^, diff^, diff^ ];
+        tester.test_eq( &l, &s, &d );
+    }
+
+    virtual test_eq_arr_ref( left : &L, same : &R, diff : &R ) {
+        tester : SimpleGenTest<Array<&L,3>,Array<&L,3>>;
+        l : Array<&L,3> = [ left, left, left ];
+        s : Array<&L,3> = [ same, same, same ];
+        d : Array<&L,3> = [ diff, diff, diff ];
+        tester.test_eq( &l, &l, &s );
+        tester.test_eq( &l, &l, &d );
+    }
+
+    virtual test_eq( left : &L, same : &R, diff : &R ) {
+        Self.test_eq_val( left, same, diff );
+        Self.test_eq_ref( left, same, diff );
+        Self.test_eq_arr_cop( left, same, diff );
+        ## TODO: Comparison of arrays of references doesn't work well due to duplicate type specialization generation,
+        ##       leading to is-a relationship test not always working.
+        ##Self.test_eq_arr_ref( left, same, diff );
+    }
+}
+
+
+main() -> Int {
+## elementary types:
+    {
+        type UByteTest <: GenTest<UByte,UByte>;
+        UByteTest.test_eq( &100UB, &100UB, &200UB );
+    
+        type UShortTest <: GenTest<UShort,UShort>;
+        UShortTest.test_eq( &100US, &100US, &200US );
+    
+        type UIntTest <: GenTest<UInt,UInt>;
+        UIntTest.test_eq( &100UI, &100UI, &200UI );
+    
+        type ULongTest <: GenTest<ULong,ULong>;
+        ULongTest.test_eq( &100UL, &100UL, &200UL );
+    
+        type ByteTest <: GenTest<Byte,Byte>;
+        ByteTest.test_eq( &10B, &10B, &20B );
+    
+        type ShortTest <: GenTest<Short,Short>;
+        ShortTest.test_eq( &100S, &100S, &200S );
+    
+        type IntTest <: GenTest<Int,Int>;
+        IntTest.test_eq( &100I, &100I, &200I );
+    
+        type LongTest <: GenTest<Long,Long>;
+        LongTest.test_eq( &100L, &100L, &200L );
+    
+        type FloatTest <: GenTest<Float,Float>;
+        FloatTest.test_eq( &100.1F, &100.1F, &200.1F );
+    
+        type DoubleTest <: GenTest<Double,Double>;
+        DoubleTest.test_eq( &100.1D, &100.1D, &200.2D );
+    
+        type BoolTest <: GenTest<Bool,Bool>;
+        BoolTest.test_eq( &TRUE, &TRUE, &FALSE );
+    }
+
+## functions:
+    {
+        type FuncType <: ( a : Int )->Int;
+        type FuncTest <: GenTest<FuncType,FuncType>;
+        square2 := ( a : Int )->Int { return a * a; };
+        sameFunc : ( a : Int )->Int = square;
+        FuncTest.test_eq( &square, &sameFunc, &square2 );
+    }
+
+## references:
+    {
+        type RefTest <: GenTest<&Int,&Int>;
+        r1 := &100I;  r2 := r1;  r3 := &100I;
+        RefTest.test_eq( &r1, &r2, &r3 );
+    }
+
+## arrays:
+    {
+        type ArrayTest <: GenTest<[4]Int,[4]Int>;
+        a1 := [ 100I, 200I, 300I, 400I ];
+        a2 := a1;
+        a3 := [ 200I, 200I, 300I, 400I ];
+        ArrayTest.test_eq( &a1, &a2, &a3 );
+    }
+
+## tuples:
+    {
+        type TupleTest <: GenTest<Body,Body>;
+        TupleTest.test_eq( Body(100), Body(100), Body(200) );
+    }
+
+## interfaces & interface adapters:
+    {
+        type InterfaceTest <: GenTest<&Face,&Face>;
+        left : &Face = new Body(100);  same : &Face = new Body(100);  diff : &Face = new Body(200);
+        assert left.equals( left );
+        assert same.equals( same );
+        assert diff.equals( diff );
+        assert left.equals( same );
+        assert !left.equals( diff );
+    }
+
+    return 0;
+}

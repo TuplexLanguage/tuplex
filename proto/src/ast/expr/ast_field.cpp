@@ -4,6 +4,7 @@
 #include "ast_constexpr.hpp"
 #include "ast_ref.hpp"
 #include "ast_conv.hpp"
+#include "inner_conv.hpp"
 
 #include "ast/ast_util.hpp"
 
@@ -23,6 +24,7 @@ int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType *r
     if ( auto_converts_to( originalExpr, requiredType ) )
         return 2;
 
+#ifndef NO_IMPLICIT_REF_DEREF
     if ( requiredType->get_type_class() == TXTC_REFERENCE ) {
         if ( auto expRefTargetType = requiredType->target_type() ) {
             if ( originalType->is_a( *expRefTargetType->type() ) ) {
@@ -39,6 +41,7 @@ int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType *r
             }
         }
     }
+#endif
 
     return -1;  // does not match
 }

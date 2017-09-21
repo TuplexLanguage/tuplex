@@ -154,37 +154,47 @@ Value* TxUnaryLogicalNotNode::code_gen_dyn_value( LlvmGenerationContext& context
 
 llvm::Constant* TxEqualityOperatorNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
-    auto lval = this->lhs->code_gen_const_value( context );
-    auto rval = this->rhs->code_gen_const_value( context );
+    auto lvalC = this->lhs->code_gen_const_value( context );
+    auto rvalC = this->rhs->code_gen_const_value( context );
 
     auto lhsType = this->lhs->qualtype()->type()->acttype();
     auto lhsTypeclass = lhsType->get_type_class();
 
     if ( lhsTypeclass == TXTC_ELEMENTARY ) {
         if ( dynamic_cast<const TxFloatingType*>( lhsType ) ) {
-            return ConstantExpr::getFCmp( CmpInst::Predicate::FCMP_OEQ, lval, rval );
+            return ConstantExpr::getFCmp( CmpInst::Predicate::FCMP_OEQ, lvalC, rvalC );
         }
         else {  // integer or boolean
-            return ConstantExpr::getICmp( CmpInst::Predicate::ICMP_EQ, lval, rval );
+            return ConstantExpr::getICmp( CmpInst::Predicate::ICMP_EQ, lvalC, rvalC );
         }
     }
     else if ( lhsTypeclass == TXTC_REFERENCE ) {
-        return ConstantExpr::getICmp( CmpInst::Predicate::ICMP_EQ, lval, rval );
+        return ConstantExpr::getICmp( CmpInst::Predicate::ICMP_EQ,
+                                      gen_get_ref_pointer( context, lvalC ),
+                                      gen_get_ref_pointer( context, rvalC ) );
+    }
+    else if ( lhsTypeclass == TXTC_FUNCTION ) {
+        return ConstantExpr::getAnd( ConstantExpr::getICmp( CmpInst::Predicate::ICMP_EQ,
+                                                            gen_get_struct_member( context, lvalC, 0 ),
+                                                            gen_get_struct_member( context, rvalC, 0 ) ),
+                                     ConstantExpr::getICmp( CmpInst::Predicate::ICMP_EQ,
+                                                            gen_get_ref_pointer( context, gen_get_struct_member( context, lvalC, 1 ) ),
+                                                            gen_get_ref_pointer( context, gen_get_struct_member( context, rvalC, 1 ) ) ) );
     }
     else if ( lhsTypeclass == TXTC_ARRAY ) {
         uint32_t lenIxs[] = { 1 };
-        auto lvalLengthC = ConstantExpr::getExtractValue( lval, lenIxs );
-        auto rvalLengthC = ConstantExpr::getExtractValue( rval, lenIxs );
+        auto lvalLengthC = ConstantExpr::getExtractValue( lvalC, lenIxs );
+        auto rvalLengthC = ConstantExpr::getExtractValue( rvalC, lenIxs );
         auto lenCondC = ConstantExpr::getICmp( CmpInst::Predicate::ICMP_EQ, lvalLengthC, rvalLengthC );
         uint64_t lenCond = cast<ConstantInt>( lenCondC )->getZExtValue();
         if ( lenCond ) {
             uint64_t length = cast<ConstantInt>( lvalLengthC )->getZExtValue();
-            auto elemT = lval->getType()->getContainedType( 2 )->getArrayElementType();
+            auto elemT = lvalC->getType()->getContainedType( 2 )->getArrayElementType();
             CmpInst::Predicate eqPred = ( elemT->isFloatingPointTy() ? CmpInst::Predicate::FCMP_OEQ : CmpInst::Predicate::ICMP_EQ );
             for ( unsigned ix = 0; ix < length; ++ix ) {
                 uint32_t elemIxs[] = { 2, ix };
-                auto lvalElemC = ConstantExpr::getExtractValue( lval, elemIxs );
-                auto rvalElemC = ConstantExpr::getExtractValue( rval, elemIxs );
+                auto lvalElemC = ConstantExpr::getExtractValue( lvalC, elemIxs );
+                auto rvalElemC = ConstantExpr::getExtractValue( rvalC, elemIxs );
                 auto cmpCondC = ConstantExpr::getCompare( eqPred, lvalElemC, rvalElemC );
                 if ( !cast<ConstantInt>( cmpCondC )->getZExtValue() )
                     return cmpCondC;   // false i.e. unequal
@@ -223,6 +233,18 @@ Value* TxEqualityOperatorNode::code_gen_dyn_value( LlvmGenerationContext& contex
         auto lvalPtr = gen_get_ref_pointer( context, scope, this->lhs->code_gen_dyn_value( context, scope ) );
         auto rvalPtr = gen_get_ref_pointer( context, scope, this->rhs->code_gen_dyn_value( context, scope ) );
         return scope->builder->CreateICmp( CmpInst::Predicate::ICMP_EQ, lvalPtr, rvalPtr, fieldName );
+    }
+
+    else if ( lhsTypeclass == TXTC_FUNCTION ) {
+        auto lval = this->lhs->code_gen_dyn_value( context, scope );
+        auto lFunctionPtrV = gen_get_struct_member( context, scope, lval, 0 );
+        auto lClosurePtrV = gen_get_ref_pointer( context, scope, gen_get_struct_member( context, scope, lval, 1 ) );
+        auto rval = this->rhs->code_gen_dyn_value( context, scope );
+        auto rFunctionPtrV = gen_get_struct_member( context, scope, rval, 0 );
+        auto rClosurePtrV = gen_get_ref_pointer( context, scope, gen_get_struct_member( context, scope, rval, 1 ) );
+        auto funcEqV = scope->builder->CreateICmp( CmpInst::Predicate::ICMP_EQ, lFunctionPtrV, rFunctionPtrV );
+        auto closEqV = scope->builder->CreateICmp( CmpInst::Predicate::ICMP_EQ, lClosurePtrV, rClosurePtrV );
+        return scope->builder->CreateAnd( funcEqV, closEqV );
     }
 
     else if ( lhsTypeclass == TXTC_ARRAY ) {

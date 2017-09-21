@@ -218,7 +218,8 @@ void TxTypeDeclNode::declaration_pass() {
     if ( !lexContext.is_generic() && this->typeParamDecls ) {
         for ( auto paramDeclNode : *this->typeParamDecls ) {
             if ( paramDeclNode->get_decl_flags() & TXD_GENPARAM ) {
-                if ( dynamic_cast<TxTypeDeclNode*>( paramDeclNode ) ) {  // experimental: represents type-generic
+                // Note: This identities a generic type declaration, but not specializations whose bindings are generic-dependent
+                if ( dynamic_cast<TxTypeDeclNode*>( paramDeclNode ) ) {
                     this->lexContext.generic = true;
                     break;
                 }

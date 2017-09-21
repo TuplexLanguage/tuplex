@@ -34,7 +34,7 @@ TxPanicStmtNode::TxPanicStmtNode( const TxLocation& ploc, const std::string& mes
     msg << ":" << this->ploc.begin.line;
     msg << ": Panic: " << message;
     std::string panicMsg = "c\"" + msg.str() + "\n\"";
-    auto msgExpr = new TxCStringLitNode( this->ploc, panicMsg );
+    auto msgExpr = new TxReferenceToNode( this->ploc, new TxCStringLitNode( this->ploc, panicMsg ) );
 
     auto stderrArg = new TxFieldValueNode( this->ploc, nullptr, "tx.c.stderr" );
     auto putsCallee = new TxFieldValueNode( this->ploc, nullptr, "tx.c.fputs" );

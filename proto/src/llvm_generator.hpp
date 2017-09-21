@@ -69,6 +69,8 @@ class LlvmGenerationContext {
     // some common, basic types:
     llvm::Type* voidPtrT;
     llvm::Type* closureRefT;
+    llvm::Type* i32T;
+    llvm::PointerType* superTypesPtrT;
 
     // simple symbol table for 'internal' llvm values (not in the normal AST symbol table):
     void register_llvm_value( const std::string& identifier, llvm::Value* val );
@@ -77,9 +79,10 @@ class LlvmGenerationContext {
     llvm::StructType* get_vtable_meta_type( const TxActualType* acttype );
     llvm::GlobalVariable* get_vtable( const TxActualType* acttype );
 
-    llvm::Value* gen_get_type_info( GenScope* scope, llvm::Value* runtimeBaseTypeIdV, unsigned fieldIndex );
+    llvm::Value* gen_get_type_info( GenScope* scope, const TxActualType* staticType, llvm::Value* runtimeBaseTypeIdV, unsigned fieldIndex );
 
     llvm::Function* gen_main_function( const std::string userMain, bool hasIntReturnValue );
+    void gen_get_supertypes_array_function();
     void gen_array_any_equals_function();
     void gen_array_elementary_equals_function();
 
@@ -94,6 +97,8 @@ public:
     {
         this->voidPtrT = llvm::Type::getInt8PtrTy( this->llvmContext );
         this->closureRefT = TxReferenceType::make_ref_llvm_type( *this, llvm::Type::getInt8Ty( this->llvmContext ), "ClosRef" );
+        this->i32T = llvm::Type::getInt32Ty( this->llvmContext );
+        this->superTypesPtrT = llvm::PointerType::getUnqual( llvm::StructType::get( i32T, i32T, llvm::ArrayType::get( i32T, 0 ), NULL ) );
     }
 
     inline llvm::Module& llvmModule() const {
@@ -135,27 +140,27 @@ public:
     void gen_panic_call( GenScope* scope, const std::string& message, llvm::Value* ulongValV );
 
     llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, llvm::Value* typeIdV );
-    llvm::Value* gen_get_vtable( GenScope* scope, const TxActualType* statDeclType );
 
     /** Generates code that gets the instance/element size for a given type id value.
      * NOTE: For arrays this returns the instance size of their element type.
      * @return an i32 value */
-    llvm::Value* gen_get_element_size( GenScope* scope, llvm::Value* typeIdV );
+    llvm::Value* gen_get_element_size( GenScope* scope, const TxActualType* staticType, llvm::Value* typeIdV );
 
     /** Generates code that gets the element type id for a given Array type id.
      * Only valid to call for array types.
      * @return an i32 value */
-    llvm::Value* gen_get_element_id( GenScope* scope, llvm::Value* typeIdV );
+    llvm::Value* gen_get_element_type_id( GenScope* scope, const TxActualType* staticType, llvm::Value* typeIdV );
 
     /** Generates code that gets the type class id for a given type id.
      * @return an i8 value */
-    llvm::Value* gen_get_type_class( GenScope* scope, llvm::Value* typeIdV );
+    llvm::Value* gen_get_type_class( GenScope* scope, const TxActualType* staticType, llvm::Value* typeIdV );
 
     /** Generates code that gets the super-types array for a given type id.
      * @return a pointer to a Tuplex array of Int: { i32, i32, [0 x i32] }* */
-    llvm::Value* gen_get_supertypes_array( GenScope* scope, llvm::Value* typeIdV ) const;
+    llvm::Value* gen_get_supertypes_array( GenScope* scope, const TxActualType* staticType, llvm::Value* typeIdV );
 
-    llvm::Value* gen_get_supertypes_array_ref( GenScope* scope, llvm::Value* runtimeBaseTypeIdV, llvm::Constant* arrayTypeIdC );
+    llvm::Value* gen_get_supertypes_array_ref( GenScope* scope, const TxActualType* staticType, llvm::Value* runtimeBaseTypeIdV,
+                                               llvm::Constant* arrayTypeIdC );
 
     /** Generate the LLVM code for the provided AST, which must be in global/static scope. */
     int generate_code( const TxParsingUnitNode* staticScopeNode );

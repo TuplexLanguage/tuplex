@@ -1,4 +1,5 @@
 #include "ast_conv.hpp"
+#include "inner_conv.hpp"
 #include "ast_exprs.hpp"
 #include "ast_maybe_conv_node.hpp"
 #include "ast_ref.hpp"
@@ -183,6 +184,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
     if ( auto newExpr = inner_wrap_conversion( originalExpr, originalType, requiredType, _explicit ) )
         return newExpr;
 
+#ifndef NO_IMPLICIT_REF_DEREF
     // implicit reference-to ('&') operation:
     if ( requiredType->get_type_class() == TXTC_REFERENCE ) {
         if ( auto reqRefTargetType = requiredType->target_type() ) {
@@ -222,6 +224,7 @@ static TxExpressionNode* inner_validate_wrap_convert( TxExpressionNode* original
             }
         }
     }
+#endif
 
     CERR_THROWRES( originalExpr, "Can't auto-convert value\n\tFrom: " << originalType << " \t@" << originalExpr->get_parse_location()
                    << "\n\tTo:   " << requiredType << " \t@" << requiredType->get_parse_location() );

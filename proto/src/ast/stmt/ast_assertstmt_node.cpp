@@ -26,7 +26,7 @@ TxAssertStmtNode::TxAssertStmtNode( const TxLocation& ploc, TxExpressionNode* ex
     //msg << ": `" << srcExpr << "`";  // TODO: source text needed for this
     //msg << ": " << customMessage;    // TODO: supported custom assert message
     std::string assertFailedMsg = "c\"" + msg.str() + "\n\"";
-    auto msgExpr = new TxCStringLitNode( pLoc, assertFailedMsg );
+    auto msgExpr = new TxReferenceToNode( pLoc, new TxCStringLitNode( pLoc, assertFailedMsg ) );
     auto stderrArg = new TxFieldValueNode( this->ploc, nullptr, "tx.c.stderr" );
     auto putsCallee = new TxFieldValueNode( pLoc, nullptr, "tx.c.fputs" );
     auto putsCallExpr = new TxFunctionCallNode( pLoc, putsCallee, new std::vector<TxExpressionNode*>( { msgExpr, stderrArg } ) );

@@ -168,14 +168,18 @@ static void add_base_types( std::set<uint32_t>& supertypes, const TxActualType* 
 
 /** construct array of sorted supertype ids (used for dynamic is-a) */
 static Constant* gen_supertype_ids( LlvmGenerationContext* context, const TxActualType* acttype ) {
-    auto int32T = Type::getInt32Ty( context->llvmContext );
     std::set<uint32_t> supertypes;
     add_base_types( supertypes, acttype );  // (also adds the type itself)
+    if ( acttype->get_type_class() == TXTC_INTERFACEADAPTER )
+        add_base_types( supertypes, static_cast<const TxInterfaceAdapterType*>(acttype)->adapted_type() );
+
     std::vector<uint32_t> supertypesvec( supertypes.cbegin(), supertypes.cend() );
-//    if ( acttype->get_type_class() == TXTC_ARRAY ) {
+//    if ( acttype->get_type_class() == TXTC_INTERFACEADAPTER ) {
 //        std::cerr << "Supertypes of " << acttype << " with id " << acttype->get_runtime_type_id() << std::endl;
 //        for ( auto t : supertypesvec )  std::cerr << "  super type id: " << t << std::endl;
 //    }
+
+    auto int32T = Type::getInt32Ty( context->llvmContext );
     auto typesArrayLenC = ConstantInt::get( int32T, supertypesvec.size() );
     auto typesArrayT = StructType::get( int32T, int32T, ArrayType::get( int32T, supertypesvec.size() ), NULL );
     Constant* typesArrayC = ConstantStruct::get( typesArrayT, typesArrayLenC, typesArrayLenC,
@@ -215,19 +219,23 @@ GlobalVariable* LlvmGenerationContext::get_vtable( const TxActualType* acttype )
 }
 
 void LlvmGenerationContext::generate_runtime_type_info() {
-    auto int32T = Type::getInt32Ty( this->llvmContext );
+    /* Runtime representation notes:
+     * Data types are the built-in types, and the concrete user types.
+     * Data types have a larger RTTI structure than other types.
+     */
+
+    /** array of i8, length equal to number of vtable types */
+    std::vector<Constant*> typeClasses;
 
     auto emptyStructPtrT = PointerType::getUnqual( StructType::get( this->llvmContext ) );
     std::vector<Type*> metaTypeFields {
             emptyStructPtrT,  // vtable pointer
-            int32T,           // instance size (for Array types, element instance size)
-            int32T,           // type id
-            int32T,           // element type id (for Array types)
-            Type::getInt8Ty( this->llvmContext ),  // type class id
+            i32T,           // instance size (for Array types, element instance size)
+            i32T,           // type id
+            i32T,           // element type id (for Array types)
     };
     StructType* typeInfoT = StructType::create( metaTypeFields, "tx.runtime.$TypeInfo" );
 
-    auto superTypesPtrT = PointerType::getUnqual( StructType::get( int32T, int32T, ArrayType::get( int32T, 0 ), NULL ) );
     std::vector<Constant*> supertypeArrays;
 
     // create runtime type info for the data types:
@@ -244,16 +252,16 @@ void LlvmGenerationContext::generate_runtime_type_info() {
             if ( acttype->get_type_class() == TXTC_ARRAY ) {
                 // arrays are a special case, where the value-generic (non-concrete) supertype can have statically known element size
                 instanceSizeC = ConstantExpr::getTrunc( acttype->gen_static_element_size( *this ),
-                                                        Type::getInt32Ty( this->llvmContext ) );
+                                                        this->i32T );
             }
             else {
                 instanceSizeC = ConstantExpr::getTrunc( acttype->gen_static_element_size( *this ),
-                                                        Type::getInt32Ty( this->llvmContext ) );
+                                                        this->i32T );
             }
         }
         else {
             LOG_TRACE( this->LOGGER(), "Creating runtime type info for data type " << acttype << "  \t(not statically concrete)" );
-            instanceSizeC = ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 );
+            instanceSizeC = ConstantInt::get( this->i32T, 0 );
         }
 
         // ensure the vtable meta type is created:
@@ -261,26 +269,28 @@ void LlvmGenerationContext::generate_runtime_type_info() {
 
         // create the vtable instance:
         auto vtype = acttype;
-        while ( vtype->is_same_vtable_type() )
+        while ( vtype->is_same_vtable_type() ) {
             vtype = vtype->get_semantic_base_type();
+        }
         // Note: Concrete types may use a (possibly shared) vtable instance of an abstract ancestor type which isn't itself a "data type".
         GlobalVariable* vtableC = this->get_vtable( vtype );
 
-        auto typeIdC = ConstantInt::get( int32T, acttype->get_runtime_type_id() );
+        auto typeIdC = ConstantInt::get( i32T, acttype->get_runtime_type_id() );
 
-        Constant* elementTypeIdC = ConstantInt::get( int32T,
+        Constant* elementTypeIdC = ConstantInt::get( i32T,
                 ( acttype->get_type_class() == TXTC_ARRAY ? static_cast<const TxArrayType*>( acttype )->element_type()->get_type_id() : 0 ) );
-
-        auto typeClassC = ConstantInt::get( Type::getInt8Ty( this->llvmContext ), acttype->get_type_class() );
 
         std::vector<Constant*> members {
                                          ConstantExpr::getBitCast( vtableC, emptyStructPtrT ),
                                          instanceSizeC,
                                          typeIdC,
                                          elementTypeIdC,
-                                         typeClassC,
         };
         typeInfos.push_back( ConstantStruct::get( typeInfoT, members ) );
+
+        // populate the type class array:
+        auto typeClassC = ConstantInt::get( Type::getInt8Ty( this->llvmContext ), acttype->get_type_class() );
+        typeClasses.push_back( typeClassC );
 
         // create the super type id array:
         auto superTypesC = gen_supertype_ids( this, acttype );
@@ -298,16 +308,32 @@ void LlvmGenerationContext::generate_runtime_type_info() {
         // ensure the vtable meta type is created:
         this->get_vtable_meta_type( acttype );
 
+        // populate the type class array:
+        auto typeClassC = ConstantInt::get( Type::getInt8Ty( this->llvmContext ), acttype->get_type_class() );
+        typeClasses.push_back( typeClassC );
+
         // create the super type id array:
         auto superTypesC = gen_supertype_ids( this, acttype );
         supertypeArrays.push_back( ConstantExpr::getBitCast( superTypesC, superTypesPtrT ) );
     }
 
+//    // create the type class info for the remaining runtime types:
+//    for ( auto acttypeI = this->tuplexPackage.registry().vtable_types_cend();
+//            acttypeI != this->tuplexPackage.registry().runtime_types_cend();
+//            acttypeI++ )
+//    {
+//        const TxActualType* acttype = *acttypeI;
+//
+//        // populate the type class array:
+//        auto typeClassC = ConstantInt::get( Type::getInt8Ty( this->llvmContext ), acttype->get_type_class() );
+//        typeClasses.push_back( typeClassC );
+//    }
+
     // generate the runtime type info:
     {
         auto typeCount = typeInfos.size();
-        auto typeCountC = new GlobalVariable( this->llvmModule(), int32T, true, GlobalValue::ExternalLinkage,
-                                              ConstantInt::get( int32T, typeCount ),
+        auto typeCountC = new GlobalVariable( this->llvmModule(), i32T, true, GlobalValue::ExternalLinkage,
+                                              ConstantInt::get( i32T, typeCount ),
                                               "tx.runtime.TYPE_COUNT" );
         this->register_llvm_value( typeCountC->getName(), typeCountC );
 
@@ -317,6 +343,14 @@ void LlvmGenerationContext::generate_runtime_type_info() {
                                               tiArrayC,
                                               "tx.runtime.TYPE_INFOS" );
         this->register_llvm_value( typeInfosC->getName(), typeInfosC );
+    }
+    {
+        auto tcArrayT = ArrayType::get( Type::getInt8Ty( this->llvmContext ), typeClasses.size() );
+        auto tcArrayC = ConstantArray::get( tcArrayT, typeClasses );
+        auto typeClassesC = new GlobalVariable( this->llvmModule(), tcArrayT, true, GlobalValue::ExternalLinkage,
+                                               tcArrayC,
+                                               "tx.runtime.TYPE_CLASSES" );
+        this->register_llvm_value( typeClassesC->getName(), typeClassesC );
     }
     {
         auto stArrayT = ArrayType::get( superTypesPtrT, supertypeArrays.size() );
@@ -377,7 +411,7 @@ void LlvmGenerationContext::generate_runtime_vtables() {
             else if ( field.first == "$adTypeId" ) {
                 ASSERT( acttype->get_type_class() == TXTC_INTERFACEADAPTER, "Expected InterfaceAdapter type: " << acttype );
                 auto adapterType = static_cast<const TxInterfaceAdapterType*>( acttype );
-                llvmFieldC = ConstantInt::get( Type::getInt32Ty( this->llvmContext ), adapterType->adapted_type()->get_runtime_type_id() );
+                llvmFieldC = ConstantInt::get( this->i32T, adapterType->adapted_type()->get_runtime_type_id() );
             }
 
             else {
@@ -424,9 +458,22 @@ llvm::Value* LlvmGenerationContext::gen_malloc( GenScope* scope, Value* sizeV ) 
 
 /*** runtime type info access ***/
 
-Value* LlvmGenerationContext::gen_get_type_info( GenScope* scope, Value* runtimeBaseTypeIdV, unsigned fieldIndex ) {
+Value* LlvmGenerationContext::gen_get_type_info( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV, unsigned fieldIndex ) {
+    auto typeInfoC = cast<GlobalVariable>( this->lookup_llvm_value( "tx.runtime.TYPE_INFOS" ) );
+    if ( auto baseTypeIdC = dyn_cast<Constant>( runtimeBaseTypeIdV ) ) {
+        //std::cerr << "Getting static type info A of " << statDeclType << std::endl;
+        return typeInfoC->getInitializer()->getAggregateElement( baseTypeIdC )
+                                          ->getAggregateElement( fieldIndex );
+    }
+    else if ( statDeclType && statDeclType->is_leaf_derivation() ) {
+        //std::cerr << "Getting static type info B of " << statDeclType << std::endl;
+        return typeInfoC->getInitializer()->getAggregateElement( statDeclType->get_runtime_type_id() )
+                                          ->getAggregateElement( fieldIndex );
+    }
+    ASSERT( scope, "NULL scope for non-constant runtimeBaseTypeIdV: " << runtimeBaseTypeIdV );
+
 #ifdef DEVMODE
-    { // add bounds check:
+    if ( true ) { // add bounds check:
         auto parentFunc = scope->builder->GetInsertBlock()->getParent();
         BasicBlock* trueBlock = BasicBlock::Create( this->llvmContext, "if_rtti_outofbounds", parentFunc );
         BasicBlock* nextBlock = BasicBlock::Create( this->llvmContext, "if_rtti_inbounds", parentFunc );
@@ -444,52 +491,107 @@ Value* LlvmGenerationContext::gen_get_type_info( GenScope* scope, Value* runtime
     }
 #endif
 
-    auto typeInfoC = this->lookup_llvm_value( "tx.runtime.TYPE_INFOS" );
-    Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
+    Value* ixs[] = { ConstantInt::get( this->i32T, 0 ),
                      runtimeBaseTypeIdV,
-                     ConstantInt::get( Type::getInt32Ty( this->llvmContext ), fieldIndex ) };
+                     ConstantInt::get( this->i32T, fieldIndex ) };
     auto valA = scope->builder->CreateInBoundsGEP( typeInfoC, ixs );
     return scope->builder->CreateLoad( valA );
 }
 
 
-Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualType* statDeclType ) {
-    return gen_get_vtable( scope, statDeclType, ConstantInt::get( Type::getInt32Ty( this->llvmContext ), statDeclType->get_runtime_type_id() ) );
-}
-
 Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV ) {
-    // cast vtable type according to statically declared type (may be parent type of actual type):
-    StructType* vtableT = this->llvmVTableTypes.at( statDeclType );
-    Type* vtablePtrT = PointerType::getUnqual( vtableT );
-    auto vtablePtrV = this->gen_get_type_info( scope, runtimeBaseTypeIdV, 0 );
+    if ( statDeclType && statDeclType->get_type_class() == TXTC_FUNCTION ) {
+        statDeclType = this->tuplexPackage.registry().get_builtin_type( TXBT_FUNCTION )->acttype();
+        runtimeBaseTypeIdV = ConstantInt::get( this->i32T, statDeclType->get_runtime_type_id() );
+    }
+    else if ( statDeclType && statDeclType->get_type_class() == TXTC_REFERENCE ) {
+        statDeclType = this->tuplexPackage.registry().get_builtin_type( TXBT_REFERENCE )->acttype();
+        runtimeBaseTypeIdV = ConstantInt::get( this->i32T, statDeclType->get_runtime_type_id() );
+    }
+    // FIXME: Handle runtime function type vtable access
+
+    auto vtablePtrV = this->gen_get_type_info( scope, statDeclType, runtimeBaseTypeIdV, 0 );
 //    std::cerr << "getting vtable ptr for " << statDeclType << ", static id " << statDeclType->get_runtime_type_id()
 //            << ", runtime id " << runtimeBaseTypeIdV << ": " << vtablePtrV << std::endl;
+    // cast the "opaque" vtable pointer to the statically declared type (which may be an ancestor of the actual type):
+    StructType* vtableT = this->llvmVTableTypes.at( statDeclType );
+    Type* vtablePtrT = PointerType::getUnqual( vtableT );
     return scope->builder->CreatePointerCast( vtablePtrV, vtablePtrT, "vtableptr" );
 }
 
-Value* LlvmGenerationContext::gen_get_element_size( GenScope* scope, Value* runtimeBaseTypeIdV ) {
-    return this->gen_get_type_info( scope, runtimeBaseTypeIdV, 1 );
+Value* LlvmGenerationContext::gen_get_element_size( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV ) {
+    // FIXME: Handle runtime function type access
+    return this->gen_get_type_info( scope, statDeclType, runtimeBaseTypeIdV, 1 );
 }
 
-Value* LlvmGenerationContext::gen_get_element_id( GenScope* scope, Value* runtimeBaseTypeIdV ) {
-    return this->gen_get_type_info( scope, runtimeBaseTypeIdV, 3 );
+Value* LlvmGenerationContext::gen_get_element_type_id( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV ) {
+    return this->gen_get_type_info( scope, statDeclType, runtimeBaseTypeIdV, 3 );
 }
 
-Value* LlvmGenerationContext::gen_get_type_class( GenScope* scope, Value* runtimeBaseTypeIdV ) {
-    return this->gen_get_type_info( scope, runtimeBaseTypeIdV, 4 );
-}
+Value* LlvmGenerationContext::gen_get_type_class( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV ) {
+    if ( statDeclType && statDeclType->get_type_class() != TXTC_ANY && statDeclType->get_type_class() != TXTC_INTERFACE ) {
+        // (interface adapters are subtypes of interfaces so a statically known interface type must be inspected in runtime)
+        return ConstantInt::get( Type::getInt8Ty( this->llvmContext ), statDeclType->get_type_class() );
+    }
+    auto typeClassesC = cast<GlobalVariable>( this->lookup_llvm_value( "tx.runtime.TYPE_CLASSES" ) );
+    if ( auto baseTypeIdC = dyn_cast<Constant>( runtimeBaseTypeIdV ) ) {
+        return typeClassesC->getInitializer()->getAggregateElement( baseTypeIdC );
+    }
+    else if ( statDeclType && statDeclType->is_leaf_derivation() ) {
+        return typeClassesC->getInitializer()->getAggregateElement( statDeclType->get_runtime_type_id() );
+    }
 
+#ifdef DEVMODE
+    if ( true ) { // add bounds check:
+        auto parentFunc = scope->builder->GetInsertBlock()->getParent();
+        BasicBlock* trueBlock = BasicBlock::Create( this->llvmContext, "if_rtti_outofbounds", parentFunc );
+        BasicBlock* nextBlock = BasicBlock::Create( this->llvmContext, "if_rtti_inbounds", parentFunc );
 
-Value* LlvmGenerationContext::gen_get_supertypes_array( GenScope* scope, Value* runtimeBaseTypeIdV ) const {
-    Value* superTypesV = this->lookup_llvm_value( "tx.runtime.SUPER_TYPES" );
-    Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
+        auto typeClassesLenC = ConstantInt::get( this->i32T, this->tuplexPackage.registry().vtable_types_count() );
+        auto condV = scope->builder->CreateICmpUGE( runtimeBaseTypeIdV, typeClassesLenC );
+        scope->builder->CreateCondBr( condV, trueBlock, nextBlock );
+        { // if type id out of bounds (not a vtable type)
+            scope->builder->SetInsertPoint( trueBlock );
+            auto indexV = scope->builder->CreateZExt( runtimeBaseTypeIdV, Type::getInt64Ty( this->llvmContext ) );
+            this->gen_panic_call( scope, "RTTI type classes array index out of bounds: %d\n", indexV );
+            scope->builder->CreateBr( nextBlock );  // terminate block, though won't be executed
+        }
+        scope->builder->SetInsertPoint( nextBlock );
+    }
+#endif
+    // FIXME: Handle runtime function and ref type access
+
+    Value* ixs[] = { ConstantInt::get( this->i32T, 0 ),
                      runtimeBaseTypeIdV };
-    auto valA = scope->builder->CreateInBoundsGEP( superTypesV, ixs );
+    auto valA = scope->builder->CreateInBoundsGEP( typeClassesC, ixs );
     return scope->builder->CreateLoad( valA );
 }
 
-Value* LlvmGenerationContext::gen_get_supertypes_array_ref( GenScope* scope, Value* runtimeBaseTypeIdV, Constant* arrayTypeIdC ) {
-    auto stPtrV = this->gen_get_supertypes_array( scope, runtimeBaseTypeIdV );
+
+Value* LlvmGenerationContext::gen_get_supertypes_array( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV ) {
+    /* TODO: statically constant optimization (assume not that common though)
+    auto supertypesC = cast<GlobalVariable>( this->lookup_llvm_value( "tx.runtime.SUPER_TYPES" ) );
+    if ( auto baseTypeIdC = dyn_cast<Constant>( runtimeBaseTypeIdV ) ) {
+        return supertypesC->getInitializer()->getAggregateElement( baseTypeIdC );
+    }
+    else if ( statDeclType && statDeclType->is_leaf_derivation() ) {
+        return supertypesC->getInitializer()->getAggregateElement( statDeclType->get_runtime_type_id() );
+    }
+    */
+
+    auto getSupersFuncA = this->llvmModule().getFunction( "$get_supertypes_array" );
+    ASSERT( getSupersFuncA, "$get_supertypes_array() function not found in " << this );
+    return scope->builder->CreateCall( getSupersFuncA, { runtimeBaseTypeIdV } );
+//    Value* superTypesV = this->lookup_llvm_value( "tx.runtime.SUPER_TYPES" );
+//    Value* ixs[] = { ConstantInt::get( i32T, 0 ),
+//                     runtimeBaseTypeIdV };
+//    auto valA = scope->builder->CreateInBoundsGEP( superTypesV, ixs );
+//    return scope->builder->CreateLoad( valA );
+}
+
+Value* LlvmGenerationContext::gen_get_supertypes_array_ref( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV,
+                                                            Constant* arrayTypeIdC ) {
+    auto stPtrV = this->gen_get_supertypes_array( scope, statDeclType, runtimeBaseTypeIdV );
     auto refT = TxReferenceType::make_ref_llvm_type( *this, stPtrV->getType()->getPointerElementType() );
     return gen_ref( *this, scope, refT, stPtrV, arrayTypeIdC );
 }
@@ -561,7 +663,7 @@ Value* LlvmGenerationContext::gen_equals_invocation( GenScope* scope, Value* lva
 Value* LlvmGenerationContext::gen_isa( GenScope* scope, Value* refV, Value* typeIdV ) {
     auto refT = TxReferenceType::make_ref_llvm_type( *this, llvm::StructType::get( this->llvmContext ) );  // ref to Any
     auto isaFuncC = this->llvmModule().getOrInsertFunction( "tx.isa$func", Type::getInt1Ty( this->llvmContext ),
-                                                            this->closureRefT, refT, Type::getInt32Ty( this->llvmContext ), NULL );
+                                                            this->closureRefT, refT, this->i32T, NULL );
     auto castRefV = gen_ref_conversion( *this, scope, refV, refT );
     std::vector<Value*> args( { ConstantStruct::getNullValue( this->closureRefT ), castRefV, typeIdV } );
     return scope->builder->CreateCall( isaFuncC, args, "isa" );
@@ -580,7 +682,7 @@ void LlvmGenerationContext::gen_panic_call( GenScope* scope, const std::string& 
             auto msgRefTargTid = msgRefType->target_type()->get_type_id();
             auto msgRefT = this->get_llvm_type( msgRefType );
             auto msgPtrC = this->gen_const_cstring_address( message );
-            auto msgRefC = gen_ref( *this, msgRefT, msgPtrC, ConstantInt::get( Type::getInt32Ty( this->llvmContext ), msgRefTargTid ) );
+            auto msgRefC = gen_ref( *this, msgRefT, msgPtrC, ConstantInt::get( this->i32T, msgRefTargTid ) );
 
             std::vector<Value*> args( { (Value*)msgRefC } );
             gen_lambda_call( *this, scope, panicLambdaV, args, "", true );
@@ -605,7 +707,7 @@ void LlvmGenerationContext::gen_panic_call( GenScope* scope, const std::string& 
             auto msgRefTargTid = msgRefType->target_type()->get_type_id();
             auto msgRefT = this->get_llvm_type( msgRefType );
             auto msgPtrC = this->gen_const_cstring_address( message );
-            auto msgRefC = gen_ref( *this, msgRefT, msgPtrC, ConstantInt::get( Type::getInt32Ty( this->llvmContext ), msgRefTargTid ) );
+            auto msgRefC = gen_ref( *this, msgRefT, msgPtrC, ConstantInt::get( this->i32T, msgRefTargTid ) );
 
             std::vector<Value*> args( { (Value*)msgRefC, ulongValV } );
             gen_lambda_call( *this, scope, panicLambdaV, args, "", true );
@@ -687,8 +789,8 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
     Function *main_func = cast<Function>(
             this->llvmModule().getOrInsertFunction(
                     "main",
-                    IntegerType::getInt32Ty( this->llvmContext ),
-                    IntegerType::getInt32Ty( this->llvmContext ),
+                    this->i32T,
+                    this->i32T,
                     PointerType::getUnqual( PointerType::getUnqual( IntegerType::getInt8Ty( this->llvmContext ) ) ),
                     NULL ) );
     {
@@ -716,14 +818,13 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
         CallInst *user_main_call = CallInst::Create( func, args, "", bb );
         user_main_call->setTailCall( false );
         user_main_call->setIsNoInline();
-        auto int32T = Type::getInt32Ty( this->llvmContext );
         if ( hasIntReturnValue ) {
             // truncate return value to i32
-            CastInst* truncVal = CastInst::CreateIntegerCast( user_main_call, int32T, true, "", bb );
+            CastInst* truncVal = CastInst::CreateIntegerCast( user_main_call, i32T, true, "", bb );
             ReturnInst::Create( this->llvmContext, truncVal, bb );
         }
         else {
-            ReturnInst::Create( this->llvmContext, ConstantInt::get( int32T, 0, true ), bb );
+            ReturnInst::Create( this->llvmContext, ConstantInt::get( i32T, 0, true ), bb );
         }
     }
     else {
@@ -736,7 +837,6 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
 
 
 void LlvmGenerationContext::declare_builtin_code() {
-    Type* i32T = IntegerType::getInt32Ty( this->llvmContext );
     StructType* genArrayT = StructType::get( i32T, i32T, ArrayType::get( StructType::get( this->llvmContext ), 0 ), nullptr );
     PointerType* genArrayPtrT = PointerType::getUnqual( genArrayT );
     {
@@ -760,15 +860,88 @@ void LlvmGenerationContext::declare_builtin_code() {
                 NULL ) );
         function->setLinkage( GlobalValue::InternalLinkage );
     }
+    {
+        Function* function = cast<Function>( this->llvmModule().getOrInsertFunction(
+                "$get_supertypes_array",
+                superTypesPtrT, // return value
+                i32T,           // type id
+                NULL ) );
+        function->setLinkage( GlobalValue::InternalLinkage );
+    }
 }
 
 void LlvmGenerationContext::generate_builtin_code() {
+    this->gen_get_supertypes_array_function();
     this->gen_array_elementary_equals_function();
     this->gen_array_any_equals_function();
 }
 
+void LlvmGenerationContext::gen_get_supertypes_array_function() {
+    Function* function = this->llvmModule().getFunction( "$get_supertypes_array" );
+    Function::arg_iterator args = function->arg_begin();
+    Value* runtimeBaseTypeIdV = &( *args );
+    runtimeBaseTypeIdV->setName( "runtimeBaseTypeIdV" );
+
+    BasicBlock *entryBlock = BasicBlock::Create( this->llvmContext, "entry", function );
+    IRBuilder<> builder( entryBlock );
+    GenScope scope( &builder );
+
+    auto parentFunc = builder.GetInsertBlock()->getParent();
+    BasicBlock* nonVTableBlock = BasicBlock::Create( this->llvmContext, "if_nonvtabletype", parentFunc );
+    BasicBlock* vTableBlock = BasicBlock::Create( this->llvmContext, "if_vtabletype", parentFunc );
+
+    auto superTypesC = cast<GlobalVariable>( this->lookup_llvm_value( "tx.runtime.SUPER_TYPES" ) );
+    {
+        auto supertypesLenC = ConstantInt::get( i32T, this->tuplexPackage.registry().vtable_types_count() );
+        auto condV = builder.CreateICmpUGE( runtimeBaseTypeIdV, supertypesLenC );
+        builder.CreateCondBr( condV, nonVTableBlock, vTableBlock );
+    }
+    { // special handling for Refs and Functions:
+        builder.SetInsertPoint( nonVTableBlock );
+
+        BasicBlock* refTypeBlock = BasicBlock::Create( this->llvmContext, "if_reftype", parentFunc );
+        BasicBlock* nonrefTypeBlock = BasicBlock::Create( this->llvmContext, "if_nonreftype", parentFunc );
+        BasicBlock* funcTypeBlock = BasicBlock::Create( this->llvmContext, "if_functype", parentFunc );
+        BasicBlock* otherTypeBlock = BasicBlock::Create( this->llvmContext, "if_othertype", parentFunc );
+
+        auto refCondV = builder.CreateICmpULT( runtimeBaseTypeIdV, ConstantInt::get( i32T, this->tuplexPackage.registry().ref_types_limit() ) );
+        builder.CreateCondBr( refCondV, refTypeBlock, nonrefTypeBlock );
+        {
+            builder.SetInsertPoint( refTypeBlock );
+            auto refTypeIdC = ConstantInt::get( i32T, TXBT_REFERENCE );
+            builder.CreateRet( superTypesC->getInitializer()->getAggregateElement( refTypeIdC ) );
+        }
+        {
+            builder.SetInsertPoint( nonrefTypeBlock );
+            auto refCondV = builder.CreateICmpULT( runtimeBaseTypeIdV, ConstantInt::get( i32T, this->tuplexPackage.registry().func_types_limit() ) );
+            builder.CreateCondBr( refCondV, funcTypeBlock, otherTypeBlock );
+        }
+        {
+            builder.SetInsertPoint( funcTypeBlock );
+            auto funcTypeIdC = ConstantInt::get( i32T, TXBT_FUNCTION );
+            builder.CreateRet( superTypesC->getInitializer()->getAggregateElement( funcTypeIdC ) );
+        }
+        {
+            // type id out of bounds (not a vtable type nor reference nor function type)
+            builder.SetInsertPoint( otherTypeBlock );
+            auto indexV = builder.CreateZExt( runtimeBaseTypeIdV, Type::getInt64Ty( this->llvmContext ) );
+            this->gen_panic_call( &scope, "RTTI supertypes array index out of bounds: %d\n", indexV );
+            builder.CreateRet( Constant::getNullValue( this->superTypesPtrT ) );  // terminate block, though won't be executed
+        }
+    }
+    {
+        builder.SetInsertPoint( vTableBlock );
+        Value* ixs[] = { ConstantInt::get( i32T, 0 ),
+                         runtimeBaseTypeIdV };
+        auto valA = builder.CreateInBoundsGEP( superTypesC, ixs );
+        builder.CreateRet( builder.CreateLoad( valA ) );
+    }
+}
+
 void LlvmGenerationContext::gen_array_any_equals_function() {
-    // This function is invoked when it is NOT known what one or both of the arrays' element types are.
+    // This function is invoked when it is NOT known what one or both of the arrays' element types are,
+    // and there is a chance they are elementary types. If they are both of the same elementary type,
+    // $array_elementary_equals() is called, otherwise the general Array.equals() is called.
 
     Function* function = this->llvmModule().getFunction( "$array_any_equals" );
     Function::arg_iterator args = function->arg_begin();
@@ -799,8 +972,8 @@ void LlvmGenerationContext::gen_array_any_equals_function() {
     // When one or both the operands are dereferenced references to generic arrays (&Array),
     // the references' types must be examined in runtime for array element type class equality,
     // and if elementary also for element type equality.
-    auto arrAElemTyIdV = this->gen_get_element_id( &scope, arrATypeIdV );
-    auto arrBElemTyIdV = this->gen_get_element_id( &scope, arrBTypeIdV );
+    auto arrAElemTyIdV = this->gen_get_element_type_id( &scope, nullptr, arrATypeIdV );
+    auto arrBElemTyIdV = this->gen_get_element_type_id( &scope, nullptr, arrBTypeIdV );
 
     {
         // check if both element types are data types, i.e. have RTTI; otherwise revert to arrayA.equals( arrayB)
@@ -814,8 +987,9 @@ void LlvmGenerationContext::gen_array_any_equals_function() {
     {
         // both element types are data types, i.e. have RTTI
         builder.SetInsertPoint( elemDaTyIdsBlock );
-        auto arrAElemTyClV = this->gen_get_type_class( &scope, arrAElemTyIdV );
-        auto arrBElemTyClV = this->gen_get_type_class( &scope, arrBElemTyIdV );
+        // FIXME: replace type class fetching with direct ELEMENTARY type class check in order to avoid RTTI out of bounds
+        auto arrAElemTyClV = this->gen_get_type_class( &scope, nullptr, arrAElemTyIdV );
+        auto arrBElemTyClV = this->gen_get_type_class( &scope, nullptr, arrBElemTyIdV );
         auto elTyClEqCondV = builder.CreateICmpEQ( arrAElemTyClV, arrBElemTyClV );
         builder.CreateCondBr( elTyClEqCondV, elemTyClEqBlock, arrUneqBlock );
 
@@ -873,8 +1047,8 @@ void LlvmGenerationContext::gen_array_elementary_equals_function() {
     BasicBlock* lenEqBlock   = BasicBlock::Create( this->llvmContext, "if_ArrLenEq", parentFunc );
     BasicBlock* arrUneqBlock = BasicBlock::Create( this->llvmContext, "if_ArrUneq",  parentFunc );
 
-    Value* lenIxs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
-                        ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 1 ) };
+    Value* lenIxs[] = { ConstantInt::get( this->i32T, 0 ),
+                        ConstantInt::get( this->i32T, 1 ) };
     auto arrALengthV = builder.CreateLoad( builder.CreateInBoundsGEP( arrayA, lenIxs ) );
     {
         auto arrBLengthV = builder.CreateLoad( builder.CreateInBoundsGEP( arrayB, lenIxs ) );
@@ -883,20 +1057,21 @@ void LlvmGenerationContext::gen_array_elementary_equals_function() {
     }
     {
         builder.SetInsertPoint( lenEqBlock );
-        auto elemSizeV = this->gen_get_element_size( &scope, arrATypeIdV );
+        auto elemActType = this->tuplexPackage.registry().get_builtin_type( TXBT_ELEMENTARY )->acttype();
+        auto elemSizeV = this->gen_get_element_size( &scope, elemActType, arrATypeIdV );
         auto elemSize64V = builder.CreateZExtOrBitCast( elemSizeV, Type::getInt64Ty( this->llvmContext ) );
         auto arrALength64V = builder.CreateZExtOrBitCast( arrALengthV, Type::getInt64Ty( this->llvmContext ) );
         auto dataSizeV = builder.CreateMul( elemSize64V, arrALength64V, "datasize" );
 
-        Value* dataIxs[] = { ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ),
-                             ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 2 ) };
+        Value* dataIxs[] = { ConstantInt::get( this->i32T, 0 ),
+                             ConstantInt::get( this->i32T, 2 ) };
         auto arrADataA = builder.CreatePointerCast( builder.CreateInBoundsGEP( arrayA, dataIxs ), this->get_voidPtrT() );
         auto arrBDataA = builder.CreatePointerCast( builder.CreateInBoundsGEP( arrayB, dataIxs ), this->get_voidPtrT() );
         std::vector<Value*> args( { arrADataA, arrBDataA, dataSizeV } );
         auto memcmpFuncA = this->llvmModule().getFunction( "memcmp" );
         ASSERT( memcmpFuncA, "memcmp() function not found in " << this );
         auto callV = builder.CreateCall( memcmpFuncA, args );
-        auto condV = builder.CreateICmpEQ( callV, ConstantInt::get( Type::getInt32Ty( this->llvmContext ), 0 ) );
+        auto condV = builder.CreateICmpEQ( callV, ConstantInt::get( this->i32T, 0 ) );
         builder.CreateRet( condV );
     }
     {

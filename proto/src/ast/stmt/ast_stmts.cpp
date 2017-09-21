@@ -35,17 +35,24 @@ void TxAssignStmtNode::symbol_resolution_pass() {
         CERROR( this->lvalue, "Assignee is not concrete: " << ltype );
     }
 
+//    if ( ltype->get_type_class() != TXTC_ELEMENTARY
+//            && ltype->get_type_class() != TXTC_REFERENCE
+//            && ltype->get_type_class() != TXTC_FUNCTION ) {
+//        CERROR( this->lvalue, "Assignee is not Elementary / Reference / Function: " << ltype );
+//    }
+
     if ( !( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() ) ) {
         // TODO: only members of constructed object should skip error
         if ( !lvalue->is_mutable() ) {
             // error message already generated
             //CERROR( this, "Assignee or assignee's container is not modifiable (nominal type of assignee is " << ltype << ")" );
         }
+
+        // TODO: We don't want aggregate object assignment to violate potential immutability of members.
+        //       So this assignment should only support Elementary and Ref types,
+        //       and assignment to aggregates is only allowed via user-defined methods.
+        //       How do we support it efficiently for arrays (of mutable elements)?
     }
-    // Note: If the object as a whole is modifiable, it can be assigned to.
-    // If it has any "non-modifiable" members, those will still get overwritten.
-    // We could add custom check to prevent that scenario for Arrays, but then
-    // it would in this regard behave differently than other aggregate objects.
 
     // if assignee is a reference:
     // TODO: check dataspace rules

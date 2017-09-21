@@ -101,7 +101,7 @@ public:
     inline bool has_llvm_value() const { return this->llvmValue; }
 
     inline llvm::Value* get_llvm_value() const {
-        ASSERT( this->llvmValue, "LLVM value NOT set for field " << this << ": " << this->llvmValue << "; new value: " << llvmValue );
+        ASSERT( this->llvmValue, "LLVM value NOT set for field " << this );
         return this->llvmValue;
     }
 

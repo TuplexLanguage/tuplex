@@ -388,6 +388,34 @@ public:
     }
 };
 
+class TxFunctionTypeDefNode final : public TxBuiltinTypeDefiningNode {
+    /** Used solely for the abstract Function base type. */
+    class TxFunctionBaseType final : public TxActualType {
+        TxFunctionBaseType* make_specialized_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
+                                                   bool mutableType, const std::vector<const TxActualType*>& interfaces ) const override {
+            throw std::logic_error( "Can't specialize TxFunctionBaseType by calling make_specialized_type()" );
+        }
+    public:
+        TxFunctionBaseType( const TxTypeDeclaration* declaration, const TxActualType* baseType )
+                : TxActualType( TXTC_FUNCTION, declaration, baseType, true ) {
+        }
+
+        virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override {
+            return llvm::StructType::get( context.get_voidPtrT(), context.get_closureRefT(), NULL );
+        }
+    };
+protected:
+    virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const TxType* baseType,
+                                             const std::vector<const TxActualType*>& ifSpecs, bool mutableType ) override {
+        return new TxFunctionBaseType( declaration, baseType->acttype() );
+    }
+public:
+    TxFunctionTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
+                           const std::vector<TxDeclarationNode*>& declNodes )
+            : TxBuiltinTypeDefiningNode( ploc, TXBT_FUNCTION, baseTypeNode, declNodes ) {
+    }
+};
+
 class TxRefTypeDefNode final : public TxBuiltinTypeDefiningNode {
     TxRefTypeDefNode( const TxLocation& ploc, const TxRefTypeDefNode* original,
                       TxTypeExpressionNode* baseTypeNode, const std::vector<TxDeclarationNode*>& declNodes, TxDerivedTypeNode* sourcecodeDefiner )
@@ -798,7 +826,8 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
     // create the function base type:
     this->builtinTypes[TXBT_FUNCTION] = new TxTypeDeclNode(
             loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Function", nullptr,
-            new TxBuiltinAbstractTypeDefNode( loc, TXBT_FUNCTION, new TxNamedTypeNode( loc, "Any" ), TXTC_FUNCTION, { } ), false, true );
+            new TxFunctionTypeDefNode( loc, new TxNamedTypeNode( loc, "Any" ), { } ), false, true );
+            //new TxBuiltinAbstractTypeDefNode( loc, TXBT_FUNCTION, new TxNamedTypeNode( loc, "Any" ), TXTC_FUNCTION, { } ), false, true );
 
     // create the tuple base type:
     this->builtinTypes[TXBT_TUPLE] = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN | TXD_ABSTRACT, "Tuple", nullptr,

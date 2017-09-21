@@ -71,9 +71,8 @@ bool is_concrete_floating_type( const TxActualType* type ) {
 /** Used to ensure proper resetting recursionGuard in type (RAII style). */
 class ScopedRecursionGuardClause {
     const TxActualType* type;
-    public:
-    ScopedRecursionGuardClause( const TxActualType* type )
-            : type( type ) {
+public:
+    ScopedRecursionGuardClause( const TxActualType* type ) : type( type ) {
         this->type->recursionGuard = true;
     }
     ~ScopedRecursionGuardClause() {
@@ -616,45 +615,73 @@ bool TxActualType::is_dynamic() const {
 }
 
 bool TxActualType::is_type_generic_dependent() const {
-    if ( this->get_type_class() == TXTC_REFERENCE )
+    if ( this->recursionGuard ) {
+        //std::cerr << "Recursion guard triggered in is_type_generic_dependent() of " << this << std::endl;
         return false;
+    }
+    ScopedRecursionGuardClause recursionGuard( this );
+
+    // Although different reference specializations can share code gen, here we need to determine whether
+    // this type has any dependencies on type parameters, including references whose parameter is bound
+    // to another type parameter (from an outer scope).
+//    if ( this->get_type_class() == TXTC_REFERENCE )
+//        return false;
 
     if ( this->is_generic_param() )
         return true;
 
     const TxActualType* type = this;
-    if ( type->is_type_generic() )
-        return true;
-    while ( type->is_equivalent_derivation() ) {
-        type = type->get_base_type();
+    if ( type->get_type_class() != TXTC_REFERENCE ) {
+        if ( type->get_type_class() == TXTC_INTERFACEADAPTER ) {
+            if ( static_cast<const TxInterfaceAdapterType*>( type )->adapted_type()->is_type_generic_dependent() )
+                return true;
+        }
+
         if ( type->is_type_generic() )
             return true;
+        while ( type->is_equivalent_derivation() ) {
+            type = type->get_base_type();
+            if ( type->is_type_generic() )
+                return true;
+        }
     }
 
-    bool genCtx = type->get_declaration()->get_definer()->context().is_generic();
-    if (genCtx) {
-        //if ( type->get_declaration()->get_unique_full_name().find( "tx.Array<$,13>0" ) != std::string::npos )
-        //std::cerr << "Has generic context: " << type << std::endl;
+    if ( type->get_declaration()->get_definer()->context().is_generic() ) {
+        // Note: This identities whether context (outer scope) is an original generic type declaration,
+        //       but not whether outer scope is a specialization whose bindings are generic-dependent.
         return true;
+    }
+
+    for ( TxScopeSymbol* outerScope = type->get_declaration()->get_symbol()->get_outer();
+            !dynamic_cast<TxModule*>( outerScope );
+            outerScope = outerScope->get_outer() ) {
+        if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( outerScope ) ) {
+            auto outerType = entitySymbol->get_type_decl()->get_definer()->qualtype()->type()->acttype();
+            if ( outerType->is_type_generic_dependent() ) {
+                //if ( type->get_declaration()->get_unique_full_name().find( "tx.M$Array<$>1.ArrayIterator" ) != std::string::npos )
+                //    std::cerr << "Outer scope of type " << this << " is generic-dependent type " << outerType << std::endl;
+                return true;
+            }
+        }
     }
 
     while ( type->is_generic_specialization() ) {
         // a type that specializes a generic base type does not define new members - testing the non-ref bindings is sufficient
-        if ( type->nonRefBindings ) {
+//        if ( type->nonRefBindings ) {
             for ( auto bdecl : type->get_bindings() ) {
                 if ( auto typebdecl = dynamic_cast<const TxTypeDeclaration*>( bdecl ) ) {
-                    auto pname = bdecl->get_unique_name();
-                    auto paramDecl = type->genericBaseType->get_type_param_decl( pname );
-                    auto constraintType = paramDecl->get_definer()->resolve_type()->type();
-                    if ( constraintType->get_type_class() != TXTC_REFERENCE
-                         && typebdecl->get_definer()->qualtype()->type()->acttype()->is_type_generic_dependent() )
+//                    auto pname = bdecl->get_unique_name();
+//                    auto paramDecl = type->genericBaseType->get_type_param_decl( pname );
+//                    auto constraintType = paramDecl->get_definer()->resolve_type()->type();
+                    if ( //constraintType->get_type_class() != TXTC_REFERENCE &&
+                         typebdecl->get_definer()->qualtype()->type()->acttype()->is_type_generic_dependent() )
                         return true;
                 }
                 else {
                     // Note: Don't currently know how to determine whether the bound value is generic-dependent
                     //       (parse the expression?)
                 }
-            }
+//            }
         }
 
         // examine whether base type (not "generic base type") has generic-dependent bindings,
@@ -676,6 +703,54 @@ bool TxActualType::is_equivalent_derivation() const {
 bool TxActualType::is_virtual_derivation() const {
     return this->is_same_instance_type();
 }
+
+bool TxActualType::is_leaf_derivation() const {
+    switch ( this->typeClass ) {
+    case TXTC_ANY:
+        return false;
+
+    case TXTC_ELEMENTARY:
+        switch ( this->runtimeTypeId ) {
+        case TXBT_BYTE:
+        case TXBT_SHORT:
+        case TXBT_INT:
+        case TXBT_LONG:
+        case TXBT_UBYTE:
+        case TXBT_USHORT:
+        case TXBT_UINT:
+        case TXBT_ULONG:
+        case TXBT_HALF:
+        case TXBT_FLOAT:
+        case TXBT_DOUBLE:
+        case TXBT_BOOL:
+            return true;
+        default:
+            return false;
+        }
+        return false;
+
+    case TXTC_REFERENCE:
+    case TXTC_ARRAY:
+        return !this->is_generic();
+
+    case TXTC_TUPLE:
+    case TXTC_UNION:
+        return this->is_final();  // TODO: identify types that simply don't have any subtypes declared via Registry
+
+    case TXTC_FUNCTION:
+        return !this->is_builtin();
+
+    case TXTC_INTERFACE:
+        return false;
+    case TXTC_INTERFACEADAPTER:
+        return true;
+    case TXTC_VOID:
+        return true;
+    default:
+        THROW_LOGIC( "Undefined type class: " << this->typeClass );
+    }
+}
+
 
 bool TxActualType::is_scalar() const {
     if ( this->typeClass != TXTC_ELEMENTARY )
@@ -976,15 +1051,6 @@ bool TxActualType::is_a( const TxActualType& other ) const {
     const TxActualType* thisType = this;
     const TxActualType* thatType = &other;
     //std::cerr << thisType << "  IS-A\n" << thatType << std::endl;
-
-//    // compare modifiability:
-//    if ( thisType->is_modifiable() ) {
-//        thisType = thisType->get_base_type();
-//        if ( thatType->is_modifiable() )
-//            thatType = thatType->get_base_type();
-//    }
-//    else if ( thatType->is_modifiable() )
-//        return false;  // a non-modifiable type "is not a" modifiable type
 
     // by-pass anonymous, empty specializations:
     while ( !is_explicit_nongen_declaration( thatType ) && thatType->is_empty_derivation() )

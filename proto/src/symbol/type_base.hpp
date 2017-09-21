@@ -466,6 +466,8 @@ public:
     /** Returns true if this type is a specialization of a generic base type. */
     inline bool is_generic_specialization() const { return this->genericBaseType; }
 
+    /** Returns true if this type has no subtypes. */
+    bool is_leaf_derivation() const;
 
     // FUTURE: Should we remove the == != operator overloads in favor of more specifically named comparison methods?
 
@@ -498,7 +500,7 @@ public:
     /** Returns true if the provided type is the same as this, or a specialization of this.
      * Note that true does not guarantee assignability, for example modifiability is not taken into account.
      */
-    bool is_a( const TxActualType& other ) const;
+    virtual bool is_a( const TxActualType& other ) const;
 
 private:
     inline bool inner_equals( const TxActualType* thatType ) const {

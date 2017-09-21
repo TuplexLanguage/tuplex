@@ -127,21 +127,7 @@ const TxQualType* TxEqualityOperatorNode::define_type() {
     auto ltype = this->lhs->originalExpr->resolve_type()->type();
     auto rtype = this->rhs->originalExpr->resolve_type()->type();
 
-// currently we allow the == operator for reference equality (for instance this enables Array.equals() to use == on the elements)
-//    if ( ltype->get_type_class() == TXTC_REFERENCE || rtype->get_type_class() == TXTC_REFERENCE )
-//        CERR_THROWRES( this, "Value equality operator == not applicable to reference operands: " << ltype << ", " << rtype );
-
-    if ( ltype->get_type_class() != rtype->get_type_class() )
-        CERR_THROWRES( this, "Mismatching operand type classes for equality operator: " << ltype << ", " << rtype );
-
-// operands don't have to be concrete - if not then equals() is invoked
-//    if ( !ltype->is_concrete() )
-//        CERR_THROWRES( this->lhs, "Left operand of equality operator is not concrete (equals() may be used instead): " << ltype );
-//    if ( !rtype->is_concrete() )
-//        CERR_THROWRES( this->rhs, "Right operand of equality operator is not concrete (equals() may be used instead): " << rtype );
-
-    switch ( ltype->get_type_class() ) {
-    case TXTC_ELEMENTARY:
+    if ( ltype->get_type_class() == TXTC_ELEMENTARY && rtype->get_type_class() == TXTC_ELEMENTARY ) {
         if ( ltype != rtype ) {
             if ( auto_converts_to( this->rhs->originalExpr, ltype ) ) {
                 this->rhs->insert_conversion( ltype );
@@ -150,49 +136,72 @@ const TxQualType* TxEqualityOperatorNode::define_type() {
                 this->lhs->insert_conversion( rtype );
             }
             else
-                CERR_THROWRES( this, "Mismatching operand types for equality operator: " << ltype << ", " << rtype );
+                CERR_THROWRES( this, "Equality is always false: Incompatible operand types for equality operator: " << ltype << ", " << rtype );
         }
-        break;
-
-    case TXTC_ARRAY:
-        {   // comparison of length and then of each element
-            auto lelemtype = ltype->element_type();
-            auto relemtype = rtype->element_type();
-            if ( lelemtype->get_type_class() == TXTC_ANY || relemtype->get_type_class() == TXTC_ANY ) {
-                // if either operand's element type is 'Any', type checking must be done in runtime
-                // Example:
-                //     r : &Array;  s : &Array<Int>;
-                //     r^ == s^
-            }
-            else if ( lelemtype->get_type_class() != relemtype->get_type_class() ) {
-                CERR_THROWRES( this, "Mismatching Array element types for equality operator: " << lelemtype << ", " << relemtype );
-            }
-            else if ( lelemtype->get_type_class() == TXTC_ELEMENTARY ) {
-                if ( lelemtype->type()->is_concrete() && relemtype->type()->is_concrete() ) {
-                    if ( lelemtype->get_type_id() != relemtype->get_type_id() )
-                        CERR_THROWRES( this, "Mismatching Array element types for equality operator: " << lelemtype << ", " << relemtype );
-                }
-            }
-            else if ( lelemtype->get_type_class() == TXTC_REFERENCE ) {
-                // Since the built-in comparison of arrays of references compares the pointers (identity equality), we don't
-                // strictly need to check the ref target types here.
-                // However if they are mutually exclusive, the comparison will always yield false.
-                // The element types are mutually exclusive if neither type "is-a" the other type.
-                if ( !( lelemtype->type()->target_type()->type()->is_a( *relemtype->type()->target_type()->type() ) ||
-                        relemtype->type()->target_type()->type()->is_a( *lelemtype->type()->target_type()->type() ) ) )
-                    CERR_THROWRES( this, "Mismatching Array element ref target types for equality operator: " << lelemtype << ", " << relemtype );
-            }
-        }
-        break;
-
-    default:
-        break;
     }
 
     this->lhs->resolve_type();
     this->rhs->resolve_type();
 
     return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
+}
+
+void TxEqualityOperatorNode::symbol_resolution_pass() {
+    TxExpressionNode::symbol_resolution_pass();
+    lhs->symbol_resolution_pass();
+    rhs->symbol_resolution_pass();
+
+    auto ltype = this->lhs->qualtype()->type();
+    auto rtype = this->rhs->qualtype()->type();
+    if ( ltype->get_type_class() != rtype->get_type_class() )
+        CERROR( this, "Equality is always false: Unequal operand type classes for equality operator: " << ltype << ", " << rtype );
+
+// currently we allow the == operator for reference equality (for instance this enables Array.equals() to use == on the elements)
+//    if ( ltype->get_type_class() == TXTC_REFERENCE || rtype->get_type_class() == TXTC_REFERENCE )
+//        CERR_THROWRES( this, "Value equality operator == not applicable to reference operands: " << ltype << ", " << rtype );
+
+// operands don't have to be concrete - if not then equals() is invoked
+//    if ( !ltype->is_concrete() )
+//        CERR_THROWRES( this->lhs, "Left operand of equality operator is not concrete (equals() may be used instead): " << ltype );
+//    if ( !rtype->is_concrete() )
+//        CERR_THROWRES( this->rhs, "Right operand of equality operator is not concrete (equals() may be used instead): " << rtype );
+
+    if ( ltype->get_type_class() == TXTC_ARRAY && rtype->get_type_class() == TXTC_ARRAY) {
+        // comparison of length and then of each element
+        auto lelemtype = ltype->element_type();
+        auto relemtype = rtype->element_type();
+        if ( lelemtype->get_type_class() == TXTC_ANY || relemtype->get_type_class() == TXTC_ANY ) {
+            // if either operand's element type is 'Any', type checking must be done in runtime
+            // Example:
+            //     r : &Array;  s : &Array<Int>;
+            //     r^ == s^
+        }
+        else if ( lelemtype->get_type_class() != relemtype->get_type_class() ) {
+            CERROR( this, "Equality is always false: Unequal array element types for equality operator: " << lelemtype << ", " << relemtype );
+        }
+        else if ( lelemtype->get_type_class() == TXTC_ELEMENTARY ) {
+            if ( lelemtype->type()->is_concrete() && relemtype->type()->is_concrete() ) {
+                if ( lelemtype->get_type_id() != relemtype->get_type_id() )
+                    CERROR( this, "Equality is always false: Unequal array element types for equality operator: " << lelemtype << ", " << relemtype );
+            }
+        }
+        else if ( lelemtype->get_type_class() == TXTC_REFERENCE ) {
+            // Since the built-in comparison of arrays of references compares the pointers (identity equality), we don't
+            // strictly need to check the ref target types here.
+            // However if they are mutually exclusive, the comparison will always yield false.
+            // The element types are mutually exclusive if neither type "is-a" the other type.
+            if ( !( lelemtype->type()->target_type()->type()->is_a( *relemtype->type()->target_type()->type() ) ||
+                    relemtype->type()->target_type()->type()->is_a( *lelemtype->type()->target_type()->type() ) ) )
+                CERROR( this, "Equality is always false: Unequal array element ref target types for equality operator: "
+                        << lelemtype << ", " << relemtype );
+        }
+    }
+}
+
+bool TxEqualityOperatorNode::is_statically_constant() const {
+    auto tc = this->lhs->originalExpr->qualtype()->type()->get_type_class();
+    return this->lhs->is_statically_constant() && this->rhs->is_statically_constant()
+            && ( tc == TXTC_ELEMENTARY || tc == TXTC_REFERENCE || tc == TXTC_FUNCTION || tc == TXTC_ARRAY );
 }
 
 const TxQualType* TxRefEqualityOperatorNode::define_type() {

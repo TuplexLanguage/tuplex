@@ -178,7 +178,7 @@ YY_DECL;
 %type <std::vector<TxArgTypeDefNode*> *> func_args func_args_list
 
 %type <TxTypeExpressionNode*> qual_type_expr
-%type <TxTypeExpressionNode*> type_expression type_derivation conv_type_expr produced_type
+%type <TxTypeExpressionNode*> type_expression type_derivation conv_type_expr produced_type type_as_value_expr
 %type <TxTypeExpressionNode*> named_type specialized_type reference_type array_type
 
 %type <TxFunctionTypeNode*> function_signature
@@ -438,11 +438,13 @@ type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->
 type_arg        : value_literal       { $$ = new TxValueTypeArgumentNode($1); }  // unambiguous value expr
                 | LPAREN expr RPAREN  { $$ = new TxValueTypeArgumentNode($2); }  // parens prevent conflation with type expr
                 | opt_mutable conv_type_expr   { $$ = new TxTypeTypeArgumentNode(( $1 ? new TxModifiableTypeNode(@$, $2)
-                                                                                         : new TxMaybeModTypeNode(@2, $2) )); }
-                // TODO: support reference and array types (possibly chained):
+                                                                                      : new TxMaybeModTypeNode(@2, $2) )); }
+                | opt_mutable reference_type   { $$ = new TxTypeTypeArgumentNode(( $1 ? new TxModifiableTypeNode(@$, $2)
+                                                                                      : new TxMaybeModTypeNode(@2, $2) )); }
+                | opt_mutable array_type       { $$ = new TxTypeTypeArgumentNode(( $1 ? new TxModifiableTypeNode(@$, $2)
+                                                                                      : new TxMaybeModTypeNode(@2, $2) )); }
+                // full type expressions don't work here due to conflation between function type and value expression (LPAREN):
                 // | qual_type_expr     { $$ = new TxTypeTypeArgumentNode($1); }
-                // | opt_mutable AAND conv_type_expr
-                // | opt_mutable LBRACKET RBRACKET conv_type_expr
                 ;
 
 // a qualified type expression, or "type usage variant", is a type expression with possible qualifiers (e.g. mutable):
@@ -538,6 +540,7 @@ expr
 
     |   NAME                         { $$ = new TxFieldValueNode(@$, NULL, $1); }
     |   expr DOT NAME                { $$ = new TxFieldValueNode(@$, $1,   $3); }
+    // TODO:  |   type_as_value_expr DOT NAME  { $$ = new TxFieldValueNode(@$, $1,   $3); }
     |   expr LBRACKET expr RBRACKET  { $$ = new TxElemDerefNode(@$, $1, $3); }
     |   expr CARET                   { $$ = new TxReferenceDerefNode(@$, $1); }
     |   AAND expr   %prec ADDR       { $$ = new TxReferenceToNode(@$, $2); }
@@ -599,8 +602,10 @@ array_lit_expr_list : expr  { $$ = new std::vector<TxExpressionNode*>();  $$->pu
                     ;
 
 make_expr : KW_NEW qual_type_expr call_params { $$ = new TxNewConstructionNode(@$, $2, $3); }
-          | LT qual_type_expr GT call_params  { $$ = new TxStackConstructionNode(@$, $2, $4); }
+          | type_as_value_expr call_params  { $$ = new TxStackConstructionNode(@$, $1, $2); }
 ;
+
+type_as_value_expr : LT qual_type_expr GT  { $$ = $2; } ;
 
 call_expr : expr call_params  { $$ = new TxFunctionCallNode(@$, $1, $2); }
 ;
@@ -619,6 +624,7 @@ expression_list : expr
 
 intrinsics_expr : KW__ADDRESS LPAREN expr RPAREN  { $$ = new TxRefAddressNode(@$, $3); }
                 | KW__TYPEID  LPAREN expr RPAREN  { $$ = new TxRefTypeIdNode(@$, $3); }
+                | KW__TYPEID  type_as_value_expr  { $$ = new TxTypeExprTypeIdNode(@$, $2); }
                 | KW__SIZEOF  LPAREN expr RPAREN  { $$ = new TxSizeofExprNode(@$, $3); }
                 | KW__SUPERTYPES LPAREN expr RPAREN  { $$ = new TxSupertypesExprNode(@$, $3); }
                 ;

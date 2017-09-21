@@ -110,6 +110,8 @@ void TypeRegistry::prepare_types() {
      */
     std::vector<TxActualType*> dataTypes;
     std::vector<TxActualType*> vtableTypes;
+    std::vector<TxActualType*> concreteRefTypes;
+    std::vector<TxActualType*> concreteFuncTypes;
     std::vector<TxActualType*> validTypes;
 
     for ( auto type : this->createdTypes ) {
@@ -139,6 +141,8 @@ void TypeRegistry::prepare_types() {
             continue;
         }
 
+        //if ( type->get_declaration()->get_unique_full_name().find( "tx.M$Array<$>1.ArrayIterator" ) != std::string::npos )
+        //    std::cerr << "Here: " << type << std::endl;
         if ( type->is_empty_derivation() ) {
             if ( type->get_declaration()->get_decl_flags() & TXD_IMPLICIT ) {
                 // we filter out the implicit Super types  TODO: Make Super a type alias instead (like Self)
@@ -151,12 +155,12 @@ void TypeRegistry::prepare_types() {
         }
 
         if ( type->get_type_class() == TXTC_FUNCTION ) {
-            validTypes.push_back( type );
+            concreteFuncTypes.push_back( type );
             continue;
         }
 
         if ( type->get_type_class() == TXTC_REFERENCE ) {
-            validTypes.push_back( type );
+            concreteRefTypes.push_back( type );
             continue;
         }
 
@@ -202,6 +206,16 @@ void TypeRegistry::prepare_types() {
         this->runtimeTypes.push_back( type );
     }
     this->vtableTypesCount = this->runtimeTypes.size();
+    for ( auto type : concreteRefTypes ) {
+        type->runtimeTypeId = this->runtimeTypes.size();
+        this->runtimeTypes.push_back( type );
+    }
+    this->refTypesLimit = this->runtimeTypes.size();
+    for ( auto type : concreteFuncTypes ) {
+        type->runtimeTypeId = this->runtimeTypes.size();
+        this->runtimeTypes.push_back( type );
+    }
+    this->funcTypesLimit = this->runtimeTypes.size();
     for ( auto type : validTypes ) {
         type->runtimeTypeId = this->runtimeTypes.size();
         this->runtimeTypes.push_back( type );
@@ -369,6 +383,7 @@ static const TxActualType* matches_existing_type( TxEntitySymbol* existingBaseSy
                     if ( auto existingBindingTypeDecl = dynamic_cast<const TxTypeDeclaration*>( existingBaseTypeBindings.at( ix ) ) ) {
                         const TxQualType* newBindingType = typeBinding->typeExprNode->qualtype();
                         const TxQualType* existingBindingType = existingBindingTypeDecl->get_definer()->resolve_type();
+                        //if ( *newBindingType == *existingBindingType )
                         if ( newBindingType->shallow_equals( existingBindingType ) )
                             continue;
                     }
@@ -664,7 +679,6 @@ const TxActualType* TypeRegistry::make_type_specialization( const TxTypeDefining
             "baseType definer's parent is not a TxTypeDeclNode: " << baseTypeExpr->parent() );
     auto baseDeclNode = static_cast<const TxTypeDeclNode*>( baseTypeExpr->parent() );
     TxTypeExpressionNode* specTypeExpr;
-//    specTypeExpr = baseTypeExpr->make_ast_copy();
     if ( typeBindings )
         specTypeExpr = baseTypeExpr->make_ast_copy();
     else {
@@ -808,9 +822,9 @@ const TxType* TypeRegistry::get_interface_adapter( const TxType* interface, cons
 }
 
 const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* interfaceType, const TxActualType* adaptedType ) {
-    while ( interfaceType->is_same_vtable_type() )
+    while ( interfaceType->is_same_vtable_type() && !interfaceType->get_explicit_declaration() )
         interfaceType = interfaceType->get_semantic_base_type();
-    while ( adaptedType->is_same_vtable_type() )
+    while ( adaptedType->is_same_vtable_type() && !adaptedType->get_explicit_declaration() )
         adaptedType = adaptedType->get_semantic_base_type();
 
     ASSERT( *interfaceType != *adaptedType, "Shouldn't create adapter between equivalent types" );
@@ -832,13 +846,11 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
     LOG_TRACE( this->LOGGER(), "Creating interface adapter: " << adapterName << "\n\tfrom " << adaptedType << "\n\tto   " << interfaceType );
     // TODO: combine flags from adapted and adaptee types, including TXD_EXPERRBLOCK
 
-    auto & loc = this->get_builtin_location();  // FIXME: add origin (adapter use site) to function signature so that we can assign an appropriate location
+    auto & loc = this->get_builtin_location();  // TODO: add origin (adapter use site) to function signature so that we can assign an appropriate location
     auto adapterTypeNode = new TxAdapterTypeNode( loc, interfaceType, adaptedType );
     auto adapterDeclNode = new TxTypeDeclNode( loc, ( TXD_PUBLIC | TXD_IMPLICIT ), adapterName, nullptr, adapterTypeNode );
 
     auto & adaptedTypeCtx = adaptedType->get_declaration()->get_definer()->context();
-    // ifDecl->get_definer()->context().scope()
-    // FIXME: review whether generic is gotten from correct scope:
     LexicalContext adapterCtx( scope, adaptedTypeCtx.exp_error(), adaptedTypeCtx.is_generic(),
                                adaptedTypeCtx.reinterpretation_definer() );
     run_declaration_pass( adapterDeclNode, adapterCtx );
@@ -854,7 +866,5 @@ const TxType* TypeRegistry::get_actual_interface_adapter( const TxActualType* in
     adapterDeclNode->symbol_resolution_pass();
 
     auto adapterType = adapterTypeNode->resolve_type();
-//    ASSERT(adapterType->adapted_type()->get_type_id() == adaptedType->get_type_id(),
-//           "Mismatching type ids between adapter and adaptee: " << adapterType->adapted_type()->get_type_id() << " != " << adaptedType->get_type_id());
     return adapterType->type();
 }

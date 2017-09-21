@@ -38,6 +38,7 @@ source_files = [
     "scalars_test.tx",
     "for_loops.tx",
     "format_test.tx",
+    "equality_test.tx",
 ]
 
 for src in source_files:
