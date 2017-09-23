@@ -34,12 +34,10 @@ builtin type ~ Array<E, C : UInt> derives Any, Collection<E>, Updatable<UInt, E>
     }
 
     override contains( val : E ) -> Bool {
-/* TODO: requires equals() or similar in Any
-        for i in 0..self.L-1 {
+        for i in 0..self.L {
             if self[i] == val:
                 return TRUE;
         }
-*/
         return FALSE;
     }
 

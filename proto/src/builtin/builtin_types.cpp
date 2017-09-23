@@ -58,14 +58,13 @@ class TxBuiltinTypeDefiningNode : public TxTypeExpressionNode {
     TxTypeDeclNode* superRefTypeNode = nullptr;
 
     /** creates nodes for the implicit type member 'Super' */
-    TxTypeDeclNode* make_super_type_node() const {
+    void make_super_type_node() {
         // (Note, 'Self' is created in the symbol table for all types, as an alias directly to the type.)
-        // let Any have itself as super type:
-        TxTypeExpressionNode* superTypeExprN = ( this->baseTypeNode ? (TxTypeExpressionNode*) new TxTypeExprWrapperNode( this->baseTypeNode )
-                                                                    : (TxTypeExpressionNode*) new TxNamedTypeNode( ploc, "tx.Any" ) );
-        auto superRefTypeExprN = new TxReferenceTypeNode( this->ploc, nullptr, superTypeExprN );
-        const std::string superTypeName = "Super";
-        return new TxTypeDeclNode( this->ploc, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN );
+        if ( this->baseTypeNode ) {
+            TxTypeExpressionNode* superTypeExprN = new TxTypeExprWrapperNode( this->baseTypeNode );
+            const std::string superTypeName = "Super";
+            this->superRefTypeNode = new TxTypeDeclNode( this->ploc, TXD_IMPLICIT, superTypeName, nullptr, superTypeExprN );
+        }
     }
 
     /** helper method for subclasses that constructs a vector of TxType of this instance's interface expressions */
@@ -113,7 +112,7 @@ protected:
                                TxDerivedTypeNode* sourcecodeDefiner )
             : TxTypeExpressionNode( ploc ), builtinTypeId( TXBT_NOTSET ), original( original ),
               baseTypeNode( baseTypeNode ), declNodes( declNodes ), sourcecodeDefiner( sourcecodeDefiner ) {
-        this->superRefTypeNode = make_super_type_node();
+        make_super_type_node();
         if (sourcecodeDefiner)
             sourcecodeDefiner->set_builtin_type_definer( this );
     }
@@ -126,16 +125,6 @@ protected:
     }
 
     virtual const TxQualType* define_type() override final {
-// This used to be necessary but hindered providing members to Array and Ref in source code:
-//        if ( this->original ) {  // true when this is a reinterpreted copy
-//            // Note: This applies to Ref and Array specializations and deviates from reinterpretation of user types:
-//            //   Specializations of user types will not have the generic base type as their base type,
-//            //   instead they will have the generic base type's parent as their base type.
-//            //   Here that would be  this->baseTypeNode->resolve_type()  instead of  this->original->get_type() .
-//            //   That would however not work with the current type class implementation (TxReferenceType and TxArrayType).
-//            return this->registry().make_type_entity( this->registry().make_actual_type( this->get_declaration(),
-//                                                                                         this->original->get_type()->type() ) );
-//        }
         const TxType* baseType = ( this->baseTypeNode ? this->baseTypeNode->resolve_type()->type() : nullptr );
         const std::vector<const TxType*> interfaces = this->resolve_interfaces();
         return new TxQualType( new TxType( this,
@@ -163,7 +152,7 @@ public:
             : TxTypeExpressionNode( ploc ), builtinTypeId( builtinTypeId ), original( nullptr ),
               baseTypeNode( baseTypeNode ),
               declNodes( declNodes ) {
-        this->superRefTypeNode = make_super_type_node();
+        make_super_type_node();
     }
 
     virtual TxBuiltinTypeDefiningNode* make_ast_copy() const override {
@@ -174,7 +163,9 @@ public:
 
     virtual void symbol_resolution_pass() override {
         TxTypeExpressionNode::symbol_resolution_pass();
-        this->superRefTypeNode->symbol_resolution_pass();
+        if ( this->baseTypeNode ) {
+            this->superRefTypeNode->symbol_resolution_pass();
+        }
         for ( auto decl : this->declNodes )
             decl->symbol_resolution_pass();
         if ( this->sourcecodeDefiner )
@@ -182,9 +173,10 @@ public:
     }
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override {
-        if ( this->baseTypeNode )
+        if ( this->baseTypeNode ) {
             this->baseTypeNode->code_gen_type( context );
-        this->superRefTypeNode->code_gen( context );
+            this->superRefTypeNode->code_gen( context );
+        }
         for ( auto decl : this->declNodes )
             decl->code_gen( context );
         if ( this->sourcecodeDefiner )
@@ -192,9 +184,10 @@ public:
     }
 
     virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        if ( this->baseTypeNode )
+        if ( this->baseTypeNode ) {
             this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
-        this->superRefTypeNode->visit_ast( visitor, thisCursor, "super", context );
+            this->superRefTypeNode->visit_ast( visitor, thisCursor, "super", context );
+        }
         for ( auto decl : this->declNodes )
             decl->visit_ast( visitor, thisCursor, "decl", context );
         if ( this->sourcecodeDefiner )
@@ -590,14 +583,42 @@ static TxFieldDeclNode* make_conversion_initializer( const TxLocation& loc, Buil
 }
 
 static std::vector<TxDeclarationNode*> make_any_methods( const TxLocation& loc ) {
+/*  Built-in definitions corresponding to the following Tuplex code for the Any root type:
+
+/ ** @return self by default * /
+key() -> &Any {
+    return self;
+}
+
+/ ** Compares key object keys' identity by default * /
+equals( other : &Any )->Bool {
+    return self.key() == other.key();
+}
+
+*/
     std::vector<TxDeclarationNode*> methods;
-    { //  define equals()
-        auto eqStmt = new TxReturnStmtNode( loc, new TxRefEqualityOperatorNode( loc, new TxFieldValueNode( loc, nullptr, "self" ),
-                                                                                new TxFieldValueNode( loc, nullptr, "other" ) ) );
+    { //  define key() -> &Any
+        auto retStmt = new TxReturnStmtNode( loc, new TxFieldValueNode( loc, nullptr, "self" ) );
+        auto methodType = new TxFunctionTypeNode( loc, false, new std::vector<TxArgTypeDefNode*>( {} ),
+                                                  new TxReferenceTypeNode( loc, nullptr, new TxNamedTypeNode( loc, "tx.Any" ) ) );
+        auto lambdaExpr = new TxLambdaExprNode( loc, methodType, new TxSuiteNode( loc, new std::vector<TxStatementNode*>( { retStmt } ) ),
+                                                true, true );
+        methods.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN,
+                                                new TxNonLocalFieldDefNode( loc, "key", (TxTypeExpressionNode*)nullptr, lambdaExpr ),
+                                                true ) );  // method syntax
+    }
+    { //  define equals( other: &Any ) -> Bool
+        auto selfKeyCall = new TxFunctionCallNode( loc, new TxFieldValueNode( loc, new TxFieldValueNode( loc, nullptr, "self" ), "key" ),
+                                                   new std::vector<TxExpressionNode*>( {} ) );
+        auto otherKeyCall = new TxFunctionCallNode( loc, new TxFieldValueNode( loc, new TxFieldValueNode( loc, nullptr, "other" ), "key" ),
+                                                    new std::vector<TxExpressionNode*>( {} ) );
+        auto eqStmt = new TxReturnStmtNode( loc, new TxEqualityOperatorNode( loc, selfKeyCall, otherKeyCall ) );
+
         auto argNode = new TxArgTypeDefNode( loc, "other", new TxReferenceTypeNode( loc, nullptr, new TxNamedTypeNode( loc, "tx.Any" ) ) );
         auto methodType = new TxFunctionTypeNode( loc, false, new std::vector<TxArgTypeDefNode*>( { argNode } ),
                                                   new TxNamedTypeNode( loc, "tx.Bool" ) );
-        auto lambdaExpr = new TxLambdaExprNode( loc, methodType, new TxSuiteNode( loc, new std::vector<TxStatementNode*>( { eqStmt } ) ), true );
+        auto lambdaExpr = new TxLambdaExprNode( loc, methodType, new TxSuiteNode( loc, new std::vector<TxStatementNode*>( { eqStmt } ) ),
+                                                true, true );
         methods.push_back( new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_BUILTIN,
                                                 new TxNonLocalFieldDefNode( loc, "equals", (TxTypeExpressionNode*)nullptr, lambdaExpr ),
                                                 true ) );  // method syntax

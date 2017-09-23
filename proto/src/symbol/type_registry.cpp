@@ -116,8 +116,6 @@ void TypeRegistry::prepare_types() {
 
     for ( auto type : this->createdTypes ) {
         try {
-//            if (type->get_declaration()->get_unique_name() == "Single")
-//                std::cerr << "Preparing type: " << type << std::endl;
             type->prepare_members();
         }
         catch ( const resolution_error& err ) {
@@ -141,14 +139,10 @@ void TypeRegistry::prepare_types() {
             continue;
         }
 
-        //if ( type->get_declaration()->get_unique_full_name().find( "tx.M$Array<$>1.ArrayIterator" ) != std::string::npos )
-        //    std::cerr << "Here: " << type << std::endl;
         if ( type->is_empty_derivation() ) {
-            if ( type->get_declaration()->get_decl_flags() & TXD_IMPLICIT ) {
-                // we filter out the implicit Super types  TODO: Make Super a type alias instead (like Self)
-                continue;
-            }
-            else if ( type->get_declaration()->get_decl_flags() & TXD_GENPARAM ) {
+            // (Note: Self and Super are aliases, not proper types and shouldn't occur here.)
+            ASSERT( !(type->get_declaration()->get_decl_flags() & TXD_IMPLICIT), "Implicit empty derivation: " << type );
+            if ( type->get_declaration()->get_decl_flags() & TXD_GENPARAM ) {
                 validTypes.push_back( type );
                 continue;
             }

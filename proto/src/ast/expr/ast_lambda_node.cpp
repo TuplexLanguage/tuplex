@@ -17,7 +17,8 @@ void TxLambdaExprNode::declaration_pass() {
             CERROR( this, "The scope of instance method must be a type scope: " << lexContext.scope() );
 
         this->selfRefNode->declare_field( funcScope, TXD_NONE, TXS_STACK );
-        this->superRefNode->declare_field( funcScope, TXD_NONE, TXS_STACK );
+        if ( this->superRefNode )
+            this->superRefNode->declare_field( funcScope, TXD_NONE, TXS_STACK );
     }
     this->lexContext._scope = funcScope;
     this->lexContext.enclosingLambda = this;
@@ -40,7 +41,8 @@ void TxLambdaExprNode::symbol_resolution_pass() {
         }
         try {
             this->selfRefNode->symbol_resolution_pass();
-            this->superRefNode->symbol_resolution_pass();
+            if ( this->superRefNode )
+                this->superRefNode->symbol_resolution_pass();
         }
         catch ( const resolution_error& err ) {
             LOG( this->LOGGER(), DEBUG, "Caught resolution error in self/super of instance method " << this << ": " << err );

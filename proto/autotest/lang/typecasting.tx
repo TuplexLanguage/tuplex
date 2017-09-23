@@ -41,12 +41,55 @@ func( r : &Any )->Int {
 
     #experr 2: if r^ is i : Int :  return i;  ## cast of non-reference
 
-    ##experr 1: if r is a : &IntfA :  return a.get_value();  ## cast to interface
+    ##experr 1: if r is a : &IntfA :  return a.get_value();  ## TODO: support cast to interface ref
 
     return 0;
 }
 
+type_isa() {
+    assert isa( _typeid<Elementary>, _typeid<Any> );
+    assert isa( _typeid<Integer>, _typeid<Elementary> );
+    assert isa( _typeid<Signed>, _typeid<Integer> );
+    assert isa( _typeid<Int>, _typeid<Signed> );
+    assert isa( _typeid<Int>, _typeid<Int> );
+    assert isa( _typeid<Int>, _typeid<Integer> );
+    assert isa( _typeid<Int>, _typeid<Elementary> );
+    assert isa( _typeid<Int>, _typeid<Any> );
+    assert isa( _typeid<Floatingpoint>, _typeid<Elementary> );
+    assert isa( _typeid<Float>, _typeid<Floatingpoint> );
+    assert isa( _typeid<Double>, _typeid<Floatingpoint> );
+    assert isa( _typeid<Bool>, _typeid<Elementary> );
+    assert isa( _typeid<Bool>, _typeid<Any> );
+
+    assert isa( _typeid<Ref>, _typeid<Any> );
+    assert isa( _typeid<&Int>, _typeid<Any> );
+    assert isa( _typeid<&Int>, _typeid<Ref> );
+
+/* TODO - support one way or other
+    assert isa( _typeid<&Int>, _typeid<&Signed> );
+    assert isa( _typeid<&Int>, _typeid<&Integer> );
+    assert isa( _typeid<&Int>, _typeid<&Elementary> );
+    assert isa( _typeid<&Int>, _typeid<&Any> );
+*/
+
+    assert isa( _typeid<[0]Int>, _typeid<[]Int> );
+    assert isa( _typeid<[3]Int>, _typeid<[]Int> );
+    assert isa( _typeid<[3]Int>, _typeid<[3]Int> );
+    assert !isa( _typeid<[3]Int>, _typeid<[4]Int> );
+    assert !isa( _typeid<[]Int>, _typeid<[3]Int> );
+
+    assert isa( _typeid<[3]~Int>, _typeid<[3]~Int> );
+    assert !isa( _typeid<[3]Int>, _typeid<[3]~Int> );  ## immutable array can't pose as mutable
+    assert !isa( _typeid<[3]~Int>, _typeid<[3]Int> );  ## FUTURE: support mutable spec posing as immutable
+
+    assert isa( _typeid<[3]&Int>, _typeid<[]&Int> );
+    assert isa( _typeid<[3]&Int>, _typeid<[3]&Int> );
+    
+    assert !isa( _typeid<[3]&Int>, _typeid<[3]&Integer> );  ## FUTURE: Support this, at least for immutable arrays?
+}
+
 main()->Int {
+    type_isa();
     i : Int = 42;
     f : Float = 3.14;
     return func( f );

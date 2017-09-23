@@ -1,13 +1,136 @@
+## Tests the Array foundation library interface and implementation.
 
+
+## Can't use the builtin attribute on user declarations:
 #experr 1: builtin type BadUserType derives Tuple;
 
-test_array_interface() {
-    a0 : Array<~Int,3>;
-    a1 := [ Int(1), 2, 3 ];
-    assert !a1.empty();
+
+test_array_const_interface() {
+    a00 : Array<Int,0>;             ## zero-sized array, default-initialized
+    a01 : Array<Int,0> = [0]Int();  ## zero-sized array
+    a02 := [0]Int();                ## zero-sized array
+
+    a03 : Array<Int,1>;             ## default-initialized
+    a04 : Array<Int,1> = [1]Int();  ## 
+    a05 := [1]Int();                ## 
+
+    a06 : Array<Int,2>;             ## default-initialized
+    a07 : Array<Int,2> = [2]Int();  ## 
+    a08 := [2]Int();                ## 
+
+
+    a11 : Array<Int,1> = [ 10I ];     
+    a12 := [1]Int( 10I );             
+    ## TODO partial assignment: a13 : Array<Int,2> = [ 10I ];     
+    a14 := <Array<Int,2>>( [ 10I ] );
+    a15 : Array<Int,2> = [ 10I, 20I ]; 
+    a16 := [2]Int( 10I, 20I );         
+
+
+    assert a00.empty();
+    assert a01.empty();
+    assert a02.empty();
+    assert a03.empty();
+    assert a04.empty();
+    assert a05.empty();
+    assert a06.empty();
+    assert a07.empty();
+    assert a08.empty();
+    assert !a11.empty();
+    assert !a12.empty();
+    ##assert !a13.empty();
+    assert !a14.empty();
+    assert !a15.empty();
+    assert !a16.empty();
+
+    assert a00.count() == 0;
+    assert a01.count() == 0;
+    assert a02.count() == 0;
+    assert a03.count() == 0;
+    assert a04.count() == 0;
+    assert a05.count() == 0;
+    assert a06.count() == 0;
+    assert a07.count() == 0;
+    assert a08.count() == 0;
+    assert a11.count() == 1;
+    assert a12.count() == 1;
+    ##assert a13.count() == 1;
+    assert a14.count() == 1;
+    assert a15.count() == 2;
+    assert a16.count() == 2;
+
+    assert a00.capacity() == 0;
+    assert a01.capacity() == 0;
+    assert a02.capacity() == 0;
+    assert a03.capacity() == 1;
+    assert a04.capacity() == 1;
+    assert a05.capacity() == 1;
+    assert a06.capacity() == 2;
+    assert a07.capacity() == 2;
+    assert a08.capacity() == 2;
+    assert a11.capacity() == 1;
+    assert a12.capacity() == 1;
+    ##assert a13.capacity() == 2;
+    assert a14.capacity() == 2;
+    assert a15.capacity() == 2;
+    assert a16.capacity() == 2;
+
+    assert !a00.contains( 10I );
+    assert !a01.contains( 10I );
+    assert !a02.contains( 10I );
+    assert !a03.contains( 10I );
+    assert !a04.contains( 10I );
+    assert !a05.contains( 10I );
+    assert !a06.contains( 10I );
+    assert !a07.contains( 10I );
+    assert !a08.contains( 10I );
+    assert a11.contains( 10I );
+    assert a12.contains( 10I );
+    ##assert a13.contains( 10I );
+    assert a14.contains( 10I );
+    assert a15.contains( 10I );
+    assert a16.contains( 10I );
+    assert a15.contains( 20I );
+    assert a16.contains( 20I );
+    assert !a16.contains( 30I );
+
+    assert !a00.has( 0 );
+    assert !a00.has( 1 );
+    assert !a00.has( UInt.MAX );
+    assert !a01.has( 0 );
+    assert !a02.has( 0 );
+    assert !a03.has( 0 );
+    assert !a04.has( 0 );
+    assert !a05.has( 0 );
+    assert !a06.has( 0 );
+    assert !a07.has( 0 );
+    assert !a08.has( 0 );
+    assert a11.has( 0 );
+    assert !a11.has( 1 );
+    assert !a11.has( UInt.MAX );
+    assert a12.has( 0 );
+    ##assert a13.has( 0 );
+    assert a14.has( 0 );
+    assert a15.has( 0 );
+    assert a16.has( 0 );
+    assert a15.has( 1 );
+    assert a16.has( 1 );
+    assert !a15.has( 2 );
+    assert !a16.has( 2 );
+    assert !a15.has( UInt.MAX );
+    assert !a16.has( UInt.MAX );
+
+    assert a11.get( 0 ) == 10;
+    assert a12.get( 0 ) == 10;
+    ##assert a13.get( 0 ) == 10;
+    assert a14.get( 0 ) == 10;
+    assert a15.get( 0 ) == 10;
+    assert a16.get( 0 ) == 10;
+    assert a15.get( 1 ) == 20;
+    assert a16.get( 1 ) == 20;
 }
 
 main() -> Int {
-    test_array_interface();
+    test_array_const_interface();
     return 0;
 }

@@ -74,19 +74,20 @@ void TxLambdaExprNode::code_gen_function_body( LlvmGenerationContext& context ) 
     Function::arg_iterator fArgI = this->functionPtr->arg_begin();
     if ( this->is_instance_method() ) {
         // (both self and super refer to the same object, but with different ref types)
+        // from the closure reference argument, create the local self and super fields:
+        Value* closureRefV = &(*fArgI);
+        Value* tidV = gen_get_ref_typeid( context, &fscope, closureRefV );
+        Value* origPtrV = gen_get_ref_pointer( context, &fscope, closureRefV );
+
         this->selfRefNode->typeExpression->code_gen_type( context );
-        this->superRefNode->typeExpression->code_gen_type( context );
+        auto selfT = context.get_llvm_type( this->selfRefNode->qualtype() );
+        auto convSelfV =  gen_ref( context, &fscope, selfT, origPtrV, tidV );
+        gen_local_field( context, &fscope, this->selfRefNode->get_field(), convSelfV );
 
-        { // from the closure reference argument, create the local self and super fields:
-            Value* closureRefV = &(*fArgI);
-            Value* tidV = gen_get_ref_typeid( context, &fscope, closureRefV );
-            Value* origPtrV = gen_get_ref_pointer( context, &fscope, closureRefV );
-
-            auto selfT = context.get_llvm_type( this->selfRefNode->qualtype() );
+        if ( this->superRefNode ) {
+            this->superRefNode->typeExpression->code_gen_type( context );
             auto superT = context.get_llvm_type( this->superRefNode->qualtype() );
-            auto convSelfV =  gen_ref( context, &fscope, selfT, origPtrV, tidV );
             auto convSuperV =  gen_ref( context, &fscope, superT, origPtrV, tidV );
-            gen_local_field( context, &fscope, this->selfRefNode->get_field(), convSelfV );
             gen_local_field( context, &fscope, this->superRefNode->get_field(), convSuperV );
         }
     }

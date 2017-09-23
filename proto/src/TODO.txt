@@ -140,6 +140,8 @@ Support negative array indexing from array end
 
 Ensure VALUE type parameters are always correctly initialized
 
+Ensure Ref<P> is-a Ref<O> if P is-a O
+
 
 
 Ensure fields are always initialized (with the default constructor if no init expr provided)

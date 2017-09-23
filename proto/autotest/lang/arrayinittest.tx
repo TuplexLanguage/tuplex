@@ -36,6 +36,9 @@ array_stack_construction( i : UByte ) {
     a14 := []Int( a10 );            ## field initializer
     a15 := []Int( &a10 );           ## auto-dereferencing
 
+## TODO: Partial initialization via assignment
+    ## a : Array<Int,2> = [ 10I ];
+
 ## TODO: initialize from non-array sequences
 
 ## TODO: conversions
@@ -87,6 +90,8 @@ array_stack_construction( i : UByte ) {
     a42 := <Array<Int,(i*3)>>( [ 1I, 2 ] );
     a43 := MyFA( [ 1.1 ] );
     a44 := MyFA( [ 1.1, 2.2 ] );
+  ## TODO: support this partial initialization syntax:
+    ##a45 := [2]Int( [ 10I ] );
 
 
 ## TODO: support partial initialization of explicitly typed array literals (relevant iff modifiable assignee)

@@ -1,4 +1,5 @@
-## specific array tests
+## specific array tests 
+## TODO: remove this test file when equality_test.tx can implement more complex arrays-of-arrays (requires type system improvements)
 
 interface Face { }
 

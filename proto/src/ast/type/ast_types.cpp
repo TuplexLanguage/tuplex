@@ -133,9 +133,8 @@ void TxDerivedTypeNode::init_implicit_types() {
         // implicit type member 'Super' for types with a body:
         // (Note, 'Self' is created in the symbol table for all types, as an alias directly to the type.)
         TxTypeExpressionNode* superTypeExprN = new TxTypeExprWrapperNode( this->baseType );
-        auto superRefTypeExprN = new TxReferenceTypeNode( this->ploc, nullptr, superTypeExprN );
         const std::string superTypeName = "Super";
-        this->superRefTypeNode = new TxTypeDeclNode( this->ploc, TXD_IMPLICIT, superTypeName, nullptr, superRefTypeExprN );
+        this->superRefTypeNode = new TxTypeDeclNode( this->ploc, TXD_IMPLICIT, superTypeName, nullptr, superTypeExprN );
     }
 }
 

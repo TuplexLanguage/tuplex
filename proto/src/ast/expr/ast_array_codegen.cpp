@@ -219,12 +219,16 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
 
             { // panic:
                 scope->builder->SetInsertPoint( panicBlock );
-                panicNode->code_gen( context, scope );
+                //panicNode->code_gen( context, scope );  // TODO: make panicNode call context.gen_panic_call
+                auto indexV = scope->builder->CreateZExt( subscriptV, Type::getInt64Ty( context.llvmContext ) );
+                context.gen_panic_call( scope, "Array write index out of bounds: %d\n", indexV );
                 scope->builder->CreateBr( postBlock );  // terminate block, though won't be executed
             }
         }
         else {
-            panicNode->code_gen( context, scope );
+            //panicNode->code_gen( context, scope );
+            auto indexV = scope->builder->CreateZExt( subscriptV, Type::getInt64Ty( context.llvmContext ) );
+            context.gen_panic_call( scope, "Array read index out of bounds: %d\n", indexV );
             scope->builder->CreateBr( postBlock );  // terminate block, though won't be executed
         }
 

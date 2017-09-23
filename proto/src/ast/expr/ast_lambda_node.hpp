@@ -38,11 +38,13 @@ public:
     TxSuiteNode* suite;
     const bool isMethodSyntax;
 
-    TxLambdaExprNode( const TxLocation& ploc, TxFunctionTypeNode* funcTypeNode, TxSuiteNode* suite, bool isMethodSyntax = false )
-            : TxLambdaExprNode( ploc, new TxFunctionHeaderNode( funcTypeNode ), suite, isMethodSyntax ) {
+    TxLambdaExprNode( const TxLocation& ploc, TxFunctionTypeNode* funcTypeNode, TxSuiteNode* suite, bool isMethodSyntax = false,
+                      bool suppressSuper = false )
+            : TxLambdaExprNode( ploc, new TxFunctionHeaderNode( funcTypeNode ), suite, isMethodSyntax, suppressSuper ) {
     }
 
-    TxLambdaExprNode( const TxLocation& ploc, TxFunctionHeaderNode* funcHeaderNode, TxSuiteNode* suite, bool isMethodSyntax = false )
+    TxLambdaExprNode( const TxLocation& ploc, TxFunctionHeaderNode* funcHeaderNode, TxSuiteNode* suite, bool isMethodSyntax = false,
+                      bool suppressSuper = false )
             : TxExpressionNode( ploc ), funcHeaderNode( funcHeaderNode ), suite( suite ), isMethodSyntax( isMethodSyntax ) {
         if ( isMethodSyntax ) {
             // 'self' reference:
@@ -56,9 +58,11 @@ public:
             this->selfRefNode = new TxLocalFieldDefNode( this->ploc, "self", selfRefTypeExprN, nullptr );
 
             // 'super' reference
-            auto superRefTypeExprN = new TxNamedTypeNode( this->ploc, "Super" );
-            this->superRefNode = new TxLocalFieldDefNode( this->ploc, "super", superRefTypeExprN, nullptr );
-            // FUTURE: if type is modifiable, the super target type should in some cases perhaps be modifiable as well?
+            if ( !suppressSuper ) {
+                auto superRefTypeExprN = new TxReferenceTypeNode( this->ploc, nullptr, new TxNamedTypeNode( this->ploc, "Super" ) );
+                this->superRefNode = new TxLocalFieldDefNode( this->ploc, "super", superRefTypeExprN, nullptr );
+                // FUTURE: if type is modifiable, the super target type should in some cases perhaps be modifiable as well?
+            }
         }
     }
 
@@ -106,7 +110,8 @@ public:
         this->funcHeaderNode->visit_ast( visitor, thisCursor, "functype", context );
         if ( this->is_instance_method() ) {
             this->selfRefNode->visit_ast( visitor, thisCursor, "selfref", context );
-            this->superRefNode->visit_ast( visitor, thisCursor, "superref", context );
+            if ( this->superRefNode )
+                this->superRefNode->visit_ast( visitor, thisCursor, "superref", context );
         }
         this->suite->visit_ast( visitor, thisCursor, "suite", context );
     }
