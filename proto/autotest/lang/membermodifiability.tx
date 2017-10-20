@@ -14,7 +14,7 @@ type ImmutableType {
     }
 
     #experr 2: set_i( i : Int ) ~ {  ## can't declare modifying method on immutable type
-        #experr 0: self.ifield = i;    ## field is not modifiable
+        #experr 1: self.ifield = i;    ## field is not modifiable
     }
 }
 

@@ -1,10 +1,11 @@
 #include "ast_entitydefs.hpp"
 #include "expr/ast_expr_node.hpp"
+#include "symbol/type_base.hpp"
 
 
-const TxQualType* TxTypeDefiningNode::resolve_type() {
+TxQualType TxTypeResolvingNode::resolve_type( TxPassInfo passInfo ) {
     ASSERT( this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this );
-    if ( !this->type ) {
+    if ( !this->_type ) {
         if ( this->hasResolved ) {
             throw resolution_error( this, "Previous type resolution failed in " + this->str() );
         }
@@ -15,46 +16,18 @@ const TxQualType* TxTypeDefiningNode::resolve_type() {
         }
         this->startedRslv = true;
         try {
-            this->type = this->define_type();
+            this->_type = this->define_type( passInfo );
         }
         catch ( const resolution_error& err ) {
             this->hasResolved = true;
             //LOG(this->LOGGER(), DEBUG, "Caught and re-threw resolution error in " << this << ": " << err);
             throw;
         }
-        ASSERT( this->type, "NULL-resolved type but no exception thrown in " << this );
+        ASSERT( this->_type, "NULL-resolved type but no exception thrown in " << this );
         this->hasResolved = true;
     }
-    return this->type;
-}
-
-const TxField* TxFieldDefiningNode::resolve_field() {
-    ASSERT( this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this );
-    if ( !this->field ) {
-        if ( this->hasResolved ) {
-            throw resolution_error( this, "Previous field resolution failed in " + this->str() );
-        }
-        LOG_TRACE( this->LOGGER(), "resolving field of " << this );
-
-        if ( this->startedRslv ) {
-            CERR_THROWRES( this, "Recursive definition of field '" << this->get_descriptor() << "'" );
-        }
-        this->startedRslv = true;
-        try {
-            this->type = this->define_type();
-            this->field = this->define_field();
-        }
-        catch ( const resolution_error& err ) {
-            this->hasResolved = true;
-            //LOG(this->LOGGER(), DEBUG, "Caught and re-threw resolution error in " << this << ": " << err);
-            throw;
-        }
-        ASSERT( this->type && this->field, "NULL-resolved type/field but no exception thrown in " << this );
-        this->hasResolved = true;
+    if ( is_full_resolution( passInfo ) && !this->_type->is_integrated() ) {
+        const_cast<TxActualType*>(this->_type.type())->integrate();
     }
-    return this->field;
-}
-
-bool TxFieldDefiningNode::is_statically_constant() const {
-    return this->get_init_expression() && this->get_init_expression()->is_statically_constant();
+    return this->_type;
 }

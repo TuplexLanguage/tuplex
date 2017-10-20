@@ -26,18 +26,7 @@ TxModuleNode* TxModuleNode::make_ast_copy() const {
                              builtin );
 }
 
-void TxModuleNode::symbol_resolution_pass() {
-    if ( this->members ) {
-        for ( auto mem : *this->members )
-            mem->symbol_resolution_pass();
-    }
-    if ( this->subModules ) {
-        for ( auto mod : *this->subModules )
-            mod->symbol_resolution_pass();
-    }
-}
-
-void TxModuleNode::visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) {
+void TxModuleNode::visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) {
     if ( this->imports ) {
         for ( auto imp : *this->imports )
             imp->visit_ast( visitor, thisCursor, "import", context );

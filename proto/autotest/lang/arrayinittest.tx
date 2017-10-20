@@ -77,7 +77,7 @@ array_stack_construction( i : UByte ) {
     #experr 2: ae := <Array>( [ 1I, 2, 3 ] );
 
 
-  ## Construction of emtpy arrays with dynamic length:
+  ## Construction of empty arrays with dynamic length:
     a30 := [i*0]Int();
     a31 := [i*3]Int();
     a32 := <Array<Int,(i*0)>>();
@@ -90,17 +90,15 @@ array_stack_construction( i : UByte ) {
     a42 := <Array<Int,(i*3)>>( [ 1I, 2 ] );
     a43 := MyFA( [ 1.1 ] );
     a44 := MyFA( [ 1.1, 2.2 ] );
-  ## TODO: support this partial initialization syntax:
-    ##a45 := [2]Int( [ 10I ] );
 
 
 ## TODO: support partial initialization of explicitly typed array literals (relevant iff modifiable assignee)
+    ##a45 := [2]Int( [ 10I ] );
     #experr 1: ae := [3]Int( 1 );
     #experr 1: ae := [3]Int( 1, 2 );
-    #experr 1: ae := [4]Int( [ 1I, 2, 3 ] );  ## literal array initializer
-    #experr 1: ae := [4]Int( a10 );           ## field initializer
-    #experr 1: ae := [4]Int( &a10 );          ## auto-dereferencing
-
+    #experr 2: ae := [4]Int( [ 1I, 2, 3 ] );  ## literal array initializer
+    #experr 2: ae := [4]Int( a10 );           ## field initializer
+    #experr 2: ae := [4]Int( &a10 );          ## auto-dereferencing
 
 ## TODO: initialization from non-array sequences
 }

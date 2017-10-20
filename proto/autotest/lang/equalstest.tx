@@ -16,8 +16,8 @@ test_ref_eq_operator() -> Int {
     assert r1 !== r3;
     assert r2 !== r3;
     
-    #experr 1: be : Bool = 42 === 42;
-    #experr 1: be : Bool = ubyteA === ubyteA;
+    #experr 2: be : Bool = 42 === 42;
+    #experr 2: be : Bool = ubyteA === ubyteA;
     #experr 1: be : Bool = ubyteA === r1;
     #experr 1: be : Bool = r1 === ubyteA;
 

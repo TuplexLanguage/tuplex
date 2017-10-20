@@ -5,9 +5,9 @@
 #include "tx_field_storage.hpp"
 
 #include "ast/ast_entitydefs.hpp"
-//class TxEntityDefiningNode;
-//class TxFieldDefiningNode;
-//class TxTypeDefiningNode;
+#include "ast/ast_fielddef_node.hpp"
+#include "ast/type/ast_typecreating_node.hpp"
+#include "ast/type/ast_qualtypes.hpp"
 
 
 // (types are implicitly static)
@@ -49,19 +49,19 @@ public:
         return this->declFlags;
     }
 
-    virtual TxEntityDefiningNode* get_definer() const = 0;
+    virtual TxEntityResolvingNode* get_definer() const = 0;
 
     /** Returns a globally unique full name for this declaration.
      * This will augment the "fully qualified name" for overloaded symbols.
      * This should not be called before declaration phase has completed.
      */
-    virtual std::string get_unique_full_name() const = 0;
+    virtual std::string get_unique_full_name() const;
 
     /** Returns a unique name (within its outer scope) for this declaration.
      * This will augment the name for overloaded symbols.
      * This should not be called before declaration phase has completed.
      */
-    virtual std::string get_unique_name() const = 0;
+    virtual std::string get_unique_name() const;
 
     virtual std::string str() const override;
 };
@@ -100,18 +100,29 @@ public:
 };
 
 class TxTypeDeclaration : public TxEntityDeclaration {
-    TxTypeDefiningNode* const typeDefiner;
+    TxTypeCreatingNode* const typeDefiner;
 
 public:
-    TxTypeDeclaration( TxEntitySymbol* symbol, TxDeclarationFlags declFlags, TxTypeDefiningNode* typeDefiner )
+    TxTypeDeclaration( TxEntitySymbol* symbol, TxDeclarationFlags declFlags, TxTypeCreatingNode* typeDefiner )
             : TxEntityDeclaration( symbol, declFlags ), typeDefiner( typeDefiner ) {
         ASSERT( ( declFlags | LEGAL_TYPE_DECL_FLAGS ) == LEGAL_TYPE_DECL_FLAGS, "Illegal type declFlags: " << declFlags );
     }
 
-    virtual TxTypeDefiningNode* get_definer() const override {
+    virtual TxTypeCreatingNode* get_definer() const override {
         return this->typeDefiner;
     }
-
-    virtual std::string get_unique_full_name() const override;
-    virtual std::string get_unique_name() const override;
 };
+
+//class TxQualTypeDeclaration : public TxEntityDeclaration {
+//    TxQualTypeExprNode* const typeDefiner;
+//
+//public:
+//    TxQualTypeDeclaration( TxEntitySymbol* symbol, TxDeclarationFlags declFlags, TxQualTypeExprNode* typeDefiner )
+//            : TxEntityDeclaration( symbol, declFlags ), typeDefiner( typeDefiner ) {
+//        ASSERT( ( declFlags | LEGAL_TYPE_DECL_FLAGS ) == LEGAL_TYPE_DECL_FLAGS, "Illegal type declFlags: " << declFlags );
+//    }
+//
+//    virtual TxQualTypeExprNode* get_definer() const override {
+//        return this->typeDefiner;
+//    }
+//};

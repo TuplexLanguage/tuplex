@@ -39,8 +39,8 @@ static const OpMapping OP_MAPPING[] = {
 
 static unsigned get_llvm_op( TxOperationClass op_class, TxOperation op, const TxActualType* computeType, bool* float_operation ) {
     unsigned llvm_op;
-    if ( auto intType = dynamic_cast<const TxIntegerType*>( computeType ) ) {
-        llvm_op = intType->sign ? OP_MAPPING[op].l_si_op : OP_MAPPING[op].l_ui_op;
+    if ( auto intType = dynamic_cast<const TxIntegerTypeClassHandler*>( computeType->type_class_handler() ) ) {
+        llvm_op = intType->is_signed() ? OP_MAPPING[op].l_si_op : OP_MAPPING[op].l_ui_op;
     }
     else if ( dynamic_cast<const TxFloatingType*>( computeType ) ) {
         llvm_op = OP_MAPPING[op].l_f_op;
@@ -59,9 +59,9 @@ llvm::Constant* TxBinaryElemOperatorNode::code_gen_const_value( LlvmGenerationCo
     auto rval = this->rhs->code_gen_const_value( context );
 
     auto op_class = get_op_class( this->op );
-    auto computeType = ( op_class == TXOC_ARITHMETIC ? this->qualtype()->type()->acttype() : this->lhs->resolve_type()->type()->acttype() );
+    auto computeType = ( op_class == TXOC_ARITHMETIC ? this->qtype() : this->lhs->qtype() );
     bool float_operation = false;
-    unsigned llvm_op = get_llvm_op( op_class, this->op, computeType, &float_operation );
+    unsigned llvm_op = get_llvm_op( op_class, this->op, computeType.type(), &float_operation );
 
     if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_LOGICAL || op_class == TXOC_SHIFT ) {
         ASSERT( Instruction::isBinaryOp( llvm_op ), "Not a valid LLVM binary op: " << llvm_op );
@@ -83,9 +83,9 @@ Value* TxBinaryElemOperatorNode::code_gen_dyn_value( LlvmGenerationContext& cont
     const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_descriptor() : "" );
 
     auto op_class = get_op_class( this->op );
-    auto computeType = ( op_class == TXOC_ARITHMETIC ? this->qualtype()->type()->acttype() : this->lhs->resolve_type()->type()->acttype() );
+    auto computeType = ( op_class == TXOC_ARITHMETIC ? this->qtype() : this->lhs->qtype() );
     bool float_operation = false;
-    unsigned llvm_op = get_llvm_op( op_class, this->op, computeType, &float_operation );
+    unsigned llvm_op = get_llvm_op( op_class, this->op, computeType.type(), &float_operation );
 
     if ( op_class == TXOC_ARITHMETIC || op_class == TXOC_LOGICAL || op_class == TXOC_SHIFT ) {
         ASSERT( Instruction::isBinaryOp( llvm_op ), "Not a valid LLVM binary op: " << llvm_op );
@@ -113,7 +113,7 @@ llvm::Constant* TxUnaryMinusNode::code_gen_const_value( LlvmGenerationContext& c
     if ( dynamic_cast<TxIntegerLitNode*>( this->operand->originalExpr ) ) {
         return operand;  // negation has been applied directly to the literal
     }
-    const TxActualType* opType = this->qualtype()->type()->acttype();
+    const TxActualType* opType = this->qtype().type();
     if ( dynamic_cast<const TxIntegerType*>( opType ) ) {
         return ConstantExpr::getNeg( operand  );
     }
@@ -129,7 +129,7 @@ Value* TxUnaryMinusNode::code_gen_dyn_value( LlvmGenerationContext& context, Gen
     if ( dynamic_cast<TxIntegerLitNode*>( this->operand->originalExpr ) ) {
         return operand;  // negation has been applied directly to the literal
     }
-    const TxActualType* opType = this->qualtype()->type()->acttype();
+    const TxActualType* opType = this->qtype().type();
     if ( dynamic_cast<const TxIntegerType*>( opType ) ) {
         return scope->builder->CreateNeg( operand );
     }
@@ -157,7 +157,7 @@ llvm::Constant* TxEqualityOperatorNode::code_gen_const_value( LlvmGenerationCont
     auto lvalC = this->lhs->code_gen_const_value( context );
     auto rvalC = this->rhs->code_gen_const_value( context );
 
-    auto lhsType = this->lhs->qualtype()->type()->acttype();
+    auto lhsType = this->lhs->qtype().type();
     auto lhsTypeclass = lhsType->get_type_class();
 
     if ( lhsTypeclass == TXTC_ELEMENTARY ) {
@@ -203,7 +203,7 @@ llvm::Constant* TxEqualityOperatorNode::code_gen_const_value( LlvmGenerationCont
         return lenCondC;
     }
     else {
-        CERR_CODECHECK( this, "Constant equality operator not supported for type class " << lhsTypeclass << ": " << this->lhs->qualtype() );
+        CERR_CODECHECK( this, "Constant equality operator not supported for type class " << lhsTypeclass << ": " << lhsType );
     }
 }
 
@@ -214,7 +214,7 @@ Value* TxEqualityOperatorNode::code_gen_dyn_value( LlvmGenerationContext& contex
     // pick field's plain name, if available, for the expression value:
     const std::string fieldName = ( this->fieldDefNode ? this->fieldDefNode->get_descriptor() : "" );
 
-    auto lhsType = this->lhs->qualtype()->type()->acttype();
+    auto lhsType = this->lhs->qtype().type();
     auto lhsTypeclass = lhsType->get_type_class();
 
     if ( lhsTypeclass == TXTC_ELEMENTARY ) {
@@ -254,9 +254,9 @@ Value* TxEqualityOperatorNode::code_gen_dyn_value( LlvmGenerationContext& contex
         auto rvalA = this->rhs->code_gen_dyn_address( context, scope );
         auto lvalTypeIdV = this->lhs->code_gen_typeid( context, scope );
 
-        auto rhsType = this->rhs->qualtype()->type()->acttype();
-        auto lelemtype = static_cast<const TxArrayType*>( lhsType )->element_type()->type()->acttype();
-        auto relemtype = static_cast<const TxArrayType*>( rhsType )->element_type()->type()->acttype();
+        auto rhsType = this->rhs->qtype();
+        auto lelemtype = lhsType->element_type().type();
+        auto relemtype = rhsType->element_type().type();
 
         if ( lelemtype->get_type_class() == TXTC_ELEMENTARY && relemtype->get_type_class() == TXTC_ELEMENTARY
                 && lelemtype->is_concrete() && relemtype->is_concrete()

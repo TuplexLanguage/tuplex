@@ -3,8 +3,9 @@
 #include <vector>
 #include <algorithm>
 
+#include "symbol/qual_type.hpp"
+
 class TxNode;
-class TxQualType;
 
 void print_node_root_path( const TxNode* toNode );
 
@@ -29,19 +30,21 @@ std::vector<N*> make_node_vec_copy( const std::vector<N*>& nodeVec ) {
 }
 
 template<typename Node>
-std::vector<const TxQualType*> attempt_typevec( const std::vector<Node*>* nodevec ) {
-    std::vector<const TxQualType*> types = std::vector<const TxQualType*>( nodevec->size() );
-    std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(), []( Node* node ) -> const TxQualType* {return node->attempt_qualtype();} );
+std::vector<TxQualType> attempt_typevec( const std::vector<Node*>* nodevec ) {
+    std::vector<TxQualType> types = std::vector<TxQualType>( nodevec->size() );
+    std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(),
+                    []( Node* node ) -> TxQualType { return node->attempt_qtype(); } );
     return types;
 }
 
-template<typename Node>
-std::vector<const TxQualType*> resolve_typevec( const std::vector<Node*>* nodevec ) {
-    std::vector<const TxQualType*> types = std::vector<const TxQualType*>( nodevec->size() );
-    std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(), []( Node* node ) -> const TxQualType* {
-        node->resolve_type()->type(); return node->attempt_qualtype(); } );
-    return types;
-}
+//class TxActualType;
+//template<typename Node>
+//std::vector<const TxActualType*> resolve_typevec( const std::vector<Node*>* nodevec ) {
+//    std::vector<const TxActualType*> types = std::vector<const TxActualType*>( nodevec->size() );
+//    std::transform( nodevec->cbegin(), nodevec->cend(), types.begin(),
+//                    []( Node* node ) -> const TxActualType* { return node->resolve_type( passInfo ).type(); } );
+//    return types;
+//}
 
 //template<class N>
 //const N* enclosing_node(const TxNode* node) const {

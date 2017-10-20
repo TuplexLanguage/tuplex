@@ -17,7 +17,7 @@ class LexicalContext : public Printable {
 public:
     TxScopeSymbol* _scope;
     bool generic;  // true if this is within a generic type definition (note, can be true also when reinterpreted, if not all params bound)
-    const TxTypeDefiningNode* reinterpretationDefiner;  // non-null if this is a reinterpretation (specialization) of an AST
+    const TxTypeResolvingNode* reinterpretationDefiner;  // non-null if this is a reinterpretation (specialization) of an AST
     ExpectedErrorClause* expErrCtx;
     TxLambdaExprNode* enclosingLambda;  // the nearest enclosing lambda node, or null if none
 
@@ -45,7 +45,7 @@ public:
     }
 
     /** Constructs a new lexical context for a given scope, and that may represent a reinterpretationDefiner of a lexical unit. */
-    LexicalContext( TxScopeSymbol* scope, ExpectedErrorClause* expErrCtx, bool generic, const TxTypeDefiningNode* reinterpretationDefiner )
+    LexicalContext( TxScopeSymbol* scope, ExpectedErrorClause* expErrCtx, bool generic, const TxTypeResolvingNode* reinterpretationDefiner )
             : _scope( scope ), generic( generic ), reinterpretationDefiner( reinterpretationDefiner ), expErrCtx( expErrCtx ), enclosingLambda() {
         ASSERT( scope, "scope is NULL" );
     }
@@ -80,7 +80,7 @@ public:
     }
 
     /** If this is reinterpreted, the definer of the reinterpretation (that bound the type parameters) is returned; otherwise null. */
-    inline const TxTypeDefiningNode* reinterpretation_definer() const {
+    inline const TxTypeResolvingNode* reinterpretation_definer() const {
         return ( this->reinterpretationDefiner );
     }
 

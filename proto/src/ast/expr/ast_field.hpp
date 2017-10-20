@@ -12,7 +12,7 @@
  * ("distance" between the types);
  * or <0 if it can't be cast or implicitly converted to the expected type.
  */
-int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType*requiredType );
+int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxActualType*requiredType );
 
 /** Attempts to resolve an identified entity symbol, that is potentially overloaded,
  * to a specific field by matching with the provided arguments' types.
@@ -33,11 +33,11 @@ int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxType*re
  * Note: This function doesn't generate compiler errors; if no match is found null is returned.
  */
 const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntitySymbol* entitySymbol,
-                                         const std::vector<TxExpressionNode*>* arguments );
+                                         const std::vector<TxExpressionNode*>* arguments, bool printCandidates=false );
 
 /** Attempts to resolve a constructor, that is potentially overloaded, for the specified type.
  */
-const TxFieldDeclaration* resolve_constructor( TxExpressionNode* origin, const TxQualType* allocType,
+const TxFieldDeclaration* resolve_constructor( TxExpressionNode* origin, const TxActualType* allocType,
                                                const std::vector<TxExpressionNode*>* arguments );
 
 
@@ -49,18 +49,20 @@ llvm::Value* instance_method_value_code_gen( LlvmGenerationContext& context, Gen
 
 
 class TxFieldValueNode : public TxExpressionNode {
-    const TxField* field = nullptr;
+    const TxField* _field = nullptr;
     const TxEntityDeclaration* declaration = nullptr;
     TxScopeSymbol* symbol = nullptr;
 
     /** If this field value resolves to a constructor, this is the constructed type */
-    const TxQualType* constructedType = nullptr;
+    const TxActualType* constructedType = nullptr;
 
     TxScopeSymbol* resolve_symbol();
     const TxEntityDeclaration* resolve_decl();
 
 protected:
-    virtual const TxQualType* define_type() override;
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+
+    virtual void verification_pass() const override;
 
 public:
     TxExpressionNode* baseExpr;
@@ -86,26 +88,23 @@ public:
             return *this->symbolName;
     }
 
-    virtual void symbol_resolution_pass() override;
-
-    /** if this is a base expression for a TxFieldValueNode, this is invoked instead of symbol_resolution_pass() */
-    void field_base_resolution_pass();
-
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override;
 
     virtual TxFieldStorage get_storage() const override;
 
     virtual bool is_statically_constant() const override;
 
-    // should not be called before symbol is resolved:
-    inline const TxField* get_field() const {
-        return this->field;
+    /** Returns null if this wasn't resolved to a field. (should not be called before symbol is resolved) */
+    inline const TxField* field() const {
+        //ASSERT( this->_field, "field not resolved: " << this );
+        return this->_field;
     }
+
     inline const TxFieldDeclaration* get_field_declaration() const {
         return dynamic_cast<const TxFieldDeclaration*>( this->declaration );
     }
 
-    virtual const TxQualType* get_constructed_type() const override {
+    virtual const TxActualType* get_constructed_type( TxPassInfo passInfo ) const override {
         return constructedType;
     }
 
@@ -114,7 +113,7 @@ public:
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->baseExpr )
             this->baseExpr->visit_ast( visitor, thisCursor, "base", context );
     }
@@ -127,36 +126,35 @@ public:
 
 class TxFieldAssigneeNode : public TxAssigneeNode {
 protected:
-    virtual const TxQualType* define_type() override {
-        return this->field->resolve_type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->fieldNode->resolve_type( passInfo );
+    }
+
+    virtual void verification_pass() const override {
+        if ( auto fieldDecl = fieldNode->get_field_declaration() ) {
+            if ( fieldDecl->get_storage() == TXS_NOSTORAGE )
+                CERROR( this, "Assignee '" << fieldNode->symbolName << "' is not an L-value / has no storage." );
+        }
     }
 
 public:
-    TxFieldValueNode* field;
-    TxFieldAssigneeNode( const TxLocation& ploc, TxFieldValueNode* field )
-            : TxAssigneeNode( ploc ), field( field ) {
+    TxFieldValueNode* fieldNode;
+
+    TxFieldAssigneeNode( const TxLocation& ploc, TxFieldValueNode* fieldNode )
+            : TxAssigneeNode( ploc ), fieldNode( fieldNode ) {
     }
 
     virtual TxFieldAssigneeNode* make_ast_copy() const override {
-        return new TxFieldAssigneeNode( this->ploc, this->field->make_ast_copy() );
+        return new TxFieldAssigneeNode( this->ploc, this->fieldNode->make_ast_copy() );
     }
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
-        return this->field->get_data_graph_origin_expr();
-    }
-
-    virtual void symbol_resolution_pass() override {
-        TxAssigneeNode::symbol_resolution_pass();
-        field->symbol_resolution_pass();
-
-        auto fieldDecl = field->get_field_declaration();
-        if ( fieldDecl && fieldDecl->get_storage() == TXS_NOSTORAGE )
-            CERROR( this, "Assignee '" << field->symbolName << "' is not an L-value / has no storage." );
+        return this->fieldNode->get_data_graph_origin_expr();
     }
 
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->field->visit_ast( visitor, thisCursor, "field", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->fieldNode->visit_ast( visitor, thisCursor, "field", context );
     }
 };

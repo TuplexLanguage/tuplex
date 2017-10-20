@@ -22,8 +22,7 @@ Constant* gen_lambda( LlvmGenerationContext& context, Type* lambdaT, Constant* f
 
 static Value* gen_local_field( LlvmGenerationContext& context, GenScope* scope, const TxField* field, Value* fieldV ) {
     fieldV->setName( field->get_unique_name() );
-    const TxType* txType = field->qualtype()->type();
-    auto fieldA = txType->acttype()->gen_alloca( context, scope, field->get_unique_name() + "_" );
+    auto fieldA = field->qtype()->gen_alloca( context, scope, field->get_unique_name() + "_" );
     scope->builder->CreateStore( fieldV, fieldA );
     field->set_llvm_value( fieldA );
     return fieldA;
@@ -44,9 +43,9 @@ Function* TxLambdaExprNode::code_gen_function_decl( LlvmGenerationContext& conte
         funcName = this->context().scope()->get_full_name().str() + "$func";  // anonymous function
     }
 
-    StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->qualtype() ) );
+    StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->qtype() ) );
     FunctionType *funcT = cast<FunctionType>( cast<PointerType>( lambdaT->getElementType( 0 ) )->getPointerElementType() );
-    ASSERT( funcT, "Couldn't get LLVM type for function type " << this->funcHeaderNode->qualtype() );
+    ASSERT( funcT, "Couldn't get LLVM type for function type " << this->funcHeaderNode->qtype() );
 
     Function* function = cast<Function>( context.llvmModule().getOrInsertFunction( funcName, funcT ) );
     function->setLinkage(GlobalValue::InternalLinkage);  // (Note, could earlier cause LLVM to rename function)
@@ -80,15 +79,15 @@ void TxLambdaExprNode::code_gen_function_body( LlvmGenerationContext& context ) 
         Value* origPtrV = gen_get_ref_pointer( context, &fscope, closureRefV );
 
         this->selfRefNode->typeExpression->code_gen_type( context );
-        auto selfT = context.get_llvm_type( this->selfRefNode->qualtype() );
+        auto selfT = context.get_llvm_type( this->selfRefNode->qtype() );
         auto convSelfV =  gen_ref( context, &fscope, selfT, origPtrV, tidV );
-        gen_local_field( context, &fscope, this->selfRefNode->get_field(), convSelfV );
+        gen_local_field( context, &fscope, this->selfRefNode->field(), convSelfV );
 
         if ( this->superRefNode ) {
             this->superRefNode->typeExpression->code_gen_type( context );
-            auto superT = context.get_llvm_type( this->superRefNode->qualtype() );
+            auto superT = context.get_llvm_type( this->superRefNode->qtype() );
             auto convSuperV =  gen_ref( context, &fscope, superT, origPtrV, tidV );
-            gen_local_field( context, &fscope, this->superRefNode->get_field(), convSuperV );
+            gen_local_field( context, &fscope, this->superRefNode->field(), convSuperV );
         }
     }
     fArgI++;
@@ -97,7 +96,7 @@ void TxLambdaExprNode::code_gen_function_body( LlvmGenerationContext& context ) 
             fArgI++, argDefI++ )
             {
         ( *argDefI )->typeExpression->code_gen_type( context );
-        gen_local_field( context, &fscope, ( *argDefI )->get_field(), &(*fArgI) );
+        gen_local_field( context, &fscope, ( *argDefI )->field(), &(*fArgI) );
     }
 
     this->suite->code_gen( context, &fscope );
@@ -113,7 +112,7 @@ Constant* TxLambdaExprNode::code_gen_const_decl( LlvmGenerationContext& context 
     if ( !this->functionPtr )
         this->functionPtr = this->code_gen_function_decl( context );
     // construct the lambda object:
-    StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->qualtype() ) );
+    StructType *lambdaT = cast<StructType>( context.get_llvm_type( this->funcHeaderNode->qtype() ) );
     auto nullClosureRefC = Constant::getNullValue( lambdaT->getElementType( 1 ) );
     return gen_lambda(context, lambdaT, this->functionPtr, nullClosureRefC);
 }

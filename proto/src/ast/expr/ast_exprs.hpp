@@ -1,11 +1,11 @@
 #pragma once
 
-#include "../ast_entitydecls.hpp"
 #include "ast_expr_node.hpp"
 #include "ast_maybe_conv_node.hpp"
-
+#include "ast/ast_entitydecls.hpp"
 #include "ast/ast_wrappers.hpp"
 #include "ast/type/ast_typearg_node.hpp"
+#include "ast/type/ast_types.hpp"
 
 
 /** Generates code for a call to a lambda.
@@ -17,7 +17,7 @@ llvm::Value* gen_lambda_call( LlvmGenerationContext& context, GenScope* scope, l
 
 class TxFunctionCallNode : public TxExpressionNode {
     bool doesNotReturn;
-    const TxQualType* calleeType = nullptr;
+    const TxActualType* calleeType = nullptr;
     bool isSelfSuperConstructorInvocation = false;
     TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function/constructor call if non-null
 
@@ -31,7 +31,7 @@ class TxFunctionCallNode : public TxExpressionNode {
 protected:
     virtual void declaration_pass() override;
 
-    virtual const TxQualType* define_type() override;
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
 
 public:
     TxExpressionNode* callee;
@@ -43,14 +43,6 @@ public:
 
     virtual TxFunctionCallNode* make_ast_copy() const override {
         return new TxFunctionCallNode( this->ploc, this->callee->make_ast_copy(), make_node_vec_copy( this->origArgsExprList ) );
-    }
-
-    virtual void symbol_resolution_pass() override;
-
-    virtual bool is_stack_allocation_expression() const override {
-        if ( this->inlinedExpression )
-            return this->inlinedExpression->is_stack_allocation_expression();
-        return false;
     }
 
     virtual TxFieldStorage get_storage() const override {
@@ -69,7 +61,7 @@ public:
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->inlinedExpression )
             this->inlinedExpression->visit_ast( visitor, thisCursor, "inlinedexpr", context );
         else {
@@ -92,7 +84,7 @@ protected:
     /** Produces the object - either an allocation, or a self/super reference */
     TxExpressionNode* objectExpr;
 
-    virtual const TxQualType* define_type() override;
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
 
 public:
     TxConstructorCalleeExprNode( const TxLocation& ploc, TxExpressionNode* objectExpr )
@@ -103,13 +95,8 @@ public:
         return new TxConstructorCalleeExprNode( this->ploc, this->objectExpr->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->objectExpr->symbol_resolution_pass();
-    }
-
-    virtual const TxQualType* get_constructed_type() const override {
-        return this->objectExpr->resolve_type();
+    virtual const TxActualType* get_constructed_type( TxPassInfo passInfo ) const override {
+        return this->objectExpr->resolve_type( passInfo ).type();
     }
 
     /** @return a lambda value */
@@ -118,7 +105,7 @@ public:
     /** @return an object pointer (not a lambda value) */
     virtual llvm::Value* gen_obj_ptr( LlvmGenerationContext& context, GenScope* scope ) const;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->objectExpr->visit_ast( visitor, thisCursor, "objectexpr", context );
     }
 };
@@ -128,8 +115,8 @@ class TxMemAllocNode : public TxExpressionNode {
 protected:
     TxTypeExpressionNode* objTypeExpr;
 
-    virtual const TxQualType* define_type() override {
-        return this->objTypeExpr->resolve_type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->objTypeExpr->resolve_type( passInfo );
     }
 
     TxMemAllocNode( const TxLocation& ploc, TxTypeExpressionNode* objTypeExpr )
@@ -137,12 +124,7 @@ protected:
     }
 
 public:
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->objTypeExpr->symbol_resolution_pass();
-    }
-
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->objTypeExpr->visit_ast( visitor, thisCursor, "type", context );
     }
 
@@ -184,29 +166,25 @@ class TxMakeObjectNode : public TxExpressionNode {
     friend class TxERangeLitNode;
 protected:
     /** the type of the object to make/allocate */
-    TxTypeExpressionNode* typeExpr;
+    TxQualTypeExprNode* typeExpr;
     TxFunctionCallNode* constructorCall;
     TxExpressionNode* initializationExpression = nullptr;  // substitutes the function/constructor call if non-null
 
     /** Gets the type of the allocated object. Should not be called before resolution. */
-    virtual const TxQualType* get_object_type() const = 0;
+    TxQualType get_object_type() const {
+        return this->typeExpr->qtype();
+    }
 
-    TxMakeObjectNode( const TxLocation& ploc, TxTypeExpressionNode* typeExpr, TxFunctionCallNode* constructorCall )
+    TxMakeObjectNode( const TxLocation& ploc, TxQualTypeExprNode* typeExpr, TxFunctionCallNode* constructorCall )
             : TxExpressionNode( ploc ), typeExpr( typeExpr ), constructorCall( constructorCall ) {
     }
 
-public:
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->typeExpr->symbol_resolution_pass();
-        if ( is_not_properly_concrete( this, this->typeExpr->qualtype()->type() ) ) {
-            CERROR( this->typeExpr, "Object to allocate is not concrete: " << this->typeExpr->qualtype() );
-        }
-
-        this->constructorCall->symbol_resolution_pass();
-
-        if ( auto calleeType = this->constructorCall->callee->qualtype() ) {
-            if ( auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>( calleeType->type()->acttype() ) ) {
+    virtual void resolution_pass() override {
+        TxExpressionNode::resolution_pass();
+//        this->typeExpr->resolution_pass();
+//        this->constructorCall->resolution_pass();
+        if ( auto calleeType = this->constructorCall->callee->resolve_type( TXP_RESOLUTION ) ) {
+            if ( auto inlineCalleeType = dynamic_cast<const TxInlineFunctionType*>( calleeType.type() ) ) {
                 // This constructor is an inlineable function that returns the initializer value
                 // (as opposed to a constructor whose code assigns value to the object's members).
                 // We replace the constructor call with the initialization expression:
@@ -216,7 +194,15 @@ public:
         }
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void verification_pass() const override {
+        if ( auto qtype = this->typeExpr->attempt_qtype() ) {
+            if ( is_not_properly_concrete( this, qtype ) )
+                CERROR( this->typeExpr, "Object to allocate is not concrete: " << qtype );
+        }
+    }
+
+public:
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->typeExpr->visit_ast( visitor, thisCursor, "type", context );
         if ( this->initializationExpression )
             this->initializationExpression->visit_ast( visitor, thisCursor, "initexpr", context );
@@ -227,31 +213,23 @@ public:
 
 /** Makes a new object in newly allocated heap memory and returns it by reference. */
 class TxNewConstructionNode : public TxMakeObjectNode {
-    TxTypeTypeArgumentNode* targetTypeNode;
+    TxTypeExpressionNode* resultTypeNode;
 
 protected:
-    virtual void declaration_pass() override {
-        targetTypeNode->node_declaration_pass( this );  // special case instead of wrapping typeExpr and overriding visit_descendants()
-    }
-
-    virtual const TxQualType* get_object_type() const override {
-        return this->typeExpr->qualtype();
-    }
-
-    virtual const TxQualType* define_type() override {
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
         // new constructor returns the constructed object by reference
-        return new TxQualType( this->registry().get_reference_type( this, this->targetTypeNode, nullptr ) );
+        return this->resultTypeNode->resolve_type( passInfo );
     }
 
 public:
-    TxNewConstructionNode( const TxLocation& ploc, TxTypeExpressionNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList )
+    TxNewConstructionNode( const TxLocation& ploc, TxQualTypeExprNode* typeExpr, std::vector<TxExpressionNode*>* argsExprList )
             : TxMakeObjectNode( ploc, typeExpr,
                                 new TxFunctionCallNode(
                                         ploc,
                                         new TxConstructorCalleeExprNode(
-                                                ploc, new TxHeapAllocNode( ploc, new TxTypeExprWrapperNode( typeExpr ) ) ),
+                                                ploc, new TxHeapAllocNode( ploc, new TxTypeExprWrapperNode( typeExpr->get_type_expr() ) ) ),
                                         argsExprList ) ) {
-        targetTypeNode = new TxTypeTypeArgumentNode( this->typeExpr );
+        this->resultTypeNode = new TxReferenceTypeNode( ploc, nullptr, this->typeExpr );
     }
 
     virtual TxNewConstructionNode* make_ast_copy() const override {
@@ -260,29 +238,33 @@ public:
     }
 
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->resultTypeNode->visit_ast( visitor, thisCursor, "ref-type", context );
+        if ( this->initializationExpression )
+            this->initializationExpression->visit_ast( visitor, thisCursor, "initexpr", context );
+        else
+            this->constructorCall->visit_ast( visitor, thisCursor, "call", context );
+    }
 };
 
 /** Makes a new object in newly allocated stack memory and returns it by value/address. */
 class TxStackConstructionNode : public TxMakeObjectNode {
 protected:
-    virtual const TxQualType* get_object_type() const override {
-        return this->qualtype();
-    }
-
-    virtual const TxQualType* define_type() override {
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
         // stack constructor returns the constructed object by value, not by reference
-        return this->typeExpr->resolve_type();
+        return this->typeExpr->resolve_type( passInfo );
     }
 
 public:
     /** produced by the expression syntax: <...type-expr...>(...constructor-args...) */
-    TxStackConstructionNode( const TxLocation& ploc, TxTypeExpressionNode* typeExpr,
+    TxStackConstructionNode( const TxLocation& ploc, TxQualTypeExprNode* typeExpr,
                              const std::vector<TxExpressionNode*>* argsExprList )
             : TxMakeObjectNode( ploc, typeExpr,
                                 new TxFunctionCallNode(
                                         ploc,
                                         new TxConstructorCalleeExprNode(
-                                                ploc, new TxStackAllocNode( ploc, new TxTypeExprWrapperNode( typeExpr ) ) ),
+                                                ploc, new TxStackAllocNode( ploc, new TxTypeExprWrapperNode( typeExpr->get_type_expr() ) ) ),
                                         argsExprList ) ) {
     }
 
@@ -291,8 +273,9 @@ public:
                                             make_node_vec_copy( this->constructorCall->origArgsExprList ) );
     }
 
-    virtual bool is_stack_allocation_expression() const override {
-        return !this->initializationExpression;  // performs stack allocation unless this is an inlined value expression
+    virtual TxFieldStorage get_storage() const override {
+        // performs stack allocation unless this is an inlined value expression
+        return ( this->initializationExpression ? TXS_NOSTORAGE : TXS_STACK );
     }
 
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;

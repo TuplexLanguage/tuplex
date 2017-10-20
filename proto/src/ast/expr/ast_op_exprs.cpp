@@ -7,22 +7,28 @@
 #include "tx_lang_defs.hpp"
 
 
-static inline void match_binary_operand_types( TxBinaryElemOperatorNode* binOpNode, const TxType* ltype, const TxType* rtype ) {
+void TxBinaryElemOperatorNode::match_binary_operand_types( TxPassInfo passInfo, const TxActualType* ltype, const TxActualType* rtype ) {
     if ( ltype != rtype ) {
-        if ( auto_converts_to( binOpNode->rhs->originalExpr, ltype ) ) {
-            binOpNode->rhs->insert_conversion( ltype );
+        if ( auto_converts_to( this->rhs->originalExpr, ltype ) ) {
+            this->rhs->insert_conversion( passInfo, ltype );
+            this->lhs->resolve_type( passInfo );
         }
-        else if ( auto_converts_to( binOpNode->lhs->originalExpr, rtype ) ) {
-            binOpNode->lhs->insert_conversion( rtype );
+        else if ( auto_converts_to( this->lhs->originalExpr, rtype ) ) {
+            this->lhs->insert_conversion( passInfo, rtype );
+            this->rhs->resolve_type( passInfo );
         }
         else
-            CERR_THROWRES( binOpNode, "Mismatching operand types for binary operator " << binOpNode->op << ": " << ltype << ", " << rtype );
+            CERR_THROWRES( this, "Mismatching operand types for binary operator " << this->op << ": " << ltype << ", " << rtype );
+    }
+    else {
+        this->lhs->resolve_type( passInfo );
+        this->rhs->resolve_type( passInfo );
     }
 }
 
-const TxQualType* TxBinaryElemOperatorNode::define_type() {
-    auto ltype = this->lhs->originalExpr->resolve_type()->type();
-    auto rtype = this->rhs->originalExpr->resolve_type()->type();
+TxQualType TxBinaryElemOperatorNode::define_type( TxPassInfo passInfo ) {
+    auto ltype = this->lhs->originalExpr->resolve_type( passInfo ).type();
+    auto rtype = this->rhs->originalExpr->resolve_type( passInfo ).type();
 
     if ( ltype->get_type_class() != TXTC_ELEMENTARY )
         CERR_THROWRES( this, "Left operand of " << this->op << " is not an elementary type: " << ltype );
@@ -37,56 +43,54 @@ const TxQualType* TxBinaryElemOperatorNode::define_type() {
         if ( !rtype->is_scalar() )
             CERR_THROWRES( this, "Right operand of " << this->op << " is not of scalar type: " << rtype );
 
-        match_binary_operand_types( this, ltype, rtype );
+        this->match_binary_operand_types( passInfo, ltype, rtype );
         break;
 
     case TXOC_LOGICAL:
-        if ( !( is_concrete_sinteger_type( ltype->acttype() ) ||
-                is_concrete_uinteger_type( ltype->acttype() ) ||
+        if ( !( is_concrete_sinteger_type( ltype ) ||
+                is_concrete_uinteger_type( ltype ) ||
                 ltype->get_runtime_type_id() == TXBT_BOOL ) )
             CERR_THROWRES( this, "Left operand of " << this->op << " is not of integer or boolean type: " << ltype );
-        if ( !( is_concrete_sinteger_type( rtype->acttype() ) ||
-                is_concrete_uinteger_type( rtype->acttype() ) ||
+        if ( !( is_concrete_sinteger_type( rtype ) ||
+                is_concrete_uinteger_type( rtype ) ||
                 rtype->get_runtime_type_id() == TXBT_BOOL ) )
             CERR_THROWRES( this, "Right operand of " << this->op << " is not of integer or boolean type: " << rtype );
 
-        match_binary_operand_types( this, ltype, rtype );
+        this->match_binary_operand_types( passInfo, ltype, rtype );
         break;
 
     case TXOC_SHIFT:
         // Note: In LLVM and in common CPUs, for an integer type of N bits, the result of shifting by >= N is undefined.
-        if ( !( is_concrete_sinteger_type( ltype->acttype() ) ||
-                is_concrete_uinteger_type( ltype->acttype() ) ) )
+        if ( !( is_concrete_sinteger_type( ltype ) ||
+                is_concrete_uinteger_type( ltype ) ) )
             CERR_THROWRES( this, "Left operand of " << this->op << " is not of integer type: " << ltype );
-        if ( !is_concrete_uinteger_type( rtype->acttype() ) )
+        if ( !is_concrete_uinteger_type( rtype ) )
             CERR_THROWRES( this, "Right operand of " << this->op << " is not of unsigned integer type: " << rtype );
-        this->rhs->insert_conversion( ltype );  // LLVM shift instructions require right operand to be same integer type as left one
+        this->rhs->insert_conversion( passInfo, ltype );  // LLVM shift instructions require right operand to be same integer type as left one
+        this->lhs->resolve_type( passInfo );
         break;
 
     default:
         THROW_LOGIC( "Invalid/unhandled op-class " << this->op_class << " in " << this );
     }
 
-    this->lhs->resolve_type();
-    this->rhs->resolve_type();
-
     if ( this->op_class == TXOC_COMPARISON )
-        return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
+        return TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
     else
-        return this->lhs->qualtype();
+        return this->lhs->qtype();
 }
 
-const TxQualType* TxUnaryMinusNode::define_type() {
-    auto opType = this->operand->originalExpr->resolve_type();
-    if ( !opType->type()->is_scalar() )
+TxQualType TxUnaryMinusNode::define_type( TxPassInfo passInfo ) {
+    auto opType = this->operand->originalExpr->resolve_type( passInfo );
+    if ( !opType->is_scalar() )
         CERR_THROWRES( this, "Operand for unary '-' is not of scalar type: " << opType );
     if ( dynamic_cast<TxIntegerLitNode*>( this->operand->originalExpr ) )
         return opType;
 
     // promote unsigned integers upon negation:
     // (if operand is an unsigned integer, statically constant, and small enough it's converted to signed of same width)
-    const TxType* opTypeEnt;
-    switch ( opType->get_type_id() ) {
+    const TxActualType* opTypeEnt;
+    switch ( opType->get_runtime_type_id() ) {
     case TXBT_UBYTE:
         if ( this->operand->is_statically_constant() && eval_unsigned_int_constant( this->operand ) <= 127 )
             opTypeEnt = this->registry().get_builtin_type( TXBT_BYTE );
@@ -114,45 +118,42 @@ const TxQualType* TxUnaryMinusNode::define_type() {
     default:
         return opType;
     }
-    this->operand->insert_conversion( opTypeEnt );
-    return this->operand->resolve_type();
+    this->operand->insert_conversion( passInfo, opTypeEnt );
+    return this->operand->qtype();
 }
 
-const TxQualType* TxUnaryLogicalNotNode::define_type() {
-    return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
+TxQualType TxUnaryLogicalNotNode::define_type( TxPassInfo passInfo ) {
+    return TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
 }
 
 
-const TxQualType* TxEqualityOperatorNode::define_type() {
-    auto ltype = this->lhs->originalExpr->resolve_type()->type();
-    auto rtype = this->rhs->originalExpr->resolve_type()->type();
+TxQualType TxEqualityOperatorNode::define_type( TxPassInfo passInfo ) {
+    auto ltype = this->lhs->originalExpr->resolve_type( passInfo );
+    auto rtype = this->rhs->originalExpr->resolve_type( passInfo );
 
     if ( ltype->get_type_class() == TXTC_ELEMENTARY && rtype->get_type_class() == TXTC_ELEMENTARY ) {
         if ( ltype != rtype ) {
             if ( auto_converts_to( this->rhs->originalExpr, ltype ) ) {
-                this->rhs->insert_conversion( ltype );
+                this->rhs->insert_conversion( passInfo, ltype );
             }
             else if ( auto_converts_to( this->lhs->originalExpr, rtype ) ) {
-                this->lhs->insert_conversion( rtype );
+                this->lhs->insert_conversion( passInfo, rtype );
             }
             else
                 CERR_THROWRES( this, "Equality is always false: Incompatible operand types for equality operator: " << ltype << ", " << rtype );
         }
     }
+    this->lhs->resolve_type( passInfo );
+    this->rhs->resolve_type( passInfo );
 
-    this->lhs->resolve_type();
-    this->rhs->resolve_type();
-
-    return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
+    return TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
 }
 
-void TxEqualityOperatorNode::symbol_resolution_pass() {
-    TxExpressionNode::symbol_resolution_pass();
-    lhs->symbol_resolution_pass();
-    rhs->symbol_resolution_pass();
-
-    auto ltype = this->lhs->qualtype()->type();
-    auto rtype = this->rhs->qualtype()->type();
+void TxEqualityOperatorNode::verification_pass() const {
+    auto ltype = this->lhs->attempt_qtype();
+    auto rtype = this->rhs->attempt_qtype();
+    if ( !( ltype && rtype ) )
+        return;
     if ( ltype->get_type_class() != rtype->get_type_class() )
         CERROR( this, "Equality is always false: Unequal operand type classes for equality operator: " << ltype << ", " << rtype );
 
@@ -180,8 +181,8 @@ void TxEqualityOperatorNode::symbol_resolution_pass() {
             CERROR( this, "Equality is always false: Unequal array element types for equality operator: " << lelemtype << ", " << relemtype );
         }
         else if ( lelemtype->get_type_class() == TXTC_ELEMENTARY ) {
-            if ( lelemtype->type()->is_concrete() && relemtype->type()->is_concrete() ) {
-                if ( lelemtype->get_type_id() != relemtype->get_type_id() )
+            if ( lelemtype->is_concrete() && relemtype->is_concrete() ) {
+                if ( lelemtype->get_runtime_type_id() != relemtype->get_runtime_type_id() )
                     CERROR( this, "Equality is always false: Unequal array element types for equality operator: " << lelemtype << ", " << relemtype );
             }
         }
@@ -190,8 +191,8 @@ void TxEqualityOperatorNode::symbol_resolution_pass() {
             // strictly need to check the ref target types here.
             // However if they are mutually exclusive, the comparison will always yield false.
             // The element types are mutually exclusive if neither type "is-a" the other type.
-            if ( !( lelemtype->type()->target_type()->type()->is_a( *relemtype->type()->target_type()->type() ) ||
-                    relemtype->type()->target_type()->type()->is_a( *lelemtype->type()->target_type()->type() ) ) )
+            if ( !( lelemtype->target_type()->is_a( *relemtype->target_type() ) ||
+                    relemtype->target_type()->is_a( *lelemtype->target_type() ) ) )
                 CERROR( this, "Equality is always false: Unequal array element ref target types for equality operator: "
                         << lelemtype << ", " << relemtype );
         }
@@ -199,24 +200,20 @@ void TxEqualityOperatorNode::symbol_resolution_pass() {
 }
 
 bool TxEqualityOperatorNode::is_statically_constant() const {
-    auto tc = this->lhs->originalExpr->qualtype()->type()->get_type_class();
+    auto tc = this->lhs->originalExpr->qtype()->get_type_class();
     return this->lhs->is_statically_constant() && this->rhs->is_statically_constant()
             && ( tc == TXTC_ELEMENTARY || tc == TXTC_REFERENCE || tc == TXTC_FUNCTION || tc == TXTC_ARRAY );
 }
 
-const TxQualType* TxRefEqualityOperatorNode::define_type() {
-    auto ltype = this->lhs->originalExpr->resolve_type()->type();
-    auto rtype = this->rhs->originalExpr->resolve_type()->type();
-
-    // NOTE: For now we don't auto-reference the operands in this operation.
-
+void TxRefEqualityOperatorNode::verification_pass() const {
+    auto ltype = this->lhs->qtype();
+    auto rtype = this->rhs->qtype();
     if ( ltype->get_type_class() != TXTC_REFERENCE )
-        CERR_THROWRES( this, "Left operand for identity equality operator is not a reference: " << ltype );
+        CERROR( this, "Left operand for identity equality operator is not a reference: " << ltype );
     if ( rtype->get_type_class() != TXTC_REFERENCE )
-        CERR_THROWRES( this, "Right operand for identity equality operator is not a reference: " << rtype );
+        CERROR( this, "Right operand for identity equality operator is not a reference: " << rtype );
+}
 
-    this->lhs->resolve_type();
-    this->rhs->resolve_type();
-
-    return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
+TxQualType TxRefEqualityOperatorNode::define_type( TxPassInfo passInfo ) {
+    return TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
 }

@@ -12,32 +12,31 @@ ExpectedErrorClause* TxParseOrigin::exp_err_ctx() const {
     return this->get_origin_node()->exp_err_ctx();
 }
 
-ScopedExpErrClause::ScopedExpErrClause( TxParseOrigin* origin, bool enabled )
-        : origin( origin ), enabled( enabled ) {
-    if ( this->enabled )
-        origin->get_parser_context()->begin_exp_err( origin );
-}
-
-ScopedExpErrClause::~ScopedExpErrClause() {
-    if ( this->enabled )
-        origin->get_parser_context()->end_exp_err( origin->get_parse_location() );
-}
 
 void cerror( const TxParseOrigin* origin, const std::string& msg ) {
     origin->get_parser_context()->cerror( origin, msg );
-}
-
-void cwarning( const TxParseOrigin* origin, const std::string& msg ) {
-    origin->get_parser_context()->cwarning( origin, msg );
 }
 
 void cerror( const TxParseOrigin& origin, const std::string& msg ) {
     cerror( &origin, msg );
 }
 
+void cwarning( const TxParseOrigin* origin, const std::string& msg ) {
+    origin->get_parser_context()->cwarning( origin, msg );
+}
+
 void cwarning( const TxParseOrigin& origin, const std::string& msg ) {
     cwarning( &origin, msg );
 }
+
+void cinfo( const TxParseOrigin* origin, const std::string& msg ) {
+    origin->get_parser_context()->cinfo( origin->get_parse_location(), msg );
+}
+
+void cinfo( const TxParseOrigin& origin, const std::string& msg ) {
+    cinfo( &origin, msg );
+}
+
 
 void finalize_expected_error_clause( const TxParseOrigin* origin ) {
     auto expError = origin->exp_err_ctx();

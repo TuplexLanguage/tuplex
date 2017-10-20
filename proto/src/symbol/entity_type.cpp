@@ -5,10 +5,10 @@
 #include "qual_type.hpp"
 
 const TxType* get_type_entity( const TxActualType* actType ) {
-    return actType->get_declaration()->get_definer()->qualtype()->type();
+    return new TxType( actType->get_declaration()->get_definer()->qtype().type() );
 }
 
-inline static const TxTypeDeclaration* get_definer_declaration( const TxTypeDefiningNode* definer ) {
+inline static const TxTypeDeclaration* get_definer_declaration( const TxTypeResolvingNode* definer ) {
     if ( auto typeExprNode = dynamic_cast<const TxTypeExpressionNode*>( definer ) )
         return typeExprNode->get_declaration();
     return nullptr;
@@ -21,7 +21,7 @@ TxType::TxType( const TxActualType* actualType )
     actualType->get_declaration()->get_symbol()->get_root_scope()->registry().add_type_usage( this );
 }
 
-TxType::TxType( TxTypeDefiningNode* definer, std::function<const TxActualType*( void )> actualTypeProducer )
+TxType::TxType( TxTypeResolvingNode* definer, std::function<const TxActualType*( void )> actualTypeProducer )
         : TxEntity( get_definer_declaration( definer ) ), definer( definer ), actualTypeProducer( actualTypeProducer ),
           _type(), startedRslv(), hasResolved()
 {
@@ -29,8 +29,8 @@ TxType::TxType( TxTypeDefiningNode* definer, std::function<const TxActualType*( 
 }
 
 const TxTypeDeclaration* TxType::get_declaration() const {
-    if ( auto decl = static_cast<const TxTypeDeclaration*>( TxEntity::get_declaration() ) )
-        return decl;
+    if ( auto decl = TxEntity::get_declaration() )
+        return static_cast<const TxTypeDeclaration*>( decl );
     if ( this->_type )
         return this->_type->get_declaration();
     LOG( this->definer->LOGGER(), INFO, "Declaration not known for unresolved TxType, definer is " << this->definer );
@@ -38,7 +38,7 @@ const TxTypeDeclaration* TxType::get_declaration() const {
     return nullptr;
 }
 
-const TxActualType* TxType::define_type() const {
+TxQualType TxType::define_type( TxPassInfo passInfo ) const {
     return this->actualTypeProducer();
 }
 
@@ -54,7 +54,7 @@ const TxActualType* TxType::acttype() const {
         }
         this->startedRslv = true;
         try {
-            this->_type = this->define_type();
+            this->_type = this->define_type( TXP_RESOLUTION ).type();
         }
         catch ( const resolution_error& err ) {
             this->hasResolved = true;

@@ -9,8 +9,13 @@
 /** intrinsic for _address( ref ) -> ULong */
 class TxRefAddressNode : public TxExpressionNode {
 protected:
-    virtual const TxQualType* define_type() override {
-        return new TxQualType( this->registry().get_builtin_type( TXBT_ULONG ) );
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->registry().get_builtin_type( TXBT_ULONG );
+    }
+
+    virtual void verification_pass() const override {
+        if ( this->refExpr->qtype()->get_type_class() != TXTC_REFERENCE )
+            CERROR( this->refExpr, "Argument of _address( ) is not a reference: " << this->refExpr->qtype() );
     }
 
 public:
@@ -27,19 +32,11 @@ public:
         return this->refExpr->is_statically_constant();
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->refExpr->symbol_resolution_pass();
-        if ( this->refExpr->qualtype()->get_type_class() != TXTC_REFERENCE ) {
-            CERROR( this->refExpr, "Argument of _address( ) is not a reference: " << this->refExpr->qualtype() );
-        }
-    }
-
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->refExpr->visit_ast( visitor, thisCursor, "ref", context );
     }
 };
@@ -47,8 +44,13 @@ public:
 /** intrinsic for _typeid( ref ) -> UInt */
 class TxRefTypeIdNode : public TxExpressionNode {
 protected:
-    virtual const TxQualType* define_type() override {
-        return new TxQualType( this->registry().get_builtin_type( TXBT_UINT ) );
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->registry().get_builtin_type( TXBT_UINT );
+    }
+
+    virtual void verification_pass() const override {
+        if ( this->refExpr->qtype()->get_type_class() != TXTC_REFERENCE )
+            CERROR( this->refExpr, "Argument of _typeid( ) is not a reference: " << this->refExpr->qtype() );
     }
 
 public:
@@ -65,19 +67,11 @@ public:
         return this->refExpr->is_statically_constant();
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->refExpr->symbol_resolution_pass();
-        if ( this->refExpr->qualtype()->get_type_class() != TXTC_REFERENCE ) {
-            CERROR( this->refExpr, "Argument of _typeid( ) is not a reference: " << this->refExpr->qualtype() );
-        }
-    }
-
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->refExpr->visit_ast( visitor, thisCursor, "ref", context );
     }
 };
@@ -85,15 +79,15 @@ public:
 /** intrinsic for _typeid< type-expr > -> UInt */
 class TxTypeExprTypeIdNode : public TxExpressionNode {
 protected:
-    virtual const TxQualType* define_type() override {
-        return new TxQualType( this->registry().get_builtin_type( TXBT_UINT ) );
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->registry().get_builtin_type( TXBT_UINT );
     }
 
 public:
-    TxTypeExpressionNode* typeExpr;
+    TxQualTypeExprNode* typeExpr;
 
-    TxTypeExprTypeIdNode( const TxLocation& ploc, TxTypeExpressionNode* refExpr )
-            : TxExpressionNode( ploc ), typeExpr( refExpr )  { }
+    TxTypeExprTypeIdNode( const TxLocation& ploc, TxQualTypeExprNode* typeExpr )
+            : TxExpressionNode( ploc ), typeExpr( typeExpr )  { }
 
     virtual TxTypeExprTypeIdNode* make_ast_copy() const override {
         return new TxTypeExprTypeIdNode( this->ploc, this->typeExpr->make_ast_copy() );
@@ -103,15 +97,10 @@ public:
         return true;
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->typeExpr->symbol_resolution_pass();
-    }
-
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->typeExpr->visit_ast( visitor, thisCursor, "typeexpr", context );
     }
 };
@@ -119,8 +108,8 @@ public:
 /** intrinsic for _sizeof( expr ) -> UInt */
 class TxSizeofExprNode : public TxExpressionNode {
 protected:
-    virtual const TxQualType* define_type() override {
-        return new TxQualType( this->registry().get_builtin_type( TXBT_UINT ) );
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->registry().get_builtin_type( TXBT_UINT );
     }
 
 public:
@@ -137,15 +126,10 @@ public:
         return this->expr->is_statically_constant();
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->expr->symbol_resolution_pass();
-    }
-
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->expr->visit_ast( visitor, thisCursor, "expr", context );
     }
 };
@@ -157,8 +141,13 @@ public:
 class TxSupertypesExprNode : public TxExpressionNode {
     TxTypeExpressionNode* typeExpr;
 protected:
-    virtual const TxQualType* define_type() override {
-        return typeExpr->resolve_type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return typeExpr->resolve_type( passInfo );
+    }
+
+    virtual void verification_pass() const override {
+        if ( this->expr->qtype()->get_runtime_type_id() != TXBT_UINT )
+            CERROR( this->expr, "Argument of _supertypes() is not a UInt: " << this->expr->qtype() );
     }
 
 public:
@@ -166,7 +155,10 @@ public:
 
     TxSupertypesExprNode( const TxLocation& ploc, TxExpressionNode* expr )
             : TxExpressionNode( ploc ), expr( expr )  {
-        this->typeExpr = new TxReferenceTypeNode( this->ploc, nullptr, new TxArrayTypeNode( this->ploc, new TxNamedTypeNode( this->ploc, "tx.UInt" ) ) );
+        // TODO: this is a fixed type, can type registry assist with this instead of creating a bunch of nodes?
+        auto targetTypeExpr = new TxQualTypeExprNode(
+                new TxArrayTypeNode( ploc, new TxNamedTypeNode( this->ploc, "tx.UInt" ) ) );
+        this->typeExpr = new TxReferenceTypeNode( this->ploc, nullptr,  targetTypeExpr );
     }
 
     virtual TxSupertypesExprNode* make_ast_copy() const override {
@@ -177,19 +169,10 @@ public:
         return false; //this->expr->is_statically_constant();
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->typeExpr->symbol_resolution_pass();
-        this->expr->symbol_resolution_pass();
-        if ( this->expr->qualtype()->get_type_id() != TXBT_UINT ) {
-            CERROR( this->expr, "Argument of _supertypes() is not a UInt: " << this->expr->qualtype() );
-        }
-    }
-
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     //virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->typeExpr->visit_ast( visitor, thisCursor, "type", context );
         this->expr->visit_ast( visitor, thisCursor, "expr", context );
     }

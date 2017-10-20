@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../ast_entitydecls.hpp"
+#include "ast/ast_entitydecls.hpp"
 
 
 /** Wraps the provided original expression with a new conversion expression node if necessary and permitted.
@@ -10,24 +10,25 @@
  * @param _explicit if true, forces conversion between types that don't permit implicit conversion
  * @return a new conversion node that wraps the original node, or the original node itself if no conversion was applied, or null upon failure
  */
-TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, const TxType* resultType, bool _explicit );
+TxExpressionNode* make_conversion( TxExpressionNode* originalExpr, TxQualType requiredType, bool _explicit );
 
 /** Evaluates if originalExpr may be automatically (implicitly) converted to the required type. */
-bool auto_converts_to( TxExpressionNode* originalExpr, const TxType* requiredType );
+bool auto_converts_to( TxExpressionNode* originalExpr, TxQualType requiredType );
 
 
 /** A specific conversion of an expression to a resulting type. */
 class TxConversionNode : public TxExpressionNode {
 protected:
-    virtual const TxQualType* define_type() override {
-        return new TxQualType( this->resultType );
+    TxQualType resultType;
+    TxExpressionNode* expr;
+
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->resultType;
     }
 public:
-    TxExpressionNode* expr;
-    TxType const * const resultType;
 
-    TxConversionNode( TxExpressionNode* expr, const TxType* resultType )
-            : TxExpressionNode( expr->ploc ), expr( expr ), resultType( resultType ) {
+    TxConversionNode( TxExpressionNode* expr, TxQualType resultType )
+            : TxExpressionNode( expr->ploc ), resultType( resultType ), expr( expr ) {
         ASSERT( resultType, "NULL resultType" );
     }
 
@@ -36,23 +37,18 @@ public:
         return nullptr;
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->expr->symbol_resolution_pass();
-    }
-
     virtual bool is_statically_constant() const override {
         return this->expr->is_statically_constant();
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->expr->visit_ast( visitor, thisCursor, "convertee", context );
     }
 };
 
 class TxScalarConvNode : public TxConversionNode {
 public:
-    TxScalarConvNode( TxExpressionNode* expr, const TxType* scalarResultType )
+    TxScalarConvNode( TxExpressionNode* expr, TxQualType scalarResultType )
             : TxConversionNode( expr, scalarResultType ) {
     }
 
@@ -62,7 +58,7 @@ public:
 
 class TxBoolConvNode : public TxConversionNode {
 public:
-    TxBoolConvNode( TxExpressionNode* expr, const TxType* boolResultType )
+    TxBoolConvNode( TxExpressionNode* expr, TxQualType boolResultType )
             : TxConversionNode( expr, boolResultType ) {
     }
 
@@ -71,13 +67,13 @@ public:
 };
 
 class TxReferenceConvNode : public TxConversionNode {
-    const TxType* adapterType = nullptr;
+    const TxActualType* adapterType = nullptr;
 
 protected:
-    virtual const TxQualType* define_type() override;
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
 
 public:
-    TxReferenceConvNode( TxExpressionNode* expr, const TxType* refResultType )
+    TxReferenceConvNode( TxExpressionNode* expr, TxQualType refResultType )
             : TxConversionNode( expr, refResultType ) {
     }
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
@@ -88,11 +84,8 @@ public:
 /** Casts (not converts) between object specializations (across type parameters and inheritance). */
 class TxObjSpecCastNode : public TxConversionNode {
 public:
-    TxObjSpecCastNode( TxExpressionNode* expr, const TxType* resultType )
+    TxObjSpecCastNode( TxExpressionNode* expr, TxQualType resultType )
             : TxConversionNode( expr, resultType ) {
-    }
-    virtual bool is_stack_allocation_expression() const {
-        return this->expr->is_stack_allocation_expression();
     }
     virtual TxFieldStorage get_storage() const override {
         return this->expr->get_storage();
@@ -114,11 +107,8 @@ public:
 /** A non-conversion "placeholder conversion". */
 class TxNoConversionNode : public TxConversionNode {
 public:
-    TxNoConversionNode( TxExpressionNode* expr, const TxType* resultType )
+    TxNoConversionNode( TxExpressionNode* expr, TxQualType resultType )
             : TxConversionNode( expr, resultType ) {
-    }
-    virtual bool is_stack_allocation_expression() const {
-        return this->expr->is_stack_allocation_expression();
     }
     virtual TxFieldStorage get_storage() const override {
         return this->expr->get_storage();

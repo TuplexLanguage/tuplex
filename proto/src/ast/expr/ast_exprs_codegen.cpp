@@ -32,13 +32,13 @@ static Value* gen_externc_call( const TxFunctionCallNode* node, LlvmGenerationCo
         // convert type if necessary and allowed:
 
         // Note: Passing arrays by value is not supported, only by reference/pointer.
-        if ( argDef->qualtype()->get_type_class() == TXTC_REFERENCE ) {
+        if ( argDef->qtype()->get_type_class() == TXTC_REFERENCE ) {
             auto argV = argDef->code_gen_expr( context, scope );
             argV = gen_get_ref_pointer( context, scope, argV );
 
-            auto targetType = argDef->qualtype()->type()->target_type();
+            auto targetType = argDef->qtype()->target_type();
             if ( targetType->get_type_class() == TXTC_ARRAY ) {
-                auto elemType = targetType->type()->element_type();
+                auto elemType = targetType->element_type();
                 if ( elemType->get_type_class() == TXTC_ELEMENTARY ) {
                     if ( auto structPtrT = dyn_cast<PointerType>( argV->getType() ) ) {  // address of struct
                         ASSERT( structPtrT->getPointerElementType()->isStructTy(), "expected pointer element to be a struct: " << argV );
@@ -58,11 +58,11 @@ static Value* gen_externc_call( const TxFunctionCallNode* node, LlvmGenerationCo
             }
             args.push_back( argV );
         }
-        else if ( argDef->qualtype()->get_type_class() == TXTC_ELEMENTARY ) {
+        else if ( argDef->qtype()->get_type_class() == TXTC_ELEMENTARY ) {
             args.push_back( argDef->code_gen_expr( context, scope ) );
         }
         else {
-            CERR_CODECHECK( node, "Not supported to convert type " << argDef->qualtype() << " in external C function call" );
+            CERR_CODECHECK( node, "Not supported to convert type " << argDef->qtype() << " in external C function call" );
         }
     }
 
@@ -76,7 +76,7 @@ static Value* gen_externc_call( const TxFunctionCallNode* node, LlvmGenerationCo
 static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& context, GenScope* scope, const std::string& exprLabel,
                         bool doesNotReturn) {
     auto lambdaV = node->callee->code_gen_dyn_value( context, scope );
-    if ( dynamic_cast<const TxExternCFunctionType*>( node->callee->qualtype()->type()->acttype() ) ) {
+    if ( dynamic_cast<const TxExternCFunctionType*>( node->callee->qtype().type() ) ) {
         // this is a call to an external C function
         return gen_externc_call( node, context, scope, lambdaV, exprLabel, doesNotReturn );
     }
@@ -107,7 +107,7 @@ Value* TxFunctionCallNode::code_gen_dyn_value( LlvmGenerationContext& context, G
 
 Value* TxFunctionCallNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    if ( this->is_stack_allocation_expression() ) {  // only true if there is an inlined expression
+    if ( this->get_storage() == TXS_STACK ) {  // only true if there is an inlined expression
         return this->inlinedExpression->code_gen_dyn_address( context, scope );
     }
     else {
@@ -126,12 +126,12 @@ Value* TxFunctionCallNode::code_gen_dyn_address( LlvmGenerationContext& context,
 Value* TxConstructorCalleeExprNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     Value* funcPtrV = this->gen_func_ptr( context, scope );
-    auto allocType = this->objectExpr->qualtype()->type()->acttype();
+    auto allocType = this->objectExpr->qtype();
     Constant* instanceTypeIdV = allocType->gen_typeid( context );
     // construct the lambda object:
     auto closureRefT = context.get_closureRefT();
     auto closureRefV = gen_ref( context, scope, closureRefT, this->gen_obj_ptr( context, scope ), instanceTypeIdV );
-    auto lambdaT = cast<StructType>( context.get_llvm_type( this->qualtype() ) );
+    auto lambdaT = cast<StructType>( context.get_llvm_type( this->qtype() ) );
     return gen_lambda( context, scope, lambdaT, funcPtrV, closureRefV );
 }
 
@@ -149,13 +149,13 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr( LlvmGenerationContext& context
     // find the constructor
     // (constructors aren't inherited, but we bypass equivalent specializations to find the code-generated constructor)
     auto uniqueName = this->declaration->get_unique_name();
-    const TxActualType* allocType = this->objectExpr->qualtype()->type()->acttype();
+    const TxActualType* allocType = this->objectExpr->qtype().type();
     while ( allocType->is_equivalent_derivation() )  // as we don't generate code for equivalent specializations
         allocType = allocType->get_semantic_base_type();
     auto uniqueFullName = allocType->get_declaration()->get_unique_full_name() + "." + uniqueName;
     //std::cerr << "Code-generated constructor name: " << uniqueFullName << " (from: " << this->get_spec(0).declaration->get_unique_full_name() << ")" << std::endl;
 
-    auto constrField = this->declaration->get_definer()->get_field();
+    auto constrField = this->declaration->get_definer()->field();
     Value* funcPtrV = constrField->code_gen_field_decl( context );
     return funcPtrV;
 }
@@ -163,13 +163,13 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr( LlvmGenerationContext& context
 Value* TxHeapAllocNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     this->objTypeExpr->code_gen_type( context );
-    return this->qualtype()->type()->acttype()->gen_malloc( context, scope );
+    return this->qtype()->gen_malloc( context, scope );
 }
 
 Value* TxStackAllocNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     this->objTypeExpr->code_gen_type( context );
-    return this->qualtype()->type()->acttype()->gen_alloca( context, scope );
+    return this->qtype()->gen_alloca( context, scope );
 }
 
 Value* TxNewConstructionNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -187,8 +187,8 @@ Value* TxNewConstructionNode::code_gen_dyn_value( LlvmGenerationContext& context
         this->constructorCall->code_gen_dyn_value( context, scope );
     }
 
-    Constant* objTypeIdV = this->get_object_type()->type()->acttype()->gen_typeid( context );
-    Type* objRefT = context.get_llvm_type( this->qualtype() );
+    Constant* objTypeIdV = this->get_object_type()->gen_typeid( context );
+    Type* objRefT = context.get_llvm_type( this->qtype() );
     auto objRefV = gen_ref( context, scope, objRefT, objAllocV, objTypeIdV );
     return objRefV;
 }
@@ -220,5 +220,5 @@ Value* TxStackConstructionNode::code_gen_dyn_address( LlvmGenerationContext& con
 
 Value* TxAssigneeNode::code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const {
     // default implementation is the statically known type's id; overridden by assignee forms that are dynamically dependent
-    return this->qualtype()->type()->acttype()->gen_typeid( context );
+    return this->qtype()->gen_typeid( context );
 }

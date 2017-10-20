@@ -2,6 +2,7 @@
 
 #include "declaration.hpp"
 #include "qual_type.hpp"
+#include "type_base.hpp"
 #include "package.hpp"
 
 
@@ -57,7 +58,7 @@ static TxScopeSymbol* get_member_symbol( TxScopeSymbol* scope, const std::string
                             // symbol distinctly (non-overloaded) refers to a GENPARAM
                             // Resolves e.g:  my#SType#E = my.SType.E  to binding  -P---- ---B--  my.$SType<tx#~Float,tx#~Double>.E
                             if ( auto thisDecl = get_symbols_declaration( entScope ) ) {
-                                if ( auto thisType = thisDecl->get_definer()->qualtype()->type() ) {
+                                if ( auto thisType = thisDecl->get_definer()->qtype() ) {
                                     if ( auto bindingDecl = thisType->lookup_param_binding( hashedDecl ) ) {
                                         //scope->LOGGER()->debug( "Resolved %-16s = %-16s to binding\t%s", name.c_str(),
                                         //                         hashedSym->get_full_name().str().c_str(), bindingDecl->str().c_str() );
@@ -93,9 +94,34 @@ static TxEntitySymbol* inner_lookup_inherited_member( const TxActualType* type, 
     for ( ; type; type = type->get_base_type() ) {
         if ( auto memberEnt = dynamic_cast<TxEntitySymbol*>( inner_lookup_member( type->get_declaration()->get_symbol(), name ) ) )
             return memberEnt;
-        for ( auto & interf : type->get_interfaces() ) {
+        ASSERT( type->is_integrated(), "In inherited member lookup for '" << name << "' - type not integrated: " << type );
+        for ( auto interf : type->get_interfaces() ) {
             if ( auto memberEnt = inner_lookup_inherited_member( interf, name ) )
                 return memberEnt;
+        }
+    }
+    return nullptr;
+}
+
+static TxScopeSymbol* inner_lookup_inherited_member( TxScopeSymbol* scope, const std::string& name )  {
+    if ( auto symbol = inner_lookup_member( scope, name ) )
+        return symbol;
+
+    if ( auto entSym = dynamic_cast<TxEntitySymbol*>( scope ) ) {
+        if ( const TxEntityDeclaration* entDecl = get_symbols_declaration( entSym ) ) {
+            // Note: The starting scope might not be resolved at this point and we don't (and shouldn't need to) force-resolve it here.
+            //       (since when e.g. resolving base types recursion error would occur)
+            if ( auto qtype = entDecl->get_definer()->attempt_qtype() ) {
+                if ( qtype->is_integrated() ) {
+                    return inner_lookup_inherited_member( qtype.type(), name );
+                }
+                else {
+                    //std::cerr << "In search for '" << name << "' - scope's type not integrated: " << qtype << std::endl;
+                    return inner_lookup_member( qtype->get_declaration()->get_symbol(), name );
+                }
+            }
+            //else
+            //    std::cerr << "In search for '" << name << "' - scope's type not resolved: " << entDecl << std::endl;
         }
     }
     return nullptr;
@@ -106,25 +132,13 @@ static TxScopeSymbol* inner_search_symbol( TxScopeSymbol* vantageScope, const Tx
     // As we search the lexical namespaces from inner-most and outwards, if the namespace is a type then look for inherited symbols.
 
     for ( auto scope = vantageScope; scope; scope = scope->get_outer() ) {
-        if ( auto symbol = inner_lookup_member( scope, ident ) )
-            return symbol;
-
-        if ( auto entSym = dynamic_cast<TxEntitySymbol*>( scope ) ) {
-            auto entDecl = entSym->get_type_decl();
-            // Note: We don't (and shouldn't need to) force resolve here, since when e.g. resolving base types recursion error would occur.
-            if ( auto qtype = entDecl->get_definer()->attempt_qualtype() ) {
-                if ( auto atype = qtype->type()->attempt_acttype() ) {
-                    if ( auto member = inner_lookup_inherited_member( atype, ident.segment( 0 ) ) ) {
-                        if ( ident.is_plain() )
-                            return member;
-                        else
-                            return inner_lookup_member( member, TxIdentifier( ident, 1 ) );
-                    }
-                }
-            }
+        if ( auto member = inner_lookup_inherited_member( scope, ident.segment( 0 ) ) ) {
+            if ( ident.is_plain() )
+                return member;
+            else
+                return inner_lookup_member( member, TxIdentifier( ident, 1 ) );
         }
-
-        if ( dynamic_cast<TxModule*>( scope ) ) {
+        else if ( dynamic_cast<TxModule*>( scope ) ) {
             // if member lookup within a module fails, skip parent modules and do global lookup via root namespace (package)
             return inner_lookup_member( scope->get_root_scope(), ident );
         }
@@ -135,6 +149,12 @@ static TxScopeSymbol* inner_search_symbol( TxScopeSymbol* vantageScope, const Tx
 
 TxScopeSymbol* lookup_member( TxScopeSymbol* vantageScope, TxScopeSymbol* scope, const TxIdentifier& ident ) {
     auto symbol = inner_lookup_member( scope, ident );
+    // FUTURE: implement visibility check
+    return symbol;
+}
+
+TxScopeSymbol* lookup_inherited_member( TxScopeSymbol* vantageScope, TxScopeSymbol* scope, const std::string& name )  {
+    auto symbol = inner_lookup_inherited_member( scope, name );
     // FUTURE: implement visibility check
     return symbol;
 }

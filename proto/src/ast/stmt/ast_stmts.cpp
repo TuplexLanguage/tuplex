@@ -5,17 +5,16 @@
 #include "parsercontext.hpp"
 
 
-void TxReturnStmtNode::symbol_resolution_pass() {
+void TxReturnStmtNode::resolution_pass() {
     // TODO: Illegal to return reference to STACK dataspace
     auto funcHeader = this->context().enclosing_lambda()->funcHeaderNode;
     if ( funcHeader->returnField ) {
         auto retField = funcHeader->returnField->resolve_field();
         if ( this->expr ) {
-            this->expr->insert_conversion( retField->qualtype()->type() );
-            this->expr->symbol_resolution_pass();
+            this->expr->insert_conversion( TXP_RESOLUTION, retField->qtype() );
         }
         else
-            CERROR( this, "Return statement has no value expression although function returns " << retField->qualtype() );
+            CERROR( this, "Return statement has no value expression although function returns " << retField->qtype() );
     }
     else if ( this->expr )
         CERROR( this, "Return statement has value expression although function has no return type" );
@@ -26,11 +25,14 @@ void TxSuiteNode::stmt_declaration_pass() {
         this->lexContext._scope = lexContext.scope()->create_code_block_scope( *this, "s" );
 }
 
-void TxAssignStmtNode::symbol_resolution_pass() {
-    this->lvalue->symbol_resolution_pass();
-    auto ltype = this->lvalue->resolve_type()->type();
+void TxAssignStmtNode::resolution_pass() {
+    auto ltype = this->lvalue->resolve_type( TXP_RESOLUTION );
+    this->rvalue->insert_conversion( TXP_RESOLUTION, ltype );
+}
 
+void TxAssignStmtNode::verification_pass() const {
     // note: similar rules to passing function arg
+    auto ltype = this->lvalue->qtype();
     if ( is_not_properly_concrete( this, ltype ) ) {
         CERROR( this->lvalue, "Assignee is not concrete: " << ltype );
     }
@@ -56,9 +58,6 @@ void TxAssignStmtNode::symbol_resolution_pass() {
 
     // if assignee is a reference:
     // TODO: check dataspace rules
-
-    this->rvalue->insert_conversion( ltype );
-    this->rvalue->symbol_resolution_pass();
 }
 
 TxArrayCopyStmtNode::TxArrayCopyStmtNode( const TxLocation& ploc, TxAssigneeNode* lvalue, TxExpressionNode* rvalue )
@@ -68,17 +67,29 @@ TxArrayCopyStmtNode::TxArrayCopyStmtNode( const TxLocation& ploc, TxAssigneeNode
     this->panicNode = new TxPanicStmtNode( ploc, "Assigned array is longer than assignee's capacity" );
 }
 
-void TxArrayCopyStmtNode::symbol_resolution_pass() {
-    this->lvalue->symbol_resolution_pass();
-    auto ltype = this->lvalue->resolve_type()->type();
+void TxArrayCopyStmtNode::resolution_pass() {
+    // This implementation relaxes the auto-conversion check to allow assignment of arrays with unknown C.
+    // We only handle auto-dereferencing of the rvalue:
+    auto ltype = this->lvalue->resolve_type( TXP_RESOLUTION );
+    auto rtype = this->rvalue->originalExpr->resolve_type( TXP_RESOLUTION );
+    if ( rtype->get_type_class() == TXTC_REFERENCE )
+        this->rvalue->insert_conversion( TXP_RESOLUTION, rtype->target_type() );
+    else
+        this->rvalue->resolve_type( TXP_RESOLUTION );
+}
 
-    if ( ltype->get_type_class() != TXTC_ARRAY ) {
-        CERROR( this->lvalue, "Assignee is not an array: " << this->lvalue->qualtype() );
-    }
+void TxArrayCopyStmtNode::verification_pass() const {
+    auto ltype = this->lvalue->qtype();
+    auto rtype = this->rvalue->qtype();
+
+    if ( ltype->get_type_class() != TXTC_ARRAY )
+        CERROR( this->lvalue, "Assignee is not an array: " << ltype );
+    if ( rtype->get_type_class() != TXTC_ARRAY )
+        CERROR( this->rvalue, "Assigned value is not an array: " << rtype );
 
     // special concreteness check since we allow assignment between arrays of different capacities (i.e. sizes)
     if ( ltype->is_type_generic() ) {
-        if ( !this->context().is_generic() && !ltype->acttype()->is_generic_param() )
+        if ( !this->context().is_generic() && !ltype->is_generic_param() )
             CERROR( this->lvalue, "Assignee is not a specific array type: " << ltype );
         else
             LOG_DEBUG( this->LOGGER(), this << " " << this->context().scope()
@@ -92,17 +103,6 @@ void TxArrayCopyStmtNode::symbol_resolution_pass() {
             //CERROR( this, "Assignee or assignee's container is not modifiable (nominal type of assignee is " << ltype << ")" );
         }
     }
-    // Note: If the object as a whole is modifiable, it can be assigned to.
-    // If it has any "non-modifiable" members, those will still get overwritten.
-    // We could add custom check to prevent that scenario for Arrays, but then
-    // it would in this regard behave differently than other aggregate objects.
-
-    // if assignee is a reference:
-    // TODO: check dataspace rules
-
-    this->rvalue->insert_conversion( ltype );
-    this->rvalue->symbol_resolution_pass();
-    this->panicNode->symbol_resolution_pass();
 }
 
 void TxExpErrStmtNode::stmt_declaration_pass() {

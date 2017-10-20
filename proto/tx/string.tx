@@ -2,7 +2,7 @@ module tx
 
 
 /** A UTF-32 character. */
-type Char <: UInt {
+type ~ Char <: UInt {
 }
 
 

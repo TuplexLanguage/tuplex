@@ -35,7 +35,9 @@
 #include "ast/expr/ast_string.hpp"
 #include "ast/expr/ast_range.hpp"
 #include "ast/expr/ast_intrinsics.hpp"
+#include "ast/type/ast_typecreating_node.hpp"
 #include "ast/type/ast_types.hpp"
+#include "ast/type/ast_qualtypes.hpp"
 #include "ast/stmt/ast_flow.hpp"
 #include "ast/stmt/ast_assertstmt_node.hpp"
 #include "ast/stmt/ast_panicstmt_node.hpp"
@@ -177,8 +179,9 @@ YY_DECL;
 %type <TxArgTypeDefNode*> func_arg_def
 %type <std::vector<TxArgTypeDefNode*> *> func_args func_args_list
 
-%type <TxTypeExpressionNode*> qual_type_expr
-%type <TxTypeExpressionNode*> type_expression type_derivation conv_type_expr produced_type type_as_value_expr
+%type <TxTypeCreatingNode*> type_derivation
+%type <TxQualTypeExprNode*> qual_type_expr type_as_value_expr
+%type <TxTypeExpressionNode*> type_expression conv_type_expr produced_type
 %type <TxTypeExpressionNode*> named_type specialized_type reference_type array_type
 
 %type <TxFunctionTypeNode*> function_signature
@@ -317,7 +320,7 @@ member_declaration
     |   experr_decl      { $$ = $1; }
     ;
 
-experr_decl : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(-1)); }
+experr_decl : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErrorClause()); }
               member_declaration           { $$ = new TxExpErrDeclNode(@$, END_TXEXPERR(@4), $4); }
             | KW_EXPERR LIT_DEC_INT COLON  { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(std::stoi($2))); }
               member_declaration           { $$ = new TxExpErrDeclNode(@$, END_TXEXPERR(@5), $5); }
@@ -348,11 +351,11 @@ field_def : NAME COLON qual_type_expr  { $$ = new TxNonLocalFieldDefNode(@$, $1,
           ;
 
 field_assignment_def : NAME COLON qual_type_expr EQUAL expr
-                           { $$ = new TxNonLocalFieldDefNode(@$, $1, $3,    $5); }
+                           { $$ = new TxNonLocalFieldDefNode(@$, $1, $3, $5); }
                      | NAME COLEQUAL expr
-                           { $$ = new TxNonLocalFieldDefNode(@$, $1, false, $3); }
+                           { $$ = new TxNonLocalFieldDefNode(@$, $1, $3, false); }
                      | NAME COLEQUAL mut_token expr
-                           { $$ = new TxNonLocalFieldDefNode(@$, $1, true,  $4); }
+                           { $$ = new TxNonLocalFieldDefNode(@$, $1, $4, true); }
 ;
 
 
@@ -384,9 +387,13 @@ member_list : member_declaration
 type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->push_back($1); }
                 | type_param_list COMMA type_param  { $$ = $1; $$->push_back($3); }
                 ;
-type_param      : NAME  { $$ = new TxTypeDeclNode(@$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, new TxNamedTypeNode(@$, "tx.Any")); }
-                | NAME derives_token conv_type_expr { $$ = new TxTypeDeclNode (@$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL, $3); }
-                | NAME COLON type_expression        { $$ = new TxFieldDeclNode(@$, TXD_PUBLIC | TXD_GENPARAM, new TxNonLocalFieldDefNode(@$, $1, $3, nullptr)); }
+type_param      : NAME  { $$ = new TxTypeDeclNode( @$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
+                                                   new TxGenParamTypeNode( @$, new TxNamedTypeNode(@$, "tx.Any") ) ); }
+                | NAME derives_token conv_type_expr
+                        { $$ = new TxTypeDeclNode( @$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
+                                                   new TxGenParamTypeNode( @$, $3 ) ); }
+                | NAME COLON qual_type_expr
+                        { $$ = new TxFieldDeclNode( @$, TXD_PUBLIC | TXD_GENPARAM, new TxNonLocalFieldDefNode( @$, $1, $3, nullptr ) ); }
                 ;
 
 type_declaration : declaration_flags type_or_if opt_mutable NAME type_derivation  
@@ -398,7 +405,7 @@ type_declaration : declaration_flags type_or_if opt_mutable NAME type_derivation
                  | error type_body  { $$ = NULL; }
                  ;
 
-type_derivation : derives_token type_expression SEMICOLON  { $$ = $2; }
+type_derivation : derives_token type_expression SEMICOLON  { $$ = new TxEmptyDerivedTypeNode( @$, $2 ); }
 
                 | derives_token type_expression type_body  { $$ = new TxDerivedTypeNode(@$, $2, $3); }
     
@@ -447,7 +454,7 @@ type_arg        : value_literal       { $$ = new TxValueTypeArgumentNode($1); } 
                 // | qual_type_expr     { $$ = new TxTypeTypeArgumentNode($1); }
                 ;
 
-// a qualified type expression, or "type usage variant", is a type expression with possible qualifiers (e.g. mutable):
+// a qualified type expression - a type expression with possible qualifiers (e.g. mutable):
 qual_type_expr  : opt_mutable type_expression  %prec EXPR
                          { $$ = ( $1 ? new TxModifiableTypeNode(@$, $2)
                                      : new TxMaybeModTypeNode(@2, $2) ); }
@@ -512,17 +519,19 @@ func_arg_def   : NAME COLON type_expression
                         { $$ = new TxArgTypeDefNode(@$, $1, $3); }
                | NAME COLON type_expression ELLIPSIS
                         { $$ = new TxArgTypeDefNode(@$, $1,
-                                    new TxReferenceTypeNode(@3, nullptr, new TxArrayTypeNode(@3, new TxMaybeModTypeNode(@3, $3)))); }
+                                    new TxReferenceTypeNode(@3, nullptr,
+                                            new TxConstTypeNode( @3, new TxArrayTypeNode(@3, new TxMaybeModTypeNode(@3, $3))))); }
                | NAME COLON mut_token type_expression ELLIPSIS
                         { $$ = new TxArgTypeDefNode(@$, $1,
-                                    new TxReferenceTypeNode(@3, nullptr, new TxArrayTypeNode(@3, new TxModifiableTypeNode(@3, $4)))); }
+                                    new TxReferenceTypeNode(@3, nullptr,
+                                            new TxConstTypeNode( @3, new TxArrayTypeNode(@3, new TxModifiableTypeNode(@3, $4))))); }
                ;
 
 
 method_def  : NAME function_signature suite
-                { $$ = new TxNonLocalFieldDefNode(@$, $1, false, new TxLambdaExprNode(@$, $2, $3, true)); }
+                { $$ = new TxNonLocalFieldDefNode(@$, $1, new TxLambdaExprNode(@$, $2, $3, true), false); }
             | NAME function_signature SEMICOLON  // abstract method (KW_ABSTRACT should be specified)
-                { $$ = new TxNonLocalFieldDefNode(@$, $1, $2,    nullptr); }
+                { $$ = new TxNonLocalFieldDefNode(@$, $1, $2, nullptr); }
             ;
 
 
@@ -589,11 +598,14 @@ value_literal
 array_literal : LBRACKET expr COMMA array_lit_expr_list RBRACKET  { (*$4)[0] = $2;  $$ = new TxFilledArrayLitNode(@$, $4); }
               | LBRACKET expr RBRACKET  { $$ = new TxFilledArrayLitNode(@$, new std::vector<TxExpressionNode*>( { $2 } )); }
 
-              // produces a (harmless) shift-reduce warning but unknown how to suppress that:
-              | LBRACKET expr RBRACKET conv_type_expr LPAREN expression_list RPAREN  { $$ = new TxFilledArrayLitNode(@$, $4, $6, $2); }
-              | LBRACKET expr RBRACKET conv_type_expr LPAREN RPAREN                  { $$ = new TxUnfilledArrayCompLitNode(@$, $4, $2); }
-              | LBRACKET RBRACKET conv_type_expr LPAREN expression_list RPAREN       { $$ = new TxFilledArrayLitNode(@$, $3, $5); }
-              | LBRACKET RBRACKET conv_type_expr LPAREN RPAREN                       { $$ = new TxFilledArrayLitNode(@$, $3); }
+              | LBRACKET expr RBRACKET conv_type_expr LPAREN expression_list RPAREN
+                        { $$ = new TxFilledArrayLitNode(@$, new TxConstTypeNode(@4, $4), $6, $2); }
+              | LBRACKET expr RBRACKET conv_type_expr LPAREN RPAREN                  
+                        { $$ = new TxUnfilledArrayCompLitNode(@$, new TxConstTypeNode(@4, $4), $2); }
+              | LBRACKET RBRACKET conv_type_expr LPAREN expression_list RPAREN       
+                        { $$ = new TxFilledArrayLitNode(@$, new TxConstTypeNode(@3, $3), $5); }
+              | LBRACKET RBRACKET conv_type_expr LPAREN RPAREN                       
+                        { $$ = new TxFilledArrayLitNode(@$, new TxConstTypeNode(@3, $3)); }
               ;
               // LBRACKET RBRACKET - empty, unqualified array literal "[]" illegal since element type can't be determined
 
@@ -631,11 +643,11 @@ intrinsics_expr : KW__ADDRESS LPAREN expr RPAREN  { $$ = new TxRefAddressNode(@$
 
 
 string_format_expr : string_format expr       %prec STRFORMAT
-                        { $$ = new TxStackConstructionNode( @$, new TxNamedTypeNode( @$, "tx.FormattedStringer"),
+                        { $$ = new TxStackConstructionNode( @$, new TxConstTypeNode( @$, new TxNamedTypeNode( @$, "tx.FormattedStringer" ) ),
                                                             new std::vector<TxExpressionNode*>( { $1, $2 } ) ); }
                    | expr string_format expr  %prec PERCENT
                         { $$ = TxConcatenateStringsNode::make_strcat_node( @$, $1, 
-                                    new TxStackConstructionNode( @2, new TxNamedTypeNode( @2, "tx.FormattedStringer"),
+                                    new TxStackConstructionNode( @2, new TxConstTypeNode( @2, new TxNamedTypeNode( @2, "tx.FormattedStringer" ) ),
                                                                         new std::vector<TxExpressionNode*>( { $2, $3 } ) ) ); }
                    | expr PERCENTPERCENT expr
                         { $$ = TxConcatenateStringsNode::make_strcat_node( @$, $1, $3 ); }
@@ -713,7 +725,7 @@ terminal_stmt
     |   continue_stmt   { $$ = $1; }
     ;
 
-experr_stmt : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(-1)); }
+experr_stmt : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErrorClause()); }
               statement                    { $$ = new TxExpErrStmtNode(@$, END_TXEXPERR(@4), static_cast<TxStatementNode*>($4)); }
             | KW_EXPERR LIT_DEC_INT COLON  { BEGIN_TXEXPERR(@1, new ExpectedErrorClause(std::stoi($2))); }
               statement                    { $$ = new TxExpErrStmtNode(@$, END_TXEXPERR(@5), $5); }
@@ -766,10 +778,10 @@ for_header       : elementary_stmt SEMICOLON expr SEMICOLON elementary_stmt  { $
                  ;
 
 
-local_field_def  : NAME COLON qual_type_expr              { $$ = new TxLocalFieldDefNode(@$, $1, $3,    nullptr); }
-                 | NAME COLON qual_type_expr EQUAL expr   { $$ = new TxLocalFieldDefNode(@$, $1, $3,    $5); }
-                 | NAME COLEQUAL expr                     { $$ = new TxLocalFieldDefNode(@$, $1, false, $3); }
-                 | NAME COLEQUAL mut_token expr           { $$ = new TxLocalFieldDefNode(@$, $1, true,  $4); }
+local_field_def  : NAME COLON qual_type_expr              { $$ = new TxLocalFieldDefNode(@$, $1, $3, nullptr); }
+                 | NAME COLON qual_type_expr EQUAL expr   { $$ = new TxLocalFieldDefNode(@$, $1, $3, $5); }
+                 | NAME COLEQUAL expr                     { $$ = new TxLocalFieldDefNode(@$, $1, $3, false); }
+                 | NAME COLEQUAL mut_token expr           { $$ = new TxLocalFieldDefNode(@$, $1, $4, true); }
 ;
 
 

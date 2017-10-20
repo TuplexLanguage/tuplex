@@ -10,8 +10,8 @@ using namespace llvm;
 Constant* TxStringLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, this->literal );
 
-    StructType* stringObjT = cast<StructType>( context.get_llvm_type( this->qualtype() ) );
-    Constant* arrayTIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->arrayTypeNode->qualtype()->get_type_id() );
+    StructType* stringObjT = cast<StructType>( context.get_llvm_type( this->qtype() ) );
+    Constant* arrayTIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->arrayTypeNode->qtype()->get_runtime_type_id() );
     auto arrayRefObjT = cast<StructType>( stringObjT->getTypeAtIndex( 0U ) );
 
     auto arrayGlobalPtr = context.gen_const_byte_array_address( this->utf8data );
@@ -29,8 +29,8 @@ Value* TxStringLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenS
 
 Constant* TxStringLitNode::code_gen_const_address( LlvmGenerationContext& context ) const {
     // allocates global storage for string literals, a single shared instance for each unique value
-    StructType* stringObjT = cast<StructType>( context.get_llvm_type( this->qualtype() ) );
-    Constant* arrayTIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->arrayTypeNode->qualtype()->get_type_id() );
+    StructType* stringObjT = cast<StructType>( context.get_llvm_type( this->qtype() ) );
+    Constant* arrayTIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->arrayTypeNode->qtype()->get_runtime_type_id() );
     return context.gen_const_string_obj_address( stringObjT, arrayTIdC, this->utf8data );
 }
 

@@ -34,8 +34,8 @@ double eval_floatingpoint_constant( const TxExpressionNode* exprNode ) {
 
 bool is_static_equal( const TxExpressionNode* exprA, const TxExpressionNode* exprB ) {
     if ( exprA->is_statically_constant() && exprB->is_statically_constant() ) {
-        auto atype = exprA->qualtype()->type()->acttype();
-        auto btype = exprB->qualtype()->type()->acttype();
+        auto atype = exprA->qtype().type();
+        auto btype = exprB->qtype().type();
         if ( !( atype->has_runtime_type_id() && btype->has_runtime_type_id() ) )
             return false;  // can currently only compare constant values of built-in types
 

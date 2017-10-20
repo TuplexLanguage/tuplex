@@ -76,6 +76,7 @@ main()->Int {
 
     #experr: ve : Outer.Indep;
     v11 : OuterFl.Indep;
+    v12 := &v11;  ##FIXME: '.' inherited type name resolution
     ## we currently treat all entities enclosed by a generic type as distinct per specialization:
     #experr 1: ve : &Outer.Indep = &v11;
 

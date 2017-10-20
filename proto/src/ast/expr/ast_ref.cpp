@@ -1,10 +1,7 @@
 #include "ast_ref.hpp"
 
 
-void TxReferenceToNode::symbol_resolution_pass() {
-    TxExpressionNode::symbol_resolution_pass();
-    this->target->symbol_resolution_pass();
-
+void TxReferenceToNode::verification_pass() const {
     // In current model it is "difficult" to predict in an efficient manner and without various virtual "canThisExprDoThat()" methods
     // whether sub-expressions are capable of generating a pointer to their value.
     // So this check is disabled and replaced with code-check cerror in TxExpressionNode::code_gen_dyn_address().

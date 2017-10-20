@@ -16,7 +16,7 @@ Value* TxArrayLitNode::code_gen_dyn_address( LlvmGenerationContext& context, Gen
     // automatically allocates local storage for dynamic array literals
     // NOTE: Proper use of alloca (in entry block) requires statically known array capacity
     auto valueV = this->code_gen_dyn_value( context, scope );
-    auto memPtrV = this->qualtype()->type()->acttype()->gen_alloca( context, scope, "arraylit" );
+    auto memPtrV = this->qtype()->gen_alloca( context, scope, "arraylit" );
     scope->builder->CreateStore( valueV, memPtrV );
     return memPtrV;
 }
@@ -31,8 +31,8 @@ Value* TxFilledArrayLitNode::code_gen_dyn_value( LlvmGenerationContext& context,
 
     {
         ASSERT( scope, "Expected non-constant array literal to be codegen'd within a scope: " << this );
-        //Type* arrayObjT = this->get_type()->type()->type()->make_llvm_type( context );
-        Type* arrayObjT = context.get_llvm_type( this->qualtype() );
+        //Type* arrayObjT = this->get_type()->type()->make_llvm_type( context );
+        Type* arrayObjT = context.get_llvm_type( this->qtype() );
         Value* arrayObjV = UndefValue::get( arrayObjT );
         auto capacityC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->elemExprList->size() );
         arrayObjV = scope->builder->CreateInsertValue( arrayObjV, capacityC, 0 );
@@ -91,7 +91,7 @@ Constant* TxFilledArrayLitNode::code_gen_const_value( LlvmGenerationContext& con
         values.push_back( elemExpr->code_gen_const_value( context ) );
     ArrayRef<Constant*> data( values );
 
-    Type* elemT = context.get_llvm_type( this->qualtype()->type()->element_type() );
+    Type* elemT = context.get_llvm_type( this->qtype()->element_type() );
     uint64_t arrayLen = this->elemExprList->size();
     ArrayType* arrayT = ArrayType::get( elemT, arrayLen );
     Constant* dataArrayC = ConstantArray::get( arrayT, data );
@@ -104,7 +104,7 @@ Constant* TxFilledArrayLitNode::code_gen_const_value( LlvmGenerationContext& con
 }
 
 
-static Value* unfilled_array_code_gen_value( LlvmGenerationContext& context, GenScope* scope, const TxArrayType* txArrayType ) {
+static Value* unfilled_array_code_gen_value( LlvmGenerationContext& context, GenScope* scope, const TxActualType* txArrayType ) {
     Type* arrayObjT = txArrayType->make_llvm_type( context );
     Value* arrayObjV = UndefValue::get( arrayObjT );
     auto capacityExpr = txArrayType->capacity();
@@ -120,7 +120,7 @@ static Value* unfilled_array_code_gen_value( LlvmGenerationContext& context, Gen
     return arrayObjV;
 }
 
-static Constant* unfilled_array_code_gen_constant( LlvmGenerationContext& context, const TxArrayType* txArrayType  ) {
+static Constant* unfilled_array_code_gen_constant( LlvmGenerationContext& context, const TxActualType* txArrayType  ) {
     Type* arrayObjT = txArrayType->make_llvm_type( context );
     auto arrayT = cast<ArrayType>( arrayObjT->getContainedType( 2 ) );
     auto cap = arrayT->getArrayNumElements();
@@ -135,25 +135,25 @@ static Constant* unfilled_array_code_gen_constant( LlvmGenerationContext& contex
 
 Value* TxUnfilledArrayLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto txArrayType = static_cast<const TxArrayType*>( this->qualtype()->type()->acttype() );
+    auto txArrayType = this->qtype().type();
     return unfilled_array_code_gen_value( context, scope, txArrayType );
 }
 
 Constant* TxUnfilledArrayLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
-    auto txArrayType = static_cast<const TxArrayType*>( this->qualtype()->type()->acttype() );
+    auto txArrayType = this->qtype().type();
     return unfilled_array_code_gen_constant( context, txArrayType );
 }
 
 Value* TxUnfilledArrayCompLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto txArrayType = static_cast<const TxArrayType*>( this->qualtype()->type()->acttype() );
+    auto txArrayType = this->qtype().type();
     return unfilled_array_code_gen_value( context, scope, txArrayType );
 }
 
 Constant* TxUnfilledArrayCompLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
-    auto txArrayType = static_cast<const TxArrayType*>( this->qualtype()->type()->acttype() );
+    auto txArrayType = this->qtype().type();
     return unfilled_array_code_gen_constant( context, txArrayType );
 }
 

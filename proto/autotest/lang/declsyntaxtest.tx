@@ -49,7 +49,7 @@ main() {
     assert i6 == 5;
     assert i7 == 5;
 
-    #experr 1: v : missing = lacking;
+    #experr 2: v : missing = lacking;
     #experr 1: v : lacking;
     #experr 1: v := missing;
     #experr 1: v := Int;

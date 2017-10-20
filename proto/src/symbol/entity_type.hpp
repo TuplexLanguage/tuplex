@@ -6,12 +6,13 @@
 
 #include "tx_logging.hpp"
 #include "tx_lang_defs.hpp"
+#include "tx_error.hpp"
 
 #include "type.hpp"
 
 class TxQualType;
 
-/** Helper function */
+class TxType;
 const TxType* get_type_entity( const TxActualType* actType );
 
 /** A type entity. Represents the types defined in the program.
@@ -22,24 +23,25 @@ const TxType* get_type_entity( const TxActualType* actType );
  * Note: Type entities might not have a declaration. Their underlying actual type will always have a declaration though.
  */
 class TxType : public TxEntity {
-    TxTypeDefiningNode* definer;
+    TxTypeResolvingNode* definer;
     const std::function<const TxActualType*( void )> actualTypeProducer;
 
     mutable const TxActualType* _type = nullptr;
     mutable bool startedRslv = false;  // guard against recursive resolution
     mutable bool hasResolved = false;  // to prevent multiple identical error messages
 
-    const TxActualType* define_type() const;
+    TxQualType define_type( TxPassInfo passInfo ) const;
 
     // only these may create instances:
     friend class TypeRegistry;
     friend class TxBuiltinTypeDefiningNode;
 
-    TxType( const TxActualType* actualType );
+//    TxType( const TxActualType* actualType );
 
-    TxType( TxTypeDefiningNode* definer, std::function<const TxActualType*( void )> actualTypeProducer );
+    TxType( TxTypeResolvingNode* definer, std::function<const TxActualType*( void )> actualTypeProducer );
 
 public:
+    TxType( const TxActualType* actualType );
 
     virtual const TxTypeDeclaration* get_declaration() const override;
 
@@ -60,7 +62,7 @@ public:
         return this->str( true );
     }
 
-    inline TxTypeDefiningNode* get_definer() const {
+    inline TxTypeResolvingNode* get_definer() const {
         return this->definer;
     }
 
@@ -262,9 +264,9 @@ public:
 
     /** Special case helper method for getting the target type of a reference type.
      */
-    const TxQualType* target_type() const {
+    TxQualType target_type() const {
         if ( this->get_type_class() == TXTC_REFERENCE ) {
-            auto refType = static_cast<const TxReferenceType*>( this->acttype() );
+            auto refType = this->acttype();
             return refType->target_type();
         }
         THROW_LOGIC( "Can't get target_type() of non-reference type: " << this );
@@ -272,9 +274,9 @@ public:
 
     /** Special case helper method for getting the element type of an array type.
      */
-    const TxQualType* element_type() const {
+    TxQualType element_type() const {
         if ( this->get_type_class() == TXTC_ARRAY ) {
-            auto aType = static_cast<const TxArrayType*>( this->acttype() );
+            auto aType = this->acttype();
             return aType->element_type();
         }
         THROW_LOGIC( "Can't get element_type() of non-array type: " << this );
@@ -286,7 +288,7 @@ public:
         if ( this->get_type_class() == TXTC_FUNCTION ) {
             std::vector<const TxType*> args;
             auto funcType = static_cast<const TxFunctionType*>( this->acttype() );
-            for ( auto a : funcType->argumentTypes ) {
+            for ( auto a : funcType->argument_types() ) {
                 args.push_back( get_type_entity(a) );
             }
             return args;
@@ -326,7 +328,7 @@ public:
     const TxType* return_type() const {
         if ( this->get_type_class() == TXTC_FUNCTION ) {
             auto funcType = static_cast<const TxFunctionType*>( this->acttype() );
-            return get_type_entity( funcType->returnType );
+            return get_type_entity( funcType->return_type() );
         }
         THROW_LOGIC( "Can't get return_type() of non-function type: " << this );
     }

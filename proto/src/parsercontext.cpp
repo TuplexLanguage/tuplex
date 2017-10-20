@@ -88,9 +88,8 @@ bool TxParserContext::add_import( const TxIdentifier& moduleName ) {
 }
 
 void TxParserContext::emit_comp_error( const std::string& msg, ExpectedErrorClause* expErrorContext ) {
-    if (this->in_exp_err()) {
-        if ( expErrorContext )
-            expErrorContext->encountered_error_count++;
+    if ( expErrorContext ) {
+        expErrorContext->encountered_error_count++;
         CLOG.info( "EXPECTED CERROR: %s", msg.c_str() );
     }
     else {
@@ -125,16 +124,12 @@ ExpectedErrorClause* TxParserContext::end_exp_err( const TxLocation& loc ) {
     return currentExpErr;
 }
 
-bool TxParserContext::in_exp_err() const {
-    return !this->expErrorStack.empty();
-}
-
 void TxParserContext::register_exp_err_node( TxNode* expErrNode ) {
     this->expErrorNodes.push_back( expErrNode );
 }
 
 void TxParserContext::finalize_expected_error_clauses() {
-    ASSERT( !this->in_exp_err(), "Can't finalize expected error clauses with one still open" );
+    ASSERT( this->expErrorStack.empty(), "Can't finalize expected error clauses with one still open" );
     for ( auto expErrNode : this->expErrorNodes ) {
         finalize_expected_error_clause( expErrNode );
     }

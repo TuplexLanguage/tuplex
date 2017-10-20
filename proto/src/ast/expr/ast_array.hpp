@@ -4,9 +4,9 @@
 #include "ast/type/ast_types.hpp"
 #include "ast_assignee_node.hpp"
 
-class TxArrayLitNode : public TxExpressionNode {
+class TxArrayLitNode : public TxTypeDefiningValExprNode {
 public:
-    TxArrayLitNode( const TxLocation& ploc ) : TxExpressionNode( ploc ) { }
+    TxArrayLitNode( const TxLocation& ploc ) : TxTypeDefiningValExprNode( ploc ) { }
 
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
@@ -23,18 +23,22 @@ class TxFilledArrayLitNode : public TxArrayLitNode {
     bool _constant = false;
 
 protected:
-    virtual const TxQualType* define_type() override;
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+
+    virtual void resolution_pass() override;
+
+    virtual void verification_pass() const override;
 
 public:
     std::vector<TxMaybeConversionNode*> const * const elemExprList;
 
     /** Represents an empty array with the specified element type. */
-    TxFilledArrayLitNode( const TxLocation& ploc, TxTypeExpressionNode* elementTypeExpr, TxExpressionNode* capacityExpr = nullptr )
+    TxFilledArrayLitNode( const TxLocation& ploc, TxQualTypeExprNode* elementTypeExpr, TxExpressionNode* capacityExpr = nullptr )
             : TxFilledArrayLitNode( ploc, elementTypeExpr, new std::vector<TxExpressionNode*>(), capacityExpr ) {
     }
 
     /** Represents a non-empty array with the specified element type. */
-    TxFilledArrayLitNode( const TxLocation& ploc, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxExpressionNode*>* elemExprList,
+    TxFilledArrayLitNode( const TxLocation& ploc, TxQualTypeExprNode* elementTypeExpr, const std::vector<TxExpressionNode*>* elemExprList,
                     TxExpressionNode* capacityExpr = nullptr );
 
     /** Represents a non-empty array with the element type defined by the first element.
@@ -43,7 +47,7 @@ public:
 
     /** Creates an array literal node with the specified element type, with elements that are owned by another AST node.
      * The resulting array literal node may not be AST-copied. */
-    TxFilledArrayLitNode( const TxLocation& ploc, TxTypeExpressionNode* elementTypeExpr, const std::vector<TxMaybeConversionNode*>* elemExprList );
+    TxFilledArrayLitNode( const TxLocation& ploc, TxQualTypeExprNode* elementTypeExpr, const std::vector<TxMaybeConversionNode*>* elemExprList );
 
     /** Creates an array literal node with elements that are owned by another AST node.
      * The element type is defined by the first element.
@@ -62,12 +66,10 @@ public:
                                          ( this->capacityExpr ? this->capacityExpr->originalExpr->make_ast_copy() : nullptr ) );
     }
 
-    virtual void symbol_resolution_pass() override;
-
-    virtual bool is_stack_allocation_expression() const override {
+    virtual TxFieldStorage get_storage() const override {
         if ( this->_directArrayArg )
-            return this->elemExprList->front()->is_stack_allocation_expression();
-        return false;
+            return this->elemExprList->front()->get_storage();
+        return TXS_NOSTORAGE;
     }
 
     virtual bool is_statically_constant() const override {
@@ -77,7 +79,7 @@ public:
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->elementTypeNode )
             this->elementTypeNode->visit_ast( visitor, thisCursor, "elem-type", context );
         if ( this->capacityExpr )
@@ -94,7 +96,7 @@ class TxUnfilledArrayLitNode : public TxArrayLitNode {
     TxTypeExpressionNode* arrayTypeNode;
 
 protected:
-    virtual const TxQualType* define_type() override;
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
 
 public:
     /** Represents an unfilled array with the specified type. */
@@ -104,20 +106,18 @@ public:
         return new TxUnfilledArrayLitNode( this->ploc, this->arrayTypeNode->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override;
-
-    virtual bool is_stack_allocation_expression() const override {
-        return false;
+    virtual TxFieldStorage get_storage() const override {
+        return TXS_NOSTORAGE;
     }
 
     virtual bool is_statically_constant() const override {
-        return this->arrayTypeNode->qualtype()->type()->is_static();
+        return this->arrayTypeNode->qtype()->is_static();
     }
 
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->arrayTypeNode->visit_ast( visitor, thisCursor, "type", context );
     }
 };
@@ -127,21 +127,19 @@ class TxUnfilledArrayCompLitNode : public TxArrayLitNode {
     TxMaybeConversionNode* capacityExpr;
 
 protected:
-    virtual const TxQualType* define_type() override;
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
 
 public:
     /** Represents an unfilled array with the specified type. */
-    TxUnfilledArrayCompLitNode( const TxLocation& ploc, TxTypeExpressionNode* elemTypeExpr, TxExpressionNode* capacityExpr = nullptr );
+    TxUnfilledArrayCompLitNode( const TxLocation& ploc, TxQualTypeExprNode* elemTypeExpr, TxExpressionNode* capacityExpr = nullptr );
 
     virtual TxUnfilledArrayCompLitNode* make_ast_copy() const override {
         return new TxUnfilledArrayCompLitNode( this->ploc, this->elementTypeNode->typeExprNode->make_ast_copy(),
                                                this->capacityExpr->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override;
-
-    virtual bool is_stack_allocation_expression() const override {
-        return false;
+    virtual TxFieldStorage get_storage() const override {
+        return TXS_NOSTORAGE;
     }
 
     virtual bool is_statically_constant() const override {
@@ -151,7 +149,7 @@ public:
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->elementTypeNode->visit_ast( visitor, thisCursor, "elem-type", context );
         this->capacityExpr->visit_ast( visitor, thisCursor, "capacity", context );
     }
@@ -159,42 +157,37 @@ public:
 
 
 
+// TODO: Support negative array indexing.
 class TxElemDerefNode : public TxExpressionNode {
-    bool unchecked;
     class TxStatementNode* panicNode = nullptr;
 
 protected:
-    virtual const TxQualType* define_type() override {
-        this->subscript->insert_conversion( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        this->subscript->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
 
-        auto opType = this->array->originalExpr->resolve_type();
+        auto opType = this->array->originalExpr->resolve_type( passInfo );
         if ( opType->get_type_class() == TXTC_REFERENCE ) {
-            auto targType = opType->type()->target_type();
+            auto targType = opType->target_type();
             if ( targType->get_type_class() == TXTC_ARRAY ) {
-                this->array->insert_conversion( targType->type() );
+                this->array->insert_conversion( passInfo, targType );
             }
         }
-        opType = this->array->resolve_type();
+        opType = this->array->resolve_type( passInfo );
         if ( opType->get_type_class() != TXTC_ARRAY )
             CERR_THROWRES( this, "Can't subscript non-array expression: " << opType );
-        return opType->type()->element_type();
+        return opType->element_type();
     }
 
 public:
     TxMaybeConversionNode* array;
     TxMaybeConversionNode* subscript;
 
-    TxElemDerefNode( const TxLocation& ploc, TxExpressionNode* operand, TxExpressionNode* subscript, bool unchecked = false )
-            : TxExpressionNode( ploc ), unchecked( unchecked ),
-              array( new TxMaybeConversionNode( operand ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
-    }
+    TxElemDerefNode( const TxLocation& ploc, TxExpressionNode* operand, TxExpressionNode* subscript, bool unchecked = false );
 
     virtual TxElemDerefNode* make_ast_copy() const override {
         return new TxElemDerefNode( this->ploc, this->array->originalExpr->make_ast_copy(),
                                     this->subscript->originalExpr->make_ast_copy() );
     }
-
-    virtual void symbol_resolution_pass() override;
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
         return this->array;
@@ -213,43 +206,40 @@ public:
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->array->visit_ast( visitor, thisCursor, "array", context );
         this->subscript->visit_ast( visitor, thisCursor, "subscript", context );
     }
 };
 
 
+// TODO: Support negative array indexing.
 class TxElemAssigneeNode : public TxAssigneeNode {
-    bool unchecked;
     class TxStatementNode* panicNode = nullptr;
 
 protected:
-    virtual const TxQualType* define_type() override {
-        this->subscript->insert_conversion( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        this->subscript->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
 
-        auto opType = this->array->originalExpr->resolve_type();
+        auto opType = this->array->originalExpr->resolve_type( passInfo );
         if ( opType->get_type_class() == TXTC_REFERENCE ) {
-            auto targType = opType->type()->target_type();
+            auto targType = opType->target_type();
             if ( targType->get_type_class() == TXTC_ARRAY ) {
-                this->array->insert_conversion( targType->type() );
+                this->array->insert_conversion( passInfo, targType );
             }
             // TODO: May cause code_gen_typeid() to return a too-general type, override code_gen_typeid()
         }
-        opType = this->array->resolve_type();
+        opType = this->array->resolve_type( passInfo );
         if ( opType->get_type_class() != TXTC_ARRAY )
             CERR_THROWRES( this, "Can't subscript non-array assignee expression: " << opType );
-        return opType->type()->element_type();
+        return opType->element_type();
     }
 
 public:
     TxMaybeConversionNode* array;
     TxMaybeConversionNode* subscript;
 
-    TxElemAssigneeNode( const TxLocation& ploc, TxExpressionNode* array, TxExpressionNode* subscript, bool unchecked = false )
-            : TxAssigneeNode( ploc ), unchecked( unchecked ),
-              array( new TxMaybeConversionNode( array ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
-    }
+    TxElemAssigneeNode( const TxLocation& ploc, TxExpressionNode* array, TxExpressionNode* subscript, bool unchecked = false );
 
     virtual TxElemAssigneeNode* make_ast_copy() const override {
         return new TxElemAssigneeNode( this->ploc, this->array->originalExpr->make_ast_copy(),
@@ -260,11 +250,9 @@ public:
         return this->array;
     }
 
-    virtual void symbol_resolution_pass() override;
-
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->array->visit_ast( visitor, thisCursor, "array", context );
         this->subscript->visit_ast( visitor, thisCursor, "subscript", context );
     }
@@ -274,19 +262,19 @@ public:
 /** Internal assignee node for modifying the L field of an array (without mutability/modifiability or capacity checks) */
 class TxArrayLenAssigneeNode : public TxAssigneeNode {
 protected:
-    virtual const TxQualType* define_type() override {
-        auto opType = this->array->originalExpr->resolve_type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        auto opType = this->array->originalExpr->resolve_type( passInfo );
         if ( opType->get_type_class() == TXTC_REFERENCE ) {
-            auto targType = opType->type()->target_type();
+            auto targType = opType->target_type();
             if ( targType->get_type_class() == TXTC_ARRAY ) {
-                this->array->insert_conversion( targType->type() );
+                this->array->insert_conversion( passInfo, targType );
             }
         }
-        opType = this->array->resolve_type();
+        opType = this->array->resolve_type( passInfo );
         if ( opType->get_type_class() != TXTC_ARRAY )
             CERR_THROWRES( this, "Can't modify L of non-array assignee expression: " << opType );
 
-        return new TxQualType( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ), true );
+        return TxQualType( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ), true );
     }
 
 public:
@@ -304,14 +292,9 @@ public:
         return this->array;
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxAssigneeNode::symbol_resolution_pass();
-        array->symbol_resolution_pass();
-    }
-
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->array->visit_ast( visitor, thisCursor, "array", context );
     }
 };

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "ast_entitydecls.hpp"
-#include "symbol/type_registry.hpp"
 
 /** Wraps a TxExpressionNode. The declaration and resolution pass calls won't be forwarded,
  * allowing the wrapped node to be added as a TxExpressionNode child to additional parent nodes.
@@ -9,8 +8,8 @@
  */
 class TxExprWrapperNode : public TxExpressionNode {
 protected:
-    virtual const TxQualType* define_type() override {
-        return this->exprNode->resolve_type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->exprNode->resolve_type( passInfo );
     }
 
 public:
@@ -27,10 +26,6 @@ public:
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
         return this->exprNode;
-    }
-
-    virtual bool is_stack_allocation_expression() const {
-        return this->exprNode->is_stack_allocation_expression();
     }
 
     virtual TxFieldStorage get_storage() const override {
@@ -65,7 +60,7 @@ public:
         return this->exprNode->code_gen_typeid( context );
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         // Traversal does not proceed to the wrapped node from here since it is visited via its original AST location.
     }
 };
@@ -76,14 +71,14 @@ public:
  */
 class TxTypeExprWrapperNode : public TxTypeExpressionNode {
 protected:
-    virtual const TxQualType* define_type() override {
-        return this->typeDefNode->resolve_type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->typeDefNode->resolve_type( passInfo );
     }
 
 public:
-    TxTypeDefiningNode* const typeDefNode;
+    TxTypeResolvingNode* const typeDefNode;
 
-    TxTypeExprWrapperNode( TxTypeDefiningNode* typeExprNode )
+    TxTypeExprWrapperNode( TxTypeResolvingNode* typeExprNode )
             : TxTypeExpressionNode( typeExprNode->ploc ), typeDefNode( typeExprNode ) {
     }
 
@@ -94,7 +89,7 @@ public:
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override { }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         // Traversal does not proceed to the wrapped node from here since it is visited via its original AST location.
     }
 };
@@ -127,8 +122,8 @@ class TxTypeDeclWrapperNode : public TxTypeExpressionNode {
     TxEntityDeclaration const * const typeDecl;
 
 protected:
-    virtual const TxQualType* define_type() override {
-        return this->typeDecl->get_definer()->resolve_type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->typeDecl->get_definer()->resolve_type( passInfo );
     }
 
 public:
@@ -147,7 +142,7 @@ public:
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override { }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
 };
 
@@ -165,11 +160,7 @@ public:
         ASSERT( false, "Can't make AST copy of " << this ); return nullptr;
     }
 
-    virtual void symbol_resolution_pass() override {
-        this->innerNode->symbol_resolution_pass();
-    }
-
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->innerNode->visit_ast( visitor, thisCursor, "node", context );
     }
 };

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../stmt/ast_stmts.hpp"
+#include "ast/stmt/ast_stmts.hpp"
 #include "ast/type/ast_typeexpr_node.hpp"
 #include "ast/type/ast_funcheader_node.hpp"
 #include "ast/ast_fielddef_node.hpp"
@@ -29,9 +29,11 @@ class TxLambdaExprNode : public TxExpressionNode {
 protected:
     virtual void declaration_pass() override;
 
-    virtual const TxQualType* define_type() override {
-        return this->funcHeaderNode->resolve_type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->funcHeaderNode->resolve_type( passInfo );
     }
+
+    virtual void verification_pass() const override;
 
 public:
     TxFunctionHeaderNode* funcHeaderNode;
@@ -43,28 +45,8 @@ public:
             : TxLambdaExprNode( ploc, new TxFunctionHeaderNode( funcTypeNode ), suite, isMethodSyntax, suppressSuper ) {
     }
 
-    TxLambdaExprNode( const TxLocation& ploc, TxFunctionHeaderNode* funcHeaderNode, TxSuiteNode* suite, bool isMethodSyntax = false,
-                      bool suppressSuper = false )
-            : TxExpressionNode( ploc ), funcHeaderNode( funcHeaderNode ), suite( suite ), isMethodSyntax( isMethodSyntax ) {
-        if ( isMethodSyntax ) {
-            // 'self' reference:
-            this->selfTypeNode = new TxNamedTypeNode( this->ploc, "Self" );
-            TxTypeExpressionNode* selfRefTargetTypeNode;
-            if ( this->funcHeaderNode->is_modifying() )
-                selfRefTargetTypeNode = new TxModifiableTypeNode( this->ploc, this->selfTypeNode );
-            else
-                selfRefTargetTypeNode = this->selfTypeNode;
-            auto selfRefTypeExprN = new TxReferenceTypeNode( this->ploc, nullptr, selfRefTargetTypeNode );
-            this->selfRefNode = new TxLocalFieldDefNode( this->ploc, "self", selfRefTypeExprN, nullptr );
-
-            // 'super' reference
-            if ( !suppressSuper ) {
-                auto superRefTypeExprN = new TxReferenceTypeNode( this->ploc, nullptr, new TxNamedTypeNode( this->ploc, "Super" ) );
-                this->superRefNode = new TxLocalFieldDefNode( this->ploc, "super", superRefTypeExprN, nullptr );
-                // FUTURE: if type is modifiable, the super target type should in some cases perhaps be modifiable as well?
-            }
-        }
-    }
+    TxLambdaExprNode( const TxLocation& ploc, TxFunctionHeaderNode* funcHeaderNode, TxSuiteNode* suite,
+                      bool isMethodSyntax = false, bool suppressSuper = false );
 
     virtual TxLambdaExprNode* make_ast_copy() const override {
         return new TxLambdaExprNode( this->ploc, this->funcHeaderNode->make_ast_copy(), this->suite->make_ast_copy(), this->isMethodSyntax );
@@ -93,8 +75,6 @@ public:
      * in an immutable specialization of a mutable generic type. */
     bool is_suppressed_modifying_method() const;
 
-    virtual void symbol_resolution_pass() override;
-
     virtual bool is_statically_constant() const override {
         return true;
     }
@@ -106,13 +86,5 @@ public:
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->funcHeaderNode->visit_ast( visitor, thisCursor, "functype", context );
-        if ( this->is_instance_method() ) {
-            this->selfRefNode->visit_ast( visitor, thisCursor, "selfref", context );
-            if ( this->superRefNode )
-                this->superRefNode->visit_ast( visitor, thisCursor, "superref", context );
-        }
-        this->suite->visit_ast( visitor, thisCursor, "suite", context );
-    }
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override;
 };

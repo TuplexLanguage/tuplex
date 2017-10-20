@@ -14,8 +14,6 @@ enum TxTypeClass {
     TXTC_ARRAY,
     /** The Tuple types. */
     TXTC_TUPLE,
-    /** The Union types. */
-    TXTC_UNION,
     /** The function types, including methods and lambdas. */
     TXTC_FUNCTION,
     /** The interface types. */
@@ -24,6 +22,7 @@ enum TxTypeClass {
     TXTC_INTERFACEADAPTER,
     /** The internal Void type (represents the "return type" of functions that do not return a value). */
     TXTC_VOID,
+    TXTC_NOF_TYPE_CLASSES
 };
 
 inline std::string to_string( TxTypeClass tc ) {
@@ -38,8 +37,6 @@ inline std::string to_string( TxTypeClass tc ) {
         return "ARRAY";
     case TXTC_TUPLE:
         return "TUPLE";
-    case TXTC_UNION:
-        return "UNION";
     case TXTC_FUNCTION:
         return "FUNCTION";
     case TXTC_INTERFACE:
@@ -48,6 +45,8 @@ inline std::string to_string( TxTypeClass tc ) {
         return "INFADAPTER";
     case TXTC_VOID:
         return "VOID";
+    default:
+        break;
     }
     return "-unknown TxTypeClass value " + std::to_string((int)tc) + "-";
 }

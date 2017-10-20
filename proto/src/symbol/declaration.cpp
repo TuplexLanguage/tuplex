@@ -9,6 +9,14 @@ std::string TxEntityDeclaration::str() const {
     return ::to_string( this->declFlags ) + " " + this->get_unique_full_name();
 }
 
+std::string TxEntityDeclaration::get_unique_full_name() const {
+    return this->get_symbol()->get_full_name().str();
+}
+std::string TxEntityDeclaration::get_unique_name() const {
+    return this->get_symbol()->get_name();
+}
+
+
 unsigned TxFieldDeclaration::get_overload_index() const {
     unsigned i = 0;
     for ( auto iter = this->get_symbol()->fields_cbegin(); iter != this->get_symbol()->fields_cend(); iter++, i++ )
@@ -30,11 +38,4 @@ std::string TxFieldDeclaration::get_unique_name() const {
         return this->get_symbol()->get_name() + "$" + std::to_string( this->get_overload_index() );
     else
         return this->get_symbol()->get_name();
-}
-
-std::string TxTypeDeclaration::get_unique_full_name() const {
-    return this->get_symbol()->get_full_name().str();
-}
-std::string TxTypeDeclaration::get_unique_name() const {
-    return this->get_symbol()->get_name();
 }

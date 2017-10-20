@@ -34,8 +34,8 @@ class TxReferenceDerefNode : public TxExpressionNode {
     mutable llvm::Value* refExprValue = nullptr;
 
 protected:
-    virtual const TxQualType* define_type() override {
-        auto refType = this->reference->resolve_type()->type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        auto refType = this->reference->resolve_type( passInfo );
         if ( refType->get_type_class() != TXTC_REFERENCE )
             CERR_THROWRES( this, "Can't de-reference non-reference expression: " << refType );
         return refType->target_type();
@@ -52,11 +52,6 @@ public:
         return new TxReferenceDerefNode( this->ploc, this->reference->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->reference->symbol_resolution_pass();
-    }
-
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
         return this->reference;
     }
@@ -66,12 +61,12 @@ public:
     virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Constant* code_gen_typeid( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->reference->visit_ast( visitor, thisCursor, "ref", context );
     }
 };
 
-class TxReferenceToNode : public TxExpressionNode {
+class TxReferenceToNode : public TxTypeDefiningValExprNode {
     TxTypeTypeArgumentNode* targetTypeNode;
     TxExpressionNode* target;
 
@@ -84,22 +79,22 @@ protected:
         }
     }
 
-    virtual const TxQualType* define_type() override {
-        return new TxQualType( this->registry().get_reference_type( this, this->targetTypeNode, nullptr ) );
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->registry().get_reference_type( this, this->targetTypeNode, nullptr );
     }
+
+    virtual void verification_pass() const override;
 
 public:
     TxReferenceToNode( const TxLocation& ploc, TxExpressionNode* target )
-            : TxExpressionNode( ploc ), target( target ) {
-        TxTypeExprWrapperNode* targetTypeExpr = new TxTypeExprWrapperNode( this->target );
+            : TxTypeDefiningValExprNode( ploc ), target( target ) {
+        auto targetTypeExpr = new TxQualTypeExprNode( ploc, new TxTypeExprWrapperNode( this->target ) );
         this->targetTypeNode = new TxTypeTypeArgumentNode( targetTypeExpr );
     }
 
     virtual TxReferenceToNode* make_ast_copy() const override {
         return new TxReferenceToNode( this->ploc, this->target->make_ast_copy() );
     }
-
-    virtual void symbol_resolution_pass() override;
 
     virtual const std::vector<TxExpressionNode*>* get_applied_func_args() const override {
         return this->target->get_applied_func_args();
@@ -118,7 +113,7 @@ public:
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->targetTypeNode->visit_ast( visitor, thisCursor, "type", context );
         this->target->visit_ast( visitor, thisCursor, "target", context );
     }
@@ -130,8 +125,8 @@ class TxDerefAssigneeNode : public TxAssigneeNode {
     mutable llvm::Value* refExprValue = nullptr;
 
 protected:
-    virtual const TxQualType* define_type() override {
-        auto refType = this->reference->resolve_type()->type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        auto refType = this->reference->resolve_type( passInfo );
         if ( refType->get_type_class() != TXTC_REFERENCE )
             CERR_THROWRES( this, "Can't de-reference non-reference expression: " << refType );
         return refType->target_type();
@@ -152,15 +147,10 @@ public:
         return this->reference;
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxAssigneeNode::symbol_resolution_pass();
-        reference->symbol_resolution_pass();
-    }
-
     virtual llvm::Value* code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->reference->visit_ast( visitor, thisCursor, "ref", context );
     }
 };

@@ -2,11 +2,10 @@
 
 #include "ast_expr_node.hpp"
 
-class TxType;
 
 /** A conversion placeholder node which can wrap a specific conversion around an expression if necessary. */
 class TxMaybeConversionNode : public TxExpressionNode {
-    const TxType* insertedResultType = nullptr;
+    TxQualType insertedResultType;
     bool _explicit = false;
     TxExpressionNode* resolvedExpr;
 
@@ -15,7 +14,11 @@ class TxMaybeConversionNode : public TxExpressionNode {
     }
 
 protected:
-    virtual const TxQualType* define_type() override;
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+
+    virtual void resolution_pass() override {
+        // do nothing since shall not resolve before parent can insert conversion
+    }
 
 public:
     TxExpressionNode* const originalExpr;
@@ -37,20 +40,10 @@ public:
      * so that conversion isn't possible.
      * @param _explicit if true, forces conversion between types that don't permit implicit conversion
      */
-    void insert_conversion( const TxType* resultType, bool _explicit = false );
-
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        auto expr = this->get_expr();
-        expr->symbol_resolution_pass();
-    }
+    void insert_conversion( TxPassInfo passInfo, TxQualType resultType, bool _explicit = false );
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
         return this->get_expr()->get_data_graph_origin_expr();
-    }
-
-    virtual bool is_stack_allocation_expression() const override {
-        return this->get_expr()->is_stack_allocation_expression();
     }
 
     virtual TxFieldStorage get_storage() const override {
@@ -68,7 +61,7 @@ public:
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->resolvedExpr->visit_ast( visitor, thisCursor, "convertee", context );
     }
 

@@ -13,9 +13,10 @@
 
 #include "entity.hpp"
 #include "type_class.hpp"
+#include "type_class_handler.hpp"
+
 
 class TxActualType;
-class TxType;
 
 /* forward declarations pertaining to LLVM code generation */
 class LlvmGenerationContext;
@@ -130,8 +131,12 @@ bool is_concrete_floating_type( const TxActualType* type );
 class TxActualType : public virtual TxParseOrigin, public Printable {
     static Logger& _LOG;
 
+    friend class TxTypeClassHandler;
+
     /** The type class of this type. */
-    const TxTypeClass typeClass;
+    TxTypeClass typeClass = TXTC_ANY;
+    const TxTypeClassHandler* typeClassHandler = nullptr;
+
     /** true if this is a built-in type */
     const bool builtin;
 
@@ -149,16 +154,19 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     /** Bindings of the base type's type parameters. Should not be accessed directly, use type_bindings() accessor instead. */
     std::vector<const TxEntityDeclaration*> bindings;
 
-    TxActualType const * const baseType;
-    const std::vector<const TxActualType*> interfaces;
+    const TxActualType* baseType;
+    std::vector<const TxActualType*> interfaces;
 
     /** Set for non-generic specializations of a generic base type.
      * This also implies a pure specialization, even if extendsInstanceDatatype technically is true. */
     const TxActualType* genericBaseType = nullptr;
 
-    /** False unless there are either TYPE bindings for parameters with other than Ref constraint, or VALUE bindings.
-     * If this is a Ref type, this is always false (regardless of the Ref's bound target type). */
-    bool nonRefBindings = false;
+//    /** False unless there are either TYPE bindings for parameters with other than Ref constraint, or VALUE bindings.
+//     * If this is a Ref type, this is always false (regardless of the Ref's bound target type). */
+//    bool nonRefBindings = false;
+    bool hasExplicitFieldMembers = false;
+    bool hasTypeBindings = false;
+    bool hasValueBindings = false;
 
     /** False unless this type has at least one VALUE binding and no other extensions. */
     bool pureValueSpec = false;
@@ -172,38 +180,29 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     /** true when initialize_type() has completed its initializations */
     bool hasInitialized = false;
 
+    /** true when integrate() has completed */
+    bool hasIntegrated = false;
+
     /** true after prepare_members() has started - guards against recursive data types */
     bool startedPrepare = false;
     /** false until prepare_members() has completed (after that this object should be considered immutable) */
     bool hasPrepared = false;
 
-    /** Initializes this type. Called from constructor. */
+    /** Examines the members of this type and identifies generic parameters and bindings. Called from constructor. */
+    void examine_members();
+
+    /** Initializes this type, called upon integration of this type with its super types. */
     void initialize_type();
-    /** Performs basic validation, called from initializer. */
+
+    /** Performs basic validation. */
     void validate_type() const;
-
-    inline const TxTypeDeclaration* get_explicit_declaration() const {
-        return ( ( this->declaration->get_decl_flags() & TXD_IMPLICIT ) ? nullptr : this->declaration );
-    }
-
-    /** Returns the common base type of the types, if both are pure specializations of it. */
-    static const TxActualType* common_generic_base_type( const TxActualType* thisType, const TxActualType* otherType );
-
-    static bool inner_is_a( const TxActualType* thisType, const TxActualType* otherType );
-
-    /** Returns true if this is a generic type or a direct specialization of a generic type.
-     * Note - does not bypass empty derivations. */
-    inline bool is_gen_or_spec() const {
-        return ( !this->params.empty() || !this->bindings.empty() );
-    }
 
     /** used to prevent infinite recursion when compiler is processing erroneously defined recursive types */
     mutable bool recursionGuard = false;
     friend class ScopedRecursionGuardClause;
 
-    static inline bool determine_builtin( const TxTypeDeclaration* declaration, const TxActualType* baseType) {
-        return ( declaration->get_decl_flags() & TXD_BUILTIN );
-    }
+    const TxTypeExpressionNode* baseTypeNode;
+    const std::vector<const TxTypeExpressionNode*> interfaceNodes;
 
 protected:
     bool modifiesInstanceDatatype = false;
@@ -215,63 +214,109 @@ protected:
     DataTupleDefinition virtualFields;
     DataTupleDefinition instanceFields;
 
-    /** Only to be used for Any and Void types. */
-    TxActualType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, bool mutableType )
-            : typeClass( typeClass ), builtin( declaration->get_decl_flags() & TXD_BUILTIN ), mutableType( mutableType ),
-              declaration( declaration ), baseType(), interfaces() {
-        this->initialize_type();
-    }
-
-    TxActualType( TxTypeClass typeClass, const TxTypeDeclaration* declaration, const TxActualType* baseType, bool mutableType,
-                  const std::vector<const TxActualType*>& interfaces = std::vector<const TxActualType*>() )
-            : typeClass( typeClass ), builtin( determine_builtin( declaration, baseType ) ), mutableType( mutableType ),
-              declaration( declaration ), baseType( baseType ), interfaces( interfaces ) {
-        this->initialize_type();
-    }
-
-    /** Creates a specialization of this type. To be used by the type registry. */
-    virtual TxActualType* make_specialized_type( const TxTypeDeclaration* declaration,
-                                                 const TxActualType* baseType,  // (contains redundant ref to this obj...)
-                                                 bool mutableType = true, const std::vector<const TxActualType*>& interfaces = {} ) const = 0;
-    // FUTURE: refactor how TxActualType objects are created and remove this method
-
     friend class TypeRegistry;  // allows access for registry's type construction
     friend class BuiltinTypes;
     friend class TxBuiltinTypeDefiningNode;
 
     /** Gets the Any root type. */
-    const TxQualType* get_root_any_qtype() const;
+    const TxActualType* get_root_any_qtype() const;
 
     /** Prepares this type's members, including data layout. Called after resolution phase has completed.
      * @return true if a data type recursion has been discovered */
     virtual bool inner_prepare_members();
 
-    /** Overriding this allows a type class to allow structurally equal types to be assignable.
-     * The default implementation simply returns false.
-     * This method implementation can assume it will only be called with dest types of the same type class. */
-    virtual bool inner_is_assignable_to( const TxActualType* dest ) const;
+    /** Construction of type with known type class and super types; invoked from subclasses. */
+    TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
+                  const TxActualType* baseType,
+                  const std::vector<const TxActualType*>& interfaces = std::vector<const TxActualType*>() )
+            : builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+              mutableType( mutableType ),
+              declaration( declaration ),
+              baseType( baseType ), interfaces( interfaces ),
+              baseTypeNode(), interfaceNodes()
+    {
+        ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
+        this->examine_members();
+        this->set_type_class( typeClassHandler );
+    }
 
 public:
     inline Logger* LOGGER() const {
         return &this->_LOG;
     }
 
+    /** Construction of type without base types, i.e. Any and Void. */
+    TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType )
+            : builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+              mutableType( mutableType ),
+              declaration( declaration ),
+              baseType(), interfaces(),
+              baseTypeNode(), interfaceNodes()
+    {
+        ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
+        this->examine_members();
+        this->set_type_class( typeClassHandler );
+    }
+
+    /** Construction of type-class-root-types. (Although the base type may be already known, the interfaces may not be.) */
+    TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
+                  const TxTypeExpressionNode* baseTypeNode,
+                  const std::vector<const TxTypeExpressionNode*>& interfaceNodes )
+    : builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+      mutableType( mutableType ),
+      declaration( declaration ),
+      baseType(), interfaces(),
+      baseTypeNode( baseTypeNode ), interfaceNodes( interfaceNodes )
+    {
+        ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
+        this->examine_members();
+        this->set_type_class( typeClassHandler );
+    }
+
+    /** Construction of type whose type class and super types are not yet resolved. */
+    TxActualType( const TxTypeDeclaration* declaration, bool mutableType,
+                  const TxTypeExpressionNode* baseTypeNode,
+                  const std::vector<const TxTypeExpressionNode*>& interfaceNodes )
+    : builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+      mutableType( mutableType ),
+      declaration( declaration ),
+      baseType(), interfaces(),
+      baseTypeNode( baseTypeNode ), interfaceNodes( interfaceNodes )
+    {
+        this->examine_members();
+    }
+
+    /** virtual, default destructor */
     virtual ~TxActualType() = default;
 
     virtual const TxNode* get_origin_node() const override;
+
+    inline bool is_initialized() const {
+        return this->hasInitialized;
+    }
+
+    inline bool is_integrated() const {
+        return this->hasIntegrated;
+    }
 
     inline bool is_prepared() const {
         return this->hasPrepared;
     }
 
+    void set_type_class( const TxTypeClassHandler* typeClassInstance );
+
+    void integrate();
+
     /** Prepares this type's members, including data layout. Called after resolution phase has completed.
      * Also checks against recursive data types (a compilation error is expected to be generated by the caller).
      * @return true if a data type recursion has been discovered */
-    virtual bool prepare_members();
+    bool prepare_members();
 
-//    inline const TxType* get_type_entity() const {
-//        return this->get_declaration()->get_definer()->get_type()->type();
-//    }
+
+    inline const TxTypeClassHandler* type_class_handler() const {
+        ASSERT( this->typeClassHandler, "NULL type class handler in " << this );
+        return this->typeClassHandler;
+    }
 
     inline const TxTypeDeclaration* get_declaration() const {
         return this->declaration;
@@ -290,31 +335,48 @@ public:
         return ( this->runtimeTypeId != UINT32_MAX );
     }
 
+    /** Gets the runtime type id of the elementary built-in type this type is, or derives from.
+     * This is a special helper function to support equivalent handling of the built-in elementary types
+     * and user types that derive from those (which will always be empty derivations).
+     * For example, given
+     * type Foo derives Int;
+     * For Foo this function returns the type id of Int.
+     * For non-elementary types UINT32_MAX is returned. */
+    uint32_t get_elementary_type_id() const;
+
+
     /*--- characteristics ---*/
 
     /** Returns true if this type has a base type (parent). ('Any' is the only type that has no base type.) */
     inline bool has_base_type() const {
-        return this->baseType;
+        return this->baseType || this->baseTypeNode;
     }
 
     /** Gets the base type (parent) of this type.
      * ('Any' is the only type that has no base type, in which case null is returned.) */
     inline const TxActualType* get_base_type() const {
+        ASSERT( this->hasIntegrated, "Can't get base type of unintegrated type " << this );
         return this->baseType;
+    }
+
+    /** Gets the generic base type (parent) of this type, or null if this type is not a specialization.
+     * Note, this is valid to call for types that are not yet initialized. */
+    inline const TxActualType* get_generic_base_type() const {
+        return this->genericBaseType;
     }
 
     /** Gets the 'semantic' base type (parent) of this type,
      * which is the same as get_base_type() except for generic type specializations
      * in which case the generic base type is returned (instead of the implicitly generated specialization thereof). */
     inline const TxActualType* get_semantic_base_type() const {
-        ASSERT( this->hasInitialized, "Can't get semantic base type of uninitized type " << this );
-        return this->genericBaseType ? this->genericBaseType : this->baseType;
+        // (note, genericBaseType is set before initialization and integration, but baseType isn't)
+        return this->genericBaseType ? this->genericBaseType : this->get_base_type();
     }
 
     /** Gets the original source base type (parent) of this type,
      * which is the original generic base type definition, bypassing any partial specializations. */
     inline const TxActualType* get_source_base_type() const {
-        ASSERT( this->hasInitialized, "Can't get source base type of uninitized type " << this );
+        // (note, genericBaseType is set before initialization and integration, but baseType isn't)
         auto type = this;
         while ( type->genericBaseType )
             type = type->genericBaseType;
@@ -322,11 +384,13 @@ public:
     }
 
     inline const std::vector<const TxActualType*>& get_interfaces() const {
+        ASSERT( this->hasIntegrated, "Can't get interfaces of unintegrated type " << this );
         return this->interfaces;
     }
 
     /** Returns the type class this type belongs to. */
     inline TxTypeClass get_type_class() const {
+        ASSERT( this->hasInitialized, "Can't get type class of uninitialized type " << this );
         return this->typeClass;
     }
 
@@ -358,8 +422,11 @@ public:
     /** Returns true if this type is declared abstract.
      * Note that there can be types that are neither declared abstract or concrete,
      * if they are dependent on generic type parameters. */
-    virtual bool is_abstract() const {
-        return ( this->get_declaration()->get_decl_flags() & TXD_ABSTRACT );
+    bool is_abstract() const {
+        // (special case lets user skip 'abstract' keyword in interface declarations)
+        // TODO: make TXD_ABSTRACT flag be automatically set for all interfaces
+        return ( this->get_type_class() == TXTC_INTERFACE
+                 || ( this->get_type_class() != TXTC_REFERENCE && ( this->get_declaration()->get_decl_flags() & TXD_ABSTRACT ) ) );
     }
 
     /** Returns true if this type is concrete.
@@ -367,20 +434,20 @@ public:
      * This includes both unbound type parameters of this type and of its outer lexical scope, if any.
      * Reference types are always concrete.
      */
-    virtual bool is_concrete() const;
+    bool is_concrete() const;
 
     /** Returns true if this type is static, which means it is concrete and non-dynamic.
      * A static type can be directly instanced since its data type and size is fully known at compile time.
      * Reference types are always static.
      */
-    virtual bool is_static() const;
+    bool is_static() const;
 
     /** Returns true if this type is dynamic, which means it is concrete and dependent on one or more
      * VALUE type parameter bindings with a dynamic value (not known at compile time).
      * The size of a dynamic type may not be known at compile time, but it is instantiable
      * via an expression that computes the dynamic parameter bindings.
      */
-    virtual bool is_dynamic() const;
+    bool is_dynamic() const;
 
     /** Returns true if this type is generic (i.e. has unbound type parameters).
      * Note that a non-generic type may still have members that refer to unbound type parameters of an outer scope.
@@ -469,22 +536,42 @@ public:
     /** Returns true if this type has no subtypes. */
     bool is_leaf_derivation() const;
 
+    inline bool is_explicit_declaration() const {
+        return !( this->declaration->get_decl_flags() & TXD_IMPLICIT );
+    }
+
+    /** Returns true if this is a generic type or a direct specialization of a generic type.
+     * Note - does not bypass empty derivations. */
+    inline bool is_gen_or_spec() const {
+        return ( !this->params.empty() || !this->bindings.empty() );
+    }
+
+
+    /*--- relationships ---*/
+
     // FUTURE: Should we remove the == != operator overloads in favor of more specifically named comparison methods?
 
     /** Returns true iff the two types are equal in the Tuplex language definition sense.
      * Note that named types are non-equal if not same name. */
-    virtual bool operator==( const TxActualType& other ) const;
+    bool operator==( const TxActualType& other ) const;
 
     /** Returns true iff the two types are unequal in the Tuplex language definition sense. */
     inline bool operator!=( const TxActualType& other ) const {
         return !this->operator==( other );
     }
 
+    /** Returns true if the provided type is the same as this, or a specialization of this.
+     * Note that true does not guarantee assignability, for example modifiability is not taken into account.
+     */
+    bool is_a( const TxActualType& other ) const {
+        return this->type_class_handler()->is_a( this, &other );
+    }
+
     /** Returns true if an instance of this type can implicitly convert to an instance of the destination type.
      * This may be less strict test than is_assignable, since some types that are not directly assignable
      * may be so after an implicit conversion (e.g. Byte -> Int). */
-    virtual bool auto_converts_to( const TxActualType& destination ) const {
-        return this->is_assignable_to( destination );  // default implementation is equal to assignability
+    bool auto_converts_to( const TxActualType& destination ) const {
+        return this->type_class_handler()->auto_converts_to( this, &destination );
     }
 
     /** Returns true if an instance of this type can be assigned to a field of the provided type
@@ -497,21 +584,8 @@ public:
      * substitutability rather than is-a relationship. */
     bool is_assignable_to( const TxActualType& destination ) const;
 
-    /** Returns true if the provided type is the same as this, or a specialization of this.
-     * Note that true does not guarantee assignability, for example modifiability is not taken into account.
-     */
-    virtual bool is_a( const TxActualType& other ) const;
 
-private:
-    inline bool inner_equals( const TxActualType* thatType ) const {
-        return this == thatType;
-    }
-
-    bool derives_object( const TxActualType* objectType ) const;
-    bool derives_interface( const TxActualType* interfaceType ) const;
-
-public:
-    /*--- type parameter handling ---*/
+    /*--- type parameters and bindings ---*/
 
     /** Specialized lookup: searches the type hierarchy's parameter bindings to find the binding for a parameter. */
     const TxEntityDeclaration* lookup_param_binding( const TxEntityDeclaration* paramDecl ) const;
@@ -520,8 +594,8 @@ public:
 
     /** Gets the (unbound) type parameters of this type (this type is a generic type if this is non-empty). */
     inline const std::vector<const TxEntityDeclaration*>& get_type_params() const {
-        ASSERT( this->hasInitialized, "Can't get type params of uninitized type " << this );
-        return ( this->is_empty_derivation() ? this->get_base_type()->get_type_params() : this->params );
+        //return ( this->is_empty_derivation() ? this->get_base_type()->get_type_params() : this->params );
+        return this->params;
     }
 
     /** Returns true if this type has an (unbound) type parameter with the specified (plain) name. */
@@ -542,7 +616,6 @@ public:
     }
 
     inline const std::vector<const TxEntityDeclaration*>& get_bindings() const {
-        ASSERT( this->hasInitialized, "Can't get bindings of uninitized type " << this );
         return this->bindings;
     }
 
@@ -555,6 +628,45 @@ public:
                 return b;
         return nullptr;
     }
+
+
+    /*--- ArrayType and ReferenceType accessors ---*/
+
+    /** Returns the element type if bound, or tx.Array.E generic type parameter if unbound.
+     * This type must be an array. */
+    TxQualType element_type() const;
+
+    /** Returns nullptr if unbound.
+     * This type must be an array. */
+    const TxExpressionNode* capacity() const;
+
+
+    /** Returns the target type if bound, or tx.Ref.T generic type parameter if unbound.
+     * This type must be a reference. */
+    TxQualType target_type() const;
+
+
+    /*--- FunctionType accessors ---*/
+
+    /** Returns true if functions of this function type may modify their closure. */
+    virtual bool modifiable_closure() const;
+
+    /** Helper method for getting the argument types of a function type. */
+    virtual const std::vector<const TxActualType*>& argument_types() const;
+
+    /** Gets the return type of this function type. If the function does not return a value, this is Void. */
+    virtual const TxActualType* return_type() const;
+
+    /** Returns false if this function type's return type is Void. */
+    virtual bool has_return_value() const;
+
+    /** Returns the var-arg element type of this function, or nullptr if this is not a var-arg function, otherwise null. */
+    const TxActualType* vararg_elem_type() const;
+
+    /** Returns the array argument type if this function takes a single argument that is an array type with statically known size,
+     * otherwise null. */
+    const TxActualType* fixed_array_arg_type() const;
+
 
     /*--- data layout ---*/
 
@@ -570,40 +682,61 @@ public:
         return this->staticFields;
     }
 
-    /*--- LLVM code generation methods ---*/
 
-    virtual llvm::StructType* make_vtable_type( LlvmGenerationContext& context ) const;
-    //virtual llvm::Function* get_type_user_init_func( LlvmGenerationContext& context ) const;
+    /*--- LLVM code generation methods, delegated to the type class handler ---*/
+
+    llvm::StructType* make_vtable_type( LlvmGenerationContext& context ) const {
+        return this->type_class_handler()->make_vtable_type( this, context );
+    }
 
     /** Returns the llvm::Type for an instance of this type (possibly only an opaque struct declaration). */
-    virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const = 0;
+    llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const {
+        return this->type_class_handler()->make_llvm_type( this, context );
+    }
 
     /** Invoked after make_llvm_type() to augment a possibly forward-declared llvm::Type "header" (named, opaque struct).
      * Default implementation returns the "header" type without modifying it;
      * types that actually predefine an opaque header should override and augment the type or return a new, full type. */
-    virtual llvm::Type* make_llvm_type_body( LlvmGenerationContext& context, llvm::Type* header ) const {
-        return header;
+    llvm::Type* make_llvm_type_body( LlvmGenerationContext& context, llvm::Type* header ) const {
+        return this->type_class_handler()->make_llvm_type_body( this, context, header );
     }
 
     /** Returns the llvm::Type that an instance of this type is converted to/from when passed to/from an extern-c function. */
-    virtual llvm::Type* make_llvm_externc_type( LlvmGenerationContext& context ) const;
+    llvm::Type* make_llvm_externc_type( LlvmGenerationContext& context ) const {
+        return this->type_class_handler()->make_llvm_externc_type( this, context );
+    }
 
     /** Code-generates initialization of bound VALUE parameters for an allocated instance. */
-    virtual void initialize_specialized_obj( LlvmGenerationContext& context, GenScope* scope, llvm::Value* objPtrV ) const { }
+    void initialize_specialized_obj( LlvmGenerationContext& context, GenScope* scope, llvm::Value* objPtrV ) const {
+        return this->type_class_handler()->initialize_specialized_obj( this, context, scope, objPtrV );
+    }
 
     /** Generates the formal id of this type. */
-    virtual llvm::Constant* gen_typeid( LlvmGenerationContext& context ) const;
+    llvm::Constant* gen_typeid( LlvmGenerationContext& context ) const {
+        return this->type_class_handler()->gen_typeid( this, context );
+    }
 
     /** Generates the instance/element size of this type. Used by the runtime type info. Only valid for statically concrete types.
      * NOTE: For arrays this returns the instance size of their *element* type. */
-    virtual llvm::Constant* gen_static_element_size( LlvmGenerationContext& context ) const;
+    llvm::Constant* gen_static_element_size( LlvmGenerationContext& context ) const {
+        return this->type_class_handler()->gen_static_element_size( this, context );
+    }
 
     /** Generates the size of an instance of this type. Only valid for statically concrete types. */
-    virtual llvm::Constant* gen_static_size( LlvmGenerationContext& context ) const;
+    llvm::Constant* gen_static_size( LlvmGenerationContext& context ) const {
+        return this->type_class_handler()->gen_static_size( this, context );
+    }
 
-    virtual llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, unsigned alignment, const std::string &varName = "" ) const;
-    virtual llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const;
-    virtual llvm::Value* gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const;
+    llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, unsigned alignment, const std::string &varName = "" ) const {
+        return this->type_class_handler()->gen_alloca( this, context, scope, alignment, varName );
+    }
+    llvm::Value* gen_alloca( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const {
+        return this->type_class_handler()->gen_alloca( this, context, scope, varName );
+    }
+    llvm::Value* gen_malloc( LlvmGenerationContext& context, GenScope* scope, const std::string &varName = "" ) const {
+        return this->type_class_handler()->gen_malloc( this, context, scope, varName );
+    }
+
 
     /*--- to string methods ---*/
 

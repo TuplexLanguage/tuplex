@@ -1,5 +1,5 @@
-#include "ast/expr/ast_lambda_node.hpp"
 #include "ast_entitydecls.hpp"
+#include "ast/expr/ast_lambda_node.hpp"
 #include "builtin/builtin_types.hpp"
 
 #include "parsercontext.hpp"
@@ -105,22 +105,13 @@ void TxFieldDeclNode::declaration_pass() {
     // Note: Field is processed in the 'outer' scope and not in the 'inner' scope of its declaration.
 }
 
-void TxFieldDeclNode::symbol_resolution_pass() {
-    try {
-        this->fieldDef->symbol_resolution_pass();
-    }
-    catch ( const resolution_error& err ) {
-        LOG( this->LOGGER(), DEBUG, "Caught resolution error in " << this->fieldDef << ": " << err );
+void TxFieldDeclNode::verification_pass() const {
+    auto type = this->fieldDef->attempt_qtype();
+    if ( !type ) {
+        LOG_TRACE( this->LOGGER(), "Skipping verification for " << this << " due to earlier resolution failure" );
         return;
     }
-
-    auto type = this->fieldDef->qualtype();
     auto storage = this->fieldDef->get_declaration()->get_storage();
-    if ( type->is_modifiable() ) {
-        if ( storage == TXS_GLOBAL )
-            CERROR( this, "Global fields may not be modifiable: " << fieldDef->get_descriptor() );
-    }
-
     switch ( storage ) {
     case TXS_INSTANCE:
         // FUTURE: ensure TXS_INSTANCE fields are initialized either here or in every constructor
@@ -129,10 +120,10 @@ void TxFieldDeclNode::symbol_resolution_pass() {
                 CWARNING( this, "Not yet supported: Inline initializer for instance fields (initialize within constructor instead): "
                           << this->fieldDef->get_descriptor() );
         }
-        if ( type->is_modifiable() ) {
+        if ( type.is_modifiable() ) {
             if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->context().scope() ) ) {
                 const TxTypeDeclaration* outerTypeDecl = entitySymbol->get_type_decl();
-                if ( !outerTypeDecl->get_definer()->qualtype()->type()->is_mutable() ) {
+                if ( !outerTypeDecl->get_definer()->qtype()->is_mutable() ) {
                     if ( !this->context().reinterpretation_definer() ) {
                         // (suppressed if this is a specialization)
                         CERROR( this, "Instance field of an immutable type is declared modifiable: " << fieldDef->get_descriptor() );
@@ -147,7 +138,7 @@ void TxFieldDeclNode::symbol_resolution_pass() {
             if ( lambdaExpr->funcHeaderNode->is_modifying() ) {
                 if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->context().scope() ) ) {
                     const TxTypeDeclaration* outerTypeDecl = entitySymbol->get_type_decl();
-                    if ( !outerTypeDecl->get_definer()->qualtype()->type()->is_mutable() ) {
+                    if ( !outerTypeDecl->get_definer()->qtype()->is_mutable() ) {
                         if ( !this->context().reinterpretation_definer() ) {
                             // (we skip this error for type specializations that have not been declared mutable, this method will be suppressed)
                             CERROR( this, "Instance method of an immutable type may not be declared modifying: " << fieldDef->get_descriptor() );
@@ -170,6 +161,10 @@ void TxFieldDeclNode::symbol_resolution_pass() {
         }
         break;
     case TXS_GLOBAL:
+        if ( type.is_modifiable() ) {
+            CERROR( this, "Global fields may not be modifiable: " << fieldDef->get_descriptor() );
+        }
+        // no break
     case TXS_STATIC:
         if ( !this->fieldDef->initExpression ) {
             if ( !( this->fieldDef->get_declaration()->get_decl_flags() & ( TXD_BUILTIN | TXD_EXTERNC ) ) )
@@ -188,18 +183,38 @@ void TxFieldDeclNode::symbol_resolution_pass() {
     }
 }
 
+TxTypeDeclNode::TxTypeDeclNode( const TxLocation& ploc, const TxDeclarationFlags declFlags, const std::string& typeName,
+                const std::vector<TxDeclarationNode*>* typeParamDecls, TxTypeCreatingNode* typeCreatingNode,
+                bool interfaceKW, bool mutableType )
+        : TxDeclarationNode( ploc, declFlags ), typeName( new TxIdentifier( typeName ) ),
+          interfaceKW( interfaceKW ), mutableType( mutableType ), typeParamDecls( typeParamDecls ), typeCreatingNode( typeCreatingNode ) {
+    typeCreatingNode->set_interface( interfaceKW );
+    if ( mutableType || interfaceKW ) {  // (interfaces are implicitly mutable)
+        typeCreatingNode->set_requires_mutable( true );
+        if ( this->typeParamDecls ) {
+            for ( auto pdecl : *this->typeParamDecls ) {
+                if ( auto tpdecl = dynamic_cast<TxTypeDeclNode*>( pdecl ) ) {
+                    if ( tpdecl->get_decl_flags() & TXD_GENPARAM )
+                        tpdecl->typeCreatingNode->set_requires_mutable( true );
+                    // Note: It should be legal to specify an immutable type as constraint type for a type parameter of a mutable type.
+                    //       Will the above cause spurious errors in such a case?
+                }
+            }
+        }
+    }
+}
+
 void TxTypeDeclNode::declaration_pass() {
     const TxTypeDeclaration* declaration = nullptr;
     if ( this->get_decl_flags() & TXD_BUILTIN ) {
         if ( auto entSym = dynamic_cast<const TxEntitySymbol*>( lexContext.scope()->get_member_symbol( this->typeName->str() ) ) ) {
-            if ( ( declaration = entSym->get_type_decl() ) ) {
-                if ( declaration->get_decl_flags() & TXD_BUILTIN ) {
-                    //std::cerr << "existing builtin type declaration: " << declaration << "  new type expr: " << this->typeExpression << std::endl;
-                    ASSERT( dynamic_cast<TxDerivedTypeNode*>( this->typeExpression ),
-                            "Expected definer for builtin-type to be a TxDerivedTypeNode: " << this->typeExpression );
-                    merge_builtin_type_definers( static_cast<TxDerivedTypeNode*>( this->typeExpression ), declaration->get_definer() );
-                    this->_builtinCode = true;
-                }
+            declaration = entSym->get_type_decl();
+            if ( declaration && ( declaration->get_decl_flags() & TXD_BUILTIN ) ) {
+                //std::cerr << "existing builtin type declaration: " << declaration << "  new type expr: " << this->typeExpression << std::endl;
+                ASSERT( dynamic_cast<TxDerivedTypeNode*>( this->typeCreatingNode ),
+                        "Expected definer for builtin-type to be a TxDerivedTypeNode: " << this->typeCreatingNode );
+                merge_builtin_type_definers( static_cast<TxDerivedTypeNode*>( this->typeCreatingNode ), declaration->get_definer() );
+                this->_builtinCode = true;
             }
         }
         if ( !this->_builtinCode && !this->get_parser_context()->is_internal_builtin() )
@@ -207,11 +222,12 @@ void TxTypeDeclNode::declaration_pass() {
     }
 
     if ( !this->_builtinCode ) {
-        declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeExpression, this->get_decl_flags() );
+        declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeCreatingNode, this->get_decl_flags() );
         if ( !declaration ) {
             CERROR( this, "Failed to declare type " << this->typeName );
             return;
         }
+        this->_declaration = declaration;
         LOG_TRACE( this->LOGGER(), this << ": Declared type " << declaration );
     }
 
@@ -227,34 +243,33 @@ void TxTypeDeclNode::declaration_pass() {
         }
     }
     this->lexContext._scope = declaration->get_symbol();
-    this->typeExpression->set_declaration( declaration );
+    this->typeCreatingNode->set_declaration( declaration );
 }
 
-void TxTypeDeclNode::symbol_resolution_pass() {
-    if ( this->_builtinCode ) {
-        // the definer has been merged with the built-in type
-        return;
+const std::vector<const TxEntityDeclaration*>& TxTypeDeclNode::get_type_params() const {
+    if ( !this->typeParams.empty() || this->typeParamDecls->empty() )
+        return this->typeParams;  // no type parameters declared
+    for ( auto paramDeclNode : *this->typeParamDecls ) {
+        if ( paramDeclNode->get_decl_flags() & TXD_GENPARAM )
+            this->typeParams.push_back( paramDeclNode->get_declaration() );
     }
-    if ( this->typeParamDecls ) {
-        for ( auto paramDeclNode : *this->typeParamDecls )
-            paramDeclNode->symbol_resolution_pass();
-    }
-    try {
-        this->typeExpression->symbol_resolution_pass();
-    }
-    catch ( const resolution_error& err ) {
-        LOG( this->LOGGER(), DEBUG, "Caught resolution error in " << this->typeExpression << ": " << err );
-        return;
-    }
-    if (this->interfaceKW) {
-        if (this->typeExpression->qualtype()->get_type_class() != TXTC_INTERFACE)
-            CERROR(this, "Interface type cannot derive from non-interface type: " << this->typeExpression->qualtype());
-    }
-    else {
-        if (this->typeExpression->qualtype()->get_type_class() == TXTC_INTERFACE)
-            if ( !( this->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING | TXD_IMPLICIT ) ) )
-                 //&& !this->typeExpression->get_type()->is_modifiable() )
-                CWARNING(this, "Interface type not declared with 'interface' keyword: " << this->typeExpression->qualtype());
+    return this->typeParams;
+}
+
+void TxTypeDeclNode::verification_pass() const {
+    if ( auto qtype = this->typeCreatingNode->attempt_qtype() ) {
+        if ( qtype->is_initialized() ) {
+            if ( this->interfaceKW ) {
+                if ( this->typeCreatingNode->qtype()->get_type_class() != TXTC_INTERFACE )
+                    CERROR( this, "Interface type cannot derive from non-interface type: " << this->typeCreatingNode->qtype() );
+            }
+            else {
+                if ( this->typeCreatingNode->qtype()->get_type_class() == TXTC_INTERFACE )
+                    if ( !( this->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING | TXD_IMPLICIT ) ) )
+                        //&& !this->typeExpression->get_type()->is_modifiable() )
+                        CWARNING( this, "Interface type not declared with 'interface' keyword: " << this->typeCreatingNode->qtype() );
+            }
+        }
     }
 }
 

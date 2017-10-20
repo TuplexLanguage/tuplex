@@ -1,4 +1,4 @@
-type FuncType <: ( a : Int )->Int;
+type ~ FuncType <: ( a : Int )->Int;
 
 square( a : Int )->Int { return a * a; }
 

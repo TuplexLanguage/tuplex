@@ -2,104 +2,125 @@
 
 #include "type_base.hpp"
 
-class TxBoolType : public TxActualType {
-protected:
-    virtual TxBoolType* make_specialized_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
-                                               bool mutableType, const std::vector<const TxActualType*>& interfaces ) const override {
-        if ( dynamic_cast<const TxBoolType*>( baseType ) )
-            return new TxBoolType( declaration, baseType, interfaces );
-        throw std::logic_error( "Specified a base type for TxBoolType that was not a TxBoolType: " + baseType->str() );
-    }
-    ;
 
+
+class TxBoolTypeClassHandler : public TxTypeClassHandler {
 public:
-    TxBoolType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*>& interfaces )
-            : TxActualType( TXTC_ELEMENTARY, declaration, baseType, true, interfaces ) {
-    }
+    TxBoolTypeClassHandler() : TxTypeClassHandler( TXTC_ELEMENTARY )  { }
 
-    virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override final;
-    virtual llvm::Type* make_llvm_externc_type( LlvmGenerationContext& context ) const override final;
+    virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override final;
+    virtual llvm::Type* make_llvm_externc_type( const TxActualType* type, LlvmGenerationContext& context ) const override final;
 };
 
-class TxScalarType : public TxActualType {
-protected:
-    const uint64_t _size;
+class TxBoolType : public TxActualType {
+public:
+    static const TxBoolTypeClassHandler boolTypeClassHandler;
 
-    TxScalarType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*>& interfaces,
-                  uint64_t size )
-            : TxActualType( TXTC_ELEMENTARY, declaration, baseType, true, interfaces ), _size( size ) {
+    TxBoolType( const TxTypeDeclaration* declaration, const TxTypeExpressionNode* baseTypeNode,
+                const std::vector<const TxTypeExpressionNode*>& interfaceNodes )
+            : TxActualType( &boolTypeClassHandler, declaration, true, baseTypeNode, interfaceNodes ) {
     }
+};
+
+
+class TxConcreteScalarType : public TxActualType {
+protected:
+    TxConcreteScalarType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, const TxTypeExpressionNode* baseTypeNode,
+                          const std::vector<const TxTypeExpressionNode*>& interfaceNodes )
+            : TxActualType( typeClassHandler, declaration, true, baseTypeNode, interfaceNodes ) {
+    }
+};
+
+
+class TxScalarTypeClassHandler : public TxTypeClassHandler {
+    const uint32_t _size;
 
 public:
-    virtual uint64_t size() const {
+    TxScalarTypeClassHandler( uint32_t size ) : TxTypeClassHandler( TXTC_ELEMENTARY ), _size( size )  { }
+
+    inline uint32_t size() const {
         return this->_size;
     }
 
     /** This is legal to invoke during analysis passes. It is used for constant expression evaluation. */
-    virtual llvm::Type* get_scalar_llvm_type( LlvmGenerationContext& context ) const = 0;
+    virtual llvm::Type* get_scalar_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const = 0;
 
-    virtual llvm::Type* make_llvm_type( LlvmGenerationContext& context ) const override final;
-    virtual llvm::Type* make_llvm_externc_type( LlvmGenerationContext& context ) const override final;
+    virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override final;
+    virtual llvm::Type* make_llvm_externc_type( const TxActualType* type, LlvmGenerationContext& context ) const override final;
 };
 
-class TxIntegerType final : public TxScalarType {
+
+class TxIntegerTypeClassHandler : public TxScalarTypeClassHandler {
+    const bool _sign;
 protected:
-    virtual TxIntegerType* make_specialized_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
-                                                  bool mutableType, const std::vector<const TxActualType*>& interfaces ) const override {
-        if ( const TxIntegerType* intType = dynamic_cast<const TxIntegerType*>( baseType ) )
-            return new TxIntegerType( declaration, baseType, interfaces, intType->size(), intType->sign );
-        throw std::logic_error( "Specified a base type for TxIntegerType that was not a TxIntegerType: " + baseType->str() );
-    }
-    ;
-
-public:
-    const bool sign;
-
-    TxIntegerType( const TxTypeDeclaration* declaration, const TxActualType* baseType,
-                   const std::vector<const TxActualType*>& interfaces,
-                   int size,
-                   bool sign )
-            : TxScalarType( declaration, baseType, interfaces, size ), sign( sign ) {
-    }
-
-    inline bool is_signed() const {
-        return this->sign;
-    }
-
-    virtual bool auto_converts_to( const TxActualType& destination ) const override {
-        if ( const TxIntegerType* destInt = dynamic_cast<const TxIntegerType*>( &destination ) ) {
-            if ( this->sign == destInt->sign )
-                return this->_size <= destInt->_size;
+    virtual bool auto_converts_to( const TxActualType* type, const TxActualType* dest ) const override {
+        if ( auto destHandler = dynamic_cast<const TxIntegerTypeClassHandler*>( dest->type_class_handler() ) ) {
+            if ( this->_sign == destHandler->_sign )
+                return this->size() <= destHandler->size();
             else
-                return destInt->sign && this->_size < destInt->_size;
+                return destHandler->_sign && this->size() < destHandler->size();
         }
         return false;
     }
 
-    virtual llvm::Type* get_scalar_llvm_type( LlvmGenerationContext& context ) const override;
+public:
+    TxIntegerTypeClassHandler( uint32_t size, bool sign ) : TxScalarTypeClassHandler( size ), _sign( sign )  { }
+
+    inline bool is_signed() const {
+        return this->_sign;
+    }
+
+    virtual llvm::Type* get_scalar_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
 };
 
-class TxFloatingType final : public TxScalarType {
-protected:
-    virtual TxFloatingType* make_specialized_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
-                                                   bool mutableType, const std::vector<const TxActualType*>& interfaces ) const override {
-        if ( const TxFloatingType* floatType = dynamic_cast<const TxFloatingType*>( baseType ) )
-            return new TxFloatingType( declaration, baseType, interfaces, floatType->size() );
-        throw std::logic_error( "Specified a base type for TxFloatingType that was not a TxFloatingType: " + baseType->str() );
-    }
-    ;
-
+class TxIntegerType final : public TxConcreteScalarType {
 public:
-    TxFloatingType( const TxTypeDeclaration* declaration, const TxActualType* baseType,
-                    const std::vector<const TxActualType*>& interfaces, int size )
-            : TxScalarType( declaration, baseType, interfaces, size ) {
+    TxIntegerType( const TxTypeDeclaration* declaration,
+                   const TxTypeExpressionNode* baseTypeNode,
+                   const std::vector<const TxTypeExpressionNode*>& interfaceNodes,
+                   int size, bool sign )
+            : TxConcreteScalarType( new TxIntegerTypeClassHandler( size, sign ), declaration, baseTypeNode, interfaceNodes) {
     }
 
-    virtual bool auto_converts_to( const TxActualType& destination ) const override {
-        if ( const TxFloatingType* destFloat = dynamic_cast<const TxFloatingType*>( &destination ) )
-            return this->_size <= destFloat->_size;
+
+//    virtual bool auto_converts_to( const TxActualType& destination ) const override {
+//        if ( const TxIntegerType* destInt = dynamic_cast<const TxIntegerType*>( &destination ) ) {
+//            if ( this->sign == destInt->sign )
+//                return this->_size <= destInt->_size;
+//            else
+//                return destInt->sign && this->_size < destInt->_size;
+//        }
+//        return false;
+//    }
+};
+
+
+class TxFloatingTypeClassHandler : public TxScalarTypeClassHandler {
+protected:
+    virtual bool auto_converts_to( const TxActualType* type, const TxActualType* dest ) const override {
+        if ( auto destHandler = dynamic_cast<const TxFloatingTypeClassHandler*>( dest->type_class_handler() ) )
+            return this->size() <= destHandler->size();
         return false;
     }
 
-    virtual llvm::Type* get_scalar_llvm_type( LlvmGenerationContext& context ) const override;
+public:
+    TxFloatingTypeClassHandler( uint32_t size ) : TxScalarTypeClassHandler( size )  { }
+
+    virtual llvm::Type* get_scalar_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+};
+
+class TxFloatingType final : public TxConcreteScalarType {
+public:
+    TxFloatingType( const TxTypeDeclaration* declaration,
+                    const TxTypeExpressionNode* baseTypeNode,
+                    const std::vector<const TxTypeExpressionNode*>& interfaceNodes,
+                    int size )
+            : TxConcreteScalarType( new TxFloatingTypeClassHandler( size ), declaration, baseTypeNode, interfaceNodes ) {
+    }
+
+//    virtual bool auto_converts_to( const TxActualType& destination ) const override {
+//        if ( const TxFloatingType* destFloat = dynamic_cast<const TxFloatingType*>( &destination ) )
+//            return this->_size <= destFloat->_size;
+//        return false;
+//    }
 };

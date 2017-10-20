@@ -11,7 +11,7 @@ Value* TxExpressionNode::code_gen_typeid( LlvmGenerationContext& context, GenSco
 }
 
 Constant* TxExpressionNode::code_gen_typeid( LlvmGenerationContext& context ) const {
-    return this->qualtype()->type()->acttype()->gen_typeid( context );
+    return this->qtype()->gen_typeid( context );
 }
 
 
@@ -24,7 +24,8 @@ Value* TxExpressionNode::code_gen_expr( LlvmGenerationContext& context, GenScope
 }
 
 Value* TxExpressionNode::code_gen_addr( LlvmGenerationContext& context, GenScope* scope ) const {
-    if (this->is_statically_constant())
+    auto storage = this->get_storage();
+    if ( storage == TXS_GLOBAL || storage == TXS_STATIC )
         return this->code_gen_const_address( context );
     else
         return this->code_gen_dyn_address( context, scope );

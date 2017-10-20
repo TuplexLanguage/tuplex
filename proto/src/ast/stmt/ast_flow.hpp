@@ -19,10 +19,6 @@ public:
         return new TxElseClauseNode( this->ploc, this->body->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        this->body->symbol_resolution_pass();
-    }
-
     virtual bool may_end_with_non_return_stmt() const override {
         return this->body->may_end_with_non_return_stmt();
     }
@@ -35,7 +31,7 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->body->visit_ast( visitor, thisCursor, "body", context );
     }
 };
@@ -62,6 +58,11 @@ public:
 class TxCondClauseNode : public TxFlowHeaderNode {
     TxMaybeConversionNode* condExpr;
 
+protected:
+    virtual void resolution_pass() override {
+        this->condExpr->insert_conversion( TXP_RESOLUTION, this->registry().get_builtin_type( TXBT_BOOL ) );
+    }
+
 public:
     TxCondClauseNode( const TxLocation& ploc, TxExpressionNode* condExpr )
         : TxFlowHeaderNode( ploc ), condExpr( new TxMaybeConversionNode( condExpr ) )  { }
@@ -70,17 +71,12 @@ public:
         return new TxCondClauseNode( this->ploc, this->condExpr->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        this->condExpr->insert_conversion( this->registry().get_builtin_type( TXBT_BOOL ) );
-        this->condExpr->symbol_resolution_pass();
-    }
-
     void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const { }
     llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const;
     void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const { }
     void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const { }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->condExpr->visit_ast( visitor, thisCursor, "cond", context );
     }
 };
@@ -89,7 +85,7 @@ public:
 class TxIsClauseNode : public TxFlowHeaderNode {
     TxExpressionNode* origValueExpr;
     const std::string valueName;
-    TxTypeExpressionNode* typeExpr;
+    TxQualTypeExprNode* typeExpr;
     TxLocalFieldDefNode* valueField = nullptr;
 
 protected:
@@ -98,21 +94,21 @@ protected:
         this->valueField->declare_field( declScope, TXD_NONE, TXS_STACK );
     }
 
+    virtual void verification_pass() const override;
+
 public:
-    TxIsClauseNode( const TxLocation& ploc, TxExpressionNode* valueExpr, const std::string& valueName, TxTypeExpressionNode* typeExpr );
+    TxIsClauseNode( const TxLocation& ploc, TxExpressionNode* valueExpr, const std::string& valueName, TxQualTypeExprNode* typeExpr );
 
     virtual TxIsClauseNode* make_ast_copy() const override {
         return new TxIsClauseNode( this->ploc, this->origValueExpr->make_ast_copy(), this->valueName, this->typeExpr->make_ast_copy() );
     }
-
-    virtual void symbol_resolution_pass() override;
 
     void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const { }
     llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const;
     void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const;
     void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const { }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->valueField->visit_ast( visitor, thisCursor, "value", context );
     }
 };
@@ -140,18 +136,12 @@ public:
         return this->initStmt;
     }
 
-    virtual void symbol_resolution_pass() override {
-        this->initStmt->symbol_resolution_pass();
-        this->nextCond->symbol_resolution_pass();
-        this->stepStmt->symbol_resolution_pass();
-    }
-
     void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const;
     llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const;
     void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const { }
     void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->initStmt->visit_ast( visitor, thisCursor, "init", context );
         this->nextCond->visit_ast( visitor, thisCursor, "cond", context );
         this->stepStmt->visit_ast( visitor, thisCursor, "step", context );
@@ -188,18 +178,12 @@ public:
         return new TxInClauseNode( this->ploc, this->valueName, this->origSeqExpr->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        this->iterField->symbol_resolution_pass();
-        this->nextCond->symbol_resolution_pass();
-        this->valueField->symbol_resolution_pass();
-    }
-
     void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const;
     llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const;
     void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const;
     void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const { }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->iterField->visit_ast( visitor, thisCursor, "iterator", context );
         this->nextCond->visit_ast( visitor, thisCursor, "cond", context );
         this->valueField->visit_ast( visitor, thisCursor, "value", context );
@@ -240,14 +224,7 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void symbol_resolution_pass() override {
-        this->header->symbol_resolution_pass();
-        this->body->symbol_resolution_pass();
-        if ( this->elseClause )
-            this->elseClause->symbol_resolution_pass();
-    }
-
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->header->visit_ast( visitor, thisCursor, "header", context );
         this->body->visit_ast( visitor, thisCursor, "then", context );
         if (this->elseClause)
@@ -282,14 +259,6 @@ public:
         return new TxForStmtNode( this->ploc, make_node_vec_copy( this->loopHeaders ), body->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        for ( auto header : *this->loopHeaders )
-            header->symbol_resolution_pass();
-        this->body->symbol_resolution_pass();
-        if ( this->elseClause )
-            this->elseClause->symbol_resolution_pass();
-    }
-
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual bool may_end_with_non_return_stmt() const override {
@@ -306,7 +275,7 @@ public:
         return ( this->body->ends_with_return_stmt() && this->elseClause && this->elseClause->ends_with_return_stmt() );
     }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         for ( auto header : *this->loopHeaders )
             header->visit_ast( visitor, thisCursor, "header", context );
         this->body->visit_ast( visitor, thisCursor, "body", context );

@@ -50,6 +50,7 @@ isa( valueTid : UInt, tid : UInt )->Bool {
     return FALSE;
 }
 
+/* FIXME - reenable
 builtin type Function derives Any
 {
     override equals( other : &Any ) -> Bool {
@@ -59,6 +60,7 @@ builtin type Function derives Any
         return FALSE;
     }
 }
+*/
     )====="
 ;
 
@@ -213,7 +215,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         run_declaration_pass( parserContext->parsingUnit->module, parserContext->parsingUnit, "module" );
     }
 
-    this->package->builtins().resolveBuiltinSymbols();  // FIXME: review, maybe remove
+    this->package->builtins().resolveBuiltinSymbols();  // TODO: review, maybe remove
 
     this->package->prepare_modules();  // (prepares the declared imports)
 
@@ -224,10 +226,40 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     else
         _LOG.info( "+ Declaration pass OK" );
 
+
+    /*--- perform type definition pass - instantiation and integration ---*/
+
+    for ( auto parserContext : this->parsedASTs ) {
+        run_type_pass( parserContext->parsingUnit->module, "module" );
+    }
+
+    auto & reinterpretedASTs = this->package->registry().get_enqueued_specializations();
+    unsigned nextSpecIx = 0;
+    unsigned specCount = reinterpretedASTs.size();
+
+    for ( unsigned specIx = nextSpecIx; specIx < specCount; specIx++ ) {
+        auto node = reinterpretedASTs.at( specIx );
+        run_type_pass( node, "reinterpretation" );
+    }
+
+    this->package->registry().integrate_types();
+
+    if ( error_count != prev_error_count ) {
+        _LOG.error( "- Type definition pass encountered %d errors", error_count - prev_error_count );
+        prev_error_count = error_count;
+    }
+    else
+        _LOG.info( "+ Type definition pass OK" );
+
+
     /*--- perform resolution pass ---*/
 
     for ( auto parserContext : this->parsedASTs ) {
-        parserContext->parsingUnit->symbol_resolution_pass();
+        run_resolution_pass( parserContext->parsingUnit->module, "module" );
+    }
+    for ( unsigned specIx = nextSpecIx; specIx < specCount; specIx++ ) {
+        auto node = reinterpretedASTs.at( specIx );
+        run_resolution_pass( node, "reinterpretation" );
     }
 
     if ( error_count != prev_error_count ) {
@@ -236,28 +268,83 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
     }
     else {
         _LOG.info( "+ Resolution pass OK" );
+    }
 
-        this->package->registry().deferred_type_resolution_pass();
+
+    /*--- perform type definition and full resolution passes on trailing types ---*/
+
+    while ( specCount != reinterpretedASTs.size() ) {
+        nextSpecIx = specCount;
+        specCount = reinterpretedASTs.size();
+
+        for ( unsigned specIx = nextSpecIx; specIx < specCount; specIx++ ) {
+            auto node = reinterpretedASTs.at( specIx );
+            run_type_pass( node, "reinterpretation" );
+        }
+
+        this->package->registry().integrate_types();
+
+        for ( unsigned specIx = nextSpecIx; specIx < specCount; specIx++ ) {
+            auto node = reinterpretedASTs.at( specIx );
+            run_resolution_pass( node, "reinterpretation" );
+        }
+    }
+    this->package->registry().integrate_types( true );
+
+    if ( error_count != prev_error_count ) {
+        _LOG.error( "- Deferred resolution pass encountered %d errors", error_count - prev_error_count );
+        prev_error_count = error_count;
+    }
+    else {
+        _LOG.info( "+ Deferred resolution pass OK" );
+    }
+
+
+    /*--- perform verification pass ---*/
+
+    for ( auto parserContext : this->parsedASTs ) {
+        run_verification_pass( parserContext->parsingUnit->module, "module" );
+    }
+    for ( auto node : this->package->registry().get_enqueued_specializations() ) {
+        run_verification_pass( node, "reinterpretation" );
+    }
+
+    if ( error_count != prev_error_count ) {
+        _LOG.error( "- Verification pass encountered %d errors", error_count - prev_error_count );
+        prev_error_count = error_count;
+    }
+    else {
+        _LOG.info( "+ Verfication pass OK" );
+    }
+
+
+    /*--- type preparation / layout pass ---*/
+
+    {
+        this->package->registry().prepare_types();
 
         for ( auto parserContext : this->parsedASTs ) {
             parserContext->finalize_expected_error_clauses();
         }
 
         if ( error_count == prev_error_count ) {
-            _LOG.info( "+ Deferred resolution pass OK" );
+            _LOG.info( "+ Type preparation pass OK" );
             prev_error_count = error_count;
         }
         else
-            _LOG.error( "- Deferred resolution pass encountered %d errors", error_count - prev_error_count );
+            _LOG.error( "- Type preparation pass encountered %d errors", error_count - prev_error_count );
     }
 
+    _LOG.info( "Number of AST nodes created: %u", TxNode::nextNodeId );
+
     if ( this->options.dump_ast ) {
-        auto visitor = []( const TxNode* node, const AstCursor& parent, const std::string& role, void* ctx ) {
+        auto visitorFunc = []( const TxNode* node, const AstCursor& parent, const std::string& role, void* ctx ) {
             char buf[256];
             snprintf( buf, 256, "%*s%s", parent.depth*2, "", role.c_str() );
             printf( "%-50s %s\n", buf, node->str().c_str() );
             //std::cout << std::string( parent.depth*2, ' ' ) << role << " " << node->to_string() << std::endl;
             };
+        AstVisitor visitor = { visitorFunc, nullptr };
 
         for ( auto parserContext : this->parsedASTs ) {
             std::cout << "AST DUMP " << parserContext << ":" << std::endl;
@@ -393,12 +480,12 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
     bool mainGenerated = false;
     if ( auto funcDecl = this->package->getMainFunc() ) {
         auto funcField = funcDecl->get_definer()->resolve_field();
-        if ( funcField->qualtype()->get_type_class() == TXTC_FUNCTION ) {
-            auto retType = funcField->qualtype()->type()->return_type();
+        if ( funcField->qtype()->get_type_class() == TXTC_FUNCTION ) {
+            auto retType = static_cast<const TxFunctionType*>(funcField->qtype().type())->return_type();
             if ( retType->get_type_class() != TXTC_VOID
                  && !retType->is_a( *this->package->registry().get_builtin_type( TXBT_INTEGER ) ) )
                 this->_LOG.error( "main() method had invalid return type: %s", retType->str().c_str() );
-            else if ( ( mainGenerated = this->genContext->generate_main( funcDecl->get_unique_full_name(), funcField->qualtype()->type() ) ) )
+            else if ( ( mainGenerated = this->genContext->generate_main( funcDecl->get_unique_full_name(), funcField->qtype().type() ) ) )
                 this->_LOG.debug( "Created program entry for user method %s", funcDecl->get_unique_full_name().c_str() );
         }
     }

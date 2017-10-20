@@ -111,7 +111,7 @@ Constant* TxReferenceToNode::code_gen_const_value( LlvmGenerationContext& contex
     auto tidC = this->target->code_gen_typeid( context );
     // Note: Using the statically known type id would have risked producing a too-abstract type here
     //       even if the value expression is statically constant.
-    auto refT = context.get_llvm_type( this->qualtype() );
+    auto refT = context.get_llvm_type( this->qtype() );
     return gen_ref( context, refT, ptrC, tidC );
 }
 
@@ -119,7 +119,7 @@ Value* TxReferenceToNode::code_gen_dyn_value( LlvmGenerationContext& context, Ge
     TRACE_CODEGEN( this, context );
     auto ptrV = this->target->code_gen_dyn_address( context, scope );
     auto tidV = this->target->code_gen_typeid( context, scope );
-    auto refT = context.get_llvm_type( this->qualtype() );
+    auto refT = context.get_llvm_type( this->qtype() );
     return gen_ref( context, scope, refT, ptrV, tidV );
 }
 

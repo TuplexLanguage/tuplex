@@ -124,7 +124,7 @@ static inline bool is_internal_name( const std::string& name ) {
     return ( name.find_first_of( '$' ) != std::string::npos );
 }
 
-const TxTypeDeclaration* TxScopeSymbol::declare_type( const std::string& plainName, TxTypeDefiningNode* typeDefiner,
+const TxTypeDeclaration* TxScopeSymbol::declare_type( const std::string& plainName, TxTypeCreatingNode* typeDefiner,
                                                       TxDeclarationFlags declFlags ) {
     ASSERT( !is_internal_name( plainName ) || ( declFlags & ( TXD_IMPLICIT | TXD_CONSTRUCTOR | TXD_INITIALIZER ) ),
             "Mismatch between name format and IMPLICIT flag for type declaration " << plainName );
@@ -186,7 +186,7 @@ const TxEntityDeclaration* TxEntitySymbol::get_distinct_decl() const {
 }
 
 bool TxEntitySymbol::add_type( TxTypeDeclaration* typeDeclaration ) {
-    if ( this->typeDeclaration ) {
+    if ( this->typeDeclaration || !this->fieldDeclarations.empty() ) {
         CERR_THROWDECL( typeDeclaration->get_definer(), "Can't overload several type declarations under the same name: " << this->get_full_name() );
         return false;
     }
@@ -201,11 +201,15 @@ bool TxEntitySymbol::add_type( TxTypeDeclaration* typeDeclaration ) {
             entitySymbol->add_type( selfDeclaration );
         }
     }
-
     return true;
 }
 
 bool TxEntitySymbol::add_field( TxFieldDeclaration* fieldDeclaration ) {
+    if ( this->typeDeclaration ) {
+        CERR_THROWDECL( fieldDeclaration->get_definer(), "Can't overload both type and field declarations under the same name: "
+                        << this->get_full_name() );
+        return false;
+    }
     this->fieldDeclarations.push_back( fieldDeclaration );
     return true;
 }
@@ -214,28 +218,28 @@ static std::string field_description( const TxFieldDeclaration* fieldDecl ) {
     const unsigned bufsize = 256;
     char buf[bufsize];
 
-    if ( auto field = fieldDecl->get_definer()->attempt_get_field() ) {
-        auto type = field->qualtype();
+    if ( auto field = fieldDecl->get_definer()->attempt_field() ) {
+        auto qtype = field->qtype();
 
         if ( !( field->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ) ) {
             if ( auto outerEntity = dynamic_cast<TxEntitySymbol*>( field->get_symbol()->get_outer() ) ) {
                 if ( auto typeDecl = outerEntity->get_type_decl() ) {
-                    if ( auto outerType = typeDecl->get_definer()->qualtype() ) {  // assumes already resolved
+                    if ( auto outerType = typeDecl->get_definer()->qtype() ) {  // assumes already resolved
                         char storageType = ' ';
                         int storageIx = -1;
                         switch ( field->get_storage() ) {
                         case TXS_STATIC:
                             storageType = 's';
-                            storageIx = outerType->type()->acttype()->get_static_fields().get_field_index( field->get_unique_name() );
+                            storageIx = outerType->get_static_fields().get_field_index( field->get_unique_name() );
                             break;
                         case TXS_VIRTUAL:
                             case TXS_INSTANCEMETHOD:
                             storageType = 'v';
-                            storageIx = outerType->type()->acttype()->get_virtual_fields().get_field_index( field->get_unique_name() );
+                            storageIx = outerType->get_virtual_fields().get_field_index( field->get_unique_name() );
                             break;
                         case TXS_INSTANCE:
                             storageType = 'i';
-                            storageIx = outerType->type()->acttype()->get_instance_fields().get_field_index( field->get_unique_name() );
+                            storageIx = outerType->get_instance_fields().get_field_index( field->get_unique_name() );
                             break;
                         default:
                             //ASSERT(false, "Only fields of static/virtual/instancemethod/instance storage classes have a storage index: " << *this);
@@ -243,7 +247,7 @@ static std::string field_description( const TxFieldDeclaration* fieldDecl ) {
                         }
                         if ( storageIx >= 0 ) {
                             snprintf( buf, bufsize, "FIELD [%c%2d]  %-48s : %s",
-                                      storageType, storageIx, fieldDecl->get_unique_full_name().c_str(), type->str().c_str() );
+                                      storageType, storageIx, fieldDecl->get_unique_full_name().c_str(), qtype.str().c_str() );
                             return std::string( buf );
                         }
                     }
@@ -251,7 +255,7 @@ static std::string field_description( const TxFieldDeclaration* fieldDecl ) {
             }
         }
 
-        snprintf( buf, bufsize, "FIELD        %-48s : %s", fieldDecl->get_unique_full_name().c_str(), type->str().c_str() );
+        snprintf( buf, bufsize, "FIELD        %-48s : %s", fieldDecl->get_unique_full_name().c_str(), qtype.str().c_str() );
         return std::string( buf );
     }
     snprintf( buf, bufsize, "FIELD        %-48s : -unresolved-", fieldDecl->get_unique_full_name().c_str() );
@@ -283,27 +287,27 @@ std::string TxEntitySymbol::description_string() const {
     if ( this->is_overloaded() )
         return "   overloaded symbol        " + this->get_full_name().str();
     else if ( this->typeDeclaration ) {  // non-overloaded type name
-        if ( auto type = this->typeDeclaration->get_definer()->attempt_qualtype() ) {
-            if ( type->type()->get_declaration() == this->typeDeclaration ) {
-                const TxType *sembasetype = nullptr;
+        if ( auto qtype = this->typeDeclaration->get_definer()->attempt_qtype() ) {
+            if ( qtype->get_declaration() == this->typeDeclaration ) {
+                const TxActualType *sembasetype = nullptr;
                 try {
-                    sembasetype = type->type()->get_semantic_base_type();
+                    sembasetype = qtype->get_semantic_base_type();
                 }
                 catch ( const resolution_error& err ) { }
                 if ( sembasetype ) {
-                    auto name = type->str();
+                    auto name = qtype.str();
                     if ( name.size() < 48 )
                         name.resize( 48, ' ' );
                     return "TYPE         " + name + " : " + sembasetype->str();
                 }
                 else
-                    return "TYPE         " + type->str( false );
+                    return "TYPE         " + qtype.str( false );
             }
             else {
                 auto name = this->typeDeclaration->get_unique_full_name();
                 if ( name.size() < 48 )
                     name.resize( 48, ' ' );
-                return "TYPE ALIAS   " + name + " = " + type->str();
+                return "TYPE ALIAS   " + name + " = " + qtype.str();
             }
         }
         else

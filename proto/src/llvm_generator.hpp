@@ -96,7 +96,7 @@ public:
               llvmContext( llvmContext )
     {
         this->voidPtrT = llvm::Type::getInt8PtrTy( this->llvmContext );
-        this->closureRefT = TxReferenceType::make_ref_llvm_type( *this, llvm::Type::getInt8Ty( this->llvmContext ), "ClosRef" );
+        this->closureRefT = TxReferenceTypeClassHandler::make_ref_llvm_type( *this, llvm::Type::getInt8Ty( this->llvmContext ), "ClosRef" );
         this->i32T = llvm::Type::getInt32Ty( this->llvmContext );
         this->superTypesPtrT = llvm::PointerType::getUnqual( llvm::StructType::get( i32T, i32T, llvm::ArrayType::get( i32T, 0 ), NULL ) );
     }
@@ -112,8 +112,9 @@ public:
         return this->closureRefT;
     }
 
-    llvm::Type* get_llvm_type( const TxQualType* txType );
-    llvm::Type* get_llvm_type( const TxType* txType );
+    llvm::Type* get_llvm_type( const TxQualType& qtype ) {
+        return this->get_llvm_type( qtype.type() );
+    }
     llvm::Type* get_llvm_type( const TxActualType* txType );
 
     /** Allocates global storage for constant strings, a single shared instance for each unique value. */
@@ -175,7 +176,7 @@ public:
 
     /** Create the top level function to call as program entry.
      * (This is the built-in main, which calls the user main function.)  */
-    bool generate_main( const std::string& userMainIdent, const TxType* mainFuncType );
+    bool generate_main( const std::string& userMainIdent, const TxActualType* mainFuncType );
 
     void initialize_target();
 

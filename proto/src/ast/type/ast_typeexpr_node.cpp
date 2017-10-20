@@ -7,16 +7,17 @@
 void TxTypeExpressionNode::declaration_pass() {
     // The context of this node represents its outer scope.
     // The type expression's created type entity, if any, represents its inner scope.
+    // FIXME: review whether this is necessary for type expressions other than type productions with a body, i.e. derived type node
     if (this->declaration)
         this->lexContext._scope = this->declaration->get_symbol();
     this->typeexpr_declaration_pass();
 }
 
 
-bool is_not_properly_concrete( const TxNode* node, const TxType* type ) {
+bool is_not_properly_concrete( const TxNode* node, const TxQualType type ) {
     if ( !type->is_concrete() ) {
-        //if ( type->acttype()->is_generic() || !type->acttype()->is_generic_dependent() )
-        if ( !node->context().is_generic() && !type->acttype()->is_generic_param() )
+        //if ( type->is_generic() || !type->is_generic_dependent() )
+        if ( !node->context().is_generic() && !type->is_generic_param() )
             return true;
         else
             LOG_DEBUG( node->LOGGER(), node << " " << node->context().scope() << " (Not error since generic context) Object is not concrete: " << type );

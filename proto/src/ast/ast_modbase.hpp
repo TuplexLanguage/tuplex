@@ -22,9 +22,7 @@ public:
         return new TxImportNode( this->ploc, this->ident );
     }
 
-    virtual void symbol_resolution_pass() override { }
-
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
 
     virtual const std::string& get_descriptor() const override {
@@ -56,11 +54,9 @@ public:
 
     virtual TxModuleNode* make_ast_copy() const override;
 
-    virtual void symbol_resolution_pass() override;
-
     void code_gen( LlvmGenerationContext& context ) const;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override;
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override;
 
     virtual const std::string& get_descriptor() const override {
         return this->ident->str();
@@ -86,13 +82,9 @@ public:
         this->lexContext = LexicalContext( package );
     }
 
-    virtual void symbol_resolution_pass() {
-        this->module->symbol_resolution_pass();
-    }
-
     void code_gen( LlvmGenerationContext& context ) const;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->module->visit_ast( visitor, thisCursor, "module", context );
     }
 };

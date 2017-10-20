@@ -72,8 +72,9 @@ int LlvmGenerationContext::generate_code( const TxTypeDeclNode* staticScopeNode 
     }
 }
 
-bool LlvmGenerationContext::generate_main( const std::string& userMainIdent, const TxType* mainFuncType ) {
-    this->entryFunction = this->gen_main_function( userMainIdent, ( mainFuncType->return_type()->get_type_class() != TXTC_VOID ) );
+bool LlvmGenerationContext::generate_main( const std::string& userMainIdent, const TxActualType* mainFuncType ) {
+    bool ret = ( static_cast<const TxFunctionType*>( mainFuncType )->return_type()->get_type_class() != TXTC_VOID );
+    this->entryFunction = this->gen_main_function( userMainIdent, ret );
     return this->entryFunction;
 }
 
@@ -278,7 +279,7 @@ void LlvmGenerationContext::generate_runtime_type_info() {
         auto typeIdC = ConstantInt::get( i32T, acttype->get_runtime_type_id() );
 
         Constant* elementTypeIdC = ConstantInt::get( i32T,
-                ( acttype->get_type_class() == TXTC_ARRAY ? static_cast<const TxArrayType*>( acttype )->element_type()->get_type_id() : 0 ) );
+                ( acttype->get_type_class() == TXTC_ARRAY ? acttype->element_type()->get_runtime_type_id() : 0 ) );
 
         std::vector<Constant*> members {
                                          ConstantExpr::getBitCast( vtableC, emptyStructPtrT ),
@@ -397,14 +398,14 @@ void LlvmGenerationContext::generate_runtime_vtables() {
                 //std::cerr << "inserting NULL for abstract virtual field: " << field.first << " at ix " << field.second << std::endl;
                 Type* fieldType;
                 if ( actualFieldEnt->get_storage() & TXS_INSTANCEMETHOD ) {
-                    auto closureType = this->get_llvm_type( actualFieldEnt->qualtype()->type() );
+                    auto closureType = this->get_llvm_type( actualFieldEnt->qtype() );
                     fieldType = closureType->getStructElementType( 0 );
                 }
                 else if ( field.first == "$adTypeId" ) {
-                    fieldType = this->get_llvm_type( actualFieldEnt->qualtype()->type() );
+                    fieldType = this->get_llvm_type( actualFieldEnt->qtype() );
                 }
                 else
-                    fieldType = PointerType::getUnqual( this->get_llvm_type( actualFieldEnt->qualtype()->type() ) );
+                    fieldType = PointerType::getUnqual( this->get_llvm_type( actualFieldEnt->qtype() ) );
                 llvmFieldC = Constant::getNullValue( fieldType );
             }
 
@@ -501,11 +502,11 @@ Value* LlvmGenerationContext::gen_get_type_info( GenScope* scope, const TxActual
 
 Value* LlvmGenerationContext::gen_get_vtable( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV ) {
     if ( statDeclType && statDeclType->get_type_class() == TXTC_FUNCTION ) {
-        statDeclType = this->tuplexPackage.registry().get_builtin_type( TXBT_FUNCTION )->acttype();
+        statDeclType = this->tuplexPackage.registry().get_builtin_type( TXBT_FUNCTION );
         runtimeBaseTypeIdV = ConstantInt::get( this->i32T, statDeclType->get_runtime_type_id() );
     }
     else if ( statDeclType && statDeclType->get_type_class() == TXTC_REFERENCE ) {
-        statDeclType = this->tuplexPackage.registry().get_builtin_type( TXBT_REFERENCE )->acttype();
+        statDeclType = this->tuplexPackage.registry().get_builtin_type( TXBT_REFERENCE );
         runtimeBaseTypeIdV = ConstantInt::get( this->i32T, statDeclType->get_runtime_type_id() );
     }
     // FIXME: Handle runtime function type vtable access
@@ -592,7 +593,7 @@ Value* LlvmGenerationContext::gen_get_supertypes_array( GenScope* scope, const T
 Value* LlvmGenerationContext::gen_get_supertypes_array_ref( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV,
                                                             Constant* arrayTypeIdC ) {
     auto stPtrV = this->gen_get_supertypes_array( scope, statDeclType, runtimeBaseTypeIdV );
-    auto refT = TxReferenceType::make_ref_llvm_type( *this, stPtrV->getType()->getPointerElementType() );
+    auto refT = TxReferenceTypeClassHandler::make_ref_llvm_type( *this, stPtrV->getType()->getPointerElementType() );
     return gen_ref( *this, scope, refT, stPtrV, arrayTypeIdC );
 }
 
@@ -648,20 +649,20 @@ Constant* LlvmGenerationContext::gen_const_string_obj_address( StructType* strin
 /*** global core functions invocation ***/
 
 Value* LlvmGenerationContext::gen_equals_invocation( GenScope* scope, Value* lvalA, Value* lvalTypeIdV, Value* rvalA, Value* rvalTypeIdV ) {
-    const TxActualType* anyType = this->tuplexPackage.registry().get_builtin_type( TXBT_ANY )->acttype();
+    const TxActualType* anyType = this->tuplexPackage.registry().get_builtin_type( TXBT_ANY );
     auto equalsField = anyType->get_virtual_fields().get_field( "equals" );
     auto methodLambdaV = instance_method_value_code_gen( *this, scope, anyType, lvalTypeIdV, lvalA,
-                                                         equalsField->qualtype()->type()->acttype(), equalsField->get_unique_name(), false );
+                                                         equalsField->qtype().type(), equalsField->get_unique_name(), false );
     auto functionPtrV = gen_get_struct_member( *this, scope, methodLambdaV, 0 );
     auto closureRefV = gen_get_struct_member( *this, scope, methodLambdaV, 1 );
-    auto otherRefT = TxReferenceType::make_ref_llvm_type( *this, llvm::StructType::get( this->llvmContext ) );  // ref to Any
+    auto otherRefT = TxReferenceTypeClassHandler::make_ref_llvm_type( *this, llvm::StructType::get( this->llvmContext ) );  // ref to Any
     auto otherRefV = gen_ref( *this, scope, otherRefT, rvalA, rvalTypeIdV );
     std::vector<Value*> args( { closureRefV, otherRefV } );
     return scope->builder->CreateCall( functionPtrV, args, "equals" );
 }
 
 Value* LlvmGenerationContext::gen_isa( GenScope* scope, Value* refV, Value* typeIdV ) {
-    auto refT = TxReferenceType::make_ref_llvm_type( *this, llvm::StructType::get( this->llvmContext ) );  // ref to Any
+    auto refT = TxReferenceTypeClassHandler::make_ref_llvm_type( *this, llvm::StructType::get( this->llvmContext ) );  // ref to Any
     auto isaFuncC = this->llvmModule().getOrInsertFunction( "tx.isa$func", Type::getInt1Ty( this->llvmContext ),
                                                             this->closureRefT, refT, this->i32T, NULL );
     auto castRefV = gen_ref_conversion( *this, scope, refV, refT );
@@ -673,13 +674,13 @@ void LlvmGenerationContext::gen_panic_call( GenScope* scope, const std::string& 
     auto panicSymbol = dynamic_cast<TxEntitySymbol*>( search_symbol( &this->tuplexPackage, "tx.panic" ) );
     ASSERT( panicSymbol, "Function not found: tx.panic" );
     for ( auto declI = panicSymbol->fields_cbegin(); declI != panicSymbol->fields_cend(); declI++ ) {
-        auto panicFunc = (*declI)->get_definer()->get_field();
-        auto panicFuncType = dynamic_cast<const TxFunctionType*>( panicFunc->qualtype()->type()->acttype() );
-        if ( panicFuncType->argumentTypes.size() == 1 ) {
+        auto panicFunc = (*declI)->get_definer()->field();
+        auto panicFuncType = dynamic_cast<const TxFunctionType*>( panicFunc->qtype().type() );
+        if ( panicFuncType->argument_types().size() == 1 ) {
             auto panicLambdaV = panicFunc->code_gen_field_decl( *this );
 
-            auto msgRefType = static_cast<const TxReferenceType*>(panicFuncType->argumentTypes.at( 0 ) );
-            auto msgRefTargTid = msgRefType->target_type()->get_type_id();
+            auto msgRefType = panicFuncType->argument_types().at( 0 );
+            auto msgRefTargTid = msgRefType->target_type()->get_runtime_type_id();
             auto msgRefT = this->get_llvm_type( msgRefType );
             auto msgPtrC = this->gen_const_cstring_address( message );
             auto msgRefC = gen_ref( *this, msgRefT, msgPtrC, ConstantInt::get( this->i32T, msgRefTargTid ) );
@@ -696,15 +697,15 @@ void LlvmGenerationContext::gen_panic_call( GenScope* scope, const std::string& 
     auto panicSymbol = dynamic_cast<TxEntitySymbol*>( search_symbol( &this->tuplexPackage, "tx.panic" ) );
     ASSERT( panicSymbol, "Function not found: tx.panic" );
     for ( auto declI = panicSymbol->fields_cbegin(); declI != panicSymbol->fields_cend(); declI++ ) {
-        auto panicFunc = (*declI)->get_definer()->get_field();
-        auto panicFuncType = dynamic_cast<const TxFunctionType*>( panicFunc->qualtype()->type()->acttype() );
-        if ( panicFuncType->argumentTypes.size() == 2 ) {
+        auto panicFunc = (*declI)->get_definer()->field();
+        auto panicFuncType = dynamic_cast<const TxFunctionType*>( panicFunc->qtype().type() );
+        if ( panicFuncType->argument_types().size() == 2 ) {
             auto panicLambdaV = panicFunc->code_gen_field_decl( *this );
 
             // TODO: make panic statement call the panic function
             // TODO: make creating CString references easier
-            auto msgRefType = static_cast<const TxReferenceType*>(panicFuncType->argumentTypes.at( 0 ) );
-            auto msgRefTargTid = msgRefType->target_type()->get_type_id();
+            auto msgRefType = panicFuncType->argument_types().at( 0 );
+            auto msgRefTargTid = msgRefType->target_type()->get_runtime_type_id();
             auto msgRefT = this->get_llvm_type( msgRefType );
             auto msgPtrC = this->gen_const_cstring_address( message );
             auto msgRefC = gen_ref( *this, msgRefT, msgPtrC, ConstantInt::get( this->i32T, msgRefTargTid ) );
@@ -739,14 +740,6 @@ Value* LlvmGenerationContext::lookup_llvm_value( const std::string& identifier )
     }
 }
 
-
-Type* LlvmGenerationContext::get_llvm_type( const TxQualType* txType ) {
-    return this->get_llvm_type( txType->type()->acttype() );
-}
-
-Type* LlvmGenerationContext::get_llvm_type( const TxType* txType ) {
-    return this->get_llvm_type( txType->acttype() );
-}
 
 Type* LlvmGenerationContext::get_llvm_type( const TxActualType* txType ) {
     ASSERT( txType, "NULL txType provided to getLlvmType()" );
@@ -1057,7 +1050,7 @@ void LlvmGenerationContext::gen_array_elementary_equals_function() {
     }
     {
         builder.SetInsertPoint( lenEqBlock );
-        auto elemActType = this->tuplexPackage.registry().get_builtin_type( TXBT_ELEMENTARY )->acttype();
+        auto elemActType = this->tuplexPackage.registry().get_builtin_type( TXBT_ELEMENTARY );
         auto elemSizeV = this->gen_get_element_size( &scope, elemActType, arrATypeIdV );
         auto elemSize64V = builder.CreateZExtOrBitCast( elemSizeV, Type::getInt64Ty( this->llvmContext ) );
         auto arrALength64V = builder.CreateZExtOrBitCast( arrALengthV, Type::getInt64Ty( this->llvmContext ) );

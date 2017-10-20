@@ -99,6 +99,8 @@ add_executable(txc
         symbol/symbol.cpp
         symbol/symbol_lookup.cpp
         symbol/type.cpp
+        symbol/type_class_handler.cpp
+        symbol/type_codegen.cpp
         symbol/package.cpp
         symbol/module.cpp
         symbol/declaration.cpp
@@ -106,7 +108,6 @@ add_executable(txc
         symbol/entity_type.cpp
         symbol/qual_type.cpp
         symbol/type_registry.cpp
-        symbol/type_codegen.cpp
 
         ast/lexcontext.cpp
         ast/ast_declpass.cpp
@@ -128,8 +129,10 @@ add_executable(txc
         ast/stmt/ast_flow_codegen.cpp
 
         ast/type/ast_typeexpr_node.cpp
+        ast/type/ast_typecreating_node.cpp
         ast/type/ast_types.cpp
         ast/type/ast_types_codegen.cpp
+        ast/type/ast_qualtypes.cpp
 
         ast/expr/ast_expr_node.cpp
         ast/expr/ast_exprs.cpp

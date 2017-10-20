@@ -18,7 +18,7 @@ public:
 
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override final;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override final {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override final {
     }
 };
 
@@ -62,8 +62,8 @@ class TxIntegerLitNode : public TxLiteralElementaryValueNode {
 protected:
     virtual void declaration_pass() override;
 
-    virtual const TxQualType* define_type() override {
-        return new TxQualType( this->registry().get_builtin_type( this->constValue.typeId ) );
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->registry().get_builtin_type( this->constValue.typeId );
     }
 
 public:
@@ -115,8 +115,8 @@ class TxFloatingLitNode : public TxLiteralElementaryValueNode {
     FloatConstant constValue;
 
 protected:
-    virtual const TxQualType* define_type() override {
-        return new TxQualType( this->registry().get_builtin_type( this->constValue.typeId ) );
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->registry().get_builtin_type( this->constValue.typeId );
     }
 
 public:
@@ -147,8 +147,8 @@ class TxBoolLitNode : public TxLiteralElementaryValueNode {
     static const std::string FALSE;
 
 protected:
-    virtual const TxQualType* define_type() override {
-        return new TxQualType( this->registry().get_builtin_type( TXBT_BOOL ) );
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->registry().get_builtin_type( TXBT_BOOL );
     }
 
 public:
@@ -171,8 +171,8 @@ public:
 
 class TxCharacterLitNode : public TxLiteralElementaryValueNode {
 protected:
-    virtual const TxQualType* define_type() override {
-        return new TxQualType( this->registry().get_builtin_type( TXBT_UBYTE ) );
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->registry().get_builtin_type( TXBT_UBYTE );
     }
 
 public:

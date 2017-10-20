@@ -7,25 +7,27 @@
 #include "ast/type/ast_types.hpp"
 #include "ast/ast_declpass.hpp"
 
-class TxERangeLitNode final : public TxExpressionNode {
+class TxERangeLitNode final : public TxTypeDefiningValExprNode {
+    TxNamedTypeNode* baseTypeNode = nullptr;
     TxStackConstructionNode* stackConstr = nullptr;
     TxExpressionNode* startValue;
     TxExpressionNode* endValue;
     TxExpressionNode* stepValue;
+    bool _implicitStep = false;
 
 protected:
-    virtual void declaration_pass() override {
-        if ( !this->stepValue )
-            this->stepValue = new TxIntegerLitNode( endValue->ploc, 1, true, TXBT_LONG );
-        this->stackConstr = new TxStackConstructionNode( ploc, new TxTypeExprWrapperNode( this ),
-                                                         new std::vector<TxExpressionNode*>( { startValue, endValue, stepValue } ) );
-    }
+//    virtual void declaration_pass() override {
+//        if ( !this->stepValue )
+//            this->stepValue = new TxIntegerLitNode( endValue->ploc, 1, true, TXBT_LONG );
+//        this->stackConstr = new TxStackConstructionNode( ploc, new TxTypeExprWrapperNode( this ),
+//                                                         new std::vector<TxExpressionNode*>( { startValue, endValue, stepValue } ) );
+//    }
 
-    virtual const TxQualType* define_type() override {
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
         TxExpressionNode* limitTypeExpr;
         {
-            auto ltype = this->startValue->resolve_type()->type();
-            auto rtype = this->endValue->resolve_type()->type();
+            auto ltype = this->startValue->resolve_type( passInfo );
+            auto rtype = this->endValue->resolve_type( passInfo );
             if ( ltype == rtype ) {
                 limitTypeExpr = this->startValue;
             }
@@ -41,34 +43,39 @@ protected:
             }
         }
 
-        auto baseTypeNode = new TxNamedTypeNode( this->ploc, "tx.ERange" );
-        run_declaration_pass( baseTypeNode, this, "basetype" );
-        baseTypeNode->symbol_resolution_pass();
-        auto baseType = baseTypeNode->resolve_type()->type();
+//        auto baseTypeNode = new TxNamedTypeNode( this->ploc, "tx.ERange" );
+//        run_declaration_pass( baseTypeNode, this, "basetype" );
+//        baseTypeNode->resolution_pass();
+//        auto baseType = baseTypeNode->resolve_type( passInfo );
 
-        auto binding = new TxTypeTypeArgumentNode( new TxTypeExprWrapperNode( limitTypeExpr ) );
+        auto binding = new TxTypeTypeArgumentNode( new TxQualTypeExprNode( new TxTypeExprWrapperNode( limitTypeExpr ) ) );
         run_declaration_pass( binding, this, "binding" );
-        std::vector<const TxTypeArgumentNode*> bindings( { binding } );
-
-        auto rangeType = this->registry().get_type_specialization( this, baseType, bindings, false );
-        return new TxQualType( rangeType );
+        return this->registry().instantiate_type( this, baseTypeNode, { binding }, false );
     }
 
 public:
     TxERangeLitNode( const TxLocation& ploc, TxExpressionNode* startValue, TxExpressionNode* endValue,
                      TxExpressionNode* stepValue = nullptr )
-            : TxExpressionNode( ploc ), startValue( startValue ), endValue( endValue ), stepValue( stepValue ) {
+            : TxTypeDefiningValExprNode( ploc ), startValue( startValue ), endValue( endValue ), stepValue( stepValue ) {
+        this->baseTypeNode = new TxNamedTypeNode( this->ploc, "tx.ERange" );
+        if ( !this->stepValue ) {
+            this->stepValue = new TxIntegerLitNode( endValue->ploc, 1, true, TXBT_LONG );
+            this->_implicitStep = true;
+        }
+        this->stackConstr = new TxStackConstructionNode( ploc, new TxQualTypeExprNode( new TxTypeExprWrapperNode( this ) ),
+                                 new std::vector<TxExpressionNode*>( { this->startValue, this->endValue, this->stepValue } ) );
     }
 
     /** factory method that folds ( start .. ( step .. end ) ) grammar match into a single range node */
     static TxERangeLitNode* make_range_node( const TxLocation& ploc, TxExpressionNode* startValue, TxExpressionNode* endValue ) {
         if ( auto otherRange = dynamic_cast<TxERangeLitNode*>( endValue ) ) {
-            if ( otherRange->stepValue ) {
+            if ( !otherRange->_implicitStep ) {
                 // error, too many subsequent .. operators
                 CERROR( otherRange, "Too many subsequent .. operators in range expression" );
             }
-            TxERangeLitNode tmp( ploc, startValue, otherRange->endValue, otherRange->startValue );
-            memcpy( otherRange, &tmp, sizeof( TxERangeLitNode ) );
+            new(otherRange) TxERangeLitNode( ploc, startValue, otherRange->endValue, otherRange->startValue );
+//            TxERangeLitNode tmp( ploc, startValue, otherRange->endValue, otherRange->startValue );
+//            memcpy( otherRange, &tmp, sizeof( TxERangeLitNode ) );
             return otherRange;
         }
         else {
@@ -93,19 +100,11 @@ public:
         return TXS_STACK;
     }
 
-    virtual bool is_stack_allocation_expression() const override {
-        return true;
-    }
-
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->stackConstr->symbol_resolution_pass();
-    }
-
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
         this->stackConstr->visit_ast( visitor, thisCursor, "litconstr", context );
     }
 };

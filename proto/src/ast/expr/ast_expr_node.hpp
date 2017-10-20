@@ -2,30 +2,31 @@
 
 #include "ast/ast_entitydefs.hpp"
 
-class TxFieldDefNode;
+class TxFieldDefiningNode;
 
-class TxExpressionNode : public TxTypeDefiningNode {
+/** Represents a value expression. A value also has a type. */
+class TxExpressionNode : public TxTypeResolvingNode {
 protected:
     /** injected by field definition if known and applicable */
-    const TxFieldDefNode* fieldDefNode = nullptr;  // TODO: remove?
+    const TxFieldDefiningNode* fieldDefNode = nullptr;  // TODO: remove?
 
     /** injected by outer expression if applicable */
     const std::vector<TxExpressionNode*>* appliedFuncArgs = nullptr;
 
+//    virtual void resolution_pass() override {
+//        this->resolve_type( passInfo );
+//    }
+
 public:
     TxExpressionNode( const TxLocation& ploc )
-            : TxTypeDefiningNode( ploc ) {
+            : TxTypeResolvingNode( ploc ) {
     }
 
     virtual TxExpressionNode* make_ast_copy() const override = 0;
 
     /** Injected by field definition if known and applicable. */
-    virtual void set_field_def_node( const TxFieldDefNode* fieldDefNode ) {
+    virtual void set_field_def_node( const TxFieldDefiningNode* fieldDefNode ) {
         this->fieldDefNode = fieldDefNode;
-    }
-
-    virtual void symbol_resolution_pass() {
-        this->resolve_type();
     }
 
     /** Checks if this expression produces a modifiable type usage; this requires the whole access chain to be mutable.
@@ -39,16 +40,13 @@ public:
         return nullptr;
     }
 
-    /** Returns true if this expression is a stack allocation expression,
-     * i.e. its result is in newly allocated stack space, and the allocation's type is the type of this expression.
-     * Note that sub-expressions may perform allocations without this expression being an allocation. */
-    // TODO: review combinatorial expressions that maybe should return true if any of their sub-expressions return true
-    virtual bool is_stack_allocation_expression() const {
-        return false;
+    /** Gets the qualified type of this expression's value, or null if it is not an lvalue. */
+    virtual const TxQualType* get_qualtype() const {
+        return nullptr;
     }
 
     /** Gets the storage form of the value of this expression.
-     * Returns TXS_NOSTORAGE if its value has no known memory storage.
+     * Returns TXS_NOSTORAGE if its value has no known memory storage (i.e. an "rvalue").
      */
     virtual TxFieldStorage get_storage() const {
         return TXS_NOSTORAGE;
@@ -67,7 +65,7 @@ public:
     }
 
     /** Returns the constructed type, if this expression resolves to a constructor/initializer invocation, otherwise null. */
-    virtual const TxQualType* get_constructed_type() const { return nullptr; }
+    virtual const TxActualType* get_constructed_type( TxPassInfo passInfo ) const { return nullptr; }
 
 
     /** Generates code that produces the type id (as opposed to the value) of this expression.
@@ -100,4 +98,19 @@ public:
     /** Generates code that produces a constant pointer to the constant value of this expression.
      * Only valid to call on nodes for which is_statically_constant() returns true. */
     virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const;
+};
+
+
+/** Value expression that may produce a new type specialization, e.g. array literals and reference creation. */
+class TxTypeDefiningValExprNode : public TxExpressionNode {
+protected:
+    // disabled, since types defined by value expressions will only be certain specializations
+    // (e.g. refs, arrays, ranges, strings) which are fine to define during resolution pass,
+    // and resolving these before resolution pass can cause inherited symbol resolution to fail.
+    //virtual void type_pass() override final;
+
+public:
+    TxTypeDefiningValExprNode( const TxLocation& ploc ) : TxExpressionNode( ploc )  { }
+
+    virtual TxTypeDefiningValExprNode* make_ast_copy() const override = 0;
 };

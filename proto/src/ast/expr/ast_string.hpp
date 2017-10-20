@@ -20,8 +20,8 @@ class TxStringLitNode : public TxExpressionNode {
     TxTypeExpressionNode* arrayTypeNode;
 
 protected:
-    virtual const TxQualType* define_type() override {
-        return new TxQualType( this->registry().get_string_type() );
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->registry().get_string_type();
     }
 
 public:
@@ -37,16 +37,11 @@ public:
         return true;
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->arrayTypeNode->symbol_resolution_pass();
-    }
-
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->arrayTypeNode->visit_ast( visitor, thisCursor, "strtype", context );
     }
 
@@ -62,12 +57,11 @@ class TxConcatenateStringsNode : public TxExpressionNode {
 
 protected:
     virtual void declaration_pass() override {
-        //this->stackConstr = new TxStackConstructionNode( this->ploc, new TxTypeExprWrapperNode( this->registry().get_string_type() ),
-        //                                                 &this->stringNodes );
-        this->stackConstr = new TxStackConstructionNode( this->ploc, new TxNamedTypeNode( this->ploc, "tx.MultiStringer"), &this->stringNodes );
+        auto typeExpr = new TxQualTypeExprNode( new TxNamedTypeNode( this->ploc, "tx.MultiStringer") );
+        this->stackConstr = new TxStackConstructionNode( this->ploc, typeExpr, &this->stringNodes );
     }
-    virtual const TxQualType* define_type() override {
-        return this->stackConstr->resolve_type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->stackConstr->resolve_type( passInfo );
     }
 
 public:
@@ -93,19 +87,10 @@ public:
         return TXS_STACK;
     }
 
-    virtual bool is_stack_allocation_expression() const override {
-        return true;
-    }
-
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->stackConstr->symbol_resolution_pass();
-    }
-
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->stackConstr->visit_ast( visitor, thisCursor, "constr", context );
     }
 };
@@ -135,11 +120,12 @@ protected:
             new TxIntegerLitNode( this->ploc, this->precision, false ),
             new TxIntegerLitNode( this->ploc, this->typeCh, false, TXBT_UBYTE ),
         } );
-        this->stackConstr = new TxStackConstructionNode( this->ploc, new TxNamedTypeNode( this->ploc, "tx.StringFormat"), args );
+        auto typeExpr = new TxQualTypeExprNode( new TxNamedTypeNode( this->ploc, "tx.StringFormat") );
+        this->stackConstr = new TxStackConstructionNode( this->ploc, typeExpr, args );
     }
 
-    virtual const TxQualType* define_type() override {
-        return this->stackConstr->resolve_type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->stackConstr->resolve_type( passInfo );
     }
 
 public:
@@ -159,19 +145,10 @@ public:
         return TXS_STACK;
     }
 
-    virtual bool is_stack_allocation_expression() const override {
-        return true;
-    }
-
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        this->stackConstr->symbol_resolution_pass();
-    }
-
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->stackConstr->visit_ast( visitor, thisCursor, "constr", context );
     }
 };
@@ -188,8 +165,8 @@ private:
 
 
 protected:
-    virtual const TxQualType* define_type() override {
-        return this->cstringTypeNode->resolve_type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->cstringTypeNode->resolve_type( passInfo );
     }
 
 public:
@@ -207,7 +184,7 @@ public:
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->cstringTypeNode->visit_ast( visitor, thisCursor, "cstrtype", context );
     }
 

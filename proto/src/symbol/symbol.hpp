@@ -15,9 +15,11 @@ class TxPackage;
 class TxEntitySymbol;
 class TxEntityDeclaration;
 class TxTypeDeclaration;
+class TxTypeDeclaration;
 class TxFieldDeclaration;
 class TxNode;
-class TxTypeDefiningNode;
+class TxTypeCreatingNode;
+class TxTypeResolvingNode;
 class TxFieldDefiningNode;
 
 
@@ -162,7 +164,7 @@ public:
 
     /*--- symbol table handling  ---*/
 
-    virtual const TxTypeDeclaration* declare_type( const std::string& plainName, TxTypeDefiningNode* typeDefiner,
+    virtual const TxTypeDeclaration* declare_type( const std::string& plainName, TxTypeCreatingNode* typeDefiner,
                                                    TxDeclarationFlags declFlags );
 
     virtual const TxFieldDeclaration* declare_field( const std::string& plainName, TxFieldDefiningNode* fieldDefiner,

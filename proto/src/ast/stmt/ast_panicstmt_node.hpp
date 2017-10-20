@@ -22,13 +22,9 @@ public:
         return new TxPanicStmtNode( this->ploc, this->suite->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        this->suite->symbol_resolution_pass();
-    }
-
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->suite->visit_ast( visitor, thisCursor, "suite", context );
     }
 };

@@ -18,7 +18,7 @@ static Value* virtual_field_addr_code_gen( LlvmGenerationContext& context, GenSc
 
     // get the virtual field:
     uint32_t fieldIx = staticBaseType->get_virtual_fields().get_field_index( fieldName );
-    //std::cerr << "(static type id " << staticBaseType->get_type_id() << ") Getting TXS_VIRTUAL ix " << fieldIx << " value off LLVM base value: " << vtableBase << std::endl;
+    //std::cerr << "(static type id " << staticBaseType->get_runtime_type_id() << ") Getting TXS_VIRTUAL ix " << fieldIx << " value off LLVM base value: " << vtableBase << std::endl;
     Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                      ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };
     Value* fieldPtr = scope->builder->CreateInBoundsGEP( vtableBase, ixs );
@@ -71,71 +71,71 @@ static bool is_non_virtual_lookup( const TxExpressionNode* baseExpr ) {
 
 Value* TxFieldValueNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     // Generate code to obtain field value, potentially based on a base value (pointer).
-    ASSERT( !( field->get_decl_flags() & TXD_CONSTRUCTOR ), "Can't get 'field value' of constructor " << field );
+    ASSERT( !( _field->get_decl_flags() & TXD_CONSTRUCTOR ), "Can't get 'field value' of constructor " << _field );
 
-    switch ( field->get_storage() ) {
+    switch ( _field->get_storage() ) {
     case TXS_VIRTUAL:
         if ( baseExpr ) {
             // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference
             bool nonvirtualLookup = is_non_virtual_lookup( baseExpr );  // true for super.foo lookups
-            auto baseType = baseExpr->qualtype()->type()->acttype();
+            auto baseType = baseExpr->qtype().type();
             Value* baseTypeIdV = nonvirtualLookup ? baseType->gen_typeid( context )  // static
                                                   : baseExpr->code_gen_typeid( context, scope );  // runtime (static unless reference)
-            return virtual_field_addr_code_gen( context, scope, baseType, baseTypeIdV, field->get_unique_name() );
+            return virtual_field_addr_code_gen( context, scope, baseType, baseTypeIdV, _field->get_unique_name() );
         }
         else {
             // TODO: allow un-based access to virtual (non-instance) methods within same type?
-            CERR_CODECHECK( this, "Can't access virtual field without base value/expression: " << field );
+            CERR_CODECHECK( this, "Can't access virtual field without base value/expression: " << _field );
         }
         break;
 
     case TXS_STATIC:
     case TXS_GLOBAL:
         {
-            Value* val = field->code_gen_field_decl( context );
+            Value* val = _field->code_gen_field_decl( context );
             return val;
         }
 
     case TXS_INSTANCE:
         if ( baseExpr ) {
             auto baseValue = baseExpr->code_gen_dyn_address( context, scope );
-            auto staticBaseType = baseExpr->qualtype()->type()->acttype();
-            uint32_t fieldIx = staticBaseType->get_instance_fields().get_field_index( field->get_unique_name() );
-            ASSERT( fieldIx != UINT32_MAX, "Unknown field index for field " << field->get_unique_name() << " in " << staticBaseType );
+            auto staticBaseType = baseExpr->qtype().type();
+            uint32_t fieldIx = staticBaseType->get_instance_fields().get_field_index( _field->get_unique_name() );
+            ASSERT( fieldIx != UINT32_MAX, "Unknown field index for field " << _field->get_unique_name() << " in " << staticBaseType );
             //std::cerr << "Getting TXS_INSTANCE ix " << fieldIx << " value off LLVM base value: " << baseValue << std::endl;
             Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                              ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };
             return scope->builder->CreateInBoundsGEP( baseValue, ixs );
         }
         else {
-            THROW_LOGIC( "Can't access instance field without base value/expression: " << field );
+            THROW_LOGIC( "Can't access instance field without base value/expression: " << _field );
         }
         break;
 
     case TXS_STACK:
-        return field->get_llvm_value();
+        return _field->get_llvm_value();
 
     default:
-        THROW_LOGIC( "Can't generate address for field with storage type " << field->get_storage() << ": " << field );
+        THROW_LOGIC( "Can't generate address for field with storage type " << _field->get_storage() << ": " << _field );
     }
 }
 
 Value* TxFieldValueNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
 
-    if ( this->field->get_storage() == TXS_INSTANCEMETHOD ) {
+    if ( this->_field->get_storage() == TXS_INSTANCEMETHOD ) {
         if ( baseExpr ) {
             // virtual lookup will effectively be a polymorphic lookup if base expression is a reference dereference, and not 'super'
             // TODO: leaf type accesses are also non-virtual
             bool nonvirtualLookup = is_non_virtual_lookup( baseExpr );  // true for super.foo lookups
             Value* runtimeBaseTypeIdV = baseExpr->code_gen_typeid( context, scope );  // (static unless reference)
             Value* basePtrV = baseExpr->code_gen_dyn_address( context, scope );  // expected to be of pointer type
-            return instance_method_value_code_gen( context, scope, baseExpr->qualtype()->type()->acttype(), runtimeBaseTypeIdV, basePtrV,
-                                                   this->field->qualtype()->type()->acttype(), this->field->get_unique_name(),
+            return instance_method_value_code_gen( context, scope, baseExpr->qtype().type(), runtimeBaseTypeIdV, basePtrV,
+                                                   this->_field->qtype().type(), this->_field->get_unique_name(),
                                                    nonvirtualLookup );
         }
         else {
-            THROW_LOGIC( "Can't access instance method without base value/expression: " << this->field );
+            THROW_LOGIC( "Can't access instance method without base value/expression: " << this->_field );
         }
     }
 
@@ -144,29 +144,29 @@ Value* TxFieldValueNode::code_gen_dyn_value( LlvmGenerationContext& context, Gen
 }
 
 Constant* TxFieldValueNode::code_gen_const_address( LlvmGenerationContext& context ) const {
-    switch ( this->field->get_storage() ) {
+    switch ( this->_field->get_storage() ) {
     case TXS_STATIC:
     case TXS_GLOBAL:
     {
-        Constant* fieldC = cast<Constant>( this->field->code_gen_field_decl( context ) );
+        Constant* fieldC = cast<Constant>( this->_field->code_gen_field_decl( context ) );
         return fieldC;
     }
     default:
-        THROW_LOGIC( "code_gen_addr_constant() not supported for " << this << " with storage=" << this->field->get_storage() );
+        THROW_LOGIC( "code_gen_addr_constant() not supported for " << this << " with storage=" << this->_field->get_storage() );
     }
 }
 
 Constant* TxFieldValueNode::code_gen_const_value( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
 
-    if ( this->field->get_declaration()->get_definer()->get_init_expression() ) {
-        return static_cast<TxFieldDefNode*>( this->field->get_declaration()->get_definer() )->code_gen_const_init_value( context );
+    if ( this->_field->get_declaration()->get_definer()->get_init_expression() ) {
+        return static_cast<TxFieldDefiningNode*>( this->_field->get_declaration()->get_definer() )->code_gen_const_init_value( context );
     }
-    else if ( this->field->get_storage() == TXS_INSTANCE ) {
+    else if ( this->_field->get_storage() == TXS_INSTANCE ) {
         auto baseObjC = this->baseExpr->code_gen_const_value( context );
-        auto staticBaseType = baseExpr->qualtype()->type()->acttype();
-        uint32_t fieldIx = staticBaseType->get_instance_fields().get_field_index( this->field->get_unique_name() );
-        ASSERT( fieldIx != UINT32_MAX, "Unknown field index for field " << this->field->get_unique_name() << " in " << staticBaseType );
+        auto staticBaseType = baseExpr->qtype().type();
+        uint32_t fieldIx = staticBaseType->get_instance_fields().get_field_index( this->_field->get_unique_name() );
+        ASSERT( fieldIx != UINT32_MAX, "Unknown field index for field " << this->_field->get_unique_name() << " in " << staticBaseType );
         //std::cerr << "Getting TXS_INSTANCE ix " << fieldIx << " value off LLVM base value: " << baseValue << std::endl;
         return baseObjC->getAggregateElement( fieldIx );
     }
@@ -177,5 +177,5 @@ Constant* TxFieldValueNode::code_gen_const_value( LlvmGenerationContext& context
 
 Value* TxFieldAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    return this->field->code_gen_dyn_address( context, scope );
+    return this->fieldNode->code_gen_dyn_address( context, scope );
 }

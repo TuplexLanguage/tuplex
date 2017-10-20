@@ -36,15 +36,20 @@ std::string TxNode::parse_loc_string() const {
     return std::string( buf );
 }
 
-void TxNode::visit_ast( AstVisitor visitor, const AstCursor& parent, const std::string& role, void* context ) {
-    visitor( this, parent, role, context );
-    const AstCursor thisCursor( &parent, this );
-    this->visit_descendants( visitor, thisCursor, role, context );
+void TxNode::visit_ast( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* context ) {
+    if ( visitor.preFunc )
+        visitor.preFunc( this, cursor, role, context );
+
+    const AstCursor childCursor( &cursor, this );
+    this->visit_descendants( visitor, childCursor, role, context );
+
+    if ( visitor.postFunc )
+        visitor.postFunc( this, cursor, role, context );
 }
 
-void TxNode::visit_ast( AstVisitor visitor, void* context ) {
-    const AstCursor parent(nullptr);  // a 'null' parent
-    this->visit_ast( visitor, parent, "", context );
+void TxNode::visit_ast( const AstVisitor& visitor, void* context ) {
+    const AstCursor cursor(nullptr);  // a 'null' parent cursor
+    this->visit_ast( visitor, cursor, "", context );
 }
 
 TypeRegistry& TxNode::registry() const {

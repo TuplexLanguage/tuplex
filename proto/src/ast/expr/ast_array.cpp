@@ -23,12 +23,12 @@ static std::vector<TxMaybeConversionNode*>* make_args_vec( const std::vector<TxE
 //    auto par = this->parent();
 //    if ( auto conv = dynamic_cast<const TxMaybeConversionNode*>( par ) )
 //        par = conv->parent();
-//    if ( auto fieldDef = dynamic_cast<const TxFieldDefNode*>( par ) )
+//    if ( auto fieldDef = dynamic_cast<const TxFieldDefiningNode*>( par ) )
 //        return fieldDef->modifiable;
 //    return false;
 //}
 
-TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, TxTypeExpressionNode* elementTypeExpr,
+TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, TxQualTypeExprNode* elementTypeExpr,
                                 const std::vector<TxExpressionNode*>* elemExprList,
                                 TxExpressionNode* capacityExpr )
         : TxArrayLitNode( ploc ), origElemExprList( elemExprList ),
@@ -47,50 +47,50 @@ TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, const std::v
 {
 }
 
-TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, TxTypeExpressionNode* elementTypeExpr,
+TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, TxQualTypeExprNode* elementTypeExpr,
                                 const std::vector<TxMaybeConversionNode*>* elemExprList )
         : TxArrayLitNode( ploc ), origElemExprList( nullptr ),
           elementTypeNode( elementTypeExpr ? new TxTypeTypeArgumentNode( elementTypeExpr ) : nullptr ),
           capacityExpr( nullptr ), elemExprList( elemExprList ) {
 }
 
-const TxQualType* TxFilledArrayLitNode::define_type() {
-    const TxType* expectedArgType;
-    const TxQualType* arrayType = nullptr;
+TxQualType TxFilledArrayLitNode::define_type( TxPassInfo passInfo ) {
+    const TxActualType* expectedArgType;
+    const TxActualType* arrayType = nullptr;
     if ( this->capacityExpr ) {
         auto elemTypeNode = this->elementTypeNode;
         if ( !elemTypeNode ) {
-            elemTypeNode = new TxTypeTypeArgumentNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) );
+            elemTypeNode = new TxTypeTypeArgumentNode( new TxQualTypeExprNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) ) );
             run_declaration_pass( elemTypeNode, this, "elem-type" );
         }
-        this->capacityExpr->insert_conversion( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
+        this->capacityExpr->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
         auto capacityNode = new TxValueTypeArgumentNode( this->capacityExpr );
         capacityNode->node_declaration_pass( this );
         expectedArgType = this->registry().get_array_type( this, elemTypeNode, capacityNode );
-        arrayType = new TxQualType( expectedArgType );
+        arrayType = expectedArgType;
         if ( this->elemExprList->size() == 1
              && get_reinterpretation_degree( this->elemExprList->front()->originalExpr, expectedArgType ) >= 0 ) {
             // treat as array to array assignment
             this->_directArrayArg = true;
         }
         else
-            expectedArgType = arrayType->type()->element_type()->type();
+            expectedArgType = arrayType->element_type().type();
     }
     else {
         if ( this->elemExprList->size() == 1 ) {
-            auto singleArgType = this->elemExprList->front()->originalExpr->resolve_type();
-            if ( singleArgType->type()->get_type_class() == TXTC_REFERENCE ) {
-                singleArgType = singleArgType->type()->target_type();  // auto-dereferencing
+            auto singleArgType = this->elemExprList->front()->originalExpr->resolve_type( passInfo ).type();
+            if ( singleArgType->get_type_class() == TXTC_REFERENCE ) {
+                singleArgType = singleArgType->target_type().type();  // auto-dereferencing
             }
             if ( singleArgType->get_type_class() == TXTC_ARRAY ) {
-                auto argElemType = singleArgType->type()->element_type();
+                auto argElemQType = singleArgType->element_type();
                 if ( this->elementTypeNode
-                     && argElemType->type()->is_assignable_to( *this->elementTypeNode->typeExprNode->resolve_type()->type() ) ) {
-                    if ( static_cast<const TxArrayType*>( singleArgType->type()->acttype() )->capacity() ) {
+                     && argElemQType->is_assignable_to( *this->elementTypeNode->typeExprNode->resolve_type( passInfo ) ) ) {
+                    if ( singleArgType->capacity() ) {
                         // concrete array capacity - treat as array to array assignment
                         this->_directArrayArg = true;
                         arrayType = singleArgType;
-                        expectedArgType = arrayType->type();
+                        expectedArgType = arrayType;
                     }
                 }
             }
@@ -99,47 +99,26 @@ const TxQualType* TxFilledArrayLitNode::define_type() {
         if ( !arrayType ) {
             auto elemTypeNode = this->elementTypeNode;
             if ( !elemTypeNode ) {
-                elemTypeNode = new TxTypeTypeArgumentNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) );
+                elemTypeNode = new TxTypeTypeArgumentNode( new TxQualTypeExprNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) ) );
                 run_declaration_pass( elemTypeNode, this, "elem-type" );
             }
             auto tmpcapacityExpr = new TxIntegerLitNode( this->ploc, elemExprList->size(), false, ARRAY_SUBSCRIPT_TYPE_ID );
             auto capacityNode = new TxValueTypeArgumentNode( tmpcapacityExpr );
             run_declaration_pass( capacityNode, this, "capacity" );
             auto arrayEntType = this->registry().get_array_type( this, elemTypeNode, capacityNode );
-            arrayType = new TxQualType( arrayEntType );
-            expectedArgType = arrayEntType->element_type()->type();
+            arrayType = arrayEntType;
+            expectedArgType = arrayEntType->element_type().type();
 
         }
     }
 
     for ( auto elemExpr : *this->elemExprList )
-        elemExpr->insert_conversion( expectedArgType );
+        elemExpr->insert_conversion( passInfo, expectedArgType );
     return arrayType;
 }
 
-void TxFilledArrayLitNode::symbol_resolution_pass() {
-    TxExpressionNode::symbol_resolution_pass();
-    if ( this->elementTypeNode )
-        this->elementTypeNode->symbol_resolution_pass();
-    for ( auto elemExpr : *this->elemExprList )
-        elemExpr->symbol_resolution_pass();
-
-    if ( this->capacityExpr ) {
-        this->capacityExpr->symbol_resolution_pass();
-
-        if ( this->capacityExpr->is_statically_constant() ) {
-            if ( this->elemExprList->size() == 1
-                 && this->elemExprList->front()->qualtype()->type()->is_assignable_to( *this->qualtype()->type() ) ) {
-                // array to array assignment
-            }
-            else if ( eval_unsigned_int_constant( this->capacityExpr ) != this->elemExprList->size() )
-                CERROR( this, "Capacity expression of array literal equals " << eval_unsigned_int_constant( this->capacityExpr )
-                        << ", but number of elements is " << this->elemExprList->size() );
-        }
-        else
-            CERROR( this, "Capacity expression of filled array literal is not statically constant" );
-    }
-
+void TxFilledArrayLitNode::resolution_pass() {
+    TxExpressionNode::resolution_pass();
     this->_constant = true;
     for ( auto arg : *this->elemExprList ) {
         if ( !arg->is_statically_constant() ) {
@@ -149,41 +128,47 @@ void TxFilledArrayLitNode::symbol_resolution_pass() {
     }
 }
 
+void TxFilledArrayLitNode::verification_pass() const {
+    if ( this->capacityExpr && this->capacityExpr->attempt_qtype() ) {
+        if ( this->capacityExpr->is_statically_constant() ) {
+            if ( this->elemExprList->size() == 1
+                 && this->elemExprList->front()->attempt_qtype()
+                 && this->elemExprList->front()->attempt_qtype()->is_assignable_to( *this->qtype() ) ) {
+                // array to array assignment
+            }
+            else if ( eval_unsigned_int_constant( this->capacityExpr ) != this->elemExprList->size() )
+                CERROR( this, "Capacity expression of array literal equals " << eval_unsigned_int_constant( this->capacityExpr )
+                        << ", but number of elements is " << this->elemExprList->size() );
+        }
+        else
+            CERROR( this, "Capacity expression of filled array literal is not statically constant" );
+    }
+}
+
 
 
 TxUnfilledArrayLitNode::TxUnfilledArrayLitNode( const TxLocation& ploc, TxTypeExpressionNode* arrayTypeExpr )
         : TxArrayLitNode( ploc ), arrayTypeNode( arrayTypeExpr ) {
 }
 
-const TxQualType* TxUnfilledArrayLitNode::define_type() {
-    return this->arrayTypeNode->resolve_type();
-}
-
-void TxUnfilledArrayLitNode::symbol_resolution_pass() {
-    TxExpressionNode::symbol_resolution_pass();
-    this->arrayTypeNode->symbol_resolution_pass();
+TxQualType TxUnfilledArrayLitNode::define_type( TxPassInfo passInfo ) {
+    return this->arrayTypeNode->resolve_type( passInfo );
 }
 
 
 
-TxUnfilledArrayCompLitNode::TxUnfilledArrayCompLitNode( const TxLocation& ploc, TxTypeExpressionNode* elementTypeExpr,
+TxUnfilledArrayCompLitNode::TxUnfilledArrayCompLitNode( const TxLocation& ploc, TxQualTypeExprNode* elementTypeExpr,
                                                         TxExpressionNode* capacityExpr )
         : TxArrayLitNode( ploc ), elementTypeNode( new TxTypeTypeArgumentNode( elementTypeExpr ) ),
           capacityExpr( new TxMaybeConversionNode( capacityExpr ? capacityExpr : new TxIntegerLitNode( ploc, "0", false ) ) ) {
 }
 
-const TxQualType* TxUnfilledArrayCompLitNode::define_type() {
-    this->capacityExpr->insert_conversion( this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
+TxQualType TxUnfilledArrayCompLitNode::define_type( TxPassInfo passInfo ) {
+    this->capacityExpr->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
     auto capacityNode = new TxValueTypeArgumentNode( this->capacityExpr );
     capacityNode->node_declaration_pass( this );
-    auto arrayType = new TxQualType( this->registry().get_array_type( this, this->elementTypeNode, capacityNode ) );
+    auto arrayType = this->registry().get_array_type( this, this->elementTypeNode, capacityNode );
     return arrayType;
-}
-
-void TxUnfilledArrayCompLitNode::symbol_resolution_pass() {
-    TxExpressionNode::symbol_resolution_pass();
-    this->elementTypeNode->symbol_resolution_pass();
-    this->capacityExpr->symbol_resolution_pass();
 }
 
 
@@ -206,37 +191,25 @@ void TxUnfilledArrayCompLitNode::symbol_resolution_pass() {
 //    }
 //
 //    run_declaration_pass( panicNode, parent, "boundscheck" );
-//    panicNode->symbol_resolution_pass();
+//    panicNode->resolution_pass();
 //    return panicNode;
 //}
 
-void TxElemDerefNode::symbol_resolution_pass() {
-    TxExpressionNode::symbol_resolution_pass();
-    this->array->symbol_resolution_pass();
-    this->subscript->symbol_resolution_pass();
-
-    // TODO: Support negative array indexing.
-
-    if ( !this->unchecked ) {
-        // Note: In theory, if this expression is statically constant we could perform the bounds checking here.
+TxElemDerefNode::TxElemDerefNode( const TxLocation& ploc, TxExpressionNode* operand, TxExpressionNode* subscript, bool unchecked )
+        : TxExpressionNode( ploc ),
+          array( new TxMaybeConversionNode( operand ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
+    if ( !unchecked ) {
+        // Note: In theory, if this expression is statically constant we could perform the bounds checking in resolution pass.
         // However accessing the cogegen'd value of Array.L isn't guaranteed before the type preparation has been run.
         this->panicNode = new TxPanicStmtNode( this->subscript->ploc, "Array index out of bounds" );
-        run_declaration_pass( panicNode, this, "panic" );
-        panicNode->symbol_resolution_pass();
     }
 }
 
-void TxElemAssigneeNode::symbol_resolution_pass() {
-    TxAssigneeNode::symbol_resolution_pass();
-    array->symbol_resolution_pass();
-    subscript->symbol_resolution_pass();
-
-    // TODO: Support negative array indexing.
-
-    if ( !this->unchecked ) {
+TxElemAssigneeNode::TxElemAssigneeNode( const TxLocation& ploc, TxExpressionNode* array, TxExpressionNode* subscript, bool unchecked )
+        : TxAssigneeNode( ploc ),
+          array( new TxMaybeConversionNode( array ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
+    if ( !unchecked ) {
         // TODO: When we support accessing fields of constant instances, we can access L of constant arrays in compile time
         this->panicNode = new TxPanicStmtNode( this->subscript->ploc, "Array index out of bounds" );
-        run_declaration_pass( panicNode, this, "panic" );
-        panicNode->symbol_resolution_pass();
     }
 }

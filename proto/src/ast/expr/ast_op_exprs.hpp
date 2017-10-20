@@ -16,8 +16,10 @@ public:
 
 /** A binary operation on two values of elementary types. */
 class TxBinaryElemOperatorNode : public TxOperatorValueNode {
+    void match_binary_operand_types( TxPassInfo passInfo, const TxActualType* ltype, const TxActualType* rtype );
+
 protected:
-    virtual const TxQualType* define_type() override;
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
 
 public:
     const TxOperation op;
@@ -36,12 +38,6 @@ public:
                                          this->rhs->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        lhs->symbol_resolution_pass();
-        rhs->symbol_resolution_pass();
-    }
-
     virtual bool is_statically_constant() const override {
         return this->lhs->is_statically_constant() && this->rhs->is_statically_constant();
     }
@@ -49,7 +45,7 @@ public:
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->lhs->visit_ast( visitor, thisCursor, "lhs", context );
         this->rhs->visit_ast( visitor, thisCursor, "rhs", context );
     }
@@ -61,7 +57,7 @@ public:
 
 class TxUnaryMinusNode : public TxOperatorValueNode {
 protected:
-    virtual const TxQualType* define_type() override;
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
 
 public:
     TxMaybeConversionNode* operand;
@@ -76,11 +72,6 @@ public:
         return new TxUnaryMinusNode( this->ploc, this->operand->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        operand->symbol_resolution_pass();
-    }
-
     virtual bool is_statically_constant() const override {
         return this->operand->is_statically_constant();
     }
@@ -88,14 +79,21 @@ public:
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->operand->visit_ast( visitor, thisCursor, "operand", context );
     }
 };
 
 class TxUnaryLogicalNotNode : public TxOperatorValueNode {
 protected:
-    virtual const TxQualType* define_type() override;
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+
+    virtual void verification_pass() const override {
+        if ( auto qtype = operand->attempt_qtype() ) {
+            if ( !qtype->is_builtin( TXBT_BOOL ) )
+                CERROR( this, "Operand of unary '!' is not of Bool type: " << qtype );
+        }
+    }
 
 public:
     TxExpressionNode* operand;
@@ -107,15 +105,6 @@ public:
         return new TxUnaryLogicalNotNode( this->ploc, this->operand->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        operand->symbol_resolution_pass();
-        // assume arithmetic, scalar negation:
-        if ( !operand->qualtype()->type()->is_builtin( TXBT_BOOL ) )
-            // should we support any auto-conversion to Bool?
-            CERROR( this, "Operand of unary '!' is not of Bool type: " << operand->qualtype() );
-    }
-
     virtual bool is_statically_constant() const override {
         return this->operand->is_statically_constant();
     }
@@ -123,7 +112,7 @@ public:
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->operand->visit_ast( visitor, thisCursor, "operand", context );
     }
 };
@@ -153,7 +142,9 @@ public:
  */
 class TxEqualityOperatorNode : public TxOperatorValueNode {
 protected:
-    virtual const TxQualType* define_type() override;
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+
+    virtual void verification_pass() const override;
 
 public:
     TxMaybeConversionNode* lhs;
@@ -167,14 +158,12 @@ public:
         return new TxEqualityOperatorNode( this->ploc, this->lhs->originalExpr->make_ast_copy(), this->rhs->originalExpr->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override;
-
     virtual bool is_statically_constant() const override;
 
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->lhs->visit_ast( visitor, thisCursor, "lhs", context );
         this->rhs->visit_ast( visitor, thisCursor, "rhs", context );
     }
@@ -183,24 +172,20 @@ public:
 /** Equality comparison whether two Ref values refer to the same instance (identity equality). */
 class TxRefEqualityOperatorNode : public TxOperatorValueNode {
 protected:
-    virtual const TxQualType* define_type() override;
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+
+    void verification_pass() const override;
 
 public:
-    TxMaybeConversionNode* lhs;
-    TxMaybeConversionNode* rhs;
+    TxExpressionNode* lhs;
+    TxExpressionNode* rhs;
 
     TxRefEqualityOperatorNode( const TxLocation& ploc, TxExpressionNode* lhs, TxExpressionNode* rhs )
-            : TxOperatorValueNode( ploc ), lhs( new TxMaybeConversionNode( lhs ) ), rhs( new TxMaybeConversionNode( rhs ) ) {
+            : TxOperatorValueNode( ploc ), lhs( lhs ), rhs( rhs ) {
     }
 
     virtual TxRefEqualityOperatorNode* make_ast_copy() const override {
-        return new TxRefEqualityOperatorNode( this->ploc, this->lhs->originalExpr->make_ast_copy(), this->rhs->originalExpr->make_ast_copy() );
-    }
-
-    virtual void symbol_resolution_pass() override {
-        TxExpressionNode::symbol_resolution_pass();
-        lhs->symbol_resolution_pass();
-        rhs->symbol_resolution_pass();
+        return new TxRefEqualityOperatorNode( this->ploc, this->lhs->make_ast_copy(), this->rhs->make_ast_copy() );
     }
 
     virtual bool is_statically_constant() const override {
@@ -210,7 +195,7 @@ public:
     virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override;
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->lhs->visit_ast( visitor, thisCursor, "lhs", context );
         this->rhs->visit_ast( visitor, thisCursor, "rhs", context );
     }

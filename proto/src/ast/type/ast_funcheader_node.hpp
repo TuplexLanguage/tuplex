@@ -2,10 +2,12 @@
 
 #include "ast/type/ast_types.hpp"
 #include "ast/ast_fielddef_node.hpp"
+#include "ast/ast_wrappers.hpp"
 
 /** Constructs a new TxLocalFieldDefNode based on a TxFieldTypeDefNode (the new copy is independently allocated). */
 inline TxLocalFieldDefNode* make_field_def_node( TxArgTypeDefNode* fieldTypeDef ) {
-    return new TxLocalFieldDefNode( fieldTypeDef->ploc, fieldTypeDef->fieldName, fieldTypeDef->typeExpression->make_ast_copy(), nullptr );
+    return new TxLocalFieldDefNode( fieldTypeDef->ploc, fieldTypeDef->fieldName,
+                                    new TxQualTypeExprNode( fieldTypeDef->typeExpression->make_ast_copy() ), nullptr );
 }
 
 class TxFunctionHeaderNode : public TxTypeExpressionNode {
@@ -21,8 +23,8 @@ protected:
         }
     }
 
-    virtual const TxQualType* define_type() override {
-        return this->funcTypeNode->resolve_type();
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->funcTypeNode->resolve_type( passInfo );
     }
 
 public:
@@ -46,18 +48,9 @@ public:
         return this->funcTypeNode->modifying;
     }
 
-    virtual void symbol_resolution_pass() override {
-        TxTypeExpressionNode::symbol_resolution_pass();
-        this->funcTypeNode->symbol_resolution_pass();
-        for ( auto argField : *this->arguments )
-            argField->symbol_resolution_pass();
-        if ( this->returnField )
-            this->returnField->symbol_resolution_pass();
-    }
-
     virtual void code_gen_type( LlvmGenerationContext& context ) const override { }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->funcTypeNode->visit_ast( visitor, thisCursor, "functype", context );
         for ( auto argField : *this->arguments )
             argField->visit_ast( visitor, thisCursor, "arg", context );

@@ -39,6 +39,8 @@ class TxFieldDeclNode : public TxDeclarationNode {
 protected:
     virtual void declaration_pass() override;
 
+    virtual void verification_pass() const override;
+
 public:
     TxNonLocalFieldDefNode* fieldDef;
 
@@ -51,15 +53,13 @@ public:
         return new TxFieldDeclNode( this->ploc, this->get_decl_flags(), this->fieldDef->make_ast_copy(), this->isMethodSyntax );
     }
 
-    virtual void symbol_resolution_pass() override;
-
     virtual const TxFieldDeclaration* get_declaration() const override {
         return this->fieldDef->get_declaration();
     }
 
     virtual void code_gen( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->fieldDef->visit_ast( visitor, thisCursor, "field", context );
     }
 
@@ -72,45 +72,51 @@ public:
 class TxTypeDeclNode : public TxDeclarationNode {
     /** if true, this node's subtree is merged with a built-in type definition */
     bool _builtinCode = false;
+    const TxTypeDeclaration* _declaration = nullptr;
+    mutable std::vector<const TxEntityDeclaration*> typeParams;
 
 protected:
     virtual void declaration_pass() override;
+
+    virtual void verification_pass() const override;
 
 public:
     const TxIdentifier* typeName;
     const bool interfaceKW;
     const bool mutableType;
     const std::vector<TxDeclarationNode*>* typeParamDecls;
-    TxTypeExpressionNode* typeExpression;
+    TxTypeCreatingNode* typeCreatingNode;
 
     TxTypeDeclNode( const TxLocation& ploc, const TxDeclarationFlags declFlags, const std::string& typeName,
-                    const std::vector<TxDeclarationNode*>* typeParamDecls, TxTypeExpressionNode* typeExpression,
-                    bool interfaceKW = false, bool mutableType = false )
-            : TxDeclarationNode( ploc, declFlags ), typeName( new TxIdentifier( typeName ) ),
-              interfaceKW( interfaceKW ), mutableType( mutableType ), typeParamDecls( typeParamDecls ), typeExpression( typeExpression ) {
-        typeExpression->set_interface( interfaceKW );
-        typeExpression->set_requires_mutable( mutableType );
-    }
+                    const std::vector<TxDeclarationNode*>* typeParamDecls, TxTypeCreatingNode* typeCreatingNode,
+                    bool interfaceKW = false, bool mutableType = false );
 
     virtual TxTypeDeclNode* make_ast_copy() const override {
         return new TxTypeDeclNode( this->ploc, this->get_decl_flags(), this->typeName->str(),
-                                   make_node_vec_copy( this->typeParamDecls ), this->typeExpression->make_ast_copy(),
+                                   make_node_vec_copy( this->typeParamDecls ), this->typeCreatingNode->make_ast_copy(),
                                    this->interfaceKW, this->mutableType );
     }
 
-    virtual void symbol_resolution_pass() override;
-
     virtual const TxTypeDeclaration* get_declaration() const override {
-        return this->typeExpression->get_declaration();
+        return this->typeCreatingNode->get_declaration();
     }
+
+    const std::vector<const TxEntityDeclaration*>& get_type_params() const;
 
     virtual void code_gen( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        if ( !this->_builtinCode && this->typeParamDecls )
-            for ( auto decl : *this->typeParamDecls )
-                decl->visit_ast( visitor, thisCursor, "type-param", context );
-        this->typeExpression->visit_ast( visitor, thisCursor, "type", context );
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        if ( this->_builtinCode ) {
+            // if built-in, the parameters are not processed from here, and the body only for the declaration pass
+            if ( !this->typeCreatingNode->is_context_set() )
+                this->typeCreatingNode->visit_ast( visitor, thisCursor, "type", context );
+        }
+        else {
+            if ( this->typeParamDecls )
+                for ( auto decl : *this->typeParamDecls )
+                    decl->visit_ast( visitor, thisCursor, "type-param", context );
+            this->typeCreatingNode->visit_ast( visitor, thisCursor, "type", context );
+        }
     }
 
     virtual const std::string& get_descriptor() const override {
@@ -138,14 +144,7 @@ public:
     }
 
     virtual TxExpErrDeclNode* make_ast_copy() const override {
-        return new TxExpErrDeclNode( this->ploc, nullptr, ( this->body ? this->body->make_ast_copy() : nullptr ) );
-    }
-
-    virtual void symbol_resolution_pass() override {
-        if ( this->body ) {
-            ScopedExpErrClause scopedEEClause( this );
-            this->body->symbol_resolution_pass();
-        }
+        return new TxExpErrDeclNode( this->ploc, new ExpectedErrorClause(), ( this->body ? this->body->make_ast_copy() : nullptr ) );
     }
 
     virtual const TxEntityDeclaration* get_declaration() const override {
@@ -154,9 +153,8 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context ) const override { }
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         if ( this->body ) {
-            ScopedExpErrClause scopedEEClause( this );
             this->body->visit_ast( visitor, thisCursor, "decl", context );
         }
     }

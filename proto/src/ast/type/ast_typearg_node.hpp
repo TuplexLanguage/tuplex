@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ast/ast_node.hpp"
-#include "ast/type/ast_typeexpr_node.hpp"
+#include "ast/type/ast_qualtypes.hpp"
 #include "ast/expr/ast_expr_node.hpp"
 
 /** Represents a binding for a type parameter. Can be either a Type or a Value parameter binding. */
@@ -19,9 +19,9 @@ public:
 
 class TxTypeTypeArgumentNode : public TxTypeArgumentNode {
 public:
-    TxTypeExpressionNode* typeExprNode;
+    TxQualTypeExprNode* typeExprNode;
 
-    TxTypeTypeArgumentNode( TxTypeExpressionNode* typeExprNode )
+    TxTypeTypeArgumentNode( TxQualTypeExprNode* typeExprNode )
             : TxTypeArgumentNode( typeExprNode->ploc ), typeExprNode( typeExprNode ) {
     }
 
@@ -29,13 +29,9 @@ public:
         return new TxTypeTypeArgumentNode( this->typeExprNode->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        this->typeExprNode->symbol_resolution_pass();
-    }
-
     virtual void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->typeExprNode->visit_ast( visitor, thisCursor, "type", context );
     }
 };
@@ -52,13 +48,9 @@ public:
         return new TxValueTypeArgumentNode( this->valueExprNode->make_ast_copy() );
     }
 
-    virtual void symbol_resolution_pass() override {
-        this->valueExprNode->symbol_resolution_pass();
-    }
-
     virtual void code_gen_type( LlvmGenerationContext& context ) const override;
 
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->valueExprNode->visit_ast( visitor, thisCursor, "value", context );
     }
 };

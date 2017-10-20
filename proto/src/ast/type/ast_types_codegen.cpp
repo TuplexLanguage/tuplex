@@ -43,12 +43,20 @@ void TxArrayTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
     this->elementTypeNode->code_gen_type( context );
 }
 
+void TxEmptyDerivedTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
+    this->baseTypeNode->code_gen_type( context );
+}
+
+void TxAliasTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
+    this->baseTypeNode->code_gen_type( context );
+}
+
 void TxDerivedTypeNode::code_gen_builtin_type( LlvmGenerationContext& context ) const {
     this->inner_code_gen_type( context );
 }
 
 void TxDerivedTypeNode::inner_code_gen_type( LlvmGenerationContext& context ) const {
-    this->baseType->code_gen_type( context );
+    this->baseTypeNode->code_gen_type( context );
     for ( auto interface : *this->interfaces )
         interface->code_gen_type( context );
     if ( this->superRefTypeNode )
@@ -68,12 +76,12 @@ void TxFunctionTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
 }
 
-void TxModifiableTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
-    TRACE_CODEGEN( this, context );
-    this->typeNode->code_gen_type( context );
-}
-
-void TxConstTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
-    TRACE_CODEGEN( this, context );
-    this->typeNode->code_gen_type( context );
-}
+//void TxModifiableTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
+//    TRACE_CODEGEN( this, context );
+//    this->typeNode->code_gen_type( context );
+//}
+//
+//void TxConstTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
+//    TRACE_CODEGEN( this, context );
+//    this->typeNode->code_gen_type( context );
+//}

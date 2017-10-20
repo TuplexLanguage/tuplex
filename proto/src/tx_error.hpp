@@ -11,10 +11,11 @@ struct ExpectedErrorClause {
     const int prev_encountered_errors;
     int encountered_error_count;
 
+    ExpectedErrorClause() : ExpectedErrorClause( -1 ) {
+    }
+
     ExpectedErrorClause( int expected_error_count )
-            : expected_error_count( expected_error_count ),
-              prev_encountered_errors( 0 ),
-              encountered_error_count( 0 ) {
+            : ExpectedErrorClause( expected_error_count, 0, 0 ) {
     }
 
     ExpectedErrorClause( int expected_error_count, int prev_encountered_errors, int encountered_error_count )
@@ -44,26 +45,23 @@ public:
     virtual ExpectedErrorClause* exp_err_ctx() const;
 };
 
-/** Used to ensure proper closing of an exp-err-clause (RAII style). */
-class ScopedExpErrClause {
-    TxParseOrigin* const origin;
-    const bool enabled;
-    public:
-    ScopedExpErrClause( TxParseOrigin* origin, bool enabled = true );
-    ~ScopedExpErrClause();
-};
-
 /** Emits a compiler error message including the source code origin where it likely occurred. */
 void cerror( const TxParseOrigin* origin, const std::string& msg );
-
-/** Emits a compiler warning message including the source code origin where it likely occurred. */
-void cwarning( const TxParseOrigin* origin, const std::string& msg );
 
 /** Emits a compiler error message including the source code origin where it likely occurred. */
 void cerror( const TxParseOrigin& origin, const std::string& msg );
 
 /** Emits a compiler warning message including the source code origin where it likely occurred. */
+void cwarning( const TxParseOrigin* origin, const std::string& msg );
+
+/** Emits a compiler warning message including the source code origin where it likely occurred. */
 void cwarning( const TxParseOrigin& origin, const std::string& msg );
+
+/** Emits a compiler information message including the source code origin where it likely occurred. */
+void cinfo( const TxParseOrigin* origin, const std::string& msg );
+
+/** Emits a compiler information message including the source code origin where it likely occurred. */
+void cinfo( const TxParseOrigin& origin, const std::string& msg );
 
 void finalize_expected_error_clause( const TxParseOrigin* origin );
 
@@ -96,6 +94,11 @@ void finalize_expected_error_clause( const TxParseOrigin* origin );
         std::stringstream msg;  msg << message; \
         cwarning(origin, msg.str()); \
     } while (false)
+#   define CINFO(origin, message) \
+    do { \
+        std::stringstream msg;  msg << message; \
+        cinfo(origin, msg.str()); \
+    } while (false)
 #else
 #   define CERR_THROWDECL(origin, message) \
     do { \
@@ -114,4 +117,5 @@ void finalize_expected_error_clause( const TxParseOrigin* origin );
     } while (false)
 #   define CERROR(origin, message) do { } while (false)
 #   define CWARNING(origin, message) do { } while (false)
+#   define CINFO(origin, message) do { } while (false)
 #endif

@@ -7,7 +7,7 @@
 using namespace llvm;
 
 
-Constant* TxFieldDefNode::code_gen_const_init_value( LlvmGenerationContext& context, bool genBody ) const {
+Constant* TxFieldDefiningNode::code_gen_const_init_value( LlvmGenerationContext& context, bool genBody ) const {
     if (! this->cachedConstantInitializer) {
         ASSERT( this->initExpression && this->initExpression->is_statically_constant(), "Expected constant initializer in " << this );
         if ( !genBody ) {
@@ -28,7 +28,7 @@ Constant* TxFieldDefNode::code_gen_const_init_value( LlvmGenerationContext& cont
 
 
 Value* TxLocalFieldDefNode::code_gen_field_decl( LlvmGenerationContext& context ) const {
-    return this->get_field()->get_llvm_value();
+    return this->field()->get_llvm_value();
 }
 
 void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -42,10 +42,10 @@ void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenSco
     // If init expression does a stack allocation of this field's type (instance-equivalent type),
     // this field shall bind to that allocation.
 
-    auto acttype = this->qualtype()->type()->acttype();
+    auto acttype = this->qtype();
     Value* fieldPtrV;
     if ( this->initExpression ) {
-        if ( this->initExpression->is_stack_allocation_expression() ) {
+        if ( this->initExpression->get_storage() == TXS_STACK ) {
             fieldPtrV = this->initExpression->code_gen_addr( context, scope );
         }
         else {
@@ -65,19 +65,19 @@ void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenSco
         fieldPtrV = acttype->gen_alloca( context, scope, this->declaration->get_symbol()->get_name() );
         // We don't automatically invoke default constructor (in future, a code flow validator should check that initialized before first use)
     }
-    this->get_field()->set_llvm_value( fieldPtrV );
+    this->field()->set_llvm_value( fieldPtrV );
 }
 
 
 Value* TxNonLocalFieldDefNode::code_gen_field_decl( LlvmGenerationContext& context ) const {
-    if ( !this->get_field()->has_llvm_value() ) {
+    if ( !this->field()->has_llvm_value() ) {
         this->inner_code_gen_field( context, false );
     }
-    return this->get_field()->get_llvm_value();
+    return this->field()->get_llvm_value();
 }
 
 void TxNonLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context ) const {
-    if ( !this->get_field()->has_llvm_value() ) {
+    if ( !this->field()->has_llvm_value() ) {
         this->inner_code_gen_field( context, true );
     }
     else if (this->initExpression ) {
@@ -108,7 +108,7 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
 
     auto fieldDecl = this->get_declaration();
     auto uniqueName = fieldDecl->get_unique_full_name();
-    auto txType = this->qualtype()->type();
+    auto txType = this->qtype();
 
     switch ( fieldDecl->get_storage() ) {
     case TXS_INSTANCEMETHOD:
@@ -116,7 +116,7 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
             // constructors in generic types (that are not pure VALUE specializations) are suppressed as if abstract
             // (they are not abstract per se, but aren't code generated):
             auto enclosingType = static_cast<TxEntitySymbol*>( fieldDecl->get_symbol()->get_outer() )
-                                   ->get_type_decl()->get_definer()->qualtype()->type();
+                                   ->get_type_decl()->get_definer()->qtype();
             if ( !( ( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ) && enclosingType->is_type_generic() ) ) {
                 Value* fieldVal = nullptr;
                 if ( static_cast<TxLambdaExprNode*>( this->initExpression->originalExpr )->is_suppressed_modifying_method() ) {
@@ -132,7 +132,7 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
                     auto funcPtrV = initLambdaV->getAggregateElement( (unsigned) 0 );
                     fieldVal = funcPtrV;  // the naked $func is stored (as opposed to a full lambda object)
                 }
-                this->get_field()->set_llvm_value( fieldVal );
+                this->field()->set_llvm_value( fieldVal );
             }
         }
         return;
@@ -152,13 +152,13 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
                 // construct the lambda object (a Tuplex object in Tuplex name space):
                 auto nullClosureRefV = Constant::getNullValue( lambdaT->getStructElementType( 1 ) );
                 auto lambdaC = ConstantStruct::get( lambdaT, extern_c_func, nullClosureRefV, NULL );
-                this->get_field()->set_llvm_value( make_constant_nonlocal_field( context, lambdaT, lambdaC, uniqueName ) );
+                this->field()->set_llvm_value( make_constant_nonlocal_field( context, lambdaT, lambdaC, uniqueName ) );
             }
             else {
                 // create the external C field declaration
-                Type *externFieldT = txType->acttype()->make_llvm_externc_type( context );
+                Type *externFieldT = txType->make_llvm_externc_type( context );
                 auto externDeclC = cast<GlobalVariable>( context.llvmModule().getOrInsertGlobal( externalName, externFieldT ) );
-                this->get_field()->set_llvm_value( externDeclC );
+                this->field()->set_llvm_value( externDeclC );
             }
 
             return;
@@ -170,7 +170,7 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
             if ( this->initExpression ) {
                 if ( this->initExpression->is_statically_constant() ) {
                     Constant* constantInitializer = this->code_gen_const_init_value( context, genBody );
-                    this->get_field()->set_llvm_value( make_constant_nonlocal_field( context, context.get_llvm_type( txType ),
+                    this->field()->set_llvm_value( make_constant_nonlocal_field( context, context.get_llvm_type( txType ),
                                                                                      constantInitializer, uniqueName ) );
                     return;
                 }

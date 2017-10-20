@@ -31,9 +31,27 @@ struct AstCursor {
 };
 
 /** type of the AST visitor callable */
-typedef std::function<void( TxNode* node, const AstCursor& parent, const std::string& role, void* context )> AstVisitor;
+typedef std::function<void( TxNode* node, const AstCursor& parent, const std::string& role, void* context )> AstVisitorFunc;
+
+typedef struct {
+    AstVisitorFunc preFunc;
+    AstVisitorFunc postFunc;
+} AstVisitor;
+
+
+enum TxPass {
+    TXP_PARSE, TXP_DECLARATION, TXP_TYPE, TXP_RESOLUTION, TXP_VERIFICATION, TXP_CODEGEN
+};
+
+/** Used as parameter to certain AST methods to carry current analysis pass information. */
+typedef unsigned TxPassInfo;
+
+inline bool is_full_resolution( TxPassInfo pi) { return ( pi >= TXP_RESOLUTION ); }
+
 
 class TxNode : public virtual TxParseOrigin, public Printable {
+    friend class TxDriver;
+
     static const std::string EMPTY_STRING;
     static Logger& _LOG;
     static unsigned nextNodeId;
@@ -69,10 +87,31 @@ protected:
 
     /** Performs the declaration pass operations specific to this node.
      * The default implementation does nothing; to be overridden by subclasses as necessary.
-     * This is invoked exactly once by run_declaration_pass() and should not be invoked from elsewhere.
+     * This is invoked exactly once by node_declaration_pass() and should not be invoked from elsewhere.
      * This node's parent and context are set prior to this call.
      */
     virtual void declaration_pass() {
+    }
+
+    /** Performs the type pass operations specific to this node.
+     * The default implementation does nothing; to be overridden by subclasses as necessary.
+     * This is invoked exactly once by node_type_pass() and should not be invoked from elsewhere.
+     */
+    virtual void type_pass() {
+    }
+
+    /** Performs the resolution pass operations specific to this node.
+     * The default implementation does nothing; to be overridden by subclasses as necessary.
+     * This is invoked exactly once by node_resolution_pass() and should not be invoked from elsewhere.
+     */
+    virtual void resolution_pass() {
+    }
+
+    /** Performs the verification pass operations specific to this node.
+     * The default implementation does nothing; to be overridden by subclasses as necessary.
+     * This is invoked exactly once by node_verification_pass() and should not be invoked from elsewhere.
+     */
+    virtual void verification_pass() const {
     }
 
 public:
@@ -123,25 +162,46 @@ public:
         return nullptr;
     }
 
-    /** Runs the resolution pass on this node and its subtree. */
-    virtual void symbol_resolution_pass() = 0;
-
     /** Visits this node and its subtree with the provided visitor and context object. */
-    void visit_ast( AstVisitor visitor, void* context );
+    void visit_ast( const AstVisitor& visitor, void* context );
 
     /** Invoked from visit_descendants() of parent node. */
-    void visit_ast( AstVisitor visitor, const AstCursor& parent, const std::string& role, void* context );
+    void visit_ast( const AstVisitor& visitor, const AstCursor& parent, const std::string& role, void* context );
 
     /** To be implemented by subclasses. */
-    virtual void visit_descendants( AstVisitor visitor, const AstCursor& thisCursor, const std::string& role, void* context ) = 0;
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) = 0;
 
-    /** Runs the declaration pass on this node (its subtree is not processed).
+    /** Runs the declaration pass on this specific node (its subtree is not processed).
      * @parentNode the parent of node; must not be null */
     inline void node_declaration_pass( const TxNode* parentNode ) {
         ASSERT( parentNode, "NULL parentNode" );
-        ASSERT( !this->is_context_set(), "Context already set, skipping decl pass for node " << this << " (parent: " << this->parent() << ")" );
         this->set_context( parentNode );
         this->declaration_pass();
+    }
+
+    /** Runs the type pass on this specific node (its subtree is not processed). */
+    inline void node_type_pass() {
+        try {
+            this->type_pass();
+        }
+        catch ( const resolution_error& err ) {
+            LOG_TRACE( this->LOGGER(), "Caught resolution error in node_type_pass() in " << this << ": " << err );
+        }
+    }
+
+    /** Runs the resolution pass on this specific node (its subtree is not processed). */
+    inline void node_resolution_pass() {
+        try {
+            this->resolution_pass();
+        }
+        catch ( const resolution_error& err ) {
+            LOG_TRACE( this->LOGGER(), "Caught resolution error in node_resolution_pass() in " << this << ": " << err );
+        }
+    }
+
+    /** Runs the verification pass on this specific node (its subtree is not processed). */
+    inline void node_verification_pass() const {
+        this->verification_pass();
     }
 
     /** Returns a source-similar descriptor of this node, e.g. the identifier or literal. Otherwise an empty string. */

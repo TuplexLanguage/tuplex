@@ -7,7 +7,7 @@ FOO_CHR2 := FOO_STR[1];
 ret_array()->&[]UByte {
     s : [4]UByte = FOO_STR;
     t : &[]UByte = FOO_STR;
-    #experr: u : [4]UByte = t^;  ## unknown length
+    #experr 1: u : [4]UByte = t^;  ## TODO: support dynamically checked array initializer assignment
     puts(s);
     assert s.C == 4;
     assert t.C == 4;

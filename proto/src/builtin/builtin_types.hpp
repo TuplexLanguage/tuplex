@@ -34,8 +34,8 @@ public:
         return this->builtinLocation;
     }
 
-    const TxType* get_builtin_type( const BuiltinTypeId id ) const;
+    const TxActualType* get_builtin_type( const BuiltinTypeId id ) const;
 };
 
 class TxDerivedTypeNode;
-void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner, TxTypeDefiningNode* builtinDefiner );
+void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner, TxTypeResolvingNode* builtinDefiner );

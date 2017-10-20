@@ -9,6 +9,7 @@
 
 #include "declaration.hpp"
 #include "symbol.hpp"
+#include "qual_type.hpp"
 
 namespace llvm {
 class Value;
@@ -56,18 +57,18 @@ public:
 
 /** Represents a field definition. */
 class TxField : public TxEntity {
-    TxQualType const * const type;
+    const TxQualType _qtype;
 
     /** The code-gen value for this field. Generated exactly once and stored here. */
     mutable llvm::Value* llvmValue = nullptr;
 
-    TxField( const TxFieldDeclaration* declaration, const TxQualType* type )
-            : TxEntity( declaration ), type( type ) {
+    TxField( const TxFieldDeclaration* declaration, TxQualType qtype )
+            : TxEntity( declaration ), _qtype( qtype ) {
     }
 
 public:
     /** Constructs a new field after applying some validation checks. If validation fails, resolution exception is thrown. */
-    static TxField* make_field( const TxFieldDeclaration* declaration, const TxQualType* type );
+    static TxField* make_field( const TxFieldDeclaration* declaration, TxQualType type );
 
     virtual inline const TxFieldDeclaration* get_declaration() const override {
         return static_cast<const TxFieldDeclaration*>( TxEntity::get_declaration() );
@@ -77,11 +78,13 @@ public:
         return this->get_declaration()->get_storage();
     }
 
-    inline const TxQualType* qualtype() const {
-        return this->type;
+    inline TxQualType qtype() const {
+        return this->_qtype;
     }
 
-    bool is_modifiable() const;
+    inline bool is_modifiable() const {
+        return this->_qtype.is_modifiable();
+    }
 
     inline const std::string get_unique_name() const {
         return this->get_declaration()->get_unique_name();
