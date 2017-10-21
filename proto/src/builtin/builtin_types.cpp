@@ -68,24 +68,6 @@ class TxBuiltinTypeDefiningNode : public TxTypeCreatingNode {
         }
     }
 
-//    /** helper method for subclasses that constructs a vector of TxType of this instance's interface expressions */
-//    std::vector<const TxType*> resolve_interfaces() const {
-//        std::vector<const TxType*> ifs;
-//        if ( this->sourcecodeDefiner ) {
-//            for ( auto ifDef : *this->sourcecodeDefiner->interfaces )
-//                ifs.emplace_back( ifDef->resolve_type( passInfo ) );
-//        }
-//        return ifs;
-//    }
-//
-//    /** helper method for subclasses that constructs a vector of TxTypeSpecialization of this instance's interface expressions */
-//    static std::vector<const TxActualType*> resolve_interface_specs( const std::vector<const TxType*>& interfaces ) {
-//        std::vector<const TxActualType*> ifSpecs;
-//        for ( auto interface : interfaces )
-//            ifSpecs.emplace_back( interface );
-//        return ifSpecs;
-//    }
-
     void merge_builtin_type_definers( TxDerivedTypeNode* sourcecodeDefiner ) {
         ASSERT( this->is_context_set(), "Builtin type node hasn't run declaration pass: " << this );
         ASSERT( !this->attempt_qtype(), "Builtin type already resolved: " << this );
@@ -139,17 +121,6 @@ protected:
         actType->runtimeTypeId = this->builtinTypeId;
         this->registry().add_type( actType );
         return actType;
-//        const TxType* baseType = ( this->baseTypeNode ? this->baseTypeNode->resolve_type( passInfo ) : nullptr );
-//        const std::vector<const TxType*> interfaces = this->resolve_interfaces();
-////        return new TxQualType( new TxType( this,
-////                           [ this, baseType, interfaces ] () {
-//                                auto ifSpecs = resolve_interface_specs( interfaces );
-//                                TxActualType* actType = this->make_builtin_type( this->get_declaration(), baseType, ifSpecs,
-//                                                                                 this->requires_mutable_type() );
-//                                actType->runtimeTypeId = this->builtinTypeId;
-//                                this->registry().add_type( actType );
-//                                return actType;
-////                           } ) );
     }
 
     virtual TxActualType* make_builtin_type( const TxTypeDeclaration* declaration, const std::vector<const TxTypeExpressionNode*>& ifNodes,
@@ -170,17 +141,6 @@ public:
         ASSERT( false, "Can't make AST copy of built-in type definer " << this );
         return nullptr;
     }
-
-//    virtual void resolution_pass() override {
-//        TxTypeExpressionNode::resolution_pass();
-//        if ( this->baseTypeNode ) {
-//            this->superRefTypeNode->resolution_pass();
-//        }
-//        for ( auto decl : this->declNodes )
-//            decl->resolution_pass();
-//        if ( this->sourcecodeDefiner )
-//            this->sourcecodeDefiner->resolution_pass();
-//    }
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override {
         if ( this->baseTypeNode ) {

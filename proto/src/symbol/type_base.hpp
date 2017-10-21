@@ -128,7 +128,7 @@ bool is_concrete_floating_type( const TxActualType* type );
  It's the base data type that the vtable mechanics use.
  For semantic inheritance mechanics, the generic base type is used.
  */
-class TxActualType : public virtual TxParseOrigin, public Printable {
+class TxActualType : public TxEntity { //public virtual TxParseOrigin, public Printable {
     static Logger& _LOG;
 
     friend class TxTypeClassHandler;
@@ -146,7 +146,7 @@ class TxActualType : public virtual TxParseOrigin, public Printable {
     /** If true, this type is mutable, in which case its instances may be declared modifiable. */
     const bool mutableType;
 
-    const TxTypeDeclaration* declaration;
+//    const TxTypeDeclaration* declaration;
 
     /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
     std::vector<const TxEntityDeclaration*> params;
@@ -229,9 +229,9 @@ protected:
     TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
                   const TxActualType* baseType,
                   const std::vector<const TxActualType*>& interfaces = std::vector<const TxActualType*>() )
-            : builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+            : TxEntity( declaration),
+              builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
               mutableType( mutableType ),
-              declaration( declaration ),
               baseType( baseType ), interfaces( interfaces ),
               baseTypeNode(), interfaceNodes()
     {
@@ -247,9 +247,9 @@ public:
 
     /** Construction of type without base types, i.e. Any and Void. */
     TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType )
-            : builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+            : TxEntity( declaration),
+              builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
               mutableType( mutableType ),
-              declaration( declaration ),
               baseType(), interfaces(),
               baseTypeNode(), interfaceNodes()
     {
@@ -262,11 +262,11 @@ public:
     TxActualType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, bool mutableType,
                   const TxTypeExpressionNode* baseTypeNode,
                   const std::vector<const TxTypeExpressionNode*>& interfaceNodes )
-    : builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
-      mutableType( mutableType ),
-      declaration( declaration ),
-      baseType(), interfaces(),
-      baseTypeNode( baseTypeNode ), interfaceNodes( interfaceNodes )
+            : TxEntity( declaration),
+              builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+              mutableType( mutableType ),
+              baseType(), interfaces(),
+              baseTypeNode( baseTypeNode ), interfaceNodes( interfaceNodes )
     {
         ASSERT( typeClassHandler, "null typeClassHandler for type with declaration: " << declaration );
         this->examine_members();
@@ -277,11 +277,11 @@ public:
     TxActualType( const TxTypeDeclaration* declaration, bool mutableType,
                   const TxTypeExpressionNode* baseTypeNode,
                   const std::vector<const TxTypeExpressionNode*>& interfaceNodes )
-    : builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
-      mutableType( mutableType ),
-      declaration( declaration ),
-      baseType(), interfaces(),
-      baseTypeNode( baseTypeNode ), interfaceNodes( interfaceNodes )
+            : TxEntity( declaration),
+              builtin( declaration->get_decl_flags() & TXD_BUILTIN ),
+              mutableType( mutableType ),
+              baseType(), interfaces(),
+              baseTypeNode( baseTypeNode ), interfaceNodes( interfaceNodes )
     {
         this->examine_members();
     }
@@ -318,8 +318,8 @@ public:
         return this->typeClassHandler;
     }
 
-    inline const TxTypeDeclaration* get_declaration() const {
-        return this->declaration;
+    virtual inline const TxTypeDeclaration* get_declaration() const override {
+        return static_cast<const TxTypeDeclaration*>( TxEntity::get_declaration() );
     }
 
     /** Gets the runtime type id of this type.
@@ -537,7 +537,7 @@ public:
     bool is_leaf_derivation() const;
 
     inline bool is_explicit_declaration() const {
-        return !( this->declaration->get_decl_flags() & TXD_IMPLICIT );
+        return !( this->get_declaration()->get_decl_flags() & TXD_IMPLICIT );
     }
 
     /** Returns true if this is a generic type or a direct specialization of a generic type.

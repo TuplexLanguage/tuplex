@@ -14,7 +14,7 @@
 
 #include "tx_logging.hpp"
 
-#include "symbol/entity_type.hpp"
+#include "symbol/type.hpp"
 
 class TxParsingUnitNode;
 class TxTypeDeclNode;

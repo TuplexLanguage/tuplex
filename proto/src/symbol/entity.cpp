@@ -1,5 +1,5 @@
 #include "entity.hpp"
-#include "entity_type.hpp"
+#include "type_base.hpp"
 #include "ast/ast_fielddef_node.hpp"
 #include "ast/expr/ast_expr_node.hpp"
 

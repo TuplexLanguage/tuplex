@@ -1,7 +1,5 @@
 #pragma once
 
-#include <unordered_map>
-
 #include "util/assert.hpp"
 
 #include "tx_lang_defs.hpp"
@@ -14,8 +12,6 @@
 namespace llvm {
 class Value;
 }
-
-class TxConstantProxy;
 
 /** Represents a resolved program entity - a type or a field.
  * Entities are produced by entity-defining AST nodes (that inherit from TxEntityDefiningNode)
@@ -32,7 +28,6 @@ class TxEntity : public virtual TxParseOrigin, public Printable {
 protected:
     TxEntity( const TxEntityDeclaration* declaration )
             : declaration( declaration ) {
-        // Note: Type entities might not have a declaration. Their underlying actual type will always have a declaration though.
     }
 
 public:

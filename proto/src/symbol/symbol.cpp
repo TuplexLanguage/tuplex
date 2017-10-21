@@ -8,9 +8,9 @@
 #include "package.hpp"
 #include "declaration.hpp"
 #include "entity.hpp"
-#include "entity_type.hpp"
 #include "driver.hpp"
 #include "qual_type.hpp"
+#include "type_base.hpp"
 
 
 Logger& TxScopeSymbol::_LOG = Logger::get( "SYMBOL" );

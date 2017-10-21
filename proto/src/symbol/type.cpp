@@ -5,7 +5,6 @@
 
 #include "type.hpp"
 #include "type_registry.hpp"
-#include "entity_type.hpp"
 #include "package.hpp"
 #include "symbol_lookup.hpp"
 
@@ -198,7 +197,7 @@ void TxActualType::examine_members() {
 
     ASSERT( this->declaration, "No declaration for actual type " << this );
 
-    auto typeDeclNamespace = this->declaration->get_symbol();
+    auto typeDeclNamespace = this->get_declaration()->get_symbol();
 
     // perform shallow pass on type's member declarations to determine derivation characteristics:
     bool hasImplicitFieldMembers = false;
@@ -1339,7 +1338,7 @@ bool TxInterfaceAdapterType::inner_prepare_members() {
         }
         else {
             auto targetField = adapteeVirtualFields.get_field( f.first );
-            // FIXME: verify that type matches
+            // TODO: verify that type matches
             this->virtualFields.override_field( /*f.first,*/ targetField );
         }
     }

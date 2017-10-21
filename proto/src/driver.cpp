@@ -50,7 +50,6 @@ isa( valueTid : UInt, tid : UInt )->Bool {
     return FALSE;
 }
 
-/* FIXME - reenable
 builtin type Function derives Any
 {
     override equals( other : &Any ) -> Bool {
@@ -60,7 +59,6 @@ builtin type Function derives Any
         return FALSE;
     }
 }
-*/
     )====="
 ;
 
@@ -73,11 +71,9 @@ TxDriver::TxDriver( const TxOptions& options )
 }
 
 TxDriver::~TxDriver() {
-    // FUTURE: free the symbol tables and the ASTs
 }
 
 int TxDriver::scan_begin( const std::string &filePath ) {
-//    FILE * yyin;
     if ( filePath.empty() || filePath == "-" )
         yyin = stdin;
     else if ( !( yyin = fopen( filePath.c_str(), "r" ) ) ) {

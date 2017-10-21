@@ -30,6 +30,7 @@ public:
 
     void resolveBuiltinSymbols();  // TODO: remove
 
+    /** parse location used for built-in constructs without actual source code */
     const TxLocation& get_builtin_location() const {
         return this->builtinLocation;
     }
