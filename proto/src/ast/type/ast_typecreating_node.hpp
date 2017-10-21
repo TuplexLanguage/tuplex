@@ -7,7 +7,17 @@
 class TxActualType;
 
 class TxTypeCreatingNode : public TxTypeExpressionNode {
+    const TxTypeDeclaration* declaration = nullptr;
+
 protected:
+    friend class TxTypeDeclNode;
+
+    void set_declaration( const TxTypeDeclaration* declaration ) {
+        this->declaration = declaration;
+    }
+
+    virtual void typeexpr_declaration_pass() override;
+
     virtual void type_pass() override final;
 
     virtual TxQualType define_type( TxPassInfo passInfo ) override;
@@ -18,6 +28,11 @@ public:
     TxTypeCreatingNode( const TxLocation& ploc ) : TxTypeExpressionNode( ploc )  { }
 
     virtual TxTypeCreatingNode* make_ast_copy() const override = 0;
+
+    /** Gets the type declaration of this type-creating expression. */
+    inline const TxTypeDeclaration* get_declaration() const {
+        return this->declaration;
+    }
 };
 
 

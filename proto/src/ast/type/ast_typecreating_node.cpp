@@ -6,6 +6,13 @@
 #include "tx_error.hpp"
 
 
+void TxTypeCreatingNode::typeexpr_declaration_pass() {
+    // The context of this node represents its outer scope.
+    // The type expression's created type entity, if any, represents its inner scope.
+    if (this->declaration)
+        this->lexContext._scope = this->declaration->get_symbol();
+}
+
 void TxTypeCreatingNode::type_pass() {
 //    std::cerr << "type_pass() of " << this << std::endl;
     auto type = this->resolve_type( TXP_TYPE );

@@ -112,17 +112,3 @@ public:
         return this->typeDefiner;
     }
 };
-
-//class TxQualTypeDeclaration : public TxEntityDeclaration {
-//    TxQualTypeExprNode* const typeDefiner;
-//
-//public:
-//    TxQualTypeDeclaration( TxEntitySymbol* symbol, TxDeclarationFlags declFlags, TxQualTypeExprNode* typeDefiner )
-//            : TxEntityDeclaration( symbol, declFlags ), typeDefiner( typeDefiner ) {
-//        ASSERT( ( declFlags | LEGAL_TYPE_DECL_FLAGS ) == LEGAL_TYPE_DECL_FLAGS, "Illegal type declFlags: " << declFlags );
-//    }
-//
-//    virtual TxQualTypeExprNode* get_definer() const override {
-//        return this->typeDefiner;
-//    }
-//};

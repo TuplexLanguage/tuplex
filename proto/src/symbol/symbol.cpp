@@ -64,7 +64,6 @@ void TxScopeSymbol::add_symbol( TxScopeSymbol* symbol ) {
         THROW_LOGIC( "Failed to insert new symbol (previously inserted?): " << symbol );
     }
     this->declOrderNames.push_back( symbol->get_name() );
-    this->alphaOrderNames.insert( symbol->get_name() );
 }
 
 bool TxScopeSymbol::has_symbol( const std::string& name ) const {
@@ -185,7 +184,7 @@ const TxEntityDeclaration* TxEntitySymbol::get_distinct_decl() const {
         return this->get_first_field_decl();
 }
 
-bool TxEntitySymbol::add_type( TxTypeDeclaration* typeDeclaration ) {
+bool TxEntitySymbol::add_type( const TxTypeDeclaration* typeDeclaration ) {
     if ( this->typeDeclaration || !this->fieldDeclarations.empty() ) {
         CERR_THROWDECL( typeDeclaration->get_definer(), "Can't overload several type declarations under the same name: " << this->get_full_name() );
         return false;
@@ -204,7 +203,7 @@ bool TxEntitySymbol::add_type( TxTypeDeclaration* typeDeclaration ) {
     return true;
 }
 
-bool TxEntitySymbol::add_field( TxFieldDeclaration* fieldDeclaration ) {
+bool TxEntitySymbol::add_field( const TxFieldDeclaration* fieldDeclaration ) {
     if ( this->typeDeclaration ) {
         CERR_THROWDECL( fieldDeclaration->get_definer(), "Can't overload both type and field declarations under the same name: "
                         << this->get_full_name() );
@@ -212,6 +211,10 @@ bool TxEntitySymbol::add_field( TxFieldDeclaration* fieldDeclaration ) {
     }
     this->fieldDeclarations.push_back( fieldDeclaration );
     return true;
+}
+
+void TxEntitySymbol::add_type_specialization( const TxTypeDeclaration* typeDeclaration ) {
+    this->typeSpecDeclarations.push_back( typeDeclaration );
 }
 
 static std::string field_description( const TxFieldDeclaration* fieldDecl ) {

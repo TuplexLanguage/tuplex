@@ -288,21 +288,8 @@ std::string encode_type_name( const TxTypeDeclaration* typeDecl ) {
 
 /////////////////////////////////////////////////////////////
 
-static TxActualType* matches_existing_specialization( const TxActualType* genBaseType, TxEntitySymbol* existingSpecSymbol,
+static TxActualType* matches_existing_specialization( const TxActualType* genBaseType, const TxActualType* existingSpecType,
                                                       const std::vector<const TxTypeArgumentNode*>& bindings ) {
-    auto existingSpecTypeDef = existingSpecSymbol->get_type_decl()->get_definer();
-    auto existingSpecType = existingSpecTypeDef->qtype().type();
-    {
-        // The way candidates are currently looked up, they will include the symbols whose name is a concatenation
-        // of a specialization and an adaptee. Verify same generic base type:
-        auto existingGenBaseType = existingSpecType->get_generic_base_type();
-        if ( genBaseType != existingGenBaseType ) {
-//            std::cerr << "Skipping existing spec. cand. with different gen. base type: " << existingSpecType << " : "
-//                    << existingGenBaseType << " != " << genBaseType << std::endl;
-            return nullptr;
-        }
-    }
-
     auto & existingSpecBindings = existingSpecType->get_bindings();
     bool matchOK = true;
     // (Note: We know that the existing specialization and the new candidate have equal number of bindings.)
@@ -340,15 +327,15 @@ static TxActualType* matches_existing_specialization( const TxActualType* genBas
         break;
     }
     if ( matchOK ) {
-        LOG_DEBUG( existingSpecSymbol->get_root_scope()->registry().LOGGER(),
-                   "new specialization equal to preexisting one, reusing: " << existingSpecSymbol );
+        LOG_DEBUG( existingSpecType->get_declaration()->get_symbol()->get_root_scope()->registry().LOGGER(),
+                   "new specialization equal to preexisting one, reusing: " << existingSpecType );
         return const_cast<TxActualType*>( existingSpecType );
     }
     return nullptr;
 }
 
 static TxActualType* get_existing_type( const TxActualType* genBaseType, const std::vector<const TxTypeArgumentNode*>& bindings,
-                                        TxScopeSymbol* baseScope, const std::string& newBaseName ) {
+                                        TxScopeSymbol* baseScope, const std::string& newBaseName, bool mutableType ) {
     auto & baseTypeParams = genBaseType->get_type_params();
     if ( bindings.size() <= baseTypeParams.size() ) {
         // if generic type specialization is equivalent to the generic base type, reuse it:
@@ -385,15 +372,13 @@ static TxActualType* get_existing_type( const TxActualType* genBaseType, const s
     }
 
     // if name already exists and specialization is equal, reuse it:
-    std::string upperBound = newBaseName;
-    upperBound[upperBound.size() - 1] += 1;
-    // TODO: Make finding and searching the existing specializations faster
-    for ( auto existingBaseNameI = baseScope->alpha_order_names_lower( newBaseName );
-            existingBaseNameI != baseScope->alpha_order_names_upper( upperBound ); existingBaseNameI++ ) {
-        if ( auto existingBaseSymbol = dynamic_cast<TxEntitySymbol*>( baseScope->get_member_symbol( *existingBaseNameI ) ) ) {
-            if ( auto matchingType = matches_existing_specialization( genBaseType, existingBaseSymbol, bindings ) )
+    for ( auto existingSpecDeclI = genBaseType->get_declaration()->get_symbol()->type_spec_cbegin();
+            existingSpecDeclI != genBaseType->get_declaration()->get_symbol()->type_spec_cend();
+            existingSpecDeclI++ ) {
+        auto existingType = (*existingSpecDeclI)->get_definer()->qtype().type();
+        if ( existingType->is_mutable() == mutableType && existingType->get_bindings().size() == bindings.size() )
+            if ( auto matchingType = matches_existing_specialization( genBaseType, existingType, bindings ) )
                 return matchingType;
-        }
     }
     return nullptr;
 }
@@ -488,7 +473,7 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
 
     // if equivalent specialized type already exists then reuse it, otherwise create new one:
     auto baseScope = baseDecl->get_symbol()->get_outer();
-    auto specializedType = get_existing_type( genBaseType, bindings, baseScope, newTypeNameStr );
+    auto specializedType = get_existing_type( genBaseType, bindings, baseScope, newTypeNameStr, mutableType );
     if ( !specializedType ) {
         specializedType = make_type_specialization( definer, genBaseType, bindings, expErrCtx, newTypeNameStr, mutableType );
     }
@@ -589,7 +574,7 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
     run_declaration_pass( newSpecTypeDecl, specContext );
 
     TxActualType* specializedType = const_cast<TxActualType*>( specTypeExpr->resolve_type( TXP_TYPE ).type() );
-    //this->add_type( specializedType );
+    baseDecl->get_symbol()->add_type_specialization( specializedType->get_declaration() );
     LOG_DEBUG( this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << genBaseType );
 
     // Invoking the type resolution pass here can cause infinite recursion

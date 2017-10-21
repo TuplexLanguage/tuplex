@@ -8,12 +8,13 @@
 class TxTypeExpressionNode : public TxTypeResolvingNode {
     bool interfaceKW = false;
     bool mutableType = false;
-    const TxTypeDeclaration* declaration = nullptr;
 
 protected:
     bool get_decl_interface_kw() const { return this->interfaceKW; }
 
-    virtual void declaration_pass() override final;
+    virtual void declaration_pass() override final {
+        this->typeexpr_declaration_pass();
+    }
 
     /** Performs declaration pass operations on this type expression node. To be overridden by subclasses as necessary. */
     virtual void typeexpr_declaration_pass() { }
@@ -31,15 +32,6 @@ public:
 
     /** Returns true if this type expression requires the produced type to be mutable. Used by subclasses upon type creation. */
     bool requires_mutable_type() const { return this->mutableType; }
-
-    /** Gets the type declaration of this type expression, if any. */
-    inline const TxTypeDeclaration* get_declaration() const {
-        return this->declaration;
-    }
-
-    inline void set_declaration( const TxTypeDeclaration* declaration ) {
-        this->declaration = declaration;
-    }
 
     /** Performs the code generation pass for this type expression and its sub-expressions.
      * This propagates code generation to type members.

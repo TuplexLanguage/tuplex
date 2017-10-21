@@ -57,8 +57,4 @@ void TxMaybeModTypeNode::typeexpr_declaration_pass() {
 
     if ( this->_modifiable )
         TxModifiableTypeNode::typeexpr_declaration_pass();
-    else {
-        // "pass through" entity declaration to the underlying type
-        this->_typeNode->set_declaration( this->get_declaration() );
-    }
 }

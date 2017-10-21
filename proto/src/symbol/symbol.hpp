@@ -1,7 +1,6 @@
 #pragma once
 
 #include <unordered_map>
-#include <set>
 
 #include "util/logging.hpp"
 #include "util/printable.hpp"
@@ -90,8 +89,6 @@ class TxScopeSymbol : public Printable {
     std::unordered_map<std::string, TxScopeSymbol*> symbols;
     /** Internal vector containing this module's symbol names in insertion order. */
     std::vector<std::string> declOrderNames;
-    /** Internal set containing this module's symbol names in alphabetical order. */
-    std::set<std::string> alphaOrderNames;
 
     /** Adds a symbol to this scope's namespace. */
     void add_symbol( TxScopeSymbol* symbol );
@@ -186,24 +183,6 @@ public:
         return this->declOrderNames.cend();
     }
 
-    /** Returns a read-only, alphabetically ordered iterator that points to the first symbol name. */
-    inline std::set<std::string>::const_iterator alpha_order_names_cbegin() const {
-        return this->alphaOrderNames.cbegin();
-    }
-    /** Returns a read-only, alphabetically ordered iterator that points to one past the last symbol name. */
-    inline std::set<std::string>::const_iterator alpha_order_names_cend() const {
-        return this->alphaOrderNames.cend();
-    }
-
-    /** Returns a read-only, alphabetically ordered iterator that points to a lower bound. */
-    inline std::set<std::string>::const_iterator alpha_order_names_lower( const std::string& val ) const {
-        return this->alphaOrderNames.lower_bound( val );
-    }
-    /** Returns a read-only, alphabetically ordered iterator that points to an upper bound. */
-    inline std::set<std::string>::const_iterator alpha_order_names_upper( const std::string& val ) const {
-        return this->alphaOrderNames.upper_bound( val );
-    }
-
     virtual bool operator==( const TxScopeSymbol& other ) const {
         return this->get_full_name() == other.get_full_name();
     }
@@ -230,6 +209,8 @@ class TxEntitySymbol : public TxScopeSymbol {
     const TxTypeDeclaration* typeDeclaration;
     std::vector<const TxFieldDeclaration*> fieldDeclarations;
 
+    std::vector<const TxTypeDeclaration*> typeSpecDeclarations;
+
     const TxEntityDeclaration* get_distinct_decl() const;
 
 protected:
@@ -245,9 +226,9 @@ public:
             : TxScopeSymbol( parentScope, name ), typeDeclaration(), fieldDeclarations() {
     }
 
-    bool add_type( TxTypeDeclaration* typeDeclaration );
+    bool add_type( const TxTypeDeclaration* typeDeclaration );
 
-    bool add_field( TxFieldDeclaration* fieldDeclaration );
+    bool add_field( const TxFieldDeclaration* fieldDeclaration );
 
     inline bool is_overloaded() const {
         return this->count() > 1;
@@ -274,6 +255,15 @@ public:
     }
     inline std::vector<const TxFieldDeclaration*>::const_iterator fields_cend() const noexcept {
         return this->fieldDeclarations.cend();
+    }
+
+    void add_type_specialization( const TxTypeDeclaration* typeDeclaration );
+
+    inline std::vector<const TxTypeDeclaration*>::const_iterator type_spec_cbegin() const noexcept {
+        return this->typeSpecDeclarations.cbegin();
+    }
+    inline std::vector<const TxTypeDeclaration*>::const_iterator type_spec_cend() const noexcept {
+        return this->typeSpecDeclarations.cend();
     }
 
     virtual void dump_symbols() const override;

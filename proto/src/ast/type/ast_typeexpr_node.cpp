@@ -4,14 +4,9 @@
 #include "ast_types.hpp"
 
 
-void TxTypeExpressionNode::declaration_pass() {
-    // The context of this node represents its outer scope.
-    // The type expression's created type entity, if any, represents its inner scope.
-    // FIXME: review whether this is necessary for type expressions other than type productions with a body, i.e. derived type node
-    if (this->declaration)
-        this->lexContext._scope = this->declaration->get_symbol();
-    this->typeexpr_declaration_pass();
-}
+//void TxTypeExpressionNode::declaration_pass() {
+//    this->typeexpr_declaration_pass();
+//}
 
 
 bool is_not_properly_concrete( const TxNode* node, const TxQualType type ) {
