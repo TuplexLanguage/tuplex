@@ -39,16 +39,17 @@ void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenSco
     ASSERT( this->declaration, "NULL declaration in " << this );
     ASSERT( this->declaration->get_storage() == TXS_STACK, "Local field gen can only apply to TX_STACK storage fields: " << this );
 
-    // If init expression does a stack allocation of this field's type (instance-equivalent type),
+    // If init expression performs a stack allocation (unbound) of this field's type (instance-equivalent type),
     // this field shall bind to that allocation.
 
     auto acttype = this->qtype();
     Value* fieldPtrV;
     if ( this->initExpression ) {
-        if ( this->initExpression->get_storage() == TXS_STACK ) {
+        if ( this->initExpression->get_storage() == TXS_UNBOUND_STACK ) {
             fieldPtrV = this->initExpression->code_gen_addr( context, scope );
         }
         else {
+            // (if storage is TXS_STACK, we allocate new stack space for making copy of already bound stack value)
             fieldPtrV = acttype->gen_alloca( context, scope, this->declaration->get_symbol()->get_name() );
             // create implicit assignment statement
             if ( this->cachedConstantInitializer )
@@ -184,8 +185,7 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
         // just a type definition; field storage isn't created until parent object is allocated
         return;
 
-    case TXS_NOSTORAGE:
-    case TXS_STACK:
+    default:
         THROW_LOGIC( "TxFieldDeclNode can not apply to fields with storage " << fieldDecl->get_storage() << ": " << fieldDecl );
     }
 }

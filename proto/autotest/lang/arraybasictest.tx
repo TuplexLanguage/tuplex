@@ -8,19 +8,13 @@ ret_array()->&[]UByte {
     s : [4]UByte = FOO_STR;
     t : &[]UByte = FOO_STR;
     #experr 1: u : [4]UByte = t^;  ## TODO: support dynamically checked array initializer assignment
-    puts(s);
     assert s.C == 4;
     assert t.C == 4;
     return t;
 }
 
-puts(cstr : &[]UByte) {
-    tx.c.puts(cstr);
-}
-
 basic_array_syntax()->Int {
     ra := ret_array();
-    puts( ra );
     assert ra.C == 4;
 
     a : ~Array<~UByte,10>;
@@ -30,9 +24,9 @@ basic_array_syntax()->Int {
     b[1] = c[1];
     b[2] = c[0];
     b[3] = UByte(0);
-    puts(b);  ## expect "321"
+    ##puts(b);  ## expect "321"
     a = b;
-    puts(a);  ## expect "321"
+    ##puts(a);  ## expect "321"
     return c[2]-48;  ## 48 is ASCII '0'
 }
 
@@ -53,7 +47,7 @@ array_modifiability() {
     #experr: setelem(crcs, 2, 'C');
     #experr: setelem(mrcs, 2, 'C');
 
-    puts(mrcs);  ## expect "cst"
+    ##puts(mrcs);  ## expect "cst"
 
     ms : ~[4]~UByte = c"mod";
     crms : &~[]UByte = &ms;   ## explicit reference required
@@ -71,16 +65,16 @@ array_modifiability() {
     #experr: mrms = crcs;
     #experr: mrms = mrcs;
 
-    puts(mrms);  ## expect "ABC"
+    ##puts(mrms);  ## expect "ABC"
 
     ms = c"qqq";
-    puts(mrms);  ## expect "qqq"
+    ##puts(mrms);  ## expect "qqq"
 
     ##crms^ = mrcs^;  ## TODO: dynamic concrete type resolution of array sizes?
     crms_ : &~[4]UByte = &ms;
     mrcs_ : ~&[4]UByte = cs;
     crms_^ = mrcs_^;
-    puts(ms);  ## expect "cst"
+    ##puts(ms);  ## expect "cst"
 
     conststr := c"1234567890";
     assert conststr.C == 11;

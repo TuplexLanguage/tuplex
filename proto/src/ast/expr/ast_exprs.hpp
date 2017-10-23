@@ -275,7 +275,7 @@ public:
 
     virtual TxFieldStorage get_storage() const override {
         // performs stack allocation unless this is an inlined value expression
-        return ( this->initializationExpression ? TXS_NOSTORAGE : TXS_STACK );
+        return ( this->initializationExpression ? TXS_NOSTORAGE : TXS_UNBOUND_STACK );
     }
 
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;

@@ -2,17 +2,18 @@
 
 #include <string>
 
-/** Specifies the storage type for a field entity.
+/** Specifies the storage type for a field entity / value.
  * GLOBAL are globally declared fields, i.e. outside of any type definition.
  * STATIC and VIRTUAL are statically allocated fields within a type definition.
  * VIRTUAL fields are like STATIC but subject to polymorphic lookup.
  * INSTANCEMETHOD is a special case, where the function pointer is static/virtual and the 'self' ref is provided in runtime
  * INSTANCE fields are members of type instances (i.e. object members).
- * STACK fields are regular "auto" variables, including function arguments.
- * GLOBAL, STATIC, VIRTUAL are compile-time-allocated.
+ * STACK fields are regular "auto" variables, including function arguments, bound to a field declaration.
+ * UNBOUND_STACK indicates a value that is allocated on the stack, but not (yet) bound to a field declaration.
+ * NOSTORAGE indicates an unallocated / temporary / register value, also known as rvalue.
  */
 enum TxFieldStorage : int {
-    TXS_NOSTORAGE, TXS_GLOBAL, TXS_STATIC, TXS_VIRTUAL, TXS_INSTANCEMETHOD, TXS_INSTANCE, TXS_STACK
+    TXS_NOSTORAGE, TXS_GLOBAL, TXS_STATIC, TXS_VIRTUAL, TXS_INSTANCEMETHOD, TXS_INSTANCE, TXS_STACK, TXS_UNBOUND_STACK,
 };
 
 inline std::string to_string( TxFieldStorage storage ) {
@@ -31,6 +32,8 @@ inline std::string to_string( TxFieldStorage storage ) {
         return "TXS_INSTANCE";
     case TXS_STACK:
         return "TXS_STACK";
+    case TXS_UNBOUND_STACK:
+        return "TXS_UNBOUND_STACK";
     }
     return "-unknown TxFieldStorage value " + std::to_string((int)storage) + "-";
 }

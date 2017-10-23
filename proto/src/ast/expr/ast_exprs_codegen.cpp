@@ -107,7 +107,8 @@ Value* TxFunctionCallNode::code_gen_dyn_value( LlvmGenerationContext& context, G
 
 Value* TxFunctionCallNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    if ( this->get_storage() == TXS_STACK ) {  // only true if there is an inlined expression
+    auto storage = this->get_storage();
+    if ( storage == TXS_STACK || storage == TXS_UNBOUND_STACK ) {  // only true if there is an inlined expression
         return this->inlinedExpression->code_gen_dyn_address( context, scope );
     }
     else {

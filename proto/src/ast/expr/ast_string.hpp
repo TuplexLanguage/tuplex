@@ -84,7 +84,7 @@ public:
     }
 
     virtual TxFieldStorage get_storage() const {
-        return TXS_STACK;
+        return TXS_UNBOUND_STACK;
     }
 
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
@@ -142,7 +142,7 @@ public:
     }
 
     virtual TxFieldStorage get_storage() const {
-        return TXS_STACK;
+        return TXS_UNBOUND_STACK;
     }
 
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;
