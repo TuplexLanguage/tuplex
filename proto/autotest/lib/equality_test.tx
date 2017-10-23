@@ -77,9 +77,7 @@ type GenTest<L,R> {
         Self.test_eq_val( left, same, diff );
         Self.test_eq_ref( left, same, diff );
         Self.test_eq_arr_cop( left, same, diff );
-        ## TODO: Comparison of arrays of references doesn't work well due to duplicate type specialization generation,
-        ##       leading to is-a relationship test not always working.
-        ##Self.test_eq_arr_ref( left, same, diff );
+        Self.test_eq_arr_ref( left, same, diff );
     }
 }
 

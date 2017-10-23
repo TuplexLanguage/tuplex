@@ -127,6 +127,20 @@ Array object assignment, review and test semantics
 
 Default initialization of array elements (at least if it's array of arrays)
 
+Dynamic-length arrays tests - bounds checking, copying, etc - PARTIALLY DONE
+
+Ensure VALUE type parameters are always correctly initialized
+
+
+
+Ensure Ref<P> is-a Ref<Q> if P is-a Q
+
+
+
+For VALUEs below a threshold (e.g. <= 4), coge-gen individual specializations for efficiency
+
+
+
 Array initialization from sequence
     arr := []Int( seq );  ## of type Sequencable<Int>
     arr := [ seq... ];
@@ -134,13 +148,7 @@ Array initialization from sequence
 
 Auto-conversion of array initialization elements (literals; also from sequences?)
 
-Dynamic-length arrays tests - bounds checking, copying, etc - PARTIALLY DONE
-
 Support negative array indexing from array end
-
-Ensure VALUE type parameters are always correctly initialized
-
-Ensure Ref<P> is-a Ref<O> if P is-a O
 
 
 
@@ -155,8 +163,6 @@ Implement advanced implicit constructor concept
 
 Constructor initialization validation check: That each constructor properly initializes all members (without inlined initializers)
 
-
-For VALUEs below a threshold (e.g. <= 4), coge-gen individual specializations for efficiency
 
 
 Virtual dereferencing of abstract references for array subscripting, implicitly creating a reference to the element?

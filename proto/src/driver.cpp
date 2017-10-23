@@ -449,7 +449,14 @@ void TxDriver::add_source_file( const TxIdentifier& moduleName, const std::strin
 }
 
 int TxDriver::llvm_compile( const std::string& outputFileName ) {
-    this->genContext->generate_runtime_type_info();
+    try {
+        this->genContext->generate_runtime_type_info();
+    }
+    catch ( const codecheck_error& err ) {
+        LOG_DEBUG( (&_LOG), "Caught code check error generating runtime type info: " << err );
+        return 1;
+    }
+
     this->genContext->declare_builtin_code();
 
     int codegen_errors = 0;
