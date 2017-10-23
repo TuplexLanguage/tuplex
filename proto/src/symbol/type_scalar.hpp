@@ -4,7 +4,7 @@
 
 
 
-class TxBoolTypeClassHandler : public TxTypeClassHandler {
+class TxBoolTypeClassHandler final : public TxTypeClassHandler {
 public:
     TxBoolTypeClassHandler() : TxTypeClassHandler( TXTC_ELEMENTARY )  { }
 
@@ -12,7 +12,7 @@ public:
     virtual llvm::Type* make_llvm_externc_type( const TxActualType* type, LlvmGenerationContext& context ) const override final;
 };
 
-class TxBoolType : public TxActualType {
+class TxBoolType final : public TxActualType {
 public:
     static const TxBoolTypeClassHandler boolTypeClassHandler;
 
@@ -50,7 +50,7 @@ public:
 };
 
 
-class TxIntegerTypeClassHandler : public TxScalarTypeClassHandler {
+class TxIntegerTypeClassHandler final : public TxScalarTypeClassHandler {
     const bool _sign;
 protected:
     virtual bool auto_converts_to( const TxActualType* type, const TxActualType* dest ) const override {
@@ -81,21 +81,10 @@ public:
                    int size, bool sign )
             : TxConcreteScalarType( new TxIntegerTypeClassHandler( size, sign ), declaration, baseTypeNode, interfaceNodes) {
     }
-
-
-//    virtual bool auto_converts_to( const TxActualType& destination ) const override {
-//        if ( const TxIntegerType* destInt = dynamic_cast<const TxIntegerType*>( &destination ) ) {
-//            if ( this->sign == destInt->sign )
-//                return this->_size <= destInt->_size;
-//            else
-//                return destInt->sign && this->_size < destInt->_size;
-//        }
-//        return false;
-//    }
 };
 
 
-class TxFloatingTypeClassHandler : public TxScalarTypeClassHandler {
+class TxFloatingTypeClassHandler final : public TxScalarTypeClassHandler {
 protected:
     virtual bool auto_converts_to( const TxActualType* type, const TxActualType* dest ) const override {
         if ( auto destHandler = dynamic_cast<const TxFloatingTypeClassHandler*>( dest->type_class_handler() ) )
@@ -117,10 +106,4 @@ public:
                     int size )
             : TxConcreteScalarType( new TxFloatingTypeClassHandler( size ), declaration, baseTypeNode, interfaceNodes ) {
     }
-
-//    virtual bool auto_converts_to( const TxActualType& destination ) const override {
-//        if ( const TxFloatingType* destFloat = dynamic_cast<const TxFloatingType*>( &destination ) )
-//            return this->_size <= destFloat->_size;
-//        return false;
-//    }
 };

@@ -92,7 +92,8 @@ array_stack_construction( i : UByte ) {
     a44 := MyFA( [ 1.1, 2.2 ] );
 
 
-## TODO: support partial initialization of explicitly typed array literals (relevant iff modifiable assignee)
+## FUTURE: support partial initialization of explicitly typed array literals
+## (should be seen as array type conversion constructors)
     ##a45 := [2]Int( [ 10I ] );
     #experr 1: ae := [3]Int( 1 );
     #experr 1: ae := [3]Int( 1, 2 );

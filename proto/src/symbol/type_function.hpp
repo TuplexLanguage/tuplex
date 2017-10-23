@@ -40,15 +40,6 @@ class TxFunctionType : public TxActualType {
     TxActualType const * const returnType;
 
 protected:
-//    virtual TxFunctionType* make_specialized_type( const TxTypeDeclaration* declaration, const TxActualType* baseType,
-//                                                   bool mutableType, const std::vector<const TxActualType*>& interfaces ) const override {
-//        // Note: Only for equivalent derivations - e.g. empty, 'modifiable', and GENPARAM constraints.
-//        if ( auto funcBaseType = dynamic_cast<const TxFunctionType*>( baseType ) )
-//            return new TxFunctionType( declaration, baseType, funcBaseType->argumentTypes,
-//                                       funcBaseType->returnType, funcBaseType->modifiableClosure );
-//        throw std::logic_error( "Specified a base type for TxFunctionType that was not a TxFunctionType: " + baseType->str() );
-//    }
-
     TxFunctionType( const TxTypeClassHandler* typeClassHandler, const TxTypeDeclaration* declaration, const TxActualType* baseType,
                     const std::vector<const TxActualType*>& argumentTypes,
                     const TxActualType* returnType,
@@ -107,22 +98,7 @@ protected:
 
 
 
-class TxConstructorType : public TxFunctionType {
-    const TxTypeDeclaration* objTypeDeclaration;
-    public:
-    TxConstructorType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*> argumentTypes,
-                       const TxTypeDeclaration* objTypeDeclaration )
-            : TxFunctionType( declaration, baseType, argumentTypes, true ), objTypeDeclaration( objTypeDeclaration ) {
-    }
-
-    const TxTypeDeclaration* get_constructed_type_decl() const {
-        return this->objTypeDeclaration;
-    }
-};
-
-
-
-class TxExternCFunctionTypeClassHandler : public TxFunctionTypeClassHandler {
+class TxExternCFunctionTypeClassHandler final : public TxFunctionTypeClassHandler {
 public:
     TxExternCFunctionTypeClassHandler() : TxFunctionTypeClassHandler()  { }
 
@@ -132,13 +108,28 @@ public:
     virtual llvm::Type* make_llvm_externc_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
 };
 
-class TxExternCFunctionType : public TxFunctionType {
+class TxExternCFunctionType final : public TxFunctionType {
 public:
     static const TxExternCFunctionTypeClassHandler externcfuncTypeClassHandler;
 
     TxExternCFunctionType( const TxTypeDeclaration* declaration, const TxActualType* baseType,
                            const std::vector<const TxActualType*>& argumentTypes, const TxActualType* returnType )
             : TxFunctionType( &externcfuncTypeClassHandler, declaration, baseType, argumentTypes, returnType, false ) {
+    }
+};
+
+
+
+class TxConstructorType final : public TxFunctionType {
+    const TxTypeDeclaration* objTypeDeclaration;
+    public:
+    TxConstructorType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const std::vector<const TxActualType*> argumentTypes,
+                       const TxTypeDeclaration* objTypeDeclaration )
+            : TxFunctionType( declaration, baseType, argumentTypes, true ), objTypeDeclaration( objTypeDeclaration ) {
+    }
+
+    const TxTypeDeclaration* get_constructed_type_decl() const {
+        return this->objTypeDeclaration;
     }
 };
 
@@ -159,7 +150,7 @@ public:
     virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const = 0;
 };
 
-class TxBuiltinDefaultConstructorType : public TxInlineFunctionType {
+class TxBuiltinDefaultConstructorType final : public TxInlineFunctionType {
     TxExpressionNode* initValueExpr;
     public:
     TxBuiltinDefaultConstructorType( const TxTypeDeclaration* declaration, const TxActualType* baseType,
@@ -174,7 +165,7 @@ class TxBuiltinDefaultConstructorType : public TxInlineFunctionType {
     }
 };
 
-class TxBuiltinConversionFunctionType : public TxInlineFunctionType {
+class TxBuiltinConversionFunctionType final : public TxInlineFunctionType {
 public:
     TxBuiltinConversionFunctionType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const TxActualType* argumentType,
                                      const TxActualType* returnType )
@@ -184,7 +175,7 @@ public:
     virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;
 };
 
-class TxBuiltinArrayInitializerType : public TxInlineFunctionType {
+class TxBuiltinArrayInitializerType final : public TxInlineFunctionType {
 public:
     TxBuiltinArrayInitializerType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const TxActualType* argumentType,
                                    const TxActualType* returnType )

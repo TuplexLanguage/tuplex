@@ -55,14 +55,17 @@ TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, TxQualTypeEx
 }
 
 TxQualType TxFilledArrayLitNode::define_type( TxPassInfo passInfo ) {
-    const TxActualType* expectedArgType;
+    TxQualType expectedArgQType;
     const TxActualType* arrayType = nullptr;
+
+    auto elemTypeNode = this->elementTypeNode;
+    if ( !elemTypeNode ) {
+        elemTypeNode = new TxTypeTypeArgumentNode( new TxQualTypeExprNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) ) );
+        run_declaration_pass( elemTypeNode, this, "elem-type" );
+    }
+    TxQualType elemQType = elemTypeNode->typeExprNode->resolve_type( passInfo );
+
     if ( this->capacityExpr ) {
-        auto elemTypeNode = this->elementTypeNode;
-        if ( !elemTypeNode ) {
-            elemTypeNode = new TxTypeTypeArgumentNode( new TxQualTypeExprNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) ) );
-            run_declaration_pass( elemTypeNode, this, "elem-type" );
-        }
         this->capacityExpr->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
         auto capacityNode = new TxValueTypeArgumentNode( this->capacityExpr );
         capacityNode->node_declaration_pass( this );
@@ -72,10 +75,10 @@ TxQualType TxFilledArrayLitNode::define_type( TxPassInfo passInfo ) {
              && get_reinterpretation_degree( this->elemExprList->front()->originalExpr, arrayType ) >= 0 ) {
             // treat as array to array assignment
             this->_directArrayArg = true;
-            expectedArgType = arrayType;
+            expectedArgQType = arrayType;
         }
         else {
-            expectedArgType = elemExprList->front()->originalExpr->resolve_type( passInfo ).type();
+            expectedArgQType = elemQType;
         }
     }
     else {
@@ -92,29 +95,23 @@ TxQualType TxFilledArrayLitNode::define_type( TxPassInfo passInfo ) {
                         // concrete array capacity - treat as array to array assignment
                         this->_directArrayArg = true;
                         arrayType = singleArgType;
-                        expectedArgType = arrayType;
+                        expectedArgQType = arrayType;
                     }
                 }
             }
         }
 
         if ( !arrayType ) {
-            auto elemTypeNode = this->elementTypeNode;
-            if ( !elemTypeNode ) {
-                elemTypeNode = new TxTypeTypeArgumentNode( new TxQualTypeExprNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) ) );
-                run_declaration_pass( elemTypeNode, this, "elem-type" );
-            }
             auto tmpcapacityExpr = new TxIntegerLitNode( this->ploc, elemExprList->size(), false, ARRAY_SUBSCRIPT_TYPE_ID );
             auto capacityNode = new TxValueTypeArgumentNode( tmpcapacityExpr );
             run_declaration_pass( capacityNode, this, "capacity" );
             arrayType = this->registry().get_array_type( this, elemTypeNode, capacityNode );
-            expectedArgType = elemTypeNode->typeExprNode->resolve_type( passInfo ).type(); //arrayEntType->element_type().type();
-
+            expectedArgQType = elemQType;
         }
     }
 
     for ( auto elemExpr : *this->elemExprList )
-        elemExpr->insert_conversion( passInfo, expectedArgType );
+        elemExpr->insert_conversion( passInfo, expectedArgQType );
     return arrayType;
 }
 
@@ -132,12 +129,7 @@ void TxFilledArrayLitNode::resolution_pass() {
 void TxFilledArrayLitNode::verification_pass() const {
     if ( this->capacityExpr && this->capacityExpr->attempt_qtype() ) {
         if ( this->capacityExpr->is_statically_constant() ) {
-            if ( this->elemExprList->size() == 1
-                 && this->elemExprList->front()->attempt_qtype()
-                 && this->elemExprList->front()->attempt_qtype()->is_assignable_to( *this->qtype() ) ) {
-                // array to array assignment
-            }
-            else if ( eval_unsigned_int_constant( this->capacityExpr ) != this->elemExprList->size() )
+            if ( !this->_directArrayArg && eval_unsigned_int_constant( this->capacityExpr ) != this->elemExprList->size() )
                 CERROR( this, "Capacity expression of array literal equals " << eval_unsigned_int_constant( this->capacityExpr )
                         << ", but number of elements is " << this->elemExprList->size() );
         }

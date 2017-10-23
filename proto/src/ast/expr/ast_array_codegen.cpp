@@ -29,44 +29,23 @@ Value* TxFilledArrayLitNode::code_gen_dyn_value( LlvmGenerationContext& context,
         return this->elemExprList->front()->code_gen_dyn_value( context, scope );
     }
 
-    {
-        Type* arrayObjT = context.get_llvm_type( this->qtype() );
-        Value* arrayObjV = UndefValue::get( arrayObjT );
-        auto capacityC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->elemExprList->size() );
-        arrayObjV = scope->builder->CreateInsertValue( arrayObjV, capacityC, 0 );
-        arrayObjV = scope->builder->CreateInsertValue( arrayObjV, capacityC, 1 );  // length equals capacity
+    Type* arrayObjT = context.get_llvm_type( this->qtype() );
+    Value* arrayObjV = UndefValue::get( arrayObjT );
+    auto capacityC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->elemExprList->size() );
+    arrayObjV = scope->builder->CreateInsertValue( arrayObjV, capacityC, 0 );
+    arrayObjV = scope->builder->CreateInsertValue( arrayObjV, capacityC, 1 );  // length equals capacity
 
-        if ( this->elemExprList->empty() ) {
-            Constant* emptyArrayC = ConstantArray::get( cast<ArrayType>( arrayObjT->getContainedType( 2 ) ), ArrayRef<Constant*>() );
-            arrayObjV = scope->builder->CreateInsertValue( arrayObjV, emptyArrayC, 2 );
+    if ( this->elemExprList->empty() ) {
+        Constant* emptyArrayC = ConstantArray::get( cast<ArrayType>( arrayObjT->getContainedType( 2 ) ), ArrayRef<Constant*>() );
+        arrayObjV = scope->builder->CreateInsertValue( arrayObjV, emptyArrayC, 2 );
+    }
+    else {
+        for ( unsigned i = 0; i < this->elemExprList->size(); i++ ) {
+            auto elemV = this->elemExprList->at( i )->code_gen_dyn_value( context, scope );
+            arrayObjV = scope->builder->CreateInsertValue( arrayObjV, elemV, std::vector<unsigned>( { 2, i } ) );
         }
-        else {
-            for ( unsigned i = 0; i < this->elemExprList->size(); i++ ) {
-                auto elemV = this->elemExprList->at( i )->code_gen_dyn_value( context, scope );
-                arrayObjV = scope->builder->CreateInsertValue( arrayObjV, elemV, std::vector<unsigned>( { 2, i } ) );
-            }
-        }
-        return arrayObjV;
     }
-
-    /*
-    Value* arrayPtrV = this->get_type()->type()->gen_alloca( context, scope, "array_lit" );
-    { // initialize length field:
-        Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
-        auto lenField = scope->builder->CreateInBoundsGEP( arrayPtrV, ixs );
-        auto lenVal = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->elemExprList->size() );
-        scope->builder->CreateStore( lenVal, lenField );
-    }
-    for ( unsigned i = 0; i < this->elemExprList->size(); i++ ) {
-        Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
-                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), i ) };
-        auto elemAddr = scope->builder->CreateInBoundsGEP( arrayPtrV, ixs );
-        scope->builder->CreateStore( this->elemExprList->at( i )->code_gen_value( context, scope ), elemAddr );
-    }
-    return arrayPtrV;
-    */
+    return arrayObjV;
 }
 
 Constant* TxFilledArrayLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {

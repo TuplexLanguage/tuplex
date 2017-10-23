@@ -452,7 +452,7 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
 
     std::string newTypeNameStr;
     const std::vector<const TxTypeArgumentNode*>* bindingsPtr;
-#define FOODEF
+//#define FOODEF
 #ifdef FOODEF
     newTypeNameStr = valueSpecTypeName.str();
     bindingsPtr = &bindings;

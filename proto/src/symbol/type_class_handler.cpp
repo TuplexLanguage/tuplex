@@ -45,42 +45,42 @@ bool TxTypeClassHandler::auto_converts_to( const TxActualType* type, const TxAct
 
 /*=== Array and Reference handlers ===*/
 
-bool TxArrayTypeClassHandler::auto_converts_to( const TxActualType* type, const TxActualType* destination ) const {
-    if ( this != destination->type_class_handler() )
-        return false;
-    if ( this->inner_equals( type, destination ) )
-        return true;
-
-    // (Array conversion check is stricter than array assignability check, since array assignment code will check
-    // lengths in runtime, whereas e.g. ref-to-array conversions can't provide that guarantee.)
-    // if origin has unbound type params that destination does not, origin is more generic and can't be converted to destination
-    if ( auto toElem = destination->element_type() ) {
-        if ( auto fromElem = type->element_type() ) {
-            // note: is-a test insufficient for array elements, since assignable type (same instance data type) required
-            if ( !fromElem->is_assignable_to( *toElem ) )
-                return false;
-        }
-        else
-            return false;  // origin has not bound E
-    }
-    if ( auto lenExpr = destination->capacity() ) {
-        if ( auto fromLenExpr = type->capacity() ) {
-            return ( lenExpr->is_statically_constant() && fromLenExpr->is_statically_constant()
-                     && ( eval_unsigned_int_constant( lenExpr ) == eval_unsigned_int_constant( fromLenExpr ) ) );
-        }
-        else
-            return false;  // origin has not bound C
-    }
-    return true;
-}
+//bool TxArrayTypeClassHandler::auto_converts_to( const TxActualType* type, const TxActualType* destination ) const {
+//    if ( this != destination->type_class_handler() )
+//        return false;
+//    if ( this->inner_equals( type, destination ) )
+//        return true;
+//
+//    // if origin has unbound type params that destination does not, origin is more generic and can't be converted to destination
+//    if ( auto toElem = destination->element_type() ) {
+//        if ( auto fromElem = type->element_type() ) {
+//            // note: is-a test insufficient for array elements, since assignable type (same instance data type) required
+//            if ( !fromElem->is_assignable_to( *toElem ) )
+//                return false;
+//        }
+//        else
+//            return false;  // origin has not bound E
+//    }
+//    if ( auto lenExpr = destination->capacity() ) {
+//        if ( auto fromLenExpr = type->capacity() ) {
+//            return ( lenExpr->is_statically_constant() && fromLenExpr->is_statically_constant()
+//                     && ( eval_unsigned_int_constant( lenExpr ) == eval_unsigned_int_constant( fromLenExpr ) ) );
+//        }
+//        else
+//            return false;  // origin has not bound C
+//    }
+//    return true;
+//}
 
 bool TxArrayTypeClassHandler::inner_is_assignable_to( const TxActualType* type, const TxActualType* destination ) const {
     ASSERT( destination->get_type_class() == TXTC_ARRAY, "destination not an array: " << destination );
     if ( this->inner_equals( type, destination ) )
         return true;
 
-    // This implementation assumes that if lengths/capacities are not statically known, code will be generated
-    // that checks this in runtime.
+    // This check is strict and requires statically verifiable assignability.
+    // (e.g. ref-to-array conversions need that guarantee)
+    // If origin has unbound type params that destination does not, origin is more generic and can't be converted to destination.
+    // (For assignments where lengths/capacities are not statically known, code must be generated to check this in runtime.)
     if ( auto toElem = destination->element_type() ) {
         if ( auto fromElem = type->element_type() ) {
             // note: is-a test insufficient for array elements, since assignable type (same instance data type) required
@@ -92,15 +92,12 @@ bool TxArrayTypeClassHandler::inner_is_assignable_to( const TxActualType* type, 
     }
     if ( auto lenExpr = destination->capacity() ) {
         if ( auto fromLenExpr = type->capacity() ) {
-            if ( lenExpr->is_statically_constant() && fromLenExpr->is_statically_constant() ) {
-                // TODO: ideally we should check source Length instead of source Capacity
-                return ( eval_unsigned_int_constant( lenExpr ) >= eval_unsigned_int_constant( fromLenExpr ) );
-            }
-            else
-                return true;  // dynamic capacities must be checked in runtime
+            // TODO: ideally we should check source Length instead of source Capacity
+            return ( lenExpr->is_statically_constant() && fromLenExpr->is_statically_constant()
+                     && ( eval_unsigned_int_constant( lenExpr ) == eval_unsigned_int_constant( fromLenExpr ) ) );
         }
         else
-            return true;  // origin has not bound C, dynamic capacities must be checked in runtime
+            return false;  // origin has not bound C, dynamic capacities must be checked in runtime
     }
     return true;
 }
