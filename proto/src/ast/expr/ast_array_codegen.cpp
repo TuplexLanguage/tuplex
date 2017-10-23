@@ -30,8 +30,6 @@ Value* TxFilledArrayLitNode::code_gen_dyn_value( LlvmGenerationContext& context,
     }
 
     {
-        ASSERT( scope, "Expected non-constant array literal to be codegen'd within a scope: " << this );
-        //Type* arrayObjT = this->get_type()->type()->make_llvm_type( context );
         Type* arrayObjT = context.get_llvm_type( this->qtype() );
         Value* arrayObjV = UndefValue::get( arrayObjT );
         auto capacityC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->elemExprList->size() );

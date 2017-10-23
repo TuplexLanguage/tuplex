@@ -23,7 +23,7 @@
 
 /** the flags that may be inherited when specializing a type */
 static const TxDeclarationFlags DECL_FLAG_FILTER = TXD_VIRTUAL | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_FINAL | TXD_IMPLICIT
-                                                   | TXD_EXPERRBLOCK;
+                                                   | TXD_EXPERROR;
 
 Logger& TypeRegistry::_LOG = Logger::get( "REGISTRY" );
 
@@ -59,7 +59,7 @@ void TypeRegistry::integrate_types( bool expectOnlyRefs ) {
                 LOG( this->LOGGER(), WARN, "Integrating non-ref type: " << type << " from " << type->get_declaration()->get_definer() );
         }
         catch ( const resolution_error& err ) {
-            if ( type->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK )
+            if ( type->get_declaration()->get_decl_flags() & TXD_EXPERROR )
                 LOG_DEBUG( this->LOGGER(), "Caught resolution error integrating ExpErr-type " << type << ": " << err );
             else {
                 CERROR( type, "Caught resolution error integrating type " << type << ": " << err );
@@ -114,7 +114,7 @@ void TypeRegistry::prepare_types() {
             LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr context as runtime type: " << type);
             continue;
         }
-        if ( type->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK ) {
+        if ( type->get_declaration()->get_decl_flags() & TXD_EXPERROR ) {
             // there shouldn't be a TXD_EXPERRBLOCK declaration without exp-err-ctx set unless it is declared within a reinterpreted construct:
             ASSERT( type->get_declaration()->get_definer()->context().is_reinterpretation(),
                     "Unexpected TXD_EXPERRBLOCK flag in non-reinterpreted type "<< type );
@@ -309,7 +309,6 @@ static TxActualType* matches_existing_specialization( const TxActualType* genBas
             auto valueBinding = static_cast<const TxValueTypeArgumentNode*>( binding );
             if ( auto existingFieldDecl = dynamic_cast<const TxFieldDeclaration*>( existingSpecBindings.at( ix ) ) ) {
                 // to match, both need to be statically constant and with equal value
-                ASSERT( valueBinding->valueExprNode, "valueBinding->valueExprNode is null for " << existingSpecSymbol );
                 if ( auto existingInitializer = existingFieldDecl->get_definer()->get_init_expression() ) {
                     if ( valueBinding->valueExprNode->is_statically_constant() && existingInitializer->is_statically_constant() ) {
                         auto actType = valueBinding->valueExprNode->qtype().type();
@@ -335,7 +334,7 @@ static TxActualType* matches_existing_specialization( const TxActualType* genBas
 }
 
 static TxActualType* get_existing_type( const TxActualType* genBaseType, const std::vector<const TxTypeArgumentNode*>& bindings,
-                                        TxScopeSymbol* baseScope, const std::string& newBaseName, bool mutableType ) {
+                                        TxScopeSymbol* baseScope, const std::string& newBaseName, bool expError, bool mutableType ) {
     auto & baseTypeParams = genBaseType->get_type_params();
     if ( bindings.size() <= baseTypeParams.size() ) {
         // if generic type specialization is equivalent to the generic base type, reuse it:
@@ -376,7 +375,9 @@ static TxActualType* get_existing_type( const TxActualType* genBaseType, const s
             existingSpecDeclI != genBaseType->get_declaration()->get_symbol()->type_spec_cend();
             existingSpecDeclI++ ) {
         auto existingType = (*existingSpecDeclI)->get_definer()->qtype().type();
-        if ( existingType->is_mutable() == mutableType && existingType->get_bindings().size() == bindings.size() )
+        if ( existingType->is_mutable() == mutableType
+                && bool( existingType->get_decl_flags() & TXD_EXPERROR ) == expError
+                && existingType->get_bindings().size() == bindings.size() )
             if ( auto matchingType = matches_existing_specialization( genBaseType, existingType, bindings ) )
                 return matchingType;
     }
@@ -393,7 +394,7 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
     auto baseDecl = genBaseType->get_declaration();
 
     // Note: The same generic type specialization may be produced by multiple statements,
-    //       both within ExpErr constructs and without. Therefore the type name must distinguish between them.
+    //       both within ExpErr constructs and without, so we must distinguish between them.
     // If either the generic type or its specialization site is defined within an exp-err-context,
     // the specialization inherits that exp-err-context:
     ExpectedErrorClause* expErrCtx = definer->exp_err_ctx();
@@ -403,10 +404,6 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
     std::stringstream typeSpecTypeName;
     if ( expErrCtx )
         typeSpecTypeName << "$EE$";
-    if ( mutableType ) { //&& baseType->get_type_class() != TXTC_REFERENCE && baseType->get_type_class() != TXTC_INTERFACE ) {
-        // (References and interfaces are always mutable, don't distinguish them be name)
-        typeSpecTypeName << "M$";  // distinguish mutable and immutable specializations by name
-    }
     typeSpecTypeName << trim_base_type_name( baseDecl->get_unique_name() );
     std::stringstream valueSpecTypeName;
     valueSpecTypeName << typeSpecTypeName.str();
@@ -454,28 +451,35 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
     valueSpecTypeName << ">";
 
     std::string newTypeNameStr;
+    const std::vector<const TxTypeArgumentNode*>* bindingsPtr;
+#define FOODEF
+#ifdef FOODEF
     newTypeNameStr = valueSpecTypeName.str();
-//    if ( !valueBindings.empty() ) {
-//        // This specialization binds VALUE type parameters, so a new base type which binds only the TYPE parameters
-//        // is injected as intermediate base type.
-//        if ( !typeBindings.empty() ) {
-//            baseType = get_inner_type_specialization( definer, baseType, &typeBindings, mutableType );
-//            //std::cerr << "Made intermediate type " << baseType << ";  value spec name='" << newTypeNameStr << "'" << std::endl;
-//        }
-//        bindings = &valueBindings;
-//        newTypeNameStr = valueSpecTypeName.str();
-//        // create shallow type specialization (without a distinct AST copy and code-generation) with explicit (unique) name
-//    }
-//    else
-//        newTypeNameStr = typeSpecTypeName.str();
-
+    bindingsPtr = &bindings;
+#else
+    if ( !valueBindings.empty() ) {
+        // This specialization binds VALUE type parameters, so a new base type which binds only the TYPE parameters
+        // is injected as intermediate base type.
+        if ( !typeBindings.empty() ) {
+            genBaseType = get_inner_type_specialization( definer, genBaseType, typeBindings, mutableType );
+            //std::cerr << "Made intermediate type " << baseType << ";  value spec name='" << newTypeNameStr << "'" << std::endl;
+        }
+        newTypeNameStr = valueSpecTypeName.str();
+        bindingsPtr = &valueBindings;
+        // create shallow type specialization (without a distinct AST copy and code-generation) with explicit (unique) name
+    }
+    else {
+        newTypeNameStr = typeSpecTypeName.str();
+        bindingsPtr = &bindings;
+    }
+#endif
     //LOG_DEBUG( this->LOGGER(), "Specializing generic type " << baseDecl << " as " << newTypeNameStr );
 
     // if equivalent specialized type already exists then reuse it, otherwise create new one:
     auto baseScope = baseDecl->get_symbol()->get_outer();
-    auto specializedType = get_existing_type( genBaseType, bindings, baseScope, newTypeNameStr, mutableType );
+    auto specializedType = get_existing_type( genBaseType, *bindingsPtr, baseScope, newTypeNameStr, expErrCtx, mutableType );
     if ( !specializedType ) {
-        specializedType = make_type_specialization( definer, genBaseType, bindings, expErrCtx, newTypeNameStr, mutableType );
+        specializedType = make_type_specialization( definer, genBaseType, *bindingsPtr, expErrCtx, newTypeNameStr, mutableType );
     }
     return specializedType;
 }
@@ -491,7 +495,7 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
     TxDeclarationFlags newDeclFlags;
 
     if ( expErrCtx )
-        newDeclFlags = ( baseDecl->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT | TXD_EXPERRBLOCK;
+        newDeclFlags = ( baseDecl->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT | TXD_EXPERROR;
     else
         newDeclFlags = ( baseDecl->get_decl_flags() & DECL_FLAG_FILTER ) | TXD_IMPLICIT;
 
@@ -608,16 +612,28 @@ TxActualType* TypeRegistry::instantiate_type( const TxTypeResolvingNode* definer
 
 TxActualType* TypeRegistry::get_reference_type( TxTypeResolvingNode* definer, const TxTypeTypeArgumentNode* targetTypeBinding,
                                                 const TxIdentifier* dataspace ) {
-    return this->get_inner_type_specialization( definer, this->get_builtin_type( TXBT_REFERENCE ), { targetTypeBinding }, true );
+    auto baseType = this->get_builtin_type( TXBT_REFERENCE );
+    auto type = this->get_inner_type_specialization( definer, baseType,
+                                                     { targetTypeBinding }, true );
+    type->set_type_class( baseType->type_class_handler() );
+    return type;
 }
 
 TxActualType* TypeRegistry::get_array_type( TxTypeResolvingNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding,
                                             const TxValueTypeArgumentNode* capBinding, bool mutableType ) {
-    return this->get_inner_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), { elemTypeBinding, capBinding }, mutableType );
+    auto baseType = this->get_builtin_type( TXBT_ARRAY );
+    auto type = this->get_inner_type_specialization( definer, baseType,
+                                                     { elemTypeBinding, capBinding }, mutableType );
+    type->set_type_class( baseType->type_class_handler() );
+    return type;
 }
 
 TxActualType* TypeRegistry::get_array_type( TxTypeResolvingNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding, bool mutableType ) {
-    return this->get_inner_type_specialization( definer, this->get_builtin_type( TXBT_ARRAY ), { elemTypeBinding }, mutableType );
+    auto baseType = this->get_builtin_type( TXBT_ARRAY );
+    auto type = this->get_inner_type_specialization( definer, baseType,
+                                                     { elemTypeBinding }, mutableType );
+    type->set_type_class( baseType->type_class_handler() );
+    return type;
 }
 
 TxActualType* TypeRegistry::get_function_type( const TxTypeDeclaration* declaration, const std::vector<const TxActualType*>& argumentTypes,

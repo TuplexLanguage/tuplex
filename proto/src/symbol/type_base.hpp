@@ -146,8 +146,6 @@ class TxActualType : public TxEntity { //public virtual TxParseOrigin, public Pr
     /** If true, this type is mutable, in which case its instances may be declared modifiable. */
     const bool mutableType;
 
-//    const TxTypeDeclaration* declaration;
-
     /** Type parameters of this type. Should not be accessed directly, use type_params() accessor instead. */
     std::vector<const TxEntityDeclaration*> params;
 

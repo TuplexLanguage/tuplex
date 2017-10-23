@@ -19,7 +19,7 @@ enum TxDeclarationFlags {
     TXD_GENBINDING = 1 << 10,
     TXD_CONSTRUCTOR = 1 << 11,
     TXD_INITIALIZER = 1 << 12,
-    TXD_EXPERRBLOCK = 1 << 13,
+    TXD_EXPERROR = 1 << 13,
 };
 
 inline TxDeclarationFlags operator|( TxDeclarationFlags a, TxDeclarationFlags b ) {
@@ -55,7 +55,7 @@ inline std::string to_string( TxDeclarationFlags flags ) {
              ( flags & TXD_GENBINDING ) ? 'B' : '-',
              ( flags & TXD_CONSTRUCTOR ) ? 'C' : '-',
              ( flags & TXD_INITIALIZER ) ? 'i' : '-',
-             ( flags & TXD_EXPERRBLOCK ) ? 'E' : '-' );
+             ( flags & TXD_EXPERROR ) ? 'E' : '-' );
     return std::string( buf );
 }
 

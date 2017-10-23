@@ -66,15 +66,17 @@ TxQualType TxFilledArrayLitNode::define_type( TxPassInfo passInfo ) {
         this->capacityExpr->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
         auto capacityNode = new TxValueTypeArgumentNode( this->capacityExpr );
         capacityNode->node_declaration_pass( this );
-        expectedArgType = this->registry().get_array_type( this, elemTypeNode, capacityNode );
-        arrayType = expectedArgType;
+        arrayType = this->registry().get_array_type( this, elemTypeNode, capacityNode );
+        const_cast<TxActualType*>(arrayType)->integrate();
         if ( this->elemExprList->size() == 1
-             && get_reinterpretation_degree( this->elemExprList->front()->originalExpr, expectedArgType ) >= 0 ) {
+             && get_reinterpretation_degree( this->elemExprList->front()->originalExpr, arrayType ) >= 0 ) {
             // treat as array to array assignment
             this->_directArrayArg = true;
+            expectedArgType = arrayType;
         }
-        else
-            expectedArgType = arrayType->element_type().type();
+        else {
+            expectedArgType = elemExprList->front()->originalExpr->resolve_type( passInfo ).type();
+        }
     }
     else {
         if ( this->elemExprList->size() == 1 ) {
@@ -105,9 +107,8 @@ TxQualType TxFilledArrayLitNode::define_type( TxPassInfo passInfo ) {
             auto tmpcapacityExpr = new TxIntegerLitNode( this->ploc, elemExprList->size(), false, ARRAY_SUBSCRIPT_TYPE_ID );
             auto capacityNode = new TxValueTypeArgumentNode( tmpcapacityExpr );
             run_declaration_pass( capacityNode, this, "capacity" );
-            auto arrayEntType = this->registry().get_array_type( this, elemTypeNode, capacityNode );
-            arrayType = arrayEntType;
-            expectedArgType = arrayEntType->element_type().type();
+            arrayType = this->registry().get_array_type( this, elemTypeNode, capacityNode );
+            expectedArgType = elemTypeNode->typeExprNode->resolve_type( passInfo ).type(); //arrayEntType->element_type().type();
 
         }
     }

@@ -161,7 +161,7 @@ void TxFunctionTypeNode::typeexpr_declaration_pass() {
         if ( auto enclFieldDefNode = this->enclosing_node<TxFieldDefiningNode>() ) {
             fieldFlags = enclFieldDefNode->get_declaration()->get_decl_flags();
         }
-        TxDeclarationFlags inheritedFlagsFilter = TXD_EXTERNC | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_EXPERRBLOCK;
+        TxDeclarationFlags inheritedFlagsFilter = TXD_EXTERNC | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_EXPERROR;
         TxDeclarationFlags flags = ( fieldFlags & inheritedFlagsFilter ) | TXD_IMPLICIT;
         std::string funcTypeName = lexContext.scope()->make_unique_name( "$Ftype", true );
         auto declaration = lexContext.scope()->declare_type( funcTypeName, this, flags );

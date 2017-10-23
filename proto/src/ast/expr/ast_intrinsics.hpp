@@ -94,7 +94,9 @@ public:
     }
 
     virtual bool is_statically_constant() const override final {
-        return true;
+        if ( auto qtype = typeExpr->attempt_qtype() )
+            return qtype->has_runtime_type_id();  // only true after type preparation & id has been assigned
+        return false;
     }
 
     virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override;

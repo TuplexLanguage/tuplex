@@ -90,7 +90,7 @@ public:
 
     /** Returns false if this function type's return type is Void. */
     bool has_return_value() const override {
-        return this->returnType->get_type_class() != TXTC_VOID;
+        return !this->returnType->is_builtin( TXBT_VOID );
     }
 
 protected:

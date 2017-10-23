@@ -134,10 +134,10 @@ public:
     TxDeclarationNode* body;
 
     TxExpErrDeclNode( const TxLocation& ploc, ExpectedErrorClause* expError, TxDeclarationNode* body )
-            : TxDeclarationNode( ploc, ( body ? body->get_decl_flags() : TXD_NONE ) | TXD_EXPERRBLOCK ),
+            : TxDeclarationNode( ploc, ( body ? body->get_decl_flags() : TXD_NONE ) | TXD_EXPERROR ),
               expError( expError ), body( body ) {
         if ( body ) {
-            body->declFlags |= TXD_EXPERRBLOCK;
+            body->declFlags |= TXD_EXPERROR;
             if ( dynamic_cast<const TxExpErrDeclNode*>( body ) )
                 CERROR( this, "Can't nest Expected Error constructs in a declaration" );
         }

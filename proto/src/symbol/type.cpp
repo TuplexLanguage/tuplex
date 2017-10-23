@@ -195,7 +195,7 @@ void TxActualType::validate_type() const {
 void TxActualType::examine_members() {
     LOG_TRACE( this->LOGGER(), "Examining members of type " << this );
 
-    ASSERT( this->declaration, "No declaration for actual type " << this );
+    ASSERT( this->get_declaration(), "No declaration for actual type " << this );
 
     auto typeDeclNamespace = this->get_declaration()->get_symbol();
 
@@ -382,7 +382,7 @@ bool TxActualType::inner_prepare_members() {
     LOG_TRACE( this->LOGGER(), "Preparing members of type " << this );
     bool recursionError = false;
 
-    bool expErrWholeType = ( ( this->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK )
+    bool expErrWholeType = ( ( this->get_declaration()->get_decl_flags() & TXD_EXPERROR )
                              || this->get_declaration()->get_definer()->exp_err_ctx() );
 
     if ( !this->is_integrated() ) {
@@ -458,7 +458,7 @@ bool TxActualType::inner_prepare_members() {
             auto fieldDecl = *fieldDeclI;
             auto field = fieldDecl->get_definer()->attempt_field();
 
-            bool expErrField = ( fieldDecl->get_decl_flags() & TXD_EXPERRBLOCK );
+            bool expErrField = ( fieldDecl->get_decl_flags() & TXD_EXPERROR );
             if ( !field ) {
                 if ( expErrField || expErrWholeType )
                     LOG_TRACE( this->LOGGER(), "Skipping preparation of EXPERR unresolved field " << fieldDecl );
@@ -1147,9 +1147,9 @@ std::string TxActualType::str( bool brief ) const {
     std::stringstream str;
     this->self_string( str, brief );
     if ( !brief ) {
-        if ( this->get_type_class() == TXTC_INTERFACE )
+        if ( this->typeClass == TXTC_INTERFACE )
             str << " i/f";
-        else if ( this->get_type_class() == TXTC_INTERFACEADAPTER )
+        else if ( this->typeClass == TXTC_INTERFACEADAPTER )
             str << " i/f/ad";
         if ( this->is_mutable() )
             str << " MUT";
@@ -1175,12 +1175,14 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
         }
 
         if ( this->has_base_type() ) {
-            str << ( this->is_empty_derivation() ? " = " : " : " );
-
-            this->get_semantic_base_type()->self_string( str, false );  // set 'brief' to false to print entire type chain
+            str << ( this->emptyDerivation ? " = " : " : " );
+            if ( auto base = this->genericBaseType ? this->genericBaseType : this->baseType )
+                base->self_string( str, false );  // set 'brief' to false to print entire type chain
+            else
+                str << "-unintegrated-";
         }
     }
-    else if ( this->get_type_class() == TXTC_REFERENCE || this->get_type_class() == TXTC_ARRAY ) {
+    else if ( this->typeClass == TXTC_REFERENCE || this->typeClass == TXTC_ARRAY ) {
         if ( !this->get_bindings().empty() ) {
             type_bindings_string( str, this->get_bindings() );
         }

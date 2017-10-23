@@ -13,7 +13,7 @@ class TxFieldStmtNode : public TxStatementNode {
 
 protected:
     virtual void set_exp_error_stmt() override {
-        this->declFlags = TXD_EXPERRBLOCK;
+        this->declFlags = TXD_EXPERROR;
     }
 
     virtual void stmt_declaration_pass() override {
@@ -51,7 +51,7 @@ public:
 class TxTypeStmtNode : public TxStatementNode {
 protected:
     virtual void set_exp_error_stmt() override {
-        this->typeDecl->declFlags |= TXD_EXPERRBLOCK;
+        this->typeDecl->declFlags |= TXD_EXPERROR;
     }
 
 public:

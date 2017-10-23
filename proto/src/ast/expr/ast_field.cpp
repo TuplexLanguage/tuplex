@@ -67,7 +67,7 @@ const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntit
     for ( auto fieldCandidateI = entitySymbol->fields_cbegin();
             fieldCandidateI != entitySymbol->fields_cend(); fieldCandidateI++ ) {
         const TxFieldDeclaration* fieldDecl = ( *fieldCandidateI );
-        if ( !( fieldDecl->get_decl_flags() & TXD_EXPERRBLOCK ) ) {
+        if ( !( fieldDecl->get_decl_flags() & TXD_EXPERROR ) ) {
             auto field = fieldDecl->get_definer()->resolve_field();
 
             // first screen the fields that are of function type and take the correct number of arguments:
