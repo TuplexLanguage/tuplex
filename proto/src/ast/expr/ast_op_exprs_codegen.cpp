@@ -263,7 +263,7 @@ Value* TxEqualityOperatorNode::code_gen_dyn_value( LlvmGenerationContext& contex
                 && lelemtype->get_runtime_type_id() == relemtype->get_runtime_type_id() ) {
             // statically known that both arrays' elements are the same elementary, concrete types - invoke built-in comparison
             Type* i32T = IntegerType::getInt32Ty( context.llvmContext );
-            StructType* genArrayT = StructType::get( i32T, i32T, ArrayType::get( StructType::get( context.llvmContext ), 0 ), nullptr );
+            StructType* genArrayT = StructType::get( i32T, i32T, ArrayType::get( StructType::get( context.llvmContext ), 0 ) );
             PointerType* genArrayPtrT = PointerType::getUnqual( genArrayT );
             std::vector<Value*> args( { scope->builder->CreatePointerCast( lvalA, genArrayPtrT ),
                                         scope->builder->CreatePointerCast( rvalA, genArrayPtrT ),

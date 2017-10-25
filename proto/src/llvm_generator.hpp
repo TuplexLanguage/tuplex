@@ -98,7 +98,7 @@ public:
         this->voidPtrT = llvm::Type::getInt8PtrTy( this->llvmContext );
         this->closureRefT = TxReferenceTypeClassHandler::make_ref_llvm_type( *this, llvm::Type::getInt8Ty( this->llvmContext ), "ClosRef" );
         this->i32T = llvm::Type::getInt32Ty( this->llvmContext );
-        this->superTypesPtrT = llvm::PointerType::getUnqual( llvm::StructType::get( i32T, i32T, llvm::ArrayType::get( i32T, 0 ), NULL ) );
+        this->superTypesPtrT = llvm::PointerType::getUnqual( llvm::StructType::get( i32T, i32T, llvm::ArrayType::get( i32T, 0 ) ) );
     }
 
     inline llvm::Module& llvmModule() const {

@@ -15,7 +15,7 @@ Value* gen_lambda( LlvmGenerationContext& context, GenScope* scope, Type* lambda
 }
 
 Constant* gen_lambda( LlvmGenerationContext& context, Type* lambdaT, Constant* funcC, Constant* closureRefC ) {
-    auto lambdaC = ConstantStruct::get( cast<StructType>( lambdaT ), funcC, closureRefC, NULL );
+    auto lambdaC = ConstantStruct::get( cast<StructType>( lambdaT ), funcC, closureRefC );
     return lambdaC;
 }
 

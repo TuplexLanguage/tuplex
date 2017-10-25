@@ -89,7 +89,7 @@ Value* TxTypeClassHandler::gen_alloca( const TxActualType* type, LlvmGenerationC
     Type* llvmType = context.get_llvm_type( type );
 
     scope->use_alloca_insertion_point();
-    Value* objPtrV = scope->builder->Insert( new AllocaInst( llvmType, nullptr, aligment ), varName );
+    Value* objPtrV = scope->builder->Insert( new AllocaInst( llvmType, 0, nullptr, aligment ), varName );
     scope->use_current_insertion_point();
 
     this->initialize_specialized_obj( type, context, scope, objPtrV );
@@ -306,7 +306,7 @@ Value* TxArrayTypeClassHandler::gen_alloca( const TxActualType* type, LlvmGenera
     // allocate array object, alignment of 8:
     // NOTE: Can't perform alloca in entry block since dependent on dynamic capacity expression evaluation.
     //allocationPtr = scope->builder->CreateAlloca( Type::getInt8Ty( context.llvmContext ), objectSizeV, "arrayalloca" );
-    Value* allocationPtr = scope->builder->Insert( new AllocaInst( Type::getInt8Ty( context.llvmContext ), objectSizeV, 8 ), "arrayalloca" );
+    Value* allocationPtr = scope->builder->Insert( new AllocaInst( Type::getInt8Ty( context.llvmContext ), 0, objectSizeV, 8 ), "arrayalloca" );
 
     // cast the pointer:
     Type* llvmType = context.get_llvm_type( type );

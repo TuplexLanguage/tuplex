@@ -360,7 +360,7 @@ class TxFunctionTypeDefNode final : public TxBuiltinTypeDefiningNode {
         TxAbstractFunctionTypeClassHandler() : TxTypeClassHandler( TXTC_FUNCTION )  { }
 
         virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override {
-            return llvm::StructType::get( context.get_voidPtrT(), context.get_closureRefT(), NULL );
+            return llvm::StructType::get( context.get_voidPtrT(), context.get_closureRefT() );
         }
     };
 

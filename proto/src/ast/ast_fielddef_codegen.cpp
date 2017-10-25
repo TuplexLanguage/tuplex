@@ -152,7 +152,7 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
 
                 // construct the lambda object (a Tuplex object in Tuplex name space):
                 auto nullClosureRefV = Constant::getNullValue( lambdaT->getStructElementType( 1 ) );
-                auto lambdaC = ConstantStruct::get( lambdaT, extern_c_func, nullClosureRefV, NULL );
+                auto lambdaC = ConstantStruct::get( lambdaT, extern_c_func, nullClosureRefV );
                 this->field()->set_llvm_value( make_constant_nonlocal_field( context, lambdaT, lambdaC, uniqueName ) );
             }
             else {

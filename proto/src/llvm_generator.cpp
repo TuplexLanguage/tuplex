@@ -12,7 +12,7 @@
 #include <llvm/IR/Verifier.h>
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/IRPrintingPasses.h>
-#include <llvm/Bitcode/ReaderWriter.h>
+#include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/TargetRegistry.h>
@@ -177,9 +177,9 @@ static Constant* gen_supertype_ids( LlvmGenerationContext* context, const TxActu
 
     auto int32T = Type::getInt32Ty( context->llvmContext );
     auto typesArrayLenC = ConstantInt::get( int32T, supertypesvec.size() );
-    auto typesArrayT = StructType::get( int32T, int32T, ArrayType::get( int32T, supertypesvec.size() ), NULL );
+    auto typesArrayT = StructType::get( int32T, int32T, ArrayType::get( int32T, supertypesvec.size() ) );
     Constant* typesArrayC = ConstantStruct::get( typesArrayT, typesArrayLenC, typesArrayLenC,
-                                                 ConstantDataArray::get( context->llvmContext, supertypesvec ), NULL );
+                                                 ConstantDataArray::get( context->llvmContext, supertypesvec ) );
     std::string supertypesName( acttype->get_declaration()->get_unique_full_name() + "$supers" );
     GlobalVariable* superTypesC = new GlobalVariable( context->llvmModule(), typesArrayT, true, GlobalValue::ExternalLinkage,
                                                       typesArrayC, supertypesName );
@@ -665,7 +665,7 @@ Value* LlvmGenerationContext::gen_equals_invocation( GenScope* scope, Value* lva
 Value* LlvmGenerationContext::gen_isa( GenScope* scope, Value* refV, Value* typeIdV ) {
     auto refT = TxReferenceTypeClassHandler::make_ref_llvm_type( *this, llvm::StructType::get( this->llvmContext ) );  // ref to Any
     auto isaFuncC = this->llvmModule().getOrInsertFunction( "tx.isa$func", Type::getInt1Ty( this->llvmContext ),
-                                                            this->closureRefT, refT, this->i32T, NULL );
+                                                            this->closureRefT, refT, this->i32T );
     auto castRefV = gen_ref_conversion( *this, scope, refV, refT );
     std::vector<Value*> args( { ConstantStruct::getNullValue( this->closureRefT ), castRefV, typeIdV } );
     return scope->builder->CreateCall( isaFuncC, args, "isa" );
@@ -785,8 +785,7 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
                     "main",
                     this->i32T,
                     this->i32T,
-                    PointerType::getUnqual( PointerType::getUnqual( IntegerType::getInt8Ty( this->llvmContext ) ) ),
-                    NULL ) );
+                    PointerType::getUnqual( PointerType::getUnqual( IntegerType::getInt8Ty( this->llvmContext ) ) ) ) );
     Function::arg_iterator args = mainFunc->arg_begin();
     Value* argcV = &(*args);
     argcV->setName( "argc" );
@@ -833,8 +832,8 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
             auto ixA = builder.CreateAlloca( i32T, nullptr, "ix" );
             builder.CreateStore( ConstantInt::get( i32T, 0 ), ixA );
 
-            auto ubyteArrayT = StructType::get( i32T, i32T, ArrayType::get( i8T, 0 ), NULL );
-            auto ubyteArrayRefT = StructType::get( ubyteArrayT->getPointerTo(), i32T, NULL );
+            auto ubyteArrayT = StructType::get( i32T, i32T, ArrayType::get( i8T, 0 ) );
+            auto ubyteArrayRefT = StructType::get( ubyteArrayT->getPointerTo(), i32T );
             auto argsArrayRefT = cast<StructType>( userMainFunc->getFunctionType()->getParamType( 1 ) );
             auto argsArrayPtrT = argsArrayRefT->getElementType( 0 );
 
@@ -843,7 +842,7 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
                 Value* arrayCap64V = builder.CreateZExtOrBitCast( argcV, i64T );
                 Constant* elemSizeC = ConstantExpr::getSizeOf( ubyteArrayRefT );
                 Value* objectSizeV = gen_compute_array_size( *this, &scope, elemSizeC, arrayCap64V );
-                argsArrayA = builder.CreatePointerCast( builder.Insert( new AllocaInst( i8T, objectSizeV, 8 ) ), argsArrayPtrT, "args" );
+                argsArrayA = builder.CreatePointerCast( builder.Insert( new AllocaInst( i8T, 0, objectSizeV, 8 ) ), argsArrayPtrT, "args" );
                 initialize_array_obj( *this, &scope, argsArrayA, argcV, argcV );
             }
 
@@ -865,7 +864,7 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
                     Value* arrayCap64V = builder.CreateZExtOrBitCast( argCMemLenV, i64T );
                     Constant* elemSizeC = ConstantExpr::getSizeOf( i8T );
                     Value* objectSizeV = gen_compute_array_size( *this, &scope, elemSizeC, arrayCap64V );
-                    Value* argArrayObjA = builder.CreatePointerCast( builder.Insert( new AllocaInst( i8T, objectSizeV, 8 ) ),
+                    Value* argArrayObjA = builder.CreatePointerCast( builder.Insert( new AllocaInst( i8T, 0, objectSizeV, 8 ) ),
                                                                      ubyteArrayT->getPointerTo(), "arg" );
                     initialize_array_obj( *this, &scope, argArrayObjA, argCMemLenV, argCStrLenV );
 
@@ -917,7 +916,7 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
 
 
 void LlvmGenerationContext::declare_builtin_code() {
-    StructType* genArrayT = StructType::get( i32T, i32T, ArrayType::get( StructType::get( this->llvmContext ), 0 ), nullptr );
+    StructType* genArrayT = StructType::get( i32T, i32T, ArrayType::get( StructType::get( this->llvmContext ), 0 ) );
     PointerType* genArrayPtrT = PointerType::getUnqual( genArrayT );
     {
         Function* function = cast<Function>( this->llvmModule().getOrInsertFunction(
@@ -925,8 +924,7 @@ void LlvmGenerationContext::declare_builtin_code() {
                 IntegerType::getInt1Ty( this->llvmContext ), // return value - Bool
                 genArrayPtrT,
                 genArrayPtrT,
-                i32T,
-                NULL ) );
+                i32T ) );
         function->setLinkage( GlobalValue::InternalLinkage );
     }
     {
@@ -936,16 +934,14 @@ void LlvmGenerationContext::declare_builtin_code() {
                 genArrayPtrT,
                 genArrayPtrT,
                 i32T,
-                i32T,
-                NULL ) );
+                i32T ) );
         function->setLinkage( GlobalValue::InternalLinkage );
     }
     {
         Function* function = cast<Function>( this->llvmModule().getOrInsertFunction(
                 "$get_supertypes_array",
                 superTypesPtrT, // return value
-                i32T,           // type id
-                NULL ) );
+                i32T ) );       // type id
         function->setLinkage( GlobalValue::InternalLinkage );
     }
 }
