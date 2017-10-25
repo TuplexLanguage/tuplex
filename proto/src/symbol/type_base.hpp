@@ -143,6 +143,9 @@ class TxActualType : public TxEntity { //public virtual TxParseOrigin, public Pr
     /** The runtime type id of this type. */
     uint32_t runtimeTypeId = UINT32_MAX;
 
+    /** If true, this type and its members is to skip code-generation. */
+    bool suppressCodeGen = false;
+
     /** If true, this type is mutable, in which case its instances may be declared modifiable. */
     const bool mutableType;
 
@@ -310,6 +313,10 @@ public:
      * @return true if a data type recursion has been discovered */
     bool prepare_members();
 
+    /** @return true if this type and its members is to skip code-generation */
+    bool suppress_code_gen() const {
+        return this->suppressCodeGen;
+    }
 
     inline const TxTypeClassHandler* type_class_handler() const {
         ASSERT( this->typeClassHandler, "NULL type class handler in " << this );

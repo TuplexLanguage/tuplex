@@ -79,7 +79,7 @@ public:
     }
 
 
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override;
+    virtual void code_gen_type( LlvmGenerationContext& context ) const override  { }
 
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );

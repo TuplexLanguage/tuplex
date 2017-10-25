@@ -73,10 +73,8 @@ int LlvmGenerationContext::generate_code( const TxTypeDeclNode* staticScopeNode 
     }
 }
 
-bool LlvmGenerationContext::generate_main( const std::string& userMainIdent, const TxActualType* mainFuncType ) {
-    bool ret = ( static_cast<const TxFunctionType*>( mainFuncType )->return_type()->get_type_class() != TXTC_VOID );
-    this->entryFunction = this->gen_main_function( userMainIdent, ret );
-    return this->entryFunction;
+void LlvmGenerationContext::generate_main( const std::string& userMainIdent, const TxActualType* mainFuncType ) {
+    this->entryFunction = this->gen_main_function( userMainIdent, mainFuncType );
 }
 
 void LlvmGenerationContext::initialize_target() {
@@ -176,10 +174,6 @@ static Constant* gen_supertype_ids( LlvmGenerationContext* context, const TxActu
         add_base_types( supertypes, static_cast<const TxInterfaceAdapterType*>(acttype)->adapted_type() );
 
     std::vector<uint32_t> supertypesvec( supertypes.cbegin(), supertypes.cend() );
-//    if ( acttype->get_type_class() == TXTC_INTERFACEADAPTER ) {
-//        std::cerr << "Supertypes of " << acttype << " with id " << acttype->get_runtime_type_id() << std::endl;
-//        for ( auto t : supertypesvec )  std::cerr << "  super type id: " << t << std::endl;
-//    }
 
     auto int32T = Type::getInt32Ty( context->llvmContext );
     auto typesArrayLenC = ConstantInt::get( int32T, supertypesvec.size() );
@@ -461,14 +455,20 @@ llvm::Value* LlvmGenerationContext::gen_malloc( GenScope* scope, Value* sizeV ) 
 /*** runtime type info access ***/
 
 Value* LlvmGenerationContext::gen_get_type_info( GenScope* scope, const TxActualType* statDeclType, Value* runtimeBaseTypeIdV, unsigned fieldIndex ) {
+    //std::cerr << "gen_get_type_info() " << statDeclType << std::endl;
     auto typeInfoC = cast<GlobalVariable>( this->lookup_llvm_value( "tx.runtime.TYPE_INFOS" ) );
     if ( auto baseTypeIdC = dyn_cast<Constant>( runtimeBaseTypeIdV ) ) {
-        //std::cerr << "Getting static type info A of " << statDeclType << std::endl;
+        //std::cerr << "Getting static type info of " << statDeclType << " and constant type id " << baseTypeIdC << std::endl;
+        auto tid = cast<ConstantInt>( baseTypeIdC )->getZExtValue();
+        if ( tid >= this->tuplexPackage.registry().data_types_count() )
+            THROW_LOGIC( "(constant) type id out of bounds (not a data type) in gen_get_type_info(): " << tid );
         return typeInfoC->getInitializer()->getAggregateElement( baseTypeIdC )
                                           ->getAggregateElement( fieldIndex );
     }
     else if ( statDeclType && statDeclType->is_leaf_derivation() ) {
-        //std::cerr << "Getting static type info B of " << statDeclType << std::endl;
+        //std::cerr << "Getting static type info of leaf derivation " << statDeclType << std::endl;
+        if ( statDeclType->get_runtime_type_id() >= this->tuplexPackage.registry().data_types_count() )
+            THROW_LOGIC( "Not a data type in gen_get_type_info(): " << statDeclType );
         return typeInfoC->getInitializer()->getAggregateElement( statDeclType->get_runtime_type_id() )
                                           ->getAggregateElement( fieldIndex );
     }
@@ -778,55 +778,141 @@ Type* LlvmGenerationContext::get_llvm_type( const TxActualType* txType ) {
 /** Add main function so can be fully compiled
  * define i32 @main(i32 %argc, i8 **%argv)
  */
-Function* LlvmGenerationContext::gen_main_function( const std::string userMain, bool hasIntReturnValue ) {
+Function* LlvmGenerationContext::gen_main_function( const std::string userMain, const TxActualType* mainFuncType ) {
     //define i32 @main(i32 %argc, i8 **%argv)
-    Function *main_func = cast<Function>(
+    Function *mainFunc = cast<Function>(
             this->llvmModule().getOrInsertFunction(
                     "main",
                     this->i32T,
                     this->i32T,
                     PointerType::getUnqual( PointerType::getUnqual( IntegerType::getInt8Ty( this->llvmContext ) ) ),
                     NULL ) );
-    {
-        Function::arg_iterator args = main_func->arg_begin();
-        Value *arg_0 = &(*args);
-        arg_0->setName( "argc" );
-        args++;
-        Value *arg_1 = &(*args);
-        arg_1->setName( "argv" );
-        args++;
-    }
-    BasicBlock *bb = BasicBlock::Create( this->llvmContext, "entry", main_func );
+    Function::arg_iterator args = mainFunc->arg_begin();
+    Value* argcV = &(*args);
+    argcV->setName( "argc" );
+    args++;
+    Value* argvA = &(*args);
+    argvA->setName( "argv" );
+
+    BasicBlock *entryBlock = BasicBlock::Create( this->llvmContext, "entry", mainFunc );
+    IRBuilder<> builder( entryBlock );
+    GenScope scope( &builder );
 
 //    // initialize statics / runtime environment
 //    Function *initFunc = this->gen_static_init_function();
-//    CallInst *initCall = CallInst::Create(initFunc, "", bb);
+//    CallInst *initCall = CallInst::Create(initFunc, "", entryBlock);
 //    initCall->setTailCall(false);
 
     //call i32 user main()
     auto userMainFName = userMain + "$func";
-    auto func = this->llvmModule().getFunction( userMainFName );
-    if ( func ) {
+    auto userMainFunc = this->llvmModule().getFunction( userMainFName );
+    if ( userMainFunc ) {
         auto nullClosureRefV = Constant::getNullValue( this->get_closureRefT() );
-        Value* args[] = { nullClosureRefV };
-        CallInst *user_main_call = CallInst::Create( func, args, "", bb );
-        user_main_call->setTailCall( false );
-        user_main_call->setIsNoInline();
-        if ( hasIntReturnValue ) {
+        std::vector<Value*> args = { nullClosureRefV };
+
+        if ( userMainFunc->getFunctionType()->getNumParams() > 1 ) {
+            // provide program string arguments
+
+            auto mainArgsRefType = mainFuncType->argument_types().at( 0 );
+            auto argRefType = mainArgsRefType->target_type()->element_type().type();
+
+            auto i8T = Type::getInt8Ty( this->llvmContext );
+            auto i64T = Type::getInt64Ty( this->llvmContext );
+            auto i8PtrT = i8T->getPointerTo();
+
+            // declare strlen() function:  size_t strlen ( const char * str );
+            Function* strlenFunc = Function::Create( FunctionType::get( i32T, { i8PtrT }, false ),
+                                                     GlobalValue::ExternalLinkage, "strlen", &this->llvmModule() );
+            strlenFunc->setCallingConv( CallingConv::C );
+
+            // declare strcpy() function:  char * strcpy ( char * destination, const char * source );
+            Function* strcpyFunc = Function::Create( FunctionType::get( i8PtrT, std::vector<Type*>( { i8PtrT, i8PtrT } ), false ),
+                                                     GlobalValue::ExternalLinkage, "strcpy", &this->llvmModule() );
+            strlenFunc->setCallingConv( CallingConv::C );
+
+            auto ixA = builder.CreateAlloca( i32T, nullptr, "ix" );
+            builder.CreateStore( ConstantInt::get( i32T, 0 ), ixA );
+
+            auto ubyteArrayT = StructType::get( i32T, i32T, ArrayType::get( i8T, 0 ), NULL );
+            auto ubyteArrayRefT = StructType::get( ubyteArrayT->getPointerTo(), i32T, NULL );
+            auto argsArrayRefT = cast<StructType>( userMainFunc->getFunctionType()->getParamType( 1 ) );
+            auto argsArrayPtrT = argsArrayRefT->getElementType( 0 );
+
+            Value* argsArrayA;
+            {
+                Value* arrayCap64V = builder.CreateZExtOrBitCast( argcV, i64T );
+                Constant* elemSizeC = ConstantExpr::getSizeOf( ubyteArrayRefT );
+                Value* objectSizeV = gen_compute_array_size( *this, &scope, elemSizeC, arrayCap64V );
+                argsArrayA = builder.CreatePointerCast( builder.Insert( new AllocaInst( i8T, objectSizeV, 8 ) ), argsArrayPtrT, "args" );
+                initialize_array_obj( *this, &scope, argsArrayA, argcV, argcV );
+            }
+
+            auto argBlock = BasicBlock::Create( this->llvmContext, "arg", mainFunc );
+            auto postBlock = BasicBlock::Create( this->llvmContext, "post", mainFunc );
+
+            {
+                auto condV = builder.CreateICmpULT( ConstantInt::get( i32T, 0 ), argcV );
+                builder.CreateCondBr( condV, argBlock, postBlock );
+            }
+            {
+                builder.SetInsertPoint( argBlock );
+                auto ixV = builder.CreateLoad( ixA );
+
+                {  // get length of cstring arg, allocate tx byte array, copy content, and write ref to tx args array element:
+                    auto argCStrA = builder.CreateLoad( builder.CreateGEP( argvA, { ixV } ) );
+                    auto argCStrLenV = builder.CreateCall( strlenFunc, { argCStrA } );
+                    auto argCMemLenV = builder.CreateAdd( argCStrLenV, ConstantInt::get( i32T, 1 ) );
+                    Value* arrayCap64V = builder.CreateZExtOrBitCast( argCMemLenV, i64T );
+                    Constant* elemSizeC = ConstantExpr::getSizeOf( i8T );
+                    Value* objectSizeV = gen_compute_array_size( *this, &scope, elemSizeC, arrayCap64V );
+                    Value* argArrayObjA = builder.CreatePointerCast( builder.Insert( new AllocaInst( i8T, objectSizeV, 8 ) ),
+                                                                     ubyteArrayT->getPointerTo(), "arg" );
+                    initialize_array_obj( *this, &scope, argArrayObjA, argCMemLenV, argCStrLenV );
+
+                    auto argByteArrayA = builder.CreateGEP( argArrayObjA, std::vector<Value*>( { ConstantInt::get( i32T, 0 ),
+                                                                                                 ConstantInt::get( i32T, 2 ) } ) );
+                    auto argBytesA = builder.CreatePointerCast( argByteArrayA, i8PtrT );
+                    builder.CreateCall( strcpyFunc, std::vector<Value*>( { argBytesA, argCStrA } ) );
+                    auto argRefV = gen_ref( *this, &scope, argRefType, argArrayObjA );
+                    auto dstIxs = std::vector<Value*>( { ConstantInt::get( i32T, 0 ), ConstantInt::get( i32T, 2 ), ixV } );
+                    builder.CreateStore( argRefV, builder.CreateGEP( argsArrayA, dstIxs ) );
+                }
+
+                // increment index and iterate/exit:
+                auto ixV1 = builder.CreateAdd( ixV, ConstantInt::get( i32T, 1 ) );
+                builder.CreateStore( ixV1, ixA );
+                auto condV = builder.CreateICmpULT( ixV1, argcV );
+                builder.CreateCondBr( condV, argBlock, postBlock );
+            }
+            builder.SetInsertPoint( postBlock );
+
+            // FIXME: If not in share-value-specializations-code mode, the ref type here must be for an array type with specific length:
+            auto argsArrayRefV = gen_ref( *this, &scope, mainArgsRefType, argsArrayA );
+            args.push_back( argsArrayRefV );
+        }
+
+        if ( mainFuncType->has_return_value() ) {
+            CallInst *userMainCall = builder.CreateCall( userMainFunc, args, "usermain" );
+            userMainCall->setTailCall( false );
+            userMainCall->setIsNoInline();
+
             // truncate return value to i32
-            CastInst* truncVal = CastInst::CreateIntegerCast( user_main_call, i32T, true, "", bb );
-            ReturnInst::Create( this->llvmContext, truncVal, bb );
+            auto truncVal = builder.CreateIntCast( userMainCall, i32T, true, "ret" );
+            builder.CreateRet( truncVal );
         }
         else {
-            ReturnInst::Create( this->llvmContext, ConstantInt::get( i32T, 0, true ), bb );
+            CallInst *userMainCall = builder.CreateCall( userMainFunc, args );
+            userMainCall->setTailCall( false );
+            userMainCall->setIsNoInline();
+            builder.CreateRet( ConstantInt::get( i32T, 0, true ) );
         }
     }
     else {
         this->LOGGER()->error( "LLVM function not found for name: %s", userMain.c_str() );
-        ReturnInst::Create( this->llvmContext, ConstantInt::get( this->llvmContext, APInt( 32, 0, true ) ), bb );
+        builder.CreateRet( ConstantInt::get( i32T, 0, true ) );
     }
 
-    return main_func;
+    return mainFunc;
 }
 
 

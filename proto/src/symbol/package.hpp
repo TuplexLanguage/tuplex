@@ -18,7 +18,7 @@ class TxPackage : public TxModule {
     TxDriver& _driver;
     TypeRegistry* typeRegistry;
     BuiltinTypes* builtinTypes;
-    const TxEntitySymbol* mainFunc;
+    const TxFieldDeclaration* mainFunc;
 
 public:
     TxPackage( TxDriver& driver, const TxParseOrigin& rootOrigin );
@@ -40,7 +40,7 @@ public:
         return this->origin;
     }
 
-    void registerMainFunc( const TxEntitySymbol* mainFunc );
+    void registerMainFunc( const TxFieldDeclaration* mainFunc );
 
     const TxFieldDeclaration* getMainFunc() const;
 

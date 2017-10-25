@@ -48,7 +48,7 @@ Function* TxLambdaExprNode::code_gen_function_decl( LlvmGenerationContext& conte
     ASSERT( funcT, "Couldn't get LLVM type for function type " << this->funcHeaderNode->qtype() );
 
     Function* function = cast<Function>( context.llvmModule().getOrInsertFunction( funcName, funcT ) );
-    function->setLinkage(GlobalValue::InternalLinkage);  // (Note, could earlier cause LLVM to rename function)
+    function->setLinkage( GlobalValue::InternalLinkage );
     // Note: function is of LLVM function pointer type (since it is an LLVM global value)
     return function;
 }

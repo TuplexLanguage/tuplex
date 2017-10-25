@@ -35,6 +35,8 @@ public:
     bool allow_tx = false;
     std::string txPath;
     std::vector<std::string> sourceSearchPaths;
+    int jit_argc = 0;
+    const char** jit_argv = nullptr;
 };
 
 /** Represents a Tuplex package compilation job.

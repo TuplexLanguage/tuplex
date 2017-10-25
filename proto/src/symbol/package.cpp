@@ -10,22 +10,16 @@ TxPackage::TxPackage( TxDriver& driver, const TxParseOrigin& rootOrigin )
     this->builtinTypes = new BuiltinTypes( *this->typeRegistry );
 }
 
-void TxPackage::registerMainFunc( const TxEntitySymbol* mainFunc ) {
+void TxPackage::registerMainFunc( const TxFieldDeclaration* mainFunc ) {
     if ( !this->mainFunc ) {
         this->mainFunc = mainFunc;
-        this->LOGGER()->debug( "Set user main function: %s", mainFunc->str().c_str() );
+        LOG_DEBUG( this->LOGGER(), "Set user main function: " << mainFunc );
     }
     else
-        this->LOGGER()->debug( "User main function already set, skipping %s", mainFunc->str().c_str() );
+        CINFO( mainFunc->get_definer(), "Multiple main() functions, will use first one encountered: " << this->mainFunc->get_unique_full_name()
+               << " at " << this->mainFunc->get_definer()->parse_loc_string() );
 }
 
 const TxFieldDeclaration* TxPackage::getMainFunc() const {
-    if ( this->mainFunc ) {
-        if ( this->mainFunc->field_count() == 1 )
-            return this->mainFunc->get_first_field_decl();
-        else if ( this->mainFunc->is_overloaded() )
-            CWARNING( this->mainFunc->get_first_field_decl()->get_definer(),
-                      "main() function symbol is overloaded: " << this->mainFunc );
-    }
-    return nullptr;
+    return this->mainFunc;
 }

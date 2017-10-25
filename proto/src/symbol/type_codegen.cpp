@@ -203,7 +203,7 @@ Type* TxArrayTypeClassHandler::make_llvm_externc_type( const TxActualType* type,
 }
 
 
-static void initialize_array_obj( LlvmGenerationContext& context, GenScope* scope, Value* arrayObjPtrV, Value* arrayCap ) {
+void initialize_array_obj( LlvmGenerationContext& context, GenScope* scope, Value* arrayObjPtrV, Value* arrayCap, Value* arrayLen ) {
     { // initialize capacity field:
         Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                          ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) };
@@ -215,9 +215,12 @@ static void initialize_array_obj( LlvmGenerationContext& context, GenScope* scop
         Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                          ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
         auto lenField = scope->builder->CreateInBoundsGEP( arrayObjPtrV, ixs );
-        auto zeroVal = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 );
-        scope->builder->CreateStore( zeroVal, lenField );
+        scope->builder->CreateStore( arrayLen, lenField );
     }
+}
+
+static void initialize_array_obj( LlvmGenerationContext& context, GenScope* scope, Value* arrayObjPtrV, Value* arrayCap ) {
+    initialize_array_obj( context, scope, arrayObjPtrV, arrayCap, ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) );
 }
 
 void TxArrayTypeClassHandler::initialize_specialized_obj( const TxActualType* type, LlvmGenerationContext& context, GenScope* scope, Value* objPtrV ) const {
@@ -250,7 +253,7 @@ void TxArrayTypeClassHandler::initialize_specialized_obj( const TxActualType* ty
 }
 
 
-static Value* gen_compute_array_size( LlvmGenerationContext& context, GenScope* scope, Value* elemSizeV, Value* arrayCapi64V ) {
+Value* gen_compute_array_size( LlvmGenerationContext& context, GenScope* scope, Value* elemSizeV, Value* arrayCapi64V ) {
     // NOTE: This calculation is only "safe" on outer-most type - if used on an element of an aggregate type, padding effects are missed.
     Constant* headerSizeC = ConstantExpr::getSizeOf( Type::getInt64Ty( context.llvmContext ) );
     elemSizeV = scope->builder->CreateZExtOrBitCast( elemSizeV, Type::getInt64Ty( context.llvmContext ) );
@@ -399,12 +402,11 @@ Type* TxFunctionTypeClassHandler::make_llvm_type( const TxActualType* type, Llvm
     auto closureRefT = context.get_closureRefT();
     std::vector<Type*> llvmArgTypes;
     llvmArgTypes.push_back( closureRefT );  // first argument is always the closure object ref
-    auto ftype = static_cast<const TxFunctionType*>( type );
-    for ( auto argTxType : ftype->argument_types() ) {
+    for ( auto argTxType : type->argument_types() ) {
         llvmArgTypes.push_back( context.get_llvm_type( argTxType ) );
         LOG_TRACE( context.LOGGER(), "Mapping arg type " << argTxType << " to " << ::to_string(llvmArgTypes.back()) );
     }
-    Type* llvmRetType = ftype->has_return_value() ? context.get_llvm_type( ftype->return_type() )
+    Type* llvmRetType = type->has_return_value() ? context.get_llvm_type( type->return_type() )
                                                  : llvm::Type::getVoidTy( context.llvmContext );
     FunctionType *funcT = FunctionType::get( llvmRetType, llvmArgTypes, false );
 
@@ -432,13 +434,12 @@ Type* TxExternCFunctionTypeClassHandler::make_llvm_type( const TxActualType* typ
 Type* TxExternCFunctionTypeClassHandler::make_llvm_externc_type( const TxActualType* type, LlvmGenerationContext& context ) const {
     // Note: In contrast to regular functions, externc functions don't have a closure object pointer as first argument.
     std::vector<Type*> llvmArgTypes;
-    auto ftype = static_cast<const TxFunctionType*>( type );
-    for ( auto argTxType : ftype->argument_types() ) {
+    for ( auto argTxType : type->argument_types() ) {
         llvmArgTypes.push_back( argTxType->make_llvm_externc_type( context ) );
         //LOG_INFO( context.LOGGER(), "Mapping C arg type " << argTxType << " to " << ::to_string(llvmArgTypes.back()) );
     }
-    Type* llvmRetType = ftype->has_return_value() ? ftype->return_type()->make_llvm_externc_type( context )
-                                                  : llvm::Type::getVoidTy( context.llvmContext );
+    Type* llvmRetType = type->has_return_value() ? type->return_type()->make_llvm_externc_type( context )
+                                                 : llvm::Type::getVoidTy( context.llvmContext );
     FunctionType *funcT = FunctionType::get( llvmRetType, llvmArgTypes, false );
     return funcT;
 }

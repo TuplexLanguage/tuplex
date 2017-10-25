@@ -13,10 +13,9 @@ unsigned TxNode::nextNodeId = 0;
 
 std::string TxNode::str() const {
     auto ident = this->get_descriptor();
-    const size_t bsize = 128;
+    const size_t bsize = 512;
     char buf[bsize];
-    std::string filename = ploc.begin.filename ? get_file_name( *ploc.begin.filename ) : "";
-    snprintf( buf, bsize, "%s %-11s %4u %-24s %s", filename.c_str(), this->parse_loc_string().c_str(),
+    snprintf( buf, bsize, "%-13s %4u %-24s %s", this->parse_loc_string().c_str(),
               this->get_node_id(), typeid(*this).name(), ident.c_str() );
     if ( this->lexContext.reinterpretationDefiner )
         return std::string( buf ) + " <: " + this->lexContext.reinterpretationDefiner->str();
@@ -25,14 +24,16 @@ std::string TxNode::str() const {
 }
 
 std::string TxNode::parse_loc_string() const {
-    const size_t bsize = 32;
+    const size_t bsize = 256;
     char buf[bsize];
+    std::string filename = ploc.begin.filename ? get_file_name( *ploc.begin.filename ) : "";
     if ( ploc.begin.line == ploc.end.line ) {
         int lcol = ( ploc.end.column > ploc.begin.column ) ? ploc.end.column : ploc.end.column;
-        snprintf( buf, bsize, "%3d.%2d-%d", ploc.begin.line, ploc.begin.column, lcol );
+        snprintf( buf, bsize, "%s:%3d.%2d-%d", filename.c_str(), ploc.begin.line, ploc.begin.column, lcol );
     }
     else
-        snprintf( buf, bsize, "%3d.%2d-%d.%d", ploc.begin.line, ploc.begin.column, ploc.end.line, ploc.end.column );
+        snprintf( buf, bsize, "%s:%3d.%2d-%d.%d", filename.c_str(), ploc.begin.line, ploc.begin.column,
+                  ploc.end.line, ploc.end.column );
     return std::string( buf );
 }
 

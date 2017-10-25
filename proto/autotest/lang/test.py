@@ -44,6 +44,7 @@ source_files = [
     "helloworld.tx",
 
     "errtest.tx",
+    "mainsignaturetest.tx",
 
     "inttest.tx",
     "floattest.tx",

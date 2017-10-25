@@ -482,15 +482,10 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
 
     bool mainGenerated = false;
     if ( auto funcDecl = this->package->getMainFunc() ) {
-        auto funcField = funcDecl->get_definer()->resolve_field();
-        if ( funcField->qtype()->get_type_class() == TXTC_FUNCTION ) {
-            auto retType = static_cast<const TxFunctionType*>(funcField->qtype().type())->return_type();
-            if ( retType->get_type_class() != TXTC_VOID
-                 && !retType->is_a( *this->package->registry().get_builtin_type( TXBT_INTEGER ) ) )
-                this->_LOG.error( "main() method had invalid return type: %s", retType->str().c_str() );
-            else if ( ( mainGenerated = this->genContext->generate_main( funcDecl->get_unique_full_name(), funcField->qtype().type() ) ) )
-                this->_LOG.debug( "Created program entry for user method %s", funcDecl->get_unique_full_name().c_str() );
-        }
+        auto funcField = funcDecl->get_definer()->field();
+        this->genContext->generate_main( funcDecl->get_unique_full_name(), funcField->qtype().type() );
+        mainGenerated = true;
+        LOG_DEBUG( &_LOG, "Generated program entry for user main method " << funcDecl );
     }
     _LOG.info( "+ LLVM code generated (not yet written)" );
 

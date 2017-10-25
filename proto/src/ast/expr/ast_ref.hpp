@@ -20,6 +20,11 @@ llvm::Constant* gen_get_ref_typeid ( LlvmGenerationContext& context, llvm::Const
 llvm::Value*    gen_ref( LlvmGenerationContext& context, GenScope* scope, llvm::Type* refT, llvm::Value* ptrV, llvm::Value* tidV );
 llvm::Constant* gen_ref( LlvmGenerationContext& context, llvm::Type* refT, llvm::Constant* ptrC, llvm::Constant* tidC );
 
+/** Generates a Ref value where the type id equals the specified type's *statically known* type id.
+ * Caller must ensure this cannot be different from the proper runtime id.
+ */
+llvm::Value* gen_ref( LlvmGenerationContext& context, GenScope* scope, const TxActualType* refType, llvm::Value* ptrV );
+
 /** Converts a reference value from one type to another. If targetTypeId is specified, it will replace the original type id. */
 llvm::Value* gen_ref_conversion( LlvmGenerationContext& context, GenScope* scope, llvm::Value* origRefV,
                                  llvm::Type* targetRefT, uint32_t targetTypeId = UINT32_MAX );

@@ -81,7 +81,7 @@ class LlvmGenerationContext {
 
     llvm::Value* gen_get_type_info( GenScope* scope, const TxActualType* staticType, llvm::Value* runtimeBaseTypeIdV, unsigned fieldIndex );
 
-    llvm::Function* gen_main_function( const std::string userMain, bool hasIntReturnValue );
+    llvm::Function* gen_main_function( const std::string userMain, const TxActualType* mainFuncType );
     void gen_get_supertypes_array_function();
     void gen_array_any_equals_function();
     void gen_array_elementary_equals_function();
@@ -176,7 +176,7 @@ public:
 
     /** Create the top level function to call as program entry.
      * (This is the built-in main, which calls the user main function.)  */
-    bool generate_main( const std::string& userMainIdent, const TxActualType* mainFuncType );
+    void generate_main( const std::string& userMainIdent, const TxActualType* mainFuncType );
 
     void initialize_target();
 

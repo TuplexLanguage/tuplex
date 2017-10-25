@@ -4,6 +4,8 @@
 #include "ast_declpass.hpp"
 #include "type/ast_types.hpp"
 
+#include "symbol/package.hpp"
+
 
 const TxField* TxFieldDefiningNode::resolve_field() {
     ASSERT( this->is_context_set(), "Declaration pass has not been run (lexctx not set) before resolving " << this );
@@ -139,5 +141,90 @@ void TxFieldDefiningNode::verification_pass() const {
     }
     if ( this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR ) {
         // TODO: check that constructor function type has void return value
+    }
+}
+
+
+
+void TxLocalFieldDefNode::declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
+    this->declaration = scope->declare_field( this->fieldName->str(), this, declFlags, storage, TxIdentifier() );
+}
+
+
+void TxNonLocalFieldDefNode::declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
+    std::string declName = this->fieldName->str();
+    if ( declName == "self" ) {
+        // handle constructor declaration
+        if ( storage != TXS_INSTANCEMETHOD )
+            CERROR( this, "Illegal declaration name for non-constructor member: " << declName );
+        declName = CONSTR_IDENT;
+        declFlags = declFlags | TXD_CONSTRUCTOR;
+    }
+    else if ( declName == CONSTR_IDENT ) {  // built-in
+        ASSERT( declFlags & TXD_BUILTIN, "Built-in flag not set: " << declFlags << " at " << this << " in " << this->context().scope() );
+        if ( declFlags & TXD_INITIALIZER ) {
+            ASSERT( storage == TXS_STATIC,
+                    "Initializer not a static field: " << storage << " at " << this << " in " << this->context().scope() );
+        }
+        else {
+            ASSERT( declFlags & TXD_CONSTRUCTOR, "Constructor flag not set: " << declFlags << " at " << this << " in " << this->context().scope() );
+            ASSERT( storage == TXS_INSTANCEMETHOD,
+                    "Constructor not an instance method: " << storage << " at " << this << " in " << this->context().scope() );
+        }
+    }
+
+    // Note: Field is processed in the 'outer' scope and not in the 'inner' scope of its declaration.
+    this->declaration = scope->declare_field( declName, this, declFlags, storage, TxIdentifier() );
+}
+
+bool TxNonLocalFieldDefNode::is_main_signature_valid( const TxActualType* funcType ) const {
+    auto retType = funcType->return_type();
+    bool retOk = bool( retType->get_type_class() == TXTC_VOID
+                       || retType->is_a( *this->context().package()->registry().get_builtin_type( TXBT_INTEGER ) ) );
+    if ( !retOk )
+        CERROR( this, "main() method has non-integer return type (must be void or integer): " << retType );
+
+    auto & argTypes = funcType->argument_types();
+    if ( argTypes.size() == 0 )
+        return retOk;
+    else if ( argTypes.size() == 1 ) {
+        const TxActualType* argsType = argTypes.at( 0 );
+        if ( argsType->get_type_class() == TXTC_REFERENCE ) {
+            auto targetType = argsType->target_type();
+            if ( targetType->get_type_class() == TXTC_ARRAY ) {
+                auto elemType = targetType->element_type();
+                if ( elemType->get_type_class() == TXTC_REFERENCE ) {
+                    auto elemTargetType = elemType->target_type();
+                    if ( elemTargetType->get_type_class() == TXTC_ARRAY ) {
+                        auto elemTargetElemType = elemTargetType->element_type();
+                        if ( elemTargetElemType->is_builtin( TXBT_UBYTE ) )
+                            return retOk;
+                    }
+                }
+            }
+        }
+        CERROR( this, "main() method has invalid argument [required signature is  main()  or  main( &[]&[]UByte )] : " << argsType );
+    }
+    else
+        CERROR( this, "main() method has too many arguments [required signature is  main()  or  main( &[]&[]UByte )]" );
+    return false;
+}
+
+void TxNonLocalFieldDefNode::resolution_pass() {
+    TxFieldDefiningNode::resolution_pass();
+
+    // handle main() function declarations:
+    if ( this->fieldName->str() == "main" ) {
+        auto funcField = this->field();
+        if ( funcField->qtype()->get_type_class() == TXTC_FUNCTION ) {
+            // verify main program function candidate
+            if ( !( funcField->get_storage() == TXS_GLOBAL || funcField->get_storage() == TXS_STATIC ) )
+                CERROR( this, "main() method must have global or static storage: " << funcField->get_storage() );
+            if ( is_main_signature_valid( funcField->qtype().type() ) ) {
+                // register main program function candidate
+                this->context().package()->registerMainFunc( this->declaration );
+            }
+        }
+        // non-function symbols declared with the name 'main' are allowed
     }
 }

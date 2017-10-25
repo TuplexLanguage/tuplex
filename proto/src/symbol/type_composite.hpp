@@ -9,6 +9,14 @@
 #include "type_base.hpp"
 
 
+llvm::Value* gen_compute_array_size( LlvmGenerationContext& context, GenScope* scope,
+                                     llvm::Value* elemSizeV, llvm::Value* arrayCapi64V );
+
+/** Initializes an array object in memory by storing the specified capacity and length values to it. */
+void initialize_array_obj( LlvmGenerationContext& context, GenScope* scope,
+                           llvm::Value* arrayObjPtrV, llvm::Value* arrayCap, llvm::Value* arrayLen );
+
+
 class TxArrayTypeClassHandler final : public TxTypeClassHandler {
 protected:
     virtual bool inner_is_assignable_to( const TxActualType* type, const TxActualType* other ) const override;

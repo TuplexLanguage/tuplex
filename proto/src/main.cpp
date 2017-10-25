@@ -11,7 +11,7 @@
 
 static Logger& LOG = Logger::get( "MAIN" );
 
-int main( int argc, char **argv )
+int main( int argc, const char **argv )
           {
 //    Logger::set_global_threshold(Level::ALL);
 //    for (int lvl=Level::NONE; lvl < Level::ALL; lvl++)
@@ -58,6 +58,7 @@ int main( int argc, char **argv )
                 printf( "  %-22s %s\n", "-ver", "Run generated code verifier after successful compilation" );
                 printf( "  %-22s %s\n", "-nojit", "Disable running program in JIT mode after successful compilation (default if release build)" );
                 printf( "  %-22s %s\n", "-jit", "Run program in JIT mode after successful compilation" );
+                printf( "  %-22s %s\n", "-jo | -jitoptions", "Remaining options are passed to program run in JIT mode" );
                 printf( "  %-22s %s\n", "-nobc", "Don't output bitcode (and if also running in JIT mode, exit with program's return code)" );
                 printf( "  %-22s %s\n", "-bc", "Output bitcode file (default if release build)" );
                 printf( "  %-22s %s\n", "-onlyparse", "Stop after grammar parse" );
@@ -135,6 +136,12 @@ int main( int argc, char **argv )
                     return 1;  // exits
                 }
                 outputFileName = argv[a];
+            }
+            else if ( !strcmp( argv[a], "-jo" ) || !strcmp( argv[a], "-jitoptions" ) ) {
+                // remaining options are passed to jit'ed program
+                options.jit_argc = argc - a - 1;
+                options.jit_argv = &argv[a+1];
+                break;
             }
             else {
                 LOG.error( "No such option '%s' (use -h or -help to print command line usage)", argv[a] );

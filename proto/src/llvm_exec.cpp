@@ -4,6 +4,8 @@
 #include <llvm/Support/TargetSelect.h>
 
 #include "llvm_generator.hpp"
+#include "driver.hpp"
+#include "symbol/package.hpp"
 
 using namespace llvm;
 
@@ -25,8 +27,10 @@ int LlvmGenerationContext::run_code() {
         return -1;
     }
 
-    std::vector<GenericValue> noargs;
-    GenericValue v = ee->runFunction( this->entryFunction, noargs );
+    std::vector<GenericValue> stdargs( 2 );
+    stdargs[0].IntVal = APInt( 32, this->tuplexPackage.driver().get_options().jit_argc );
+    stdargs[1].PointerVal = this->tuplexPackage.driver().get_options().jit_argv;
+    GenericValue v = ee->runFunction( this->entryFunction, stdargs );
     int64_t retVal = v.IntVal.getSExtValue();
 
     if ( kind == EngineKind::Kind::Interpreter )

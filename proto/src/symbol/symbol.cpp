@@ -100,21 +100,12 @@ TxEntitySymbol* TxScopeSymbol::declare_entity( const std::string& plainName, TxN
         entitySymbol = dynamic_cast<TxEntitySymbol*>( symbol );
         if ( !entitySymbol ) {
             CERR_THROWDECL( definingNode, "Failed to declare entity symbol, can't overload entities and non-entities under same symbol: " << symbol );
-            return nullptr;
         }
     }
     else {
         entitySymbol = new TxEntitySymbol( this, plainName );
         this->declare_symbol( *definingNode, entitySymbol );
         this->LOGGER()->trace( "    Declared   %s", entitySymbol->str().c_str() );
-
-        // register possible main() function:
-        if ( plainName == "main" ) {
-            // TODO: check that public and static function of correct signature: static mod main(args) Int
-            auto package = dynamic_cast<TxPackage*>( this->get_root_scope() );
-            ASSERT( package, "root scope is not a TxPackage" );
-            package->registerMainFunc( entitySymbol );
-        }
     }
     return entitySymbol;
 }
@@ -128,12 +119,10 @@ const TxTypeDeclaration* TxScopeSymbol::declare_type( const std::string& plainNa
     ASSERT( !is_internal_name( plainName ) || ( declFlags & ( TXD_IMPLICIT | TXD_CONSTRUCTOR | TXD_INITIALIZER ) ),
             "Mismatch between name format and IMPLICIT flag for type declaration " << plainName );
 
-    if ( TxEntitySymbol* entitySymbol = this->declare_entity( plainName, typeDefiner ) ) {
-        auto typeDeclaration = new TxTypeDeclaration( entitySymbol, declFlags, typeDefiner );
-        if ( entitySymbol->add_type( typeDeclaration ) )
-            return typeDeclaration;
-    }
-    return nullptr;
+    TxEntitySymbol* entitySymbol = this->declare_entity( plainName, typeDefiner );
+    auto typeDeclaration = new TxTypeDeclaration( entitySymbol, declFlags, typeDefiner );
+    entitySymbol->add_type( typeDeclaration );
+    return typeDeclaration;
 }
 
 const TxFieldDeclaration* TxScopeSymbol::declare_field( const std::string& plainName, TxFieldDefiningNode* fieldDefiner,
@@ -143,12 +132,10 @@ const TxFieldDeclaration* TxScopeSymbol::declare_field( const std::string& plain
     ASSERT( !is_internal_name( plainName ) || ( declFlags & ( TXD_IMPLICIT | TXD_CONSTRUCTOR | TXD_INITIALIZER ) ),
             "Mismatch between name format and IMPLICIT flag for field declaration " << plainName );
 
-    if ( TxEntitySymbol* entitySymbol = this->declare_entity( plainName, fieldDefiner ) ) {
-        auto fieldDeclaration = new TxFieldDeclaration( entitySymbol, declFlags, fieldDefiner, storage, dataspace );
-        if ( entitySymbol->add_field( fieldDeclaration ) )
-            return fieldDeclaration;
-    }
-    return nullptr;
+    TxEntitySymbol* entitySymbol = this->declare_entity( plainName, fieldDefiner );
+    auto fieldDeclaration = new TxFieldDeclaration( entitySymbol, declFlags, fieldDefiner, storage, dataspace );
+    entitySymbol->add_field( fieldDeclaration );
+    return fieldDeclaration;
 }
 
 void TxScopeSymbol::dump_symbols() const {
@@ -184,33 +171,29 @@ const TxEntityDeclaration* TxEntitySymbol::get_distinct_decl() const {
         return this->get_first_field_decl();
 }
 
-bool TxEntitySymbol::add_type( const TxTypeDeclaration* typeDeclaration ) {
+void TxEntitySymbol::add_type( const TxTypeDeclaration* typeDeclaration ) {
     if ( this->typeDeclaration || !this->fieldDeclarations.empty() ) {
         CERR_THROWDECL( typeDeclaration->get_definer(), "Can't overload several type declarations under the same name: " << this->get_full_name() );
-        return false;
     }
     this->typeDeclaration = typeDeclaration;
 
+    // declare implicit 'Self' type:
     if ( !( typeDeclaration->get_decl_flags() & ( TXD_GENPARAM | TXD_GENBINDING ) )
          && this->get_name() != "Self" && this->get_name() != "Super"
          && this->get_name() != "$GenericBase" && !begins_with( this->get_name(), "$Ftype" ) ) {
         auto definer = typeDeclaration->get_definer();
-        if ( TxEntitySymbol* entitySymbol = this->declare_entity( "Self", definer ) ) {
-            auto selfDeclaration = new TxTypeDeclaration( entitySymbol, TXD_PUBLIC | TXD_IMPLICIT, definer );
-            entitySymbol->add_type( selfDeclaration );
-        }
+        TxEntitySymbol* entitySymbol = this->declare_entity( "Self", definer );
+        auto selfDeclaration = new TxTypeDeclaration( entitySymbol, TXD_PUBLIC | TXD_IMPLICIT, definer );
+        entitySymbol->add_type( selfDeclaration );
     }
-    return true;
 }
 
-bool TxEntitySymbol::add_field( const TxFieldDeclaration* fieldDeclaration ) {
+void TxEntitySymbol::add_field( const TxFieldDeclaration* fieldDeclaration ) {
     if ( this->typeDeclaration ) {
         CERR_THROWDECL( fieldDeclaration->get_definer(), "Can't overload both type and field declarations under the same name: "
                         << this->get_full_name() );
-        return false;
     }
     this->fieldDeclarations.push_back( fieldDeclaration );
-    return true;
 }
 
 void TxEntitySymbol::add_type_specialization( const TxTypeDeclaration* typeDeclaration ) {

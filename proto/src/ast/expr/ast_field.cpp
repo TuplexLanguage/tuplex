@@ -72,7 +72,7 @@ const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntit
 
             // first screen the fields that are of function type and take the correct number of arguments:
             if ( field->qtype()->get_type_class() == TXTC_FUNCTION ) {
-                const TxFunctionType* fieldType = static_cast<const TxFunctionType*>( field->qtype().type() );
+                auto fieldType = field->qtype().type();
                 auto candArgTypes = fieldType->argument_types();
                 const TxActualType* arrayArgElemType = fieldType->vararg_elem_type();
                 const TxActualType* fixedArrayArgType = nullptr;

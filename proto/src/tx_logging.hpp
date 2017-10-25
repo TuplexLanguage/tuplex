@@ -6,7 +6,7 @@
     do { \
         if ( level <= Logger::globalThreshold ) { \
             std::stringstream msg;  msg << message; \
-            logger->log( level, "%s", msg.str().c_str() ); \
+            (logger)->log( level, "%s", msg.str().c_str() ); \
         } \
     } while (false)
 
@@ -14,7 +14,7 @@
     do { \
         if ( INFO <= Logger::globalThreshold ) { \
             std::stringstream msg;  msg << message; \
-            logger->info( "%s", msg.str().c_str() ); \
+            (logger)->info( "%s", msg.str().c_str() ); \
         } \
     } while (false)
 
@@ -22,7 +22,7 @@
     do { \
         if ( NOTE <= Logger::globalThreshold ) { \
             std::stringstream msg;  msg << message; \
-            logger->note( "%s", msg.str().c_str() ); \
+            (logger)->note( "%s", msg.str().c_str() ); \
         } \
     } while (false)
 
@@ -30,7 +30,7 @@
     do { \
         if ( DEBUG <= Logger::globalThreshold ) { \
             std::stringstream msg;  msg << message; \
-            logger->debug( "%s", msg.str().c_str() ); \
+            (logger)->debug( "%s", msg.str().c_str() ); \
         } \
     } while (false)
 
@@ -39,7 +39,7 @@
     do { \
         if ( TRACE <= Logger::globalThreshold ) { \
             std::stringstream msg;  msg << message; \
-            logger->trace( "%s", msg.str().c_str() ); \
+            (logger)->trace( "%s", msg.str().c_str() ); \
         } \
     } while (false)
 #else

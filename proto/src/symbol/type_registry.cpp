@@ -20,6 +20,8 @@
 #include "llvm_generator.hpp"
 
 
+#define VALUE_SPECS_SHARE_CODE
+
 
 /** the flags that may be inherited when specializing a type */
 static const TxDeclarationFlags DECL_FLAG_FILTER = TXD_VIRTUAL | TXD_PUBLIC | TXD_PROTECTED | TXD_ABSTRACT | TXD_FINAL | TXD_IMPLICIT
@@ -107,8 +109,12 @@ void TypeRegistry::prepare_types() {
             continue;
         }
 
-        if ( type->runtimeTypeId < BuiltinTypeId_COUNT )  // the built-in types are already handled
+        if ( type->runtimeTypeId < BuiltinTypeId_COUNT ) {
+            // the built-in types are already added to runtimeTypes
+            if ( type->runtimeTypeId == TXBT_ARRAY )
+                type->suppressCodeGen = true;
             continue;
+        }
 
         if ( type->get_declaration()->get_definer()->exp_err_ctx() ) {
             LOG_DEBUG( this->LOGGER(), "Not registering type with ExpErr context as runtime type: " << type);
@@ -141,11 +147,6 @@ void TypeRegistry::prepare_types() {
             continue;
         }
 
-        if ( type->get_type_class() == TXTC_INTERFACE ) {
-            vtableTypes.push_back( type );
-            continue;
-        }
-
         // Notes:
         //  - Not including full-sized runtime type information about equivalent types is a potential footprint optimization,
         //    but also leads to problems.
@@ -153,16 +154,33 @@ void TypeRegistry::prepare_types() {
         //    (though they don't necessitate distinct code generation and vtable).
 
         if ( type->is_type_generic_dependent() ) {
+            // Note that this skips codegen for the entire AST of all type-generic-dependent types,
+            // which means none of their members are generated, including any statically declared inner/local types.
+            // FUTURE: Evaluate capability for generic types to have global static members
+            //         (e.g. inner types independent of the outer type parameters).
+            type->suppressCodeGen = true;
             vtableTypes.push_back( type );
             continue;
         }
+#ifndef VALUE_SPECS_SHARE_CODE
         else if ( type->is_value_generic() ) {
             // TODO: This should really be  type->is_value_generic_dependent()
             vtableTypes.push_back( type );
             continue;
         }
+#else
+        else if ( type->is_value_generic() ) {
+            // Note: There are not "concrete" since size may be unknown, but they can be code-generated
+            dataTypes.push_back( type );
+            continue;
+        }
+        else if ( type->is_pure_value_specialization() ) {
+            // If type is a value specialization, don't code-generate it, but create RTTI if concrete
+            type->suppressCodeGen = true;
+        }
+#endif
 
-        if ( type->is_abstract() ) {
+        if ( type->is_abstract() ) {  // includes interfaces
             vtableTypes.push_back( type );
             continue;
         }
@@ -209,10 +227,17 @@ static void print_type( const TxActualType* type ) {
         stat = "stat-concr";
     else if ( type->is_dynamic() )
         stat = "dyn-concr";
+    else if ( type->is_value_generic() )
+        stat = "value-gen";
     else if ( !type->is_same_vtable_type() )
         stat = "abstr/vtab";
-    printf( "%4d  %s  %-10s  %10s  %s\n", type->get_runtime_type_id(), ::to_string( type->get_declaration()->get_decl_flags() ).c_str(),
-            to_string( type->get_type_class() ).c_str(), stat.c_str(), type->str(false).c_str() );
+    printf( "%4d  %s  %-10s  %10s  %c  %s\n",
+            type->get_runtime_type_id(),
+            ::to_string( type->get_declaration()->get_decl_flags() ).c_str(),
+            to_string( type->get_type_class() ).c_str(),
+            stat.c_str(),
+            ( type->suppress_code_gen() ? '-' : 'C' ),
+            type->str( false ).c_str() );
 }
 
 void TypeRegistry::dump_types() const {
@@ -452,8 +477,7 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
 
     std::string newTypeNameStr;
     const std::vector<const TxTypeArgumentNode*>* bindingsPtr;
-//#define FOODEF
-#ifdef FOODEF
+#ifndef VALUE_SPECS_SHARE_CODE
     newTypeNameStr = valueSpecTypeName.str();
     bindingsPtr = &bindings;
 #else
@@ -548,13 +572,17 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
             "baseType definer's parent is not a TxTypeDeclNode: " << baseTypeExpr->parent() );
     auto baseDeclNode = static_cast<const TxTypeDeclNode*>( baseTypeExpr->parent() );
     TxTypeCreatingNode* specTypeExpr;
+#ifndef VALUE_SPECS_SHARE_CODE
+    specTypeExpr = baseTypeExpr->make_ast_copy();
+#else
     if ( typeBindings )
         specTypeExpr = baseTypeExpr->make_ast_copy();
     else {
-        // shallow specialization when only VALUE params are bound
+        // shallow specialization (no AST reinterpretation copy) when only VALUE params are bound
         auto shallowBaseTypeExpr = new TxTypeDeclWrapperNode( definer->get_parse_location(), baseDecl );
         specTypeExpr = new TxDerivedTypeNode( definer->get_parse_location(), shallowBaseTypeExpr, new std::vector<TxDeclarationNode*>() );
     }
+#endif
 
     {   // pass on the generic base type to the new specialization via member named $GenericBase:
         // identify the "source" semantic base type - the nearest one without bindings:

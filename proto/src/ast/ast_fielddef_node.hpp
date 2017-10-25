@@ -79,14 +79,11 @@ public:
 
 
     /** Performs the declaration of the field defined by this node. To be run before declaration pass is run on this node. */
-    inline void declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
-        this->declare_field( this->fieldName->str(), scope, declFlags, storage );
-    }
-
-    /** Performs the declaration of the field defined by this node. To be run before declaration pass is run on this node. */
-    inline void declare_field( const std::string& name, TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
-        this->declaration = scope->declare_field( name, this, declFlags, storage, TxIdentifier() );
-    }
+    virtual void declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) = 0;
+//    /** Performs the declaration of the field defined by this node. To be run before declaration pass is run on this node. */
+//    inline void declare_field( const std::string& name, TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
+//        this->declaration = scope->declare_field( name, this, declFlags, storage, TxIdentifier() );
+//    }
 
     virtual TxExpressionNode* get_init_expression() const {
         return this->initExpression;
@@ -141,6 +138,8 @@ public:
         return new TxLocalFieldDefNode( this->ploc, this->fieldName->str(), typeExpr, initExpr, this->modifiable, this->_explicit );
     }
 
+    virtual void declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) override;
+
     virtual llvm::Value* code_gen_field_decl( LlvmGenerationContext& context ) const override;
 
     void code_gen_field( LlvmGenerationContext& context, GenScope* scope ) const;
@@ -149,10 +148,15 @@ public:
 class TxNonLocalFieldDefNode : public TxFieldDefiningNode {
     void inner_code_gen_field( LlvmGenerationContext& context, bool genBody ) const;
 
+    bool is_main_signature_valid( const TxActualType* funcType ) const;
+
     TxNonLocalFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
                             TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression, bool modifiable )
             : TxFieldDefiningNode( ploc, fieldName, typeExpression, initExpression, modifiable, false ) {
     }
+
+protected:
+    virtual void resolution_pass() override;
 
 public:
     TxNonLocalFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
@@ -170,6 +174,8 @@ public:
         TxExpressionNode* initExpr = ( this->initExpression ? this->initExpression->originalExpr->make_ast_copy() : nullptr );
         return new TxNonLocalFieldDefNode( this->ploc, this->fieldName->str(), typeExpr, initExpr, this->modifiable );
     }
+
+    virtual void declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) override;
 
     /** Generates this field, potentially only as a declaration without initializer. Invoked from code referencing this field. */
     virtual llvm::Value* code_gen_field_decl( LlvmGenerationContext& context ) const override;

@@ -53,6 +53,13 @@ Value* gen_ref( LlvmGenerationContext& context, GenScope* scope, Type* refT, Val
     return refV;
 }
 
+Value* gen_ref( LlvmGenerationContext& context, GenScope* scope, const TxActualType* refType, Value* ptrV ) {
+    ASSERT( refType->get_type_class() == TXTC_REFERENCE, "Not a reference type: " << refType );
+    auto refT = context.get_llvm_type( refType );
+    auto tidV = refType->target_type()->gen_typeid( context );
+    return gen_ref( context, scope, refT, ptrV, tidV );
+}
+
 
 Constant* gen_get_ref_pointer( LlvmGenerationContext& context, Constant* refC ) {
     return refC->getAggregateElement( 0U );

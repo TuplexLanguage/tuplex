@@ -132,7 +132,6 @@ TxQualType TxFunctionCallNode::define_type( TxPassInfo passInfo ) {
             }
         }
 
-//        auto funcType = static_cast<const TxFunctionType*>( actualCalleeType );
         if ( this->calleeType->modifiable_closure() && !constructorType ) {
             ASSERT( this->callee->get_data_graph_origin_expr(), "Callee with modifiable closere didn't have origin expression: " << this->callee );
             if ( !this->callee->get_data_graph_origin_expr()->check_chain_mutable() ) {

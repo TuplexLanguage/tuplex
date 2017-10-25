@@ -112,7 +112,8 @@ protected:
      */
     virtual void declare_symbol( const TxParseOrigin& origin, TxScopeSymbol* symbol );
 
-    /** Prepares an entity declaration (adding to an existing or a newly created entity symbol within this scope). */
+    /** Prepares an entity declaration (adding to an existing or a newly created entity symbol within this scope).
+     * @throws exceptions if unsuccessful (never returns null) */
     virtual TxEntitySymbol* declare_entity( const std::string& plainName, TxNode* definingNode );
 
     /** Looks up a symbol via this scope. */
@@ -226,9 +227,11 @@ public:
             : TxScopeSymbol( parentScope, name ), typeDeclaration(), fieldDeclarations() {
     }
 
-    bool add_type( const TxTypeDeclaration* typeDeclaration );
+    /** @throws exception if unsuccessful */
+    void add_type( const TxTypeDeclaration* typeDeclaration );
 
-    bool add_field( const TxFieldDeclaration* fieldDeclaration );
+    /** @throws exception if unsuccessful */
+    void add_field( const TxFieldDeclaration* fieldDeclaration );
 
     inline bool is_overloaded() const {
         return this->count() > 1;

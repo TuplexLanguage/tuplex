@@ -47,10 +47,6 @@ void TxEmptyDerivedTypeNode::code_gen_type( LlvmGenerationContext& context ) con
     this->baseTypeNode->code_gen_type( context );
 }
 
-void TxAliasTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
-    this->baseTypeNode->code_gen_type( context );
-}
-
 void TxDerivedTypeNode::code_gen_builtin_type( LlvmGenerationContext& context ) const {
     this->inner_code_gen_type( context );
 }
