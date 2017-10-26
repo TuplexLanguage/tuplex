@@ -4,11 +4,6 @@
 #include "ast_types.hpp"
 
 
-//void TxTypeExpressionNode::declaration_pass() {
-//    this->typeexpr_declaration_pass();
-//}
-
-
 bool is_not_properly_concrete( const TxNode* node, const TxQualType type ) {
     if ( !type->is_concrete() ) {
         //if ( type->is_generic() || !type->is_generic_dependent() )

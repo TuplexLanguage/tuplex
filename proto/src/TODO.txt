@@ -133,7 +133,7 @@ Ensure VALUE type parameters are always correctly initialized
 
 
 
-Ensure Ref<P> is-a Ref<Q> if P is-a Q
+Support boolean test expression for: Ref<P> is-a Ref<Q> if P is-a Q
 
 
 

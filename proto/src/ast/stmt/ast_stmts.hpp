@@ -254,6 +254,8 @@ public:
 };
 
 class TxAssignStmtNode : public TxStatementNode {
+//    class TxStatementNode* panicNode;
+
 protected:
     virtual void resolution_pass() override;
 
@@ -265,6 +267,7 @@ public:
 
     TxAssignStmtNode( const TxLocation& ploc, TxAssigneeNode* lvalue, TxExpressionNode* rvalue )
             : TxStatementNode( ploc ), lvalue( lvalue ), rvalue( new TxMaybeConversionNode( rvalue ) ) {
+//        this->panicNode = new TxPanicStmtNode( ploc, "Assigned array is longer than assignee's capacity" );
     }
 
     virtual TxAssignStmtNode* make_ast_copy() const override {
@@ -276,31 +279,14 @@ public:
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->lvalue->visit_ast( visitor, thisCursor, "lvalue", context );
         this->rvalue->visit_ast( visitor, thisCursor, "rvalue", context );
+//        this->panicNode->visit_ast( visitor, thisCursor, "panic", context );
     }
+
+
+    static void code_gen_array_copy( LlvmGenerationContext& context, GenScope* scope, const TxActualType* lvalType,
+                                     llvm::Value* lvalTypeIdV, llvm::Value* lvalArrayPtrV, llvm::Value* rvalArrayPtrV );
 };
 
-class TxArrayCopyStmtNode : public TxAssignStmtNode {
-    class TxStatementNode* panicNode;
-
-protected:
-    virtual void resolution_pass() override;
-
-    virtual void verification_pass() const override;
-
-public:
-    TxArrayCopyStmtNode( const TxLocation& ploc, TxAssigneeNode* lvalue, TxExpressionNode* rvalue );
-
-    virtual TxArrayCopyStmtNode* make_ast_copy() const override {
-        return new TxArrayCopyStmtNode( this->ploc, this->lvalue->make_ast_copy(), this->rvalue->originalExpr->make_ast_copy() );
-    }
-
-    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
-
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        TxAssignStmtNode::visit_descendants( visitor, thisCursor, role, context );
-        this->panicNode->visit_ast( visitor, thisCursor, "panic", context );
-    }
-};
 
 class TxExpErrStmtNode : public TxStatementNode {
     ExpectedErrorClause* expError;

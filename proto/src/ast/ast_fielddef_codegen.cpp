@@ -42,7 +42,7 @@ void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenSco
     // If init expression performs a stack allocation (unbound) of this field's type (instance-equivalent type),
     // this field shall bind to that allocation.
 
-    auto acttype = this->qtype();
+    auto type = this->qtype().type();
     Value* fieldPtrV;
     if ( this->initExpression ) {
         if ( this->initExpression->get_storage() == TXS_UNBOUND_STACK ) {
@@ -50,20 +50,27 @@ void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenSco
         }
         else {
             // (if storage is TXS_STACK, we allocate new stack space for making copy of already bound stack value)
-            fieldPtrV = acttype->gen_alloca( context, scope, this->declaration->get_symbol()->get_name() );
+            fieldPtrV = type->gen_alloca( context, scope, this->declaration->get_symbol()->get_name() );
             // create implicit assignment statement
-            if ( this->cachedConstantInitializer )
-                scope->builder->CreateStore( this->cachedConstantInitializer, fieldPtrV );
+            if ( type->get_type_class() == TXTC_ARRAY ) {
+                ASSERT( !this->cachedConstantInitializer, "Constant initializer value already set when initializing array field " << this );  // how handle?
+                Value* initializer = this->initExpression->code_gen_addr( context, scope );
+                auto lvalTypeIdC = ConstantInt::get( IntegerType::getInt32Ty( context.llvmContext ), type->get_runtime_type_id() );
+                TxAssignStmtNode::code_gen_array_copy( context, scope, type, lvalTypeIdC, fieldPtrV, initializer );
+            }
             else {
-                Value* initializer = this->initExpression->code_gen_expr( context, scope );
-                if ( auto constInit = dyn_cast<Constant>( initializer ) )
-                    this->cachedConstantInitializer = constInit;
+                Value* initializer = this->cachedConstantInitializer;
+                if ( !initializer ) {
+                    initializer = this->initExpression->code_gen_expr( context, scope );
+                    if ( auto constInit = dyn_cast<Constant>( initializer ) )
+                        this->cachedConstantInitializer = constInit;
+                }
                 scope->builder->CreateStore( initializer, fieldPtrV );
             }
         }
     }
     else {
-        fieldPtrV = acttype->gen_alloca( context, scope, this->declaration->get_symbol()->get_name() );
+        fieldPtrV = type->gen_alloca( context, scope, this->declaration->get_symbol()->get_name() );
         // We don't automatically invoke default constructor (in future, a code flow validator should check that initialized before first use)
     }
     this->field()->set_llvm_value( fieldPtrV );

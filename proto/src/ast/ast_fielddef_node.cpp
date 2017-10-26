@@ -94,7 +94,18 @@ TxQualType TxFieldDefiningNode::define_type( TxPassInfo passInfo ) {
         qtype = this->typeExpression->resolve_type( passInfo );
         // also resolve initExpression from here, which guards against recursive field value initialization:
         if ( this->initExpression ) {
-            this->initExpression->insert_conversion( passInfo, qtype.type(), this->_explicit );
+            if ( qtype->get_type_class() == TXTC_ARRAY ) {
+                // This implementation relaxes the auto-conversion check to allow assignment of arrays with unknown C.
+                // We only handle auto-dereferencing of the rvalue:
+                auto rtype = this->initExpression->originalExpr->resolve_type( TXP_RESOLUTION );
+                if ( rtype->get_type_class() == TXTC_REFERENCE )
+                    this->initExpression->insert_conversion( TXP_RESOLUTION, rtype->target_type() );
+                else
+                    this->initExpression->resolve_type( TXP_RESOLUTION );
+            }
+            else {
+                this->initExpression->insert_conversion( passInfo, qtype.type(), this->_explicit );
+            }
         }
     }
     else {
@@ -136,9 +147,21 @@ void TxFieldDefiningNode::verification_pass() const {
         LOG_TRACE( this->LOGGER(), "Skipping verification for " << this << " due to earlier resolution failure" );
         return;
     }
-    if ( is_not_properly_concrete( this, type ) ) {
+
+    if ( type->get_type_class() == TXTC_ARRAY ) {
+        // special concreteness check since we allow assignment between arrays of different capacities (i.e. sizes)
+        if ( type->is_type_generic() ) {
+            if ( !this->context().is_generic() && !type->is_generic_param() )
+                CERROR( this, "Field type is not a specific array type: " << type );
+            else
+                LOG_DEBUG( this->LOGGER(), this << " " << this->context().scope()
+                           << " (Not error since generic context) Assignee is not a specific array type: " << type );
+        }
+    }
+    else if ( is_not_properly_concrete( this, type ) ) {
         CERROR( this, "Field type is not concrete: " << this->get_descriptor() << " : " << this->field()->qtype() );
     }
+
     if ( this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR ) {
         // TODO: check that constructor function type has void return value
     }

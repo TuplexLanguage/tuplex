@@ -11,7 +11,7 @@ type ImmutableType<M,N> {
     }
 
     get_m()->M {
-        #experr 2: self.efield = self.mfield;  ## method is not modifying; field is not modifiable
+        #experr 1: self.efield = self.mfield;  ## method is not modifying; field is not modifiable
         return self.mfield;
     }
 

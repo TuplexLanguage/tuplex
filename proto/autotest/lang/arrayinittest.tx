@@ -73,7 +73,7 @@ array_stack_construction( i : UByte ) {
     #experr 1: ae := MyFA( [ 1, 2, 3 ] );
 
     ## not supported to automatically infer generic type parameters:
-    #experr 2: ae := <Array<Int>>( [ 1I, 2, 3 ] );
+    #experr 1: ae := <Array<Int>>( [ 1I, 2, 3 ] );
     #experr 2: ae := <Array>( [ 1I, 2, 3 ] );
 
 

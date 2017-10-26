@@ -609,8 +609,8 @@ static std::vector<TxDeclarationNode*> make_array_methods( const TxLocation& loc
                                                 true ) );  // method syntax since regular constructor
     }
     { // copy constructor
-        auto copyStmt = new TxArrayCopyStmtNode( loc, new TxDerefAssigneeNode( loc, new TxFieldValueNode( loc, nullptr, "self" ) ),
-                                                 new TxReferenceDerefNode( loc, new TxFieldValueNode( loc, nullptr, "src" ) ) );
+        auto copyStmt = new TxAssignStmtNode( loc, new TxDerefAssigneeNode( loc, new TxFieldValueNode( loc, nullptr, "self" ) ),
+                                              new TxReferenceDerefNode( loc, new TxFieldValueNode( loc, nullptr, "src" ) ) );
         auto arrayTypeNode = new TxArrayTypeNode( loc, new TxConstTypeNode( loc, new TxNamedTypeNode( loc, "E" ) ) );
         auto argTypeNode = new TxReferenceTypeNode( loc, nullptr, arrayTypeNode );
         auto argNode = new TxArgTypeDefNode( loc, "src", argTypeNode );

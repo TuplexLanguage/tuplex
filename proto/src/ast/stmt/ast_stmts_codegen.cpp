@@ -20,14 +20,6 @@ void TxTypeStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope )
     this->typeDecl->code_gen( context );
 }
 
-void TxAssignStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
-    TRACE_CODEGEN( this, context );
-    auto lval = this->lvalue->code_gen_address( context, scope );
-    auto rval = this->rvalue->code_gen_expr( context, scope );
-    ASSERT ( lval->getType()->isPointerTy(), "At " << this->parse_loc_string() << ": L-value is not of pointer type:\n" << ::to_string(lval) );
-    scope->builder->CreateStore( rval, lval );
-}
-
 void TxAssertStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     if ( !context.tuplexPackage.driver().get_options().suppress_asserts )
@@ -71,17 +63,34 @@ void TxContinueStmtNode::code_gen( LlvmGenerationContext& context, GenScope* sco
 }
 
 
-void TxArrayCopyStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+void TxAssignStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    auto lvalArrayPtrV = this->lvalue->code_gen_address( context, scope );
-    auto rvalArrayPtrV = this->rvalue->code_gen_addr( context, scope );
+    auto lval = this->lvalue->code_gen_address( context, scope );
+    ASSERT ( lval->getType()->isPointerTy(), "At " << this->parse_loc_string() << ": L-value is not of pointer type:\n" << ::to_string(lval) );
+    if ( this->lvalue->qtype()->get_type_class() == TXTC_ARRAY ) {
+        auto lvalTypeIdV = this->lvalue->code_gen_typeid( context, scope );
+        auto rval = this->rvalue->code_gen_addr( context, scope );
+        code_gen_array_copy( context, scope, this->lvalue->qtype().type(), lvalTypeIdV, lval, rval );
+    }
+    else {
+        auto rval = this->rvalue->code_gen_expr( context, scope );
+        scope->builder->CreateStore( rval, lval );
+    }
+}
 
+
+void TxAssignStmtNode::code_gen_array_copy( LlvmGenerationContext& context, GenScope* scope, const TxActualType* lvalType,
+                                            Value* lvalTypeIdV, Value* lvalArrayPtrV, Value* rvalArrayPtrV ) {
+//    std::cerr << "lval type: " << lvalType << std::endl;
+//    std::cerr << "lval: " << lvalArrayPtrV << std::endl;
+//    std::cerr << "rval: " << rvalArrayPtrV << std::endl;
     Value* lenIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
     auto srcLenPtrV = scope->builder->CreateInBoundsGEP( rvalArrayPtrV, lenIxs );
     auto srcLenV = scope->builder->CreateLoad( srcLenPtrV );
 
-    { // add bounds check:
+    // perform bounds check:
+    {
         auto parentFunc = scope->builder->GetInsertBlock()->getParent();
         BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "if_true", parentFunc );
         BasicBlock* nextBlock = BasicBlock::Create( context.llvmContext, "if_next", parentFunc );
@@ -96,7 +105,8 @@ void TxArrayCopyStmtNode::code_gen( LlvmGenerationContext& context, GenScope* sc
 
         { // if assignee has insufficient capacity
             scope->builder->SetInsertPoint( trueBlock );
-            panicNode->code_gen( context, scope );
+            auto srcLen64V = scope->builder->CreateZExt( srcLenV, Type::getInt64Ty( context.llvmContext ) );
+            context.gen_panic_call( scope, "Assigned array is longer than assignee's capacity, length = %d\n", srcLen64V );
             scope->builder->CreateBr( nextBlock );  // terminate block, though won't be executed
         }
 
@@ -107,12 +117,12 @@ void TxArrayCopyStmtNode::code_gen( LlvmGenerationContext& context, GenScope* sc
     auto dstLenPtrV = scope->builder->CreateInBoundsGEP( lvalArrayPtrV, lenIxs );
     scope->builder->CreateStore( srcLenV, dstLenPtrV );
 
+    // copy array contents:
     {
         // Current implementation is to memcpy the data. (This will include uninitialized padding bytes.)
         // FUTURE: For non-elementary element types, copy each element according to type's copy constructor, if allowed.
         // compute array data size:
-        auto lvalTypeIdV = this->lvalue->code_gen_typeid( context, scope );
-        auto elemSizeV = context.gen_get_element_size( scope, this->lvalue->qtype().type(), lvalTypeIdV );
+        auto elemSizeV = context.gen_get_element_size( scope, lvalType, lvalTypeIdV );
         auto elemSize64V = scope->builder->CreateZExtOrBitCast( elemSizeV, Type::getInt64Ty( context.llvmContext ) );
         auto srcLen64V = scope->builder->CreateZExtOrBitCast( srcLenV, Type::getInt64Ty( context.llvmContext ) );
         auto dataSizeV = scope->builder->CreateMul( elemSize64V, srcLen64V, "datasize" );
