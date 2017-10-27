@@ -31,7 +31,7 @@ void TxAssignStmtNode::resolution_pass() {
     auto ltype = this->lvalue->resolve_type( TXP_RESOLUTION ).type();  // strip qualifiers since this only copies value
     if ( ltype->get_type_class() == TXTC_ARRAY ) {
         // This implementation relaxes the auto-conversion check to allow assignment of arrays with unknown C.
-        // We only handle auto-dereferencing of the rvalue:
+        // (Sufficient capacity is checked in runtime.)
         auto rtype = this->rvalue->originalExpr->resolve_type( TXP_RESOLUTION );
         if ( rtype->get_type_class() == TXTC_REFERENCE ) {
             this->rvalue->insert_conversion( TXP_RESOLUTION, rtype->target_type() );
@@ -39,23 +39,6 @@ void TxAssignStmtNode::resolution_pass() {
         }
         else
             this->rvalue->resolve_type( TXP_RESOLUTION );
-
-        // Note: In theory, if this expression is statically constant we could perform the bounds checking in resolution pass.
-        // However accessing the cogegen'd value of Array.L isn't guaranteed before the type preparation has been run.
-        if ( auto lCapExpr = ltype->capacity() ) {
-            if ( lCapExpr->is_statically_constant() ) {
-                auto lArrayCap = eval_unsigned_int_constant( lCapExpr );  // capacity is statically known
-
-                if ( auto rCapExpr = rtype->capacity() ) {
-                    if ( rCapExpr->is_statically_constant() ) {
-                        auto rArrayCap = eval_unsigned_int_constant( rCapExpr );  // capacity is statically known
-
-                        if ( lArrayCap < rArrayCap )
-                            CWARNING( this, "Array assignee has lower capacity than assigned value: " << lArrayCap << " < " << rArrayCap );
-                    }
-                }
-            }
-        }
     }
     else
         this->rvalue->insert_conversion( TXP_RESOLUTION, ltype );
@@ -65,14 +48,8 @@ void TxAssignStmtNode::verification_pass() const {
     // note: similar rules to passing function arg
     auto ltype = this->lvalue->qtype();
     if ( ltype->get_type_class() == TXTC_ARRAY ) {
-        // special concreteness check since we allow assignment between arrays of different capacities (i.e. sizes)
-        if ( ltype->is_type_generic() ) {
-            if ( !this->context().is_generic() && !ltype->is_generic_param() )
-                CERROR( this->lvalue, "Assignee is not a specific array type: " << ltype );
-            else
-                LOG_DEBUG( this->LOGGER(), this << " " << this->context().scope()
-                           << " (Not error since generic context) Assignee is not a specific array type: " << ltype );
-        }
+        // special check since we allow assignment between arrays of different capacities (i.e. sizes)
+        verify_array_assignment( this, ltype.type(), this->rvalue->qtype().type() );
     }
     else if ( is_not_properly_concrete( this, ltype ) ) {
         CERROR( this->lvalue, "Assignee is not concrete: " << ltype );

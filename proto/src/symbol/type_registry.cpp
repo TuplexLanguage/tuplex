@@ -236,7 +236,7 @@ static void print_type( const TxActualType* type ) {
             ::to_string( type->get_declaration()->get_decl_flags() ).c_str(),
             to_string( type->get_type_class() ).c_str(),
             stat.c_str(),
-            ( type->suppress_code_gen() ? '-' : 'C' ),
+            ( type->suppress_code_gen() ? 'S' : ' ' ),
             type->str( false ).c_str() );
 }
 

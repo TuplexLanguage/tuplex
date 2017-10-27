@@ -116,44 +116,52 @@ Panic statement - DONE
 
 Foreign function interface - DONE
 
+Syntactic sugar for ref and array types in type arguments (possibly chained), e.g. Subtype<&Int> instead of Subtype<Ref<Int>> - DONE
+
 Make VALUE type parameter specializations share a general (but non-generic) supertype - DONE
+
+Basic type reflection ( _typeid(), isa() ) - DONE
 
 Conditional reference type casting: - DONE
     if other is oa : &Array { ... }
 
-Array object assignment, review and test semantics
- - correct setting of L
- - truncation (all elements don't fit in target) ok?
+Array object assignment, review and test semantics - DONE
 
-Default initialization of array elements (at least if it's array of arrays)
+Dynamic-length arrays tests - bounds checking, copying, etc - DONE
 
-Dynamic-length arrays tests - bounds checking, copying, etc - PARTIALLY DONE
-
-Ensure VALUE type parameters are always correctly initialized
+Support main( args ) program arguments - DONE
 
 
 
-Support boolean test expression for: Ref<P> is-a Ref<Q> if P is-a Q
+Windows / Visual Studio development & build support
+
+
+Implement debugging info
+
+
+Dataspace support
+ - overhaul syntax and grammar handling
+ - full semantics and verification
 
 
 
-For VALUEs below a threshold (e.g. <= 4), coge-gen individual specializations for efficiency
-
-
-
-Array initialization from sequence
+Remaining core array and range features:
+----------------------------------------
+Array initialization from sequence; sequence expansion
     arr := []Int( seq );  ## of type Sequencable<Int>
     arr := [ seq... ];
     arr := [ 0..2... ];
 
-Auto-conversion of array initialization elements (literals; also from sequences?)
+Sub-range production:  arr[2..5]
 
 Support negative array indexing from array end
 
 
 
+Secure Initialization
+---------------------
 Ensure fields are always initialized (with the default constructor if no init expr provided)
- - Remove 'initialization' code from alloca (at least for arrays this will cause double init of C and L)
+ - Remove 'initialization' code from alloca (at least for arrays this will cause double init of C and L)?
 
 Implement advanced implicit constructor concept
  - Automatically generate the basic constructor (one argument for each instance member (except const with initializer))
@@ -165,9 +173,26 @@ Constructor initialization validation check: That each constructor properly init
 
 
 
+Advanced array features
+-----------------------
+Auto-conversion of array initialization elements (literals; also from sequences?)
+
+Let nested array assignment statements support implicit initialization of assignee's outer array elements, e.g:
+    aaa : ~[4][4][4]UByte;  aaa[0][0][0] = 17;
+
 Virtual dereferencing of abstract references for array subscripting, implicitly creating a reference to the element?
     r : &Array;  s : &Array;
     r[0] == s[0]
+
+For VALUEs below a threshold (e.g. <= 4), coge-gen individual specializations for efficiency
+
+
+
+Advanced type handling
+----------------------
+Support runtime is-a tests for interface adapters
+
+Support boolean test expression for: Ref<P> is-a Ref<Q> if P is-a Q
 
 Remove assumption that bound parameters are "concrete": Shall be ok to bind interfaces and abstract superclasses.
  - See elementary types that implement Enumerable<E>
@@ -178,8 +203,9 @@ Evaluate whether TYPE type parameter constraint types shall be resolved in each 
     public type ERange< E derives Enumerable<E> > implements Range< E >
                                             ^^^
 
-Dataspace syntax support, continued
 
+Arithmetic features
+-------------------
 max & min intrinsics
 
 modulo & remainder intrinsics
@@ -194,38 +220,35 @@ Assignment-operators:
  - arithmetic ( += etc )
  - bitwise and logical
 
-break and continue out of nested loops
 
-Syntactic sugar for ref and array types in type arguments (possibly chained), e.g. Subtype<&Int> instead of Subtype<Ref<Int>>
 
-Implement implicit static initializer function for types' static members and static code
-
-Implement debugging info
-
-Type reflection, at least for autotesting, some ideas:
-    assert static_type(var) == static_type(Ref<Parent>)
-    assert type(var^) == type(Child)
-    #exptype( var, Ref<Parent> )  ## compilation test, no code generated
-    #exptype( var, "$local.Foo.$type" )  ## compilation test, no code generated
-
+Improved overloading
+--------------------
 Support overloading of virtual methods
-
-Autotests for conversions and default constructions for elementary types
-  - both expression construction, stack field construction, and static construction
-
-Tuple literals
-
-Destructors
-
-Union typeclass
-
-Full dataspaces support
-
-Shared objects
 
 Overhaul function overloading (permitting "near-matches") together with implicit type conversion code
 
-Implement symbol visibility (private etc)
+
+
+Implicit Tuples support
+-----------------------
+Tuple literals
+
+Multi-valued function returns (i.e. return tuple)
+
+
+
+Miscellaneous
+-------------
+break and continue out of nested loops
+
+Implement implicit static initializer function for types' static members and static code
+
+Destructors
+
+Shared objects
+
+Union typeclass
 
 Enum typeclass
 
@@ -234,3 +257,5 @@ Support non-constant static initializers (i.e. executed before main())
 Ideal concrete fields checking
  - ideally bottom-up: any construct that is dependent on generic parameter causes container to be dependent (and non-concrete)
  - methods may have function signature independent of generics, but contain code that is dependent on generic parameters
+
+Implement symbol visibility (private etc)?

@@ -1125,11 +1125,11 @@ static void type_bindings_string( std::stringstream& str, const std::vector<cons
         if ( ix++ )
             str << ",";
         if ( auto valB = dynamic_cast<const TxFieldDeclaration*>( b ) ) {
-            if ( auto initializer = valB->get_definer()->get_init_expression() ) {
-                if ( initializer->is_statically_constant() ) {
+            if ( auto initExpr = valB->get_definer()->get_init_expression() ) {
+                if ( initExpr->is_statically_constant() ) {
                     // existing binding has statically constant value
                     // TODO: handle constants of different types
-                    str << eval_unsigned_int_constant( initializer );
+                    str << eval_unsigned_int_constant( initExpr );
                     continue;
                 }
             }
@@ -1182,9 +1182,23 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
                 str << "-unintegrated-";
         }
     }
-    else if ( this->typeClass == TXTC_REFERENCE || this->typeClass == TXTC_ARRAY ) {
-        if ( !this->get_bindings().empty() ) {
-            type_bindings_string( str, this->get_bindings() );
+//    else if ( this->typeClass == TXTC_REFERENCE ) {
+//        if (! this->is_generic() ) {
+//            type_bindings_string( str, this->get_bindings() );
+//        }
+//    }
+    else if ( this->typeClass == TXTC_ARRAY ) {
+        if (! this->is_generic() ) {
+            str << " <" << this->element_type().str( true ) << ",";
+            auto initExpr = this->capacity();
+            if ( initExpr->is_statically_constant() )
+                str << eval_unsigned_int_constant( initExpr );
+            else
+                str << "?";
+            str << ">";
+        }
+        else if (! this->is_type_generic() ) {
+            str << " <" << this->element_type().str( true ) << ">";
         }
     }
     else {

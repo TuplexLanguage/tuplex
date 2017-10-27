@@ -219,37 +219,10 @@ void initialize_array_obj( LlvmGenerationContext& context, GenScope* scope, Valu
     }
 }
 
-static void initialize_array_obj( LlvmGenerationContext& context, GenScope* scope, Value* arrayObjPtrV, Value* arrayCap ) {
-    initialize_array_obj( context, scope, arrayObjPtrV, arrayCap, ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) );
-}
-
 void TxArrayTypeClassHandler::initialize_specialized_obj( const TxActualType* type, LlvmGenerationContext& context, GenScope* scope, Value* objPtrV ) const {
     auto capExpr = type->capacity();
     Value* arrayCapV = capExpr->code_gen_expr( context, scope );
-    initialize_array_obj( context, scope, objPtrV, arrayCapV );
-
-    /* TODO: Initialize array elements if they are arrays or tuples
-    for ( uint32_t fieldIx = 0; fieldIx < this->instanceFields.fields.size(); ++fieldIx ) {
-        auto field = this->instanceFields.fields.at( fieldIx );
-        if ( field->get_decl_flags() & TXD_GENBINDING ) {
-            Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                             ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };
-            auto fieldPtrV = scope->builder->CreateInBoundsGEP( objPtrV, ixs );
-            // type expressions aren't code generated prior to this: auto initV = field->get_llvm_value();
-            auto initV = field->get_declaration()->get_definer()->get_init_expression()->code_gen_expr( context, scope );
-            scope->builder->CreateStore( initV, fieldPtrV );
-        }
-        else {
-            auto fieldType = field->qualtype()->type();
-            if ( fieldType->get_type_class() == TXTC_TUPLE || fieldType->get_type_class() == TXTC_ARRAY ) {
-                Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                                 ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };
-                auto fieldPtrV = scope->builder->CreateInBoundsGEP( objPtrV, ixs );
-                fieldType->initialize_specialized_obj( context, scope, fieldPtrV );
-            }
-        }
-    }
-    */
+    initialize_array_obj( context, scope, objPtrV, arrayCapV, ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) );
 }
 
 
@@ -314,7 +287,7 @@ Value* TxArrayTypeClassHandler::gen_alloca( const TxActualType* type, LlvmGenera
     Value* arrayObjPtrV = scope->builder->CreatePointerCast( allocationPtr, ptrType, varName );
 
     // initialize the memory:
-    initialize_array_obj( context, scope, arrayObjPtrV, arrayCapV );
+    initialize_array_obj( context, scope, arrayObjPtrV, arrayCapV, ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) );
 
     return arrayObjPtrV;
 }
@@ -352,7 +325,7 @@ Value* TxArrayTypeClassHandler::gen_malloc( const TxActualType* type, LlvmGenera
     Value* arrayObjPtrV = scope->builder->CreatePointerCast( allocationPtr, ptrType, varName );
 
     // initialize the memory:
-    initialize_array_obj( context, scope, arrayObjPtrV, arrayCapV );
+    initialize_array_obj( context, scope, arrayObjPtrV, arrayCapV, ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) );
 
     return arrayObjPtrV;
 }

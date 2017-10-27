@@ -2,6 +2,7 @@
 
 #include "ast_wrappers.hpp"
 #include "ast_declpass.hpp"
+#include "expr/ast_constexpr.hpp"
 #include "type/ast_types.hpp"
 
 #include "symbol/package.hpp"
@@ -149,14 +150,8 @@ void TxFieldDefiningNode::verification_pass() const {
     }
 
     if ( type->get_type_class() == TXTC_ARRAY ) {
-        // special concreteness check since we allow assignment between arrays of different capacities (i.e. sizes)
-        if ( type->is_type_generic() ) {
-            if ( !this->context().is_generic() && !type->is_generic_param() )
-                CERROR( this, "Field type is not a specific array type: " << type );
-            else
-                LOG_DEBUG( this->LOGGER(), this << " " << this->context().scope()
-                           << " (Not error since generic context) Assignee is not a specific array type: " << type );
-        }
+        // special check since we allow assignment between arrays of different capacities (i.e. sizes)
+        verify_array_assignment( this, type.type(), ( this->initExpression ? this->initExpression->qtype().type() : nullptr ) );
     }
     else if ( is_not_properly_concrete( this, type ) ) {
         CERROR( this, "Field type is not concrete: " << this->get_descriptor() << " : " << this->field()->qtype() );
@@ -164,6 +159,41 @@ void TxFieldDefiningNode::verification_pass() const {
 
     if ( this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR ) {
         // TODO: check that constructor function type has void return value
+    }
+}
+
+
+
+void verify_array_assignment( const TxNode* origin, const TxActualType* ltype, const TxActualType* rtype ) {
+    if ( ltype->is_type_generic() ) {
+        if ( !origin->context().is_generic() && !ltype->is_generic_param() )
+            CERROR( origin, "Assignee is not a specific array type: " << ltype );
+        else
+            LOG_DEBUG( origin->LOGGER(), origin << " " << origin->context().scope()
+                       << " (Not error since generic context) Assignee is not a specific array type: " << ltype );
+    }
+    else if ( rtype ) {
+        if ( rtype->get_type_class() != TXTC_ARRAY
+             || !rtype->element_type()->is_assignable_to( *ltype->element_type() ) ) {
+            CERROR( origin, "Can't auto-convert value\n\tFrom: " << rtype << "\n\tTo:   " << ltype  );
+        }
+
+        // Note: In theory, if this expression is statically constant we could perform the bounds checking in resolution pass.
+        // However accessing the cogegen'd value of Array.L isn't guaranteed before the type preparation has been run.
+        if ( auto lCapExpr = ltype->capacity() ) {
+            if ( lCapExpr->is_statically_constant() ) {
+                auto lArrayCap = eval_unsigned_int_constant( lCapExpr );  // capacity is statically known
+
+                if ( auto rCapExpr = rtype->capacity() ) {
+                    if ( rCapExpr->is_statically_constant() ) {
+                        auto rArrayCap = eval_unsigned_int_constant( rCapExpr );  // capacity is statically known
+
+                        if ( lArrayCap < rArrayCap )
+                            CWARNING( origin, "Array assignee has lower capacity than assigned value: " << lArrayCap << " < " << rArrayCap );
+                    }
+                }
+            }
+        }
     }
 }
 

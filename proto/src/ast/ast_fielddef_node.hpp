@@ -9,6 +9,14 @@ namespace llvm {
 class Constant;
 }
 
+
+/** Special concreteness and assignability checks since we allow assignment between arrays
+ *  of different capacities (i.e. sizes).
+ *  Used e.g. by local field definitions and assignment statements.
+ */
+void verify_array_assignment( const TxNode* origin, const TxActualType* ltype, const TxActualType* rtype );
+
+
 class TxFieldDefiningNode : public TxEntityResolvingNode {
     const TxField* _field = nullptr;
     bool startedRslv = false;  // guard against recursive resolution

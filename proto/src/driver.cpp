@@ -78,7 +78,7 @@ int TxDriver::scan_begin( const std::string &filePath ) {
         yyin = stdin;
     else if ( !( yyin = fopen( filePath.c_str(), "r" ) ) ) {
         _LOG.error( "Could not open source file '%s': %s", filePath.c_str(), strerror( errno ) );
-        return 1;
+        return -1;
     }
     yyrestart( yyin );
     yy_flex_debug = this->options.debug_lexer;
@@ -181,7 +181,9 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
             TxParserContext* parserContext = new TxParserContext( *this, moduleName, nextFilePath, pfs );
             int ret = this->parse( *parserContext );
             if ( ret ) {
-                if ( ret == 1 )  // syntax error
+                if ( ret < 0 )  // input file / stream error
+                    _LOG.fatal( "Exiting due to input file / stream error" );
+                else if ( ret == 1 )  // syntax error
                     _LOG.fatal( "Exiting due to unrecovered syntax error" );
                 else
                     // ret == 2, out of memory
