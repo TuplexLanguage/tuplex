@@ -206,6 +206,10 @@ Evaluate whether TYPE type parameter constraint types shall be resolved in each 
 
 Arithmetic features
 -------------------
+Separate bitwise and logical operators, so that bitwise can have higher priority than comparison operators:
+  Bitwise: && || &| !
+  Logical: & | != !
+
 max & min intrinsics
 
 modulo & remainder intrinsics

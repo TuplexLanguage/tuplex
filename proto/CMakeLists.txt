@@ -12,3 +12,4 @@ set(CMAKE_VERBOSE_MAKEFILE off)
 
 
 add_subdirectory (src)
+add_subdirectory (autotest/bench)
