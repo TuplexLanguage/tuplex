@@ -111,7 +111,7 @@ TxScopeSymbol* TxModule::get_member_symbol( const std::string& name ) {
     else if ( this->usedNames.count( name ) ) {  // attempt to find aliased match
         const TxIdentifier& aliasedName( this->usedNames.at( name ) );
         //std::cout << "In module '" << this->get_full_name() << "': matching alias " << name << " == " << aliasedName << std::endl;
-        return search_symbol( this->get_root_scope(), aliasedName );
+        return search_symbol( this->get_root_scope(), aliasedName.str() );
     }
     return nullptr;
 }

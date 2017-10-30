@@ -319,7 +319,7 @@ public:
     }
 
     inline const TxTypeClassHandler* type_class_handler() const {
-        ASSERT( this->typeClassHandler, "NULL type class handler in " << this );
+        ASSERT( this->typeClassHandler, "NULL type class handler in " << this->get_declaration() );
         return this->typeClassHandler;
     }
 
@@ -330,7 +330,7 @@ public:
     /** Gets the runtime type id of this type.
      * For non-built-in types, this is only valid to call after the type preparation phase. */
     inline uint32_t get_runtime_type_id() const {
-        ASSERT( this->runtimeTypeId != UINT32_MAX, "Type id not set for " << this );
+        ASSERT( this->runtimeTypeId != UINT32_MAX, "Type id not set for " << this->get_declaration() );
         return this->runtimeTypeId;
     }
 
@@ -360,7 +360,7 @@ public:
     /** Gets the base type (parent) of this type.
      * ('Any' is the only type that has no base type, in which case null is returned.) */
     inline const TxActualType* get_base_type() const {
-        ASSERT( this->hasIntegrated, "Can't get base type of unintegrated type " << this );
+        ASSERT( this->hasIntegrated, "Can't get base type of unintegrated type " << this->get_declaration() );
         return this->baseType;
     }
 
@@ -389,13 +389,13 @@ public:
     }
 
     inline const std::vector<const TxActualType*>& get_interfaces() const {
-        ASSERT( this->hasIntegrated, "Can't get interfaces of unintegrated type " << this );
+        ASSERT( this->hasIntegrated, "Can't get interfaces of unintegrated type " << this->get_declaration() );
         return this->interfaces;
     }
 
     /** Returns the type class this type belongs to. */
     inline TxTypeClass get_type_class() const {
-        ASSERT( this->hasInitialized, "Can't get type class of uninitialized type " << this );
+        ASSERT( this->hasInitialized, "Can't get type class of uninitialized type " << this->get_declaration() );
         return this->typeClass;
     }
 
@@ -488,13 +488,13 @@ public:
 
     /** Returns true if this type has the same vtable as its base type. */
     inline bool is_same_vtable_type() const {
-        ASSERT( this->hasInitialized, "Can't determine same vtable type of uninitialized type " << this );
+        ASSERT( this->hasInitialized, "Can't determine same vtable type of uninitialized type " << this->get_declaration() );
         return this->has_base_type() && !this->modifiesVTable;
     }
 
     /** Returns true if this type has the same instance data type as its base type. */
     inline bool is_same_instance_type() const {
-        ASSERT( this->hasInitialized, "Can't determine same instance type of uninitialized type " << this );
+        ASSERT( this->hasInitialized, "Can't determine same instance type of uninitialized type " << this->get_declaration() );
         return this->has_base_type() && !this->modifiesInstanceDatatype;
     }
 

@@ -69,6 +69,9 @@ type ~ SubType derives BaseType {
         assert SubType.MULTI == 40;
         assert BaseType.MULTI == 20;
         assert my.MULTI == 10;
+        assert #.MULTI == 10;
+        assert SubType.#.MULTI == 10;
+        assert BaseType.#.MULTI == 10;
 
         assert SUBMEMBER == 40;
         assert self.SUBMEMBER == 40;

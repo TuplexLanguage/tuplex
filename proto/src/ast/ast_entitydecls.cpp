@@ -130,7 +130,7 @@ void TxFieldDeclNode::verification_pass() const {
     case TXS_VIRTUAL:
         if ( !this->fieldDef->initExpression ) {
             if ( !( this->fieldDef->get_declaration()->get_decl_flags() & TXD_ABSTRACT ) )
-                if ( this->fieldDef->fieldName->str() != "$adTypeId" )
+                if ( this->fieldDef->fieldName->ident() != "$adTypeId" )
                     CERROR( this, "Non-abstract virtual fields/methods must have an initializer: " << this->fieldDef->get_descriptor() );
             // FUTURE: When static initializers in types are supported, static/virtual fields' initialization may be deferred.
         }
@@ -162,10 +162,10 @@ void TxFieldDeclNode::verification_pass() const {
     }
 }
 
-TxTypeDeclNode::TxTypeDeclNode( const TxLocation& ploc, const TxDeclarationFlags declFlags, const std::string& typeName,
+TxTypeDeclNode::TxTypeDeclNode( const TxLocation& ploc, const TxDeclarationFlags declFlags, TxIdentifierNode* typeName,
                 const std::vector<TxDeclarationNode*>* typeParamDecls, TxTypeCreatingNode* typeCreatingNode,
                 bool interfaceKW, bool mutableType )
-        : TxDeclarationNode( ploc, declFlags ), typeName( new TxIdentifier( typeName ) ),
+        : TxDeclarationNode( ploc, declFlags ), typeName( typeName ),
           interfaceKW( interfaceKW ), mutableType( mutableType ), typeParamDecls( typeParamDecls ), typeCreatingNode( typeCreatingNode ) {
     typeCreatingNode->set_interface( interfaceKW );
     if ( mutableType || interfaceKW ) {  // (interfaces are implicitly mutable)
@@ -186,7 +186,7 @@ TxTypeDeclNode::TxTypeDeclNode( const TxLocation& ploc, const TxDeclarationFlags
 void TxTypeDeclNode::declaration_pass() {
     const TxTypeDeclaration* declaration = nullptr;
     if ( this->get_decl_flags() & TXD_BUILTIN ) {
-        if ( auto entSym = dynamic_cast<const TxEntitySymbol*>( lexContext.scope()->get_member_symbol( this->typeName->str() ) ) ) {
+        if ( auto entSym = dynamic_cast<const TxEntitySymbol*>( lexContext.scope()->get_member_symbol( this->typeName->ident() ) ) ) {
             declaration = entSym->get_type_decl();
             if ( declaration && ( declaration->get_decl_flags() & TXD_BUILTIN ) ) {
                 //std::cerr << "existing builtin type declaration: " << declaration << "  new type expr: " << this->typeExpression << std::endl;
@@ -201,7 +201,7 @@ void TxTypeDeclNode::declaration_pass() {
     }
 
     if ( !this->_builtinCode ) {
-        declaration = lexContext.scope()->declare_type( this->typeName->str(), this->typeCreatingNode, this->get_decl_flags() );
+        declaration = lexContext.scope()->declare_type( this->typeName->ident(), this->typeCreatingNode, this->get_decl_flags() );
         if ( !declaration ) {
             CERROR( this, "Failed to declare type " << this->typeName );
             return;

@@ -200,12 +200,12 @@ void verify_array_assignment( const TxNode* origin, const TxActualType* ltype, c
 
 
 void TxLocalFieldDefNode::declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
-    this->declaration = scope->declare_field( this->fieldName->str(), this, declFlags, storage, TxIdentifier() );
+    this->declaration = scope->declare_field( this->fieldName->ident(), this, declFlags, storage, TxIdentifier() );
 }
 
 
 void TxNonLocalFieldDefNode::declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
-    std::string declName = this->fieldName->str();
+    std::string declName = this->fieldName->ident();
     if ( declName == "self" ) {
         // handle constructor declaration
         if ( storage != TXS_INSTANCEMETHOD )
@@ -267,7 +267,7 @@ void TxNonLocalFieldDefNode::resolution_pass() {
     TxFieldDefiningNode::resolution_pass();
 
     // handle main() function declarations:
-    if ( this->fieldName->str() == "main" ) {
+    if ( this->fieldName->ident() == "main" ) {
         auto funcField = this->field();
         if ( funcField->qtype()->get_type_class() == TXTC_FUNCTION ) {
             // verify main program function candidate

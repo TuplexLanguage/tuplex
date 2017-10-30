@@ -18,16 +18,19 @@ protected:
 //    }
 
 public:
-    const std::string fieldName;
+    TxIdentifierNode* fieldName;
     TxTypeExpressionNode* typeExpression;
 
-    TxArgTypeDefNode( const TxLocation& ploc, const std::string& fieldName, TxTypeExpressionNode* typeExpression )
+    TxArgTypeDefNode( const TxLocation& ploc, TxIdentifierNode* fieldName, TxTypeExpressionNode* typeExpression )
             : TxTypeResolvingNode( ploc ), fieldName( fieldName ), typeExpression( typeExpression ) {
         ASSERT( typeExpression, "typeExpression must be specified" );
     }
+    TxArgTypeDefNode( const TxLocation& ploc, const std::string& fieldName, TxTypeExpressionNode* typeExpression )
+            : TxArgTypeDefNode( ploc, new TxIdentifierNode( ploc, fieldName ), typeExpression ) {
+    }
 
     virtual TxArgTypeDefNode* make_ast_copy() const override {
-        return new TxArgTypeDefNode( this->ploc, this->fieldName, this->typeExpression->make_ast_copy() );
+        return new TxArgTypeDefNode( this->ploc, this->fieldName->make_ast_copy(), this->typeExpression->make_ast_copy() );
     }
 
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
@@ -35,6 +38,6 @@ public:
     }
 
     virtual const std::string& get_descriptor() const override {
-        return this->fieldName;
+        return this->fieldName->get_descriptor();
     }
 };

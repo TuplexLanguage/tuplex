@@ -11,14 +11,14 @@ TxLambdaExprNode::TxLambdaExprNode( const TxLocation& ploc, TxFunctionHeaderNode
         this->selfTypeNode = new TxNamedTypeNode( this->ploc, "Self" );
         auto selfRefTargetTypeNode = new TxSetQualTypeExprNode( this->ploc, this->selfTypeNode, this->funcHeaderNode->is_modifying() );
         auto selfRefTypeExprN = new TxQualTypeExprNode( new TxReferenceTypeNode( this->ploc, nullptr, selfRefTargetTypeNode ) );
-        this->selfRefNode = new TxLocalFieldDefNode( this->ploc, "self", selfRefTypeExprN, nullptr );
+        this->selfRefNode = new TxLocalFieldDefNode( this->ploc, new TxIdentifierNode( this->ploc, "self" ), selfRefTypeExprN, nullptr );
 
         // 'super' reference
         if ( !suppressSuper ) {
             auto superTypeNode = new TxNamedTypeNode( this->ploc, "Super" );
             auto superRefTargetTypeNode = new TxSetQualTypeExprNode( this->ploc, superTypeNode, this->funcHeaderNode->is_modifying() );
             auto superRefTypeExprN = new TxQualTypeExprNode( new TxReferenceTypeNode( this->ploc, nullptr, superRefTargetTypeNode ) );
-            this->superRefNode = new TxLocalFieldDefNode( this->ploc, "super", superRefTypeExprN, nullptr );
+            this->superRefNode = new TxLocalFieldDefNode( this->ploc, new TxIdentifierNode( this->ploc, "super" ), superRefTypeExprN, nullptr );
         }
     }
 }

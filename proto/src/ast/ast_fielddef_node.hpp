@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ast_entitydefs.hpp"
+#include "ast_identifier.hpp"
 #include "type/ast_qualtypes.hpp"
 #include "expr/ast_expr_node.hpp"
 #include "expr/ast_maybe_conv_node.hpp"
@@ -37,9 +38,9 @@ protected:
 
     virtual void verification_pass() const override;
 
-    TxFieldDefiningNode( const TxLocation& ploc, const std::string& fieldName,
+    TxFieldDefiningNode( const TxLocation& ploc, TxIdentifierNode* fieldName,
                     TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression, bool modifiable, bool _explicit )
-            : TxEntityResolvingNode( ploc ), _explicit( _explicit ), fieldName( new TxIdentifier( fieldName ) ), modifiable( modifiable ),
+            : TxEntityResolvingNode( ploc ), _explicit( _explicit ), fieldName( fieldName ), modifiable( modifiable ),
               typeExpression( typeExpression ) {
 //        if ( typeExpression ) {
 //            typeExpression->set_requires_mutable( modifiable );
@@ -55,7 +56,7 @@ protected:
     }
 
 public:
-    const TxIdentifier* fieldName;
+    TxIdentifierNode* fieldName;
     const bool modifiable;  // true if field name explicitly declared modifiable
     TxTypeExpressionNode* typeExpression;
     TxMaybeConversionNode* initExpression;
@@ -110,7 +111,7 @@ public:
     }
 
     virtual const std::string& get_descriptor() const override {
-        return this->fieldName->str();
+        return this->fieldName->get_descriptor();
     }
 
     /** Generates this field, potentially only as a declaration without initializer. Invoked from code referencing this field. */
@@ -124,18 +125,18 @@ public:
 };
 
 class TxLocalFieldDefNode : public TxFieldDefiningNode {
-    TxLocalFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
+    TxLocalFieldDefNode( const TxLocation& ploc, TxIdentifierNode* fieldName,
                          TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression, bool modifiable, bool _explicit )
             : TxFieldDefiningNode( ploc, fieldName, typeExpression, initExpression, modifiable, _explicit ) {
     }
 
 public:
-    TxLocalFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
+    TxLocalFieldDefNode( const TxLocation& ploc, TxIdentifierNode* fieldName,
                          TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression, bool _explicit = false )
             : TxLocalFieldDefNode( ploc, fieldName, typeExpression, initExpression, false, _explicit ) {
     }
 
-    TxLocalFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
+    TxLocalFieldDefNode( const TxLocation& ploc, TxIdentifierNode* fieldName,
                          TxExpressionNode* initExpression, bool modifiable )
         : TxLocalFieldDefNode( ploc, fieldName, nullptr, initExpression, modifiable, false ) {
     }
@@ -143,7 +144,7 @@ public:
     virtual TxLocalFieldDefNode* make_ast_copy() const override {
         TxTypeExpressionNode* typeExpr = ( this->typeExpression ? this->typeExpression->make_ast_copy() : nullptr );
         TxExpressionNode* initExpr = ( this->initExpression ? this->initExpression->originalExpr->make_ast_copy() : nullptr );
-        return new TxLocalFieldDefNode( this->ploc, this->fieldName->str(), typeExpr, initExpr, this->modifiable, this->_explicit );
+        return new TxLocalFieldDefNode( this->ploc, this->fieldName->make_ast_copy(), typeExpr, initExpr, this->modifiable, this->_explicit );
     }
 
     virtual void declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) override;
@@ -158,7 +159,7 @@ class TxNonLocalFieldDefNode : public TxFieldDefiningNode {
 
     bool is_main_signature_valid( const TxActualType* funcType ) const;
 
-    TxNonLocalFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
+    TxNonLocalFieldDefNode( const TxLocation& ploc, TxIdentifierNode* fieldName,
                             TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression, bool modifiable )
             : TxFieldDefiningNode( ploc, fieldName, typeExpression, initExpression, modifiable, false ) {
     }
@@ -167,12 +168,12 @@ protected:
     virtual void resolution_pass() override;
 
 public:
-    TxNonLocalFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
+    TxNonLocalFieldDefNode( const TxLocation& ploc, TxIdentifierNode* fieldName,
                             TxTypeExpressionNode* typeExpression, TxExpressionNode* initExpression )
         : TxNonLocalFieldDefNode( ploc, fieldName, typeExpression, initExpression, false ) {
     }
 
-    TxNonLocalFieldDefNode( const TxLocation& ploc, const std::string& fieldName,
+    TxNonLocalFieldDefNode( const TxLocation& ploc, TxIdentifierNode* fieldName,
                             TxExpressionNode* initExpression, bool modifiable )
         : TxNonLocalFieldDefNode( ploc, fieldName, nullptr, initExpression, modifiable ) {
     }
@@ -180,7 +181,7 @@ public:
     virtual TxNonLocalFieldDefNode* make_ast_copy() const override {
         TxTypeExpressionNode* typeExpr = ( this->typeExpression ? this->typeExpression->make_ast_copy() : nullptr );
         TxExpressionNode* initExpr = ( this->initExpression ? this->initExpression->originalExpr->make_ast_copy() : nullptr );
-        return new TxNonLocalFieldDefNode( this->ploc, this->fieldName->str(), typeExpr, initExpr, this->modifiable );
+        return new TxNonLocalFieldDefNode( this->ploc, this->fieldName->make_ast_copy(), typeExpr, initExpr, this->modifiable );
     }
 
     virtual void declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) override;

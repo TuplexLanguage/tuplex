@@ -5,7 +5,8 @@
 #include "ast/expr/ast_exprs.hpp"
 
 
-TxIsClauseNode::TxIsClauseNode( const TxLocation& ploc, TxExpressionNode* valueExpr, const std::string& valueName, TxQualTypeExprNode* typeExpr )
+TxIsClauseNode::TxIsClauseNode( const TxLocation& ploc, TxExpressionNode* valueExpr, TxIdentifierNode* valueName,
+                                TxQualTypeExprNode* typeExpr )
         : TxFlowHeaderNode( ploc ), origValueExpr( valueExpr ), valueName( valueName ), typeExpr( typeExpr )  {
     auto & loc = this->ploc;
 
@@ -23,18 +24,20 @@ void TxIsClauseNode::verification_pass() const {
 }
 
 
-TxInClauseNode::TxInClauseNode( const TxLocation& ploc, const std::string& valueName, const std::string& iterName,
-                                TxExpressionNode* seqExpr )
-        : TxFlowHeaderNode( ploc ), valueName( valueName ), iterName( iterName ), origSeqExpr( seqExpr ) {
+TxInClauseNode::TxInClauseNode( const TxLocation& ploc, TxIdentifierNode* valueName, TxIdentifierNode* iterName,
+                                TxExpressionNode* seqExpr, TxDeclarationFlags iterDeclFlags )
+        : TxFlowHeaderNode( ploc ), valueName( valueName ), iterName( iterName ), origSeqExpr( seqExpr ),
+          iterDeclFlags( iterDeclFlags ) {
     auto & loc = this->ploc;
-    auto iterInitExpr = new TxFunctionCallNode( loc, new TxFieldValueNode( loc, new TxMaybeConversionNode( seqExpr ), "sequencer" ),
+    auto iterInitExpr = new TxFunctionCallNode( loc, new TxFieldValueNode( loc, new TxMaybeConversionNode( seqExpr ),
+                                                                           new TxIdentifierNode( loc, "sequencer" ) ),
                                                 new std::vector<TxExpressionNode*>() );
     this->iterField = new TxLocalFieldDefNode( loc, this->iterName, iterInitExpr, false );
 
-    this->nextCond = new TxFunctionCallNode( loc, new TxFieldValueNode( loc, new TxFieldValueNode( loc, nullptr, this->iterName ), "has_next" ),
+    this->nextCond = new TxFunctionCallNode( loc, new TxFieldValueNode( loc, this->iterName->ident() + ".has_next" ),
                                              new std::vector<TxExpressionNode*>() );
 
-    auto nextValueExpr = new TxFunctionCallNode( loc, new TxFieldValueNode( loc, new TxFieldValueNode( loc, nullptr, this->iterName ), "next" ),
+    auto nextValueExpr = new TxFunctionCallNode( loc, new TxFieldValueNode( loc, this->iterName->ident() + ".next" ),
                                                  new std::vector<TxExpressionNode*>() );
     this->valueField = new TxLocalFieldDefNode( loc, this->valueName, nextValueExpr, false );
 }

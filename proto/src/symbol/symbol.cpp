@@ -23,7 +23,6 @@ TxScopeSymbol::TxScopeSymbol( TxScopeSymbol* parent, const std::string& name )
         ASSERT( !name.empty() && name.find_first_of( '.' ) == std::string::npos, "Non-plain name specified for non-root scope: '" << name << "'" );
         this->fullName = TxIdentifier( this->outer->get_full_name(), this->name );
         this->root = parent->get_root_scope();
-        //this->inExpErrBlock = parent->inExpErrBlock;
     }
     else {
         ASSERT( name.empty(), "Non-empty name specified for parent-less root scope: " << name );
@@ -49,7 +48,6 @@ TxScopeSymbol* TxScopeSymbol::create_code_block_scope( const TxParseOrigin& orig
     std::string uniqueName = this->make_unique_name( plainName + '$' );
     TxScopeSymbol* scope = new TxScopeSymbol( this, uniqueName );
     this->declare_symbol( origin, scope );
-    //LOG_TRACE(this->LOGGER(), "-->            " << scope->get_full_name() );
     return scope;
 }
 

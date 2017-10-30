@@ -81,18 +81,18 @@ protected:
     virtual void verification_pass() const override;
 
 public:
-    const TxIdentifier* typeName;
+    TxIdentifierNode* typeName;
     const bool interfaceKW;
     const bool mutableType;
     const std::vector<TxDeclarationNode*>* typeParamDecls;
     TxTypeCreatingNode* typeCreatingNode;
 
-    TxTypeDeclNode( const TxLocation& ploc, const TxDeclarationFlags declFlags, const std::string& typeName,
+    TxTypeDeclNode( const TxLocation& ploc, const TxDeclarationFlags declFlags, TxIdentifierNode* typeName,
                     const std::vector<TxDeclarationNode*>* typeParamDecls, TxTypeCreatingNode* typeCreatingNode,
                     bool interfaceKW = false, bool mutableType = false );
 
     virtual TxTypeDeclNode* make_ast_copy() const override {
-        return new TxTypeDeclNode( this->ploc, this->get_decl_flags(), this->typeName->str(),
+        return new TxTypeDeclNode( this->ploc, this->get_decl_flags(), this->typeName->make_ast_copy(),
                                    make_node_vec_copy( this->typeParamDecls ), this->typeCreatingNode->make_ast_copy(),
                                    this->interfaceKW, this->mutableType );
     }
@@ -120,7 +120,7 @@ public:
     }
 
     virtual const std::string& get_descriptor() const override {
-        return this->typeName->str();
+        return this->typeName->get_descriptor();
     }
 };
 

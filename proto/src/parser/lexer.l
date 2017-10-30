@@ -219,7 +219,7 @@ extern "C" int yywrap() { return 0; }
 "FALSE"                 { return token::KW_FALSE; }
 
 {L}({L}|{D}|#)*       { yylval->build(std::string (yytext)); return token::NAME; }
-                        /* return yy::TxParser::make_NAME(std::string(yytext), loc); */
+#                     { yylval->build(std::string (yytext)); return token::NAME; }
 
 [1-9]{D}*#{WS}*("-"{WS}*)?({L}|{D})+(#{IS})?  { yylval->build(std::string (yytext)); return token::LIT_RADIX_INT; }
 0[xX]{H}({H}|_)*(#{IS})?                      { yylval->build(std::string (yytext)); return token::LIT_RADIX_INT; }

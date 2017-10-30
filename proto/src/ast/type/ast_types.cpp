@@ -8,17 +8,25 @@
 #include "tx_error.hpp"
 
 
+TxIdentifiedSymbolNode* TxIdentifiedSymbolNode::make_ident_sym_node( const TxLocation& ploc, const std::string& compoundName ) {
+    TxIdentifier ci( compoundName );
+    TxIdentifiedSymbolNode* symNode = nullptr;
+    for ( auto it = ci.segments_cbegin(); it != ci.segments_cend(); it++ ) {
+        symNode = new TxIdentifiedSymbolNode( ploc, symNode, new TxIdentifierNode( ploc, *it ) );
+    }
+    return symNode;
+}
+
 TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
     if ( !this->symbol ) {
         TxScopeSymbol* vantageScope = this->context().scope();
         if ( this->baseSymbolNode ) {
             auto baseSymbol = this->baseSymbolNode->resolve_symbol();
             // baseSymbol may refer to a namespace, type, or field
-            this->symbol = lookup_inherited_member( vantageScope, baseSymbol, this->symbolName->str() );
+            this->symbol = lookup_inherited_member( vantageScope, baseSymbol, this->symbolName->ident() );
         }
         else {
-            // capable of looking up both simple names and fully qualified names
-            this->symbol = search_symbol( vantageScope, *this->symbolName );
+            this->symbol = search_name( vantageScope, this->symbolName->ident() );
         }
     }
     return this->symbol;
@@ -42,7 +50,7 @@ TxQualType TxNamedTypeNode::define_type( TxPassInfo passInfo ) {
 
 TxQualType TxMemberTypeNode::define_type( TxPassInfo passInfo ) {
     auto baseType = this->baseTypeExpr->resolve_type( passInfo );
-    if ( auto memberSymbol = lookup_inherited_member( this->context().scope(), baseType.type(), this->memberName ) ) {
+    if ( auto memberSymbol = lookup_inherited_member( this->context().scope(), baseType.type(), this->memberName->ident() ) ) {
         if ( auto entitySym = dynamic_cast<const TxEntitySymbol*>( memberSymbol ) ) {
             if ( auto typeDecl = entitySym->get_type_decl() ) {
                 return typeDecl->get_definer()->resolve_type( passInfo );
@@ -94,9 +102,8 @@ void TxDerivedTypeNode::init_implicit_types() {
     if (! this->builtinTypeDefiner ) {
         // implicit type member 'Super' for types with a body:
         // (Note, 'Self' is created in the symbol table for all types, as an alias directly to the type.)
-        // TODO: make Super be a type alias instead of an actual type
         auto superTypeExprN = new TxAliasTypeNode( this->ploc, new TxTypeExprWrapperNode( this->baseTypeNode ) );
-        const std::string superTypeName = "Super";
+        auto superTypeName = new TxIdentifierNode( this->ploc, "Super" );
         this->superRefTypeNode = new TxTypeDeclNode( this->ploc, TXD_IMPLICIT, superTypeName, nullptr, superTypeExprN );
     }
 }

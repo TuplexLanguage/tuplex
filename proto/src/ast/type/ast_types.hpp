@@ -2,6 +2,7 @@
 
 #include "ast/ast_entitydecls.hpp"
 #include "ast/ast_entitydefs.hpp"
+#include "ast/ast_identifier.hpp"
 #include "ast/type/ast_typeexpr_node.hpp"
 #include "ast/type/ast_typearg_node.hpp"
 #include "ast/type/ast_argtypedef_node.hpp"
@@ -11,7 +12,7 @@
 #include "symbol/qual_type.hpp"
 
 class TxIdentifiedSymbolNode : public TxNode {
-    const TxIdentifier* symbolName;
+    TxIdentifierNode* symbolName;
     TxScopeSymbol* symbol = nullptr;
 
     friend class TxNamedTypeNode;
@@ -22,13 +23,15 @@ protected:
 public:
     TxIdentifiedSymbolNode* baseSymbolNode;
 
-    TxIdentifiedSymbolNode( const TxLocation& ploc, TxIdentifiedSymbolNode* baseSymbol, const std::string& name )
-            : TxNode( ploc ), symbolName( new TxIdentifier( name ) ), baseSymbolNode( baseSymbol ) {
+    TxIdentifiedSymbolNode( const TxLocation& ploc, TxIdentifiedSymbolNode* baseSymbol, TxIdentifierNode* name )
+            : TxNode( ploc ), symbolName( name ), baseSymbolNode( baseSymbol ) {
     }
+
+    static TxIdentifiedSymbolNode* make_ident_sym_node( const TxLocation& ploc, const std::string& compoundName );
 
     virtual TxIdentifiedSymbolNode* make_ast_copy() const override {
         return new TxIdentifiedSymbolNode( this->ploc, ( this->baseSymbolNode ? this->baseSymbolNode->make_ast_copy() : nullptr ),
-                                           this->symbolName->str() );
+                                           this->symbolName->make_ast_copy() );
     }
 
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
@@ -37,12 +40,15 @@ public:
     }
 
     /** Returns the full identifier (dot-separated full name) as specified in the program text, up to and including this name. */
-    inline TxIdentifier get_full_identifier() const {
-        return ( this->baseSymbolNode ? TxIdentifier( this->baseSymbolNode->get_full_identifier(), this->symbolName->str() ) : *this->symbolName );
+    std::string get_full_identifier() const {
+        if ( this->baseSymbolNode )
+            return this->baseSymbolNode->get_full_identifier() + '.' + this->symbolName->ident();
+        else
+            return this->symbolName->ident();
     }
 
     virtual const std::string& get_descriptor() const override {
-        return this->symbolName->str();
+        return this->symbolName->get_descriptor();
     }
 };
 
@@ -58,9 +64,10 @@ public:
             : TxTypeExpressionNode( ploc ), symbolNode( symbolNode ) {
     }
 
-    TxNamedTypeNode( const TxLocation& ploc, const std::string& name )
-            : TxTypeExpressionNode( ploc ), symbolNode( new TxIdentifiedSymbolNode( ploc, nullptr, name ) ) {
+    TxNamedTypeNode( const TxLocation& ploc, const std::string& compoundName )
+            : TxTypeExpressionNode( ploc ), symbolNode( TxIdentifiedSymbolNode::make_ident_sym_node( ploc, compoundName ) ) {
     }
+
 
     virtual TxNamedTypeNode* make_ast_copy() const override {
         return new TxNamedTypeNode( this->ploc, symbolNode->make_ast_copy() );
@@ -84,14 +91,14 @@ protected:
 
 public:
     TxTypeExpressionNode* baseTypeExpr;
-    const std::string memberName;
+    TxIdentifierNode* memberName;
 
-    TxMemberTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeExpr, const std::string& memberName )
+    TxMemberTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeExpr, TxIdentifierNode* memberName )
             : TxTypeExpressionNode( ploc ), baseTypeExpr( baseTypeExpr ), memberName( memberName ) {
     }
 
     virtual TxMemberTypeNode* make_ast_copy() const override {
-        return new TxMemberTypeNode( this->ploc, baseTypeExpr->make_ast_copy(), memberName );
+        return new TxMemberTypeNode( this->ploc, baseTypeExpr->make_ast_copy(), memberName->make_ast_copy() );
     }
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override;
@@ -101,7 +108,7 @@ public:
     }
 
     virtual const std::string& get_descriptor() const override {
-        return this->memberName;
+        return this->memberName->get_descriptor();
     }
 };
 
@@ -313,7 +320,9 @@ class TxFunctionTypeNode : public TxTypeCreatingNode {
     TxTypeExpressionNode* baseTypeNode;
 
     static TxArgTypeDefNode* make_return_field( TxTypeExpressionNode* returnType ) {
-        return ( returnType ? new TxArgTypeDefNode( returnType->ploc, "$return", returnType ) : nullptr );
+        if ( !returnType )
+            return nullptr;
+        return new TxArgTypeDefNode( returnType->ploc, new TxIdentifierNode( returnType->ploc, "$return"), returnType );
     }
 
 protected:

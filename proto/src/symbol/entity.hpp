@@ -16,9 +16,8 @@ class Value;
 /** Represents a resolved program entity - a type or a field.
  * Entities are produced by entity-defining AST nodes (that inherit from TxEntityDefiningNode)
  * during the resolution pass.
- * An entity typically has a declaration (however for specializations of generic types there are exceptions)
- * and the declaration associates the entity with a qualified name (a symbol table entry)
- * and with declaration flags (attributes).
+ * An entity always has a declaration and the declaration associates the entity
+ * with a qualified name (a symbol table entry) and with declaration flags (attributes).
  */
 class TxEntity : public virtual TxParseOrigin, public Printable {
     static Logger& _LOG;
@@ -28,6 +27,7 @@ class TxEntity : public virtual TxParseOrigin, public Printable {
 protected:
     TxEntity( const TxEntityDeclaration* declaration )
             : declaration( declaration ) {
+        ASSERT( declaration, "NULL declaration" );
     }
 
 public:

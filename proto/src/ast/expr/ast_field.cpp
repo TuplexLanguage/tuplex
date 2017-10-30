@@ -192,7 +192,7 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
         if ( baseType->get_type_class() == TXTC_VOID ) {
             if ( auto baseFieldExpr = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {
                 // base is a non-entity symbol
-                this->symbol = lookup_member( vantageScope, baseFieldExpr->resolve_symbol(), *this->symbolName );
+                this->symbol = lookup_member( vantageScope, baseFieldExpr->resolve_symbol(), this->symbolName->ident() );
             }
             else
                 CERR_THROWRES( this, "Base expression of field member operator '.' has no type." );
@@ -208,11 +208,11 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
                 this->baseExpr = derefNode;
             }
             // base is a type or value expression
-            this->symbol = lookup_inherited_member( vantageScope, baseType.type(), this->symbolName->str() );
+            this->symbol = lookup_inherited_member( vantageScope, baseType.type(), this->symbolName->ident() );
         }
     }
     else {
-        this->symbol = search_symbol( vantageScope, *this->symbolName );
+        this->symbol = search_name( vantageScope, this->symbolName->ident() );
     }
     return this->symbol;
 }

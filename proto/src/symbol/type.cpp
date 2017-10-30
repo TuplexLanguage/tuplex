@@ -193,9 +193,7 @@ void TxActualType::validate_type() const {
 }
 
 void TxActualType::examine_members() {
-    LOG_TRACE( this->LOGGER(), "Examining members of type " << this );
-
-    ASSERT( this->get_declaration(), "No declaration for actual type " << this );
+    LOG_TRACE( this->LOGGER(), "Examining members of type " << this->get_declaration()->get_unique_full_name() );
 
     auto typeDeclNamespace = this->get_declaration()->get_symbol();
 
@@ -268,8 +266,8 @@ void TxActualType::examine_members() {
 void TxActualType::initialize_type() {
     LOG_TRACE( this->LOGGER(), "Initializing type " << this );
 
-    ASSERT( !baseType || baseType->hasInitialized, "baseType of " << this << " has not initialized: " << baseType );
-    ASSERT( !genericBaseType || genericBaseType->hasInitialized, "genericBaseType of " << this << " has not initialized: " << genericBaseType );
+    ASSERT( !baseType || baseType->hasInitialized, "baseType of " << this->get_declaration() << " has not initialized: " << baseType );
+    ASSERT( !genericBaseType || genericBaseType->hasInitialized, "genericBaseType of " << this->get_declaration() << " has not initialized: " << genericBaseType );
 
     if ( !hasExplicitFieldMembers ) {
         if ( !this->bindings.empty() ) {
@@ -350,7 +348,7 @@ void TxActualType::integrate() {
         if ( !this->typeClassHandler ) {
             this->set_type_class( this->baseType->type_class_handler() );
         }
-        ASSERT( this->hasInitialized, "Integrated but not initialized: " << this );
+        ASSERT( this->hasInitialized, "Integrated but not initialized: " << this->get_declaration() );
         this->hasIntegrated = true;  // (setting it here allows params/bindings to refer back and integrate this type)
 
         // integrate type parameters, bindings:
@@ -748,7 +746,7 @@ bool TxActualType::is_type_generic_dependent() const {
 }
 
 bool TxActualType::is_empty_derivation() const {
-    ASSERT( this->hasInitialized, "Can't determine derivation characteristics of uninitialized type " << this );
+    ASSERT( this->hasInitialized, "Can't determine derivation characteristics of uninitialized type " << this->get_declaration() );
     return this->emptyDerivation;
 }
 
@@ -761,7 +759,7 @@ bool TxActualType::is_virtual_derivation() const {
 }
 
 bool TxActualType::is_leaf_derivation() const {
-    ASSERT( this->hasInitialized, "Can't determine derivation characteristics of uninitialized type " << this );
+    ASSERT( this->hasInitialized, "Can't determine derivation characteristics of uninitialized type " << this->get_declaration() );
     switch ( this->typeClass ) {
     case TXTC_ANY:
         return false;
@@ -787,8 +785,10 @@ bool TxActualType::is_leaf_derivation() const {
         return false;
 
     case TXTC_REFERENCE:
-    case TXTC_ARRAY:
         return !this->is_generic();
+
+    case TXTC_ARRAY:
+        return !this->is_generic();  // TODO: if user extends array, or if value-specializations share code, this is inaccurate
 
     case TXTC_TUPLE:
         return this->is_final();  // TODO: identify types that simply don't have any subtypes declared via Registry
@@ -809,7 +809,7 @@ bool TxActualType::is_leaf_derivation() const {
 
 
 bool TxActualType::is_scalar() const {
-    ASSERT( this->hasInitialized, "Can't determine derivation characteristics of uninitialized type " << this );
+    ASSERT( this->hasInitialized, "Can't determine derivation characteristics of uninitialized type " << this->get_declaration() );
     if ( this->typeClass != TXTC_ELEMENTARY )
         return false;
     if ( this->runtimeTypeId >= BuiltinTypeId_COUNT ) {
@@ -842,7 +842,7 @@ bool TxActualType::is_scalar() const {
 
 
 uint32_t TxActualType::get_elementary_type_id() const {
-    ASSERT( this->hasInitialized, "Can't determine derivation characteristics of uninitialized type " << this );
+    ASSERT( this->hasInitialized, "Can't determine derivation characteristics of uninitialized type " << this->get_declaration() );
     if ( this->typeClass != TXTC_ELEMENTARY )
         return UINT32_MAX;
     auto type = this;
@@ -887,6 +887,8 @@ static TxEntitySymbol* lookup_inherited_binding( const TxActualType* type, const
 //        else if ( semBaseType->get_declaration()->get_unique_full_name() == parentName )
 //            LOG( type->LOGGER(), WARN, "Type parameter apparently unbound: " << fullParamName );
 
+        if ( !type->is_integrated() )
+            break;
         type = type->get_base_type();
         semBaseType = type->get_semantic_base_type();
     }
@@ -1159,7 +1161,6 @@ std::string TxActualType::str( bool brief ) const {
 
 void TxActualType::self_string( std::stringstream& str, bool brief ) const {
     bool expl = !( this->get_declaration()->get_decl_flags() & ( TXD_IMPLICIT | TXD_GENPARAM | TXD_GENBINDING ) );
-
     str << this->get_declaration()->get_unique_full_name();
 
     if ( !this->hasInitialized ) {
@@ -1188,17 +1189,19 @@ void TxActualType::self_string( std::stringstream& str, bool brief ) const {
 //        }
 //    }
     else if ( this->typeClass == TXTC_ARRAY ) {
-        if (! this->is_generic() ) {
-            str << " <" << this->element_type().str( true ) << ",";
-            auto initExpr = this->capacity();
-            if ( initExpr->is_statically_constant() )
-                str << eval_unsigned_int_constant( initExpr );
-            else
-                str << "?";
+        if (! this->is_type_generic() ) {
+            auto elemType = this->element_type();
+            str << " <" << ( elemType ? elemType.str( true ) : "_" );
+            if (! this->is_generic() ) {
+                auto initExpr = this->capacity();
+                if ( !initExpr )
+                    str << ",_";
+                else if ( initExpr->is_statically_constant() )
+                    str << "," << eval_unsigned_int_constant( initExpr );
+                else
+                    str << ",?";
+            }
             str << ">";
-        }
-        else if (! this->is_type_generic() ) {
-            str << " <" << this->element_type().str( true ) << ">";
         }
     }
     else {
@@ -1224,13 +1227,16 @@ const TxExpressionNode* TxActualType::capacity() const {
 TxQualType TxActualType::element_type() const {
     if ( this->get_type_class() != TXTC_ARRAY )
         THROW_LOGIC( "Can't get element_type() of non-array type: " << this );
-    if ( auto entSym = lookup_inherited_member( this->get_declaration()->get_symbol(), this, "tx#Array#E" ) ) {
+//    if ( auto bindingDecl = this->lookup_type_param_binding( "tx.Array.E" ) ) {
+//        return bindingDecl->get_definer()->qtype();
+//    }
+    if ( auto entSym = dynamic_cast<TxEntitySymbol*>( lookup_inherited_member( this->get_declaration()->get_symbol(), this, "tx#Array#E" ) ) ) {
         if ( auto typeDecl = entSym->get_type_decl() ) {
             //std::cerr << "Array.E type decl: " << typeDecl << std::endl;
             return typeDecl->get_definer()->qtype();
         }
     }
-    LOG( this->LOGGER(), ERROR, "tx#Array#E not found in " << this );
+    LOG( this->LOGGER(), ERROR, "tx#Array#E not found in " << this->get_declaration() );
     return TxQualType( this->get_root_any_qtype() );  // we know the basic constraint type for element is Any
 }
 
@@ -1238,13 +1244,13 @@ TxQualType TxActualType::element_type() const {
 TxQualType TxActualType::target_type() const {
     if ( this->get_type_class() != TXTC_REFERENCE )
         THROW_LOGIC( "Can't get target_type() of non-reference type: " << this );
-    if ( auto entSym = lookup_inherited_member( this->get_declaration()->get_symbol(), this, "tx#Ref#T" ) ) {
+    if ( auto entSym = dynamic_cast<TxEntitySymbol*>( lookup_inherited_member( this->get_declaration()->get_symbol(), this, "tx#Ref#T" ) ) ) {
         if ( auto qtypeDecl = entSym->get_type_decl() ) {
             //std::cerr << "Ref.T type decl: " << typeDecl << std::endl;
             return qtypeDecl->get_definer()->qtype();
         }
     }
-    LOG( this->LOGGER(), ERROR, "tx#Ref#T not found in " << this );
+    LOG( this->LOGGER(), ERROR, "tx#Ref#T not found in " << this->get_declaration() );
     return TxQualType( this->get_root_any_qtype() );  // we know the basic constraint type for ref target is Any
 }
 

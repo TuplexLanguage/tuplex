@@ -116,8 +116,6 @@ protected:
      * @throws exceptions if unsuccessful (never returns null) */
     virtual TxEntitySymbol* declare_entity( const std::string& plainName, TxNode* definingNode );
 
-    /** Looks up a symbol via this scope. */
-    //virtual TxScopeSymbol* lookup_symbol(std::vector<TxScopeSymbol*>& path, const TxIdentifier& ident);
 public:
     TxScopeSymbol( TxScopeSymbol* parentScope, const std::string& name );
 

@@ -84,7 +84,7 @@ public:
 
 class TxIsClauseNode : public TxFlowHeaderNode {
     TxExpressionNode* origValueExpr;
-    const std::string valueName;
+    TxIdentifierNode* valueName;
     TxQualTypeExprNode* typeExpr;
     TxLocalFieldDefNode* valueField = nullptr;
 
@@ -97,10 +97,11 @@ protected:
     virtual void verification_pass() const override;
 
 public:
-    TxIsClauseNode( const TxLocation& ploc, TxExpressionNode* valueExpr, const std::string& valueName, TxQualTypeExprNode* typeExpr );
+    TxIsClauseNode( const TxLocation& ploc, TxExpressionNode* valueExpr, TxIdentifierNode* valueName, TxQualTypeExprNode* typeExpr );
 
     virtual TxIsClauseNode* make_ast_copy() const override {
-        return new TxIsClauseNode( this->ploc, this->origValueExpr->make_ast_copy(), this->valueName, this->typeExpr->make_ast_copy() );
+        return new TxIsClauseNode( this->ploc, this->origValueExpr->make_ast_copy(),
+                                   this->valueName->make_ast_copy(), this->typeExpr->make_ast_copy() );
     }
 
     void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const { }
@@ -149,13 +150,16 @@ public:
 };
 
 class TxInClauseNode : public TxFlowHeaderNode {
-    const std::string valueName;
-    const std::string iterName;
+    TxIdentifierNode* valueName;
+    TxIdentifierNode* iterName;
     TxExpressionNode* origSeqExpr;
     TxLocalFieldDefNode*   iterField = nullptr;
     TxExpressionNode* nextCond = nullptr;
     TxLocalFieldDefNode*   valueField = nullptr;
-    TxDeclarationFlags iterDeclFlags = TXD_NONE;
+    TxDeclarationFlags iterDeclFlags;
+
+    TxInClauseNode( const TxLocation& ploc, TxIdentifierNode* valueName, TxIdentifierNode* iterName,
+                    TxExpressionNode* seqExpr, TxDeclarationFlags iterDeclFlags );
 
 protected:
     virtual void declaration_pass() override {
@@ -167,15 +171,16 @@ protected:
     }
 
 public:
-    TxInClauseNode( const TxLocation& ploc, const std::string& valueName, const std::string& iterName, TxExpressionNode* seqExpr );
-
-    TxInClauseNode( const TxLocation& ploc, const std::string& valueName, TxExpressionNode* seqExpr )
-            : TxInClauseNode( ploc, valueName, valueName + "$iter", seqExpr ) {
-        this->iterDeclFlags = TXD_IMPLICIT;
+    TxInClauseNode( const TxLocation& ploc, TxIdentifierNode* valueName, TxIdentifierNode* iterName, TxExpressionNode* seqExpr )
+            : TxInClauseNode( ploc, valueName, iterName, seqExpr, TXD_NONE ) {
+    }
+    TxInClauseNode( const TxLocation& ploc, TxIdentifierNode* valueName, TxExpressionNode* seqExpr )
+            : TxInClauseNode( ploc, valueName, new TxIdentifierNode(valueName->ploc, valueName->ident() + "$iter"), seqExpr, TXD_IMPLICIT ) {
     }
 
     virtual TxInClauseNode* make_ast_copy() const override {
-        return new TxInClauseNode( this->ploc, this->valueName, this->origSeqExpr->make_ast_copy() );
+        return new TxInClauseNode( this->ploc, this->valueName->make_ast_copy(), this->iterName->make_ast_copy(),
+                                   this->origSeqExpr->make_ast_copy(), this->iterDeclFlags );
     }
 
     void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const;

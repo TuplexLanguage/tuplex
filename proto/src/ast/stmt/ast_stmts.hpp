@@ -61,7 +61,7 @@ public:
             : TxStatementNode( ploc ), typeDecl( typeDecl ) {
     }
 
-    TxTypeStmtNode( const TxLocation& ploc, const std::string typeName,
+    TxTypeStmtNode( const TxLocation& ploc, TxIdentifierNode* typeName,
                     const std::vector<TxDeclarationNode*>* typeParamDecls,
                     TxTypeCreatingNode* typeCreatingNode, bool interfaceKW = false, bool mutableType = false )
             : TxTypeStmtNode( ploc, new TxTypeDeclNode( ploc, TXD_NONE, typeName, typeParamDecls, typeCreatingNode,

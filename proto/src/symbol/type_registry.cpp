@@ -279,7 +279,8 @@ TxQualType TypeRegistry::get_string_type() {
 static TxDeclarationNode* make_type_type_param_decl_node( const TxLocation& parseLoc, const std::string& paramName,
                                                           const TxTypeDeclaration* typeDecl ) {
     auto typeExpr = new TxEmptyDerivedTypeNode( parseLoc, new TxTypeDeclWrapperNode( parseLoc, typeDecl ) );
-    auto declNode = new TxTypeDeclNode( parseLoc, TXD_GENPARAM | TXD_IMPLICIT | TXD_PUBLIC, paramName, nullptr, typeExpr );
+    auto declNode = new TxTypeDeclNode( parseLoc, TXD_GENPARAM | TXD_IMPLICIT | TXD_PUBLIC,
+                                        new TxIdentifierNode( parseLoc, paramName ), nullptr, typeExpr );
     return declNode;
 }
 
@@ -290,7 +291,7 @@ static TxDeclarationNode* make_value_type_param_decl_node( const TxLocation& par
     if (valueDefiner)
         valueDefiner = new TxExprWrapperNode( valueDefiner );
     auto paramTypeNode = new TxTypeDeclWrapperNode( parseLoc, paramValueTypeDecl );
-    auto fieldDef = new TxNonLocalFieldDefNode( parseLoc, paramName, paramTypeNode, valueDefiner );
+    auto fieldDef = new TxNonLocalFieldDefNode( parseLoc, new TxIdentifierNode( parseLoc, paramName ), paramTypeNode, valueDefiner );
     auto declNode = new TxFieldDeclNode( parseLoc, flags | TXD_PUBLIC, fieldDef );
     return declNode;
 }
@@ -533,8 +534,9 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
 
         if ( auto typeArg = dynamic_cast<const TxTypeTypeArgumentNode*>( binding ) ) {
             auto btypeExprNode = new TxGenBindingAliasTypeNode( typeArg->get_parse_location(), typeArg->typeExprNode );
-            bindingDeclNodes->push_back( new TxTypeDeclNode( typeArg->get_parse_location(),
-                                                             TXD_GENBINDING | TXD_PUBLIC, paramName, nullptr, btypeExprNode ) );
+            bindingDeclNodes->push_back( new TxTypeDeclNode( typeArg->get_parse_location(), TXD_GENBINDING | TXD_PUBLIC,
+                                                             new TxIdentifierNode( typeArg->get_parse_location(), paramName ),
+                                                             nullptr, btypeExprNode ) );
             typeBindings = true;
             LOG_TRACE( this->LOGGER(), "Re-bound base type " << baseDecl->get_unique_full_name() << " parameter '" << paramName
                        << "' with " << typeArg->typeExprNode );
@@ -588,13 +590,16 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
         // identify the "source" semantic base type - the nearest one without bindings:
         auto genBaseTypeExpr = new TxAliasTypeNode( definer->get_parse_location(),
                                                     new TxTypeDeclWrapperNode( definer->get_parse_location(), baseDecl ) );
-        auto declNode = new TxTypeDeclNode( definer->get_parse_location(), TXD_PUBLIC | TXD_IMPLICIT, "$GenericBase", nullptr, genBaseTypeExpr );
+        auto declNode = new TxTypeDeclNode( definer->get_parse_location(), TXD_PUBLIC | TXD_IMPLICIT,
+                                            new TxIdentifierNode( definer->get_parse_location(), "$GenericBase" ),
+                                            nullptr, genBaseTypeExpr );
         bindingDeclNodes->push_back( declNode );
     }
 
     auto uniqueSpecTypeNameStr = baseScope->make_unique_name( newSpecTypeNameStr );
-    auto newSpecTypeDecl = new TxTypeDeclNode( definer->get_parse_location(), newDeclFlags, uniqueSpecTypeNameStr, bindingDeclNodes, specTypeExpr,
-                                               baseDeclNode->interfaceKW, mutableType );
+    auto newSpecTypeDecl = new TxTypeDeclNode( definer->get_parse_location(), newDeclFlags,
+                                               new TxIdentifierNode( definer->get_parse_location(), uniqueSpecTypeNameStr ),
+                                               bindingDeclNodes, specTypeExpr, baseDeclNode->interfaceKW, mutableType );
 
     // Note: The specialized type only has a generic context if its generic base type's declaration has an outer generic-dependent context.
     //       (If we could resolve bindings here, we could determine whether they are generic-dependent;
@@ -759,11 +764,13 @@ TxActualType* TypeRegistry::get_interface_adapter( const TxNode* origin, const T
 
     // override the adaptee type id virtual field member:
     auto tidFieldDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_VIRTUAL | TXD_OVERRIDE | TXD_IMPLICIT,
-                                             new TxNonLocalFieldDefNode( loc, "$adTypeId", new TxNamedTypeNode( loc, "tx.UInt" ), nullptr ) );
+                                             new TxNonLocalFieldDefNode( loc, new TxIdentifierNode( loc, "$adTypeId" ),
+                                                                         new TxNamedTypeNode( loc, "tx.UInt" ), nullptr ) );
     auto fieldDecls = new std::vector<TxDeclarationNode*>( { tidFieldDecl } );
 
     // TODO: combine flags from adapted and adaptee types, including TXD_EXPERRBLOCK
-    auto adapterDeclNode = new TxTypeDeclNode( loc, ( TXD_PUBLIC | TXD_IMPLICIT ), adapterName, fieldDecls, adapterTypeNode );
+    auto adapterDeclNode = new TxTypeDeclNode( loc, TXD_PUBLIC | TXD_IMPLICIT,
+                                               new TxIdentifierNode( loc, adapterName ), fieldDecls, adapterTypeNode );
 
     auto & adaptedTypeCtx = adaptedType->get_declaration()->get_definer()->context();
     LexicalContext adapterCtx( scope, adaptedTypeCtx.exp_error(), adaptedTypeCtx.is_generic(),

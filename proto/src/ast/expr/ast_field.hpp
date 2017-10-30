@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../ast_entitydecls.hpp"
+#include "../ast_identifier.hpp"
 #include "ast_expr_node.hpp"
 #include "ast_assignee_node.hpp"
 
@@ -66,26 +67,38 @@ protected:
 
 public:
     TxExpressionNode* baseExpr;
-    const TxIdentifier* symbolName;
+    TxIdentifierNode* symbolName;
 
     /** Creates a new TxFieldValueNode.
      * @param base is the base expression (preceding expression adjoined with the '.' operator), or NULL if none
      * @param member is the specified literal field name
      */
-    TxFieldValueNode( const TxLocation& ploc, TxExpressionNode* base, const std::string& memberName )
-            : TxExpressionNode( ploc ), baseExpr( base ), symbolName( new TxIdentifier( memberName ) ) {
+    TxFieldValueNode( const TxLocation& ploc, TxExpressionNode* base, TxIdentifierNode* memberName )
+            : TxExpressionNode( ploc ), baseExpr( base ), symbolName( memberName ) {
+    }
+
+    TxFieldValueNode( const TxLocation& ploc, const std::string& compoundName )
+            : TxExpressionNode( ploc ) {
+        TxIdentifier ci( compoundName );
+        TxFieldValueNode* base = nullptr;
+        for ( auto it = ci.segments_cbegin(); it != std::prev( ci.segments_cend() ); it++ ) {
+            base = new TxFieldValueNode( ploc, base, new TxIdentifierNode( ploc, *it ) );
+        }
+        this->baseExpr = base;
+        this->symbolName = new TxIdentifierNode( ploc, ci.name() );
     }
 
     virtual TxFieldValueNode* make_ast_copy() const override {
-        return new TxFieldValueNode( this->ploc, ( this->baseExpr ? this->baseExpr->make_ast_copy() : nullptr ), this->symbolName->str() );
+        return new TxFieldValueNode( this->ploc, ( this->baseExpr ? this->baseExpr->make_ast_copy() : nullptr ),
+                                     this->symbolName->make_ast_copy() );
     }
 
     /** Returns the full identifier (dot-separated full name) as specified in the program text, up to and including this name. */
-    TxIdentifier get_full_identifier() const {
+    std::string get_full_identifier() const {
         if ( auto baseSymbolNode = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) )
-            return TxIdentifier( baseSymbolNode->get_full_identifier(), this->symbolName->str() );
+            return baseSymbolNode->get_full_identifier() + '.' + this->symbolName->ident();
         else
-            return *this->symbolName;
+            return this->symbolName->ident();
     }
 
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override;
@@ -119,7 +132,7 @@ public:
     }
 
     virtual const std::string& get_descriptor() const override {
-        return this->symbolName->str();
+        return this->symbolName->get_descriptor();
     }
 };
 

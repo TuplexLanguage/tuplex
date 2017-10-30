@@ -24,6 +24,10 @@ static Value* virtual_field_addr_code_gen( LlvmGenerationContext& context, GenSc
     Value* fieldPtr = scope->builder->CreateInBoundsGEP( vtableBase, ixs );
     // vtable stores pointers to globals/statics (except for $adTypeId) so we dereference one step:
     Value* fieldV = scope->builder->CreateLoad( fieldPtr );
+//    std::cerr << "runtimeBaseTypeIdV isconst: " << bool(dyn_cast<Constant>(runtimeBaseTypeIdV))
+//        << "   vtableBase isconst: " << bool(dyn_cast<Constant>(vtableBase))
+//        << "   fieldPtr isconst: " << bool(dyn_cast<Constant>(fieldPtr))
+//        << "   fieldV isconst: " << bool(dyn_cast<Constant>(fieldV)) << std::endl;
     return fieldV;
 }
 
@@ -60,12 +64,15 @@ Value* instance_method_value_code_gen( LlvmGenerationContext& context, GenScope*
 }
 
 static bool is_non_virtual_lookup( const TxExpressionNode* baseExpr ) {
-    if ( auto fieldValueNode = dynamic_cast<const TxFieldValueNode*>( baseExpr ) )
-        return ( fieldValueNode->get_full_identifier() == "super" );  // member invocation via super keyword is non-virtual
-    else if ( auto derefNode = dynamic_cast<const TxReferenceDerefNode*>( baseExpr ) )
+    if ( auto fieldValueNode = dynamic_cast<const TxFieldValueNode*>( baseExpr ) ) {
+        if ( fieldValueNode->get_full_identifier() == "super" )
+            return true;  // member invocation via super keyword is non-virtual
+    }
+    else if ( auto derefNode = dynamic_cast<const TxReferenceDerefNode*>( baseExpr ) ) {
         return is_non_virtual_lookup( derefNode->reference );
-    else
-        return false;
+    }
+    return false;
+    // FIXME return baseExpr->qtype()->is_leaf_derivation();
 }
 
 

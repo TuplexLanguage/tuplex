@@ -153,6 +153,7 @@ YY_DECL;
  */
 %type <TxIdentifier*> compound_identifier import_identifier 
 %type <TxIdentifier*> opt_module_decl opt_dataspace
+%type <TxIdentifierNode*> identifier
 
 %type <TxDeclarationFlags> declaration_flags opt_visibility opt_externc opt_virtual opt_abstract opt_override opt_final opt_builtin
 %type <bool> opt_mutable type_or_if
@@ -273,6 +274,7 @@ sub_module : KW_MODULE compound_identifier
                  }
     ;
 
+identifier          : NAME  { $$ = new TxIdentifierNode(@1, $1); } ;
 
 compound_identifier : NAME                              { $$ = new TxIdentifier($1); }
                     | compound_identifier DOT NAME      { $$ = $1; $$->append($3); }
@@ -346,15 +348,15 @@ type_or_if : KW_TYPE        { $$ = false; }
            | KW_INTERFACE   { $$ = true;  }
            ;
 
-field_def : NAME COLON qual_type_expr  { $$ = new TxNonLocalFieldDefNode(@$, $1, $3, nullptr); }
+field_def : identifier COLON qual_type_expr  { $$ = new TxNonLocalFieldDefNode(@$, $1, $3, nullptr); }
           | field_assignment_def       { $$ = $1; }
           ;
 
-field_assignment_def : NAME COLON qual_type_expr EQUAL expr
+field_assignment_def : identifier COLON qual_type_expr EQUAL expr
                            { $$ = new TxNonLocalFieldDefNode(@$, $1, $3, $5); }
-                     | NAME COLEQUAL expr
+                     | identifier COLEQUAL expr
                            { $$ = new TxNonLocalFieldDefNode(@$, $1, $3, false); }
-                     | NAME COLEQUAL mut_token expr
+                     | identifier COLEQUAL mut_token expr
                            { $$ = new TxNonLocalFieldDefNode(@$, $1, $4, true); }
 ;
 
@@ -387,18 +389,18 @@ member_list : member_declaration
 type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->push_back($1); }
                 | type_param_list COMMA type_param  { $$ = $1; $$->push_back($3); }
                 ;
-type_param      : NAME  { $$ = new TxTypeDeclNode( @$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
+type_param      : identifier  { $$ = new TxTypeDeclNode( @$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
                                                    new TxGenParamTypeNode( @$, new TxNamedTypeNode(@$, "tx.Any") ) ); }
-                | NAME derives_token conv_type_expr
+                | identifier derives_token conv_type_expr
                         { $$ = new TxTypeDeclNode( @$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
                                                    new TxGenParamTypeNode( @$, $3 ) ); }
-                | NAME COLON qual_type_expr
+                | identifier COLON qual_type_expr
                         { $$ = new TxFieldDeclNode( @$, TXD_PUBLIC | TXD_GENPARAM, new TxNonLocalFieldDefNode( @$, $1, $3, nullptr ) ); }
                 ;
 
-type_declaration : declaration_flags type_or_if opt_mutable NAME type_derivation  
+type_declaration : declaration_flags type_or_if opt_mutable identifier type_derivation  
                         { $$ = new TxTypeDeclNode(@$, $1, $4, NULL, $5, $2, $3); }
-                 | declaration_flags type_or_if opt_mutable NAME LT type_param_list GT type_derivation
+                 | declaration_flags type_or_if opt_mutable identifier LT type_param_list GT type_derivation
                         { $$ = new TxTypeDeclNode(@$, $1, $4, $6,   $8, $2, $3); }
 
                  // error recovery, handles when an error occurs before a type body's LBRACE:
@@ -421,18 +423,18 @@ conv_type_list  : conv_type_expr  { $$ = new std::vector<TxTypeExpressionNode*>(
 
 // conventional type expressions are named types (and possibly specialized) (i.e. not using not syntatic sugar to describe the type)
 conv_type_expr  : named_symbol             %prec DOT  { $$ = new TxNamedTypeNode(@$, $1); }
-                | conv_type_expr DOT NAME             { $$ = new TxMemberTypeNode(@$, $1, $3); }
+                | conv_type_expr DOT identifier       { $$ = new TxMemberTypeNode(@$, $1, $3); }
                 | conv_type_expr LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@$, $1, $3); }
                 ;
 
 
-named_symbol    : NAME                   { $$ = new TxIdentifiedSymbolNode(@$, NULL, $1); }
-                | named_symbol DOT NAME  { $$ = new TxIdentifiedSymbolNode(@$, $1, $3); }
+named_symbol    : identifier                   { $$ = new TxIdentifiedSymbolNode(@$, NULL, $1); }
+                | named_symbol DOT identifier  { $$ = new TxIdentifiedSymbolNode(@$, $1, $3); }
                 ;
 
 
-named_type      : named_symbol            %prec EXPR { $$ = new TxNamedTypeNode(@$, $1); }
-                | produced_type DOT NAME  %prec DOT  { $$ = new TxMemberTypeNode(@$, $1, $3); }
+named_type      : named_symbol                  %prec EXPR { $$ = new TxNamedTypeNode(@$, $1); }
+                | produced_type DOT identifier  %prec DOT  { $$ = new TxMemberTypeNode(@$, $1, $3); }
                 ;
 
 specialized_type  : named_type LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@$, $1, $3); }
@@ -515,22 +517,22 @@ func_args_list : func_arg_def
                | error  { $$ = new std::vector<TxArgTypeDefNode*>(); }
                ;
 
-func_arg_def   : NAME COLON type_expression
+func_arg_def   : identifier COLON type_expression
                         { $$ = new TxArgTypeDefNode(@$, $1, $3); }
-               | NAME COLON type_expression ELLIPSIS
+               | identifier COLON type_expression ELLIPSIS
                         { $$ = new TxArgTypeDefNode(@$, $1,
                                     new TxReferenceTypeNode(@3, nullptr,
                                             new TxConstTypeNode( @3, new TxArrayTypeNode(@3, new TxMaybeModTypeNode(@3, $3))))); }
-               | NAME COLON mut_token type_expression ELLIPSIS
+               | identifier COLON mut_token type_expression ELLIPSIS
                         { $$ = new TxArgTypeDefNode(@$, $1,
                                     new TxReferenceTypeNode(@3, nullptr,
                                             new TxConstTypeNode( @3, new TxArrayTypeNode(@3, new TxModifiableTypeNode(@3, $4))))); }
                ;
 
 
-method_def  : NAME function_signature suite
+method_def  : identifier function_signature suite
                 { $$ = new TxNonLocalFieldDefNode(@$, $1, new TxLambdaExprNode(@$, $2, $3, true), false); }
-            | NAME function_signature SEMICOLON  // abstract method (KW_ABSTRACT should be specified)
+            | identifier function_signature SEMICOLON  // abstract method (KW_ABSTRACT should be specified)
                 { $$ = new TxNonLocalFieldDefNode(@$, $1, $2, nullptr); }
             ;
 
@@ -547,9 +549,9 @@ expr
     |   make_expr                    { $$ = $1; }
     |   intrinsics_expr              { $$ = $1; }
 
-    |   NAME                         { $$ = new TxFieldValueNode(@$, NULL, $1); }
-    |   expr DOT NAME                { $$ = new TxFieldValueNode(@$, $1,   $3); }
-    // TODO:  |   type_as_value_expr DOT NAME  { $$ = new TxFieldValueNode(@$, $1,   $3); }
+    |   identifier                   { $$ = new TxFieldValueNode(@$, NULL, $1); }
+    |   expr DOT identifier          { $$ = new TxFieldValueNode(@$, $1,   $3); }
+    // TODO:  |   type_as_value_expr DOT identifier  { $$ = new TxFieldValueNode(@$, $1,   $3); }
     |   expr LBRACKET expr RBRACKET  { $$ = new TxElemDerefNode(@$, $1, $3); }
     |   expr CARET                   { $$ = new TxReferenceDerefNode(@$, $1); }
     |   AAND expr   %prec ADDR       { $$ = new TxReferenceToNode(@$, $2); }
@@ -763,32 +765,32 @@ else_clause      : KW_ELSE COLON statement  { $$ = new TxElseClauseNode(@$, $3);
 
 cond_clause      : expr %prec STMT    { $$ = new TxCondClauseNode( @1, $1 ); } ;
 
-is_clause        : expr KW_IS NAME COLON qual_type_expr  { $$ = new TxIsClauseNode(@$, $1, $3, $5); } ;
+is_clause        : expr KW_IS identifier COLON qual_type_expr  { $$ = new TxIsClauseNode(@$, $1, $3, $5); } ;
 
 in_clause_list   : in_clause                        { $$ = new std::vector<TxFlowHeaderNode*>( { $1 } ); }
                  | in_clause_list COMMA in_clause   { $$ = $1; $$->push_back($3); }
                  | error                            { $$ = new std::vector<TxFlowHeaderNode*>(); }
                  ;
 
-in_clause        : NAME KW_IN expr             { $$ = new TxInClauseNode( @$, $1, $3 ); }
-                 | NAME COMMA NAME KW_IN expr  { $$ = new TxInClauseNode( @$, $1, $3, $5 ); }
+in_clause        : identifier KW_IN expr                   { $$ = new TxInClauseNode( @$, $1, $3 ); }
+                 | identifier COMMA identifier KW_IN expr  { $$ = new TxInClauseNode( @$, $1, $3, $5 ); }
                  ;
 
 for_header       : elementary_stmt SEMICOLON expr SEMICOLON elementary_stmt  { $$ = new TxForHeaderNode( @$, $1, $3, $5 ); }
                  ;
 
 
-local_field_def  : NAME COLON qual_type_expr              { $$ = new TxLocalFieldDefNode(@$, $1, $3, nullptr); }
-                 | NAME COLON qual_type_expr EQUAL expr   { $$ = new TxLocalFieldDefNode(@$, $1, $3, $5); }
-                 | NAME COLEQUAL expr                     { $$ = new TxLocalFieldDefNode(@$, $1, $3, false); }
-                 | NAME COLEQUAL mut_token expr           { $$ = new TxLocalFieldDefNode(@$, $1, $4, true); }
+local_field_def  : identifier COLON qual_type_expr              { $$ = new TxLocalFieldDefNode(@$, $1, $3, nullptr); }
+                 | identifier COLON qual_type_expr EQUAL expr   { $$ = new TxLocalFieldDefNode(@$, $1, $3, $5); }
+                 | identifier COLEQUAL expr                     { $$ = new TxLocalFieldDefNode(@$, $1, $3, false); }
+                 | identifier COLEQUAL mut_token expr           { $$ = new TxLocalFieldDefNode(@$, $1, $4, true); }
 ;
 
 
 // TODO: support declaration flags abstract, final, and maybe static
-type_decl_stmt   : type_or_if opt_mutable NAME type_derivation
+type_decl_stmt   : type_or_if opt_mutable identifier type_derivation
                      { $$ = new TxTypeStmtNode(@$, $3, NULL, $4, $1, $2); }
-                 | type_or_if opt_mutable NAME LT type_param_list GT type_derivation
+                 | type_or_if opt_mutable identifier LT type_param_list GT type_derivation
                      { $$ = new TxTypeStmtNode(@$, $3, $5,   $7, $1, $2); }
 
                  // error recovery, handles when an error occurs before a type body's LBRACE:
@@ -823,9 +825,9 @@ assignment_stmt //:    assignee_pattern EQUAL expr
 //nested_assignee  : assignee_expr | '{' assignee_pattern '}' ;
 
 assignee_expr  // expressions capable of (but not guaranteed) to produce an lvalue
-    :   NAME             { $$ = new TxFieldAssigneeNode(@$, new TxFieldValueNode(@1, NULL, $1)); }
-    |   expr DOT NAME    { $$ = new TxFieldAssigneeNode(@$, new TxFieldValueNode(@3, $1,   $3)); }
-    |   expr CARET       { $$ = new TxDerefAssigneeNode(@$, $1); }  // unary value-of suffix
+    :   identifier                  { $$ = new TxFieldAssigneeNode(@$, new TxFieldValueNode(@1, NULL, $1)); }
+    |   expr DOT identifier         { $$ = new TxFieldAssigneeNode(@$, new TxFieldValueNode(@3, $1,   $3)); }
+    |   expr CARET                  { $$ = new TxDerefAssigneeNode(@$, $1); }  // unary value-of suffix
     |   expr LBRACKET expr RBRACKET { $$ = new TxElemAssigneeNode(@$, $1, $3); }
     ;
 
