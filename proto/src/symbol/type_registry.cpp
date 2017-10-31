@@ -267,7 +267,8 @@ const TxActualType* TypeRegistry::get_builtin_type( const BuiltinTypeId id ) {
 TxQualType TypeRegistry::get_string_type() {
     if (! this->stringTypeNode ) {
         stringTypeNode = new TxNamedTypeNode( this->_package.builtins().get_builtin_location(), "tx.String" );
-        run_declaration_pass( stringTypeNode, LexicalContext( this->_package.get_member_symbol( "tx" ), nullptr, false, nullptr ) );
+        run_declaration_pass( stringTypeNode, LexicalContext( this->_package.get_member_symbol( "tx" ), nullptr, nullptr,
+                                                              false, false, false, false) );
         return this->stringTypeNode->resolve_type( TXP_RESOLUTION );
     }
     return this->stringTypeNode->qtype();
@@ -529,6 +530,8 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
 
     // create binding declaration nodes:
     bool typeBindings = false;
+    bool bindingsTypeGenDependent = false;
+    bool bindingsValueGenDependent = false;
     auto bindingDeclNodes = new std::vector<TxDeclarationNode*>();
     for ( unsigned ix = 0; ix < bindings.size(); ix++ ) {
         auto binding = bindings.at( ix );
@@ -536,6 +539,9 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
         auto paramName = paramDecl->get_unique_name();
 
         if ( auto typeArg = dynamic_cast<const TxTypeTypeArgumentNode*>( binding ) ) {
+            bindingsTypeGenDependent |= typeArg->typeExprNode->qtype()->is_type_generic_dependent();
+            bindingsValueGenDependent |= typeArg->typeExprNode->qtype()->is_value_generic_dependent();
+
             auto btypeExprNode = new TxGenBindingAliasTypeNode( typeArg->get_parse_location(), typeArg->typeExprNode );
             bindingDeclNodes->push_back( new TxTypeDeclNode( typeArg->get_parse_location(), TXD_GENBINDING | TXD_PUBLIC,
                                                              new TxIdentifierNode( typeArg->get_parse_location(), paramName ),
@@ -546,6 +552,10 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
         }
         else {
             auto valueArg = static_cast<const TxValueTypeArgumentNode*>( binding );
+            bindingsTypeGenDependent |= valueArg->valueExprNode->qtype()->is_type_generic_dependent();
+            bindingsValueGenDependent |= valueArg->valueExprNode->qtype()->is_value_generic_dependent();
+            // FIXME bindingsValueGenDependent |= valueArg->valueExprNode->is_value_gen_dependent();
+
             bindingDeclNodes->push_back( make_value_type_param_decl_node( valueArg->get_parse_location(), paramName,
                                                                           TXD_GENBINDING | TXD_PUBLIC, paramDecl, valueArg->valueExprNode ) );
             LOG_TRACE( this->LOGGER(), "Re-bound base type " << baseDecl->get_unique_full_name() << " parameter '" << paramName
@@ -604,19 +614,24 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
                                                new TxIdentifierNode( definer->get_parse_location(), uniqueSpecTypeNameStr ),
                                                bindingDeclNodes, specTypeExpr, baseDeclNode->interfaceKW, mutableType );
 
-    // Note: The specialized type only has a generic context if its generic base type's declaration has an outer generic-dependent context.
-    //       (If we could fully resolve bindings here, we could determine whether they are generic-dependent;
-    //        instead we do this in type->is_generic_dependent().)
+    // Note: The specialized type only has a generic context if its generic base type's declaration
+    //       has an outer generic-dependent context.
+    //       The specialized type definer's context (whether it's generic) is not taken into account here,
+    //       instead the actual bindings are analyzed whether they are generic-dependent.
+    //       Also, the base type may be a specialization with generic-dependent bindings,
+    //       in which case we inherit those flags.
     // Note: Base type's definer's parent is its declaration node; we're checking whether its outer scope is a generic context.
-    bool outerIsGeneric = baseTypeExpr->parent()->parent()->context().is_generic();
-                          // || definer->parent()->context().is_generic();
-    LexicalContext specContext( baseScope, expErrCtx, outerIsGeneric, definer );
+    bool outerTypeGeneric = baseDeclNode->parent()->context().is_type_generic();
+    bool outerValueGeneric = baseDeclNode->parent()->context().is_value_generic();
+    bindingsTypeGenDependent |= baseTypeExpr->context().is_type_gen_dep_bindings();
+    bindingsValueGenDependent |= baseTypeExpr->context().is_value_gen_dep_bindings();
+    LexicalContext specContext( baseScope, expErrCtx, definer, outerTypeGeneric, outerValueGeneric,
+                                bindingsTypeGenDependent, bindingsValueGenDependent );
     run_declaration_pass( newSpecTypeDecl, specContext );
 
     TxActualType* specializedType = const_cast<TxActualType*>( specTypeExpr->resolve_type( TXP_TYPE ).type() );
     baseDecl->get_symbol()->add_type_specialization( specializedType->get_declaration() );
     LOG_DEBUG( this->LOGGER(), "Created new specialized type " << specializedType << " with base type " << genBaseType );
-
     // Invoking the type resolution pass here can cause infinite recursion
     // (since the same source text construct may be recursively reprocessed),
     // so we enqueue this "specialization resolution pass" for later processing.
@@ -776,8 +791,9 @@ TxActualType* TypeRegistry::get_interface_adapter( const TxNode* origin, const T
                                                new TxIdentifierNode( loc, adapterName ), fieldDecls, adapterTypeNode );
 
     auto & adaptedTypeCtx = adaptedType->get_declaration()->get_definer()->context();
-    LexicalContext adapterCtx( scope, adaptedTypeCtx.exp_error(), adaptedTypeCtx.is_generic(),
-                               adaptedTypeCtx.reinterpretation_definer() );
+    LexicalContext adapterCtx( scope, adaptedTypeCtx.exp_error(), adaptedTypeCtx.reinterpretation_definer(),
+                               adaptedTypeCtx.is_type_generic(), adaptedTypeCtx.is_value_generic(),
+                               adaptedTypeCtx.is_type_gen_dep_bindings(), adaptedTypeCtx.is_value_gen_dep_bindings() );
     run_declaration_pass( adapterDeclNode, adapterCtx );
 
     this->add_reinterpretation( adapterDeclNode );

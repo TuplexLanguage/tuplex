@@ -178,6 +178,9 @@ class TxActualType : public TxEntity { //public virtual TxParseOrigin, public Pr
     /** False unless this type is generic and has at least one unbound VALUE type parameter. */
     bool valueGeneric = false;
 
+//    bool typeGenDependent = false;
+//    bool valueGenDependent = false;
+
     /** true when initialize_type() has completed its initializations */
     bool hasInitialized = false;
 
@@ -472,12 +475,23 @@ public:
         return this->valueGeneric;
     }
 
-    /** Returns true if this type is dependent on any unbound non-reference generic type parameters;
-     * except for references which always yield false whether generic or not.
-     * This is true if this type has unbound non-reference type parameters, or is defined within the scope
-     * of another generic type (i.e. which has unbound non-reference type parameters).
+    /** Returns true if this type is dependent on any unbound generic TYPE type parameters.
+     * This is true if this type is type-generic (has unbound TYPE parameters),
+     * or is defined within an outer scope of a type which is type-generic-dependent,
+     * or is a specialization whose bindings in turn are type-generic-dependent.
+     * If this is true, this type is not fully specified,
+     * and can (typically) not be code-generated.
      */
     bool is_type_generic_dependent() const;
+
+    /** Returns true if this type is dependent on any unbound generic VALUE type parameters.
+     * This is true if this type is value-generic (has unbound VALUE parameters),
+     * or is defined within an outer scope of a type which is value-generic-dependent,
+     * or is a specialization whose bindings in turn are value-generic-dependent.
+     * If this is true, this type's size might not be fully specified,
+     * but can (typically) still be code-generated.
+     */
+    bool is_value_generic_dependent() const;
 
     /** Returns true if this type is a generic type parameter.
      * (Note: Generic type bindings are not distinct type instances, they are aliases.)

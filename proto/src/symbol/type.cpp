@@ -98,30 +98,6 @@ const TxActualType* TxActualType::get_root_any_qtype() const {
     return this->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_ANY );
 }
 
-static bool check_code_concrete( const TxActualType* thisType, const TxActualType* baseType ) {
-    if ( thisType->is_generic_param() )
-        return true;
-    for ( auto & paramDecl : baseType->get_type_params() ) {
-        if ( dynamic_cast<const TxTypeDeclaration*>( paramDecl ) ) {
-            auto constraintType = paramDecl->get_definer()->resolve_type( TXP_VERIFICATION );
-            if ( constraintType->get_type_class() != TXTC_REFERENCE ) {
-                if ( !thisType->get_binding( paramDecl->get_unique_name() ) ) {
-                    //if ( !this->has_type_param( paramDecl->get_unique_name() ) ) {
-                        //if ( this->get_type_class() != TXTC_INTERFACEADAPTER ) {
-                            //if ( !this->emptyDerivation ) {
-                                CERROR( thisType, "Missing binding of base type's non-ref TYPE parameter "
-                                        << paramDecl->get_unique_name() << " in " << thisType );
-                                return false;
-                            //}
-                        //}
-                    //}
-                }
-            }
-        }
-    }
-    return true;
-}
-
 void TxActualType::validate_type() const {
     //std::cerr << "validating type " << this << std::endl;
 //    bool expErrWholeType = ( ( this->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK )
@@ -147,21 +123,19 @@ void TxActualType::validate_type() const {
                     "anonymous or implicit, empty types may not be derived except as another anonymous or implicit, empty type: " << this );
         }
 
-        // Verify that all parameters of base type that affect code generation are bound:
-        // Note: The base type's parameters that have not been bound should normally be automatically redeclared by the type registry.
-        check_code_concrete( this, this->get_semantic_base_type() );
-//        if ( !this->emptyDerivation ) {
-//            for ( auto & paramDecl : this->get_semantic_base_type()->get_type_params() ) {
-//                if ( !this->get_binding( paramDecl->get_unique_name() ) ) {
-//                    if ( !this->has_type_param( paramDecl->get_unique_name() ) ) {
-//                        if ( this->get_type_class() != TXTC_INTERFACEADAPTER ) {
-//                            CERROR( this, "Missing binding or redeclaration of base type's type parameter "
-//                                    << paramDecl->get_unique_name() << " in " << this );
-//                        }
-//                    }
-//                }
-//            }
-//        }
+        // Verify that all parameters of base type are bound:
+        // Note: The base type's parameters that have not been bound should be automatically redeclared by the type registry,
+        //       unless this type (erroneously) derives from a generic type as were it non-generic.
+        if ( !this->is_generic_param() ) {
+            for ( auto & paramDecl : this->get_semantic_base_type()->get_type_params() ) {
+                if ( dynamic_cast<const TxTypeDeclaration*>( paramDecl ) ) {
+                    if ( !this->get_binding( paramDecl->get_unique_name() ) ) {
+                        CERROR( this, "Missing binding of base type's non-ref TYPE parameter "
+                                << paramDecl->get_unique_name() << " in " << this );
+                    }
+                }
+            }
+        }
 
         // validate the type parameter bindings
         for ( auto & bindingDecl : this->bindings ) {
@@ -187,8 +161,10 @@ void TxActualType::validate_type() const {
     for ( auto & interf : this->interfaces ) {
         if ( interf->get_type_class() != TXTC_INTERFACE )
             CERROR( this, "Only the first derived-from type can be a non-interface type: " << interf );
-        else
-            check_code_concrete( this, interf );
+        else {
+            if ( interf->is_generic() )
+                CERROR( this, "Can't implement a generic interface (with unbound type parameters): " << interf );
+        }
     }
 }
 
@@ -556,8 +532,7 @@ bool TxActualType::inner_prepare_members() {
     }
 
     // (note, this condition is not the same as is_concrete())
-    if ( !this->is_abstract() && this->get_type_class() != TXTC_INTERFACEADAPTER
-         && !( this->get_declaration()->get_decl_flags() & TXD_GENPARAM ) ) {
+    if ( !this->is_abstract() && this->get_type_class() != TXTC_INTERFACEADAPTER && !this->is_generic_param() ) {
         // check that all abstract members of base types & interfaces are implemented:
         auto virtualFields = this->get_virtual_fields();
         for ( auto & field : virtualFields.fieldMap ) {
@@ -668,6 +643,43 @@ bool TxActualType::is_dynamic() const {
 }
 
 bool TxActualType::is_type_generic_dependent() const {
+    if ( this->typeGeneric )
+        return true;
+
+    if ( this->is_generic_param() )
+        return true;
+
+    if ( this->get_declaration()->get_definer()->context().is_type_generic() )
+        // Note: This identities whether context (outer scope) is an original generic type declaration,
+        //       but not whether outer scope is a specialization whose bindings are generic-dependent.
+        return true;
+
+    if ( this->get_declaration()->get_definer()->context().is_type_gen_dep_bindings() )
+        return true;
+
+    return false;
+}
+
+bool TxActualType::is_value_generic_dependent() const {
+    if ( this->valueGeneric )
+        return true;
+
+    if ( this->is_generic_param() )
+        return true;
+
+    if ( this->get_declaration()->get_definer()->context().is_value_generic() )
+        // Note: This identities whether context (outer scope) is an original generic type declaration,
+        //       but not whether outer scope is a specialization whose bindings are generic-dependent.
+        return true;
+
+    if ( this->get_declaration()->get_definer()->context().is_value_gen_dep_bindings() )
+        return true;
+
+    return false;
+}
+
+/*
+bool TxActualType::is_type_generic_dependent() const {
     if ( this->recursionGuard ) {
         //std::cerr << "Recursion guard triggered in is_type_generic_dependent() of " << this << std::endl;
         return false;
@@ -699,7 +711,7 @@ bool TxActualType::is_type_generic_dependent() const {
         }
     }
 
-    if ( type->get_declaration()->get_definer()->context().is_generic() ) {
+    if ( type->get_declaration()->get_definer()->context().is_type_generic() ) {
         // Note: This identities whether context (outer scope) is an original generic type declaration,
         //       but not whether outer scope is a specialization whose bindings are generic-dependent.
         return true;
@@ -744,6 +756,7 @@ bool TxActualType::is_type_generic_dependent() const {
 
     return false;
 }
+*/
 
 bool TxActualType::is_empty_derivation() const {
     ASSERT( this->hasInitialized, "Can't determine derivation characteristics of uninitialized type " << this->get_declaration() );

@@ -56,9 +56,9 @@ builtin type ~ Array<E, C : UInt> derives Any, Collection<E>, Updatable<UInt, E>
         return new ~ArrayIterator<E>( self );
     }
 
-##    override sequencer() ~ -> Ref< ~Updater< E > > {
-##        return new ~ArrayUpdater( self );
-##    }
+    sequencer2() ~ -> Ref< ~Updater< E > > {
+        return new ~ArrayUpdater<E>( self );
+    }
 
     override has( ix : UInt ) -> Bool {
         return ix < self.L;
@@ -116,7 +116,7 @@ builtin type ~ Array<E, C : UInt> derives Any, Collection<E>, Updatable<UInt, E>
             return self.array[ n ];
         }
     }
-##}
+
 
 type ~ ArrayUpdater< E > <: Tuple, Updater< E > {
     array     : &~Array<E>;
@@ -127,7 +127,7 @@ type ~ ArrayUpdater< E > <: Tuple, Updater< E > {
         self.prevIndex = UInt(-1);
     }
 
-    override sequencer() ~ -> Ref< ~ArrayUpdater > {
+    override sequencer() ~ -> Ref< ~ArrayUpdater<E> > {
         return self;
     }
 

@@ -16,14 +16,24 @@ class TxLambdaExprNode;
 class LexicalContext : public Printable {
 public:
     TxScopeSymbol* _scope;
-    bool generic;  // true if this is within a generic type definition (note, can be true also when reinterpreted, if not all params bound)
     const TxTypeResolvingNode* reinterpretationDefiner;  // non-null if this is a reinterpretation (specialization) of an AST
     ExpectedErrorClause* expErrCtx;
     TxLambdaExprNode* enclosingLambda;  // the nearest enclosing lambda node, or null if none
 
+    /** True if this is within a type-generic type definition. (Note, also true when reinterpreted if not all params are bound.) */
+    bool typeGeneric;
+    /** True if this is within a value-generic type definition. (Note, also true when reinterpreted if not all params are bound.) */
+    bool valueGeneric;
+
+    /** True if this is within a reinterpretation made with type-generic-dependent bindings. */
+    bool typeGenDepBindings;
+    /** True if this is within a reinterpretation made with value-generic-dependent bindings. */
+    bool valueGenDepBindings;
+
     /** Constructs an "uninitialized" lexical context. */
-    LexicalContext() //= default;
-            : _scope(), generic(), reinterpretationDefiner(), expErrCtx(), enclosingLambda() {
+    LexicalContext()
+            : _scope(), reinterpretationDefiner(), expErrCtx(), enclosingLambda(),
+              typeGeneric(), valueGeneric(), typeGenDepBindings(), valueGenDepBindings() {
     }
 
     /** Copy constructor. */
@@ -32,21 +42,27 @@ public:
     /** Constructs a lexical context for the provided module.
      * (A module context does not require a parent context.) */
     LexicalContext( TxModule* module )
-            : _scope( (TxScopeSymbol*) module ), generic(), reinterpretationDefiner(), expErrCtx(), enclosingLambda() {
+            : _scope( (TxScopeSymbol*) module ), reinterpretationDefiner(), expErrCtx(), enclosingLambda(),
+              typeGeneric(), valueGeneric(), typeGenDepBindings(), valueGenDepBindings() {
         ASSERT( module, "module is NULL" );
     }
 
     /** Constructs a lexical context that is a sub-context of the provided context.
      * The provided scope must be the same or a sub-scope of the parent's scope. */
     LexicalContext( const LexicalContext& parentContext, TxScopeSymbol* scope )
-            : _scope( scope ), generic( parentContext.generic ), reinterpretationDefiner( parentContext.reinterpretationDefiner ),
-              expErrCtx( parentContext.expErrCtx ), enclosingLambda( parentContext.enclosingLambda ) {
+            : _scope( scope ), reinterpretationDefiner( parentContext.reinterpretationDefiner ),
+              expErrCtx( parentContext.expErrCtx ), enclosingLambda( parentContext.enclosingLambda ),
+              typeGeneric( parentContext.typeGeneric ), valueGeneric( parentContext.valueGeneric ),
+              typeGenDepBindings( parentContext.typeGenDepBindings ), valueGenDepBindings( parentContext.valueGenDepBindings  ) {
         ASSERT( scope, "scope is NULL" );
     }
 
     /** Constructs a new lexical context for a given scope, and that may represent a reinterpretationDefiner of a lexical unit. */
-    LexicalContext( TxScopeSymbol* scope, ExpectedErrorClause* expErrCtx, bool generic, const TxTypeResolvingNode* reinterpretationDefiner )
-            : _scope( scope ), generic( generic ), reinterpretationDefiner( reinterpretationDefiner ), expErrCtx( expErrCtx ), enclosingLambda() {
+    LexicalContext( TxScopeSymbol* scope, ExpectedErrorClause* expErrCtx, const TxTypeResolvingNode* reinterpretationDefiner,
+                    bool typeGeneric, bool valueGeneric, bool typeGenDepBindings, bool valueGenDepBindings )
+            : _scope( scope ), reinterpretationDefiner( reinterpretationDefiner ), expErrCtx( expErrCtx ), enclosingLambda(),
+              typeGeneric( typeGeneric ), valueGeneric( valueGeneric ),
+              typeGenDepBindings( typeGenDepBindings ), valueGenDepBindings( valueGenDepBindings ) {
         ASSERT( scope, "scope is NULL" );
     }
 
@@ -71,7 +87,20 @@ public:
 
     /** Returns true if this is within a generic type definition (a generic type whose parameters are not all bound). */
     inline bool is_generic() const {
-        return ( this->generic );
+        return ( this->typeGeneric || this->valueGeneric );
+    }
+
+    inline bool is_type_generic() const {
+        return ( this->typeGeneric );
+    }
+    inline bool is_value_generic() const {
+        return ( this->valueGeneric );
+    }
+    inline bool is_type_gen_dep_bindings() const {
+        return ( this->typeGenDepBindings );
+    }
+    inline bool is_value_gen_dep_bindings() const {
+        return ( this->valueGenDepBindings );
     }
 
     /** Returns true if this is within a reinterpretationDefiner (specialization) of an AST. */

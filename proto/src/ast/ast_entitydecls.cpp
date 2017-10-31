@@ -210,14 +210,14 @@ void TxTypeDeclNode::declaration_pass() {
         LOG_TRACE( this->LOGGER(), this << ": Declared type " << declaration );
     }
 
-    if ( !lexContext.is_generic() && this->typeParamDecls ) {
+    if ( this->typeParamDecls ) {
         for ( auto paramDeclNode : *this->typeParamDecls ) {
             if ( paramDeclNode->get_decl_flags() & TXD_GENPARAM ) {
                 // Note: This identities a generic type declaration, but not specializations whose bindings are generic-dependent
-                if ( dynamic_cast<TxTypeDeclNode*>( paramDeclNode ) ) {
-                    this->lexContext.generic = true;
-                    break;
-                }
+                if ( dynamic_cast<TxTypeDeclNode*>( paramDeclNode ) )
+                    this->lexContext.typeGeneric = true;
+                else
+                    this->lexContext.valueGeneric = true;
             }
         }
     }

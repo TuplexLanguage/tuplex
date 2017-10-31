@@ -166,11 +166,11 @@ void TxFieldDefiningNode::verification_pass() const {
 
 void verify_array_assignment( const TxNode* origin, const TxActualType* ltype, const TxActualType* rtype ) {
     if ( ltype->is_type_generic() ) {
-        if ( !origin->context().is_generic() && !ltype->is_generic_param() )
+        if ( !origin->context().is_type_generic() && !ltype->is_generic_param() )
             CERROR( origin, "Assignee is not a specific array type: " << ltype );
         else
             LOG_DEBUG( origin->LOGGER(), origin << " " << origin->context().scope()
-                       << " (Not error since generic context) Assignee is not a specific array type: " << ltype );
+                       << " (Not error since type-generic context) Assignee is not a specific array type: " << ltype );
     }
     else if ( rtype ) {
         if ( rtype->get_type_class() != TXTC_ARRAY

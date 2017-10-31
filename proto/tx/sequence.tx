@@ -67,6 +67,9 @@ interface Iterator< E > derives Sequencer< E > {
 
 
 interface Updater< E > derives Iterator< E > {
+
+    override sequencer() ~ -> Ref< ~Updater< E > > { return self; }
+
     /** Replaces the value returned by the most-recent call to next() / prev(). Returns the replaced element. */
     abstract set( element : E ) ~ -> E;
 }
