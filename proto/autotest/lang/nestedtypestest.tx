@@ -1,15 +1,13 @@
 ## Similar to sequence interface test but without generics
 
 interface Sequenceable <: Interface {
-    abstract sequencer() ~ ->Ref<~Sequencer>;
+    abstract sequencer() ->Ref<~Sequencer>;
 }
 
-interface Sequencer <: Sequenceable {
-    override sequencer() ~ ->Ref<~Sequencer> { return self; }
-
+interface Sequencer {
     abstract emptyFunc();
     abstract hasNext()->Bool;
-    abstract next()->Int;
+    abstract next()~->Int;
 }
 
 type SingleRef <: Tuple, Sequenceable {

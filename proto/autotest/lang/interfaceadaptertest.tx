@@ -9,7 +9,7 @@ interface IntfA {
 }
 
 interface IntfB {
-    abstract set_value( v : Int );
+    abstract set_value( v : Int ) ~;
 }
 
 type ~ Type <: Tuple, IntfA, IntfB {
@@ -34,7 +34,7 @@ type ~ Type <: Tuple, IntfA, IntfB {
 mixin_tests() {
     t := ~ Type(42);
     r : &IntfA = &t;
-    s : &IntfB = &t;
+    s : &~IntfB = &t;
     assert t.get_value() == 42;
     assert r.get_value() == 42;
     t.set_value(112);

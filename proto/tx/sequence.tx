@@ -37,6 +37,8 @@ interface Indicable< K, E > derives Iterable< E > {
 /** A modifiable Indicable. */
 interface Updatable< K, E > derives Indicable< K, E > {
 
+    abstract updater() ~ -> Ref< ~Updater< E > >;
+
     /** Sets the element at the slot identified by key. Returns the replaced element. */
     abstract set( key : K, element : E ) ~ -> E;
 
@@ -46,9 +48,7 @@ interface Updatable< K, E > derives Indicable< K, E > {
 
 
 
-interface Sequencer< E > derives Sequenceable< E > {
-
-    override sequencer() ~ -> Ref< ~Sequencer< E > > { return self; }
+interface Sequencer< E > {
 
     abstract has_next() -> Bool;
 
@@ -58,8 +58,6 @@ interface Sequencer< E > derives Sequenceable< E > {
 
 interface Iterator< E > derives Sequencer< E > {
 
-    override sequencer() ~ -> Ref< ~Iterator< E > > { return self; }
-
     abstract has_prev() -> Bool;
 
     abstract prev() ~ -> E;
@@ -67,8 +65,6 @@ interface Iterator< E > derives Sequencer< E > {
 
 
 interface Updater< E > derives Iterator< E > {
-
-    override sequencer() ~ -> Ref< ~Updater< E > > { return self; }
 
     /** Replaces the value returned by the most-recent call to next() / prev(). Returns the replaced element. */
     abstract set( element : E ) ~ -> E;

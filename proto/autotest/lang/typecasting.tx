@@ -8,7 +8,7 @@ interface IntfA {
 }
 
 interface IntfB <: IntfA {         ## extends the interface IntfA
-    abstract set_value( v : Int );
+    abstract set_value( v : Int )~;
 }
 
 type ~ MyType <: Tuple, IntfB {    ## a Tuple type that implements IntfB

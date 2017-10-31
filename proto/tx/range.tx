@@ -27,10 +27,6 @@ type ERange< E derives Enumerable > <: Tuple, Range< E >, Stringer {
             self.nextIndex = 0;
         }
 
-        override sequencer() ~ -> Ref< ~ERangeIterator > {
-            return self;
-        }
-
         override has_next() -> Bool {
             return self.nextIndex < self.range.count();
         }

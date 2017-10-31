@@ -1,12 +1,10 @@
 interface ~ Sequenceable<E derives Ref> derives Interface {
-    abstract sequencer() ~ ->Ref<~Sequencer<E>>;
+    abstract sequencer()->Ref<~Sequencer<E>>;
 }
 
-interface ~ Sequencer<E derives Ref> derives Sequenceable<E> {
-    override sequencer() ~ ->Ref<~Sequencer<E>> { return self; }
-
+interface ~ Sequencer<E derives Ref> {
     abstract hasNext()->Bool;
-    abstract next()->E;
+    abstract next()~->E;
 }
 
 type SingleRef<S derives Ref> <: Tuple, Sequenceable<S> {

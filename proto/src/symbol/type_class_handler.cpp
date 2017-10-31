@@ -135,15 +135,29 @@ bool TxFunctionTypeClassHandler::is_a( const TxActualType* type, const TxActualT
         return inner_equals( type, other );
 }
 
-bool TxFunctionTypeClassHandler::inner_equals( const TxActualType* type, const TxActualType* other ) const {
+bool TxFunctionTypeClassHandler::inner_is_assignable_to( const TxActualType* type, const TxActualType* other ) const {
     if ( other->get_type_class() != TXTC_FUNCTION )
         return false;
     auto & thisArgTypes = type->argument_types();
     auto & otherArgTypes = other->argument_types();
     return ( ( type->return_type() == other->return_type()
                || ( type->return_type()->is_assignable_to( *other->return_type() ) ) )
+             && ( type->modifiable_closure() == other->modifiable_closure() || !type->modifiable_closure() )
              && thisArgTypes.size() == otherArgTypes.size()
              && std::equal( thisArgTypes.cbegin(), thisArgTypes.cend(), otherArgTypes.cbegin(),
-                            [](const TxActualType* ta, const TxActualType* oa) {return oa->is_assignable_to( *ta );} ) );
+                            [](const TxActualType* ta, const TxActualType* oa) { return oa->is_assignable_to( *ta ); } ) );
+    return false;
+}
+
+bool TxFunctionTypeClassHandler::inner_equals( const TxActualType* type, const TxActualType* other ) const {
+    if ( other->get_type_class() != TXTC_FUNCTION )
+        return false;
+    auto & thisArgTypes = type->argument_types();
+    auto & otherArgTypes = other->argument_types();
+    return ( *type->return_type() == *other->return_type()
+             && type->modifiable_closure() == other->modifiable_closure()
+             && thisArgTypes.size() == otherArgTypes.size()
+             && std::equal( thisArgTypes.cbegin(), thisArgTypes.cend(), otherArgTypes.cbegin(),
+                            [](const TxActualType* ta, const TxActualType* oa) { return *oa == *ta; } ) );
     return false;
 }

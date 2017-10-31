@@ -91,48 +91,6 @@ prime_sieve_b( limit : ULong ) -> ULong {
 
     ## mark all non-primes:
     for x in 2..limit {
-        range := x*2..x..limit;
-        ##print( "x: " %d x %% "   " %d range._indexLimit );
-        ##print( %s range.start %% ".." %s range.stride %% ".." %s range.limit );
-        for m in x*2..x..limit {
-            i := UInt( m >> 3 );
-            b := UByte( m & 7 );
-            sieve[i] = sieve[i] & ( ( 1UB << b ) xor 0xFF#UB );
-        }
-    }
-
-    ## count number of primes:
-    count : ~ULong = 0;
-    for x in 2..limit {
-        i := UInt( x >> 3 );
-        b := UByte( x & 7 );
-        if ( sieve[i] & ( 1UB << b ) ) != 0 {
-            ##print( "Prime: " %d x );
-            count = count + 1;
-        }
-    }
-
-    ##free( sieve );
-    return count;
-}
-
-prime_sieve_c( limit : ULong ) -> ULong {
-    if (limit / 8 + 1) > UInt.MAX:
-        panic "Limit out of range: " %d limit;
-    limit := Long( limit ) + 1;
-    length := UInt( limit / 8 + 1 );
-    sieve : &~[]UByte = new ~[length]UByte();
-
-    ## manually set sieve to all ones:
-    for i in 0..length {
-        sieve[i] = 0xFF;
-    }
-
-    ## mark all non-primes:
-    for x in 2..limit {
-        range := x*2..x..limit;
-        ##print( "x: " %d x %% "   " %d range._indexLimit );
-        ##print( %s range.start %% ".." %s range.stride %% ".." %s range.limit );
         for m in x*2..x..limit {
             i := UInt( m >> 3 );
             b := UByte( m & 7 );
