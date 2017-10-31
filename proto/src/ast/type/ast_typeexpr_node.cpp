@@ -6,7 +6,6 @@
 
 bool is_not_properly_concrete( const TxNode* node, const TxQualType type ) {
     if ( !type->is_concrete() ) {
-        //if ( type->is_generic() || !type->is_generic_dependent() )
         if ( !node->context().is_generic() && !type->is_generic_param() )
             return true;
         else

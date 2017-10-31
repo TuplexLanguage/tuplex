@@ -50,8 +50,9 @@ static TxScopeSymbol* get_explicit_outer( TxScopeSymbol* scope ) {
 //    std::cout << "From '" << scope->get_full_name() << "': get_explicit_outer()" << std::endl;
     for ( auto outer = scope->get_outer(); outer; outer = outer->get_outer() ) {
 //        std::cout << "     '" << scope->get_full_name() << "': get_explicit_outer()" << std::endl;
-        if ( outer->get_name().find( '$' ) == std::string::npos ) { // skips implicit scopes
-            LOG_NOTE( scope->LOGGER(), "Substituting '#' with '" << outer << "'" );
+        // Note that we skip all code scopes (statement blocks) and only access type and module namespaces.
+        if ( typeid( *outer ) != typeid( TxScopeSymbol ) ) {
+            //LOG_INFO( scope->LOGGER(), "Substituting '#' with '" << outer << "'" );
             return outer;
         }
     }

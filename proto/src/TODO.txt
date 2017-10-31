@@ -194,6 +194,12 @@ Support runtime is-a tests for interface adapters
 
 Support boolean test expression for: Ref<P> is-a Ref<Q> if P is-a Q
 
+Extend resolve_type()/define_type() to resolve_type_and_attributes()/define_type_and_attributes()
+ - for bottom-up analysis of attributes:
+   - generic-parameter-dependent (both TYPE and VALUE)
+   - statically constant expressions
+ - applies to RESOLUTION_PASS
+
 Remove assumption that bound parameters are "concrete": Shall be ok to bind interfaces and abstract superclasses.
  - See elementary types that implement Enumerable<E>
 

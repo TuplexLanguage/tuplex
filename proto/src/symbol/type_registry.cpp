@@ -437,6 +437,9 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
     std::vector<const TxTypeArgumentNode*> typeBindings;
     std::vector<const TxTypeArgumentNode*> valueBindings;
 
+    if ( genBaseType->get_type_params().size() < bindings.size() )
+        CERR_THROWRES( definer, "Too many type arguments (" << bindings.size() << ") for generic type " << genBaseType );
+
     // sort TYPE and VALUE bindings; create specialization name
     for ( unsigned ix = 0; ix < bindings.size(); ix++ ) {
         auto binding = bindings.at( ix );
@@ -602,7 +605,7 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
                                                bindingDeclNodes, specTypeExpr, baseDeclNode->interfaceKW, mutableType );
 
     // Note: The specialized type only has a generic context if its generic base type's declaration has an outer generic-dependent context.
-    //       (If we could resolve bindings here, we could determine whether they are generic-dependent;
+    //       (If we could fully resolve bindings here, we could determine whether they are generic-dependent;
     //        instead we do this in type->is_generic_dependent().)
     // Note: Base type's definer's parent is its declaration node; we're checking whether its outer scope is a generic context.
     bool outerIsGeneric = baseTypeExpr->parent()->parent()->context().is_generic();
