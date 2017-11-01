@@ -34,7 +34,7 @@ public:
         return _typeNode;
     }
 
-    void code_gen_type( LlvmGenerationContext& context ) const {
+    void code_gen_type( LlvmGenerationContext& context ) const override {
         TRACE_CODEGEN( this, context );
         this->_typeNode->code_gen_type( context );
     }

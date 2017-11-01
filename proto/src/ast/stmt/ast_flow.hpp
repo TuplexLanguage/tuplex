@@ -71,10 +71,10 @@ public:
         return new TxCondClauseNode( this->ploc, this->condExpr->originalExpr->make_ast_copy() );
     }
 
-    void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const { }
-    llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const;
-    void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const { }
-    void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const { }
+    virtual void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const override { }
+    virtual llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const override { }
+    virtual void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const override { }
 
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->condExpr->visit_ast( visitor, thisCursor, "cond", context );
@@ -104,10 +104,10 @@ public:
                                    this->valueName->make_ast_copy(), this->typeExpr->make_ast_copy() );
     }
 
-    void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const { }
-    llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const;
-    void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const;
-    void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const { }
+    virtual void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const override { }
+    virtual llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const override { }
 
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->valueField->visit_ast( visitor, thisCursor, "value", context );
@@ -137,10 +137,10 @@ public:
         return this->initStmt;
     }
 
-    void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const;
-    llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const;
-    void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const { }
-    void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const;
+    virtual void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const override { }
+    virtual void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->initStmt->visit_ast( visitor, thisCursor, "init", context );
@@ -183,10 +183,10 @@ public:
                                    this->origSeqExpr->make_ast_copy(), this->iterDeclFlags );
     }
 
-    void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const;
-    llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const;
-    void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const;
-    void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const { }
+    virtual void         code_gen_init( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual llvm::Value* code_gen_cond( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void         code_gen_prestep( LlvmGenerationContext& context, GenScope* scope ) const override;
+    virtual void         code_gen_poststep( LlvmGenerationContext& context, GenScope* scope ) const override { }
 
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->iterField->visit_ast( visitor, thisCursor, "iterator", context );

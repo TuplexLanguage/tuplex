@@ -8,6 +8,12 @@ module tx
  */
 builtin type ~ Array<E, C : UInt> derives Any, Collection<E>, Updatable<UInt, E>
 {
+    self( seq : &Sequenceable<E> ) {
+        for elem in seq:
+            self[ self.L ] = elem;
+            ##self.add( elem );
+    }
+
     override equals( other : &Any ) -> Bool {
         ##print( "equals() this type id=" %s _typeid(self) %% " other=" %s _typeid(other) );
         if other is oa : &Array<E> {
@@ -88,8 +94,6 @@ builtin type ~ Array<E, C : UInt> derives Any, Collection<E>, Updatable<UInt, E>
 
 
 type ~ ArrayIterator< E > <: Tuple, Iterator< E > {
-    ## We need to refer to the specific Array specialization including whether it is a mutable variant or not.
-    ## '#' refers to the outer namespace, in this case the current Array specialization.
     array     : &Array<E>;
     prevIndex : ~UInt;
 

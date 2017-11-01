@@ -96,7 +96,7 @@ public:
 //                 && ( this->stepValue == nullptr || this->stepValue->is_statically_constant() ) );
 //    }
 
-    virtual TxFieldStorage get_storage() const {
+    virtual TxFieldStorage get_storage() const override {
         return TXS_UNBOUND_STACK;
     }
 

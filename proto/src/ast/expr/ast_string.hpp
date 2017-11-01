@@ -83,7 +83,7 @@ public:
         return false;
     }
 
-    virtual TxFieldStorage get_storage() const {
+    virtual TxFieldStorage get_storage() const override {
         return TXS_UNBOUND_STACK;
     }
 
@@ -141,7 +141,7 @@ public:
         return false;
     }
 
-    virtual TxFieldStorage get_storage() const {
+    virtual TxFieldStorage get_storage() const override {
         return TXS_UNBOUND_STACK;
     }
 

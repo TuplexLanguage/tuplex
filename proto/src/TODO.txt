@@ -175,6 +175,9 @@ Constructor initialization validation check: That each constructor properly init
 
 Advanced array features
 -----------------------
+Support method overloading for closure-modifying (and not) methods
+ - allow for loops to select sequencer()~ for mutable seq's
+
 Auto-conversion of array initialization elements (literals; also from sequences?)
 
 Let nested array assignment statements support implicit initialization of assignee's outer array elements, e.g:

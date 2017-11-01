@@ -858,7 +858,7 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
                 auto ixV = builder.CreateLoad( ixA );
 
                 {  // get length of cstring arg, allocate tx byte array, copy content, and write ref to tx args array element:
-                    auto argCStrA = builder.CreateLoad( builder.CreateGEP( argvA, { ixV } ) );
+                    auto argCStrA = builder.CreateLoad( builder.CreateGEP( argvA, ixV ) );
                     auto argCStrLenV = builder.CreateCall( strlenFunc, { argCStrA } );
                     auto argCMemLenV = builder.CreateAdd( argCStrLenV, ConstantInt::get( i32T, 1 ) );
                     Value* arrayCap64V = builder.CreateZExtOrBitCast( argCMemLenV, i64T );

@@ -40,7 +40,7 @@ std::string parse_string_literal( const std::string& source, unsigned startOffse
 static unsigned iso_8859_1_to_utf8( const std::string& input, uint8_t *output ) {
     unsigned i = 0;
     for ( auto chr : input ) {
-        if ( chr < 0x80 ) {
+        if ( chr <= 0x7F ) {
             output[i++] = chr;
         }
         else {

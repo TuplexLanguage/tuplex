@@ -68,11 +68,11 @@ static bool statically_converts_to( TxExpressionNode* originalExpr, TxQualType o
         case TXBT_ULONG:
             return ( val >= 0 );
         case TXBT_HALF:
-            return ( abs( val ) <= 2048 );  // largest integer that can be stored without precision loss
+            return ( llabs( val ) <= 2048 );  // largest integer that can be stored without precision loss
         case TXBT_FLOAT:
-            return ( abs( val ) <= 16777216 );  // largest integer that can be stored without precision loss
+            return ( llabs( val ) <= 16777216 );  // largest integer that can be stored without precision loss
         case TXBT_DOUBLE:
-            return ( abs( val ) <= 9007199254740992 );  // largest integer that can be stored without precision loss
+            return ( llabs( val ) <= 9007199254740992 );  // largest integer that can be stored without precision loss
         default:
             return false;
         }

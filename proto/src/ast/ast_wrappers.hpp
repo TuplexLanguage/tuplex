@@ -40,23 +40,23 @@ public:
         return this->exprNode->code_gen_dyn_value( context, scope );
     }
 
-    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const {
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override {
         return this->exprNode->code_gen_const_value( context );
     }
 
-    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override {
         return this->exprNode->code_gen_dyn_address( context, scope );
     }
 
-    virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const {
+    virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const override {
         return this->exprNode->code_gen_const_address( context );
     }
 
-    virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const {
+    virtual llvm::Value* code_gen_typeid( LlvmGenerationContext& context, GenScope* scope ) const override {
         return this->exprNode->code_gen_typeid( context, scope );
     }
 
-    virtual llvm::Constant* code_gen_typeid( LlvmGenerationContext& context ) const {
+    virtual llvm::Constant* code_gen_typeid( LlvmGenerationContext& context ) const override {
         return this->exprNode->code_gen_typeid( context );
     }
 

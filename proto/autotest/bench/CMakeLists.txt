@@ -39,24 +39,15 @@ add_custom_command(OUTPUT primes_txbench.o
 #target_link_libraries(txbench timing)
 
 
-# add compile flags
-# -std=c++11
-# -std=c++1y
-# -fexceptions -fcxx-exceptions 
-# -fprofile-arcs -ftest-coverage
-# -Wno-deprecated-register
-SET (CMAKE_C_COMPILER             "/usr/bin/clang")
-#SET (CMAKE_C_COMPILER             "/usr/bin/gcc")
-SET (CMAKE_C_FLAGS                "-Wall -std=c99")
-SET (CMAKE_C_FLAGS_DEBUG          "-g -DDEVMODE")
-SET (CMAKE_C_FLAGS_MINSIZEREL     "-Os")
-SET (CMAKE_C_FLAGS_RELEASE        "-O3")
-SET (CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
+# if setting custom flags for this directory
+#SET (CMAKE_C_FLAGS                "-Wall -std=c99")
+#SET (CMAKE_C_FLAGS_DEBUG          "-g -DDEVMODE")
+#SET (CMAKE_C_FLAGS_MINSIZEREL     "-Os")
+#SET (CMAKE_C_FLAGS_RELEASE        "-O3")
+#SET (CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
 
-SET (CMAKE_CXX_COMPILER             "/usr/bin/clang++")
-#SET (CMAKE_CXX_COMPILER             "/usr/bin/gcc")
-SET (CMAKE_CXX_FLAGS                "-Wall -std=c++11 -pthread")
-SET (CMAKE_CXX_FLAGS_DEBUG          "-g -DDEVMODE")
-SET (CMAKE_CXX_FLAGS_MINSIZEREL     "-Os")
-SET (CMAKE_CXX_FLAGS_RELEASE        "-O3")
-SET (CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
+#SET (CMAKE_CXX_FLAGS                "-Wall -std=c++11 -pthread")
+#SET (CMAKE_CXX_FLAGS_DEBUG          "-g -DDEVMODE")
+#SET (CMAKE_CXX_FLAGS_MINSIZEREL     "-Os")
+#SET (CMAKE_CXX_FLAGS_RELEASE        "-O3")
+#SET (CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
