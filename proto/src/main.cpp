@@ -34,11 +34,7 @@ int main( int argc, const char **argv )
 
     for ( int a = 1; a < argc; a++ ) {
         if ( argv[a][0] == '-' && argv[a][1] ) {
-            if ( !strcmp( argv[a], "-version" ) ) {
-                printf( "%s version %d.%d", argv[0], Tuplex_VERSION_MAJOR, Tuplex_VERSION_MINOR );
-                return 0;
-            }
-            else if ( !strcmp( argv[a], "-h" ) || !strcmp( argv[a], "-help" ) ) {
+            if ( !strcmp( argv[a], "-h" ) || !strcmp( argv[a], "-help" ) ) {
                 printf( "Usage: %s [ <option> | <source file> ]*\n", argv[0] );
                 printf( "  %-22s %s\n", "-h  | -help", "Print command line help and exit" );
                 printf( "  %-22s %s\n", "-version", "Print version and exit" );
@@ -70,6 +66,10 @@ int main( int argc, const char **argv )
                 printf( "  %-22s %s\n", "-o  | -output <file>", "Explicitly specify LLVM bitcode output file name" );
                 printf( "  %-22s %s\n", "-sp <pathlist>", "Set source files search paths (overrides TUPLEX_PATH environment variable)" );
                 printf( "  %-22s %s\n", "-sourcepath <pathlist>", "Set source files search paths (overrides TUPLEX_PATH environment variable)" );
+                return 0;
+            }
+            else if ( !strcmp( argv[a], "-version" ) || !strcmp( argv[a], "--version" ) ) {
+                printf( "%s version %d.%d\n", argv[0], Tuplex_VERSION_MAJOR, Tuplex_VERSION_MINOR );
                 return 0;
             }
             else if ( !strcmp( argv[a], "-v" ) || !strcmp( argv[a], "-verbose" ) )
