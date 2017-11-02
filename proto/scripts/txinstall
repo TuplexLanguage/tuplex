@@ -1,10 +1,13 @@
 #/bin/bash
-# First, cd to the directory you want to put the "tuplex" repository directory.
+# Ensures the necessary build tools are installed and then builds tuplex.
+# This script is in the repo and can be run directly:  tuplex/proto/scripts/txinstall
+
+set -x  # command echo on
 
 ###################
 ## Install the packages with the build tools needed to build the tuplex compiler:
 sudo apt-get update
-sudo apt-get install git cmake make gcc g++ flex bison
+sudo apt-get install cmake make gcc g++ flex bison
 
 
 ###################
@@ -19,19 +22,3 @@ sudo add-apt-repository 'deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-5
 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
 sudo apt-get update
 sudo apt-get install llvm-5.0 llvm-5.0-dev
-
-# Add LLVM 5.0 to the command path:
-# !!!!! To make this permament for all bash sessions, it can for example be appended to your ~/.bashrc file.
-export PATH=$PATH:/usr/lib/llvm-5.0/bin
-
-
-###################
-## Get and build Tuplex:
-
-# Clone the tuplex repository to the current directory:
-git clone https://github.com/TuplexLanguage/tuplex.git
-
-# Build the Tuplex compiler:
-cd tuplex/proto
-cmake .
-make

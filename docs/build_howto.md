@@ -9,37 +9,54 @@ The current working state of the Tuplex compiler is availabile on GitHub:
 
 So far the build has only been tested on Linux/Ubuntu. If you have a Ubuntu 14/16 system or are an experienced developer it should be straight-forward to get it to build.
 
-These are the prerequisite tools, and the version it currently builds with:
+These are the prerequisite tools, and the version it currently builds with. There is a script below (also included in the repo) to automatically install them for you if you are on an Ubuntu system. The script uses apt-get for most of them; the llvm 5 installation is a bit more involved but is also handled by the script.
 
 * cmake 3.5.1
 * make 4.1
 * flex 2.6.0
 * bison 3.0.4
-* c++11 compilation tool chain (I've tested with gcc and clang)
+* c++11 compilation tool chain (it's been tested with gcc and clang)
 * python, if you want to run the test suite
 * llvm 5.0.1
 
-See the suggested script and its commands below for easy installation using apt-get. Llvm 5 installation is a bit more involved, it is also described below.
-
 ### Install and build
 
-This is an install-from-scratch command sequence I've tested on a completely fresh Ubuntu 16.x installation.
+This is an install-from-scratch command sequence that has been tested on a completely fresh Ubuntu 16.x installation.
 
-First, cd to the directory where you want to put the "tuplex" repository directory.
-Then either copy-paste it into your console, or run as a bash script.
+The PATH settings should work as-is, but you may want to make the paths absolute and put them into your .bashrc or similar.
 
-You may want to change the PATH settings.
+**Step 0:** If you don't have git installed you need to do that first:
 
-> Check [http://apt.llvm.org/](http://apt.llvm.org/) for Linux flavors other than Ubuntu Xenial (16.04) and edit the corresponding line in the script.
+```
+sudo apt-get update
+sudo apt-get install git
+```
+
+**Step 1:** cd to the directory you want to put the "tuplex" repository directory and run this:
+
+```
+# Clone the tuplex repository to the current directory:
+git clone https://github.com/TuplexLanguage/tuplex.git
+```
+
+**Step 2:**
+The following script ensures the necessary build tools are installed and then builds Tuplex.
+Either copy-paste it into your console, or run as a bash script.
+It is in the repo and can be run directly from the command line: `tuplex/proto/scripts/txinstall`
+
+> Check [http://apt.llvm.org/](http://apt.llvm.org/) if you have a different Linux flavor than Ubuntu Xenial (16.04) and edit the corresponding line in the script.
 
 ```
 #/bin/bash
-# First, cd to the directory you want to put the "tuplex" repository directory.
+# Ensures the necessary build tools are installed and then builds tuplex.
+# This script is in the repo and can be run directly:  tuplex/proto/scripts/txinstall
+
+set -x  # command echo on
 
 ###################
 ## Install the packages with the build tools needed to build the tuplex compiler:
 sudo apt-get update
-sudo apt-get install git cmake make gcc g++ flex bison
+sudo apt-get install cmake make gcc g++ flex bison
 
 
 ###################
@@ -54,28 +71,27 @@ sudo add-apt-repository 'deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-5
 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key|sudo apt-key add -
 sudo apt-get update
 sudo apt-get install llvm-5.0 llvm-5.0-dev
+```
 
+**Step 3:** Build tuplex:
+
+```
 # Add LLVM 5.0 to the command path:
-# !!!!! To make this permament for all bash sessions, it can for example be appended to your ~/.bashrc file.
+# (To make this permament for all bash sessions, it can be appended to ~/.bashrc or similar file.)
 export PATH=$PATH:/usr/lib/llvm-5.0/bin
 
-
-###################
-## Get and build Tuplex:
-
-# Clone the tuplex repository to the current directory:
-git clone https://github.com/TuplexLanguage/tuplex.git
-
-# Build the Tuplex compiler:
+# cd to the compiler's directory:
 cd tuplex/proto
 cmake .
 make
 ```
 
-When building Tuplex, If any tool, library or include isn't found, see if the paths in `proto/src/CMakeLists.txt` need to be adapted for your setup. After this file has been changed, you need to run `cmake .` again followed by `make`.
+> When building Tuplex, If any tool, library or include isn't found, see if the paths in `proto/src/CMakeLists.txt` need to be adapted for your setup. After this file has been changed, you need to run `cmake .` again followed by `make`.
 
-To add tuplex commands (including the txc compiler) and scripts to the path:
-(You may want to do this with absolute paths in your ~/.bashrc)
+**Step 4:** Add command paths:
+
+To add tuplex commands (including the `txc` compiler) and scripts to the path:
+<br>(You may want to do this with absolute paths in your ~/.bashrc)
 
 ```
 export PATH=$PATH:$PWD/bin:$PWD/scripts
@@ -98,6 +114,8 @@ Run the Tuplex program build script (produces an executable):
     txb autotest/lib/helloworld.tx
 
 ---
+
+### Files of interest
 
 These might be some files you'd like to check out:
 
