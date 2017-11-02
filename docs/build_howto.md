@@ -7,7 +7,7 @@ The current working state of the Tuplex compiler is availabile on GitHub:
 
 <a href="https://github.com/TuplexLanguage/tuplex" target="_blank">https://github.com/TuplexLanguage/tuplex</a>
 
-So far the build has only been tested on Linux/Ubuntu, but if you have a Ubuntu 14/16 system or are an experienced developer it should be straight-forward to get it to build.
+So far the build has only been tested on Linux/Ubuntu. If you have a Ubuntu 14/16 system or are an experienced developer it should be straight-forward to get it to build.
 
 These are the prerequisite tools, and the version it currently builds with:
 
@@ -15,20 +15,13 @@ These are the prerequisite tools, and the version it currently builds with:
 * make 4.1
 * flex 2.6.0
 * bison 3.0.4
-* c++11 compilation tool chain (I've tested with gcc (5.4.0) and clang)
+* c++11 compilation tool chain (I've tested with gcc and clang)
 * python, if you want to run the test suite
 * llvm 5.0.1
 
-These can easily be installed using apt-get, except for llvm 5 which requires a number of commands, see below.
+See the suggested script and its commands below for easy installation using apt-get. Llvm 5 installation is a bit more involved, it is also described below.
 
-If you have the above installed, simply clone the git project, cd to its "proto" subdirectory and run these commands to build the compiler:
-
-    cmake .
-    make
-
-(If any tool, library or include isn't found, see if the paths in `proto/src/CMakeLists.txt` need to be adapted for your setup.)
-
-### Install and build from scratch
+### Install and build
 
 This is an install-from-scratch command sequence I've tested on a completely fresh Ubuntu 16.x installation.
 
@@ -79,11 +72,13 @@ cmake .
 make
 ```
 
+When building Tuplex, If any tool, library or include isn't found, see if the paths in `proto/src/CMakeLists.txt` need to be adapted for your setup. After this file has been changed, you need to run `cmake .` again followed by `make`.
+
 To add tuplex commands (including the txc compiler) and scripts to the path:
 (You may want to do this with absolute paths in your ~/.bashrc)
 
 ```
-export PATH=$PATH:./bin:./scripts
+export PATH=$PATH:$PWD/bin:$PWD/scripts
 ```
 
 ### Trying it out
