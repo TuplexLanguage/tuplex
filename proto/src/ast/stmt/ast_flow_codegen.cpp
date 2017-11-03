@@ -2,6 +2,7 @@
 #include "ast/expr/ast_ref.hpp"
 
 #include "llvm_generator.hpp"
+#include "parsercontext.hpp"
 
 using namespace llvm;
 
@@ -52,11 +53,16 @@ void TxInClauseNode::code_gen_prestep( LlvmGenerationContext& context, GenScope*
 
 void TxElseClauseNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     return this->body->code_gen( context, scope );
 }
 
 void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
+    auto suiteDScope = context.debug_builder()->createLexicalBlock( scope->debug_scope(), get_parser_context()->debug_file(),
+                                                                    ploc.begin.line, ploc.begin.column );
+    scope->push_debug_scope( suiteDScope );
 
     std::string id = std::to_string( this->ploc.begin.line );
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
@@ -98,10 +104,16 @@ void TxIfStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) c
             scope->builder->CreateBr( postBlock );  // branch from end of true block to next-block
         scope->builder->SetInsertPoint( postBlock );
     }
+
+    scope->pop_debug_scope();
 }
 
 void TxForStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
+    auto suiteDScope = context.debug_builder()->createLexicalBlock( scope->debug_scope(), get_parser_context()->debug_file(),
+                                                                    ploc.begin.line, ploc.begin.column );
+    scope->push_debug_scope( suiteDScope );
 
     std::string id = std::to_string( this->ploc.begin.line );
     auto parentFunc = scope->builder->GetInsertBlock()->getParent();
@@ -163,4 +175,6 @@ void TxForStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) 
 
     if ( postBlock )
         scope->builder->SetInsertPoint( postBlock );
+
+    scope->pop_debug_scope();
 }

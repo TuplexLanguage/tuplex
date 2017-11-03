@@ -159,8 +159,6 @@ public:
 
 // TODO: Support negative array indexing.
 class TxElemDerefNode : public TxExpressionNode {
-    class TxStatementNode* panicNode = nullptr;
-
 protected:
     virtual TxQualType define_type( TxPassInfo passInfo ) override {
         this->subscript->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
@@ -182,7 +180,7 @@ public:
     TxMaybeConversionNode* array;
     TxMaybeConversionNode* subscript;
 
-    TxElemDerefNode( const TxLocation& ploc, TxExpressionNode* operand, TxExpressionNode* subscript, bool unchecked = false );
+    TxElemDerefNode( const TxLocation& ploc, TxExpressionNode* operand, TxExpressionNode* subscript );
 
     virtual TxElemDerefNode* make_ast_copy() const override {
         return new TxElemDerefNode( this->ploc, this->array->originalExpr->make_ast_copy(),
@@ -215,8 +213,6 @@ public:
 
 // TODO: Support negative array indexing.
 class TxElemAssigneeNode : public TxAssigneeNode {
-    class TxStatementNode* panicNode = nullptr;
-
 protected:
     virtual TxQualType define_type( TxPassInfo passInfo ) override {
         this->subscript->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );

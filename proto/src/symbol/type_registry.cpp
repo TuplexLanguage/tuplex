@@ -18,6 +18,7 @@
 #include "tx_error.hpp"
 
 #include "llvm_generator.hpp"
+#include "driver.hpp"
 
 
 #define VALUE_SPECS_SHARE_CODE
@@ -261,12 +262,12 @@ void TypeRegistry::dump_types() const {
 }
 
 const TxActualType* TypeRegistry::get_builtin_type( const BuiltinTypeId id ) {
-    return this->_package.builtins().get_builtin_type( id );
+    return this->_package.driver().builtins().get_builtin_type( id );
 }
 
 TxQualType TypeRegistry::get_string_type() {
     if (! this->stringTypeNode ) {
-        stringTypeNode = new TxNamedTypeNode( this->_package.builtins().get_builtin_location(), "tx.String" );
+        stringTypeNode = new TxNamedTypeNode( this->_package.driver().builtins().get_builtin_location(), "tx.String" );
         run_declaration_pass( stringTypeNode, LexicalContext( this->_package.get_member_symbol( "tx" ), nullptr, nullptr,
                                                               false, false, false, false) );
         return this->stringTypeNode->resolve_type( TXP_RESOLUTION );

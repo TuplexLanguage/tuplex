@@ -25,7 +25,10 @@
 
 #include "tx_lang_defs.hpp"
 #include "tx_except.hpp"
+
 #include "llvm_generator.hpp"
+#include "driver.hpp"
+#include "parsercontext.hpp"
 
 #include "ast/ast_modbase.hpp"
 #include "ast/expr/ast_ref.hpp"
@@ -47,6 +50,29 @@ void GenScope::use_alloca_insertion_point() {
 void GenScope::use_current_insertion_point() {
     this->lastAllocaInstr = this->builder->GetInsertPoint()->getPrevNode();
     this->builder->SetInsertPoint( this->currentBlock );  // at end of current block
+}
+
+
+LlvmGenerationContext::LlvmGenerationContext( TxPackage& tuplexPackage, llvm::LLVMContext& llvmContext )
+        : llvmModulePtr( new llvm::Module("top", llvmContext ) ),
+          tuplexPackage( tuplexPackage ),
+          llvmContext( llvmContext )
+{
+    this->voidPtrT = llvm::Type::getInt8PtrTy( this->llvmContext );
+    this->closureRefT = TxReferenceTypeClassHandler::make_ref_llvm_type( *this, llvm::Type::getInt8Ty( this->llvmContext ), "ClosRef" );
+    this->i32T = llvm::Type::getInt32Ty( this->llvmContext );
+    this->superTypesPtrT = llvm::PointerType::getUnqual( llvm::StructType::get( i32T, i32T, llvm::ArrayType::get( i32T, 0 ) ) );
+
+    // Add the current debug info version into the module.
+    this->llvmModulePtr->addModuleFlag( Module::Warning, "Debug Info Version", DEBUG_METADATA_VERSION );
+
+    // Darwin only supports dwarf2 (copied from Kaleidoscope)
+    if ( Triple( sys::getProcessTriple() ).isOSDarwin() ) {
+        this->llvmModulePtr->addModuleFlag( llvm::Module::Warning, "Dwarf Version", 2 );
+    }
+
+    this->_debugBuilder = new llvm::DIBuilder( *this->llvmModulePtr );
+    this->_genDIFile = this->_debugBuilder->createFile( __FILE__, "" );
 }
 
 
@@ -109,6 +135,10 @@ void LlvmGenerationContext::initialize_target() {
 
     this->llvmModulePtr->setDataLayout( targetMachine->createDataLayout() );
     this->llvmModulePtr->setTargetTriple( targetTriple );
+}
+
+void LlvmGenerationContext::finalize_codegen() {
+    this->_debugBuilder->finalize();
 }
 
 int LlvmGenerationContext::verify_code() {
@@ -725,7 +755,7 @@ void LlvmGenerationContext::gen_panic_call( GenScope* scope, const std::string& 
 void LlvmGenerationContext::register_llvm_value( const std::string& identifier, Value* val ) {
     ASSERT( !identifier.empty(), "Empty identifier string when registering llvm value " << val );
     if ( identifier.compare( 0, strlen( BUILTIN_NS ), BUILTIN_NS ) != 0 )
-        LOG_TRACE( this->LOGGER(), "Registering LLVM value '" << identifier << "' : " << to_string(val->getType()) );
+        LOG_TRACE( this->LOGGER(), "Registering LLVM value '" << identifier << "' : " << val->getType() );
     this->llvmSymbolTable.emplace( identifier, val );
 }
 
@@ -743,7 +773,7 @@ Value* LlvmGenerationContext::lookup_llvm_value( const std::string& identifier )
 
 
 Type* LlvmGenerationContext::get_llvm_type( const TxActualType* txType ) {
-    ASSERT( txType, "NULL txType provided to getLlvmType()" );
+    ASSERT( txType, "NULL txType provided to get_llvm_type()" );
     if ( txType->get_type_class() != TXTC_REFERENCE && txType->is_same_instance_type() )
         // same data type as base type
         return this->get_llvm_type( txType->get_base_type() );
@@ -755,21 +785,33 @@ Type* LlvmGenerationContext::get_llvm_type( const TxActualType* txType ) {
         return iter->second;
     }
     Type* llvmType = txType->make_llvm_type( *this );
-    ASSERT ( llvmType, "Failed to make LLVM type mapping for type " << txType );
     this->llvmTypeMapping.emplace( txType, llvmType );
-    if (txType->get_type_class() != TXTC_FUNCTION)
-        LOG_DEBUG( this->LOGGER(), "Made LLVM type mapping for type " << txType->str(true) << ": " << to_string(llvmType) );
-    else
-        LOG_TRACE( this->LOGGER(), "Made LLVM type mapping for type " << txType->str(true) << ": " << to_string(llvmType) );
+    LOG_TRACE( this->LOGGER(), "Made LLVM type mapping for type " << txType->str(true) << ": " << llvmType );
 
     Type* llvmTypeBody = txType->make_llvm_type_body( *this, llvmType );
     if ( llvmTypeBody != llvmType ) {
         // replace header with full type definition in mapping
         this->llvmTypeMapping[txType] = llvmTypeBody;
-        this->LOGGER()->note( "replaced LLVM type mapping for type %s: %s", txType->str( true ).c_str(), to_string( llvmTypeBody ).c_str() );
+        LOG_NOTE( this->LOGGER(), "replaced LLVM type mapping for type " << txType << ": " << llvmTypeBody );
     }
 
     return llvmType;
+}
+
+DIType* LlvmGenerationContext::get_debug_type( const TxActualType* txType ) {
+    ASSERT( txType, "NULL txType provided to get_debug_type()" );
+    if ( txType->get_type_class() != TXTC_REFERENCE && txType->is_same_instance_type() )
+        // same data type as base type
+        return this->get_debug_type( txType->get_base_type() );
+
+    auto iter = this->llvmDebugTypeMapping.find( txType );
+    if ( iter != this->llvmDebugTypeMapping.end() ) {
+        return iter->second;
+    }
+    DIType* debugType = txType->make_llvm_debug_type( *this );
+    this->llvmDebugTypeMapping.emplace( txType, debugType );
+    LOG_INFO( this->LOGGER(), "Made LLVM DEBUG type mapping for type " << txType->str(true) << ": " << debugType );
+    return debugType;
 }
 
 
@@ -793,9 +835,31 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
     Value* argvA = &(*args);
     argvA->setName( "argv" );
 
+    { // debug info
+        SmallVector<Metadata*, 8> eltTypes;
+        DIType* intTy = this->debug_builder()->createBasicType( "int", 32, dwarf::DW_ATE_signed );
+        eltTypes.push_back( intTy );  // return type
+        eltTypes.push_back( intTy );  // argc type
+        eltTypes.push_back( /* argv type */ this->debug_builder()->createPointerType(
+                this->debug_builder()->createPointerType(
+                        this->debug_builder()->createBasicType( "char", 8, dwarf::DW_ATE_signed_char ), 64 ), 64 ) );
+        DISubroutineType* subRoutineType = this->debug_builder()->createSubroutineType( this->debug_builder()->getOrCreateTypeArray( eltTypes ) );
+
+        auto linkageName = StringRef();
+        bool isLocalToUnit = false;  // external linkage
+        unsigned lineNo = __LINE__;
+        unsigned scopeLine = lineNo;
+        DISubprogram *subProg = this->debug_builder()->createFunction(
+               this->tuplexPackage.driver().builtin_parser_context()->debug_unit(),
+               mainFunc->getName(), linkageName, this->_genDIFile,
+               lineNo, subRoutineType, isLocalToUnit, true /* isDefinition */, scopeLine,
+               DINode::FlagPrototyped, false /* isOptimized */ );
+        mainFunc->setSubprogram( subProg );
+    }
+
     BasicBlock *entryBlock = BasicBlock::Create( this->llvmContext, "entry", mainFunc );
     IRBuilder<> builder( entryBlock );
-    GenScope scope( &builder );
+    GenScope scope( &builder, mainFunc->getSubprogram() );
 
 //    // initialize statics / runtime environment
 //    Function *initFunc = this->gen_static_init_function();
@@ -829,6 +893,7 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
                                                      GlobalValue::ExternalLinkage, "strcpy", &this->llvmModule() );
             strlenFunc->setCallingConv( CallingConv::C );
 
+            //builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
             auto ixA = builder.CreateAlloca( i32T, nullptr, "ix" );
             builder.CreateStore( ConstantInt::get( i32T, 0 ), ixA );
 
@@ -839,6 +904,7 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
 
             Value* argsArrayA;
             {
+                //builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
                 Value* arrayCap64V = builder.CreateZExtOrBitCast( argcV, i64T );
                 Constant* elemSizeC = ConstantExpr::getSizeOf( ubyteArrayRefT );
                 Value* objectSizeV = gen_compute_array_size( *this, &scope, elemSizeC, arrayCap64V );
@@ -850,11 +916,13 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
             auto postBlock = BasicBlock::Create( this->llvmContext, "post", mainFunc );
 
             {
+                //builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
                 auto condV = builder.CreateICmpULT( ConstantInt::get( i32T, 0 ), argcV );
                 builder.CreateCondBr( condV, argBlock, postBlock );
             }
             {
                 builder.SetInsertPoint( argBlock );
+                //builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
                 auto ixV = builder.CreateLoad( ixA );
 
                 {  // get length of cstring arg, allocate tx byte array, copy content, and write ref to tx args array element:
@@ -878,36 +946,44 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
                 }
 
                 // increment index and iterate/exit:
+                //builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
                 auto ixV1 = builder.CreateAdd( ixV, ConstantInt::get( i32T, 1 ) );
                 builder.CreateStore( ixV1, ixA );
                 auto condV = builder.CreateICmpULT( ixV1, argcV );
                 builder.CreateCondBr( condV, argBlock, postBlock );
             }
-            builder.SetInsertPoint( postBlock );
 
+            builder.SetInsertPoint( postBlock );
+            //builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
             // FIXME: If not in share-value-specializations-code mode, the ref type here must be for an array type with specific length:
             auto argsArrayRefV = gen_ref( *this, &scope, mainArgsRefType, argsArrayA );
             args.push_back( argsArrayRefV );
         }
+
+        // debug location required upon user main invocation
+        builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
 
         if ( mainFuncType->has_return_value() ) {
             CallInst *userMainCall = builder.CreateCall( userMainFunc, args, "usermain" );
             userMainCall->setTailCall( false );
             userMainCall->setIsNoInline();
 
-            // truncate return value to i32
-            auto truncVal = builder.CreateIntCast( userMainCall, i32T, true, "ret" );
+            builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
+            auto truncVal = builder.CreateIntCast( userMainCall, i32T, true, "ret" );  // truncate return value to i32
             builder.CreateRet( truncVal );
         }
         else {
             CallInst *userMainCall = builder.CreateCall( userMainFunc, args );
             userMainCall->setTailCall( false );
             userMainCall->setIsNoInline();
+
+            builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
             builder.CreateRet( ConstantInt::get( i32T, 0, true ) );
         }
     }
     else {
         this->LOGGER()->error( "LLVM function not found for name: %s", userMain.c_str() );
+        builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
         builder.CreateRet( ConstantInt::get( i32T, 0, true ) );
     }
 
@@ -958,13 +1034,41 @@ void LlvmGenerationContext::gen_get_supertypes_array_function() {
     Value* runtimeBaseTypeIdV = &( *args );
     runtimeBaseTypeIdV->setName( "runtimeBaseTypeIdV" );
 
+    { // debug info
+        auto diScope = this->tuplexPackage.driver().builtin_parser_context()->debug_unit();
+        SmallVector<Metadata*, 2> eltTypes;
+        auto uintDT = this->debug_builder()->createBasicType( "UInt", 32, dwarf::DW_ATE_unsigned );
+        {  // return type:
+            DINodeArray subscripts;  // ??
+            SmallVector<Metadata*, 3> arrayElts( { uintDT, uintDT, this->debug_builder()->createArrayType( 0, 64, uintDT, subscripts ) } );
+            eltTypes.push_back( this->debug_builder()->createPointerType(
+                    this->debug_builder()->createStructType( diScope, "[]UInt", _genDIFile, __LINE__, 64, 64,
+                                                             DINode::DIFlags::FlagZero, nullptr,
+                                                             debug_builder()->getOrCreateArray( arrayElts ) ), 64 ) );
+        }
+        eltTypes.push_back( uintDT );  // arg type
+        DISubroutineType* subRoutineType = this->debug_builder()->createSubroutineType( this->debug_builder()->getOrCreateTypeArray( eltTypes ) );
+
+        auto linkageName = StringRef();
+        bool isLocalToUnit = true;  // internal linkage
+        unsigned lineNo = __LINE__;
+        unsigned scopeLine = 0;  // FIXME
+        DISubprogram *subProg = this->debug_builder()->createFunction(
+               diScope, function->getName(), linkageName, _genDIFile,
+               lineNo, subRoutineType, isLocalToUnit, true /* isDefinition */, scopeLine,
+               DINode::FlagPrototyped, false /* isOptimized */ );
+        function->setSubprogram( subProg );
+    }
+
     BasicBlock *entryBlock = BasicBlock::Create( this->llvmContext, "entry", function );
     IRBuilder<> builder( entryBlock );
-    GenScope scope( &builder );
+    GenScope scope( &builder, function->getSubprogram() );
 
     auto parentFunc = builder.GetInsertBlock()->getParent();
     BasicBlock* nonVTableBlock = BasicBlock::Create( this->llvmContext, "if_nonvtabletype", parentFunc );
     BasicBlock* vTableBlock = BasicBlock::Create( this->llvmContext, "if_vtabletype", parentFunc );
+
+    builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
 
     auto superTypesC = cast<GlobalVariable>( this->lookup_llvm_value( "tx.runtime.SUPER_TYPES" ) );
     {

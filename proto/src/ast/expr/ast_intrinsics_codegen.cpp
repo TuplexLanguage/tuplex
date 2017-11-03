@@ -9,6 +9,7 @@ using namespace llvm;
 
 Value* TxRefAddressNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     auto refPtrV = this->refExpr->code_gen_addr( context, scope );
     auto refPtrT = cast<PointerType>( refPtrV->getType() );
     auto refMembPtrV = scope->builder->CreateStructGEP( refPtrT->getPointerElementType(), refPtrV, 0 );
@@ -18,6 +19,7 @@ Value* TxRefAddressNode::code_gen_dyn_address( LlvmGenerationContext& context, G
 
 Value* TxRefAddressNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     auto ptrV = gen_get_ref_pointer( context, scope, this->refExpr->code_gen_expr( context, scope ) );
     return scope->builder->CreatePtrToInt( ptrV, Type::getInt64Ty( context.llvmContext ) );
 }
@@ -31,6 +33,7 @@ Constant* TxRefAddressNode::code_gen_const_value( LlvmGenerationContext& context
 
 Value* TxRefTypeIdNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     auto refPtrV = this->refExpr->code_gen_addr( context, scope );
     auto refPtrT = cast<PointerType>( refPtrV->getType() );
     auto refMembPtrV = scope->builder->CreateStructGEP( refPtrT->getPointerElementType(), refPtrV, 1 );
@@ -39,6 +42,7 @@ Value* TxRefTypeIdNode::code_gen_dyn_address( LlvmGenerationContext& context, Ge
 
 Value* TxRefTypeIdNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     return gen_get_ref_typeid( context, scope, this->refExpr->code_gen_dyn_value( context, scope ) );
 }
 
@@ -49,6 +53,8 @@ Constant* TxRefTypeIdNode::code_gen_const_value( LlvmGenerationContext& context 
 
 
 Value* TxTypeExprTypeIdNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     return this->code_gen_const_value( context );
 }
 
@@ -60,6 +66,7 @@ Constant* TxTypeExprTypeIdNode::code_gen_const_value( LlvmGenerationContext& con
 
 Value* TxSizeofExprNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     auto typeIdV = this->expr->code_gen_typeid( context, scope );
     return context.gen_get_element_size( scope, this->expr->qtype().type(), typeIdV );
 }
@@ -73,6 +80,7 @@ Constant* TxSizeofExprNode::code_gen_const_value( LlvmGenerationContext& context
 
 Value* TxSupertypesExprNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     auto typeIdV = this->expr->code_gen_dyn_value( context, scope );
     auto arrayTypeIdC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), this->qtype()->target_type()->get_runtime_type_id() );
     return context.gen_get_supertypes_array_ref( scope, this->expr->qtype().type(), typeIdV, arrayTypeIdC );

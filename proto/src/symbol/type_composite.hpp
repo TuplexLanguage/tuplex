@@ -28,6 +28,8 @@ public:
 
     virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
     virtual llvm::Type* make_llvm_externc_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+    virtual llvm::DIType* make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+
     virtual void initialize_specialized_obj( const TxActualType* type, LlvmGenerationContext& context, GenScope* scope, llvm::Value* objPtrV ) const override;
 
     virtual llvm::Constant* gen_static_element_size( const TxActualType* type, LlvmGenerationContext& context ) const override;
@@ -50,6 +52,7 @@ public:
 
     virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
     virtual llvm::Type* make_llvm_externc_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+    virtual llvm::DIType* make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
 
     static llvm::Type* make_ref_llvm_type( LlvmGenerationContext& context, llvm::Type* targetType );
     static llvm::Type* make_ref_llvm_type( LlvmGenerationContext& context, llvm::Type* targetType, const std::string& name );

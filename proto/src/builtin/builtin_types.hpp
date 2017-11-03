@@ -5,16 +5,20 @@
 
 #include "symbol/type_registry.hpp"
 
-/** Creates the package, i.e. the root namespace module (""). */
-TxPackage* make_root_package( TxParserContext* parserContext );
+
+/** Returns the builtins' source file name (the C++ source file name). Used for builtins' debug info. */
+const std::string& get_builtins_file_name();
 
 class TxParsingUnitNode;
 class TxModuleNode;
-class TypeRegistry;
 class TxTypeDeclNode;
 
 class BuiltinTypes {
-    TypeRegistry& registry;
+    /** Parser context representing the built-in internally coded constructs (without tx source code). */
+    TxParserContext* builtinParserContext;
+
+    /** the currently compiled tuplex package */
+    TxPackage* package;
 
     /** parse location used for built-in constructs without actual source code */
     const TxLocation& builtinLocation;
@@ -24,11 +28,16 @@ class BuiltinTypes {
     TxModuleNode* create_tx_c_module();
 
 public:
-    BuiltinTypes( TypeRegistry& registry );
+    BuiltinTypes( TxParserContext* builtinParserContext );
+
+    /** Creates the package, i.e. the root namespace module (""). */
+    TxPackage* get_root_package() const {
+        return this->package;
+    }
 
     TxParsingUnitNode* createTxModuleAST();
 
-    void resolveBuiltinSymbols();  // TODO: remove
+    void resolveBuiltinSymbols();
 
     /** parse location used for built-in constructs without actual source code */
     const TxLocation& get_builtin_location() const {

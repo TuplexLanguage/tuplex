@@ -24,6 +24,7 @@ Value* TxArrayLitNode::code_gen_dyn_address( LlvmGenerationContext& context, Gen
 
 Value* TxFilledArrayLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
 
     if ( this->_directArrayArg ) {
         return this->elemExprList->front()->code_gen_dyn_value( context, scope );
@@ -112,6 +113,7 @@ static Constant* unfilled_array_code_gen_constant( LlvmGenerationContext& contex
 
 Value* TxUnfilledArrayLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     auto txArrayType = this->qtype().type();
     return unfilled_array_code_gen_value( context, scope, txArrayType );
 }
@@ -124,6 +126,7 @@ Constant* TxUnfilledArrayLitNode::code_gen_const_value( LlvmGenerationContext& c
 
 Value* TxUnfilledArrayCompLitNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     auto txArrayType = this->qtype().type();
     return unfilled_array_code_gen_value( context, scope, txArrayType );
 }
@@ -137,7 +140,7 @@ Constant* TxUnfilledArrayCompLitNode::code_gen_const_value( LlvmGenerationContex
 
 
 static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope, Value* arrayPtrV, Value* subscriptV,
-                                TxStatementNode* panicNode, bool isAssignment ) {
+                                bool isAssignment, bool suppressBoundsCheck=false ) {
     ASSERT( subscriptV->getType()->isIntegerTy(), "expected subscript to be an integer: " << subscriptV );
     ASSERT( arrayPtrV->getType()->isPointerTy(), "expected array-operand to be a pointer: " << arrayPtrV );
     ASSERT( arrayPtrV->getType()->getPointerElementType()->isStructTy(), "expected array-operand to be a pointer to struct: " << arrayPtrV );
@@ -155,7 +158,7 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
     }
 
     ASSERT( scope, "NULL scope in non-const array elem access");
-    if ( panicNode ) {
+    if ( !suppressBoundsCheck ) {
         // add bounds check
         auto parentFunc = scope->builder->GetInsertBlock()->getParent();
         BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "if_true", parentFunc );
@@ -220,14 +223,16 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
 
 Value* TxElemDerefNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     return gen_elem_address( context, scope, this->array->code_gen_dyn_address( context, scope ),
-                             this->subscript->code_gen_dyn_value( context, scope ), this->panicNode, false );
+                             this->subscript->code_gen_dyn_value( context, scope ), false );
 }
 
 Value* TxElemDerefNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     Value* elemPtr = gen_elem_address( context, scope, this->array->code_gen_dyn_address( context, scope ),
-                                       this->subscript->code_gen_dyn_value( context, scope ), this->panicNode, false );
+                                       this->subscript->code_gen_dyn_value( context, scope ), false );
     if ( scope )
         return scope->builder->CreateLoad( elemPtr );
     else
@@ -238,7 +243,7 @@ Constant* TxElemDerefNode::code_gen_const_address( LlvmGenerationContext& contex
     Constant* arrayPtrC = this->array->code_gen_const_address( context );
     Constant* subscriptC = this->subscript->code_gen_const_value( context );
 
-    if (this->panicNode) {
+    if ( true /* do check */ ) {
         auto globalArrayPtrC = cast<GlobalVariable>( arrayPtrC);
         uint64_t index = cast<ConstantInt>( subscriptC )->getZExtValue();
         uint64_t length = cast<ConstantInt>( globalArrayPtrC->getInitializer()->getAggregateElement( 1 ) )->getZExtValue();
@@ -257,7 +262,7 @@ Constant* TxElemDerefNode::code_gen_const_value( LlvmGenerationContext& context 
     auto arrayC = this->array->code_gen_const_value( context );
     auto subscriptC = cast<ConstantInt>( this->subscript->code_gen_const_value( context ) );
 
-    if (this->panicNode) {
+    if ( true /* do check */ ) {
         uint64_t index = cast<ConstantInt>( subscriptC )->getZExtValue();
         uint64_t length = cast<ConstantInt>( arrayC->getAggregateElement( 1 ) )->getZExtValue();
         if ( index >= length )
@@ -270,12 +275,14 @@ Constant* TxElemDerefNode::code_gen_const_value( LlvmGenerationContext& context 
 
 Value* TxElemAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     return gen_elem_address( context, scope, this->array->code_gen_dyn_address( context, scope ),
-                             this->subscript->code_gen_dyn_value( context, scope ), this->panicNode, true );
+                             this->subscript->code_gen_dyn_value( context, scope ), true );
 }
 
 Value* TxArrayLenAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     Value* arrayPtrV = this->array->code_gen_dyn_address( context, scope );
     Value* lenIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                         ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };

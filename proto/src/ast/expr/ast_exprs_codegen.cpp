@@ -96,6 +96,7 @@ Constant* TxFunctionCallNode::code_gen_const_value( LlvmGenerationContext& conte
 
 Value* TxFunctionCallNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     if ( this->inlinedExpression )
         return this->inlinedExpression->code_gen_dyn_value( context, scope );
     else {
@@ -106,7 +107,6 @@ Value* TxFunctionCallNode::code_gen_dyn_value( LlvmGenerationContext& context, G
 }
 
 Value* TxFunctionCallNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
-    TRACE_CODEGEN( this, context );
     auto storage = this->get_storage();
     if ( storage == TXS_STACK || storage == TXS_UNBOUND_STACK ) {  // only true if there is an inlined expression
         return this->inlinedExpression->code_gen_dyn_address( context, scope );

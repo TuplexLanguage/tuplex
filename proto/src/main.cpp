@@ -7,8 +7,6 @@
 
 #include "driver.hpp"
 
-#include "TuplexConfig.h"
-
 static Logger& LOG = Logger::get( "MAIN" );
 
 int main( int argc, const char **argv )
@@ -69,7 +67,7 @@ int main( int argc, const char **argv )
                 return 0;
             }
             else if ( !strcmp( argv[a], "-version" ) || !strcmp( argv[a], "--version" ) ) {
-                printf( "%s version %d.%d\n", argv[0], Tuplex_VERSION_MAJOR, Tuplex_VERSION_MINOR );
+                printf( "%s\n", get_version_string().c_str() );
                 return 0;
             }
             else if ( !strcmp( argv[a], "-v" ) || !strcmp( argv[a], "-verbose" ) )

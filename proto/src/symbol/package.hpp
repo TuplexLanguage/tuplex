@@ -7,7 +7,6 @@
 #include "module.hpp"
 
 class TypeRegistry;
-class BuiltinTypes;
 class TxDriver;
 
 /** A Tuplex package represents a Tuplex compilation unit.
@@ -17,7 +16,6 @@ class TxDriver;
 class TxPackage : public TxModule {
     TxDriver& _driver;
     TypeRegistry* typeRegistry;
-    BuiltinTypes* builtinTypes;
     const TxFieldDeclaration* mainFunc;
 
 public:
@@ -29,10 +27,6 @@ public:
 
     inline TypeRegistry& registry() const {
         return *this->typeRegistry;
-    }
-
-    inline BuiltinTypes& builtins() const {
-        return *this->builtinTypes;
     }
 
     /** Gets the "root parse origin", corresponding to the package scope (the namespace root). */

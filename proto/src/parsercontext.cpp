@@ -3,6 +3,7 @@
 #include "ast/ast_node.hpp"
 #include "ast/ast_entitydefs.hpp"
 #include "driver.hpp"
+#include "llvm_generator.hpp"
 #include "tx_lang_defs.hpp"
 
 static std::string format_location( const TxLocation& ploc ) {
@@ -51,13 +52,31 @@ static std::string format_location_message( const TxParseOrigin* origin, char co
 static Logger& CLOG = Logger::get( "COMPILER" );
 
 
+void TxParserContext::init_debug() {
+    std::string tmpFileName = ( _currentInputFilename->empty() ? "builtin" : *_currentInputFilename );
+    this->_debugFile = this->_driver.get_llvm_gen_context()->debug_builder()->createFile( tmpFileName, "" );
+    bool isOptimized = false;
+    std::string commandLineOptions = "";
+    unsigned runtimeVersion = 0;
+    this->_debugUnit = this->_driver.get_llvm_gen_context()->debug_builder()->createCompileUnit(
+            llvm::dwarf::DW_LANG_C, this->_debugFile, get_version_string(), isOptimized, commandLineOptions, runtimeVersion);
+}
+
+llvm::DICompileUnit* TxParserContext::debug_unit() const {
+    return this->_debugUnit;
+}
+
+llvm::DIFile* TxParserContext::debug_file() const {
+    return this->_debugFile;
+}
+
 LlvmGenerationContext* TxParserContext::get_llvm_gen_context() const {
     // Note: LLVMContext are to be unique per thread, so if we in future use one ParserContext per thread each will have its own.
     return this->_driver.get_llvm_gen_context();
 }
 
 bool TxParserContext::is_internal_builtin() {
-    return this == this->_driver.builtinParserContext;
+    return this == this->_driver.builtin_parser_context();
 }
 
 bool TxParserContext::validate_module_name( const TxParseOrigin* origin, const TxIdentifier* moduleName ) {

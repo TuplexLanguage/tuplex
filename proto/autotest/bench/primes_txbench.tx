@@ -6,8 +6,8 @@ externc get_time_diff_nanos( startPoint : ULong ) -> ULong;
 
 main( args: &[]&[]UByte ) {
     print( "Limit\tCount\tMicros" );
-    if ( args.L > 1 ) {
 /*
+    if ( args.L > 1 ) {
         long limit = atol( argv[1] );
         if ( limit > 0 ) {
             void* start = alloc_time_point();
@@ -16,30 +16,28 @@ main( args: &[]&[]UByte ) {
             free_time_point( start );
             printf( "%lu\t%lu\t%lu\n", limit, count, nanos/1000 );
         }
-*/
     }
-    else {
-        magnitude := 7;
-        print( "C-style for loops" );
-        limit : ~ULong = 100;
-        for l := ~2; l <= magnitude; l = l+1 {
-            start := alloc_time_point();
-            count := prime_sieve_a( limit );
-            micros := get_time_diff_nanos( start )/1000;
-            free_time_point( start );
-            print( %d limit %% "\t" %d count %% "\t" %d micros );
-            limit = limit * 10;
-        }
-        print( "Ranged for loops" );
-        limit : ~ULong = 100;
-        for l := ~2; l <= magnitude; l = l+1 {
-            start := alloc_time_point();
-            count := prime_sieve_b( limit );
-            micros := get_time_diff_nanos( start )/1000;
-            free_time_point( start );
-            print( %d limit %% "\t" %d count %% "\t" %d micros );
-            limit = limit * 10;
-        }
+*/
+    magnitude := 7;
+    print( "C-style for loops" );
+    limit : ~ULong = 100;
+    for l := ~2; l <= magnitude; l = l+1 {
+        start := alloc_time_point();
+        count := prime_sieve_a( limit );
+        micros := get_time_diff_nanos( start )/1000;
+        free_time_point( start );
+        print( %d limit %% "\t" %d count %% "\t" %d micros );
+        limit = limit * 10;
+    }
+    print( "Ranged for loops" );
+    limit : ~ULong = 100;
+    for l := ~2; l <= magnitude; l = l+1 {
+        start := alloc_time_point();
+        count := prime_sieve_b( limit );
+        micros := get_time_diff_nanos( start )/1000;
+        free_time_point( start );
+        print( %d limit %% "\t" %d count %% "\t" %d micros );
+        limit = limit * 10;
     }
 }
 

@@ -3,6 +3,7 @@
 #include "symbol/qual_type.hpp"
 
 #include "llvm_generator.hpp"
+#include "parsercontext.hpp"
 
 using namespace llvm;
 
@@ -74,6 +75,15 @@ void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenSco
         // We don't automatically invoke default constructor (in future, a code flow validator should check that initialized before first use)
     }
     this->field()->set_llvm_value( fieldPtrV );
+
+    // Create a debug descriptor for the argument variable:
+    auto pos = this->get_declaration()->get_definer()->ploc.begin;
+    DILocalVariable *argVarD = context.debug_builder()->createAutoVariable(
+            scope->debug_scope(), this->field()->get_unique_name(), this->get_parser_context()->debug_file(),
+            pos.line, context.get_debug_type( this->qtype() ) );
+    context.debug_builder()->insertDeclare( fieldPtrV, argVarD, context.debug_builder()->createExpression(),
+                                            DebugLoc::get( pos.line, pos.column, scope->debug_scope() ),
+                                            scope->builder->GetInsertBlock() );
 }
 
 

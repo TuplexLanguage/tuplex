@@ -15,7 +15,10 @@ class LLVMContext;
 class TxPackage;
 class TxParsingUnitNode;
 class TxParserContext;
+class BuiltinTypes;
 class LlvmGenerationContext;
+
+std::string get_version_string();
 
 /** Represents Tuplex compilation run-time options. */
 class TxOptions {
@@ -51,9 +54,11 @@ class TxDriver {
     /** Parser context representing the built-in internally coded constructs (without actual source code). */
     TxParserContext* builtinParserContext;
 
-    /*--- these members reflect the current compilation state ---*/
     /** the currently compiled tuplex package */
     TxPackage* package = nullptr;
+
+    /** creates the built-in types' AST */
+    BuiltinTypes* builtinTypes = nullptr;
 
     /** global LLVMContext */
     llvm::LLVMContext* llvmContext;
@@ -111,6 +116,14 @@ public:
 
     inline const TxOptions& get_options() const {
         return this->options;
+    }
+
+    inline BuiltinTypes& builtins() const {
+        return *this->builtinTypes;
+    }
+
+    inline TxParserContext* builtin_parser_context() const {
+        return this->builtinParserContext;
     }
 
     inline LlvmGenerationContext* get_llvm_gen_context() const {

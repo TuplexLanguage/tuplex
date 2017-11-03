@@ -188,21 +188,21 @@ TxQualType TxUnfilledArrayCompLitNode::define_type( TxPassInfo passInfo ) {
 //    return panicNode;
 //}
 
-TxElemDerefNode::TxElemDerefNode( const TxLocation& ploc, TxExpressionNode* operand, TxExpressionNode* subscript, bool unchecked )
+TxElemDerefNode::TxElemDerefNode( const TxLocation& ploc, TxExpressionNode* operand, TxExpressionNode* subscript )
         : TxExpressionNode( ploc ),
           array( new TxMaybeConversionNode( operand ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
-    if ( !unchecked ) {
-        // Note: In theory, if this expression is statically constant we could perform the bounds checking in resolution pass.
-        // However accessing the cogegen'd value of Array.L isn't guaranteed before the type preparation has been run.
-        this->panicNode = new TxPanicStmtNode( this->subscript->ploc, "Array index out of bounds" );
-    }
+//    if ( !unchecked ) {
+//        // Note: In theory, if this expression is statically constant we could perform the bounds checking in resolution pass.
+//        // However accessing the cogegen'd value of Array.L isn't guaranteed before the type preparation has been run.
+//        this->panicNode = new TxPanicStmtNode( this->subscript->ploc, "Array index out of bounds" );
+//    }
 }
 
 TxElemAssigneeNode::TxElemAssigneeNode( const TxLocation& ploc, TxExpressionNode* array, TxExpressionNode* subscript, bool unchecked )
         : TxAssigneeNode( ploc ),
           array( new TxMaybeConversionNode( array ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
-    if ( !unchecked ) {
-        // TODO: When we support accessing fields of constant instances, we can access L of constant arrays in compile time
-        this->panicNode = new TxPanicStmtNode( this->subscript->ploc, "Array index out of bounds" );
-    }
+//    if ( !unchecked ) {
+//        // TO DO: When we support accessing fields of constant instances, we can access L of constant arrays in compile time
+//        this->panicNode = new TxPanicStmtNode( this->subscript->ploc, "Array index out of bounds" );
+//    }
 }

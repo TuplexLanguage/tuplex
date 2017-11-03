@@ -5,6 +5,7 @@
 #include "ast/type/ast_funcheader_node.hpp"
 #include "ast/ast_fielddef_node.hpp"
 
+#include <llvm/IR/Attributes.h>
 
 llvm::Value* gen_lambda( LlvmGenerationContext& context, GenScope* scope, llvm::Type* lambdaT, llvm::Value* funcV, llvm::Value* closureRefV );
 
@@ -17,6 +18,7 @@ class TxLambdaExprNode : public TxExpressionNode {
     TxLocalFieldDefNode* selfRefNode = nullptr;
     TxLocalFieldDefNode* superRefNode = nullptr;
     const TxTypeDeclaration* constructedObjTypeDecl = nullptr;
+    llvm::AttrBuilder _funcAttrBuilder;
 
     /** Generates the function declaration. */
     llvm::Function* code_gen_function_decl( LlvmGenerationContext& context ) const;
@@ -78,6 +80,9 @@ public:
     virtual bool is_statically_constant() const override {
         return true;
     }
+
+    /** Adds an llvm function attribute to this function. Must be called before code generation to have effect. */
+    void add_function_attribute( llvm::Attribute::AttrKind llvmAttrKind );
 
     /** Only generates the declaration of this expression, not its body.
      * May be invoked multiple times. */

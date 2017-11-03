@@ -13,6 +13,7 @@ class Type;
 class StructType;
 class Value;
 class Constant;
+class DIType;
 }
 
 class TxActualType;
@@ -70,8 +71,11 @@ public:
 
     virtual llvm::StructType* make_vtable_type( const TxActualType* type, LlvmGenerationContext& context ) const;
 
-    /** Returns the llvm::Type for an instance of this type (possibly only an opaque struct declaration). */
+    /** Makes the llvm::Type for an instance of this type (possibly only an opaque struct declaration). */
     virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const;
+
+    /** Makes the llvm::DIType for an instance of this type. */
+    virtual llvm::DIType* make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const;
 
     /** Invoked after make_llvm_type() to augment a possibly forward-declared llvm::Type "header" (named, opaque struct).
      * Default implementation returns the "header" type without modifying it;

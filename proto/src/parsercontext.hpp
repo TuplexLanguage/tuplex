@@ -7,6 +7,8 @@
 #include "identifier.hpp"
 #include "tx_error.hpp"
 
+#include "llvm/IR/DebugInfoMetadata.h"
+
 namespace yy {
 class location;
 }
@@ -29,7 +31,9 @@ class TxParserContext : public Printable {
 
     /** non-empty if currently processing within an EXPERR block */
     std::stack<ExpectedErrorClause*> expErrorStack;
-    //    ExpectedErrorClause* expError = nullptr;
+
+    llvm::DICompileUnit* _debugUnit = nullptr;
+    llvm::DIFile *_debugFile = nullptr;
 
     void emit_comp_error( const std::string& msg, ExpectedErrorClause* expErrorContext );
     void emit_comp_warning( const std::string& msg );
@@ -59,6 +63,11 @@ public:
     inline TxDriver& driver() const {
         return this->_driver;
     }
+
+    void init_debug();
+
+    llvm::DICompileUnit* debug_unit() const;
+    llvm::DIFile* debug_file() const;
 
     /** Returns the LLVMContext for this parser context. Can be used in constant expression evaluation during analysis. */
     LlvmGenerationContext* get_llvm_gen_context() const;

@@ -3,6 +3,7 @@
 #include "ast_panicstmt_node.hpp"
 #include "symbol/package.hpp"
 #include "driver.hpp"
+#include "parsercontext.hpp"
 
 #include "llvm_generator.hpp"
 #include "llvm/IR/IntrinsicInst.h"
@@ -12,38 +13,50 @@ using namespace llvm;
 
 void TxFieldStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     this->fieldDef->code_gen_field( context, scope );
 }
 
 void TxTypeStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     this->typeDecl->code_gen( context );
 }
 
 void TxAssertStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     if ( !context.tuplexPackage.driver().get_options().suppress_asserts )
         this->ifStmt->code_gen( context, scope );
 }
 
 void TxPanicStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     this->suite->code_gen( context, scope );
 }
 
 void TxSuiteNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
-    for ( auto stmt : *this->suite )
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
+    auto suiteDScope = context.debug_builder()->createLexicalBlock( scope->debug_scope(), get_parser_context()->debug_file(),
+                                                                    ploc.begin.line, ploc.begin.column );
+    scope->push_debug_scope( suiteDScope );
+    for ( auto stmt : *this->suite ) {
         stmt->code_gen( context, scope );
+    }
+    scope->pop_debug_scope();
 }
 
 void TxExprStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     this->expr->code_gen_expr( context, scope );
 }
 
 void TxReturnStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     if ( this->expr ) {
         auto exprV = this->expr->code_gen_expr( context, scope );
         scope->builder->CreateRet( exprV );
@@ -54,19 +67,22 @@ void TxReturnStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope
 
 void TxBreakStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     scope->builder->CreateBr( scope->compStmtStack.top()->breakBlock );
 }
 
 void TxContinueStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     scope->builder->CreateBr( scope->compStmtStack.top()->continueBlock );
 }
 
 
 void TxAssignStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     auto lval = this->lvalue->code_gen_address( context, scope );
-    ASSERT ( lval->getType()->isPointerTy(), "At " << this->parse_loc_string() << ": L-value is not of pointer type:\n" << ::to_string(lval) );
+    ASSERT ( lval->getType()->isPointerTy(), "At " << this->parse_loc_string() << ": L-value is not of pointer type:\n" << lval );
     if ( this->lvalue->qtype()->get_type_class() == TXTC_ARRAY ) {
         auto lvalTypeIdV = this->lvalue->code_gen_typeid( context, scope );
         auto rval = this->rvalue->code_gen_addr( context, scope );

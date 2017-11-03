@@ -13,6 +13,8 @@
 #include "llvm_generator.hpp"
 
 #include "tx_lang_defs.hpp"
+#include "TuplexConfig.h"
+
 #include "parser.hpp"
 
 extern FILE * yyin;
@@ -21,6 +23,7 @@ extern int yy_flex_debug;
 typedef struct yy_buffer_state *YY_BUFFER_STATE;
 YY_BUFFER_STATE yy_scan_string( const char *yy_str );
 void yy_delete_buffer (YY_BUFFER_STATE b );
+
 
 
 const char *CORE_TX_SOURCE_STR =
@@ -63,10 +66,17 @@ builtin type Function derives Any
 ;
 
 
+std::string get_version_string() {
+    size_t len = 128;
+    char buf[len];
+    snprintf( buf, len, "%s version %d.%d", "Tuplex", Tuplex_VERSION_MAJOR, Tuplex_VERSION_MINOR );
+    return std::string( buf );
+}
+
+
 TxDriver::TxDriver( const TxOptions& options )
         : _LOG( Logger::get( "DRIVER" ) ), options( options ),
-          builtinParserContext( new TxParserContext( *this, TxIdentifier( "" ), "", TxParserContext::BUILTINS ) ),
-          llvmContext( new llvm::LLVMContext() )
+          builtinParserContext(), llvmContext( new llvm::LLVMContext() )
 {
 }
 
@@ -115,7 +125,10 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         return 1;
     }
 
-    this->package = make_root_package( this->builtinParserContext );
+    this->builtinParserContext = new TxParserContext( *this, TxIdentifier( "" ), get_builtins_file_name(), TxParserContext::BUILTINS );
+
+    this->builtinTypes = new BuiltinTypes( this->builtinParserContext );
+    this->package = this->builtinTypes->get_root_package();
 
     // ONLY used for constant evaluation before code generation pass:
     this->genContext = new LlvmGenerationContext( *this->package, *this->llvmContext );
@@ -130,12 +143,13 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
 
     {  // initialize the built-in ASTs
         TxParserContext* parserContext = this->builtinParserContext;
-        parserContext->parsingUnit = this->package->builtins().createTxModuleAST();
+        parserContext->parsingUnit = this->builtinTypes->createTxModuleAST();
         this->parsedASTs.push_back( parserContext );
     }
 
     {  // parse the built-in source:
-        TxParserContext* parserContext = new TxParserContext( *this, TxIdentifier( "" ), "", TxParserContext::BUILTINS );
+        TxParserContext* parserContext = new TxParserContext( *this, TxIdentifier( "" ), __FILE__, TxParserContext::BUILTINS );
+        // TODO: make the line numbers match
         auto memBuffer = yy_scan_string( CORE_TX_SOURCE_STR );
         yy_flex_debug = this->options.debug_lexer;
         yy::TxParser parser( parserContext );
@@ -213,7 +227,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         run_declaration_pass( parserContext->parsingUnit->module, parserContext->parsingUnit, "module" );
     }
 
-    this->package->builtins().resolveBuiltinSymbols();  // TODO: review, maybe remove
+    this->builtinTypes->resolveBuiltinSymbols();  // TODO: review, maybe remove
 
     this->package->prepare_modules();  // (prepares the declared imports)
 
@@ -451,6 +465,11 @@ void TxDriver::add_source_file( const TxIdentifier& moduleName, const std::strin
 }
 
 int TxDriver::llvm_compile( const std::string& outputFileName ) {
+    // initialize debug info generation:
+    for ( auto parserContext : this->parsedASTs ) {
+        parserContext->init_debug();
+    }
+
     try {
         this->genContext->generate_runtime_type_info();
     }
@@ -489,9 +508,12 @@ int TxDriver::llvm_compile( const std::string& outputFileName ) {
         mainGenerated = true;
         LOG_DEBUG( &_LOG, "Generated program entry for user main method " << funcDecl );
     }
-    _LOG.info( "+ LLVM code generated (not yet written)" );
 
     this->genContext->initialize_target();
+
+    this->genContext->finalize_codegen();
+
+    _LOG.info( "+ LLVM code generated (not yet written)" );
 
     if ( this->options.dump_ir )
         this->genContext->print_IR();

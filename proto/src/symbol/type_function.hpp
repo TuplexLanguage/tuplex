@@ -19,6 +19,9 @@ public:
 
     /** Makes the LLVM type of this function as seen from calling code, i.e. as a lambda object. */
     virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+
+    /** Makes the llvm::DIType for an instance of this type. */
+    virtual llvm::DIType* make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
 };
 
 

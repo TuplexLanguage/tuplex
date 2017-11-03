@@ -2,6 +2,7 @@
 #include "ast_ref.hpp"
 
 #include "llvm_generator.hpp"
+#include "parsercontext.hpp"
 
 using namespace llvm;
 
@@ -28,6 +29,10 @@ static Value* gen_local_field( LlvmGenerationContext& context, GenScope* scope, 
     return fieldA;
 }
 
+void TxLambdaExprNode::add_function_attribute( Attribute::AttrKind llvmAttrKind ) {
+    _funcAttrBuilder.addAttribute( Attribute::AttrKind::NoInline );
+}
+
 Function* TxLambdaExprNode::code_gen_function_decl( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context, " function declaration" );
     std::string funcName;
@@ -47,7 +52,8 @@ Function* TxLambdaExprNode::code_gen_function_decl( LlvmGenerationContext& conte
     FunctionType *funcT = cast<FunctionType>( cast<PointerType>( lambdaT->getElementType( 0 ) )->getPointerElementType() );
     ASSERT( funcT, "Couldn't get LLVM type for function type " << this->funcHeaderNode->qtype() );
 
-    Function* function = cast<Function>( context.llvmModule().getOrInsertFunction( funcName, funcT ) );
+    AttributeList attribs = AttributeList::get( context.llvmContext, AttributeList::FunctionIndex, _funcAttrBuilder );
+    Function* function = cast<Function>( context.llvmModule().getOrInsertFunction( funcName, funcT, attribs ) );
     function->setLinkage( GlobalValue::InternalLinkage );
     // Note: function is of LLVM function pointer type (since it is an LLVM global value)
     return function;
@@ -63,11 +69,40 @@ void TxLambdaExprNode::code_gen_function_body( LlvmGenerationContext& context ) 
 
     // FUTURE: if this is a lambda within a code-block, define the implicit closure object here
 
-    // generate the function body:
+    // generate the function debug info:
+    DIFile* fileScope = this->get_parser_context()->debug_file();
+    {
+        // TODO: this puts all functions' debug info as if in file scope, do we need to reflect that methods and lambdas are local?
+        DIScope* outerDebugScope = this->get_parser_context()->debug_unit();
+        auto linkageName = StringRef();
+        DISubroutineType* subRoutineType = cast<DISubroutineType>( context.get_debug_type( this->qtype() ) );
+        bool isLocalToUnit = true;  // internal linkage
+        unsigned scopeLine = this->suite->ploc.begin.line;
+        DITemplateParameterArray funcTemplParams = nullptr;  // can we use this for generic functions in future?
+        DISubprogram *subProg = context.debug_builder()->createFunction(
+            outerDebugScope, this->functionPtr->getName(), linkageName,
+            fileScope, this->ploc.begin.line,
+            subRoutineType, isLocalToUnit, true /* isDefinition */, scopeLine,
+            DINode::FlagPrototyped,  // FlagVirtual might be relevant for virtual methods?
+            false /* isOptimized */, funcTemplParams );
+        this->functionPtr->setSubprogram( subProg );
+
+//        // Push the current scope.
+//        KSDbgInfo.LexicalBlocks.push_back( subProg );
+    }
+
+    // generated the function entry block and prologue:
 
     BasicBlock *entryBlock = BasicBlock::Create( context.llvmContext, "entry", this->functionPtr );
     IRBuilder<> builder( entryBlock );
-    GenScope fscope( &builder );
+    GenScope fscope( &builder, this->functionPtr->getSubprogram() );
+
+    // Kaleidoscope recommended unsetting the location for the entry block, but that caused problems when optimizing the code.
+    //    // Unset the location for the prologue emission (leading instructions with no
+    //    // location in a function are considered part of the prologue and the debugger
+    //    // will run past them when breaking on a function)
+    //    builder.SetCurrentDebugLocation( DebugLoc() );
+    builder.SetCurrentDebugLocation( DebugLoc::get( this->ploc.begin.line, this->ploc.begin.column, fscope.debug_scope() ) );
 
     // name the concrete args (and self, if present) and allocate them on the stack:
     Function::arg_iterator fArgI = this->functionPtr->arg_begin();
@@ -90,22 +125,38 @@ void TxLambdaExprNode::code_gen_function_body( LlvmGenerationContext& context ) 
             gen_local_field( context, &fscope, this->superRefNode->field(), convSuperV );
         }
     }
+
     fArgI++;
+    unsigned argIx = 0;
     for ( auto argDefI = this->funcHeaderNode->arguments->cbegin();
             argDefI != this->funcHeaderNode->arguments->cend();
             fArgI++, argDefI++ )
             {
-        ( *argDefI )->typeExpression->code_gen_type( context );
-        gen_local_field( context, &fscope, ( *argDefI )->field(), &(*fArgI) );
+        TxLocalFieldDefNode* argDef = *argDefI;
+        argDef->typeExpression->code_gen_type( context );
+        auto argA = gen_local_field( context, &fscope, argDef->field(), &(*fArgI) );
+
+        // Create a debug descriptor for the argument variable:
+        auto pos = argDef->get_declaration()->get_definer()->ploc.begin;
+        DILocalVariable *argVarD = context.debug_builder()->createParameterVariable(
+                fscope.debug_scope(), argDef->field()->get_unique_name(), ++argIx, this->get_parser_context()->debug_file(),
+                pos.line, context.get_debug_type( argDef->qtype() ), true /* alwaysPreserve */ );
+        context.debug_builder()->insertDeclare( argA, argVarD, context.debug_builder()->createExpression(),
+                                                DebugLoc::get( pos.line, pos.column, fscope.debug_scope() ),
+                                                entryBlock);
     }
 
+    // generate the function body:
+    BasicBlock *bodyBlock = BasicBlock::Create( context.llvmContext, "fbody", this->functionPtr );
+    builder.CreateBr( bodyBlock );
+    builder.SetInsertPoint( bodyBlock );
+    builder.SetCurrentDebugLocation( DebugLoc::get( this->ploc.begin.line, this->ploc.begin.column, fscope.debug_scope() ) );
     this->suite->code_gen( context, &fscope );
 
     if ( !this->funcHeaderNode->returnField && !fscope.builder->GetInsertBlock()->getTerminator() ) {
         LOG_DEBUG( context.LOGGER(), "inserting default void return instruction for last block of function " << this->functionPtr->getName().str() );
         fscope.builder->CreateRetVoid();
     }
-    //ASSERT( entryBlock->getTerminator(), "Function entry block has no terminator" );
 }
 
 Constant* TxLambdaExprNode::code_gen_const_decl( LlvmGenerationContext& context ) const {

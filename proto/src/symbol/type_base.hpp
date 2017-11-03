@@ -713,6 +713,11 @@ public:
         return this->type_class_handler()->make_llvm_type( this, context );
     }
 
+    /** Returns the llvm::DIType for an instance of this type. */
+    llvm::DIType* make_llvm_debug_type( LlvmGenerationContext& context ) const {
+        return this->type_class_handler()->make_llvm_debug_type( this, context );
+    }
+
     /** Invoked after make_llvm_type() to augment a possibly forward-declared llvm::Type "header" (named, opaque struct).
      * Default implementation returns the "header" type without modifying it;
      * types that actually predefine an opaque header should override and augment the type or return a new, full type. */

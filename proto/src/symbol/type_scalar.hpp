@@ -10,6 +10,7 @@ public:
 
     virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override final;
     virtual llvm::Type* make_llvm_externc_type( const TxActualType* type, LlvmGenerationContext& context ) const override final;
+    virtual llvm::DIType* make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const override final;
 };
 
 class TxBoolType final : public TxActualType {
@@ -42,10 +43,6 @@ public:
         return this->_size;
     }
 
-    /** This is legal to invoke during analysis passes. It is used for constant expression evaluation. */
-    virtual llvm::Type* get_scalar_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const = 0;
-
-    virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override final;
     virtual llvm::Type* make_llvm_externc_type( const TxActualType* type, LlvmGenerationContext& context ) const override final;
 };
 
@@ -70,7 +67,10 @@ public:
         return this->_sign;
     }
 
-    virtual llvm::Type* get_scalar_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+    /** (This is legal to invoke during analysis passes. It is used for constant expression evaluation.) */
+    virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+
+    virtual llvm::DIType* make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
 };
 
 class TxIntegerType final : public TxConcreteScalarType {
@@ -95,7 +95,10 @@ protected:
 public:
     TxFloatingTypeClassHandler( uint32_t size ) : TxScalarTypeClassHandler( size )  { }
 
-    virtual llvm::Type* get_scalar_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+    /** (This is legal to invoke during analysis passes. It is used for constant expression evaluation.) */
+    virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
+
+    virtual llvm::DIType* make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
 };
 
 class TxFloatingType final : public TxConcreteScalarType {

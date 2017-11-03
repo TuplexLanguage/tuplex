@@ -3,6 +3,7 @@
 #include "ast/expr/ast_constexpr.hpp"
 #include "ast/expr/ast_ref.hpp"
 #include "llvm_generator.hpp"
+#include "parsercontext.hpp"
 #include "tx_except.hpp"
 #include "tx_logging.hpp"
 
@@ -31,7 +32,7 @@ StructType* TxTypeClassHandler::make_vtable_type( const TxActualType* type, Llvm
         else if ( memberTxField->get_unique_name() != "$adTypeId" )  // $adTypeId is direct value, not a pointer to separate global
             lMemberType = PointerType::getUnqual( lMemberType );
         members.push_back( lMemberType );
-        LOG_TRACE( context.LOGGER(), "Mapping virtual member type " << memberTxType << " to: " << ::to_string(lMemberType) );
+        LOG_TRACE( context.LOGGER(), "Mapping virtual member type " << memberTxType << " to: " << lMemberType );
     }
     // (create() could be used to get named struct types)
     //StructType* vtableT = StructType::create(context.llvmContext, members, _type->get_declaration()->get_unique_full_name() + "$VTable");
@@ -41,6 +42,10 @@ StructType* TxTypeClassHandler::make_vtable_type( const TxActualType* type, Llvm
 
 Type* TxTypeClassHandler::make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const {
     return llvm::StructType::get( context.llvmContext );  // abstract type
+}
+
+DIType* TxTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+    return context.debug_builder()->createUnspecifiedType( "abstracttype" );  // abstract type  FIXME?
 }
 
 //Function* TxTypeClassHandler::get_type_user_init_func( LlvmGenerationContext& context ) const {
@@ -123,18 +128,18 @@ Type* TxBoolTypeClassHandler::make_llvm_externc_type( const TxActualType* type, 
     return Type::getInt32Ty( context.llvmContext );
 }
 
-
-llvm::Type* TxScalarTypeClassHandler::make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const {
-    return this->get_scalar_llvm_type( type, context );
+DIType* TxBoolTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+    return context.debug_builder()->createBasicType( "Bool", 1, dwarf::DW_ATE_boolean );
 }
+
 
 llvm::Type* TxScalarTypeClassHandler::make_llvm_externc_type( const TxActualType* type, LlvmGenerationContext& context ) const {
     // scalar types are mapped 1:1 in Tuplex and C
-    return this->get_scalar_llvm_type( type, context );
+    return this->make_llvm_type( type, context );
 }
 
 
-llvm::Type* TxIntegerTypeClassHandler::get_scalar_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+llvm::Type* TxIntegerTypeClassHandler::make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const {
     switch ( this->size() ) {
     case 1:
         return Type::getInt8Ty( context.llvmContext );
@@ -149,7 +154,7 @@ llvm::Type* TxIntegerTypeClassHandler::get_scalar_llvm_type( const TxActualType*
     }
 }
 
-llvm::Type* TxFloatingTypeClassHandler::get_scalar_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+llvm::Type* TxFloatingTypeClassHandler::make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const {
     switch ( this->size() ) {
     case 2:
         return Type::getHalfTy( context.llvmContext );
@@ -162,7 +167,65 @@ llvm::Type* TxFloatingTypeClassHandler::get_scalar_llvm_type( const TxActualType
     }
 }
 
+llvm::DIType* TxIntegerTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+    if ( this->is_signed() ) {
+        switch ( this->size() ) {
+        case 1:
+            return context.debug_builder()->createBasicType( "Byte", 8, dwarf::DW_ATE_signed_char );
+        case 2:
+            return context.debug_builder()->createBasicType( "Short", 16, dwarf::DW_ATE_signed);
+        case 4:
+            return context.debug_builder()->createBasicType( "Int", 32, dwarf::DW_ATE_signed );
+        case 8:
+            return context.debug_builder()->createBasicType( "Long", 64, dwarf::DW_ATE_signed );
+        default:
+            THROW_LOGIC( "Unsupported integer size " << this->size() << " in type " << type );
+        }
+    }
+    else {
+        switch ( this->size() ) {
+        case 1:
+            return context.debug_builder()->createBasicType( "UByte", 8, dwarf::DW_ATE_unsigned_char );
+        case 2:
+            return context.debug_builder()->createBasicType( "UShort", 16, dwarf::DW_ATE_unsigned);
+        case 4:
+            return context.debug_builder()->createBasicType( "UInt", 32, dwarf::DW_ATE_unsigned );
+        case 8:
+            return context.debug_builder()->createBasicType( "ULong", 64, dwarf::DW_ATE_unsigned );
+        default:
+            THROW_LOGIC( "Unsupported integer size " << this->size() << " in type " << type );
+        }
+    }
+}
 
+llvm::DIType* TxFloatingTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+    switch ( this->size() ) {
+    case 2:
+        return context.debug_builder()->createBasicType( "Half", 16, dwarf::DW_ATE_float );
+    case 4:
+        return context.debug_builder()->createBasicType( "Float", 32, dwarf::DW_ATE_float );
+    case 8:
+        return context.debug_builder()->createBasicType( "Double", 64, dwarf::DW_ATE_float );
+    default:
+        THROW_LOGIC( "Unsupported floating-point size " << this->size() << " in type " << type );
+    }
+}
+
+
+static uint32_t get_array_capacity( const TxActualType* type ) {
+    if ( auto capExpr = type->capacity() ) {
+        // concrete array (specific capacity)
+        if ( capExpr->is_statically_constant() )
+            return eval_unsigned_int_constant( capExpr );  // capacity is statically specified
+        else
+            return 0;  // capacity is dynamically specified
+    }
+    else {
+        // Generic arrays with unspecified capacity are mapped as zero capacity,
+        // so they can be referenced from e.g. references.
+        return 0;
+    }
+}
 
 Type* TxArrayTypeClassHandler::make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const {
     //std::cout << "ArrayType make_llvm_type() " << ((void*)this) << std::endl;
@@ -171,19 +234,7 @@ Type* TxArrayTypeClassHandler::make_llvm_type( const TxActualType* type, LlvmGen
         THROW_LOGIC( "Generic arrays with unspecified element type can't be directly mapped to LLVM type: " << type );
     Type* elemType = context.get_llvm_type( txElemType );
 
-    uint32_t arrayCap;
-    if ( auto capExpr = type->capacity() ) {
-        // concrete array (specific capacity)
-        if ( capExpr->is_statically_constant() )
-            arrayCap = eval_unsigned_int_constant( capExpr );  // capacity is statically specified
-        else
-            arrayCap = 0;  // capacity is dynamically specified
-    }
-    else {
-        // Generic arrays with unspecified capacity are mapped as zero capacity,
-        // so they can be referenced from e.g. references.
-        arrayCap = 0;
-    }
+    uint32_t arrayCap = get_array_capacity( type );
     std::vector<Type*> llvmMemberTypes {
                                          Type::getInt32Ty( context.llvmContext ),
                                          Type::getInt32Ty( context.llvmContext ),
@@ -202,6 +253,27 @@ Type* TxArrayTypeClassHandler::make_llvm_externc_type( const TxActualType* type,
     return elemType;
 }
 
+DIType* TxArrayTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+    auto declarer = static_cast<const TxTypeDeclNode*>( type->get_declaration()->get_definer()->parent() );
+    DIFile* file = declarer->get_parser_context()->debug_file();
+    DIScope* scope = file;  // is this valid?
+    uint64_t bitSize = 64;  // ?? only counts header
+    uint32_t alignInBits = 64;  // ??
+    DIType* derivedFrom = context.get_debug_type( type->get_base_type() );
+    uint32_t arrayCap = get_array_capacity( type );
+    DIType* elemDType = context.get_debug_type( type->element_type() );
+    DINodeArray subscripts;  // ??
+    DIType* arrayDType = context.debug_builder()->createArrayType( arrayCap, 64, elemDType, subscripts );
+    SmallVector<Metadata*, 2> elts( {
+        context.debug_builder()->createBasicType( "C", 32, dwarf::DW_ATE_unsigned ),
+        context.debug_builder()->createBasicType( "L", 32, dwarf::DW_ATE_unsigned ),
+        arrayDType
+    } );
+    DINodeArray elements = context.debug_builder()->getOrCreateArray( elts );
+    return context.debug_builder()->createStructType( scope, type->get_declaration()->get_unique_full_name(),
+                                                      file, declarer->ploc.begin.line, bitSize, alignInBits,
+                                                      DINode::DIFlags::FlagPublic, derivedFrom, elements );
+}
 
 void initialize_array_obj( LlvmGenerationContext& context, GenScope* scope, Value* arrayObjPtrV, Value* arrayCap, Value* arrayLen ) {
     { // initialize capacity field:
@@ -354,6 +426,23 @@ Type* TxReferenceTypeClassHandler::make_llvm_externc_type( const TxActualType* t
     return PointerType::getUnqual( targetType );
 }
 
+DIType* TxReferenceTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+    auto declarer = static_cast<const TxTypeDeclNode*>( type->get_declaration()->get_definer()->parent() );
+    DIFile* file = declarer->get_parser_context()->debug_file();
+    DIScope* scope = file;  // is this valid?
+    uint64_t bitSize = 96;
+    uint32_t alignInBits = 64;  // ??
+    DIType* derivedFrom = context.get_debug_type( type->get_base_type() );
+    SmallVector<Metadata*, 2> elts( {
+        context.debug_builder()->createBasicType( "ptr", 64, dwarf::DW_ATE_address ),
+        context.debug_builder()->createBasicType( "tid", 32, dwarf::DW_ATE_unsigned ),
+    } );
+    DINodeArray elements = context.debug_builder()->getOrCreateArray( elts );
+    return context.debug_builder()->createStructType( scope, type->get_declaration()->get_unique_full_name(),
+                                                      file, declarer->ploc.begin.line, bitSize, alignInBits,
+                                                      DINode::DIFlags::FlagPublic, derivedFrom, elements );
+}
+
 Type* TxReferenceTypeClassHandler::make_ref_llvm_type( LlvmGenerationContext& context, Type* targetType ) {
     std::vector<Type*> llvmMemberTypes {
                                          PointerType::getUnqual( targetType ),
@@ -377,7 +466,7 @@ Type* TxFunctionTypeClassHandler::make_llvm_type( const TxActualType* type, Llvm
     llvmArgTypes.push_back( closureRefT );  // first argument is always the closure object ref
     for ( auto argTxType : type->argument_types() ) {
         llvmArgTypes.push_back( context.get_llvm_type( argTxType ) );
-        LOG_TRACE( context.LOGGER(), "Mapping arg type " << argTxType << " to " << ::to_string(llvmArgTypes.back()) );
+        LOG_TRACE( context.LOGGER(), "Mapping arg type " << argTxType << " to " << llvmArgTypes.back() );
     }
     Type* llvmRetType = type->has_return_value() ? context.get_llvm_type( type->return_type() )
                                                  : llvm::Type::getVoidTy( context.llvmContext );
@@ -389,6 +478,14 @@ Type* TxFunctionTypeClassHandler::make_llvm_type( const TxActualType* type, Llvm
     };
     auto llvmType = StructType::get( context.llvmContext, llvmMemberTypes );
     return llvmType;
+}
+
+DIType* TxFunctionTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+    SmallVector<Metadata*, 8> eltTypes;
+    eltTypes.push_back( context.get_debug_type( type->return_type() ) );
+    for ( auto argType : type->argument_types() )
+        eltTypes.push_back( context.get_debug_type( argType ) );
+    return context.debug_builder()->createSubroutineType( context.debug_builder()->getOrCreateTypeArray( eltTypes ) );
 }
 
 Type* TxExternCFunctionTypeClassHandler::make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const {
@@ -409,7 +506,7 @@ Type* TxExternCFunctionTypeClassHandler::make_llvm_externc_type( const TxActualT
     std::vector<Type*> llvmArgTypes;
     for ( auto argTxType : type->argument_types() ) {
         llvmArgTypes.push_back( argTxType->make_llvm_externc_type( context ) );
-        //LOG_INFO( context.LOGGER(), "Mapping C arg type " << argTxType << " to " << ::to_string(llvmArgTypes.back()) );
+        //LOG_INFO( context.LOGGER(), "Mapping C arg type " << argTxType << " to " << llvmArgTypes.back() );
     }
     Type* llvmRetType = type->has_return_value() ? type->return_type()->make_llvm_externc_type( context )
                                                  : llvm::Type::getVoidTy( context.llvmContext );
@@ -454,7 +551,7 @@ Type* TxTupleTypeClassHandler::make_llvm_type_body( const TxActualType* type, Ll
         auto memberTxType = memberTxField->qtype();
         auto memberLlvmType = context.get_llvm_type( memberTxType );
         fieldTypes.push_back( memberLlvmType );
-        LOG_TRACE( context.LOGGER(), "Mapping member type " << memberTxType << " to " << ::to_string(memberLlvmType) );
+        LOG_TRACE( context.LOGGER(), "Mapping member type " << memberTxType << " to " << memberLlvmType );
     }
     StructType* sType = cast<StructType>( header );
     sType->setBody( fieldTypes );
