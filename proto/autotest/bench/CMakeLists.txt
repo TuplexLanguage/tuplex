@@ -28,8 +28,8 @@ add_executable(txbench
 )
 
 add_custom_command(OUTPUT primes_txbench.o
-    COMMAND txc -tx ../.. -nojit -bc -o - primes_txbench.tx | opt -O3 | llc -filetype obj -o primes_txbench.o
-    DEPENDS primes_txbench.tx
+    COMMAND ${CMAKE_BINARY_DIR}/bin/txc -tx ../.. -nojit -bc -o - primes_txbench.tx | opt -O3 | llc -filetype obj -o primes_txbench.o
+    DEPENDS primes_txbench.tx ${CMAKE_BINARY_DIR}/bin/txc
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Compiling Tuplex source"
     VERBATIM

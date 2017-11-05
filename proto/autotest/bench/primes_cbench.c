@@ -10,9 +10,13 @@ unsigned long prime_sieve( unsigned long limit ) {
     if ( !sieve )
         abort();
 
+    void* start = alloc_time_point();
+
     // manually set sieve to all ones:
     for ( unsigned long i = 0; i < length; i++ )
         sieve[i] = 0xFF;
+
+    uint64_t micros1 = get_time_diff_nanos( start )/1000;
 
     // mark all non-primes:
     for ( unsigned long x = 2; x <= limit; x++ ) {
@@ -22,6 +26,8 @@ unsigned long prime_sieve( unsigned long limit ) {
             sieve[i] &= ~( ((unsigned char)1) << b );
         }
     }
+
+    uint64_t micros2 = get_time_diff_nanos( start )/1000 - micros1;
 
     // count number of primes:
     unsigned long count = 0;
@@ -35,6 +41,10 @@ unsigned long prime_sieve( unsigned long limit ) {
     }
 
     free( sieve );
+
+    uint64_t micros3 = get_time_diff_nanos( start )/1000 - micros2;
+    free_time_point( start );
+    printf( "%lu\t%lu\t%lu\t%lu\t%lu\n", limit, count, micros1, micros2, micros3 );
     return count;
 }
 
@@ -43,21 +53,13 @@ int main( int argc, const char** argv ) {
     if ( argc > 1 ) {
         long limit = atol( argv[1] );
         if ( limit > 0 ) {
-            void* start = alloc_time_point();
-            unsigned long count = prime_sieve( limit );
-            uint64_t nanos = get_time_diff_nanos( start );
-            free_time_point( start );
-            printf( "%lu\t%lu\t%lu\n", limit, count, nanos/1000 );
+            prime_sieve( limit );
         }
     }
     else {
         long limit = 100;
         for ( int l = 2; l <= 7; l++ ) {
-            void* start = alloc_time_point();
-            unsigned long count = prime_sieve( limit );
-            uint64_t nanos = get_time_diff_nanos( start );
-            free_time_point( start );
-            printf( "%lu\t%lu\t%lu\n", limit, count, nanos/1000 );
+            prime_sieve( limit );
             limit *= 10;
         }
     }

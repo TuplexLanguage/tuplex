@@ -139,7 +139,7 @@ Constant* TxUnfilledArrayCompLitNode::code_gen_const_value( LlvmGenerationContex
 
 
 
-static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope, Value* arrayPtrV, Value* subscriptV,
+static Value* gen_elem_address( const TxNode* origin, LlvmGenerationContext& context, GenScope* scope, Value* arrayPtrV, Value* subscriptV,
                                 bool isAssignment, bool suppressBoundsCheck=false ) {
     ASSERT( subscriptV->getType()->isIntegerTy(), "expected subscript to be an integer: " << subscriptV );
     ASSERT( arrayPtrV->getType()->isPointerTy(), "expected array-operand to be a pointer: " << arrayPtrV );
@@ -158,56 +158,58 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
     }
 
     ASSERT( scope, "NULL scope in non-const array elem access");
+    std::string id = std::to_string( origin->ploc.begin.line );
     if ( !suppressBoundsCheck ) {
         // add bounds check
         auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-        BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "if_true", parentFunc );
-        BasicBlock* postBlock = BasicBlock::Create( context.llvmContext, "if_post", parentFunc );
+        BasicBlock* oobBlock = BasicBlock::Create( context.llvmContext, "abc_if_out"+id, parentFunc );
+        BasicBlock* postBlock = BasicBlock::Create( context.llvmContext, "abc_if_post"+id, parentFunc );
 
         Value* lenIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                             ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
-        auto lengthPtrV = scope->builder->CreateInBoundsGEP( arrayPtrV, lenIxs );
-        auto lengthV = scope->builder->CreateLoad( lengthPtrV );
-        auto condV = scope->builder->CreateICmpUGE( subscriptV, lengthV );
-        scope->builder->CreateCondBr( condV, trueBlock, postBlock );
+        auto lengthPtrV = scope->builder->CreateInBoundsGEP( arrayPtrV, lenIxs, "alenA"+id );
+        auto lengthV = scope->builder->CreateLoad( lengthPtrV, "alen"+id );
+        auto condV = scope->builder->CreateICmpUGE( subscriptV, lengthV, "is_oob"+id );
+        scope->builder->CreateCondBr( condV, oobBlock, postBlock );
 
-        scope->builder->SetInsertPoint( trueBlock );
+        scope->builder->SetInsertPoint( oobBlock );
         if ( isAssignment ) {
             // allow writing one slot past end if capacity suffices
-            BasicBlock* okIncrBlock = BasicBlock::Create( context.llvmContext, "if_ok_incr",  parentFunc );
-            BasicBlock* okCapBlock  = BasicBlock::Create( context.llvmContext, "if_ok_cap",   parentFunc );
-            BasicBlock* panicBlock  = BasicBlock::Create( context.llvmContext, "if_else_panic", parentFunc );
-            auto condAsmtV = scope->builder->CreateICmpEQ( subscriptV, lengthV );
+            BasicBlock* okIncrBlock = BasicBlock::Create( context.llvmContext, "abc_if_ok_incr"+id,  parentFunc );
+            BasicBlock* okCapBlock  = BasicBlock::Create( context.llvmContext, "abc_if_ok_cap"+id,   parentFunc );
+            BasicBlock* panicBlock  = BasicBlock::Create( context.llvmContext, "abc_if_else_panic"+id, parentFunc );
+            auto condAsmtV = scope->builder->CreateICmpEQ( subscriptV, lengthV, "is_eq_cap"+id );
             scope->builder->CreateCondBr( condAsmtV, okIncrBlock, panicBlock );
 
             { // check capacity:
                 scope->builder->SetInsertPoint( okIncrBlock );
                 Value* capIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                                     ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) };
-                auto capPtrV = scope->builder->CreateInBoundsGEP( arrayPtrV, capIxs );
-                auto capV = scope->builder->CreateLoad( capPtrV );
-                auto condCapV = scope->builder->CreateICmpULT( subscriptV, capV );
+                auto capPtrV = scope->builder->CreateInBoundsGEP( arrayPtrV, capIxs, "acapA"+id );
+                auto capV = scope->builder->CreateLoad( capPtrV, "acap"+id );
+                //capV->setMetadata( LLVMContext::MD_invariant_load, MDNode::get( context.llvmContext, { MDString::get( context.llvmContext, "ACap") } ) );
+                capV->setMetadata( LLVMContext::MD_invariant_group,
+                                   MDNode::get( context.llvmContext, { MDString::get( context.llvmContext, "ACap") } ) );
+                auto condCapV = scope->builder->CreateICmpULT( subscriptV, capV, "is_ok_cap"+id );
                 scope->builder->CreateCondBr( condCapV, okCapBlock, panicBlock );
             }
 
             { // increment length:
                 scope->builder->SetInsertPoint( okCapBlock );
-                auto newLenV = scope->builder->CreateAdd( lengthV, ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) );
+                auto newLenV = scope->builder->CreateAdd( lengthV, ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ), "newlen"+id );
                 scope->builder->CreateStore( newLenV, lengthPtrV );
                 scope->builder->CreateBr( postBlock );
             }
 
             { // panic:
                 scope->builder->SetInsertPoint( panicBlock );
-                //panicNode->code_gen( context, scope );  // TODO: make panicNode call context.gen_panic_call
-                auto indexV = scope->builder->CreateZExt( subscriptV, Type::getInt64Ty( context.llvmContext ) );
+                auto indexV = scope->builder->CreateZExt( subscriptV, Type::getInt64Ty( context.llvmContext ), "ix64"+id );
                 context.gen_panic_call( scope, "Array write index out of bounds: %d\n", indexV );
                 scope->builder->CreateBr( postBlock );  // terminate block, though won't be executed
             }
         }
         else {
-            //panicNode->code_gen( context, scope );
-            auto indexV = scope->builder->CreateZExt( subscriptV, Type::getInt64Ty( context.llvmContext ) );
+            auto indexV = scope->builder->CreateZExt( subscriptV, Type::getInt64Ty( context.llvmContext ), "ix64"+id );
             context.gen_panic_call( scope, "Array read index out of bounds: %d\n", indexV );
             scope->builder->CreateBr( postBlock );  // terminate block, though won't be executed
         }
@@ -218,20 +220,20 @@ static Value* gen_elem_address( LlvmGenerationContext& context, GenScope* scope,
     Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                      ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
                      subscriptV };
-    return scope->builder->CreateInBoundsGEP( arrayPtrV, ixs );
+    return scope->builder->CreateInBoundsGEP( arrayPtrV, ixs, "elemA"+id );
 }
 
 Value* TxElemDerefNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
-    return gen_elem_address( context, scope, this->array->code_gen_dyn_address( context, scope ),
+    return gen_elem_address( this, context, scope, this->array->code_gen_dyn_address( context, scope ),
                              this->subscript->code_gen_dyn_value( context, scope ), false );
 }
 
 Value* TxElemDerefNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
-    Value* elemPtr = gen_elem_address( context, scope, this->array->code_gen_dyn_address( context, scope ),
+    Value* elemPtr = gen_elem_address( this, context, scope, this->array->code_gen_dyn_address( context, scope ),
                                        this->subscript->code_gen_dyn_value( context, scope ), false );
     if ( scope )
         return scope->builder->CreateLoad( elemPtr );
@@ -276,7 +278,7 @@ Constant* TxElemDerefNode::code_gen_const_value( LlvmGenerationContext& context 
 Value* TxElemAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
-    return gen_elem_address( context, scope, this->array->code_gen_dyn_address( context, scope ),
+    return gen_elem_address( this, context, scope, this->array->code_gen_dyn_address( context, scope ),
                              this->subscript->code_gen_dyn_value( context, scope ), true );
 }
 

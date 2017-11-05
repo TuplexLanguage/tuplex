@@ -279,15 +279,17 @@ void initialize_array_obj( LlvmGenerationContext& context, GenScope* scope, Valu
     { // initialize capacity field:
         Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                          ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) };
-        auto capField = scope->builder->CreateInBoundsGEP( arrayObjPtrV, ixs );
-        scope->builder->CreateStore( arrayCap, capField );
+        auto capFieldA = scope->builder->CreateInBoundsGEP( arrayObjPtrV, ixs, "acapA_" );
+        auto storeInstr = scope->builder->CreateStore( arrayCap, capFieldA );
+        storeInstr->setMetadata( LLVMContext::MD_invariant_group,
+                                 MDNode::get( context.llvmContext, { MDString::get( context.llvmContext, "ACap") } ) );
     }
 
     { // initialize length field:
         Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                          ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ) };
-        auto lenField = scope->builder->CreateInBoundsGEP( arrayObjPtrV, ixs );
-        scope->builder->CreateStore( arrayLen, lenField );
+        auto lenFieldA = scope->builder->CreateInBoundsGEP( arrayObjPtrV, ixs, "alenA_" );
+        scope->builder->CreateStore( arrayLen, lenFieldA );
     }
 }
 
