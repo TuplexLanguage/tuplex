@@ -34,7 +34,7 @@ public:
         return this->origin;
     }
 
-    void registerMainFunc( const TxFieldDeclaration* mainFunc );
+    bool registerMainFunc( const TxFieldDeclaration* mainFunc );
 
     const TxFieldDeclaration* getMainFunc() const;
 

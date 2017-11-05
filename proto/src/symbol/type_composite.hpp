@@ -66,6 +66,7 @@ public:
     virtual void initialize_specialized_obj( const TxActualType* type, LlvmGenerationContext& context, GenScope* scope, llvm::Value* objPtrV ) const override;
     virtual llvm::Type* make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
     virtual llvm::Type* make_llvm_type_body( const TxActualType* type, LlvmGenerationContext& context, llvm::Type* header ) const override;
+    virtual llvm::DIType* make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const override;
 };
 
 

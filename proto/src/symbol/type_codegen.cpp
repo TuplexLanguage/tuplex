@@ -212,7 +212,7 @@ llvm::DIType* TxFloatingTypeClassHandler::make_llvm_debug_type( const TxActualTy
 }
 
 
-static uint32_t get_array_capacity( const TxActualType* type ) {
+static uint32_t get_array_capacity( const TxActualType* type, uint32_t value_if_unspecified ) {
     if ( auto capExpr = type->capacity() ) {
         // concrete array (specific capacity)
         if ( capExpr->is_statically_constant() )
@@ -223,7 +223,7 @@ static uint32_t get_array_capacity( const TxActualType* type ) {
     else {
         // Generic arrays with unspecified capacity are mapped as zero capacity,
         // so they can be referenced from e.g. references.
-        return 0;
+        return value_if_unspecified;
     }
 }
 
@@ -234,7 +234,7 @@ Type* TxArrayTypeClassHandler::make_llvm_type( const TxActualType* type, LlvmGen
         THROW_LOGIC( "Generic arrays with unspecified element type can't be directly mapped to LLVM type: " << type );
     Type* elemType = context.get_llvm_type( txElemType );
 
-    uint32_t arrayCap = get_array_capacity( type );
+    uint32_t arrayCap = get_array_capacity( type, 0 );
     std::vector<Type*> llvmMemberTypes {
                                          Type::getInt32Ty( context.llvmContext ),
                                          Type::getInt32Ty( context.llvmContext ),
@@ -254,24 +254,30 @@ Type* TxArrayTypeClassHandler::make_llvm_externc_type( const TxActualType* type,
 }
 
 DIType* TxArrayTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+    DIType* sizeDType = context.debug_builder()->createBasicType( "size", 32, dwarf::DW_ATE_unsigned );
+
+    uint32_t arrayCount = get_array_capacity( type, -1 );
+    uint32_t arrayCap = ( arrayCount == (uint32_t)-1 ? 0 : arrayCount );
+    DIType* elemDType = context.get_debug_type( type->element_type() );
+    uint64_t arraySizeInBits = arrayCap * elemDType->getSizeInBits();
+    DINodeArray subscripts = context.debug_builder()->getOrCreateArray( context.debug_builder()->getOrCreateSubrange( 0, arrayCount ) );
+    DIType* arrayDType = context.debug_builder()->createArrayType( arraySizeInBits, 0, elemDType, subscripts );
+
     auto declarer = static_cast<const TxTypeDeclNode*>( type->get_declaration()->get_definer()->parent() );
     DIFile* file = declarer->get_parser_context()->debug_file();
     DIScope* scope = file;  // is this valid?
-    uint64_t bitSize = 64;  // ?? only counts header
-    uint32_t alignInBits = 64;  // ??
+    unsigned lineNo = declarer->ploc.begin.line;
     DIType* derivedFrom = context.get_debug_type( type->get_base_type() );
-    uint32_t arrayCap = get_array_capacity( type );
-    DIType* elemDType = context.get_debug_type( type->element_type() );
-    DINodeArray subscripts;  // ??
-    DIType* arrayDType = context.debug_builder()->createArrayType( arrayCap, 64, elemDType, subscripts );
-    SmallVector<Metadata*, 2> elts( {
-        context.debug_builder()->createBasicType( "C", 32, dwarf::DW_ATE_unsigned ),
-        context.debug_builder()->createBasicType( "L", 32, dwarf::DW_ATE_unsigned ),
-        arrayDType
+    SmallVector<Metadata*, 3> elts( {
+        context.debug_builder()->createMemberType( scope, "C", file, lineNo, 32, 32, 0, DINode::DIFlags::FlagZero, sizeDType ),
+        context.debug_builder()->createMemberType( scope, "L", file, lineNo, 32, 32, 32, DINode::DIFlags::FlagZero, sizeDType ),
+        context.debug_builder()->createMemberType( scope, "arr", file, lineNo, arraySizeInBits, 64, 64, DINode::DIFlags::FlagZero, arrayDType ),
     } );
     DINodeArray elements = context.debug_builder()->getOrCreateArray( elts );
+    uint64_t bitSize = 64 + arraySizeInBits;
+    uint32_t alignInBits = 64;
     return context.debug_builder()->createStructType( scope, type->get_declaration()->get_unique_full_name(),
-                                                      file, declarer->ploc.begin.line, bitSize, alignInBits,
+                                                      file, lineNo, bitSize, alignInBits,
                                                       DINode::DIFlags::FlagPublic, derivedFrom, elements );
 }
 
@@ -429,19 +435,24 @@ Type* TxReferenceTypeClassHandler::make_llvm_externc_type( const TxActualType* t
 }
 
 DIType* TxReferenceTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+    DIType* targetDType = type->target_type()->make_llvm_debug_type( context );
+    DIType* ptrDType = context.debug_builder()->createPointerType( targetDType, 64, 64 );
+    DIType* tidDType = context.debug_builder()->createBasicType( "tid", 32, dwarf::DW_ATE_unsigned );
+
     auto declarer = static_cast<const TxTypeDeclNode*>( type->get_declaration()->get_definer()->parent() );
     DIFile* file = declarer->get_parser_context()->debug_file();
     DIScope* scope = file;  // is this valid?
-    uint64_t bitSize = 96;
-    uint32_t alignInBits = 64;  // ??
+    unsigned lineNo = declarer->ploc.begin.line;
     DIType* derivedFrom = context.get_debug_type( type->get_base_type() );
     SmallVector<Metadata*, 2> elts( {
-        context.debug_builder()->createBasicType( "ptr", 64, dwarf::DW_ATE_address ),
-        context.debug_builder()->createBasicType( "tid", 32, dwarf::DW_ATE_unsigned ),
+        context.debug_builder()->createMemberType( scope, "ptr", file, lineNo, 64, 64, 0, DINode::DIFlags::FlagZero, ptrDType ),
+        context.debug_builder()->createMemberType( scope, "tid", file, lineNo, 32, 64, 64, DINode::DIFlags::FlagZero, tidDType )
     } );
     DINodeArray elements = context.debug_builder()->getOrCreateArray( elts );
+    uint64_t bitSize = 96;
+    uint32_t alignInBits = 64;
     return context.debug_builder()->createStructType( scope, type->get_declaration()->get_unique_full_name(),
-                                                      file, declarer->ploc.begin.line, bitSize, alignInBits,
+                                                      file, lineNo, bitSize, alignInBits,
                                                       DINode::DIFlags::FlagPublic, derivedFrom, elements );
 }
 
@@ -547,18 +558,50 @@ Type* TxTupleTypeClassHandler::make_llvm_type( const TxActualType* type, LlvmGen
 }
 
 Type* TxTupleTypeClassHandler::make_llvm_type_body( const TxActualType* type, LlvmGenerationContext& context, Type* header ) const {
-    LOG_TRACE( context.LOGGER(), "Mapping tuple type " << type->get_declaration()->get_unique_full_name() << ": " << type->str(true) );
+    //LOG_TRACE( context.LOGGER(), "Mapping tuple type " << type->get_declaration()->get_unique_full_name() << ": " << type->str(true) );
     std::vector<Type*> fieldTypes;
     for ( auto memberTxField : type->get_instance_fields().fields ) {
         auto memberTxType = memberTxField->qtype();
         auto memberLlvmType = context.get_llvm_type( memberTxType );
         fieldTypes.push_back( memberLlvmType );
-        LOG_TRACE( context.LOGGER(), "Mapping member type " << memberTxType << " to " << memberLlvmType );
+        //LOG_TRACE( context.LOGGER(), "Mapping member type " << memberTxType << " to " << memberLlvmType );
     }
     StructType* sType = cast<StructType>( header );
     sType->setBody( fieldTypes );
     return sType;
 }
+
+DIType* TxTupleTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+    DIType* derivedFrom = context.get_debug_type( type->get_base_type() );
+    //std::cerr << "Mapping tuple debug type for " << type << std::endl;
+    auto declarer = static_cast<const TxTypeDeclNode*>( type->get_declaration()->get_definer()->parent() );
+    DIFile* file = declarer->get_parser_context()->debug_file();
+    DIScope* scope = file;  // is this valid?
+    uint64_t bitSize = 0;
+    uint32_t alignInBits = 0;
+    std::vector<Metadata*> fieldTypes;
+    for ( auto memberTxField : type->get_instance_fields().fields ) {
+        auto fieldTxType = memberTxField->qtype();
+        auto fieldDType = context.get_debug_type( fieldTxType );
+        unsigned lineNo = memberTxField->get_declaration()->get_definer()->ploc.begin.line;
+        auto memberDType = context.debug_builder()->createMemberType( scope, memberTxField->get_declaration()->get_unique_name(),
+                                                                      file, lineNo,
+                                                                      fieldDType->getSizeInBits(),
+                                                                      fieldDType->getAlignInBits(),
+                                                                      bitSize,
+                                                                      DINode::DIFlags::FlagZero, fieldDType );
+        fieldTypes.push_back( memberDType );
+        bitSize += memberDType->getSizeInBits();
+        if ( memberDType->getAlignInBits() > alignInBits )
+            alignInBits = memberDType->getAlignInBits();
+        //std::cerr << "    Added tuple member debug type: " << memberDType << std::endl;
+    }
+    DINodeArray elements = context.debug_builder()->getOrCreateArray( fieldTypes );
+    return context.debug_builder()->createStructType( scope, type->get_declaration()->get_unique_full_name(),
+                                                      file, declarer->ploc.begin.line, bitSize, alignInBits,
+                                                      DINode::DIFlags::FlagPublic, derivedFrom, elements );
+}
+
 
 Type* TxInterfaceTypeClassHandler::make_llvm_type( const TxActualType* type, LlvmGenerationContext& context ) const {
     return StructType::get( context.llvmContext );  // abstract type

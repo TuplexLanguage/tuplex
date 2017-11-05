@@ -13,6 +13,9 @@ foofunc( array : &[]Float ) { }
 array_stack_construction( i : UByte ) {
   ## Construction via array literal syntax:
     a0 := [ i, i, i ];
+    q0 := a0[0];
+    q1 := a0[1];
+    q2 := a0[2];
     a1 := [ 1, 2, 3 ];
     a2 := [ Int(1), 2, 3 ];
     #experr 1: ae := [];  ## invalid, no element type info

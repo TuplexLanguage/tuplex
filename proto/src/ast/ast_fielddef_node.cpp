@@ -3,6 +3,7 @@
 #include "ast_wrappers.hpp"
 #include "ast_declpass.hpp"
 #include "expr/ast_constexpr.hpp"
+#include "expr/ast_lambda_node.hpp"
 #include "type/ast_types.hpp"
 
 #include "symbol/package.hpp"
@@ -275,7 +276,13 @@ void TxNonLocalFieldDefNode::resolution_pass() {
                 CERROR( this, "main() method must have global or static storage: " << funcField->get_storage() );
             if ( is_main_signature_valid( funcField->qtype().type() ) ) {
                 // register main program function candidate
-                this->context().package()->registerMainFunc( this->declaration );
+                bool first = this->context().package()->registerMainFunc( this->declaration );
+                if ( first ) {
+                    ASSERT( dynamic_cast<TxLambdaExprNode*>( this->initExpression->originalExpr ),
+                            "Not a lambda expr: " << this->initExpression->originalExpr );
+                    static_cast<TxLambdaExprNode*>( this->initExpression->originalExpr )->add_function_attribute(
+                            llvm::Attribute::AttrKind::NoInline );
+                }
             }
         }
         // non-function symbols declared with the name 'main' are allowed

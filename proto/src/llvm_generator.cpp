@@ -810,7 +810,7 @@ DIType* LlvmGenerationContext::get_debug_type( const TxActualType* txType ) {
     }
     DIType* debugType = txType->make_llvm_debug_type( *this );
     this->llvmDebugTypeMapping.emplace( txType, debugType );
-    LOG_INFO( this->LOGGER(), "Made LLVM DEBUG type mapping for type " << txType->str(true) << ": " << debugType );
+    LOG_TRACE( this->LOGGER(), "Made LLVM DEBUG type mapping for type " << txType->str(true) << ": " << debugType );
     return debugType;
 }
 
@@ -835,7 +835,9 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
     Value* argvA = &(*args);
     argvA->setName( "argv" );
 
-    { // debug info
+    const bool TX_LIB_MAIN_DEBUG_INFO = true;  // if true, generates debug info in this outer main function
+    if ( TX_LIB_MAIN_DEBUG_INFO ) {
+        // generate debug info
         SmallVector<Metadata*, 8> eltTypes;
         DIType* intTy = this->debug_builder()->createBasicType( "int", 32, dwarf::DW_ATE_signed );
         eltTypes.push_back( intTy );  // return type
@@ -961,14 +963,16 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
         }
 
         // debug location required upon user main invocation
-        builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
+        if ( TX_LIB_MAIN_DEBUG_INFO )
+            builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
 
         if ( mainFuncType->has_return_value() ) {
             CallInst *userMainCall = builder.CreateCall( userMainFunc, args, "usermain" );
             userMainCall->setTailCall( false );
             userMainCall->setIsNoInline();
 
-            builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
+            if ( TX_LIB_MAIN_DEBUG_INFO )
+                builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
             auto truncVal = builder.CreateIntCast( userMainCall, i32T, true, "ret" );  // truncate return value to i32
             builder.CreateRet( truncVal );
         }
@@ -977,13 +981,15 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
             userMainCall->setTailCall( false );
             userMainCall->setIsNoInline();
 
-            builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
+            if ( TX_LIB_MAIN_DEBUG_INFO )
+                builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
             builder.CreateRet( ConstantInt::get( i32T, 0, true ) );
         }
     }
     else {
         this->LOGGER()->error( "LLVM function not found for name: %s", userMain.c_str() );
-        builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
+        if ( TX_LIB_MAIN_DEBUG_INFO )
+            builder.SetCurrentDebugLocation( DebugLoc::get( __LINE__, 0, scope.debug_scope() ) );
         builder.CreateRet( ConstantInt::get( i32T, 0, true ) );
     }
 
