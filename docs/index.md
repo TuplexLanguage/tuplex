@@ -38,15 +38,20 @@ Notes
 
 ### Status
 
-The compiler is in a working state, and quite extensive programs can be written in Tuplex. The foundation library is already quite extensive and makes use of the language's most advanced features. There is also a very easy-to-use foreign function interface to C.
+The language and compiler is in a working state, and quite extensive programs can be written in Tuplex. The foundation library is already quite extensive and makes use of the language's most advanced features. There is also a very easy-to-use foreign function interface to C.
 
-BUT, a large test suite notwithstanding it is not yet fully stable, and there are some core features to be completed:
-- Conditional type casting
-- Equality comparison of complex arrays
-- Safe initialization of complex arrays (arrays-of-arrays and arrays-of-tuples)
-- Complete the foundation library tie-up of the Collection, Sequence, etc interfaces with the Array and String types
+Tasks completed in Aug-Oct:
 
-These are interdepenent under the hood and are currently in progress.
+- Debugging information has been added. A Tuplex program can now be stepped and inspected in your favorite debugger
+- Basic type reflection and safe runtime type casting and conditionals
+- Completed handling of dynamic-length and nested arrays
+- Completed uniform handling of equality and assignment, including of nested array
+- The type resolution system has been refactored, both simplyfying the codebase and boosting performace >10x
+
+Remaining major tasks until milestone 1, fully working and consistent core language:
+
+- Safe object initialization, including automatic constructor generation
+
 
 ### About Easiness
 

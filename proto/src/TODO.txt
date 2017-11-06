@@ -134,17 +134,6 @@ Support main( args ) program arguments - DONE
 Implement basic debugging info - DONE
 
 
-(Debugging info for the remaining types)
-
-
-Improved FFI support
- - opaque 64b pointer type
- - structs <-> Tuples
-
-
-Windows / Visual Studio development & build support
-
-
 Secure Initialization
 ---------------------
 Ensure fields are always initialized (with the default constructor if no init expr provided)
@@ -157,6 +146,20 @@ Implement advanced implicit constructor concept
  - Default (zero arguments) constructor if base type and all members without inlined initializers allow default construction?
 
 Constructor initialization validation check: That each constructor properly initializes all members (without inlined initializers)
+
+Freeing memory
+
+Destructors
+
+
+
+Windows / Visual Studio development & build support
+
+
+
+Improved FFI support
+ - opaque 64b pointer type
+ - structs <-> Tuples
 
 
 
@@ -267,14 +270,11 @@ Miscellaneous
 Implement advanced debugging info
  - non-local fields
  - expressions, rvalues, etc
- - virtual methods comprehension?
  - generic type parameters?
 
 break and continue out of nested loops
 
 Implement implicit static initializer function for types' static members and static code
-
-Destructors
 
 Shared objects
 

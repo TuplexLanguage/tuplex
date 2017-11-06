@@ -42,7 +42,7 @@ The syntax of scalar and boolean expressions, as well as function calls, is stra
     }
 
 
-> Mutability: Tuplex variables / fields are immutable by default. The 'mod' keyword or the '~' tilde token are used to indicate the value may be modified after initialization.
+> Mutability: Tuplex variables / fields are immutable by default. The 'mut' keyword or the '~' tilde token are used to indicate the value may be modified after initialization.
 
 
 #### Other Basic Syntax Elements
