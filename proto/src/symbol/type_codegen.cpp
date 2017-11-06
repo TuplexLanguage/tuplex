@@ -435,7 +435,9 @@ Type* TxReferenceTypeClassHandler::make_llvm_externc_type( const TxActualType* t
 }
 
 DIType* TxReferenceTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
-    DIType* targetDType = type->target_type()->make_llvm_debug_type( context );
+    // FUTURE: Make forward declaration here and move this to make_llvm_debug_type_body()? May avoid duplicates in some situations.
+    //std::cerr << "Ref make debug type: " << type << std::endl;
+    DIType* targetDType = context.get_debug_type( type->target_type() );
     DIType* ptrDType = context.debug_builder()->createPointerType( targetDType, 64, 64 );
     DIType* tidDType = context.debug_builder()->createBasicType( "tid", 32, dwarf::DW_ATE_unsigned );
 
@@ -572,9 +574,21 @@ Type* TxTupleTypeClassHandler::make_llvm_type_body( const TxActualType* type, Ll
 }
 
 DIType* TxTupleTypeClassHandler::make_llvm_debug_type( const TxActualType* type, LlvmGenerationContext& context ) const {
+    auto declarer = static_cast<const TxTypeDeclNode*>( type->get_declaration()->get_definer()->parent() );
+    auto uniqueName = type->get_declaration()->get_unique_full_name();
+    DIFile* file = declarer->get_parser_context()->debug_file();
+    DIScope* scope = file;  // is this valid?
+    unsigned lineNo = declarer->ploc.begin.line;
+    return context.debug_builder()->createForwardDecl( dwarf::Tag::DW_TAG_structure_type,
+                                                       uniqueName, scope, file, lineNo,
+                                                       0, 0, 0, uniqueName );
+}
+
+DIType* TxTupleTypeClassHandler::make_llvm_debug_type_body( const TxActualType* type, LlvmGenerationContext& context, DIType* header ) const {
     DIType* derivedFrom = context.get_debug_type( type->get_base_type() );
     //std::cerr << "Mapping tuple debug type for " << type << std::endl;
     auto declarer = static_cast<const TxTypeDeclNode*>( type->get_declaration()->get_definer()->parent() );
+    auto uniqueName = type->get_declaration()->get_unique_full_name();
     DIFile* file = declarer->get_parser_context()->debug_file();
     DIScope* scope = file;  // is this valid?
     uint64_t bitSize = 0;
@@ -599,7 +613,8 @@ DIType* TxTupleTypeClassHandler::make_llvm_debug_type( const TxActualType* type,
     DINodeArray elements = context.debug_builder()->getOrCreateArray( fieldTypes );
     return context.debug_builder()->createStructType( scope, type->get_declaration()->get_unique_full_name(),
                                                       file, declarer->ploc.begin.line, bitSize, alignInBits,
-                                                      DINode::DIFlags::FlagPublic, derivedFrom, elements );
+                                                      DINode::DIFlags::FlagPublic, derivedFrom, elements,
+                                                      0, nullptr, uniqueName );
 }
 
 

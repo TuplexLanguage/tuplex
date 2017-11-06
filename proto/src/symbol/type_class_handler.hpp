@@ -84,6 +84,13 @@ public:
         return header;
     }
 
+    /** Invoked after make_llvm_debug_type() to augment a possibly forward-declared llvm::Type "header" (named, opaque struct).
+     * Default implementation returns the "header" type without modifying it;
+     * types that actually predefine an opaque header should override and augment the type or return a new, full type. */
+    virtual llvm::DIType* make_llvm_debug_type_body( const TxActualType* type, LlvmGenerationContext& context, llvm::DIType* header ) const {
+        return header;
+    }
+
     /** Returns the llvm::Type that an instance of this type is converted to/from when passed to/from an extern-c function. */
     virtual llvm::Type* make_llvm_externc_type( const TxActualType* type, LlvmGenerationContext& context ) const;
 

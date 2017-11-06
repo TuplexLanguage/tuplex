@@ -792,7 +792,7 @@ Type* LlvmGenerationContext::get_llvm_type( const TxActualType* txType ) {
     if ( llvmTypeBody != llvmType ) {
         // replace header with full type definition in mapping
         this->llvmTypeMapping[txType] = llvmTypeBody;
-        LOG_NOTE( this->LOGGER(), "replaced LLVM type mapping for type " << txType << ": " << llvmTypeBody );
+        LOG_NOTE( this->LOGGER(), "Replaced LLVM type header mapping for " << txType << " to body " << llvmTypeBody );
     }
 
     return llvmType;
@@ -811,6 +811,14 @@ DIType* LlvmGenerationContext::get_debug_type( const TxActualType* txType ) {
     DIType* debugType = txType->make_llvm_debug_type( *this );
     this->llvmDebugTypeMapping.emplace( txType, debugType );
     LOG_TRACE( this->LOGGER(), "Made LLVM DEBUG type mapping for type " << txType->str(true) << ": " << debugType );
+
+    DIType* debugTypeBody = txType->make_llvm_debug_type_body( *this, debugType );
+    if ( debugTypeBody != debugType ) {
+        // replace header with full type definition in mapping
+        this->llvmDebugTypeMapping[txType] = debugTypeBody;
+        LOG_DEBUG( this->LOGGER(), "Replaced LLVM DEBUG type header mapping for " << txType << " to body " << debugTypeBody );
+    }
+
     return debugType;
 }
 
