@@ -6,12 +6,15 @@ type ~ CompoundType derives Tuple {
     field1 : ~Long;
     field2 : ~Float;
     field3 : [20]Int;
-    ##field4 := c"abra"; ## inline init not yet supported
+    field4 := c"abra"; ## inline init
     field5 : ~InnerCompType;
     field6 : ~&~InnerCompType;
     type ~ InnerCompType derives Tuple {
         virtual PI := 3.14;
         blaha : ~Float;
+    }
+    self() {
+        #init( 0, 0, 0, [20]Int(), InnerCompType( 0.0 ), new ~InnerCompType( 0.0 ) );
     }
 }
 
@@ -58,20 +61,20 @@ Public virtual is virtual, but referencing them without a base expression is non
 
 testfunc() {
     {
-        good : tx.Int;
-        #experr 1: bad : unknown;
+        good : tx.Int = 0;
+        #experr 2: bad : unknown;
         #experr 1: bad : $local.CompoundType;  ## not explicitly referenceable
-        #experr 1: bad : tx;
-        #experr 1: bad : tx.c;
-        #experr 1: bad : tx.c.puts;
-        #experr 1: bad : tx.unknown;
+        #experr 2: bad : tx;
+        #experr 2: bad : tx.c;
+        #experr 2: bad : tx.c.puts;
+        #experr 2: bad : tx.unknown;
     }
 
-    ro_obj : CompoundType;
+    ro_obj := CompoundType();
     #experr: ro_obj.field0 = 133;  ## non-mutable instance field
     #experr: ro_obj.field1 = 133;  ## can't change mutable field of non-mutable object
 
-    obj : ~CompoundType;
+    obj := ~CompoundType();
     #experr: obj.SFIELD = 133;  ## non-mutable virtual field
     obj.field1 = 133;
     obj.field2 = CompoundType.SFIELD2 * 10.0;
@@ -80,8 +83,7 @@ testfunc() {
     var := obj.field2;
     assert var == 27.3;
 
-    robj : ~&~CompoundType;
-    robj = &obj;
+    robj : ~&~CompoundType = &obj;
     assert robj.field1 == obj.field1;
     assert robj.field2 == obj.field2;
 
@@ -89,8 +91,8 @@ testfunc() {
     assert obj.field5.blaha == 273.0;
 
     assert CompoundType.InnerCompType.PI == 3.14;
-    subobj1 : ~CompoundType.InnerCompType;
-    subobj2 : ~obj.InnerCompType;
+    subobj1 := ~CompoundType.InnerCompType( 2.73 );
+    subobj2 := ~obj.InnerCompType( 2.73 );
     assert subobj1.PI == 3.14;
     assert subobj2.PI == 3.14;
     obj.field6 = &subobj1;
@@ -102,9 +104,9 @@ testfunc() {
 
     #experr 1: bad1 : Long = CompoundType.field1;
     #experr 1: bad2 := obj.InnerCompType;
-    #experr 1: bad3 : CompoundType.SFIELD2;  ## implicit type entity may not be available
-    #experr 1: bad4 : CompoundType.field3;   ## implicit type entity may not be available
-    #experr 1: bad5 : ~CompoundType.field3;  ## implicit type entity may not be available
+    #experr 2: bad3 : CompoundType.SFIELD2;  ## implicit type entity may not be available
+    #experr 2: bad4 : CompoundType.field3;   ## implicit type entity may not be available
+    #experr 2: bad5 : ~CompoundType.field3;  ## implicit type entity may not be available
 }
 
 main() {

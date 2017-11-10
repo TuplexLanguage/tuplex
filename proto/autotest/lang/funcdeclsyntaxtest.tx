@@ -13,8 +13,6 @@ type FuncProvider <: ()-> ( a : Int )->Int;
 type Multiplier {
     b : Int;
 
-    self( b : Int ) { self.b = b; }
-
     mul( a : Int )->Int { return a * self.b; }
 
     higher( f : FuncType )->Int {

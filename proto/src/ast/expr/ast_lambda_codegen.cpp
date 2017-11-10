@@ -104,27 +104,29 @@ void TxLambdaExprNode::code_gen_function_body( LlvmGenerationContext& context ) 
     //    builder.SetCurrentDebugLocation( DebugLoc() );
     builder.SetCurrentDebugLocation( DebugLoc::get( this->ploc.begin.line, this->ploc.begin.column, fscope.debug_scope() ) );
 
-    // name the concrete args (and self, if present) and allocate them on the stack:
+    if ( this->selfSuperStmt )
+        this->selfSuperStmt->code_gen( context, &fscope );
+    // name the concrete args and allocate them on the stack:
     Function::arg_iterator fArgI = this->functionPtr->arg_begin();
-    if ( this->is_instance_method() ) {
-        // (both self and super refer to the same object, but with different ref types)
-        // from the closure reference argument, create the local self and super fields:
-        Value* closureRefV = &(*fArgI);
-        Value* tidV = gen_get_ref_typeid( context, &fscope, closureRefV );
-        Value* origPtrV = gen_get_ref_pointer( context, &fscope, closureRefV );
-
-        this->selfRefNode->typeExpression->code_gen_type( context );
-        auto selfT = context.get_llvm_type( this->selfRefNode->qtype() );
-        auto convSelfV =  gen_ref( context, &fscope, selfT, origPtrV, tidV );
-        gen_local_field( context, &fscope, this->selfRefNode->field(), convSelfV );
-
-        if ( this->superRefNode ) {
-            this->superRefNode->typeExpression->code_gen_type( context );
-            auto superT = context.get_llvm_type( this->superRefNode->qtype() );
-            auto convSuperV =  gen_ref( context, &fscope, superT, origPtrV, tidV );
-            gen_local_field( context, &fscope, this->superRefNode->field(), convSuperV );
-        }
-    }
+//    if ( this->selfRefNode ) {
+//        // (both self and super refer to the same object, but with different ref types)
+//        // from the closure reference argument, create the local self and super fields:
+//        Value* closureRefV = &(*fArgI);
+//        Value* tidV = gen_get_ref_typeid( context, &fscope, closureRefV );
+//        Value* origPtrV = gen_get_ref_pointer( context, &fscope, closureRefV );
+//
+//        this->selfRefNode->typeExpression->code_gen_type( context );
+//        auto selfT = context.get_llvm_type( this->selfRefNode->qtype() );
+//        auto convSelfV =  gen_ref( context, &fscope, selfT, origPtrV, tidV );
+//        gen_local_field( context, &fscope, this->selfRefNode->field(), convSelfV );
+//
+//        if ( this->superRefNode ) {
+//            this->superRefNode->typeExpression->code_gen_type( context );
+//            auto superT = context.get_llvm_type( this->superRefNode->qtype() );
+//            auto convSuperV =  gen_ref( context, &fscope, superT, origPtrV, tidV );
+//            gen_local_field( context, &fscope, this->superRefNode->field(), convSuperV );
+//        }
+//    }
 
     fArgI++;
     unsigned argIx = 0;

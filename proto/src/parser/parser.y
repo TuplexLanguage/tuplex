@@ -130,23 +130,24 @@ YY_DECL;
 %token KW_MODULE KW_IMPORT KW_TYPE KW_INTERFACE
 %token KW_BUILTIN KW_VIRTUAL KW_ABSTRACT KW_FINAL KW_OVERRIDE KW_EXTERNC
 %token KW_MUTABLE KW_REFERENCE KW_DERIVES
-%token KW_WHILE KW_FOR KW_IF KW_ELSE KW_IN
+%token KW_WHILE KW_FOR KW_IF KW_ELSE KW_IN KW_IS
 %token KW_RETURN KW_BREAK KW_CONTINUE KW_NEW KW_DELETE
 %token KW_XOR
-%token KW_NULL KW_TRUE KW_FALSE
+%token KW_TRUE KW_FALSE
 %token KW_PANIC KW_ASSERT KW_EXPERR
 %token KW__ADDRESS KW__TYPEID KW__SIZEOF KW__SUPERTYPES
 
 /* keywords reserved but not currently used */
 %token KW_PUBLIC KW_PROTECTED
 %token KW_STATIC KW_CONST KW_EXTENDS KW_IMPLEMENTS
-%token KW_SWITCH KW_CASE KW_WITH KW_AS KW_IS
+%token KW_SWITCH KW_CASE KW_WITH KW_AS
 %token KW_AND KW_OR KW_NOT
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
 
  /* literals: */
 %token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
 %token <std::string> STR_FORMAT SF_PARAM SF_FLAGS SF_WIDTH SF_PREC SF_TYPE
+%token <std::string> HASHINIT HASHSELF
 
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above.
@@ -193,12 +194,14 @@ YY_DECL;
 %type <TxSuiteNode*> suite
 %type <TxStatementNode*> statement single_statement assignment_stmt return_stmt break_stmt continue_stmt type_decl_stmt
 %type <TxStatementNode*> flow_stmt simple_stmt elementary_stmt terminal_stmt flow_else_stmt
-%type <TxStatementNode*> assert_stmt panic_stmt experr_stmt
+%type <TxStatementNode*> init_stmt assert_stmt panic_stmt experr_stmt
 %type <TxElseClauseNode*> else_clause
 %type <TxFlowHeaderNode*> cond_clause is_clause in_clause for_header
 %type <std::vector<TxFlowHeaderNode*> *> in_clause_list
 %type <TxAssigneeNode*> assignee_expr
 %type <TxLocalFieldDefNode*> local_field_def
+%type <TxMemberInitNode*> member_init_expr
+%type <std::vector<TxMemberInitNode*> *> member_init_list
 
 %type <TxExpressionNode*> string_format_expr
 %type <TxStringFormatNode*> string_format
@@ -592,7 +595,6 @@ value_literal
         |       LIT_CHARACTER { $$ = new TxCharacterLitNode(@1, $1); }
         |       LIT_CSTRING   { $$ = new TxCStringLitNode(@1, $1); }
         |       LIT_STRING    { $$ = new TxStringLitNode(@1, $1); }
-        |       KW_NULL       { $$ = new TxBoolLitNode(@1, false); }  // TODO: proper Null type
         |       KW_FALSE      { $$ = new TxBoolLitNode(@1, false); }
         |       KW_TRUE       { $$ = new TxBoolLitNode(@1, true); }
     ;
@@ -708,6 +710,7 @@ simple_stmt
     :   type_decl_stmt             %prec STMT    { $$ = $1; }
     |   elementary_stmt SEMICOLON  %prec STMT    { $$ = $1; }
     |   terminal_stmt   SEMICOLON  %prec STMT    { $$ = $1; }
+    |   init_stmt       SEMICOLON  %prec STMT    { $$ = $1; }
     |   flow_else_stmt             %prec KW_ELSE { $$ = $1; }
     |   experr_stmt                %prec STMT    { $$ = $1; }
     |   error SEMICOLON            %prec STMT    { $$ = new TxNoOpStmtNode(@$); TX_SYNTAX_ERROR; }
@@ -797,6 +800,20 @@ type_decl_stmt   : type_or_if opt_mutable identifier type_derivation
                  | error type_body  { $$ = new TxNoOpStmtNode(@$); TX_SYNTAX_ERROR; }
                  ;
 
+
+member_init_expr : identifier call_params  { $$ = new TxMemberInitNode(@$, $1, $2); }
+                 ;
+
+member_init_list : member_init_expr                         { $$ = new std::vector<TxMemberInitNode*>( { $1 } ); }
+                 | member_init_list COMMA member_init_expr  { $$ = $1; $$->push_back($3); }
+                 | error                                    { $$ = new std::vector<TxMemberInitNode*>(); }
+                 ;
+
+// special #init ... ; / #self() function call from within constructor
+init_stmt   : HASHINIT COLON member_init_list   { $$ = new TxInitStmtNode(@$, $3); }
+            | HASHINIT                          { $$ = new TxInitStmtNode(@$); }
+            | HASHSELF call_params              { $$ = new TxInitStmtNode(@$, $2); }
+            ;
 
 return_stmt : KW_RETURN expr  { $$ = new TxReturnStmtNode(@$, $2); }
             | KW_RETURN       { $$ = new TxReturnStmtNode(@$); }

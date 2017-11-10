@@ -15,7 +15,9 @@ bool TxExpressionNode::check_chain_mutable() const {
     // to be considered mutable.
     // Generic TYPE type parameters are potentially modifiable and accepted; correctness will be verified for each specialization.
     for ( const TxExpressionNode* origin = this; origin; origin = origin->get_data_graph_origin_expr() ) {
-        auto qtype = origin->qtype();
+        auto qtype = origin->attempt_qtype();
+        if (! qtype)
+            return false;
         if ( !( qtype->get_type_class() == TXTC_REFERENCE || qtype.is_modifiable() || qtype->is_generic_param() ) ) {
             CERROR( this, "Expression is not modifiable: " << qtype );
             return false;

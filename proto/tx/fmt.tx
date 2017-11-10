@@ -98,7 +98,7 @@ type StringerFormatter <: Tuple, Formatter {
 to_string( writer : &~tx.ByteWriter, value : ULong, neg : Bool ) {
     prev : ~ULong = value;
     val  : ~ULong = value / 10;
-    backward : ~[24]UByte;
+    backward := ~[24]UByte();
     while prev > 9 {
         backward[backward.L] = '0' + UByte( prev - (val * 10) );
         prev = val;
@@ -106,7 +106,7 @@ to_string( writer : &~tx.ByteWriter, value : ULong, neg : Bool ) {
     }
     backward[backward.L] = '0' + UByte( prev - (val * 10) );
 
-    forward : ~[24]UByte;
+    forward := ~[24]UByte();
     if neg:
         forward[forward.L] = '-';
     for i in 0..backward.L {
@@ -122,7 +122,7 @@ RADIX_DIGITS := c"0123456789abcdef";
  */
 format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, neg : Bool ) {
     radix : ~UByte = 10;
-    prefix : ~[3]UByte;
+    prefix := ~[3]UByte();
     if format.typeChar == 'x' {
         radix = 16;
         prefix[0] = 'x';
@@ -139,7 +139,7 @@ format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, 
         prefix[1] = '0';
     }
 
-    backward : ~[66]UByte;
+    backward := ~[66]UByte();
     {
         prev : ~ULong = value;
         val  : ~ULong = value / radix;
@@ -162,7 +162,7 @@ format_string( writer : &~tx.ByteWriter, format : &StringFormat, value : ULong, 
     padding : ~UInt = 0;
     if format.width > length:
         padding = format.width - length;
-    forward : ~[length+padding]UByte;
+    forward := ~[length+padding]UByte();
 
     if ( format.flags & StringFormat.FLAG_MINUS ) == 0 {
         ## right-aligned, padding to the left

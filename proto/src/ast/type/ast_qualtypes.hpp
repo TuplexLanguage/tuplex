@@ -57,10 +57,36 @@ class TxSetQualTypeExprNode : public TxQualTypeExprNode {
 public:
     TxSetQualTypeExprNode( const TxLocation& ploc, TxTypeExpressionNode* baseType, bool mod )
             : TxQualTypeExprNode( ploc, baseType ), _modifiable( mod ) {
+        this->_typeNode->set_requires_mutable( mod );
     }
 
     virtual TxSetQualTypeExprNode* make_ast_copy() const override {
         return new TxSetQualTypeExprNode( this->ploc, this->_typeNode->make_ast_copy(), _modifiable );
+    }
+
+    bool is_modifiable() const {
+        return this->_modifiable;
+    }
+
+    void set_modifiable( bool mod ) {
+        ASSERT( !this->attempt_qtype(), "Can't set modifiable after type already has been resolved in " << this );
+        this->_modifiable = mod;
+        this->_typeNode->set_requires_mutable( mod );
+    }
+};
+
+/** Automatically makes the qualified type modifiable if the actual type is mutable.
+ * Used to automatically make constructors modifying (i.e. syntactic sugar). */
+class TxFlexModTypeExprNode : public TxQualTypeExprNode {
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+
+public:
+    TxFlexModTypeExprNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
+            : TxQualTypeExprNode( ploc, baseType ) {
+    }
+
+    virtual TxFlexModTypeExprNode* make_ast_copy() const override {
+        return new TxFlexModTypeExprNode( this->ploc, this->_typeNode->make_ast_copy() );
     }
 };
 
@@ -129,7 +155,6 @@ public:
         this->_modifiable = mod;
         this->_typeNode->set_requires_mutable( mod );
     }
-
 };
 
 /** Removes the 'modifiable' modifier on a type. Should only be relevant in combination with TYPE type parameters. */

@@ -9,48 +9,17 @@
 
 TxQualType TxConstructorCalleeExprNode::define_type( TxPassInfo passInfo ) {
     ASSERT( this->appliedFuncArgs, "appliedFuncArgTypes of TxConstructorCalleeExprNode not initialized" );
-    {
-        auto allocType = this->objectExpr->resolve_type( passInfo );
-        // find the constructor (note, constructors aren't inherited):
-        if ( auto constructorDecl = resolve_constructor( this, allocType.type(), this->appliedFuncArgs ) ) {
-            this->declaration = constructorDecl;
-            auto constructorField = constructorDecl->get_definer()->resolve_field();
-            return constructorField->qtype();
-        }
-        if ( this->appliedFuncArgs->size() == 0 ) {
-            // TODO: support default value constructor
-        }
-        else if ( this->appliedFuncArgs->size() == 1 ) {
-            // TODO: support default assignment constructor
-        }
-        CERR_THROWRES( this, "No matching constructor in type " << allocType
-                       << " for args (" << join( attempt_typevec( this->appliedFuncArgs ), ", ") << ")" );
-    }
-    return nullptr;
+    auto allocType = this->objectExpr->resolve_type( passInfo );
+    // find the constructor (note, constructors aren't inherited):
+    this->declaration = resolve_constructor( this, allocType.type(), this->appliedFuncArgs );
+    return this->declaration->get_definer()->resolve_field()->qtype();
 }
 
 TxFunctionCallNode::TxFunctionCallNode( const TxLocation& ploc, TxExpressionNode* callee,
                                         const std::vector<TxExpressionNode*>* argsExprList, bool doesNotReturn )
-        : TxExpressionNode( ploc ), doesNotReturn( doesNotReturn ), callee( callee ), origArgsExprList( argsExprList ),
-          argsExprList( make_args_vec( argsExprList ) ) {
-    if ( auto fieldValueNode = dynamic_cast<TxFieldValueNode*>( this->callee ) ) {
-        // handle direct constructor invocation - self() and super()
-        auto identifier = fieldValueNode->get_full_identifier();
-        if ( identifier == "self" || identifier == "super" ) {
-            auto objectDeref = new TxReferenceDerefNode( this->ploc, this->callee );
-            this->callee = new TxConstructorCalleeExprNode( this->ploc, objectDeref );
-            this->isSelfSuperConstructorInvocation = true;
-        }
-    }
+        : TxExpressionNode( ploc ), doesNotReturn( doesNotReturn ), //isInitInvokation( isInitInvokation ),
+          callee( callee ), origArgsExprList( argsExprList ), argsExprList( make_args_vec( argsExprList ) ) {
     this->callee->set_applied_func_args( this->origArgsExprList );
-}
-
-void TxFunctionCallNode::declaration_pass() {
-    if ( this->isSelfSuperConstructorInvocation ) {
-        if ( !( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() ) )
-            CERROR( this, "self() / super() constructor may only be invoked from within the type's other constructors" );
-        // TODO: shall only be legal as first statement within constructor body
-    }
 }
 
 TxQualType TxFunctionCallNode::define_type( TxPassInfo passInfo ) {
@@ -79,9 +48,6 @@ TxQualType TxFunctionCallNode::define_type( TxPassInfo passInfo ) {
             auto wrappedArgs = make_expr_wrapper_vec( this->origArgsExprList );
             this->inlinedExpression = new TxStackConstructionNode( this->ploc, typeDeclNode, wrappedArgs );
             run_declaration_pass( this->inlinedExpression, this, "inlinedexpr" );
-//            for ( auto argExpr : *this->origArgsExprList )
-//                argExpr->resolution_pass();
-//            this->inlinedExpression->resolution_pass();
             run_resolution_pass( this->inlinedExpression, "inlinedexpr" );
             return constructedType;
         }

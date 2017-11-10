@@ -11,31 +11,31 @@ array_modifiability() {
 
     ## specific array types - no implicit modifiability applied:
     {
-        a0 : Array<UByte,3>;
+        a0 : Array<UByte,3> = []UByte();
         #experr 1: write( &a0 );
     
-        a1 : Array<~UByte,3>;
+        a1 : Array<~UByte,3> = []UByte();
         #experr 1: write( &a1 );
     
-        a2 : ~Array<UByte,3>;  ## TODO: yields inconsistent type which causes errors in array.tx
+        a2 : ~Array<UByte,3> = []UByte();  ## TODO: yields inconsistent type which causes errors in array.tx
         #experr 1: write( &a2 );
     
-        a3 : ~Array<~UByte,3>;
+        a3 : ~Array<~UByte,3> = []UByte();
         write( &a3 );
     }
 
     ## array type syntax sugar - implicit modifiability applied:
     {
-        a10 : [3]UByte;
+        a10 : [3]UByte = []UByte();
         #experr 1: write( &a10 );
     
-        a11 : ~[3]UByte;
+        a11 : ~[3]UByte = []UByte();
         write( &a11 );
     
-        a12 : [3]~UByte;
+        a12 : [3]~UByte = []UByte();
         write( &a12 );
     
-        a13 : ~[3]~UByte;
+        a13 : ~[3]~UByte = []UByte();
         write( &a13 );
     }
 

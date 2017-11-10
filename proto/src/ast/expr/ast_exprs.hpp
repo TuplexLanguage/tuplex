@@ -18,7 +18,6 @@ llvm::Value* gen_lambda_call( LlvmGenerationContext& context, GenScope* scope, l
 class TxFunctionCallNode : public TxExpressionNode {
     bool doesNotReturn;
     const TxActualType* calleeType = nullptr;
-    bool isSelfSuperConstructorInvocation = false;
     TxExpressionNode* inlinedExpression = nullptr;  // substitutes the function/constructor call if non-null
 
     static std::vector<TxMaybeConversionNode*>* make_args_vec( const std::vector<TxExpressionNode*>* argsExprList ) {
@@ -29,8 +28,6 @@ class TxFunctionCallNode : public TxExpressionNode {
     }
 
 protected:
-    virtual void declaration_pass() override;
-
     virtual TxQualType define_type( TxPassInfo passInfo ) override;
 
 public:
@@ -43,6 +40,10 @@ public:
 
     virtual TxFunctionCallNode* make_ast_copy() const override {
         return new TxFunctionCallNode( this->ploc, this->callee->make_ast_copy(), make_node_vec_copy( this->origArgsExprList ) );
+    }
+
+    bool is_inlined() const {
+        return this->inlinedExpression;
     }
 
     virtual TxFieldStorage get_storage() const override {
@@ -72,6 +73,23 @@ public:
     }
 };
 
+
+/** Abstract superclass for memory providing expressions, used in conjunction with object construction / initialization. */
+class TxMemProviderNode : public TxExpressionNode {
+protected:
+    TxMemProviderNode( const TxLocation& ploc ) : TxExpressionNode( ploc )  { }
+
+public:
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override {
+        THROW_LOGIC( "Unsupported: code_gen() for node type " << this );
+    }
+
+    virtual TxMemProviderNode* make_ast_copy() const override = 0;
+
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override = 0;
+};
+
+
 /** Special callee expression node for calling constructors. */
 class TxConstructorCalleeExprNode : public TxExpressionNode {
     const TxFieldDeclaration* declaration = nullptr;
@@ -82,12 +100,12 @@ class TxConstructorCalleeExprNode : public TxExpressionNode {
 
 protected:
     /** Produces the object - either an allocation, or a self/super reference */
-    TxExpressionNode* objectExpr;
+    TxMemProviderNode* objectExpr;
 
     virtual TxQualType define_type( TxPassInfo passInfo ) override;
 
 public:
-    TxConstructorCalleeExprNode( const TxLocation& ploc, TxExpressionNode* objectExpr )
+    TxConstructorCalleeExprNode( const TxLocation& ploc, TxMemProviderNode* objectExpr )
             : TxExpressionNode( ploc ), objectExpr( objectExpr ) {
     }
 
@@ -110,8 +128,35 @@ public:
     }
 };
 
+
+/** Does not allocate memory, instead passes memory previously allocated */
+class TxInPlaceAllocNode : public TxMemProviderNode {
+    TxExpressionNode* objExpr;
+
+protected:
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->objExpr->resolve_type( passInfo );
+    }
+
+public:
+    TxInPlaceAllocNode( const TxLocation& ploc, TxExpressionNode* objExpr )
+            : TxMemProviderNode( ploc ), objExpr( objExpr ) {
+    }
+
+    virtual TxInPlaceAllocNode* make_ast_copy() const override {
+        return new TxInPlaceAllocNode( this->ploc, this->objExpr->make_ast_copy() );
+    }
+
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->objExpr->visit_ast( visitor, thisCursor, "obj", context );
+    }
+};
+
+
 /** Abstract superclass for memory allocation expressions, for heap and stack allocators. */
-class TxMemAllocNode : public TxExpressionNode {
+class TxMemAllocNode : public TxMemProviderNode {
 protected:
     TxTypeExpressionNode* objTypeExpr;
 
@@ -120,19 +165,13 @@ protected:
     }
 
     TxMemAllocNode( const TxLocation& ploc, TxTypeExpressionNode* objTypeExpr )
-            : TxExpressionNode( ploc ), objTypeExpr( objTypeExpr ) {
+            : TxMemProviderNode( ploc ), objTypeExpr( objTypeExpr ) {
     }
 
 public:
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->objTypeExpr->visit_ast( visitor, thisCursor, "type", context );
     }
-
-    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override {
-        THROW_LOGIC( "Unsupported: code_gen() for node type " << this );
-    }
-
-    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override = 0;
 };
 
 class TxHeapAllocNode : public TxMemAllocNode {
@@ -160,6 +199,7 @@ public:
 
     virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override;
 };
+
 
 /** Abstract common superclass for new expression and local init expression */
 class TxMakeObjectNode : public TxExpressionNode {

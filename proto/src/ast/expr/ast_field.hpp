@@ -15,28 +15,8 @@
  */
 int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxActualType*requiredType );
 
-/** Attempts to resolve an identified entity symbol, that is potentially overloaded,
- * to a specific field by matching with the provided arguments' types.
- * The closest matching, valid field is picked. If no field matched, NULL is returned.
- * If a field was matched, and implicit conversions were needed for any arguments,
- * those conversions are inserted for those arguments within this call.
- *
- * All included fields that have the matching number of arguments and compatible argument types are candidates.
- * Candidate selection is done by counting the number and degree of argument reinterpretations necessary to match it.
- * (A single 2nd degree reinterpretation is "further away" than many 1st degree reinterpretations.)
- *
- * Degrees of reinterpretation (to be thought of as degrees of "distance"):
- * 0: Argument and receiver have the exact same type
- * 1: Argument and receiver have equivalent types (according to narrowing/widening type rules)
- * 2: Argument can be implicitly converted to the receiver's type (e.g. Int -> Long)
- * 3: Argument can be transformed via implicit operation to the receiver's type (e.g. implicit referencing)
- *
- * Note: This function doesn't generate compiler errors; if no match is found null is returned.
- */
-const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntitySymbol* entitySymbol,
-                                         const std::vector<TxExpressionNode*>* arguments, bool printCandidates=false );
-
-/** Attempts to resolve a constructor, that is potentially overloaded, for the specified type.
+/** Resolve a constructor, that is potentially overloaded, for the specified type.
+ * Generates error and throws resolution exception if not successful.
  */
 const TxFieldDeclaration* resolve_constructor( TxExpressionNode* origin, const TxActualType* allocType,
                                                const std::vector<TxExpressionNode*>* arguments );

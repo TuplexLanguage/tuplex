@@ -40,18 +40,15 @@ type ~ SubType derives BaseType {
     tup : ~MultiType;
 
     self( memb : Int ) {
-        self.tup.imember = memb;
-        self.instmember = -1;
+        #init: instmember( -1 ), tup( memb );
     }
 
     self( init : MultiType ) {
-        self.tup = init;
-        self.instmember = -1;
+        #init: instmember( -1 ), tup( init.imember );
     }
 
     self() {
-        self.tup.imember = MULTI;
-        self.instmember = -1;
+        #init: instmember( -1 ), tup( MULTI );
     }
 
     get_imember() -> Int {
@@ -173,7 +170,7 @@ outerfunctest() {
 }
 
 main()->Int {
-    init : ~BaseType.MultiType;
+    init := ~BaseType.MultiType( 0 );
     init.imember = 3;
 
     subvar := SubType();

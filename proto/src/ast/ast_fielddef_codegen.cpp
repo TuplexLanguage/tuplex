@@ -76,7 +76,7 @@ void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenSco
     }
     this->field()->set_llvm_value( fieldPtrV );
 
-    // Create a debug descriptor for the argument variable:
+    // Create a debug descriptor for the variable:
     auto pos = this->get_declaration()->get_definer()->ploc.begin;
     DILocalVariable *argVarD = context.debug_builder()->createAutoVariable(
             scope->debug_scope(), this->field()->get_unique_name(), this->get_parser_context()->debug_file(),

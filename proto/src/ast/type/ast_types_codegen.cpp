@@ -59,6 +59,9 @@ void TxDerivedTypeNode::inner_code_gen_type( LlvmGenerationContext& context ) co
         this->superRefTypeNode->code_gen( context );
     for ( auto member : *this->members )
         member->code_gen( context );
+
+    for ( auto implConstr : this->qtype()->get_implicit_constructors() )
+        implConstr->code_gen( context );
 }
 
 void TxDerivedTypeNode::code_gen_type( LlvmGenerationContext& context ) const {

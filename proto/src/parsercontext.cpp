@@ -6,18 +6,19 @@
 #include "llvm_generator.hpp"
 #include "tx_lang_defs.hpp"
 
-static std::string format_location( const TxLocation& ploc ) {
+
+std::string format_location( const TxLocation& ploc ) {
     const size_t bufSize = 256;
     char buf[bufSize];
     auto filename = ploc.begin.filename ? ploc.begin.filename->c_str() : "";
     if ( ploc.begin.line == ploc.end.line ) {
         int lcol = ( ploc.end.column > ploc.begin.column ) ? ploc.end.column : ploc.end.column;
-        snprintf( buf, bufSize, "%s %2d.%2d-%2d", filename,
+        snprintf( buf, bufSize, "%s %2d.%-2d-%2d", filename,
                   ploc.begin.line,
                   ploc.begin.column, lcol );
     }
     else
-        snprintf( buf, bufSize, "%s %2d.%2d-%2d.%2d", filename,
+        snprintf( buf, bufSize, "%s %2d.%-2d-%2d.%-2d", filename,
                   ploc.begin.line,
                   ploc.begin.column,
                   ploc.end.line,

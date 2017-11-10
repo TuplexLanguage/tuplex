@@ -127,8 +127,8 @@ const TxFieldDeclaration* TxScopeSymbol::declare_field( const std::string& plain
                                                         TxDeclarationFlags declFlags,
                                                         TxFieldStorage storage,
                                                         const TxIdentifier& dataspace ) {
-    ASSERT( !is_internal_name( plainName ) || ( declFlags & ( TXD_IMPLICIT | TXD_CONSTRUCTOR | TXD_INITIALIZER ) ),
-            "Mismatch between name format and IMPLICIT flag for field declaration " << plainName );
+//    ASSERT( !is_internal_name( plainName ) || ( declFlags & ( TXD_IMPLICIT | TXD_CONSTRUCTOR | TXD_INITIALIZER ) ),
+//            "Mismatch between name format and IMPLICIT flag for field declaration " << plainName );
 
     TxEntitySymbol* entitySymbol = this->declare_entity( plainName, fieldDefiner );
     auto fieldDeclaration = new TxFieldDeclaration( entitySymbol, declFlags, fieldDefiner, storage, dataspace );

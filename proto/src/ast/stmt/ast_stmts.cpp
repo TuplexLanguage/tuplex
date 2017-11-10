@@ -3,8 +3,115 @@
 #include "ast_panicstmt_node.hpp"
 #include "ast/expr/ast_lambda_node.hpp"
 #include "ast/expr/ast_constexpr.hpp"
+#include "ast/expr/ast_field.hpp"
+#include "ast/expr/ast_ref.hpp"
 #include "parsercontext.hpp"
 
+
+void TxFieldStmtNode::stmt_declaration_pass() {
+    this->successorScope = lexContext.scope()->create_code_block_scope( *this );
+    this->fieldDef->declare_field( this->successorScope, this->declFlags, TXS_STACK );
+    // (to prevent init expr from referencing this field, it is processed in the 'outer' scope, not in the new block scope)
+}
+
+void TxFieldStmtNode::verification_pass() const {
+    if ( !this->fieldDef->initExpression ) {
+        // TODO: Allow implicit initialization if type has default constructor?
+        // FUTURE: instead check that TXS_STACK fields are initialized before first use?
+        CERROR( this, "Field has no initializer: " << this->fieldDef->get_descriptor() );
+    }
+}
+
+TxSelfSuperFieldsStmtNode::TxSelfSuperFieldsStmtNode( const TxLocation& ploc )
+        : TxStatementNode( ploc ), selfRefNode(), superRefNode() {
+}
+
+void TxSelfSuperFieldsStmtNode::stmt_declaration_pass() {
+    bool modifying = this->context().enclosing_lambda()->funcHeaderNode->is_modifying();
+
+    // 'self' reference:
+    auto selfTypeNode = new TxNamedTypeNode( this->ploc, "Self" );
+    auto selfRefTargetTypeNode = new TxSetQualTypeExprNode( this->ploc, selfTypeNode, modifying );
+    auto selfRefTypeExprN = new TxQualTypeExprNode( new TxReferenceTypeNode( this->ploc, nullptr, selfRefTargetTypeNode ) );
+    this->selfRefNode = new TxLocalFieldDefNode( this->ploc, new TxIdentifierNode( this->ploc, "self" ), selfRefTypeExprN, nullptr );
+
+    // 'super' reference
+    auto superTypeNode = new TxNamedTypeNode( this->ploc, "Super" );
+    auto superRefTargetTypeNode = new TxSetQualTypeExprNode( this->ploc, superTypeNode, modifying );
+    auto superRefTypeExprN = new TxQualTypeExprNode( new TxReferenceTypeNode( this->ploc, nullptr, superRefTargetTypeNode ) );
+    this->superRefNode = new TxLocalFieldDefNode( this->ploc, new TxIdentifierNode( this->ploc, "super" ), superRefTypeExprN, nullptr );
+
+    this->selfRefNode->declare_field( context().scope(), TXD_NONE, TXS_STACK );
+    this->superRefNode->declare_field( context().scope(), TXD_NONE, TXS_STACK );
+}
+
+static TxMemProviderNode* make_member_expr( TxIdentifierNode* identifier ) {
+    if ( identifier->ident() == "self" || identifier->ident() == "super" )
+        return new TxInPlaceAllocNode( identifier->ploc,
+                                       new TxReferenceDerefNode( identifier->ploc,
+                                                                 new TxFieldValueNode( identifier->ploc, nullptr, identifier ) ) );
+    else
+        return new TxInPlaceAllocNode( identifier->ploc,
+                                       new TxFieldValueNode( identifier->ploc,
+                                                             new TxFieldValueNode( identifier->ploc, "self" ), identifier ) );
+}
+
+TxMemberInitNode::TxMemberInitNode( const TxLocation& ploc, TxFunctionCallNode* constructorCallExpr )
+        : TxStatementNode( ploc ), constructorCallExpr( constructorCallExpr ) {
+}
+
+TxMemberInitNode::TxMemberInitNode( const TxLocation& ploc, TxIdentifierNode* identifier, const std::vector<TxExpressionNode*>* argsExprList )
+        : TxMemberInitNode( ploc, new TxFunctionCallNode(
+                ploc, new TxConstructorCalleeExprNode( ploc, make_member_expr( identifier ) ), argsExprList ) ) {
+}
+
+TxInitStmtNode::TxInitStmtNode( const TxLocation& ploc, std::vector<TxMemberInitNode*>* initClauseList )
+        : TxStatementNode( ploc ), selfSuperStmt( new TxSelfSuperFieldsStmtNode( ploc ) ), initClauseList( initClauseList )  {
+//    // 'self' and 'super' are valid as of this statement, and are initialized with '$self' and '$super'
+//    this->selfRefNode  = new TxLocalFieldDefNode( this->ploc, new TxIdentifierNode( this->ploc, "self" ),
+//                                                  new TxFieldValueNode( this->ploc, "$self" ), false );
+//    this->superRefNode = new TxLocalFieldDefNode( this->ploc, new TxIdentifierNode( this->ploc, "super" ),
+//                                                  new TxFieldValueNode( this->ploc, "$super" ), false );
+
+//    // 'self' and 'super' are valid as of this statement
+//    // 'self' reference:
+//    auto selfTypeNode = new TxNamedTypeNode( this->ploc, "Self" );
+//    auto selfRefTargetTypeNode = new TxFlexModTypeExprNode( this->ploc, selfTypeNode );
+//    auto selfRefTypeExprN = new TxQualTypeExprNode( new TxReferenceTypeNode( this->ploc, nullptr, selfRefTargetTypeNode ) );
+//    this->selfRefNode = new TxLocalFieldDefNode( this->ploc, new TxIdentifierNode( this->ploc, "self" ), selfRefTypeExprN, nullptr );
+//
+//    // 'super' reference
+//    auto suppressSuper = false; // FIXME
+//    if ( !suppressSuper ) {
+//        auto superTypeNode = new TxNamedTypeNode( this->ploc, "Super" );
+//        auto superRefTargetTypeNode = new TxFlexModTypeExprNode( this->ploc, superTypeNode );
+//        auto superRefTypeExprN = new TxQualTypeExprNode( new TxReferenceTypeNode( this->ploc, nullptr, superRefTargetTypeNode ) );
+//        this->superRefNode = new TxLocalFieldDefNode( this->ploc, new TxIdentifierNode( this->ploc, "super" ), superRefTypeExprN, nullptr );
+//    }
+}
+
+TxInitStmtNode::TxInitStmtNode( const TxLocation& ploc, std::vector<TxExpressionNode*>* argsExprList )
+        : TxInitStmtNode( ploc, new std::vector<TxMemberInitNode*>( {
+                new TxMemberInitNode( ploc, new TxIdentifierNode( ploc, "self" ), argsExprList )
+            } ) ) {
+}
+
+TxInitStmtNode::TxInitStmtNode( const TxLocation& ploc )
+        : TxInitStmtNode( ploc, new std::vector<TxMemberInitNode*>( {} ) ) {
+}
+
+void TxInitStmtNode::stmt_declaration_pass() {
+    // sets the new scope containing 'self' and 'super' both for
+    // sub-statements (the initializer list) and successor statements
+    this->lexContext._scope = lexContext.scope()->create_code_block_scope( *this );
+    this->successorScope = this->lexContext._scope;
+}
+
+void TxInitStmtNode::verification_pass() const {
+    if ( !this->context().enclosing_lambda()->get_constructed() ) {
+        CERROR( this, "Initializer / constructor invocation statements may not be used in non-constructor functions" );
+    }
+}
 
 void TxReturnStmtNode::resolution_pass() {
     // TODO: Illegal to return reference to STACK dataspace
@@ -46,75 +153,29 @@ void TxAssignStmtNode::resolution_pass() {
 
 void TxAssignStmtNode::verification_pass() const {
     // note: similar rules to passing function arg
-    auto ltype = this->lvalue->qtype();
-    if ( ltype->get_type_class() == TXTC_ARRAY ) {
-        // special check since we allow assignment between arrays of different capacities (i.e. sizes)
-        verify_array_assignment( this, ltype.type(), this->rvalue->qtype().type() );
-    }
-    else if ( is_not_properly_concrete( this, ltype ) ) {
-        CERROR( this->lvalue, "Assignee is not concrete: " << ltype );
+    if ( auto ltype = this->lvalue->attempt_qtype() ) {
+        if ( ltype->get_type_class() == TXTC_ARRAY ) {
+            // special check since we allow assignment between arrays of different capacities (i.e. sizes)
+            verify_array_assignment( this, ltype.type(), this->rvalue->qtype().type() );
+        }
+        else if ( is_not_properly_concrete( this, ltype ) ) {
+            CERROR( this->lvalue, "Assignee is not concrete: " << ltype );
+        }
     }
 
-//    if ( ltype->get_type_class() != TXTC_ELEMENTARY
-//            && ltype->get_type_class() != TXTC_REFERENCE
-//            && ltype->get_type_class() != TXTC_FUNCTION ) {
-//        CERROR( this->lvalue, "Assignee is not Elementary / Reference / Function: " << ltype );
-//    }
-
-    if ( !( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() ) ) {
-        // TODO: only members of constructed object should skip error
+    auto enclLambda = this->context().enclosing_lambda();
+    if ( !( enclLambda && enclLambda->get_constructed()
+            && ( enclLambda->get_field_def_node()->get_declaration()->get_decl_flags() & ( TXD_IMPLICIT | TXD_BUILTIN ) ) ) ) {
+        // only statements of the built-in and implicit constructors (initializers) may ignore non-modifiability
         if ( !lvalue->is_mutable() ) {
-            // error message already generated
+            // Note, error message already generated
             //CERROR( this, "Assignee or assignee's container is not modifiable (nominal type of assignee is " << ltype << ")" );
         }
-
-        // TODO: We don't want aggregate object assignment to violate potential immutability of members.
-        //       So this assignment should only support Elementary and Ref types,
-        //       and assignment to aggregates is only allowed via user-defined methods.
-        //       How do we support it efficiently for arrays (of mutable elements)?
     }
 
     // if assignee is a reference:
     // TODO: check dataspace rules
 }
-
-//void TxArrayCopyStmtNode::resolution_pass() {
-//    // This implementation relaxes the auto-conversion check to allow assignment of arrays with unknown C.
-//    // We only handle auto-dereferencing of the rvalue:
-//    auto ltype = this->lvalue->resolve_type( TXP_RESOLUTION );
-//    auto rtype = this->rvalue->originalExpr->resolve_type( TXP_RESOLUTION );
-//    if ( rtype->get_type_class() == TXTC_REFERENCE )
-//        this->rvalue->insert_conversion( TXP_RESOLUTION, rtype->target_type() );
-//    else
-//        this->rvalue->resolve_type( TXP_RESOLUTION );
-//}
-//
-//void TxArrayCopyStmtNode::verification_pass() const {
-//    auto ltype = this->lvalue->qtype();
-//    auto rtype = this->rvalue->qtype();
-//
-//    if ( ltype->get_type_class() != TXTC_ARRAY )
-//        CERROR( this->lvalue, "Assignee is not an array: " << ltype );
-//    if ( rtype->get_type_class() != TXTC_ARRAY )
-//        CERROR( this->rvalue, "Assigned value is not an array: " << rtype );
-//
-//    // special concreteness check since we allow assignment between arrays of different capacities (i.e. sizes)
-//    if ( ltype->is_type_generic() ) {
-//        if ( !this->context().is_generic() && !ltype->is_generic_param() )
-//            CERROR( this->lvalue, "Assignee is not a specific array type: " << ltype );
-//        else
-//            LOG_DEBUG( this->LOGGER(), this << " " << this->context().scope()
-//                       << " (Not error since generic context) Assignee is not a specific array type: " << ltype );
-//    }
-//
-//    if ( !( this->context().enclosing_lambda() && this->context().enclosing_lambda()->get_constructed() ) ) {
-//        // TODO: only members of constructed object should skip error
-//        if ( !lvalue->is_mutable() ) {
-//            // error message already generated
-//            //CERROR( this, "Assignee or assignee's container is not modifiable (nominal type of assignee is " << ltype << ")" );
-//        }
-//    }
-//}
 
 void TxExpErrStmtNode::stmt_declaration_pass() {
     //this->lexContext._scope = lexContext.scope()->create_code_block_scope( *this, "EE" );

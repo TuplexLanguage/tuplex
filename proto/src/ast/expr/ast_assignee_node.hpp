@@ -13,10 +13,11 @@ public:
     virtual TxAssigneeNode* make_ast_copy() const override = 0;
 
     bool is_mutable() const {
-        auto qtype = this->qtype();
-        if ( !qtype.is_modifiable() && !qtype->is_generic_param() ) {
-            CERROR( this, "Assignee is not modifiable: " << qtype );
-            return false;
+        if ( auto qtype = this->attempt_qtype() ) {
+            if ( !qtype.is_modifiable() && !qtype->is_generic_param() ) {
+                CERROR( this, "Assignee is not modifiable: " << qtype );
+                return false;
+            }
         }
         if ( auto origin = this->get_data_graph_origin_expr() )
             return origin->check_chain_mutable();

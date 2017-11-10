@@ -163,6 +163,8 @@ Improved FFI support
 
 Change keyword from 'virtual' to 'static'
 
+Number parsing functions atou() atoi() atof()
+
 
 ========= MILESTONE ==========
 
@@ -193,6 +195,9 @@ Support method overloading for closure-modifying (and not) methods
  - allow for loops to select sequencer()~ for mutable seq's
 
 Auto-conversion of array initialization elements (literals; also from sequences?)
+
+Review array mutability vs element mutability handling
+ - avoid inconsistency between them such as: ~Array<UByte>
 
 Let nested array assignment statements support implicit initialization of assignee's outer array elements, e.g:
     aaa : ~[4][4][4]UByte;  aaa[0][0][0] = 17;
@@ -276,6 +281,15 @@ Implement advanced debugging info
 
 break and continue out of nested loops
 
+Support named member initialization, along with nested initializers for members that are of composite types
+    - this prevents excessive copying-by-value for large members
+    type Foo {
+        num : Int;
+        pair : Pair;
+        self() {  #init( 2, ( "foo", "bar ) ); }         ## invokes Pair constructor in-place
+        self() {  #init: num(2), pair( "foo", "bar ); }  ## invokes Pair constructor in-place
+    }
+
 Implement implicit static initializer function for types' static members and static code
 
 Shared objects
@@ -283,6 +297,8 @@ Shared objects
 Union typeclass
 
 Enum typeclass
+
+Switch-like statements
 
 Support non-constant static initializers (i.e. executed before main())
 

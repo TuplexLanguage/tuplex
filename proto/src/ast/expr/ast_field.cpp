@@ -48,8 +48,8 @@ int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxActualT
     return -1;  // does not match
 }
 
-const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntitySymbol* entitySymbol,
-                                         const std::vector<TxExpressionNode*>* arguments, bool printCandidates ) {
+static const TxFieldDeclaration* inner_resolve_field( const TxExpressionNode* origin, TxEntitySymbol* entitySymbol,
+                                                      const std::vector<TxExpressionNode*>* arguments, bool printCandidates ) {
     if ( !arguments ) {
         if ( entitySymbol->field_count() == 1 )
             return entitySymbol->get_first_field_decl();
@@ -155,29 +155,55 @@ const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntit
     return nullptr;
 }
 
-
-static const TxActualType* get_construction_type( const TxActualType* allocType ) {
-    // here we need to ensure it is integrated in order to check derivation and base type
-    while ( allocType->is_same_instance_type() || allocType->is_pure_value_specialization() ) {
-        allocType = allocType->get_base_type();
+/** Attempts to resolve an identified entity symbol, that is potentially overloaded,
+ * to a specific field by matching with the provided arguments' types.
+ * The closest matching, valid field is picked. If no field matched, NULL is returned.
+ * If a field was matched, and implicit conversions were needed for any arguments,
+ * those conversions are inserted for those arguments within this call.
+ *
+ * All included fields that have the matching number of arguments and compatible argument types are candidates.
+ * Candidate selection is done by counting the number and degree of argument reinterpretations necessary to match it.
+ * (A single 2nd degree reinterpretation is "further away" than many 1st degree reinterpretations.)
+ *
+ * Degrees of reinterpretation (to be thought of as degrees of "distance"):
+ * 0: Argument and receiver have the exact same type
+ * 1: Argument and receiver have equivalent types (according to narrowing/widening type rules)
+ * 2: Argument can be implicitly converted to the receiver's type (e.g. Int -> Long)
+ * 3: Argument can be transformed via implicit operation to the receiver's type (e.g. implicit referencing)
+ *
+ * Generate compiler error and throws resolution exception if unsuccessful.
+ */
+static const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, TxEntitySymbol* entitySymbol,
+                                                const std::vector<TxExpressionNode*>* arguments ) {
+    if ( auto fieldDecl = inner_resolve_field( origin, entitySymbol, arguments, false ) ) {
+        return fieldDecl;
     }
-    return allocType;
+    else if ( arguments ) {
+        // ensure arguments are resolved (doing it here ensures sensible signatures in error messages)
+        for ( auto argNode : *arguments )
+            argNode->resolve_type( TXP_RESOLUTION );
+        inner_resolve_field( origin, entitySymbol, arguments, true );
+        CERR_THROWRES( origin, entitySymbol->get_full_name() << " could not be resolved with args: "
+                       << entitySymbol->get_full_name() << "(" << join( attempt_typevec( arguments ), ", ") << ")" );
+    }
+    else
+        CERR_THROWRES( origin, entitySymbol->get_full_name() << " could not be resolved to a distinct field: "
+                       << entitySymbol->get_full_name() );
 }
 
 const TxFieldDeclaration* resolve_constructor( TxExpressionNode* origin, const TxActualType* allocType,
                                                const std::vector<TxExpressionNode*>* appliedFuncArgs ) {
-    // constructors aren't inherited, except for empty and VALUE derivations
-    auto constructionBaseType = get_construction_type( allocType );
-    auto constrMember = lookup_member( origin->context().scope(), constructionBaseType->get_declaration()->get_symbol(), CONSTR_IDENT );
+    // constructors aren't inherited, except for certain empty and VALUE derivations:
+    auto constructionType = allocType->get_construction_type();
+    auto constrMember = lookup_member( origin->context().scope(), constructionType->get_declaration()->get_symbol(), CONSTR_IDENT );
     if ( auto constructorSymbol = dynamic_cast<TxEntitySymbol*>( constrMember ) ) {
-        if ( auto constructorDecl = resolve_field( origin, constructorSymbol, appliedFuncArgs ) ) {
-            //std::cerr << "Resolved constructor " << constructorDecl << ": " << constructorDecl->get_definer()->qualtype() << " at " << origin << std::endl;
-            ASSERT( constructorDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ),
-                    "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );
-            return constructorDecl;
-        }
+        auto constructorDecl = resolve_field( origin, constructorSymbol, appliedFuncArgs );
+        //std::cerr << "Resolved constructor " << constructorDecl << ": " << constructorDecl->get_definer()->qualtype() << " at " << origin << std::endl;
+        ASSERT( constructorDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ),
+                "field named " CONSTR_IDENT " is not flagged as TXD_CONSTRUCTOR or TXD_INITIALIZER: " << constructorDecl->str() );
+        return constructorDecl;
     }
-    return nullptr;
+    CERR_THROWRES( origin, "No constructor '" << CONSTR_IDENT << "' found in type " << allocType );
 }
 
 
@@ -226,20 +252,8 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
         if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( symbol ) ) {
             // if symbol can be resolved to actual field, then do so
             if ( entitySymbol->field_count() ) {
-                if ( auto fieldDecl = resolve_field( this, entitySymbol, this->appliedFuncArgs ) ) {
-                    this->declaration = fieldDecl;
-                    return this->declaration;
-                }
-                else {
-                    if ( this->appliedFuncArgs ) {
-                        resolve_field( this, entitySymbol, this->appliedFuncArgs, true );
-                        CERR_THROWRES( this, entitySymbol->get_full_name() << " could not be resolved with args: "
-                                       << this->get_full_identifier() << "(" << join( attempt_typevec( this->appliedFuncArgs ), ", ") << ")" );
-                    }
-                    else
-                        CERR_THROWRES( this, entitySymbol->get_full_name() << " could not be resolved to a distinct field: "
-                                       << this->get_full_identifier() );
-                }
+                this->declaration = resolve_field( this, entitySymbol, this->appliedFuncArgs );
+                return this->declaration;
             }
 
             // if symbol is a type, and arguments are applied, and they match a constructor, then resolve to that constructor
@@ -247,13 +261,9 @@ const TxEntityDeclaration* TxFieldValueNode::resolve_decl() {
                 if ( this->appliedFuncArgs ) {
                     auto allocType = typeDecl->get_definer()->resolve_type( TXP_RESOLUTION );
                     // find the constructor (note, constructors aren't inherited):
-                    if ( auto constructorDecl = resolve_constructor( this, allocType.type(), this->appliedFuncArgs ) ) {
-                        this->declaration = constructorDecl;
-                        this->constructedType = allocType.type();
-                        return this->declaration;
-                    }
-                    CERR_THROWRES( this,"No matching constructor in type " << allocType
-                                   << " for args (" << join( attempt_typevec( this->appliedFuncArgs ), ", ") << ")" );
+                    this->declaration = resolve_constructor( this, allocType.type(), this->appliedFuncArgs );
+                    this->constructedType = allocType.type();
+                    return this->declaration;
                 }
                 else {
                     // resolve this symbol to its type

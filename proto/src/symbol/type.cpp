@@ -12,6 +12,14 @@
 #include "ast/expr/ast_constexpr.hpp"
 #include "ast/expr/ast_conv.hpp"
 
+#include "ast/expr/ast_lambda_node.hpp"
+#include "ast/expr/ast_field.hpp"
+#include "ast/type/ast_types.hpp"
+#include "ast/stmt/ast_stmts.hpp"
+#include "ast/ast_wrappers.hpp"
+#include "ast/ast_declpass.hpp"
+
+
 bool DataTupleDefinition::add_interface_fields( const DataTupleDefinition& interfaceFields ) {
     bool added = false;
     for ( auto & f : interfaceFields.fields ) {
@@ -209,26 +217,32 @@ void TxActualType::examine_members() {
                 }
                 else if ( fieldDecl->get_decl_flags() & TXD_IMPLICIT )
                     hasImplicitFieldMembers = true;
+                else if ( fieldDecl->get_decl_flags() & TXD_EXPERROR )
+                    continue;
                 else
                     hasExplicitFieldMembers = true;
+
+                if ( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ) {
+                    //std::cerr << "storage of constr/init: " << fieldDecl << " " << fieldDecl->get_storage() << std::endl;
+                    this->constructors.push_back( fieldDecl );
+                    continue;
+                }
 
                 switch ( fieldDecl->get_storage() ) {
                 case TXS_INSTANCE:
                     // Note: VALUE bindings are only declared as instance members in generic base type,
-                    // so that they are not "extensions" to the specialized subtypes.
+                    // i.e. TXD_GENBINDING refers to a field already declared in a parent type,
+                    // so they do not constitute "extensions" to the specialized subtypes.
                     if ( !( fieldDecl->get_decl_flags() & TXD_GENBINDING ) ) {
                         this->modifiesInstanceDatatype = true;
+                        this->instanceFieldsToInitialize.push_back( fieldDecl );
                     }
                     break;
                 case TXS_INSTANCEMETHOD:
-                    if ( fieldDecl->get_decl_flags() & TXD_CONSTRUCTOR )
-                        break;
-                    // no break
                 case TXS_VIRTUAL:
                     this->modifiesVTable = true;
                     break;
-                    // note: TXS_STATIC members are private, and like globals but with limited visibility,
-                    // and don't affect the derivation degree.
+                // (TXS_STATIC are like globals but within a type namespace and don't affect the derivation degree)
                 default:
                     break;
                 }
@@ -335,7 +349,202 @@ void TxActualType::integrate() {
             const_cast<TxActualType*>( bindingDecl->get_definer()->resolve_type( TXP_RESOLUTION ).type() )->integrate();
         }
 
+        this->autogenerate_constructors();
+
         this->validate_type();
+    }
+}
+
+bool TxActualType::is_construction_type() const {
+    return !( this->constructors.empty()
+              && ( this->is_same_instance_type() || this->is_pure_value_specialization() ) );
+}
+
+const TxActualType* TxActualType::get_construction_type() const {
+    ASSERT( this->hasIntegrated, "Can't get construction type of unintegrated type " << this->get_declaration() );
+    auto allocType = this;
+    while ( !allocType->is_construction_type() )
+        allocType = allocType->get_base_type();
+    return allocType;
+}
+
+/*
+static TxFieldDeclNode* generate_constructor_ast( const TxLocation& loc, const TxFieldDeclaration* baseConstructor,
+                                                  std::vector<const TxFieldDeclaration*>& initializerArgs,
+                                                  const std::string& initializerName ) {
+    auto argNodes = new std::vector<TxArgTypeDefNode*>();
+    auto superInitArgs = new std::vector<TxExpressionNode*>();
+    auto statements = new std::vector<TxStatementNode*>();
+
+    if ( baseConstructor ) {
+        ASSERT( dynamic_cast<TxLambdaExprNode*>( baseConstructor->get_definer()->initExpression->originalExpr ),
+                "Not lambda node: " << baseConstructor->get_definer()->initExpression->originalExpr );
+        auto baseConstrLambdaNode = static_cast<TxLambdaExprNode*>( baseConstructor->get_definer()->initExpression->originalExpr );
+        for ( auto baseArgDeclNode : *baseConstrLambdaNode->funcHeaderNode->arguments ) {
+            auto argName = "sup$" + baseArgDeclNode->fieldName->ident();
+            auto argType = new TxTypeExprWrapperNode( baseArgDeclNode );
+            argNodes->push_back( new TxArgTypeDefNode( loc, argName, argType ) );
+
+            superInitArgs->push_back( new TxFieldValueNode( loc, argName ) );
+        }
+        auto superInitCall = new TxFunctionCallNode( loc, new TxFieldValueNode( loc, "$super" ), superInitArgs );
+        statements->push_back( new TxCallStmtNode( loc, superInitCall ) );
+    }
+
+    for ( auto initFieldDecl : initializerArgs ) {
+        auto argName = initFieldDecl->get_unique_name();
+        auto assigneeNode = new TxFieldAssigneeNode(
+                loc, new TxFieldValueNode( loc, new TxFieldValueNode( loc, "$self" ),
+                                           new TxIdentifierNode( loc, argName ) ) );
+
+        if ( initFieldDecl->get_definer()->initExpression ) {
+            // direct assignment (instance field has a constant initializer expression)
+            statements->push_back( new TxAssignStmtNode( loc, assigneeNode,
+                                                          new TxExprWrapperNode( initFieldDecl->get_definer()->initExpression ) ) );
+        }
+        else {
+            auto argType = new TxTypeExprWrapperNode( initFieldDecl->get_definer() );
+            argNodes->push_back( new TxArgTypeDefNode( loc, argName, argType ) );
+            statements->push_back( new TxAssignStmtNode( loc, assigneeNode,
+                                                          new TxFieldValueNode( loc, argName ) ) );
+        }
+    }
+
+    auto constrType = new TxFunctionTypeNode( loc, false, argNodes, nullptr );
+    auto lambdaExpr = new TxLambdaExprNode( loc, constrType, new TxSuiteNode( loc, statements ), true );
+    auto constrDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_IMPLICIT | TXD_CONSTRUCTOR,
+                                           new TxNonLocalFieldDefNode( loc, new TxIdentifierNode( loc, initializerName ),
+                                                                       lambdaExpr, false ),
+                                           true );  // method syntax since constructor
+    return constrDecl;
+}
+*/
+
+/** Creates an AST sub-tree that declares and defines an implicit constructor for the given base type constructor
+ * and instance fields to initialize.
+ */
+static TxFieldDeclNode* generate_constructor_ast( const TxLocation& loc, const TxFieldDeclaration* baseConstructor,
+                                                  std::vector<const TxFieldDeclaration*>& instanceFieldsToInitialize ) {
+    auto argNodes = new std::vector<TxArgTypeDefNode*>();
+    auto superInitArgs = new std::vector<TxExpressionNode*>();
+    auto initClauseList = new std::vector<TxMemberInitNode*>();
+
+    if ( baseConstructor ) {
+        ASSERT( dynamic_cast<TxLambdaExprNode*>( baseConstructor->get_definer()->initExpression->originalExpr ),
+                "Not lambda node: " << baseConstructor->get_definer()->initExpression->originalExpr );
+        auto baseConstrLambdaNode = static_cast<TxLambdaExprNode*>( baseConstructor->get_definer()->initExpression->originalExpr );
+        for ( auto baseArgDeclNode : *baseConstrLambdaNode->funcHeaderNode->arguments ) {
+            auto argName = "sup$" + baseArgDeclNode->fieldName->ident();
+            auto argType = new TxTypeExprWrapperNode( baseArgDeclNode );
+            argNodes->push_back( new TxArgTypeDefNode( loc, argName, argType ) );
+
+            superInitArgs->push_back( new TxFieldValueNode( loc, argName ) );
+        }
+        initClauseList->push_back( new TxMemberInitNode( loc, new TxIdentifierNode( loc, "super" ), superInitArgs ) );
+    }
+
+    for ( auto instanceFieldDecl : instanceFieldsToInitialize ) {
+        auto argName = instanceFieldDecl->get_unique_name();
+
+        if ( instanceFieldDecl->get_definer()->initExpression ) {
+            // direct assignment (instance field has a constant initializer expression)
+            auto initExpr = new TxExprWrapperNode( instanceFieldDecl->get_definer()->initExpression );
+            initClauseList->push_back( new TxMemberInitNode( loc, new TxIdentifierNode( loc, argName ),
+                                                             new std::vector<TxExpressionNode*>( { initExpr } ) ) );
+        }
+        else {
+            argNodes->push_back( new TxArgTypeDefNode( loc, argName,
+                                                       new TxTypeExprWrapperNode( instanceFieldDecl->get_definer() ) ) );
+            initClauseList->push_back( new TxMemberInitNode( loc, new TxIdentifierNode( loc, argName ),
+                                                             new std::vector<TxExpressionNode*>(
+                                                                     { new TxFieldValueNode( loc, argName ) } ) ) );
+        }
+    }
+
+    auto constrBody = new TxSuiteNode( loc, new std::vector<TxStatementNode*>( { new TxInitStmtNode( loc, initClauseList ) } ) );
+    auto constrType = new TxFunctionTypeNode( loc, false, argNodes, nullptr );
+    auto lambdaExpr = new TxLambdaExprNode( loc, constrType, constrBody, true );
+    auto constrDecl = new TxFieldDeclNode( loc, TXD_PUBLIC | TXD_IMPLICIT | TXD_CONSTRUCTOR,
+                                           new TxNonLocalFieldDefNode( loc, new TxIdentifierNode( loc, CONSTR_IDENT ),
+                                                                       lambdaExpr, false ),
+                                           true );  // method syntax since constructor
+    return constrDecl;
+}
+
+void TxActualType::autogenerate_constructors() {
+    const TxLocation& loc = this->get_declaration()->get_definer()->ploc;
+
+    // If this type has no explicit constructors,
+    // and all its instance fields that lack a direct initializer have a copy constructor,
+    // auto-generate constructors that takes a copy-by-value initializer for each parent
+    // constructor argument and current type instance member.
+
+    if ( this->get_type_class() != TXTC_TUPLE
+         && this->get_type_class() != TXTC_ARRAY
+         && this->get_type_class() != TXTC_ELEMENTARY ) {
+        return;
+    }
+    if ( !this->is_construction_type() )
+        return;
+    if ( !this->constructors.empty() )
+        return;
+
+    for ( auto instanceFieldDecl : instanceFieldsToInitialize ) {
+        if ( !instanceFieldDecl->get_definer()->initExpression ) {
+            // check if instance field has a constructor that accepts a single argument of its own type
+            bool hasCopyConstructor = false;
+            auto fieldType = instanceFieldDecl->get_definer()->resolve_type( TXP_TYPE );
+            for ( auto fieldConstr : fieldType->constructors ) {
+                auto constrType = fieldConstr->get_definer()->resolve_type( TXP_TYPE );
+                if ( constrType->argument_types().size() == 1 ) {
+//                auto fieldConstrLambda = static_cast<TxLambdaExprNode*>( fieldConstr->get_definer()->initExpression->originalExpr );
+//                if ( fieldConstrLambda->funcHeaderNode->arguments->size() == 1 ) {
+//                    if ( *fieldConstrLambda->funcHeaderNode->arguments->at(0)->typeExpression->qtype().type() == *fieldType ) {
+                    if ( *constrType->argument_types().at(0) == *fieldType ) {
+                        hasCopyConstructor = true;  // this is a copy constructor
+                        break;
+                    }
+                }
+            }
+            if ( !hasCopyConstructor ) {
+                // can't auto-generate constructor
+                std::cerr << "Can't auto-generate constructor since field type has no copy constructor: " << instanceFieldDecl << std::endl;
+                return;
+            }
+        }
+    }
+
+//    ASSERT( this->runtimeTypeId == TXBT_TUPLE || dynamic_cast<TxDerivedTypeNode*>( this->get_declaration()->get_definer() ),
+//            "Unexpected type definer node type for: " << this << " : " << this->get_declaration()->get_definer() );
+//
+//    // Auto-generate the basic initializer(s):
+//    // for each constructor of the base type (or its initializer if it has no user-defined constructors):
+//    // - takes the arguments of the base type's constructor as its first arguments
+//    // - appends all the current type's instance members (that don't have direct initializers) as arguments
+//
+//    // If no explicit constructor is provided, the initializers will be public, otherwise private.
+//    const bool noExplConstr = this->constructors.empty();
+//    const std::string initName = ( noExplConstr ? CONSTR_IDENT : INIT_IDENT );
+
+    if ( this->get_base_type()->constructors.empty() ) {
+        if ( this->instanceFieldsToInitialize.empty() && this->is_abstract() ) {
+            // skips some built-in abstract types (e.g. Scalar)
+            //std::cerr << "SKIPPING " << this << std::endl;
+            return;
+        }
+        auto constrDecl = generate_constructor_ast( loc, nullptr, this->instanceFieldsToInitialize );
+        this->implicitConstructorNodes.push_back( constrDecl );
+    }
+    else {
+        for ( auto baseConstructor : this->get_base_type()->constructors ) {
+            auto constrDecl = generate_constructor_ast( loc, baseConstructor, this->instanceFieldsToInitialize );
+            this->implicitConstructorNodes.push_back( constrDecl );
+        }
+    }
+
+    for ( auto implConstructor : this->implicitConstructorNodes ) {
+        run_declaration_pass( implConstructor, this->get_declaration()->get_definer(), "impl-constr" );
+        this->constructors.push_back( implConstructor->get_declaration() );
     }
 }
 
@@ -603,7 +812,7 @@ static const TxActualType* isa_concrete_type( const TxActualType* type ) {
         return nullptr;
     if ( has_nonref_params( type, false ) )
         return nullptr;  // if only Ref-constrained parameters, then being generic doesn't cause it to be non-concrete
-    while ( type->is_equivalent_derivation() ) {
+    while ( type->is_equivalent_derivation() && !type->is_explicit_declaration() ) {
         type = type->get_base_type();
         if ( type->is_abstract() )
             return nullptr;

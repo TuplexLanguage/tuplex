@@ -93,11 +93,12 @@ void TxFieldDeclNode::verification_pass() const {
     auto storage = this->fieldDef->get_declaration()->get_storage();
     switch ( storage ) {
     case TXS_INSTANCE:
-        // FUTURE: ensure TXS_INSTANCE fields are initialized either here or in every constructor
         if ( this->fieldDef->initExpression ) {
-            if ( !( this->fieldDef->get_declaration()->get_decl_flags() & TXD_GENBINDING ) )  // hackish... skips tx.Array.C
-                CWARNING( this, "Not yet supported: Inline initializer for instance fields (initialize within constructor instead): "
-                          << this->fieldDef->get_descriptor() );
+            // instance fields with direct assignment (i.e. not in constructor) is expected to have a statically constant initializer
+            if ( !( this->fieldDef->get_declaration()->get_decl_flags() & TXD_GENBINDING ) ) {
+                if ( !this->fieldDef->initExpression->is_statically_constant() )
+                    CERROR( this, "Non-constant initializer for instance field " << this->fieldDef->get_descriptor() );
+            }
         }
         if ( type.is_modifiable() ) {
             if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->context().scope() ) ) {

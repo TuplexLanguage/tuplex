@@ -29,31 +29,31 @@ type String <: Tuple, Sequenceable< Char >, Stringer, Formatter {
     _bytes : &Array<UByte>;
 
     self() {
-        self._bytes = new Array<UByte, 0>();
+        #init( new Array<UByte, 0>() );
     }
 
+    /** Constructs a String containing a copy of the provided utf8 array. */
     self( utf8Array : &Array<UByte> ) {
-        self._bytes = new Array<UByte, (utf8Array.L)>();
-        ##self._bytes^ = utf8Array^;
-        for i in 0..utf8Array.L:
-            self._bytes[i] = utf8Array[i];
+        #init( new Array<UByte, (utf8Array.L)>( utf8Array) );
     }
 
+    /** Constructs a String containing a copy of the provided string. */
     self( str : String ) {
         self( str._bytes );
     }
 
+    /** Constructs a String containing the provided character. */
     self( chr : Char ) {
         tmp := new ~Array<~UByte, 4>();
         utf32_to_utf8( tmp, chr );
-        self._bytes = tmp;
+        #init( tmp );
     }
 
     self( strings : &Array<String> ) {
         len : ~UInt = 0;
         for str in strings:
             len = len + str._bytes.L;
-        self._bytes = new Array<UByte, (len)>();
+        bytes := new ~Array<UByte, (len)>();
         i : ~UInt = 0;
         for str in strings {
             for byte in str._bytes {
@@ -61,12 +61,14 @@ type String <: Tuple, Sequenceable< Char >, Stringer, Formatter {
                 i = i + 1;
             }
         }
+        #init( bytes );
     }
 
     self( stringer : &Stringer ) {
         buf := ~ GrowableUByteArray();
         stringer.string( &buf );
         self( buf.array() );
+        ## FUTURE: take ownership of array from GrowableUByteArray instead of copying string twice
     }
 
 
@@ -97,7 +99,7 @@ type String <: Tuple, Sequenceable< Char >, Stringer, Formatter {
         nofChars := UInt( self.count() );
         if format.width > nofChars:
             padding = format.width - nofChars;
-        result : ~[ self._bytes.L + padding ]UByte;
+        result := ~[ self._bytes.L + padding ]UByte();
 
         if ( format.flags & StringFormat.FLAG_MINUS ) == 0 {
             ## right-aligned, padding to the left
@@ -131,7 +133,7 @@ utf8_to_utf32( input : &[]UByte, index : &~UInt ) -> Char {
     ix := index^;
     nextByte : ~UByte = input[ix];
     if ( ( nextByte & 16#80 ) != 0 ) {
-        chr : ~Char;
+        chr : ~Char = 0;
         if ( ( nextByte & 2#1110_0000 ) == 2#1100_0000 ) {
             index^ = ix+2;
             chr = ( input[ix]   & 2#0001_1111 ) << 6 |

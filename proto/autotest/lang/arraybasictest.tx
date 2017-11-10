@@ -17,8 +17,8 @@ basic_array_syntax()->Int {
     ra := ret_array();
     assert ra.C == 4;
 
-    a : ~Array<~UByte,10>;
-    b : ~[10]~UByte;
+    a := ~<Array<~UByte,10>>();
+    b := ~[10]UByte();
     c := c"1234567890";
     b[0] = c"123"[2];
     b[1] = c[1];
@@ -78,7 +78,7 @@ array_modifiability() {
 
     conststr := c"1234567890";
     assert conststr.C == 11;
-    strcopy : ~[11]~UByte;
+    strcopy := ~[11]UByte();
     strcopy = conststr;
 }
 

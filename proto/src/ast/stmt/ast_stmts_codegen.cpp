@@ -1,6 +1,7 @@
 #include "ast_stmts.hpp"
 #include "ast_assertstmt_node.hpp"
 #include "ast_panicstmt_node.hpp"
+#include "ast/expr/ast_ref.hpp"
 #include "symbol/package.hpp"
 #include "driver.hpp"
 #include "parsercontext.hpp"
@@ -52,6 +53,67 @@ void TxExprStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope )
     TRACE_CODEGEN( this, context );
     scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     this->expr->code_gen_expr( context, scope );
+}
+
+
+static Value* gen_local_field( LlvmGenerationContext& context, GenScope* scope, const TxField* field, Value* fieldV ) {
+    fieldV->setName( field->get_unique_name() );
+    auto fieldA = field->qtype()->gen_alloca( context, scope, field->get_unique_name() + "_" );
+    scope->builder->CreateStore( fieldV, fieldA );
+    field->set_llvm_value( fieldA );
+
+    // Create debug descriptor for the field:
+    auto pos = field->get_parse_location().begin;
+    DILocalVariable *selfVarD = context.debug_builder()->createAutoVariable(
+            scope->debug_scope(), field->get_unique_name(), field->get_parser_context()->debug_file(),
+            pos.line, context.get_debug_type( field->qtype() ), true /* alwaysPreserve */ );
+    context.debug_builder()->insertDeclare( fieldA, selfVarD, context.debug_builder()->createExpression(),
+                                            DebugLoc::get( pos.line, pos.column, scope->debug_scope() ),
+                                            scope->builder->GetInsertBlock() );
+    return fieldA;
+}
+
+void TxSelfSuperFieldsStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
+
+    // (both self and super refer to the same object, but with different ref types)
+    // from the closure reference argument, create the local self and super fields:
+    auto parentFunc = scope->builder->GetInsertBlock()->getParent();
+    Value* closureRefV = &( *parentFunc->arg_begin() );
+    Value* tidV = gen_get_ref_typeid( context, scope, closureRefV );
+    Value* origPtrV = gen_get_ref_pointer( context, scope, closureRefV );
+
+    this->selfRefNode->typeExpression->code_gen_type( context );
+    auto selfT = context.get_llvm_type( this->selfRefNode->qtype() );
+    auto convSelfV = gen_ref( context, scope, selfT, origPtrV, tidV );
+    gen_local_field( context, scope, this->selfRefNode->field(), convSelfV );
+
+    this->superRefNode->typeExpression->code_gen_type( context );
+    auto superT = context.get_llvm_type( this->superRefNode->qtype() );
+    auto convSuperV = gen_ref( context, scope, superT, origPtrV, tidV );
+    gen_local_field( context, scope, this->superRefNode->field(), convSuperV );
+}
+
+void TxMemberInitNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
+    if (this->constructorCallExpr->is_inlined()) {
+        // this is an "initializer" and we need to perform an assignment of its result value:
+        auto fieldPtrV = static_cast<TxConstructorCalleeExprNode*>( this->constructorCallExpr->callee )->gen_obj_ptr( context, scope );
+        auto initV = this->constructorCallExpr->code_gen_expr( context, scope );
+        scope->builder->CreateStore( initV, fieldPtrV );
+    }
+    else
+        this->constructorCallExpr->code_gen_expr( context, scope );
+}
+
+void TxInitStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
+    this->selfSuperStmt->code_gen( context, scope );
+    for ( auto initClause : *this->initClauseList )
+        initClause->code_gen( context, scope );
 }
 
 void TxReturnStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
@@ -108,8 +170,8 @@ void TxAssignStmtNode::code_gen_array_copy( LlvmGenerationContext& context, GenS
     // perform bounds check:
     {
         auto parentFunc = scope->builder->GetInsertBlock()->getParent();
-        BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "if_true", parentFunc );
-        BasicBlock* nextBlock = BasicBlock::Create( context.llvmContext, "if_next", parentFunc );
+        BasicBlock* trueBlock = BasicBlock::Create( context.llvmContext, "abc_if_out", parentFunc );
+        BasicBlock* nextBlock = BasicBlock::Create( context.llvmContext, "abc_if_post", parentFunc );
 
         Value* capIxs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
                             ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ) };

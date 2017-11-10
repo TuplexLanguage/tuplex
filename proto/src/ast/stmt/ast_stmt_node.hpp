@@ -5,6 +5,7 @@
 class TxStatementNode : public TxNode {
     TxScopeSymbol* successorScope = nullptr;
     friend class TxFieldStmtNode;
+    friend class TxInitStmtNode;
 
 protected:
     /** The predecessor that defines the scope of this statement. */
@@ -47,13 +48,14 @@ public:
     }
 
     /** Returns true if this statement / compound statement always ends with an explicit terminal statement
-     * (return, break, continue).
+     * (return, break, continue) OR with an abnormal exit (abort/exit/exception).
      * This means that any successor statement in the same suite will never be reached. */
     virtual bool ends_with_terminal_stmt() const {
         return false;
     }
 
-    /** Returns true if this statement / compound statement always ends with an explicit return statement. */
+    /** Returns true if this statement / compound statement always ends with an explicit return statement,
+     * OR with an abnormal exit (abort/exit/exception). */
     virtual bool ends_with_return_stmt() const {
         return false;
     }

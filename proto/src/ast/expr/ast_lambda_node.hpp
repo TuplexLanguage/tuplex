@@ -15,8 +15,7 @@ llvm::Constant* gen_lambda( LlvmGenerationContext& context, llvm::Type* lambdaT,
 class TxLambdaExprNode : public TxExpressionNode {
     bool instanceMethod = false;
     TxTypeExpressionNode* selfTypeNode = nullptr;
-    TxLocalFieldDefNode* selfRefNode = nullptr;
-    TxLocalFieldDefNode* superRefNode = nullptr;
+    TxSelfSuperFieldsStmtNode* selfSuperStmt = nullptr;
     const TxTypeDeclaration* constructedObjTypeDecl = nullptr;
     llvm::AttrBuilder _funcAttrBuilder;
 
@@ -42,13 +41,13 @@ public:
     TxSuiteNode* suite;
     const bool isMethodSyntax;
 
-    TxLambdaExprNode( const TxLocation& ploc, TxFunctionTypeNode* funcTypeNode, TxSuiteNode* suite, bool isMethodSyntax = false,
-                      bool suppressSuper = false )
-            : TxLambdaExprNode( ploc, new TxFunctionHeaderNode( funcTypeNode ), suite, isMethodSyntax, suppressSuper ) {
+    TxLambdaExprNode( const TxLocation& ploc, TxFunctionTypeNode* funcTypeNode, TxSuiteNode* suite,
+                      bool isMethodSyntax = false )
+            : TxLambdaExprNode( ploc, new TxFunctionHeaderNode( funcTypeNode ), suite, isMethodSyntax ) {
     }
 
     TxLambdaExprNode( const TxLocation& ploc, TxFunctionHeaderNode* funcHeaderNode, TxSuiteNode* suite,
-                      bool isMethodSyntax = false, bool suppressSuper = false );
+                      bool isMethodSyntax = false );
 
     virtual TxLambdaExprNode* make_ast_copy() const override {
         return new TxLambdaExprNode( this->ploc, this->funcHeaderNode->make_ast_copy(), this->suite->make_ast_copy(), this->isMethodSyntax );

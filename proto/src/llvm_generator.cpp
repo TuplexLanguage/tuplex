@@ -733,7 +733,6 @@ void LlvmGenerationContext::gen_panic_call( GenScope* scope, const std::string& 
         if ( panicFuncType->argument_types().size() == 2 ) {
             auto panicLambdaV = panicFunc->code_gen_field_decl( *this );
 
-            // TODO: make panic statement call the panic function
             // TODO: make creating CString references easier
             auto msgRefType = panicFuncType->argument_types().at( 0 );
             auto msgRefTargTid = msgRefType->target_type()->get_runtime_type_id();

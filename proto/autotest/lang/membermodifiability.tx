@@ -4,10 +4,6 @@ type ImmutableType {
     ifield : Int;
     #experr 1: ffield : ~Float;  ## can't declare modifiable member on immutable type
 
-    self( i : Int ) {
-        self.ifield = i;
-    }
-
     get_i()->Int {
         #experr 1: self.ifield = 5;  ## method is not modifying; field is not modifiable
         return self.ifield;
@@ -24,11 +20,6 @@ type ImmutableType {
 type ~ AType {  ## mutable type
     ifield : Int;
     ffield : ~Float;
-
-    self( i : Int, f : Float ) {
-        self.ifield = i;
-        self.ffield = f;
-    }
 
     get_i()->Int {
         #experr 1: self.ifield = 5;  ## method is not modifying
@@ -49,16 +40,40 @@ type ~ AType {  ## mutable type
     }
 }
 
+/*
+type ~ OptRef<T> {
+    virtual NULL : UByte = 0;
+    _r : Ref<Any>;
+
+    self() {
+        #init( &NULL );
+    }
+
+    self( r : Ref<T> ) {
+        #init( r );
+    }
+
+    is_null()->Bool {
+        return self._r == &NULL;
+    }
+
+    get()->Ref<T> {
+        if self._r is r : Ref<T>:
+            return r;
+        panic( c"Opt reference is null" );
+    }
+}
+*/
 
 type ~ Node {  ## mutable type
     hiNode : ~&Node;
     loNode : &~Node;
 
     self() {
+        #init( self, self );
     }
     self( h : &Node, l : &~Node ) {
-        self.hiNode = h;
-        self.loNode = l;
+        #init( h, l );
     }
 }
 

@@ -161,6 +161,7 @@ Value* TxConstructorCalleeExprNode::gen_func_ptr( LlvmGenerationContext& context
     return funcPtrV;
 }
 
+
 Value* TxHeapAllocNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     this->objTypeExpr->code_gen_type( context );
@@ -172,6 +173,12 @@ Value* TxStackAllocNode::code_gen_dyn_address( LlvmGenerationContext& context, G
     this->objTypeExpr->code_gen_type( context );
     return this->qtype()->gen_alloca( context, scope );
 }
+
+Value* TxInPlaceAllocNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    return this->objExpr->code_gen_addr( context, scope );
+}
+
 
 Value* TxNewConstructionNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     // new constructor returns the constructed object by reference

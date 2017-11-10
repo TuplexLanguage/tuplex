@@ -18,6 +18,9 @@ class TxNode;
 class TxParsingUnitNode;
 class LlvmGenerationContext;
 
+/** Creates a formatted string of a parse location. */
+std::string format_location( const TxLocation& ploc );
+
 /** Represents the processing of a parsing unit.
  * When a driver compiles a package it consists of one or more parsing units.
  * Also acts as a proxy towards TxDriver, in future this may be used

@@ -7,7 +7,7 @@ test_bool_ops() {
     assert !f;
     assert t != f;
 
-    b : ~Bool;
+    b : ~Bool = FALSE;
 
     b = t & t  ; assert b;
     b = t & f  ; assert !b;

@@ -146,9 +146,6 @@ interface Face { }
 
 type Body <: Tuple, Face {
     member : Int;
-    self( m : Int ) {
-        self.member = m;
-    }
     
     override equals( o : &Any )->Bool {
         if o is b : &Body :

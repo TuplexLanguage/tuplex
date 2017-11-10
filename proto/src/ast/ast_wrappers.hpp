@@ -65,26 +65,26 @@ public:
     }
 };
 
-/** Wraps a TxTypeDefiningNode as an TxTypeExpressionNode.
+/** Wraps a TxTypeResolvingNode as an TxTypeExpressionNode.
  * The declaration and resolution pass calls won't be forwarded,
  * allowing the wrapped node to be added as a TxTypeExpressionNode child to additional parent nodes.
  */
 class TxTypeExprWrapperNode : public TxTypeExpressionNode {
 protected:
     virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        return this->typeDefNode->resolve_type( passInfo );
+        return this->typeResNode->resolve_type( passInfo );
     }
 
 public:
-    TxTypeResolvingNode* const typeDefNode;
+    TxEntityResolvingNode* const typeResNode;
 
-    TxTypeExprWrapperNode( TxTypeResolvingNode* typeExprNode )
-            : TxTypeExpressionNode( typeExprNode->ploc ), typeDefNode( typeExprNode ) {
+    TxTypeExprWrapperNode( TxEntityResolvingNode* typeExprNode )
+            : TxTypeExpressionNode( typeExprNode->ploc ), typeResNode( typeExprNode ) {
     }
 
     virtual TxTypeExprWrapperNode* make_ast_copy() const override {
         // since declaration and resolution passes aren't forwarded, the wrapped type definition doesn't need copying
-        return new TxTypeExprWrapperNode( this->typeDefNode );
+        return new TxTypeExprWrapperNode( this->typeResNode );
     }
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override { }

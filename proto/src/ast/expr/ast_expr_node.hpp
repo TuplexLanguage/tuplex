@@ -29,6 +29,10 @@ public:
         this->fieldDefNode = fieldDefNode;
     }
 
+    const TxFieldDefiningNode* get_field_def_node() const {
+        return this->fieldDefNode;
+    }
+
     /** Checks if this expression produces a modifiable type usage; this requires the whole access chain to be mutable.
      * Generates an error message if it is not and returns false.
      * Note: Transitive across the object graph via references, regardless of mutability of references' *pointer values*.

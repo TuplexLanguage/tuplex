@@ -217,6 +217,9 @@ public:
                                  ( this->elseClause ? this->elseClause->make_ast_copy() : nullptr ) );
     }
 
+    const TxStatementNode* get_true_body() const { return this->body; }
+    const TxStatementNode* get_else_body() const { return ( this->elseClause ? this->elseClause->body : nullptr ); }
+
     virtual bool may_end_with_non_return_stmt() const override {
         return ( this->body->may_end_with_non_return_stmt() || ( this->elseClause && this->elseClause->may_end_with_non_return_stmt() ) );
     }

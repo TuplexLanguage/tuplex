@@ -22,6 +22,14 @@ public:
         return new TxPanicStmtNode( this->ploc, this->suite->make_ast_copy() );
     }
 
+    virtual bool ends_with_terminal_stmt() const override final {
+        return true;
+    }
+
+    virtual bool ends_with_return_stmt() const override final {
+        return true;
+    }
+
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {

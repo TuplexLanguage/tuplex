@@ -3,7 +3,7 @@
 #include "ast_node.hpp"
 #include "ast_entitydefs.hpp"
 #include "symbol/package.hpp"
-
+#include "parsercontext.hpp"
 
 const std::string TxNode::EMPTY_STRING = "";
 
@@ -24,17 +24,7 @@ std::string TxNode::str() const {
 }
 
 std::string TxNode::parse_loc_string() const {
-    const size_t bsize = 256;
-    char buf[bsize];
-    std::string filename = ploc.begin.filename ? get_file_name( *ploc.begin.filename ) : "";
-    if ( ploc.begin.line == ploc.end.line ) {
-        int lcol = ( ploc.end.column > ploc.begin.column ) ? ploc.end.column : ploc.end.column;
-        snprintf( buf, bsize, "%s:%3d.%2d-%d", filename.c_str(), ploc.begin.line, ploc.begin.column, lcol );
-    }
-    else
-        snprintf( buf, bsize, "%s:%3d.%2d-%d.%d", filename.c_str(), ploc.begin.line, ploc.begin.column,
-                  ploc.end.line, ploc.end.column );
-    return std::string( buf );
+    return format_location( this->ploc );
 }
 
 void TxNode::visit_ast( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* context ) {

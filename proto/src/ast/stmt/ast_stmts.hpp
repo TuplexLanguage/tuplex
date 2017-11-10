@@ -16,18 +16,9 @@ protected:
         this->declFlags = TXD_EXPERROR;
     }
 
-    virtual void stmt_declaration_pass() override {
-        this->successorScope = lexContext.scope()->create_code_block_scope( *this );
-        this->fieldDef->declare_field( this->successorScope, this->declFlags, TXS_STACK );
-        // (to prevent init expr from referencing this field, it is processed in the 'outer' scope, not in the new block scope)
-    }
+    virtual void stmt_declaration_pass() override;
 
-    virtual void verification_pass() const override {
-        if ( !fieldDef->initExpression ) {
-            // TODO: instead check that TXS_STACK fields are initialized before first use
-            //CWARNING(this, "Local field without initializer: " << this->field->get_source_field_name());
-        }
-    }
+    virtual void verification_pass() const override;
 
 public:
     TxLocalFieldDefNode* fieldDef;
@@ -80,7 +71,8 @@ public:
     }
 };
 
-/** A statement that executes an expression (without retaining its result value, if any). */
+
+/** A statement that executes an expression. */
 class TxExprStmtNode : public TxStatementNode {
 public:
     TxExpressionNode* expr;
@@ -109,6 +101,85 @@ public:
         return new TxCallStmtNode( this->ploc, static_cast<TxFunctionCallNode*>( this->expr )->make_ast_copy() );
     }
 };
+
+
+class TxSelfSuperFieldsStmtNode : public TxStatementNode {
+    TxLocalFieldDefNode* selfRefNode;
+    TxLocalFieldDefNode* superRefNode;
+
+protected:
+    virtual void stmt_declaration_pass() override;
+
+public:
+    TxSelfSuperFieldsStmtNode( const TxLocation& ploc );
+
+    virtual TxSelfSuperFieldsStmtNode* make_ast_copy() const override {
+        return new TxSelfSuperFieldsStmtNode( this->ploc );
+    }
+
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->selfRefNode->visit_ast( visitor, thisCursor, "selfref", context );
+        this->superRefNode->visit_ast( visitor, thisCursor, "superref", context );
+    }
+};
+
+class TxMemberInitNode : public TxStatementNode {
+    TxFunctionCallNode* constructorCallExpr;
+
+    TxMemberInitNode( const TxLocation& ploc, TxFunctionCallNode* constructorCallExpr );
+
+public:
+    TxMemberInitNode( const TxLocation& ploc, TxIdentifierNode* identifier, const std::vector<TxExpressionNode*>* argsExprList );
+
+    virtual TxMemberInitNode* make_ast_copy() const override {
+        return new TxMemberInitNode( this->ploc, this->constructorCallExpr );
+    }
+
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->constructorCallExpr->visit_ast( visitor, thisCursor, "initializer", context );
+    }
+
+    virtual const std::string& get_descriptor() const override {
+        return this->constructorCallExpr->get_descriptor();
+    }
+};
+
+/* Represents the #init ... ; / self() special initialization statement within a constructor. */
+class TxInitStmtNode : public TxStatementNode {
+    TxSelfSuperFieldsStmtNode* selfSuperStmt;
+    std::vector<TxMemberInitNode*>* initClauseList;
+
+protected:
+    virtual void stmt_declaration_pass() override;
+
+    virtual void verification_pass() const override;
+
+public:
+    TxInitStmtNode( const TxLocation& ploc, std::vector<TxMemberInitNode*>* initClauseList );
+
+    /** The #self( ... ); short-hand */
+    TxInitStmtNode( const TxLocation& ploc, std::vector<TxExpressionNode*>* argsExprList );
+
+    /** The #init; short-hand */
+    TxInitStmtNode( const TxLocation& ploc );
+
+    virtual TxInitStmtNode* make_ast_copy() const override {
+        return new TxInitStmtNode( this->ploc, make_node_vec_copy( this->initClauseList ) );
+    }
+
+    virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
+
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->selfSuperStmt->visit_ast( visitor, thisCursor, "self", context );
+        for ( auto initClause : *this->initClauseList )
+            initClause->visit_ast( visitor, thisCursor, "memberinit", context );
+    }
+};
+
 
 class TxTerminalStmtNode : public TxStatementNode {
 protected:
@@ -254,8 +325,6 @@ public:
 };
 
 class TxAssignStmtNode : public TxStatementNode {
-//    class TxStatementNode* panicNode;
-
 protected:
     virtual void resolution_pass() override;
 
@@ -267,7 +336,6 @@ public:
 
     TxAssignStmtNode( const TxLocation& ploc, TxAssigneeNode* lvalue, TxExpressionNode* rvalue )
             : TxStatementNode( ploc ), lvalue( lvalue ), rvalue( new TxMaybeConversionNode( rvalue ) ) {
-//        this->panicNode = new TxPanicStmtNode( ploc, "Assigned array is longer than assignee's capacity" );
     }
 
     virtual TxAssignStmtNode* make_ast_copy() const override {
@@ -279,7 +347,6 @@ public:
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->lvalue->visit_ast( visitor, thisCursor, "lvalue", context );
         this->rvalue->visit_ast( visitor, thisCursor, "rvalue", context );
-//        this->panicNode->visit_ast( visitor, thisCursor, "panic", context );
     }
 
 

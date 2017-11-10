@@ -1,7 +1,7 @@
 ## tests allocation, writing and reading from dynamic array
 
 do_array( len : UInt )->Int {
-    arr : ~Array<~Int, (len)>;
+    arr := ~<Array<~Int, (len)>>();
     sum : ~Int = 0;
     {
         ix : ~UInt = 0;

@@ -6,7 +6,7 @@
 /** implicit identifier for the local namespace */
 #define LOCAL_NS "$local"
 
-/** internal identifier for constructors */
+/** internal identifier for user-defined constructors */
 #define CONSTR_IDENT "$constr"
 
 #include <stdint.h>

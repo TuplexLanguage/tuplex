@@ -159,6 +159,11 @@ void TxDerivedTypeNode::visit_descendants( const AstVisitor& visitor, const AstC
 
     for ( auto member : *this->members )
         member->visit_ast( visitor, thisCursor, "member", context );
+
+    if ( auto qtype = this->attempt_qtype() ) {
+        for ( auto implConstr : qtype->get_implicit_constructors() )
+            implConstr->visit_ast( visitor, thisCursor, "initializer", context );
+    }
 }
 
 void TxFunctionTypeNode::typeexpr_declaration_pass() {

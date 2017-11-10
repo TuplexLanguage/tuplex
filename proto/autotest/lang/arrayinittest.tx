@@ -134,9 +134,9 @@ array_stack_construction( i : UByte ) {
     #experr 2: ae := [4]Int( a10 );           ## field initializer
     #experr 2: ae := [4]Int( &a10 );          ## auto-dereferencing
 
-  ## Initialization with explicit type; Default initialization
-    a60 : [0]UByte;
-    a61 : [3]UByte;
+  ## Initialization with explicit type; Explicit default initialization
+    a60 := [0]UByte();
+    a61 := [3]UByte();
     assert a60.C == 0;
     assert a60.L == 0;
     assert a61.C == 3;
@@ -284,13 +284,17 @@ nested_array_init() -> Int {
 ## aaa : ~[4][4][4]UByte;  aaa[0][0][0] = 17;
 
   ## gradual nested array initialization
-    aaa : ~[4][4][4]UByte;
+    aaa : ~[4][4][4]UByte = <Array<Array<Array<UByte,4>,4>,4>>();
     assert aaa.C == 4;
     assert aaa.L == 0;
 
     ##aaa[0][0][0] = 3;
     #experr 1: aaa[0] = <Array<Array<Array<UByte,4>,4>,4>>( );
     aaa[0] = <Array<Array<UByte,4>,4>>( <Array<UByte,4>>( 17 ) );
+    assert aaa.L == 1;
+    assert aaa[0].L == 1;
+    assert aaa[0][0].L == 1;
+    assert aaa[0][0][0] == 17;
 
     return 0;
 }

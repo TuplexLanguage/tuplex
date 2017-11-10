@@ -215,15 +215,15 @@ void TxNonLocalFieldDefNode::declare_field( TxScopeSymbol* scope, TxDeclarationF
         declFlags = declFlags | TXD_CONSTRUCTOR;
     }
     else if ( declName == CONSTR_IDENT ) {  // built-in
-        ASSERT( declFlags & TXD_BUILTIN, "Built-in flag not set: " << declFlags << " at " << this << " in " << this->context().scope() );
+        ASSERT( declFlags & ( TXD_BUILTIN | TXD_IMPLICIT ), "Built-in or Implicit flag not set: " << declFlags << " at " << this );
         if ( declFlags & TXD_INITIALIZER ) {
             ASSERT( storage == TXS_STATIC,
-                    "Initializer not a static field: " << storage << " at " << this << " in " << this->context().scope() );
+                    "Initializer not a static field: " << storage << " at " << this );
         }
         else {
-            ASSERT( declFlags & TXD_CONSTRUCTOR, "Constructor flag not set: " << declFlags << " at " << this << " in " << this->context().scope() );
+            ASSERT( declFlags & TXD_CONSTRUCTOR, "Constructor flag not set: " << declFlags << " at " << this );
             ASSERT( storage == TXS_INSTANCEMETHOD,
-                    "Constructor not an instance method: " << storage << " at " << this << " in " << this->context().scope() );
+                    "Constructor not an instance method: " << storage << " at " << this );
         }
     }
 

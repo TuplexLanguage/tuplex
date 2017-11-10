@@ -214,12 +214,9 @@ extern "C" int yywrap() { return 0; }
 
 
  /* literals */
-"NULL"                  { return token::KW_NULL; }
+ /* TRUE and FALSE are parsed as literals until they can be implemented using proper Enum facility: */
 "TRUE"                  { return token::KW_TRUE; }
 "FALSE"                 { return token::KW_FALSE; }
-
-{L}({L}|{D}|#)*       { yylval->build(std::string (yytext)); return token::NAME; }
-#                     { yylval->build(std::string (yytext)); return token::NAME; }
 
 [1-9]{D}*#{WS}*("-"{WS}*)?({L}|{D})+(#{IS})?  { yylval->build(std::string (yytext)); return token::LIT_RADIX_INT; }
 0[xX]{H}({H}|_)*(#{IS})?                      { yylval->build(std::string (yytext)); return token::LIT_RADIX_INT; }
@@ -235,6 +232,13 @@ extern "C" int yywrap() { return 0; }
 
 \"(\\.|[^\\"])*\"	    { yylval->build(std::string (yytext)); return token::LIT_STRING; }
 c\"(\\.|[^\\"])*\"      { yylval->build(std::string (yytext)); return token::LIT_CSTRING; }
+
+
+ /* identifiers */
+{L}({L}|{D}|#)*       { yylval->build(std::string (yytext)); return token::NAME; }
+"#"                   { yylval->build(std::string (yytext)); return token::NAME; }
+"#init"               { yylval->build(std::string (yytext)); return token::HASHINIT; }
+"#self"               { yylval->build(std::string (yytext)); return token::HASHSELF; }
 
 
 .                       { parserCtx->cerror (*yylloc, "invalid character");

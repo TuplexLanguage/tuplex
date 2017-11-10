@@ -12,9 +12,6 @@ CONSTANT := 42;
 
 #experr 2: type BadType2 derives Tuple {
     instfield : Float;
-    self( f : Float ) {
-        self.instfield = f;
-    }
     virtual FOO : Int = 2.73;  ## bad type conversion
     virtual BAR := 7  ## missing semicolon
 }
@@ -28,7 +25,7 @@ type OkType derives Tuple {
     instfield : Float;
     self( f : Float ) {
         #experr: super();
-        self.instfield = f;
+        #init: instfield( f );
     }
     virtual good := 14;
     #experr 1: virtual FOO : Int = 2.73;  ## bad type conversion

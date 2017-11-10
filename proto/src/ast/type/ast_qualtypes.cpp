@@ -25,6 +25,11 @@ TxQualType TxSetQualTypeExprNode::define_type( TxPassInfo passInfo ) {
         return TxQualType( qtype.type(), false );
 }
 
+TxQualType TxFlexModTypeExprNode::define_type( TxPassInfo passInfo ) {
+    auto qtype = _typeNode->resolve_type( passInfo );
+    return TxQualType( qtype.type(), qtype->is_mutable() );
+}
+
 TxQualType TxModifiableTypeNode::define_type( TxPassInfo passInfo ) {
     auto qtype = _typeNode->resolve_type( passInfo );
     if ( this->is_modifiable() )
