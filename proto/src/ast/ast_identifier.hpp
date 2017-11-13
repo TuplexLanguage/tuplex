@@ -24,7 +24,7 @@ public:
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
     }
 
-    const std::string& ident() {
+    const std::string& ident() const {
         return this->_identifier;
     }
 

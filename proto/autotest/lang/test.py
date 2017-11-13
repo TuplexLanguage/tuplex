@@ -78,7 +78,7 @@ source_files = [
     "membermodifiability.tx",
     "polymorphtest.tx",
     "recursivetypetest.tx",
-    "constructiontest.tx",
+    "constructortest.tx",
     "interfacetest.tx",
     "interfaceadaptertest.tx",
     "nestedtypestest.tx",

@@ -331,6 +331,10 @@ public:
      * @return true if a data type recursion has been discovered */
     bool prepare_members();
 
+    const std::vector<const TxFieldDeclaration*>& get_constructors() const {
+        return this->constructors;
+    }
+
     const std::vector<TxFieldDeclNode*>& get_implicit_constructors() const {
         return this->implicitConstructorNodes;
     }
@@ -338,6 +342,11 @@ public:
     /** Returns the type holding the constructor methods for this type. This is typically this type,
      * but for empty derivations and pure value specializations it may be a parent type. */
     const TxActualType* get_construction_type() const;
+
+    /** the instance fields of this type to initialize (includes the fields with direct constant initializer expressions) */
+    const std::vector<const TxFieldDeclaration*>& get_instance_fields_to_initialize() const {
+        return this->instanceFieldsToInitialize;
+    }
 
     /** @return true if this type and its members is to skip code-generation */
     bool suppress_code_gen() const {

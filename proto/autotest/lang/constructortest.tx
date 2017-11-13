@@ -1,0 +1,285 @@
+## Tests constructors in user-defined types
+
+type EmptyTypeA derives Tuple;
+
+type EmptyTypeB derives Tuple { }
+
+type EmptyTypeC derives Tuple {
+    self() {
+        #experr 1: #init();
+        #init;
+    }
+}
+
+type EmptyTypeD derives Tuple {
+    self() {
+        #init: super();
+    }
+    self( dummy : Bool ) {
+        ##experr 1: #self;
+        #self();
+    }
+}
+
+type ~Upper {
+    virtual FOO : Int = 14;
+    _f : Int;
+}
+
+type ~Lower derives Upper {
+    #experr 1: virtual ERR : Int;  ## missing initializer
+    virtual BAR : Int = 19;
+    _f : ~Int;  ## modifiable _f that shadows parent non-mod _f
+    _g : Int;
+    _h : Int = 4;
+
+    self( i : Int, j : Int, k : Int ) {
+        #init: super(i), _f(j), _g(k);
+        #experr 2: #init: _f(j), _g(k);  ## missing super(Int)
+        #experr 2: #init: super(i), _f(j);  ## missing member init
+        #experr 3: #init: super(i), _g(j);  ## missing member init
+        #experr 2: #init: super(i), _g(k), _f(j);  ## wrong order
+        #experr 2: #init: _f(j), super(i), _g(k);  ## wrong order
+        #experr 2: #init: _f(j), _g(k), super(i);  ## wrong order
+        #experr 2: #init: super(i), _f(j), _g(k), _h(i);  ## can't initialize _h which has direct initializer
+        #experr 3: #init: super(i), _f(j), _g(k), foobar(i);  ## unknown field
+        #experr 1: #self: super(i), _f(j), _g(k);  ## wrong keyword
+    }
+    self( i : Int ) {
+        #init: self( i, i, i);
+        ## can't combine self() and other initializers:
+        #experr 5: #init: self( i, i, i), super(i); 
+        #experr 4: #init: self( i, i, i), _f(i); 
+        #experr 3: #init: self( i, i, i), super(i), _f(i), _g(i);
+        #experr 4: #init: super(i), self( i, i, i);
+        #experr 4: #init: super(i), _f(j), _g(k), self( i, i, i);
+    }
+    self( b : Bool ) {
+        #init: super(1), _f(1), _g(1);
+        #experr 2: #init: super(b), _f(1), _g(1);     ## wrong arguments to super()
+        #experr 2: #init: super(1, 1), _f(1), _g(1);  ## wrong arguments to super()
+        #experr 2: #init: super(), _f(1), _g(1);      ## wrong arguments to super()
+    }
+
+    get_f() -> Int {
+        #experr 1: #self( 17, 17, 17 );  ## can't invoke from regular method
+        #experr 1: #init: self( 17, 17, 17 );  ## can't invoke from regular method
+        return self._f;
+    }
+
+    set_f( f : Int) ~ {
+        #experr 1: #self( 17, 17, 17 );  ## can't invoke from regular method
+        #experr 1: #init: self( 17, 17, 17 );  ## can't invoke from regular method
+        self._f = f;
+    }
+}
+
+type Bottom derives Lower {
+    _i : Int = 5;
+    _j : Int;
+
+    self( j : Int ) {
+        #experr 1: assert self._j == j;   ## self not available before init
+        #experr 1: assert super._g == j;  ## super not available before init
+        #experr 1: assert $self._j == j;  ## $self inaccessible from source code
+        #experr 1: assert $super._g == j; ## $super inaccessible from source code
+        #init: super( j, j, j), _j( j );
+        assert self._j == j;
+        assert super._g == j;
+        #experr 1: assert super._j == j;  ## own member not accessible via super
+    }
+
+    self( f : Float ) {
+        x := Int( f );
+        #experr 1: assert self._j == x;   ## self not available before init
+        #experr 1: assert super._g == x;  ## super not available before init
+        #experr 1: assert $self._j == x;  ## $self inaccessible from source code
+        #experr 1: assert $super._g == x; ## $super inaccessible from source code
+        #self( x );
+        assert self._j == x;
+        assert super._g == x;
+        #experr 1: assert super._j == x;  ## own member not accessible via super
+
+        #experr 1: #init( x, x, x, x );  ## can't invoke more than once
+        #experr 1: #self( x );           ## can't invoke more than once
+    }
+    
+    self( d : Double ) {
+        x := Int( d );
+        #init: self( x );
+        assert self._j == x;
+        assert super._g == x;
+    }
+
+    #experr 1: self( b : Bool ) { }  ## missing invokation of other constructor/initializer
+
+    #experr 1: self( b1 : Bool, b2 : Bool ) {
+        ## non-guaranteed invokation of other constructor:
+        if b1 {
+            if b2:
+                #self( 1 );
+        }
+        else
+            #self( 2 );
+    }
+
+    self( r : &Int ) {
+        #init: super( r^, r^, r^), _j( r^ );
+    }
+
+    get_i() -> Int {
+        #experr 1: #self( 17 );  ## can't invoke from regular method
+        return self._j;
+    }
+}
+
+test_tuples() {
+    t := Tuple();
+    ta := EmptyTypeA();
+    tb := EmptyTypeB();
+    tc := EmptyTypeC();
+    td0 := EmptyTypeD();
+    td1 := EmptyTypeD(TRUE);
+
+    u := Upper( 1 );       ## user invokation of implicit constructor
+    l := Lower( 1, 2, 3 ); ## user invokation of explicit constructor
+    b := Bottom( 14 );     ## user invokation of explicit constructor
+    #experr 1: ue := Upper();        ## no such constructor
+    #experr 1: ue := Upper( 1, 2 );  ## no such constructor
+    #experr 1: le := Lower();             ## no such constructor
+    #experr 1: le := Lower( 1, 2 );       ## no such constructor
+    #experr 1: le := Lower( 1, 2, 3, 4 ); ## no such constructor
+    #experr 1: be := Bottom( 1, 2, 3, 4 );  ## unavailable since user constructor is provided
+
+    b2 := Bottom( 3.14 );  ## user invokation of explicit constructor
+    assert b2._j == 3;
+    assert b2._i == 5;
+    assert b2._h == 4;
+    assert b2._g == 3;
+    assert b2._f == 3;
+}
+
+
+type CustomIntA derives Int;
+
+type CustomIntB derives Int { }
+
+type CustomIntC derives Int {
+    self() {
+        #init;
+    }
+    self( i : Int ) {
+        #init: super( i );
+    }
+}
+
+test_elementary() {
+    ia0 := CustomIntA();
+    ib0 := CustomIntB();
+    ic0 := CustomIntC();
+    ia1 := CustomIntA(3);
+    ib1 := CustomIntB(3);
+    ic1 := CustomIntC(3);
+    assert ia0 == 0;
+    assert ib0 == 0;
+    assert ic0 == 0;
+    assert ia1 == 3;
+    assert ib1 == 3;
+    assert ic1 == 3;
+}
+
+
+type Triple<E> derives Array<E,3> {
+    self( a : E, b : E, c : E ) {
+        #init: super( a, b, c );
+    }
+    self() {
+        #init: super();
+    }
+}
+
+test_arrays() {
+    t0 := <Triple<Int>>();
+    assert t0.C == 3;
+    assert t0.L == 0;
+    assert t0 == []Int();
+
+    t1 := <Triple<Int>>( 1, 2, 3 );
+    assert t1.C == 3;
+    assert t1.L == 3;
+    assert t1 == [ 1I, 2, 3 ];
+}
+
+/** tests stack and heap construction of elemenatary values */
+elementary_construction()->Int {
+    stackBool := Bool(FALSE);
+    heapBool := new Bool(TRUE);
+    assert stackBool == FALSE;
+    assert heapBool^ == TRUE;
+
+    stackInt := Int(-1);
+    heapInt := new Int(2);
+    assert stackInt == -1;
+    assert heapInt^ == 2;
+
+    stackDouble := Double(-123.456);
+    heapDouble := new Double(3.141592);
+    assert stackDouble == -123.456;
+    assert heapDouble^ == 3.141592;
+
+    heapVar : &~Int = new ~Int(0);
+    heapVar^ = 2;
+    assert heapVar^ == 2;
+
+    stackVar := <Float>(2.71);
+    assert stackVar == 2.71;
+
+    ## default value initialization    
+    stackB := Bool();
+    heapB := new Bool();
+    stackI := Int();
+    heapI := new Int();
+    stackD := Double();
+    heapD := new Double();
+    assert !stackB;
+    assert !heapB^;
+    assert stackI == 0;
+    assert heapI^ == 0;
+    assert stackD == 0.0;
+    assert heapD^ == 0.0;
+    return heapVar^;
+}
+
+## Note: We don't support user derivations of Ref:
+##type CustomRef<T> derives Ref<T>;
+##type CustomIntRef derives Ref<Int>;
+
+CONSTANT : Int = 311;
+
+type Container {
+    ref0 : &Int = &CONSTANT;
+    ref1 : &Int;
+    ref2 : &Container;
+
+    self( ri : &Int, rc : &Container ) {
+        #init: ref1( ri ), ref2( rc );
+    }
+}
+
+ref_construction() {
+    ## Note: we curently don't support Ref constructor invokation via & operator:  r := &Int( &i );
+    i : Int = 42;
+    r0 := &i;
+    r2 := <Ref<Int>>( i );
+    assert r0 == r2;
+    assert _address(r0) == _address(r2);
+}
+
+main() -> Int {
+    test_tuples();
+    test_elementary();
+    test_arrays();
+    elementary_construction();
+    ref_construction();
+    return 0;
+}

@@ -14,7 +14,8 @@ type ~ CompoundType derives Tuple {
         blaha : ~Float;
     }
     self() {
-        #init( 0, 0, 0, [20]Int(), InnerCompType( 0.0 ), new ~InnerCompType( 0.0 ) );
+        ##init: field0(0), field0(0), field0(0), field0([20]Int()), field0(InnerCompType( 0.0 ), field0(new ~InnerCompType( 0.0 ) );
+        #init: field0(0), field1(0), field2(0), field3(), field5(0.0), field6( new ~InnerCompType( 0.0 ) );
     }
 }
 

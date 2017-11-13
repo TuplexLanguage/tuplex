@@ -40,15 +40,15 @@ type ~ SubType derives BaseType {
     tup : ~MultiType;
 
     self( memb : Int ) {
-        #init: instmember( -1 ), tup( memb );
+        #init: super( 3.14 ), instmember( -1 ), tup( memb );
     }
 
     self( init : MultiType ) {
-        #init: instmember( -1 ), tup( init.imember );
+        #init: super( 3.14 ), instmember( -1 ), tup( init.imember );
     }
 
     self() {
-        #init: instmember( -1 ), tup( MULTI );
+        #init: super( 3.14 ), instmember( -1 ), tup( MULTI );
     }
 
     get_imember() -> Int {

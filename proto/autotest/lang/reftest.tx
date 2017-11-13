@@ -1,3 +1,11 @@
+
+## can't derive user types from the Ref type:
+
+#experr 1: type CustomRef<T> derives Ref<T>;
+
+#experr 1: type CustomIntRef derives Ref<Int>;
+
+
 basic_ref_syntax() {
     otherO : ~Int = 2;
     __o : ~ Int = otherO;

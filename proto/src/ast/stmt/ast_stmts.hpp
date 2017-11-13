@@ -117,6 +117,16 @@ public:
         return new TxSelfSuperFieldsStmtNode( this->ploc );
     }
 
+    /** Returns the current type (Self) */
+    TxQualType resolve_type( TxPassInfo passInfo ) {
+        return selfRefNode->resolve_type( passInfo )->target_type();
+    }
+
+    /** Returns the current type (Self) */
+    TxQualType qtype() const {
+        return selfRefNode->qtype()->target_type();
+    }
+
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
@@ -126,21 +136,25 @@ public:
 };
 
 class TxMemberInitNode : public TxStatementNode {
+    TxIdentifierNode* identifier;
+    const std::vector<TxExpressionNode*>* argsExprList;
     TxFunctionCallNode* constructorCallExpr;
-
-    TxMemberInitNode( const TxLocation& ploc, TxFunctionCallNode* constructorCallExpr );
 
 public:
     TxMemberInitNode( const TxLocation& ploc, TxIdentifierNode* identifier, const std::vector<TxExpressionNode*>* argsExprList );
 
     virtual TxMemberInitNode* make_ast_copy() const override {
-        return new TxMemberInitNode( this->ploc, this->constructorCallExpr );
+        return new TxMemberInitNode( this->ploc, this->identifier->make_ast_copy(), make_node_vec_copy( this->argsExprList ) );
     }
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
         this->constructorCallExpr->visit_ast( visitor, thisCursor, "initializer", context );
+    }
+
+    const TxIdentifierNode* get_identifier() const {
+        return this->identifier;
     }
 
     virtual const std::string& get_descriptor() const override {
@@ -155,6 +169,8 @@ class TxInitStmtNode : public TxStatementNode {
 
 protected:
     virtual void stmt_declaration_pass() override;
+
+    virtual void resolution_pass() override;
 
     virtual void verification_pass() const override;
 

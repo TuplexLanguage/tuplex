@@ -119,6 +119,12 @@ void TxActualType::validate_type() const {
              && !( this->builtin || ( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )
                    || this->get_type_class() == TXTC_REFERENCE || this->get_type_class() == TXTC_ARRAY ) )
             CERROR( this, "Can't derive directly from the Any root type: " << this->get_declaration() );
+
+        if ( this->typeClass == TXTC_REFERENCE
+             && !( this->runtimeTypeId == TXBT_REFERENCE
+                     || ( this->genericBaseType && this->genericBaseType->runtimeTypeId == TXBT_REFERENCE ) ) )
+            CERROR( this, "Can't derive subtype from the Ref type: " << this->get_declaration() );
+
         ASSERT( this->baseType->runtimeTypeId == TXBT_ANY
                 || ( this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseType->get_type_class() == TXTC_INTERFACE )
                 || this->get_type_class() == this->baseType->get_type_class(),
@@ -497,9 +503,6 @@ void TxActualType::autogenerate_constructors() {
             for ( auto fieldConstr : fieldType->constructors ) {
                 auto constrType = fieldConstr->get_definer()->resolve_type( TXP_TYPE );
                 if ( constrType->argument_types().size() == 1 ) {
-//                auto fieldConstrLambda = static_cast<TxLambdaExprNode*>( fieldConstr->get_definer()->initExpression->originalExpr );
-//                if ( fieldConstrLambda->funcHeaderNode->arguments->size() == 1 ) {
-//                    if ( *fieldConstrLambda->funcHeaderNode->arguments->at(0)->typeExpression->qtype().type() == *fieldType ) {
                     if ( *constrType->argument_types().at(0) == *fieldType ) {
                         hasCopyConstructor = true;  // this is a copy constructor
                         break;
@@ -513,18 +516,6 @@ void TxActualType::autogenerate_constructors() {
             }
         }
     }
-
-//    ASSERT( this->runtimeTypeId == TXBT_TUPLE || dynamic_cast<TxDerivedTypeNode*>( this->get_declaration()->get_definer() ),
-//            "Unexpected type definer node type for: " << this << " : " << this->get_declaration()->get_definer() );
-//
-//    // Auto-generate the basic initializer(s):
-//    // for each constructor of the base type (or its initializer if it has no user-defined constructors):
-//    // - takes the arguments of the base type's constructor as its first arguments
-//    // - appends all the current type's instance members (that don't have direct initializers) as arguments
-//
-//    // If no explicit constructor is provided, the initializers will be public, otherwise private.
-//    const bool noExplConstr = this->constructors.empty();
-//    const std::string initName = ( noExplConstr ? CONSTR_IDENT : INIT_IDENT );
 
     if ( this->get_base_type()->constructors.empty() ) {
         if ( this->instanceFieldsToInitialize.empty() && this->is_abstract() ) {
