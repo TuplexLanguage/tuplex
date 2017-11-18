@@ -8,12 +8,12 @@ type ~Matrix<E, R : UInt, C : UInt> {
 
     rows : ~Array< ~Row, (R) >;
 
-    ##self( other : &Matrix<E,(R),(C)> ) {
     self( other : &Self ) {
-        self.rows = other.rows;
+        #init: rows( other.rows );
     }
 
     self() {
+        #init: rows();
     }
 }
 

@@ -96,13 +96,6 @@ Value* TxFieldValueNode::code_gen_dyn_address( LlvmGenerationContext& context, G
         }
         break;
 
-    case TXS_STATIC:
-    case TXS_GLOBAL:
-        {
-            Value* val = _field->code_gen_field_decl( context );
-            return val;
-        }
-
     case TXS_INSTANCE:
         if ( baseExpr ) {
             auto baseValue = baseExpr->code_gen_dyn_address( context, scope );
@@ -114,10 +107,17 @@ Value* TxFieldValueNode::code_gen_dyn_address( LlvmGenerationContext& context, G
                              ConstantInt::get( Type::getInt32Ty( context.llvmContext ), fieldIx ) };
             return scope->builder->CreateInBoundsGEP( baseValue, ixs );
         }
-        else {
+        else if ( !( _field->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER | TXD_GENPARAM | TXD_GENBINDING ) ) ) {
             THROW_LOGIC( "Can't access instance field without base value/expression: " << _field );
         }
-        break;
+        // no break
+
+    case TXS_STATIC:
+    case TXS_GLOBAL:
+        {
+            Value* val = _field->code_gen_field_decl( context );
+            return val;
+        }
 
     case TXS_STACK:
         return _field->get_llvm_value();

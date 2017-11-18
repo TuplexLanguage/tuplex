@@ -155,6 +155,13 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
         }
         return;
 
+    case TXS_INSTANCE:
+        if ( !( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER | TXD_GENPARAM | TXD_GENBINDING ) ) ) {
+            // just a type definition; field storage isn't created until parent object is allocated
+            return;
+        }
+        // no break
+
     case TXS_GLOBAL:
         if ( fieldDecl->get_decl_flags() & TXD_EXTERNC ) {
             // Note: External declaration, no initialization expression.
@@ -182,6 +189,7 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
             return;
         }
         // no break
+
     case TXS_STATIC:
     case TXS_VIRTUAL:
         if ( !( fieldDecl->get_decl_flags() & ( TXD_ABSTRACT | TXD_INITIALIZER ) ) ) {
@@ -194,12 +202,8 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
                 }
                 // TODO: support non-constant initializers for static and virtual fields
             }
-            LOG( context.LOGGER(), WARN, "Skipping codegen for global/static/virtual field without constant initializer: " << uniqueName );
+            LOG( context.LOGGER(), WARN, "Skipping codegen for global/static/virtual field without constant initializer: " << fieldDecl );
         }
-        return;
-
-    case TXS_INSTANCE:
-        // just a type definition; field storage isn't created until parent object is allocated
         return;
 
     default:

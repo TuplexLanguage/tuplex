@@ -539,7 +539,8 @@ void TxActualType::autogenerate_constructors() {
         }
     }
 
-    if ( this->get_base_type()->constructors.empty() ) {
+    auto baseConstrType = this->get_base_type()->get_construction_type();
+    if ( baseConstrType->constructors.empty() ) {
         if ( this->instanceFieldsToInitialize.empty() && this->is_abstract() ) {
             // skips some built-in abstract types (e.g. Scalar)
             //std::cerr << "SKIPPING " << this << std::endl;
@@ -549,7 +550,7 @@ void TxActualType::autogenerate_constructors() {
         this->implicitConstructorNodes.push_back( constrDecl );
     }
     else {
-        for ( auto baseConstructor : this->get_base_type()->constructors ) {
+        for ( auto baseConstructor : baseConstrType->constructors ) {
             auto constrDecl = generate_constructor_ast( loc, baseConstructor, this->instanceFieldsToInitialize );
             this->implicitConstructorNodes.push_back( constrDecl );
         }

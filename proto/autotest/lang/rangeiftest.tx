@@ -28,10 +28,6 @@ type MyUInt <: Tuple, Enumerable< MyUInt > {
 
     val : UInt;
 
-    self( value : UInt ) {
-        self.val = value;
-    }
-
     override ordinal() -> ULong {
         return self.val;
     }

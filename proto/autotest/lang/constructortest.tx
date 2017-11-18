@@ -139,6 +139,21 @@ type Bottom derives Lower {
     }
 }
 
+type EmptyUpper derives Upper;
+
+## test super invocation "via" an empty intermediate type:
+type SubEmptyUpper derives EmptyUpper {
+    _k : Float;
+    self( k : Float ) {
+        #init: super( Int(k) ), _k( k );
+    }
+}
+
+## test implicit constructor generation incl. super invocation "via" an empty intermediate type:
+type ImplSubEmptyUpper derives EmptyUpper {
+    _k : Float;
+}
+
 test_tuples() {
     t := Tuple();
     ta := EmptyTypeA();
@@ -164,6 +179,14 @@ test_tuples() {
     assert b2._g == 3;
     assert b2._f == 3;
     assert b2._e == 345.67;
+
+    s := SubEmptyUpper( 2.72 );
+    assert s._k == 2.72;
+    assert s._f == 2;
+
+    si := ImplSubEmptyUpper( 2, 2.72 );
+    assert si._k == 2.72;
+    assert si._f == 2;
 }
 
 

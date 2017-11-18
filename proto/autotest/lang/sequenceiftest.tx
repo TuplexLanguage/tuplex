@@ -11,12 +11,8 @@ type SingleRef<S derives Ref> <: Tuple, Sequenceable<S> {
 
     type ~ SingleSeq <: Tuple, Sequencer<S> {
         element : S;
-        done : ~Bool;
+        done : ~Bool = FALSE;
 
-        self( element : S ) {
-            self.element = element;
-            self.done = FALSE;
-        }
         override hasNext()->Bool {
             return !self.done;
         }
@@ -29,10 +25,6 @@ type SingleRef<S derives Ref> <: Tuple, Sequenceable<S> {
     }
 
     element : S;
-    
-    self( element : S ) {
-        self.element = element;
-    }
 
     override sequencer()->Ref<~Sequencer<S>> {
         el : S = self.element;

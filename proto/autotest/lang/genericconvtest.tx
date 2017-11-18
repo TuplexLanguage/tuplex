@@ -27,14 +27,13 @@ type ERange< E derives Enumerable<E> > derives Tuple {
     step  : Long;
 
     self( start : E, end : E, step : Long ) {
-        self.start = start;
-        self.end = end;
-        self.step = step;
-
-        if self.step >= 0:
-            self._last = UInt( ( Long( self.end.ordinal() )   - self.start.ordinal() + 1L ) / self.step );
+        last : ~UInt = 0;
+        if step >= 0:
+            last = UInt( ( Long( end.ordinal() )   - start.ordinal() + 1L ) / step );
         else
-            self._last = UInt( ( Long( self.start.ordinal() ) - self.end.ordinal()   + 1L ) / -self.step );
+            last = UInt( ( Long( start.ordinal() ) - end.ordinal()   + 1L ) / -step );
+
+        #init: _last( last ), start( start ), end( end ), step( step );
     }
 
     last_index() -> UInt {
