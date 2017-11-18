@@ -17,8 +17,7 @@ type SingleRef <: Tuple, Sequenceable {
         done : ~Bool;
 
         self( element : Int ) {
-            self.element = element;
-            self.done = FALSE;
+            #init: element( element ), done( FALSE );
         }
         override emptyFunc() {
         }
@@ -36,7 +35,7 @@ type SingleRef <: Tuple, Sequenceable {
     element : Int;
     
     self( element : Int ) {
-        self.element = element;
+        #init: element( element );
     }
 
     override sequencer()->Ref<~Sequencer> {

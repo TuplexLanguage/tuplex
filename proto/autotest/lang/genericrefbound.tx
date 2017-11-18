@@ -8,10 +8,6 @@ type ~ AType<S derives Ref> derives Tuple {
     #experr 1: type GenAlias : S;  ## not currently allowed
     type GenRef <: Ref<S>;
 
-    self(s : S) {
-        self.memref = s;
-    }
-
     getref()->S {
         return self^.memref;
     }
@@ -25,19 +21,17 @@ type ATypeRInt <: AType<RInt>;
 }
 
 main()->Int {
-    #experr: type Err <: AType<Byte>;  ## doesn't match parameter's constraint type
-    #experr: err : AType<Short>;     ## doesn't match parameter's constraint type
-
-    ## fix experr for this case:
-    ## #experr: type Err <: AType<AType>; ## doesn't match parameter's constraint type
+    #experr: type Err <: AType<Byte>;    ## doesn't match parameter's constraint type
+    #experr: err := <AType<Short>>(2);   ## doesn't match parameter's constraint type
+    #experr: type Err <: AType<AType>;   ## doesn't match parameter's constraint type
 
     val : Int = 42;
-    aobj : ATypeRInt;
+    aobj := ATypeRInt(val);
     sobj := ATypeRInt(val);
     hobj := new ATypeRInt(val);
-    s1 : sobj.S;
-    ##s2 : sobj.my#AType#S;  ## FIXME: fix bug where sobj type is my.AType<tx#Ref> rather than my.ATypeRInt (because inherited constructor?)
-    ##s2 : hobj^.S;  ## type expr doesn't handle ^
+    s1 : sobj.S = &val;
+    s2 : sobj.my#AType#S = &val;
+    ##s3 : hobj^.S;  ## type expr doesn't handle ^
 
     assert sobj.getref()^ == 42;
     assert hobj.getref()^ == 42;

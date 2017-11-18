@@ -10,6 +10,7 @@ type ~ AType derives Tuple {
     field2 : ~Float;
 
     self() {
+        #init: field1(), field2();
     }
 
     print() {
@@ -66,7 +67,7 @@ type ~ BType derives AType {
 }
 
 main()->Int {
-    bo : ~BType;
+    bo := ~BType( 0, 0 );
     ar : &~AType = &bo;
     br : &~BType = &bo;
 

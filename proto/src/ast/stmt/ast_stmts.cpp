@@ -10,7 +10,7 @@
 
 void TxFieldStmtNode::stmt_declaration_pass() {
     this->successorScope = lexContext.scope()->create_code_block_scope( *this );
-    this->fieldDef->declare_field( this->successorScope, this->declFlags, TXS_STACK );
+    this->fieldDef->declare_field( this, this->successorScope, this->declFlags, TXS_STACK );
     // (to prevent init expr from referencing this field, it is processed in the 'outer' scope, not in the new block scope)
 }
 
@@ -31,18 +31,28 @@ void TxSelfSuperFieldsStmtNode::stmt_declaration_pass() {
 
     // 'self' reference:
     auto selfTypeNode = new TxNamedTypeNode( this->ploc, "Self" );
-    auto selfRefTargetTypeNode = new TxSetQualTypeExprNode( this->ploc, selfTypeNode, modifying );
+    TxQualTypeExprNode* selfRefTargetTypeNode;
+    if ( modifying || !this->context().enclosing_lambda()->get_constructed() )
+        selfRefTargetTypeNode = new TxSetQualTypeExprNode( this->ploc, selfTypeNode, modifying );
+    else
+        // constructors are implicitly modifying if their type is mutable
+        selfRefTargetTypeNode = new TxFlexModTypeExprNode( this->ploc, selfTypeNode );
     auto selfRefTypeExprN = new TxQualTypeExprNode( new TxReferenceTypeNode( this->ploc, nullptr, selfRefTargetTypeNode ) );
     this->selfRefNode = new TxLocalFieldDefNode( this->ploc, new TxIdentifierNode( this->ploc, "self" ), selfRefTypeExprN, nullptr );
 
     // 'super' reference
     auto superTypeNode = new TxNamedTypeNode( this->ploc, "Super" );
-    auto superRefTargetTypeNode = new TxSetQualTypeExprNode( this->ploc, superTypeNode, modifying );
+    TxQualTypeExprNode* superRefTargetTypeNode;
+    if ( modifying || !this->context().enclosing_lambda()->get_constructed() )
+        superRefTargetTypeNode = new TxSetQualTypeExprNode( this->ploc, superTypeNode, modifying );
+    else
+        // constructors are implicitly modifying if their type is mutable
+        superRefTargetTypeNode = new TxFlexModTypeExprNode( this->ploc, superTypeNode );
     auto superRefTypeExprN = new TxQualTypeExprNode( new TxReferenceTypeNode( this->ploc, nullptr, superRefTargetTypeNode ) );
     this->superRefNode = new TxLocalFieldDefNode( this->ploc, new TxIdentifierNode( this->ploc, "super" ), superRefTypeExprN, nullptr );
 
-    this->selfRefNode->declare_field( context().scope(), TXD_NONE, TXS_STACK );
-    this->superRefNode->declare_field( context().scope(), TXD_NONE, TXS_STACK );
+    this->selfRefNode->declare_field( this, context().scope(), TXD_NONE, TXS_STACK );
+    this->superRefNode->declare_field( this, context().scope(), TXD_NONE, TXS_STACK );
 }
 
 static TxMemProviderNode* make_member_expr( TxIdentifierNode* identifier ) {
@@ -62,6 +72,26 @@ TxMemberInitNode::TxMemberInitNode( const TxLocation& ploc, TxIdentifierNode* id
           constructorCallExpr( new TxFunctionCallNode(
                 ploc, new TxConstructorCalleeExprNode( ploc, make_member_expr( identifier ) ), argsExprList ) ) {
 }
+
+void TxMemberInitNode::visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) {
+    if ( this->context().is_type_generic() || this->context().is_type_gen_dep_bindings() ) {
+        // if the member to construct is TYPE parameter dependent, skip resolution and verification
+        if ( this->constructorCallExpr->callee->is_context_set() ) {
+            auto constrCallee = static_cast<TxConstructorCalleeExprNode*>( this->constructorCallExpr->callee );
+            try {
+                if ( constrCallee->get_constructed_type( TXP_TYPE )->is_generic_param() ) {
+                    //std::cerr << this << " skipping visit of " << this->constructorCallExpr << std::endl;
+                    return;
+                }
+            }
+            catch ( const resolution_error& err ) {
+                //LOG(this->LOGGER(), DEBUG, "Caught resolution error in " << this << ": " << err);
+            }
+        }
+    }
+    this->constructorCallExpr->visit_ast( visitor, thisCursor, "initializer", context );
+}
+
 
 TxInitStmtNode::TxInitStmtNode( const TxLocation& ploc, std::vector<TxMemberInitNode*>* initClauseList )
         : TxStatementNode( ploc ), selfSuperStmt( new TxSelfSuperFieldsStmtNode( ploc ) ), initClauseList( initClauseList )  {
@@ -87,20 +117,97 @@ void TxInitStmtNode::stmt_declaration_pass() {
 }
 
 void TxInitStmtNode::resolution_pass() {
-    if ( this->initClauseList->empty()
-         || ( this->initClauseList->front()->get_identifier()->ident() != "super"
-              && this->initClauseList->front()->get_identifier()->ident() != "self" ) ) {
-        auto qtype = this->selfSuperStmt->resolve_type( TXP_RESOLUTION );
+    auto qtype = this->selfSuperStmt->resolve_type( TXP_RESOLUTION );
+    if ( qtype->is_builtin() )
+        return;
+
+    if ( !this->initClauseList->empty() && this->initClauseList->front()->get_identifier()->ident() == "self" ) {
+        if ( this->initClauseList->size() > 1)
+            CERROR( this->initClauseList->front(), "self() can only be the sole initializer in an initializer list" );
+        return;
+    }
+
+    unsigned initIx;
+    if ( this->initClauseList->empty() || this->initClauseList->front()->get_identifier()->ident() != "super" ) {
         auto superType = qtype->get_base_type();
         if ( superType->get_constructors().size() == 1
-                && superType->get_constructors().front()->get_definer()->resolve_type( TXP_RESOLUTION )->argument_types().empty() ) {
+             && superType->get_constructors().front()->get_definer()->resolve_type( TXP_RESOLUTION )->argument_types().empty() ) {
             // syntactic sugar to implicitly prepend 'super()' if base type has a single no-args constructor
             LOG_DEBUG( this->LOGGER(), "Implicit invokation of super() from " << this );
             auto implicitSuper = new TxMemberInitNode( ploc, new TxIdentifierNode( ploc, "super" ),
                                                        new std::vector<TxExpressionNode*>() );
             run_declaration_pass( implicitSuper, this->context() );
             run_resolution_pass( implicitSuper );
-            this->initClauseList->insert( this->initClauseList->begin(), implicitSuper ) ;
+            this->initClauseList->insert( this->initClauseList->begin(), implicitSuper );
+            initIx = 1;  // skips super() in loop
+        }
+        else {
+            CERROR( this, "Missing 'super' as first initializer in initializer list" );
+            initIx = 0;
+        }
+    }
+    else
+        initIx = 1;  // skips super() in loop
+
+    auto initFieldList = qtype->get_instance_fields_to_initialize();
+    for ( auto fieldDecl : initFieldList ) {
+        if ( fieldDecl->get_definer()->initExpression ) {
+            if ( initIx < this->initClauseList->size()
+                    && this->initClauseList->at( initIx )->get_identifier()->ident() == fieldDecl->get_unique_name() ) {
+                CERROR( this->initClauseList->at( initIx ), "Constructor may not initialize field '"
+                        << this->initClauseList->at( initIx )->get_identifier()->ident() << "' that already has direct initializer" );
+                ++initIx;
+            }
+            else {
+                // insert implicit initializer for field that has direct initialization expression
+                auto initExpr = new TxExprWrapperNode( fieldDecl->get_definer()->initExpression );
+                auto implicitInit = new TxMemberInitNode( ploc, new TxIdentifierNode( ploc, fieldDecl->get_unique_name() ),
+                                                          new std::vector<TxExpressionNode*>( { initExpr } ) );
+                run_declaration_pass( implicitInit, this->context() );
+                run_resolution_pass( implicitInit );
+                this->initClauseList->insert( std::next( this->initClauseList->begin(), initIx ), implicitInit );
+                ++initIx;
+            }
+        }
+        else {
+            if ( initIx < this->initClauseList->size()
+                      && this->initClauseList->at( initIx )->get_identifier()->ident() == fieldDecl->get_unique_name() ) {
+                ++initIx;
+            }
+            else {
+                // look through other initializers to see if malpositioned
+                bool present = false;
+                for ( auto tmpInit : *this->initClauseList ) {
+                    if ( tmpInit->get_identifier()->ident() == fieldDecl->get_unique_name() ) {
+                        CERROR( tmpInit, "Initializer for field '" << tmpInit->get_identifier()->ident() << "' in wrong position" );
+                        present = true;
+                        break;
+                    }
+                }
+                if ( !present ) {
+                    CERROR( this, "Missing field initializer in initializer list: " << fieldDecl->get_unique_full_name() );
+                }
+            }
+        }
+    }
+    for ( ; initIx < this->initClauseList->size(); ++initIx ) {
+        auto initName = this->initClauseList->at( initIx )->get_identifier()->ident();
+        if ( initName == "super" ) {
+            CERROR( this->initClauseList->at( initIx ), "super() initializer not in first position" );
+        }
+        else if ( initName == "self" ) {
+            CERROR( this->initClauseList->front(), "self() can only be the sole initializer in an initializer list" );
+        }
+        else {
+            bool present = false;
+            for ( auto fieldDecl : initFieldList ) {
+                if ( initName == fieldDecl->get_unique_name() ) {
+                    present = true;
+                    break;
+                }
+            }
+            if ( !present )
+                CERROR( this->initClauseList->at( initIx ), "Unknown / invalid field initializer: " << initName );
         }
     }
 }
@@ -109,6 +216,7 @@ void TxInitStmtNode::verification_pass() const {
     if ( !this->context().enclosing_lambda()->get_constructed() ) {
         CERROR( this, "Initializer / constructor invocation statements may not be used in non-constructor functions" );
     }
+/*
     // verify initializer list:
     auto qtype = this->selfSuperStmt->qtype();
     if ( !qtype->is_builtin() ) {
@@ -136,9 +244,10 @@ void TxInitStmtNode::verification_pass() const {
                 for ( unsigned i = fieldIx; i < initFieldList.size(); i++ ) {
                     if ( initName == initFieldList.at( i )->get_unique_name() ) {
                         present = true;
-                        if ( initFieldList.at( i )->get_definer()->initExpression )
-                            CERROR( initNode, "Constructor may not initialize field '" << initName << "' that already has direct initializer" );
-                        else if ( wrongPos ) {
+//                        if ( initFieldList.at( i )->get_definer()->initExpression )
+//                            CERROR( initNode, "Constructor may not initialize field '" << initName << "' that already has direct initializer" );
+//                        else
+                        if ( wrongPos ) {
                             CERROR( initNode, "Initializer for field '" << initName << "' in wrong position" );
                             initFieldErrIxList.push_back( i );
                         }
@@ -166,6 +275,7 @@ void TxInitStmtNode::verification_pass() const {
             }
         }
     }
+*/
 }
 
 void TxReturnStmtNode::resolution_pass() {

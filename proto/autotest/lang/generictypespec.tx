@@ -25,12 +25,12 @@ type SExtInt <: Single<Int> {
 }
 
 test_single() {
-    inst1 : Single<Int>;
-    inst2 : SAlias<Int>;
-    inst3 : SExt<Int>;
+    inst1 := <Single<Int>>( 42 );
+    inst2 := <SAlias<Int>>( 42 );
+    inst3 := <SExt<Int>>( 42, 3.14 );
 
-    inst4 : SAliasInt;
-    inst5 : SExtInt;
+    inst4 := SAliasInt( 42 );
+    inst5 := SExtInt( 42, 3.14 );
 
     {
         genref1 : &Single = &inst1;
@@ -41,12 +41,11 @@ test_single() {
     }
 
     {
-        type SingleIntRef <: &Single<Int>;
-        iref1 : SingleIntRef = &inst1;
-        iref2 : SingleIntRef = &inst2;
-        iref3 : SingleIntRef = &inst3;
-        iref4 : SingleIntRef = &inst4;
-        iref5 : SingleIntRef = &inst5;
+        iref1 : &Single<Int> = &inst1;
+        iref2 : &Single<Int> = &inst2;
+        iref3 : &Single<Int> = &inst3;
+        iref4 : &Single<Int> = &inst4;
+        iref5 : &Single<Int> = &inst5;
     }
 }
 
@@ -61,12 +60,12 @@ type ~ Duo<A,B> {
 
 ## test redeclarations:
 
-#experr 1: type DAliasE1 : Duo;
-#experr 1: type DAliasE2<A> : Duo;
-#experr 1: type DAliasE3<A,B> : Duo;
-#experr 2: type DAliasE4<A> : Duo<A>;
-#experr 2: type DAliasE5<A,B> : Duo<A>;
-#experr 1: type DAliasE6<A> : Duo<A,B>;
+#experr 2: type DAliasE1      <: Duo;
+#experr 2: type DAliasE2<A>   <: Duo;
+#experr 2: type DAliasE3<A,B> <: Duo;
+#experr 2: type DAliasE4<A>   <: Duo<A>;
+#experr 2: type DAliasE5<A,B> <: Duo<A>;
+#experr 1: type DAliasE6<A>   <: Duo<A,B>;
 
 type DAlias<A,B> <: Duo<A,B>;
 
@@ -94,17 +93,17 @@ type DPExtIF <: DPExt<Int> {
 
 
 test_duo() {
-    inst1 : Duo<Int,Float>;
-    inst2 : DAlias<Int,Float>;
-    inst3 : DExt<Int,Float>;
+    inst1 := <Duo<Int,Float>>( 0, 0.0 );
+    inst2 := <DAlias<Int,Float>>( 0, 0.0 );
+    inst3 := <DExt<Int,Float>>( 0, 0.0, 0.0 );
 
-    inst4 : DAliasIF;
-    inst5 : DExtIF;
+    inst4 := DAliasIF( 0, 0.0 );
+    inst5 := DExtIF( 0, 0.0, 0.0 );
 
-    inst6 : DPart<Int>;
-    inst7 : DPExt<Int>;
-    inst8 : DPAliasIF;
-    inst9 : DPExtIF;
+    inst6 := <DPart<Int>>( 0, 0.0 );
+    inst7 := <DPExt<Int>>( 0, 0.0, 0.0 );
+    inst8 := DPAliasIF( 0, 0.0 );
+    inst9 := DPExtIF( 0, 0.0, 0.0, 0.0 );
 
     {
         genref1 : &Duo = &inst1;
@@ -119,16 +118,15 @@ test_duo() {
     }
 
     {
-        type DuoIFRef <: &Duo<Int,Float>;
-        iref1 : DuoIFRef = &inst1;
-        iref2 : DuoIFRef = &inst2;
-        iref3 : DuoIFRef = &inst3;
-        iref4 : DuoIFRef = &inst4;
-        iref5 : DuoIFRef = &inst5;
-        iref6 : DuoIFRef = &inst6;
-        iref7 : DuoIFRef = &inst7;
-        iref8 : DuoIFRef = &inst8;
-        iref9 : DuoIFRef = &inst9;
+        iref1 : &Duo<Int,Float> = &inst1;
+        iref2 : &Duo<Int,Float> = &inst2;
+        iref3 : &Duo<Int,Float> = &inst3;
+        iref4 : &Duo<Int,Float> = &inst4;
+        iref5 : &Duo<Int,Float> = &inst5;
+        iref6 : &Duo<Int,Float> = &inst6;
+        iref7 : &Duo<Int,Float> = &inst7;
+        iref8 : &Duo<Int,Float> = &inst8;
+        iref9 : &Duo<Int,Float> = &inst9;
     }
 }
 
@@ -152,7 +150,7 @@ type ImmFourth <: ImmThird<Float> {
 }
 
 test_immfourth() {
-    inst : ImmFourth;
+    inst := ImmFourth( 0, 0, 0.0 );
     av : inst.A = -14000000I;
     bv : inst.B = 3000000000UI;
     cv : inst.C = 3.14;
@@ -180,7 +178,7 @@ type ~ Fourth <: Third<~Float> {
 }
 
 test_fourth() {
-    inst : ~Fourth;
+    inst := ~Fourth( 0, 0, 0.0, 0.0, 0.0, 0.0 );
     inst.amemb = -14000000I;
     inst.bmemb = 3000000000UI;
     inst.cmemb = 3.14;
@@ -204,9 +202,11 @@ type ~ Combo<X,Y> <: Duo<X,Y>, AnIf<X,Y> {
 }
 
 test_combo( v : Int ) {
-    mycombo : ~Combo<~Float,~Long>;
+    mycombo := ~<Combo<~Float,~Long>>( 2.72, 17, 0.0, 0 );
     mycombo.xmemb = 3.14 * Float(v);
     mycombo.ymemb = 42 * v;
+    assert mycombo.amemb == 2.72;
+    assert mycombo.bmemb == 17;
     assert mycombo.get_c() == 3.14;
     assert mycombo.get_d() == 42;
 }

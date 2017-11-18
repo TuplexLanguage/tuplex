@@ -50,17 +50,13 @@ public:
             : compilation_error( origin, errMessage ) { }
 };
 
-template<typename charT, typename traits>
-std::basic_ostream<charT, traits> &
-operator<<( std::basic_ostream<charT, traits> &lhs, const resolution_error& rhs ) {
-    return lhs << rhs.what();
-}
 
 template<typename charT, typename traits>
 std::basic_ostream<charT, traits> &
-operator<<( std::basic_ostream<charT, traits> &lhs, const codecheck_error& rhs ) {
+operator<<( std::basic_ostream<charT, traits> &lhs, const compilation_error& rhs ) {
     return lhs << rhs.what();
 }
+
 
 #define THROW_LOGIC(message) \
 do { \

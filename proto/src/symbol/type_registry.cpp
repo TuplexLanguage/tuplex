@@ -280,7 +280,7 @@ TxQualType TypeRegistry::get_string_type() {
  * Note, since this creates a wrapper around an existing declaration, it creates a type alias. */
 static TxDeclarationNode* make_type_type_param_decl_node( const TxLocation& parseLoc, const std::string& paramName,
                                                           const TxTypeDeclaration* typeDecl ) {
-    auto typeExpr = new TxEmptyDerivedTypeNode( parseLoc, new TxTypeDeclWrapperNode( parseLoc, typeDecl ) );
+    auto typeExpr = new TxDerivedTypeNode( parseLoc, new TxTypeDeclWrapperNode( parseLoc, typeDecl ) );
     auto declNode = new TxTypeDeclNode( parseLoc, TXD_GENPARAM | TXD_IMPLICIT | TXD_PUBLIC,
                                         new TxIdentifierNode( parseLoc, paramName ), nullptr, typeExpr );
     return declNode;
@@ -636,11 +636,9 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
     // Invoking the type resolution pass here can cause infinite recursion
     // (since the same source text construct may be recursively reprocessed),
     // so we enqueue this "specialization resolution pass" for later processing.
-    //std::cerr << "enqueuing specialization " << newBaseTypeDecl << std::endl;
-    if ( !genBaseType->is_initialized() || genBaseType->get_type_class() != TXTC_REFERENCE ) {
-        // (References don't have a "body" and don't need to be reinterpreted.)
-        this->add_reinterpretation( newSpecTypeDecl );
-    }
+    // Note: Although reference specializations don't have a conventional "body" to be reinterpreted,
+    //       they do have specialized initializers.
+    this->add_reinterpretation( newSpecTypeDecl );
 
     return specializedType;
 }

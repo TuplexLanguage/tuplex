@@ -83,8 +83,6 @@ interface IntfA {
 type Type derives Tuple, IntfA {
     fld : Int;
 
-    self(f : Int) { self.fld = f; }
-
     override get_value()->Int {
         assert self.mixin_method_1() == 1;
         ##assert super.mixin_method_2() == 2;  ## TODO: support referring to interfaces via 'super'

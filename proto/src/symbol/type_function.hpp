@@ -89,15 +89,27 @@ public:
         return !this->returnType->is_builtin( TXBT_VOID );
     }
 
+    virtual std::string func_signature_str() const {
+        std::stringstream str;
+        this->sig_string( str );
+        return str.str();
+    }
+
 protected:
-    virtual void self_string( std::stringstream& str, bool brief ) const override {
-        str << this->get_declaration()->get_unique_full_name() << " : func(";
-        str << join( this->argumentTypes, ", " );
-        str << ")";
+    void sig_string( std::stringstream& str ) const {
+        if (this->argumentTypes.empty())
+            str << "()";
+        else
+            str << "( " << join( this->argumentTypes, ", " ) << " )";
         if ( this->modifiable_closure() )
             str << " ~";
         if ( this->has_return_value() )
             str << " -> " << this->returnType->str( true );
+    }
+
+    virtual void self_string( std::stringstream& str, bool brief ) const override {
+        str << this->get_declaration()->get_unique_full_name();
+        this->sig_string( str );
     }
 };
 
@@ -180,11 +192,13 @@ public:
     virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;
 };
 
-class TxBuiltinArrayInitializerType final : public TxInlineFunctionType {
+class TxBuiltinAssignInitializerType final : public TxInlineFunctionType {
 public:
-    TxBuiltinArrayInitializerType( const TxTypeDeclaration* declaration, const TxActualType* baseType, const TxActualType* argumentType,
-                                   const TxActualType* returnType )
-            : TxInlineFunctionType( declaration, baseType, std::vector<const TxActualType*> { argumentType }, returnType ) {
+    TxBuiltinAssignInitializerType( const TxTypeDeclaration* declaration, const TxActualType* baseType,
+                                    const TxActualType* argAndReturnType )
+            : TxInlineFunctionType( declaration, baseType,
+                                    std::vector<const TxActualType*> { argAndReturnType },
+                                    argAndReturnType ) {
     }
 
     virtual TxExpressionNode* make_inline_expr( TxExpressionNode* calleeExpr, std::vector<TxMaybeConversionNode*>* argsExprList ) const override;

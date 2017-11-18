@@ -410,14 +410,11 @@ type_declaration : declaration_flags type_or_if opt_mutable identifier type_deri
                  | error type_body  { $$ = NULL; }
                  ;
 
-type_derivation : derives_token type_expression SEMICOLON  { $$ = new TxEmptyDerivedTypeNode( @$, $2 ); }
-
+type_derivation : derives_token type_expression SEMICOLON  { $$ = new TxDerivedTypeNode(@$, $2); }
                 | derives_token type_expression type_body  { $$ = new TxDerivedTypeNode(@$, $2, $3); }
-    
                 | derives_token type_expression COMMA conv_type_list type_body
-                    { $$ = new TxDerivedTypeNode(@$, $2, $4, $5); }
-
-                | type_body         { $$ = new TxDerivedTypeNode(@$, $1); }
+                                                           { $$ = new TxDerivedTypeNode(@$, $2, $4, $5); }
+                | type_body                                { $$ = new TxDerivedTypeNode(@$, $1); }
                 ;
 
 conv_type_list  : conv_type_expr  { $$ = new std::vector<TxTypeExpressionNode*>();  $$->push_back($1); }

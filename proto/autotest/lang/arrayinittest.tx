@@ -130,9 +130,9 @@ array_stack_construction( i : UByte ) {
     ##a45 := [2]Int( [ 10I ] );
     #experr 1: ae := [3]Int( 1 );
     #experr 1: ae := [3]Int( 1, 2 );
-    #experr 2: ae := [4]Int( [ 1I, 2, 3 ] );  ## literal array initializer
-    #experr 2: ae := [4]Int( a10 );           ## field initializer
-    #experr 2: ae := [4]Int( &a10 );          ## auto-dereferencing
+    #experr 1: ae := [4]Int( [ 1I, 2, 3 ] );  ## literal array initializer
+    #experr 1: ae := [4]Int( a10 );           ## field initializer
+    #experr 1: ae := [4]Int( &a10 );          ## auto-dereferencing
 
   ## Initialization with explicit type; Explicit default initialization
     a60 := [0]UByte();

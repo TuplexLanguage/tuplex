@@ -123,9 +123,9 @@ protected:
         for ( TxTypeArgumentNode* ta : *this->typeArgs ) {
             if (this->genTypeExpr->qtype()->get_type_class() != TXTC_REFERENCE) {
                 if ( auto typeTypeArg = dynamic_cast<TxTypeTypeArgumentNode*>( ta ) ) {
-                    auto elemType = typeTypeArg->typeExprNode->qtype();
-                    if ( is_not_properly_concrete( this, elemType ) )
-                        CERROR( this, "Type specialization parameter is not concrete: " << elemType );
+                    if ( auto elemType = typeTypeArg->typeExprNode->attempt_qtype() )
+                        if ( is_not_properly_concrete( this, elemType ) )
+                            CERROR( this, "Type specialization parameter is not concrete: " << elemType );
                 }
             }
         }
@@ -297,8 +297,13 @@ public:
     TxDerivedTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType, std::vector<TxDeclarationNode*>* members )
         : TxDerivedTypeNode(ploc, baseType, new std::vector<TxTypeExpressionNode*>(), members) { }
 
+    /** Creates a 'basic' type derivation (from Tuple or Interface). */
     TxDerivedTypeNode( const TxLocation& ploc, std::vector<TxDeclarationNode*>* members )
         : TxDerivedTypeNode(ploc, nullptr, new std::vector<TxTypeExpressionNode*>(), members) { }
+
+    /** Creates an 'empty' type derivation. */
+    TxDerivedTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
+        : TxDerivedTypeNode(ploc, baseType, new std::vector<TxTypeExpressionNode*>(), new std::vector<TxDeclarationNode*>()) { }
 
     virtual void set_requires_mutable( bool mut ) override;
 

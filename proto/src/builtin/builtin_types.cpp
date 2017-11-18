@@ -355,8 +355,7 @@ protected:
     }
 public:
     TxRefTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
-                      const std::vector<TxDeclarationNode*>& declNodes,
-                      const TxRefTypeDefNode* original = nullptr )
+                      const std::vector<TxDeclarationNode*>& declNodes )
             : TxBuiltinTypeDefiningNode( ploc, TXBT_REFERENCE, baseTypeNode, declNodes ) {
     }
 
@@ -378,8 +377,7 @@ protected:
     }
 public:
     TxArrayTypeDefNode( const TxLocation& ploc, TxTypeExpressionNode* baseTypeNode,
-                        const std::vector<TxDeclarationNode*>& declNodes,
-                        const TxArrayTypeDefNode* original = nullptr )
+                        const std::vector<TxDeclarationNode*>& declNodes )
             : TxBuiltinTypeDefiningNode( ploc, TXBT_ARRAY, baseTypeNode, declNodes ) {
     }
 
@@ -449,23 +447,23 @@ public:
     }
 };
 
-class TxArrayConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode {
+/** Assignment initializer, argument type is the same as the return type. */
+class TxAssignmentConstructorTypeDefNode final : public TxBuiltinConstructorTypeDefNode {
 protected:
     virtual TxActualType* create_type( TxPassInfo passInfo ) override {
-        auto actType = new TxBuiltinArrayInitializerType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION ),
-                                                          this->arguments->at( 0 )->resolve_type( passInfo ).type(),
-                                                          this->returnField->resolve_type( passInfo ).type() );
+        auto actType = new TxBuiltinAssignInitializerType( this->get_declaration(), this->registry().get_builtin_type( TXBT_FUNCTION ),
+                                                           this->arguments->at( 0 )->resolve_type( passInfo ).type() );
         return actType;
     }
 
 public:
-    TxArrayConstructorTypeDefNode( const TxLocation& ploc, TxArgTypeDefNode* fromTypeArg, TxTypeExpressionNode* returnTypeNode )
-            : TxBuiltinConstructorTypeDefNode( ploc, new std::vector<TxArgTypeDefNode*>( { fromTypeArg } ), returnTypeNode ) {
+    TxAssignmentConstructorTypeDefNode( const TxLocation& ploc, TxArgTypeDefNode* fromTypeArg )
+            : TxBuiltinConstructorTypeDefNode( ploc, new std::vector<TxArgTypeDefNode*>( { fromTypeArg } ),
+                                               new TxTypeExprWrapperNode( fromTypeArg->typeExpression ) ) {
     }
 
-    virtual TxArrayConstructorTypeDefNode* make_ast_copy() const override {
-        return new TxArrayConstructorTypeDefNode( this->ploc, this->arguments->at( 0 )->make_ast_copy(),
-                                                  this->returnField->typeExpression->make_ast_copy() );
+    virtual TxAssignmentConstructorTypeDefNode* make_ast_copy() const override {
+        return new TxAssignmentConstructorTypeDefNode( this->ploc, this->arguments->at( 0 )->make_ast_copy() );
     }
 };
 
@@ -802,15 +800,25 @@ TxParsingUnitNode* BuiltinTypes::createTxModuleAST() {
 
     // create the reference base type:
     {
+        auto refInitializer = new TxFieldDeclNode(
+                PLOC( pctx ),
+                TXD_PUBLIC | TXD_VIRTUAL | TXD_BUILTIN | TXD_INITIALIZER,
+                new TxNonLocalFieldDefNode(
+                        PLOC( pctx ),
+                        new TxIdentifierNode( PLOC( pctx ), CONSTR_IDENT ),
+                        new TxAssignmentConstructorTypeDefNode(
+                                PLOC( pctx ), new TxArgTypeDefNode( PLOC( pctx ), "val", new TxNamedTypeNode( PLOC( pctx ), "Self" ) ) ),
+                        nullptr ),  // no function body, initialization is inlined
+                false );  // not method syntax since built-in types' initializers are inlineable, pure functions
+
         auto paramNodes = new std::vector<TxDeclarationNode*>( {
             new TxTypeDeclNode( PLOC(pctx), TXD_PUBLIC | TXD_GENPARAM, new TxIdentifierNode( PLOC(pctx), "T" ), nullptr,
                                 new TxGenParamTypeNode( PLOC(pctx), new TxNamedTypeNode( PLOC(pctx), "Any" ) ) )
         } );
-        this->builtinTypes[TXBT_REFERENCE] = new TxTypeDeclNode( PLOC(pctx), TXD_PUBLIC | TXD_BUILTIN,
-                                                                 new TxIdentifierNode( PLOC(pctx), "Ref" ),
-                                                                 paramNodes,
-                                                                 new TxRefTypeDefNode( PLOC(pctx), new TxNamedTypeNode( PLOC(pctx), "Any" ), { } ),
-                                                                 false, true );
+        this->builtinTypes[TXBT_REFERENCE] = new TxTypeDeclNode(
+                PLOC( pctx ), TXD_PUBLIC | TXD_BUILTIN, new TxIdentifierNode( PLOC( pctx ), "Ref" ), paramNodes,
+                new TxRefTypeDefNode( PLOC( pctx ), new TxNamedTypeNode( PLOC( pctx ), "Any" ), { refInitializer } ),
+                false, true );
     }
 
     // create the array base type:

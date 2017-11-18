@@ -200,12 +200,12 @@ void verify_array_assignment( const TxNode* origin, const TxActualType* ltype, c
 
 
 
-void TxLocalFieldDefNode::declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
-    this->declaration = scope->declare_field( this->fieldName->ident(), this, declFlags, storage, TxIdentifier() );
+void TxLocalFieldDefNode::declare_field( const TxNode* declarer, TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
+    this->declaration = scope->declare_field( this->fieldName->ident(), declarer, this, declFlags, storage, TxIdentifier() );
 }
 
 
-void TxNonLocalFieldDefNode::declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
+void TxNonLocalFieldDefNode::declare_field( const TxNode* declarer, TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
     std::string declName = this->fieldName->ident();
     if ( declName == "self" ) {
         // handle constructor declaration
@@ -228,7 +228,7 @@ void TxNonLocalFieldDefNode::declare_field( TxScopeSymbol* scope, TxDeclarationF
     }
 
     // Note: Field is processed in the 'outer' scope and not in the 'inner' scope of its declaration.
-    this->declaration = scope->declare_field( declName, this, declFlags, storage, TxIdentifier() );
+    this->declaration = scope->declare_field( declName, declarer, this, declFlags, storage, TxIdentifier() );
 }
 
 bool TxNonLocalFieldDefNode::is_main_signature_valid( const TxActualType* funcType ) const {

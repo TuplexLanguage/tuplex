@@ -1,3 +1,13 @@
+
+type Foo {
+    virtual STAT_MEMB := 42;
+    instMemb := 17;
+}
+
+#experr 1: type Foo {}  ## can't overload multiple type names
+
+#experr 1: Foo := 123;  ## can't overload type and field names
+
 main() {
     #experr 1: i1 : Int;
     i2 : Int = 5;

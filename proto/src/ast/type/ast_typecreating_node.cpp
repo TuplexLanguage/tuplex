@@ -1,5 +1,7 @@
 #include "ast_typecreating_node.hpp"
 
+#include "ast/ast_entitydecls.hpp"
+
 #include "symbol/type_registry.hpp"
 
 #include "tx_logging.hpp"
@@ -24,15 +26,24 @@ TxQualType TxTypeCreatingNode::define_type( TxPassInfo passInfo ) {
 }
 
 
-void TxEmptyDerivedTypeNode::set_requires_mutable( bool mut ) {
-    TxTypeExpressionNode::set_requires_mutable( mut );
-    this->baseTypeNode->set_requires_mutable( mut );
-}
-
-TxActualType* TxEmptyDerivedTypeNode::create_type( TxPassInfo passInfo ) {
-    // create empty specialization (uniquely named but identical type)
-    return this->registry().instantiate_type( this->get_declaration(), this->baseTypeNode, {}, this->requires_mutable_type() );
-}
+//void TxEmptyDerivedTypeNode::set_requires_mutable( bool mut ) {
+//    TxTypeExpressionNode::set_requires_mutable( mut );
+//    this->baseTypeNode->set_requires_mutable( mut );
+//}
+//
+//TxActualType* TxEmptyDerivedTypeNode::create_type( TxPassInfo passInfo ) {
+//    // create empty specialization (uniquely named but identical type)
+//    return this->registry().instantiate_type( this->get_declaration(), this->baseTypeNode, {}, this->requires_mutable_type() );
+//}
+//
+//void TxEmptyDerivedTypeNode::visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) {
+//    this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
+//
+//    if ( auto qtype = this->attempt_qtype() ) {
+//        for ( auto implConstr : qtype->get_implicit_constructors() )
+//            implConstr->visit_ast( visitor, thisCursor, "initializer", context );
+//    }
+//}
 
 
 TxActualType* TxAliasTypeNode::create_type( TxPassInfo passInfo ) {

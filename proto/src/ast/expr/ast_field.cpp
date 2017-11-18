@@ -77,6 +77,9 @@ static const TxFieldDeclaration* inner_resolve_field( const TxExpressionNode* or
                 const TxActualType* arrayArgElemType = fieldType->vararg_elem_type();
                 const TxActualType* fixedArrayArgType = nullptr;
 
+                if ( printCandidates )
+                    CINFO( origin, "  Candidate: " << field->get_unique_full_name() << " : " << fieldType->func_signature_str() );
+
                 if ( arrayArgElemType ) {
                     // var-arg tail parameter accepts zero or more arguments
                     if ( arguments->size() < candArgTypes.size() - 1 )
@@ -94,11 +97,7 @@ static const TxFieldDeclaration* inner_resolve_field( const TxExpressionNode* or
                     continue;  // mismatching number of function args
                 }
 
-                {
-                    if ( printCandidates )
-                        CINFO( origin, "Candidate function: " << field << " : " << field->qtype() );
-
-                    // next check that the argument types match, and how close they match:
+                {  // next check that the argument types match, and how close they match:
                     uint16_t reint[4] = { 0, 0, 0, 0 };
                     for ( unsigned i = 0; i < arguments->size(); i++ ) {
                         TxExpressionNode* argNode = arguments->at( i );
@@ -182,9 +181,18 @@ static const TxFieldDeclaration* resolve_field( const TxExpressionNode* origin, 
         // ensure arguments are resolved (doing it here ensures sensible signatures in error messages)
         for ( auto argNode : *arguments )
             argNode->resolve_type( TXP_RESOLUTION );
+        // we expand the CERR_THROWRES macro here so that we can print the candidates before throwing the exception:
+        std::stringstream msg;
+        msg << entitySymbol->get_full_name() << " has no matching function for args: ";
+        if ( arguments->empty() )
+            msg << "()";
+        else
+            msg << "( " << join( attempt_typevec( arguments ), ", " ) << " )";
+        cerror(origin, msg.str());
         inner_resolve_field( origin, entitySymbol, arguments, true );
-        CERR_THROWRES( origin, entitySymbol->get_full_name() << " could not be resolved with args: "
-                       << entitySymbol->get_full_name() << "(" << join( attempt_typevec( arguments ), ", ") << ")" );
+        throw resolution_error( origin, msg.str() );
+//        CERR_THROWRES( origin, entitySymbol->get_full_name() << " has no matching function for args: "
+//                       << "(" << join( attempt_typevec( arguments ), ", ") << ")" );
     }
     else
         CERR_THROWRES( origin, entitySymbol->get_full_name() << " could not be resolved to a distinct field: "

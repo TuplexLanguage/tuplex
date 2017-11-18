@@ -70,10 +70,10 @@ type ~ Node {  ## mutable type
     loNode : &~Node;
 
     self() {
-        #init( self, self );
+        #init: hiNode( self ), loNode( self );
     }
     self( h : &Node, l : &~Node ) {
-        #init( h, l );
+        #init: hiNode( h ), loNode( l );
     }
 }
 

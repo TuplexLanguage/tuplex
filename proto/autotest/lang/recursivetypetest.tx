@@ -4,10 +4,10 @@ type Node derives Tuple {
     parent : Ref<Node>;
 
     self() {  ## creates root
-        self.parent = self;  ## UNSAFE if obj copied
+        #init: parent( self );  ## UNSAFE if obj copied
     }
     self(parent : Ref<Node>) {
-        self.parent = parent;
+        #init: parent( parent );
     }
 
     get_parent()->Ref<Node> {
@@ -41,6 +41,10 @@ type A {
 type B {
     aref : &A;
     aobj : A;
+
+    self( aref : &A, bref : &B ) {
+        #init: aref( aref ), aobj( bref );
+    }
 }
 
 
@@ -48,6 +52,10 @@ type B {
 
 type AA {
     bbobj : BB;
+
+    self( aaref : &AA ) {
+        #init: bbobj( aaref );
+    }
 }
 type BB {
     aaref : &AA;
@@ -77,6 +85,8 @@ type SpecTypeErr {
 #experr 3: type SpecTypeErrB  GenType<SpecTypeErrA>;
 
 
+/* Sub-typing from Ref is currently disallowed
+
 ## ok with recursive type definition via reference:
 type SpecTypeOk <: GenType<Ref<SpecTypeOk>>;
 
@@ -85,6 +95,7 @@ type BRef <: Ref<ARef>;
 
 type CRef <: &DRef;
 type DRef <: &CRef;
+*/
 
 
 ## ok with recursive type definition via non-reference and not containing itself (needed to support CRTP):
@@ -95,7 +106,7 @@ abstract type SequenceType<T> {
 
 type MyNumber derives SequenceType<MyNumber> {
     num : Int;
-    self ( n : Int ) { self.num = n; }
+    ##self ( n : Int ) { self.num = n; }
     override get_successor() -> MyNumber { return MyNumber( self.num + 1 ); }
 }
 

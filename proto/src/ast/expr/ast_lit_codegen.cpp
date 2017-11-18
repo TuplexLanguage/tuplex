@@ -35,7 +35,7 @@ Constant* TxIntegerLitNode::code_gen_const_value( LlvmGenerationContext& context
 }
 
 Constant* TxFloatingLitNode::code_gen_const_value( LlvmGenerationContext& context ) const {
-    TRACE_CODEGEN( this, context, this->value );
+    TRACE_CODEGEN( this, context, this->constValue.value );
     switch ( this->constValue.typeId ) {
     case TXBT_HALF:
         return ConstantFP::get( Type::getHalfTy( context.llvmContext ), this->constValue.value );

@@ -3,10 +3,11 @@ type ~ GenBase< T, V : UInt > {
     member : T;
 
     self() {
+        #init: member();
     }
 
     self( memb : T ) {
-        self.member = memb;
+        #init: member( memb );
     }
     
     get_member() -> T {

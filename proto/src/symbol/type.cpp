@@ -121,9 +121,12 @@ void TxActualType::validate_type() const {
             CERROR( this, "Can't derive directly from the Any root type: " << this->get_declaration() );
 
         if ( this->typeClass == TXTC_REFERENCE
-             && !( this->runtimeTypeId == TXBT_REFERENCE
-                     || ( this->genericBaseType && this->genericBaseType->runtimeTypeId == TXBT_REFERENCE ) ) )
-            CERROR( this, "Can't derive subtype from the Ref type: " << this->get_declaration() );
+                && !( this->runtimeTypeId == TXBT_REFERENCE
+                      || ( this->genericBaseType && this->genericBaseType->runtimeTypeId == TXBT_REFERENCE ) ) ) {
+            // a user-defined derivation of Ref (or a specialization thereof)
+            if ( !( this->pureDerivation || this->emptyDerivation ) )
+                CERROR( this, "Can't derive non-empty subtype from the Ref type: " << this->get_declaration() );
+        }
 
         ASSERT( this->baseType->runtimeTypeId == TXBT_ANY
                 || ( this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseType->get_type_class() == TXTC_INTERFACE )
@@ -225,8 +228,10 @@ void TxActualType::examine_members() {
                     hasImplicitFieldMembers = true;
                 else if ( fieldDecl->get_decl_flags() & TXD_EXPERROR )
                     continue;
-                else
+                else {
+                    // Note: initializers currently count as fields, although they are not proper methods
                     hasExplicitFieldMembers = true;
+                }
 
                 if ( fieldDecl->get_decl_flags() & ( TXD_CONSTRUCTOR | TXD_INITIALIZER ) ) {
                     //std::cerr << "storage of constr/init: " << fieldDecl << " " << fieldDecl->get_storage() << std::endl;
@@ -241,7 +246,8 @@ void TxActualType::examine_members() {
                     // so they do not constitute "extensions" to the specialized subtypes.
                     if ( !( fieldDecl->get_decl_flags() & TXD_GENBINDING ) ) {
                         this->modifiesInstanceDatatype = true;
-                        this->instanceFieldsToInitialize.push_back( fieldDecl );
+                        if ( !( fieldDecl->get_decl_flags() & TXD_GENPARAM ) )
+                            this->instanceFieldsToInitialize.push_back( fieldDecl );
                     }
                     break;
                 case TXS_INSTANCEMETHOD:
@@ -269,10 +275,19 @@ void TxActualType::initialize_type() {
         if ( !this->bindings.empty() ) {
             this->pureDerivation = true;
         }
-        else if ( !this->builtin && this->interfaces.empty() && this->params.empty() ) {
-            if ( this->typeClass != TXTC_FUNCTION && this->typeClass != TXTC_INTERFACEADAPTER ) {
-                this->emptyDerivation = true;
-                ASSERT( !this->genericBaseType, "Empty derivation had a $GenericBase: " << this->genericBaseType );
+        else if ( !this->builtin && this->interfaces.empty() ) {
+            if ( this->typeClass == TXTC_REFERENCE ) {
+                // special case, a reference derivation is treated as empty if it has param that is merely redeclaration
+                if ( this->params.empty()
+                        || ( this->params.size() == 1 && dynamic_cast<const TxTypeDeclaration*>( this->params.front() ) ) ) {
+                    this->emptyDerivation = true;
+                }
+            }
+            else if ( this->typeClass != TXTC_FUNCTION && this->typeClass != TXTC_INTERFACEADAPTER ) {
+                if ( this->params.empty() ) {
+                    this->emptyDerivation = true;
+                    ASSERT( !this->genericBaseType, "Empty derivation had a $GenericBase: " << this->genericBaseType );
+                }
             }
         }
     }
@@ -454,9 +469,10 @@ static TxFieldDeclNode* generate_constructor_ast( const TxLocation& loc, const T
 
         if ( instanceFieldDecl->get_definer()->initExpression ) {
             // direct assignment (instance field has a constant initializer expression)
-            auto initExpr = new TxExprWrapperNode( instanceFieldDecl->get_definer()->initExpression );
-            initClauseList->push_back( new TxMemberInitNode( loc, new TxIdentifierNode( loc, argName ),
-                                                             new std::vector<TxExpressionNode*>( { initExpr } ) ) );
+            // TxInitStmtNode inserts these (same logic as for user-defined constructors)
+//            auto initExpr = new TxExprWrapperNode( instanceFieldDecl->get_definer()->initExpression );
+//            initClauseList->push_back( new TxMemberInitNode( loc, new TxIdentifierNode( loc, argName ),
+//                                                             new std::vector<TxExpressionNode*>( { initExpr } ) ) );
         }
         else {
             argNodes->push_back( new TxArgTypeDefNode( loc, argName,
@@ -497,22 +513,28 @@ void TxActualType::autogenerate_constructors() {
 
     for ( auto instanceFieldDecl : instanceFieldsToInitialize ) {
         if ( !instanceFieldDecl->get_definer()->initExpression ) {
-            // check if instance field has a constructor that accepts a single argument of its own type
-            bool hasCopyConstructor = false;
             auto fieldType = instanceFieldDecl->get_definer()->resolve_type( TXP_TYPE );
-            for ( auto fieldConstr : fieldType->constructors ) {
-                auto constrType = fieldConstr->get_definer()->resolve_type( TXP_TYPE );
-                if ( constrType->argument_types().size() == 1 ) {
-                    if ( *constrType->argument_types().at(0) == *fieldType ) {
-                        hasCopyConstructor = true;  // this is a copy constructor
-                        break;
+            if ( !fieldType->is_generic_param() ) {
+                // check if instance field has a constructor that accepts a single argument of its own type
+                bool hasCopyConstructor = false;
+                auto fieldConstrType = fieldType->get_construction_type();
+                for ( auto fieldConstr : fieldConstrType->constructors ) {
+                    auto constrType = fieldConstr->get_definer()->resolve_type( TXP_TYPE );
+                    if ( constrType->argument_types().size() == 1 ) {
+                        // FUTURE: Perhaps accept copy constructors that take reference to own type
+                        //         (probably requires dataspaces design to be detailed first)
+                        if ( *constrType->argument_types().at(0) == *fieldConstrType ) {
+                            hasCopyConstructor = true;  // this is a copy constructor
+                            break;
+                        }
                     }
                 }
-            }
-            if ( !hasCopyConstructor ) {
-                // can't auto-generate constructor
-                std::cerr << "Can't auto-generate constructor since field type has no copy constructor: " << instanceFieldDecl << std::endl;
-                return;
+                if ( !hasCopyConstructor ) {
+                    // can't auto-generate constructor
+                    LOG_NOTE( this->LOGGER(), "Can't auto-generate constructor since field type has no copy constructor: "
+                              << instanceFieldDecl->get_unique_full_name() << " : " << fieldType );
+                    return;
+                }
             }
         }
     }
@@ -1529,6 +1551,11 @@ const TxActualType* TxActualType::fixed_array_arg_type() const {
     return nullptr;
 }
 
+std::string TxActualType::func_signature_str() const {
+    return get_function_base_type( this )->func_signature_str();
+}
+
+
 
 TxFunctionType::TxFunctionType( const TxTypeDeclaration* declaration, const TxActualType* baseType,
                                 const std::vector<const TxActualType*>& argumentTypes,
@@ -1543,8 +1570,8 @@ TxExpressionNode* TxBuiltinConversionFunctionType::make_inline_expr( TxExpressio
     return make_conversion( argsExprList->front(), this->return_type(), true );
 }
 
-TxExpressionNode* TxBuiltinArrayInitializerType::make_inline_expr( TxExpressionNode* calleeExpr,
-                                                                   std::vector<TxMaybeConversionNode*>* argsExprList ) const {
+TxExpressionNode* TxBuiltinAssignInitializerType::make_inline_expr( TxExpressionNode* calleeExpr,
+                                                                    std::vector<TxMaybeConversionNode*>* argsExprList ) const {
     return argsExprList->front();
 }
 

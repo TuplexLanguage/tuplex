@@ -1,9 +1,20 @@
 
-## can't derive user types from the Ref type:
+## can't derive non-empty user types from the Ref type:
 
-#experr 1: type CustomRef<T> derives Ref<T>;
+type CustomRef<T> derives Ref<T>;
 
-#experr 1: type CustomIntRef derives Ref<Int>;
+type CustomIntRef derives Ref<Int> {
+}
+
+#experr 1: type ECustomRef<T> derives Ref<T> {
+    virtual CONSTANT := 2;
+}
+
+#experr 1: type ECustomIntRef derives Ref<Int> {
+    get_self() -> &Self {
+        return self;
+    }
+}
 
 
 basic_ref_syntax() {

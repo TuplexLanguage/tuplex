@@ -14,10 +14,6 @@ interface IntfB <: IntfA {         ## extends the interface IntfA
 type ~ MyType <: Tuple, IntfB {    ## a Tuple type that implements IntfB
     field : ~Int;
 
-    self(f : Int) {
-        self.field = f;
-    }
-
     override get_value()->Int {
         return self.field;
     }

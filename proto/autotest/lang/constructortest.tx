@@ -23,6 +23,7 @@ type EmptyTypeD derives Tuple {
 
 type ~Upper {
     virtual FOO : Int = 14;
+    _e : ~Float = 345.67;
     _f : Int;
 }
 
@@ -37,10 +38,10 @@ type ~Lower derives Upper {
         #init: super(i), _f(j), _g(k);
         #experr 2: #init: _f(j), _g(k);  ## missing super(Int)
         #experr 2: #init: super(i), _f(j);  ## missing member init
-        #experr 3: #init: super(i), _g(j);  ## missing member init
+        #experr 2: #init: super(i), _g(j);  ## missing member init
         #experr 2: #init: super(i), _g(k), _f(j);  ## wrong order
-        #experr 2: #init: _f(j), super(i), _g(k);  ## wrong order
-        #experr 2: #init: _f(j), _g(k), super(i);  ## wrong order
+        #experr 4: #init: _f(j), super(i), _g(k);  ## wrong order
+        #experr 3: #init: _f(j), _g(k), super(i);  ## wrong order
         #experr 2: #init: super(i), _f(j), _g(k), _h(i);  ## can't initialize _h which has direct initializer
         #experr 3: #init: super(i), _f(j), _g(k), foobar(i);  ## unknown field
         #experr 1: #self: super(i), _f(j), _g(k);  ## wrong keyword
@@ -48,9 +49,9 @@ type ~Lower derives Upper {
     self( i : Int ) {
         #init: self( i, i, i);
         ## can't combine self() and other initializers:
-        #experr 5: #init: self( i, i, i), super(i); 
-        #experr 4: #init: self( i, i, i), _f(i); 
-        #experr 3: #init: self( i, i, i), super(i), _f(i), _g(i);
+        #experr 2: #init: self( i, i, i), super(i); 
+        #experr 2: #init: self( i, i, i), _f(i); 
+        #experr 2: #init: self( i, i, i), super(i), _f(i), _g(i);
         #experr 4: #init: super(i), self( i, i, i);
         #experr 4: #init: super(i), _f(j), _g(k), self( i, i, i);
     }
@@ -107,8 +108,13 @@ type Bottom derives Lower {
     self( d : Double ) {
         x := Int( d );
         #init: self( x );
+        #experr 2: #init: super( x ), _i( x ), _j( x );  ## can't initialize _i which has direct initializer
         assert self._j == x;
-        assert super._g == x;
+        assert self._i == 5;
+        assert self._h == 4;
+        assert self._g == x;
+        assert self._f == x;
+        assert self._e == 345.67;
     }
 
     #experr 1: self( b : Bool ) { }  ## missing invokation of other constructor/initializer
@@ -157,6 +163,7 @@ test_tuples() {
     assert b2._h == 4;
     assert b2._g == 3;
     assert b2._f == 3;
+    assert b2._e == 345.67;
 }
 
 
@@ -256,23 +263,43 @@ elementary_construction()->Int {
 
 CONSTANT : Int = 311;
 
-type Container {
+interface Face {
+    abstract get_int()->Int;
+}
+
+type Container derives Tuple, Face {
     ref0 : &Int = &CONSTANT;
     ref1 : &Int;
-    ref2 : &Container;
+    ref2 : &Face;
 
-    self( ri : &Int, rc : &Container ) {
+    self( ri : &Int ) {
+        #init: ref1( ri ), ref2( self );
+    }
+    self( ri : &Int, rc : &Face ) {
         #init: ref1( ri ), ref2( rc );
+    }
+
+    override get_int()->Int {
+        return self.ref1;
     }
 }
 
 ref_construction() {
     ## Note: we curently don't support Ref constructor invokation via & operator:  r := &Int( &i );
     i : Int = 42;
+    j : Int = 42;
     r0 := &i;
-    r2 := <Ref<Int>>( i );
-    assert r0 == r2;
-    assert _address(r0) == _address(r2);
+    r1 := <Ref<Int>>( i );
+    r2 := <Ref<Int>>( j );
+    assert r0 == r1;
+    assert r1 != r2;
+    #experr 1: re := <Ref<Float>>( i );
+
+    f : Float = 3.14;
+    c1 := Container( i );
+    c2 := Container( j, c1 );
+    #experr 1: ce := Container( f, c1 );
+    assert c2.ref2.get_int() == 42;
 }
 
 main() -> Int {

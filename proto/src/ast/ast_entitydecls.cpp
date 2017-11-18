@@ -80,7 +80,7 @@ void TxFieldDeclNode::declaration_pass() {
         // Note: If declared virtual, the virtual declaration flag is still set on this declaration
     }
 
-    this->fieldDef->declare_field( lexContext.scope(), flags, storage );
+    this->fieldDef->declare_field( this, lexContext.scope(), flags, storage );
     // Note: Field is processed in the 'outer' scope and not in the 'inner' scope of its declaration.
 }
 
@@ -132,7 +132,7 @@ void TxFieldDeclNode::verification_pass() const {
         if ( !this->fieldDef->initExpression ) {
             if ( !( this->fieldDef->get_declaration()->get_decl_flags() & TXD_ABSTRACT ) )
                 if ( this->fieldDef->fieldName->ident() != "$adTypeId" )
-                    CERROR( this, "Non-abstract virtual fields/methods must have an initializer: " << this->fieldDef->get_descriptor() );
+                    CERROR( this, "Non-abstract virtual fields/methods must have an initializer/definition: " << this->fieldDef->get_descriptor() );
             // FUTURE: When static initializers in types are supported, static/virtual fields' initialization may be deferred.
         }
         else {
@@ -202,7 +202,7 @@ void TxTypeDeclNode::declaration_pass() {
     }
 
     if ( !this->_builtinCode ) {
-        declaration = lexContext.scope()->declare_type( this->typeName->ident(), this->typeCreatingNode, this->get_decl_flags() );
+        declaration = lexContext.scope()->declare_type( this->typeName->ident(), this, this->typeCreatingNode, this->get_decl_flags() );
         if ( !declaration ) {
             CERROR( this, "Failed to declare type " << this->typeName );
             return;

@@ -29,6 +29,7 @@ void TxGenSpecTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
     this->genTypeExpr->code_gen_type( context );
     for ( TxTypeArgumentNode* ta : *this->typeArgs )
         ta->code_gen_type( context );
+    // (the type may have implicit constructors, but these are already processed via their own reinterpretation AST)
 }
 
 void TxReferenceTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
@@ -41,10 +42,6 @@ void TxArrayTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
     if ( this->capacityNode )
         this->capacityNode->code_gen_type( context );
     this->elementTypeNode->code_gen_type( context );
-}
-
-void TxEmptyDerivedTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
-    this->baseTypeNode->code_gen_type( context );
 }
 
 void TxDerivedTypeNode::code_gen_builtin_type( LlvmGenerationContext& context ) const {
@@ -74,13 +71,3 @@ void TxDerivedTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
 void TxFunctionTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
 }
-
-//void TxModifiableTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
-//    TRACE_CODEGEN( this, context );
-//    this->typeNode->code_gen_type( context );
-//}
-//
-//void TxConstTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
-//    TRACE_CODEGEN( this, context );
-//    this->typeNode->code_gen_type( context );
-//}

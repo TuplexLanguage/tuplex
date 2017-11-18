@@ -36,31 +36,6 @@ public:
 };
 
 
-class TxEmptyDerivedTypeNode : public TxTypeCreatingNode {
-protected:
-    virtual TxActualType* create_type( TxPassInfo passInfo ) override;
-
-public:
-    TxTypeExpressionNode* baseTypeNode;
-
-    TxEmptyDerivedTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
-        : TxTypeCreatingNode( ploc ), baseTypeNode( baseType )  { }
-
-    virtual void set_requires_mutable( bool mut ) override;
-
-    virtual TxEmptyDerivedTypeNode* make_ast_copy() const override {
-        return new TxEmptyDerivedTypeNode( this->ploc, this->baseTypeNode->make_ast_copy() );
-    }
-
-
-    virtual void code_gen_type( LlvmGenerationContext& context ) const override;
-
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
-    }
-};
-
-
 /** Produces a type alias, which is a type declaration that refers to a type already declared and defined elsewhere.
  * This node does not actually create a TxActualType instance.
  */

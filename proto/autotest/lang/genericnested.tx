@@ -16,6 +16,9 @@ type Outer<S> {
         trivMemb : Int;
         thatMemb : Outer<S>;
 
+        self( s : S, i : Int, t : &Outer<S> ) {
+            #init: instMemb( s ), trivMemb( i ), thatMemb( t.instMemb, t.trivMemb );
+        }
         funcA( a : Int ) -> Int { return a; }
         funcB( a : S ) -> S { return a; }
     }
@@ -45,11 +48,12 @@ type Outer<S> {
 }
 
 test_nested() {
-    n1 : Outer<Long>.Nested<Byte, Short>;
+    n1 := <Outer<Long>.Nested<Byte, Short>>( 3L, 3B, 3S );
     
     type Redecl<W> <: Outer<Long>.Nested<Byte,W>;
-    n2 : Redecl<Short>;
-    n3 : n2.T;
+    n2 := <Redecl<Short>>( 3L, 3B, 3S );
+    n3 := n2.T( 3B );
+    assert _typeid<n2.T> == _typeid<Byte>;
 }
 
 main()->Int {
@@ -59,13 +63,13 @@ main()->Int {
     #experr: ve : Outer.Inner;
     #experr: ve : Outer<Array>.Inner;
 
-    v1a : Outer<Float>;
-    v2a : v1a.Inner;
+    v1a := <Outer<Float>>( 3.14, 17 );
+    v2a := v1a.Inner( 3.14, 17, v1a );
     v3a : Outer<Float>.Inner = v2a;
 
     type OuterFl <: Outer<Float>;
-    v1b : OuterFl;
-    v2b : v1b.Inner;
+    v1b := OuterFl( 3.14, 17 );
+    v2b := v1b.Inner( 3.14, 17, v1b );
     v3b : OuterFl.Inner = v3a;
     
     ## explicitly named type is considered distinct:
@@ -75,7 +79,7 @@ main()->Int {
     v4 : Outer<Float> = v1b;
 
     #experr: ve : Outer.Indep;
-    v11 : OuterFl.Indep;
+    v11 := OuterFl.Indep( 3.14, 17 );
     v12 := &v11;  ##FIXME: '.' inherited type name resolution
     ## we currently treat all entities enclosed by a generic type as distinct per specialization:
     #experr 1: ve : &Outer.Indep = &v11;

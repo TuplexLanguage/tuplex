@@ -16,10 +16,10 @@ class TxFunctionHeaderNode : public TxTypeExpressionNode {
 protected:
     virtual void typeexpr_declaration_pass() override {
         for ( auto argField : *this->arguments ) {
-            argField->declare_field( lexContext.scope(), TXD_NONE, TXS_STACK );
+            argField->declare_field( this, lexContext.scope(), TXD_NONE, TXS_STACK );
         }
         if ( this->returnField ) {
-            this->returnField->declare_field( lexContext.scope(), TXD_IMPLICIT, TXS_STACK );
+            this->returnField->declare_field( this, lexContext.scope(), TXD_IMPLICIT, TXS_STACK );
         }
     }
 

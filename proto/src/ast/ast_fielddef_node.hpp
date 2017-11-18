@@ -88,11 +88,7 @@ public:
 
 
     /** Performs the declaration of the field defined by this node. To be run before declaration pass is run on this node. */
-    virtual void declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) = 0;
-//    /** Performs the declaration of the field defined by this node. To be run before declaration pass is run on this node. */
-//    inline void declare_field( const std::string& name, TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) {
-//        this->declaration = scope->declare_field( name, this, declFlags, storage, TxIdentifier() );
-//    }
+    virtual void declare_field( const TxNode* declarer, TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) = 0;
 
     virtual TxExpressionNode* get_init_expression() const {
         return this->initExpression;
@@ -147,7 +143,7 @@ public:
         return new TxLocalFieldDefNode( this->ploc, this->fieldName->make_ast_copy(), typeExpr, initExpr, this->modifiable, this->_explicit );
     }
 
-    virtual void declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) override;
+    virtual void declare_field( const TxNode* declarer, TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) override;
 
     virtual llvm::Value* code_gen_field_decl( LlvmGenerationContext& context ) const override;
 
@@ -184,7 +180,7 @@ public:
         return new TxNonLocalFieldDefNode( this->ploc, this->fieldName->make_ast_copy(), typeExpr, initExpr, this->modifiable );
     }
 
-    virtual void declare_field( TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) override;
+    virtual void declare_field( const TxNode* declarer, TxScopeSymbol* scope, TxDeclarationFlags declFlags, TxFieldStorage storage ) override;
 
     /** Generates this field, potentially only as a declaration without initializer. Invoked from code referencing this field. */
     virtual llvm::Value* code_gen_field_decl( LlvmGenerationContext& context ) const override;

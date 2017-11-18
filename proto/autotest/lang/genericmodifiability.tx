@@ -6,8 +6,10 @@ type ImmutableType<M,N> {
     #experr 2: efield : ~M;  ## can't declare modifiable member on immutable type
 
     self( m : M, n : N ) {
-        self.mfield = m;
-        self.nfield = n;
+        #init: mfield( m ), nfield( n );
+    }
+    self( s : Self ) {
+        #init: mfield( s.mfield ), nfield( s.nfield );
     }
 
     get_m()->M {
@@ -37,12 +39,6 @@ type ~ GType<S,T,U> {
     tfield : T;
     ufield : U;
     ## TODO: add arrays of S and T
-
-    self( s : S, t : T, u : U ) {
-        self.sfield = s;
-        self.tfield = t;
-        self.ufield = u;
-    }
 
     get_s()->S {
         #experr: self.sfield = 5;

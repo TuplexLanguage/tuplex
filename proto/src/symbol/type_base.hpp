@@ -718,6 +718,8 @@ public:
      * otherwise null. */
     const TxActualType* fixed_array_arg_type() const;
 
+    virtual std::string func_signature_str() const;
+
 
     /*--- data layout ---*/
 

@@ -28,14 +28,22 @@ std::string TxNode::parse_loc_string() const {
 }
 
 void TxNode::visit_ast( const AstVisitor& visitor, const AstCursor& cursor, const std::string& role, void* context ) {
-    if ( visitor.preFunc )
-        visitor.preFunc( this, cursor, role, context );
+    if ( this->compilationErrors )
+        return;
+    try {
+        if ( visitor.preFunc )
+            visitor.preFunc( this, cursor, role, context );
 
-    const AstCursor childCursor( &cursor, this );
-    this->visit_descendants( visitor, childCursor, role, context );
+        const AstCursor childCursor( &cursor, this );
+        this->visit_descendants( visitor, childCursor, role, context );
 
-    if ( visitor.postFunc )
-        visitor.postFunc( this, cursor, role, context );
+        if ( visitor.postFunc )
+            visitor.postFunc( this, cursor, role, context );
+    }
+    catch ( const compilation_error& err ) {
+        LOG_TRACE( this->LOGGER(), "Caught compilation error in node_declaration_pass() in " << this << ": " << err );
+        this->compilationErrors = 1; //TXP_DECLARATION;  // TODO: pass pass-info in the visitors
+    }
 }
 
 void TxNode::visit_ast( const AstVisitor& visitor, void* context ) {

@@ -40,7 +40,7 @@ typedef struct {
 
 
 enum TxPass {
-    TXP_PARSE, TXP_DECLARATION, TXP_TYPE, TXP_RESOLUTION, TXP_VERIFICATION, TXP_CODEGEN
+    TXP_NIL, TXP_PARSE, TXP_DECLARATION, TXP_TYPE, TXP_RESOLUTION, TXP_VERIFICATION, TXP_CODEGEN
 };
 
 /** Used as parameter to certain AST methods to carry current analysis pass information. */
@@ -60,6 +60,9 @@ class TxNode : public virtual TxParseOrigin, public Printable {
 
     /** this node's parent node (null for TxParsingUnitNode), this is set in the declaration pass */
     const TxNode* parentNode = nullptr;
+
+    /** indicates whether this node has encountered compilation errors in previous passes */
+    unsigned compilationErrors = 0;
 
 protected:
     /** the semantic context this node represents/produces for its sub-AST, this is set in the declaration pass */
@@ -181,22 +184,12 @@ public:
 
     /** Runs the type pass on this specific node (its subtree is not processed). */
     inline void node_type_pass() {
-        try {
-            this->type_pass();
-        }
-        catch ( const resolution_error& err ) {
-            LOG_TRACE( this->LOGGER(), "Caught resolution error in node_type_pass() in " << this << ": " << err );
-        }
+        this->type_pass();
     }
 
     /** Runs the resolution pass on this specific node (its subtree is not processed). */
     inline void node_resolution_pass() {
-        try {
-            this->resolution_pass();
-        }
-        catch ( const resolution_error& err ) {
-            LOG_TRACE( this->LOGGER(), "Caught resolution error in node_resolution_pass() in " << this << ": " << err );
-        }
+        this->resolution_pass();
     }
 
     /** Runs the verification pass on this specific node (its subtree is not processed). */

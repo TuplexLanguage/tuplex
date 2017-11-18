@@ -114,7 +114,7 @@ protected:
 
     /** Prepares an entity declaration (adding to an existing or a newly created entity symbol within this scope).
      * @throws exceptions if unsuccessful (never returns null) */
-    virtual TxEntitySymbol* declare_entity( const std::string& plainName, TxNode* definingNode );
+    virtual TxEntitySymbol* declare_entity( const std::string& plainName, const TxNode* declarer, TxNode* definingNode );
 
 public:
     TxScopeSymbol( TxScopeSymbol* parentScope, const std::string& name );
@@ -160,13 +160,12 @@ public:
 
     /*--- symbol table handling  ---*/
 
-    virtual const TxTypeDeclaration* declare_type( const std::string& plainName, TxTypeCreatingNode* typeDefiner,
-                                                   TxDeclarationFlags declFlags );
+    virtual const TxTypeDeclaration* declare_type( const std::string& plainName, const TxNode* declarer,
+                                                   TxTypeCreatingNode* typeDefiner, TxDeclarationFlags declFlags );
 
-    virtual const TxFieldDeclaration* declare_field( const std::string& plainName, TxFieldDefiningNode* fieldDefiner,
-                                                     TxDeclarationFlags declFlags,
-                                                     TxFieldStorage storage,
-                                                     const TxIdentifier& dataspace );
+    virtual const TxFieldDeclaration* declare_field( const std::string& plainName, const TxNode* declarer,
+                                                     TxFieldDefiningNode* fieldDefiner, TxDeclarationFlags declFlags,
+                                                     TxFieldStorage storage, const TxIdentifier& dataspace );
 
     /** Gets a symbol from this namespace. */
     virtual TxScopeSymbol* get_member_symbol( const std::string& name ) {
@@ -226,10 +225,10 @@ public:
     }
 
     /** @throws exception if unsuccessful */
-    void add_type( const TxTypeDeclaration* typeDeclaration );
+    void add_type( const TxNode* declarer, const TxTypeDeclaration* typeDeclaration );
 
     /** @throws exception if unsuccessful */
-    void add_field( const TxFieldDeclaration* fieldDeclaration );
+    void add_field( const TxNode* declarer, const TxFieldDeclaration* fieldDeclaration );
 
     inline bool is_overloaded() const {
         return this->count() > 1;

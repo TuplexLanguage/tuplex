@@ -21,9 +21,10 @@ TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
     if ( !this->symbol ) {
         TxScopeSymbol* vantageScope = this->context().scope();
         if ( this->baseSymbolNode ) {
-            auto baseSymbol = this->baseSymbolNode->resolve_symbol();
-            // baseSymbol may refer to a namespace, type, or field
-            this->symbol = lookup_inherited_member( vantageScope, baseSymbol, this->symbolName->ident() );
+            if ( auto baseSymbol = this->baseSymbolNode->resolve_symbol() ) {
+                // baseSymbol may refer to a namespace, type, or field
+                this->symbol = lookup_inherited_member( vantageScope, baseSymbol, this->symbolName->ident() );
+            }
         }
         else {
             this->symbol = search_name( vantageScope, this->symbolName->ident() );
@@ -126,26 +127,6 @@ void TxDerivedTypeNode::set_requires_mutable( bool mut ) {
         this->baseTypeNode->set_requires_mutable( mut );
 }
 
-//void TxDerivedTypeNode::resolution_pass() {
-//    TxTypeExpressionNode::resolution_pass();
-//    this->baseTypeNode->resolution_pass();
-//    for ( auto interface : *this->interfaces ) {
-//        interface->resolution_pass();
-//    }
-//
-//    if ( this->superRefTypeNode )
-//        this->superRefTypeNode->resolution_pass();
-//
-//    // Before processing members, ensure this type definition is fully resolved (needed for inherited name lookups):
-//    this->resolve_type( passInfo );
-//
-//    for ( auto member : *this->members ) {
-//        member->resolution_pass();
-//        // TODO: can't put immutable instance member in non-immutable type (except via reference)
-//        //       (OR: disable whole-object-assignment)
-//    }
-//}
-
 void TxDerivedTypeNode::visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) {
     if ( !this->builtinTypeDefiner ) {
         this->baseTypeNode->visit_ast( visitor, thisCursor, "basetype", context );
@@ -176,7 +157,7 @@ void TxFunctionTypeNode::typeexpr_declaration_pass() {
         TxDeclarationFlags inheritedFlagsFilter = TXD_EXTERNC | TXD_PUBLIC | TXD_PROTECTED | TXD_BUILTIN | TXD_IMPLICIT | TXD_EXPERROR;
         TxDeclarationFlags flags = ( fieldFlags & inheritedFlagsFilter ) | TXD_IMPLICIT;
         std::string funcTypeName = lexContext.scope()->make_unique_name( "$Ftype", true );
-        auto declaration = lexContext.scope()->declare_type( funcTypeName, this, flags );
+        auto declaration = lexContext.scope()->declare_type( funcTypeName, this, this, flags );
         if ( !declaration ) {
             CERROR( this, "Failed to declare type " << funcTypeName );
             return;

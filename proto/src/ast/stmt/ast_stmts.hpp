@@ -149,16 +149,18 @@ public:
 
     virtual void code_gen( LlvmGenerationContext& context, GenScope* scope ) const override;
 
-    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->constructorCallExpr->visit_ast( visitor, thisCursor, "initializer", context );
-    }
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override;
 
     const TxIdentifierNode* get_identifier() const {
         return this->identifier;
     }
 
+    const std::vector<TxExpressionNode*>* get_args_expr_list() const {
+        return this->argsExprList;
+    }
+
     virtual const std::string& get_descriptor() const override {
-        return this->constructorCallExpr->get_descriptor();
+        return this->identifier->get_descriptor();
     }
 };
 
