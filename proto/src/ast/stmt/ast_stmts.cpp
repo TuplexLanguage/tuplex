@@ -127,8 +127,9 @@ void TxInitStmtNode::resolution_pass() {
         return;
     }
 
-    unsigned initIx;
-    if ( this->initClauseList->empty() || this->initClauseList->front()->get_identifier()->ident() != "super" ) {
+    bool superError = false;
+    auto initClauseI = this->initClauseList->begin();
+    if ( initClauseI == this->initClauseList->end() || (*initClauseI)->get_identifier()->ident() != "super" ) {
         auto superType = qtype->get_base_type();
         if ( superType->get_constructors().size() == 1
              && superType->get_constructors().front()->get_definer()->resolve_type( TXP_RESOLUTION )->argument_types().empty() ) {
@@ -138,25 +139,33 @@ void TxInitStmtNode::resolution_pass() {
                                                        new std::vector<TxExpressionNode*>() );
             run_declaration_pass( implicitSuper, this->context() );
             run_resolution_pass( implicitSuper );
-            this->initClauseList->insert( this->initClauseList->begin(), implicitSuper );
-            initIx = 1;  // skips super() in loop
+            initClauseI = this->initClauseList->insert( initClauseI, implicitSuper );
+            ++initClauseI;  // skips super() in loop
         }
         else {
-            CERROR( this, "Missing 'super' as first initializer in initializer list" );
-            initIx = 0;
+            // look through other initializers to see if malpositioned or missing
+            auto posI = std::find_if( this->initClauseList->cbegin(), this->initClauseList->cend(),
+                                      []( TxMemberInitNode* init ) {
+                                          return init->get_identifier()->ident() == "super";
+                                      } );
+            if ( posI != this->initClauseList->cend() )
+                CERROR( *posI, "super() initializer is not in the first position" );
+            else
+                CERROR( this, "Missing super() initializer in initializer list" );
+            superError = true;
         }
     }
     else
-        initIx = 1;  // skips super() in loop
+        ++initClauseI;  // skips super() in loop
 
     auto initFieldList = qtype->get_instance_fields_to_initialize();
     for ( auto fieldDecl : initFieldList ) {
         if ( fieldDecl->get_definer()->initExpression ) {
-            if ( initIx < this->initClauseList->size()
-                    && this->initClauseList->at( initIx )->get_identifier()->ident() == fieldDecl->get_unique_name() ) {
-                CERROR( this->initClauseList->at( initIx ), "Constructor may not initialize field '"
-                        << this->initClauseList->at( initIx )->get_identifier()->ident() << "' that already has direct initializer" );
-                ++initIx;
+            if ( initClauseI != this->initClauseList->end()
+                    && (*initClauseI)->get_identifier()->ident() == fieldDecl->get_unique_name() ) {
+                CERROR( (*initClauseI), "Constructor may not initialize field '"
+                        << (*initClauseI)->get_identifier()->ident() << "' that already has direct initializer" );
+                ++initClauseI;
             }
             else {
                 // insert implicit initializer for field that has direct initialization expression
@@ -165,49 +174,44 @@ void TxInitStmtNode::resolution_pass() {
                                                           new std::vector<TxExpressionNode*>( { initExpr } ) );
                 run_declaration_pass( implicitInit, this->context() );
                 run_resolution_pass( implicitInit );
-                this->initClauseList->insert( std::next( this->initClauseList->begin(), initIx ), implicitInit );
-                ++initIx;
+                initClauseI = this->initClauseList->insert( initClauseI, implicitInit );
+                ++initClauseI;
             }
         }
         else {
-            if ( initIx < this->initClauseList->size()
-                      && this->initClauseList->at( initIx )->get_identifier()->ident() == fieldDecl->get_unique_name() ) {
-                ++initIx;
+            if ( initClauseI != this->initClauseList->end()
+                      && (*initClauseI)->get_identifier()->ident() == fieldDecl->get_unique_name() ) {
+                ++initClauseI;
             }
             else {
-                // look through other initializers to see if malpositioned
-                bool present = false;
-                for ( auto tmpInit : *this->initClauseList ) {
-                    if ( tmpInit->get_identifier()->ident() == fieldDecl->get_unique_name() ) {
-                        CERROR( tmpInit, "Initializer for field '" << tmpInit->get_identifier()->ident() << "' in wrong position" );
-                        present = true;
-                        break;
-                    }
-                }
-                if ( !present ) {
+                // look through other initializers to see if malpositioned or missing
+                auto posI = std::find_if( this->initClauseList->cbegin(), this->initClauseList->cend(),
+                                          [fieldDecl]( TxMemberInitNode* init ) {
+                                              return init->get_identifier()->ident() == fieldDecl->get_unique_name();
+                                          } );
+                if ( posI != this->initClauseList->cend() )
+                    CERROR( *posI, "Initializer for field '" << (*posI)->get_identifier()->ident() << "' in wrong position" );
+                else
                     CERROR( this, "Missing field initializer in initializer list: " << fieldDecl->get_unique_full_name() );
-                }
             }
         }
     }
-    for ( ; initIx < this->initClauseList->size(); ++initIx ) {
-        auto initName = this->initClauseList->at( initIx )->get_identifier()->ident();
+    for ( ; initClauseI != this->initClauseList->end(); ++initClauseI ) {
+        auto initName = (*initClauseI)->get_identifier()->ident();
         if ( initName == "super" ) {
-            CERROR( this->initClauseList->at( initIx ), "super() initializer not in first position" );
+            if ( !superError )
+                CERROR( (*initClauseI), "super() initializer not in first position" );
         }
         else if ( initName == "self" ) {
             CERROR( this->initClauseList->front(), "self() can only be the sole initializer in an initializer list" );
         }
         else {
-            bool present = false;
-            for ( auto fieldDecl : initFieldList ) {
-                if ( initName == fieldDecl->get_unique_name() ) {
-                    present = true;
-                    break;
-                }
-            }
-            if ( !present )
-                CERROR( this->initClauseList->at( initIx ), "Unknown / invalid field initializer: " << initName );
+            auto posI = std::find_if( initFieldList.cbegin(), initFieldList.cend(),
+                                      [initName]( const TxFieldDeclaration* fieldDecl ) {
+                                          return initName == fieldDecl->get_unique_name();
+                                      } );
+            if ( posI == initFieldList.cend() )
+                CERROR( (*initClauseI), "Unknown / invalid field initializer: " << initName );
         }
     }
 }
@@ -216,66 +220,6 @@ void TxInitStmtNode::verification_pass() const {
     if ( !this->context().enclosing_lambda()->get_constructed() ) {
         CERROR( this, "Initializer / constructor invocation statements may not be used in non-constructor functions" );
     }
-/*
-    // verify initializer list:
-    auto qtype = this->selfSuperStmt->qtype();
-    if ( !qtype->is_builtin() ) {
-        unsigned fieldIx = 0;
-        bool hasSuper = false;
-        auto initFieldList = qtype->get_instance_fields_to_initialize();
-        std::vector<unsigned> initFieldErrIxList;
-        for ( unsigned clauseIx = 0; clauseIx < this->initClauseList->size(); ++clauseIx ) {
-            auto initNode = this->initClauseList->at( clauseIx );
-            auto initName = initNode->get_identifier()->ident();
-            if ( initName == "self" ) {
-                if ( this->initClauseList->size() > 1)
-                    CERROR( initNode, "'self' can only be the sole initializer in an initializer list" );
-                else
-                    return;
-            }
-            else if ( initName == "super" ) {
-                hasSuper = true;
-                if ( clauseIx != 0 )
-                    CERROR( initNode, "'super' initializer must be first in initializer list" );
-            }
-            else {
-                bool present = false;
-                bool wrongPos = false;
-                for ( unsigned i = fieldIx; i < initFieldList.size(); i++ ) {
-                    if ( initName == initFieldList.at( i )->get_unique_name() ) {
-                        present = true;
-//                        if ( initFieldList.at( i )->get_definer()->initExpression )
-//                            CERROR( initNode, "Constructor may not initialize field '" << initName << "' that already has direct initializer" );
-//                        else
-                        if ( wrongPos ) {
-                            CERROR( initNode, "Initializer for field '" << initName << "' in wrong position" );
-                            initFieldErrIxList.push_back( i );
-                        }
-                        else
-                            ++fieldIx;
-                        break;
-                    }
-                    else if ( initFieldList.at( i )->get_definer()->initExpression ) {
-                        if ( !wrongPos )
-                            ++fieldIx;
-                    }
-                    else
-                        wrongPos = true;
-                }
-                if ( !present )
-                    CERROR( this, "Unknown / invalid field initializer: " << initName );
-            }
-        }
-        if ( !hasSuper )
-            CERROR( this, "Missing 'super' initializer in initializer list" );
-        for ( unsigned i = fieldIx; i < initFieldList.size(); i++ ) {
-            if ( !initFieldList.at( i )->get_definer()->initExpression ) {
-                if ( std::find( initFieldErrIxList.cbegin(), initFieldErrIxList.cend(), i ) == initFieldErrIxList.cend() )
-                    CERROR( this, "Missing field initializer in initializer list: " << initFieldList.at( i )->get_unique_full_name() );
-            }
-        }
-    }
-*/
 }
 
 void TxReturnStmtNode::resolution_pass() {

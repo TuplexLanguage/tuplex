@@ -106,85 +106,6 @@ const TxActualType* TxActualType::get_root_any_qtype() const {
     return this->get_declaration()->get_symbol()->get_root_scope()->registry().get_builtin_type( TXBT_ANY );
 }
 
-void TxActualType::validate_type() const {
-    //std::cerr << "validating type " << this << std::endl;
-//    bool expErrWholeType = ( ( this->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK )
-//                             || this->get_declaration()->get_definer()->exp_err_ctx() );
-
-    if ( this->baseType ) {
-        if ( this->is_mutable() && !this->get_semantic_base_type()->is_mutable() )
-            CERROR( this, "Can't derive a mutable type from an immutable base type: " << this->get_semantic_base_type() );
-
-        if ( this->baseType->runtimeTypeId == TXBT_ANY
-             && !( this->builtin || ( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )
-                   || this->get_type_class() == TXTC_REFERENCE || this->get_type_class() == TXTC_ARRAY ) )
-            CERROR( this, "Can't derive directly from the Any root type: " << this->get_declaration() );
-
-        if ( this->typeClass == TXTC_REFERENCE
-                && !( this->runtimeTypeId == TXBT_REFERENCE
-                      || ( this->genericBaseType && this->genericBaseType->runtimeTypeId == TXBT_REFERENCE ) ) ) {
-            // a user-defined derivation of Ref (or a specialization thereof)
-            if ( !( this->pureDerivation || this->emptyDerivation ) )
-                CERROR( this, "Can't derive non-empty subtype from the Ref type: " << this->get_declaration() );
-        }
-
-        ASSERT( this->baseType->runtimeTypeId == TXBT_ANY
-                || ( this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseType->get_type_class() == TXTC_INTERFACE )
-                || this->get_type_class() == this->baseType->get_type_class(),
-                "Specialized type's type class " << this << " not valid with base type's type class " << this->baseType->get_type_class() );
-//        if (this->dataspace && this->baseType->get_type_class() != TXTC_REFERENCE)
-//            CERROR(this, "Specified dataspace for non-reference base type " << this->baseType);
-
-        if ( this->baseType->is_empty_derivation() && !this->baseType->is_explicit_declaration() ) {
-            ASSERT( !( this->is_empty_derivation() && !this->is_explicit_declaration() ),
-                    "anonymous or implicit, empty types may not be derived except as another anonymous or implicit, empty type: " << this );
-        }
-
-        // Verify that all parameters of base type are bound:
-        // Note: The base type's parameters that have not been bound should be automatically redeclared by the type registry,
-        //       unless this type (erroneously) derives from a generic type as were it non-generic.
-        if ( !this->is_generic_param() ) {
-            for ( auto & paramDecl : this->get_semantic_base_type()->get_type_params() ) {
-                if ( dynamic_cast<const TxTypeDeclaration*>( paramDecl ) ) {
-                    if ( !this->get_binding( paramDecl->get_unique_name() ) ) {
-                        CERROR( this, "Missing binding of base type's non-ref TYPE parameter "
-                                << paramDecl->get_unique_name() << " in " << this );
-                    }
-                }
-            }
-        }
-
-        // validate the type parameter bindings
-        for ( auto & bindingDecl : this->bindings ) {
-            auto pname = bindingDecl->get_unique_name();
-            if ( auto paramDecl = this->genericBaseType->get_type_param_decl( pname ) ) {
-                if ( dynamic_cast<const TxTypeDeclaration*>( paramDecl ) ) {
-                    if ( !dynamic_cast<const TxTypeDeclaration*>( bindingDecl ) )
-                        CERROR( bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " is not a type: " << bindingDecl );
-                }
-                else {
-                    if ( !dynamic_cast<const TxFieldDeclaration*>( bindingDecl ) )
-                        CERROR( bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " is not a field/value: " << bindingDecl );
-                }
-            }
-            else
-                CERROR( bindingDecl->get_definer(),
-                        "No type parameter of " << genericBaseType << " matches provided binding " << bindingDecl->get_unique_name() );
-        }
-    }
-    // TODO: validate interfaces
-    // check that generic interfaces can't be implemented multiple times throughout a type hierarchy,
-    // unless their type arguments are exactly the same
-    for ( auto & interf : this->interfaces ) {
-        if ( interf->get_type_class() != TXTC_INTERFACE )
-            CERROR( this, "Only the first derived-from type can be a non-interface type: " << interf );
-        else {
-            if ( interf->is_generic() )
-                CERROR( this, "Can't implement a generic interface (with unbound type parameters): " << interf );
-        }
-    }
-}
-
 void TxActualType::examine_members() {
     LOG_TRACE( this->LOGGER(), "Examining members of type " << this->get_declaration()->get_unique_full_name() );
 
@@ -376,17 +297,83 @@ void TxActualType::integrate() {
     }
 }
 
-bool TxActualType::is_construction_type() const {
-    return !( this->constructors.empty()
-              && ( this->is_same_instance_type() || this->is_pure_value_specialization() ) );
-}
+void TxActualType::validate_type() const {
+    //std::cerr << "validating type " << this << std::endl;
+//    bool expErrWholeType = ( ( this->get_declaration()->get_decl_flags() & TXD_EXPERRBLOCK )
+//                             || this->get_declaration()->get_definer()->exp_err_ctx() );
 
-const TxActualType* TxActualType::get_construction_type() const {
-    ASSERT( this->hasIntegrated, "Can't get construction type of unintegrated type " << this->get_declaration() );
-    auto allocType = this;
-    while ( !allocType->is_construction_type() )
-        allocType = allocType->get_base_type();
-    return allocType;
+    if ( this->baseType ) {
+        if ( this->is_mutable() && !this->get_semantic_base_type()->is_mutable() )
+            CERROR( this, "Can't derive a mutable type from an immutable base type: " << this->get_semantic_base_type() );
+
+        if ( this->baseType->runtimeTypeId == TXBT_ANY
+             && !( this->builtin || ( this->get_declaration()->get_decl_flags() & TXD_GENPARAM )
+                   || this->get_type_class() == TXTC_REFERENCE || this->get_type_class() == TXTC_ARRAY ) )
+            CERROR( this, "Can't derive directly from the Any root type: " << this->get_declaration() );
+
+        if ( this->typeClass == TXTC_REFERENCE
+                && !( this->runtimeTypeId == TXBT_REFERENCE
+                      || ( this->genericBaseType && this->genericBaseType->runtimeTypeId == TXBT_REFERENCE ) ) ) {
+            // a user-defined derivation of Ref (or a specialization thereof)
+            if ( !( this->pureDerivation || this->emptyDerivation ) )
+                CERROR( this, "Can't derive non-empty subtype from the Ref type: " << this->get_declaration() );
+        }
+
+        ASSERT( this->baseType->runtimeTypeId == TXBT_ANY
+                || ( this->get_type_class() == TXTC_INTERFACEADAPTER && this->baseType->get_type_class() == TXTC_INTERFACE )
+                || this->get_type_class() == this->baseType->get_type_class(),
+                "Specialized type's type class " << this << " not valid with base type's type class " << this->baseType->get_type_class() );
+//        if (this->dataspace && this->baseType->get_type_class() != TXTC_REFERENCE)
+//            CERROR(this, "Specified dataspace for non-reference base type " << this->baseType);
+
+        if ( this->baseType->is_empty_derivation() && !this->baseType->is_explicit_declaration() ) {
+            ASSERT( !( this->is_empty_derivation() && !this->is_explicit_declaration() ),
+                    "anonymous or implicit, empty types may not be derived except as another anonymous or implicit, empty type: " << this );
+        }
+
+        // Verify that all parameters of base type are bound:
+        // Note: The base type's parameters that have not been bound should be automatically redeclared by the type registry,
+        //       unless this type (erroneously) derives from a generic type as were it non-generic.
+        if ( !this->is_generic_param() ) {
+            for ( auto & paramDecl : this->get_semantic_base_type()->get_type_params() ) {
+                if ( dynamic_cast<const TxTypeDeclaration*>( paramDecl ) ) {
+                    if ( !this->get_binding( paramDecl->get_unique_name() ) ) {
+                        CERROR( this, "Missing binding of base type's non-ref TYPE parameter "
+                                << paramDecl->get_unique_name() << " in " << this );
+                    }
+                }
+            }
+        }
+
+        // validate the type parameter bindings
+        for ( auto & bindingDecl : this->bindings ) {
+            auto pname = bindingDecl->get_unique_name();
+            if ( auto paramDecl = this->genericBaseType->get_type_param_decl( pname ) ) {
+                if ( dynamic_cast<const TxTypeDeclaration*>( paramDecl ) ) {
+                    if ( !dynamic_cast<const TxTypeDeclaration*>( bindingDecl ) )
+                        CERROR( bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " is not a type: " << bindingDecl );
+                }
+                else {
+                    if ( !dynamic_cast<const TxFieldDeclaration*>( bindingDecl ) )
+                        CERROR( bindingDecl->get_definer(), "Binding for type parameter " << paramDecl << " is not a field/value: " << bindingDecl );
+                }
+            }
+            else
+                CERROR( bindingDecl->get_definer(),
+                        "No type parameter of " << genericBaseType << " matches provided binding " << bindingDecl->get_unique_name() );
+        }
+    }
+    // TODO: validate interfaces
+    // check that generic interfaces can't be implemented multiple times throughout a type hierarchy,
+    // unless their type arguments are exactly the same
+    for ( auto & interf : this->interfaces ) {
+        if ( interf->get_type_class() != TXTC_INTERFACE )
+            CERROR( this, "Only the first derived-from type can be a non-interface type: " << interf );
+        else {
+            if ( interf->is_generic() )
+                CERROR( this, "Can't implement a generic interface (with unbound type parameters): " << interf );
+        }
+    }
 }
 
 /*
@@ -491,6 +478,19 @@ static TxFieldDeclNode* generate_constructor_ast( const TxLocation& loc, const T
                                                                        lambdaExpr, false ),
                                            true );  // method syntax since constructor
     return constrDecl;
+}
+
+bool TxActualType::is_construction_type() const {
+    return !( this->constructors.empty()
+              && ( this->is_same_instance_type() || this->is_pure_value_specialization() ) );
+}
+
+const TxActualType* TxActualType::get_construction_type() const {
+    ASSERT( this->hasIntegrated, "Can't get construction type of unintegrated type " << this->get_declaration() );
+    auto allocType = this;
+    while ( !allocType->is_construction_type() )
+        allocType = allocType->get_base_type();
+    return allocType;
 }
 
 void TxActualType::autogenerate_constructors() {

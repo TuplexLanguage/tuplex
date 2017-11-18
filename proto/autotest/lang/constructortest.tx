@@ -40,8 +40,8 @@ type ~Lower derives Upper {
         #experr 2: #init: super(i), _f(j);  ## missing member init
         #experr 2: #init: super(i), _g(j);  ## missing member init
         #experr 2: #init: super(i), _g(k), _f(j);  ## wrong order
-        #experr 4: #init: _f(j), super(i), _g(k);  ## wrong order
-        #experr 3: #init: _f(j), _g(k), super(i);  ## wrong order
+        #experr 3: #init: _f(j), super(i), _g(k);  ## wrong order
+        #experr 2: #init: _f(j), _g(k), super(i);  ## wrong order
         #experr 2: #init: super(i), _f(j), _g(k), _h(i);  ## can't initialize _h which has direct initializer
         #experr 3: #init: super(i), _f(j), _g(k), foobar(i);  ## unknown field
         #experr 1: #self: super(i), _f(j), _g(k);  ## wrong keyword
