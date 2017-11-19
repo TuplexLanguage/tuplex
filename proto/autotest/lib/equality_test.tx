@@ -6,9 +6,6 @@ interface Face { }
 
 type Body <: Tuple, Face {
     member : Int;
-    self( m : Int ) {
-        self.member = m;
-    }
 
     override equals( o : &Any )->Bool {
         if o is b : &Body :
@@ -45,19 +42,19 @@ type SimpleGenTest<L,R> {
 type GenTest<L,R> {
 
     virtual test_eq_val( left : &L, same : &R, diff : &R ) {
-        tester : SimpleGenTest<L,R>;
+        tester := <SimpleGenTest<L,R>>();
         tester.test_eq( left, same, diff );
     }
 
     virtual test_eq_ref( left : &L, same : &R, diff : &R ) {
-        tester : SimpleGenTest<Ref<L>,Ref<R>>;
+        tester := <SimpleGenTest<Ref<L>,Ref<R>>>();
         lr := &left;  sr := &same;  dr := &diff;
         tester.test_eq( lr, lr, sr );
         tester.test_eq( lr, lr, dr );
     }
 
     virtual test_eq_arr_cop( left : &L, same : &R, diff : &R ) {
-        tester : SimpleGenTest<Array<L,3>,Array<R,3>>;
+        tester := <SimpleGenTest<Array<L,3>,Array<R,3>>>();
         l := [ left^, left^, left^ ];
         s := [ same^, same^, same^ ];
         d := [ diff^, diff^, diff^ ];
@@ -65,7 +62,7 @@ type GenTest<L,R> {
     }
 
     virtual test_eq_arr_ref( left : &L, same : &R, diff : &R ) {
-        tester : SimpleGenTest<Array<&L,3>,Array<&L,3>>;
+        tester := <SimpleGenTest<Array<&L,3>,Array<&L,3>>>();
         l : Array<&L,3> = [ left, left, left ];
         s : Array<&L,3> = [ same, same, same ];
         d : Array<&L,3> = [ diff, diff, diff ];

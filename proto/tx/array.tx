@@ -8,11 +8,13 @@ module tx
  */
 builtin type ~ Array<E, C : UInt> derives Any, Collection<E>, Updatable<UInt, E>
 {
+/* requires custom modifiability handling
     self( seq : &Sequenceable<E> ) {
+        #self();
         for elem in seq:
             self[ self.L ] = elem;
-            ##self.add( elem );
     }
+*/
 
     override equals( other : &Any ) -> Bool {
         ##print( "equals() this type id=" %s _typeid(self) %% " other=" %s _typeid(other) );
@@ -98,8 +100,7 @@ type ~ ArrayIterator< E > <: Tuple, Iterator< E > {
     prevIndex : ~UInt;
 
     self( array : &Array<E> ) {
-        self.array = array;
-        self.prevIndex = UInt(-1);
+        #init: array( array ), prevIndex( UInt(-1) );
     }
 
     override has_next() -> Bool {
@@ -128,8 +129,7 @@ type ~ ArrayUpdater< E > <: Tuple, Updater< E > {
     prevIndex : ~UInt;
 
     self( array : &~Array<E> ) {
-        self.array = array;
-        self.prevIndex = UInt(-1);
+        #init: array( array ), prevIndex( UInt(-1) );
     }
 
     override has_next() -> Bool {

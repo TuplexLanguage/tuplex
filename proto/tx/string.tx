@@ -9,12 +9,7 @@ type ~ Char <: UInt {
 type String <: Tuple, Sequenceable< Char >, Stringer, Formatter {
     type ~ StringSequencer <: Tuple, Sequencer< Char > {
         string    : &String;
-        nextIndex : ~UInt;
-
-        self( string  : &String ) {
-            self.string = string;
-            self.nextIndex = 0;
-        }
+        nextIndex : ~UInt = 0;
 
         override has_next() -> Bool {
             return self.nextIndex < self.string._bytes.L;
@@ -29,45 +24,45 @@ type String <: Tuple, Sequenceable< Char >, Stringer, Formatter {
     _bytes : &Array<UByte>;
 
     self() {
-        #init( new Array<UByte, 0>() );
+        #init: _bytes( new Array<UByte, 0>() );
     }
 
     /** Constructs a String containing a copy of the provided utf8 array. */
     self( utf8Array : &Array<UByte> ) {
-        #init( new Array<UByte, (utf8Array.L)>( utf8Array) );
+        #init: _bytes( new Array<UByte, (utf8Array.L)>( utf8Array) );
     }
 
     /** Constructs a String containing a copy of the provided string. */
     self( str : String ) {
-        self( str._bytes );
+        #self( str._bytes );
     }
 
     /** Constructs a String containing the provided character. */
     self( chr : Char ) {
         tmp := new ~Array<~UByte, 4>();
         utf32_to_utf8( tmp, chr );
-        #init( tmp );
+        #init: _bytes( tmp );
     }
 
     self( strings : &Array<String> ) {
         len : ~UInt = 0;
         for str in strings:
             len = len + str._bytes.L;
-        bytes := new ~Array<UByte, (len)>();
+        bytes := new ~Array<~UByte, (len)>();
         i : ~UInt = 0;
         for str in strings {
             for byte in str._bytes {
-                self._bytes[i] = byte;
+                bytes[i] = byte;
                 i = i + 1;
             }
         }
-        #init( bytes );
+        #init: _bytes( bytes );
     }
 
     self( stringer : &Stringer ) {
         buf := ~ GrowableUByteArray();
         stringer.string( &buf );
-        self( buf.array() );
+        #self( buf.array() );
         ## FUTURE: take ownership of array from GrowableUByteArray instead of copying string twice
     }
 

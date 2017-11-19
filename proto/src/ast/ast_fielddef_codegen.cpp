@@ -200,7 +200,7 @@ void TxNonLocalFieldDefNode::inner_code_gen_field( LlvmGenerationContext& contex
                                                                                      constantInitializer, uniqueName ) );
                     return;
                 }
-                // TODO: support non-constant initializers for static and virtual fields
+                // FUTURE: support non-constant initializers for static and virtual fields
             }
             LOG( context.LOGGER(), WARN, "Skipping codegen for global/static/virtual field without constant initializer: " << fieldDecl );
         }

@@ -15,10 +15,6 @@ interface Formatter {
 type MultiStringer <: Tuple, Stringer {
     _stringers : &[]&Stringer;
 
-    self( stringers : &[]&Stringer ) {
-        self._stringers = stringers;
-    }
-
     override string( writer : &~tx.ByteWriter ) {
         for str in self._stringers:
             str.string( writer );
@@ -39,17 +35,15 @@ type StringFormat {
     typeChar  : UByte;
 
     self( flags : UByte, width : UInt, precision : UInt, typeChar : UByte ) {
-        self.flags = flags;
-        self.width = width;
-        self.precision = precision;
-        self.typeChar = typeChar;
+        #init: flags( flags ), width( width ), precision( precision ), typeChar( typeChar );
     }
 
     self( typeChar : UByte ) {
-        self.flags = 0;
-        self.width = 0;
-        self.precision = 0;
-        self.typeChar = typeChar;
+        #init: flags( 0 ), width( 0 ), precision( 0 ), typeChar( typeChar );
+    }
+
+    self( other : &StringFormat ) {
+        #init: flags( other.flags ), width( other.width ), precision( other.precision ), typeChar( other.typeChar );
     }
 }
 
@@ -59,14 +53,12 @@ type FormattedStringer <: Tuple, Stringer {
     format : StringFormat;
     object : &Formatter;
 
-    self( format : StringFormat, object : &Formatter ) {
-        self.format = format;
-        self.object = object;
+    self( format : &StringFormat, object : &Formatter ) {
+        #init: format( format ), object( object );
     }
 
-    self( format : StringFormat, object : &Stringer ) {
-        self.format = format;
-        self.object = new StringerFormatter( object );  ## FUTURE: redesign or free memory
+    self( format : &StringFormat, object : &Stringer ) {
+        #init: format( format ), object( new StringerFormatter( object ) );  ## FUTURE: redesign or free memory
     }
 
     override string( writer : &~tx.ByteWriter ) {
@@ -79,10 +71,6 @@ type FormattedStringer <: Tuple, Stringer {
  * This can be used in place of String, the difference is that this object will lazily produce the Stringer's string. */
 type StringerFormatter <: Tuple, Formatter {
     object : &Stringer;
-
-    self( object : &Stringer ) {
-        self.object = object;
-    }
 
     override format( writer : &~tx.ByteWriter, format : &StringFormat ) {
         str := String( self.object );

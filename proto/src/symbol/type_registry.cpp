@@ -163,14 +163,8 @@ void TypeRegistry::prepare_types() {
             vtableTypes.push_back( type );
             continue;
         }
-#ifndef VALUE_SPECS_SHARE_CODE
-        else if ( type->is_value_generic() ) {
-            // TODO: This should really be  type->is_value_generic_dependent()
-            vtableTypes.push_back( type );
-            continue;
-        }
-#else
-        else if ( type->is_value_generic() ) {
+#ifdef VALUE_SPECS_SHARE_CODE
+        else if ( type->is_value_generic_dependent() ) {
             // Note: There are not "concrete" since size may be unknown, but they can be code-generated
             dataTypes.push_back( type );
             continue;
@@ -178,6 +172,11 @@ void TypeRegistry::prepare_types() {
         else if ( type->is_pure_value_specialization() ) {
             // If type is a value specialization, don't code-generate it, but create RTTI if concrete
             type->suppressCodeGen = true;
+        }
+#else
+        else if ( type->is_value_generic_dependent() ) {
+            vtableTypes.push_back( type );
+            continue;
         }
 #endif
 
@@ -483,10 +482,7 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
 
     std::string newTypeNameStr;
     const std::vector<const TxTypeArgumentNode*>* bindingsPtr;
-#ifndef VALUE_SPECS_SHARE_CODE
-    newTypeNameStr = valueSpecTypeName.str();
-    bindingsPtr = &bindings;
-#else
+#ifdef VALUE_SPECS_SHARE_CODE
     if ( !valueBindings.empty() ) {
         // This specialization binds VALUE type parameters, so a new base type which binds only the TYPE parameters
         // is injected as intermediate base type.
@@ -502,6 +498,9 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
         newTypeNameStr = typeSpecTypeName.str();
         bindingsPtr = &bindings;
     }
+#else
+    newTypeNameStr = valueSpecTypeName.str();
+    bindingsPtr = &bindings;
 #endif
     //LOG_DEBUG( this->LOGGER(), "Specializing generic type " << baseDecl << " as " << newTypeNameStr );
 
@@ -588,9 +587,7 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
             "baseType definer's parent is not a TxTypeDeclNode: " << baseTypeExpr->parent() );
     auto baseDeclNode = static_cast<const TxTypeDeclNode*>( baseTypeExpr->parent() );
     TxTypeCreatingNode* specTypeExpr;
-#ifndef VALUE_SPECS_SHARE_CODE
-    specTypeExpr = baseTypeExpr->make_ast_copy();
-#else
+#ifdef VALUE_SPECS_SHARE_CODE
     if ( typeBindings )
         specTypeExpr = baseTypeExpr->make_ast_copy();
     else {
@@ -598,6 +595,8 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
         auto shallowBaseTypeExpr = new TxTypeDeclWrapperNode( definer->get_parse_location(), baseDecl );
         specTypeExpr = new TxDerivedTypeNode( definer->get_parse_location(), shallowBaseTypeExpr, new std::vector<TxDeclarationNode*>() );
     }
+#else
+    specTypeExpr = baseTypeExpr->make_ast_copy();
 #endif
 
     {   // pass on the generic base type to the new specialization via member named $GenericBase:

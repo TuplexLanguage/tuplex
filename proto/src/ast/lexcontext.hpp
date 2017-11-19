@@ -85,9 +85,10 @@ public:
     }
 
 
-    /** Returns true if this is within a generic type definition (a generic type whose parameters are not all bound). */
-    inline bool is_generic() const {
-        return ( this->typeGeneric || this->valueGeneric );
+    /** Returns true if this context is within a generic type definition (a generic type whose parameters are not all bound)
+     * or is dependent on generic bindings. */
+    inline bool is_generic_dependent() const {
+        return ( this->typeGeneric || this->valueGeneric || this->typeGenDepBindings || this->valueGenDepBindings );
     }
 
     inline bool is_type_generic() const {

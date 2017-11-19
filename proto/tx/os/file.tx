@@ -9,15 +9,9 @@ type ~ File <: Tuple, tx.ByteWriter, tx.ByteReader {
     virtual final STATE_OPEN   : UByte = 2;
     virtual final STATE_CLOSED : UByte = 3;
 
-    _cfile : ~ULong;
-    _state : ~UByte;
-    _error : ~Int;
-
-    self() {
-        self._cfile = 0;
-        self._state = STATE_UNOPEN;
-        self._error = 0;
-    }
+    _cfile : ~ULong = 0;
+    _state : ~UByte = STATE_UNOPEN;
+    _error : ~Int   = 0;
 
 
     /** Creates the named file for writing and reading. */

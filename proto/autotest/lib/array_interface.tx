@@ -6,15 +6,15 @@
 
 
 test_array_const_interface() {
-    a00 : Array<Int,0>;             ## zero-sized array, default-initialized
+    a00 := <Array<Int,0>>();        ## zero-sized array
     a01 : Array<Int,0> = [0]Int();  ## zero-sized array
     a02 := [0]Int();                ## zero-sized array
 
-    a03 : Array<Int,1>;             ## default-initialized
+    a03 := <Array<Int,1>>();        ##
     a04 : Array<Int,1> = [1]Int();  ## 
     a05 := [1]Int();                ## 
 
-    a06 : Array<Int,2>;             ## default-initialized
+    a06 := <Array<Int,2>>();        ##
     a07 : Array<Int,2> = [2]Int();  ## 
     a08 := [2]Int();                ## 
 

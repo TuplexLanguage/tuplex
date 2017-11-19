@@ -169,8 +169,9 @@ void TxInitStmtNode::resolution_pass() {
             }
             else {
                 // insert implicit initializer for field that has direct initialization expression
+                auto & iloc = fieldDecl->get_definer()->initExpression->ploc;
                 auto initExpr = new TxExprWrapperNode( fieldDecl->get_definer()->initExpression );
-                auto implicitInit = new TxMemberInitNode( ploc, new TxIdentifierNode( ploc, fieldDecl->get_unique_name() ),
+                auto implicitInit = new TxMemberInitNode( iloc, new TxIdentifierNode( iloc, fieldDecl->get_unique_name() ),
                                                           new std::vector<TxExpressionNode*>( { initExpr } ) );
                 run_declaration_pass( implicitInit, this->context() );
                 run_resolution_pass( implicitInit );

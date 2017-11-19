@@ -93,13 +93,15 @@ void TxFieldDeclNode::verification_pass() const {
     auto storage = this->fieldDef->get_declaration()->get_storage();
     switch ( storage ) {
     case TXS_INSTANCE:
-        if ( this->fieldDef->initExpression ) {
-            // instance fields with direct assignment (i.e. not in constructor) is expected to have a statically constant initializer
-            if ( !( this->fieldDef->get_declaration()->get_decl_flags() & TXD_GENBINDING ) ) {
-                if ( !this->fieldDef->initExpression->is_statically_constant() )
-                    CERROR( this, "Non-constant initializer for instance field " << this->fieldDef->get_descriptor() );
-            }
-        }
+        // Note: A direct initialization expression of an instance field needn't be "statically constant",
+        //       it is simply executed by the constructor(s).
+//        if ( this->fieldDef->initExpression ) {
+//            // instance fields with direct assignment (i.e. not in constructor) is expected to have a statically constant initializer
+//            if ( !( this->fieldDef->get_declaration()->get_decl_flags() & TXD_GENBINDING ) ) {
+//                if ( !this->fieldDef->initExpression->is_statically_constant() )
+//                    CERROR( this, "Non-constant initializer for instance field " << this->fieldDef->get_descriptor() );
+//            }
+//        }
         if ( type.is_modifiable() ) {
             if ( auto entitySymbol = dynamic_cast<TxEntitySymbol*>( this->context().scope() ) ) {
                 const TxTypeDeclaration* outerTypeDecl = entitySymbol->get_type_decl();

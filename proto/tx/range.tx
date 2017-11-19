@@ -20,12 +20,7 @@ type ERange< E derives Enumerable > <: Tuple, Range< E >, Stringer {
     /** The ERange iterator. */
     type ~ ERangeIterator <: Tuple, Iterator< E > {
         range   : &ERange<E>;
-        nextIndex : ~ULong;
-
-        self( range : &ERange<E> ) {
-            self.range = range;
-            self.nextIndex = 0;
-        }
+        nextIndex : ~ULong = 0;
 
         override has_next() -> Bool {
             return self.nextIndex < self.range.count();
@@ -56,13 +51,10 @@ type ERange< E derives Enumerable > <: Tuple, Range< E >, Stringer {
 
     self( start : E, limit : E, stride : Long ) {
         if stride == 0:  panic ( "Zero stride in ERange" );
-        self.start = start;
-        self.limit = limit;
-        self.stride = stride;
-        self._indexLimit = ( Long( self.limit.ordinal() - self.start.ordinal() )
-                             + self.stride - 1 ) / self.stride;
-        if self._indexLimit < 0:
-            self._indexLimit = 0;
+        indexLimit : ~Long = ( Long( limit.ordinal() - start.ordinal() ) + stride - 1 ) / stride;
+        if indexLimit < 0:
+            indexLimit = 0;
+        #init: _indexLimit( indexLimit ), start( start ), limit( limit ), stride( stride );
     }
 
     override sequencer() -> Ref< ~ERangeIterator > {

@@ -45,11 +45,11 @@ type ~ GrowableUByteArray <: Tuple, ByteWriter {
     _arr : ~&~[]UByte;
 
     self() {
-        self._arr = new ~[8]UByte();
+        #init: _arr( new ~[8]UByte() );
     }
 
     self( arr : &[]UByte ) {
-        self._arr = new ~[arr.L+8]UByte();
+        #init: _arr( new ~[arr.L+8]UByte() );
         for i in 0..arr.L:
             self._arr[i] = arr[i];
     }
