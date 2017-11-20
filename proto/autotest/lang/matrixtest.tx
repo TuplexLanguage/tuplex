@@ -3,8 +3,8 @@
 ## Although the compiler doesn't currently support aggregate types containing dynamically sized elements,
 ## it does support defining them statically.
 
-type ~Matrix<E, R : UInt, C : UInt> {
-    type ~ Row <: Array<E, (C)>;
+type ~ Matrix<E, R : UInt, C : UInt> {
+    type ~ Row <: Array<~E, (C)>;
 
     rows : ~Array< ~Row, (R) >;
 

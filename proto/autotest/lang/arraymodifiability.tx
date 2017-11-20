@@ -1,8 +1,33 @@
 ## Tests the various ways arrays can be declared and initialized with and without modifiability.
 
+/*
+Array modifiability syntactic sugar:
+
+ - should not apply to conventional array type expression (Array<Type>)
+
+ - ~Array<Int> is inconsistent
+ 
+ - Array<~Int> is technically consistent (and may occur for array members in generic types)
+
+ - [ ... ] literals always immutable
+
+ - []Type is immutable
+
+ - Shall these be made equivalent?
+   ~[]Type
+   []~Type
+   ~[]~Type
+*/
+
 write( a : Ref< ~Array<~UByte,3> > ) {
     a[0] = 'P';
     a[1] = 'I';
+    a[2] = 0;
+}
+
+write( a : Ref< ~Array<~Int,3> > ) {
+    a[0] = 1;
+    a[1] = 1;
     a[2] = 0;
 }
 
@@ -17,9 +42,8 @@ array_modifiability() {
         a1 : Array<~UByte,3> = []UByte();
         #experr 1: write( &a1 );
     
-        a2 : ~Array<UByte,3> = []UByte();  ## TODO: yields inconsistent type which causes errors in array.tx
-        #experr 1: write( &a2 );
-    
+        #experr 1: a2 : ~Array<UByte,3> = []UByte();  ## inconsistent array type
+
         a3 : ~Array<~UByte,3> = []UByte();
         write( &a3 );
     }
@@ -52,28 +76,26 @@ array_modifiability() {
 
     ## specific array stack constructor - no implicit modifiability applied, but assignee specifies its modifiability:
     {
-        a30 := <Array<UByte,3>>();
+        a30 := <Array<Int,3>>();
         #experr 1: write( &a30 );
 
-        a31 := <Array<~UByte,3>>();
+        a31 := <Array<~Int,3>>();
         #experr 1: write( &a31 );
 
-        a32 := <~Array<UByte,3>>();
-        #experr 1: write( &a32 );
+        #experr 1: a32 := <~Array<Int,3>>();  ## inconsistent array type
 
-        a33 := <~Array<~UByte,3>>();
+        a33 := <~Array<~Int,3>>();
         #experr 1: write( &a33 );
 
-        a34 := ~ <Array<UByte,3>>();
+        a34 := ~ <Array<Int,3>>();
         write( &a34 );
 
-        a35 := ~ <Array<~UByte,3>>();
+        a35 := ~ <Array<~Int,3>>();
         write( &a35 );
 
-        a36 := ~ <~Array<UByte,3>>();  ## TODO: yields inconsistent type
-        ##write( &a36 );
+        #experr 0: a36 := ~ <~Array<Int,3>>();  ## inconsistent array type (type error already reported above)
 
-        a37 := ~ <~Array<~UByte,3>>();
+        a37 := ~ <~Array<~Int,3>>();
         write( &a37 );
     }
 
@@ -85,7 +107,7 @@ array_modifiability() {
         a41 := ~ [3]UByte();
         write( &a41 );
 
-        #experr 1: a42 := ~ [3]~UByte();   ## value expressions can't begin with modifiable token
+        #experr 1: a42 := [3]~UByte();   ## array constructor's element type can't begin with modifiable token
     }
 
     ## array literals syntax sugar - implicit modifiability applied:
@@ -113,19 +135,16 @@ array_modifiability() {
         type ImmArr3 <: Array<~UByte,3>;
         #experr 1: ~a62 := ImmArr3( [ 1, 2, 3 ] );
 
-        #experr 1: type ImmArr2 <: ~Array<UByte,3>;
-        #experr 1: type ImmArr4 <: ~Array<~UByte,3>;
+        #experr 1: type ImmArr2 <: ~Array<UByte,3>;    ## base type expression can't begin with modifiable token
+        #experr 1: type ImmArr4 <: ~Array<~UByte,3>;   ## base type expression can't begin with modifiable token
 
-        type ~ MutArr1 <: Array<UByte,3>;
-        a64 := ~ MutArr1( [ 1, 2, 3 ] );
-        #experr 1: write( &a64 );
+        #experr 1: type ~ MutArr1 <: Array<Short,3>;   ## inconsistent array type
+        #experr 1: type ~ MutArr2 <: ~Array<UByte,3>;  ## base type expression can't begin with modifiable token
+        #experr 1: type ~ MutArr3 <: ~Array<~UByte,3>; ## base type expression can't begin with modifiable token
 
-        type ~ MutArr3 <: Array<~UByte,3>;
-        a66 := ~ MutArr3( [ 1, 2, 3 ] );
+        type ~ MutArr4 <: Array<~UByte,3>;
+        a66 := ~ MutArr4( [ 1, 2, 3 ] );
         write( &a66 );
-
-        #experr 1: type ~ MutArr2 <: ~Array<UByte,3>;
-        #experr 1: type ~ MutArr4 <: ~Array<~UByte,3>;
 
         type ~ MutArr5 <: [3]UByte;
         a68 := ~ MutArr5( [ 1, 2, 3 ] );
@@ -135,8 +154,8 @@ array_modifiability() {
         a70 := ~ MutArr7( [ 1, 2, 3 ] );
         write( &a70 );
 
-        #experr 1: type ~ MutArr6 <: ~[3]UByte;
-        #experr 1: type ~ MutArr8 <: ~[3]~UByte;
+        #experr 1: type ~ MutArr6 <: ~[3]UByte;   ## base type expression can't begin with modifiable token
+        #experr 1: type ~ MutArr8 <: ~[3]~UByte;  ## base type expression can't begin with modifiable token
     }
 
     ## TODO: new expressions

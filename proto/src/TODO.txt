@@ -136,17 +136,38 @@ Implement basic debugging info - DONE
 
 Secure Initialization
 ---------------------
-Ensure fields are always initialized (with the default constructor if no init expr provided)
- - Remove 'initialization' code from alloca (at least for arrays this will cause double init of C and L)?
+Ensure fields are always initialized - DONE
 
-Implement advanced implicit constructor concept
- - Automatically generate the basic constructor (one argument for each instance member (except const with initializer))
-   - basic constructor has 'self' as pseuodo-return value, so user constructors can operate object only after it is properly initialized
- - Allow instance members' inlined initializers?
- - Default (zero arguments) constructor if base type and all members without inlined initializers allow default construction?
+Implement advanced constructor initialization concept - DONE
+ - 'self' as pseuodo-return value, so user constructors can operate object only after it is properly initialized
+ - Allow instance members' inlined initializers
 
-Constructor initialization validation check: That each constructor properly initializes all members (without inlined initializers)
+Constructor initialization validation check: That each constructor properly initializes all members (without inlined initializers) - DONE
 
+Support named member initialization, preventing excessive copying-by-value for large members - DONE
+
+
+Remaining core array features:
+------------------------------
+Review array mutability vs element mutability handling
+ - avoid inconsistency between them such as: ~Array<UByte>
+
+Array 'fill' constructor
+
+Let nested array assignment statements support implicit initialization of assignee's outer array elements, e.g:
+    aaa : ~[4][4][4]UByte;  aaa[0][0][0] = 17;
+
+Array initialization from sequence; sequence expansion
+ - requires custom modifiability handling
+    arr := []Int( seq );  ## of type Sequencable<Int>
+    arr := [ seq... ];
+    arr := [ 0..2... ];
+
+Basic working Matrix type
+
+
+Releasing Resources
+-------------------
 Freeing memory
 
 Destructors
@@ -176,31 +197,16 @@ Dataspace support
 
 
 
-Remaining core array and range features:
-----------------------------------------
-Array initialization from sequence; sequence expansion
-    arr := []Int( seq );  ## of type Sequencable<Int>
-    arr := [ seq... ];
-    arr := [ 0..2... ];
-
+Advanced array and range features
+---------------------------------
 Sub-range production:  arr[2..5]
 
 Support negative array indexing from array end
 
-
-
-Advanced array features
------------------------
 Support method overloading for closure-modifying (and not) methods
  - allow for loops to select sequencer()~ for mutable seq's
 
 Auto-conversion of array initialization elements (literals; also from sequences?)
-
-Review array mutability vs element mutability handling
- - avoid inconsistency between them such as: ~Array<UByte>
-
-Let nested array assignment statements support implicit initialization of assignee's outer array elements, e.g:
-    aaa : ~[4][4][4]UByte;  aaa[0][0][0] = 17;
 
 Virtual dereferencing of abstract references for array subscripting, implicitly creating a reference to the element?
     r : &Array;  s : &Array;
@@ -281,15 +287,6 @@ Implement advanced debugging info
 
 break and continue out of nested loops
 
-Support named member initialization, along with nested initializers for members that are of composite types
-    - this prevents excessive copying-by-value for large members
-    type Foo {
-        num : Int;
-        pair : Pair;
-        self() {  #init( 2, ( "foo", "bar ) ); }         ## invokes Pair constructor in-place
-        self() {  #init: num(2), pair( "foo", "bar ); }  ## invokes Pair constructor in-place
-    }
-
 Implement implicit static initializer function for types' static members and static code
 
 Shared objects
@@ -305,5 +302,7 @@ Support non-constant static initializers (i.e. executed before main())
 Ideal concrete fields checking
  - ideally bottom-up: any construct that is dependent on generic parameter causes container to be dependent (and non-concrete)
  - methods may have function signature independent of generics, but contain code that is dependent on generic parameters
+
+Auto-generate default (zero arguments) constructor if base type and all members without inlined initializers allow default construction?
 
 Implement symbol visibility (private etc)?

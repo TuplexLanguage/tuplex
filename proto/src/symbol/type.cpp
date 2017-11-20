@@ -623,29 +623,25 @@ bool TxActualType::inner_prepare_members() {
 
         // prepare type members:
         if ( auto typeDecl = entitySym->get_type_decl() ) {
-//            ScopedExpErrClause expErrClause( typeDecl->get_definer(), ( typeDecl->get_decl_flags() & TXD_EXPERRBLOCK ) );
-
             if ( typeDecl->get_decl_flags() & TXD_GENBINDING ) {
                 if ( auto paramDecl = semBaseType->get_type_param_decl( typeDecl->get_unique_name() ) ) {
                     auto constraintType = paramDecl->get_definer()->qtype();
                     //std::cerr << this << ": Constraint type for param " << paramDecl << ": " << "checking bound type "
                     //          << boundType << "\t against constraint type " << constraintType << std::endl;
-                    auto type = typeDecl->get_definer()->qtype();
-                    if ( !type->is_a( *constraintType ) ) {
+                    auto qtype = typeDecl->get_definer()->qtype();
+                    if ( !qtype->is_a( *constraintType ) ) {
                         // TODO: do this also for VALUE params, but array type expression needs auto-conversion support for that to work
                         CERROR( typeDecl->get_definer(),
-                                "Bound type for type parameter " << paramDecl->get_unique_full_name() << ": " << type->str(false)
+                                "Bound type for type parameter " << paramDecl->get_unique_full_name() << ": " << qtype->str(false)
                                 << std::endl << "  is not a derivation of contraint type: " << constraintType->str(false) );
-//                            std::cerr << "definer: " << typeDecl->get_definer() << std::endl;
                     }
-// this special case check doesn't work for all cases
-//                    if ( this->get_type_class() == TXTC_ARRAY ) {
-//                        if ( this->is_mutable() && !this->is_generic_dependent() ) {
-//                            if ( !type->is_modifiable() ) {
-//                                CERROR( typeDecl->get_definer(), "Bound element type for mutable array is not modifiable: " << type );
-//                            }
-//                        }
-//                    }
+                    if ( this->get_type_class() == TXTC_ARRAY ) {
+                        if ( this->is_mutable() && !this->is_type_generic_dependent() ) {
+                            if ( !qtype.is_modifiable() ) {
+                                CERROR( typeDecl->get_definer(), "Inconsistent mutable array type: Element type not declared modifiable: " << qtype );
+                            }
+                        }
+                    }
                 }
             }
         }

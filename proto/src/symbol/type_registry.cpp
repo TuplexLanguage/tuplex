@@ -429,7 +429,7 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
         expErrCtx = baseDecl->get_definer()->exp_err_ctx();
 
     std::stringstream typeSpecTypeName;
-    if ( expErrCtx )
+    if ( expErrCtx && genBaseType->get_type_class() != TXTC_REFERENCE )
         typeSpecTypeName << "$EE$";
     typeSpecTypeName << trim_base_type_name( baseDecl->get_unique_name() );
     std::stringstream valueSpecTypeName;
