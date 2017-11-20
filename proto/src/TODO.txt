@@ -149,7 +149,7 @@ Support named member initialization, preventing excessive copying-by-value for l
 
 Remaining core array features:
 ------------------------------
-Review array mutability vs element mutability handling
+Review array mutability vs element mutability handling - DONE
  - avoid inconsistency between them such as: ~Array<UByte>
 
 Array 'fill' constructor
