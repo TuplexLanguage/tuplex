@@ -145,14 +145,14 @@ YY_DECL;
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
 
  /* literals: */
-%token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
+%token <std::string> CAP_NAME NCAP_NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
 %token <std::string> STR_FORMAT SF_PARAM SF_FLAGS SF_WIDTH SF_PREC SF_TYPE
 %token <std::string> HASHINIT HASHSELF
 
 /* Define the type of node our nonterminal symbols represent.
    The types refer to the %union declaration above.
  */
-%type <TxIdentifier*> compound_identifier import_identifier 
+%type <TxIdentifier*> module_identifier import_identifier 
 %type <TxIdentifier*> opt_module_decl opt_dataspace
 %type <TxIdentifierNode*> identifier
 
@@ -270,28 +270,33 @@ module_members : member_declaration
                       $$->modules.push_back($2); }
 ;
 
-sub_module : KW_MODULE compound_identifier
+sub_module : KW_MODULE module_identifier
                LBRACE  opt_import_stmts  opt_module_members  RBRACE
                  { $$ = new TxModuleNode( @$, $2, $4, &$5->declarations, &$5->modules );
                    parserCtx->validate_module_name( $$, $2 );
                  }
     ;
 
-identifier          : NAME  { $$ = new TxIdentifierNode(@1, $1); } ;
-
-compound_identifier : NAME                              { $$ = new TxIdentifier($1); }
-                    | compound_identifier DOT NAME      { $$ = $1; $$->append($3); }
+identifier          : CAP_NAME   { $$ = new TxIdentifierNode(@1, $1); }
+                    | NCAP_NAME  { $$ = new TxIdentifierNode(@1, $1); }
                     ;
 
-import_identifier   : compound_identifier               { $$ = $1; }
-                    | compound_identifier DOT ASTERISK  { $$ = $1; $$->append("*"); }
+module_identifier   : NCAP_NAME                         { $$ = new TxIdentifier($1); }
+                    | module_identifier DOT NCAP_NAME   { $$ = $1; $$->append($3); }
+                    ;
+
+import_identifier   : CAP_NAME                          { $$ = new TxIdentifier($1); }
+                    | NCAP_NAME                         { $$ = new TxIdentifier($1); }
+                    | import_identifier DOT CAP_NAME    { $$ = $1; $$->append($3); }
+                    | import_identifier DOT NCAP_NAME   { $$ = $1; $$->append($3); }
+                    | import_identifier DOT ASTERISK    { $$ = $1; $$->append("*"); }
                     ;
 
 
 opt_sc : %empty | SEMICOLON ;
 
 opt_module_decl    : %empty %prec STMT { $$ = new TxIdentifier( LOCAL_NS ); }
-                   | KW_MODULE compound_identifier opt_sc { $$ = $2; } ;
+                   | KW_MODULE module_identifier opt_sc { $$ = $2; } ;
 
 opt_import_stmts   : %empty { $$ = new std::vector<TxImportNode*>(); }
                    | import_statements { $$ = $1; } ;
@@ -482,7 +487,7 @@ reference_type : opt_dataspace ref_token qual_type_expr
                     { /* (custom ast node needed to handle dataspaces) */
                       $$ = new TxReferenceTypeNode(@$, $1, $3);
                     } ;
-opt_dataspace : %empty { $$ = NULL; } | QMARK { $$ = NULL; } | NAME { $$ = new TxIdentifier($1); } ;
+opt_dataspace : %empty { $$ = NULL; } | QMARK { $$ = NULL; } | CAP_NAME { $$ = new TxIdentifier($1); } ;
 
 array_type : array_dimensions qual_type_expr
                     { /* (custom ast node needed to provide syntactic sugar for modifiable decl) */

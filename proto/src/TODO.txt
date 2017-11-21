@@ -152,10 +152,10 @@ Remaining core array features:
 Review array mutability vs element mutability handling - DONE
  - avoid inconsistency between them such as: ~Array<UByte>
 
-Array 'fill' constructor
-
-Let nested array assignment statements support implicit initialization of assignee's outer array elements, e.g:
+Let nested array assignment statements support implicit initialization of assignee's outer array elements - DONE
     aaa : ~[4][4][4]UByte;  aaa[0][0][0] = 17;
+
+Array 'fill' constructor
 
 Array initialization from sequence; sequence expansion
  - requires custom modifiability handling
