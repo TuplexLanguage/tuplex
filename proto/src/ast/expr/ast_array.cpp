@@ -198,11 +198,39 @@ TxElemDerefNode::TxElemDerefNode( const TxLocation& ploc, TxExpressionNode* oper
 //    }
 }
 
-TxElemAssigneeNode::TxElemAssigneeNode( const TxLocation& ploc, TxExpressionNode* array, TxExpressionNode* subscript, bool unchecked )
+void TxElemDerefNode::set_elem_assignee_expr() {
+    this->_elemAssignment = true;
+    if ( auto outerElemDerefExpr = dynamic_cast<TxElemDerefNode*>( this->array->originalExpr ) ) {
+        outerElemDerefExpr->set_elem_assignee_expr();
+    }
+}
+
+TxElemAssigneeNode::TxElemAssigneeNode( const TxLocation& ploc, TxExpressionNode* array, TxExpressionNode* subscript )
         : TxAssigneeNode( ploc ),
           array( new TxMaybeConversionNode( array ) ), subscript( new TxMaybeConversionNode( subscript ) ) {
 //    if ( !unchecked ) {
 //        // TO DO: When we support accessing fields of constant instances, we can access L of constant arrays in compile time
 //        this->panicNode = new TxPanicStmtNode( this->subscript->ploc, "Array index out of bounds" );
 //    }
+}
+
+TxQualType TxElemAssigneeNode::define_type( TxPassInfo passInfo ) {
+    this->subscript->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
+
+    auto opType = this->array->originalExpr->resolve_type( passInfo );
+    if ( opType->get_type_class() == TXTC_REFERENCE ) {
+        auto targType = opType->target_type();
+        if ( targType->get_type_class() == TXTC_ARRAY ) {
+            this->array->insert_conversion( passInfo, targType );
+        }
+        // TODO: May cause code_gen_typeid() to return a too-general type, override code_gen_typeid()
+    }
+    opType = this->array->resolve_type( passInfo );
+    if ( opType->get_type_class() != TXTC_ARRAY )
+        CERR_THROWRES( this, "Can't subscript non-array assignee expression: " << opType );
+
+    if ( auto outerElemDerefExpr = dynamic_cast<TxElemDerefNode*>( this->array->originalExpr ) ) {
+        outerElemDerefExpr->set_elem_assignee_expr();
+    }
+    return opType->element_type();
 }

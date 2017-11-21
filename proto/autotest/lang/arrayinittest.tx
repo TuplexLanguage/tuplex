@@ -279,10 +279,14 @@ array_new_construction( i : UByte ) {
 }
 
 
-nested_array_init() -> Int {
-## FUTURE: let assignment statements support implicit initialization of assignee's outer array elements, e.g:
-## aaa : ~[4][4][4]UByte;  aaa[0][0][0] = 17;
+sum( arr : &[]Int ) -> Int {
+    s : ~Int = 0;
+    for i := ~0; i < arr.L; i = i + 1 :
+        s = s + arr[i];
+    return s;
+}
 
+nested_array_init() -> Int {
   ## gradual nested array initialization
     aaa : ~[4][4][4]UByte = <Array<Array<Array<UByte,4>,4>,4>>();
     assert aaa.C == 4;
@@ -295,6 +299,23 @@ nested_array_init() -> Int {
     assert aaa[0].L == 1;
     assert aaa[0][0].L == 1;
     assert aaa[0][0][0] == 17;
+
+  ## implicit initialization of assignee's outer array elements:
+    arr := ~<~Array<~Array<~Array<~Int,4>,3>,2>>();
+    assert arr.C == 2;
+    assert arr.L == 0;
+    arr[0][0][0] = 17;
+    assert arr.C == 2;
+    assert arr.L == 1;
+    assert arr[0].C == 3;
+    assert arr[0].L == 1;
+    assert arr[0][0].C == 4;
+    assert arr[0][0].L == 1;
+    assert arr[0][0][0] == 17;
+
+    arr[0][1] = <~Array<~Int,4>>();
+    arr[0][2] = <~Array<~Int,4>>( 10, 11, 12, 13 );
+    assert sum( arr[0][2] ) == 46;
 
     return 0;
 }

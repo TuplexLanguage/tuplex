@@ -1,6 +1,7 @@
 #include "ast_array.hpp"
 
 #include "ast/stmt/ast_stmt_node.hpp"
+#include "ast_constexpr.hpp"
 #include "parsercontext.hpp"
 
 #include "llvm_generator.hpp"
@@ -140,7 +141,7 @@ Constant* TxUnfilledArrayCompLitNode::code_gen_const_value( LlvmGenerationContex
 
 
 static Value* gen_elem_address( const TxNode* origin, LlvmGenerationContext& context, GenScope* scope, Value* arrayPtrV, Value* subscriptV,
-                                bool isAssignment, bool suppressBoundsCheck=false ) {
+                                bool isAssignment, Value* subarrayCapacityV=nullptr, bool suppressBoundsCheck=false ) {
     ASSERT( subscriptV->getType()->isIntegerTy(), "expected subscript to be an integer: " << subscriptV );
     ASSERT( arrayPtrV->getType()->isPointerTy(), "expected array-operand to be a pointer: " << arrayPtrV );
     ASSERT( arrayPtrV->getType()->getPointerElementType()->isStructTy(), "expected array-operand to be a pointer to struct: " << arrayPtrV );
@@ -158,7 +159,13 @@ static Value* gen_elem_address( const TxNode* origin, LlvmGenerationContext& con
     }
 
     ASSERT( scope, "NULL scope in non-const array elem access");
+
     std::string id = std::to_string( origin->ploc.begin.line );
+    Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
+                     ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
+                     subscriptV };
+    Value* elemA = scope->builder->CreateInBoundsGEP( arrayPtrV, ixs, "elemA"+id );
+
     if ( !suppressBoundsCheck ) {
         // add bounds check
         auto parentFunc = scope->builder->GetInsertBlock()->getParent();
@@ -198,47 +205,64 @@ static Value* gen_elem_address( const TxNode* origin, LlvmGenerationContext& con
                 scope->builder->SetInsertPoint( okCapBlock );
                 auto newLenV = scope->builder->CreateAdd( lengthV, ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 1 ), "newlen"+id );
                 scope->builder->CreateStore( newLenV, lengthPtrV );
+
+                if ( subarrayCapacityV ) {
+                    // initialize sub-array's header (capacity and length) fields
+                    auto lenC = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 );
+                    initialize_array_obj( context, scope, elemA, subarrayCapacityV, lenC );
+                }
+
                 scope->builder->CreateBr( postBlock );
             }
 
             { // panic:
                 scope->builder->SetInsertPoint( panicBlock );
                 auto indexV = scope->builder->CreateZExt( subscriptV, Type::getInt64Ty( context.llvmContext ), "ix64"+id );
-                context.gen_panic_call( scope, "Array write index out of bounds: %d\n", indexV );
+                context.gen_panic_call( scope, origin->parse_loc_string() + ": Array write index out of bounds: %d\n", indexV );
                 scope->builder->CreateBr( postBlock );  // terminate block, though won't be executed
             }
         }
         else {
             auto indexV = scope->builder->CreateZExt( subscriptV, Type::getInt64Ty( context.llvmContext ), "ix64"+id );
-            context.gen_panic_call( scope, "Array read index out of bounds: %d\n", indexV );
+            context.gen_panic_call( scope, origin->parse_loc_string() + ": Array read index out of bounds: %d\n", indexV );
             scope->builder->CreateBr( postBlock );  // terminate block, though won't be executed
         }
 
         scope->builder->SetInsertPoint( postBlock );
     }
-
-    Value* ixs[] = { ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 0 ),
-                     ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ),
-                     subscriptV };
-    return scope->builder->CreateInBoundsGEP( arrayPtrV, ixs, "elemA"+id );
+    return elemA;
 }
 
 Value* TxElemDerefNode::code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
+    Value* subarrayCapacityV = nullptr;
+    if ( this->_elemAssignment && this->qtype()->get_type_class() == TXTC_ARRAY ) {
+        // this is part of an assignee expression and the element type is an array - initialize the sub-array's header:
+        //std::cerr << this << " performing assignment, initializing sub-array's header" << std::endl;
+        if ( auto capExpr = this->qtype()->capacity() ) {
+            // concrete array (specific capacity)
+            if ( capExpr->is_statically_constant() )
+                // capacity is statically specified
+                subarrayCapacityV = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), eval_unsigned_int_constant( capExpr ) );
+            else
+                CERR_CODECHECK( this, "Non-constant capacity of sub-array to initialize" );
+        }
+        else
+            CERR_CODECHECK( this, "Unspecified capacity of sub-array to initialize" );
+    }
     return gen_elem_address( this, context, scope, this->array->code_gen_dyn_address( context, scope ),
-                             this->subscript->code_gen_dyn_value( context, scope ), false );
+                             this->subscript->code_gen_dyn_value( context, scope ),
+                             this->_elemAssignment, subarrayCapacityV );
 }
 
 Value* TxElemDerefNode::code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
+    ASSERT( !this->_elemAssignment, "Unexpected _elemAssignment=true in code_gen_dyn_value() for " << this );
     scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     Value* elemPtr = gen_elem_address( this, context, scope, this->array->code_gen_dyn_address( context, scope ),
                                        this->subscript->code_gen_dyn_value( context, scope ), false );
-    if ( scope )
-        return scope->builder->CreateLoad( elemPtr );
-    else
-        return new LoadInst( elemPtr );
+    return scope->builder->CreateLoad( elemPtr );
 }
 
 Constant* TxElemDerefNode::code_gen_const_address( LlvmGenerationContext& context ) const {

@@ -159,6 +159,9 @@ public:
 
 // TODO: Support negative array indexing.
 class TxElemDerefNode : public TxExpressionNode {
+    /** true if this is part of a nested array element assignee expression */
+    bool _elemAssignment = false;
+
 protected:
     virtual TxQualType define_type( TxPassInfo passInfo ) override {
         this->subscript->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
@@ -208,34 +211,21 @@ public:
         this->array->visit_ast( visitor, thisCursor, "array", context );
         this->subscript->visit_ast( visitor, thisCursor, "subscript", context );
     }
+
+    void set_elem_assignee_expr();
 };
 
 
 // TODO: Support negative array indexing.
 class TxElemAssigneeNode : public TxAssigneeNode {
 protected:
-    virtual TxQualType define_type( TxPassInfo passInfo ) override {
-        this->subscript->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
-
-        auto opType = this->array->originalExpr->resolve_type( passInfo );
-        if ( opType->get_type_class() == TXTC_REFERENCE ) {
-            auto targType = opType->target_type();
-            if ( targType->get_type_class() == TXTC_ARRAY ) {
-                this->array->insert_conversion( passInfo, targType );
-            }
-            // TODO: May cause code_gen_typeid() to return a too-general type, override code_gen_typeid()
-        }
-        opType = this->array->resolve_type( passInfo );
-        if ( opType->get_type_class() != TXTC_ARRAY )
-            CERR_THROWRES( this, "Can't subscript non-array assignee expression: " << opType );
-        return opType->element_type();
-    }
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
 
 public:
     TxMaybeConversionNode* array;
     TxMaybeConversionNode* subscript;
 
-    TxElemAssigneeNode( const TxLocation& ploc, TxExpressionNode* array, TxExpressionNode* subscript, bool unchecked = false );
+    TxElemAssigneeNode( const TxLocation& ploc, TxExpressionNode* array, TxExpressionNode* subscript );
 
     virtual TxElemAssigneeNode* make_ast_copy() const override {
         return new TxElemAssigneeNode( this->ploc, this->array->originalExpr->make_ast_copy(),
