@@ -145,7 +145,7 @@ YY_DECL;
 %token KW_RAISES KW_TRY KW_EXCEPT KW_FINALLY KW_RAISE
 
  /* literals: */
-%token <std::string> CAP_NAME NCAP_NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
+%token <std::string> NAME LIT_DEC_INT LIT_RADIX_INT LIT_FLOATING LIT_CHARACTER LIT_CSTRING LIT_STRING
 %token <std::string> STR_FORMAT SF_PARAM SF_FLAGS SF_WIDTH SF_PREC SF_TYPE
 %token <std::string> HASHINIT HASHSELF
 
@@ -153,8 +153,8 @@ YY_DECL;
    The types refer to the %union declaration above.
  */
 %type <TxIdentifier*> module_identifier import_identifier 
-%type <TxIdentifier*> opt_module_decl opt_dataspace
-%type <TxIdentifierNode*> identifier
+%type <TxIdentifier*> opt_module_decl
+%type <TxIdentifierNode*> identifier dataspace
 
 %type <TxDeclarationFlags> declaration_flags opt_visibility opt_externc opt_virtual opt_abstract opt_override opt_final opt_builtin
 %type <bool> opt_mutable type_or_if
@@ -169,9 +169,9 @@ YY_DECL;
 %type <std::vector<TxDeclarationNode*> *> type_body member_list type_param_list
 %type <TxTypeDeclNode*> type_declaration
 
-%type <TxIdentifiedSymbolNode*> named_symbol
+%type <TxFieldValueNode*> named_symbol
 
-%type <std::vector<TxTypeExpressionNode*> *> conv_type_list
+%type <std::vector<TxTypeExpressionNode*> *> type_expr_list
 
 %type <TxTypeArgumentNode *> type_arg
 %type <std::vector<TxTypeArgumentNode*> *> type_arg_list
@@ -182,14 +182,15 @@ YY_DECL;
 %type <std::vector<TxArgTypeDefNode*> *> func_args func_args_list
 
 %type <TxTypeCreatingNode*> type_derivation
-%type <TxQualTypeExprNode*> qual_type_expr type_as_value_expr
-%type <TxTypeExpressionNode*> type_expression conv_type_expr produced_type
-%type <TxTypeExpressionNode*> named_type specialized_type reference_type array_type
+%type <TxQualTypeExprNode*> qual_type_expr
+%type <TxTypeExpressionNode*> type_expression spec_type_expr type_production val_type_prod
+%type <TxTypeExpressionNode*> reference_type array_type
 
 %type <TxFunctionTypeNode*> function_signature
-%type <TxExpressionNode*> expr make_expr lambda_expr value_literal array_literal array_dimensions intrinsics_expr
+%type <TxExpressionNode*> val_expr gen_val_expr lambda_expr value_literal array_dimensions intrinsics_expr make_expr
+%type <TxExpressionNode*> array_literal //tuple_literal
 %type <TxFunctionCallNode*> call_expr
-%type <std::vector<TxExpressionNode*> *> expression_list call_params array_lit_expr_list
+%type <std::vector<TxExpressionNode*> *> expression_list min2_expr_list call_params
 %type <std::vector<TxStatementNode*> *> statement_list
 %type <TxSuiteNode*> suite
 %type <TxStatementNode*> statement single_statement assignment_stmt return_stmt break_stmt continue_stmt type_decl_stmt
@@ -211,16 +212,17 @@ YY_DECL;
 
 /* Operator precedence for expression operators (higher line no = higher precedence) */
 %precedence STMT /* used to specify statement / member rule precedence, to be lower than e.g. separator  */
-%precedence EXPR
+%precedence TYPE  // type expression
+%precedence EXPR  // value expression
 %precedence ELLIPSIS
 %left COMMA COLON
 %right EQUAL
 %left PERCENTPERCENT PERCENT // string concatenation and formatting
 %precedence STRFORMAT // unary string formatting
+%right TILDE      
 %left PIPE        // boolean and bitwise operator
 %left KW_XOR      // boolean and bitwise operator
 %left AAND        // boolean and bitwise operator
-%precedence NOT   /* unary logical not */
 %left EEQUAL NEQUAL
 %left LT GT LEQUAL GEQUAL
 %left EEEQUAL NEEQUAL
@@ -228,8 +230,9 @@ YY_DECL;
 %left LTLT GTGT GTGTGT  // bit-shift har lower priority than arithmetic but higher than range and boolen operators
 %left PLUS MINUS
 %left ASTERISK FSLASH
-%precedence NEG   /* negation--unary minus */
-%precedence ADDR  /* unary prefix address-of */
+%right NOT        /* unary logical not */
+%right NEG        /* negation--unary minus */
+%right ADDR       /* unary prefix address-of */
 %precedence LPAREN RPAREN  LBRACE RBRACE
 %precedence CARET /* unary postfix de-reference */
 %precedence LBRACKET RBRACKET
@@ -277,23 +280,21 @@ sub_module : KW_MODULE module_identifier
                  }
     ;
 
-identifier          : CAP_NAME   { $$ = new TxIdentifierNode(@1, $1); }
-                    | NCAP_NAME  { $$ = new TxIdentifierNode(@1, $1); }
+identifier          : NAME   { $$ = new TxIdentifierNode(@1, $1); } ;
+
+module_identifier   : NAME                         { $$ = new TxIdentifier($1); }
+                    | module_identifier DOT NAME   { $$ = $1; $$->append($3); }
                     ;
 
-module_identifier   : NCAP_NAME                         { $$ = new TxIdentifier($1); }
-                    | module_identifier DOT NCAP_NAME   { $$ = $1; $$->append($3); }
-                    ;
-
-import_identifier   : CAP_NAME                          { $$ = new TxIdentifier($1); }
-                    | NCAP_NAME                         { $$ = new TxIdentifier($1); }
-                    | import_identifier DOT CAP_NAME    { $$ = $1; $$->append($3); }
-                    | import_identifier DOT NCAP_NAME   { $$ = $1; $$->append($3); }
+import_identifier   : NAME                              { $$ = new TxIdentifier($1); }
+                    | import_identifier DOT NAME        { $$ = $1; $$->append($3); }
                     | import_identifier DOT ASTERISK    { $$ = $1; $$->append("*"); }
                     ;
 
 
-opt_sc : %empty | SEMICOLON ;
+opt_sc     : %empty | SEMICOLON ;
+opt_comma  : %empty | COMMA ;
+
 
 opt_module_decl    : %empty %prec STMT { $$ = new TxIdentifier( LOCAL_NS ); }
                    | KW_MODULE module_identifier opt_sc { $$ = $2; } ;
@@ -322,7 +323,7 @@ member_declaration
 
     // function / method
     |   declaration_flags method_def
-            { $$ = new TxFieldDeclNode(@$, $1, $2, true); }
+            { $$ = ( $2 ? new TxFieldDeclNode(@$, $1, $2, true) : NULL ); }
 
     // error recovery
     |   error SEMICOLON  { $$ = NULL; }
@@ -357,15 +358,13 @@ type_or_if : KW_TYPE        { $$ = false; }
            ;
 
 field_def : identifier COLON qual_type_expr  { $$ = new TxNonLocalFieldDefNode(@$, $1, $3, nullptr); }
-          | field_assignment_def       { $$ = $1; }
+          | field_assignment_def             { $$ = $1; }
           ;
 
-field_assignment_def : identifier COLON qual_type_expr EQUAL expr
+field_assignment_def : identifier COLON qual_type_expr EQUAL gen_val_expr
                            { $$ = new TxNonLocalFieldDefNode(@$, $1, $3, $5); }
-                     | identifier COLEQUAL expr
+                     | identifier COLEQUAL gen_val_expr
                            { $$ = new TxNonLocalFieldDefNode(@$, $1, $3, false); }
-                     | identifier COLEQUAL mut_token expr
-                           { $$ = new TxNonLocalFieldDefNode(@$, $1, $4, true); }
 ;
 
 
@@ -399,7 +398,7 @@ type_param_list : type_param  { $$ = new std::vector<TxDeclarationNode*>(); $$->
                 ;
 type_param      : identifier  { $$ = new TxTypeDeclNode( @$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
                                                    new TxGenParamTypeNode( @$, new TxNamedTypeNode(@$, "tx.Any") ) ); }
-                | identifier derives_token conv_type_expr
+                | identifier derives_token type_expression
                         { $$ = new TxTypeDeclNode( @$, TXD_PUBLIC | TXD_GENPARAM, $1, NULL,
                                                    new TxGenParamTypeNode( @$, $3 ) ); }
                 | identifier COLON qual_type_expr
@@ -408,7 +407,7 @@ type_param      : identifier  { $$ = new TxTypeDeclNode( @$, TXD_PUBLIC | TXD_GE
 
 type_declaration : declaration_flags type_or_if opt_mutable identifier type_derivation  
                         { $$ = new TxTypeDeclNode(@$, $1, $4, NULL, $5, $2, $3); }
-                 | declaration_flags type_or_if opt_mutable identifier LT type_param_list GT type_derivation
+                 | declaration_flags type_or_if opt_mutable identifier LBRACE type_param_list RBRACE type_derivation
                         { $$ = new TxTypeDeclNode(@$, $1, $4, $6,   $8, $2, $3); }
 
                  // error recovery, handles when an error occurs before a type body's LBRACE:
@@ -416,92 +415,23 @@ type_declaration : declaration_flags type_or_if opt_mutable identifier type_deri
                  ;
 
 type_derivation : derives_token type_expression SEMICOLON  { $$ = new TxDerivedTypeNode(@$, $2); }
-                | derives_token type_expression type_body  { $$ = new TxDerivedTypeNode(@$, $2, $3); }
-                | derives_token type_expression COMMA conv_type_list type_body
-                                                           { $$ = new TxDerivedTypeNode(@$, $2, $4, $5); }
-                | type_body                                { $$ = new TxDerivedTypeNode(@$, $1); }
+                | derives_token type_expression COLON type_body  { $$ = new TxDerivedTypeNode(@$, $2, $4); }
+                | derives_token type_expression COMMA type_expr_list COLON type_body
+                                                           { $$ = new TxDerivedTypeNode(@$, $2, $4, $6); }
+                | COLON type_body                                { $$ = new TxDerivedTypeNode(@$, $2); }
+
+                | derives_token error SEMICOLON  { $$ = new TxDerivedTypeNode(@$, (TxTypeExpressionNode*)nullptr); }
+                | derives_token error COLON type_body  { $$ = new TxDerivedTypeNode(@$, $4); }
                 ;
 
-conv_type_list  : conv_type_expr  { $$ = new std::vector<TxTypeExpressionNode*>();  $$->push_back($1); }
-                | conv_type_list COMMA conv_type_expr  { $$ = $1;  $$->push_back($3); }
+type_expr_list  : type_expression  { $$ = new std::vector<TxTypeExpressionNode*>();  $$->push_back($1); }
+                | type_expr_list COMMA type_expression  { $$ = $1;  $$->push_back($3); }
                 ;
-
-// conventional type expressions are named types (and possibly specialized) (i.e. not using not syntatic sugar to describe the type)
-conv_type_expr  : named_symbol             %prec DOT  { $$ = new TxNamedTypeNode(@$, $1); }
-                | conv_type_expr DOT identifier       { $$ = new TxMemberTypeNode(@$, $1, $3); }
-                | conv_type_expr LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@$, $1, $3); }
-                ;
-
-
-named_symbol    : identifier                   { $$ = new TxIdentifiedSymbolNode(@$, NULL, $1); }
-                | named_symbol DOT identifier  { $$ = new TxIdentifiedSymbolNode(@$, $1, $3); }
-                ;
-
-
-named_type      : named_symbol                  %prec EXPR { $$ = new TxNamedTypeNode(@$, $1); }
-                | produced_type DOT identifier  %prec DOT  { $$ = new TxMemberTypeNode(@$, $1, $3); }
-                ;
-
-specialized_type  : named_type LT type_arg_list GT  { $$ = new TxGenSpecTypeNode(@$, $1, $3); }
-                  ;
-
-type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->push_back($1); }
-                | type_arg_list COMMA type_arg  { $$ = $1;  $$->push_back($3); }
-                ;
-
-type_arg        : value_literal       { $$ = new TxValueTypeArgumentNode($1); }  // unambiguous value expr
-                | LPAREN expr RPAREN  { $$ = new TxValueTypeArgumentNode($2); }  // parens prevent conflation with type expr
-                | opt_mutable conv_type_expr   { $$ = new TxTypeTypeArgumentNode(( $1 ? new TxModifiableTypeNode(@$, $2)
-                                                                                      : new TxMaybeModTypeNode(@2, $2) )); }
-                | opt_mutable reference_type   { $$ = new TxTypeTypeArgumentNode(( $1 ? new TxModifiableTypeNode(@$, $2)
-                                                                                      : new TxMaybeModTypeNode(@2, $2) )); }
-                | opt_mutable array_type       { $$ = new TxTypeTypeArgumentNode(( $1 ? new TxModifiableTypeNode(@$, $2)
-                                                                                      : new TxMaybeModTypeNode(@2, $2) )); }
-                // full type expressions don't work here due to conflation between function type and value expression (LPAREN):
-                // | qual_type_expr     { $$ = new TxTypeTypeArgumentNode($1); }
-                ;
-
-// a qualified type expression - a type expression with possible qualifiers (e.g. mutable):
-qual_type_expr  : opt_mutable type_expression  %prec EXPR
-                         { $$ = ( $1 ? new TxModifiableTypeNode(@$, $2)
-                                     : new TxMaybeModTypeNode(@2, $2) ); }
-                ;
-
-// can identify or construct new type but can't extend (specify interfaces or add members to) one:
-type_expression : named_type     %prec DOT  { $$ = $1; }
-                | produced_type  %prec EXPR { $$ = $1; }
-                ;
-
-produced_type   :  specialized_type   { $$ = $1; }
-                |  reference_type     { $$ = $1; }
-                |  array_type         { $$ = $1; }
-                |  function_signature { $$ = $1; }
-                ;
-//    |  data_tuple_type
-//    |  union_type
-//    |  enum_type
-//    |  range_type
-//    |  shared_obj_type
-
-reference_type : opt_dataspace ref_token qual_type_expr
-                    { /* (custom ast node needed to handle dataspaces) */
-                      $$ = new TxReferenceTypeNode(@$, $1, $3);
-                    } ;
-opt_dataspace : %empty { $$ = NULL; } | QMARK { $$ = NULL; } | CAP_NAME { $$ = new TxIdentifier($1); } ;
-
-array_type : array_dimensions qual_type_expr
-                    { /* (custom ast node needed to provide syntactic sugar for modifiable decl) */
-                      $$ = new TxArrayTypeNode(@$, $2, $1);
-                    } ;
-array_dimensions : LBRACKET expr RBRACKET  { $$ = $2; }
-                 //| LBRACKET conv_type_expr RBRACKET  // type must be an enum
-                 | LBRACKET RBRACKET  { $$ = NULL; }
-                 ;
 
 
 /// function type and function declarations:
 
-lambda_expr : function_signature suite  { $$ = new TxLambdaExprNode(@$, $1, $2); } ;
+lambda_expr : function_signature COLON statement  { $$ = new TxLambdaExprNode(@$, $1, $3); } ;
 
 function_signature : func_args opt_mutable DASHGT type_expression
                         { $$ = new TxFunctionTypeNode(@$, $2, $1, $4); }
@@ -527,65 +457,155 @@ func_arg_def   : identifier COLON type_expression
                | identifier COLON type_expression ELLIPSIS
                         { $$ = new TxArgTypeDefNode(@$, $1,
                                     new TxReferenceTypeNode(@3, nullptr,
-                                            new TxConstTypeNode( @3, new TxArrayTypeNode(@3, new TxMaybeModTypeNode(@3, $3))))); }
+                                            new TxConstTypeNode( @3, new TxArrayTypeNode(@3, new TxMaybeModTypeNode(@3, $3))))); }  // TODO: remove const and mod nodes?
                | identifier COLON mut_token type_expression ELLIPSIS
                         { $$ = new TxArgTypeDefNode(@$, $1,
                                     new TxReferenceTypeNode(@3, nullptr,
-                                            new TxConstTypeNode( @3, new TxArrayTypeNode(@3, new TxModifiableTypeNode(@3, $4))))); }
+                                            new TxConstTypeNode( @3, new TxArrayTypeNode(@3, new TxModifiableTypeNode(@3, $4))))); }  // TODO: remove const and mod nodes?
                ;
 
 
-method_def  : identifier function_signature suite
-                { $$ = new TxNonLocalFieldDefNode(@$, $1, new TxLambdaExprNode(@$, $2, $3, true), false); }
+method_def  : identifier function_signature COLON statement
+                { $$ = new TxNonLocalFieldDefNode(@$, $1, new TxLambdaExprNode(@$, $2, $4, true), false); }
             | identifier function_signature SEMICOLON  // abstract method (KW_ABSTRACT should be specified)
                 { $$ = new TxNonLocalFieldDefNode(@$, $1, $2, nullptr); }
+            | identifier error SEMICOLON  { $$ = nullptr; }
+            | identifier error suite  { $$ = nullptr; }
             ;
 
 
 
+///////////////////
+//// expressions:
+
+named_symbol    : identifier                       { $$ = new TxFieldValueNode(@$, NULL, $1); }
+                | named_symbol    DOT identifier   { $$ = new TxFieldValueNode(@$, $1,   $3); }
+                | spec_type_expr  DOT identifier   { $$ = new TxFieldValueNode(@$, $1,   $3); }
+                ;
+
+// a qualified type expression - a type expression with possible qualifiers (e.g. mutable):
+qual_type_expr  : opt_mutable type_expression
+                         { $$ = ( $1 ? new TxModifiableTypeNode(@$, $2)
+                                     : new TxQualTypeExprNode(@2, $2) ); }
+                ;
+
+// can identify or construct new type but can't extend (specify interfaces or add members to) one:
+type_expression : named_symbol        %prec TYPE  { $$ = new TxNamedTypeNode(@$, $1); }
+                | type_production                 { $$ = $1; }
+                ;
+
+type_production : reference_type             { $$ = $1; }
+                | val_type_prod              { $$ = $1; }
+                ;
+
+val_type_prod   : spec_type_expr             { $$ = $1; }
+                | array_type                 { $$ = $1; }
+                | function_signature  %prec TYPE  { $$ = $1; }  // Note: has lower precedence than lambda val_expr (COLON)
+                //| LBRACE qual_type_expr RBRACE { $$ = $2; }
+                ;
+//    |  data_tuple_type  - same syntactical construct as function args?
+//    |  union_type
+//    |  enum_type
+//    |  shared_obj_type
+
+spec_type_expr  : named_symbol LBRACE type_arg_list RBRACE  { $$ = new TxGenSpecTypeNode(@$, new TxNamedTypeNode(@1, $1), $3); }
+                ;
+
+
+type_arg_list   : type_arg  { $$ = new std::vector<TxTypeArgumentNode*>();  $$->push_back($1); }
+                | type_arg_list COMMA type_arg  { $$ = $1;  $$->push_back($3); }
+                ;
+
+type_arg        : type_production              { $$ = new TxTypeArgumentNode($1); }
+                | mut_token type_production    { $$ = new TxTypeArgumentNode(new TxModifiableTypeNode(@$, $2)); }
+                | mut_token val_expr           
+                    {
+                        // special handling to strip TxNamedFieldNode (this way avoids reduce-reduce grammar conflict)
+                        if ( auto namedField = dynamic_cast<TxNamedFieldNode*>( $2 ) )
+                            $$ = new TxTypeArgumentNode(new TxModifiableTypeNode(@$, new TxNamedTypeNode(@2, namedField->exprNode)));
+                        else
+                            $$ = new TxTypeArgumentNode(new TxModifiableTypeNode(@$, new TxNamedTypeNode(@2, $2)));
+                    }
+                | val_expr                     // including named type
+                    {
+                        // special handling to strip TxNamedFieldNode (this way avoids reduce-reduce grammar conflict)
+                        if ( auto namedField = dynamic_cast<TxNamedFieldNode*>( $1 ) )
+                            $$ = new TxTypeArgumentNode(namedField->exprNode);
+                        else
+                            $$ = new TxTypeArgumentNode($1);
+                    }
+                ;
+
+
+reference_type : ref_token qual_type_expr            { $$ = new TxReferenceTypeNode(@$, nullptr, $2); }
+               | dataspace ref_token qual_type_expr  { $$ = new TxReferenceTypeNode(@$, $1, $3); }
+               ;
+
+dataspace      :  QMARK { $$ = NULL; }  |  identifier EMARK { $$ = $1; } ;
+
+
+/* (custom ast node needed to provide syntactic sugar for modifiable decl) */
+array_type       : array_dimensions type_expression  { $$ = new TxArrayTypeNode(@$, new TxMaybeModTypeNode(@2, $2), $1); }
+                 | array_dimensions mut_token type_expression
+                        { $$ = new TxModifiableTypeNode(@$, new TxArrayTypeNode(@$, new TxModifiableTypeNode(@2, $3), $1)); }
+                 ;
+
+array_dimensions : LBRACKET val_expr RBRACKET  { $$ = $2; }
+                 //| LBRACKET conv_type_expr RBRACKET  // type must be an enum
+                 | LBRACKET RBRACKET  { $$ = NULL; }
+                 ;
+
+
 //// (value) expressions:
 
-expr
-    :   LPAREN expr RPAREN           { $$ = $2; }
+gen_val_expr
+    :   val_expr                           { $$ = $1; }
+    |   AAND gen_val_expr   %prec ADDR     { $$ = new TxReferenceToNode(@$, $2); }
+
+    |   gen_val_expr EEQUAL gen_val_expr   { $$ = new TxEqualityOperatorNode(@$, $1, $3); }
+    |   gen_val_expr NEQUAL gen_val_expr   { $$ = new TxUnaryLogicalNotNode(@$, new TxEqualityOperatorNode(@$, $1, $3)); }
+    |   gen_val_expr EEEQUAL gen_val_expr  { $$ = new TxRefEqualityOperatorNode(@$, $1, $3); }
+    |   gen_val_expr NEEQUAL gen_val_expr  { $$ = new TxUnaryLogicalNotNode(@$, new TxRefEqualityOperatorNode(@$, $1, $3)); }
+
+    |   gen_val_expr AAND gen_val_expr     { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_AND, $3); }
+    |   gen_val_expr PIPE gen_val_expr     { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_OR,  $3); }
+    |   gen_val_expr KW_XOR gen_val_expr   { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_XOR,  $3); }
+
+    |   mut_token gen_val_expr %prec TILDE { $$ = new TxModifiableValueNode(@$, $2); }
+    ;
+
+val_expr
+    :   LPAREN gen_val_expr RPAREN   { $$ = $2; }
     |   value_literal                { $$ = $1; }
+//    |   tuple_literal                { $$ = $1; }
     |   array_literal                { $$ = $1; }
     |   lambda_expr                  { $$ = $1; }
-    |   call_expr                    { $$ = $1; }
-    |   make_expr                    { $$ = $1; }
     |   intrinsics_expr              { $$ = $1; }
 
-    |   identifier                   { $$ = new TxFieldValueNode(@$, NULL, $1); }
-    |   expr DOT identifier          { $$ = new TxFieldValueNode(@$, $1,   $3); }
-    // TODO:  |   type_as_value_expr DOT identifier  { $$ = new TxFieldValueNode(@$, $1,   $3); }
-    |   expr LBRACKET expr RBRACKET  { $$ = new TxElemDerefNode(@$, $1, $3); }
-    |   expr CARET                   { $$ = new TxReferenceDerefNode(@$, $1); }
-    |   AAND expr   %prec ADDR       { $$ = new TxReferenceToNode(@$, $2); }
+    |   named_symbol     %prec EXPR  { $$ = new TxNamedFieldNode(@$, $1); }
+    |   val_expr DOT identifier      { $$ = new TxNamedFieldNode(@$, new TxFieldValueNode(@$, $1, $3)); }
+    |   val_expr LBRACKET val_expr RBRACKET  { $$ = new TxElemDerefNode(@$, $1, $3); }
+    |   val_expr CARET               { $$ = new TxReferenceDerefNode(@$, $1); }
 
-    |   expr DOTDOT expr             { $$ = TxERangeLitNode::make_range_node(@$, $1, $3); }
+    |   call_expr                    { $$ = $1; }
+    |   make_expr                    { $$ = $1; }
+    
+    |   val_expr DOTDOT val_expr     { $$ = TxERangeLitNode::make_range_node(@$, $1, $3); }
 
-    |   expr EEQUAL expr             { $$ = new TxEqualityOperatorNode(@$, $1, $3); }
-    |   expr NEQUAL expr             { $$ = new TxUnaryLogicalNotNode(@$, new TxEqualityOperatorNode(@$, $1, $3)); }
+    |   MINUS val_expr  %prec NEG    { $$ = new TxUnaryMinusNode(@$, $2); }  // unary minus
+    |   val_expr PLUS val_expr       { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_PLUS, $3); }
+    |   val_expr MINUS val_expr      { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_MINUS, $3); }
+    |   val_expr ASTERISK val_expr   { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_MUL, $3); }
+    |   val_expr FSLASH val_expr     { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_DIV, $3); }
+    |   val_expr LT val_expr         { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_LT, $3); }
+    |   val_expr GT val_expr         { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_GT, $3); }
+    |   val_expr LEQUAL val_expr     { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_LE, $3); }
+    |   val_expr GEQUAL val_expr     { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_GE, $3); }
 
-    |   expr EEEQUAL expr            { $$ = new TxRefEqualityOperatorNode(@$, $1, $3); }
-    |   expr NEEQUAL expr            { $$ = new TxUnaryLogicalNotNode(@$, new TxRefEqualityOperatorNode(@$, $1, $3)); }
-
-    |   MINUS expr  %prec NEG        { $$ = new TxUnaryMinusNode(@$, $2); }  // unary minus
-    |   expr PLUS expr               { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_PLUS, $3); }
-    |   expr MINUS expr              { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_MINUS, $3); }
-    |   expr ASTERISK expr           { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_MUL, $3); }
-    |   expr FSLASH expr             { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_DIV, $3); }
-    |   expr LT expr                 { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_LT, $3); }
-    |   expr GT expr                 { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_GT, $3); }
-    |   expr LEQUAL expr             { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_LE, $3); }
-    |   expr GEQUAL expr             { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_GE, $3); }
-
-    |   EMARK expr  %prec NOT        { $$ = new TxUnaryLogicalNotNode(@$, $2); }  // unary not
-    |   expr AAND expr               { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_AND, $3); }
-    |   expr PIPE expr               { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_OR,  $3); }
-    |   expr KW_XOR expr             { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_XOR,  $3); }
-    |   expr LTLT expr      %prec LTLT          { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_LSHIFT, $3); }
-    |   expr GT GT expr     %prec LTLT          { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_RSHIFT, $4); }
-    |   expr GT GT GT expr  %prec LTLT          { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_ARSHIFT, $5); }
+    |   EMARK val_expr  %prec NOT    { $$ = new TxUnaryLogicalNotNode(@$, $2); }  // unary not
+    |   val_expr LTLT val_expr      %prec LTLT  { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_LSHIFT, $3); }
+    |   val_expr GT GT val_expr     %prec LTLT  { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_RSHIFT, $4); }
+    |   val_expr GT GT GT val_expr  %prec LTLT  { $$ = new TxBinaryElemOperatorNode(@$, $1, TXOP_ARSHIFT, $5); }
 
     |   string_format_expr           { $$ = $1; }
     ;
@@ -601,61 +621,60 @@ value_literal
         |       KW_TRUE       { $$ = new TxBoolLitNode(@1, true); }
     ;
 
-array_literal : LBRACKET expr COMMA array_lit_expr_list RBRACKET  { (*$4)[0] = $2;  $$ = new TxFilledArrayLitNode(@$, $4); }
-              | LBRACKET expr RBRACKET  { $$ = new TxFilledArrayLitNode(@$, new std::vector<TxExpressionNode*>( { $2 } )); }
-
-              | LBRACKET expr RBRACKET conv_type_expr LPAREN expression_list RPAREN
-                        { $$ = new TxFilledArrayLitNode(@$, new TxConstTypeNode(@4, $4), $6, $2); }
-              | LBRACKET expr RBRACKET conv_type_expr LPAREN RPAREN                  
-                        { $$ = new TxUnfilledArrayCompLitNode(@$, new TxConstTypeNode(@4, $4), $2); }
-              | LBRACKET RBRACKET conv_type_expr LPAREN expression_list RPAREN       
-                        { $$ = new TxFilledArrayLitNode(@$, new TxConstTypeNode(@3, $3), $5); }
-              | LBRACKET RBRACKET conv_type_expr LPAREN RPAREN                       
-                        { $$ = new TxFilledArrayLitNode(@$, new TxConstTypeNode(@3, $3)); }
+/*
+tuple_literal :        LPAREN min2_expr_list opt_comma RPAREN  { $$ = new TxTupleLitNode(@$, $2); }
+              | BSLASH LPAREN min2_expr_list opt_comma RPAREN  { $$ = new TxTupleLitNode(@$, $3); }
+              |        LPAREN gen_val_expr       COMMA RPAREN  { $$ = new TxTupleLitNode(@$, new std::vector<TxExpressionNode*>({$2})); }
+              | BSLASH LPAREN gen_val_expr             RPAREN  { $$ = new TxTupleLitNode(@$, new std::vector<TxExpressionNode*>({$3})); }
+              | BSLASH LPAREN gen_val_expr       COMMA RPAREN  { $$ = new TxTupleLitNode(@$, new std::vector<TxExpressionNode*>({$3})); }
+              | BSLASH LPAREN                          RPAREN  { $$ = new TxTupleLitNode(@$, new std::vector<TxExpressionNode*>()); }
               ;
-              // LBRACKET RBRACKET - empty, unqualified array literal "[]" illegal since element type can't be determined
+*/
+array_literal :        LBRACKET min2_expr_list opt_comma RBRACKET  { $$ = new TxFilledArrayLitNode(@$, $2); }
+              | BSLASH LBRACKET min2_expr_list opt_comma RBRACKET  { $$ = new TxFilledArrayLitNode(@$, $3); }
+              |        LBRACKET gen_val_expr       COMMA RBRACKET  { $$ = new TxFilledArrayLitNode(@$, new std::vector<TxExpressionNode*>({$2})); }
+              | BSLASH LBRACKET gen_val_expr             RBRACKET  { $$ = new TxFilledArrayLitNode(@$, new std::vector<TxExpressionNode*>({$3})); }
+              | BSLASH LBRACKET gen_val_expr       COMMA RBRACKET  { $$ = new TxFilledArrayLitNode(@$, new std::vector<TxExpressionNode*>({$3})); }
+              // BSLASH LBRACKET RBRACKET - empty, unqualified array literal "[]" illegal since element type can't be determined
+              ;
 
-array_lit_expr_list : expr  { $$ = new std::vector<TxExpressionNode*>();  $$->push_back(NULL);  $$->push_back($1); }
-                    | array_lit_expr_list COMMA expr  { $$ = $1;  $$->push_back($3); }
-                    ;
+// a list of two or more comma-separated value expressions
+min2_expr_list : gen_val_expr COMMA gen_val_expr   { $$ = new std::vector<TxExpressionNode*>( { $1, $3 } ); }
+               | min2_expr_list COMMA gen_val_expr  { $$ = $1;  $$->push_back($3); }
+               ;
 
-make_expr : KW_NEW qual_type_expr call_params { $$ = new TxNewConstructionNode(@$, $2, $3); }
-          | type_as_value_expr call_params  { $$ = new TxStackConstructionNode(@$, $1, $2); }
+
+make_expr : KW_NEW qual_type_expr call_params  { $$ = new TxNewConstructionNode(@$, $2, $3); }
+          |         val_type_prod call_params  { $$ = new TxStackConstructionNode(@$, new TxQualTypeExprNode(@1, $1), $2); }
 ;
 
-type_as_value_expr : LT qual_type_expr GT  { $$ = $2; } ;
-
-call_expr : expr call_params  { $$ = new TxFunctionCallNode(@$, $1, $2); }
+call_expr : val_expr call_params  { $$ = new TxFunctionCallNode(@$, $1, $2); }
 ;
 
 call_params : LPAREN expression_list RPAREN  { $$ = $2; }
             | LPAREN RPAREN  { $$ = new std::vector<TxExpressionNode*>(); }
 ;
 
-expression_list : expr
-                      { $$ = new std::vector<TxExpressionNode*>();
-                        $$->push_back($1); }
-                | expression_list COMMA expr
-                      { $$ = $1;
-                        $$->push_back($3); }
-;
+expression_list : gen_val_expr  { $$ = new std::vector<TxExpressionNode*>({$1}); }
+                | expression_list COMMA gen_val_expr  { $$ = $1;  $$->push_back($3); }
+                ;
 
-intrinsics_expr : KW__ADDRESS LPAREN expr RPAREN  { $$ = new TxRefAddressNode(@$, $3); }
-                | KW__TYPEID  LPAREN expr RPAREN  { $$ = new TxRefTypeIdNode(@$, $3); }
-                | KW__TYPEID  type_as_value_expr  { $$ = new TxTypeExprTypeIdNode(@$, $2); }
-                | KW__SIZEOF  LPAREN expr RPAREN  { $$ = new TxSizeofExprNode(@$, $3); }
-                | KW__SUPERTYPES LPAREN expr RPAREN  { $$ = new TxSupertypesExprNode(@$, $3); }
+intrinsics_expr : KW__ADDRESS LPAREN gen_val_expr RPAREN     { $$ = new TxRefAddressNode(@$, $3); }
+                | KW__TYPEID  LPAREN gen_val_expr RPAREN     { $$ = new TxRefTypeIdNode(@$, $3); }
+                | KW__TYPEID  LBRACE qual_type_expr RBRACE  { $$ = new TxTypeExprTypeIdNode(@$, $3); }
+                | KW__SIZEOF  LPAREN gen_val_expr RPAREN     { $$ = new TxSizeofExprNode(@$, $3); }
+                | KW__SUPERTYPES LPAREN gen_val_expr RPAREN  { $$ = new TxSupertypesExprNode(@$, $3); }
                 ;
 
 
-string_format_expr : string_format expr       %prec STRFORMAT
+string_format_expr : string_format val_expr           %prec STRFORMAT
                         { $$ = new TxStackConstructionNode( @$, new TxConstTypeNode( @$, new TxNamedTypeNode( @$, "tx.FormattedStringer" ) ),
                                                             new std::vector<TxExpressionNode*>( { $1, $2 } ) ); }
-                   | expr string_format expr  %prec PERCENT
+                   | val_expr string_format val_expr  %prec PERCENT
                         { $$ = TxConcatenateStringsNode::make_strcat_node( @$, $1, 
                                     new TxStackConstructionNode( @2, new TxConstTypeNode( @2, new TxNamedTypeNode( @2, "tx.FormattedStringer" ) ),
                                                                         new std::vector<TxExpressionNode*>( { $2, $3 } ) ) ); }
-                   | expr PERCENTPERCENT expr
+                   | val_expr PERCENTPERCENT val_expr
                         { $$ = TxConcatenateStringsNode::make_strcat_node( @$, $1, $3 ); }
                    ;
 
@@ -740,27 +759,27 @@ experr_stmt : KW_EXPERR COLON              { BEGIN_TXEXPERR(@1, new ExpectedErro
 
 
 flow_stmt        : KW_IF    cond_clause    COLON single_statement  %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $4); }
-                 | KW_IF    cond_clause    suite                   %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $3); }
+                 | KW_IF    cond_clause    COLON suite             %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $4); }
                  | KW_IF    is_clause      COLON single_statement  %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $4); }
-                 | KW_IF    is_clause      suite                   %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $3); }
+                 | KW_IF    is_clause      COLON suite             %prec STMT  { $$ = new TxIfStmtNode (@$, $2, $4); }
                  | KW_WHILE cond_clause    COLON single_statement  %prec STMT  { $$ = new TxForStmtNode(@$, $2, $4); }
-                 | KW_WHILE cond_clause    suite                   %prec STMT  { $$ = new TxForStmtNode(@$, $2, $3); }
+                 | KW_WHILE cond_clause    COLON suite             %prec STMT  { $$ = new TxForStmtNode(@$, $2, $4); }
                  | KW_FOR   in_clause_list COLON single_statement  %prec STMT  { $$ = new TxForStmtNode(@$, $2, $4); }
-                 | KW_FOR   in_clause_list suite                   %prec STMT  { $$ = new TxForStmtNode(@$, $2, $3); }
+                 | KW_FOR   in_clause_list COLON suite             %prec STMT  { $$ = new TxForStmtNode(@$, $2, $4); }
                  | KW_FOR   for_header     COLON single_statement  %prec STMT  { $$ = new TxForStmtNode(@$, $2, $4); }
-                 | KW_FOR   for_header     suite                   %prec STMT  { $$ = new TxForStmtNode(@$, $2, $3); }
+                 | KW_FOR   for_header     COLON suite             %prec STMT  { $$ = new TxForStmtNode(@$, $2, $4); }
                  ;
 
 flow_else_stmt   : KW_IF    cond_clause    COLON simple_stmt else_clause  { $$ = new TxIfStmtNode (@$, $2, $4, $5); }
-                 | KW_IF    cond_clause    suite             else_clause  { $$ = new TxIfStmtNode (@$, $2, $3, $4); }
+                 | KW_IF    cond_clause    COLON suite       else_clause  { $$ = new TxIfStmtNode (@$, $2, $4, $5); }
                  | KW_IF    is_clause      COLON simple_stmt else_clause  { $$ = new TxIfStmtNode (@$, $2, $4, $5); }
-                 | KW_IF    is_clause      suite             else_clause  { $$ = new TxIfStmtNode (@$, $2, $3, $4); }
+                 | KW_IF    is_clause      COLON suite       else_clause  { $$ = new TxIfStmtNode (@$, $2, $4, $5); }
                  | KW_WHILE cond_clause    COLON simple_stmt else_clause  { $$ = new TxForStmtNode(@$, $2, $4, $5); }
-                 | KW_WHILE cond_clause    suite             else_clause  { $$ = new TxForStmtNode(@$, $2, $3, $4); }
+                 | KW_WHILE cond_clause    COLON suite       else_clause  { $$ = new TxForStmtNode(@$, $2, $4, $5); }
                  | KW_FOR   in_clause_list COLON simple_stmt else_clause  { $$ = new TxForStmtNode(@$, $2, $4, $5); }
-                 | KW_FOR   in_clause_list suite             else_clause  { $$ = new TxForStmtNode(@$, $2, $3, $4); }
+                 | KW_FOR   in_clause_list COLON suite       else_clause  { $$ = new TxForStmtNode(@$, $2, $4, $5); }
                  | KW_FOR   for_header     COLON simple_stmt else_clause  { $$ = new TxForStmtNode(@$, $2, $4, $5); }
-                 | KW_FOR   for_header     suite             else_clause  { $$ = new TxForStmtNode(@$, $2, $3, $4); }
+                 | KW_FOR   for_header     COLON suite       else_clause  { $$ = new TxForStmtNode(@$, $2, $4, $5); }
                  ;
 
 else_clause      : KW_ELSE COLON statement  { $$ = new TxElseClauseNode(@$, $3); }
@@ -768,34 +787,33 @@ else_clause      : KW_ELSE COLON statement  { $$ = new TxElseClauseNode(@$, $3);
                  ;
 
 
-cond_clause      : expr %prec STMT    { $$ = new TxCondClauseNode( @1, $1 ); } ;
+cond_clause      : gen_val_expr %prec STMT    { $$ = new TxCondClauseNode( @1, $1 ); } ;
 
-is_clause        : expr KW_IS identifier COLON qual_type_expr  { $$ = new TxIsClauseNode(@$, $1, $3, $5); } ;
+is_clause        : gen_val_expr KW_IS identifier COLON qual_type_expr  { $$ = new TxIsClauseNode(@$, $1, $3, $5); } ;
 
 in_clause_list   : in_clause                        { $$ = new std::vector<TxFlowHeaderNode*>( { $1 } ); }
                  | in_clause_list COMMA in_clause   { $$ = $1; $$->push_back($3); }
                  | error                            { $$ = new std::vector<TxFlowHeaderNode*>(); }
                  ;
 
-in_clause        : identifier KW_IN expr                   { $$ = new TxInClauseNode( @$, $1, $3 ); }
-                 | identifier COMMA identifier KW_IN expr  { $$ = new TxInClauseNode( @$, $1, $3, $5 ); }
+in_clause        : identifier KW_IN gen_val_expr                   { $$ = new TxInClauseNode( @$, $1, $3 ); }
+                 | identifier COMMA identifier KW_IN gen_val_expr  { $$ = new TxInClauseNode( @$, $1, $3, $5 ); }
                  ;
 
-for_header       : elementary_stmt SEMICOLON expr SEMICOLON elementary_stmt  { $$ = new TxForHeaderNode( @$, $1, $3, $5 ); }
+for_header       : elementary_stmt SEMICOLON gen_val_expr SEMICOLON elementary_stmt  { $$ = new TxForHeaderNode( @$, $1, $3, $5 ); }
                  ;
 
 
-local_field_def  : identifier COLON qual_type_expr              { $$ = new TxLocalFieldDefNode(@$, $1, $3, nullptr); }
-                 | identifier COLON qual_type_expr EQUAL expr   { $$ = new TxLocalFieldDefNode(@$, $1, $3, $5); }
-                 | identifier COLEQUAL expr                     { $$ = new TxLocalFieldDefNode(@$, $1, $3, false); }
-                 | identifier COLEQUAL mut_token expr           { $$ = new TxLocalFieldDefNode(@$, $1, $4, true); }
+local_field_def  : identifier COLON qual_type_expr                      { $$ = new TxLocalFieldDefNode(@$, $1, $3, nullptr); }
+                 | identifier COLON qual_type_expr EQUAL gen_val_expr   { $$ = new TxLocalFieldDefNode(@$, $1, $3, $5); }
+                 | identifier COLEQUAL gen_val_expr                     { $$ = new TxLocalFieldDefNode(@$, $1, $3, false); }
 ;
 
 
 // TODO: support declaration flags abstract, final, and maybe static
 type_decl_stmt   : type_or_if opt_mutable identifier type_derivation
                      { $$ = new TxTypeStmtNode(@$, $3, NULL, $4, $1, $2); }
-                 | type_or_if opt_mutable identifier LT type_param_list GT type_derivation
+                 | type_or_if opt_mutable identifier LBRACE type_param_list RBRACE type_derivation
                      { $$ = new TxTypeStmtNode(@$, $3, $5,   $7, $1, $2); }
 
                  // error recovery, handles when an error occurs before a type body's LBRACE:
@@ -817,37 +835,38 @@ init_stmt   : HASHINIT COLON member_init_list   { $$ = new TxInitStmtNode(@$, $3
             | HASHSELF call_params              { $$ = new TxInitStmtNode(@$, $2); }
             ;
 
-return_stmt : KW_RETURN expr  { $$ = new TxReturnStmtNode(@$, $2); }
+return_stmt : KW_RETURN gen_val_expr  { $$ = new TxReturnStmtNode(@$, $2); }
             | KW_RETURN       { $$ = new TxReturnStmtNode(@$); }
             ;
 
 break_stmt     : KW_BREAK     { $$ = new TxBreakStmtNode(@$); }  ;
 continue_stmt  : KW_CONTINUE  { $$ = new TxContinueStmtNode(@$); }  ;
 
-assert_stmt : KW_ASSERT expr  { $$ = new TxAssertStmtNode(@$, $2); }
-            // | KW_ASSERT expr COMMA expr
+assert_stmt : KW_ASSERT gen_val_expr  { $$ = new TxAssertStmtNode(@$, $2); }
+            // | KW_ASSERT gen_val_expr COMMA gen_val_expr
             ;
 
-panic_stmt : KW_PANIC expr  { $$ = new TxPanicStmtNode(@$, $2); }
+panic_stmt : KW_PANIC gen_val_expr  { $$ = new TxPanicStmtNode(@$, $2); }
            ;
 
 
-assignment_stmt //:    assignee_pattern EQUAL expr
-                :    assignee_expr EQUAL expr  { $$ = new TxAssignStmtNode(@$, $1, $3); }
-//                |    assignee_expr PLUSEQUAL expr
-//                |    assignee_expr MINUSEQUAL expr
-//                |    assignee_expr ASTERISKEQUAL expr
-//                |    assignee_expr FSLASHEQUAL expr
+assignment_stmt : assignee_expr EQUAL gen_val_expr  { $$ = new TxAssignStmtNode(@$, $1, $3); }
+//                | assignee_expr PLUSEQUAL val_expr
+//                | assignee_expr MINUSEQUAL val_expr
+//                | assignee_expr ASTERISKEQUAL val_expr
+//                | assignee_expr FSLASHEQUAL val_expr
                 ;
 
+//assignment_stmt  : assignee_pattern EQUAL gen_val_expr ;
 //assignee_pattern : nested_assignee (',' nested_assignee)* ;
 //nested_assignee  : assignee_expr | '{' assignee_pattern '}' ;
 
 assignee_expr  // expressions capable of (but not guaranteed) to produce an lvalue
-    :   identifier                  { $$ = new TxFieldAssigneeNode(@$, new TxFieldValueNode(@1, NULL, $1)); }
-    |   expr DOT identifier         { $$ = new TxFieldAssigneeNode(@$, new TxFieldValueNode(@3, $1,   $3)); }
-    |   expr CARET                  { $$ = new TxDerefAssigneeNode(@$, $1); }  // unary value-of suffix
-    |   expr LBRACKET expr RBRACKET { $$ = new TxElemAssigneeNode(@$, $1, $3); }
+//    :   identifier                          { $$ = new TxFieldAssigneeNode(@$, new TxFieldValueNode(@1, NULL, $1)); }
+//    |   val_expr DOT identifier             { $$ = new TxFieldAssigneeNode(@$, new TxFieldValueNode(@3, $1,   $3)); }
+    :   named_symbol                        { $$ = new TxFieldAssigneeNode(@$, $1); }
+    |   val_expr CARET                      { $$ = new TxDerefAssigneeNode(@$, $1); }  // unary value-of suffix
+    |   val_expr LBRACKET val_expr RBRACKET { $$ = new TxElemAssigneeNode(@$, $1, $3); }
     ;
 
 %%

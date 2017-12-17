@@ -1,5 +1,5 @@
 
-main()->Int {
+main()->Int : {
     print( "" );
     str := "simple print string";
     print( str );
@@ -11,8 +11,8 @@ main()->Int {
     return Int(0);
 }
 
-int_format_test( ) {
-    for i in -23..Byte(24) {
+int_format_test( ) : {
+    for i in -23..Byte(24) : {
         print( %010x i %% "  " %010d i %% "  " %010o i %% "  " %010b i );
     }
     print( "%d\t'" %d -19 %% "'" );
@@ -86,7 +86,7 @@ int_format_test( ) {
     print( "%-+05d\t'" %-+05d -42000000000 %% "'" );
 }
 
-float_format_test( ) {
+float_format_test( ) : {
     print( "" );
     print( "%f\t'" %f -19.2345 %% "'" );
     print( "%f\t'" %f -10.23 %% "'" );

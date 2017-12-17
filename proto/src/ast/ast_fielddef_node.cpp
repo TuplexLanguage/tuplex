@@ -41,53 +41,53 @@ bool TxFieldDefiningNode::is_statically_constant() const {
 }
 
 
-static const TxActualType* make_mutable_specialization( TxPassInfo passInfo, TxNode* origin, const TxActualType* origType,
-                                                        const TxActualType* newSemBase=nullptr ) {
-    const TxLocation& loc = origin->ploc;
-    auto newbindings = new std::vector<TxTypeArgumentNode*>();
-    auto actType = origType;
-    for ( auto bdecl : actType->get_bindings() ) {
-        if ( auto btypedecl = dynamic_cast<const TxTypeDeclaration*>( bdecl ) ) {
-//            auto btype = btypedecl->get_definer()->resolve_type( passInfo );
-//            if ( btype.is_modifiable() ) {
-//                auto newbind = new TxTypeDeclWrapperNode( loc, btypedecl );
-//                newbindings->push_back( new TxTypeTypeArgumentNode( newbind ) );
+//static const TxActualType* make_mutable_specialization( TxPassInfo passInfo, TxNode* origin, const TxActualType* origType,
+//                                                        const TxActualType* newSemBase=nullptr ) {
+//    const TxLocation& loc = origin->ploc;
+//    auto newbindings = new std::vector<TxTypeArgumentNode*>();
+//    auto actType = origType;
+//    for ( auto bdecl : actType->get_bindings() ) {
+//        if ( auto btypedecl = dynamic_cast<const TxTypeDeclaration*>( bdecl ) ) {
+////            auto btype = btypedecl->get_definer()->resolve_type( passInfo );
+////            if ( btype.is_modifiable() ) {
+////                auto newbind = new TxTypeDeclWrapperNode( loc, btypedecl );
+////                newbindings->push_back( new TxTypeArgumentNode( newbind ) );
+////            }
+////            else
+//            {
+//                auto newbind = new TxModifiableTypeNode( loc, new TxTypeDeclWrapperNode( loc, btypedecl ) );
+//                newbindings->push_back( new TxTypeArgumentNode( newbind ) );
 //            }
-//            else
-            {
-                auto newbind = new TxModifiableTypeNode( loc, new TxTypeDeclWrapperNode( loc, btypedecl ) );
-                newbindings->push_back( new TxTypeTypeArgumentNode( newbind ) );
-            }
-        }
-        else {
-            auto bvaluedecl = dynamic_cast<const TxFieldDeclaration*>( bdecl );
-            auto previnitexpr = bvaluedecl->get_definer()->get_init_expression();
-            if ( auto convinitexpr = dynamic_cast<TxMaybeConversionNode*>( previnitexpr ) )
-                previnitexpr = convinitexpr->originalExpr;
-            auto newbind = new TxExprWrapperNode( previnitexpr );
-            newbindings->push_back( new TxValueTypeArgumentNode( newbind ) );
-        }
-    }
-    auto genBaseTypeDecl = ( newSemBase ? newSemBase->get_declaration() : actType->get_semantic_base_type()->get_declaration() );
-    auto genBaseTypeNode = new TxTypeDeclWrapperNode( loc, genBaseTypeDecl );
-    auto mutTypeDef = new TxGenSpecTypeNode( loc, genBaseTypeNode, newbindings );
-    mutTypeDef->set_requires_mutable( true );
-    run_declaration_pass( mutTypeDef, origin, "mut-type" );
-    auto type = mutTypeDef->resolve_type( passInfo ).type();
-    LOG_DEBUG( origin->LOGGER(), "Created mutable specialization for " << origin << ": " << type );
-    return type;
-}
-
-static const TxActualType* get_mutable_specialization( TxPassInfo passInfo, TxNode* origin, const TxActualType* type ) {
-    if ( !type->is_generic_specialization() )
-        CERR_THROWRES( origin, "Can't specialize mutable type from base type: " << type );;
-    if ( type->get_semantic_base_type()->is_mutable() )
-        return make_mutable_specialization( passInfo, origin, type );
-    else {
-        auto newSemBase = get_mutable_specialization( passInfo, origin, type->get_semantic_base_type() );
-        return make_mutable_specialization( passInfo, origin, type, newSemBase );
-    }
-}
+//        }
+//        else {
+//            auto bvaluedecl = dynamic_cast<const TxFieldDeclaration*>( bdecl );
+//            auto previnitexpr = bvaluedecl->get_definer()->get_init_expression();
+//            if ( auto convinitexpr = dynamic_cast<TxMaybeConversionNode*>( previnitexpr ) )
+//                previnitexpr = convinitexpr->originalExpr;
+//            auto newbind = new TxExprWrapperNode( previnitexpr );
+//            newbindings->push_back( new TxTypeArgumentNode( newbind ) );
+//        }
+//    }
+//    auto genBaseTypeDecl = ( newSemBase ? newSemBase->get_declaration() : actType->get_semantic_base_type()->get_declaration() );
+//    auto genBaseTypeNode = new TxTypeDeclWrapperNode( loc, genBaseTypeDecl );
+//    auto mutTypeDef = new TxGenSpecTypeNode( loc, genBaseTypeNode, newbindings );
+//    mutTypeDef->set_requires_mutable( true );
+//    run_declaration_pass( mutTypeDef, origin, "mut-type" );
+//    auto type = mutTypeDef->resolve_type( passInfo ).type();
+//    LOG_DEBUG( origin->LOGGER(), "Created mutable specialization for " << origin << ": " << type );
+//    return type;
+//}
+//
+//static const TxActualType* get_mutable_specialization( TxPassInfo passInfo, TxNode* origin, const TxActualType* type ) {
+//    if ( !type->is_generic_specialization() )
+//        CERR_THROWRES( origin, "Can't specialize mutable type from base type: " << type );;
+//    if ( type->get_semantic_base_type()->is_mutable() )
+//        return make_mutable_specialization( passInfo, origin, type );
+//    else {
+//        auto newSemBase = get_mutable_specialization( passInfo, origin, type->get_semantic_base_type() );
+//        return make_mutable_specialization( passInfo, origin, type, newSemBase );
+//    }
+//}
 
 TxQualType TxFieldDefiningNode::define_type( TxPassInfo passInfo ) {
     LOG_TRACE( this->LOGGER(), "defining  type  of " << this );
@@ -112,27 +112,30 @@ TxQualType TxFieldDefiningNode::define_type( TxPassInfo passInfo ) {
     }
     else {
         qtype = this->initExpression->resolve_type( passInfo );
-        if ( this->modifiable ) {
-            if ( !qtype.is_modifiable() ) {
-                auto typeEnt = qtype.type();
-                if ( !typeEnt->is_mutable() ) {
-                    if ( typeEnt->is_generic_specialization() && typeEnt->get_source_base_type()->is_mutable() ) {
-                        // copying an immutable type to a modifiable field is ok if we can obtain the mutable specialization
-                        // corresponding to the source's immutable specialization
-                        qtype = TxQualType( get_mutable_specialization( passInfo, this->initExpression, typeEnt ), true );
-                        //std::cerr << "Made mutable specialization from " << typeEnt << "  to " << qtype->type() << std::endl;
-                    }
-                    else
-                        CERR_THROWRES( this, "Can't use immutable type as modifiable: " << qtype );
-                }
-                else
-                    qtype = TxQualType( typeEnt, true );
-            }
+//        if ( this->modifiable ) {
+//            if ( !qtype.is_modifiable() ) {
+//                auto typeEnt = qtype.type();
+//                if ( !typeEnt->is_mutable() ) {
+//                    if ( typeEnt->is_generic_specialization() && typeEnt->get_source_base_type()->is_mutable() ) {
+//                        // copying an immutable type to a modifiable field is ok if we can obtain the mutable specialization
+//                        // corresponding to the source's immutable specialization
+//                        qtype = TxQualType( get_mutable_specialization( passInfo, this->initExpression, typeEnt ), true );
+//                        //std::cerr << "Made mutable specialization from " << typeEnt << "  to " << qtype->type() << std::endl;
+//                    }
+//                    else
+//                        CERR_THROWRES( this, "Can't use immutable type as modifiable: " << qtype );
+//                }
+//                else
+//                    qtype = TxQualType( typeEnt, true );
+//            }
+//        }
+        if ( !dynamic_cast<TxModifiableValueNode*>( this->initExpression->originalExpr )
+             && !dynamic_cast<TxStackConstructionNode*>( this->initExpression->originalExpr ) ) {
+            if ( qtype.is_modifiable() )
+                // if initialization expression is modifiable type, and modifiable not explicitly specified,
+                // lose modifiable attribute (modifiability must be explicit)
+                qtype = TxQualType( qtype.type(), false );
         }
-        else if ( qtype.is_modifiable() )
-            // if initialization expression is modifiable type, and modifiable not explicitly specified,
-            // lose modifiable attribute (modifiability must be explicit)
-            qtype = TxQualType( qtype.type(), false );
     }
     return qtype;
 }
@@ -160,6 +163,12 @@ void TxFieldDefiningNode::verification_pass() const {
 
     if ( this->get_declaration()->get_decl_flags() & TXD_CONSTRUCTOR ) {
         // TODO: check that constructor function type has void return value
+    }
+
+    if ( this->typeExpression && this->initExpression ) {
+        if ( !type.is_modifiable() && dynamic_cast<TxModifiableValueNode*>( this->initExpression->originalExpr ) ) {
+            CWARNING( this->initExpression->originalExpr, "Field type is non-modifiable, explicit value modifiabily modifier is ignored" );
+        }
     }
 }
 

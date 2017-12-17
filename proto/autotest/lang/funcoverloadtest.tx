@@ -1,28 +1,28 @@
 
-overloaded_func(a : Int, b : Int)->Int {
+overloaded_func(a : Int, b : Int)->Int : {
     return a + b;
 }
 
-overloaded_func(a : Float, b : Int)->Float {
+overloaded_func(a : Float, b : Int)->Float : {
     return a * Float( b );
 }
 
-#experr 1: overloaded_func(a : Float, b : Int)->Int { return b; }  ## overload with duplicate function signature
+#experr 1: overloaded_func(a : Float, b : Int)->Int : { return b; }  ## overload with duplicate function signature
 #experr 1: overloaded_func : Int = 3;  ## overload with non-function type
 
 #experr 1: non_func : Int = 4;
-#experr 1: non_func(a : Float, b : Int)->Int { return b; }  ## overload with non-function field
+#experr 1: non_func(a : Float, b : Int)->Int : { return b; }  ## overload with non-function field
 
 
 type FooFuncType <: (a : Double, b : Double)->Double;
 
-other_func(a : Double, b : Double)->Double {
+other_func(a : Double, b : Double)->Double : {
     r := a * b / 2.0;
     return r;
 }
 
 
-main()->Int {
+main()->Int : {
     #experr 1: func_ref := overloaded_func;
 
     result := overloaded_func( 3, 4 ) + Int( overloaded_func( 1.5, 10 ) );
@@ -74,7 +74,7 @@ main()->Int {
     
     myglobalF := func () { }
     
-    type MyType {
+    type MyType : {
         virtual mystaticF := func () { }
         
         virtual myvirtualF := func () { }

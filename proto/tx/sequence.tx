@@ -4,18 +4,18 @@ module tx
 
 /** A sequenceable object supports step-wise single direction traversal of its contained elements.
  */
-interface Sequenceable< E > derives Interface {
+interface Sequenceable{ E } derives Interface : {
     
-    abstract sequencer() -> Ref< ~Sequencer< E > >;
+    abstract sequencer() -> Ref{ ~Sequencer{ E } };
 }
 
 
 
 /** An iterable sequence supports step-wise forward and backward traversal.
  */
-interface Iterable< E > derives Sequenceable< E > {
+interface Iterable{ E } derives Sequenceable{ E } : {
 
-    abstract override sequencer() -> Ref< ~Iterator< E > >;
+    abstract override sequencer() -> Ref{ ~Iterator{ E } };
 }
 
 
@@ -23,7 +23,7 @@ interface Iterable< E > derives Sequenceable< E > {
 /** An indicable sequence is finite and supports random-access.
  * Sequences, sets, and maps are Indicable.
  */
-interface Indicable< K, E > derives Iterable< E > {
+interface Indicable{ K, E } derives Iterable{ E } : {
 
     abstract count() -> Ordinal;
 
@@ -35,9 +35,9 @@ interface Indicable< K, E > derives Iterable< E > {
 
 
 /** A modifiable Indicable. */
-interface Updatable< K, E > derives Indicable< K, E > {
+interface Updatable{ K, E } derives Indicable{ K, E } : {
 
-    abstract updater() ~ -> Ref< ~Updater< E > >;
+    abstract updater() ~ -> Ref{ ~Updater{ E } };
 
     /** Sets the element at the slot identified by key. Returns the replaced element. */
     abstract set( key : K, element : E ) ~ -> E;
@@ -48,7 +48,7 @@ interface Updatable< K, E > derives Indicable< K, E > {
 
 
 
-interface Sequencer< E > {
+interface Sequencer{ E } : {
 
     abstract has_next() -> Bool;
 
@@ -56,7 +56,7 @@ interface Sequencer< E > {
 }
 
 
-interface Iterator< E > derives Sequencer< E > {
+interface Iterator{ E } derives Sequencer{ E } : {
 
     abstract has_prev() -> Bool;
 
@@ -64,7 +64,7 @@ interface Iterator< E > derives Sequencer< E > {
 }
 
 
-interface Updater< E > derives Iterator< E > {
+interface Updater{ E } derives Iterator{ E } : {
 
     /** Replaces the value returned by the most-recent call to next() / prev(). Returns the replaced element. */
     abstract set( element : E ) ~ -> E;

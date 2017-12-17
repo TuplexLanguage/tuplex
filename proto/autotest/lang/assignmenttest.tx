@@ -1,20 +1,20 @@
 
 interface Face { }
 
-type ~ Body <: Tuple, Face {
+type ~ Body <: Tuple, Face : {
     member : Int;
-    self( m : Int ) {
+    self( m : Int ) : {
         self.member = m;
     }
 
-    override equals( o : &Any )->Bool {
+    override equals( o : &Any )->Bool : {
         if o is b : &Body :
             return self.member == b.member;
         return FALSE;
     }
 }
 
-assign_objs( v : Int ) {
+assign_objs( v : Int ) : {
     b0 := Body( v );
     b1 := ~Body( v+1 );
     assert _address(&b0) != _address(&b1);
@@ -26,19 +26,19 @@ assign_objs( v : Int ) {
 
 
 /** Cannot be invoked with destination that isn't exactly a ~&Any */
-assign_refs( rDst : &~&Any, rSrc : &&Any ) {
+assign_refs( rDst : &~&Any, rSrc : &&Any ) : {
     rDst^ = rSrc^;
 }
 
 
-assign_ref_targets( rDst : &~Any, rSrc : &Any ) {
+assign_ref_targets( rDst : &~Any, rSrc : &Any ) : {
     ## can't assign when types not statically known
     #experr 1: rDst^ = rSrc^;  ## not concrete
 }
 
 
 
-sum( arr : &[]UByte )->Int {
+sum( arr : &[]UByte )->Int : {
     s : ~Int = 0;
     for i := ~0; i < arr.L; i = i + 1 :
         s = s + arr[i];
@@ -47,7 +47,7 @@ sum( arr : &[]UByte )->Int {
 
 
 /** arr is expected to have length 3 */
-assign_dyn( arr : &[]UByte ) {
+assign_dyn( arr : &[]UByte ) : {
   ## test initializations with value-copy:
     if arr.L <= 2 :
         a0 : [2]UByte = arr^;
@@ -74,7 +74,7 @@ assign_dyn( arr : &[]UByte ) {
 }
 
 
-main()->Int {
+main()->Int : {
   ## Ref assignments
     xb : Byte = 42;
     xi : Int = 42;
@@ -107,6 +107,9 @@ main()->Int {
 
   ## Tuple assignments:
     assign_objs( 1 );
+
+  ## can't assign to type:
+    #experr 2: Int = 3;
 
     return 0;
 }

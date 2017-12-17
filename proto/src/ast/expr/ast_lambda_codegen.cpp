@@ -77,7 +77,7 @@ void TxLambdaExprNode::code_gen_function_body( LlvmGenerationContext& context ) 
         auto linkageName = StringRef();
         DISubroutineType* subRoutineType = cast<DISubroutineType>( context.get_debug_type( this->qtype() ) );
         bool isLocalToUnit = true;  // internal linkage
-        unsigned scopeLine = this->suite->ploc.begin.line;
+        unsigned scopeLine = this->body->ploc.begin.line;
         DITemplateParameterArray funcTemplParams = nullptr;  // can we use this for generic functions in future?
         DISubprogram *subProg = context.debug_builder()->createFunction(
             outerDebugScope, this->functionPtr->getName(), linkageName,
@@ -153,7 +153,7 @@ void TxLambdaExprNode::code_gen_function_body( LlvmGenerationContext& context ) 
     builder.CreateBr( bodyBlock );
     builder.SetInsertPoint( bodyBlock );
     builder.SetCurrentDebugLocation( DebugLoc::get( this->ploc.begin.line, this->ploc.begin.column, fscope.debug_scope() ) );
-    this->suite->code_gen( context, &fscope );
+    this->body->code_gen( context, &fscope );
 
     if ( !this->funcHeaderNode->returnField && !fscope.builder->GetInsertBlock()->getTerminator() ) {
         LOG_DEBUG( context.LOGGER(), "inserting default void return instruction for last block of function " << this->functionPtr->getName().str() );

@@ -1,6 +1,6 @@
 ## tests function return statement checking
 
-main()->Int {
+main()->Int : {
     assert abs1(1) == 1;
     assert abs1(-1) == 1;
     assert abs2(1) == 1;
@@ -15,27 +15,27 @@ main()->Int {
     return 0;
 }
 
-pi()->Float { return 3.14; }
+pi()->Float : { return 3.14; }
 
-#experr: bad1()->Int { }
-#experr: bad2()->Int { return; }
-#experr: bad3() { return 1; }
-#experr: bad4()->Int { return 3.14; }
+#experr: bad1()->Int : { }
+#experr: bad2()->Int : { return; }
+#experr: bad3() : { return 1; }
+#experr: bad4()->Int : { return 3.14; }
 
-abs1(x : Int)->Int {
+abs1(x : Int)->Int : {
     if x < 0:
         return -x;
     else
         return x;
 }
 
-abs2(x : Int)->Int {
+abs2(x : Int)->Int : {
     if x < 0:
         return -x;
     return x;
 }
 
-sign1(x : Int)->Int {
+sign1(x : Int)->Int : {
     if x > 0:
         return 1;
     else if x < 0:
@@ -44,7 +44,7 @@ sign1(x : Int)->Int {
         return 0;
 }
 
-sign2(x : Int)->Int {
+sign2(x : Int)->Int : {
     if x > 0:
         return 1;
     else if x < 0:
@@ -52,10 +52,10 @@ sign2(x : Int)->Int {
     return 0;
 }
 
-sum(x : Int)->Int {
+sum(x : Int)->Int : {
     sum := ~ 0I;
     xi := ~ x;
-    while (TRUE) {
+    while (TRUE) : {
         if xi <= 0:
             break;
         sum = sum + xi;
@@ -65,8 +65,8 @@ sum(x : Int)->Int {
 }
 
 
-test1(c : Bool)->Int {
-    while c {
+test1(c : Bool)->Int : {
+    while c : {
         if c: return 0;
         return 1;
     }
@@ -75,8 +75,8 @@ test1(c : Bool)->Int {
 }
 
 #experr:  ## due to the break, proper 'return' is not guaranteed:
-test2(c : Bool)->Int {
-    while c {
+test2(c : Bool)->Int : {
+    while c : {
         if c: break;
         return 1;
     }
@@ -84,11 +84,11 @@ test2(c : Bool)->Int {
         return 2;
 }
 
-test3(c : Bool)->Int {
-    #experr: local_bad1 := ()->Int { };
-    #experr: local_bad2 := ()->Int { return; };
-    #experr: local_bad3 := () { return 1; };
-    #experr: local_bad4 := ()->Int { return 3.14; };
+test3(c : Bool)->Int : {
+    #experr: local_bad1 := ()->Int : { };
+    #experr: local_bad2 := ()->Int : { return; };
+    #experr: local_bad3 := () : { return 1; };
+    #experr: local_bad4 := ()->Int : { return 3.14; };
 
     if c:
         return 1;

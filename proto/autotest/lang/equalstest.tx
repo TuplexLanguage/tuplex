@@ -1,6 +1,6 @@
 ## simple equality operator tests
 
-test_ref_eq_operator() -> Int {
+test_ref_eq_operator() -> Int : {
     ubyteA : UByte = 0;
     ubyteB : UByte = 0;
 
@@ -30,7 +30,7 @@ test_ref_eq_operator() -> Int {
     return 0;
 }
 
-test_ref_equals() -> Int {
+test_ref_equals() -> Int : {
     ubyteA : UByte = 0;
     ubyteB : UByte = 0;
 
@@ -51,7 +51,7 @@ test_ref_equals() -> Int {
 
 ## TODO: implement and test value equals(), e.g:  42.equals( 42 )
 
-test_elem_eq( one : UByte ) {
+test_elem_eq( one : UByte ) : {
     {
         assert 0 == 0;
         assert 1 == 1;
@@ -125,7 +125,7 @@ test_elem_eq( one : UByte ) {
     }
 }
 
-test_func_eq() {
+test_func_eq() : {
 /*
     type FuncType <: ( a : Int )->Int;
 
@@ -142,12 +142,12 @@ test_func_eq() {
 }
 
 
-interface Face { }
+interface Face : { }
 
-type Body <: Tuple, Face {
+type Body <: Tuple, Face : {
     member : Int;
     
-    override equals( o : &Any )->Bool {
+    override equals( o : &Any )->Bool : {
         if o is b : &Body :
             return self.member == b.member;
         else:
@@ -155,7 +155,7 @@ type Body <: Tuple, Face {
     }
 }
 
-test_obj_eq( one : UByte ) {
+test_obj_eq( one : UByte ) : {
     bod1 := Body( 1*one );
     bod2 := Body( 42*one );
 
@@ -180,24 +180,24 @@ test_obj_eq( one : UByte ) {
 }
 
 
-comp_ref( a1 : &Array, a2 : &Array ) -> Bool {
+comp_ref( a1 : &Array, a2 : &Array ) -> Bool : {
     return a1 === a2;
 }
 
-comp_arr( a1 : &Array, a2 : &Array ) -> Bool {
+comp_arr( a1 : &Array, a2 : &Array ) -> Bool : {
     return a1^ == a2^;
 }
 
-test_array_eq( v : Int ) -> Int {
-    assert [ 1 ]  == [ 1 ];
-    #experr 1: e : Bool = [ 1UI ] != [ 1I ];
+test_array_eq( v : Int ) -> Int : {
+    assert \[ 1 ]  == \[ 1 ];
+    #experr 1: e : Bool = \[ 1UI ] != \[ 1I ];
 
-    assert []Int()    == []Int();
-    assert []Int( 0 ) != []Int();
-    assert []Int()    != []Int( 0 );
-    assert []Int( 0 ) == []Int( 0 );
-    #experr 1: e : Bool = []Int() == []UInt();
-    #experr 1: e : Bool = []Short() == []Int();
+    assert [0]Int()    == [0]Int();
+    assert [1]Int( 0 ) != [0]Int();
+    assert [0]Int()    != [1]Int( 0 );
+    assert [1]Int( 0 ) == [1]Int( 0 );
+    #experr 1: e : Bool = [0]Int() == [0]UInt();
+    #experr 1: e : Bool = [0]Short() == [0]Int();
 
 
     assert [ 1, 2 ]    == [ 1, 2 ];
@@ -205,12 +205,12 @@ test_array_eq( v : Int ) -> Int {
     assert [ 1, 2 ]    != [ 1, 2, 3 ];
     assert [ 1.1, 2.2, 3.3 ] == [ 1.1, 2.2, 3.3 ];
 
-    assert [ TRUE  ] == [ TRUE ];
-    assert [ FALSE ] == [ FALSE ];
-    assert [ TRUE  ] != [ FALSE ];
-    assert [ FALSE ] != [ TRUE ];
-    assert [ FALSE, TRUE  ] == [ FALSE, TRUE ];
-    assert [ TRUE,  FALSE ] != [ FALSE, TRUE ];
+    assert \[ TRUE  ] == \[ TRUE ];
+    assert \[ FALSE ] == \[ FALSE ];
+    assert \[ TRUE  ] != \[ FALSE ];
+    assert \[ FALSE ] != \[ TRUE ];
+    assert \[ FALSE, TRUE  ] == \[ FALSE, TRUE ];
+    assert \[ TRUE,  FALSE ] != \[ FALSE, TRUE ];
 
     b1 := [ TRUE, TRUE,  TRUE ];
     b2 := [ TRUE, FALSE, TRUE ];
@@ -241,7 +241,7 @@ test_array_eq( v : Int ) -> Int {
     return 0;
 }
 
-test_cstring_eq() {
+test_cstring_eq() : {
     empty  := c"";
     empty2 := c"";
     foo    := c"foo";
@@ -259,7 +259,7 @@ test_cstring_eq() {
     assert foobar != foo;
 }
 
-main() -> Int {
+main() -> Int : {
     test_ref_eq_operator();
     test_ref_equals();
     test_elem_eq( 1 );

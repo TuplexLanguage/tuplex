@@ -235,9 +235,8 @@ c\"(\\.|[^\\"])*\"      { yylval->build(std::string (yytext)); return token::LIT
 
 
  /* identifiers */
-[A-Z]({L}|{D}|#)*       { yylval->build(std::string (yytext)); return token::CAP_NAME; }
-[a-z_]({L}|{D}|#)*       { yylval->build(std::string (yytext)); return token::NCAP_NAME; }
-"#"                   { yylval->build(std::string (yytext)); return token::NCAP_NAME; }
+{L}({L}|{D}|#)*       { yylval->build(std::string (yytext)); return token::NAME; }
+"#"                   { yylval->build(std::string (yytext)); return token::NAME; }
 
 "#init"               { yylval->build(std::string (yytext)); return token::HASHINIT; }
 "#self"               { yylval->build(std::string (yytext)); return token::HASHSELF; }

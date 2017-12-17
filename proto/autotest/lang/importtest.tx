@@ -4,6 +4,6 @@ import tx.*;
 import tx.c.puts;
 import test.modul.*;
 
-main() {
+main() : {
     assert double_a_value( 10 ) == 20;
 }

@@ -48,7 +48,7 @@ protected:
 //        baseTypeNode->resolution_pass();
 //        auto baseType = baseTypeNode->resolve_type( passInfo );
 
-        auto binding = new TxTypeTypeArgumentNode( new TxQualTypeExprNode( new TxTypeExprWrapperNode( limitTypeExpr ) ) );
+        auto binding = new TxTypeArgumentNode( new TxQualTypeExprNode( new TxTypeExprWrapperNode( limitTypeExpr ) ) );
         run_declaration_pass( binding, this, "binding" );
         return this->registry().instantiate_type( this, baseTypeNode, { binding }, false );
     }

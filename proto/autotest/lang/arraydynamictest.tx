@@ -1,18 +1,18 @@
 ## tests allocation, writing and reading from dynamic array
 
-do_array( len : UInt )->Int {
-    arr := ~<Array<~Int, (len)>>();
+do_array( len : UInt )->Int : {
+    arr := ~Array{~Int, len}();
     sum : ~Int = 0;
     {
         ix : ~UInt = 0;
-        while ix < len {
+        while ix < len : {
             arr[ix] = Int(ix);
             ix = ix + 1;
         }
     }
     {
         ix : ~UInt = len;
-        while ix > 0 {
+        while ix > 0 : {
             ix = ix - 1;
             sum = sum + arr[ix];
         }
@@ -20,7 +20,7 @@ do_array( len : UInt )->Int {
     return sum;
 }
 
-main()->Int {
+main()->Int : {
     sum := do_array( 10 ); 
     return sum;
 }

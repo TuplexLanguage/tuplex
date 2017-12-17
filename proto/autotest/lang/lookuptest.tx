@@ -4,29 +4,29 @@ module my;
 
 MULTI : Int = 10;
 
-type ~ MultiType {
+type ~ MultiType : {
     virtual INNER : Int = 640;
     imember : ~Int;
 }
 
 
-type ~ BaseType {
+type ~ BaseType : {
     virtual MULTI : Int = 20;
 
-    type ~ MultiType {
+    type ~ MultiType : {
         virtual INNER : Int = 80;
         imember : ~Int;
     }
     
-    type ~ InnerType {
+    type ~ InnerType : {
         virtual INNER : Int = 160;
     }
     
     bmember : Float;
 }
 
-type ~ SubType derives BaseType {
-    type ~ InnerType {
+type ~ SubType derives BaseType : {
+    type ~ InnerType : {
         virtual INNER : Int = 320;
     }
     
@@ -39,27 +39,27 @@ type ~ SubType derives BaseType {
 
     tup : ~MultiType;
 
-    self( memb : Int ) {
+    self( memb : Int ) : {
         #init: super( 3.14 ), instmember( -1 ), tup( memb );
     }
 
-    self( init : MultiType ) {
+    self( init : MultiType ) : {
         #init: super( 3.14 ), instmember( -1 ), tup( init.imember );
     }
 
-    self() {
+    self() : {
         #init: super( 3.14 ), instmember( -1 ), tup( MULTI );
     }
 
-    get_imember() -> Int {
+    get_imember() -> Int : {
         return self.tup.imember;
     }
 
-    set_imember( memb : Int ) ~ {
+    set_imember( memb : Int ) ~ : {
         self.tup.imember = memb;
     }
 
-    methodtest() {
+    methodtest() : {
         assert MULTI == 40;
         assert self.MULTI == 40;
         assert super.MULTI == 20;
@@ -97,7 +97,7 @@ type ~ SubType derives BaseType {
         assert BaseType.InnerType.INNER == 160;
     }
 
-    virtual innerfunctest() {
+    virtual innerfunctest() : {
         assert MULTI == 40;
         #experr 1: assert self.MULTI == 40;
         #experr 1: assert super.MULTI == 20;
@@ -134,7 +134,7 @@ type ~ SubType derives BaseType {
 }
 
 
-outerfunctest() {
+outerfunctest() : {
     assert MULTI == 10;
     #experr 1: assert self.MULTI == 40;
     #experr 1: assert super.MULTI == 20;
@@ -169,7 +169,7 @@ outerfunctest() {
     assert BaseType.InnerType.INNER == 160;
 }
 
-main()->Int {
+main()->Int : {
     init := ~BaseType.MultiType( 0 );
     init.imember = 3;
 

@@ -17,7 +17,7 @@ public:
  */
 class TxFilledArrayLitNode : public TxArrayLitNode {
     std::vector<TxExpressionNode*> const * const origElemExprList;
-    TxTypeTypeArgumentNode* elementTypeNode;
+    TxTypeArgumentNode* elementTypeNode;
     TxMaybeConversionNode* capacityExpr;
     bool _directArrayArg = false;
     bool _constant = false;
@@ -61,7 +61,7 @@ public:
             return nullptr;
         }
         return new TxFilledArrayLitNode( this->ploc,
-                                         ( this->elementTypeNode ? this->elementTypeNode->typeExprNode->make_ast_copy() : nullptr ),
+                                         ( this->elementTypeNode ? static_cast<TxQualTypeExprNode*>(this->elementTypeNode->type_expr_node()->make_ast_copy()) : nullptr ),
                                          make_node_vec_copy( this->origElemExprList ),
                                          ( this->capacityExpr ? this->capacityExpr->originalExpr->make_ast_copy() : nullptr ) );
     }
@@ -123,7 +123,7 @@ public:
 };
 
 class TxUnfilledArrayCompLitNode : public TxArrayLitNode {
-    TxTypeTypeArgumentNode* elementTypeNode;
+    TxTypeArgumentNode* elementTypeNode;
     TxMaybeConversionNode* capacityExpr;
 
 protected:
@@ -134,7 +134,8 @@ public:
     TxUnfilledArrayCompLitNode( const TxLocation& ploc, TxQualTypeExprNode* elemTypeExpr, TxExpressionNode* capacityExpr = nullptr );
 
     virtual TxUnfilledArrayCompLitNode* make_ast_copy() const override {
-        return new TxUnfilledArrayCompLitNode( this->ploc, this->elementTypeNode->typeExprNode->make_ast_copy(),
+        return new TxUnfilledArrayCompLitNode( this->ploc,
+                                               static_cast<TxQualTypeExprNode*>(this->elementTypeNode->type_expr_node()->make_ast_copy()),
                                                this->capacityExpr->originalExpr->make_ast_copy() );
     }
 

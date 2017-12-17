@@ -72,7 +72,7 @@ public:
 };
 
 class TxReferenceToNode : public TxTypeDefiningValExprNode {
-    TxTypeTypeArgumentNode* targetTypeNode;
+    TxTypeArgumentNode* targetTypeNode;
     TxExpressionNode* target;
 
 protected:
@@ -94,7 +94,7 @@ public:
     TxReferenceToNode( const TxLocation& ploc, TxExpressionNode* target )
             : TxTypeDefiningValExprNode( ploc ), target( target ) {
         auto targetTypeExpr = new TxQualTypeExprNode( ploc, new TxTypeExprWrapperNode( this->target ) );
-        this->targetTypeNode = new TxTypeTypeArgumentNode( targetTypeExpr );
+        this->targetTypeNode = new TxTypeArgumentNode( targetTypeExpr );
     }
 
     virtual TxReferenceToNode* make_ast_copy() const override {

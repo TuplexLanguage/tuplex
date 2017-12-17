@@ -13,6 +13,17 @@
 
 #include "tx_error.hpp"
 
+
+TxFieldValueNode* make_compound_symbol_expression( const TxLocation& ploc, const std::string& compoundName ) {
+    TxIdentifier ci( compoundName );
+    TxFieldValueNode* node = nullptr;
+    for ( auto it = ci.segments_cbegin(); it != ci.segments_cend(); it++ ) {
+        node = new TxFieldValueNode( ploc, node, new TxIdentifierNode( ploc, *it ) );
+    }
+    return node;
+}
+
+
 int get_reinterpretation_degree( TxExpressionNode* originalExpr, const TxActualType *requiredType ) {
     auto originalType = originalExpr->resolve_type( TXP_RESOLUTION );
 
@@ -233,13 +244,15 @@ TxScopeSymbol* TxFieldValueNode::resolve_symbol() {
         }
         else {
             if ( baseType->get_type_class() == TXTC_REFERENCE ) {
+                if ( auto baseValExpr = dynamic_cast<TxExpressionNode*>( this->baseExpr ) ) {
                 // implicit dereferencing ('^') operation:
                 baseType = baseType->target_type();
                 //std::cerr << "Adding implicit '^' to: " << this->baseExpr << "  six=" << six << std::endl;
-                auto derefNode = new TxReferenceDerefNode( this->baseExpr->ploc, this->baseExpr );
+                auto derefNode = new TxReferenceDerefNode( this->baseExpr->ploc, baseValExpr );
                 derefNode->node_declaration_pass( this );
                 derefNode->resolve_type( TXP_RESOLUTION );
                 this->baseExpr = derefNode;
+                }
             }
             // base is a type or value expression
             this->symbol = lookup_inherited_member( vantageScope, baseType.type(), this->symbolName->ident() );
@@ -331,21 +344,20 @@ TxQualType TxFieldValueNode::define_type( TxPassInfo passInfo ) {
     return TxQualType( this->registry().get_builtin_type( TXBT_VOID ) );
 }
 
-void TxFieldValueNode::verification_pass() const {
-    if ( !dynamic_cast<const TxFieldValueNode*>( this->parent() ) ) {
-        if ( declaration && !dynamic_cast<const TxFieldDeclaration*>( declaration ) )
-            CERROR( this, "'" << get_full_identifier() << "' resolved to a type, not a field: " << declaration );
-    }
+bool TxFieldValueNode::is_value() const {
+    ASSERT( this->is_context_set(), "can't call is_value() before declaration pass is run for " << this );
+    return this->_field;
 }
 
 const TxExpressionNode* TxFieldValueNode::get_data_graph_origin_expr() const {
-    if ( this->baseExpr ) {
-        if ( auto fieldBase = dynamic_cast<TxFieldValueNode*>( this->baseExpr ) ) {
+    if ( auto baseValExpr = dynamic_cast<TxExpressionNode*>( this->baseExpr ) ) {
+        if ( auto fieldBase = dynamic_cast<TxFieldValueNode*>( baseValExpr ) ) {
             if ( !fieldBase->field() )
                 return nullptr;  // baseExpr identifies a namespace
         }
+        return baseValExpr;
     }
-    return this->baseExpr;
+    return nullptr;
 }
 
 TxFieldStorage TxFieldValueNode::get_storage() const {
@@ -366,7 +378,9 @@ bool TxFieldValueNode::is_statically_constant() const {
             return ( !this->_field->qtype().is_modifiable() && initExpr->is_statically_constant() );
         }
         else if ( storage == TXS_INSTANCE ) {
-            return ( this->baseExpr && this->baseExpr->is_statically_constant() );
+            if ( auto baseValExpr = dynamic_cast<TxExpressionNode*>( this->baseExpr ) ) {
+                return baseValExpr->is_statically_constant();
+            }
         }
         // FUTURE: allow a virtual field lookup, with a constant base expression, to behave as a static field lookup (i.e. non-polymorphic)
         // FUTURE: support getting instance method lambda object of statically constant objects
@@ -377,4 +391,25 @@ bool TxFieldValueNode::is_statically_constant() const {
     }
     else
         return false;
+}
+
+
+void TxNamedFieldNode::verification_pass() const {
+//    if ( !dynamic_cast<const TxFieldValueNode*>( this->parent() ) ) {
+    if ( auto declaration = this->exprNode->get_declaration() )
+        if ( !dynamic_cast<const TxFieldDeclaration*>( declaration ) )
+            CERROR( this, "'" << this->exprNode->get_full_identifier() << "' resolved to a type, not a field: " << declaration );
+//    }
+}
+
+
+void TxFieldAssigneeNode::verification_pass() const {
+    if ( auto declaration = this->fieldNode->get_declaration() ) {
+        if ( auto fieldDecl = dynamic_cast<const TxFieldDeclaration*>( declaration ) ) {
+            if ( fieldDecl->get_storage() == TXS_NOSTORAGE )
+                CERROR( this, "Assignee '" << fieldNode->symbolName << "' is not an L-value / has no storage." );
+        }
+        else
+            CERROR( this, "'" << this->fieldNode->get_full_identifier() << "' resolved to a type, not a field: " << declaration );
+    }
 }

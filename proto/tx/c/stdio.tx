@@ -22,20 +22,20 @@ externc fread( buffer : &[]UByte, size : ULong, count : ULong, file : ULong ) ->
 
 
 /** previous placeholder functions in lieu of foreign language interface
-fopen( name : &[]UByte, mode : &[]UByte ) -> ULong {
+fopen( name : &[]UByte, mode : &[]UByte ) -> ULong : {
     return 1;
 }
 
-fclose( file : ULong ) -> Int {
+fclose( file : ULong ) -> Int : {
     return 0;
 }
 
-fwrite( buffer : &[]UByte, size : ULong, count : ULong, file : ULong ) -> ULong {
+fwrite( buffer : &[]UByte, size : ULong, count : ULong, file : ULong ) -> ULong : {
     puts( buffer );
     return count;
 }
 
-fread( buffer : &[]UByte, size : ULong, count : ULong, file : ULong ) -> ULong {
+fread( buffer : &[]UByte, size : ULong, count : ULong, file : ULong ) -> ULong : {
     return 0;
 }
 */

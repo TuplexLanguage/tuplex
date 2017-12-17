@@ -1,7 +1,7 @@
 ## test function body logic - args, scoping rules, etc
 
 
-main()->Int {
+main()->Int : {
     assert func1(42) == 42;
     assert func2(42) == 84;
     assert func3(42) == 63;
@@ -10,23 +10,23 @@ main()->Int {
     return 0;
 }
 
-func1( v : Int )->Int {
+func1( v : Int )->Int : {
     #experr: v = v * 2;  ## unmodifiable
     return v;
 }
 
-func2( v : Int )->Int {
+func2( v : Int )->Int : {
     vv := v * 2;
     return vv;
 }
 
-func3( v : Int )->Int {
+func3( v : Int )->Int : {
     v : ~Float = Float(v);
     v = v * 1.5;
     return Int(v);
 }
 
-func4( v : Int )->Int {
+func4( v : Int )->Int : {
     v : ~Float = Float(v);
     {
         v : Float = 100.0;
@@ -35,13 +35,13 @@ func4( v : Int )->Int {
     return Int(v);
 }
 
-outer_func( v : Int ) -> Int {
+outer_func( v : Int ) -> Int : {
     acc : ~Int = 0;
-    acc = ( v : Int )->Int { return v*2; } ( v*2 );
-    local_func :=  ( v : Int )->Int { return v*4; };
+    acc = ( v : Int )->Int: { return v*2; } ( v*2 );
+    local_func :=  ( v : Int )->Int: { return v*4; };
     acc = acc + local_func( v*8 );
 
-    local_func :=  ( v : Int )->Int { return v*4; };
+    local_func :=  ( v : Int )->Int: { return v*4; };
 
     return acc;
 }

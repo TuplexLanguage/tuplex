@@ -11,6 +11,7 @@
 #include "symbol/type_registry.hpp"
 #include "symbol/qual_type.hpp"
 
+/*
 class TxIdentifiedSymbolNode : public TxNode {
     TxIdentifierNode* symbolName;
     TxScopeSymbol* symbol = nullptr;
@@ -39,7 +40,7 @@ public:
             this->baseSymbolNode->visit_ast( visitor, thisCursor, "basesym", context );
     }
 
-    /** Returns the full identifier (dot-separated full name) as specified in the program text, up to and including this name. */
+    / ** Returns the full identifier (dot-separated full name) as specified in the program text, up to and including this name. * /
     std::string get_full_identifier() const {
         if ( this->baseSymbolNode )
             return this->baseSymbolNode->get_full_identifier() + '.' + this->symbolName->ident();
@@ -51,36 +52,36 @@ public:
         return this->symbolName->get_descriptor();
     }
 };
+*/
 
-/** Identifies a type directly via its name. */
+/** Identifies a type via name or value expression. */
 class TxNamedTypeNode : public TxTypeExpressionNode {
+    TxExpressionNode* exprNode;
+
 protected:
     virtual TxQualType define_type( TxPassInfo passInfo ) override;
 
 public:
-    TxIdentifiedSymbolNode* symbolNode;
 
-    TxNamedTypeNode( const TxLocation& ploc, TxIdentifiedSymbolNode* symbolNode )
-            : TxTypeExpressionNode( ploc ), symbolNode( symbolNode ) {
+    TxNamedTypeNode( const TxLocation& ploc, TxExpressionNode* exprNode )
+            : TxTypeExpressionNode( ploc ), exprNode( exprNode ) {
     }
 
-    TxNamedTypeNode( const TxLocation& ploc, const std::string& compoundName )
-            : TxTypeExpressionNode( ploc ), symbolNode( TxIdentifiedSymbolNode::make_ident_sym_node( ploc, compoundName ) ) {
-    }
+    TxNamedTypeNode( const TxLocation& ploc, const std::string& compoundName );
 
 
     virtual TxNamedTypeNode* make_ast_copy() const override {
-        return new TxNamedTypeNode( this->ploc, symbolNode->make_ast_copy() );
+        return new TxNamedTypeNode( this->ploc, exprNode->make_ast_copy() );
     }
 
     virtual void code_gen_type( LlvmGenerationContext& context ) const override;
 
     virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
-        this->symbolNode->visit_ast( visitor, thisCursor, "symbol", context );
+        this->exprNode->visit_ast( visitor, thisCursor, "expr", context );
     }
 
     virtual const std::string& get_descriptor() const override {
-        return this->symbolNode->get_descriptor();
+        return this->exprNode->get_descriptor();
     }
 };
 
@@ -122,8 +123,8 @@ protected:
     virtual void verification_pass() const override {
         for ( TxTypeArgumentNode* ta : *this->typeArgs ) {
             if (this->genTypeExpr->qtype()->get_type_class() != TXTC_REFERENCE) {
-                if ( auto typeTypeArg = dynamic_cast<TxTypeTypeArgumentNode*>( ta ) ) {
-                    if ( auto elemType = typeTypeArg->typeExprNode->attempt_qtype() )
+                if ( !ta->is_value() ) {
+                    if ( auto elemType = ta->type_expr_node()->attempt_qtype() )
                         if ( is_not_properly_concrete( this, elemType ) )
                             CERROR( this, "Type specialization parameter is not concrete: " << elemType );
                 }
@@ -169,8 +170,10 @@ public:
  * Custom AST node needed to handle dataspaces. */
 class TxReferenceTypeNode : public TxBuiltinTypeSpecNode {
     TxTypeExpressionNode* refBaseNode;
+    TxIdentifierNode* dataspace;
+    TxTypeArgumentNode* targetTypeNode;
 
-    TxReferenceTypeNode( const TxLocation& ploc, const TxIdentifier* dataspace, TxTypeTypeArgumentNode* targetTypeArg )
+    TxReferenceTypeNode( const TxLocation& ploc, TxIdentifierNode* dataspace, TxTypeArgumentNode* targetTypeArg )
             : TxBuiltinTypeSpecNode( ploc ), refBaseNode( new TxNamedTypeNode( ploc, "tx.Ref" ) ),
               dataspace( dataspace ), targetTypeNode( targetTypeArg ) {
     }
@@ -179,14 +182,12 @@ protected:
     virtual TxActualType* create_type( TxPassInfo passInfo ) override;
 
 public:
-    const TxIdentifier* dataspace;
-    TxTypeTypeArgumentNode* targetTypeNode;
 
-    TxReferenceTypeNode( const TxLocation& ploc, const TxIdentifier* dataspace, TxTypeExpressionNode* targetType )
+    TxReferenceTypeNode( const TxLocation& ploc, TxIdentifierNode* dataspace, TxTypeExpressionNode* targetType )
             : TxReferenceTypeNode( ploc, dataspace, new TxQualTypeExprNode( targetType ) ) {
     }
-    TxReferenceTypeNode( const TxLocation& ploc, const TxIdentifier* dataspace, TxQualTypeExprNode* targetType )
-            : TxReferenceTypeNode( ploc, dataspace, new TxTypeTypeArgumentNode( targetType ) ) {
+    TxReferenceTypeNode( const TxLocation& ploc, TxIdentifierNode* dataspace, TxQualTypeExprNode* targetType )
+            : TxReferenceTypeNode( ploc, dataspace, new TxTypeArgumentNode( targetType ) ) {
     }
 
     virtual TxReferenceTypeNode* make_ast_copy() const override {
@@ -206,7 +207,7 @@ public:
 class TxArrayTypeNode : public TxBuiltinTypeSpecNode {
     TxTypeExpressionNode* arrayBaseNode;
 
-    TxArrayTypeNode( const TxLocation& ploc, TxTypeTypeArgumentNode* elementTypeArg, TxValueTypeArgumentNode* capacityExprArg )
+    TxArrayTypeNode( const TxLocation& ploc, TxTypeArgumentNode* elementTypeArg, TxTypeArgumentNode* capacityExprArg )
             : TxBuiltinTypeSpecNode( ploc ), arrayBaseNode( new TxNamedTypeNode( ploc, "tx.Array" ) ),
               elementTypeNode( elementTypeArg ), capacityNode( capacityExprArg ) {
     }
@@ -215,22 +216,22 @@ protected:
     virtual TxActualType* create_type( TxPassInfo passInfo ) override;
 
     virtual void verification_pass() const override {
-        auto elemType = this->elementTypeNode->typeExprNode->qtype();
+        auto elemType = this->elementTypeNode->type_expr_node()->qtype();
         if ( is_not_properly_concrete( this, elemType ) ) {
             CERROR( this, "Array element type is not concrete: " << elemType );
         }
     }
 
 public:
-    TxTypeTypeArgumentNode* elementTypeNode;
-    TxValueTypeArgumentNode* capacityNode;
+    TxTypeArgumentNode* elementTypeNode;
+    TxTypeArgumentNode* capacityNode;
 
     TxArrayTypeNode( const TxLocation& ploc, TxTypeExpressionNode* elementType, TxExpressionNode* capacityExpr = nullptr )
             : TxArrayTypeNode( ploc, new TxQualTypeExprNode( elementType ), capacityExpr ) {
     }
     TxArrayTypeNode( const TxLocation& ploc, TxQualTypeExprNode* elementType, TxExpressionNode* capacityExpr = nullptr )
-            : TxArrayTypeNode( ploc, new TxTypeTypeArgumentNode( elementType ),
-                               ( capacityExpr ? new TxValueTypeArgumentNode( new TxMaybeConversionNode( capacityExpr ) ) : nullptr ) ) {
+            : TxArrayTypeNode( ploc, new TxTypeArgumentNode( elementType ),
+                               ( capacityExpr ? new TxTypeArgumentNode( new TxMaybeConversionNode( capacityExpr ) ) : nullptr ) ) {
     }
 
     virtual TxArrayTypeNode* make_ast_copy() const override {

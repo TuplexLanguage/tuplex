@@ -1,30 +1,30 @@
 ## Similar to sequence interface test but without generics
 
-interface Sequenceable <: Interface {
-    abstract sequencer() ->Ref<~Sequencer>;
+interface Sequenceable <: Interface : {
+    abstract sequencer() ->Ref{~Sequencer};
 }
 
-interface Sequencer {
+interface Sequencer : {
     abstract emptyFunc();
     abstract hasNext()->Bool;
     abstract next()~->Int;
 }
 
-type SingleRef <: Tuple, Sequenceable {
+type SingleRef <: Tuple, Sequenceable : {
 
-    type ~ SingleSeq <: Tuple, Sequencer {
+    type ~ SingleSeq <: Tuple, Sequencer : {
         element : Int;
         done : ~Bool;
 
-        self( element : Int ) {
+        self( element : Int ) : {
             #init: element( element ), done( FALSE );
         }
-        override emptyFunc() {
+        override emptyFunc() : {
         }
-        override hasNext()->Bool {
+        override hasNext()->Bool : {
             return !self.done;
         }
-        override next() ~ ->Int {
+        override next() ~ ->Int : {
             if self.done:
                 tx.c.puts( c"Panic: No next element" );
             self.done = TRUE;
@@ -34,11 +34,11 @@ type SingleRef <: Tuple, Sequenceable {
 
     element : Int;
     
-    self( element : Int ) {
+    self( element : Int ) : {
         #init: element( element );
     }
 
-    override sequencer()->Ref<~Sequencer> {
+    override sequencer()->Ref{~Sequencer} : {
         el : Int = self.element;
         seq := new ~SingleSeq( el );
         seq.emptyFunc();
@@ -47,7 +47,7 @@ type SingleRef <: Tuple, Sequenceable {
 }
 
 
-main()->Int {
+main()->Int : {
     myint : Int = 5;
     singleton := new SingleRef( myint );
     seq := singleton.sequencer();

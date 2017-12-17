@@ -534,7 +534,7 @@ equals( other : &Any )->Bool {
 */
     std::vector<TxDeclarationNode*> methods;
     { //  define key() -> &Any
-        auto retStmt = new TxReturnStmtNode( PLOC(pctx), new TxFieldValueNode( PLOC(pctx), "self" ) );
+        auto retStmt = new TxReturnStmtNode( PLOC(pctx), new TxNamedFieldNode( PLOC(pctx), "self" ) );
         auto methodType = new TxFunctionTypeNode( PLOC(pctx), false, new std::vector<TxArgTypeDefNode*>( {} ),
                                                   new TxReferenceTypeNode( PLOC(pctx), nullptr, new TxNamedTypeNode( PLOC(pctx), "tx.Any" ) ) );
         auto lambdaExpr = new TxLambdaExprNode( PLOC(pctx), methodType,
@@ -545,9 +545,9 @@ equals( other : &Any )->Bool {
                                                 true ) );  // method syntax
     }
     { //  define equals( other: &Any ) -> Bool
-        auto selfKeyCall = new TxFunctionCallNode( PLOC(pctx), new TxFieldValueNode( PLOC(pctx), "self.key" ),
+        auto selfKeyCall = new TxFunctionCallNode( PLOC(pctx), new TxNamedFieldNode( PLOC(pctx), "self.key" ),
                                                    new std::vector<TxExpressionNode*>( { } ) );
-        auto otherKeyCall = new TxFunctionCallNode( PLOC(pctx), new TxFieldValueNode( PLOC(pctx), "other.key" ),
+        auto otherKeyCall = new TxFunctionCallNode( PLOC(pctx), new TxNamedFieldNode( PLOC(pctx), "other.key" ),
                                                     new std::vector<TxExpressionNode*>( { } ) );
         auto eqStmt = new TxReturnStmtNode( PLOC(pctx), new TxEqualityOperatorNode( PLOC(pctx), selfKeyCall, otherKeyCall ) );
 
@@ -577,8 +577,8 @@ static std::vector<TxDeclarationNode*> make_array_methods( TxParserContext* pctx
     { // copy constructor
         auto selfSuperStmt = new TxSelfSuperFieldsStmtNode( PLOC(pctx) );
         auto copyStmt = new TxAssignStmtNode( PLOC(pctx),
-                                              new TxDerefAssigneeNode( PLOC(pctx), new TxFieldValueNode( PLOC(pctx), "self" ) ),
-                                              new TxReferenceDerefNode( PLOC(pctx), new TxFieldValueNode( PLOC(pctx), "src" ) ) );
+                                              new TxDerefAssigneeNode( PLOC(pctx), new TxNamedFieldNode( PLOC(pctx), "self" ) ),
+                                              new TxReferenceDerefNode( PLOC(pctx), new TxNamedFieldNode( PLOC(pctx), "src" ) ) );
         auto arrayTypeNode = new TxArrayTypeNode( PLOC(pctx), new TxConstTypeNode( PLOC(pctx), new TxNamedTypeNode( PLOC(pctx), "E" ) ) );
         auto argTypeNode = new TxReferenceTypeNode( PLOC(pctx), nullptr, arrayTypeNode );
         auto argNode = new TxArgTypeDefNode( PLOC(pctx), "src", argTypeNode );
@@ -592,7 +592,7 @@ static std::vector<TxDeclarationNode*> make_array_methods( TxParserContext* pctx
     }
     { //  override clear() ~
         auto clearStmt = new TxAssignStmtNode( PLOC(pctx),
-                                               new TxArrayLenAssigneeNode( PLOC(pctx), new TxFieldValueNode( PLOC(pctx), "self" ) ),
+                                               new TxArrayLenAssigneeNode( PLOC(pctx), new TxNamedFieldNode( PLOC(pctx), "self" ) ),
                                                new TxIntegerLitNode( PLOC(pctx), 0, false, TXBT_UINT ) );
         auto methodType = new TxFunctionTypeNode( PLOC(pctx), true, new std::vector<TxArgTypeDefNode*>(), nullptr );
         auto lambdaExpr = new TxLambdaExprNode( PLOC(pctx), methodType,
@@ -610,14 +610,14 @@ static std::vector<TxDeclarationNode*> make_panic_functions( const TxLocation& l
     { // tx.panic( message : &[]UByte )
         TxSuiteNode* suiteNode;
         {
-            auto msgExpr = new TxFieldValueNode( loc, "msg" );
-            auto stderrArg = new TxFieldValueNode( loc, "tx.c.stderr" );
-            auto putsCallee = new TxFieldValueNode( loc, "tx.c.fputs" );
+            auto msgExpr = new TxNamedFieldNode( loc, "msg" );
+            auto stderrArg = new TxNamedFieldNode( loc, "tx.c.stderr" );
+            auto putsCallee = new TxNamedFieldNode( loc, "tx.c.fputs" );
             auto putsCallExpr = new TxFunctionCallNode( loc, putsCallee, new std::vector<TxExpressionNode*>( { msgExpr, stderrArg } ) );
             TxStatementNode* putsStmt = new TxCallStmtNode( loc, putsCallExpr );
 
             // we call c library abort() upon assertion failure
-            auto abortCallee = new TxFieldValueNode( loc, "tx.c.abort" );
+            auto abortCallee = new TxNamedFieldNode( loc, "tx.c.abort" );
             auto abortCallExpr = new TxFunctionCallNode( loc, abortCallee, new std::vector<TxExpressionNode*>(), true );
             TxStatementNode* abortStmt = new TxCallStmtNode( loc, abortCallExpr );
 
@@ -639,15 +639,15 @@ static std::vector<TxDeclarationNode*> make_panic_functions( const TxLocation& l
     { // tx.panic( message : &[]UByte, value : ULong )
         TxSuiteNode* suiteNode;
         {
-            auto msgExpr = new TxFieldValueNode( loc, "msg" );
-            auto valExpr = new TxFieldValueNode( loc, "val" );
-            auto stderrArg = new TxFieldValueNode( loc, "tx.c.stderr" );
-            auto printfCallee = new TxFieldValueNode( loc, "tx.c.fprintf" );
+            auto msgExpr = new TxNamedFieldNode( loc, "msg" );
+            auto valExpr = new TxNamedFieldNode( loc, "val" );
+            auto stderrArg = new TxNamedFieldNode( loc, "tx.c.stderr" );
+            auto printfCallee = new TxNamedFieldNode( loc, "tx.c.fprintf" );
             auto printfCallExpr = new TxFunctionCallNode( loc, printfCallee, new std::vector<TxExpressionNode*>( { stderrArg, msgExpr, valExpr } ) );
             TxStatementNode* putsStmt = new TxCallStmtNode( loc, printfCallExpr );
 
             // we call c library abort() upon assertion failure
-            auto abortCallee = new TxFieldValueNode( loc, "tx.c.abort" );
+            auto abortCallee = new TxNamedFieldNode( loc, "tx.c.abort" );
             auto abortCallExpr = new TxFunctionCallNode( loc, abortCallee, new std::vector<TxExpressionNode*>(), true );
             TxStatementNode* abortStmt = new TxCallStmtNode( loc, abortCallExpr );
 
@@ -676,15 +676,15 @@ static std::vector<TxDeclarationNode*> make_panic_functions( const TxLocation& l
         {
             std::vector<TxExpressionNode*> stringers;
             for ( unsigned i = 0; i < NOF_ARGS; i++ ) {
-                stringers.push_back( new TxFieldValueNode( loc, "msg"+std::to_string(i) ) );
+                stringers.push_back( new TxNamedFieldNode( loc, "msg"+std::to_string(i) ) );
             }
             auto panicMsgExpr = new TxConcatenateStringsNode( loc, stringers );
-            auto printCallee = new TxFieldValueNode( loc, "tx.print_err" );
+            auto printCallee = new TxNamedFieldNode( loc, "tx.print_err" );
             auto printCallExpr = new TxFunctionCallNode( loc, printCallee, new std::vector<TxExpressionNode*>( { panicMsgExpr } ) );
             TxStatementNode* printStmt = new TxCallStmtNode( loc, printCallExpr );
 
             // we call c library abort() upon assertion failure
-            auto abortCallee = new TxFieldValueNode( loc, "tx.c.abort" );
+            auto abortCallee = new TxNamedFieldNode( loc, "tx.c.abort" );
             auto abortCallExpr = new TxFunctionCallNode( loc, abortCallee, new std::vector<TxExpressionNode*>(), true );
             TxStatementNode* abortStmt = new TxCallStmtNode( loc, abortCallExpr );
 

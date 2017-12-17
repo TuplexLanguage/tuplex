@@ -7,6 +7,7 @@ using namespace llvm;
 
 void TxNamedTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );
+    //this->exprNode->code_gen_expr( context, nullptr );
 }
 
 void TxMemberTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
@@ -14,15 +15,21 @@ void TxMemberTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
     this->baseTypeExpr->code_gen_type( context );
 }
 
-void TxTypeTypeArgumentNode::code_gen_type( LlvmGenerationContext& context ) const {
-    TRACE_CODEGEN( this, context );
-    this->typeExprNode->code_gen_type( context );
+void TxTypeArgumentNode::code_gen_type( LlvmGenerationContext& context ) const {
+//        if ( this->typeExprNode )
+//            this->typeExprNode->code_gen_type( context );
+//        else
+//            this->valueExprNode->code_gen_expr( context, nullptr );
 }
-
-void TxValueTypeArgumentNode::code_gen_type( LlvmGenerationContext& context ) const {
-    TRACE_CODEGEN( this, context );
-    //this->valueExprNode->code_gen_expr( context, nullptr );
-}
+//void TxTypeArgumentNode::code_gen_type( LlvmGenerationContext& context ) const {
+//    TRACE_CODEGEN( this, context );
+//    this->type_expr_node()->code_gen_type( context );
+//}
+//
+//void TxTypeArgumentNode::code_gen_type( LlvmGenerationContext& context ) const {
+//    TRACE_CODEGEN( this, context );
+//    //this->valueExprNode->code_gen_expr( context, nullptr );
+//}
 
 void TxGenSpecTypeNode::code_gen_type( LlvmGenerationContext& context ) const {
     TRACE_CODEGEN( this, context );

@@ -10,20 +10,20 @@ CONSTANT := 42;
 
 #experr: type BadType1 UnknownType;
 
-#experr 2: type BadType2 derives Tuple {
+#experr 2: type BadType2 derives Tuple : {
     instfield : Float;
     virtual FOO : Int = 2.73;  ## bad type conversion
     virtual BAR := 7  ## missing semicolon
 }
 
-#experr 1: type BadType3 derives UnknownType {
+#experr 1: type BadType3 derives UnknownType : {
     virtual good := 21;
     virtual found := 22;
 }
 
-type OkType derives Tuple {
+type OkType derives Tuple : {
     instfield : Float;
-    self( f : Float ) {
+    self( f : Float ) : {
         #experr: super();
         #init: instfield( f );
     }
@@ -36,11 +36,11 @@ type OkType derives Tuple {
 
 #experr: bad_func1();
 
-#experr: bad_func2() {
+#experr: bad_func2() : {
     return 42;
 }
 
-main()->Int {
+main()->Int : {
     #experr: bad tokens;
 
     i := ~ 3;

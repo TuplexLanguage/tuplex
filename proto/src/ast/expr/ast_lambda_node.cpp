@@ -3,9 +3,9 @@
 #include "ast/stmt/ast_flow.hpp"
 
 
-TxLambdaExprNode::TxLambdaExprNode( const TxLocation& ploc, TxFunctionHeaderNode* funcHeaderNode, TxSuiteNode* suite,
+TxLambdaExprNode::TxLambdaExprNode( const TxLocation& ploc, TxFunctionHeaderNode* funcHeaderNode, TxStatementNode* body,
                                     bool isMethodSyntax )
-        : TxExpressionNode( ploc ), funcHeaderNode( funcHeaderNode ), suite( suite ), isMethodSyntax( isMethodSyntax ) {
+        : TxExpressionNode( ploc ), funcHeaderNode( funcHeaderNode ), body( body ), isMethodSyntax( isMethodSyntax ) {
 }
 
 void TxLambdaExprNode::declaration_pass() {
@@ -74,14 +74,14 @@ void TxLambdaExprNode::verification_pass() const {
         if ( !( this->fieldDefNode->get_declaration()->get_decl_flags() & ( TXD_BUILTIN | TXD_IMPLICIT ) ) ) {
             // this is a user-defined constructor
             // verify that exactly one #init or #self statement will be run:
-            auto initCount = check_initializer_count( this->suite, 0 );
+            auto initCount = check_initializer_count( this->body, 0 );
             if ( !initCount )
                 CERROR( this, "Constructor body does not invoke any implicit initializer or other user-defined constructor" );
         }
     }
     if ( this->funcHeaderNode->returnField ) {
         // verify that body always ends with explicit return statement
-        if ( !this->suite->ends_with_return_stmt() )
+        if ( !this->body->ends_with_return_stmt() )
             CERROR( this, "Function has return value, but not all code paths end with a return statement." );
     }
 }
@@ -95,5 +95,5 @@ void TxLambdaExprNode::visit_descendants( const AstVisitor& visitor, const AstCu
             return;
         this->selfSuperStmt->visit_ast( visitor, thisCursor, "selffield", context );
     }
-    this->suite->visit_ast( visitor, thisCursor, "suite", context );
+    this->body->visit_ast( visitor, thisCursor, "body", context );
 }

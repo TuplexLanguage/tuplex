@@ -1,23 +1,23 @@
 ## tests array literals and array allocation and initialization expressions
 
 ## functions to pass arrays to so they won't be optimized away for not being used
-foofunc( array : &[]UByte ) { }
+foofunc( array : &[]UByte ) : { }
 
-foofunc( array : &[]Int ) { }
+foofunc( array : &[]Int ) : { }
 
-foofunc( array : &[]Long ) { }
+foofunc( array : &[]Long ) : { }
 
-foofunc( array : &[]Float ) { }
+foofunc( array : &[]Float ) : { }
 
 
-array_stack_construction( i : UByte ) {
+array_stack_construction( i : UByte ) : {
   ## Construction via array literal syntax:
-    a0 := [ i, i, i ];
+    a0 := \[ i, i, i ];
     q0 := a0[0];
     q1 := a0[1];
     q2 := a0[2];
-    a1 := [ 1, 2, 3 ];
-    a2 := [ Int(1), 2, 3 ];
+    a1 := \[ 1, 2, 3 ];
+    a2 := \[ Int(1), 2, 3 ];
     #experr 1: ae := [];  ## invalid, no element type info
     assert a0.C == 3;
     assert a0.C == a0.L;
@@ -27,61 +27,63 @@ array_stack_construction( i : UByte ) {
     ## explicit array type (fully specified or with implicit length) with direct initializer:
     a3 := [3]Int( 1, 2, 3 );
     a4 := [0]Int();           ## empty array of Ints
-    a5 := []Int( 1, 2, 3 );
-    a6 := []Int();            ## empty array of Ints
-    #experr 1: ae := [0]Int( 1, 2, 3 );   ## mismatching number of elements
-    #experr 1: ae := [2]Int( 1, 2, 3 );   ## mismatching number of elements
-    #experr 1: ae := [i*3]Int( 1, 2, 3 ); ## capacity not statically constant
+  ## not supported to automatically infer array length
+    #experr 1: a5 := []Int( 1, 2, 3 );
+    #experr 1: a6 := []Int();            ## empty array of Ints
+
+##    #experr 1: ae := [0]Int( 1, 2, 3 );   ## mismatching number of elements
+##    #experr 1: ae := [2]Int( 1, 2, 3 );   ## mismatching number of elements
+##    #experr 1: ae := [i*3]Int( 1, 2, 3 ); ## capacity not statically constant
     #experr 1: ae := [-1]Int( 1, 2, 3 );  ## capacity of wrong type
     #experr 1: ae := [2.5]Int( 1, 2, 3 ); ## capacity of wrong type
     assert a3.C == 3;
     assert a4.C == 0;
-    assert a5.C == 3;
-    assert a6.C == 0;
     assert a3.C == a3.L;
     assert a4.C == a4.L;
-    assert a5.C == a5.L;
-    assert a6.C == a6.L;
+##    assert a5.C == 3;
+##    assert a6.C == 0;
+##    assert a5.C == a5.L;
+##    assert a6.C == a6.L;
 
     ## explicit array type (fully specified or with implicit length) with object initializer:
-    a10 := [3]Int( [ 1I, 2, 3 ] );  ## literal array initializer
+    a10 := [3]Int( \[ 1I, 2, 3 ] );  ## literal array initializer
     a11 := [3]Int( a10 );           ## field initializer
     a12 := [3]Int( &a10 );          ## auto-dereferencing
-    a13 := []Int( [ 1I, 2, 3 ] );   ## literal array initializer
-    a14 := []Int( a10 );            ## field initializer
-    a15 := []Int( &a10 );           ## auto-dereferencing
+  ## not supported to automatically infer array length
+    #experr 1: a13 := []Int( \[ 1I, 2, 3 ] );   ## literal array initializer
+    #experr 1: a14 := []Int( a10 );            ## field initializer
+    #experr 1: a15 := []Int( &a10 );           ## auto-dereferencing
 
 ## TODO: Partial initialization via assignment
-    ## a : Array<Int,2> = [ 10I ];
+    ## a : Array{Int,2} = \[ 10I ];
 
 ## TODO: initialize from non-array sequences
 
 ## TODO: conversions
 ##    a16 := [3]Long( a6 );  ## safe element-wise conversion
-##    a17 := []Long( a6 );   ## safe element-wise conversion
 
     foofunc( a0 );
     foofunc( a1 );
     foofunc( a2 );
     foofunc( a3 );
     foofunc( a4 );
-    foofunc( a5 );
-    foofunc( a6 );
+##    foofunc( a5 );
+##    foofunc( a6 );
     foofunc( a10 );
     foofunc( a11 );
     foofunc( a12 );
-    foofunc( a13 );
-    foofunc( a14 );
-    foofunc( a15 );
+##    foofunc( a13 );
+##    foofunc( a14 );
+##    foofunc( a15 );
 
 
   ## Construction via Array type's constructor:
-    a20 := <Array<UByte,3>>( [ 1, 2, 3 ] );
-    a21 := <Array<Int,3>>( [ 1I, 2, 3 ] );
-    a22 := <Array<Int,0>>( []Int() );
-    a23 := <Array<Int,0>>();           ## syntactic sugar allows omitting brackets
-    a24 := <Array<Int,3>>( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
-    #experr 1: ae := <Array<Int,3>>( [ 1.1, 2.2, 3.3 ] );
+    a20 := Array{UByte,3}( \[ 1, 2, 3 ] );
+    a21 := Array{Int,3}( \[ 1I, 2, 3 ] );
+    a22 := Array{Int,0}( [0]Int() );
+    a23 := Array{Int,0}();           ## syntactic sugar allows omitting brackets
+    a24 := Array{Int,3}( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
+    #experr 1: ae := Array{Int,3}( \[ 1.1, 2.2, 3.3 ] );
     assert a21.C == 3;
     assert a22.C == 0;
     assert a23.C == 0;
@@ -91,28 +93,28 @@ array_stack_construction( i : UByte ) {
     assert a23.C == a23.L;
     assert a24.C == a24.L;
 
-    type MyFA <: Array<Float,3>;
-    aa := MyFA( [ 1.1, 2.2, 3.3 ] );
-    #experr 1: ae := MyFA( [ 1, 2, 3 ] );
+    type MyFA <: Array{Float,3};
+    aa := MyFA( \[ 1.1, 2.2, 3.3 ] );
+    #experr 1: ae := MyFA( \[ 1, 2, 3 ] );
 
     ## not supported to automatically infer generic type parameters:
-    #experr 1: ae := <Array<Int>>( [ 1I, 2, 3 ] );
-    #experr 2: ae := <Array>( [ 1I, 2, 3 ] );
+    #experr 1: ae := Array{Int}( \[ 1I, 2, 3 ] );
+    #experr 2: ae := Array( \[ 1I, 2, 3 ] );
 
 
   ## Construction of empty arrays with dynamic length:
     a30 := [i*0]Int();
     a31 := [i*3]Int();
-    a32 := <Array<Int,(i*0)>>();
-    a33 := <Array<Int,(i*3)>>();
+    a32 := Array{Int,i*0}();
+    a33 := Array{Int,i*3}();
 
 
   ## Partial initialization via constructor:
-    a40 := <Array<Int,(i*3)>>( []Int() );
-    a41 := <Array<Int,(i*3)>>( [ 1I ] );
-    a42 := <Array<Int,(i*3)>>( [ 1I, 2 ] );
-    a43 := MyFA( [ 1.1 ] );
-    a44 := MyFA( [ 1.1, 2.2 ] );
+    a40 := Array{Int,i*3}( [0]Int() );
+    a41 := Array{Int,i*3}( \[ 1I ] );
+    a42 := Array{Int,i*3}( \[ 1I, 2 ] );
+    a43 := MyFA( \[ 1.1 ] );
+    a44 := MyFA( \[ 1.1, 2.2 ] );
     assert a40.C == 3;
     assert a40.L == 0;
     assert a41.C == 3;
@@ -125,14 +127,14 @@ array_stack_construction( i : UByte ) {
     assert a44.L == 2;
 
 
-## FUTURE: support partial initialization of explicitly typed array literals
-## (should be seen as array type conversion constructors)
-    ##a45 := [2]Int( [ 10I ] );
-    #experr 1: ae := [3]Int( 1 );
-    #experr 1: ae := [3]Int( 1, 2 );
-    #experr 1: ae := [4]Int( [ 1I, 2, 3 ] );  ## literal array initializer
-    #experr 1: ae := [4]Int( a10 );           ## field initializer
-    #experr 1: ae := [4]Int( &a10 );          ## auto-dereferencing
+  ## partial initialization of explicitly typed array literals
+  ## (should be seen as array type conversion constructors)
+    a45 := [2]Int( \[ 10I ] );
+    a46 := [3]Int( 1 );
+    a47 := [3]Int( 1, 2 );
+    a48 := [4]Int( \[ 1I, 2, 3 ] );  ## literal array initializer
+    a49 := [4]Int( a10 );            ## field initializer
+    a50 := [4]Int( &a10 );           ## auto-dereferencing
 
   ## Initialization with explicit type; Explicit default initialization
     a60 := [0]UByte();
@@ -142,11 +144,11 @@ array_stack_construction( i : UByte ) {
     assert a61.C == 3;
     assert a61.L == 0;
 
-    a62 : [3]UByte = [ 1, 2, 3 ];
-    a63 : [3]UByte = [ 1, 2 ];
-    a64 : [3]UByte = [ 1 ];
-    a65 : [3]UByte = []UByte();
-    ## ae  : [3]UByte = [ 1, 2, 3, 4 ];  ## raises runtime panic
+    a62 : [3]UByte = \[ 1, 2, 3 ];
+    a63 : [3]UByte = \[ 1, 2 ];
+    a64 : [3]UByte = \[ 1 ];
+    a65 : [3]UByte = [0]UByte();
+    ## ae  : [3]UByte = \[ 1, 2, 3, 4 ];  ## raises runtime panic
     assert a62.C == 3;
     assert a62.L == 3;
     assert a63.C == 3;
@@ -160,11 +162,11 @@ array_stack_construction( i : UByte ) {
 }
 
 
-array_new_construction( i : UByte ) {
+array_new_construction( i : UByte ) : {
   ## Construction via array literal syntax is limited:
-    #experr 1: a0 := new [ i, i, i ];
-    #experr 1: a1 := new [ 1, 2, 3 ];
-    #experr 1: a2 := new [ Int(1), 2, 3 ];
+    #experr 1: a0 := new \[ i, i, i ];
+    #experr 1: a1 := new \[ 1, 2, 3 ];
+    #experr 1: a2 := new \[ Int(1), 2, 3 ];
     #experr 1: ae := new [];  ## invalid, no element type info
 
     a3 := new [3]Int( 1, 2, 3 );
@@ -183,11 +185,11 @@ array_new_construction( i : UByte ) {
     #experr 1: ae := new [2.5]Int( 1, 2, 3 );  ## capacity of wrong type
 
     ## explicit array type (fully specified or with implicit length) with object initializer:
-    a10 := new [3]Int( [ 1I, 2, 3 ] );
+    a10 := new [3]Int( \[ 1I, 2, 3 ] );
     a11 := new [3]Int( a10 );
     a12 := new [3]Int( &a10 );
   ## not supported to automatically infer array length
-    #experr 1: a13 := new []Int( [ 1I, 2, 3 ] );
+    #experr 1: a13 := new []Int( \[ 1I, 2, 3 ] );
     #experr 1: a14 := new []Int( a10 );
     #experr 1: a15 := new []Int( &a10 );
 
@@ -202,12 +204,12 @@ array_new_construction( i : UByte ) {
 
 
   ## Construction via Array type's constructor:
-    a20 := new Array<UByte,3>( [ 1, 2, 3 ] );
-    a21 := new Array<Int,3>( [ 1I, 2, 3 ] );
-    a22 := new Array<Int,0>( []Int() );
-    a23 := new Array<Int,0>();           ## syntactic sugar allows omitting brackets
-    a24 := new Array<Int,3>( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
-    #experr 1: ae := new Array<Int,3>( [ 1.1, 2.2, 3.3 ] );
+    a20 := new Array{UByte,3}( \[ 1, 2, 3 ] );
+    a21 := new Array{Int,3}( \[ 1I, 2, 3 ] );
+    a22 := new Array{Int,0}( [0]Int() );
+    a23 := new Array{Int,0}();           ## syntactic sugar allows omitting brackets
+    a24 := new Array{Int,3}( 1, 2, 3 );  ## syntactic sugar allows omitting brackets
+    #experr 1: ae := new Array{Int,3}( \[ 1.1, 2.2, 3.3 ] );
     assert a21.C == 3;
     assert a22.C == 0;
     assert a23.C == 0;
@@ -217,29 +219,29 @@ array_new_construction( i : UByte ) {
     assert a23.C == a23.L;
     assert a24.C == a24.L;
 
-    type MyFA <: Array<Float,3>;
-    aa := new MyFA( [ 1.1, 2.2, 3.3 ] );
-    #experr 1: ae := new MyFA( [ 1, 2, 3 ] );
+    type MyFA <: Array{Float,3};
+    aa := new MyFA( \[ 1.1, 2.2, 3.3 ] );
+    #experr 1: ae := new MyFA( \[ 1, 2, 3 ] );
 
     ## not supported to automatically infer generic type parameters:
-    #experr 1: aa := new Array<Int>( [ 1I, 2, 3 ] );
-    #experr 1: aa := new Array( [ 1I, 2, 3 ] );
+    #experr 1: aa := new Array{Int}( \[ 1I, 2, 3 ] );
+    #experr 1: aa := new Array( \[ 1I, 2, 3 ] );
 
 
   ## Construction with dynamic Array length:
     a30 := new [i*0]Int();
     a31 := new [i*3]Int();
-    a32 := new Array<Int,(i*0)>();
-    a33 := new Array<Int,(i*3)>();
+    a32 := new Array{Int,i*0}();
+    a33 := new Array{Int,i*3}();
     a34 := new [i*3]Int( 1, 2, 3 );
 
 
   ## Partial initialization via constructor:
-    a40 := new Array<Int,(i*3)>( []Int() );
-    a41 := new Array<Int,(i*3)>( [ 1I ] );
-    a42 := new Array<Int,(i*3)>( [ 1I, 2 ] );
-    a43 := new MyFA( [ 1.1 ] );
-    a44 := new MyFA( [ 1.1, 2.2 ] );
+    a40 := new Array{Int,i*3}( [0]Int() );
+    a41 := new Array{Int,i*3}( \[ 1I ] );
+    a42 := new Array{Int,i*3}( \[ 1I, 2 ] );
+    a43 := new MyFA( \[ 1.1 ] );
+    a44 := new MyFA( \[ 1.1, 2.2 ] );
     assert a40.C == 3;
     assert a40.L == 0;
     assert a41.C == 3;
@@ -255,17 +257,17 @@ array_new_construction( i : UByte ) {
   ## Partial initialization via constructor using "explicitly typed array literal syntax":
     a50 := new [3]Int( 1 );
     a51 := new [3]Int( 1, 2 );
-    a52 := new [4]Int( [ 1I, 2, 3 ] );  ## literal array initializer
+    a52 := new [4]Int( \[ 1I, 2, 3 ] );  ## literal array initializer
     a53 := new [4]Int( a10 );           ## field initializer
     a54 := new [4]Int( &a10 );          ## auto-dereferencing
 
 
   ## Initialization with explicit type
-    a62 : &[3]UByte = new Array<UByte,3>( 1, 2, 3 );
-    a63 : &[3]UByte = new Array<UByte,3>( 1, 2 );
-    a64 : &[3]UByte = new Array<UByte,3>( 1 );
-    a65 : &[3]UByte = new Array<UByte,3>();
-    ## ae : &[3]UByte = new Array<UByte,3>( 1, 2, 3, 4 );  ## raises runtime panic
+    a62 : &[3]UByte = new Array{UByte,3}( 1, 2, 3 );
+    a63 : &[3]UByte = new Array{UByte,3}( 1, 2 );
+    a64 : &[3]UByte = new Array{UByte,3}( 1 );
+    a65 : &[3]UByte = new Array{UByte,3}();
+    ## ae : &[3]UByte = new Array{UByte,3}( 1, 2, 3, 4 );  ## raises runtime panic
     assert a62.C == 3;
     assert a62.L == 3;
     assert a63.C == 3;
@@ -279,29 +281,29 @@ array_new_construction( i : UByte ) {
 }
 
 
-sum( arr : &[]Int ) -> Int {
+sum( arr : &[]Int ) -> Int : {
     s : ~Int = 0;
     for i := ~0; i < arr.L; i = i + 1 :
         s = s + arr[i];
     return s;
 }
 
-nested_array_init() -> Int {
+nested_array_init() -> Int : {
   ## gradual nested array initialization
-    aaa : ~[4][4][4]UByte = <Array<Array<Array<UByte,4>,4>,4>>();
+    aaa : ~[4][4][4]UByte = Array{Array{Array{UByte,4},4},4}();
     assert aaa.C == 4;
     assert aaa.L == 0;
 
     ##aaa[0][0][0] = 3;
-    #experr 1: aaa[0] = <Array<Array<Array<UByte,4>,4>,4>>( );
-    aaa[0] = <Array<Array<UByte,4>,4>>( <Array<UByte,4>>( 17 ) );
+    #experr 1: aaa[0] = Array{Array{Array{UByte,4},4},4}( );
+    aaa[0] = Array{Array{UByte,4},4}( Array{UByte,4}( 17 ) );
     assert aaa.L == 1;
     assert aaa[0].L == 1;
     assert aaa[0][0].L == 1;
     assert aaa[0][0][0] == 17;
 
   ## implicit initialization of assignee's outer array elements:
-    arr := ~<~Array<~Array<~Array<~Int,4>,3>,2>>();
+    arr := ~Array{~Array{~Array{~Int,4},3},2}();
     assert arr.C == 2;
     assert arr.L == 0;
     arr[0][0][0] = 17;
@@ -313,15 +315,15 @@ nested_array_init() -> Int {
     assert arr[0][0].L == 1;
     assert arr[0][0][0] == 17;
 
-    arr[0][1] = <~Array<~Int,4>>();
-    arr[0][2] = <~Array<~Int,4>>( 10, 11, 12, 13 );
+    arr[0][1] = ~Array{~Int,4}();
+    arr[0][2] = ~Array{~Int,4}( 10, 11, 12, 13 );
     assert sum( arr[0][2] ) == 46;
 
     return 0;
 }
 
 
-main() -> Int {
+main() -> Int : {
     i := 1;
     array_stack_construction( i );
     array_new_construction( i );

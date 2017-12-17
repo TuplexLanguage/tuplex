@@ -1,5 +1,5 @@
 
-type Foo {
+type Foo : {
     virtual STAT_MEMB := 42;
     instMemb := 17;
 }
@@ -8,7 +8,7 @@ type Foo {
 
 #experr 1: Foo := 123;  ## can't overload type and field names
 
-main() {
+main() : {
     #experr 1: i1 : Int;
     i2 : Int = 5;
     i3 := 5;
@@ -25,11 +25,12 @@ main() {
     #experr: ~m4 : Int;
     #experr: ~m4 : ~Int;
     #experr: ~m4 : ~Int = 5;
-    #experr: m4 : Int = ~5;
-    #experr: m4 : ~Int = ~5;
+    ## produces warning: m4 : Int = ~5;
+    m4 : ~Int = ~5;
     assert m1 == 0;
     assert m2 == 5;
     assert m3 == 5;
+    assert m4 == 5;
     m1 = 6;
     m2 = 6;
     m3 = 6;

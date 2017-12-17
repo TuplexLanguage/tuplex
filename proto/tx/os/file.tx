@@ -3,7 +3,7 @@ module tx.os
 import tx.String
 
 
-type ~ File <: Tuple, tx.ByteWriter, tx.ByteReader {
+type ~ File <: Tuple, tx.ByteWriter, tx.ByteReader : {
     virtual final STATE_UNOPEN : UByte = 0;
     virtual final STATE_ERROR  : UByte = 1;
     virtual final STATE_OPEN   : UByte = 2;
@@ -15,30 +15,30 @@ type ~ File <: Tuple, tx.ByteWriter, tx.ByteReader {
 
 
     /** Creates the named file for writing and reading. */
-    create( name : String ) ~ -> Int {
+    create( name : String ) ~ -> Int : {
         return self.open_mode( name, "w" );
     }
 
     /** Opens the named file for reading. */
-    open( name : String ) ~ -> Int {
+    open( name : String ) ~ -> Int : {
         return self.open_mode( name, "r" );
     }
 
     /** Opens the named file in the specified mode. */
-    open_mode( name : String, mode : String ) ~ -> Int {
+    open_mode( name : String, mode : String ) ~ -> Int : {
         if self._state != STATE_UNOPEN:  panic "Invalid operation when state is " %d self._state;
         
         self._cfile = tx.c.fopen( name._bytes, mode._bytes );
         if self._cfile != 0:
             self._state = STATE_OPEN;
-        else {
+        else : {
             self._state = STATE_ERROR;
             self._error = -1;
         }
         return self._error;
     }
 
-    close() ~ {
+    close() ~ : {
         if self._state != STATE_OPEN:  panic "Invalid operation when state is " %d self._state;
         
         self._state = STATE_CLOSED;
@@ -46,19 +46,19 @@ type ~ File <: Tuple, tx.ByteWriter, tx.ByteReader {
     }
 
 
-    override write( buf : &[]UByte ) ~ -> Long {
+    override write( buf : &[]UByte ) ~ -> Long : {
         if self._state != STATE_OPEN:  panic "Invalid operation when state is " %d self._state;
 
         exp := buf.L;
         count := tx.c.fwrite( buf, 1, exp, self._cfile );
-        if count < exp {
+        if count < exp : {
             self._state = STATE_ERROR;
             self._error = -1;
         }
         return Long( count );
     }
 
-    override read( buf : &~[]UByte ) ~ -> Long {
+    override read( buf : &~[]UByte ) ~ -> Long : {
         if self._state != STATE_OPEN:  panic "Invalid operation when state is " %d self._state;
 
         ## currently we force full initialization of the array before the call,
@@ -67,7 +67,7 @@ type ~ File <: Tuple, tx.ByteWriter, tx.ByteReader {
             buf[i] = 0;
 
         count := tx.c.fread( buf, 1, buf.C, self._cfile );
-        if count < buf.C {
+        if count < buf.C : {
             ## TODO: check if EOF, which isn't an error
             self._state = STATE_ERROR;
             self._error = -1;

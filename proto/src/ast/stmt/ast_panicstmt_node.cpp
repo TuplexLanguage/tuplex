@@ -10,13 +10,13 @@
 static TxStatementNode* make_output_stmt( const TxLocation& ploc, TxExpressionNode* messageExpr ) {
     if ( auto cstringMsg = dynamic_cast<TxCStringLitNode*>( messageExpr ) ) {
         auto msgExpr = new TxReferenceToNode( ploc, cstringMsg );
-        auto stderrArg = new TxFieldValueNode( ploc, "tx.c.stderr" );
-        auto putsCallee = new TxFieldValueNode( ploc, "tx.c.fputs" );
+        auto stderrArg = new TxNamedFieldNode( ploc, "tx.c.stderr" );
+        auto putsCallee = new TxNamedFieldNode( ploc, "tx.c.fputs" );
         auto putsCallExpr = new TxFunctionCallNode( ploc, putsCallee, new std::vector<TxExpressionNode*>( { msgExpr, stderrArg } ) );
         return new TxCallStmtNode( ploc, putsCallExpr );
     }
     else {
-        auto printCallee = new TxFieldValueNode( ploc, "tx.print_err" );
+        auto printCallee = new TxNamedFieldNode( ploc, "tx.print_err" );
         auto printCallExpr = new TxFunctionCallNode( ploc, printCallee, new std::vector<TxExpressionNode*>( { messageExpr } ) );
         return new TxCallStmtNode( ploc, printCallExpr );
     }
@@ -26,7 +26,7 @@ static TxSuiteNode* make_panic_suite( const TxLocation& ploc, TxExpressionNode* 
     TxStatementNode* printStmt = make_output_stmt( ploc, panicMsgExpr );
 
     // we call c library abort() upon assertion failure
-    auto abortCallee = new TxFieldValueNode( ploc, "tx.c.abort" );
+    auto abortCallee = new TxNamedFieldNode( ploc, "tx.c.abort" );
     auto abortCallExpr = new TxFunctionCallNode( ploc, abortCallee, new std::vector<TxExpressionNode*>(), true );
     TxStatementNode* abortStmt = new TxCallStmtNode( ploc, abortCallExpr );
 

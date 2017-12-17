@@ -4,7 +4,7 @@ FOO_STR := c"foo";
 FOO_CHR1 := c"foo"[1];
 FOO_CHR2 := FOO_STR[1];
 
-ret_array()->&[]UByte {
+ret_array()->&[]UByte : {
     s : [4]UByte = FOO_STR;
     t : &[]UByte = FOO_STR;
     u : [4]UByte = t^;  ## dynamically checked array initializer assignment
@@ -13,11 +13,11 @@ ret_array()->&[]UByte {
     return t;
 }
 
-basic_array_syntax()->Int {
+basic_array_syntax()->Int : {
     ra := ret_array();
     assert ra.C == 4;
 
-    a := ~<Array<~UByte,10>>();
+    a := ~Array{~UByte,10}();
     b := ~[10]UByte();
     c := c"1234567890";
     b[0] = c"123"[2];
@@ -31,11 +31,11 @@ basic_array_syntax()->Int {
 }
 
 
-setelem(cstr : &~[]UByte, i : UInt, chr : UByte) {
+setelem(cstr : &~[]UByte, i : UInt, chr : UByte) : {
     cstr^[i] = chr;
 }
 
-array_modifiability() {
+array_modifiability() : {
     cs : [4]UByte = c"cst";
     crcs : &[]UByte = cs;    ## implicit reference
     mrcs : ~&[]UByte = cs;   ## implicit reference
@@ -82,7 +82,7 @@ array_modifiability() {
     strcopy = conststr;
 }
 
-main() {
+main() : {
     array_modifiability();
     ret := basic_array_syntax();
     assert ret == 3;

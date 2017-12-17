@@ -1,22 +1,22 @@
-interface ~ Sequenceable<E derives Ref> derives Interface {
-    abstract sequencer()->Ref<~Sequencer<E>>;
+interface ~ Sequenceable{E derives Ref} derives Interface : {
+    abstract sequencer()->Ref{~Sequencer{E}};
 }
 
-interface ~ Sequencer<E derives Ref> {
+interface ~ Sequencer{E derives Ref} : {
     abstract hasNext()->Bool;
     abstract next()~->E;
 }
 
-type SingleRef<S derives Ref> <: Tuple, Sequenceable<S> {
+type SingleRef{S derives Ref} <: Tuple, Sequenceable{S} : {
 
-    type ~ SingleSeq <: Tuple, Sequencer<S> {
+    type ~ SingleSeq <: Tuple, Sequencer{S} : {
         element : S;
         done : ~Bool = FALSE;
 
-        override hasNext()->Bool {
+        override hasNext()->Bool : {
             return !self.done;
         }
-        override next() ~ ->S {
+        override next() ~ ->S : {
             if self.done:
                 tx.c.puts( c"Panic: No next element" );
             self.done = TRUE;
@@ -26,16 +26,16 @@ type SingleRef<S derives Ref> <: Tuple, Sequenceable<S> {
 
     element : S;
 
-    override sequencer()->Ref<~Sequencer<S>> {
+    override sequencer()->Ref{~Sequencer{S}} : {
         el : S = self.element;
         return new ~SingleSeq( el );
     }
 }
 
 
-main()->Int {
+main()->Int : {
     myint : Int = 5;
-    singleton := new SingleRef<Ref<Int>>( myint );
+    singleton := new SingleRef{Ref{Int}}( myint );
     seq := singleton.sequencer();
     assert seq.hasNext();
     elem := seq.next();

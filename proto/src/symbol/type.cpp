@@ -446,7 +446,7 @@ static TxFieldDeclNode* generate_constructor_ast( const TxLocation& loc, const T
             auto argType = new TxTypeExprWrapperNode( baseArgDeclNode );
             argNodes->push_back( new TxArgTypeDefNode( loc, argName, argType ) );
 
-            superInitArgs->push_back( new TxFieldValueNode( loc, argName ) );
+            superInitArgs->push_back( new TxNamedFieldNode( loc, argName ) );
         }
         initClauseList->push_back( new TxMemberInitNode( loc, new TxIdentifierNode( loc, "super" ), superInitArgs ) );
     }
@@ -466,7 +466,7 @@ static TxFieldDeclNode* generate_constructor_ast( const TxLocation& loc, const T
                                                        new TxTypeExprWrapperNode( instanceFieldDecl->get_definer() ) ) );
             initClauseList->push_back( new TxMemberInitNode( loc, new TxIdentifierNode( loc, argName ),
                                                              new std::vector<TxExpressionNode*>(
-                                                                     { new TxFieldValueNode( loc, argName ) } ) ) );
+                                                                     { new TxNamedFieldNode( loc, argName ) } ) ) );
         }
     }
 
@@ -1388,6 +1388,8 @@ std::string TxActualType::str( bool brief ) const {
         if ( this->is_mutable() )
             str << " MUT";
     }
+    else if ( this->is_mutable() && this->hasInitialized && this->get_type_class() == TXTC_TUPLE )
+        str << " MUT";
     return str.str();
 }
 

@@ -32,7 +32,7 @@ TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, TxQualTypeEx
                                 const std::vector<TxExpressionNode*>* elemExprList,
                                 TxExpressionNode* capacityExpr )
         : TxArrayLitNode( ploc ), origElemExprList( elemExprList ),
-          elementTypeNode( elementTypeExpr ? new TxTypeTypeArgumentNode( elementTypeExpr ) : nullptr ),
+          elementTypeNode( elementTypeExpr ? new TxTypeArgumentNode( elementTypeExpr ) : nullptr ),
           capacityExpr( capacityExpr ? new TxMaybeConversionNode( capacityExpr ) : nullptr ), elemExprList( make_args_vec( elemExprList ) )
 {
 }
@@ -50,7 +50,7 @@ TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, const std::v
 TxFilledArrayLitNode::TxFilledArrayLitNode( const TxLocation& ploc, TxQualTypeExprNode* elementTypeExpr,
                                 const std::vector<TxMaybeConversionNode*>* elemExprList )
         : TxArrayLitNode( ploc ), origElemExprList( nullptr ),
-          elementTypeNode( elementTypeExpr ? new TxTypeTypeArgumentNode( elementTypeExpr ) : nullptr ),
+          elementTypeNode( elementTypeExpr ? new TxTypeArgumentNode( elementTypeExpr ) : nullptr ),
           capacityExpr( nullptr ), elemExprList( elemExprList ) {
 }
 
@@ -60,14 +60,14 @@ TxQualType TxFilledArrayLitNode::define_type( TxPassInfo passInfo ) {
 
     auto elemTypeNode = this->elementTypeNode;
     if ( !elemTypeNode ) {
-        elemTypeNode = new TxTypeTypeArgumentNode( new TxQualTypeExprNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) ) );
+        elemTypeNode = new TxTypeArgumentNode( new TxQualTypeExprNode( new TxTypeExprWrapperNode( elemExprList->front()->originalExpr ) ) );
         run_declaration_pass( elemTypeNode, this, "elem-type" );
     }
-    TxQualType elemQType = elemTypeNode->typeExprNode->resolve_type( passInfo );
+    TxQualType elemQType = elemTypeNode->type_expr_node()->resolve_type( passInfo );
 
     if ( this->capacityExpr ) {
         this->capacityExpr->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
-        auto capacityNode = new TxValueTypeArgumentNode( this->capacityExpr );
+        auto capacityNode = new TxTypeArgumentNode( this->capacityExpr );
         capacityNode->node_declaration_pass( this );
         arrayType = this->registry().get_array_type( this, elemTypeNode, capacityNode );
         const_cast<TxActualType*>(arrayType)->integrate();
@@ -90,7 +90,7 @@ TxQualType TxFilledArrayLitNode::define_type( TxPassInfo passInfo ) {
             if ( singleArgType->get_type_class() == TXTC_ARRAY ) {
                 auto argElemQType = singleArgType->element_type();
                 if ( this->elementTypeNode
-                     && argElemQType->is_assignable_to( *this->elementTypeNode->typeExprNode->resolve_type( passInfo ) ) ) {
+                     && argElemQType->is_assignable_to( *this->elementTypeNode->type_expr_node()->resolve_type( passInfo ) ) ) {
                     if ( singleArgType->capacity() ) {
                         // concrete array capacity - treat as array to array assignment
                         this->_directArrayArg = true;
@@ -103,7 +103,7 @@ TxQualType TxFilledArrayLitNode::define_type( TxPassInfo passInfo ) {
 
         if ( !arrayType ) {
             auto tmpcapacityExpr = new TxIntegerLitNode( this->ploc, elemExprList->size(), false, ARRAY_SUBSCRIPT_TYPE_ID );
-            auto capacityNode = new TxValueTypeArgumentNode( tmpcapacityExpr );
+            auto capacityNode = new TxTypeArgumentNode( tmpcapacityExpr );
             run_declaration_pass( capacityNode, this, "capacity" );
             arrayType = this->registry().get_array_type( this, elemTypeNode, capacityNode );
             expectedArgQType = elemQType;
@@ -152,13 +152,13 @@ TxQualType TxUnfilledArrayLitNode::define_type( TxPassInfo passInfo ) {
 
 TxUnfilledArrayCompLitNode::TxUnfilledArrayCompLitNode( const TxLocation& ploc, TxQualTypeExprNode* elementTypeExpr,
                                                         TxExpressionNode* capacityExpr )
-        : TxArrayLitNode( ploc ), elementTypeNode( new TxTypeTypeArgumentNode( elementTypeExpr ) ),
+        : TxArrayLitNode( ploc ), elementTypeNode( new TxTypeArgumentNode( elementTypeExpr ) ),
           capacityExpr( new TxMaybeConversionNode( capacityExpr ? capacityExpr : new TxIntegerLitNode( ploc, "0", false ) ) ) {
 }
 
 TxQualType TxUnfilledArrayCompLitNode::define_type( TxPassInfo passInfo ) {
     this->capacityExpr->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
-    auto capacityNode = new TxValueTypeArgumentNode( this->capacityExpr );
+    auto capacityNode = new TxTypeArgumentNode( this->capacityExpr );
     capacityNode->node_declaration_pass( this );
     auto arrayType = this->registry().get_array_type( this, this->elementTypeNode, capacityNode );
     return arrayType;

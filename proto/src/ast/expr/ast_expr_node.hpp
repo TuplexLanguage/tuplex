@@ -44,9 +44,8 @@ public:
         return nullptr;
     }
 
-    /** Gets the qualified type of this expression's value, or null if it is not an lvalue. */
-    virtual const TxQualType* get_qualtype() const {
-        return nullptr;
+    virtual bool is_value() const override {
+        return true;
     }
 
     /** Gets the storage form of the value of this expression.

@@ -38,19 +38,19 @@ protected:
 
 public:
     TxFunctionHeaderNode* funcHeaderNode;
-    TxSuiteNode* suite;
+    TxStatementNode* body;
     const bool isMethodSyntax;
 
-    TxLambdaExprNode( const TxLocation& ploc, TxFunctionTypeNode* funcTypeNode, TxSuiteNode* suite,
+    TxLambdaExprNode( const TxLocation& ploc, TxFunctionTypeNode* funcTypeNode, TxStatementNode* body,
                       bool isMethodSyntax = false )
-            : TxLambdaExprNode( ploc, new TxFunctionHeaderNode( funcTypeNode ), suite, isMethodSyntax ) {
+            : TxLambdaExprNode( ploc, new TxFunctionHeaderNode( funcTypeNode ), body, isMethodSyntax ) {
     }
 
-    TxLambdaExprNode( const TxLocation& ploc, TxFunctionHeaderNode* funcHeaderNode, TxSuiteNode* suite,
+    TxLambdaExprNode( const TxLocation& ploc, TxFunctionHeaderNode* funcHeaderNode, TxStatementNode* body,
                       bool isMethodSyntax = false );
 
     virtual TxLambdaExprNode* make_ast_copy() const override {
-        return new TxLambdaExprNode( this->ploc, this->funcHeaderNode->make_ast_copy(), this->suite->make_ast_copy(), this->isMethodSyntax );
+        return new TxLambdaExprNode( this->ploc, this->funcHeaderNode->make_ast_copy(), this->body->make_ast_copy(), this->isMethodSyntax );
     }
 
     void set_instance_method( bool flag ) {

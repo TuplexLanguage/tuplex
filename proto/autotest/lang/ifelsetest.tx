@@ -1,48 +1,48 @@
-first() {
+first() : {
     v := ~ 0UL;
 
-    if TRUE {
+    if TRUE : {
         v = v + 1;
     }
-    if FALSE
+    if FALSE :
     {
         v = v + 2;
     }
 
-    if TRUE {
+    if TRUE : {
         v = v + 4;
     }
-    else {
+    else : {
         v = v + 8;
     }
-    if FALSE {
+    if FALSE : {
         v = v + 16;
-    } else {
+    } else : {
         v = v + 32;
     }
 
-    if TRUE { v = v + 64; }
-    if FALSE { v = v + 128; } else { v = v + 256; }
+    if TRUE: { v = v + 64; }
+    if FALSE :{ v = v + 128; } else { v = v + 256; }
 
     if TRUE
-    {
-        if TRUE { v = v + 512; }
+    :{
+        if TRUE: { v = v + 512; }
         else { v = v + 1024; }
     }
 
     else
     {
-        if TRUE { v = v + 2048; }
+        if TRUE: { v = v + 2048; }
         else { v = v + 4096; }
     }
 
-    if TRUE {} else {}
+    if TRUE: {} else {}
 
     expected : ULong = 1+4+32+64+256+512;
     assert v == expected;
 }
 
-second() {
+second() : {
     v := ~ 0UL;
 
     if TRUE:
@@ -70,7 +70,7 @@ second() {
     assert v == expected;
 }
 
-main() {
+main() : {
     first();
     second();
 }

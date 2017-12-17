@@ -27,13 +27,13 @@ TxAssertStmtNode::TxAssertStmtNode( const TxLocation& ploc, TxExpressionNode* ex
     //msg << ": " << customMessage;    // TODO: supported custom assert message
     std::string assertFailedMsg = "c\"" + msg.str() + "\n\"";
     auto msgExpr = new TxReferenceToNode( pLoc, new TxCStringLitNode( pLoc, assertFailedMsg ) );
-    auto stderrArg = new TxFieldValueNode( this->ploc, "tx.c.stderr" );
-    auto putsCallee = new TxFieldValueNode( pLoc, "tx.c.fputs" );
+    auto stderrArg = new TxNamedFieldNode( this->ploc, "tx.c.stderr" );
+    auto putsCallee = new TxNamedFieldNode( pLoc, "tx.c.fputs" );
     auto putsCallExpr = new TxFunctionCallNode( pLoc, putsCallee, new std::vector<TxExpressionNode*>( { msgExpr, stderrArg } ) );
     TxStatementNode* putsStmt = new TxCallStmtNode( pLoc, putsCallExpr );
 
     // we call c library abort() upon assertion failure
-    auto abortCallee = new TxFieldValueNode( pLoc, "tx.c.abort" );
+    auto abortCallee = new TxNamedFieldNode( pLoc, "tx.c.abort" );
     auto abortCallExpr = new TxFunctionCallNode( pLoc, abortCallee, new std::vector<TxExpressionNode*>(), true );
     TxStatementNode* abortStmt = new TxCallStmtNode( pLoc, abortCallExpr );
 

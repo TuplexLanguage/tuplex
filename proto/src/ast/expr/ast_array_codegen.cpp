@@ -302,8 +302,24 @@ Constant* TxElemDerefNode::code_gen_const_value( LlvmGenerationContext& context 
 Value* TxElemAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {
     TRACE_CODEGEN( this, context );
     scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
+    Value* subarrayCapacityV = nullptr;
+    if ( this->qtype()->get_type_class() == TXTC_ARRAY ) {
+        // if the element type is an array - initialize the sub-array's header:
+        //std::cerr << this << " performing assignment, initializing sub-array's header" << std::endl;
+        if ( auto capExpr = this->qtype()->capacity() ) {
+            // concrete array (specific capacity)
+            if ( capExpr->is_statically_constant() )
+                // capacity is statically specified
+                subarrayCapacityV = ConstantInt::get( Type::getInt32Ty( context.llvmContext ), eval_unsigned_int_constant( capExpr ) );
+            else
+                CERR_CODECHECK( this, "Non-constant capacity of sub-array to initialize" );
+        }
+        else
+            CERR_CODECHECK( this, "Unspecified capacity of sub-array to initialize" );
+    }
     return gen_elem_address( this, context, scope, this->array->code_gen_dyn_address( context, scope ),
-                             this->subscript->code_gen_dyn_value( context, scope ), true );
+                             this->subscript->code_gen_dyn_value( context, scope ),
+                             true, subarrayCapacityV );
 }
 
 Value* TxArrayLenAssigneeNode::code_gen_address( LlvmGenerationContext& context, GenScope* scope ) const {

@@ -1,24 +1,24 @@
 ## Test valid and invalid recursive type definitions
 
-type Node derives Tuple {
-    parent : Ref<Node>;
+type Node derives Tuple : {
+    parent : Ref{Node};
 
-    self() {  ## creates root
+    self() : {  ## creates root
         #init: parent( self );  ## UNSAFE if obj copied
     }
-    self(parent : Ref<Node>) {
+    self(parent : Ref{Node}) : {
         #init: parent( parent );
     }
 
-    get_parent()->Ref<Node> {
+    get_parent()->Ref{Node} : {
         return self.parent;
     }
 
-    is_root()->Bool {
+    is_root()->Bool : {
         return self === self.parent;
     }
 
-    get_depth()->Int {
+    get_depth()->Int : {
         if self.is_root():
             return 1;
         return self.get_parent().get_depth() + 1;
@@ -29,20 +29,20 @@ type Node derives Tuple {
 ## guard against recursive type definitions:
 
 ## since these are mutually recursive, one of them will report the error:
-#experr 1: type First Secnd;
-#experr 0: type Secnd First;
+#experr 1: type First derives Secnd;
+#experr 0: type Secnd derives First;
 
 
 ## data recursion via reference is OK:
 
-type A {
+type A : {
     bref : &B;
 }
-type B {
+type B : {
     aref : &A;
     aobj : A;
 
-    self( aref : &A, bref : &B ) {
+    self( aref : &A, bref : &B ) : {
         #init: aref( aref ), aobj( bref );
     }
 }
@@ -50,68 +50,68 @@ type B {
 
 ## data type can't contain itself, directly or indirectly:
 
-type AA {
+type AA : {
     bbobj : BB;
 
-    self( aaref : &AA ) {
+    self( aaref : &AA ) : {
         #init: bbobj( aaref );
     }
 }
-type BB {
+type BB : {
     aaref : &AA;
     #experr 1: aaobj : AA;
 }
 
-type CC {
+type CC : {
     #experr 1: ccobj : CC;
 }
 
 
 ## generic type can specify itself as a base type's type parameter, but instance members must be checked against recursive type definition:
 
-type GenType<T> {
+type GenType{T} : {
     member : T;
 }
 
-#experr: type SpecTypeErr   GenType<SpecTypeErr>;
+#experr: type SpecTypeErr derives GenType{SpecTypeErr};
 /* upon reinterpretation becomes:
-type SpecTypeErr {
+type SpecTypeErr : {
     member : SpecTypeErr;
 }
 */
 
 ## since these are mutually recursive, one of them will report the error:
-#experr 2: type SpecTypeErrA  GenType<SpecTypeErrB>;
-#experr 3: type SpecTypeErrB  GenType<SpecTypeErrA>;
+#experr 0: type SpecTypeErrA derives GenType{SpecTypeErrB};
+#experr 1: type SpecTypeErrB derives GenType{SpecTypeErrA};
 
 
 /* Sub-typing from Ref is currently disallowed
 
 ## ok with recursive type definition via reference:
-type SpecTypeOk <: GenType<Ref<SpecTypeOk>>;
+type SpecTypeOk derives GenType{Ref{SpecTypeOk}};
 
-type ARef <: Ref<BRef>;
-type BRef <: Ref<ARef>;
+type ARef derives Ref{BRef};
+type BRef derives Ref{ARef};
 
-type CRef <: &DRef;
-type DRef <: &CRef;
+type CRef derives &DRef;
+type DRef derives &CRef;
 */
 
 
 ## ok with recursive type definition via non-reference and not containing itself (needed to support CRTP):
 
-abstract type SequenceType<T> {
+abstract type SequenceType{T} : {
     abstract get_successor() -> T;
 }
 
-type MyNumber derives SequenceType<MyNumber> {
+type MyNumber derives SequenceType{MyNumber} : {
     num : Int;
-    ##self ( n : Int ) { self.num = n; }
-    override get_successor() -> MyNumber { return MyNumber( self.num + 1 ); }
+    ##self ( n : Int ) : { self.num = n; }
+    override get_successor() -> MyNumber : { return MyNumber( self.num + 1 ); }
 }
 
 
-main()->Int {
+main()->Int : {
     root   := new Node();
     child1 := new Node(root);
     child2 := new Node(child1);

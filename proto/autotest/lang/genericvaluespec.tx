@@ -1,36 +1,36 @@
 
-type ~ GenBase< T, V : UInt > {
+type ~ GenBase{ T, V : UInt } : {
     member : T;
 
-    self() {
+    self() : {
         #init: member();
     }
 
-    self( memb : T ) {
+    self( memb : T ) : {
         #init: member( memb );
     }
     
-    get_member() -> T {
+    get_member() -> T : {
         return self.member;
     }
 
-    set_member( memb : T ) ~ {
+    set_member( memb : T ) ~ : {
         self.member = memb;
     }
 
-    get_v() -> UInt {
+    get_v() -> UInt : {
         return self.V;
     }
 }
 
-ref_test( x : Int ) -> &GenBase {
-    return new GenBase<Int,4>(x);
+ref_test( x : Int ) -> &GenBase : {
+    return new GenBase{Int,4}(x);
 }
 
-main() -> Int {
-    type GBF3 <: GenBase<Float, 3>;
-    type GBF6 <: GenBase<Float, 6>;
-    type GBI3 <: GenBase<Int,3>;
+main() -> Int : {
+    type GBF3 <: GenBase{Float, 3};
+    type GBF6 <: GenBase{Float, 6};
+    type GBI3 <: GenBase{Int,3};
 
     a1 := GBF3();
     a2 := GBF6();

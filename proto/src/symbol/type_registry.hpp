@@ -10,8 +10,8 @@ class TxPackage;
 class TxTypeExpressionNode;
 class TxTypeDeclNode;
 class TxTypeArgumentNode;
-class TxTypeTypeArgumentNode;
-class TxValueTypeArgumentNode;
+class TxTypeArgumentNode;
+class TxTypeArgumentNode;
 
 
 extern std::string encode_type_name( const TxTypeDeclaration* typeDecl );
@@ -184,12 +184,12 @@ public:
      * @origin the adapter use site (used for error messages) */
     TxActualType* get_interface_adapter( const TxNode* origin, const TxActualType* interfaceType, const TxActualType* adaptedType );
 
-    TxActualType* get_reference_type( TxTypeResolvingNode* definer, const TxTypeTypeArgumentNode* targetTypeBinding,
-                                      const TxIdentifier* dataspace );
+    TxActualType* get_reference_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* targetTypeBinding,
+                                      const TxIdentifierNode* dataspace );
 
-    TxActualType* get_array_type( TxTypeResolvingNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding,
-                                  const TxValueTypeArgumentNode* capacityBinding, bool mutableType=false );
-    TxActualType* get_array_type( TxTypeResolvingNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding, bool mutableType=false );
+    TxActualType* get_array_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* elemTypeBinding,
+                                  const TxTypeArgumentNode* capacityBinding, bool mutableType=false );
+    TxActualType* get_array_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* elemTypeBinding, bool mutableType=false );
 
     /** Creates a function type with a return type.
      * @modifying true if functions of this type may modify its closure when run

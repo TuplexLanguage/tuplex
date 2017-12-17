@@ -97,7 +97,7 @@ public:
  * (This node acts as a wrapper and doesn't own the binding type expression node, and thus doesn't forward pass processing to it.)
  */
 class TxGenBindingAliasTypeNode : public TxTypeCreatingNode {
-    TxTypeExpressionNode* boundTypeNode;
+    TxTypeResolvingNode* boundTypeNode;
 
 protected:
     virtual TxActualType* create_type( TxPassInfo passInfo ) override {
@@ -109,7 +109,7 @@ protected:
     }
 
 public:
-    TxGenBindingAliasTypeNode( const TxLocation& ploc, TxTypeExpressionNode* boundTypeNode )
+    TxGenBindingAliasTypeNode( const TxLocation& ploc, TxTypeResolvingNode* boundTypeNode )
         : TxTypeCreatingNode( ploc ), boundTypeNode( boundTypeNode )  { }
 
     virtual TxGenBindingAliasTypeNode* make_ast_copy() const override {

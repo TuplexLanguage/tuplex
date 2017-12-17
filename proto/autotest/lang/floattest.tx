@@ -1,5 +1,5 @@
 
-test_float_literals() {
+test_float_literals() : {
     {
         x1 := 0.0;
         x2 := .0;
@@ -95,27 +95,27 @@ test_float_literals() {
 }
 
 /* FP16 runtime conversions not supported without runtime library...
-to_half( f : Float ) -> Half {
+to_half( f : Float ) -> Half : {
     #experr 1: r : Half = f;
     return Half( f );
 }
 
-to_half( d : Double ) -> Half {
+to_half( d : Double ) -> Half : {
     #experr 1: r : Half = d;
     return Half( d );
 }
 */
 
-to_float( d : Double ) -> Float {
+to_float( d : Double ) -> Float : {
     #experr 1: r : Float = d;
     return Float( d );
 }
 
-test_float_conversions() {
+test_float_conversions() : {
     assert to_float( 123.45D ) == 123.45F;
 }
 
-main() {
+main() : {
     test_float_literals();
     test_float_conversions();
 }

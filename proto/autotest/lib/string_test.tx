@@ -1,5 +1,5 @@
 
-test_string_eq() {
+test_string_eq() : {
     empty  := "";
     empty2 := "";
     foo    := "foo";
@@ -18,7 +18,7 @@ test_string_eq() {
     assert foobar != foo;
 }
 
-main() -> Int {
+main() -> Int : {
     test_string_eq();
     return 0;
 }

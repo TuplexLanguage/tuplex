@@ -1,19 +1,19 @@
 
 ## we can't derive directly from Any
 
-#experr 1: type BadDerivation1 : Any;
-#experr 2: interface BadDerivation2 : Any;
+#experr 1: type BadDerivation1 derives Any;
+#experr 2: interface BadDerivation2 derives Any;
 
 
 ## interfaces can't derive from non-interface type classes
 
-#experr 1: interface BadDerivation3 : Tuple;
-#experr 1: interface BadDerivation4 : Array<UByte>;
-#experr 1: interface BadDerivation5 : Ref<UByte>;
-#experr 1: interface BadDerivation6 : Function;
-#experr 1: interface BadDerivation7 : Elementary;
-#experr 1: interface BadDerivation8 : Int;
-#experr 1: interface BadDerivation9 : Bool;
+#experr 1: interface BadDerivation3 derives Tuple;
+#experr 1: interface BadDerivation4 derives Array{~UByte};
+#experr 1: interface BadDerivation5 derives Ref{UByte};
+#experr 1: interface BadDerivation6 derives Function;
+#experr 1: interface BadDerivation7 derives Elementary;
+#experr 1: interface BadDerivation8 derives Int;
+#experr 1: interface BadDerivation9 derives Bool;
 
 
 ## FUTURE: support #expwarn: type WarnInterface : Interface;
@@ -25,11 +25,11 @@
 
 #experr: abstract_func()->Int;  ## "abstract" free functions not currently supported
 
-#experr 2: abstract concrete_func()->Int { return 2; }
+#experr 2: abstract concrete_func()->Int : { return 2; }
 
 
 ## an abstract (non-interface) type can have both abstract and concrete members:
-abstract type AbstractType derives Tuple {
+abstract type AbstractType derives Tuple : {
     virtual foo : Int = 2;
     virtual abstract bar : Int;
     #experr 1: virtual abstract bad : Int = 3;  ## can't specify initializer for abstract field
@@ -40,16 +40,16 @@ abstract type AbstractType derives Tuple {
 
     abstract abstr_method()->Int;
 
-    #experr: abstract concrete_method()->Int { return 2; }  ## can't specify initializer for abstract field
+    #experr: abstract concrete_method()->Int : { return 2; }  ## can't specify initializer for abstract field
 
-    concrete_method2()->Int { return 2; }
+    concrete_method2()->Int : { return 2; }
 }
 
 ## must declare abstract if actually is abstract:
-#experr 2: type StillAbstractType : AbstractType;
+#experr 2: type StillAbstractType derives AbstractType;
 
 ## a concrete type can't have abstract members:
-type ConcreteType derives Tuple {
+type ConcreteType derives Tuple : {
     virtual foo : Int = 2;
     #experr 1: virtual abstract bar : Int;      ## a concrete type can't have abstract members
     #experr 2: virtual abstract bad : Int = 3;  ## can't specify initializer for abstract field
@@ -60,36 +60,36 @@ type ConcreteType derives Tuple {
 
     #experr 1: abstract abstr_method()->Int;          ## a concrete type can't have abstract members:
 
-    #experr: abstract concrete_method()->Int { return 2; }  ## can't specify initializer for abstract field
+    #experr: abstract concrete_method()->Int : { return 2; }  ## can't specify initializer for abstract field
 
-    concrete_method2()->Int { return 2; }
+    concrete_method2()->Int : { return 2; }
 }
 
 
 
 ## interface tests
 
-interface IntfA {
+interface IntfA : {
     abstract get_value()->Int;
 
     ## "mixin" or default-implementation interface methods:
-    mixin_method_1()->Int { return 1; }
-    mixin_method_2()->Int { return 2; }
+    mixin_method_1()->Int : { return 1; }
+    mixin_method_2()->Int : { return 2; }
 
     #experr 1: instField : Int;  ## interface can't have instance members
     virtual ifField : Int = 17;
 }
 
-type Type derives Tuple, IntfA {
+type Type derives Tuple, IntfA : {
     fld : Int;
 
-    override get_value()->Int {
+    override get_value()->Int : {
         assert self.mixin_method_1() == 1;
         ##assert super.mixin_method_2() == 2;  ## TODO: support referring to interfaces via 'super'
         return self.fld;
     }
 
-    override mixin_method_2()->Int {
+    override mixin_method_2()->Int : {
         return 3;
     }
 
@@ -97,60 +97,60 @@ type Type derives Tuple, IntfA {
 }
 
 ## can't inherit object type in 2nd position
-#experr: interface EType derives IntfA, Tuple {
+#experr: interface EType derives IntfA, Tuple : {
 }
 
 ## must declare abstract if missing concrete members
-#experr 1: type IncompleteType derives Tuple, IntfA {
+#experr 1: type IncompleteType derives Tuple, IntfA : {
 }
-abstract type AbstrIncomplType derives Tuple, IntfA {
+abstract type AbstrIncomplType derives Tuple, IntfA : {
 }
 
 ## implementation member type must match interface member's type
-abstract type ErrImplType <: Tuple, IntfA {
-    override mixin_method_2()->Int { return 10; }
-    #experr 1: override mixin_method_1()->UByte { return 20; }
-    #experr 1: override get_value()->Float { return 3.14; }
+abstract type ErrImplType derives Tuple, IntfA : {
+    override mixin_method_2()->Int : { return 10; }
+    #experr 1: override mixin_method_1()->UByte : { return 20; }
+    #experr 1: override get_value()->Float : { return 3.14; }
 }
 
 
 
 ## implementing multiple interfaces
 
-interface IntfX {
+interface IntfX : {
     abstract get_value()->Int;
 
-    mixin_method_1()->Int { return 1; }
+    mixin_method_1()->Int : { return 1; }
 }
 
-interface IntfY {
+interface IntfY : {
     abstract get_value()->Int;
 }
 
-interface IntfZ {
+interface IntfZ : {
     abstract get_value()->Int;
 
-    mixin_method_1()->Int { return 5; }
+    mixin_method_1()->Int : { return 5; }
 }
 
 
-type TypeOk <: Tuple, IntfX, IntfY {
-    override get_value()->Int { return 14; }
+type TypeOk <: Tuple, IntfX, IntfY : {
+    override get_value()->Int : { return 14; }
 }
 
 ## colliding mixin methods  ## TODO: should this be an error?
-type TypeErr1 <: Tuple, IntfX, IntfZ {
-    override get_value()->Int { return 14; }
+type TypeErr1 <: Tuple, IntfX, IntfZ : {
+    override get_value()->Int : { return 14; }
 }
 
 ## double implementation  ## TODO: should this be an error/warning?
-type TypeErr2 <: Tuple, IntfX, IntfX {
-    override get_value()->Int { return 14; }
+type TypeErr2 <: Tuple, IntfX, IntfX : {
+    override get_value()->Int : { return 14; }
 }
 
 
 
-main()->Int {
+main()->Int : {
     t := Type(42);
     r : &IntfA = &t;
     assert t.ifField == 17;

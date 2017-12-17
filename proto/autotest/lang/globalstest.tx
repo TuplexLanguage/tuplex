@@ -36,7 +36,7 @@ FIELDD := CONSTANT + 2;
 ## currently function calls (including pure ones) are regarded as non-statically-constant:
 #experr: FIELDSQ := square( 3 );
 
-square( a : Int )->Int {
+square( a : Int )->Int : {
     return a * a;
 }
 
@@ -76,7 +76,7 @@ CONST_LEN := CONST_ARRAY.L;
 
 
 ## corresponding test for virtual type members:
-type Compound {
+type Compound : {
     virtual OK : Int = 4;
 
     #experr 1: virtual RECA := RECB;
@@ -93,7 +93,7 @@ type Compound {
 }
 
 
-main() {
+main() : {
     assert CONSTANT + CONSTANT_EXPR == 18;
     assert CONSTANT_EXPR2 == 22;
     assert CONSTANT_EXPR3 == 27;

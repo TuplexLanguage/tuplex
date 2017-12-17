@@ -74,6 +74,72 @@ public:
 };
 
 
+/** Requires / ensures the contained expression to produce a value of modifiable type. */
+class TxModifiableValueNode : public TxExpressionNode {
+protected:
+    virtual TxQualType define_type( TxPassInfo passInfo ) override;
+
+    virtual void verification_pass() const override;
+
+public:
+    TxExpressionNode* exprNode;
+
+    TxModifiableValueNode( const TxLocation& ploc, TxExpressionNode* exprNode )
+            : TxExpressionNode( ploc ), exprNode( exprNode ) {
+    }
+
+    virtual TxModifiableValueNode* make_ast_copy() const override {
+        return new TxModifiableValueNode( this->ploc, exprNode->make_ast_copy() );
+    }
+
+    virtual const std::vector<TxExpressionNode*>* get_applied_func_args() const override {
+        return this->exprNode->get_applied_func_args();
+    }
+    virtual void set_applied_func_args( const std::vector<TxExpressionNode*>* appliedTypeParameters ) override {
+        this->exprNode->set_applied_func_args( appliedTypeParameters );
+    }
+
+    virtual const TxActualType* get_constructed_type( TxPassInfo passInfo ) const override {
+        return this->exprNode->get_constructed_type( passInfo );
+    }
+
+
+    virtual bool is_value() const override {
+        return this->exprNode->is_value();
+    }
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
+        return this->exprNode->get_data_graph_origin_expr();
+    }
+    virtual TxFieldStorage get_storage() const override {
+        return this->exprNode->get_storage();
+    }
+    virtual bool is_statically_constant() const override {
+        return this->exprNode->is_statically_constant();
+    }
+
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override {
+        return this->exprNode->code_gen_const_value( context );
+    }
+    virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const override {
+        return this->exprNode->code_gen_const_address( context );
+    }
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override {
+        return this->exprNode->code_gen_dyn_address( context, scope );
+    }
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override {
+        return this->exprNode->code_gen_dyn_value( context, scope );
+    }
+
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->exprNode->visit_ast( visitor, thisCursor, "expr", context );
+    }
+
+    virtual const std::string& get_descriptor() const override {
+        return this->exprNode->get_descriptor();
+    }
+};
+
+
 /** Abstract superclass for memory providing expressions, used in conjunction with object construction / initialization. */
 class TxMemProviderNode : public TxExpressionNode {
 protected:

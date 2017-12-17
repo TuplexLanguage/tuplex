@@ -2,41 +2,41 @@
 
 ## wrong arguments:
 
-#experr 1: main( errArgC : Int, args : &[]&[]UByte ) { }
+#experr 1: main( errArgC : Int, args : &[]&[]UByte ) : { }
 
-#experr 1: main( args : &[]&[]UByte, errArg : &[]&[]UByte ) { }
+#experr 1: main( args : &[]&[]UByte, errArg : &[]&[]UByte ) : { }
 
-#experr 1: main( args : &[]&[]Byte ) { }
+#experr 1: main( args : &[]&[]Byte ) : { }
 
-#experr 1: main( args : &[]&[]UInt ) { }
+#experr 1: main( args : &[]&[]UInt ) : { }
 
-#experr 1: main( args : &[]&[]Bool ) { }
+#experr 1: main( args : &[]&[]Bool ) : { }
 
-#experr 1: main( args : &[]&UByte ) { }
+#experr 1: main( args : &[]&UByte ) : { }
 
-#experr 1: main( args : &[]UByte ) { }
+#experr 1: main( args : &[]UByte ) : { }
 
-#experr 1: main( args : &&UByte ) { }
+#experr 1: main( args : &&UByte ) : { }
 
-#experr 1: main( args : &UByte ) { }
+#experr 1: main( args : &UByte ) : { }
 
-#experr 1: main( args : UByte ) { }
+#experr 1: main( args : UByte ) : { }
 
 
 ## wrong return type:
 
-#experr 1: main( args : &[]&[]UByte ) -> Bool { return FALSE; }
+#experr 1: main( args : &[]&[]UByte ) -> Bool : { return FALSE; }
 
-#experr 1: main( args : &[]&[]UByte ) -> Float { return 0.0; }
+#experr 1: main( args : &[]&[]UByte ) -> Float : { return 0.0; }
 
-#experr 1: main( args : &[]&[]UByte ) -> &Int { return new Int(); }
+#experr 1: main( args : &[]&[]UByte ) -> &Int : { return new Int(); }
 
-#experr 1: main( args : &[]&[]UByte ) -> [1]Int { return [ 0I ]; }
+#experr 1: main( args : &[]&[]UByte ) -> [1]Int : { return \[ 0I ]; }
 
 
 ## correct signature:
 
-main( args : &[]&[]UByte ) -> Int {
+main( args : &[]&[]UByte ) -> Int : {
     assert args.L == 0;
     return 0;
 }

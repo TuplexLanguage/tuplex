@@ -1,10 +1,10 @@
 ## Tests modifiability in combination with Tuple member fields and methods
 
-type ImmutableType {
+type ImmutableType : {
     ifield : Int;
     #experr 1: ffield : ~Float;  ## can't declare modifiable member on immutable type
 
-    get_i()->Int {
+    get_i()->Int : {
         #experr 1: self.ifield = 5;  ## method is not modifying; field is not modifiable
         return self.ifield;
     }
@@ -17,67 +17,67 @@ type ImmutableType {
 #experr 1: type ~ BadSyntax  : ~ImmutableType;
 #experr 1: type ~ BadMutType : ImmutableType;  ## can't derive mutable type from immutable base type
 
-type ~ AType {  ## mutable type
+type ~ AType : {  ## mutable type
     ifield : Int;
     ffield : ~Float;
 
-    get_i()->Int {
+    get_i()->Int : {
         #experr 1: self.ifield = 5;  ## method is not modifying
         return self.ifield;
     }
 
-    get_f()->Float {
+    get_f()->Float : {
         #experr 1: self.ffield = 6.3;  ## method is not modifying
         return self.ffield;
     }
 
-    set_i( i : Int ) ~ {
+    set_i( i : Int ) ~ : {
         #experr 1: self.ifield = i;  ## field is not modifiable
     }
 
-    set_f( f : Float ) ~ {
+    set_f( f : Float ) ~ : {
         self.ffield = f;
     }
 }
 
 /*
-type ~ OptRef<T> {
+type ~ OptRef{T} : {
     virtual NULL : UByte = 0;
-    _r : Ref<Any>;
+    _r : Ref{Any};
 
-    self() {
+    self() : {
         #init( &NULL );
     }
 
-    self( r : Ref<T> ) {
+    self( r : Ref{T} ) : {
         #init( r );
     }
 
-    is_null()->Bool {
+    is_null()->Bool : {
         return self._r == &NULL;
     }
 
-    get()->Ref<T> {
-        if self._r is r : Ref<T>:
+    get()->Ref{T} : {
+        if self._r is r : Ref{T}:
             return r;
         panic( c"Opt reference is null" );
     }
 }
 */
 
-type ~ Node {  ## mutable type
+type ~ Node : {  ## mutable type
     hiNode : ~&Node;
     loNode : &~Node;
 
-    self() {
+    self() : {
         #init: hiNode( self ), loNode( self );
     }
-    self( h : &Node, l : &~Node ) {
+    self( h : &Node, l : &~Node ) : {
         #init: hiNode( h ), loNode( l );
     }
 }
 
-test_transitivity() {
+test_transitivity() : {
     n0 := ~ Node();
     n1 := ~ Node( &n0, &n0 );
     n2a := Node( &n1, &n1 );
@@ -119,7 +119,7 @@ test_transitivity() {
 }
 
 
-main()->Int {
+main()->Int : {
     nonmodA := AType( 2, 3.14 );
     nonmodA.get_i();
     nonmodA.get_f();

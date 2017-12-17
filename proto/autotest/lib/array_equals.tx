@@ -1,12 +1,12 @@
 ## specific array tests 
 ## TODO: remove this test file when equality_test.tx can implement more complex arrays-of-arrays (requires type system improvements)
 
-interface Face { }
+interface Face : { }
 
-type Body <: Tuple, Face {
+type Body <: Tuple, Face : {
     member : Int;
     
-    override equals( o : &Any )->Bool {
+    override equals( o : &Any )->Bool : {
         if o is b : &Body :
             return self.member == b.member;
         else:
@@ -14,12 +14,12 @@ type Body <: Tuple, Face {
     }
 }
 
-comp_arr( a1 : &Array, a2 : &Array ) -> Bool {
+comp_arr( a1 : &Array, a2 : &Array ) -> Bool : {
     return a1^ == a2^;
 }
 
 /** test arrays of arrays */
-comp_nested( v : Int ) -> Int {
+comp_nested( v : Int ) -> Int : {
     {
         a1 := [ v, 1, 2, 3, 0 ];
         a2 := [ v, 2, 3, 4, 0 ];
@@ -38,7 +38,7 @@ comp_nested( v : Int ) -> Int {
         a1 := [ 1, 2, 3 ];
         a2 := [ 2, 3, 4 ];
         a3 := [ 3, 4, 5 ];
-        aa1 := [ a1 ];
+        aa1 := \[ a1 ];
         aa2 := [ a1, a2 ];
         aa3 := [ a1, [ 2, 3, 4 ] ];
         aa4 := [ a1, a3 ];
@@ -96,7 +96,7 @@ comp_nested( v : Int ) -> Int {
     return 0;
 }
 
-main() -> Int {
+main() -> Int : {
     comp_nested( 1 );
     return 0;
 }

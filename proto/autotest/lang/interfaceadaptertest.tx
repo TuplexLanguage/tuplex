@@ -1,35 +1,35 @@
 ## interface adapter tests (including interface adapter modifiability)
 
-interface IntfA {
+interface IntfA : {
     abstract get_value()->Int;
 
     ## "mixin" or default-implementation interface methods:
-    mixin_method_1()->Int { return 1; }
-    mixin_method_2()->Int { return 2; }
+    mixin_method_1()->Int : { return 1; }
+    mixin_method_2()->Int : { return 2; }
 }
 
-interface IntfB {
+interface IntfB : {
     abstract set_value( v : Int ) ~;
 }
 
-type ~ Type <: Tuple, IntfA, IntfB {
+type ~ Type <: Tuple, IntfA, IntfB : {
     fld : ~Int;
 
-    override get_value()->Int {
+    override get_value()->Int : {
         return self.fld;
     }
 
-    override set_value( v : Int ) ~ {
+    override set_value( v : Int ) ~ : {
         self.fld = v;
     }
 
-    override mixin_method_2()->Int {
+    override mixin_method_2()->Int : {
         return 3;
     }
 }
 
 
-mixin_tests() {
+mixin_tests() : {
     t := ~ Type(42);
     r : &IntfA = &t;
     s : &~IntfB = &t;
@@ -49,7 +49,7 @@ mixin_tests() {
 }
 
 
-main()->Int {
+main()->Int : {
     mixin_tests();
     return 0;
 }

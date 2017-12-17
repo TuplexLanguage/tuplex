@@ -1,23 +1,23 @@
 
 ## can't derive non-empty user types from the Ref type:
 
-type CustomRef<T> derives Ref<T>;
+type CustomRef{T} derives Ref{T};
 
-type CustomIntRef derives Ref<Int> {
+type CustomIntRef derives Ref{Int} : {
 }
 
-#experr 1: type ECustomRef<T> derives Ref<T> {
+#experr 1: type ECustomRef{T} derives Ref{T} : {
     virtual CONSTANT := 2;
 }
 
-#experr 1: type ECustomIntRef derives Ref<Int> {
-    get_self() -> &Self {
+#experr 1: type ECustomIntRef derives Ref{Int} : {
+    get_self() -> &Self : {
         return self;
     }
 }
 
 
-basic_ref_syntax() {
+basic_ref_syntax() : {
     otherO : ~Int = 2;
     __o : ~ Int = otherO;
     _ro : ~ & ~ Int = &__o;
@@ -63,12 +63,12 @@ basic_ref_syntax() {
     assert val == 12;
 }
 
-type MyType {
+type MyType : {
     field : Int;
-    get_field()->Int { return self.field; }
+    get_field()->Int : { return self.field; }
 }
 
-ref_sugar_syntax() {
+ref_sugar_syntax() : {
     __o : ~ Int = 3;
 
     #experr: _ro1 : ~ & ~ Int = __o;
@@ -117,17 +117,17 @@ ref_sugar_syntax() {
 }
 
 /*
-heap_test()->Int {
+heap_test()->Int : {
     heapVar : &~Int = new ~Int();
     heapRef : &~&~Int = new ~&~Int();
     heapVar^ = 2;
     heapRef^ = heapVar;
-    heapArr := new Array<Int,100>();
+    heapArr := new Array{Int,100}();
     return heapRef^^;
 }
 */
 
-main() {
+main() : {
     basic_ref_syntax();
     ref_sugar_syntax();
     ##ret := heap_test();

@@ -3,50 +3,54 @@
 #include "ast_qualtypes.hpp"
 #include "ast/ast_wrappers.hpp"
 #include "ast/expr/ast_lambda_node.hpp"
+#include "ast/expr/ast_field.hpp"
 #include "symbol/symbol_lookup.hpp"
 
 #include "tx_error.hpp"
 
 
-TxIdentifiedSymbolNode* TxIdentifiedSymbolNode::make_ident_sym_node( const TxLocation& ploc, const std::string& compoundName ) {
-    TxIdentifier ci( compoundName );
-    TxIdentifiedSymbolNode* symNode = nullptr;
-    for ( auto it = ci.segments_cbegin(); it != ci.segments_cend(); it++ ) {
-        symNode = new TxIdentifiedSymbolNode( ploc, symNode, new TxIdentifierNode( ploc, *it ) );
-    }
-    return symNode;
-}
+//TxIdentifiedSymbolNode* TxIdentifiedSymbolNode::make_ident_sym_node( const TxLocation& ploc, const std::string& compoundName ) {
+//    TxIdentifier ci( compoundName );
+//    TxIdentifiedSymbolNode* symNode = nullptr;
+//    for ( auto it = ci.segments_cbegin(); it != ci.segments_cend(); it++ ) {
+//        symNode = new TxIdentifiedSymbolNode( ploc, symNode, new TxIdentifierNode( ploc, *it ) );
+//    }
+//    return symNode;
+//}
+//
+//TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
+//    if ( !this->symbol ) {
+//        TxScopeSymbol* vantageScope = this->context().scope();
+//        if ( this->baseSymbolNode ) {
+//            if ( auto baseSymbol = this->baseSymbolNode->resolve_symbol() ) {
+//                // baseSymbol may refer to a namespace, type, or field
+//                this->symbol = lookup_inherited_member( vantageScope, baseSymbol, this->symbolName->ident() );
+//            }
+//        }
+//        else {
+//            this->symbol = search_name( vantageScope, this->symbolName->ident() );
+//        }
+//    }
+//    return this->symbol;
+//}
 
-TxScopeSymbol* TxIdentifiedSymbolNode::resolve_symbol() {
-    if ( !this->symbol ) {
-        TxScopeSymbol* vantageScope = this->context().scope();
-        if ( this->baseSymbolNode ) {
-            if ( auto baseSymbol = this->baseSymbolNode->resolve_symbol() ) {
-                // baseSymbol may refer to a namespace, type, or field
-                this->symbol = lookup_inherited_member( vantageScope, baseSymbol, this->symbolName->ident() );
-            }
-        }
-        else {
-            this->symbol = search_name( vantageScope, this->symbolName->ident() );
-        }
-    }
-    return this->symbol;
-}
 
+TxNamedTypeNode::TxNamedTypeNode( const TxLocation& ploc, const std::string& compoundName )
+        : TxTypeExpressionNode( ploc ), exprNode( make_compound_symbol_expression( ploc, compoundName ) ) {
+}
 
 TxQualType TxNamedTypeNode::define_type( TxPassInfo passInfo ) {
-//    if (get_node_id()==3299)
-//        std::cerr << "HERE " << this << std::endl;
-    if ( auto symbol = this->symbolNode->resolve_symbol() ) {
-        if ( auto entitySym = dynamic_cast<const TxEntitySymbol*>( symbol) ) {
-            if ( auto typeDecl = entitySym->get_type_decl() ) {
-                return typeDecl->get_definer()->resolve_type( passInfo );
-            }
-        }
-        // Symbol is not a field or type
-        CERR_THROWRES( this, "Not a type: '" << this->symbolNode->get_full_identifier() << "'" );
-    }
-    CERR_THROWRES( this, "Unknown symbol: '" << this->symbolNode->get_full_identifier() << "'" );
+    return this->exprNode->resolve_type( passInfo );
+//    if ( auto symbol = this->symbolNode->resolve_symbol() ) {
+//        if ( auto entitySym = dynamic_cast<const TxEntitySymbol*>( symbol) ) {
+//            if ( auto typeDecl = entitySym->get_type_decl() ) {
+//                return typeDecl->get_definer()->resolve_type( passInfo );
+//            }
+//        }
+//        // Symbol is not a field or type
+//        CERR_THROWRES( this, "Not a type: '" << this->symbolNode->get_full_identifier() << "'" );
+//    }
+//    CERR_THROWRES( this, "Unknown symbol: '" << this->symbolNode->get_full_identifier() << "'" );
 }
 
 TxQualType TxMemberTypeNode::define_type( TxPassInfo passInfo ) {
@@ -76,12 +80,16 @@ TxActualType* TxReferenceTypeNode::create_type( TxPassInfo passInfo ) {
 }
 
 TxActualType* TxArrayTypeNode::create_type( TxPassInfo passInfo ) {
+    if ( this->elementTypeNode->is_value() )
+        CERR_THROWRES( this->elementTypeNode, "Array element type is not a type expression" );
     if ( this->requires_mutable_type() ) {
-        if ( auto elemTypeArg = dynamic_cast<TxMaybeModTypeNode*>( this->elementTypeNode->typeExprNode ) )
+        if ( auto elemTypeArg = dynamic_cast<TxMaybeModTypeNode*>( this->elementTypeNode->type_expr_node() ) )
             elemTypeArg->set_modifiable( true );
     }
     if ( this->capacityNode ) {
-        auto ven = static_cast<TxMaybeConversionNode*>( this->capacityNode->valueExprNode );
+        if ( !this->capacityNode->is_value() )
+            CERR_THROWRES( this->capacityNode, "Array capacity is not a value expression" );
+        auto ven = static_cast<TxMaybeConversionNode*>( this->capacityNode->value_expr_node() );
         ven->insert_conversion( passInfo, this->registry().get_builtin_type( ARRAY_SUBSCRIPT_TYPE_ID ) );
         return this->registry().get_array_type( this, this->elementTypeNode, this->capacityNode, this->requires_mutable_type() );
     }

@@ -1,9 +1,9 @@
 module tx
 
 
-interface Range< E > <: Indicable< Long, E > {
+interface Range{ E } <: Indicable{ Long, E } : {
 
-    abstract override sequencer() -> Ref< ~Iterator<E> >;
+    abstract override sequencer() -> Ref{ ~Iterator{E} };
 
     abstract override count() -> Ordinal;
 
@@ -15,28 +15,28 @@ interface Range< E > <: Indicable< Long, E > {
 
 
 /** A range between two values of an Enumerable type. */
-type ERange< E derives Enumerable > <: Tuple, Range< E >, Stringer {
+type ERange{ E derives Enumerable } <: Tuple, Range{ E }, Stringer : {
 
     /** The ERange iterator. */
-    type ~ ERangeIterator <: Tuple, Iterator< E > {
-        range   : &ERange<E>;
+    type ~ ERangeIterator <: Tuple, Iterator{ E } : {
+        range   : &ERange{E};
         nextIndex : ~ULong = 0;
 
-        override has_next() -> Bool {
+        override has_next() -> Bool : {
             return self.nextIndex < self.range.count();
         }
 
-        override has_prev() -> Bool {
+        override has_prev() -> Bool : {
             return self.nextIndex > 0;
         }
 
-        override next() ~ -> E {
+        override next() ~ -> E : {
             n := self.nextIndex;
             self.nextIndex = self.nextIndex + 1;
             return self.range.get( Long( n ) );
         }
 
-        override prev() ~ -> E  {
+        override prev() ~ -> E : {
             self.nextIndex = self.nextIndex - 1;
             return self.range.get( Long( self.nextIndex ) );
         }
@@ -49,7 +49,7 @@ type ERange< E derives Enumerable > <: Tuple, Range< E >, Stringer {
     limit : E;
     stride : Long;
 
-    self( start : E, limit : E, stride : Long ) {
+    self( start : E, limit : E, stride : Long ) : {
         if stride == 0:  panic ( "Zero stride in ERange" );
         indexLimit : ~Long = ( Long( limit.ordinal() - start.ordinal() ) + stride - 1 ) / stride;
         if indexLimit < 0:
@@ -57,24 +57,24 @@ type ERange< E derives Enumerable > <: Tuple, Range< E >, Stringer {
         #init: _indexLimit( indexLimit ), start( start ), limit( limit ), stride( stride );
     }
 
-    override sequencer() -> Ref< ~ERangeIterator > {
+    override sequencer() -> Ref{ ~ERangeIterator } : {
         return new ~ERangeIterator( self );
     }
 
-    override count() -> Ordinal {
+    override count() -> Ordinal : {
         return Ordinal( self._indexLimit );
     }
 
-    override has( index : Long ) -> Bool {
+    override has( index : Long ) -> Bool : {
         if index < 0:
             return -index <= self._indexLimit;
         else
             return index < self._indexLimit;
     }
 
-    override get( index : Long ) -> E {
+    override get( index : Long ) -> E : {
         ix := ~ index;
-        if ix < 0 {
+        if ix < 0 : {
             ix = ix + self._indexLimit;
             if ix < 0:  panic "Invalid range index: " %d index %% " < -" %d self._indexLimit;
         }
@@ -82,10 +82,10 @@ type ERange< E derives Enumerable > <: Tuple, Range< E >, Stringer {
         return E.value( Ordinal( Long( self.start.ordinal() ) + ix * self.stride ) );
     }
 
-    override string( writer : &~tx.ByteWriter ) {
+    override string( writer : &~tx.ByteWriter ) : {
         ## TODO: Either support duck-typing in generic types or provide "unchecked { ... }" mechanism (or similar)
         ## str := %s self.start %% ".." %s self.stride %% ".." %s self.limit;
-        str := "<ERange>";
+        str := "{ERange}";
         str.string( writer );
     }
 }

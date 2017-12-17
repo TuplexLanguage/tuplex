@@ -28,6 +28,8 @@ llvm::Value* instance_method_value_code_gen( LlvmGenerationContext& context, Gen
                                        const TxActualType* fieldType, const std::string& fieldName,
                                        bool nonvirtualLookup );
 
+class TxFieldValueNode;
+TxFieldValueNode* make_compound_symbol_expression( const TxLocation& ploc, const std::string& compoundName );
 
 class TxFieldValueNode : public TxExpressionNode {
     const TxField* _field = nullptr;
@@ -43,29 +45,16 @@ class TxFieldValueNode : public TxExpressionNode {
 protected:
     virtual TxQualType define_type( TxPassInfo passInfo ) override;
 
-    virtual void verification_pass() const override;
-
 public:
-    TxExpressionNode* baseExpr;
+    TxTypeResolvingNode* baseExpr;
     TxIdentifierNode* symbolName;
 
     /** Creates a new TxFieldValueNode.
      * @param base is the base expression (preceding expression adjoined with the '.' operator), or NULL if none
      * @param member is the specified literal field name
      */
-    TxFieldValueNode( const TxLocation& ploc, TxExpressionNode* base, TxIdentifierNode* memberName )
+    TxFieldValueNode( const TxLocation& ploc, TxTypeResolvingNode* base, TxIdentifierNode* memberName )
             : TxExpressionNode( ploc ), baseExpr( base ), symbolName( memberName ) {
-    }
-
-    TxFieldValueNode( const TxLocation& ploc, const std::string& compoundName )
-            : TxExpressionNode( ploc ) {
-        TxIdentifier ci( compoundName );
-        TxFieldValueNode* base = nullptr;
-        for ( auto it = ci.segments_cbegin(); it != std::prev( ci.segments_cend() ); it++ ) {
-            base = new TxFieldValueNode( ploc, base, new TxIdentifierNode( ploc, *it ) );
-        }
-        this->baseExpr = base;
-        this->symbolName = new TxIdentifierNode( ploc, ci.name() );
     }
 
     virtual TxFieldValueNode* make_ast_copy() const override {
@@ -81,6 +70,8 @@ public:
             return this->symbolName->ident();
     }
 
+    virtual bool is_value() const override;
+
     virtual const TxExpressionNode* get_data_graph_origin_expr() const override;
 
     virtual TxFieldStorage get_storage() const override;
@@ -93,8 +84,8 @@ public:
         return this->_field;
     }
 
-    inline const TxFieldDeclaration* get_field_declaration() const {
-        return dynamic_cast<const TxFieldDeclaration*>( this->declaration );
+    inline const TxEntityDeclaration* get_declaration() const {
+        return this->declaration;
     }
 
     virtual const TxActualType* get_constructed_type( TxPassInfo passInfo ) const override {
@@ -117,18 +108,85 @@ public:
 };
 
 
+/** Identifies a field via name. */
+class TxNamedFieldNode : public TxExpressionNode {
+protected:
+    virtual TxQualType define_type( TxPassInfo passInfo ) override {
+        return this->exprNode->resolve_type( passInfo );
+    }
+
+    virtual void verification_pass() const override;
+
+public:
+    TxFieldValueNode* exprNode;
+
+    TxNamedFieldNode( const TxLocation& ploc, TxFieldValueNode* exprNode )
+            : TxExpressionNode( ploc ), exprNode( exprNode ) {
+    }
+
+    TxNamedFieldNode( const TxLocation& ploc, const std::string& compoundName )
+            : TxExpressionNode( ploc ), exprNode( make_compound_symbol_expression( ploc, compoundName ) ) {
+    }
+
+    virtual TxNamedFieldNode* make_ast_copy() const override {
+        return new TxNamedFieldNode( this->ploc, exprNode->make_ast_copy() );
+    }
+
+    virtual const std::vector<TxExpressionNode*>* get_applied_func_args() const override {
+        return this->exprNode->get_applied_func_args();
+    }
+    virtual void set_applied_func_args( const std::vector<TxExpressionNode*>* appliedTypeParameters ) override {
+        this->exprNode->set_applied_func_args( appliedTypeParameters );
+    }
+
+    virtual const TxActualType* get_constructed_type( TxPassInfo passInfo ) const override {
+        return this->exprNode->get_constructed_type( passInfo );
+    }
+
+
+    virtual bool is_value() const override {
+        return this->exprNode->is_value();
+    }
+    virtual const TxExpressionNode* get_data_graph_origin_expr() const override {
+        return this->exprNode->get_data_graph_origin_expr();
+    }
+    virtual TxFieldStorage get_storage() const override {
+        return this->exprNode->get_storage();
+    }
+    virtual bool is_statically_constant() const override {
+        return this->exprNode->is_statically_constant();
+    }
+
+    virtual llvm::Constant* code_gen_const_value( LlvmGenerationContext& context ) const override {
+        return this->exprNode->code_gen_const_value( context );
+    }
+    virtual llvm::Constant* code_gen_const_address( LlvmGenerationContext& context ) const override {
+        return this->exprNode->code_gen_const_address( context );
+    }
+    virtual llvm::Value* code_gen_dyn_address( LlvmGenerationContext& context, GenScope* scope ) const override {
+        return this->exprNode->code_gen_dyn_address( context, scope );
+    }
+    virtual llvm::Value* code_gen_dyn_value( LlvmGenerationContext& context, GenScope* scope ) const override {
+        return this->exprNode->code_gen_dyn_value( context, scope );
+    }
+
+    virtual void visit_descendants( const AstVisitor& visitor, const AstCursor& thisCursor, const std::string& role, void* context ) override {
+        this->exprNode->visit_ast( visitor, thisCursor, "expr", context );
+    }
+
+    virtual const std::string& get_descriptor() const override {
+        return this->exprNode->get_descriptor();
+    }
+};
+
+
 class TxFieldAssigneeNode : public TxAssigneeNode {
 protected:
     virtual TxQualType define_type( TxPassInfo passInfo ) override {
         return this->fieldNode->resolve_type( passInfo );
     }
 
-    virtual void verification_pass() const override {
-        if ( auto fieldDecl = fieldNode->get_field_declaration() ) {
-            if ( fieldDecl->get_storage() == TXS_NOSTORAGE )
-                CERROR( this, "Assignee '" << fieldNode->symbolName << "' is not an L-value / has no storage." );
-        }
-    }
+    virtual void verification_pass() const override;
 
 public:
     TxFieldValueNode* fieldNode;

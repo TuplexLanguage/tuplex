@@ -4,12 +4,12 @@ externc free_time_point( timePoint : ULong );
 externc get_time_diff_nanos( startPoint : ULong ) -> ULong;
 
 
-main( args: &[]&[]UByte ) {
+main( args: &[]&[]UByte ) : {
     print( "Limit\tCount\tMicros" );
 /*
-    if ( args.L > 1 ) {
+    if ( args.L > 1 ) : {
         long limit = atol( argv[1] );
-        if ( limit > 0 ) {
+        if ( limit > 0 ) : {
             void* start = alloc_time_point();
             unsigned long count = prime_sieve( limit );
             uint64_t nanos = get_time_diff_nanos( start );
@@ -21,13 +21,13 @@ main( args: &[]&[]UByte ) {
     magnitude := 7;
     print( "C-style for loops" );
     limit : ~ULong = 100;
-    for l := ~2; l <= magnitude; l = l+1 {
+    for l := ~2; l <= magnitude; l = l+1 : {
         count := prime_sieve_a( limit );
         limit = limit * 10;
     }
     print( "Ranged for loops" );
     limit : ~ULong = 100;
-    for l := ~2; l <= magnitude; l = l+1 {
+    for l := ~2; l <= magnitude; l = l+1 : {
         start := alloc_time_point();
         count := prime_sieve_b( limit );
         micros := get_time_diff_nanos( start )/1000;
@@ -37,7 +37,7 @@ main( args: &[]&[]UByte ) {
     }
 }
 
-prime_sieve_a( limit : ULong ) -> ULong {
+prime_sieve_a( limit : ULong ) -> ULong : {
     if (limit / 8 + 1) > UInt.MAX:
         panic "Limit out of range: " %d limit;
     length := UInt( limit / 8 + 1 );
@@ -52,8 +52,8 @@ prime_sieve_a( limit : ULong ) -> ULong {
     micros1 := get_time_diff_nanos( start )/1000;
 
     ## mark all non-primes:
-    for x : ~ULong = 2; x <= limit; x = x+1 {
-        for m : ~ULong = x*2; m <= limit; m = m+x {
+    for x : ~ULong = 2; x <= limit; x = x+1 : {
+        for m : ~ULong = x*2; m <= limit; m = m+x : {
             i := UInt( m >> 3 );
             b := UByte( m & 7 );
             sieve[i] = sieve[i] & ( ( 1UB << b ) xor 0xFF#UB );
@@ -64,10 +64,10 @@ prime_sieve_a( limit : ULong ) -> ULong {
 
     ## count number of primes:
     count : ~ULong = 0;
-    for x : ~ULong = 2; x <= limit; x = x+1 {
+    for x : ~ULong = 2; x <= limit; x = x+1 : {
         i := UInt( x >> 3 );
         b := UByte( x & 7 );
-        if ( sieve[i] & ( 1UB << b ) ) != 0 {
+        if ( sieve[i] & ( 1UB << b ) ) != 0 : {
             ##print( "Prime: " %d x );
             count = count + 1;
         }
@@ -82,7 +82,7 @@ prime_sieve_a( limit : ULong ) -> ULong {
     return count;
 }
 
-prime_sieve_b( limit : ULong ) -> ULong {
+prime_sieve_b( limit : ULong ) -> ULong : {
     if (limit / 8 + 1) > UInt.MAX:
         panic "Limit out of range: " %d limit;
     limit := Long( limit ) + 1;
@@ -90,13 +90,13 @@ prime_sieve_b( limit : ULong ) -> ULong {
     sieve : &~[]UByte = new ~[length]UByte();
 
     ## manually set sieve to all ones:
-    for i in 0..length {
+    for i in 0..length : {
         sieve[i] = 0xFF;
     }
 
     ## mark all non-primes:
-    for x in 2..limit {
-        for m in x*2..x..limit {
+    for x in 2..limit : {
+        for m in x*2..x..limit : {
             i := UInt( m >> 3 );
             b := UByte( m & 7 );
             sieve[i] = sieve[i] & ( ( 1UB << b ) xor 0xFF#UB );
@@ -105,10 +105,10 @@ prime_sieve_b( limit : ULong ) -> ULong {
 
     ## count number of primes:
     count : ~ULong = 0;
-    for x in 2..limit {
+    for x in 2..limit : {
         i := UInt( x >> 3 );
         b := UByte( x & 7 );
-        if ( sieve[i] & ( 1UB << b ) ) != 0 {
+        if ( sieve[i] & ( 1UB << b ) ) != 0 : {
             ##print( "Prime: " %d x );
             count = count + 1;
         }

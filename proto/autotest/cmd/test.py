@@ -48,11 +48,11 @@ run_cmd( """echo "bad syntax" | txc -nojit """ + options + """ 2>/dev/null""", 1
 run_cmd( """echo "X : Int = 1.1;" | txc -nojit """ + options + """ 2>/dev/null""", 2 )
 
 # run minimal source file (implicit 'return 0')
-run_cmd( """echo "main() { }" | txc -jit """ + options )
+run_cmd( """echo "main() : { }" | txc -jit """ + options )
 
 # run minimal source file with explicit 'return 0'
-run_cmd( """echo "main()->Int { return 0; }" | txc -jit """ + options )
+run_cmd( """echo "main()->Int : { return 0; }" | txc -jit """ + options )
 
 # test assertions
-run_cmd( """echo "main()->Int { assert TRUE;  return 0; }" | txc -jit """ + options )
-run_cmd( """echo "main()->Int { assert FALSE; return 0; }" | txc -jit """ + options + """ >/dev/null""", "nonzero" )
+run_cmd( """echo "main()->Int : { assert TRUE;  return 0; }" | txc -jit """ + options )
+run_cmd( """echo "main()->Int : { assert FALSE; return 0; }" | txc -jit """ + options + """ >/dev/null""", "nonzero" )

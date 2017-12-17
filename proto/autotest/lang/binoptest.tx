@@ -1,4 +1,4 @@
-test_bool_ops() {
+test_bool_ops() : {
     assert TRUE;
     assert !FALSE;
     t := TRUE;
@@ -42,7 +42,7 @@ test_bool_ops() {
     { #experr 1: e := FALSE != 0; }
 }
 
-test_bool_op_prios() {
+test_bool_op_prios() : {
     ## AND precedes OR:
     assert   ( (FALSE &  FALSE) | TRUE  );
     assert ! (  FALSE & (FALSE  | TRUE) );
@@ -73,7 +73,7 @@ test_bool_op_prios() {
     assert   (  FALSE ==  FALSE  | TRUE  );
 }
 
-test_scalar_to_bool_conversion() {
+test_scalar_to_bool_conversion() : {
     ## integer -> bool
     assert !Bool(0);
     assert !Bool(-0);
@@ -115,31 +115,31 @@ test_scalar_to_bool_conversion() {
 }
 
 
-test_and( lval : UByte, rval : UByte, expres : UByte ) {
+test_and( lval : UByte, rval : UByte, expres : UByte ) : {
     assert ( lval & rval ) == expres;
 }
 
-test_or( lval : UByte, rval : UByte, expres : UByte ) {
+test_or( lval : UByte, rval : UByte, expres : UByte ) : {
     assert ( lval | rval ) == expres;
 }
 
-test_xor( lval : UByte, rval : UByte, expres : UByte ) {
+test_xor( lval : UByte, rval : UByte, expres : UByte ) : {
     assert ( lval xor rval ) == expres;
 }
 
-test_lshift( lval : UByte, rval : UByte, expres : UByte ) {
+test_lshift( lval : UByte, rval : UByte, expres : UByte ) : {
     assert ( lval << rval ) == expres;
 }
 
-test_rshift( lval : UByte, rval : UByte, expres : UByte ) {
+test_rshift( lval : UByte, rval : UByte, expres : UByte ) : {
     assert ( lval >> rval ) == expres;
 }
 
-test_arith_rshift( lval : UByte, rval : UByte, expres : UByte ) {
+test_arith_rshift( lval : UByte, rval : UByte, expres : UByte ) : {
     assert ( lval >>> rval ) == expres;
 }
 
-test_bitfield_ops( one : UByte ) {
+test_bitfield_ops( one : UByte ) : {
     assert ( 2#0000_0001 & 2#0000_0000 ) == 0;
     assert ( 2#0000_0000 & 2#0000_0001 ) == 0;
     assert ( 2#1000_0000 & 2#0000_0000 ) == 0;
@@ -271,7 +271,7 @@ test_bitfield_ops( one : UByte ) {
     assert -4L >> 2*one == 16#3FFFFFFFFFFFFFFF;
 }
 
-main() {
+main() : {
     test_bool_ops();
     test_scalar_to_bool_conversion();
     test_bool_op_prios();

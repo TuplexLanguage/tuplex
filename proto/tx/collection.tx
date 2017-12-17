@@ -1,7 +1,7 @@
 module tx
 
 
-interface Collection<E> derives Sequenceable<E>
+interface Collection{E} derives Sequenceable{E} :
 {
     abstract empty() -> Bool;
 

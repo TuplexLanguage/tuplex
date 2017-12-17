@@ -1,5 +1,5 @@
 
-abstract interface Enumerable< E derives Enumerable<E> > {
+abstract interface Enumerable{ E derives Enumerable{E} } : {
     /** returns the last (highest) ordinal for this type */
     virtual abstract last_ordinal() -> UInt;
 
@@ -10,23 +10,23 @@ abstract interface Enumerable< E derives Enumerable<E> > {
     abstract ordinal() -> UInt;
 
 
-    virtual first() -> E {
+    virtual first() -> E : {
         return E.value( 0 );
     }
 
-    virtual last() -> E {
+    virtual last() -> E : {
         return E.value( E.last_ordinal() );
     }
 }
 
-type ERange< E derives Enumerable<E> > derives Tuple {
+type ERange{ E derives Enumerable{E} } derives Tuple : {
     _last : UInt;
 
     start : E;
     end   : E;
     step  : Long;
 
-    self( start : E, end : E, step : Long ) {
+    self( start : E, end : E, step : Long ) : {
         last : ~UInt = 0;
         if step >= 0:
             last = UInt( ( Long( end.ordinal() )   - start.ordinal() + 1L ) / step );
@@ -36,15 +36,15 @@ type ERange< E derives Enumerable<E> > derives Tuple {
         #init: _last( last ), start( start ), end( end ), step( step );
     }
 
-    last_index() -> UInt {
+    last_index() -> UInt : {
         return self._last;
     }
-    at( index : UInt ) -> E {
+    at( index : UInt ) -> E : {
         assert index <= self._last;
         return E.value( self.start.ordinal() + UInt( index * self.step ) );
     }
 }
 
-main() {
-##    irange : ERange<Int>;
+main() : {
+##    irange : ERange{Int};
 }

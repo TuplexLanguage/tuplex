@@ -1,4 +1,4 @@
-test_int_literals_and_limits() {
+test_int_literals_and_limits() : {
     {
         b := 0B;
         s := 0S;
@@ -152,7 +152,7 @@ test_int_literals_and_limits() {
     ## TODO: test promotions and demotions
 }
 
-test_int_comparisons() {
+test_int_comparisons() : {
     assert 0 == 0;
 
     assert 1B == 1B;
@@ -262,7 +262,7 @@ test_int_comparisons() {
     assert  1 > -1;
 }
 
-main() {
+main() : {
     test_int_literals_and_limits();
     test_int_comparisons();
 }

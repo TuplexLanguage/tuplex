@@ -75,6 +75,11 @@ public:
 
     virtual TxTypeResolvingNode* make_ast_copy() const override = 0;
 
+    /** Returns true if this node resolves/evaluates to a value. */
+    virtual bool is_value() const {
+        return false;
+    }
+
     /** Returns the type of the value this node produces/uses.
      * @return a valid type pointer (exception is thrown upon failure) */
     virtual TxQualType resolve_type( TxPassInfo passInfo ) override;

@@ -93,7 +93,6 @@ class TxModifiableTypeNode : public TxQualTypeExprNode {
 protected:
     TxModifiableTypeNode( const TxLocation& ploc, TxTypeExpressionNode* typeNode, bool reqMut )
             : TxQualTypeExprNode( ploc, typeNode ) {
-//        TxTypeExpressionNode::set_requires_mutable( reqMut );
         this->_typeNode->set_requires_mutable( reqMut );
     }
 
@@ -105,15 +104,6 @@ public:
     TxModifiableTypeNode( const TxLocation& ploc, TxTypeExpressionNode* typeNode )
             : TxModifiableTypeNode( ploc, typeNode, true ) {
     }
-
-//    virtual void set_interface( bool ifkw ) override {
-//        TxTypeExpressionNode::set_interface( ifkw );
-//        this->typeNode->set_interface( ifkw );
-//    }
-//
-//    virtual void set_requires_mutable( bool mut ) override {
-//        // do nothing, this is implicitly true for this node type
-//    }
 
     virtual TxModifiableTypeNode* make_ast_copy() const override {
         return new TxModifiableTypeNode( this->ploc, this->_typeNode->make_ast_copy() );
@@ -135,11 +125,6 @@ public:
     TxMaybeModTypeNode( const TxLocation& ploc, TxTypeExpressionNode* baseType )
             : TxModifiableTypeNode( ploc, baseType, false ), _modifiable() {
     }
-
-//    virtual void set_requires_mutable( bool mut ) override {
-//        TxTypeExpressionNode::set_requires_mutable( mut );
-//        this->typeNode->set_requires_mutable( mut );
-//    }
 
     virtual TxMaybeModTypeNode* make_ast_copy() const override {
         return new TxMaybeModTypeNode( this->ploc, this->_typeNode->make_ast_copy() );

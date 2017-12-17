@@ -1,6 +1,6 @@
 module tx
 
 
-interface Comparable< E > derives Interface {
+interface Comparable{ E } derives Interface : {
     abstract compare( other : E ) -> Int;
 }

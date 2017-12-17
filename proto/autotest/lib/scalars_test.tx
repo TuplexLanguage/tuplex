@@ -1,4 +1,4 @@
-test_scalar_ordinals() {
+test_scalar_ordinals() : {
     assert Byte.MIN.ordinal() == 0;
     assert Short.MIN.ordinal() == 0;
     assert Int.MIN.ordinal() == 0;
@@ -55,7 +55,7 @@ test_scalar_ordinals() {
     }
 }
 
-main() -> Int {
+main() -> Int : {
     test_scalar_ordinals();
     return 0;
 }

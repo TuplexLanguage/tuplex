@@ -3,31 +3,31 @@
 #########################################
 ## Basic case, single TYPE parameter:
 
-type Single<A> {
+type Single{A} : {
     amemb : A;
 }
 
 ## test redeclarations:
 
 #experr 1: type SAliasE1 <: Single;
-#experr 1: type SAliasE2<A> <: Single;
+#experr 1: type SAliasE2{A} <: Single;
 
-type SAlias<A> <: Single<A>;
+type SAlias{A} <: Single{A};
 
-type SExt<A> <: Single<A> {
+type SExt{A} <: Single{A} : {
     foo : Float;
 }
 
-type SAliasInt <: Single<Int>;
+type SAliasInt <: Single{Int};
 
-type SExtInt <: Single<Int> {
+type SExtInt <: Single{Int} : {
     foo : Float;
 }
 
-test_single() {
-    inst1 := <Single<Int>>( 42 );
-    inst2 := <SAlias<Int>>( 42 );
-    inst3 := <SExt<Int>>( 42, 3.14 );
+test_single() : {
+    inst1 := Single{Int}( 42 );
+    inst2 := SAlias{Int}( 42 );
+    inst3 := SExt{Int}( 42, 3.14 );
 
     inst4 := SAliasInt( 42 );
     inst5 := SExtInt( 42, 3.14 );
@@ -41,11 +41,11 @@ test_single() {
     }
 
     {
-        iref1 : &Single<Int> = &inst1;
-        iref2 : &Single<Int> = &inst2;
-        iref3 : &Single<Int> = &inst3;
-        iref4 : &Single<Int> = &inst4;
-        iref5 : &Single<Int> = &inst5;
+        iref1 : &Single{Int} = &inst1;
+        iref2 : &Single{Int} = &inst2;
+        iref3 : &Single{Int} = &inst3;
+        iref4 : &Single{Int} = &inst4;
+        iref5 : &Single{Int} = &inst5;
     }
 }
 
@@ -53,7 +53,7 @@ test_single() {
 #########################################
 ## Two TYPE parameters:
 
-type ~ Duo<A,B> {
+type ~ Duo{A,B} : {
     amemb : A;
     bmemb : B;
 }
@@ -61,47 +61,47 @@ type ~ Duo<A,B> {
 ## test redeclarations:
 
 #experr 2: type DAliasE1      <: Duo;
-#experr 2: type DAliasE2<A>   <: Duo;
-#experr 2: type DAliasE3<A,B> <: Duo;
-#experr 2: type DAliasE4<A>   <: Duo<A>;
-#experr 2: type DAliasE5<A,B> <: Duo<A>;
-#experr 1: type DAliasE6<A>   <: Duo<A,B>;
+#experr 2: type DAliasE2{A}   <: Duo;
+#experr 2: type DAliasE3{A,B} <: Duo;
+#experr 2: type DAliasE4{A}   <: Duo{A};
+#experr 2: type DAliasE5{A,B} <: Duo{A};
+#experr 1: type DAliasE6{A}   <: Duo{A,B};
 
-type DAlias<A,B> <: Duo<A,B>;
+type DAlias{A,B} <: Duo{A,B};
 
-type DExt<A,B> <: Duo<A,B> {
+type DExt{A,B} <: Duo{A,B} : {
     foo : Float;
 }
 
-type DAliasIF <: Duo<Int,Float>;
+type DAliasIF <: Duo{Int,Float};
 
-type DExtIF <: Duo<Int,Float> {
+type DExtIF <: Duo{Int,Float} : {
     foo : Float;
 }
 
-type DPart<A> <: Duo<A,Float>;
+type DPart{A} <: Duo{A,Float};
 
-type DPExt<A> <: Duo<A,Float> {
+type DPExt{A} <: Duo{A,Float} : {
     foo : Float;
 }
 
-type DPAliasIF <: DPart<Int>;
+type DPAliasIF <: DPart{Int};
 
-type DPExtIF <: DPExt<Int> {
+type DPExtIF <: DPExt{Int} : {
     foo : Float;
 }
 
 
-test_duo() {
-    inst1 := <Duo<Int,Float>>( 0, 0.0 );
-    inst2 := <DAlias<Int,Float>>( 0, 0.0 );
-    inst3 := <DExt<Int,Float>>( 0, 0.0, 0.0 );
+test_duo() : {
+    inst1 := Duo{Int,Float}( 0, 0.0 );
+    inst2 := DAlias{Int,Float}( 0, 0.0 );
+    inst3 := DExt{Int,Float}( 0, 0.0, 0.0 );
 
     inst4 := DAliasIF( 0, 0.0 );
     inst5 := DExtIF( 0, 0.0, 0.0 );
 
-    inst6 := <DPart<Int>>( 0, 0.0 );
-    inst7 := <DPExt<Int>>( 0, 0.0, 0.0 );
+    inst6 := DPart{Int}( 0, 0.0 );
+    inst7 := DPExt{Int}( 0, 0.0, 0.0 );
     inst8 := DPAliasIF( 0, 0.0 );
     inst9 := DPExtIF( 0, 0.0, 0.0, 0.0 );
 
@@ -118,15 +118,15 @@ test_duo() {
     }
 
     {
-        iref1 : &Duo<Int,Float> = &inst1;
-        iref2 : &Duo<Int,Float> = &inst2;
-        iref3 : &Duo<Int,Float> = &inst3;
-        iref4 : &Duo<Int,Float> = &inst4;
-        iref5 : &Duo<Int,Float> = &inst5;
-        iref6 : &Duo<Int,Float> = &inst6;
-        iref7 : &Duo<Int,Float> = &inst7;
-        iref8 : &Duo<Int,Float> = &inst8;
-        iref9 : &Duo<Int,Float> = &inst9;
+        iref1 : &Duo{Int,Float} = &inst1;
+        iref2 : &Duo{Int,Float} = &inst2;
+        iref3 : &Duo{Int,Float} = &inst3;
+        iref4 : &Duo{Int,Float} = &inst4;
+        iref5 : &Duo{Int,Float} = &inst5;
+        iref6 : &Duo{Int,Float} = &inst6;
+        iref7 : &Duo{Int,Float} = &inst7;
+        iref8 : &Duo{Int,Float} = &inst8;
+        iref9 : &Duo{Int,Float} = &inst9;
     }
 }
 
@@ -134,22 +134,22 @@ test_duo() {
 #########################################
 ## Multiple levels of TYPE parameters, immutable and mutable:
 
-type ImmFirst< A, B, C > {
+type ImmFirst{ A, B, C } : {
     amemb : A;
     bmemb : B;
     cmemb : C;
 }
 
-type ImmSecnd<B,C> <: ImmFirst<Int,B,C> {
+type ImmSecnd{B,C} <: ImmFirst{Int,B,C} : {
 }
 
-type ImmThird<C> <: ImmSecnd<UInt,C> {
+type ImmThird{C} <: ImmSecnd{UInt,C} : {
 }
 
-type ImmFourth <: ImmThird<Float> {
+type ImmFourth <: ImmThird{Float} : {
 }
 
-test_immfourth() {
+test_immfourth() : {
     inst := ImmFourth( 0, 0, 0.0 );
     av : inst.A = -14000000I;
     bv : inst.B = 3000000000UI;
@@ -157,27 +157,27 @@ test_immfourth() {
 }
 
 
-type ~ First< A, B, C > {
+type ~ First{ A, B, C } : {
     amemb : A;
     bmemb : B;
     cmemb : C;
 
-    method()->Int { return 2; }
+    method()->Int : { return 2; }
 }
 
-type ~ Secnd<B,C> <: First<~Int,B,C> {
+type ~ Secnd{B,C} <: First{~Int,B,C} : {
     foo : Float;
 }
 
-type ~ Third<C> <: Secnd<~UInt,C> {
+type ~ Third{C} <: Secnd{~UInt,C} : {
     foo : Float;
 }
 
-type ~ Fourth <: Third<~Float> {
+type ~ Fourth <: Third{~Float} : {
     foo : Float;
 }
 
-test_fourth() {
+test_fourth() : {
     inst := ~Fourth( 0, 0, 0.0, 0.0, 0.0, 0.0 );
     inst.amemb = -14000000I;
     inst.bmemb = 3000000000UI;
@@ -188,21 +188,21 @@ test_fourth() {
 #########################################
 ## Redeclaration and recombining TYPE parameters:
 
-interface AnIf<C,D> {
+interface AnIf{C,D} : {
     abstract get_c() -> C;
     abstract get_d() -> D;
 }
 
-type ~ Combo<X,Y> <: Duo<X,Y>, AnIf<X,Y> {
+type ~ Combo{X,Y} <: Duo{X,Y}, AnIf{X,Y} : {
     xmemb : X;
     ymemb : Y;
 
-    override get_c() -> X  { return self.xmemb; }
-    override get_d() -> Y  { return self.ymemb; }
+    override get_c() -> X : { return self.xmemb; }
+    override get_d() -> Y : { return self.ymemb; }
 }
 
-test_combo( v : Int ) {
-    mycombo := ~<Combo<~Float,~Long>>( 2.72, 17, 0.0, 0 );
+test_combo( v : Int ) : {
+    mycombo := ~Combo{~Float,~Long}( 2.72, 17, 0.0, 0 );
     mycombo.xmemb = 3.14 * Float(v);
     mycombo.ymemb = 42 * v;
     assert mycombo.amemb == 2.72;
@@ -213,7 +213,7 @@ test_combo( v : Int ) {
 
 
 
-main() -> Int {
+main() -> Int : {
     test_single();
     test_duo();
     test_immfourth();

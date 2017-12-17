@@ -148,7 +148,7 @@ void TxAssignStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope
     if ( this->lvalue->qtype()->get_type_class() == TXTC_ARRAY ) {
         auto lvalTypeIdV = this->lvalue->code_gen_typeid( context, scope );
         auto rval = this->rvalue->code_gen_addr( context, scope );
-        code_gen_array_copy( context, scope, this->lvalue->qtype().type(), lvalTypeIdV, lval, rval );
+        code_gen_array_copy( this, context, scope, this->lvalue->qtype().type(), lvalTypeIdV, lval, rval );
     }
     else {
         auto rval = this->rvalue->code_gen_expr( context, scope );
@@ -157,7 +157,7 @@ void TxAssignStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope
 }
 
 
-void TxAssignStmtNode::code_gen_array_copy( LlvmGenerationContext& context, GenScope* scope, const TxActualType* lvalType,
+void TxAssignStmtNode::code_gen_array_copy( const TxNode* origin, LlvmGenerationContext& context, GenScope* scope, const TxActualType* lvalType,
                                             Value* lvalTypeIdV, Value* lvalArrayPtrV, Value* rvalArrayPtrV ) {
 //    std::cerr << "lval type: " << lvalType << std::endl;
 //    std::cerr << "lval: " << lvalArrayPtrV << std::endl;
@@ -184,7 +184,8 @@ void TxAssignStmtNode::code_gen_array_copy( LlvmGenerationContext& context, GenS
         { // if assignee has insufficient capacity
             scope->builder->SetInsertPoint( trueBlock );
             auto srcLen64V = scope->builder->CreateZExt( srcLenV, Type::getInt64Ty( context.llvmContext ) );
-            context.gen_panic_call( scope, "Assigned array is longer than assignee's capacity, length = %d\n", srcLen64V );
+            context.gen_panic_call( scope, origin->parse_loc_string()
+                                    + ": Assigned array is longer than assignee's capacity, length = %d\n", srcLen64V );
             scope->builder->CreateBr( nextBlock );  // terminate block, though won't be executed
         }
 

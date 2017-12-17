@@ -5,25 +5,25 @@
 #experr 1: builtin type BadUserType derives Tuple;
 
 
-test_array_const_interface() {
-    a00 := <Array<Int,0>>();        ## zero-sized array
-    a01 : Array<Int,0> = [0]Int();  ## zero-sized array
+test_array_const_interface() : {
+    a00 := Array{Int,0}();          ## zero-sized array
+    a01 : Array{Int,0} = [0]Int();  ## zero-sized array
     a02 := [0]Int();                ## zero-sized array
 
-    a03 := <Array<Int,1>>();        ##
-    a04 : Array<Int,1> = [1]Int();  ## 
+    a03 := Array{Int,1}();          ##
+    a04 : Array{Int,1} = [1]Int();  ## 
     a05 := [1]Int();                ## 
 
-    a06 := <Array<Int,2>>();        ##
-    a07 : Array<Int,2> = [2]Int();  ## 
+    a06 := Array{Int,2}();          ##
+    a07 : Array{Int,2} = [2]Int();  ## 
     a08 := [2]Int();                ## 
 
 
-    a11 : Array<Int,1> = [ 10I ];     
+    a11 : Array{Int,1} = \[ 10I ];     
     a12 := [1]Int( 10I );             
-    ## TODO partial assignment: a13 : Array<Int,2> = [ 10I ];     
-    a14 := <Array<Int,2>>( [ 10I ] );
-    a15 : Array<Int,2> = [ 10I, 20I ]; 
+    a13 : Array{Int,2} = \[ 10I ];     
+    a14 := Array{Int,2}( \[ 10I ] );
+    a15 : Array{Int,2} = [ 10I, 20I ]; 
     a16 := [2]Int( 10I, 20I );         
 
 
@@ -130,7 +130,7 @@ test_array_const_interface() {
     assert a16.get( 1 ) == 20;
 }
 
-main() -> Int {
+main() -> Int : {
     test_array_const_interface();
     return 0;
 }

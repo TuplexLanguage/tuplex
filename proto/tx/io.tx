@@ -1,14 +1,14 @@
 module tx
 
 
-print( str : &Stringer ) {
+print( str : &Stringer ) : {
     buf := ~ GrowableUByteArray();
     str.string( &buf );
     buf.add( 0 );  ## handle empty string and ensure there is a null terminator
     tx.c.puts( buf.array() );
 }
 
-print_err( str : &Stringer ) {
+print_err( str : &Stringer ) : {
     buf := ~ GrowableUByteArray();
     str.string( &buf );
     buf.add( '\n' );
@@ -16,46 +16,46 @@ print_err( str : &Stringer ) {
     tx.c.fputs( buf.array(), tx.c.stderr );
 }
 
-print_address( r : Ref ) {
+print_address( r : Ref ) : {
     print( %016x _address( r ) );
 }
 
 
-read() -> String {
+read() -> String : {
     ## char * fgets ( char * str, int num, FILE * stream );
     return "dummy";
 }
 
 
-interface ByteWriter {
+interface ByteWriter : {
     abstract write( buf : &[]UByte ) ~ -> Long;
 }
 
 
-interface ByteReader {
+interface ByteReader : {
     abstract read( buf : &~[]UByte ) ~ -> Long;
 }
 
 
 /** A growable UByte array. */
-type ~ GrowableUByteArray <: Tuple, ByteWriter {
+type ~ GrowableUByteArray <: Tuple, ByteWriter : {
     ## FUTURE: Implement same interfaces as Array
-    ## FUTURE: Generalize on element type when we can author Writer<E> (requires the modifiability refactoring)
+    ## FUTURE: Generalize on element type when we can author Writer{E} (requires the modifiability refactoring)
 
     _arr : ~&~[]UByte;
 
-    self() {
+    self() : {
         #init: _arr( new ~[8]UByte() );
     }
 
-    self( arr : &[]UByte ) {
+    self( arr : &[]UByte ) : {
         #init: _arr( new ~[arr.L+8]UByte() );
         for i in 0..arr.L:
             self._arr[i] = arr[i];
     }
 
-    override write( arr : &[]UByte ) ~ -> Long {
-        if self._arr.C-self._arr.L < arr.L {
+    override write( arr : &[]UByte ) ~ -> Long : {
+        if self._arr.C-self._arr.L < arr.L : {
             tmp := new ~[self._arr.L + arr.L + 8]UByte();
             for i in 0..self._arr.L:
                 tmp[i] = self._arr[i];
@@ -67,12 +67,12 @@ type ~ GrowableUByteArray <: Tuple, ByteWriter {
         return arr.L;
     }
 
-    add( val : UByte ) ~ -> Bool {
-        self.write( [ val ] );
+    add( val : UByte ) ~ -> Bool : {
+        self.write( \[ val ] );
         return TRUE;
     }
 
-    array() -> &[]UByte {
+    array() -> &[]UByte : {
         return self._arr;
     }
 }

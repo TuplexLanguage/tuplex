@@ -322,25 +322,24 @@ static TxActualType* matches_existing_specialization( const TxActualType* genBas
     // (Note: We know that the existing specialization and the new candidate have equal number of bindings.)
     for ( unsigned ix = 0; ix < bindings.size(); ix++ ) {
         auto binding = bindings.at( ix );
-        if ( auto typeBinding = dynamic_cast<const TxTypeTypeArgumentNode*>( binding ) ) {
+        if ( !binding->is_value() ) {
             if ( auto existingBindingTypeDecl = dynamic_cast<const TxTypeDeclaration*>( existingSpecBindings.at( ix ) ) ) {
-                const TxQualType newBindingQT = typeBinding->typeExprNode->qtype();
+                const TxQualType newBindingQT = binding->type_expr_node()->qtype();
                 const TxQualType existingBindingQT = existingBindingTypeDecl->get_definer()->qtype();
                 if ( newBindingQT == existingBindingQT )
                     continue;
             }
         }
-        else {  // TxValueTypeArgumentNode
+        else {  // TxTypeArgumentNode
             // Statically constant VALUE specializations with distinct values are distinct types.
             // Dynamic VALUE specializations with distinct value expressions are distinct (we presume inequality in this implementation).
-            auto valueBinding = static_cast<const TxValueTypeArgumentNode*>( binding );
             if ( auto existingFieldDecl = dynamic_cast<const TxFieldDeclaration*>( existingSpecBindings.at( ix ) ) ) {
                 // to match, both need to be statically constant and with equal value
                 if ( auto existingInitializer = existingFieldDecl->get_definer()->get_init_expression() ) {
-                    if ( valueBinding->valueExprNode->is_statically_constant() && existingInitializer->is_statically_constant() ) {
-                        auto actType = valueBinding->valueExprNode->qtype().type();
+                    if ( binding->value_expr_node()->is_statically_constant() && existingInitializer->is_statically_constant() ) {
+                        auto actType = binding->value_expr_node()->qtype().type();
                         if ( actType->has_runtime_type_id() && is_concrete_uinteger_type( actType ) )
-                            if ( eval_unsigned_int_constant( valueBinding->valueExprNode ) == eval_unsigned_int_constant( existingInitializer ) )
+                            if ( eval_unsigned_int_constant( binding->value_expr_node() ) == eval_unsigned_int_constant( existingInitializer ) )
                                 continue;
                     }
 //                    if ( is_static_equal( valueBinding->valueExprNode, existingInitializer ) )
@@ -369,10 +368,10 @@ static TxActualType* get_existing_type( const TxActualType* genBaseType, const s
         for ( unsigned ix = 0; ix < bindings.size(); ix++ ) {
             auto binding = bindings.at( ix );
             auto paramDecl = baseTypeParams.at( ix );
-            if ( auto typeBinding = dynamic_cast<const TxTypeTypeArgumentNode*>( binding ) ) {
+            if ( !binding->is_value() ) {
                 auto typeParamDecl = static_cast<const TxTypeDeclaration*>( paramDecl );
                 const TxQualType constraintQType( typeParamDecl->get_definer()->qtype() );
-                const TxQualType bindingQType = typeBinding->typeExprNode->qtype();
+                const TxQualType bindingQType = binding->type_expr_node()->qtype();
                 if ( bindingQType->get_declaration()->get_decl_flags() & TXD_GENPARAM ) {
                     auto bindingDecl = bindingQType->get_declaration();
                     if ( bindingDecl == constraintQType.type()->get_declaration() ) {
@@ -384,7 +383,7 @@ static TxActualType* get_existing_type( const TxActualType* genBaseType, const s
                 else if ( constraintQType == bindingQType )
                     continue;
             }
-            else {  // TxValueTypeArgumentNode
+            else {  // TxTypeArgumentNode
                 // VALUE parameters don't have "defaults"
             }
             matchOK = false;
@@ -448,33 +447,32 @@ TxActualType* TypeRegistry::get_inner_type_specialization( const TxTypeResolving
 //        auto paramDecl = baseTypeParams.at( ix );
 //        paramDecl->get_definer()->resolve_type( passInfo );  // ensure param is resolved (and verify that it does resolve)
 
-        if ( auto typeArg = dynamic_cast<const TxTypeTypeArgumentNode*>( binding ) ) {
+        if ( !binding->is_value() ) {
 //            if ( !dynamic_cast<const TxTypeDeclaration*>( paramDecl ) )
 //                CERR_THROWRES( binding, "Can't bind a VALUE base type parameter using a TYPE: " << paramDecl->get_unique_full_name() );
 
             // ensure binding is resolved (and verify that it does resolve):
-            typeArg->typeExprNode->resolve_type( TXP_TYPE );
+            binding->type_expr_node()->resolve_type( TXP_TYPE );
             typeSpecTypeName << ( typeBindings.empty() ? "$" : ",$" );
             valueSpecTypeName << ( ix == 0 ? "$" : ",$" );
-            typeBindings.push_back( typeArg );
+            typeBindings.push_back( binding );
         }
-        else {  // binding is TxValueTypeArgumentNode
-            auto valueArg = static_cast<const TxValueTypeArgumentNode*>( binding );
+        else {  // binding is TxTypeArgumentNode
 //            if ( !dynamic_cast<const TxFieldDeclaration*>( paramDecl ) )
 //                CERR_THROWRES( binding, "Can't bind a TYPE base type parameter using a VALUE: " << paramDecl->get_unique_full_name() );
 
-            valueArg->valueExprNode->resolve_type( TXP_TYPE );  // ensure binding is resolved (and verify that it does resolve)
+            binding->value_expr_node()->resolve_type( TXP_TYPE );  // ensure binding is resolved (and verify that it does resolve)
             if ( ix > 0 )
                 valueSpecTypeName << ",";
-            if ( valueArg->valueExprNode->is_statically_constant() ) {
-                uint32_t bindingValue = eval_unsigned_int_constant( valueArg->valueExprNode );
+            if ( binding->value_expr_node()->is_statically_constant() ) {
+                uint32_t bindingValue = eval_unsigned_int_constant( binding->value_expr_node() );
                 valueSpecTypeName << bindingValue;  // statically known value
             }
             else {
                 valueSpecTypeName << "?";  // dynamic value
                 // implementation note: a distinct compile time type is registered which holds this specific dynamic value expression
             }
-            valueBindings.push_back( valueArg );
+            valueBindings.push_back( binding );
         }
     }
     typeSpecTypeName << ">";
@@ -538,28 +536,27 @@ TxActualType* TypeRegistry::make_type_specialization( const TxTypeResolvingNode*
         auto paramDecl = baseTypeParams.at( ix );
         auto paramName = paramDecl->get_unique_name();
 
-        if ( auto typeArg = dynamic_cast<const TxTypeTypeArgumentNode*>( binding ) ) {
-            bindingsTypeGenDependent |= typeArg->typeExprNode->qtype()->is_type_generic_dependent();
-            bindingsValueGenDependent |= typeArg->typeExprNode->qtype()->is_value_generic_dependent();
+        if ( !binding->is_value() ) {
+            bindingsTypeGenDependent |= binding->type_expr_node()->qtype()->is_type_generic_dependent();
+            bindingsValueGenDependent |= binding->type_expr_node()->qtype()->is_value_generic_dependent();
 
-            auto btypeExprNode = new TxGenBindingAliasTypeNode( typeArg->get_parse_location(), typeArg->typeExprNode );
-            bindingDeclNodes->push_back( new TxTypeDeclNode( typeArg->get_parse_location(), TXD_GENBINDING | TXD_PUBLIC,
-                                                             new TxIdentifierNode( typeArg->get_parse_location(), paramName ),
+            auto btypeExprNode = new TxGenBindingAliasTypeNode( binding->get_parse_location(), binding->type_expr_node() );
+            bindingDeclNodes->push_back( new TxTypeDeclNode( binding->get_parse_location(), TXD_GENBINDING | TXD_PUBLIC,
+                                                             new TxIdentifierNode( binding->get_parse_location(), paramName ),
                                                              nullptr, btypeExprNode ) );
             typeBindings = true;
             LOG_TRACE( this->LOGGER(), "Re-bound base type " << baseDecl->get_unique_full_name() << " parameter '" << paramName
-                       << "' with " << typeArg->typeExprNode );
+                       << "' with " << binding->type_expr_node() );
         }
         else {
-            auto valueArg = static_cast<const TxValueTypeArgumentNode*>( binding );
-            bindingsTypeGenDependent |= valueArg->valueExprNode->qtype()->is_type_generic_dependent();
-            bindingsValueGenDependent |= valueArg->valueExprNode->qtype()->is_value_generic_dependent();
-            // FIXME bindingsValueGenDependent |= valueArg->valueExprNode->is_value_gen_dependent();
+            bindingsTypeGenDependent |= binding->value_expr_node()->qtype()->is_type_generic_dependent();
+            bindingsValueGenDependent |= binding->value_expr_node()->qtype()->is_value_generic_dependent();
+            // FIXME bindingsValueGenDependent |= binding->valueExprNode->is_value_gen_dependent();
 
-            bindingDeclNodes->push_back( make_value_type_param_decl_node( valueArg->get_parse_location(), paramName,
-                                                                          TXD_GENBINDING | TXD_PUBLIC, paramDecl, valueArg->valueExprNode ) );
+            bindingDeclNodes->push_back( make_value_type_param_decl_node( binding->get_parse_location(), paramName,
+                                                                          TXD_GENBINDING | TXD_PUBLIC, paramDecl, binding->value_expr_node() ) );
             LOG_TRACE( this->LOGGER(), "Re-bound base type " << baseDecl->get_unique_full_name() << " parameter '" << paramName
-                       << "' with " << valueArg->valueExprNode );
+                       << "' with " << binding->value_expr_node() );
         }
     }
 
@@ -659,8 +656,8 @@ TxActualType* TypeRegistry::instantiate_type( const TxTypeResolvingNode* definer
 
 
 
-TxActualType* TypeRegistry::get_reference_type( TxTypeResolvingNode* definer, const TxTypeTypeArgumentNode* targetTypeBinding,
-                                                const TxIdentifier* dataspace ) {
+TxActualType* TypeRegistry::get_reference_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* targetTypeBinding,
+                                                const TxIdentifierNode* dataspace ) {
     auto baseType = this->get_builtin_type( TXBT_REFERENCE );
     auto type = this->get_inner_type_specialization( definer, baseType,
                                                      { targetTypeBinding }, true );
@@ -668,8 +665,8 @@ TxActualType* TypeRegistry::get_reference_type( TxTypeResolvingNode* definer, co
     return type;
 }
 
-TxActualType* TypeRegistry::get_array_type( TxTypeResolvingNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding,
-                                            const TxValueTypeArgumentNode* capBinding, bool mutableType ) {
+TxActualType* TypeRegistry::get_array_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* elemTypeBinding,
+                                            const TxTypeArgumentNode* capBinding, bool mutableType ) {
     auto baseType = this->get_builtin_type( TXBT_ARRAY );
     auto type = this->get_inner_type_specialization( definer, baseType,
                                                      { elemTypeBinding, capBinding }, mutableType );
@@ -677,7 +674,7 @@ TxActualType* TypeRegistry::get_array_type( TxTypeResolvingNode* definer, const 
     return type;
 }
 
-TxActualType* TypeRegistry::get_array_type( TxTypeResolvingNode* definer, const TxTypeTypeArgumentNode* elemTypeBinding, bool mutableType ) {
+TxActualType* TypeRegistry::get_array_type( TxTypeResolvingNode* definer, const TxTypeArgumentNode* elemTypeBinding, bool mutableType ) {
     auto baseType = this->get_builtin_type( TXBT_ARRAY );
     auto type = this->get_inner_type_specialization( definer, baseType,
                                                      { elemTypeBinding }, mutableType );

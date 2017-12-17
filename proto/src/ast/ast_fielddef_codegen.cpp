@@ -46,7 +46,9 @@ void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenSco
     auto type = this->qtype().type();
     Value* fieldPtrV;
     if ( this->initExpression ) {
-        if ( this->initExpression->get_storage() == TXS_UNBOUND_STACK ) {
+        // (since we allow initialization of a longer array with a shorter one, we force explicit allocation if can't guarantee types to be exactly equal)
+        bool maybeMismatchingArrayLen = type->get_type_class() == TXTC_ARRAY && bool( this->typeExpression );
+        if ( this->initExpression->get_storage() == TXS_UNBOUND_STACK && !maybeMismatchingArrayLen ) {
             fieldPtrV = this->initExpression->code_gen_addr( context, scope );
         }
         else {
@@ -57,7 +59,7 @@ void TxLocalFieldDefNode::code_gen_field( LlvmGenerationContext& context, GenSco
                 ASSERT( !this->cachedConstantInitializer, "Constant initializer value already set when initializing array field " << this );  // how handle?
                 Value* initializer = this->initExpression->code_gen_addr( context, scope );
                 auto lvalTypeIdC = ConstantInt::get( IntegerType::getInt32Ty( context.llvmContext ), type->get_runtime_type_id() );
-                TxAssignStmtNode::code_gen_array_copy( context, scope, type, lvalTypeIdC, fieldPtrV, initializer );
+                TxAssignStmtNode::code_gen_array_copy( this, context, scope, type, lvalTypeIdC, fieldPtrV, initializer );
             }
             else {
                 Value* initializer = this->cachedConstantInitializer;

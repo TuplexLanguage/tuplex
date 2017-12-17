@@ -5,9 +5,9 @@ module tx
 type ~ Ordinal <: ULong;
 
 
-interface Enumerable< E derives Enumerable<E> > <: Comparable< E > {
+interface Enumerable{ E derives Enumerable{E} } <: Comparable{ E } : {
 
-    override compare( other : E ) -> Int {
+    override compare( other : E ) -> Int : {
         so := self.ordinal();
         oo := other.ordinal();
         if so < oo:  return -1; 
@@ -16,11 +16,11 @@ interface Enumerable< E derives Enumerable<E> > <: Comparable< E > {
     }
 
 /*
-    virtual first() -> E {
+    virtual first() -> E : {
         return E.value( 0 );
     }
 
-    virtual last() -> E {
+    virtual last() -> E : {
         return E.value( E.limit()-1 );
     }
 */

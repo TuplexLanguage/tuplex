@@ -368,7 +368,7 @@ public:
     }
 
 
-    static void code_gen_array_copy( LlvmGenerationContext& context, GenScope* scope, const TxActualType* lvalType,
+    static void code_gen_array_copy( const TxNode* origin, LlvmGenerationContext& context, GenScope* scope, const TxActualType* lvalType,
                                      llvm::Value* lvalTypeIdV, llvm::Value* lvalArrayPtrV, llvm::Value* rvalArrayPtrV );
 };
 

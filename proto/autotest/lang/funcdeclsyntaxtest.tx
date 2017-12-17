@@ -1,6 +1,6 @@
 type ~ FuncType <: ( a : Int )->Int;
 
-square( a : Int )->Int { return a * a; }
+square( a : Int )->Int : { return a * a; }
 
 ## these are equivalent:
 aFunction : ( a : Int )->Int = square;
@@ -10,18 +10,18 @@ cFunction                   := square;
 ## function returning function:
 type FuncProvider <: ()-> ( a : Int )->Int;
 
-type Multiplier {
+type Multiplier : {
     b : Int;
 
-    mul( a : Int )->Int { return a * self.b; }
+    mul( a : Int )->Int : { return a * self.b; }
 
-    higher( f : FuncType )->Int {
+    higher( f : FuncType )->Int : {
         return f( self.b );
     }
 }
 
-main()->Int {
-    localFunc := ( a : Int )->Int { return a * 2; };
+main()->Int : {
+    localFunc := ( a : Int )->Int : return a * 2; ;
 
     value : ~Int = 2;
 
@@ -42,7 +42,7 @@ main()->Int {
     value = tmpFn( value );  ## 128
 
     ## higher order function and inline lambda:
-    value = value + mulObj.higher( ( a : Int )->Int { return a + 1; } );
+    value = value + mulObj.higher( ( a : Int )->Int : { return a + 1; } );
 
     assert value == 131;
 

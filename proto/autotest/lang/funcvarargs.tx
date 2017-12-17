@@ -1,10 +1,10 @@
 ## tests var-args functions
 
-var_func1( x : Int, vars : Float... ) -> Int {
+var_func1( x : Int, vars : Float... ) -> Int : {
     sum : ~Float = 0.0;
     {
         ix : ~UInt = 0;
-        while ix < vars.C {
+        while ix < vars.C : {
             sum = sum + vars[ix];
             ix = ix + 1;
         }
@@ -12,11 +12,11 @@ var_func1( x : Int, vars : Float... ) -> Int {
     return Int( sum * 10.0 ) + x;
 }
 
-var_func2( x : Int, vars : &[]Float ) -> Int {
+var_func2( x : Int, vars : &[]Float ) -> Int : {
     sum : ~Float = 0.0;
     {
         ix : ~UInt = 0;
-        while ix < vars.C {
+        while ix < vars.C : {
             sum = sum + vars[ix];
             ix = ix + 1;
         }
@@ -26,11 +26,11 @@ var_func2( x : Int, vars : &[]Float ) -> Int {
 
 
 ## test syntactic sugar for passing a fixed-size array by value
-array_func( vars : [3]Float ) -> Int {
+array_func( vars : [3]Float ) -> Int : {
     sum : ~Float = 0.0;
     {
         ix : ~UInt = 0;
-        while ix < vars.C {
+        while ix < vars.C : {
             sum = sum + vars[ix];
             ix = ix + 1;
         }
@@ -39,7 +39,7 @@ array_func( vars : [3]Float ) -> Int {
 }
 
 
-main() -> Int {
+main() -> Int : {
     n1 := var_func1( 1, 1.1, 2.2, 3.3 );
     assert n1 == 67;
     n2 := var_func1( 2, [ 1.1, 2.2, 3.3 ] );

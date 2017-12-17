@@ -1,16 +1,16 @@
 
-interface Comparable< E > derives Interface {
+interface Comparable{ E } derives Interface : {
     abstract compare( other : E ) -> Int;
 }
 
-interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
+interface Enumerable{ E derives Enumerable{E} } derives Comparable{ E } : {
 
     virtual abstract value( ordinal: ULong ) -> E;
 
     abstract ordinal() -> ULong;
 
 /* TODO: support AST copies of expressions containing scalar conversion nodes
-    override compare( other : E ) -> Int {
+    override compare( other : E ) -> Int : {
         if self.ordinal() < other.ordinal()
             return -1;
         else if self.ordinal() > other.ordinal()
@@ -21,18 +21,18 @@ interface Enumerable< E derives Enumerable<E> > derives Comparable< E > {
 */
 }
 
-type MyUInt <: Tuple, Enumerable< MyUInt > {
-    virtual override value( ordinal: ULong ) -> MyUInt {
+type MyUInt <: Tuple, Enumerable{ MyUInt } : {
+    virtual override value( ordinal: ULong ) -> MyUInt : {
         return MyUInt( UInt( ordinal ) );
     }
 
     val : UInt;
 
-    override ordinal() -> ULong {
+    override ordinal() -> ULong : {
         return self.val;
     }
 
-    override compare( other : MyUInt ) -> Int {
+    override compare( other : MyUInt ) -> Int : {
         if self.ordinal() < other.ordinal():
             return -1;
         else if self.ordinal() > other.ordinal():
@@ -42,7 +42,7 @@ type MyUInt <: Tuple, Enumerable< MyUInt > {
     }
 }
 
-main() -> Int {
+main() -> Int : {
     var1 := MyUInt( 1 );
     var2 := MyUInt( 2 );
     assert var1.ordinal() == 1;

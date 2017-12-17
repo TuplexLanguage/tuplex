@@ -56,14 +56,14 @@ void TxSelfSuperFieldsStmtNode::stmt_declaration_pass() {
 }
 
 static TxMemProviderNode* make_member_expr( TxIdentifierNode* identifier ) {
+    auto loc = identifier->ploc;
     if ( identifier->ident() == "self" || identifier->ident() == "super" )
-        return new TxInPlaceAllocNode( identifier->ploc,
-                                       new TxReferenceDerefNode( identifier->ploc,
-                                                                 new TxFieldValueNode( identifier->ploc, nullptr, identifier ) ) );
-    else
-        return new TxInPlaceAllocNode( identifier->ploc,
-                                       new TxFieldValueNode( identifier->ploc,
-                                                             new TxFieldValueNode( identifier->ploc, "self" ), identifier ) );
+        return new TxInPlaceAllocNode( loc, new TxReferenceDerefNode(
+                loc, new TxNamedFieldNode( loc, new TxFieldValueNode( loc, nullptr, identifier ) ) ) );
+    else {
+        auto selfBase = new TxFieldValueNode( loc, nullptr, new TxIdentifierNode( loc, "self" ) );
+        return new TxInPlaceAllocNode( loc, new TxNamedFieldNode( loc, new TxFieldValueNode( loc, selfBase, identifier ) ) );
+    }
 }
 
 

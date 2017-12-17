@@ -1,7 +1,7 @@
 module test.modul
 
 
-double_a_value( val : Int )->Int {
+double_a_value( val : Int )->Int : {
     return val * 2;
 }
 
@@ -11,7 +11,7 @@ module test.modul.submod {
 }
 
 
-main() {
+main() : {
     assert test.modul.submod.SUB_FIELD == 42;
     assert double_a_value( submod.SUB_FIELD ) == 84;
 }

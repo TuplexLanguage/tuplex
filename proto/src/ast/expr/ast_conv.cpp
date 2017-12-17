@@ -297,7 +297,7 @@ TxQualType TxReferenceConvNode::define_type( TxPassInfo passInfo ) {
 //            // earlier we created a reference type to the adapter type, but shouldn't be necessary, doesn't affect code generation
 //            auto adapterDefiner = new TxSetQualTypeExprNode( this->ploc, new TxTypeDeclWrapperNode( this->ploc, adapterType->get_declaration() ),
 //                                                             resultTargetType.is_modifiable() );
-//            TxTypeTypeArgumentNode* targetTypeNode = new TxTypeTypeArgumentNode( adapterDefiner );
+//            TxTypeArgumentNode* targetTypeNode = new TxTypeArgumentNode( adapterDefiner );
 //            run_declaration_pass( targetTypeNode, this, "type" );
 //            return this->registry().get_reference_type( this, targetTypeNode, nullptr );
         }
