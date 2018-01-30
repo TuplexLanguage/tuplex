@@ -55,7 +55,7 @@ This is where three major semantic operations are performed:
 
 Certain parameterized type definitions are semantically recursive, even while being legal and well defined. Consider the definition of the Enumerable interface:
 
-    interface Enumerable< E derives Enumerable<E> >
+    interface Enumerable{ E derives Enumerable{E} }
 
 The constraint on the E parameter refers to the type being declared by this statement, and in addition the constraint refers to the parameter itself. To resolve such definitions the compiler works with a deferred ("lazy") resolution model. At the point where the type is defined a proxy is created for it, and put on the type resolution queue to be fully instantiated and laid out later.
 

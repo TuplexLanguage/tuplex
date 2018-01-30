@@ -96,6 +96,8 @@ source_files = [
     "genericconvtest.tx",
 
     "matrixtest.tx",
+
+    "syntax_intro.tx",
 ]
 
 for src in source_files:

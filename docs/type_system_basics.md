@@ -20,15 +20,17 @@ interface NAME ( <: INTERFACE ( , INTERFACE )* )? ( ; | BODY )
 
 * The `<:` token denotes type derivation (like in the Julia language). If unspecified, object types will by default derive from `Tuple` and interfaces from `Interface`.
 
+(`~` and `mut` are interchangeable, as are `<:` and `derives`. Here we use the short form.)
+
 Declaring a plain old data type (a tuple of fields), mutable or not, is very simple:
 
     ## An immutable plain old data type:
-    type MyImmType {
+    type MyImmType : {
          immfield : Int;
     }  
 
     ## A mutable plain old data type:
-    type ~ MyMutType {
+    type ~ MyMutType : {
          mutfield : ~Int;
     }
 
@@ -88,34 +90,34 @@ Interfaces have no instance data and thus no constructors.
 Using methods, constructors, and interfaces we can create the more sophisticated type hierarchies familiar from other OO languages:
 
 ```
-interface IntfA {
+interface IntfA : {
     abstract get_value()->Int;
 
     ## "mixin" or default-implementation interface methods:
-    mixin_method_1()->Int { return 1; }
-    mixin_method_2()->Int { return 2; }
+    mixin_method_1()->Int : return 1;
+    mixin_method_2()->Int : return 2;
 }
 
-interface IntfB <: IntfA {         ## extends the interface IntfA
+interface IntfB <: IntfA : {         ## extends the interface IntfA
     abstract set_value( v : Int );
 }
 
-type ~ MyType <: Tuple, IntfB {    ## a Tuple type that implements IntfB
+type ~ MyType <: Tuple, IntfB : {    ## a Tuple type that implements IntfB
     field : ~Int;
 
-    self(f : Int) {
+    self(f : Int) : {
         self.field = f;
     }
 
-    override get_value()->Int {
+    override get_value()->Int : {
         return self.field;
     }
 
-    override set_value( v : Int ) ~ {
+    override set_value( v : Int ) ~ : {
         self.field = v;
     }
 
-    override mixin_method_2()->Int {
+    override mixin_method_2()->Int : {
         return 3;
     }
 }

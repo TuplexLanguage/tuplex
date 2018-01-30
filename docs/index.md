@@ -26,9 +26,8 @@ Hello World Example
 
 Not beating around the bush, this is the <em>Hello, World!</em> program in Tuplex:
 
-    main() {
+    main():
         print( "Hello, world!" );
-    }
 
 The syntax is a relative of C, Java, and Python, with some influences from Rust, Go, and Ada.
 

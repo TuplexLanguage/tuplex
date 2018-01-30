@@ -56,47 +56,47 @@ The built-in types Ref and Array are prime examples of generic types and their a
     
     /** A Ref instance contains a pointer to an object in memory.
      * Ref is the base type for the REF type class.
-     * @param <T> The type of the pointer target object
+     * @param {T} The type of the pointer target object
      */
-    builtin type ~ Ref<T> derives Any { ... }
+    builtin type ~ Ref{T} <: Any { ... }
 
     /** An Array instance contains zero or more elements of the same type
      * serially arranged in memory.
      * Array is the base type for the ARRAY type class.
-     * @param <E> The element type
-     * @param <C> The array capacity, a UInt value
+     * @param {E} The element type
+     * @param {C} The array capacity, a UInt value
      */
-    builtin type ~ Array<E, C:UInt> derives Any, Collection<E>,
-                                            Updatable<UInt, E> { ... }
+    builtin type ~ Array{E, C:UInt} <: Any, Collection{E},
+                                       Updatable{UInt, E} { ... }
 
 The above don't specify constraints on their type parameters. The following is an example of a type that declares a ref-constrained type parameter:
 
-    type ~ MyHandle<R derives Ref> { ... }
+    type ~ MyHandle{R <: Ref} { ... }
 
 
 ### Type Specialization Syntax
 
 To define a reference specialization:
 
-    intref : Ref<Int>;
+    intref : Ref{Int};
 
 To define an array specialization:
 
-    intarray : Array<Int, 4>;
+    intarray : Array{Int, 4};
 
-Note that `Array<Int>` would still be a generic type, and we couldn't declare function arguments or fields of such a type. We can however use references to such a type. To define a reference to an array of any length:
+Note that `Array{Int}` would still be a generic type, and we couldn't declare function arguments or fields of such a type. We can however use references to such a type. To define a reference to an array of any length:
 
-    arrayref : Ref<Array<Int>>;
+    arrayref : Ref{Array{Int}};
 
 As we see, specializations don't have to bind all the type parameters at once. We can define *partial specializations* like the array above.
 
 Specializations can also be made by binding to what is generic type parameters in an outer context. Array with its interface implementations and its local type ArrayIterator illustrates this:
 
 ```
-builtin type ~ Array<E, C:UInt> derives Any, Collection<E>, Updatable<UInt, E>
+builtin type ~ Array{E, C:UInt} <: Any, Collection{E}, Updatable{UInt, E}
 {
-    type ~ ArrayIterator derives Tuple, Iterator<E> {
-        array     : Ref<Array<E>>;
+    type ~ ArrayIterator <: Tuple, Iterator{E} {
+        array     : Ref{Array{E}};
         nextIndex : ~UInt;
         ...
     }
@@ -110,9 +110,9 @@ Note that while ArrayIterator is not itself a *generic* type, it is *generic-dep
 
 Since references and arrays are so common there is syntactic sugar for declaring them, which is quite similar to many other languages.
 
-`&Int` is shorthand for `Ref<Int>`.
+`&Int` is shorthand for `Ref{Int}`.
 
-`[4]Int` is shorthand for `Array<Int,4>`, and `[]Int` for `Array<Int>`.
+`[4]Int` is shorthand for `Array{Int,4}`, and `[]Int` for `Array{Int}`.
 
 The may of course be combined, for example: `&[]&Int` is a reference to an array (of arbitrary length) of references to Int.
 
@@ -124,12 +124,12 @@ One of the things that makes Tuplex generics powerful is that the parameters can
 Consider a use case case where a data type is to be defined, which shall combine a generic base type with a generic interface defined in another module or API. Since the base type and the interface were defined independently of each other, it is up to the new data type to bring them together and bind their respective type parameters together:
 
 ```
-type Pair<A,B> {
+type Pair{A,B} {
     a : A;
     b : B;
 }
 
-interface Attribute<K,V> {
+interface Attribute{K,V} {
     abstract get_key()   -> K;
     abstract get_value() -> V;
 }
@@ -137,7 +137,7 @@ interface Attribute<K,V> {
 /** uses the Pair implementation to represent a Map entry
  *  and also supports the Attribute interface
  */
-type MapEntry<K,V> derives Pair<K,V>, Attribute<K,V> {
+type MapEntry{K,V} <: Pair{K,V}, Attribute{K,V} {
     override get_key()   -> K  { return self.a; }
     override get_value() -> V  { return self.b; }
 }
@@ -146,7 +146,7 @@ type MapEntry<K,V> derives Pair<K,V>, Attribute<K,V> {
 A generic type may be extended by adding additional type parameters. Consider a use case where the Pair above was to be extended with some 'label' of a generic type, and for some reason the new type wants to use other names for Pair's type parameters:
 
 ```
-type LabelPair<X, Y, L> derives Pair<X, Y> {
+type LabelPair{X, Y, L} <: Pair{X, Y} {
     label : L;
 }
 ```
@@ -163,7 +163,7 @@ Within the generic type's own namespace the name can of course be referred to di
 
 Accessing a type parameter binding of a specialized type is analogous:
 
-    myarray : Array<Int,4>;
+    myarray : Array{Int,4};
     ## myarray.E is Int
     ## myarray.C equals 4
 
@@ -176,13 +176,13 @@ In a type hierarchy the parameters / bindings of ancestor types may be shadowed.
 ```
 module my;
 
-type Type1<E> derives Tuple {
+type Type1{E} <: Tuple {
     var : E;
 }
 
-type Type2<E> derives Type1<Ref<E>>;
+type Type2{E} <: Type1{Ref{E}};
 
-obj : Type2<Float>;
+obj : Type2{Float};
 ```
 
 How do we refer to the type E which obj.var is declared with?

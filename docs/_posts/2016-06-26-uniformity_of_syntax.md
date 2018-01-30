@@ -20,51 +20,53 @@ The following Tuplex program shows how function type declaration, global and loc
 
 My favorite aspect of this is how instance methods, free functions and lambdas all are handled equivalently and for example can be passed as argument to another function without that function caring about the difference. Closure capturing, when needed, is fully transparent.
 
+```
+type ~ FuncType derives ( a : Int )->Int;
 
-    type FuncType : ( a : Int )->Int;
-    
-    square( a : Int )->Int { return a * a; }
-    
-    ## these are equivalent:
-    aFunction : ( a : Int )->Int = square;
-    bFunction : FuncType         = square;
-    cFunction                   := square;
-    
-    type Multiplier {
-        b : Int;
-        
-        self( b : Int ) { self.b = b; }
-        
-        mul( a : Int )->Int { return a * self.b; }
-        
-        higher( f : FuncType )->Int {
-            return f( self.b );
-        }
+square( a : Int )->Int : { return a * a; }
+
+## these are equivalent:
+aFunction : ( a : Int )->Int = square;
+bFunction : FuncType         = square;
+cFunction                   := square;
+
+## function returning function:
+type FuncProvider derives ()-> ( a : Int )->Int;
+
+type Multiplier : {
+    b : Int;
+
+    mul( a : Int )->Int : { return a * self.b; }
+
+    higher( f : FuncType )->Int : {
+        return f( self.b );
     }
-    
-    main()->Int {
-        localFunc := ( a : Int )->Int { return a * 2; };
-        
-        value : ~Int = 2;  ## ~Int means mutable 32-bit integer
-        
-        ## global function invocation:
-        value = square( value ); ## 4
-    
-        ## local function assignment and invocation:
-        tmpFn : ~FuncType = localFunc;
-        value = tmpFn( value );  ## 8
-    
-        ## global function assignment and invocation:
-        tmpFn = aFunction;
-        value = tmpFn( value );  ## 64
-    
-        ## instance method assignment and invocation:
-        mulObj := Multiplier(2);
-        tmpFn = mulObj.mul;
-        value = tmpFn( value );  ## 128
-    
-        ## higher order function and inline lambda:
-        value = value + mulObj.higher( ( a : Int )->Int { return a+1; } );
-    
-        return value;  ## process returns 131
-    }
+}
+
+main()->Int : {
+    localFunc := ( a : Int )->Int : return a * 2; ;
+
+    value : ~Int = 2;
+
+    ## global function invocation:
+    value = square( value ); ## 4
+
+    ## local function assignment and invocation:
+    tmpFn : ~FuncType = localFunc;
+    value = tmpFn( value );  ## 8
+
+    ## global function assignment and invocation:
+    tmpFn = aFunction;
+    value = tmpFn( value );  ## 64
+
+    ## instance method assignment and invocation:
+    mulObj := Multiplier(2);
+    tmpFn = mulObj.mul;
+    value = tmpFn( value );  ## 128
+
+    ## higher order function and inline lambda:
+    value = value + mulObj.higher( ( a : Int )->Int : { return a + 1; } );
+
+    return value;  ## process returns 131
+}
+```

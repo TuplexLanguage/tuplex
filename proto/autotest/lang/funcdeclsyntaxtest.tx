@@ -1,4 +1,4 @@
-type ~ FuncType <: ( a : Int )->Int;
+type ~ FuncType derives ( a : Int )->Int;
 
 square( a : Int )->Int : { return a * a; }
 
@@ -8,7 +8,7 @@ bFunction : FuncType         = square;
 cFunction                   := square;
 
 ## function returning function:
-type FuncProvider <: ()-> ( a : Int )->Int;
+type FuncProvider derives ()-> ( a : Int )->Int;
 
 type Multiplier : {
     b : Int;
@@ -45,7 +45,5 @@ main()->Int : {
     value = value + mulObj.higher( ( a : Int )->Int : { return a + 1; } );
 
     assert value == 131;
-
     return 0;
-    ## #experr: str := c"this should be unreachable";
 }

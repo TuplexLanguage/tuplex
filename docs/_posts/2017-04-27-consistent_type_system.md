@@ -83,8 +83,8 @@ This means that each type belongs to a specific type class.
 
 Generics, a.k.a. parameterized types, or templates in C++, are a core part of the type system. Ref and Array themselves are actually generic types. These are their built-in declarations:
 
-`Ref<T> : Any { ... }`
+`Ref{T} derives Any : ...`
     
-`Array<E, L : UInt> : Any { ... }`
+`Array{E, L : UInt} derives Any : ...`
 
 Generics is a complex subject and their implementation has been the most difficult part of the compiler. They will be covered in more depth in a post of their own.
