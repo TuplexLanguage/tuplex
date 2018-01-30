@@ -34,12 +34,12 @@ The tilde `~` symbol is used to denote mutability in type and field declarations
 
 
     ## An immutable type - the default - is declared like so:
-    type MyImmType {
+    type MyImmType : {
          immfield : Int;
     }  
 
     ## A mutable type is declared like so:
-    type ~ MyMutType {
+    type ~ MyMutType : {
          mutfield : ~Int;
     }
 
@@ -99,7 +99,7 @@ Consider the use case of a Map, a generic container type that is parameterized o
 
 In order to allow for mutable instances, the generic type must be declared mutable:
 
-    type ~ Map< K, V > { ... }
+    type ~ Map{ K, V } : { ... }
 
 Both mutable and immutable specializations of Map may be declared. If the map specialization is declared mutable, it will in practice require both type parameters to be mutable since the map's modifying methods will modify keys and values in it.
 
