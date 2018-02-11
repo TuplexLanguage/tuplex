@@ -168,7 +168,7 @@ Basic working Matrix type
 
 Releasing Resources
 -------------------
-Freeing memory
+Freeing memory (delete statement) - DONE
 
 Destructors
 

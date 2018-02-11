@@ -25,7 +25,7 @@ Constant* gen_get_struct_member( LlvmGenerationContext& context, Constant* struc
 
 Value* gen_get_ref_pointer( LlvmGenerationContext& context, GenScope* scope, Value* refV ) {
     if ( refV->getType()->isPointerTy() ) {  // address of struct
-        std::cerr << "DOES THIS HAPPEN? gen_get_ref_pointer() on address of ref struct: " << refV << std::endl;
+        //std::cerr << "DOES THIS HAPPEN? gen_get_ref_pointer() on address of ref struct: " << refV << std::endl;
         auto refPtrA = scope->builder->CreateStructGEP( refV->getType()->getPointerElementType(), refV, 0 );
         return scope->builder->CreateLoad( refPtrA, "ptr" );
     }
@@ -36,7 +36,7 @@ Value* gen_get_ref_pointer( LlvmGenerationContext& context, GenScope* scope, Val
 
 Value* gen_get_ref_typeid( LlvmGenerationContext& context, GenScope* scope, Value* refV ) {
     if ( refV->getType()->isPointerTy() ) {  // address of struct
-        std::cerr << "DOES THIS HAPPEN? gen_get_ref_typeid() on address of ref struct: " << refV << std::endl;
+        //std::cerr << "DOES THIS HAPPEN? gen_get_ref_typeid() on address of ref struct: " << refV << std::endl;
         auto refPtrA = scope->builder->CreateStructGEP( refV->getType()->getPointerElementType(), refV, 1 );
         return scope->builder->CreateLoad( refPtrA, "tid" );
     }

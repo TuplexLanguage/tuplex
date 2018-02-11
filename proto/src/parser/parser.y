@@ -39,6 +39,7 @@
 #include "ast/type/ast_types.hpp"
 #include "ast/type/ast_qualtypes.hpp"
 #include "ast/stmt/ast_flow.hpp"
+#include "ast/stmt/ast_deletestmt_node.hpp"
 #include "ast/stmt/ast_assertstmt_node.hpp"
 #include "ast/stmt/ast_panicstmt_node.hpp"
 
@@ -195,7 +196,7 @@ YY_DECL;
 %type <TxSuiteNode*> suite
 %type <TxStatementNode*> statement single_statement assignment_stmt return_stmt break_stmt continue_stmt type_decl_stmt
 %type <TxStatementNode*> flow_stmt simple_stmt elementary_stmt terminal_stmt flow_else_stmt
-%type <TxStatementNode*> init_stmt assert_stmt panic_stmt experr_stmt
+%type <TxStatementNode*> init_stmt delete_stmt assert_stmt panic_stmt experr_stmt
 %type <TxElseClauseNode*> else_clause
 %type <TxFlowHeaderNode*> cond_clause is_clause in_clause for_header
 %type <std::vector<TxFlowHeaderNode*> *> in_clause_list
@@ -741,6 +742,7 @@ elementary_stmt
     :   local_field_def { $$ = new TxFieldStmtNode(@1, $1); }
     |   call_expr       { $$ = new TxCallStmtNode(@1, $1); } // function call without return value assignment
     |   assignment_stmt { $$ = $1; }
+    |   delete_stmt     { $$ = $1; }
     |   assert_stmt     { $$ = $1; }
     |   panic_stmt      { $$ = $1; }
     ;
@@ -848,6 +850,9 @@ assert_stmt : KW_ASSERT gen_val_expr  { $$ = new TxAssertStmtNode(@$, $2); }
 
 panic_stmt : KW_PANIC gen_val_expr  { $$ = new TxPanicStmtNode(@$, $2); }
            ;
+
+delete_stmt : KW_DELETE gen_val_expr  { $$ = new TxDeleteStmtNode(@$, $2); }
+            ;
 
 
 assignment_stmt : assignee_expr EQUAL gen_val_expr  { $$ = new TxAssignStmtNode(@$, $1, $3); }

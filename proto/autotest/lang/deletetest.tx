@@ -1,0 +1,14 @@
+## Tests the delete operator
+
+main()->Int: {
+    obj := new Int(42);
+    delete obj;
+
+    stackObjA := Int(123);
+    #experr 1: delete stackObjA;
+
+    stackObjB : Int = 123;
+    #experr 1: delete stackObjB;
+
+    return 0;
+}

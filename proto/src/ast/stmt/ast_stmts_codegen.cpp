@@ -1,4 +1,5 @@
 #include "ast_stmts.hpp"
+#include "ast_deletestmt_node.hpp"
 #include "ast_assertstmt_node.hpp"
 #include "ast_panicstmt_node.hpp"
 #include "ast/expr/ast_ref.hpp"
@@ -22,6 +23,16 @@ void TxTypeStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope )
     TRACE_CODEGEN( this, context );
     scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
     this->typeDecl->code_gen( context );
+}
+
+void TxDeleteStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
+    TRACE_CODEGEN( this, context );
+    scope->builder->SetCurrentDebugLocation( DebugLoc::get( ploc.begin.line, ploc.begin.column, scope->debug_scope() ) );
+    auto refV = this->expr->code_gen_addr( context, scope );
+    auto ptrV = gen_get_ref_pointer( context, scope, refV );
+
+    auto objFreeI = CallInst::CreateFree( ptrV, scope->builder->GetInsertBlock() );
+    scope->builder->GetInsertBlock()->getInstList().push_back( objFreeI );
 }
 
 void TxAssertStmtNode::code_gen( LlvmGenerationContext& context, GenScope* scope ) const {
