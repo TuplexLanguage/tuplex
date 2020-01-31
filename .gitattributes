@@ -1,7 +1,8 @@
 # Set the default behavior, in case people don't have core.autocrlf set.
 #* text=auto
 
-text eol=lf
+# Git will always convert line endings to `LF` on checkout. You should use this for files that must keep LF endings, even on Windows:
+* text eol=lf
 
 # Explicitly declare text files you want to always be normalized and converted
 # to native line endings on checkout.
