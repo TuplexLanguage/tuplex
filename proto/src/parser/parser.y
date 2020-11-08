@@ -3,7 +3,7 @@
 %skeleton "lalr1.cc"
 
 %defines
-%define parser_class_name {TxParser}
+%define api.parser.class {TxParser}
 //%define api.token.constructor
 %define api.value.type variant
 //%define parse.assert

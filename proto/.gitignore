@@ -16,6 +16,10 @@
 .cproject
 .settings/
 
+# CLion files
+.idea/
+Tuplex.cbp
+
 # ignore all files in the build/ directory
 generated/
 bin/
@@ -28,6 +32,7 @@ CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
+compile_commands.json
 
 # emacs backup files
 *~
@@ -36,3 +41,5 @@ Makefile
 /*.bc
 /*.o
 /*.out
+
+/tmp/

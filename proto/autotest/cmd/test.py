@@ -5,25 +5,25 @@ import sys
 
 
 def run_python( file ):
-    run_cmd( "python " + file )
+    run_cmd( "python3 " + file )
 
 def run_cmd( cmdline, expected_ret_code=0 ):
     if expected_ret_code:
-        print "\033[90mRunning: '%s' \t(expecting %s ret code)\033[0m" % ( cmdline, expected_ret_code )
+        print ( "\033[90mRunning: '%s' \t(expecting %s ret code)\033[0m" % ( cmdline, expected_ret_code ) )
     else:
-        print "\033[90mRunning: '%s'\033[0m" % ( cmdline, )
+        print ( "\033[90mRunning: '%s'\033[0m" % ( cmdline, ) )
     try:
         retcode = call( cmdline, shell=True )
         if retcode < 0:
-            print >>sys.stderr, "\033[0;41mTest failed, child was terminated by signal %s\033[0m" % ( -retcode, )
+            print ( "\033[0;41mTest failed, child was terminated by signal %s\033[0m" % ( -retcode, ), file=sys.stderr )
         else:
             if expected_ret_code == "nonzero":
                 if retcode == 0:
-                    print >>sys.stderr, "\033[0;41mExpected nonzero return code but was %s\033[0m" % ( retcode, )
+                    print ( "\033[0;41mExpected nonzero return code but was %s\033[0m" % ( retcode, ), file=sys.stderr )
             elif retcode != expected_ret_code:
-                print >>sys.stderr, "\033[0;41mExpected return code %s but was %s\033[0m" % ( expected_ret_code, retcode )
+                print ( "\033[0;41mExpected return code %s but was %s\033[0m" % ( expected_ret_code, retcode ), file=sys.stderr )
     except OSError as e:
-        print >>sys.stderr, "Execution failed:", e 
+        print ( "Execution failed: %s" % ( e, ), file=sys.stderr )
         raise
 
 

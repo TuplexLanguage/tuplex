@@ -222,6 +222,6 @@ void TxAssignStmtNode::code_gen_array_copy( const TxNode* origin, LlvmGeneration
                              ConstantInt::get( Type::getInt32Ty( context.llvmContext ), 2 ) };
         auto dstDataPtrV = scope->builder->CreateInBoundsGEP( lvalArrayPtrV, dataIxs );
         auto srcDataPtrV = scope->builder->CreateInBoundsGEP( rvalArrayPtrV, dataIxs );
-        scope->builder->CreateMemCpy( dstDataPtrV, srcDataPtrV, dataSizeV, 8 );
+        scope->builder->CreateMemCpy( dstDataPtrV, MaybeAlign(8), srcDataPtrV, MaybeAlign(8), dataSizeV );
     }
 }

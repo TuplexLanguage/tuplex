@@ -7,7 +7,7 @@
 using namespace llvm;
 
 
-Value* gen_lambda_call( LlvmGenerationContext& context, GenScope* scope, Value* lambdaV,
+Value* gen_lambda_call( LlvmGenerationContext& context, GenScope* scope, FunctionType *fnTy, Value* lambdaV,
                         std::vector<Value*>& passedArgs, const std::string& exprLabel, bool doesNotReturn ) {
     auto functionPtrV = gen_get_struct_member( context, scope, lambdaV, 0 );
     auto closureRefV = gen_get_struct_member( context, scope, lambdaV, 1 );
@@ -18,7 +18,8 @@ Value* gen_lambda_call( LlvmGenerationContext& context, GenScope* scope, Value* 
         args.push_back( arg );
     }
 
-    auto call = scope->builder->CreateCall( functionPtrV, args, exprLabel );
+    FunctionCallee callee( fnTy, functionPtrV );
+    auto call = scope->builder->CreateCall( callee, args, exprLabel );
     if ( doesNotReturn )
         call->setDoesNotReturn();
     return call;
@@ -66,8 +67,11 @@ static Value* gen_externc_call( const TxFunctionCallNode* node, LlvmGenerationCo
         }
     }
 
+    StructType *lambdaT = cast<StructType>( context.get_llvm_type( node->callee->qtype() ) );
+    FunctionType* funcType = cast<FunctionType>( lambdaT->getElementType( 0 )->getPointerElementType() );
     auto functionPtrV = gen_get_struct_member( context, scope, lambdaV, 0 );
-    auto call = scope->builder->CreateCall( functionPtrV, args, exprLabel );
+    FunctionCallee callee( funcType, functionPtrV );
+    auto call = scope->builder->CreateCall( callee, args, exprLabel );
     if ( doesNotReturn )
         call->setDoesNotReturn();
     return call;
@@ -85,7 +89,10 @@ static Value* gen_call( const TxFunctionCallNode* node, LlvmGenerationContext& c
         for ( auto argDef : *node->argsExprList ) {
             args.push_back( argDef->code_gen_expr( context, scope ) );
         }
-        return gen_lambda_call( context, scope, lambdaV, args, exprLabel, doesNotReturn );
+        StructType *lambdaT = cast<StructType>( context.get_llvm_type( node->callee->qtype() ) );
+        FunctionType* funcType = cast<FunctionType>( lambdaT->getElementType( 0 )->getPointerElementType() );
+        //FunctionType* fnTy = context.get_llvm_type( node->callee->qtype() );
+        return gen_lambda_call( context, scope, funcType, lambdaV, args, exprLabel, doesNotReturn );
     }
 }
 

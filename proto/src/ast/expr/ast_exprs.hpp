@@ -7,11 +7,15 @@
 #include "ast/type/ast_typearg_node.hpp"
 #include "ast/type/ast_types.hpp"
 
+namespace llvm {
+    class FunctionType;
+}
+
 
 /** Generates code for a call to a lambda.
  * Note, the passed args vector shall contain only the user-passed args (not the closure).
  */
-llvm::Value* gen_lambda_call( LlvmGenerationContext& context, GenScope* scope, llvm::Value* lambdaV,
+llvm::Value* gen_lambda_call( LlvmGenerationContext& context, GenScope* scope, llvm::FunctionType *fnTy, llvm::Value* lambdaV,
                               std::vector<llvm::Value*>& passedArgs, const std::string& exprLabel, bool doesNotReturn );
 
 

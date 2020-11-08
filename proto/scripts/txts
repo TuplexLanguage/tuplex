@@ -1,3 +1,3 @@
 #/bin/bash
 
-python autotest/test.py
+python3 autotest/test.py

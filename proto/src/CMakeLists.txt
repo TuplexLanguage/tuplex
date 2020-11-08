@@ -61,19 +61,35 @@ FLEX_TARGET(TxLexer parser/lexer.l ${GENERATED_OUTPUT_PATH}/lexer.cpp
 
 ADD_FLEX_BISON_DEPENDENCY(TxLexer TxParser)
 
+# since can't get CLion to run .profile and set paths properly:
+set(LLVM_CFG_CMD "/usr/lib/llvm-11/bin/llvm-config")
 
 set(LLVM_COMPONENTS core engine interpreter bitwriter)
-execute_process(COMMAND llvm-config --includedir OUTPUT_VARIABLE LLVM_INCLUDE_DIRS OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND llvm-config --libdir OUTPUT_VARIABLE LLVM_LIBRARY_DIRS OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND llvm-config --libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE REQ_LLVM_LIBRARIES OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND llvm-config --system-libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE REQ_LLVM_SYS_LIBS OUTPUT_STRIP_TRAILING_WHITESPACE)
+#execute_process(COMMAND ${LLVM_CFG_CMD} --includedir OUTPUT_VARIABLE LLVM_INCLUDE_DIRS OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${LLVM_CFG_CMD} --libdir OUTPUT_VARIABLE LLVM_LIBRARY_DIRS OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${LLVM_CFG_CMD} --libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE REQ_LLVM_LIBRARIES OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${LLVM_CFG_CMD} --system-libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE REQ_LLVM_SYS_LIBS OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-include_directories( ${LLVM_INCLUDE_DIRS} )
+# Hardcode as separate entries without symlinks in order to make CLion under WSL find the includes:
+#set(LLVM_INCLUDE_DIRS /usr/include/llvm-11 " " \\\\wsl$\\Ubuntu-20.04\\usr\\include\\llvm-11 " " /usr/include/llvm-c-11 " " \\\\wsl$\\Ubuntu-20.04\\usr\\include\\llvm-c-11)
+#message( "include " ${LLVM_INCLUDE_DIRS} " bar" )
+include_directories( /usr/include/llvm-11 )
+include_directories( /usr/include/llvm-c-11 )
+include_directories( //wsl$/Ubuntu-20.04/usr/include/llvm-11 )
+include_directories( //wsl$/Ubuntu-20.04/usr/include/llvm-c-11 )
+
+#include_directories( /usr/lib/llvm-11.0.0.src/include )
+#include_directories( /usr/include/llvm-11 )
+#include_directories( /usr/lib/llvm-11.0.0.src/lib )
+#include_directories( //wsl$/Ubuntu-20.04/usr/lib/llvm-11.0.0.src/include )
+#include_directories( //wsl$/Ubuntu-20.04/usr/lib/llvm-11.0.0.src/lib )
+
 link_directories( ${LLVM_LIBRARY_DIRS} )
+message( "LLVM library '" ${LLVM_LIBRARY_DIRS} "'" )
 
 # disabled this since set wierd flags, e.g. -fno-exceptions, and set it manually instead:
 #execute_process(COMMAND llvm-config --cxxflags OUTPUT_VARIABLE LLVM_CXX_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
-set(LLVM_CXX_FLAGS "-D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS")
+set(LLVM_CXX_FLAGS "-D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -DLLVM_ENABLE_DUMP")
 
 execute_process(COMMAND llvm-config --ldflags OUTPUT_VARIABLE LLVM_LD_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
 
@@ -170,6 +186,8 @@ add_executable(txc
 #SET (CMAKE_CXX_FLAGS_MINSIZEREL     "-Os")
 #SET (CMAKE_CXX_FLAGS_RELEASE        "-O3")
 #SET (CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
+
+target_compile_features(txc PUBLIC cxx_std_17)
 
 set_target_properties(txc PROPERTIES COMPILE_FLAGS "${LLVM_CXX_FLAGS}")
 set_target_properties(txc PROPERTIES LINK_FLAGS "${LLVM_LD_FLAGS}")

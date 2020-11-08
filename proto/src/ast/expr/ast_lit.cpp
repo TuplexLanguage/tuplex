@@ -3,6 +3,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <float.h>
+#include <ctgmath>
 
 #include "ast_string.hpp"
 #include "ast/type/ast_types.hpp"
@@ -260,12 +261,12 @@ TxFloatingLitNode::FloatConstant::FloatConstant( const std::string& literal ) {
             break;
         case 'F':
             this->typeId = TXBT_FLOAT;
-            if ( fabs( this->value ) > FLT_MAX )
+            if ( std::fabs( this->value ) > FLT_MAX )
                 this->outOfRange = true;
             break;
         case 'H':
             this->typeId = TXBT_HALF;
-            if ( fabs( this->value ) > 65503.0 )
+            if ( std::fabs( this->value ) > 65503.0 )
                 this->outOfRange = true;
             break;
         default:

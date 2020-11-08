@@ -31,6 +31,7 @@ public:
     bool dump_tx_symbols = false;
     bool dump_types = false;
     bool dump_ir = false;
+    bool strip_debug = false;
     bool run_verifier = false;
     bool run_jit = false;
     bool no_bc_output = false;

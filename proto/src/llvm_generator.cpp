@@ -13,6 +13,7 @@
 #include <llvm/IR/PassManager.h>
 #include <llvm/IR/IRPrintingPasses.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
+#include <llvm/Support/Host.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/TargetRegistry.h>
@@ -156,25 +157,29 @@ int LlvmGenerationContext::verify_code() {
 
 void LlvmGenerationContext::print_IR() {
     // TODO: support writing to a .ll file
-    this->LOGGER()->info( "Printing LLVM bytecode..." );
-    PrintModulePass printPass( outs() );
-    ModulePassManager pm;
-    pm.addPass( printPass );
-    AnalysisManager<Module> am;
-    pm.run( this->llvmModule(), am );
-    std::cout << std::endl;
+    this->LOGGER()->info( "Printing LLVM bytecode with pass is currently broken, dumping instead..." );
+    this->llvmModule().print(llvm::errs(), nullptr);
+
+    // FIXME: This crashes but need to set up IDE with LLVM source code to find cause
+//    this->LOGGER()->info( "Printing LLVM bytecode..." );
+//    PrintModulePass printPass( outs() );
+//    PassManager<Module> pm;
+//    pm.addPass( printPass );
+//    AnalysisManager<Module> am;
+//    pm.run( this->llvmModule(), am );
+//    std::cout << std::endl;
 }
 
 int LlvmGenerationContext::write_bitcode( const std::string& filepath ) {
     LOG_DEBUG( this->LOGGER(), "Writing LLVM bitcode file '" << filepath << "'" );
     std::error_code errInfo;
-    raw_fd_ostream ostream( filepath.c_str(), errInfo, sys::fs::F_RW );
+    raw_fd_ostream ostream( filepath.c_str(), errInfo, sys::fs::FA_Write /* was: F_RW */ );
     if ( errInfo ) {
         LOG( this->LOGGER(), ERROR, "Failed to open bitcode output file for writing: " << errInfo.message() );
         return 1;
     }
     else {
-        WriteBitcodeToFile( &this->llvmModule(), ostream );
+        WriteBitcodeToFile( this->llvmModule(), ostream );
         return 0;
     }
 }
@@ -361,14 +366,14 @@ void LlvmGenerationContext::generate_runtime_type_info() {
         auto typeCountC = new GlobalVariable( this->llvmModule(), i32T, true, GlobalValue::ExternalLinkage,
                                               ConstantInt::get( i32T, typeCount ),
                                               "tx.runtime.TYPE_COUNT" );
-        this->register_llvm_value( typeCountC->getName(), typeCountC );
+        this->register_llvm_value( typeCountC->getName().str(), typeCountC );
 
         auto tiArrayT = ArrayType::get( typeInfoT, typeCount );
         auto tiArrayC = ConstantArray::get( tiArrayT, typeInfos );
         auto typeInfosC = new GlobalVariable( this->llvmModule(), tiArrayT, true, GlobalValue::ExternalLinkage,
                                               tiArrayC,
                                               "tx.runtime.TYPE_INFOS" );
-        this->register_llvm_value( typeInfosC->getName(), typeInfosC );
+        this->register_llvm_value( typeInfosC->getName().str(), typeInfosC );
     }
     {
         auto tcArrayT = ArrayType::get( Type::getInt8Ty( this->llvmContext ), typeClasses.size() );
@@ -376,7 +381,7 @@ void LlvmGenerationContext::generate_runtime_type_info() {
         auto typeClassesC = new GlobalVariable( this->llvmModule(), tcArrayT, true, GlobalValue::ExternalLinkage,
                                                tcArrayC,
                                                "tx.runtime.TYPE_CLASSES" );
-        this->register_llvm_value( typeClassesC->getName(), typeClassesC );
+        this->register_llvm_value( typeClassesC->getName().str(), typeClassesC );
     }
     {
         auto stArrayT = ArrayType::get( superTypesPtrT, supertypeArrays.size() );
@@ -384,7 +389,7 @@ void LlvmGenerationContext::generate_runtime_type_info() {
         auto supertypesC = new GlobalVariable( this->llvmModule(), stArrayT, true, GlobalValue::ExternalLinkage,
                                                stArrayC,
                                                "tx.runtime.SUPER_TYPES" );
-        this->register_llvm_value( supertypesC->getName(), supertypesC );
+        this->register_llvm_value( supertypesC->getName().str(), supertypesC );
     }
 }
 
@@ -689,7 +694,12 @@ Value* LlvmGenerationContext::gen_equals_invocation( GenScope* scope, Value* lva
     auto otherRefT = TxReferenceTypeClassHandler::make_ref_llvm_type( *this, llvm::StructType::get( this->llvmContext ) );  // ref to Any
     auto otherRefV = gen_ref( *this, scope, otherRefT, rvalA, rvalTypeIdV );
     std::vector<Value*> args( { closureRefV, otherRefV } );
-    return scope->builder->CreateCall( functionPtrV, args, "equals" );
+
+    auto resType = Type::getInt1Ty( this->llvmContext );
+    auto fnTy = FunctionType::get( resType, ArrayRef<Type*>( { closureRefV->getType(), otherRefV->getType() } ), false );
+    FunctionCallee callee( fnTy, functionPtrV );
+
+    return scope->builder->CreateCall( callee, args, "equals" );
 }
 
 Value* LlvmGenerationContext::gen_isa( GenScope* scope, Value* refV, Value* typeIdV ) {
@@ -717,7 +727,9 @@ void LlvmGenerationContext::gen_panic_call( GenScope* scope, const std::string& 
             auto msgRefC = gen_ref( *this, msgRefT, msgPtrC, ConstantInt::get( this->i32T, msgRefTargTid ) );
 
             std::vector<Value*> args( { (Value*)msgRefC } );
-            gen_lambda_call( *this, scope, panicLambdaV, args, "", true );
+            StructType *lambdaT = cast<StructType>( this->get_llvm_type( panicFuncType ) );
+            FunctionType* funcType = cast<FunctionType>( lambdaT->getElementType( 0 )->getPointerElementType() );
+            gen_lambda_call( *this, scope, funcType, panicLambdaV, args, "", true );
             return;
         }
     }
@@ -741,7 +753,9 @@ void LlvmGenerationContext::gen_panic_call( GenScope* scope, const std::string& 
             auto msgRefC = gen_ref( *this, msgRefT, msgPtrC, ConstantInt::get( this->i32T, msgRefTargTid ) );
 
             std::vector<Value*> args( { (Value*)msgRefC, ulongValV } );
-            gen_lambda_call( *this, scope, panicLambdaV, args, "", true );
+            StructType *lambdaT = cast<StructType>( this->get_llvm_type( panicFuncType ) );
+            FunctionType* funcType = cast<FunctionType>( lambdaT->getElementType( 0 )->getPointerElementType() );
+            gen_lambda_call( *this, scope, funcType, panicLambdaV, args, "", true );
             return;
         }
     }
@@ -834,7 +848,8 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
                     "main",
                     this->i32T,
                     this->i32T,
-                    PointerType::getUnqual( PointerType::getUnqual( IntegerType::getInt8Ty( this->llvmContext ) ) ) ) );
+                    PointerType::getUnqual( PointerType::getUnqual( IntegerType::getInt8Ty( this->llvmContext ) ) ) )
+                    .getCallee() );
     Function::arg_iterator args = mainFunc->arg_begin();
     Value* argcV = &(*args);
     argcV->setName( "argc" );
@@ -855,14 +870,20 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
         DISubroutineType* subRoutineType = this->debug_builder()->createSubroutineType( this->debug_builder()->getOrCreateTypeArray( eltTypes ) );
 
         auto linkageName = StringRef();
-        bool isLocalToUnit = false;  // external linkage
+//        bool isLocalToUnit = false;  // external linkage
         unsigned lineNo = __LINE__;
         unsigned scopeLine = lineNo;
         DISubprogram *subProg = this->debug_builder()->createFunction(
                this->tuplexPackage.driver().builtin_parser_context()->debug_unit(),
                mainFunc->getName(), linkageName, this->_genDIFile,
-               lineNo, subRoutineType, isLocalToUnit, true /* isDefinition */, scopeLine,
-               DINode::FlagPrototyped, false /* isOptimized */ );
+               lineNo, subRoutineType, scopeLine,
+               DINode::FlagPrototyped,
+               DISubprogram::SPFlagDefinition
+//               diFlags, spFlags
+//               isLocalToUnit,
+//               true /* isDefinition */,
+//               false /* isOptimized */
+               );
         mainFunc->setSubprogram( subProg );
     }
 
@@ -917,7 +938,7 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
                 Value* arrayCap64V = builder.CreateZExtOrBitCast( argcV, i64T );
                 Constant* elemSizeC = ConstantExpr::getSizeOf( ubyteArrayRefT );
                 Value* objectSizeV = gen_compute_array_size( *this, &scope, elemSizeC, arrayCap64V );
-                argsArrayA = builder.CreatePointerCast( builder.Insert( new AllocaInst( i8T, 0, objectSizeV, 8 ) ), argsArrayPtrT, "args" );
+                argsArrayA = builder.CreatePointerCast( builder.Insert( new AllocaInst( i8T, 0, objectSizeV, Align(8) ) ), argsArrayPtrT, "args" );
                 initialize_array_obj( *this, &scope, argsArrayA, argcV, argcV );
             }
 
@@ -941,7 +962,7 @@ Function* LlvmGenerationContext::gen_main_function( const std::string userMain, 
                     Value* arrayCap64V = builder.CreateZExtOrBitCast( argCMemLenV, i64T );
                     Constant* elemSizeC = ConstantExpr::getSizeOf( i8T );
                     Value* objectSizeV = gen_compute_array_size( *this, &scope, elemSizeC, arrayCap64V );
-                    Value* argArrayObjA = builder.CreatePointerCast( builder.Insert( new AllocaInst( i8T, 0, objectSizeV, 8 ) ),
+                    Value* argArrayObjA = builder.CreatePointerCast( builder.Insert( new AllocaInst( i8T, 0, objectSizeV, Align(8) ) ),
                                                                      ubyteArrayT->getPointerTo(), "arg" );
                     initialize_array_obj( *this, &scope, argArrayObjA, argCMemLenV, argCStrLenV );
 
@@ -1013,7 +1034,8 @@ void LlvmGenerationContext::declare_builtin_code() {
                 IntegerType::getInt1Ty( this->llvmContext ), // return value - Bool
                 genArrayPtrT,
                 genArrayPtrT,
-                i32T ) );
+                i32T )
+                    .getCallee() );
         function->setLinkage( GlobalValue::InternalLinkage );
     }
     {
@@ -1023,14 +1045,16 @@ void LlvmGenerationContext::declare_builtin_code() {
                 genArrayPtrT,
                 genArrayPtrT,
                 i32T,
-                i32T ) );
+                i32T )
+                     .getCallee() );
         function->setLinkage( GlobalValue::InternalLinkage );
     }
     {
         Function* function = cast<Function>( this->llvmModule().getOrInsertFunction(
                 "$get_supertypes_array",
                 superTypesPtrT, // return value
-                i32T ) );       // type id
+                i32T )
+                     .getCallee() );       // type id
         function->setLinkage( GlobalValue::InternalLinkage );
     }
 }
@@ -1063,13 +1087,18 @@ void LlvmGenerationContext::gen_get_supertypes_array_function() {
         DISubroutineType* subRoutineType = this->debug_builder()->createSubroutineType( this->debug_builder()->getOrCreateTypeArray( eltTypes ) );
 
         auto linkageName = StringRef();
-        bool isLocalToUnit = true;  // internal linkage
+//        bool isLocalToUnit = true;  // internal linkage
         unsigned lineNo = __LINE__;
         unsigned scopeLine = 0;  // FIXME
         DISubprogram *subProg = this->debug_builder()->createFunction(
                diScope, function->getName(), linkageName, _genDIFile,
-               lineNo, subRoutineType, isLocalToUnit, true /* isDefinition */, scopeLine,
-               DINode::FlagPrototyped, false /* isOptimized */ );
+               lineNo, subRoutineType, scopeLine,
+               DINode::FlagPrototyped,
+               DISubprogram::SPFlagLocalToUnit | DISubprogram::SPFlagDefinition
+//               DINode::FlagPrototyped
+//               isLocalToUnit, true /* isDefinition */,
+//               false /* isOptimized */
+               );
         function->setSubprogram( subProg );
     }
 

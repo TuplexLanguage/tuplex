@@ -43,7 +43,7 @@ echo -e $color_cyan "Optimizing " $bctarget $color_off
 checked opt -O3 $bctarget -o $bctarget
 
 echo -e $color_cyan "LL-compiling " $bctarget $color_off
-checked llc -filetype=obj $bctarget
+checked llc --relocation-model=pic -filetype=obj $bctarget
 
 bintarget="${basepath}.out"
 echo -e $color_cyan "Linking " $bintarget $color_off
