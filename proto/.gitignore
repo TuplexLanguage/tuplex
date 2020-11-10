@@ -17,10 +17,10 @@
 .settings/
 
 # CLion files
-.idea/
-Tuplex.cbp
+txc.cbp
 
 # ignore all files in the build/ directory
+cmake-build-debug/
 generated/
 bin/
 cov/

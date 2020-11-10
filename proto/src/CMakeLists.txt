@@ -1,5 +1,8 @@
 # Tuplex source directory cmakelist
 
+cmake_minimum_required (VERSION 3.8)
+project(txc)
+
 # set(CMAKE_BUILD_TYPE "Debug")  # Debug Release RelWithDebInfo MinSizeRel
 
 ADD_CUSTOM_TARGET(debug
@@ -61,22 +64,28 @@ FLEX_TARGET(TxLexer parser/lexer.l ${GENERATED_OUTPUT_PATH}/lexer.cpp
 
 ADD_FLEX_BISON_DEPENDENCY(TxLexer TxParser)
 
-# since can't get CLion to run .profile and set paths properly:
-set(LLVM_CFG_CMD "/usr/lib/llvm-11/bin/llvm-config")
+
+# Since CLion can't source .profile or similar to include paths
+set(LLVM_CFG_CMD "/usr/lib/llvm-11/bin/llvm-config")  # "llvm-config"
+#set(LLVM_CFG_CMD "llvm-config")
 
 set(LLVM_COMPONENTS core engine interpreter bitwriter)
 #execute_process(COMMAND ${LLVM_CFG_CMD} --includedir OUTPUT_VARIABLE LLVM_INCLUDE_DIRS OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND ${LLVM_CFG_CMD} --libdir OUTPUT_VARIABLE LLVM_LIBRARY_DIRS OUTPUT_STRIP_TRAILING_WHITESPACE)
+#execute_process(COMMAND ${LLVM_CFG_CMD} --libdir OUTPUT_VARIABLE LLVM_LIBRARY_DIRS OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(COMMAND ${LLVM_CFG_CMD} --libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE REQ_LLVM_LIBRARIES OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(COMMAND ${LLVM_CFG_CMD} --system-libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE REQ_LLVM_SYS_LIBS OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${LLVM_CFG_CMD} --ldflags OUTPUT_VARIABLE LLVM_LD_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
+execute_process(COMMAND ${LLVM_CFG_CMD} --cxxflags OUTPUT_VARIABLE LLVM_CXX_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+# already included via LLVM_CXX_FLAGS
+#include_directories( ${LLVM_INCLUDE_DIRS} )
+#message( "LLVM includes '" ${LLVM_INCLUDE_DIRS} "'" )
 
 # Hardcode as separate entries without symlinks in order to make CLion under WSL find the includes:
-#set(LLVM_INCLUDE_DIRS /usr/include/llvm-11 " " \\\\wsl$\\Ubuntu-20.04\\usr\\include\\llvm-11 " " /usr/include/llvm-c-11 " " \\\\wsl$\\Ubuntu-20.04\\usr\\include\\llvm-c-11)
-#message( "include " ${LLVM_INCLUDE_DIRS} " bar" )
-include_directories( /usr/include/llvm-11 )
-include_directories( /usr/include/llvm-c-11 )
-include_directories( //wsl$/Ubuntu-20.04/usr/include/llvm-11 )
-include_directories( //wsl$/Ubuntu-20.04/usr/include/llvm-c-11 )
+#include_directories( /usr/include/llvm-11 )
+#include_directories( /usr/include/llvm-c-11 )
+#include_directories( //wsl$/Ubuntu-20.04/usr/include/llvm-11 )
+#include_directories( //wsl$/Ubuntu-20.04/usr/include/llvm-c-11 )
 
 #include_directories( /usr/lib/llvm-11.0.0.src/include )
 #include_directories( /usr/include/llvm-11 )
@@ -84,14 +93,15 @@ include_directories( //wsl$/Ubuntu-20.04/usr/include/llvm-c-11 )
 #include_directories( //wsl$/Ubuntu-20.04/usr/lib/llvm-11.0.0.src/include )
 #include_directories( //wsl$/Ubuntu-20.04/usr/lib/llvm-11.0.0.src/lib )
 
-link_directories( ${LLVM_LIBRARY_DIRS} )
-message( "LLVM library '" ${LLVM_LIBRARY_DIRS} "'" )
+# already included via LLVM_LD_FLAGS
+#link_directories( ${LLVM_LIBRARY_DIRS} )
+#message( "LLVM library '" ${LLVM_LIBRARY_DIRS} "'" )
 
-# disabled this since set wierd flags, e.g. -fno-exceptions, and set it manually instead:
-#execute_process(COMMAND llvm-config --cxxflags OUTPUT_VARIABLE LLVM_CXX_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
-set(LLVM_CXX_FLAGS "-D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -DLLVM_ENABLE_DUMP")
+# reset this since llvm-config set weird flags, e.g. -fno-exceptions, and set it manually instead:
+#set(LLVM_CXX_FLAGS "-D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -DLLVM_ENABLE_DUMP")
+message( "LLVM CXX flags '" ${LLVM_CXX_FLAGS} "'" )
+message( "LLVM LD flags '" ${LLVM_LD_FLAGS} "'" )
 
-execute_process(COMMAND llvm-config --ldflags OUTPUT_VARIABLE LLVM_LD_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 
 # add the executable
@@ -174,23 +184,17 @@ add_executable(txc
         ast/expr/ast_constexpr_codegen.cpp
 	)
 
-# if setting custom flags for this directory
-#SET (CMAKE_C_FLAGS                "-Wall -std=c99")
-#SET (CMAKE_C_FLAGS_DEBUG          "-g -DDEVMODE")
-#SET (CMAKE_C_FLAGS_MINSIZEREL     "-Os")
-#SET (CMAKE_C_FLAGS_RELEASE        "-O3")
-#SET (CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g")
-
-#SET (CMAKE_CXX_FLAGS                "-Wall -std=c++11 -pthread")
-#SET (CMAKE_CXX_FLAGS_DEBUG          "-g -DDEVMODE")
-#SET (CMAKE_CXX_FLAGS_MINSIZEREL     "-Os")
-#SET (CMAKE_CXX_FLAGS_RELEASE        "-O3")
-#SET (CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g")
-
 target_compile_features(txc PUBLIC cxx_std_17)
 
-set_target_properties(txc PROPERTIES COMPILE_FLAGS "${LLVM_CXX_FLAGS}")
-set_target_properties(txc PROPERTIES LINK_FLAGS "${LLVM_LD_FLAGS}")
+# lots of warnings and all warnings as errors
+#add_compile_options(-Wall -Wextra -pedantic -Werror)
+add_compile_options(-Wall)
 
-# when linking with gcc, appending -lstdc++ is required:
-target_link_libraries(txc ${REQ_LLVM_LIBRARIES} ${REQ_LLVM_SYS_LIBS} -lstdc++)
+
+target_compile_options(txc PUBLIC "SHELL:${LLVM_CXX_FLAGS} -fexceptions -Wall")  # (exceptions disabled by LLVM flags)
+#set_target_properties(txc PROPERTIES COMPILE_FLAGS "${LLVM_CXX_FLAGS} -fexceptions -Wall")  # (exceptions disabled by LLVM flags)
+
+target_link_options(txc PUBLIC "SHELL:${LLVM_LD_FLAGS}")
+#set_target_properties(txc PROPERTIES LINK_FLAGS "${LLVM_LD_FLAGS}")
+
+target_link_libraries(txc ${REQ_LLVM_LIBRARIES} ${REQ_LLVM_SYS_LIBS})

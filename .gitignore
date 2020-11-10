@@ -18,3 +18,7 @@
 .metadata/
 RemoteSystemsTempFiles/
 .userdict.txt
+
+# CLion files
+.idea/
+Tuplex.cbp
