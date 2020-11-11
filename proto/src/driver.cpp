@@ -3,7 +3,6 @@
 
 #include "tinydir/tinydir.h"
 
-#include "util/util.hpp"
 #include "util/assert.hpp"
 #include "util/files_env.hpp"
 
@@ -15,15 +14,12 @@
 #include "tx_lang_defs.hpp"
 #include "TuplexConfig.h"
 
-#include "parser.hpp"
+#include "parser_if.hpp"
 
-extern FILE * yyin;
-extern void yyrestart ( FILE *input_file );
-extern int yy_flex_debug;
-typedef struct yy_buffer_state *YY_BUFFER_STATE;
-YY_BUFFER_STATE yy_scan_string( const char *yy_str );
-void yy_delete_buffer (YY_BUFFER_STATE b );
-
+#include "parsercontext.hpp"
+#include "ast/ast_modbase.hpp"
+#include "ast/ast_declpass.hpp"
+#include "ast/ast_entitydecls.hpp"
 
 
 const char *CORE_TX_SOURCE_STR =
@@ -81,39 +77,7 @@ TxDriver::TxDriver( const TxOptions& options )
 TxDriver::~TxDriver() {
 }
 
-int TxDriver::scan_begin( const std::string &filePath ) {
-    if ( filePath.empty() || filePath == "-" )
-        yyin = stdin;
-    else if ( !( yyin = fopen( filePath.c_str(), "r" ) ) ) {
-        _LOG.error( "Could not open source file '%s': %s", filePath.c_str(), strerror( errno ) );
-        return -1;
-    }
-    yyrestart( yyin );
-    yy_flex_debug = this->options.debug_lexer;
-    _LOG.info( "+ Opened file for parsing: '%s'", filePath.c_str() );
-    return 0;
-}
 
-void TxDriver::scan_end() {
-    fclose( yyin );
-}
-
-int TxDriver::parse( TxParserContext& parserContext ) {
-    int ret = scan_begin( *parserContext.current_input_filepath() );
-    if ( ret ) {
-        return ret;
-    }
-
-    //if (this->options.only_scan)  // currently unsupported
-    //    return test_scanner();
-
-    yy::TxParser parser( &parserContext );
-    parser.set_debug_level( this->options.debug_parser );
-    ret = parser.parse();
-
-    scan_end();
-    return ret;
-}
 
 int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const std::string& outputFileName ) {
     ASSERT( this->parsedSourceFiles.empty(), "Can only run driver instance once" );
@@ -147,12 +111,13 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
 
     {  // parse the built-in source:
         TxParserContext* parserContext = new TxParserContext( *this, TxIdentifier( "" ), __FILE__, TxParserContext::BUILTINS );
-        // TODO: make the line numbers match
-        auto memBuffer = yy_scan_string( CORE_TX_SOURCE_STR );
-        yy_flex_debug = this->options.debug_lexer;
-        yy::TxParser parser( parserContext );
-        int ret = parser.parse();
-        yy_delete_buffer( memBuffer );
+//        // TO DO: make the line numbers match
+//        auto memBuffer = yy_scan_string( CORE_TX_SOURCE_STR );
+//        yy_flex_debug = this->options.debug_lexer;
+//        yy::TxParser parser( parserContext );
+//        int ret = parser.parse();
+//        yy_delete_buffer( memBuffer );
+        int ret = parse_mem_buffer( parserContext, CORE_TX_SOURCE_STR, this->options );
         if ( ret ) {
             _LOG.fatal( "Exiting due to unrecovered syntax error" );
             return ret;
@@ -191,7 +156,7 @@ int TxDriver::compile( const std::vector<std::string>& startSourceFiles, const s
         std::string nextFilePath = this->sourceFileQueue.front().second;
         if ( !this->parsedSourceFiles.count( nextFilePath ) ) {  // if not already parsed
             TxParserContext* parserContext = new TxParserContext( *this, moduleName, nextFilePath, pfs );
-            int ret = this->parse( *parserContext );
+            int ret = parse( parserContext, this->options );
             if ( ret ) {
                 if ( ret < 0 )  // input file / stream error
                     _LOG.fatal( "Exiting due to input file / stream error" );

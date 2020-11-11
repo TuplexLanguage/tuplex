@@ -82,6 +82,7 @@ add_executable(txc
         llvm_generator.cpp
         llvm_exec.cpp
         parsercontext.cpp
+        bison_parser.cpp
         driver.cpp
         main.cpp
 

@@ -7,6 +7,7 @@
 
 #include "util/logging.hpp"
 #include "identifier.hpp"
+#include "tx_options.hpp"
 
 namespace llvm {
 class LLVMContext;
@@ -20,28 +21,6 @@ class LlvmGenerationContext;
 
 std::string get_version_string();
 
-/** Represents Tuplex compilation run-time options. */
-class TxOptions {
-public:
-    bool only_parse = false;
-    bool debug_lexer = false;
-    bool debug_parser = false;
-    bool dump_ast = false;
-    bool dump_symbol_table = false;
-    bool dump_tx_symbols = false;
-    bool dump_types = false;
-    bool dump_ir = false;
-    bool strip_debug = false;
-    bool run_verifier = false;
-    bool run_jit = false;
-    bool no_bc_output = false;
-    bool suppress_asserts = false;
-    bool allow_tx = false;
-    std::string txPath;
-    std::vector<std::string> sourceSearchPaths;
-    int jit_argc = 0;
-    const char** jit_argv = nullptr;
-};
 
 /** Represents a Tuplex package compilation job.
  * Conducts the whole scanning, parsing, symbol table and semantic passes, and code generation.
@@ -82,12 +61,12 @@ class TxDriver {
      * The value is the top level root node of the AST. */
     std::unordered_map<std::string, TxParsingUnitNode*> parsedSourceFiles;
 
-    // Handling the scanner.
-    int scan_begin( const std::string &filePath );
-    void scan_end();
-
-    /** Parse a file, including it in the currently compiling package. */
-    int parse( TxParserContext& parserContext );
+//    // Handling the scanner.
+//    int scan_begin( const std::string &filePath );
+//    void scan_end();
+//
+//    /** Parse a file, including it in the currently compiling package. */
+//    int parse( TxParserContext& parserContext );
 
     /** Generate LLVM IR and/or bytecode. */
     int llvm_compile( const std::string& outputFileName );
@@ -111,7 +90,7 @@ class TxDriver {
 
 public:
     /** Constructs a TxDriver instance with the specified run-time options. */
-    TxDriver( const TxOptions& options );
+    explicit TxDriver( const TxOptions& options );
 
     virtual ~TxDriver();
 
