@@ -15,13 +15,13 @@ int LlvmGenerationContext::run_code() {
     InitializeNativeTarget();
     InitializeNativeTargetAsmPrinter();
 
+    // Note: The Interpreter doesn't seem to cope with the data types and constant instances of them.
     EngineKind::Kind kind = EngineKind::Kind::JIT;  // JIT or Interpreter
     std::string errorString;
     EngineBuilder engBuilder( std::move( this->llvmModulePtr ) );
     engBuilder.setErrorStr( &errorString );
     engBuilder.setEngineKind( kind );
-        ExecutionEngine* ee = engBuilder.create();
-    //ExecutionEngine* ee = ExecutionEngine::create( &this->llvmModule, forceInterpreter, &errorString );
+    ExecutionEngine* ee = engBuilder.create();
     if ( !ee ) {
         this->LOGGER()->error( "Failed to create LLVM ExecutionEngine with error message: %s", errorString.c_str() );
         return -1;

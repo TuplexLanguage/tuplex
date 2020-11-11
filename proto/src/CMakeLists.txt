@@ -58,7 +58,7 @@ ADD_FLEX_BISON_DEPENDENCY(TxLexer TxParser)
 set(LLVM_CFG_CMD "/usr/lib/llvm-11/bin/llvm-config")  # "llvm-config"
 #set(LLVM_CFG_CMD "llvm-config")
 
-set(LLVM_COMPONENTS core engine interpreter bitwriter)
+#set(LLVM_COMPONENTS core engine interpreter bitwriter)
 execute_process(COMMAND ${LLVM_CFG_CMD} --libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE REQ_LLVM_LIBRARIES OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(COMMAND ${LLVM_CFG_CMD} --system-libs ${LLVM_COMPONENTS} OUTPUT_VARIABLE REQ_LLVM_SYS_LIBS OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(COMMAND ${LLVM_CFG_CMD} --ldflags OUTPUT_VARIABLE LLVM_LD_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
